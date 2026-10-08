@@ -4198,6 +4198,87 @@ def _rev_text(repo_dir, *args):
     return r.stdout.strip() if r.returncode == 0 else ''
 
 
+def repin_kept_section(clone, item, confirmed, dest_root=None):
+    """Re-record one kept AGENTS.md section against today's template text,
+    with who confirmed it and when. -> (ok, message).
+
+    WHY A COMMAND (2026-10-07). The only way to say "still kept" was to
+    paste two SHA-256 values into precedent.json by hand, and a session's
+    own safety checks rightly read that as editing an audit record: a
+    consuming repository's update stalled on it. This computes both pins
+    the way refresh does, from the template the engine was vendored from,
+    and records the person's words beside them."""
+    dest_root = dest_root or ROOT
+    confirmed = (confirmed or '').strip()
+    if not confirmed:
+        return False, ('--confirmed needs the person\'s own words: a kept '
+                       'section is their decision')
+    key = item[len(AGENTS_MD) + 1:] if item.startswith(AGENTS_MD + ' ') else item
+    item = f'{AGENTS_MD} {key}'
+    path = dest_root / 'precedent.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        entry = data[KEPT_DIVERGENCES_KEY][item]
+    except (OSError, ValueError, KeyError, TypeError):         # noqa: BLE001
+        return False, (f'{item} is not in precedent.json\'s '
+                       f'{KEPT_DIVERGENCES_KEY}: record it there with a '
+                       f'reason first, then re-pin it')
+    if not isinstance(entry, dict) or not str(entry.get('reason') or '').strip():
+        return False, f'{item} has no reason recorded: give it one first'
+    manifest = _load_manifest(dest_root / 'tools')
+    kind = manifest.get('kind', DEFAULT_KIND)
+    commit = (_rev(clone, manifest.get('source_commit') or '')
+              or _rev(clone, f'origin/{FOLLOWED_BRANCH}')
+              or _rev(clone, FOLLOWED_BRANCH))
+    if not commit:
+        return False, f'{clone} has no commit to read the template from'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-repin-'))
+    try:
+        _read_agents_md_sources(clone, commit, kind, tmp)
+        plan = _agents_md_plan(dest_root, kind, tmp, manifest)
+        row = next((r for r in plan if r[0] == key), None)
+        if row is None or row[4] is None:
+            return False, (f'{AGENTS_MD} has no single "{key}" section the '
+                           f'template also has, so there is nothing to pin')
+        _key, src_rel, _n, _action, span = row
+        raw = _template_sections((tmp / src_rel).read_text(encoding='utf-8'))[key][1]
+        section = _instantiate(raw, _agents_md_subs(dest_root))
+        lines = (dest_root / AGENTS_MD).read_text(encoding='utf-8').split('\n')
+        lacks = missing_markdown_blocks(_section_text(lines, *span), section)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    try:
+        import precedent_time
+        today = precedent_time.today()
+    except Exception:                                           # noqa: BLE001
+        today = None
+    entry.update({'template_sha256': _sha_text(section),
+                  'carried_sha256': _carried_sha(section, lacks),
+                  'confirmed': confirmed})
+    if today:
+        entry['confirmed_on'] = str(today)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    return True, (f'PIN UPDATED: {item} re-pinned to the template at '
+                  f'{commit[:12]}, confirmed: "{confirmed}"'
+                  + (f' ({today})' if today else ''))
+
+
+def _cli_repin_kept(args):
+    """`repin-kept CLONE "AGENTS.md SECTION" --confirmed "WORDS"`."""
+    words = None
+    if '--confirmed' in args:
+        i = args.index('--confirmed')
+        words = args[i + 1] if i + 1 < len(args) else ''
+        args = args[:i] + args[i + 2:]
+    if len(args) != 2:
+        sys.exit('usage: precedent_vendor_engine.py repin-kept CLONE '
+                 '"AGENTS.md SECTION" --confirmed "the person\'s words"')
+    ok, msg = repin_kept_section(_clone_or_die(args[0]), args[1], words)
+    print(msg)
+    return 0 if ok else 1
+
+
 def _cli_drop_retired(args):
     """`drop-retired [REPO] [--dry-run] [--offline]`: drop every declared set
     that says it is retired, or that GitHub reports archived, when no rule it
@@ -5756,8 +5837,33 @@ def _repin_after_formatting(dest_root, item, template_sha, carried_sha):
     return True
 
 
+def _change_already_here(change, local):
+    """True when a template change (_template_change) is already in the
+    consumer's section: every line upstream added reads, as plain words,
+    somewhere in it, and no line upstream took out does (unless the same
+    words are part of what it added)."""
+    added = [l[1:] for l in change if l.startswith('+') and l[1:].strip()]
+    removed = [l[1:] for l in change if l.startswith('-') and l[1:].strip()]
+    if not added and not removed:
+        return False
+    here = _plain_words(local)
+    added_words = ' '.join(_plain_words(a) for a in added)
+    return (all(_plain_words(a) in here for a in added)
+            and not any(_plain_words(r) in here and _plain_words(r) not in added_words
+                        for r in removed))
+
+
+# The clone a command was run against, as typed, so a hint can name it.
+_CLONE_ARG = '../BestPractice'
+
+
+def _repin_command(item):
+    return (f'python3 tools/precedent_vendor_engine.py repin-kept {_CLONE_ARG} '
+            f'"{item}" --confirmed "<the person\'s words>"')
+
+
 def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
-                       template_sha, carried_sha, subs):
+                       template_sha, carried_sha, subs, local=None):
     """A section kept on purpose whose template text changed since it was
     recorded: -> True when handled here, False to fall back to the full
     report.
@@ -5784,6 +5890,18 @@ def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
             return True
         return False
     change = _template_change(old, section)
+    # 2026-10-07, a consuming repository: upstream changed one phrase in a
+    # kept section ("AGENTS.md's" to "this file's"), the section already
+    # said "this file's", and the update still stopped for a person. With
+    # the change already here there is nothing to decide.
+    if local is not None and _change_already_here(change, local):
+        if _repin_after_formatting(dest_root, item, template_sha, carried_sha):
+            print(f"PIN UPDATED: {item} is kept on purpose (\"{reason}\"), and "
+                  f"upstream's change to {what} since it was recorded is "
+                  f"already in this repository's section, so the kept entry "
+                  f"now records today's text.")
+            return True
+        return False
     print(f"DIVERGED: {AGENTS_MD} \"{key}\" is kept on purpose (\"{reason}\"), "
           f"and upstream has changed {what} since that was recorded. "
           f"Upstream's change, from the recorded text to today's:")
@@ -5791,11 +5909,11 @@ def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
         print(f"    {line if len(line) <= 200 else line[:197] + '...'}")
     if len(change) > 60:
         print(f"    ... and {len(change) - 60} more line(s)")
-    print(f"    still kept? set its template_sha256 to {template_sha} and its "
-          f"carried_sha256 to {carried_sha} in precedent.json")
+    print(f"    still kept once what applies is copied in? the person says so, "
+          f"and: {_repin_command(item)}")
     _left(f'{AGENTS_MD} "{key}"', f'kept on purpose, and upstream changed '
-          f'{what} since (its change is listed above) -- copy in what applies '
-          f'here, then re-pin the kept entry to today\'s text')
+          f'{what} since (listed above) -- copy in what applies here, then, '
+          f'with the person\'s yes, re-pin it: {_repin_command(item)}')
     return True
 
 
@@ -5867,7 +5985,8 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
             continue
         if verdict == 'stale' and _report_stale_kept(
                 dest_root, templates_dir, key, item, what, section,
-                template_sha, carried_sha, subs):
+                template_sha, carried_sha, subs,
+                local=_section_text(lines, *span)):
             continue
         print(f"DIVERGED: {AGENTS_MD} \"{key}\" (line {span[0] + 1}) has local "
               f"edits, so refresh leaves it alone (it never overwrites a line "
@@ -7753,6 +7872,8 @@ def main():
         return _cli_record_ci(args[1:])
     if args and args[0] == 'drop-retired':
         return _cli_drop_retired(args[1:])
+    if args and args[0] == 'repin-kept':
+        return _cli_repin_kept(args[1:])
     if len(args) < 2 or args[0] not in ('seed', 'status', 'refresh'):
         sys.exit(__doc__)
     if args[0] == 'seed':
@@ -7780,6 +7901,8 @@ def main():
             print(f"  wrote {f}")
         return 0
     clone = _clone_or_die(args[1])
+    global _CLONE_ARG
+    _CLONE_ARG = args[1]
     if args[0] == 'status':
         rc = status(clone)
         _credential_reminder(ROOT)
