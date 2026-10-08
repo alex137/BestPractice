@@ -57432,8 +57432,26 @@ def check_update_vendors_rehearsal_findings():
                             str(proj), '--project-name', 'Notes'], cwd=str(ROOT),
                            env=ienv, capture_output=True, text=True)
         m = json.loads((proj / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
-        hooks = sorted(p.name for p in (proj / '.claude' / 'hooks').glob('*.sh'))
+        # The individual-set bootstrap hook is the person's, not the
+        # engine's: written only where the person running the install has an
+        # individual set (on a machine with its clone, that is this run),
+        # rendered for them, and never in hook_files. Judged apart below.
+        # Until 2026-10-08 this case counted it as an engine hook, so it
+        # failed on any machine with an individual-set clone once install
+        # began wiring that hook (a3a62285), and passed on GitHub.
+        all_hooks = sorted(p.name for p in (proj / '.claude' / 'hooks').glob('*.sh'))
+        hooks = [h for h in all_hooks if h != pve.INDIVIDUAL_HOOK]
         recorded = m.get('hooks_sha256') or {}
+        if pve.INDIVIDUAL_HOOK in all_hooks:
+            st = json.loads((proj / '.claude' / 'settings.json').read_text(encoding='utf-8'))
+            first = [h.get('command', '') for g in st['hooks']['SessionStart']
+                     for h in g.get('hooks', [])][:1]
+            cases.append(('an install by a person with an individual set wires its '
+                          'bootstrap hook first, and leaves it out of the engine record',
+                          bool(first) and pve.INDIVIDUAL_HOOK in first[0]
+                          and pve.INDIVIDUAL_HOOK not in (m.get('hook_files') or []),
+                          f'first SessionStart command={first} '
+                          f'hook_files={m.get("hook_files")}'))
         cases.append(('a fresh install records every hook it wrote, by hash',
                       r.returncode == 0 and bool(hooks)
                       and sorted(m.get('hook_files') or []) == hooks
