@@ -43256,6 +43256,67 @@ def check_push_check_records_over_its_own_ledgers():
     check(name, not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
+def check_markdown_required_only_where_doc_html_runs():
+    """`markdown` is tools/doc_html.py's package alone, so the session check
+    and the push check ask for it only where doc_html.py is present and in
+    use (precedent_push_check.gate_packages).
+
+    THE INCIDENT (2026-10-08). The session check required `markdown` in
+    every repository, though a practice set gets no doc_html.py and a
+    consumer receives one it may never run. Planted: a practice set (no
+    doc_html.py); a consumer whose only mentions of doc_html are in the
+    vendored engine; the same consumer with its own shim loading it; and a
+    repository whose doc_html.py is its own (no manifest, as here). The
+    session check's row is judged with `markdown` stubbed absent."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    import precedent_session_check as psc
+    cases = []
+
+    def plant(files):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='gate-pkgs-'))
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], capture_output=True)
+        return d
+
+    manifest = json.dumps({'kind': 'consumer',
+                           'files': ['doc_html.py', 'precedent_check.py']})
+    consumer = {'tools/ENGINE_MANIFEST.json': manifest,
+                'tools/doc_html.py': 'import markdown\n',
+                'tools/precedent_check.py': '# doc_html.py is a renderer\n',
+                'tools/my_tool.py': 'print("ours")\n'}
+    shim = dict(consumer, **{'tools/render_host.py': 'import doc_html\n'})
+    planted = [
+        ('a practice set without doc_html.py', {'tools/x.py': ''}, False),
+        ('a consumer that never runs doc_html.py', consumer, False),
+        ('CONTROL: a consumer whose own shim loads it', shim, True),
+        ('CONTROL: a repository whose doc_html.py is its own',
+         {'tools/doc_html.py': 'import markdown\n'}, True),
+    ]
+    absent = lambda m: m != 'markdown'
+    for name, files, wants in planted:
+        d = plant(files)
+        try:
+            pkgs = ppc.gate_packages(d)
+            row = psc.gate_packages_row(d, importable=absent)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        cases.append((f'{name}: markdown {"asked" if wants else "not asked"} for',
+                      ('markdown' in pkgs) == wants and 'cmarkgfm' in pkgs
+                      and row[1] == (not wants)
+                      and (('markdown' in row[2]) == wants),
+                      f'{pkgs} {row[1]} {row[2][:80]!r}'))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'markdown is required only where tools/doc_html.py runs '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_push_check_installs_gate_packages():
     """precedent_push_check.py installs the packages the gates import before
     it runs anything, and stops at once, naming them, when it cannot --
@@ -65298,6 +65359,7 @@ def main():
     check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
+    check_markdown_required_only_where_doc_html_runs()
     check_push_check_runs_cheap_checks_first()
     check_push_check_records_over_its_own_ledgers()
     check_push_check_refuses_an_unknown_option()
