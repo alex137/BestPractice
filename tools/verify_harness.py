@@ -12873,6 +12873,63 @@ def check_update_rerun_after_failed_takes_its_own_output():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_rerun_counts_its_own_staged_output_apart():
+    """A rerun of Update Vendors before the commit counts what an earlier
+    run staged apart from what was uncommitted before any run.
+
+    THE INCIDENT (2026-10-08, a consuming repository). The second run said
+    "116 already uncommitted before it ran, left as they were"; all 116 were
+    the first run's own staged output, and git status showed nothing
+    unstaged. Planted: a person's own uncommitted note before run 1, then a
+    run that stages an engine change and is not committed, then a rerun --
+    which must name the earlier run's output as its own and still count the
+    note as the person's. A staged file the person then edits is theirs."""
+    fx = _LocalEditsFixture('precedent-update-recount-')
+    cases = []
+
+    def staged(out):
+        return next((l for l in out.splitlines()
+                     if l.startswith('precedent_update: staged:')), '')
+    try:
+        repo = fx.consumer('recount')
+        seeded = fx.seeded_from(repo)
+        fx.update(repo, seeded)
+        fx.commit(repo, 'first update')
+        f = repo / 'tools' / 'precedent_show.py'
+        ref = fx.upstream(seeded, {'tools/precedent_show.py':
+                                   f.read_bytes() + b'\n# upstream\n'})
+        (repo / 'notes.md').write_text('# My notes\n', encoding='utf-8')
+        rc, out = fx.update(repo, ref)
+        first = staged(out)
+        cases.append(('run 1 stages the engine change and leaves the note',
+                      'tools/precedent_show.py' in fx.git(repo, 'diff', '--cached',
+                                                          '--name-only')
+                      and '1 already uncommitted' in first, first or out[-1200:]))
+        rc, out = fx.update(repo, ref)
+        second = staged(out)
+        cases.append(('the rerun counts run 1\'s staged output as an earlier run\'s, '
+                      'and only the note as uncommitted before it ran',
+                      'staged by an earlier run of this update' in second
+                      and '1 already uncommitted before it ran' in second,
+                      second or out[-1200:]))
+        f.write_bytes(f.read_bytes() + b'# the person changed this\n')
+        subprocess.run(['git', '-C', str(repo), 'add', '--', 'tools/precedent_show.py'],
+                       capture_output=True)
+        import precedent_update as pu
+        before = pu.dirty_paths(repo)
+        mine = pu.earlier_runs_output(repo, before)
+        cases.append(('a staged file the person changed since is not counted as the '
+                      'update\'s', 'tools/precedent_show.py' not in mine
+                      and 'notes.md' not in mine, sorted(mine)))
+    except (OSError, subprocess.CalledProcessError, ImportError, AttributeError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_reports_every_blocker_before_the_slow_check():
     """Update Vendors reports every blocker it can find cheaply in one run
     and starts the slow check only when there are none (2026-10-02: a large
@@ -66445,6 +66502,8 @@ def main():
           *check_update_vendors_resolves_local_edits())
     check('a rerun after a FAILED Update Vendors takes the staged output as its own',
           *check_update_rerun_after_failed_takes_its_own_output())
+    check('a rerun of Update Vendors counts its own staged output apart from yours',
+          *check_update_rerun_counts_its_own_staged_output_apart())
     check('Update Vendors reports every blocker before it starts the slow check',
           *check_update_reports_every_blocker_before_the_slow_check())
     check('change-updates-its-docs finds the same removed paths without a regex per path',
