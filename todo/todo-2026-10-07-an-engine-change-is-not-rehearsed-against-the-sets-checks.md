@@ -50,3 +50,14 @@ shape of a real one), and how long it adds to a Debut.
 
 Planting 1ef31386's stub against the old check makes the Debut refuse,
 naming `claude-web-bootstrap`.
+
+## Notes
+
+2026-10-08: a second instance, with both halves inside the engine. 32ecced8
+changed Produce's copy into a merge of staging and main; the merge check
+still let only staging's own tip into main, so every consumer's Produce was
+refused as "out of date" with staging unmoved. A consumer found it the next
+morning. Fixed by one definition both sides use (`main_copy_current`) and
+an end-to-end case in `check_promote_picks_its_step` that runs Promote and
+then the merge check on its copy. The rehearsal this item proposes would
+have caught it only if it ran the merge check too, so that belongs in it.

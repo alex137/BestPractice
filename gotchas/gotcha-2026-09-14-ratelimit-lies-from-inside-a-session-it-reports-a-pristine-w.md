@@ -35,9 +35,9 @@ being served the way the repository endpoints are.
 on that endpoint is green on the day the account runs out, which is the one
 day it exists for — the same shape as the stale `views-drift` header that
 claimed something was already failing the build. It was nearly built that
-way here. [tools/github_budget.py](../tools/github_budget.py) reads
+way here. [tools/github_budget.py](https://github.com/alex137/BestPractice/blob/staging/tools/github_budget.py) reads
 `X-RateLimit-*` off calls it was making anyway, never the endpoint, and
-[tools/precedent_check.py](../tools/precedent_check.py)'s
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s
 `github-api-budget` check fails if anything goes back.
 
 **Two more things the same session established**, both surprising and both

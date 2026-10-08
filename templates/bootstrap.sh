@@ -131,6 +131,17 @@ if git rev-parse --git-dir >/dev/null 2>&1 && git remote get-url origin >/dev/nu
     git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null && \
       echo "NOTE: this clone fetched only one branch; widened remote.origin.fetch so other branches resolve. (See AGENTS.md gotchas: a single-branch clone makes every other branch read as 'unpushed' forever.)" >&2
   fi
+  # A DELETED BRANCH'S TRACKING REF IS PRUNED (2026-10-08). When a person
+  # deletes a merged branch on GitHub, nothing here removed origin/<branch>,
+  # so the cloud stop hook kept comparing HEAD with it: after the
+  # fast-forward below, already-merged commits read as "unpushed", and the
+  # push it asked for re-created the branch the person had just deleted
+  # (a consumer, 2026-10-07, twice). fetch.prune makes every later fetch
+  # drop such refs; the one prune here clears what is stale already, since
+  # the fetches below name one branch and prune nothing else. It removes
+  # only remote-tracking refs, never a local branch or a commit.
+  git config fetch.prune true 2>/dev/null
+  timeout 30 git remote prune origin >/dev/null 2>&1 || true
 fi
 
 # Is THIS checkout current with its own origin -- and if not, MAKE it current.

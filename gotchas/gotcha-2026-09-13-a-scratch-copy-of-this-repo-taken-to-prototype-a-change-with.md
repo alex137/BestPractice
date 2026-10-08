@@ -23,7 +23,7 @@ merges. `git diff` against the copy had read clean when the copy was taken,
 which is the whole trap: it rots from the OTHER side, so nothing about the
 copy looks different afterwards. The revert took out another session's
 refinement of an unrelated check's description, and **only
-[tools/doc_sync.py](../tools/doc_sync.py) caught it** — `spec/ENFORCEMENT.md`'s
+[tools/doc_sync.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_sync.py) caught it** — `spec/ENFORCEMENT.md`'s
 generated block regenerated to text OLDER than the committed block, which is a
 shape no other gate here looks for. The wholesale-copy-back is the mistake; a
 prototype copy is still the right way to measure. **Re-apply the edits to the

@@ -47,7 +47,7 @@ this session actually executed,
 `precedent-individual/bootstrap/commit-identity.sh`, was a separate,
 manually-distributed template copy that predated `ffcae05` (and the earlier
 GH-auth fix, `1254499`) entirely — `grep gpgsign` on it matched nothing.
-Nothing detected the gap: [`precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s own hash-tracking
+Nothing detected the gap: [`precedent_vendor_engine.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s own hash-tracking
 only covers a hook a repo *wires* in its own `.claude/settings.json`
 (`hook_files`/`hooks_sha256`), and `precedent-individual` doesn't wire
 `commit-identity.sh` for itself — it just carries the file for other repos
@@ -71,7 +71,7 @@ keeps nudging the bot identity back for as long as `gpgsign` stays on.
 **The separate, still-open gap is distribution, not the hook logic.** A
 repo that carries a raw copy of a vendored hook script for OTHER repos to
 install (as `precedent-individual/bootstrap/*.sh` does) is not covered by
-[`precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s own drift detection unless it also *wires*
+[`precedent_vendor_engine.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s own drift detection unless it also *wires*
 that hook for itself — so that copy can go stale indefinitely with nothing
 ever reporting it. Before running a hook script from a `bootstrap/`-style
 distribution copy, `diff` it against

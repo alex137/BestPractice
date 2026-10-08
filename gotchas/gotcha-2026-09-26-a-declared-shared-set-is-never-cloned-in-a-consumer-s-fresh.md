@@ -70,13 +70,13 @@ consumer.
   `process/upstream/tools/`, before its loader-block check. A consumer on an
   unedited copy gets it through `Update Vendors`. An edited copy is
   reported DIVERGED with the block named, and needs the block added.
-- [tools/precedent_check.py](../tools/precedent_check.py)'s
+- [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s
   `declared-sources-are-cloned` fails any repo that declares a shared or
   universal source outside itself and wires no session-start step that
   clones it. It follows SessionStart entries into the scripts they run.
   A repo that clones its sets another way declares so in
   `precedent.json`'s `source_clone_elsewhere`, with the reason.
-- [tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+- [tools/precedent_source_bootstrap.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py)
   skips a source declared inside the repo, since that is the repo itself
   or a vendored copy, not a clone. It marks each clone it makes
   (`.git/precedent-source-clone`) and only ever switches a marked clone's

@@ -132,7 +132,7 @@ control? It's a priority."
 
 **2026-09-27, the same repository, on its next Update Vendors.** Its
 hand-made `light-check.yml` still ran on every push to `main` and on every
-pull request, re-running [doc_lint.py](../tools/doc_lint.py) and its own light check, both of which
+pull request, re-running [doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) and its own light check, both of which
 its local push check already ran. The update left the file alone, because the
 light check was written at install and never refreshed. This check then
 blocked every push with "show the person the file and ask", and the session
@@ -147,14 +147,14 @@ an unapproved workflow on its own.
 
 ## Install
 Enforced by `_ci_workflow_approved` in
-[tools/precedent_check.py](../tools/precedent_check.py), run by
-[tools/precedent_push_check.py](../tools/precedent_push_check.py) as
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py), run by
+[tools/precedent_push_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_push_check.py) as
 `ci_workflows` in the basic tier, so it runs before every push a session
 makes. It binds any repo that keeps a `.github/workflows/` directory
 (`binds_when`), whether or not the practice text resolved there, and reports
 "not applicable" in BestPractice itself, which has no engine manifest.
 In a consuming repo the refresh in
-[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)
+[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)
 does the settling: `_refresh_ci_workflow_files` writes the shipped
 workflows from their templates, and `_remove_unapproved_workflows` removes
 the rest (`CI_CONVERGES_KINDS`).

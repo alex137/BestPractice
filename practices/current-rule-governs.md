@@ -45,7 +45,7 @@ plainly part, the person hears it, with what you would do.
 
 **Finding the rule in force.** Through the loader this is already done for
 you: the occasion index lists every command, and
-[tools/precedent_show.py](../tools/precedent_show.py) prints a
+[tools/precedent_show.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_show.py) prints a
 `NOT IN FORCE HERE` banner on a redundant copy and names the slug to load
 instead. Reading a practice file by hand, look at its `status:` before its
 `## Rule`. Only `active` is a rule. `deduplicated` names where the rule

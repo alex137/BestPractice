@@ -31,7 +31,7 @@ about whether an outline is *broken* rather than how it looks.
 
 Every heading in an outward-facing document is written in **New York Times
 headline capitalization**, and the rule is applied by
-[tools/title_case.py](../tools/title_case.py) rather than by whoever is
+[tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py) rather than by whoever is
 drafting. The specifics live in that one file so no adopting repository,
 document or person restates them:
 
@@ -57,7 +57,7 @@ document or person restates them:
 
 **Scope is stated as an exclusion, not a list of directories.** Every
 document is in scope unless it is named internal in
-[tools/title_case.py](../tools/title_case.py)'s `INTERNAL_DIRS` /
+[tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py)'s `INTERNAL_DIRS` /
 `INTERNAL_FILES` — the project managing itself: practice files, the engine,
 specs, briefs, decision records, evaluation fixtures, uninstantiated
 templates, and the instructions, index and catalogue documents a session
@@ -103,19 +103,19 @@ case only because they had been dictated that way.
 The reason no practice fired is worth recording with the practice, because
 it is not "nobody wrote one." The rule may well exist in
 `precedent-team-repo-maintenance` or in the individual set. Neither can load in
-a BestPractice session: [tools/build_views.py](../tools/build_views.py)
+a BestPractice session: [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)
 builds this repo's own loader from the universal catalogue alone, so a team
 or individual practice never reaches the occasion index a session actually
 reads. The individual set could not resolve at all — no user-level config,
 and the self-heal in
-[tools/precedent_resolve.py](../tools/precedent_resolve.py) returns early
+[tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) returns early
 because BestPractice never instantiated the
 `.claude/hooks/precedent-individual-bootstrap.sh` it ships to every other
 adopter. Landing the rule at the universal level is what makes it load
 here at all.
 
 ## Install
-[tools/title_case.py](../tools/title_case.py) is both the definition and
+[tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py) is both the definition and
 the fix: bare, it checks and exits non-zero listing every heading that is
 wrong; `--write` rewrites them in place; `--json` reports for another tool.
 It skips fenced code blocks, so a `#` comment inside an example is never

@@ -86,7 +86,7 @@ and its decisions are in
 [spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
 
 ## Install
-Nothing to install: [tools/practice_standing.py](../tools/practice_standing.py)
+Nothing to install: [tools/practice_standing.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_standing.py)
 travels with the engine, and the `practice-standing` check in
 [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)
 reads the registry a source already keeps for its code owners. A source

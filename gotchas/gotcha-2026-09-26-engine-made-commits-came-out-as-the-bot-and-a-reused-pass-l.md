@@ -30,10 +30,10 @@ all four sets. Every merge commit it made was authored by the bot.
 
 Four separate holes lined up:
 
-1. **The engine never stated an author.** [precedent_branches.py](../tools/precedent_branches.py)'s
+1. **The engine never stated an author.** [precedent_branches.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_branches.py)'s
    `_merge_env()` had set `TZ` since the -0400 incident of 2026-09-25, and
    left the author to `git config`. The refresh commits in
-   [precedent_refresh_sources.py](../tools/precedent_refresh_sources.py) did the same.
+   [precedent_refresh_sources.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_refresh_sources.py) did the same.
 2. **The backstop cannot see these commits.** The global
    `commit-identity.sh` backstop is a `pre-commit` hook. `git merge` and
    `git commit-tree` never run `pre-commit`, so every merge and lock commit
@@ -43,12 +43,12 @@ Four separate holes lined up:
    The pass is keyed on the tree, and a Promote merge has exactly the tree
    its checked parents had, so `commit_author` never judged the new commits.
 4. **`consumer_shape` refused the only place Promote runs it.** Promote
-   checks inside a linked worktree, and [precedent_consumer_shape.py](../tools/precedent_consumer_shape.py)
+   checks inside a linked worktree, and [precedent_consumer_shape.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_consumer_shape.py)
    refused any checkout whose `.git` is a file. So every Promote in a
    source that really ran the suite failed. The first round only passed
    because it reused a receipt.
 
-Measured against `37fc3b5`: with only [precedent_branches.py](../tools/precedent_branches.py) reverted,
+Measured against `37fc3b5`: with only [precedent_branches.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_branches.py) reverted,
 the new harness case shows the merge and lock commits authored by the bot
 **with the right zone**. That asymmetry is hole 1.
 
@@ -67,9 +67,9 @@ In the engine, so it does not depend on where a session starts:
   `REFUSED: no commit was made`. Shell callers use
   `precedent_identity.py --commit-env REPO`, as `freshness-guard.sh` does
   for its one merge.
-- [precedent_push_check.py](../tools/precedent_push_check.py) always runs `commit_author` and `commit_dates`,
+- [precedent_push_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_push_check.py) always runs `commit_author` and `commit_dates`,
   even when it reuses a local or shared pass for the tree.
-- [precedent_consumer_shape.py](../tools/precedent_consumer_shape.py) gives its copy a git directory of its own
+- [precedent_consumer_shape.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_consumer_shape.py) gives its copy a git directory of its own
   when run from a linked worktree or a submodule. The copy is named after
   the main checkout.
 

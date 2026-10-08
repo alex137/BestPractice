@@ -143,5 +143,5 @@ the generated occasion index, the same as any other command declared with a
 this governs is a chat reply, never a file the tree holds, so whether a
 given reply actually recognized the request and assembled the five required
 pieces is a judgment call on the conversation -- not a property
-[precedent_check.py](../tools/precedent_check.py) or any other script
+[precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) or any other script
 watching the tree could read off a diff.

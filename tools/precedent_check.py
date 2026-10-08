@@ -1760,6 +1760,16 @@ def _sibling_not_in_force(pdir, base):
             f'where that rule went -- settle that before linking it')
 
 
+def _shipped_link_branch():
+    """The branch a shipped link to this repo names: precedent.json's
+    base_branch, which practice-links-travel requires of practice files."""
+    try:
+        return json.loads((ROOT / 'precedent.json').read_text(
+            encoding='utf-8')).get('base_branch') or 'staging'
+    except (OSError, ValueError):
+        return 'staging'
+
+
 _MD_LINK_TARGET = re.compile(r'\]\(([^)\s#]+)(?:#[^)\s]*)?\)')
 
 
@@ -1778,6 +1788,10 @@ def _shipped_links_travel(ctx):
     # WHY (2026-10-01, from a consumer's update): seven links to
     # templates/harness/LEDGER.md, a file the copy leaves out, were broken
     # in every consumer, and the full set was 195 links in 65 files.
+    # 2026-10-08: judged by checkin.in_shipped_copy, the copy's own rule.
+    # This asked vendoring_rule(), which still counts tools/ as shipped
+    # though since 2026-09-30 a consumer's copy leaves tools/ at home, so
+    # 320 links into tools/ passed here and broke in every consumer.
     if (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file():
         raise NotApplicable('a vendored engine: this repo receives the '
                             'catalogue copy, it does not ship one')
@@ -1805,14 +1819,16 @@ def _shipped_links_travel(ctx):
                 tgt = posixpath.normpath(posixpath.join(posixpath.dirname(rel), t))
                 if tgt.startswith('..'):
                     continue
-                stays = (checkin.vendoring_rule(tgt)
-                         or checkin.vendoring_rule(tgt.rstrip('/') + '/'))
-                if stays and stays[1] is False:
-                    out.append(Finding(
-                        f'{rel}:{i}', f'links to {tgt}, which the catalogue '
-                        f'copy leaves out, so the link is broken in every '
-                        f'consumer -- link it on GitHub instead '
-                        f'(https://github.com/alex137/BestPractice/blob/staging/{tgt})'))
+                # A target missing here is doc_lint's broken link, not this.
+                if not (ROOT / tgt).exists() or checkin.in_shipped_copy(tgt, ROOT):
+                    continue
+                kind = 'tree' if (ROOT / tgt).is_dir() else 'blob'
+                out.append(Finding(
+                    f'{rel}:{i}', f'links to {tgt}, which the catalogue '
+                    f'copy leaves out, so the link is broken in every '
+                    f'consumer -- link it on GitHub instead '
+                    f'(https://github.com/alex137/BestPractice/{kind}/'
+                    f'{_shipped_link_branch()}/{tgt})'))
     return out
 
 
@@ -2198,9 +2214,7 @@ def _practice_carries_its_files(ctx):
             'practices/ here is materialized from declared sources (a '
             'MANIFEST.json records it) -- each source holds its own practices '
             'to this at its own push, and their files are not expected here')
-    engine = _bv._engine_tool_paths() | {'tools/ENGINE_MANIFEST.json'}
-    engine |= {f'tools/{n}' for n in (_engine_manifest().get('files') or [])
-               if isinstance(n, str)}
+    engine = _engine_shipped_paths()
     files = sorted(pdir.glob('*.md'))
     active = [p for p in files
               if (_practice_status_fields(p) or (True,))[0]]
@@ -2456,6 +2470,54 @@ def _engine_fixed_filenames():
 ENGINE_FIXED_FILENAMES = _engine_fixed_filenames()
 
 
+def _engine_shipped_paths(root=None):
+    """{repo-relative path} of every file the vendoring engine puts in this
+    repository, so a name on it is the engine's, never this repository's.
+
+    Two halves, both read from where the answer already lives rather than
+    listed here. What the engine SHIPS is precedent_vendor_engine.py's own
+    file lists (build_views._engine_tool_paths asks it) -- the answer in
+    BestPractice, which vendors nothing into itself and has no manifest.
+    What it WROTE here is tools/ENGINE_MANIFEST.json: the tools/ files, the
+    hook stubs, the CI workflows and the template instances it records,
+    which in a consumer can name a file an older or newer engine shipped.
+
+    THE INCIDENT (2026-10-08). filename-separator exempted only the names a
+    tool declares as a *_NAME constant, so the hook scripts every Update
+    Vendors writes into a consumer's tools/ (artifact-publish-gate.sh,
+    commit-identity-once.sh, ...) counted as the consumer's own "-" choice,
+    and the full check before a stage failed on the consumer's one
+    snake_case script, a file nobody there had touched."""
+    base = pathlib.Path(root or ROOT)
+    paths = {'tools/ENGINE_MANIFEST.json'}
+    hook_dir = '.claude/hooks'
+    try:
+        import build_views as _bv
+        import precedent_vendor_engine as _pve
+        paths |= _bv._engine_tool_paths()
+        hook_dir = getattr(_pve, 'HOOK_DEST_DIR', hook_dir)
+    except Exception:                               # practice: fail-gracefully
+        pass
+    try:
+        m = json.loads((base / 'tools' / 'ENGINE_MANIFEST.json')
+                       .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        m = {}
+    if not isinstance(m, dict):
+        m = {}
+
+    def names(key):
+        v = m.get(key) or []
+        return [n for n in v if isinstance(n, str)]
+    paths |= {f'tools/{n}' for n in names('files')}
+    paths |= {f'{hook_dir}/{n}' for n in names('hook_files')}
+    paths |= set(names('ci_workflow_files'))
+    inst = m.get('template_instances_sha256')
+    if isinstance(inst, dict):
+        paths |= {k for k in inst if isinstance(k, str)}
+    return paths
+
+
 # An ISO date inside a file name (report_2026-09-19.md) carries hyphens
 # because ISO 8601 puts them there, not because anyone chose "-" as the
 # separator. Counting them made a directory with one consistent convention
@@ -2496,6 +2558,10 @@ def _filename_separator(ctx):
         pass
 
     groups = collections.defaultdict(lambda: {'-': [], '_': []})
+    # Every file the engine itself put here is named by the engine, the same
+    # reason as the fixed names below (_engine_shipped_paths has the
+    # incident).
+    shipped = _engine_shipped_paths()
     # Tracked files PLUS untracked-but-not-ignored ones. This is a tree-scope
     # check, so the question is what the repository CONTAINS -- and a file
     # just added and not yet committed is exactly when the answer is most
@@ -2511,7 +2577,7 @@ def _filename_separator(ctx):
         # the same reason precedent.json's exemption exists -- so it never
         # sets or breaks a directory's convention (practice: source-naming:
         # the source manifest's name is the same in every repository).
-        if path.name in ENGINE_FIXED_FILENAMES:
+        if path.name in ENGINE_FIXED_FILENAMES or f in shipped:
             continue
         # The FIRST dot ends the stem: `a_b.md.template` is named after
         # `a_b.md`, so its separator was inherited from that name, not
@@ -9460,16 +9526,69 @@ def _entry_identity(entry):
     return json.dumps(entry, sort_keys=True)
 
 
+def _received_edit_findings():
+    """-> [Finding] for each engine file or engine hook this repo edited
+    (its text no longer what tools/ENGINE_MANIFEST.json recorded) with no
+    open item handing the root fix upstream: one that names the file and
+    links the pull request or issue, or saves a Prompt Please for it
+    (doc_lint.upstream_handoff). [] where no engine is vendored.
+
+    Morgan, 2026-10-08: a local fix to an upstream file is allowed, "because
+    sometimes it's urgent", but "they also must do a prompt please so the
+    user can easily bring it upstream at his convenience later"."""
+    mpath = ROOT / 'tools' / 'ENGINE_MANIFEST.json'
+    try:
+        manifest = json.loads(mpath.read_text(encoding='utf-8'))
+        import precedent_vendor_engine as _pve
+        import doc_lint as _dl
+    except Exception:                                       # noqa: BLE001
+        return []
+    edited = [f'tools/{n}' for n, _w in _pve._local_drift(ROOT / 'tools', manifest)]
+    edited += [f'{_pve.HOOK_DEST_DIR}/{n}' for n, _w in _pve._hook_drift(ROOT, manifest)]
+    edited = [r for r in edited if (ROOT / r).is_file()]
+    if not edited:
+        return []
+    handed = []
+    for f in sorted((ROOT / 'todo').glob('todo-*.md')):
+        text = f.read_text(encoding='utf-8', errors='ignore')
+        st = re.search(r'^status:[ \t]*["\']?([\w-]+)', text, re.M)
+        if (st.group(1) if st else 'open') == 'open' and _dl.upstream_handoff(text):
+            handed.append(text)
+    out = []
+    for rel in edited:
+        if any(rel in t for t in handed):
+            continue
+        out.append(Finding(
+            rel, f'differs from the copy the engine shipped -- a local '
+                 f'workaround to a file that comes from BestPractice. Fine '
+                 f'when it cannot wait; hand the root fix upstream too: open '
+                 f'it there (`python3 tools/upstream_fix.py {rel}`) and link '
+                 f'the pull request from an open todo/ item naming {rel}, or '
+                 f'save a `## Prompt Please` section with the paste-ready '
+                 f'block in such an item, for the person to take upstream '
+                 f'when it suits them (practice: upstream-fix)'))
+    return out
+
+
 @check('upstream-fix', 'tree',
        'every exemption-list entry in precedent.json that is new against the '
        'base branch carries a root_fix: what was fixed instead, or why the '
-       'check cannot learn the case',
+       'check cannot learn the case; and every engine file or engine hook '
+       'this repo edited locally has an open todo/ item naming it that links '
+       'the upstream pull request or issue, or saves a Prompt Please for it',
        'whether the root_fix is TRUE, or whether a root fix was really out of '
        'reach -- only that the question was answered in writing. Entries '
        'already on the base branch are left alone until someone touches '
        'them, and an exemption declared anywhere but precedent.json is not '
-       'seen.')
+       'seen. Of received files, only the engine manifest\'s are judged: an '
+       'edit to a vendored catalogue copy is Update Vendors\' to find, and '
+       'whether the saved prompt is a good one is not judged at all.',
+       selects_on=('precedent.json', 'tools/*', '.claude/hooks/*', 'todo/*'))
 def _exemption_names_its_root_fix(ctx):
+    return _received_edit_findings() + _exemption_findings(ctx)
+
+
+def _exemption_findings(ctx):
     # practice: upstream-fix, point 6. Morgan, 2026-09-29: "whenever we need
     # to add an 'exemption' of any sort anywhere, we always use that as an
     # example of a root fix opportunity." The same day a set exempted its
@@ -11403,7 +11522,11 @@ def duplicated_resident_text(root, text, corpus=None):
 # approvals list in the registry, and needs no base: it gives the same answer
 # at commit, push, merge, CI and Promote, whoever merged what.
 _BUDGET_REGISTRY = 'tools/session_load_budgets.json'
-_BUDGET_STRENGTHS = ('decided', 'assented', 'baseline')
+# 'offset' (Morgan, 2026-10-08): a raise paid for by tokens freed elsewhere in
+# the same change -- "if we remove a supporting set repo then it's okay to
+# allocate its tokens to the new repo". It names what was removed and how
+# many tokens that freed, and is never larger than what it freed.
+_BUDGET_STRENGTHS = ('decided', 'assented', 'baseline', 'offset')
 
 
 def _budget_approval_problem(entry):
@@ -11417,6 +11540,18 @@ def _budget_approval_problem(entry):
                 f'{", ".join(_BUDGET_STRENGTHS)}')
     if not _APPROVAL_DATE.search(who):
         return 'has an approved_by with no YYYY-MM-DD date'
+    if strength == 'offset':
+        freed, was = entry.get('freed'), entry.get('previous_max')
+        if not (isinstance(freed, int) and isinstance(was, int)
+                and str(entry.get('offset_from') or '').strip()):
+            return ('is an offset with no "offset_from" (what was removed), '
+                    '"freed" (the tokens that removal freed) and '
+                    '"previous_max" (the approved number before it)')
+        if entry['max'] - was > freed:
+            return (f'raises {was:,} to {entry["max"]:,}, more than the '
+                    f'{freed:,} tokens its offset freed -- the rest needs '
+                    f'the person\'s own words')
+        return None
     if strength != 'baseline' and not _APPROVAL_QUOTE.search(who):
         return ('is marked decided/assented but approved_by quotes nobody\'s '
                 'words')

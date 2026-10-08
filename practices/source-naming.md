@@ -51,9 +51,9 @@ differently:
 | The name | If it varies | Answer |
 |---|---|---|
 | `name` in the source's own `precedent-source.json` | It is the identity: attribution in every consumer's materialized `MANIFEST.json` keys on it | Chosen once; never changed after a consumer exists |
-| `name` in a consumer's `precedent.json` or user config | Must equal the source's own; a clone at that path that calls itself something else is the wrong repository there | **Refused** by [tools/precedent_resolve.py](../tools/precedent_resolve.py) when the clone carries a manifest; a slug that is not one is refused outright |
+| `name` in a consumer's `precedent.json` or user config | Must equal the source's own; a clone at that path that calls itself something else is the wrong repository there | **Refused** by [tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) when the clone carries a manifest; a slug that is not one is refused outright |
 | The clone directory a source's `path` points at | The declared relative path is wrong on that machine | **Warned** about, never refused: continuous integration checkouts and git worktrees legitimately differ |
-| The repository's own name | Nothing, so long as the consumer's declaration says where the set lives (`repo`, when it is not called what the set is) | Free. A rename is still **detected** afterwards by [tools/precedent_source_names.py](../tools/precedent_source_names.py), because a redirect is a 404 waiting to be dated |
+| The repository's own name | Nothing, so long as the consumer's declaration says where the set lives (`repo`, when it is not called what the set is) | Free. A rename is still **detected** afterwards by [tools/precedent_source_names.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_names.py), because a redirect is a 404 waiting to be dated |
 
 `level` says how a set ranks and whether it is private by default;
 `shared` is any set a repository declares beside the universal one and its
@@ -101,7 +101,7 @@ machinery reads a file. Morgan approved the change on 2026-09-18 (relayed
 by Alex).
 
 ## Install
-[tools/precedent_resolve.py](../tools/precedent_resolve.py) reads a
+[tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) reads a
 source's `precedent-source.json` in `load_source` and refuses a declared
 name or level the clone does not answer to; `check_source_name` refuses a
 name that is not a slug, and the two fixed names. Its `normalize_level`
@@ -114,7 +114,7 @@ called what the set is, else from the base URL and the name.
 set by a declared name or by the manifest it carries, never by a name
 shape. [tools/checkin.py](https://github.com/alex137/BestPractice/blob/staging/tools/checkin.py) `--source NAME` vendors the
 code directories a shared set's manifest lists.
-[tools/precedent_check.py](../tools/precedent_check.py) checks every
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) checks every
 `precedent.json` in the tree, and every reachable source's manifest against
 what is declared for it. The disclosure half is carried by the occasion
 index, which is why this practice's occasion names importing and creating a

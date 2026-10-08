@@ -21,7 +21,7 @@ exactly that reading. **Both halves are mechanical now** — `python3
 tools/precedent_check.py --only declared-hooks-exist` resolves every declared
 `$CLAUDE_PROJECT_DIR` hook path and fails on one that is missing or not
 executable, and
-[tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py) does
+[tools/precedent_refresh_sources.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_refresh_sources.py) does
 the same per attached source. Full story:
 [record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md) entry 37.
 

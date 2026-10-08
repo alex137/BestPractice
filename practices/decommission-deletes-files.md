@@ -23,7 +23,7 @@ When a mechanism is decommissioned, the files and directories that existed only
 to serve it are **deleted in the same change** — not disabled, not left
 "in case", not queued for a cleanup nobody schedules. Deleting is gated on
 a mechanical audit, never on confidence: run
-[tools/precedent_decommission.py](../tools/precedent_decommission.py) on the
+[tools/precedent_decommission.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_decommission.py) on the
 path and act only on a clean report. Record what went, and why, in
 `process/decommissioned_paths.json`.
 
@@ -128,13 +128,13 @@ in the tree again, or if an entry carries no reason. Resurrection is the
 half a check can see: a vendored tree is mirrored wholesale by
 [tools/checkin.py](https://github.com/alex137/BestPractice/blob/staging/tools/checkin.py)'s `update`, and `practices/` and
 `tools/checks/` are deleted and rewritten by
-[tools/precedent_materialize.py](../tools/precedent_materialize.py) on
+[tools/precedent_materialize.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_materialize.py) on
 every sync, so a decommissioned path arriving back from a mirror is a real path
 and not a hypothetical one.
 
 The audit itself is `tools/precedent_decommission.py`; `--list` prints what
 a repo has decommissioned and why. It is in
-[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)'s
+[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s
 `ENGINE_FILES`, so every repo that vendors the engine gets it — a practice
 set decommissions its own tooling as readily as a consuming repo does, and the
 repo most likely to be carrying dead files is one that migrated off

@@ -29,7 +29,7 @@ it — a practice source, a branch, a directory, a tag, a check — long after t
 repo's own name is gone, under the short name people actually type. The fix is
 truncating each pattern to a distinctive stem, verified at zero hits against
 this tree; the measurement behind each cut is in the archive.
-[tools/very_deep_check.py](../tools/very_deep_check.py) does the other half on
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) does the other half on
 request, asking the GitHub API whether each referenced repo is actually
 private; the push gate cannot, because it must work offline and in CI.
 
