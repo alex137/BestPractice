@@ -176,4 +176,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A session runs `git add ... && git commit ... && git push` in one Bash call. The push check refuses it, and the session tells its person the work was committed and only the push failed. `git status` shows the changes still uncommitted, and `git log` has no new commit.** [story](gotcha-2026-10-07-a-refused-push-means-the-commit-before-it-did-not-run-either.md)
 
+- **GitHub's test on a pull request into `main` takes about 30 minutes, while the same suite run here with `python3 tools/verify_harness.py --as-ci` takes about 11. One GitHub job, "verify_harness (everything else)", holds nearly all of it.** [story](gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy.md)
+
 - **After an Update Vendors run was cut short, HEAD is a commit whose message starts "precedent_update: the staged update, committed only so the deep check judges it as committed -- undone right after". It was never undone.** [story](gotcha-2026-10-07-sigterm-skips-python-finally-blocks.md)

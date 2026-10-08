@@ -38,3 +38,25 @@ the record's path in.
 
 A full run's parts finish within about a minute of each other, measured on
 the same container.
+
+## Notes
+
+**Built 2026-10-07, not yet measured.** The deal is now by recorded time
+(`_deal_by_time`), slowest first, each check to the least-loaded part. The
+record is committed, `tools/harness_check_times.json`, rather than kept
+under the git directory as proposed above: GitHub's deep-check job now runs
+`--as-ci` itself, and a record local to each machine would deal the two
+sides differently
+([gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy](../gotchas/gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy.md)).
+It was seeded from GitHub's own log of the run on pull request #953: the 86
+checks that took two seconds or more are named, and the other 483 share the
+rest of the 1,805 seconds, 0.23 each. On those numbers the three parts come
+to about 602 seconds each. `--as-ci --record-times` refreshes it from a
+green run.
+
+The slowest single check, `check_update_vendors_survives_an_upstream_deletion`,
+took 560 seconds of that on GitHub's runner, so no deal can bring a part
+much under it.
+
+Closes on its own condition: the next GitHub test on a pull request into
+`main` shows the parts finishing within about a minute of each other.
