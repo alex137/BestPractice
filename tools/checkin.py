@@ -736,9 +736,85 @@ def local_changes(clone, recorded):
         # doing (the copy rules left gotchas/ out for a day, 2026-09-30), and
         # counting it made every later update refuse (found 2026-10-04).
         gone = {p for p in theirs - ours if deleted_here(UPSTREAM / p)}
-        return sorted((ours - theirs) | gone) + sorted(
-            p for p in ours & theirs
-            if not filecmp.cmp(UPSTREAM / p, base / p, shallow=False))
+        changed = sorted(p for p in ours & theirs
+                         if not filecmp.cmp(UPSTREAM / p, base / p, shallow=False))
+        added = sorted(ours - theirs)
+        # A file holding text upstream itself once shipped at that path is a
+        # copy no sync refreshed, or an earlier run's mirror the record never
+        # caught up with (synced_from names what it mirrored), not this
+        # repository's work (upstream_text).
+        revs = [r for r in dict.fromkeys(
+            (recorded, (_manifest().get('upstream') or {}).get('synced_from'))) if r]
+        stale = {p for p in added + changed
+                 if upstream_text(clone, UPSTREAM / p, p, *revs)}
+        return sorted((set(added) - stale) | gone) + [p for p in changed
+                                                      if p not in stale]
+
+
+# (clone, revs) -> {(path, blob id)}; one log per process (upstream_blobs).
+_UPSTREAM_BLOBS = {}
+
+
+def upstream_blobs(clone, *revs):
+    """-> {(path, blob id)} for every version of every file that `revs`'
+    history, and every ref `clone` holds, ever carried -- a merge's own
+    versions included (`-m`). {} where the clone cannot answer.
+
+    THE ONE ANSWER to "is this upstream's own text?", for the copy here and
+    for a section 0 catalogue (precedent_update._upstream_history_blobs)."""
+    key = (str(clone), revs)
+    if key not in _UPSTREAM_BLOBS:
+        # A rev the clone lacks would fail the whole log; it adds nothing.
+        revs = [r for r in revs if isinstance(r, str) and subprocess.run(
+            ['git', '-C', str(clone), 'cat-file', '-e', f'{r}^{{commit}}'],
+            capture_output=True).returncode == 0]
+        r = subprocess.run(['git', '-C', str(clone), 'log', '--format=', '--raw',
+                            '-m', '--no-abbrev', '--no-renames', *revs, '--all'],
+                           capture_output=True, text=True)
+        out = set()
+        for line in r.stdout.splitlines() if r.returncode == 0 else []:
+            meta, _, path = line.partition('\t')
+            parts = meta.split()
+            if not line.startswith(':') or len(parts) < 4:
+                continue
+            for oid in parts[2:4]:
+                if oid.strip('0'):
+                    out.add((path, oid))
+        _UPSTREAM_BLOBS[key] = out
+    return _UPSTREAM_BLOBS[key]
+
+
+def upstream_text(clone, path, rel, *revs):
+    """True when file `path` holds, byte for byte, a version upstream itself
+    shipped at copy-relative `rel` -- so it is not this repository's work,
+    and the copy may be brought to the recorded commit over it.
+
+    WHY (2026-10-08, a consuming repository). Its process/manifest.json
+    recorded one commit while 440 of the 604 files under its process/upstream/
+    held other upstream versions -- every one of them text upstream had
+    shipped at that path, none a line of its own. local_changes() called each
+    a local edit, so Update Vendors kept each one ("upstream has not changed
+    this file since it was vendored, so your edit stays") and said DONE; and
+    the copy's dropped tools/ stayed, because the drop below only recognised
+    upstream's text at two commits. The carry check has made the same
+    allowance since 2026-09-30, line by line. A path precedent.json keeps on
+    purpose (kept_template_divergences) stays the repository's call."""
+    if not path.is_file():
+        return False
+    try:
+        import precedent_vendor_engine as _pve
+        if path.relative_to(ROOT).as_posix() in _pve.kept_template_divergences(ROOT):
+            return False
+    except Exception:                                         # noqa: BLE001
+        pass
+    return (pathlib.PurePosixPath(pathlib.Path(rel).as_posix()).as_posix(),
+            blob_id(path.read_bytes())) in upstream_blobs(clone, *revs)
+
+
+def blob_id(data):
+    """-> the git object id of `data` as a blob (git's default sha1 format)."""
+    import hashlib
+    return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
 
 
 def deleted_here(path):
@@ -1331,9 +1407,14 @@ def _drop_what_the_copy_no_longer_carries(clone, src):
                 base = pathlib.Path(td)
         for p in stale:
             rel = p.relative_to(UPSTREAM)
+            # Or any text upstream ever shipped there: a copy put back to an
+            # older commit than the manifest records (a reset, an earlier
+            # run's put-back) held tools/ at neither commit, and every rerun
+            # kept all of it (2026-10-08, a consuming repository).
             same = any(t is not None and (t / rel).is_file()
                        and filecmp.cmp(p, t / rel, shallow=False)
-                       for t in (src, base))
+                       for t in (src, base)) or upstream_text(
+                           clone, p, rel, *([recorded] if recorded else []))
             if same:
                 p.unlink()
                 dropped.append(rel)
@@ -1688,6 +1769,15 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
     for name in names:
         rel = name[len(prefix) + 1:]
         if rel in resolving:
+            continue
+        # (4) A committed file that IS a version upstream shipped at that
+        # path, on any ref the clone holds, carries no line of this repo's
+        # (upstream_blobs). (3) reads only `tip`'s history, so a copy taken
+        # from another branch -- staging, before a repo followed main --
+        # held every line "lost": eleven files in a consuming repository
+        # whose whole copy was upstream text (2026-10-08).
+        oid = _dep_git('rev-parse', f'origin/{dep_branch}:{name}').strip()
+        if (rel, oid) in upstream_blobs(clone, tip, *bases):
             continue
         committed = _dep_git('show', f'origin/{dep_branch}:{name}')
         # rc is now consulted, and it can only mean one thing: every base

@@ -125,6 +125,22 @@ def as_measured(rel, text):
         return text
 
 
+def charged_tokens(root, rel, text):
+    """-> what `text`, the surface `rel` of the repository at `root`, charges
+    to that repository's ceiling: as_measured, and for the session-start
+    file less the share of the sets the person brings, which their own
+    budget holds (precedent_session_practices.charged_to_repo, the one
+    definition every ceiling reader uses)."""
+    n = approx_tokens(as_measured(rel, text))
+    if rel != '.precedent/SESSION_PRACTICES.md':
+        return n
+    try:
+        import precedent_session_practices
+        return precedent_session_practices.charged_to_repo(str(root), n)[0]
+    except Exception:                                         # noqa: BLE001
+        return n
+
+
 def approx_tokens(text):
     """build_views.py's own estimator, so every figure here is comparable to
     the ones in the registry and in the check. Falls back to the same formula
@@ -328,7 +344,7 @@ def over_target(root=None):
         f = base / rel
         if not isinstance(target, int) or not f.is_file():
             continue
-        n = approx_tokens(as_measured(rel, f.read_text(encoding='utf-8', errors='replace')))
+        n = charged_tokens(base, rel, f.read_text(encoding='utf-8', errors='replace'))
         if n > target:
             out.append((rel, n, target, entry.get('hard_ceiling', entry.get('ceiling'))))
     return out
@@ -366,7 +382,7 @@ def headroom_notice(root=None, floor_pct=None):
         ceiling = entry.get('ceiling')
         if not isinstance(ceiling, int) or ceiling <= 0:
             continue
-        n = approx_tokens(as_measured(rel, f.read_text(encoding='utf-8', errors='replace')))
+        n = charged_tokens(base, rel, f.read_text(encoding='utf-8', errors='replace'))
         pct = 100.0 * (ceiling - n) / ceiling
         if pct <= floor_pct:
             tight.append((rel, n, ceiling, ceiling - n, pct))
