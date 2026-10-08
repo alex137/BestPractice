@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 167 practice files (6 resident, 161 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 169 practice files (6 resident, 163 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -32,6 +32,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [checkable-gets-checked](practices/checkable-gets-checked.md) | on-demand | writing a new convention or rule |
 | [checks-carry-a-declared-decline](practices/checks-carry-a-declared-decline.md) | on-demand | writing or changing a check that can report a deliberate state |
 | [checks-plant-their-state](practices/checks-plant-their-state.md) | on-demand | writing or changing a check, test or gate whose result could depend on the machine it runs on |
+| [checks-read-only-the-work](practices/checks-read-only-the-work.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [ci-commits-carry-identity](practices/ci-commits-carry-identity.md) | on-demand | adding or editing a CI workflow that commits, pushes, or opens a pull request |
 | [ci-workflow-approved](practices/ci-workflow-approved.md) | on-demand | a .github/workflows file is added, edited, or found in an update or migration |
 | [cite-the-incident](practices/cite-the-incident.md) | on-demand | writing a new convention or rule |
@@ -121,6 +122,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [quick-index](practices/quick-index.md) | on-demand | looking for where something lives, before searching |
 | [quote-discipline](practices/quote-discipline.md) | on-demand | computing, quoting or tabulating figures |
 | [reach-or-ask](practices/reach-or-ask.md) | on-demand | a tool, check or task cannot reach a repository, service, credential or file it needs |
+| [read-for-intent](practices/read-for-intent.md) | on-demand | reading what a message asks for, or writing one that a session or a check will read |
 | [readers-vocabulary](practices/readers-vocabulary.md) | on-demand | writing an outward-facing document |
 | [reduction-pass](practices/reduction-pass.md) | on-demand | a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state several documents must agree on |
@@ -238,7 +240,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/practice_standing.py](tools/practice_standing.py) | a practice's standing: how binding it is, and who may set it |
 | [tools/precedent_access_check.py](tools/precedent_access_check.py) | Probes, at session start, which repos in force this session can actually push to -- so work destined for one it cannot reach is discovered before it is done, not after |
 | [tools/precedent_audience.py](tools/precedent_audience.py) | precedent_audience.py -- whether the person in this session is one of the |
-| [tools/precedent_beta_watermark_check.py](tools/precedent_beta_watermark_check.py) | Says whether anyone other than you has pushed to precedent-beta-v01 since you were last told, against tools/beta_branch_watermark.json beside it -- one row per identity, since 'already told' is true of a person and not of a repository -- unlike the upstream watermark above it advances itself, but only on a run that actually reports somebody else's commits -- a run with nothing to tell you writes nothing at all, and a run whose checkout is mid-work or cannot push writes nothing either, keeping a gitignored per-container note instead, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert |
 | [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py) | Instantiates a brand-new individual or shared practice set from a skeleton, for an adopter who has neither yet |
 | [tools/precedent_boundary_check.py](tools/precedent_boundary_check.py) | Whether a document project's contributor boundary is actually ON -- branch protection shaped as spec/CONTRIBUTOR_ACCESS.md needs, read from the GitHub API; UNVERIFIED when it could not ask, which is not a pass |
 | [tools/precedent_branch_name.py](tools/precedent_branch_name.py) | The name for a session's feature branch, built the same way every time -- `<date>-<slug>-<id>`, the id being the end of the session's ID, or random characters when there is none |
@@ -259,13 +260,14 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_install.py](tools/precedent_install.py) | Installs Precedent into a project in one command (INSTALL.md section 0 performed mechanically: catalogue, engine, precedent.json, templates, sync, lint) and prints the placeholders it left for a person to adapt |
 | [tools/precedent_ladder.py](tools/precedent_ladder.py) | Says whether the five-stage ladder is in force for the person working here -- a set they bring provides it, and PRECEDENT_NO_LADDERS is not set -- so every engine line chooses the ladder wording or the plain one from one answer (spec/LADDER_OPT_IN_PLAN.md) |
 | [tools/precedent_land.py](tools/precedent_land.py) | Stage 5 (phase 5) — writes an approved candidate into practices/, enforcing the registered-check invariant |
-| [tools/precedent_local_edits.py](tools/precedent_local_edits.py) | A consuming repo's committed edits to files it received (engine files in tools/, process/upstream/): resolved at Update Vendors -- kept, merged, or replaced by upstream's with the commit that holds them named -- and sent upstream as a scrubbed branch by `send` (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md) |
+| [tools/precedent_local_edits.py](tools/precedent_local_edits.py) | A consuming repo's committed edits to files it received (engine files in tools/, process/upstream/): resolved at Update Vendors -- kept, or replaced by upstream's with what was set aside shown and one command from coming back -- and sent upstream as a scrubbed branch by `send` (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md) |
 | [tools/precedent_materialize.py](tools/precedent_materialize.py) | Bridges precedent_resolve.py's multi-source resolution to the single-tree loader tools |
 | [tools/precedent_merge_check.py](tools/precedent_merge_check.py) | The push check on the merge GitHub would make, at its base branch's tier -- `merge-check-gate.sh` runs it before a pull request is merged through GitHub, a push no push gate sees, and again on the merge commit after it, reverting a merge that fails because the base moved in between |
 | [tools/precedent_merge_vendors.py](tools/precedent_merge_vendors.py) | At a merge: when the vendored engine or catalogue is behind, runs Update Vendors from the BestPractice clone and commits the result on its own, or takes it all back and says why; never blocks the merge |
 | [tools/precedent_migrate_status.py](tools/precedent_migrate_status.py) | Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor |
 | [tools/precedent_migrate_views.py](tools/precedent_migrate_views.py) | Moves a repository's hand-written MAP.md and GLOSSARY.md into their source files, word for word, and generates both from then on |
 | [tools/precedent_move.py](tools/precedent_move.py) | Moves an existing practice between levels in the one safe order: lands it at the destination with its text and approval carried, then deduplicates the source copy and regenerates both sets' views; refuses the unsafe states by name |
+| [tools/precedent_others_did.py](tools/precedent_others_did.py) | Once a day, from the first session after 07:00 in the person's own timezone, says what OTHER people landed in this repository since that person was last told -- every commit on its shared branches that is not theirs -- and hands the session a block to open its first reply with; the per-person mark lives in tools/others_did_watermark.json on the landing branch and is written there without touching the checkout |
 | [tools/precedent_owned_paths.py](tools/precedent_owned_paths.py) | Before a pull request: which changed files will wait for a code owner's review, and the plain-words sentence to say to the contributor about it |
 | [tools/precedent_paths.py](tools/precedent_paths.py) | The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to` |
 | [tools/precedent_practice_refs.py](tools/precedent_practice_refs.py) | Who cites a practice, across this repo and every source it declares -- live citations vs history; the lookup behind practice-change-propagates, the merge moment and Update Vendors |

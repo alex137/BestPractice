@@ -368,14 +368,15 @@ _hook_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 python3 "$_hook_repo/tools/precedent_engine_freshness.py" --quiet || \
   echo "WARN: engine freshness did not run -- whether this repo's vendored engine is current is unknown this session" >&2
 
-# Say whether anyone other than Morgan has pushed to `precedent-beta-v01`
-# since he was last told -- Alex also commits here. It auto-advances the
-# moment it reports (see tools/precedent_beta_watermark_check.py's own
-# header). Session start always gets a line; the reply gate's own copy
-# of this check (tools/precedent_gate.py) stays silent except on a real
-# alert, which is where the "never repeat it every message" half lives.
-python3 "$_hook_repo/tools/precedent_beta_watermark_check.py" || \
-  echo "WARN: beta-branch watermark check did not run -- whether anyone else pushed to precedent-beta-v01 is unknown this session" >&2
+# Once a day, what other people landed here since this person was last told
+# (the others-did practice, in the ladder set). This prints one status line; the report itself is
+# left for the reply gate, which hands it to the session on the first prompt
+# -- a list printed here can sit past what the harness shows of this
+# hook's output, which is how the check this replaced went unseen.
+if [ -f "$_hook_repo/tools/precedent_others_did.py" ]; then
+  python3 "$_hook_repo/tools/precedent_others_did.py" || \
+    echo "WARN: the others-did check did not run -- what other people landed here is unknown this session" >&2
+fi
 
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` above would otherwise let a non-zero last command take the

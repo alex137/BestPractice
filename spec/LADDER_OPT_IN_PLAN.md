@@ -332,6 +332,17 @@ neutral wording, and the ladder set adds the step requirement.
   without ladder, release or tier terminology, with no link to the
   explainer. INSTALL.md documents `brings` generically. Records stay as
   history.
+- **(c) Amended 2026-10-08:** a first install's source question offers the
+  ladder set by name, beside the writing set, in
+  [SETUP.md](../SETUP.md) and [INSTALL_QUESTIONS.md](INSTALL_QUESTIONS.md).
+  Morgan asked for it ("explicitly offer the ladders and writing repos",
+  `strength: decided`). It is one invitation, so a person knows the set
+  exists, not a relaxing of (b): a no is final, the set and its words are
+  never raised with that person again, and they get the plain experience
+  (Morgan, same day: "it's okay to one time mention it to invite them to
+  use it so they know about it! But if they don't accept it, we need to
+  never mention it or anything about it again"). D2 still holds: a yes
+  goes into the person's `brings`, never a repository's `precedent.json`.
 
 **D15. Allowance.** The ladder set's index allowance and resident cap are
 carved out of universal's, measured after the move, so a ladder user's total

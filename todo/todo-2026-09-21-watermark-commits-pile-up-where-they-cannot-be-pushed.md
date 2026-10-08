@@ -19,7 +19,7 @@ closed:            2026-09-22
 **Every session working in this repository leaves an unpushable commit in
 the individual source, and the session check goes red about it forever.**
 
-[tools/precedent_beta_watermark_check.py](../tools/precedent_beta_watermark_check.py)
+`tools/precedent_beta_watermark_check.py`
 runs at session start, advances `beta_branch_watermark.json` in the
 individual source, commits it there, and pushes. From a session rooted in
 **this** repository that push cannot land: the git proxy refuses
@@ -88,7 +88,7 @@ watermark commits across four days, 13 on 2026-09-21 alone, 8 still
 unpushed.
 
 Both moved below the return
-([tools/precedent_beta_watermark_check.py](../tools/precedent_beta_watermark_check.py),
+(`tools/precedent_beta_watermark_check.py`,
 "WHAT MOVES THE WATERMARK"). Nothing at all is written on the quiet path —
 **not an uncommitted edit either**, which would leave that clone
 permanently dirty and stop
@@ -165,7 +165,7 @@ name, a public branch, a public commit SHA and a date, and his own
 `assented`: a ruling on the premise, given when the session put the case to
 him rather than argued for independently.
 
-It is [tools/beta_branch_watermark.json](../tools/beta_branch_watermark.json)
+It is `tools/beta_branch_watermark.json`
 now, beside `upstream_watermark.json`, **keyed by identity** — two people work
 this branch, and one shared row would have each of them consuming the other's
 notification. The value was carried across rather than reseeded at the head,

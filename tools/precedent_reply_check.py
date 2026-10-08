@@ -63,6 +63,24 @@ the past tense and never to "you", is not read as an instruction to the
 receiving session (see _narrated_clauses). Added 2026-10-08; an older
 engine ignores the key and judges every clause, the stricter reading.
 
+The same pair may also carry, since later on 2026-10-08:
+
+- `also_if_matches`: a list of further triggers, judged exactly like
+  `if_matches`. It is how a rule lists the other ways a block can say
+  the same thing -- "make it live", `gh pr merge`, a stage word -- as data
+  rather than one unreadable alternation. `if_matches` itself may now be a
+  list too. An older engine ignores `also_if_matches` and enforces only
+  `if_matches`, so a source keeps its core trigger there.
+- `negation_exempt_if_clause_negates`: a negator regex, or
+  {"before": regex, "object": regex}. A clause is forgiven only when a
+  negator governs the landing verb in that clause: within the few words
+  before it ("don't merge into main", "do not open a PR to main"), or as
+  its object right after it ("merge nothing into main"). A negator
+  anywhere else on the line governs something else ("Merge it into main,
+  no questions asked"), and the clause is judged. See _negated_clauses.
+  An older engine ignores the key, so a source that drops its old
+  line-level lookahead is stricter there, never looser.
+
 `require_no_bare_pattern` checks a different practice family entirely --
 rule-links and branch-links, both of which say a mentioned destination (a
 PR, a session, a branch, a rule) gets a link the first time it is named, and
@@ -369,6 +387,26 @@ def _is_prompt_row(d):
             isinstance(b, dict) and b.get('type') == 'tool_result' for b in content):
         return False
     return True
+
+
+def last_prompt_text(transcript):
+    """-> the text of the prompt that started this turn (the last user row
+    that is not a tool result or meta row), or '' when the transcript cannot
+    be read. What the person sent, a message relayed from another session
+    included -- which is how a reply knows where its paste block goes."""
+    last = ''
+    try:
+        with open(transcript, encoding='utf-8') as fh:
+            for line in fh:
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(d, dict) and _is_prompt_row(d):
+                    last = _row_text(d)
+    except OSError:                              # practice: fail-gracefully
+        return ''
+    return last
 
 
 def turn_wake(transcript):
@@ -763,12 +801,39 @@ _SECOND_PERSON_RE = re.compile(r"\byou(?:r|rs|rself|'\w+)?\b", re.I)
 # Clause boundaries: sentence and list punctuation, a line break, and the
 # conjunctions an instruction tacked onto narration would start with ("the
 # tool opened a PR, so merge it into main" is two clauses, judged apart).
-_CLAUSE_BOUNDARY_RE = re.compile(r"[.,;:!?\n]|\s(?:and|but|so|then)\s", re.I)
+#
+# A full stop, colon, question or exclamation mark ends a clause only when
+# whitespace or the end follows it (2026-10-08): `precedent_branches.py
+# --promote --to main` and `HEAD:main` are one clause each, not two, so a
+# negator before the command still reaches the verb inside it.
+_CLAUSE_BOUNDARY_RE = re.compile(
+    r"[,;\n]|[.:!?](?=\s|$)|\s(?:and|but|so|then)\s", re.I)
+
+
+def _as_patterns(*vals):
+    """-> every regex in `vals`, each a string, a list of strings, or None."""
+    out = []
+    for v in vals:
+        if isinstance(v, str) and v:
+            out.append(v)
+        elif isinstance(v, (list, tuple)):
+            out.extend(x for x in v if isinstance(x, str) and x)
+    return out
+
+
+def _first_trigger(patterns, s):
+    """-> the earliest match of any of `patterns` in `s`, or None."""
+    best = None
+    for pat in patterns:
+        m = re.search(pat, s, re.I | re.M)
+        if m and (best is None or m.start() < best.start()):
+            best = m
+    return best
 
 
 def _narrated_clauses(block, trigger):
-    """-> `block` with every narrating clause that matches `trigger` on its
-    own blanked to spaces, so what is left is what the block TELLS the
+    """-> `block` with every narrating clause that matches `trigger` (one
+    regex or a list) on its own blanked to spaces, so what is left is what the block TELLS the
     receiving session.
 
     WHY (2026-10-08): the reply gate refused a paste block whose situation
@@ -788,10 +853,90 @@ def _narrated_clauses(block, trigger):
         clause = block[start:b_start]
         if (clause.strip() and _NARRATION_CLAUSE_RE.match(clause)
                 and not _SECOND_PERSON_RE.search(clause)
-                and re.search(trigger, clause, re.I | re.M)):
+                and _first_trigger(_as_patterns(trigger), clause)):
             out[start:b_start] = ' ' * (b_start - start)
         start = b_end
     return ''.join(out)
+
+
+# How far a negator may sit from the landing verb and still govern it:
+# up to this many words before it ("do not open a PR to main" is two), or
+# the one word straight after it, as its object ("merge nothing into main").
+_NEGATOR_WORDS_BEFORE = 3
+_NEGATOR_WORDS_AFTER = 1
+
+
+def _negated_clauses(block, triggers, negator):
+    """-> `block` with every clause blanked whose every trigger match is
+    governed by a negator, so what is left is what the block tells the
+    receiving session to do.
+
+    WHY (2026-10-08): the ladder set's landing rule skipped any LINE holding
+    "no", "not", "never" or "without", so "Merge it into main, no questions
+    asked" granted landing with nobody's word in the block. A line is the
+    wrong unit, and so is the mere presence of a negator: in that sentence
+    "no" governs "questions", not "merge". Morgan, the same day: "shouldn't
+    it understand the intent behind commands not just the literal words?"
+    (practice: read-for-intent).
+
+    So the negator has to govern the verb, in the verb's own clause: one of
+    the few words just before it, or its object just after it. A negator
+    after the destination, in another clause, or further away is about
+    something else. Strict where unsure: a clause is blanked only when EVERY
+    trigger match in it is negated, a trigger that runs across a clause
+    boundary is never blanked, and a sentence this cannot parse is refused
+    and rewritten, never let through. Idioms that invert a negator ("don't
+    hesitate to merge into main") belong in the negator regex's own
+    lookahead, as data.
+
+    `negator` is a regex, used in both places, or {"before": regex,
+    "object": regex} to tell them apart."""
+    if isinstance(negator, dict):
+        before_re, object_re = negator.get('before'), negator.get('object')
+    else:
+        before_re = object_re = negator
+    out, start = list(block), 0
+    bounds = [(m.start(), m.end()) for m in _CLAUSE_BOUNDARY_RE.finditer(block)]
+    bounds.append((len(block), len(block)))
+    for b_start, b_end in bounds:
+        clause = block[start:b_start]
+        if clause.strip() and _clause_is_negated(clause, triggers,
+                                                 before_re, object_re):
+            out[start:b_start] = ' ' * (b_start - start)
+        start = b_end
+    return ''.join(out)
+
+
+def _clause_is_negated(clause, triggers, before_re, object_re):
+    """-> True when `clause` holds a trigger match and a negator governs
+    every one of them (see _negated_clauses)."""
+    words = [(w.start(), w.end()) for w in re.finditer(r"\S+", clause)]
+    befores = [n.span() for n in re.finditer(before_re, clause, re.I)] \
+        if before_re else []
+    objects = [n.start() for n in re.finditer(object_re, clause, re.I)] \
+        if object_re else []
+    seen = False
+    for pat in triggers:
+        for m in re.finditer(pat, clause, re.I | re.M):
+            seen = True
+            # The word the match starts in is the verb; the window runs
+            # from a few words before it to the one word after it.
+            verb = next((i for i, (a, b) in enumerate(words)
+                         if a <= m.start() < b), None)
+            if verb is None:
+                return False
+            lo = words[max(0, verb - _NEGATOR_WORDS_BEFORE)][0]
+            hi_word = min(len(words) - 1, verb + _NEGATOR_WORDS_AFTER)
+            after = words[verb + 1:hi_word + 1]
+            # Overlap, not containment: "Do not open a PR" puts "not" in
+            # the window and "Do not" starts one word before it.
+            if any(a < m.start() and b > lo for a, b in befores):
+                continue
+            if any(a <= n < b and n < m.end() for n in objects
+                   for a, b in after):
+                continue
+            return False
+    return seen
 
 
 def is_trivial_checkin(text):
@@ -820,6 +965,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_delete_link_when_landed',
     'require_section_not_repeated',
     'require_quiet_while_background_runs',
+    'require_reply_block_names_sender',
     'unless_reply_declares_loss',
     # conditions and metadata
     'id', 'requires',            # see _settle (2026-10-02)
@@ -879,7 +1025,7 @@ def _unknown_predicates(req):
                   if not k.startswith('_') and k not in KNOWN_REQUIREMENT_KEYS)
 
 
-def violations(text, reqs, timeline=None, wake=None):
+def violations(text, reqs, timeline=None, wake=None, prompt=None):
     """-> list of records, one per unmet requirement:
 
         {'kind': 'heading' | 'first_item' | 'sentence' | 'contradiction'
@@ -1157,15 +1303,20 @@ def violations(text, reqs, timeline=None, wake=None):
         # to the wrong branch. fence-block-for-paste passed both: it checks
         # that a block says where it goes, not what it authorizes.
         for pair in (r.get('require_in_fence_paired_with') or []):
-            trigger, needed = pair.get('if_matches'), pair.get('must_also_match')
-            if not (trigger and needed):
+            triggers = _as_patterns(pair.get('if_matches'),
+                                    pair.get('also_if_matches'))
+            needed = pair.get('must_also_match')
+            if not (triggers and needed):
                 continue
             stop = pair.get('narration_exempt_if_block_matches')
+            negator = pair.get('negation_exempt_if_clause_negates')
             for block in _fenced_blocks(text):
                 judged = block
                 if stop and re.search(stop, block, re.I | re.M):
-                    judged = _narrated_clauses(block, trigger)
-                m = re.search(trigger, judged, re.I | re.M)
+                    judged = _narrated_clauses(block, triggers)
+                if negator:
+                    judged = _negated_clauses(judged, triggers, negator)
+                m = _first_trigger(triggers, judged)
                 if m and not re.search(needed, block, re.I | re.M):
                     out.append({'kind': 'in_fence_paired', 'advisory': advisory,
                                 'message': (
@@ -1286,6 +1437,43 @@ def violations(text, reqs, timeline=None, wake=None):
         # NOT YET LANDED for the other half since 2026-09-21; nothing asked
         # for this half, and a session Booked its branch on 2026-10-06 and
         # gave no link.
+        # require_reply_block_names_sender (Morgan, 2026-10-08, strength:
+        # decided: "yes, extend the rule and add the check"). A message
+        # relayed from another session names that session in its opening
+        # line, so a paste block answering it has a known destination, and
+        # prompt-please wants that destination named inside the block. A
+        # session replying to such a message wrote a block with its own
+        # name and link and none for where it was going, and the person
+        # could not tell which window to paste it into.
+        rule = r.get('require_reply_block_names_sender')
+        if rule and prompt:
+            sm = re.search(rule.get('sender_in_prompt') or '(?!)', prompt,
+                           re.I | re.M)
+            exempt = rule.get('exempt_if_reply_says')
+            outside = re.sub(r'(?ms)^\s{0,3}(`{3,}|~{3,}).*?^\s{0,3}\1\s*$',
+                             '', text)
+            if sm and not (exempt and re.search(exempt, outside, re.I)):
+                url = sm.group(1)
+                marker = rule.get('block_if_matches') or '(?!)'
+                for block in _fenced_blocks(text):
+                    if not re.search(marker, block, re.I | re.M):
+                        continue
+                    if re.search(r'intended for the session', block, re.I) \
+                            and url in block:
+                        continue
+                    out.append({'kind': 'reply_names_sender',
+                                'advisory': advisory, 'message': (
+                        f"[{r.get('_source', '?')}] a paste block answers "
+                        f"the session that sent this turn's message ({url}) "
+                        f"and does not say so. Put \"This prompt is intended "
+                        f"for the session <its name> -- {url}.\" on the line "
+                        f"after its Seed root line, and name it outside the "
+                        f"block too (\"Paste this into <its name> -- {url}\")"
+                        + (f" -- {rule.get('why')}" if rule.get('why') else '')
+                        + "."
+                        + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+                    break
+
         if r.get('require_delete_link_when_landed'):
             for repo, branch, base in _landed_this_turn():
                 enc = urllib.parse.quote(branch, safe='')
@@ -1517,12 +1705,17 @@ def main():
                                 f"/{pair.get('must_also_match')}/")
             if r.get('require_in_fence_paired_with'):
                 for pair in r['require_in_fence_paired_with']:
-                    bits.append(f"inside a fenced block, /{pair.get('if_matches')}/ "
+                    trig = ' or '.join(f"/{t}/" for t in _as_patterns(
+                        pair.get('if_matches'), pair.get('also_if_matches')))
+                    bits.append(f"inside a fenced block, {trig} "
                                 f"requires /{pair.get('must_also_match')}/ in "
                                 f"the same block"
                                 + (f" (past-tense narration exempt in a block "
                                    f"matching /{pair['narration_exempt_if_block_matches']}/)"
-                                   if pair.get('narration_exempt_if_block_matches') else ''))
+                                   if pair.get('narration_exempt_if_block_matches') else '')
+                                + (" (a clause whose landing verb a negator "
+                                   "governs is exempt)"
+                                   if pair.get('negation_exempt_if_clause_negates') else ''))
             if r.get('require_container_safe_if_says'):
                 for ph in r['require_container_safe_if_says']:
                     bits.append(f'"{ph}" requires a container with nothing '
@@ -1561,8 +1754,12 @@ def main():
 
     timeline = None
     wake = None
+    prompt = None
     if '--text' in argv:
         text = pathlib.Path(argv[argv.index('--text') + 1]).read_text(encoding='utf-8')
+        if '--prompt' in argv:
+            prompt = pathlib.Path(argv[argv.index('--prompt') + 1]).read_text(
+                encoding='utf-8')
     else:
         try:
             payload = json.loads(sys.stdin.read() or '{}')
@@ -1578,6 +1775,7 @@ def main():
             return 0
         timeline = assistant_timeline(transcript)
         text = last_assistant_text(transcript)
+        prompt = last_prompt_text(transcript)
         # A turn a background job woke is judged by its own words only --
         # never by the last reply's, which last_assistant_text() falls back
         # to when this turn said nothing (2026-10-05).
@@ -1601,7 +1799,7 @@ def main():
         return 0
     if is_trivial_checkin(text) and not (wake and wake.get('quiet_owed')):
         return 0
-    bad = [b for b in violations(text, reqs, timeline, wake)
+    bad = [b for b in violations(text, reqs, timeline, wake, prompt)
            if not b.get('advisory')]
     if not bad:
         return 0

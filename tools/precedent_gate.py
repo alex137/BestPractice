@@ -1050,20 +1050,17 @@ def main():
         except ImportError:
             pass
 
-        # Whether anyone other than Morgan has pushed to precedent-beta-v01
-        # since he was last told -- silent except on a real alert, which is
-        # the whole point: the always-printed status line lives in
-        # .claude/hooks/session-start.sh's own call to the same module,
-        # once per session, not here on every single reply. This module is
-        # repo-local to alex137/BestPractice (its own two-branch carry
-        # model), not a vendored engine file, so a consuming repo's copy of
-        # this gate script simply has no sibling to import and stays quiet.
+        # What other people landed here since this person was last told,
+        # left by the session-start hook for the first prompt and printed
+        # once (the others-did practice, in the ladder set). One local file read; no fetch, so a
+        # reply with no news costs nothing. An older engine without the
+        # module stays quiet.
         try:
             sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-            import precedent_beta_watermark_check as pbw
-            alert = pbw.remind(root)
-            if alert:
-                print(f"{alert}\n")
+            import precedent_others_did as pod
+            report = pod.remind(root)
+            if report:
+                print(f"{report}\n")
         except ImportError:
             pass
 

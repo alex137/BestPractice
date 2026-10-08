@@ -1129,6 +1129,51 @@ def _prior_ship_hashes(out_dir):
             if isinstance(s, dict) and isinstance(s.get('path'), str)}
 
 
+# The permanent hook stub (templates/harness/claude-code/hooks/, since
+# 2026-10-07) runs tools/<its own name> and does nothing when that script is
+# missing. A source's adapters started shipping it on 2026-10-08, so a sync
+# in a repo whose engine predates the move replaced three working hooks
+# (commit identity, freshness guard, individual-set setup) with pointers to
+# scripts the repo did not have: each then printed one NOTE and let
+# everything through. Found by a session that read the diff before
+# committing; nothing in the sync said so.
+HOOK_STUB_MARKER = b'# PRECEDENT HOOK STUB.'
+
+
+def _stub_target(data, dest_rel):
+    """-> the script under tools/ a stub runs: the one it names outright
+    (the individual-source form runs tools/individual-source-bootstrap.sh
+    whatever it is installed as), else tools/<its own name>, which the
+    generic stub reads from $0."""
+    named = re.findall(rb'/tools/([A-Za-z0-9_.-]+\.sh)\b', data)
+    if named:
+        return named[0].decode('ascii')
+    return pathlib.PurePosixPath(dest_rel).name
+
+
+def _held_adapter(out_dir, dest_rel, data):
+    """-> (bytes, executable) of the hook to keep in place of `data`, or None
+    to install `data` as usual.
+
+    Kept only when all three hold: `data` is the pointer stub; the script it
+    would run, tools/<basename>, is not in this repo; and a hook that is not
+    itself the stub is installed at the destination. With nothing installed
+    there, the stub loses nothing and is written, and says itself what it
+    is waiting for every time it runs."""
+    if HOOK_STUB_MARKER not in data:
+        return None
+    out_dir = pathlib.Path(out_dir)
+    dest = out_dir / dest_rel
+    if (out_dir / 'tools' / _stub_target(data, dest_rel)).is_file():
+        return None
+    if not dest.is_file():
+        return None
+    have = dest.read_bytes()
+    if HOOK_STUB_MARKER in have:
+        return None
+    return have, os.access(dest, os.X_OK)
+
+
 def _prior_adapter_hashes(out_dir):
     """{destination: sha256_16} from the manifest this tree ALREADY carries --
     what the last sync says it installed, which is what separates an ordinary
@@ -1277,8 +1322,16 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
     adapters_written = []
     prior_adapters = _prior_adapter_hashes(out_dir)
     adopted = []
+    held = []
     for dest_rel, source_name, data, executable in adapters_plan:
         dest = out_dir / dest_rel
+        keep = _held_adapter(out_dir, dest_rel, data)
+        if keep is not None:
+            # The working hook stays, recorded as what this tree installed,
+            # so --check agrees with it and the next sync after Update
+            # Vendors replaces it as an ordinary update.
+            data, executable = keep
+            held.append(f'{dest_rel} ({source_name})')
         want = hashlib.sha256(data).hexdigest()[:16]
         if dest.is_file():
             have = hashlib.sha256(dest.read_bytes()).hexdigest()[:16]
@@ -1311,6 +1364,15 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
               "that no declared source publishes any more -- left in place, "
               "not deleted. Remove each by hand once you have checked nothing "
               "still wires it: " + ', '.join(stale_adapters), file=sys.stderr)
+
+    if held:
+        print("precedent_materialize: KEPT the current hook(s) "
+              + ', '.join(held) + ": the source's new version is the "
+              "pointer stub, which runs tools/<the hook's name>, and this "
+              "repo does not have that script yet -- installing it would "
+              "switch the hook off. Run Update Vendors: it brings the "
+              "scripts, and the next sync installs the pointer.",
+              file=sys.stderr)
 
     if adopted and not dry_run:
         print("precedent_materialize: harness adapter(s) whose previous "

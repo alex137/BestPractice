@@ -147,7 +147,7 @@ as_of: 2026-10-08
 | [`todo-2026-10-06-freshness-notice-said-behind-for-current-clones`](todo-2026-10-06-freshness-notice-said-behind-for-current-clones.md) | A consumer session (2026-10-05/06) reported that its | 2d | wait | the next time a session-start notice calls a clone BEHIND that is current minute… |
 | [`todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here`](todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here.md) | Two practices in force now read differently on the same moment. | 2d | ask | a decision by Morgan (owner of upstream-bug-stops-here) and Alex (who approved t… |
 | [`todo-2026-10-07-an-engine-change-is-not-rehearsed-against-the-sets-checks`](todo-2026-10-07-an-engine-change-is-not-rehearsed-against-the-sets-checks.md) | Commit 1ef31386 turned the individual set's startup hook into a stub that | 1d | ask |  |
-| [`todo-2026-10-08-a-consumer-cannot-tell-its-copy-is-stale-without-a-clone`](todo-2026-10-08-a-consumer-cannot-tell-its-copy-is-stale-without-a-clone.md) | A consuming repository finished Update Vendors with a vendored copy that was | 0d | ask |  |
+| [`todo-2026-10-08-tell-morgan-what-others-did`](todo-2026-10-08-tell-morgan-what-others-did.md) | Morgan learned about changes Alex made to Precedent only after something | 0d | wait |  |
 
 ## Decisions (the Person's Call)
 

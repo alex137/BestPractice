@@ -135,6 +135,16 @@
       "path": "practices/push-directly.md",
       "reason": "withdrawn from universal with precedent_move.py --withdraw-from-universal: the five-stage ladder is a set a person brings (spec/LADDER_OPT_IN_PLAN.md); in force from the shared set precedent-shared-ladder for the people who bring it; record/WITHDRAWN_FROM_UNIVERSAL.md",
       "decommissioned_at": "2026-10-02"
+    },
+    {
+      "path": "tools/precedent_beta_watermark_check.py",
+      "reason": "Replaced by tools/precedent_others_did.py and tools/others_did_watermark.json (2026-10-08): the daily report of what others landed, delivered at the first prompt, with its mark committed onto the landing branch",
+      "decommissioned_at": "2026-10-08"
+    },
+    {
+      "path": "tools/beta_branch_watermark.json",
+      "reason": "Replaced by tools/precedent_others_did.py and tools/others_did_watermark.json (2026-10-08): the daily report of what others landed, delivered at the first prompt, with its mark committed onto the landing branch",
+      "decommissioned_at": "2026-10-08"
     }
   ],
   "exempt_files": [
@@ -173,6 +183,8 @@
     "spec/MOVING_PRACTICES.md",
     "spec/PREFORK_AUDIT.html",
     "todo/todo-2026-09-21-pass-4-branch-verdicts-and-catalogue.md",
-    "tools/verify_harness.py"
+    "tools/verify_harness.py",
+    "gotchas/gotcha-2026-09-22-a-cross-owner-source-clone-fetches-fine-and-cannot-be-pushed.md",
+    "record/automated_actions.md"
   ]
 }

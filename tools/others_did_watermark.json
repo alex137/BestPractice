@@ -1,0 +1,20 @@
+{
+  "_comment": [
+    "What each person was last told about other people's commits,",
+    "keyed by a slug of their declared name (never their email: this",
+    "file is public). told_at is when; tips are the branch tips that",
+    "report covered. Written by tools/precedent_others_did.py onto the",
+    "landing branch directly, never through anyone's working tree."
+  ],
+  "seen_by": {
+    "morgan-f": {
+      "told_at": "2026-10-08T14:30:38-03:00",
+      "tips": {
+        "main": "255a2e47e5701a65906306a20099caf4e693f06c",
+        "staging": "e23bd0a2ea5e9f7adc705293b1be1e9da9a064c6",
+        "pre-staging": "2f0629dc5f7431ff40a360c959954400811b48f9"
+      },
+      "note": "reported"
+    }
+  }
+}
