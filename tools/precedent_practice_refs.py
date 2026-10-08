@@ -52,6 +52,7 @@ if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
 import build_views as bv            # noqa: E402
+import generated_blocks             # noqa: E402
 import precedent_resolve as pr      # noqa: E402
 
 TEXT_EXTS = {'.md', '.py', '.sh', '.json', '.yml', '.yaml', '.txt', '.toml'}
@@ -278,10 +279,21 @@ def scan_root(root, slugs, successors=None, only_md=True, skip=()):
         withdrawn_file = is_practice and _practice_withdrawn(text)
         hits = scan_file(p, rel, slugs, successors, stub_slug=stub,
                          file_is_history=withdrawn_file)
-        gen = _is_generated(text.splitlines())
+        lines = text.splitlines()
+        # A generated BLOCK inside a hand-written file is generated text too:
+        # AGENTS.md's loader block is rewritten from the sources on every
+        # sync, so a citation there is fixed in the source, never here.
+        # Until 2026-10-08 only a whole file marked generated in its first
+        # lines counted, and Update Vendors sent a consumer to read loader
+        # lines it cannot edit. A block's own marker is not a mark on the
+        # whole file, so the file test reads the lines outside every block.
+        inside = generated_blocks.mask(lines)
+        gen = _is_generated([l for l, hide in zip(lines, inside) if not hide])
         for (ln, s, form, kind, section, line) in hits:
+            in_block = 0 < ln <= len(inside) and inside[ln - 1]
             out.append((rel, ln, s, form,
-                        'generated' if gen and kind == 'live' else kind,
+                        'generated' if (gen or in_block) and kind == 'live'
+                        else kind,
                         section, line))
     return out
 

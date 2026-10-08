@@ -58458,6 +58458,61 @@ def check_update_vendors_onegplanning_findings():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_citations_skip_a_generated_block():
+    """A citation inside a generated block of a hand-written file is not a
+    line the repository can edit, so Update Vendors never lists it.
+
+    THE INCIDENT (2026-10-08). precedent_update.py's "citations of a
+    practice reworded or withdrawn -- read each" named lines inside
+    AGENTS.md's loader block, which the next sync rewrites from the
+    sources. precedent_practice_refs.scan_root counted a file as generated
+    only when its first lines said so; a block inside a hand-written file
+    (generated_blocks.py's two marker styles) stayed 'live'. Planted: one
+    AGENTS.md citing a reworded slug by hand, inside the loader block, and
+    inside a gen: block; only the hand-written line is listed."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import generated_blocks as gb
+    import precedent_practice_refs as ppr
+    import precedent_update as pu
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refs-gen-'))
+    try:
+        (tmp / 'AGENTS.md').write_text(
+            '# Notes\n\n'
+            'Hand-written: follow `upstream-fix` when fixing.\n\n'
+            'More prose.\n\nAnd more, so the block opens past line 6.\n\n'
+            f'{gb.LOADER_BEGIN}\n'
+            'Resident: `upstream-fix` -- fix the cause where it lives.\n'
+            f'{gb.LOADER_END}\n\n'
+            '<!--gen:counts-->\n'
+            'Also `upstream-fix`, in a doc_sync block.\n'
+            '<!--/gen:counts-->\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], capture_output=True, check=True)
+        rows = ppr.scan_root(tmp, {'upstream-fix'})
+        kinds = {r[1]: r[4] for r in rows}
+        cases.append(('the hand-written line is live', kinds.get(3) == 'live', kinds))
+        cases.append(('the loader-block and gen-block lines are generated',
+                      kinds.get(10) == 'generated' and kinds.get(14) == 'generated',
+                      kinds))
+        data = {'slugs': {'upstream-fix': 'Rule reworded'}, 'successors': {},
+                'hits': [{'source': 'this repository', 'file': r[0], 'line': r[1],
+                          'slug': r[2], 'form': r[3], 'kind': r[4],
+                          'must_fix': ppr.must_fix(r)} for r in rows]}
+        fix, read = pu.citation_findings(data)
+        cases.append(('Update Vendors asks for a read of the hand-written line only',
+                      fix == [] and read == ['AGENTS.md:3'], (fix, read)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'citations inside a generated block are not listed for a read '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
     """A consumer's session searched the clones for "Debut" (2026-10-04).
 
@@ -65416,6 +65471,7 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
+    check_citations_skip_a_generated_block()
     check_second_pass_judgment_replaces_first_pass_left()
     check_repin_kept_records_the_persons_words()
     check_hook_changes_never_touch_dot_claude()
