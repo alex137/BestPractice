@@ -590,6 +590,24 @@ def _timed(fn, args):
     return res
 
 
+def _solve_history():
+    """{memo file name prefix: seconds} from the shared result cache's lease
+    board history ("solve finished: NAME in N s"), read from the local
+    remote-tracking ref only -- never a fetch, so pricing a run costs nothing."""
+    import re as _re
+    try:
+        r = subprocess.run(["git", "-C", str(ROOT), "log", "--format=%s", "origin/coord"],
+                           capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    out = {}
+    for line in r.stdout.splitlines():
+        m = _re.search(r"solve finished: (\S+) in (\d+) s", line)
+        if m:
+            out.setdefault(m.group(1), float(m.group(2)))
+    return out
+
+
 def plan_line(pairs, ledger, jobs):
     """What this run is about to emit and, from the times its facts recorded,
     roughly what it will cost -- printed before the first emit, so a session
@@ -597,8 +615,12 @@ def plan_line(pairs, ledger, jobs):
     2026-10-08, decided: a quick estimate of how long a task should take,
     and reconsidering it before investing the time)."""
     known, unknown, slow = 0.0, 0, []
+    history = _solve_history()
     for doc, name, script in pairs:
         secs = [f.get("secs") for f in ledger.get((doc, name), []) if f.get("secs") is not None]
+        if not secs:
+            hist = [t for memo, t in history.items() if memo.startswith(name + "_")]
+            secs = hist[:1]
         if secs:
             known += secs[-1]
             slow.append((secs[-1], script))
@@ -635,7 +657,20 @@ import threading as _threading
 _PROCS_LOCK = _threading.Lock()
 
 
+# EACH EMIT'S SHARE OF THE MACHINE (2026-10-08). The gate runs several
+# emits at once, and a model that runs its own worker pool sized to the
+# machine then competes with every other emit's pool: on a 4-core consumer,
+# three cast models of 4 workers each plus a fourth solve made 13 runnable
+# processes, and solves recorded at 2-8 minutes ran past an hour. Every emit
+# is told its share in EMIT_WORKERS (cores divided by the emits in flight,
+# at least 1); a model sizes its pool from it, never from the core count.
+EMIT_WORKERS_ENV = "EMIT_WORKERS"
+_IN_FLIGHT = [1]
+
+
 def _run(argv, env=None):
+    env = dict(env if env is not None else os.environ)
+    env[EMIT_WORKERS_ENV] = str(max(1, (os.cpu_count() or 1) // max(_IN_FLIGHT[0], 1)))
     if _ABORTED:
         # a failure already stopped the gate: a queued emit never starts
         return subprocess.CompletedProcess(argv, -9, "", "skipped: the gate stopped at an earlier failure")
@@ -798,6 +833,7 @@ def emit_all(pairs, jobs=None):
             return {(args[0], n): t for n, t in res.items()}
         return {args: res}
     jobs = jobs or int(os.environ.get("DOC_SYNC_JOBS", "0") or 0) or os.cpu_count() or 1
+    _IN_FLIGHT[0] = max(1, min(jobs, len(tasks)))
     out = {}
     if jobs <= 1 or len(tasks) <= 1:
         for fn, args in tasks:
