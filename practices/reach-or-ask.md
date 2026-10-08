@@ -47,3 +47,7 @@ been attached to the session; a read-only attach, available all along,
 answered the question in seconds (the copy was current). The person:
 "Why not adopt a practice of asking if you need access rather than simply
 passively announcing you can't."
+
+## Install
+Nothing to install. It reaches a session through the occasion index, whose
+line is generated from this file.
