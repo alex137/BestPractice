@@ -34573,10 +34573,70 @@ def _declared_fallback_tz():
     return precedent_time.FALLBACK_TZ
 
 
+def check_local_engine_edit_saves_a_prompt_please():
+    """A consumer may edit an engine file when the fix cannot wait, and then
+    must keep an open todo/ item naming it that links the upstream pull
+    request or saves a Prompt Please (Morgan, 2026-10-08; practice:
+    upstream-fix, point 7). Planted on a consumer-shaped copy: an engine
+    file whose text no longer matches tools/ENGINE_MANIFEST.json."""
+    import shutil, tempfile, hashlib, json as _json
+    name = 'a local edit to an engine file needs a saved Prompt Please or a linked fix'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-local-edit-'))
+    cases = []
+    try:
+        repo = tmp / 'repo'
+        shutil.copytree(ROOT / 'tools', repo / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'format_version': 1, 'visibility': 'private', 'sources': []}), encoding='utf-8')
+        f = repo / 'tools' / 'glossary_terms.json'
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(_json.dumps({
+            'kind': 'consumer',
+            'sha256': {'glossary_terms.json': hashlib.sha256(f.read_bytes()).hexdigest()}}),
+            encoding='utf-8')
+        (repo / 'todo').mkdir()
+        # In force here, as in every consumer that materializes the catalogue.
+        (repo / 'practices').mkdir()
+        shutil.copy2(ROOT / 'practices' / 'upstream-fix.md', repo / 'practices')
+
+        def run():
+            r = subprocess.run([sys.executable, str(repo / 'tools' / 'precedent_check.py'),
+                                '--only', 'upstream-fix'], capture_output=True, text=True,
+                               cwd=str(repo), env=dict(os.environ,
+                               PRECEDENT_USER_CONFIG=str(tmp / 'none.json')))
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run()
+        cases.append(('unedited, it passes', rc == 0, out[-300:]))
+        f.write_text(f.read_text(encoding='utf-8') + ' ', encoding='utf-8')
+        rc, out = run()
+        cases.append(('edited with nothing handed upstream, it is refused, naming '
+                      'the file and both ways out', rc != 0
+                      and 'tools/glossary_terms.json' in out and 'Prompt Please' in out
+                      and 'upstream_fix.py' in out, out[-500:]))
+        item = repo / 'todo' / 'todo-2026-10-08-fix-glossary-upstream.md'
+        item.write_text('---\nstatus: open\n---\n# Fix upstream\n\nPatched '
+                        'tools/glossary_terms.json here.\n\n## Prompt Please\n\n'
+                        'Root it in BestPractice.\n\n```\nFix the term list.\n```\n',
+                        encoding='utf-8')
+        rc, out = run()
+        cases.append(('with an open item naming it and saving a Prompt Please, it '
+                      'passes', rc == 0, out[-400:]))
+        item.write_text(item.read_text(encoding='utf-8').replace('status: open', 'status: done'),
+                        encoding='utf-8')
+        rc, out = run()
+        cases.append(('a closed item does not count', rc != 0, out[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_doc_lint_exempts_links_in_a_mirrored_tree():
-    """A vendored catalogue's relative links are not this repo's to fix, and
-    since 2026-09-14 doc_lint does not report them -- while the repo's own
-    broken link in the same run still is.
+    """A vendored catalogue's relative links are not this repo's to fix, so
+    they never fail its gate -- and since 2026-10-08 doc_lint reports them as
+    upstream's rather than skipping them (it did not report them at all from
+    2026-09-14). The repo's own broken link in the same run still fails.
 
     Both directions in one fixture, because the failure mode of a blanket
     exemption is silence in the half that matters (practice:
@@ -34618,10 +34678,23 @@ def check_doc_lint_exempts_links_in_a_mirrored_tree():
                             '--all'], capture_output=True, text=True, cwd=str(repo))
         out = r.stdout + r.stderr
         broken = [l for l in out.splitlines() if '(no such file)' in l]
-        check('doc_lint reports no broken relative link inside a mirrored '
-              'tree (a vendored catalogue nobody here may edit)',
-              not any('precedent/universal/' in l for l in broken),
+        # 2026-10-08: reported, never hidden -- under the upstream note, and
+        # never failing this repo (Morgan: checks stop skipping vendored
+        # files silently).
+        cases_out = out
+        check('doc_lint REPORTS a broken relative link inside a mirrored tree '
+              'as upstream\'s to fix, instead of skipping it silently',
+              any('precedent/universal/' in l for l in broken)
+              and "upstream's to fix" in out and 'Prompt Please' in out,
               '; '.join(broken)[:300])
+        (repo / 'docs' / 'mine.md').write_text('# Mine\n\nNothing broken.\n',
+                                               encoding='utf-8')
+        r2 = subprocess.run([sys.executable, str(repo / 'tools' / 'doc_lint.py'),
+                             'precedent/universal/practices/some-practice.md'],
+                            capture_output=True, text=True, cwd=str(repo))
+        check('...and a mirrored tree\'s broken link never fails this repo\'s gate',
+              r2.returncode == 0 and 'precedent/universal/' in (r2.stdout + r2.stderr),
+              f'exit {r2.returncode}: {(r2.stdout + r2.stderr)[-300:]}')
         check('doc_lint still reports the repo\'s OWN broken relative link '
               'in the same run',
               any('docs/mine.md' in l for l in broken),
@@ -65541,6 +65614,7 @@ def main():
     check_practice_audit_declined()
     check_freshness_gate_fires()
     check_doc_lint_exempts_links_in_a_mirrored_tree()
+    check_local_engine_edit_saves_a_prompt_please()
     check_repo_may_declare_its_own_fallback_zone()
     check_session_check_reports_a_dead_also_list_entry()
     check_freshness_guard_checks_attached_repositories()

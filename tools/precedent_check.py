@@ -9526,16 +9526,69 @@ def _entry_identity(entry):
     return json.dumps(entry, sort_keys=True)
 
 
+def _received_edit_findings():
+    """-> [Finding] for each engine file or engine hook this repo edited
+    (its text no longer what tools/ENGINE_MANIFEST.json recorded) with no
+    open item handing the root fix upstream: one that names the file and
+    links the pull request or issue, or saves a Prompt Please for it
+    (doc_lint.upstream_handoff). [] where no engine is vendored.
+
+    Morgan, 2026-10-08: a local fix to an upstream file is allowed, "because
+    sometimes it's urgent", but "they also must do a prompt please so the
+    user can easily bring it upstream at his convenience later"."""
+    mpath = ROOT / 'tools' / 'ENGINE_MANIFEST.json'
+    try:
+        manifest = json.loads(mpath.read_text(encoding='utf-8'))
+        import precedent_vendor_engine as _pve
+        import doc_lint as _dl
+    except Exception:                                       # noqa: BLE001
+        return []
+    edited = [f'tools/{n}' for n, _w in _pve._local_drift(ROOT / 'tools', manifest)]
+    edited += [f'{_pve.HOOK_DEST_DIR}/{n}' for n, _w in _pve._hook_drift(ROOT, manifest)]
+    edited = [r for r in edited if (ROOT / r).is_file()]
+    if not edited:
+        return []
+    handed = []
+    for f in sorted((ROOT / 'todo').glob('todo-*.md')):
+        text = f.read_text(encoding='utf-8', errors='ignore')
+        st = re.search(r'^status:[ \t]*["\']?([\w-]+)', text, re.M)
+        if (st.group(1) if st else 'open') == 'open' and _dl.upstream_handoff(text):
+            handed.append(text)
+    out = []
+    for rel in edited:
+        if any(rel in t for t in handed):
+            continue
+        out.append(Finding(
+            rel, f'differs from the copy the engine shipped -- a local '
+                 f'workaround to a file that comes from BestPractice. Fine '
+                 f'when it cannot wait; hand the root fix upstream too: open '
+                 f'it there (`python3 tools/upstream_fix.py {rel}`) and link '
+                 f'the pull request from an open todo/ item naming {rel}, or '
+                 f'save a `## Prompt Please` section with the paste-ready '
+                 f'block in such an item, for the person to take upstream '
+                 f'when it suits them (practice: upstream-fix)'))
+    return out
+
+
 @check('upstream-fix', 'tree',
        'every exemption-list entry in precedent.json that is new against the '
        'base branch carries a root_fix: what was fixed instead, or why the '
-       'check cannot learn the case',
+       'check cannot learn the case; and every engine file or engine hook '
+       'this repo edited locally has an open todo/ item naming it that links '
+       'the upstream pull request or issue, or saves a Prompt Please for it',
        'whether the root_fix is TRUE, or whether a root fix was really out of '
        'reach -- only that the question was answered in writing. Entries '
        'already on the base branch are left alone until someone touches '
        'them, and an exemption declared anywhere but precedent.json is not '
-       'seen.')
+       'seen. Of received files, only the engine manifest\'s are judged: an '
+       'edit to a vendored catalogue copy is Update Vendors\' to find, and '
+       'whether the saved prompt is a good one is not judged at all.',
+       selects_on=('precedent.json', 'tools/*', '.claude/hooks/*', 'todo/*'))
 def _exemption_names_its_root_fix(ctx):
+    return _received_edit_findings() + _exemption_findings(ctx)
+
+
+def _exemption_findings(ctx):
     # practice: upstream-fix, point 6. Morgan, 2026-09-29: "whenever we need
     # to add an 'exemption' of any sort anywhere, we always use that as an
     # example of a root fix opportunity." The same day a set exempted its
