@@ -520,9 +520,10 @@ def main(argv):
         bases = choose_bases(declared_base, bases)
         refusal = getattr(pb, 'merge_refusal', None) if pb else None
         if refusal:
-            heads = branches_at(root, git(root, 'rev-parse',
-                                          f'refs/precedent-merge-check/{number}/head'))
-            why_not = refusal(root, bases, heads)
+            head_sha = git(root, 'rev-parse',
+                           f'refs/precedent-merge-check/{number}/head')
+            heads = branches_at(root, head_sha)
+            why_not = refusal(root, bases, heads, head_sha=head_sha)
             if why_not:
                 print(f'precedent_merge_check: REFUSED pull request #{number} '
                       f'of {owner}/{repo} -- {why_not}')

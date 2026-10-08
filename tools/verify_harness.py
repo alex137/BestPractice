@@ -31547,6 +31547,41 @@ def check_promote_picks_its_step():
         cases.append(('it says the pull request comes from the copy, never from '
                       'staging', 'Never open it from staging itself' in out))
 
+        # PROMOTE'S COPY, THEN THE MERGE CHECK, END TO END (2026-10-08). The
+        # copy became a merge of staging and main on 2026-10-07 while the
+        # merge check still let only staging's own tip into main, so every
+        # Produce was refused as "out of date" with staging unmoved. Each copy
+        # below goes through merge_refusal with promote_only on, as the merge
+        # gate would put it.
+        indiv = tmp / 'indiv'
+        indiv.mkdir()
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'promote_only': True}), encoding='utf-8')
+        gate_cfg = tmp / 'gate-config.json'
+        gate_cfg.write_text(_json.dumps({'individual': {'path': str(indiv)}}),
+                            encoding='utf-8')
+
+        def all_copies():
+            return sorted(r[len('refs/heads/'):] for r in (
+                l.split('\t')[1] for l in git(work, 'ls-remote', 'origin',
+                                               'refs/heads/*').stdout.splitlines())
+                if pb.is_main_copy(r[len('refs/heads/'):]))
+
+        def gate(ref):
+            sha = tip(ref)
+            heads = [l.split('\t')[1][len('refs/heads/'):] for l in git(
+                work, 'ls-remote', '--heads', 'origin').stdout.splitlines()
+                if l.split('\t')[0] == sha]
+            return pb.merge_refusal(work, ['main'], heads, str(gate_cfg),
+                                    head_sha=sha)
+
+        first_copy = copy_ref
+        why = gate(first_copy) if first_copy else 'no copy'
+        cases.append(("main already in staging: the copy is staging's own tip, "
+                      'and the merge check lets it into main',
+                      bool(first_copy) and tip(first_copy) == tip('staging')
+                      and why is None, why))
+
         # Land the fold-in the way the pull request would.
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '-B', 'w-main', 'origin/main')
@@ -31555,10 +31590,33 @@ def check_promote_picks_its_step():
 
         on_staging = commit_to('staging', 'two.txt', '2\n')
         commit_to('pre-staging', 'three.txt', '3\n')
+        seen = set(all_copies())
         rc, out = branches('--promote', '--to', 'main', '--work', on_staging)
         cases.append(('both steps waiting, and the step named: --to main wins',
                       rc == 3 and out.startswith(
                           'Now promoting from staging to main')))
+        merge_copy = next(iter(set(all_copies()) - seen), '')
+        parents = git(work, 'rev-list', '--parents', '-n', '1',
+                      tip(merge_copy)).stdout.split() if merge_copy else []
+        why = gate(merge_copy) if merge_copy else 'no copy'
+        cases.append(('main not in staging: the copy is a merge of main and '
+                      "staging's tip, and the merge check lets it into main "
+                      '(it refused every one, 2026-10-08)',
+                      len(parents) == 3 and parents[2] == tip('staging')
+                      and parents[1] == tip('main') and why is None, why))
+        why = gate(first_copy) or ''
+        cases.append(('a copy made before staging moved is refused as out of '
+                      'date', 'out of date' in why, why))
+        # A copy carrying a change of its own beyond the merge is not a copy.
+        git(work, 'checkout', '-q', '--detach', tip(merge_copy))
+        (work / 'extra.txt').write_text('x\n', encoding='utf-8')
+        git(work, 'add', 'extra.txt')
+        git(work, 'commit', '-q', '--amend', '--no-edit')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/to-main-20991231T000000-0300')
+        why = gate('to-main-20991231T000000-0300') or ''
+        cases.append(('a copy whose merge carries a file the merge never made is '
+                      'refused', why != '', why))
+        git(work, 'push', '-q', 'origin', ':refs/heads/to-main-20991231T000000-0300')
         rc, out = branches('--promote', '--work', on_staging)
         cases.append(('both steps waiting and none named is ambiguous: '
                       'pre-staging into staging, even with the work just done '
@@ -31581,7 +31639,8 @@ def check_promote_picks_its_step():
                       and 'Now promoting' not in out))
         wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
         cases.append(('no worktree is left behind', len(wts) == 1))
-    failed = [n for n, ok in cases if not ok]
+    failed = [c[0] + (f' ({c[2]})' if len(c) > 2 and c[2] else '')
+              for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
