@@ -745,7 +745,15 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
                 continue
             closure.add(p)
             m = R.load(p)
-            for q in _all_imports(R, m):
+            # one module's imports resolve the same for every entry that
+            # reaches it: walked once per session, not once per entry
+            ik = ("imports", m, dirs_key)
+            qs = _SESSION.get(ik) if _SESSION is not None else None
+            if qs is None:
+                qs = _all_imports(R, m)
+                if _SESSION is not None:
+                    _SESSION[ik] = qs
+            for q in qs:
                 if q not in closure:
                     todo.append(q)
         if _SESSION is not None:
