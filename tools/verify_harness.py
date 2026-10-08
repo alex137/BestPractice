@@ -3586,6 +3586,94 @@ def check_received_hooks_and_moved_engine_files():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_whats_new_skips_precedents_own_updates():
+    """tools/precedent_whats_new.py -- a day whose only change brought
+    Precedent's own files in (an Update Vendors) is quiet in a consuming
+    repository: its news log is about that repository (Morgan, 2026-10-08:
+    "it is about what is happening in THAT repo not what is happening in
+    Precedent"). The repository's own work on the same footing still counts,
+    and so does a hand edit to its instructions; in a repository that
+    vendors nothing (BestPractice itself) a tools/ change is news."""
+    import datetime as _dt, tempfile
+    import precedent_whats_new as pwn
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='whats-new-vendored-'))
+    try:
+        def g(cwd, *a, when=None):
+            env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                       GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+            if when:
+                env['GIT_AUTHOR_DATE'] = env['GIT_COMMITTER_DATE'] = when
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env).stdout.strip()
+
+        def make(name, vendored):
+            repo = tmp / name
+            g(tmp, 'init', '-q', '-b', 'main', str(repo))
+            files = {'precedent.json': '{"fallback_timezone": "UTC"}\n',
+                     'README.md': '# x\n'}
+            if vendored:
+                files.update({
+                    'tools/ENGINE_MANIFEST.json': json.dumps(
+                        {'kind': 'consumer', 'files': ['engine.py'],
+                         'hook_files': ['gate.sh']}),
+                    'process/manifest.json': json.dumps(
+                        {'upstream': {'vendored_at': 'process/upstream'}}),
+                    'tools/engine.py': 'v1\n'})
+            for rel, text in files.items():
+                (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+                (repo / rel).write_text(text, encoding='utf-8')
+            g(repo, 'add', '-A'); g(repo, 'commit', '-qm', 'init',
+                                     when='2026-09-01T12:00:00+00:00')
+            return repo
+
+        def commit(repo, files, when):
+            for rel, text in files.items():
+                (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+                (repo / rel).write_text(text, encoding='utf-8')
+            g(repo, 'add', '-A'); g(repo, 'commit', '-qm', 'c', when=when)
+
+        def day(repo, d):
+            tz = _dt.timezone.utc
+            start = _dt.datetime.combine(d, _dt.time(0), tzinfo=tz)
+            return pwn.changes_between(repo, 'main', start,
+                                       start + _dt.timedelta(days=1))
+
+        c = make('consumer', True)
+        commit(c, {'tools/engine.py': 'v2\n', 'process/upstream/a.md': 'x\n',
+                   'MAP.md': 'map\n', '.claude/hooks/gate.sh': 'stub\n'},
+               '2026-09-02T12:00:00+00:00')
+        commit(c, {'notes/plan.md': 'own work\n'}, '2026-09-03T12:00:00+00:00')
+        commit(c, {'tools/engine.py': 'v3\n', 'notes/plan.md': 'more\n'},
+               '2026-09-04T12:00:00+00:00')
+        commit(c, {'AGENTS.md': 'own instructions\n'}, '2026-09-05T12:00:00+00:00')
+        g(c, 'rm', '-q', 'tools/engine.py')
+        g(c, 'commit', '-qm', 'drop', when='2026-09-06T12:00:00+00:00')
+        cases += [
+            ('a day of only vendored files and the views beside them is quiet',
+             day(c, _dt.date(2026, 9, 2)) is None),
+            ("the repository's own work is news",
+             day(c, _dt.date(2026, 9, 3)) is not None),
+            ('a commit mixing vendored files and its own work is news',
+             day(c, _dt.date(2026, 9, 4)) is not None),
+            ('a hand edit to its instructions alone is news',
+             day(c, _dt.date(2026, 9, 5)) is not None),
+            ('an update deleting a file it vendored is quiet too',
+             day(c, _dt.date(2026, 9, 6)) is None),
+        ]
+        b = make('upstream', False)
+        commit(b, {'tools/engine.py': 'v2\n'}, '2026-09-02T12:00:00+00:00')
+        cases.append(('in a repository that vendors nothing, a tools/ change is news',
+                      day(b, _dt.date(2026, 9, 2)) is not None))
+    except (OSError, ValueError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] for c in cases if not c[1]]
+    check(f"What's new leaves Precedent's own updates out of a repository's "
+          f"news ({len(cases)} stated cases)", not bad, '; '.join(bad))
+
+
 def check_whats_new_log_mechanics():
     """tools/precedent_whats_new.py, the mechanics behind "What's new?"
     (practice: whats-new, 2026-09-30).
@@ -67243,6 +67331,7 @@ def main():
     check_refresh_sources_leaves_the_base_branch_clean()
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
+    check_whats_new_skips_precedents_own_updates()
     check_received_hooks_and_moved_engine_files()
     check_loader_caps_unmeasured_without_a_declared_source()
     check_rename_links_leaves_dated_records_alone()
