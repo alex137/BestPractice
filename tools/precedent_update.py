@@ -34,8 +34,8 @@ THE STEPS, with no question in between:
      not chase a moving branch (--move takes the newest commit instead)
   2. the engine refresh (the consumer's own copy, which replaces itself and
      runs a second pass), with each committed local edit to an engine file
-     resolved around it by precedent_local_edits.py -- kept, merged, or
-     replaced by upstream's with the commit holding it named -- then the catalogue-pin repoint and the renamed
+     resolved around it by precedent_local_edits.py -- kept, or replaced
+     by upstream's with the commit holding it named -- then the catalogue-pin repoint and the renamed
      precedent-team-* -> precedent-shared-* sources from THIS copy; it
      stops if, with no --from-ref, the engine landed anywhere but the tip
      step 1 fetched, and leaves for you a run budget upstream gives a
@@ -1708,6 +1708,7 @@ class Report:
         self.edits = []   # (outcome, rel, text) -- precedent_local_edits.resolve()
         self.merges = {}  # rel -> (merged, upstream's) -- judged again at step 5
         self.not_run = None  # what the closing check left to a later tier
+        self.copy_verified = False  # the catalogue copy matched its record
         self.warnings = []   # passed now, refused at a later tier
         self.repo = None     # set with `staged` once stage_update has run
         self.staged = []     # the paths this run staged as its own
@@ -1770,6 +1771,16 @@ class Report:
                   "what the update did with each:")
             for line in lines:
                 print(f"  {line}")
+        # Upstream's version is the default, and what it replaced is the
+        # session's call (Morgan, 2026-10-08), so it is said beside every
+        # outcome, DONE included, never only inside the list above.
+        judge = [rel for outcome, rel, _t in self.edits if outcome == le.PREFERRED]
+        if judge:
+            print(f"\nJUDGE: upstream's version replaced what was left of this "
+                  f"repo's own edit to {', '.join(judge)} (LOCAL EDITS above, "
+                  f"with the diff). Keep yours only where it does something "
+                  f"different and important, with the keep command printed "
+                  f"there; ask the person when it is a close call.")
 
     def _pinned(self):
         if self.pin:
@@ -2453,9 +2464,9 @@ def realign_catalogue_record(repo, wrote, back):
     naming the commit the failed run mirrored, and the rerun judged HEAD's
     older copy against that commit -- every file "a local edit upstream has
     not changed", kept (2026-10-08, a consuming repository: 440 files).
-    Only the keys checkin.py record writes (commit, synced_from, _note) go
-    back to HEAD's, and only when no other key of `upstream` differs, so a
-    decline or any other change of the person's stays."""
+    Only the keys checkin.py record writes (commit, synced_from, _note,
+    copy_tree) go back to HEAD's, and only when no other key of `upstream`
+    differs, so a decline or any other change of the person's stays."""
     rel = 'process/manifest.json'
     if rel not in wrote or rel in back:
         return None
@@ -2474,7 +2485,7 @@ def realign_catalogue_record(repo, wrote, back):
     except (OSError, ValueError, AttributeError):
         return None
     now = data.get('upstream') if isinstance(data, dict) else None
-    own = ('commit', 'synced_from', '_note')
+    own = ('commit', 'synced_from', '_note', 'copy_tree')
     if not isinstance(now, dict) or not head.get('commit') or now == head:
         return None
     if {k: v for k, v in now.items() if k not in own} != \
@@ -3038,7 +3049,7 @@ def update(repo, skip_check=False, ref=None, move=False):
     if dirty:
         for rel in dirty:
             rep.leave(rel, 'a vendored file edited here and not committed. Commit '
-                      'it, and the next run keeps, merges or replaces it and says '
+                      'it, and the next run keeps or replaces it and says '
                       'which; or undo the edit. Nothing was written')
         rep.step('engine', 'refused: a vendored file has an uncommitted edit')
         return rep.close()
@@ -3151,7 +3162,7 @@ def update(repo, skip_check=False, ref=None, move=False):
         if dirty:
             for rel in dirty:
                 rep.leave(rel, 'changed here and not committed. Commit it, and '
-                          'the next run keeps, merges or replaces it and says '
+                          'the next run keeps or replaces it and says '
                           'which; or undo the change. Nothing was written')
             rep.step('catalogue', 'refused: the vendored tree has an uncommitted change')
             return rep.close()
@@ -3405,6 +3416,7 @@ def update(repo, skip_check=False, ref=None, move=False):
         rep.step('catalogue, written ahead', f'{len(mirrored)} uncommitted '
                  f'path(s) were an earlier run\'s mirror of the pinned commit, '
                  f'byte for byte; staged as this update\'s')
+    record_copy_fingerprint(repo, rep)
     n = stage_update(repo, before)
     regenerated_step(repo, rep)
     rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
@@ -3565,7 +3577,27 @@ def catalogue_copy_postcondition(repo, rep, put_back=()):
         rep.step('catalogue copy', f'matches {commit[:12]}, the commit its '
                  f'record names' + (f', apart from {len(kept)} file(s) kept on '
                                     f'purpose or left for you' if kept else ''))
+    # Only a copy that matches its record gets a fingerprint recorded
+    # (record_copy_fingerprint, before staging); one with a file in it left
+    # for the person keeps checkin.py record's, so the check names that file.
+    open_calls = {what for what, _why in rep.left}
+    rep.copy_verified = not left and not any(rel in open_calls for rel in kept)
     return fixed
+
+
+def record_copy_fingerprint(repo, rep):
+    """Record the fingerprint of the vendored copy in process/manifest.json,
+    once catalogue_copy_postcondition() found it matches its record and every
+    later step that writes has run -- so the consumer's own check
+    (vendored-copy-matches-record) can tell, with no BestPractice clone, that
+    the copy drifted afterwards (checkin.COPY_TREE_KEY)."""
+    if not getattr(rep, 'copy_verified', False):
+        return
+    import checkin as ck
+    tid = ck.stamp_copy_tree(repo / 'process' / 'manifest.json')
+    if tid:
+        rep.step('catalogue fingerprint', f'recorded ({tid[:12]}), so this '
+                 f'repository\'s own check can see the copy drift from now on')
 
 
 def manifest_postcondition(repo, rep):

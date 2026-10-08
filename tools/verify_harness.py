@@ -12752,6 +12752,10 @@ def _replace_line(data, text, at=3):
     return ''.join(lines[:at] + [text] + lines[at + 1:]).encode()
 
 
+# The LOCAL EDITS group rule 2 lands in since 2026-10-08.
+PREFERRED_GROUP = "Upstream's version taken over what was left"
+
+
 def _section(out, title):
     """The lines of the LOCAL EDITS group titled `title`, joined."""
     block = out.split('LOCAL EDITS', 1)[-1] if 'LOCAL EDITS' in out else ''
@@ -12761,6 +12765,8 @@ def _section(out, title):
             keep = line.strip().startswith(title)
             continue
         if keep and line.startswith('    - '):
+            got.append(line.strip())
+        elif keep and line.startswith('      '):     # an item's own lines
             got.append(line.strip())
         elif not line.startswith('    '):
             keep = False
@@ -12781,7 +12787,14 @@ def check_update_vendors_resolves_local_edits():
     pre-staging at c1dd37f5: every rule case fails -- the refresh refuses
     ("hand-edited since the last seed/refresh") and no LOCAL EDITS section
     is printed; the refresh-fails case passes there only because nothing was
-    ever swapped, and the journal case fails because nothing replays one."""
+    ever swapped, and the journal case fails because nothing replays one.
+
+    Rule 2 changed 2026-10-08 (Morgan, strength: decided: "a definite
+    preference towards using the upstream wording"): an edit upstream
+    changed elsewhere in the file takes upstream's version, shows the rest
+    as a diff, and `keep` puts it back with a reason. Negative control,
+    measured that day against the code before it: the merged file is kept,
+    and the rule 2 cases fail on "its version is taken"."""
     import hashlib
     fx = _LocalEditsFixture('precedent-local-edits-')
     cases = []
@@ -12833,12 +12846,51 @@ def check_update_vendors_resolves_local_edits():
                       and 'tools/precedent_paths.py' in _section(out, 'Still your local edit')
                       and 'precedent_local_edits.py send' in _section(out, 'Still your local edit'),
                       _section(out, 'Still your local edit') or out[-1500:]))
-        cases.append(('rule 2: a clean merge keeps both changes, and says which '
-                      'checks ran', b'# rule 2: a local fix' in got['precedent_show.py']
-                      and b'# upstream: rule 2' in got['precedent_show.py']
-                      and 'tools/precedent_show.py' in _section(out, 'Merged')
-                      and 'compiles' in _section(out, 'Merged'),
-                      _section(out, 'Merged') or out[-1500:]))
+        # Rule 2 since 2026-10-08 (Morgan, decided): upstream changed the
+        # file, so upstream's version is taken, and what is left of the local
+        # edit goes to the session as a judgment -- shown, saved, one command
+        # from coming back, never kept or dropped silently.
+        pref = _section(out, PREFERRED_GROUP)
+        cases.append(('rule 2: upstream changed the file, so its version is '
+                      'taken over the rest of the local edit',
+                      got['precedent_show.py'] == new['precedent_show.py']
+                      and 'tools/precedent_show.py' in pref
+                      and 'tools/precedent_show.py' not in _section(out, 'Merged'),
+                      pref or out[-1500:]))
+        cases.append(('...and what it dropped is shown as a diff, with the commit '
+                      'holding it and the keep command',
+                      '+# rule 2: a local fix' in pref and c_local in pref
+                      and 'precedent_local_edits.py keep --repo . --path '
+                          'tools/precedent_show.py --object' in pref
+                      and 'different and important' in pref, pref or out[-1500:]))
+        cases.append(('...and the closing report asks for the judgment beside '
+                      'the outcome', 'JUDGE:' in out and 'tools/precedent_show.py'
+                      in out.split('JUDGE:', 1)[-1].split('\n', 1)[0], out[-1500:]))
+        oid = re.search(r'--object ([0-9a-f]+)', pref)
+        if oid:
+            rc_k, out_k = fx.sh(sys.executable, str(ROOT / 'tools' / 'precedent_local_edits.py'),
+                                'keep', '--repo', '.', '--path', 'tools/precedent_show.py',
+                                '--object', oid.group(1), cwd=repo)
+            cases.append(('keep with no reason is refused, and writes nothing',
+                          rc_k == 1 and '--why' in out_k
+                          and (t / 'precedent_show.py').read_bytes() == new['precedent_show.py'],
+                          out_k))
+            rc_k, out_k = fx.sh(sys.executable, str(ROOT / 'tools' / 'precedent_local_edits.py'),
+                                'keep', '--repo', '.', '--path', 'tools/precedent_show.py',
+                                '--object', oid.group(1), '--why', 'a fix upstream lacks',
+                                cwd=repo)
+            kept = (t / 'precedent_show.py').read_bytes()
+            entry = (json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+                     .get('kept_template_divergences') or {}).get('tools/precedent_show.py') or {}
+            cases.append(('keep puts the local edit back on top of upstream\'s change, '
+                          'and records why, pinned to upstream\'s text',
+                          rc_k == 0 and b'# rule 2: a local fix' in kept
+                          and b'# upstream: rule 2' in kept
+                          and entry.get('reason') == 'a fix upstream lacks'
+                          and entry.get('template_sha256') == sha(new['precedent_show.py']),
+                          (out_k, entry)))
+        else:
+            cases.append(('the report names the saved object to keep', False, pref))
         cases.append(('rule 3: a conflict takes upstream\'s version and names the '
                       'commit holding the local one',
                       got['precedent_gate.py'] == new['precedent_gate.py']
@@ -12871,19 +12923,28 @@ def check_update_vendors_resolves_local_edits():
         f.write_bytes(_insert(b, '# rule 2: a local fix\n'))
         tests = repo / 'tools' / 'checks' / 'tests' / 'run_all.sh'
         tests.parent.mkdir(parents=True, exist_ok=True)
-        tests.write_text('#!/usr/bin/env bash\n'
-                         'if grep -q "local fix" tools/precedent_show.py && '
-                         'grep -q "upstream: rule 2" tools/precedent_show.py; then\n'
-                         '  echo "the merged file breaks a fixture test"; exit 1\nfi\n',
-                         encoding='utf-8')
+        failing = ('#!/usr/bin/env bash\n'
+                   'if grep -q "local fix" tools/precedent_show.py && '
+                   'grep -q "upstream: rule 2" tools/precedent_show.py; then\n'
+                   '  echo "the merged file breaks a fixture test"; exit 1\nfi\n')
+        tests.write_text(failing, encoding='utf-8')
         fx.commit(repo, 'a local fix, and a test the merge will fail')
         up = b + b'\n# upstream: rule 2\n'
         rc, out = fx.update(repo, fx.upstream(seeded, {'tools/precedent_show.py': up}))
-        taken = _section(out, "Upstream's version taken")
-        cases.append(('rule 2 whose check fails falls back to upstream\'s version '
-                      'and names the failed check', f.read_bytes() == up
-                      and 'tools/precedent_show.py' in taken and 'run_all.sh' in taken
-                      and 'merged cleanly as text' in taken, taken or out[-1500:]))
+        pref = _section(out, PREFERRED_GROUP)
+        # The update vendors its own run_all.sh over the fixture's, so the
+        # failing test is planted again for the keep that follows.
+        tests.write_text(failing, encoding='utf-8')
+        oid = re.search(r'--object ([0-9a-f]+)', pref)
+        before = (repo / 'precedent.json').read_bytes()
+        rc_k, out_k = (fx.sh(sys.executable, str(ROOT / 'tools' / 'precedent_local_edits.py'),
+                             'keep', '--repo', '.', '--path', 'tools/precedent_show.py',
+                             '--object', oid.group(1), '--why', 'mine', cwd=repo)
+                       if oid else (None, pref or out[-1500:]))
+        cases.append(('keep whose check fails puts upstream\'s version back, records '
+                      'nothing, and names the failed check', f.read_bytes() == up
+                      and rc_k == 1 and 'run_all.sh' in out_k and 'not kept' in out_k
+                      and (repo / 'precedent.json').read_bytes() == before, out_k))
 
         # --- an uncommitted edit: nothing written -----------------------------
         repo = fx.consumer('uncommitted')
@@ -12990,11 +13051,14 @@ def check_update_rerun_after_failed_takes_its_own_output():
             fx.commit(repo, 'a local fix to a received engine file')
             ref = fx.upstream(seeded, {'tools/precedent_show.py': b + b'\n# upstream\n'})
             rc, out = red_update(repo, ref)
+            # Upstream's version, since 2026-10-08 (rule 2 takes it): still
+            # this run's output, and not what HEAD holds.
             merged = f.read_bytes()
             if not touch:
-                cases.append(('the first run ends FAILED on its check, with the merged '
-                              'engine file staged', rc == 2 and 'FAILED' in out
-                              and b'# a local fix' in merged and b'# upstream' in merged
+                cases.append(('the first run ends FAILED on its check, with its '
+                              'own version of the engine file staged', rc == 2
+                              and 'FAILED' in out
+                              and merged == b + b'\n# upstream\n'
                               and 'tools/precedent_show.py' in fx.git(
                                   repo, 'diff', '--cached', '--name-only'), out[-1500:]))
                 rc, out = fx.update(repo, ref)
@@ -13309,7 +13373,8 @@ def check_merge_takes_the_vendor_update():
 def check_update_vendors_resolves_a_catalogue_edit():
     """The same resolution for process/upstream/, a pre-2026-09-14 install's
     mirrored catalogue: a committed, pushed local edit to a vendored
-    practice, where upstream changed the same file elsewhere, is merged, and
+    practice, where upstream changed the same file elsewhere, is resolved
+    (merged until 2026-10-08; upstream's version since, the rest shown), and
     `record` passes because its carry check skips exactly the file being
     resolved (checkin.py record --resolving).
 
@@ -13364,13 +13429,17 @@ def check_update_vendors_resolves_a_catalogue_edit():
         rc, out = fx.update(repo, seeded)
         got = f.read_bytes()
         rec = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
-        cases.append(('a committed local edit in process/upstream/ is merged with '
-                      'upstream\'s change, not refused',
+        # Since 2026-10-08 (Morgan, decided): upstream's version, with the
+        # rest of the edit shown for the session to judge.
+        pref = _section(out, PREFERRED_GROUP)
+        cases.append(('a committed local edit in process/upstream/ that upstream '
+                      'changed elsewhere is resolved, not refused: upstream\'s '
+                      'version taken, the rest shown',
                       'refused' not in out.split('catalogue', 1)[-1][:200]
-                      and b'A line this repo added' in got
-                      and got.rstrip(b'\n').endswith(lines[-1].rstrip('\n').encode())
-                      and f'process/upstream/{practice}' in _section(out, 'Merged'),
-                      out[-2500:]))
+                      and got == upstream_text
+                      and f'process/upstream/{practice}' in pref
+                      and '+A line this repo added' in pref,
+                      (pref or out)[-2500:]))
         cases.append(('...and record passes, its carry check skipping only that file',
                       'catalogue record' in out and 'held' not in out
                       and rec['upstream']['commit'] == head, out[-1500:]))
@@ -13748,7 +13817,12 @@ def check_update_vendors_leaves_the_copy_its_record_names():
     by a rerun, with the manifest changed since; and the postcondition
     itself, called directly, for a file only the run-to-run record shows
     was an earlier run's deletion; and a run that fails before its staging
-    step, which now records what it wrote and deleted for its rerun.
+    step, which now records what it wrote and deleted for its rerun. Case 1
+    also asserts the copy's fingerprint is recorded once the local-edit
+    rules have run, so the repository's own check finds the kept edit
+    unchanged and names a file put back to older text afterwards
+    (check_copy_fingerprint_is_checked_without_a_clone has the check's own
+    cases).
 
     Negative control, measured 2026-10-08 against
     2026-10-08-update-integrity-y1ktn at 353a946f: the stale files are
@@ -13839,6 +13913,23 @@ def check_update_vendors_leaves_the_copy_its_record_names():
                       and f'process/upstream/{edited}' in _section(out, 'Still your local edit')
                       and not any(f'process/upstream/{r}' in _section(out, 'Still your')
                                   for r in stale), _section(out, 'Still your')))
+        # The fingerprint the consumer's own check compares with, recorded
+        # after the local-edit rules ran: the kept edit is part of it.
+        ck = le._checkin(repo)
+        fp = (json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+              .get('upstream') or {}).get('copy_tree')
+        drift = ck.copy_drift(repo)
+        cases.append(('...and the copy\'s fingerprint is recorded, so the repository\'s '
+                      'own check finds nothing drifted, the kept edit included',
+                      bool(fp) and [d[2] for d in drift] == ['ok']
+                      and 'catalogue fingerprint: recorded' in out, (fp, drift)))
+        fx.commit(repo, 'the update')
+        up(repo, moved).write_bytes(show(seeded, moved))
+        drift = ck.copy_drift(repo)
+        cases.append(('...and a file put back to older upstream text after the update '
+                      'is named as drifted, with no upstream clone',
+                      [(d[2], d[3]) for d in drift] == [('drifted', [(moved, 'changed')])],
+                      drift))
 
         # --- 2. a rerun after the source moved, over an earlier run's mirror
         repo, seeded = build('moved')
@@ -13975,6 +14066,151 @@ def check_update_vendors_leaves_the_copy_its_record_names():
                       (got, rd().get('upstream'))))
     finally:
         fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_copy_fingerprint_is_checked_without_a_clone():
+    """A consuming repository's own check (vendored-copy-matches-record)
+    tells, with no BestPractice clone, that its vendored copy changed after
+    process/manifest.json recorded it: the manifest keeps the copy's git tree
+    id (checkin.COPY_TREE_KEY), and the repository's own history names the
+    files that differ (2026-10-08; Morgan decided it the same day).
+
+    Both directions: a changed, an added and a removed file are each named
+    and fail the check; a file the manifest marks diverged, or precedent.json
+    keeps under kept_template_divergences with a reason, does not (one kept
+    with no reason does); a declined file's copy
+    is still checked, since a decline is judged by upstream's text there; a
+    manifest written before the fingerprint is COULD NOT VERIFY, never a
+    pass or a fail; and recording the fingerprint leaves the repository's own
+    index as it was.
+
+    Negative control, measured 2026-10-08: with copy_drift's per-file
+    comparison made to skip every file, and a missing fingerprint read as a
+    match, the could-not-verify case and the named-files case fail; with the
+    exemption by name removed, the exemption case fails, naming
+    practices/mine.md. On the commit before this one nothing here exists, so
+    the whole check fails."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import checkin as ck
+        import precedent_check as pc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    env = _fixture_git_env()
+    fn = getattr(getattr(pc, 'CHECKS', {}).get('vendored-copy-matches-record'), 'get',
+                 lambda _k: None)('fn')
+    if not hasattr(ck, 'copy_drift') or fn is None:
+        return (False, '0 stated cases',
+                'checkin.copy_drift or the vendored-copy-matches-record check is missing')
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        tree = repo / 'process' / 'upstream'
+        for rel, text in (('practices/a.md', 'a\n'), ('practices/b.md', 'b\n'),
+                          ('templates/t.md', 't\n'), ('templates/u.md', 'u\n'),
+                          ('practices/declined.md', 'd\n'),
+                          ('practices/mine.md', 'm\n')):
+            (tree / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tree / rel).write_text(text, encoding='utf-8')
+        mf = repo / 'process' / 'manifest.json'
+        manifest = {'upstream': {'repo': 'https://example.invalid/BestPractice',
+                                 'vendored_at': 'process/upstream', 'commit': 'a' * 40},
+                    'entries': []}
+        mf.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-qm', 'vendored copy, recorded before the fingerprint existed')
+
+        def run_check():
+            old = pc.ROOT
+            pc.ROOT = repo
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    return fn(None)
+            except pc.NotApplicable as e:
+                return f'not applicable: {e}'
+            finally:
+                pc.ROOT = old
+
+        got = run_check()
+        cases.append(('a manifest with no fingerprint is COULD NOT VERIFY, not a pass '
+                      'or a fail',
+                      isinstance(got, list) and len(got) == 1
+                      and isinstance(got[0], pc.Unverified)
+                      and 'no fingerprint' in got[0].detail, got))
+
+        (tree / 'practices' / 'untracked-scratch.md').write_text('x\n', encoding='utf-8')
+        status_before = g('status', '--porcelain').stdout
+        tid = ck.stamp_copy_tree(mf)
+        status_after = g('status', '--porcelain').stdout
+        cases.append(('recording the fingerprint leaves the repository\'s own index '
+                      'as it was',
+                      bool(tid) and status_before.replace(' M process/manifest.json\n', '')
+                      == status_after.replace(' M process/manifest.json\n', '')
+                      and '?? process/upstream/practices/untracked-scratch.md'
+                      in status_after, (status_before, status_after)))
+        (tree / 'practices' / 'untracked-scratch.md').unlink()
+        ck.stamp_copy_tree(mf)
+        g('add', '-A')
+        g('commit', '-qm', 'the fingerprint recorded')
+        cases.append(('a copy as recorded passes',
+                      run_check() == [] and json.loads(mf.read_text())['upstream']
+                      .get('copy_tree') == g('rev-parse', 'HEAD:process/upstream')
+                      .stdout.strip(), run_check()))
+
+        (tree / 'practices' / 'a.md').write_text('older upstream text\n', encoding='utf-8')
+        (tree / 'practices' / 'b.md').unlink()
+        (tree / 'practices' / 'stray.md').write_text('stray\n', encoding='utf-8')
+        (tree / 'practices' / 'declined.md').write_text('edited\n', encoding='utf-8')
+        (tree / 'practices' / 'mine.md').write_text('my change\n', encoding='utf-8')
+        (tree / 'templates' / 't.md').write_text('kept on purpose\n', encoding='utf-8')
+        (tree / 'templates' / 'u.md').write_text('kept, no reason\n', encoding='utf-8')
+        data = json.loads(mf.read_text(encoding='utf-8'))
+        data['entries'] = [
+            {'practice': 'mine', 'upstream_path': 'practices/mine.md',
+             'local_path': 'process/upstream/practices/mine.md', 'granularity': 'file',
+             'status': 'diverged', 'notes': 'pending export'},
+            {'practice': 'declined', 'upstream_path': 'practices/declined.md',
+             'local_path': None, 'status': 'declined', 'notes': 'not taken'}]
+        mf.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({'kept_template_divergences': {
+            'process/upstream/templates/t.md': {'reason': 'ours on purpose'},
+            'process/upstream/templates/u.md': {'reason': ''}}}),
+            encoding='utf-8')
+        got = run_check()
+        named = {f.where for f in got if isinstance(f, pc.Finding)
+                 and not isinstance(f, pc.Unverified)} if isinstance(got, list) else set()
+        want = {'process/upstream/practices/a.md', 'process/upstream/practices/b.md',
+                'process/upstream/practices/stray.md',
+                'process/upstream/practices/declined.md',
+                'process/upstream/templates/u.md', 'process/manifest.json'}
+        cases.append(('a changed, a removed, an added and a declined file, and one '
+                      'kept with no reason, are each named and fail the check, '
+                      'with the remedy',
+                      want <= named and any('Update Vendors' in f.detail for f in got
+                                            if f.where == 'process/manifest.json'),
+                      sorted(named)))
+        cases.append(('...while a diverged entry\'s file and a kept template '
+                      'divergence are exempt by name',
+                      'process/upstream/practices/mine.md' not in named
+                      and 'process/upstream/templates/t.md' not in named, sorted(named)))
+
+        data['upstream']['copy_tree'] = 'f' * 40
+        mf.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        got = run_check()
+        cases.append(('a copy that differs from a tree this clone lacks fails, saying '
+                      'the files cannot be named here',
+                      isinstance(got, list) and len(got) == 1
+                      and not isinstance(got[0], pc.Unverified)
+                      and 'cannot be named' in got[0].detail, got))
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
@@ -14248,13 +14484,18 @@ def check_update_vendors_resolves_hook_and_engine_path_edits():
         rc, out = fx.update(repo, fx.upstream(seeded, {
             'SETUP.md': sb + b'\nUpstream added this line.\n'}))
         sn = s.read_bytes()
+        # Since 2026-10-08 (Morgan, decided) upstream's version is the
+        # default: taken, with the rest of the edit shown for the session.
+        pref = _section(out, PREFERRED_GROUP)
         cases.append(('a committed edit to a path declared under engine_paths is '
-                      'merged, not refused', bool(sb)
+                      'resolved, not refused: upstream\'s version taken, the rest '
+                      'of the edit shown', bool(sb)
                       and 'hand-edited since the last seed' not in out
-                      and b'A line this repo added.' in sn
+                      and b'A line this repo added.' not in sn
                       and b'Upstream added this line.' in sn
-                      and 'docs/SETUP.md' in _section(out, 'Merged'),
-                      (_section(out, 'Merged') or out)[-2000:]))
+                      and 'docs/SETUP.md' in pref
+                      and '+A line this repo added.' in pref,
+                      (pref or out)[-2000:]))
 
         # A hook, in a real install.
         proj = fx.tmp / 'installed'
@@ -14281,12 +14522,15 @@ def check_update_vendors_resolves_hook_and_engine_path_edits():
             rc, out = fx.update(proj, fx.upstream(m['source_commit'], {
                 f'templates/harness/claude-code/hooks/{hook}': hb + b'\n# upstream: hook\n'}))
             hn = h.read_bytes()
-            cases.append(('a committed edit to a vendored hook is merged, not refused',
+            pref = _section(out, PREFERRED_GROUP)
+            cases.append(('a committed edit to a vendored hook is resolved, not '
+                          'refused: upstream\'s version taken, the rest shown',
                           'hand-edited since the last seed' not in out
-                          and b'# a local fix to this hook' in hn
+                          and b'# a local fix to this hook' not in hn
                           and b'# upstream: hook' in hn
-                          and f'.claude/hooks/{hook}' in _section(out, 'Merged'),
-                          (_section(out, 'Merged') or out)[-2000:]))
+                          and f'.claude/hooks/{hook}' in pref
+                          and '+# a local fix to this hook' in pref,
+                          (pref or out)[-2000:]))
     finally:
         fx.close()
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -14323,7 +14567,9 @@ def check_section0_catalogue_resolves_a_committed_edit():
         after = next(i for i, l in enumerate(lines) if i and l.strip() == '---') + 2
         record = json.dumps({'source_commit': head}).encode()
 
-        # Merge: this repo added a line near the top, upstream one at the end.
+        # This repo added a line near the top, upstream one at the end. Since
+        # 2026-10-08 (Morgan, decided) upstream's version is the default, so
+        # it is taken and the rest of the edit is shown for the session.
         rev = fx.upstream(head, {'practices/park-it.md': base + b'\nUpstream: end.\n'})
         d = _section0_repo(fx.tmp, {
             'practices/park-it.md': _insert(base, 'Mine: near the top.\n', at=after),
@@ -14332,10 +14578,12 @@ def check_section0_catalogue_resolves_a_committed_edit():
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
         f = d / 'precedent' / 'universal' / 'practices' / 'park-it.md'
         got = f.read_bytes()
-        cases.append(('a committed edit merges with upstream\'s change, not refused',
-                      ok is True and not rep.left and b'Mine: near the top.' in got
-                      and b'Upstream: end.' in got
-                      and any(o == 'merged' for o, _r, _t in rep.edits),
+        pref = [t for o, _r, t in rep.edits if o == 'upstream-preferred']
+        cases.append(('a committed edit upstream changed elsewhere is not refused: '
+                      'upstream\'s version is taken, and the rest of the edit shown',
+                      ok is True and not rep.left and got == base + b'\nUpstream: end.\n'
+                      and pref and '+Mine: near the top.' in pref[0]
+                      and ' keep --repo . ' in pref[0],
                       (rep.left, rep.edits, rep.steps)))
 
         # Conflict: both changed the same line.
@@ -21558,6 +21806,33 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'planted dead manifest entry')
 
         case('manifest-entries-resolve', _plant_dead_manifest_entry)
+
+        # vendored-copy-matches-record -- a vendored copy changed after its
+        # record, seen with no upstream clone (2026-10-08). setup() records a
+        # copy and its fingerprint, so the unplanted control passes rather
+        # than reporting COULD NOT VERIFY; the plant puts older text in.
+        def _setup_recorded_copy(repo):
+            f = repo / 'process' / 'upstream' / 'practices' / 'planted.md'
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text('Upstream text at the recorded commit.\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'a vendored copy')
+            m = repo / 'process' / 'manifest.json'
+            m.write_text(json.dumps({'upstream': {
+                'vendored_at': 'process/upstream', 'commit': 'a' * 40,
+                'copy_tree': git(repo, 'rev-parse', 'HEAD:process/upstream')},
+                'entries': []}, indent=2) + '\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'its record')
+
+        def _plant_drifted_copy(repo):
+            (repo / 'process' / 'upstream' / 'practices' / 'planted.md').write_text(
+                'Older upstream text, put back after the record.\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted drift in the vendored copy')
+
+        case('vendored-copy-matches-record', _plant_drifted_copy,
+             setup=_setup_recorded_copy)
 
         # todo-migrate-available-but-unused -- a repo that has the migration
         # tool vendored (an ENGINE_MANIFEST.json declaring a kind, same as a
@@ -51163,6 +51438,15 @@ def check_kept_section_reports_upstreams_change_not_its_lacks():
                       done and len(left) == 1 and 'repin-kept' in left[0][1]
                       and '--confirmed' in left[0][1] and 'set its template_sha256' not in out
                       and '(listed above)' in left[0][1]))
+        # 2026-10-08, Morgan (decided): upstream's wording is the default, and
+        # this repository's is kept only where it does something different
+        # and important -- so a change that reaches the kept lines says so.
+        cases.append(('...and says the default is upstream\'s section, keeping this '
+                      'repository\'s only where it does something different and '
+                      'important', "the default is upstream's" in left[0][1]
+                      and 'different and important' in left[0][1]
+                      and 'remove the kept_template_divergences entry' in left[0][1]
+                      and "the default is upstream's wording" in out))
         sys.path.insert(0, str(ROOT / 'tools'))
         import precedent_update as _pu
         got = _pu.diverged_details(out)
@@ -57239,8 +57523,26 @@ def check_update_vendors_rehearsal_findings():
                             str(proj), '--project-name', 'Notes'], cwd=str(ROOT),
                            env=ienv, capture_output=True, text=True)
         m = json.loads((proj / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
-        hooks = sorted(p.name for p in (proj / '.claude' / 'hooks').glob('*.sh'))
+        # The individual-set bootstrap hook is the person's, not the
+        # engine's: written only where the person running the install has an
+        # individual set (on a machine with its clone, that is this run),
+        # rendered for them, and never in hook_files. Judged apart below.
+        # Until 2026-10-08 this case counted it as an engine hook, so it
+        # failed on any machine with an individual-set clone once install
+        # began wiring that hook (a3a62285), and passed on GitHub.
+        all_hooks = sorted(p.name for p in (proj / '.claude' / 'hooks').glob('*.sh'))
+        hooks = [h for h in all_hooks if h != pve.INDIVIDUAL_HOOK]
         recorded = m.get('hooks_sha256') or {}
+        if pve.INDIVIDUAL_HOOK in all_hooks:
+            st = json.loads((proj / '.claude' / 'settings.json').read_text(encoding='utf-8'))
+            first = [h.get('command', '') for g in st['hooks']['SessionStart']
+                     for h in g.get('hooks', [])][:1]
+            cases.append(('an install by a person with an individual set wires its '
+                          'bootstrap hook first, and leaves it out of the engine record',
+                          bool(first) and pve.INDIVIDUAL_HOOK in first[0]
+                          and pve.INDIVIDUAL_HOOK not in (m.get('hook_files') or []),
+                          f'first SessionStart command={first} '
+                          f'hook_files={m.get("hook_files")}'))
         cases.append(('a fresh install records every hook it wrote, by hash',
                       r.returncode == 0 and bool(hooks)
                       and sorted(m.get('hook_files') or []) == hooks
@@ -66757,6 +67059,9 @@ def main():
           *check_send_carries_a_local_edit_upstream())
     check_local_edits_fetch_the_vendored_commit_from_upstream()
     check_a_sync_deletion_is_not_a_local_edit()
+    check('a consumer\'s own check names a vendored copy that drifted from its '
+          'record, with no upstream clone',
+          *check_copy_fingerprint_is_checked_without_a_clone())
     check('Update Vendors resolves a committed edit to a vendored hook or declared path',
           *check_update_vendors_resolves_hook_and_engine_path_edits())
     check('a section 0 catalogue resolves a committed edit against its own sync record',
