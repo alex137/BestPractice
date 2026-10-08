@@ -149,60 +149,37 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 
 ## Conventions
 
-- **Sections are ordered by the reader's frequency, not the writer's**
-  (practice `section-order-by-frequency`): everyday content first, rare
-  cases last.
-- **PR descriptions come from the diff, not the template** (practice
-  `pr-template-honest-gates`): check a box only when it is true for this
-  change.
-- **Doc references are links** (practice `doc-references-are-links`): in-repo docs reference other
-  repo files as relative markdown links, never bare backticked names. New
-  text always links; a thread touching a document fixes the references in
-  the parts it touches.
-- **`≈`, not `~`, for "approximately"** — two stray tildes render as
-  strikethrough on GitHub. Links stay plain markdown: GitHub strips
-  `target=` and most other attributes from raw HTML anchors in rendered
-  docs, so an "open in new tab" link can't work there (*as of 2026-08*).
-  `python3 tools/doc_lint.py`
-  checks these conventions on files changed vs the default branch; run it on
-  what you touch before committing.
-- **Volatile rules carry their dates** (practice `volatile-rules-carry-dates`): a rule that depends
-  on the outside world (an external platform, someone else's algorithm, a
-  tool quirk) carries *as of / verified `<date>`* inline, and a session
-  that re-confirms it updates the date. The date is the contributor's
-  local calendar date, not the agent's system clock — the two can
-  disagree by a day depending on time of day and timezone; ask if it
-  isn't already clear from context. Old + unverified in a shifting
-  domain = re-verify before relying on it. Rules about model behavior also
-  name the model they were verified on (a model upgrade = re-verify); a
-  durable rule records its tenure and exceptions (*in effect since X; N
-  exceptions, each under Y*) — its survival record is its authority.
-- **Outward-facing documents use the reader's words** (practice
-  `readers-vocabulary`): run it as its own pass after drafting.
-- **Reply convention** (practice `reply-links-files`, reached by the
-  `reply` gate): a reply that touched files ends with a "Files touched"
-  list.
-- **Commits are credited to the human driving the session.** Set the git
-  author to the member's name and GitHub noreply email (ask **before the
-  first commit** if you don't know who you're working for —
+Most conventions here are practices that load when they apply, so this
+section names them rather than restating them;
+`python3 tools/precedent_show.py SLUG` prints any one in full.
+
+- **Sections are ordered by the reader's frequency** (practice
+  `section-order-by-frequency`).
+- **PR descriptions come from the diff** (practice
+  `pr-template-honest-gates`).
+- **Doc references are links, and `≈` means "approximately"** (practice
+  `doc-references-are-links`).
+- **Volatile rules carry their dates** (practice
+  `volatile-rules-carry-dates`).
+- **Outward-facing documents use the reader's words**, checked in a pass
+  of its own after drafting (practice `readers-vocabulary`).
+- **A reply that touched files lists them** (practice `reply-links-files`,
+  through the `reply` gate).
+- **Commits are credited to the human driving the session.** Author each
+  commit as the member, with their name and GitHub noreply email (ask
+  **before the first commit** if you don't know who you're working for:
   `git commit --author="Name <ID+user@users.noreply.github.com>"`), and
-  name yourself in a `Co-Authored-By:` trailer. The project's history
-  must show people's contributions as theirs, not as the agent's; where a
-  hosting platform forces its own committer identity, the author field
-  still records the human. Hosted agent harnesses author commits as the
-  agent unless told otherwise, so a session that never asks mis-attributes
-  silently — a dependent repo's first member PRs all landed authored as
-  the agent this way (*observed 2026-08 on hosted Claude Code sessions*).
-  *(GitHub attributes by author email — verified 2026-08.)*
-- **Open each session by pointing at what's new.** The shared project
-  moves between a member's conversations, and nothing pushes updates into
-  their old chats. At session start, run
-  `python3 tools/precedent_whats_new.py`; if it reports days missing from
-  the project's log, say so in one line (*"2 days of changes aren't in
-  What's new yet -- say 'What's new?'"*). When they ask "what's new?",
-  follow the `whats-new` practice. If their in-progress branch has fallen
-  behind, offer to bring it up to date before continuing (ask, don't just
-  do it — their branch may be mid-thought).
+  name yourself in a `Co-Authored-By:` trailer. Where a platform forces its
+  own committer identity, the author field still records the human. Hosted
+  agent harnesses author commits as the agent unless told otherwise, so a
+  session that never asks mis-attributes silently (*observed 2026-08 on
+  hosted Claude Code sessions; GitHub attributes by author email, verified
+  2026-08*).
+- **Open each session by pointing at what's new:** run
+  `python3 tools/precedent_whats_new.py`, and if it reports days missing
+  from the project's log, say so in one line. If the member's branch has
+  fallen behind, offer to bring it up to date; ask first, since it may be
+  mid-thought.
 
 ## Working in parallel (multi-member repos)
 

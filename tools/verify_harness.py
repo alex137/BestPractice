@@ -23776,6 +23776,33 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'a tier branch, which off the ladder is not a landing':
             'Push it to pre-staging once it is green.',
     }
+    # 2026-10-08: a block that ends at the feature branch may NARRATE a past
+    # landing -- what a session did, what a tool told it -- without that
+    # report being read as an order; every instruction beside it is still
+    # judged, and a claim of the person's word still has to quote it.
+    stop = ('Build it on your feature branch, push it there, and stop; '
+            'open none and land nothing.')
+    told = ('A session had prepared a copy and a tool told it to open a '
+            'pull request to main.')
+    must_fire.update({
+        'narration with no feature-branch ending': 'SITUATION\n' + told,
+        'a feature-branch ending and an order to merge':
+            'SITUATION\n' + told + '\nThen merge it into main.\n' + stop,
+        'an order tacked onto narration':
+            'The tool told it to open a PR to main, so merge it into main.\n' + stop,
+        "the person's word claimed, not quoted":
+            'Morgan said to merge it into main.\n' + stop,
+        'narration addressed to the receiver':
+            'You were told to merge it into main.\n' + stop,
+        'an order with a past participle in it':
+            'Push the merged branch to main.\n' + stop,
+    })
+    clean.update({
+        'narration in a block that ends at the feature branch':
+            'SITUATION\n' + told + '\n' + stop,
+        'a past merge, narrated':
+            'The last session merged its PR into main yesterday.\n' + stop,
+    })
     cases = [(f'fires: {k}', bool(fires(b)), '') for k, b in must_fire.items()]
     cases += [(f'clean: {k}', not fires(b), str(fires(b))[:200]) for k, b in clean.items()]
     cases.append(("clean: the reply's own prose saying where work lands",
@@ -41893,6 +41920,109 @@ def check_agents_templates_repeat_no_practice_text():
                            f'"{quote[:80]}..."')
     check('an AGENTS.md template repeats no practice text, so the update never '
           'asks for a copy session-load-budget then refuses', not bad, '; '.join(bad))
+
+
+def check_agents_templates_conventions_point_to_practices():
+    """A `## Conventions` bullet in an AGENTS.md template that names a
+    practice is a pointer to it: its bold lead, the practice, and a few
+    words more, never the practice's rule said again.
+
+    2026-10-08: taking the loader template's "## Conventions" and "## Practice
+    sources", as Update Vendors asks, added about 1,100 tokens to a
+    consumer's AGENTS.md and failed its landing check, mostly on bullets
+    restating practices that already load when they apply. The verbatim
+    check above did not catch them: they paraphrase. A bullet naming no
+    practice -- template-only instruction such as commit credit -- is not
+    held to this."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    bad = []
+    for rel in ('templates/AGENTS.md.loader.template', 'templates/AGENTS.md.template'):
+        text = (ROOT / rel).read_text(encoding='utf-8')
+        lines = text.split('\n')
+        span = [(a, b) for k, a, b in pve._md_sections(text) if k.strip() == '## Conventions']
+        if len(span) != 1:
+            bad.append(f'{rel}: no single "## Conventions" section')
+            continue
+        for offset, block in pve._md_blocks('\n'.join(lines[span[0][0]:span[0][1]])):
+            slugs = [s for s in re.findall(r'practice\s+`([a-z0-9-]+)`', block)
+                     if (ROOT / 'practices' / f'{s}.md').is_file()]
+            if not slugs or not block.lstrip().startswith(('-', '*')):
+                continue
+            rest = re.sub(r'\*\*.*?\*\*', ' ', block, count=1)
+            rest = re.sub(r'\(practice\s+`[a-z0-9-]+`[^)]*\)', ' ', rest)
+            words = len(re.findall(r"[A-Za-z][\w'-]*", rest))
+            if words > 12:
+                bad.append(f'{rel}:{span[0][0] + offset + 1} names {slugs[0]} and '
+                           f'adds {words} words of its own')
+    check('an AGENTS.md template\'s Conventions bullet naming a practice only '
+          'points to it', not bad, '; '.join(bad))
+
+
+def check_update_seeds_a_ceiling_that_covers_what_it_asks_for():
+    """The AGENTS.md ceiling Update Vendors seeds counts the template
+    sections the same update asks the repo to copy in, so taking them does
+    not fail the ceiling just set; a section left out on an EARLIER run is
+    not asked for and does not count.
+
+    2026-10-08: a consumer copied in the two sections an update listed and
+    its AGENTS.md measured 8,498 against the 8,100 ceiling that update had
+    seeded at the file's size before the copy (practice: session-load-budget).
+    Both directions, read off the seeded note's own measurement so a step
+    that rewrites AGENTS.md first cannot move the expectation."""
+    fx = _KeptDivergenceFixture('precedent-owed-ceiling-')
+    pve, cases = fx.pve, []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    key = '## Conventions'
+
+    def round50(n):
+        return ((int(n * 1.2) + 49) // 50) * 50
+
+    def seeded(repo):
+        reg = json.loads((repo / 'tools' / 'session_load_budgets.json')
+                         .read_text(encoding='utf-8'))
+        e = reg['surfaces']['AGENTS.md']
+        return e['ceiling'], int(re.match(r'(\d+) tokens', e['_note']).group(1))
+    try:
+        tpl = pve._instantiate(fx.template(fx.AGENTS_SRC).decode(),
+                               pve._agents_md_subs(fx.tmp))
+        sec = pve._instantiate(pve._template_sections(
+            fx.template(fx.AGENTS_SRC).decode())[key][1], pve._agents_md_subs(fx.tmp))
+        assert sec in tpl, 'template shape moved; repoint this fixture'
+        owed = bv._approx_tokens(sec)
+
+        repo = fx.consumer('asked', agents=tpl.replace(sec + '\n\n', ''))
+        fx.update(repo)
+        ceiling, measured = seeded(repo)
+        cases.append((f'a section the update lists to copy in is counted: '
+                      f'ceiling {ceiling} >= {round50(measured + owed)}',
+                      ceiling >= round50(measured + owed)))
+
+        repo = fx.consumer('declined', agents=tpl.replace(sec + '\n\n', ''))
+        mf = repo / 'tools' / pve.MANIFEST_NAME
+        data = json.loads(mf.read_text(encoding='utf-8'))
+        data.setdefault(pve.AGENTS_MD_SECTIONS_KEY, {})[key] = None
+        mf.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        fx.sh('git', 'commit', '-qam', 'left out on purpose', cwd=repo)
+        fx.update(repo)
+        ceiling, measured = seeded(repo)
+        cases.append((f'CONTROL: a section left out on an earlier run is not: '
+                      f'ceiling {ceiling} == {round50(measured)}',
+                      ceiling == round50(measured)))
+    except (OSError, ValueError, KeyError, AttributeError) as e:
+        cases.append((f'fixture could not be read: {type(e).__name__}: {e}', False))
+    finally:
+        fx.close()
+    bad = [n for n, ok in cases if not ok]
+    check(f'Update Vendors seeds an AGENTS.md ceiling covering the sections it '
+          f'asks for ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_kept_agents_md_divergence_is_recorded():
@@ -65588,6 +65718,8 @@ def main():
           *check_duplicate_runs_skip_wordless_lines())
     check_kept_agents_md_divergence_is_recorded()
     check_agents_templates_repeat_no_practice_text()
+    check_agents_templates_conventions_point_to_practices()
+    check_update_seeds_a_ceiling_that_covers_what_it_asks_for()
     check_absent_agents_md_section_is_asked_across_self_refresh()
     check_kept_bootstrap_divergence_is_recorded()
     check_legacy_bootstrap_shim_is_replaced()

@@ -211,28 +211,15 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 
 ## Conventions
 
-- **Sections are ordered by the reader's frequency, not the writer's**
-  (practice `section-order-by-frequency`): a
-  document walking through instructions or rules in multiple sections puts
-  common, everyday content first and rare edge cases last.
-- **Doc references are links** (practice `doc-references-are-links`):
-  in-repo docs reference other repo files as
-  relative markdown links, never bare backticked names. Use `≈`, not `~`,
-  for "approximately" — two stray tildes render as strikethrough on GitHub.
-- **Outward-facing documents use the reader's words**
-  (practice `readers-vocabulary`): the deliverable
-  document(s) this project produces are read by an audience outside this
-  repo's own work — every term that names a category is either already the
-  reader's word, a plain equivalent, or glossed inline on first use.
-- **Reply convention** (practice `reply-links-files`, reached by the
-  `reply` gate — this bullet is a pointer, never a second copy to keep in
-  step): every
-  reply that created, modified or deleted files
-  ends with a "Files touched" list, prefaced `Files touched in
-  owner/repo/branch:` (one preface per repository and branch), then branch
-  link + post-merge link + one-line description per file. A **deleted** file is listed too: its
-  path, why it went, and a link to the commit that removed it, since it is
-  the one entry with nothing left on the branch to open.
+- **Sections are ordered by the reader's frequency** (practice
+  `section-order-by-frequency`).
+- **Doc references are links, and `≈` means "approximately"** (practice
+  `doc-references-are-links`).
+- **Outward-facing documents use the reader's words** (practice
+  `readers-vocabulary`): the deliverable document(s) this project produces
+  are read by an audience outside this repo's own work.
+- **A reply that touched files lists them** (practice `reply-links-files`,
+  through the `reply` gate).
 - **Commits are credited to the human driving the session.** Set the git
   author to the contributor's name and GitHub noreply email, and name
   yourself in a `Co-Authored-By:` trailer.

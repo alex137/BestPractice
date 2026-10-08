@@ -363,7 +363,7 @@ def approval_gap(repo):
             '(practice: session-load-budget)')
 
 
-def ensure_session_load_registry(repo):
+def ensure_session_load_registry(repo, owed=None):
     """Seed tools/session_load_budgets.json in a repository that has none.
     -> {surface: measured tokens} when it wrote one, else None.
 
@@ -376,12 +376,17 @@ def ensure_session_load_registry(repo):
     since 2026-09-22; this is the same seed for a repository that uses
     Precedent. Each ceiling is what the surface measures now plus ~20%:
     a watermark declaring the status quo, never a judgment that it is the
-    right size -- reducing it is the reduction pass the practice asks for."""
+    right size -- reducing it is the reduction pass the practice asks for.
+
+    `owed`: {surface: tokens} this same update asks the repo to add (the
+    AGENTS.md template sections it lists, pve.agents_md_owed_text), counted
+    into the measurement: on 2026-10-08 a consumer that copied in what the
+    update listed failed the ceiling the update had just seeded."""
     path = repo / 'tools' / 'session_load_budgets.json'
     if path.exists():
         return None
     import precedent_bootstrap_source as _pbs
-    _pbs._write_session_load_budget(repo, occasion='Update Vendors')
+    _pbs._write_session_load_budget(repo, occasion='Update Vendors', owed=owed)
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
@@ -2663,6 +2668,10 @@ def update(repo, skip_check=False, ref=None):
                                  .read_text(encoding='utf-8')).get('source_commit')
     except (OSError, ValueError):
         last_synced = None
+    # Which AGENTS.md sections were left out on purpose BEFORE this refresh:
+    # the refresh records a newly missing one the same way, so only this
+    # read tells the seeded budget below which ones it is about to ask for.
+    agents_recorded_before = pve.agents_md_recorded(repo)
 
     # 2. The engine, by the consumer's own copy: refresh() takes ROOT from
     # where it sits. It replaces itself and re-runs, so an old copy still
@@ -2994,7 +3003,20 @@ def update(repo, skip_check=False, ref=None):
                  f"personal/README.md#blank-blocklist from {', '.join(dead)}, "
                  f"keeping the sentence (that file exists nowhere)")
 
-    seeded = ensure_session_load_registry(repo)
+    seeded = None
+    if not (repo / 'tools' / 'session_load_budgets.json').exists():
+        try:
+            import build_views as _bv
+            owed_tokens = _bv._approx_tokens(pve.agents_md_owed_text(
+                repo, SOURCE, agents_recorded_before))
+        except Exception:                                    # noqa: BLE001
+            owed_tokens = 0
+        seeded = ensure_session_load_registry(
+            repo, owed={'AGENTS.md': owed_tokens} if owed_tokens else None)
+        if seeded and owed_tokens:
+            rep.step('session-load budget', f"AGENTS.md's ceiling counts the "
+                     f"{owed_tokens:,} tokens of template text this update "
+                     f"asks to be copied in, so taking it stays under it")
     if seeded:
         big = max(seeded.items(), key=lambda kv: kv[1] or 0)
         rep.step('session-load budget', 'tools/session_load_budgets.json '

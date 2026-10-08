@@ -426,7 +426,10 @@ any private source resolved.
 One mechanical check: `prompt-please-landing-authority` in
 `reply_check.json` refuses a paste block that tells
 another session to land, merge, push or open a pull request onto the main
-branch without the person's own words for this handoff quoted in it.
+branch without the person's own words for this handoff quoted in it. In a
+block that ends at the feature branch, a clause that only narrates what a
+session or tool did or was told ("a tool told it to open a pull request to
+main") is not read as an instruction; every other clause still is.
 Otherwise, matching [my-options](my-options.md), there is none: the
 artifact is a chat reply, not a file the tree holds, so whether a given
 reply recognized
