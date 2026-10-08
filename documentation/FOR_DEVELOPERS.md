@@ -460,3 +460,5 @@ reading even if everything above was obvious.
 [PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md) for the full design
 and reasoning behind all of the above. [spec/CANDIDATE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md)
 for the candidate file's exact shape and signal vocabulary.
+[Precedent in One Sentence](ONE_SENTENCE.md) for the whole idea in one
+line, and [the documentation index](README.md) for every page.

@@ -133,4 +133,6 @@ finishes the one task in front of it and teaches nothing past that.
 pitch. [How to Use This — A Guide for Everyone Else](FOR_EVERYONE_ELSE.md)
 and [How to Use This — Technical Guide](FOR_DEVELOPERS.md) are the two
 tracks the links above point into. [How to Use This Day to
-Day](DAILY_HABITS.md) is the short one to keep open.
+Day](DAILY_HABITS.md) is the short one to keep open. [Precedent in One
+Sentence](ONE_SENTENCE.md) is the whole idea in one line, and [the
+documentation index](README.md) lists every page.

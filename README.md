@@ -4,18 +4,12 @@
 machines. ([Humans at our
 Best](https://github.com/alex137/BestPractice/blob/staging/philosophy/HUMANS_AT_OUR_BEST.md))*
 
-Attempts to Describe Precedent in <40 words:
+✍️ **We're trying to capture the concept in 1 sentence -- [see our ideas
+here](documentation/ONE_SENTENCE.md)!** 💡
 
-- **Humans collaborate** and **AI pattern matches**.
-- **All is lost when you close** a Claude/ChatGPT/AI Assistant Session. It
-  should be smartly shared and learned from.
-- AI watches you collaborate, and **suggests (and can enforce)** patterns,
-  protocols, rules.
-- You work; **AI uses github to remember**, organize, and suggest protocols.
-- **Three insights together:** AI intermediates & improves ALL work, you
-  don't write ANYTHING yourself + AI organizes work as you do it in
-  Github + AI finds & suggests rules based on what each of you decides or
-  pushes.
+Our favorite one so far is: *"The intern you taught every little
+preference and policy of yours to, who then remembers it and enforces it
+everywhere."*
 
 The **three biggest frustrations** of working with people and/or AI
 are solved by Precedent:

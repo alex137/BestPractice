@@ -1578,6 +1578,20 @@ REBUILT_BARE = ('tools/build_views.py', 'tools/build_gotcha_index.py',
                 'tools/build_todo_index.py', 'tools/doc_html.py')
 
 
+def _doc_html_in_use(wt):
+    """True where tools/doc_html.py is in force in worktree `wt` -- the one
+    rule precedent_push_check.doc_html_in_use() keeps for whether its
+    package is asked for. Present is not enough: a consumer that declined
+    sortable-table-renderer still receives the vendored file, and a Promote
+    there ran it over the composed tree and failed on a document only
+    BestPractice has (2026-10-08). Unanswerable (the module missing):
+    present counts, as before."""
+    ppc = _sibling('precedent_push_check')
+    if ppc is None or not hasattr(ppc, 'doc_html_in_use'):
+        return (pathlib.Path(wt) / 'tools' / 'doc_html.py').is_file()
+    return ppc.doc_html_in_use(wt)
+
+
 def _generator_of(wt, rel):
     """-> the repo-relative tool that writes `rel` in worktree `wt`, or None
     when `rel` is hand-written. Read from our side of a conflicted file
@@ -1592,7 +1606,7 @@ def _generator_of(wt, rel):
     m = _GENERATED_BY_RE.search(head)
     if m and m.group(1) in REBUILT_BARE and (pathlib.Path(wt) / m.group(1)).is_file():
         return m.group(1)
-    if rel.endswith('.html') and (pathlib.Path(wt) / 'tools' / 'doc_html.py').is_file():
+    if rel.endswith('.html') and _doc_html_in_use(wt):
         src = rel[:-len('.html')] + '.md'
         reg = (pathlib.Path(wt) / 'tools' / 'doc_html.py').read_text(encoding='utf-8')
         if re.search(r"\(\s*['\"]" + re.escape(src) + r"['\"]", reg):
@@ -1649,7 +1663,7 @@ def _drop_stamp_only_changes(wt):
 def _rebuild_generated(wt, say):
     """Run, over the composed sources in worktree `wt`, every generator it
     uses that rebuilds bare (REBUILT_BARE): the ones named in a
-    `generated_by:` header, and doc_html where it is present. -> the tracked
+    `generated_by:` header, and doc_html where it is in use. -> the tracked
     files that came out different, apart from build stamps; [] when every
     generated file was already current.
 
@@ -1661,7 +1675,7 @@ def _rebuild_generated(wt, say):
         m = _GENERATED_BY_RE.match(line)
         if m and m.group(1) in REBUILT_BARE and (pathlib.Path(wt) / m.group(1)).is_file():
             tools.add(m.group(1))
-    if (pathlib.Path(wt) / 'tools' / 'doc_html.py').is_file():
+    if _doc_html_in_use(wt):
         tools.add('tools/doc_html.py')
     # doc_html last: it renders documents the others may have just rewritten.
     for tool in sorted(tools, key=lambda t: (t == 'tools/doc_html.py', t)):

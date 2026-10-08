@@ -149,4 +149,6 @@ Precedent)](WHY_PRECEDENT.md) for the bigger picture. [How to
 Use This — A Guide for Everyone
 Else](FOR_EVERYONE_ELSE.md) for how an idea becomes an
 official rule and who approves it. [How to Use This —
-Technical](FOR_DEVELOPERS.md) if you want the mechanics.
+Technical](FOR_DEVELOPERS.md) if you want the mechanics. [Precedent in One
+Sentence](ONE_SENTENCE.md) for the whole idea in one line, and [the
+documentation index](README.md) for every page.
