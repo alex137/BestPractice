@@ -8466,6 +8466,8 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
     import very_deep_check as _vdc
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-retired-'))
     cases = []
+    # This machine's own person must not decide a case.
+    NOBODY = ({}, [])
 
     def practice(where, slug):
         d = fx / where / 'practices'
@@ -8497,9 +8499,9 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
                '  ]\n}\n')
         pj = fx / 'repo' / 'precedent.json'
         pj.write_text(cfg, encoding='utf-8')
-        dropped, kept = _pve.drop_retired_sources(fx / 'repo', apply=False)
+        dropped, kept = _pve.drop_retired_sources(fx / 'repo', apply=False, person=NOBODY)
         cases.append(('a dry run writes nothing', pj.read_text(encoding='utf-8') == cfg))
-        dropped, kept = _pve.drop_retired_sources(fx / 'repo')
+        dropped, kept = _pve.drop_retired_sources(fx / 'repo', person=NOBODY)
         names = [s['name'] for s in json.loads(pj.read_text(encoding='utf-8'))['sources']]
         cases.append(('a set that says it is retired, whose rules universal '
                       'carries, is dropped', 'folded' not in names
@@ -8512,7 +8514,7 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
         cases.append(('the file keeps its own comments and layout',
                       '"_note": "kept as written"' in pj.read_text(encoding='utf-8')))
         practice('uni', 'live-rule')
-        dropped, _k = _pve.drop_retired_sources(fx / 'repo', archived={'live'})
+        dropped, _k = _pve.drop_retired_sources(fx / 'repo', archived={'live'}, person=NOBODY)
         names = [s['name'] for s in json.loads(pj.read_text(encoding='utf-8'))['sources']]
         cases.append(('a set GitHub reports archived is dropped once its rules '
                       'are carried -- here the last entry in the list',
@@ -8529,7 +8531,7 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
             {'level': 'shared', 'name': 'twin-a', 'path': '../twin-a'},
             {'level': 'shared', 'name': 'twin-b', 'path': '../twin-b'}]}),
             encoding='utf-8')
-        d2, k2 = _pve.drop_retired_sources(fx / 'repo2', apply=False)
+        d2, k2 = _pve.drop_retired_sources(fx / 'repo2', apply=False, person=NOBODY)
         cases.append(('two retired sets holding the same rule do not vouch for '
                       'each other: both are kept', not d2 and len(k2) == 2))
         cases.append(('archived_declared_sources never turns an unanswered '
@@ -8542,9 +8544,58 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
         cases.append(('the very deep check reports it and writes nothing',
                       'RETIRED SETS' in inspect.getsource(_vdc)
                       and 'ARCHIVED_SOURCES, apply=False' in inspect.getsource(_vdc)))
+
+        # A PERSON'S DELETED SETS (Morgan, 2026-10-08). The person's individual
+        # set lists a set as deleted: it is dropped even with no clone left
+        # to read, and even holding a rule nothing else carries; and a rule
+        # the person's own set carries counts as carried.
+        practice('mine', 'carried-by-me')
+        practice('carried', 'carried-by-me')
+        manifest('carried', True)
+        pj3 = fx / 'repo3' / 'precedent.json'
+        pj3.parent.mkdir()
+        pj3.write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'uni', 'path': '../uni'},
+            {'level': 'shared', 'name': 'carried', 'path': '../carried'},
+            {'level': 'shared', 'name': 'vanished', 'path': '../vanished'},
+            {'level': 'shared', 'name': 'orphaning', 'path': '../orphaning'}]}),
+            encoding='utf-8')
+        person = ({'vanished': {'date': '2026-10-08', 'reason': ''},
+                   'orphaning': {'date': '2026-10-08', 'reason': ''}},
+                  [fx / 'mine'])
+        d3, k3 = _pve.drop_retired_sources(fx / 'repo3', person=person)
+        left = [x['name'] for x in json.loads(pj3.read_text(encoding='utf-8'))['sources']]
+        cases.append(('a set the person deleted is dropped though its clone '
+                      'is gone', 'vanished' not in left))
+        cases.append(('...and though it holds a rule nothing else carries -- '
+                      'the person said so', 'orphaning' not in left and not k3))
+        cases.append(("a retired set whose rule only the person's own set "
+                      'carries is dropped', 'carried' not in left))
+        cases.append(('universal is never dropped', 'uni' in left))
+        # Every session stops loading and cloning a deleted set at once.
+        import precedent_resolve as _pr
+        ind = fx / 'ind'
+        ind.mkdir()
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'ind', 'deleted_sets': [{'name': 'vanished', 'date': '2026-10-08'}]}),
+            encoding='utf-8')
+        ucfg = fx / 'user.json'
+        ucfg.write_text(json.dumps({'individual': {'path': str(ind)}}), encoding='utf-8')
+        cases.append(('deleted_sets reads the person\'s list',
+                      list(_pr.deleted_sets(user_config=ucfg)) == ['vanished']))
+        (fx / 'repo4').mkdir()
+        (fx / 'repo4' / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'vanished', 'path': '../vanished'},
+            {'level': 'shared', 'name': 'live', 'path': '../live'}]}), encoding='utf-8')
+        names = [n for _p, _l, n, _note in _pr.declared_source_paths(fx / 'repo4', ucfg)]
+        cases.append(('the freshness guard no longer checks a deleted set',
+                      'vanished' not in names and 'live' in names, names))
+        loaded = [x['name'] for x in _pr.load_config(fx / 'repo4', user_config=str(ucfg))]
+        cases.append(('a session no longer loads a deleted set',
+                      'vanished' not in loaded, loaded))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
-    bad = [n for n, ok in cases if not ok]
+    bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'a retired or archived set is dropped only when no rule is lost '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 

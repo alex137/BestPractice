@@ -3922,14 +3922,39 @@ def _active_practice_slugs(clone):
     return out
 
 
-def retired_sources(dest_root, archived=()):
+def _person_sets():
+    """-> (deleted {name: info}, [carrier paths]) for the person running this:
+    the sets their individual set says they deleted, and the individual set
+    with every set it brings, which carry rules wherever that person works.
+    Both empty when the engine's resolver or the user config is not there."""
+    try:
+        import precedent_resolve as pr
+    except Exception:                                           # noqa: BLE001
+        return {}, []
+    gone = pr.deleted_sets()
+    ind = pr.person_individual_path()
+    carriers = []
+    if ind is not None and ind.is_dir():
+        carriers.append(ind)
+        carriers += [pathlib.Path(b['path']) for b in pr.brought_sources(ind, warn=False)]
+    return gone, carriers
+
+
+def retired_sources(dest_root, archived=(), person=None):
     """-> [(name, path, why, uncarried)] for every shared or individual
     source `dest_root`'s precedent.json declares that is retired: it says so
     itself (source_retirement), or its name is in `archived` (what GitHub
-    reported, which only the caller can ask). `uncarried` is the sorted list
-    of its active practices that no OTHER declared source carries as active;
-    empty means dropping the declaration loses no rule. A source whose clone
-    cannot be read declares nothing, so it is never listed here."""
+    reported, which only the caller can ask), or the person running this
+    deleted it (precedent_resolve.deleted_sets) -- the one case a source with
+    no readable clone is listed, since its repository may be gone. `uncarried`
+    is the sorted list of its active practices that no OTHER declared source
+    carries as active, nor the person's own individual set or a set it
+    brings (2026-10-08: a rule a repo's sets dropped while the person's own
+    set carried it read as lost); empty means dropping the declaration loses
+    no rule. A deleted set is dropped whatever `uncarried` says (the
+    person's word), and the caller names what it held. `person` is
+    _person_sets()'s answer, for a test; None asks it."""
+    gone, carriers = _person_sets() if person is None else person
     root = pathlib.Path(dest_root)
     try:
         cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
@@ -3948,7 +3973,11 @@ def retired_sources(dest_root, archived=()):
             continue
         name, clone = str(s.get('name') or ''), where(s)
         ret = source_retirement(clone)
-        if ret is not None:
+        if s.get('level') == 'shared' and name in gone:
+            info = gone[name]
+            why = ('you deleted it' + (f' ({info["date"]})' if info.get('date') else '')
+                   + ' -- your individual set lists it in deleted_sets')
+        elif ret is not None:
             why = 'it says it is retired'
             if ret.get('date'):
                 why += f' (since {ret["date"]}'
@@ -3970,21 +3999,31 @@ def retired_sources(dest_root, archived=()):
                     or str(o.get('name') or '') in set(archived)):
                 continue
             elsewhere |= _active_practice_slugs(where(o)) or set()
+        for c in carriers:
+            if (c.resolve() != clone and source_retirement(c) is None
+                    and c.name not in gone):
+                elsewhere |= _active_practice_slugs(c) or set()
         out.append((name, str(s.get('path') or ''), why,
                     sorted(mine - elsewhere)))
     return out
 
 
-def drop_retired_sources(dest_root, archived=(), apply=True):
+# The words retired_sources gives a set the person deleted; such a set is
+# dropped whether or not every rule it held is carried elsewhere.
+DELETED_WHY = 'your individual set lists it in deleted_sets'
+
+
+def drop_retired_sources(dest_root, archived=(), apply=True, person=None):
     """Remove from precedent.json each retired source (retired_sources)
     whose active practices are all carried by another declared source.
     -> (dropped, kept): dropped [(name, path, why)], kept [(name, path, why,
     uncarried)] -- a retired set still holding a rule nothing else carries
     stays declared, and the caller names that rule. With apply=False,
     nothing is written: what would happen is returned."""
-    found = retired_sources(dest_root, archived)
-    dropped = [(n, p, w) for n, p, w, u in found if not u]
-    kept = [f for f in found if f[3]]
+    found = retired_sources(dest_root, archived, person=person)
+    deleted = DELETED_WHY
+    dropped = [(n, p, w) for n, p, w, u in found if not u or deleted in w]
+    kept = [f for f in found if f[3] and deleted not in f[2]]
     if not dropped or not apply:
         return dropped, kept
     path = pathlib.Path(dest_root) / 'precedent.json'

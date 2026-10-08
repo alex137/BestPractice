@@ -795,6 +795,60 @@ def source_provides(path):
     return {str(x) for x in got} if isinstance(got, list) else set()
 
 
+# SETS A PERSON HAS DELETED (Morgan, 2026-10-08, strength: decided). "remove
+# repo maintenance and repo working style from being opened in any repo of
+# mine ... I am about to delete them. They should no longer be cited or
+# mentioned." A set that marks itself `retired` is dropped by Update Vendors
+# only while its clone can still be read, and once its repository is
+# deleted nothing can read that mark: every repository declaring it would
+# try to clone it at every session start, forever. So the PERSON says it,
+# once, in their individual set's precedent-source.json:
+#
+#   "deleted_sets": [{"name": <slug>, "date": <ISO>, "reason": <text>}]
+#
+# and every session of theirs, in every repository, stops loading, cloning
+# and freshness-checking those sets at once; Update Vendors removes them from
+# each precedent.json it runs in (precedent_vendor_engine.retired_sources).
+# Only a shared set can be named: universal, the individual set itself and a
+# repo-local source are never dropped this way.
+DELETED_SETS_KEY = 'deleted_sets'
+
+
+def person_individual_path(user_config=None):
+    """-> the person's individual set path from the user-level config, or
+    None. Reads the file only: no self-heal, no clone."""
+    cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
+        os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()
+    try:
+        ind = json.loads(cfg_path.read_text(encoding='utf-8')).get('individual')
+    except (OSError, ValueError, AttributeError):
+        return None
+    if isinstance(ind, dict) and ind.get('path'):
+        return pathlib.Path(ind['path']).expanduser()
+    return None
+
+
+def deleted_sets(individual_path=None, user_config=None):
+    """-> {name: {"date": ..., "reason": ...}} for every shared set the person
+    has said is deleted (DELETED_SETS_KEY in their individual set's
+    precedent-source.json); {} when none, or nothing can be read."""
+    path = (pathlib.Path(individual_path) if individual_path
+            else person_individual_path(user_config))
+    if path is None:
+        return {}
+    try:
+        man = json.loads((path / SOURCE_MANIFEST).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    raw = man.get(DELETED_SETS_KEY) if isinstance(man, dict) else None
+    out = {}
+    for e in raw if isinstance(raw, list) else []:
+        if isinstance(e, dict) and isinstance(e.get('name'), str) and e['name'].strip():
+            out[e['name'].strip()] = {'date': str(e.get('date') or ''),
+                                      'reason': str(e.get('reason') or '')}
+    return out
+
+
 # What a `brings` URL may look like. Anything else -- above all a string that
 # starts with "-", which git would read as an option to `git clone` rather
 # than a repository -- is skipped, never handed to git.
@@ -853,7 +907,8 @@ def brought_sources(individual_path, warn=True):
         out.append({'level': 'shared', 'name': name,
                     'path': str(home / name),
                     'repo': url.strip(), 'brought': True})
-    return out
+    gone = deleted_sets(individual_path)
+    return [b for b in out if b.get('name') not in gone]
 
 
 def declared_source_paths(repo, user_config=None):
@@ -874,11 +929,14 @@ def declared_source_paths(repo, user_config=None):
         cfg = json.loads((repo_root / REPO_CONFIG).read_text(encoding='utf-8'))
     except (OSError, ValueError):
         cfg = {}
+    gone = deleted_sets(user_config=user_config)
     for entry in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
         if not isinstance(entry, dict) or not entry.get('path'):
             continue
         level = normalize_level(entry.get('level'))
         if level in ('repo-local', 'individual'):
+            continue
+        if level == 'shared' and entry.get('name') in gone:
             continue
         path = _declared_path(repo_root, entry['path'])
         if path == repo_root:
@@ -1113,6 +1171,12 @@ def load_config(repo, user_config=None):
                 if pathlib.Path(b['path']).resolve() == repo_root:
                     continue
                 sources.append(b)
+    gone = deleted_sets(entry['path'] if entry is not None else None,
+                        user_config=user_config)
+    if gone:
+        sources = [s for s in sources
+                   if not (normalize_level(s['level']) == 'shared'
+                           and s['name'] in gone)]
     if no_ladders():
         # D13: everything that provides the ladder leaves the session,
         # wherever it was declared.

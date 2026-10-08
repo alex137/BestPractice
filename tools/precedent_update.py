@@ -510,6 +510,10 @@ def retired_sources_step(repo, rep):
     dropped, kept = pve.drop_retired_sources(repo, archived)
     names = [n for n, _p, _w in dropped]
     for name, path, why in dropped:
+        if getattr(pve, 'DELETED_WHY', '\0') in why:
+            rep.step('retired set', f'{name} ({path}) is no longer declared in '
+                     f'precedent.json: {why}')
+            continue
         rep.step('retired set', f'{name} ({path}) is no longer declared in '
                  f'precedent.json: {why}, and every active rule it held is in '
                  f'force in another declared source')
