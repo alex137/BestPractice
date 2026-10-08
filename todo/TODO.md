@@ -147,6 +147,7 @@ as_of: 2026-10-07
 | [`todo-2026-10-06-deal-harness-checks-by-measured-time`](todo-2026-10-06-deal-harness-checks-by-measured-time.md) | `verify_harness.py --as-ci` (and now a bare `--all`) deals the rest shard's | 1d | wait |  |
 | [`todo-2026-10-06-freshness-notice-said-behind-for-current-clones`](todo-2026-10-06-freshness-notice-said-behind-for-current-clones.md) | A consumer session (2026-10-05/06) reported that its | 1d | wait | the next time a session-start notice calls a clone BEHIND that is current minute… |
 | [`todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here`](todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here.md) | Two practices in force now read differently on the same moment. | 1d | ask | a decision by Morgan (owner of upstream-bug-stops-here) and Alex (who approved t… |
+| [`todo-2026-10-07-main-push-test-reruns-a-tree-its-pull-request-passed`](todo-2026-10-07-main-push-test-reruns-a-tree-its-pull-request-passed.md) | Merging a Promote's pull request into `main` starts deep-check.yml's push | 0d | ask |  |
 
 ## Decisions (the Person's Call)
 
