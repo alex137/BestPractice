@@ -2455,8 +2455,8 @@ def realign_catalogue_record(repo, wrote, back):
     older copy against that commit -- every file "a local edit upstream has
     not changed", kept (2026-10-08, a consuming repository: 440 files).
     Only the keys checkin.py record writes (commit, synced_from, _note,
-    copy_tree) go back to HEAD's, and only when no other key of `upstream` differs, so a
-    decline or any other change of the person's stays."""
+    copy_tree) go back to HEAD's, and only when no other key of `upstream`
+    differs, so a decline or any other change of the person's stays."""
     rel = 'process/manifest.json'
     if rel not in wrote or rel in back:
         return None

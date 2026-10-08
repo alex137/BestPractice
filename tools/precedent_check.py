@@ -11006,7 +11006,9 @@ def _vendored_copy_matches_record(ctx):
                                   f'(upstream.copy_tree) -- it was written before '
                                   f'the fingerprint existed, so nothing here can '
                                   f'tell whether the copy has changed since. The '
-                                  f'next Update Vendors records one'))
+                                  f'next Update Vendors records one (for a shared '
+                                  f'set\'s mirror, the next checkin.py --source '
+                                  f'record)'))
         elif state == 'unreadable':
             out.append(Unverified(manifest, f'{detail}, so the copy could not be '
                                   f'compared with its recorded fingerprint'))
