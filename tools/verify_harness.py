@@ -3229,11 +3229,22 @@ def check_workflow_growth_needs_the_persons_words():
                                                    '  push:\n'), True),
             ('a schedule added', base.replace('  push:\n', '  schedule:\n    - cron: "0 3 * * *"\n  push:\n'), True),
             ('a job added', base + '  more:\n    runs-on: ubuntu-latest\n', True),
+            ('a job renamed', base.replace('  check:\n', '  verify:\n'), False),
+            ('a job renamed and another added',
+             (base + '  more:\n    runs-on: ubuntu-latest\n').replace('  check:\n', '  a:\n'),
+             True),
+            ('a matrix added', base.replace('    runs-on: ubuntu-latest\n',
+                                            '    strategy:\n      matrix:\n        part: [1, 2]\n'
+                                            '    runs-on: ubuntu-latest\n'), True),
             ('an event removed', base.replace('  push:\n    branches: [main]\n', ''), False)):
         got = pc._workflow_growth(base, after)
         cases.append((f'{name}: {"grows" if grows else "adds no CI work"}',
                       bool(got) == grows, str(got)))
     cases.append(('a new workflow is all growth', bool(pc._workflow_growth(None, base)), ''))
+    two = base + '  more:\n    runs-on: ubuntu-latest\n'
+    cases.append(('two jobs folded into one new one adds no CI work',
+                  not pc._workflow_growth(two, base.replace('  check:\n', '  one:\n')),
+                  str(pc._workflow_growth(two, base.replace('  check:\n', '  one:\n')))))
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='workflow-growth-'))
     try:
