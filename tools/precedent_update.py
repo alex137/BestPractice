@@ -28,7 +28,10 @@ THE STEPS, with no question in between:
   0. a journal an earlier run left when it was killed mid-swap is
      replayed, so this repo's local edits are back before anything reads
      the tree
-  1. the source clone fetches the branch every install follows
+  1. the source clone fetches the branch every install follows, and the
+     commit this run takes is recorded: until a run reports DONE, a rerun
+     takes that same commit, so an update worked over several rounds does
+     not chase a moving branch (--move takes the newest commit instead)
   2. the engine refresh (the consumer's own copy, which replaces itself and
      runs a second pass), with each committed local edit to an engine file
      resolved around it by precedent_local_edits.py -- kept, merged, or
@@ -1607,6 +1610,8 @@ class Report:
         self.warnings = []   # passed now, refused at a later tier
         self.repo = None     # set with `staged` once stage_update has run
         self.staged = []     # the paths this run staged as its own
+        self.pin = None      # (repo, commit, branch): the commit reruns take
+        self.pin_repo = None # whose pin a DONE drops, --from-ref runs included
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -1663,7 +1668,18 @@ class Report:
             for line in lines:
                 print(f"  {line}")
 
+    def _pinned(self):
+        if self.pin:
+            _repo, commit, branch = self.pin
+            print(f"\nPINNED: a rerun takes {branch} @ {commit[:12]} again, the "
+                  f"commit this update started from, until a run reports DONE "
+                  f"-- so the target does not move while you work what is "
+                  f"left. To take {branch}'s newest commit instead, run it "
+                  f"with --move.")
+
     def close(self, failed=None):
+        if self.pin_repo is not None and not failed and not self.left:
+            clear_pin(self.pin_repo)   # DONE: the next update starts fresh
         if failed and self.repo is not None and self.staged:
             # Only a FAILED run's output is put back by the next one. A run
             # that left items for the person staged answers the next run
@@ -1691,6 +1707,7 @@ class Report:
                     print(f"  - {what}: {why}")
                     for line in self.details.get(what, []):
                         print(f"    {line}")
+            self._pinned()
             print(f"\nFAILED: {failed}")
             print("Nothing is committed. Fix what is named above and run this "
                   "again as it is: what this run staged and you have not "
@@ -1707,6 +1724,7 @@ class Report:
                 print(f"  - {what}: {why}")
                 for line in self.details.get(what, []):
                     print(f"    {line}")
+            self._pinned()
             if self.loud:
                 self._banner()
             return LEFT
@@ -2084,19 +2102,99 @@ def _content_hash(path):
         return None
 
 
-def record_staged_output(repo, paths):
-    """Write down, in the git directory, what this run staged and what each
-    path held when it stopped: the hash of its content, or None for a path
-    it deleted. restore_own_staged_output() reads it at the next run."""
+def _read_record(repo):
+    """-> the run-to-run record in the git directory, {} when there is none.
+    One file for everything a rerun takes from an earlier run of the same
+    update: `paths`, what a FAILED run staged (record_staged_output), and
+    `pin`, the source commit the update started from (record_pin)."""
+    rec = _staged_record_path(repo)
+    try:
+        data = json.loads(rec.read_text(encoding='utf-8')) if rec else {}
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_record(repo, data):
     rec = _staged_record_path(repo)
     if rec is None:
         return
     try:
-        rec.write_text(json.dumps({'paths': {p: _content_hash(repo / p)
-                                             for p in sorted(paths)}},
-                                  indent=1) + '\n', encoding='utf-8')
+        if data:
+            rec.write_text(json.dumps(data, indent=1) + '\n', encoding='utf-8')
+        elif rec.is_file():
+            rec.unlink()
     except OSError:
         pass
+
+
+def record_staged_output(repo, paths):
+    """Write down, in the git directory, what this run staged and what each
+    path held when it stopped: the hash of its content, or None for a path
+    it deleted. restore_own_staged_output() reads it at the next run."""
+    data = _read_record(repo)
+    data['paths'] = {p: _content_hash(repo / p) for p in sorted(paths)}
+    _write_record(repo, data)
+
+
+def held_pin(repo):
+    """-> {'commit', 'branch'} an unfinished update of `repo` is pinned to,
+    or None.
+
+    WHY (2026-10-08, a consuming repository). Every run fetched the branch
+    it follows again, so an update that took several rounds of LEFT FOR YOU
+    chased a moving target: it started at one commit of main and finished
+    against another, and a decline already settled came back, because
+    upstream had changed that file again in between. The first run of an
+    update now records the commit it read; each rerun takes that same
+    commit until one reports DONE, or until it is told to move (--move)."""
+    pin = _read_record(repo).get('pin')
+    if isinstance(pin, dict) and pin.get('commit') and pin.get('branch'):
+        return pin
+    return None
+
+
+def record_pin(repo, commit, branch):
+    data = _read_record(repo)
+    data['pin'] = {'commit': commit, 'branch': branch}
+    _write_record(repo, data)
+
+
+def take_pin(repo, follow, move=False):
+    """-> (commit or None, what to say on the source line) for a run with no
+    --from-ref: the commit an unfinished update of `repo` is pinned to, or
+    None to read `follow`'s tip as before. A pin on another branch (the repo
+    now follows a different one), one the source clone no longer holds, and
+    one --move was asked to drop, are dropped, and said."""
+    pin = held_pin(repo)
+    if not pin:
+        return None, None
+    commit, branch = pin['commit'], pin['branch']
+    rc, tip = run(['git', '-C', str(SOURCE), 'rev-parse', f'origin/{follow}'], SOURCE)
+    tip = tip.strip() if rc == 0 else ''
+    if move:
+        clear_pin(repo)
+        return None, (f'moved, as asked, off {commit[:12]}, the commit an earlier '
+                      f'run of this update started from')
+    if branch != follow:
+        clear_pin(repo)
+        return None, (f'an earlier run was pinned to {branch} @ {commit[:12]}, and '
+                      f'this repo now follows {follow}, so it starts from {follow}')
+    if run(['git', '-C', str(SOURCE), 'cat-file', '-e', f'{commit}^{{commit}}'],
+           SOURCE)[0] != 0:
+        clear_pin(repo)
+        return None, (f'the commit an earlier run was pinned to, {commit[:12]}, is '
+                      f'not in {SOURCE}, so it starts from the tip')
+    if tip and tip != commit:
+        return commit, (f'pinned: the commit this update started from. {follow} '
+                        f'has moved on to {tip[:12]}; --move takes it')
+    return commit, 'pinned: the commit this update started from, still the tip'
+
+
+def clear_pin(repo):
+    data = _read_record(repo)
+    if data.pop('pin', None) is not None:
+        _write_record(repo, data)
 
 
 def vendored_layer_paths(repo, paths):
@@ -2143,12 +2241,9 @@ def restore_own_staged_output(repo, select):
     run staged stays, because a later run builds on it -- the template
     sections a run recorded as left out on purpose are how the next run
     knows not to ask again."""
-    rec = _staged_record_path(repo)
-    if rec is None or not rec.is_file():
-        return []
-    try:
-        paths = json.loads(rec.read_text(encoding='utf-8')).get('paths') or {}
-    except (OSError, ValueError):
+    data = _read_record(repo)
+    paths = data.pop('paths', None) or {}
+    if not paths:
         return []
     g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
                                   capture_output=True, text=True)
@@ -2164,10 +2259,7 @@ def restore_own_staged_output(repo, select):
             if f.is_file():
                 f.unlink()
         back.append(rel)
-    try:
-        rec.unlink()
-    except OSError:
-        pass
+    _write_record(repo, data)    # what else it holds (the pin) stays
     return back
 
 
@@ -2602,8 +2694,9 @@ def tiers_step(repo, rep):
                  'pre-staging, staging and main all present')
 
 
-def update(repo, skip_check=False, ref=None):
+def update(repo, skip_check=False, ref=None, move=False):
     rep = Report()
+    rep.pin_repo = repo
     elsewhere = source_is_its_own_clone()
     if elsewhere:
         return rep.close(f"this copy of precedent_update.py sits in {SOURCE}, "
@@ -2664,11 +2757,22 @@ def update(repo, skip_check=False, ref=None):
         if rc != 0:
             return rep.close(f"could not fetch origin/{follow} in "
                              f"{SOURCE}:\n{tail(out, repo=repo)}")
+    # An unfinished update keeps the commit it started from (held_pin); an
+    # explicit --from-ref neither reads nor moves it.
+    pinned, said = (None, None) if ref else take_pin(repo, follow, move)
     rc, head = run(['git', '-C', str(SOURCE), 'rev-parse',
-                    ref or f'origin/{follow}'], SOURCE)
+                    ref or pinned or f'origin/{follow}'], SOURCE)
     head_ok = rc == 0
-    rep.step('source', f"{follow} @ {head.strip()[:12]}" if head_ok
-             else f"could not read {ref or 'origin/' + follow}")
+    rep.step('source', (f"{follow} @ {head.strip()[:12]}" if head_ok
+                        else f"could not read {ref or pinned or 'origin/' + follow}")
+             + (f" -- {said}" if said else ''))
+    if ref is None and head_ok:
+        record_pin(repo, head.strip(), follow)
+        rep.pin = (repo, head.strip(), follow)
+    # What the catalogue is mirrored from: the commit read just above, the
+    # one the engine is handed too -- never a second read of the branch by
+    # checkin.py update's own fetch, which a pinned rerun would undo.
+    take = ref or (head.strip() if head_ok else None)
 
     # The commit the vendored engine -- and so a section 0 catalogue, which
     # moves with it -- was last synced from. Read now: step 2 rewrites it.
@@ -2820,7 +2924,7 @@ def update(repo, skip_check=False, ref=None):
         swap = le.Swap(repo, [] if unjudged else edits)
         with swap:
             rc, out = run(checkin + ['update', str(SOURCE), '--repo', str(repo)]
-                          + (['--from-ref', ref] if ref else []), repo)
+                          + (['--from-ref', take] if take else []), repo)
             for item in left_block(out):
                 rep.leave('a decline to decide again', item)
             if rc == 0:
@@ -2832,7 +2936,7 @@ def update(repo, skip_check=False, ref=None):
                     resolving += ['--resolving', e.upstream_rel]
                 rc2, out2 = run(checkin + ['record', str(SOURCE), '--repo', str(repo),
                                            '--note', 'Update Vendors'] + resolving
-                                + (['--from-ref', ref] if ref else []), repo)
+                                + (['--from-ref', take] if take else []), repo)
                 if rc2 == 0:
                     rep.add_edits(le.resolve(repo, swap), swap.merges)
         if rc != 0:
@@ -3270,6 +3374,10 @@ def main(argv=None):
     ap.add_argument('--from-ref', default=None,
                     help='vendor this commit of the source instead of its '
                          f'origin/{pve.SOURCE_BRANCH} -- for testing a commit')
+    ap.add_argument('--move', action='store_true',
+                    help='an unfinished update reruns against the commit it '
+                         'started from until it reports DONE; take the '
+                         'followed branch\'s newest commit instead')
     a = ap.parse_args(argv)
     repo = pathlib.Path(a.repo).resolve()
     if repo == SOURCE:
@@ -3277,7 +3385,11 @@ def main(argv=None):
               "Run it from the consuming repo: "
               "python3 ../BestPractice/tools/precedent_update.py --repo .")
         return FAILED
-    return update(repo, skip_check=a.skip_check, ref=a.from_ref)
+    if a.move and a.from_ref:
+        print("precedent_update FAIL: --move and --from-ref both say which "
+              "commit to take; pass one.")
+        return FAILED
+    return update(repo, skip_check=a.skip_check, ref=a.from_ref, move=a.move)
 
 
 if __name__ == '__main__':
