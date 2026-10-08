@@ -509,6 +509,31 @@ def _record_hooks(dest):
             if written else 'hooks tracked: none wired')
 
 
+def _individual_hook(dest):
+    """Write and wire the individual-set bootstrap hook the way a refresh
+    does (precedent_vendor_engine._apply_individual_hook), before the sync,
+    so the sync judges a wired hook rather than warning about an unwired one.
+
+    Until 2026-10-08 nothing in an install did: the sync brought the hook
+    file in with the individual set's harness adapter and left it unwired,
+    so a fresh install's first full check failed the individual set's own
+    check for it ("no SessionStart hook entry ... references it"), and no
+    session ran the hook until a later Update Vendors wired it. Add-only,
+    and a no-op for a person with no individual set."""
+    rc, commit, _ = _git(ROOT, 'rev-parse', 'HEAD')
+    if rc != 0:
+        return None
+    import contextlib
+    import io
+    with contextlib.redirect_stdout(io.StringIO()):
+        written = precedent_vendor_engine._apply_individual_hook(
+            dest, 'consumer', ROOT, commit)
+    if not written:
+        return None
+    return ('individual-set bootstrap hook: wired first in SessionStart '
+            '(the person running this has an individual set)')
+
+
 def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
     out = []
     tools = dest / 'tools'
@@ -748,6 +773,10 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     _tier_note = _tiers(dest)
     if _tier_note:
         say(f'  {_tier_note}')
+
+    _hook_note = _individual_hook(dest)
+    if _hook_note:
+        say(f'  {_hook_note}')
 
     r = _run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.'], dest)
     if r.returncode != 0:
