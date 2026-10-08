@@ -31501,9 +31501,17 @@ def check_promote_picks_its_step():
                       rc == 3 and out.startswith(
                           'Now promoting from staging to main')
                       and 'READY FOR MAIN' in out))
-        cases.append(('into main by a throwaway copy of staging, main itself '
-                      'untouched', tip('main') == main_before and len(copies) == 1
-                      and tip(copies[0].split('refs/heads/', 1)[1]) == tip('staging')))
+        # Since 2026-10-07 the copy is staging merged with main -- the tree
+        # the full check judged -- so the pull request's merge has main as an
+        # ancestor of its head and main's push test recognises it.
+        copy_ref = copies[0].split('refs/heads/', 1)[1] if len(copies) == 1 else ''
+        holds = (lambda a, b: git(work, 'merge-base', '--is-ancestor', a, b)
+                 .returncode == 0)
+        cases.append(('into main by a throwaway copy of staging merged with main, '
+                      'main itself untouched',
+                      tip('main') == main_before and bool(copy_ref)
+                      and holds(tip('staging'), tip(copy_ref))
+                      and holds(main_before, tip(copy_ref))))
         cases.append(('it says the pull request comes from the copy, never from '
                       'staging', 'Never open it from staging itself' in out))
 
@@ -32240,6 +32248,15 @@ def check_main_test_minutes_rule():
                       and not pb2.is_not_due_copy(refs[0])
                       and any('GitHub test: DUE' in x for x in said)
                       and starts('pull_request', 'main', True, refs[0])))
+        rc, refs, said = pushed['passed 200h ago']
+        carried = refs and git(work, 'merge-base', '--is-ancestor', 'origin/main',
+                               f'origin/{refs[0]}').returncode == 0
+        tip = refs and git(work, 'rev-parse', f'origin/{refs[0]}').stdout.strip()
+        cases.append(('...and the copy is staging merged with main, so the push '
+                      'test on main after its merge recognises what passed, and the '
+                      'merge instruction pins that commit',
+                      bool(carried) and bool(tip)
+                      and any(f'at head commit {tip}' in x for x in said)))
         rc, _refs, said = pushed.get('none runs', (None, [], []))
         text = '\n'.join(said)
         cases.append(('...and where no GitHub test runs on the pull request: says '
@@ -33648,11 +33665,26 @@ def check_source_clone_is_pinned_to_a_branch():
         # An existing clone already sitting wrong: the half that made the real
         # incident persist, since `git pull --ff-only` pulls whatever branch
         # the checkout is on.
+        #
+        # Since 2026-10-07 it is reported, never moved, whoever made it: a
+        # clone this tool made can be a session's working copy too, and one
+        # set's Update Vendors switched another set's working branch to main
+        # (todo-2026-10-07-one-sets-update-moves-another-sets-working-branch).
         git(clone, 'checkout', '-q', 'claude/feature')
         ok, out = psb._try_sync(url, clone)
-        cases.append((f'an existing clone on the wrong branch is put back '
+        cases.append((f'an existing clone on another branch is left there and '
+                      f'reported, with the command that moves it '
                       f'(got {branch_of(clone)!r}, {out!r})',
-                      ok and branch_of(clone) == 'main'))
+                      (not ok) and branch_of(clone) == 'claude/feature'
+                      and f'checkout main' in out))
+        # The working-branch shape itself: made locally from main, clean,
+        # nothing committed yet -- what was switched that night.
+        git(clone, 'checkout', '-q', '-b', 'session-update', 'main')
+        ok, out = psb._try_sync(url, clone)
+        cases.append((f'a clean branch a session just made is not switched '
+                      f'(got {branch_of(clone)!r})',
+                      (not ok) and branch_of(clone) == 'session-update'))
+        git(clone, 'checkout', '-q', 'main')
 
         # Only a clone THIS tool made is moved (CLONE_MARKER). A checkout
         # the harness or a person made may be a session's working copy: a
@@ -33667,7 +33699,7 @@ def check_source_clone_is_pinned_to_a_branch():
         cases.append((f'a checkout the tool did NOT make is left on its branch '
                       f'(got {branch_of(foreign)!r}, {out!r})',
                       (not ok) and branch_of(foreign) == 'claude/feature'
-                      and 'was not cloned by this tool' in out))
+                      and "may be a session's working copy" in out))
         # ...and is still RECORDED as the source (2026-09-28): the refusal
         # protects the checkout, it must not take the source out of force.
         (foreign / 'practices').mkdir(exist_ok=True)
@@ -48840,8 +48872,9 @@ def check_merge_instructions_give_the_full_head():
         pb.github_tests, pb.github_test_state = saved
         sys.path.pop(0)
     src = (ROOT / 'tools' / 'precedent_branches.py').read_text(encoding='utf-8')
-    cases.append(('the READY instructions pass the head too',
-                  src.count('_at_head(stip)') >= 2))
+    cases.append(('the READY instructions pass the head too -- the copy\'s own '
+                  'commit, staging merged with main',
+                  src.count('_at_head(copy_tip)') >= 2))
     bad = [n for n, ok in cases if not ok]
     check(f'a Promote\'s merge instructions name the full head commit '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
