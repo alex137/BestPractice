@@ -422,7 +422,21 @@ def check_broken_links(path):
     # _split_vendored() prints it under the "upstream's to fix" note
     # instead of failing this repo's gate.
     # Paths exempt, fragments still checked -- see ANCHOR_CHECKED_EXEMPT_DIRS.
-    anchors_only = rel.startswith(ANCHOR_CHECKED_EXEMPT_DIRS)
+    #
+    # A TEMPLATE IS A TEMPLATE WHEREVER IT IS VENDORED. The directory is
+    # read relative to the SOURCE the file belongs to, not to this repo:
+    # a consumer's process/upstream/templates/document-project/AGENTS.md is
+    # upstream's templates/document-project/AGENTS.md, and its
+    # `[gotchas/](gotchas/)` names the instance's gotchas/, exactly as it
+    # does in BestPractice's own tree, where this same rule already passes
+    # it. Read against the consumer's root instead, it was "no such file"
+    # on every Update Vendors run (2026-10-08), as a finding upstream could
+    # not fix either, because upstream's link is right. The instance does
+    # not exist in either tree, so a missing path here is skipped for that
+    # reason and nothing else; a fragment on a target that does resolve is
+    # still checked, as it is upstream. Only this exemption follows the
+    # source root -- every other link in a mirror is still reported.
+    anchors_only = _source_relative(rel).startswith(ANCHOR_CHECKED_EXEMPT_DIRS)
     p = ROOT / path
     out, incode = [], False
     for i, line in enumerate(p.read_text(encoding='utf-8', errors='ignore').splitlines(), 1):
@@ -1447,6 +1461,17 @@ VENDORED_PREFIXES = _vendored_prefixes()
 
 def _is_vendored(rel):
     return str(rel).startswith(VENDORED_PREFIXES)
+
+
+def _source_relative(rel):
+    """`rel` as its own source's tree names it: a vendored file loses the
+    mirror prefix it sits under (a mirror's prefix is its source's root,
+    per mirrored_prefixes()); this repo's own file is returned as it is."""
+    rel = str(rel)
+    for prefix in sorted(VENDORED_PREFIXES, key=len, reverse=True):
+        if rel.startswith(prefix):
+            return rel[len(prefix):]
+    return rel
 
 
 def _split_vendored(lines):

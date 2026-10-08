@@ -82,7 +82,8 @@ rule for this module: a new table capability must manifest on every
 registered render from the engine alone, with host or model
 declarations as optional refinement, never as a prerequisite.
 
-Host configuration: fill DOCS with (repo-relative .md, title) pairs. Link
+Host configuration: list (repo-relative .md, title) pairs in
+tools/doc_html_host.json (HOST_FILE below), or name a shim there. Link
 rewriting targets the repo's own hosted-view URL, detected from the git
 remote; override LINK_BASE if detection does not fit your host. When a
 registered document's render is itself hosted somewhere (an artifact URL,
@@ -194,10 +195,52 @@ def _link_base():
 LINK_BASE = _link_base()
 
 # Registry: (repo-relative source .md, page title). Output = same stem, .html.
-# Host repos fill this in.
+# The list below is BestPractice's own; a host repo's is its own file.
 DOCS = [
     ('spec/PREFORK_AUDIT.md', 'Pre-Fork Catalogue Audit'),
 ]
+
+# A CONSUMER'S RENDER LIST IS ITS OWN FILE (2026-10-08), as model_audit.py's
+# is. This file is vendored, so the list above travelled with it: a Promote
+# in a consuming repository ran this file bare over the composed tree and
+# failed on "no such document: spec/PREFORK_AUDIT.md", a document only
+# BestPractice has. Where this repo holds a vendored engine
+# (tools/ENGINE_MANIFEST.json), the list is read from tools/doc_html_host.json
+# instead:
+#   {"docs": [["path/to/doc.md", "Title"], ...]} -- the repo's DOCS, or
+#   {"shim": "path/to/shim.py"} -- a host shim that loads this engine and
+#                         sets everything itself; running this file runs it.
+# A repo with no such file registers nothing. BestPractice, which vendors
+# nothing into itself, keeps the list above.
+HOST_FILE = "tools/doc_html_host.json"
+
+
+def _host_config():
+    """-> the host's configuration dict, or None where the list above is this
+    repo's own (BestPractice itself)."""
+    import json
+    if not (ROOT / "tools" / "ENGINE_MANIFEST.json").is_file():
+        return None
+    f = ROOT / HOST_FILE
+    if not f.is_file():
+        return {}
+    try:
+        cfg = json.loads(f.read_text(encoding="utf-8"))
+    except ValueError as e:
+        sys.exit(f"doc_html FAIL: {HOST_FILE} is not valid JSON ({e})")
+    docs = cfg.get("docs", []) if isinstance(cfg, dict) else None
+    if not isinstance(docs, list) or not all(
+            isinstance(d, list) and len(d) == 2
+            and all(isinstance(x, str) and x for x in d) for d in docs) \
+            or not isinstance(cfg.get("shim", ""), str):
+        sys.exit(f"doc_html FAIL: {HOST_FILE} must be an object with a "
+                 f"\"docs\" list of [path, title] pairs or a \"shim\" path")
+    return cfg
+
+
+_HOST = _host_config()
+if _HOST is not None:
+    DOCS = [tuple(d) for d in _HOST.get("docs") or []]
 
 # Hosted-render registry: repo-relative .md path -> URL of that document's
 # hosted render. Cross-links between renders resolve here first (see the
@@ -1642,8 +1685,9 @@ def render(src, out_path, title):
     # line) used to surface as a bare FileNotFoundError naming a path and
     # no remedy.
     if not src.is_file():
+        where = HOST_FILE if _HOST is not None else "tools/doc_html.py"
         sys.exit(f"doc_html FAIL: no such document: {src}. If it was renamed "
-                 f"or removed, update the DOCS registry in tools/doc_html.py; "
+                 f"or removed, update the DOCS registry in {where}; "
                  f"`--list` prints what is registered.")
     md_text = expand_includes(src.read_text(encoding="utf-8"), src.parent)
     page_css = _page_styles(md_text, src.parent)
@@ -1894,6 +1938,17 @@ if __name__ == "__main__":
     # See the same guard in the other tools here (2026-09-06).
     if any(a in ("--help", "-h") for a in sys.argv[1:]):
         print((__doc__ or "").strip())
+        sys.exit(0)
+    if _HOST and _HOST.get("shim"):
+        # The shim loads this file under its own module name, so this branch
+        # never runs twice (model_audit.py's own shim rule).
+        import runpy
+        _shim = ROOT / _HOST["shim"]
+        if not _shim.is_file():
+            sys.exit(f"doc_html FAIL: {HOST_FILE} names shim {_HOST['shim']}, "
+                     f"which does not exist")
+        sys.argv[0] = str(_shim)
+        runpy.run_path(str(_shim), run_name="__main__")
         sys.exit(0)
     if "--list" in sys.argv:
         for rel, title in DOCS:
