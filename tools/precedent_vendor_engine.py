@@ -4071,6 +4071,49 @@ def drop_retired_sources(dest_root, archived=(), apply=True, person=None):
     return dropped, kept
 
 
+def undeclared_successors(dest_root, dropped, person=None):
+    """-> [(successor, [dropped names], brought)] for each shared set that a
+    set in `dropped` ([(name, path, why)], drop_retired_sources' answer)
+    names as where its rules went -- its deletion record's `successors` or
+    its own `retired` marker's `folded_into`, one reader for both
+    (precedent_resolve.successors_of) -- when `dest_root`'s precedent.json
+    does not declare it. `brought` is True when the person's own individual
+    set brings it (or is it), so its rules are in force for that person
+    only. A successor that is itself deleted is left out. `person` is
+    _person_sets()'s answer, for a test; None asks it.
+
+    2026-10-08: Update Vendors dropped precedent-shared-working-style and
+    never asked whether to declare precedent-shared-writing, where two of
+    its rules went. With one member whose own set brings it, nothing is
+    lost; with more, everyone else silently loses those rules."""
+    try:
+        import precedent_resolve as pr
+    except Exception:                                           # noqa: BLE001
+        return []
+    gone, carriers = _person_sets() if person is None else person
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    sources = cfg.get('sources') if isinstance(cfg, dict) else None
+    declared = {str(s.get('name') or '') for s in sources or []
+                if isinstance(s, dict)}
+    brought = {pathlib.Path(c).name for c in carriers}
+    dropped_names = {n for n, _p, _w in dropped}
+    found = {}
+    for name, path, _why in dropped:
+        clone = (root / pathlib.Path(str(path or '')).expanduser()).resolve()
+        for succ in (pr.successors_of(gone.get(name))
+                     + pr.successors_of(source_retirement(clone))):
+            if succ in declared or succ in dropped_names or succ in gone:
+                continue
+            froms = found.setdefault(succ, [])
+            if name not in froms:
+                froms.append(name)
+    return [(s, froms, s in brought) for s, froms in found.items()]
+
+
 def drop_deleted_brings(dest_root, apply=True, gone=None):
     """-> [name] of each set `dest_root`'s own precedent-source.json `brings`
     that is deleted (precedent_resolve.deleted_sets), removed from `brings`

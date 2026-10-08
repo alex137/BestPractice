@@ -8832,6 +8832,151 @@ def check_dropped_set_and_proxy_and_template_refs():
           not bad, '; '.join(bad))
 
 
+def check_dropped_set_prose_successors_and_families():
+    """Three gaps in Update Vendors' dropped-set step, from a consuming
+    repository's update (2026-10-08). (1) A loader marker quoted in a
+    sentence hid every line after it from the prose scan: generated text is
+    what generated_blocks.py says it is, closing marker required. (2) A
+    dropped set's successor -- a deletion record's `successors` or the set's
+    own `retired` marker's `folded_into`, one reader for both -- is asked
+    about when the repository neither declares it nor gets it from the
+    person's own set, and the question says declaring covers everyone and
+    bringing covers only the person. (3) Every string in precedent.json is
+    read, a kept_template_divergences reason included, and a set is found by
+    its family wildcard, its pre-rename name, a count of sets, and -- once no
+    shared set is left -- by "the shared sources"."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as _pu
+    import precedent_vendor_engine as _pve
+    import precedent_resolve as _pr
+    cases = []
+    gone_names = ['precedent-shared-old', 'precedent-shared-older']
+    with tempfile.TemporaryDirectory() as tmp:
+        d = pathlib.Path(tmp)
+        (d / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': 'u'}],
+            '_comment': ['See precedent-team-old for the history.'],
+            'kept_template_divergences': {
+                'AGENTS.md ### Session start': {
+                    'reason': 'Attach the shared sources first, then bootstrap.'},
+                'AGENTS.md ## Practice sources': {
+                    'reason': 'Describes the universal copy and the two '
+                              'precedent-shared-* sets beside it.'},
+                'AGENTS.md ## Conventions': {'reason': 'Condensed on purpose.'}}},
+            indent=2), encoding='utf-8')
+        (d / 'AGENTS.md').write_text(
+            '# Repo\n\nFor the `<!-- BEGIN GENERATED: precedent-loader -->` '
+            'block, re-run the sync.\nThe sets are '
+            '(`precedent-shared-old`, `precedent-shared-older`).\n'
+            '<!-- BEGIN GENERATED: precedent-loader -->\nprecedent-shared-old\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        got = _pu.prose_about_dropped_sets(d, gone_names)
+        where = {w: y for w, _t, y in got}
+        cases.append(('(1) a set named after a marker quoted in prose is found',
+                      'AGENTS.md:4' in where, sorted(where)))
+        cases.append(('(1) ...and a real generated block is still skipped',
+                      'AGENTS.md:6' not in where, sorted(where)))
+        lines = (d / 'precedent.json').read_text(encoding='utf-8').splitlines()
+
+        def line_of(s):
+            return f'precedent.json:{next(i for i, x in enumerate(lines, 1) if s in x)}'
+        cases.append(('(3) a kept_template_divergences reason naming the set '
+                      'family is listed', line_of('precedent-shared-* sets') in where,
+                      sorted(where)))
+        cases.append(('(3) "the shared sources" is listed once none is declared',
+                      line_of('Attach the shared sources') in where, sorted(where)))
+        cases.append(('(3) a set\'s pre-rename name is listed',
+                      line_of('precedent-team-old') in where, sorted(where)))
+        cases.append(('(3) a reason about something else is not',
+                      line_of('Condensed on purpose') not in where, sorted(where)))
+        cases.append(('(3) nothing is ever edited',
+                      'precedent-shared-* sets' in
+                      (d / 'precedent.json').read_text(encoding='utf-8')))
+        (d / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'precedent-shared-live', 'path': 'x'}],
+            'note': 'Attach the shared sources first.'}), encoding='utf-8')
+        cases.append(('(3) "the shared sources" is not listed while one is '
+                      'still declared',
+                      not [w for w, _t, _y in _pu.prose_about_dropped_sets(d, gone_names)
+                           if w.startswith('precedent.json')]))
+
+    # (2) Successors.
+    cases.append(('(2) successors and folded_into read as one, universal left out',
+                  _pr.successors_of({'successors': ['a-b'], 'folded_into':
+                                     ['universal', 'a-b', 'c']}) == ['a-b', 'c']))
+    real = json.loads(_pr.ENGINE_DELETED_SETS.read_text(encoding='utf-8'))
+    cases.append(("(2) BestPractice's record names a successor for each "
+                  'deleted set', all(_pr.successors_of(e) for e in real['sets'])))
+    with tempfile.TemporaryDirectory() as tmp:
+        d = pathlib.Path(tmp)
+        (d / 'repo').mkdir()
+        (d / 'folded').mkdir()
+        (d / 'folded' / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'folded', 'retired': {'date': '2026-10-06',
+                                           'folded_into': ['universal', 'heir']}}),
+            encoding='utf-8')
+        (d / 'repo' / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'u'}]}),
+            encoding='utf-8')
+        dropped = [('folded', '../folded', 'it says it is retired'),
+                   ('vanished', '../vanished', _pve.DELETED_WHY)]
+        gone = {'vanished': {'successors': ['other-heir']}}
+        nobody = (gone, [])
+        got = _pve.undeclared_successors(d / 'repo', dropped, person=nobody)
+        cases.append(("(2) a `retired` marker's folded_into and a deletion "
+                      "record's successors are both asked about",
+                      sorted((s, b) for s, _f, b in got)
+                      == [('heir', False), ('other-heir', False)], got))
+        mine = (gone, [d / 'heir'])
+        got = _pve.undeclared_successors(d / 'repo', dropped, person=mine)
+        cases.append(("(2) a successor the person's own set brings is marked so",
+                      ('heir', ['folded'], True) in got, got))
+        (d / 'repo' / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'heir', 'path': '../heir'},
+            {'level': 'shared', 'name': 'other-heir', 'path': '../oh'}]}),
+            encoding='utf-8')
+        cases.append(('(2) a declared successor is not asked about',
+                      _pve.undeclared_successors(d / 'repo', dropped,
+                                                 person=nobody) == []))
+        # The step leaves the question, worded for a repository with others.
+        (d / 'repo' / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'u'}]}),
+            encoding='utf-8')
+        saved = (_pve.archived_declared_sources, _pve.drop_retired_sources,
+                 _pve.undeclared_successors)
+
+        class Rep:
+            def __init__(self):
+                self.steps, self.left = [], []
+
+            def step(self, n, o):
+                self.steps.append(o)
+
+            def leave(self, w, y):
+                self.left.append((w, y))
+        try:
+            _pve.archived_declared_sources = lambda _r: (set(), [])
+            _pve.drop_retired_sources = lambda _r, _a: (dropped[:1], [])
+            _pve.undeclared_successors = (
+                lambda r, dr, person=None: saved[2](r, dr, person=nobody))
+            rep = Rep()
+            _pu.retired_sources_step(d / 'repo', rep)
+        finally:
+            (_pve.archived_declared_sources, _pve.drop_retired_sources,
+             _pve.undeclared_successors) = saved
+        asked = [y for w, y in rep.left if 'heir' in w]
+        cases.append(('(2) Update Vendors leaves the question for the person',
+                      len(asked) == 1, rep.left))
+        cases.append(('(2) ...saying declaring covers everyone, bringing only you',
+                      bool(asked) and 'everyone who works in this repository'
+                      in asked[0] and 'covers only you' in asked[0], asked))
+    bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a dropped set\'s prose is found past a quoted marker and by its '
+          f'family, and its successor is asked about ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_new_rule_shows_its_debt_and_booked_names_it():
     """When a sync brings in an enforced practice, or changes one, its check
     runs once across the repository and what does not hold yet is listed --
@@ -66319,6 +66464,7 @@ def main():
     check_incident_coverage_reads_what_the_gotcha_names()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_dropped_set_and_proxy_and_template_refs()
+    check_dropped_set_prose_successors_and_families()
     check_removal_selects_its_checks()
     check_update_never_fetches_the_repo_it_updates()
     check_engine_capability_holds_a_practice_back()

@@ -523,6 +523,24 @@ def retired_sources_step(repo, rep):
         rep.step('retired set', f'{name} ({path}) is no longer declared in '
                  f'precedent.json: {why}, and every active rule it held is in '
                  f'force in another declared source')
+    for succ, froms, brought in (pve.undeclared_successors(repo, dropped)
+                                 if hasattr(pve, 'undeclared_successors') else []):
+        whose = ', '.join(froms)
+        if brought:
+            rep.step('retired set', f'some of {whose}\'s rules now live in '
+                     f'{succ}, which this repository does not declare; your '
+                     f'individual set brings it, so they are in force for you '
+                     f'only -- declare it in precedent.json if anyone else '
+                     f'works here')
+            continue
+        rep.leave(f'precedent.json: declare {succ}?',
+                  f'some of {whose}\'s rules now live in {succ}, which this '
+                  f'repository does not declare and your individual set does '
+                  f'not bring, so those rules are no longer in force here. '
+                  f'Declaring it in precedent.json puts them in force for '
+                  f'everyone who works in this repository; bringing it from '
+                  f'your individual set covers only you. Declare it, bring it, '
+                  f'or decide this repository does without them')
     for name, path, why, lost in kept:
         rep.leave(f'precedent.json source {name!r}',
                   f'{why}, but {", ".join(lost)} is in force nowhere else, '
@@ -560,55 +578,149 @@ def retired_sources_step(repo, rep):
 # what to do when "four of five sources" resolve (a consuming repository's
 # two updates, 2026-10-07; one was fixed by hand, a band-aid). The sync
 # regenerates its own blocks, so what is left is the hand-written text:
-# precedent.json and the Markdown files at the repository's root, outside
-# any generated block. Listed for the person, never edited -- whether a
+# every string in precedent.json (its comments, a kept_template_divergences
+# reason, any other note) and the Markdown files at the repository's root,
+# outside any generated block (generated_blocks.py, the one definition of
+# where those are). Listed for the person, never edited -- whether a
 # sentence still holds is a reading, not a pattern.
+#
+# 2026-10-08, from the same repository's next update: a set is also named
+# by its family ("the two precedent-shared-* sets"), by its name before the
+# 2026-09-28 rename (precedent-team-...), and, once no shared set is left,
+# by "the shared sources" -- each was found by hand after a clean scan.
 _SET_COUNT_RE = re.compile(
     r'\b(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b'
     r'(?:\s+of\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+))?'
-    r'(?:\s+[\w-]+){0,2}?\s+(?:practice\s+)?(?:sets|sources)\b', re.I)
-_GENERATED_BEGIN = re.compile(r'<!--\s*BEGIN GENERATED')
-_GENERATED_END = re.compile(r'<!--\s*END GENERATED')
+    r'(?:\s+[\w*-]+){0,2}?\s+(?:practice\s+)?(?:sets|sources)\b', re.I)
+_SET_FAMILY_RE = re.compile(r'\b([a-z0-9]+(?:-[a-z0-9]+)*-)\*')
+_SHARED_SETS_RE = re.compile(r'\bshared\s+(?:practice\s+)?(?:sets|sources)\b', re.I)
+# Fields of a precedent.json source the engine owns, not prose.
+_SOURCE_FIELDS = frozenset({'name', 'path', 'level', 'repo_url'})
+
+
+def _dropped_set_matcher(names, shared_left):
+    """-> a function line -> (start, why) for the first way `line` speaks of
+    a dropped set, or None: by name, by its pre-rename name, by a family
+    wildcard that covers it, by counting the sets, or -- when no shared set
+    is left declared -- by speaking of the shared sets at all."""
+    team, shared = (getattr(pve, 'TEAM_SET_PREFIX', 'precedent-team-'),
+                    getattr(pve, 'SHARED_SET_PREFIX', 'precedent-shared-'))
+    old = {team + n[len(shared):]: n for n in names if n.startswith(shared)}
+
+    def match(line):
+        for n in names:
+            if n in line:
+                return line.index(n), f'names {n}, which this update stopped declaring'
+        for o, n in old.items():
+            if o in line:
+                return line.index(o), (f'names {o}, the name {n} had before '
+                                       f'2026-09-28, which this update stopped '
+                                       f'declaring')
+        for m in _SET_FAMILY_RE.finditer(line):
+            covered = [n for n in names if n.startswith(m.group(1))] + \
+                      [n for o, n in old.items() if o.startswith(m.group(1))]
+            if covered:
+                return m.start(), (f'speaks of {m.group(0)}, which covers '
+                                   f'{", ".join(sorted(set(covered)))}, '
+                                   f'which this update stopped declaring')
+        m = _SET_COUNT_RE.search(line)
+        if m:
+            return m.start(), (f'counts the declared sets, and this update '
+                               f'dropped {len(names)}')
+        m = None if shared_left else _SHARED_SETS_RE.search(line)
+        if m:
+            return m.start(), ('speaks of the shared sets, and this repository '
+                               'declares none now')
+        return None
+    return match
+
+
+def _excerpt(text, at, width=160):
+    """-> up to `width` characters of `text` that show position `at`."""
+    text = text.strip()
+    if len(text) <= width:
+        return text
+    lo = max(0, min(at - width // 3, len(text) - width))
+    return ('...' if lo else '') + text[lo:lo + width].strip() + \
+        ('...' if lo + width < len(text) else '')
+
+
+def _precedent_json_strings(data, at=()):
+    """-> [(key path, text)] for every string value in precedent.json except
+    the engine-owned fields of a `sources` entry."""
+    if isinstance(data, dict):
+        out = []
+        for k, v in data.items():
+            if len(at) == 2 and at[0] == 'sources' and k in _SOURCE_FIELDS:
+                continue
+            out += _precedent_json_strings(v, at + (k,))
+        return out
+    if isinstance(data, list):
+        return [x for i, v in enumerate(data)
+                for x in _precedent_json_strings(v, at + (i,))]
+    return [(at, data)] if isinstance(data, str) else []
 
 
 def prose_about_dropped_sets(repo, dropped):
-    """-> [(path:line, text, why)] for each hand-written line in precedent.json
-    or a root Markdown file that names a set this update dropped, or counts
-    the declared sets or sources. [] when nothing was dropped."""
+    """-> [(path:line, text, why)] for each hand-written string in
+    precedent.json, and each hand-written line in a root Markdown file, that
+    speaks of a set this update dropped (_dropped_set_matcher) or counts the
+    declared sets or sources. [] when nothing was dropped."""
     if not dropped:
         return []
+    import generated_blocks
     repo = pathlib.Path(repo)
     names = sorted({str(n) for n in dropped if n}, key=len, reverse=True)
-    files = [repo / 'precedent.json'] + sorted(repo.glob('*.md'))
+    pj = repo / 'precedent.json'
+    try:
+        raw = pj.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        raw = None
+    try:
+        cfg = json.loads(raw) if raw is not None else None
+    except ValueError:
+        cfg = None
+    srcs = cfg.get('sources') if isinstance(cfg, dict) else None
+    shared_left = any(isinstance(s, dict) and s.get('level') in ('shared', 'team')
+                      for s in srcs or [])
+    match = _dropped_set_matcher(names, shared_left)
     out = []
-    for f in files:
+    if cfg is not None:
+        lines = raw.splitlines()
+        for at, text in _precedent_json_strings(cfg):
+            hit = match(text)
+            if not hit:
+                continue
+            # The line it is written on: as the file spells it, or escaped.
+            needles = {json.dumps(text, ensure_ascii=False)[1:-1][:80],
+                       json.dumps(text)[1:-1][:80]}
+            n = next((i for i, line in enumerate(lines, 1)
+                      if any(x and x in line for x in needles)), None)
+            where = (f'precedent.json:{n}' if n else
+                     'precedent.json ' + '.'.join(map(str, at)))
+            out.append((where, _excerpt(text, hit[0]), hit[1]))
+    elif raw is not None:
+        for i, line in enumerate(raw.splitlines(), 1):   # unparsable: as text
+            hit = match(line)
+            if hit:
+                out.append((f'precedent.json:{i}', _excerpt(line, hit[0]), hit[1]))
+    for f in sorted(repo.glob('*.md')):
         try:
             lines = f.read_text(encoding='utf-8').splitlines()
         except (OSError, UnicodeDecodeError):
             continue
-        head = '\n'.join(lines[:5])
-        if f.suffix == '.md' and re.search(r'GENERATED|generated by', head) \
-                and not _GENERATED_BEGIN.search(head):
+        blocks = generated_blocks.spans(lines)
+        if f.suffix == '.md' and re.search(r'GENERATED|generated by',
+                                           '\n'.join(lines[:5])) \
+                and not any(a < 5 for a, _b in blocks):
             continue                     # a whole generated view: the sync redoes it
-        inside = False
+        hidden = generated_blocks.mask(lines)
         for i, line in enumerate(lines, 1):
-            if _GENERATED_BEGIN.search(line):
-                inside = True
-            if inside:
-                if _GENERATED_END.search(line):
-                    inside = False
+            if hidden[i - 1]:
                 continue
-            text = line.strip()
-            if f.name == 'precedent.json' and re.match(r'"(name|path)"\s*:', text):
-                continue
-            hit = next((n for n in names if n in line), None)
+            hit = match(line)
             if hit:
-                out.append((f'{f.name}:{i}', text[:160],
-                            f'names {hit}, which this update stopped declaring'))
-            elif _SET_COUNT_RE.search(line):
-                out.append((f'{f.name}:{i}', text[:160],
-                            f'counts the declared sets, and this update dropped '
-                            f'{len(names)}'))
+                out.append((f'{f.name}:{i}', _excerpt(line, hit[0]), hit[1]))
     return out
 
 
