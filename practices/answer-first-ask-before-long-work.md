@@ -14,23 +14,21 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
-approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-working-style; merged in PR #879 on 2026-10-05; part 2's exception narrowed to the quick checks by Morgan F, 2026-10-07; the clock-time sentence added by S. Alexander Jacobson, 2026-10-07"
+approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-working-style; merged in PR #879 on 2026-10-05; part 2's exception narrowed to the quick checks by Morgan F, 2026-10-07; the clock-time sentence added by S. Alexander Jacobson, 2026-10-07; tightened back under 150 words, Morgan F, 2026-10-07"
 strength:    decided
 ---
 ## Rule
-Four parts. **(1) Answer the easy questions in a message before starting
-anything long** — in the same turn; the long run never gates the answer.
-**(2) A task that will run longer than a few minutes is proposed, not
-started:** what it is, how long from the tool's own cost line, what it
-blocks and what it does not, then the go-ahead. The exceptions are the
-quick checks a commit needs on the files the turn touched, never a
-whole suite, and a run already asked for by name. **(3) When idle on a wait, say what the wait is for,
-what it will change, and how to stop it** — never a bare "still running".
-A background task nobody asked for is stopped, not waited on.
-**(4) An open question is not a stopping point:** ask it early and keep
-working on everything its answer does not touch. **Every "how long"
-carries the clock time it lands, in the person's zone, named:** "about 15
-minutes, done around 15:35 New York time".
+**(1) Answer the easy questions first**, in the same message; the long run
+never gates the answer. **(2) A task longer than a few minutes is proposed,
+not started:** what it is, how long by the tool's own cost line, what it
+blocks and doesn't, then the go-ahead, except a commit's quick checks on
+the files the turn touched (never a whole suite) and a run asked for by name.
+**(3) Idle on a wait, say what it is for, what it will change, and how to
+stop it**, never a bare "still running"; a background task nobody asked for
+is stopped, not waited on. **(4) An open question is not a stopping point:**
+ask it early, and keep working on whatever its answer doesn't touch. **Every
+"how long" carries the clock time it lands, in the person's zone, named:**
+"about 15 minutes, done around 15:35 New York time".
 
 ## Detail
 **Why a clock time, and whose.** A duration says nothing once the reader
@@ -134,6 +132,12 @@ asked how to stop it happening again, and approved all three answers
 it costs before it starts, a full run started by hand refuses without
 `--because` quoting the person's go-ahead, and this exception names the
 quick checks.
+
+**2026-10-07, back under 150 words.** The clock-time clause added that
+afternoon took the Rule to 171 words, and with it this resident rule pushed
+a session file one consumer had capped at 4,000 tokens past its target. Tightened
+in a reduction pass, all four parts and the clause kept, nothing moved out
+(Morgan F, "take all the reduction proposals", strength: decided).
 
 ## Install
 Adopt the rule in the working-conventions file and name the cost-line
