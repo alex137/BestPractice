@@ -19,8 +19,21 @@ approved_by: "Alex, 2026-09-08 — merged on main as catalogue entry 55, a check
 source_practice_number: null
 ---
 ## Rule
-Two mechanics, one motive — a long wait must never be blind, and it must
-never be repeated for nothing:
+Three mechanics, one motive — a long wait must never be blind, never
+started without being priced, and never repeated for nothing:
+
+- **The cost before the start.** A tool whose run can take minutes prints,
+  before its first slow step, what it is about to do and what that cost
+  last time: how many units it will run, how long they took when last
+  recorded, and the slowest of them. So it records each unit's duration
+  where its next run can read it (a gate ledger's fact is the natural
+  place). The session reads that line before waiting on the run, and a run
+  priced past a few minutes is proposed, not waited on
+  (answer-first-ask-before-long-work). Alex, 2026-10-08, decided: "should
+  we have a practice of doing a quick underwriting of how long a task
+  should take and reconsidering it before investing that time if it is
+  long?", after a drift gate run without a target spent many minutes
+  re-solving every block whose facts were stale.
 
 - **Progress with an estimate.** Any step expected to run for more than about
   a minute prints, on its error stream, a periodic line with items done,
