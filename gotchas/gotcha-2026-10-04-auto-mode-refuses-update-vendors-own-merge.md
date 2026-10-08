@@ -49,15 +49,24 @@ That is one observation of a classifier whose state nobody here can read,
 not a rule to rely on. What it does confirm is the second consumer's: a
 refused merge can leave the next turn unable even to read.
 
+**2026-10-08, a third consumer.** The same order again: the merge refused
+as `[Merge Without Review]`, then `git rev-parse HEAD` and a token count
+refused under the same reason, until the person spoke. Three repositories
+now, so it is the classifier's ordinary behaviour, not a fluke: after a
+refused merge, anything the session runs before the person's next message
+is likely refused too, and only spends the turn.
+
 It is the merge-shaped twin of
 [the refusal of a bare Promote into main](gotcha-2026-09-30-auto-mode-refuses-a-bare-promote-into-main-as-a-production.md),
 and the same fix applies.
 
 ## Fix
 
-**In the session:** say in one line that Claude Code's own safety check
-stopped the merge, not the repository's rules, and ask the person for it in
-words that name it: "Merge PR #N into <landing branch>". Never route around
+**In the session:** stop at once, run nothing else, and end the turn
+asking for the merge by name: one line that Claude Code's own safety check
+stopped it, not the repository's rules, and the words that name it, "Merge
+PR #N into <landing branch>". A check, a read or a count run first is
+refused under the same reason and only delays the ask. Never route around
 it: no other merge route, no handoff to another session, no settings edit
 of the session's own.
 

@@ -10406,17 +10406,10 @@ def _declared_record_paths():
     file names paths as they were -- a migration record, a dated audit --
     and is declared, with its reason, rather than folded into the
     decommissioning registry's exempt_files, which is for records OF a
-    decommissioning."""
-    try:
-        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return []
-    out = []
-    for e in (cfg.get('record_paths') if isinstance(cfg, dict) else None) or []:
-        path = e.get('path') if isinstance(e, dict) else e
-        if isinstance(path, str) and path.strip():
-            out.append(path.strip())
-    return out
+    decommissioning. Read by precedent_resolve.declared_record_paths(), the
+    one reader the citation scan shares."""
+    import precedent_resolve as _pr
+    return _pr.declared_record_paths(ROOT)
 
 
 # A document whose lifecycle header says it is finished is a record of what
@@ -11804,25 +11797,20 @@ def _charge_brought_share(n):
     stays charged to the repository, as it was before the budget existed."""
     try:
         import precedent_session_practices as _psp
-        share, names = _psp.brought_share(ROOT)
-    except Exception:                                         # noqa: BLE001
-        return n, None
-    if not share:
-        return n, None
-    budget, ind = _psp.brought_budget(ROOT)
-    rel = '.precedent/SESSION_PRACTICES.md'
-    if budget is None:
         # Undeclared: charged to the repository, as before the budget
         # existed, so nobody's check changes until they declare one -- and a
-        # rollout need not land the individual set first.
+        # rollout need not land the individual set first (charged_to_repo).
+        charged, share, names, budget = _psp.charged_to_repo(ROOT, n)
+    except Exception:                                         # noqa: BLE001
         return n, None
-    if share > budget:
-        return n - share, Finding(rel, (
+    rel = '.precedent/SESSION_PRACTICES.md'
+    if budget is not None and share > budget:
+        return charged, Finding(rel, (
             f"{share:,} tokens of it come from the set(s) this person brings "
             f"({', '.join(names)}), over the {budget:,}-token "
             f"`{_psp.BROUGHT_BUDGET_KEY}` budget in their individual set. "
             f"Reduce in the brought set, or the person raises their own budget"))
-    return n - share, None
+    return charged, None
 
 
 @check('session-load-budget', 'tree',
