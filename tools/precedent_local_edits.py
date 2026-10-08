@@ -50,6 +50,9 @@ lives here, run from the source clone:
      recover() before the next one starts.
 
 THE RULES, per file:
+  declined  a catalogue file process/manifest.json declines: NEW, always --
+            the decline is judged against the copy, so the copy is
+            upstream's text (_declined_catalogue_paths says why)
   kept      precedent.json's kept_template_divergences names the path, with
             a reason, pinned to NEW's sha256: LOCAL stays; a pin upstream
             has since moved is left for the person, LOCAL still kept
@@ -92,6 +95,8 @@ JOURNAL_DIR = 'precedent-local-edits'
 KEPT, KEPT_STALE, STILL_LOCAL, MERGED, ALREADY, TOOK_UPSTREAM = (
     'kept', 'kept-stale', 'still-local', 'merged', 'already-upstream',
     'took-upstream')
+DECLINED_WHY = ('this repo declines it (process/manifest.json), and a decline is '
+                'judged against the copy, so the copy is always upstream\'s text')
 # The closing report's groups, in this order, in plain words.
 GROUPS = (
     (KEPT, 'Kept on purpose -- precedent.json says so'),
@@ -495,8 +500,37 @@ def send_command(repo):
             f'--why "<what went wrong>"')
 
 
+def _declined_catalogue_paths(repo):
+    """-> {upstream_path} every process/manifest.json entry declines.
+
+    A decline means "not adopted", never "not mirrored": the vendored copy
+    of a declined file is upstream's text at the recorded commit like any
+    other, because that copy is the one thing practice_audit.decline_basis()
+    judges the decline by -- in the update's own check and in the consumer's
+    audit alike. So a copy that differs from it is never kept as a local
+    edit: nothing here uses the file, and keeping it splits the basis.
+
+    2026-10-08, a consuming repository: a FAILED run's output was put back
+    to HEAD at the rerun, except process/manifest.json, which --redecide had
+    changed in between. The stale copies then read as local edits against
+    the new upstream.commit and stayed ("upstream has not changed this
+    file"), while checkin.py judged the declines inside the swap, on
+    upstream's text. Every recorded hash failed one of the two, for two
+    templates/local-practices/ templates, until the person copied upstream's
+    text in by hand."""
+    try:
+        m = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+        return {str(e.get('upstream_path')) for e in m.get('entries') or []
+                if isinstance(e, dict) and e.get('status') == 'declined'
+                and e.get('upstream_path')}
+    except (OSError, ValueError, AttributeError):
+        return set()
+
+
 def _decide(repo, e, new):
     """-> (outcome, bytes to write, why) for one edit, NEW read from disk."""
+    if e.layer == CATALOGUE and e.upstream_rel in _declined_catalogue_paths(repo):
+        return TOOK_UPSTREAM, new, DECLINED_WHY
     pve = _pve()
     verdict, reason = pve._kept_divergence(repo, e.rel, _sha(new) or '')
     if verdict == 'kept':
@@ -610,6 +644,9 @@ def resolve(repo, swap):
                     f'a local edit until it is sent upstream: {cmd}')
         elif outcome == ALREADY:
             text = f'upstream\'s version already contains your change{why}'
+        elif why == DECLINED_WHY:
+            text = (f'{why}, so upstream\'s version was taken; what this repo held '
+                    f'is in commit {local_commit(repo, e.rel)}')
         else:
             text = took_upstream_text(repo, e.rel, why, e.local is not None)
         out.append((outcome, e.rel, text))

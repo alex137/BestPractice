@@ -4073,6 +4073,9 @@ def check_practice_audit_declined():
                        encoding='utf-8')
         gone.write_text('---\nslug: gone-rule\nstatus: active\n---\n', encoding='utf-8')
         h = lambda f: hashlib.sha256(f.read_bytes()).hexdigest()
+        host = repo / 'local' / 'host.md'
+        host.parent.mkdir()
+        host.write_text('a file of this repo, synced\n', encoding='utf-8')
         manifest = repo / 'process' / 'manifest.json'
         manifest.write_text(json.dumps({
             'upstream': {'vendored_at': 'process/upstream', 'scrub_blocklist': None},
@@ -4080,6 +4083,8 @@ def check_practice_audit_declined():
                 {'practice': 'old-rule', 'upstream_path': 'practices/old-rule.md',
                  'local_path': None, 'status': 'declined',
                  'declined_upstream_sha256': h(old), 'notes': 'duplicate of a personal rule'},
+                {'practice': 'host', 'upstream_path': '', 'local_path': 'local/host.md',
+                 'status': 'synced', 'local_sha256': h(host)},
             ]}), encoding='utf-8')
         (repo / 'precedent.json').write_text(json.dumps({'format_version': 1, 'sources': {
             'precedent': {'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}}}),
@@ -4116,8 +4121,13 @@ def check_practice_audit_declined():
             encoding='utf-8')
         rc_moved, out_moved = run()
         hash_before = entries()['old-rule']['declined_upstream_sha256']
-        run('--update-baseline')
+        # An unrelated synced file changes while the decline is stale: the
+        # re-baseline is its own job (2026-10-08, a consuming repository
+        # read "FAIL -- 2 error(s)" from a re-baseline that had worked).
+        host.write_text('a file of this repo, edited\n', encoding='utf-8')
+        rc_base, out_base = run('--update-baseline')
         hash_after_baseline = entries()['old-rule']['declined_upstream_sha256']
+        rc_still, out_still = run()
         rc_re, out_re = run('--redecide', 'old-rule')
         rc_after, out_after = run()
         # A decline with no hash, and one whose file is gone.
@@ -4148,6 +4158,15 @@ def check_practice_audit_declined():
              'in force at new-rule' in out_moved and 'superseded by new-rule' in out_moved),
             ('--update-baseline never re-baselines a decline',
              hash_after_baseline == hash_before),
+            ('--update-baseline re-baselines an unrelated synced file while a decline '
+             'is stale, and exits 0 on it',
+             rc_base == 0 and entries()['host']['local_sha256'] == h(host)
+             and 're-baselined [upstream:host]' in out_base),
+            ('...printing the stale decline as what the audit still fails on',
+             'STILL FAILING THE AUDIT: DECLINED: [upstream:old-rule]' in out_base),
+            ('...and the audit run bare still fails on it, and only on it',
+             rc_still == 1 and 'DECLINED: [upstream:old-rule]' in out_still
+             and 'DRIFT' not in out_still),
             ('--redecide records the current hash and exits 0',
              rc_re == 0 and entries()['old-rule']['declined_upstream_sha256'] == h(old)),
             ('after --redecide the audit passes again', rc_after == 0),
@@ -13171,6 +13190,117 @@ def check_update_vendors_redecided_decline_sticks():
         redecide()
         cases.append(('a second --redecide keeps the same hashes', recorded() == want,
                       (recorded(), want)))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+def check_update_vendors_declined_catalogue_copy_is_upstreams():
+    """A declined catalogue file, changed upstream and re-decided once,
+    passes the update and the consumer's audit on the next run: its vendored
+    copy is always upstream's text at the recorded commit, the one basis
+    both judge the decline by (practice_audit.decline_basis).
+
+    2026-10-08, from a consuming repository, for two templates/local-
+    practices/ templates: a run ended FAILED with the mirrored copy staged;
+    the person ran --redecide, which changed process/manifest.json; the
+    rerun put the staged files back to HEAD -- all but the manifest, now
+    changed -- so the old copy read as a local edit against the new
+    upstream.commit and was kept ("upstream has not changed this file"),
+    while checkin.py judged the decline inside the swap, on upstream's text.
+    Every recorded hash then failed one of the two. Here the FAILED end is
+    the record a FAILED run writes (precedent_update.record_staged_output).
+
+    Also: in a repo that vendors its engine, a declined tools/ file is
+    judged by the engine manifest, never by a leftover copy under
+    process/upstream/tools/ that the mirror no longer writes.
+
+    Negative control, measured 2026-10-08 against
+    2026-10-08-update-integrity-y1ktn at 353a946f: the rerun keeps the old
+    copy as "still your local edit", the audit fails DECLINED, and a second
+    --redecide makes the next run ask again; the leftover is the basis."""
+    import hashlib
+    import precedent_vendor_engine as _pve
+    import precedent_update as _pu
+    branch = _pve.SOURCE_BRANCH
+    fx = _LocalEditsFixture('precedent-declined-copy-')
+    cases = []
+    sha = lambda b: hashlib.sha256(b).hexdigest()
+    try:
+        repo = fx.consumer('decline')
+        seeded = fx.seeded_from(repo)
+        rel = 'templates/local-practices/project-voice.md.template'
+        old = subprocess.run(['git', '-C', str(ROOT), 'show', f'{seeded}:{rel}'],
+                             capture_output=True).stdout
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream', 'branch': branch,
+                         'commit': seeded, 'scrub_blocklist': None},
+            'entries': [{'practice': 'project-voice', 'upstream_path': rel,
+                         'local_path': None, 'status': 'declined',
+                         'declined_upstream_sha256': sha(old),
+                         'notes': 'no reader-facing prose here'}]},
+            indent=2) + '\n', encoding='utf-8')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+              '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
+        fx.commit(repo, 'catalogue with a declined template')
+        fx.sh('git', 'push', '-q', 'origin', 'HEAD:main', cwd=repo)
+        aud = repo / '.audit' / 'tools'
+        aud.mkdir(parents=True)
+        for n in ('practice_audit.py', 'generated_blocks.py', 'checkin.py',
+                  'precedent_time.py'):
+            shutil.copy(ROOT / 'tools' / n, aud / n)
+        with open(repo / '.git' / 'info' / 'exclude', 'a', encoding='utf-8') as f:
+            f.write('.audit/\n')
+        new = old + b'\nA sentence upstream added.\n'
+        ref = fx.upstream(seeded, {rel: new})
+        copy = repo / 'process' / 'upstream' / rel
+        asked = lambda out: 'a decline to decide again' in out.split('LEFT FOR YOU', 1)[-1] \
+            and 'LEFT FOR YOU' in out
+        redecide = lambda: fx.sh(sys.executable, str(aud / 'practice_audit.py'),
+                                 '--redecide', 'project-voice', cwd=repo)
+        recorded = lambda: json.loads((repo / 'process' / 'manifest.json').read_text(
+            encoding='utf-8'))['entries'][0]['declined_upstream_sha256']
+
+        _rc, out1 = fx.update(repo, ref)
+        cases.append(('the first run asks to decide the moved decline again',
+                      asked(out1), out1[-1500:]))
+        staged = fx.git(repo, 'diff', '--cached', '--name-only').split()
+        _pu.record_staged_output(repo, staged)        # run 1 ended FAILED
+        redecide()
+        cases.append(('--redecide records upstream\'s new text', recorded() == sha(new),
+                      recorded()))
+        _rc, out2 = fx.update(repo, ref)
+        cases.append(('the rerun does not ask again', not asked(out2), out2[-1500:]))
+        cases.append(('...and leaves the copy as upstream\'s text, never the old one '
+                      'as a local edit', copy.read_bytes() == new,
+                      [l for l in out2.splitlines() if rel in l][:4]))
+        _rc, audit = fx.sh(sys.executable, str(aud / 'practice_audit.py'), cwd=repo)
+        cases.append(('the consumer\'s own audit agrees: no DECLINED failure',
+                      'DECLINED:' not in audit and 'declined OK' in audit, audit[-1500:]))
+        redecide()
+        _rc, out3 = fx.update(repo, ref)
+        cases.append(('a second --redecide keeps the hash, and the next run does not '
+                      'ask', recorded() == sha(new) and not asked(out3), out3[-1500:]))
+
+        # A leftover copy of a declined engine file is not its basis.
+        tool = 'tools/precedent_show.py'
+        leftover = repo / 'process' / 'upstream' / tool
+        leftover.parent.mkdir(parents=True, exist_ok=True)
+        leftover.write_bytes(b'# an old copy the mirror no longer writes\n')
+        engine = json.loads((repo / 'tools' / 'ENGINE_MANIFEST.json').read_text(
+            encoding='utf-8'))['sha256']['precedent_show.py']
+        r = subprocess.run([sys.executable, '-c',
+                            'import sys, pathlib; sys.path.insert(0, sys.argv[1]); '
+                            'import practice_audit as p; r = pathlib.Path(sys.argv[2]); '
+                            'print(p.decline_basis(r, r / "process" / "upstream", '
+                            'sys.argv[3])[0])', str(aud), str(repo), tool],
+                           capture_output=True, text=True, cwd=str(repo))
+        cases.append(('a declined tools/ file is judged by the engine manifest, not a '
+                      'leftover under process/upstream/tools/',
+                      r.stdout.strip() == engine, (r.stdout.strip(), engine, r.stderr[-300:])))
     finally:
         fx.close()
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -65770,6 +65900,8 @@ def main():
     check_update_vendors_resolves_a_catalogue_edit()
     check('a decline re-decided between two Update Vendors runs stays decided',
           *check_update_vendors_redecided_decline_sticks())
+    check('a declined catalogue file\'s copy is upstream\'s text, so one re-decision holds',
+          *check_update_vendors_declined_catalogue_copy_is_upstreams())
     check('an update reruns against the source commit it started from until DONE',
           *check_update_vendors_reruns_pinned_to_its_first_commit())
     check_update_vendors_migrates_hand_written_views()

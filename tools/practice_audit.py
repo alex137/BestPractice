@@ -99,7 +99,9 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      migration is finished (spec/MIGRATING_EXISTING_INSTALLS.md step 7).
 
 Run:  python3 tools/practice_audit.py                    # gate (all manifests)
-      python3 tools/practice_audit.py --update-baseline  # re-record hashes (diverged entries left alone)
+      python3 tools/practice_audit.py --update-baseline  # re-record hashes (diverged entries left alone);
+                                                    # exits on the re-baseline alone, and prints
+                                                    # what the audit still fails on
       python3 tools/practice_audit.py --update-baseline --entry NAME  # only the entries named
       python3 tools/practice_audit.py --manifest process/manifest.json  # one manifest
       python3 tools/practice_audit.py --loader-notice    # check 5 only, never fails
@@ -363,11 +365,17 @@ def decline_basis(repo, tree, rel):
     missed a moved decline on its first run and asked about it again on
     every run after --redecide; a second --redecide undid a hand correction.
     A tools/ file the engine does not vendor reaches this repo by neither
-    route, so there is no upstream text here to judge a decline by."""
+    route, so there is no upstream text here to judge a decline by.
+
+    The engine manifest answers for a tools/ file FIRST once the repo
+    vendors its engine, even when the tree still holds a copy: that copy is
+    a leftover the mirror no longer writes (2026-10-08, a consuming
+    repository carried 99 of them under process/upstream/tools/), so a
+    decline judged by it would never see upstream move."""
     if not rel:
         return None, None
     up = tree / rel
-    if up.is_file():
+    if up.is_file() and not (rel.startswith('tools/') and _vendors_engine(repo)):
         return sha256(up), up
     if rel.startswith('tools/'):
         try:
@@ -379,6 +387,17 @@ def decline_basis(repo, tree, rel):
             here = repo / rel
             return recorded, here if here.is_file() else None
     return None, None
+
+
+def _vendors_engine(repo):
+    """True when the catalogue copy leaves tools/ out of `repo` because its
+    own tools/ holds the vendored engine: checkin._copy_carries_tools, the
+    one answer, asked here rather than restated."""
+    try:
+        import checkin
+    except Exception:  # noqa: BLE001 -- an install with no checkin.py beside this
+        return False
+    return not checkin._copy_carries_tools(repo)
 
 
 def _upstream_file(tree, rel):
@@ -661,6 +680,29 @@ def audit(update=False, only=None, entries=None):
         print(f"pending: {p}")
     for w in warns:
         print(f"WARN: {w}")
+    if update:
+        # --update-baseline answers for the baselines alone. Until
+        # 2026-10-08 it ended on the whole gate's verdict, so a stale decline
+        # elsewhere in the manifest closed a re-baseline that had just been
+        # written with "FAIL -- 2 error(s)", read in a consuming repository
+        # as a refusal: two independent fixes, coupled. What the gate finds
+        # is still printed, every line, and the audit run bare still fails
+        # on it; only a failure of the re-baseline itself fails this run.
+        own = [f for f in fails if f.startswith('UPDATE:')]
+        rest = [f for f in fails if f not in own]
+        for f in rest:
+            print(f"STILL FAILING THE AUDIT: {f}")
+        for f in own:
+            print(f"FAIL: {f}")
+        if own:
+            print(f"\npractice_audit --update-baseline FAIL — {len(own)} error(s).")
+            return 1
+        print(f"practice_audit --update-baseline OK: {len(manifests)} manifest(s), "
+              f"{n} entries"
+              + (f"; the audit itself still fails on the {len(rest)} finding(s) "
+                 f"above -- run it bare once they are fixed"
+                 if rest else "") + ".")
+        return 0
     for f in fails:
         print(f"FAIL: {f}")
     if fails:
