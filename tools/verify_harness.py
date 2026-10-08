@@ -27507,9 +27507,12 @@ def check_materialize_bridges_loader():
         write_practice(uni / 'practices' / 'uni-fixture.md', 'uni-fixture',
                         'A universal fixture Rule.', tier='resident')
         rc, out = run()
+        # Since 2026-10-08 the sync names which copy runs instead of calling
+        # the other one unclaimed (check_sync_says_which_copy_of_a_claimed_check_runs).
         cases.append(('a copy only ANOTHER source claims is left behind, not a '
                       'collision', rc == 0 and 'collision' not in out
-                      and 'check_shared_name.py (precedent)' in out))
+                      and 'check_shared_name.py runs from precedent-team-fixture' in out
+                      and "precedent's copy is not vendored" in out))
         cases.append(('and the claiming source\'s copy is the one vendored',
                       (consumer / 'tools' / 'checks' / 'check_shared_name.py').is_file()))
         write_practice(uni / 'practices' / 'uni-fixture.md', 'uni-fixture',
