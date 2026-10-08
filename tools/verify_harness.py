@@ -49846,6 +49846,100 @@ def check_kept_section_reports_upstreams_change_not_its_lacks():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_kept_section_repins_a_change_that_misses_the_kept_lines():
+    """A kept AGENTS.md section whose template changed only in lines the
+    consumer carries as upstream wrote them re-pins by itself, with a report
+    line; a change that touches a line the consumer changed still asks.
+
+    WHY. 2026-10-08, a consuming repository: a kept section was re-raised
+    with "with the person's yes, re-pin it" for a template rewording
+    elsewhere in the section, which no difference the consumer kept could
+    be affected by. The judgment is three-way, against the pinned template
+    text (precedent_vendor_engine._change_touches_local), and conservative:
+    a change beside a consumer's line counts as touching it, and no local
+    text at all asks. The consumer's section is never rewritten.
+
+    Negative control, measured 2026-10-08 against
+    2026-10-08-produce-copy-check-y1ktn at ae07871f: the change elsewhere
+    leaves an item for the person (the first case fails)."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    key = '## Working in this repo'
+    para = lambda a, b, c, extra='': (f'{key}\n\n{a}\n\n{extra}{b}\n\n{c}\n')
+    old = para('Run the light check first.', 'Then the deep check.', 'Push last.')
+    local = para('Run our own light check first.', 'Then the deep check.', 'Push last.')
+    elsewhere = para('Run the light check first.', 'Then the deep check.',
+                     'Push only once both pass.')
+    touching = para('Run the light check before every commit.', 'Then the deep check.',
+                    'Push last.')
+    beside = para('Run the light check first.', 'Then the deep check.', 'Push last.',
+                  extra='A new paragraph upstream added here.\n\n')
+    item = f'AGENTS.md {key}'
+    touches = getattr(pve, '_change_touches_local', lambda *_a: None)
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        tpl, dest = td / 'tpl', td / 'dest'
+        tpl.mkdir(); dest.mkdir()
+        (tpl / pve._AGENTS_MD_HISTORY_NAME).write_text(
+            json.dumps({key: [old, elsewhere, touching, beside]}), encoding='utf-8')
+        agents = f'# Repo\n\n{local}'
+
+        def run(section, here):
+            (dest / 'precedent.json').write_text(json.dumps({pve.KEPT_DIVERGENCES_KEY: {
+                item: {'reason': 'we run our own light check',
+                       'template_sha256': pve._sha_text(old)}}}), encoding='utf-8')
+            (dest / 'AGENTS.md').write_text(agents, encoding='utf-8')
+            pve._LEFT_FOR_YOU.clear()
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                done = pve._report_stale_kept(dest, tpl, key, item, 'the template',
+                                              section, pve._sha_text(section), 'c' * 64,
+                                              {}, local=here)
+            entry = json.loads((dest / 'precedent.json').read_text(
+                encoding='utf-8'))[pve.KEPT_DIVERGENCES_KEY][item]
+            return (done, buf.getvalue(), list(pve._LEFT_FOR_YOU), entry,
+                    (dest / 'AGENTS.md').read_text(encoding='utf-8'))
+        done, out, left, entry, after = run(elsewhere, local)
+        cases.append(('a rewording of a line this section carries as upstream wrote it '
+                      're-pins by itself, with a report line',
+                      done and not left and 'PIN UPDATED' in out
+                      and 'touches no line' in out
+                      and entry['template_sha256'] == pve._sha_text(elsewhere),
+                      (left, out)))
+        cases.append(('...and the section keeps its own text', after == agents, after))
+        done, out, left, entry, after = run(touching, local)
+        cases.append(('a change to the line this section changed still asks, and keeps '
+                      'the old pin',
+                      done and len(left) == 1 and 'repin-kept' in left[0][1]
+                      and entry['template_sha256'] == pve._sha_text(old), (left, out)))
+        done, out, left, entry, after = run(beside, local)
+        cases.append(('a paragraph added right beside that line counts as touching it: '
+                      'asks', done and len(left) == 1
+                      and entry['template_sha256'] == pve._sha_text(old), (left, out)))
+        cases.append(('...wherever the matcher places the insertion among the blank '
+                      'lines', all(touches(old, beside, local)
+                                   for local in (local, local.replace('\n\n', '\n\n\n')))
+                      and touches(
+                          old, old.replace('Then the deep check.\n',
+                                           'Then the deep check.\n\nAdded.\n'),
+                          old.replace('Then the deep check.', 'Then ours.')), ''))
+        done, out, left, entry, after = run(elsewhere, None)
+        cases.append(('with no local text to read, it asks', done and len(left) == 1,
+                      (left, out)))
+        cases.append(('the read is three-way against the pinned text, either order',
+                      touches(old, touching, local)
+                      and not touches(old, elsewhere, local)
+                      and not touches(old, local, elsewhere), ''))
+    pve._LEFT_FOR_YOU.clear()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_repin_kept_records_the_persons_words():
     """`precedent_vendor_engine.py repin-kept` re-pins one kept AGENTS.md
     section against today's template and records who confirmed it and
@@ -65496,6 +65590,8 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
+    check('a kept section re-pins by itself when upstream\'s change misses what it kept',
+          *check_kept_section_repins_a_change_that_misses_the_kept_lines())
     check_repin_kept_records_the_persons_words()
     check_hook_changes_never_touch_dot_claude()
     check_sync_names_a_field_its_engine_does_not_know()

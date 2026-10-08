@@ -717,8 +717,12 @@ says so, both from the vendored tree under `process/upstream/`.
     whose new wording the section already carries, re-pins by itself, as a
     `PIN UPDATED` line (since 2026-10-07: a consumer's two kept sections came
     back as long lacks lists over links alone, and another stopped over a
-    phrase it had already adopted). Otherwise, once the person says it is
-    still kept, `python3 tools/precedent_vendor_engine.py repin-kept
+    phrase it had already adopted). So does a change that touches no line
+    the section changed: read three ways against the pinned text, every
+    line upstream changed, and the lines beside it, is one the section
+    carries as upstream wrote it (since 2026-10-08). The section is never
+    rewritten, so that change is not copied in either. Otherwise, once the
+    person says it is still kept, `python3 tools/precedent_vendor_engine.py repin-kept
     ../BestPractice "AGENTS.md <heading>" --confirmed "<their words>"`
     re-pins it and records their words and the date; never paste the hashes
     by hand. An entry with no reason is

@@ -5853,6 +5853,54 @@ def _change_already_here(change, local):
                         for r in removed))
 
 
+def _hunks(old, new):
+    """-> [(i1, i2)]: the line ranges of `old` that changed on the way to
+    `new` (difflib opcodes other than 'equal'; i1 == i2 is an insertion
+    before line i1), each widened over the blank lines either side of it,
+    so where the matcher happens to place an insertion among blank lines
+    cannot decide whether it sits beside another change. Lines compare
+    exactly, trailing whitespace aside."""
+    import difflib
+    a = [l.rstrip() for l in old.split('\n')]
+    b = [l.rstrip() for l in new.split('\n')]
+    out = []
+    for tag, i1, i2, _j1, _j2 in difflib.SequenceMatcher(
+            None, a, b, autojunk=False).get_opcodes():
+        if tag == 'equal':
+            continue
+        while i1 > 0 and not a[i1 - 1]:
+            i1 -= 1
+        while i2 < len(a) and not a[i2]:
+            i2 += 1
+        out.append((i1, i2))
+    return out
+
+
+def _change_touches_local(old, new, local):
+    """True when upstream's change to a kept section could touch what the
+    consumer kept differently -- a three-way read with the pinned template
+    text `old` as the base: the hunks old -> `new` (upstream's change) and
+    the hunks old -> `local` (the consumer's own section).
+
+    They intersect when two hunks' line ranges of `old` overlap OR TOUCH
+    (closed ranges, a.i1 <= b.i2 and b.i1 <= a.i2, after _hunks widens each
+    over the blank lines around it), so a change to the line or paragraph
+    right beside one the consumer changed asks, as a merge would call it a
+    conflict. Any doubt answers True: no pinned or local text, or a
+    consumer hunk spanning the whole section (nothing lines up). False
+    means every line upstream changed is one the consumer carries exactly
+    as the pinned template had it, and so are its neighbours."""
+    if local is None or old is None:
+        return True
+    theirs, mine = _hunks(old, new), _hunks(old, local)
+    if not theirs:
+        return False
+    n = len(old.split('\n'))
+    if any(i1 == 0 and i2 >= n for i1, i2 in mine):
+        return True
+    return any(a1 <= b2 and b1 <= a2 for a1, a2 in theirs for b1, b2 in mine)
+
+
 # The clone a command was run against, as typed, so a hint can name it.
 _CLONE_ARG = '../BestPractice'
 
@@ -5900,6 +5948,22 @@ def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
                   f"upstream's change to {what} since it was recorded is "
                   f"already in this repository's section, so the kept entry "
                   f"now records today's text.")
+            return True
+        return False
+    # 2026-10-08, a consuming repository: a template rewording elsewhere in
+    # a kept section -- lines the consumer carries exactly as upstream wrote
+    # them -- stopped the update for the person's yes to a re-pin, though
+    # nothing the consumer kept differently was touched. Read three ways
+    # (_change_touches_local); only a change that could touch the kept
+    # difference asks. The section itself is never rewritten either way.
+    if not _change_touches_local(old, section, local):
+        if _repin_after_formatting(dest_root, item, template_sha, carried_sha):
+            n = sum(1 for l in change if l[:1] in '+-')
+            print(f"PIN UPDATED: {item} is kept on purpose (\"{reason}\"), and "
+                  f"upstream's change to {what} since it was recorded "
+                  f"({n} line(s)) touches no line this repository's section "
+                  f"changes, so the kept entry now records today's text. The "
+                  f"section is left as it is; that change is not copied in.")
             return True
         return False
     print(f"DIVERGED: {AGENTS_MD} \"{key}\" is kept on purpose (\"{reason}\"), "
