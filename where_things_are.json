@@ -509,6 +509,14 @@
       "go_to": "[documentation/TEN_THINGS.md](documentation/TEN_THINGS.md)"
     },
     {
+      "looking_for": "Precedent in one sentence — every attempt so far at the one-line description, side by side; the README shows the current favorite",
+      "go_to": "[documentation/ONE_SENTENCE.md](documentation/ONE_SENTENCE.md)"
+    },
+    {
+      "looking_for": "The index of every page under documentation/ — what it is, how to use it, setting it up",
+      "go_to": "[documentation/README.md](documentation/README.md)"
+    },
+    {
       "looking_for": "Every GitHub setting a Precedent project depends on, who clicks it, what fails without it — roles, branch protection with the four values, what GitHub does with CODEOWNERS and how this system generates it, Actions permissions and secrets, practice-set repositories",
       "go_to": "[documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md)"
     },
