@@ -13313,6 +13313,258 @@ def check_update_vendors_reruns_pinned_to_its_first_commit():
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
 
+def check_update_vendors_leaves_the_copy_its_record_names():
+    """Update Vendors ends with the vendored catalogue copy holding exactly
+    what the commit process/manifest.json records gives under the copy
+    rules, apart from a local edit it resolved and kept, which it reports.
+
+    2026-10-08, a consuming repository: after its update said DONE, both
+    manifests recorded one commit while 440 of the 604 files under
+    process/upstream/ were other upstream versions and process/upstream/
+    tools/ held 99 files the copy no longer carries. The route: the copy was
+    put back to an older commit than the (uncommitted) manifest named -- a
+    reset of process/upstream/ after a refusal, or an earlier run's
+    put-back with the manifest since changed -- and the local-edit rules
+    then kept every older upstream text as "your edit", while the drop of
+    files the copy no longer carries recognised upstream's text at two
+    commits only. Four cases: a stale copy with a real local edit beside
+    it; a rerun after the source moved, over an earlier run's uncommitted
+    mirror ("changed here and not committed" before); a put-back followed
+    by a rerun, with the manifest changed since; and the postcondition
+    itself, called directly, for a file only the run-to-run record shows
+    was an earlier run's deletion; and a run that fails before its staging
+    step, which now records what it wrote and deleted for its rerun.
+
+    Negative control, measured 2026-10-08 against
+    2026-10-08-update-integrity-y1ktn at 353a946f: the stale files are
+    listed as "Still your local edit" and kept, the stale tools/ file stays,
+    and DONE is printed over them (case 1); the rerun is refused, "the
+    vendored tree has an uncommitted change", over the earlier run's mirror
+    (case 2); the put-back rerun keeps both the stale practice and the
+    dropped tool (case 3); the run failing before staging records nothing,
+    so its rerun puts nothing back (case 5); and neither the postcondition
+    nor the record's realignment exists (case 4)."""
+    import contextlib
+    import filecmp
+    import io
+    import tempfile
+    import precedent_vendor_engine as _pve
+    branch = _pve.SOURCE_BRANCH
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_local_edits as le
+    finally:
+        sys.path.pop(0)
+    fx = _LocalEditsFixture('precedent-copy-record-')
+    cases = []
+    tool = 'tools/routing_reasons.py'      # not an engine file: the copy leaves it out
+    edited, moved = 'practices/repo-is-memory.md', 'practices/verify-postcondition.md'
+    show = lambda ref, rel: subprocess.run(['git', '-C', str(ROOT), 'show', f'{ref}:{rel}'],
+                                           capture_output=True).stdout
+    up = lambda repo, rel: repo / 'process' / 'upstream' / rel
+
+    def build(name):
+        repo = fx.consumer(name)
+        seeded = fx.seeded_from(repo)
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream', 'branch': branch,
+                         'commit': seeded, 'scrub_blocklist': None},
+            'entries': []}, indent=2) + '\n', encoding='utf-8')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+              '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
+        # Answer the bare fixture's first-run questions, so a later run can
+        # end DONE.
+        fx.update(repo, seeded)
+        fx.commit(repo, 'catalogue at the seeded commit')
+        return repo, seeded
+
+    def mismatch(repo, ref):
+        """-> the copy-relative paths where the copy is not `ref` under the
+        copy rules (both directions)."""
+        ck = le._checkin(repo)
+        with tempfile.TemporaryDirectory() as td:
+            ck._tree_at(ROOT, ref, td)
+            theirs = ck._files(pathlib.Path(td))
+            ours = {p.relative_to(ck.UPSTREAM) for p in ck.UPSTREAM.rglob('*')
+                    if p.is_file()}
+            return sorted(p.as_posix() for p in ours ^ theirs) + sorted(
+                p.as_posix() for p in ours & theirs
+                if not filecmp.cmp(ck.UPSTREAM / p, pathlib.Path(td) / p, shallow=False))
+
+    try:
+        # --- 1. a stale copy, with a real local edit beside it ------------
+        repo, seeded = build('stale')
+        old = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', f'{seeded}~40'],
+                             capture_output=True, text=True).stdout.strip()
+        stale = [r for r in subprocess.run(
+            ['git', '-C', str(ROOT), 'diff', '--name-only', '--diff-filter=M', old, seeded,
+             '--', 'practices/', 'templates/'], capture_output=True, text=True).stdout.split()
+            if r not in (edited, moved)][:4]
+        for rel in stale:
+            up(repo, rel).write_bytes(show(old, rel))
+        up(repo, tool).parent.mkdir(parents=True, exist_ok=True)
+        up(repo, tool).write_bytes(show(old, tool) or show(seeded, tool))
+        local = _insert(show(seeded, edited), 'A line this repo added on purpose.\n', at=8)
+        up(repo, edited).write_bytes(local)
+        fx.commit(repo, 'a copy older than its record, and one real local edit')
+        fx.sh('git', 'push', '-q', 'origin', 'HEAD:main', cwd=repo)
+        ref = fx.upstream(seeded, {moved: show(seeded, moved) + b'\nUpstream moved.\n'})
+        rc, out = fx.update(repo, ref)
+        left = mismatch(repo, ref)
+        cases.append(('a stale copy ends as the commit its record names, the stale '
+                      'tools/ file gone, and DONE is said',
+                      len(stale) == 4 and left == [edited] and 'DONE' in out
+                      and not up(repo, tool).exists(), (stale, left, out[-1500:])))
+        cases.append(('...while the real local edit is kept and reported, never '
+                      'overwritten',
+                      up(repo, edited).read_bytes() == local
+                      and f'process/upstream/{edited}' in _section(out, 'Still your local edit')
+                      and not any(f'process/upstream/{r}' in _section(out, 'Still your')
+                                  for r in stale), _section(out, 'Still your')))
+
+        # --- 2. a rerun after the source moved, over an earlier run's mirror
+        repo, seeded = build('moved')
+        ref1 = fx.upstream(seeded, {moved: show(seeded, moved) + b'\nFirst move.\n'})
+        # An earlier run's mirror with no record behind it: the manifest
+        # still names the commit before it.
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+              '--repo', str(repo), '--from-ref', ref1, cwd=repo)
+        ref2 = fx.upstream(ref1, {edited: show(seeded, edited) + b'\nSecond move.\n'})
+        rc, out = fx.update(repo, ref2)
+        rec = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+        cases.append(('a rerun after the source moved takes the earlier run\'s mirror '
+                      'as its own: not refused, and the copy is the new commit',
+                      'not committed' not in out and rec['upstream']['commit'] == ref2
+                      and mismatch(repo, ref2) == [] and 'DONE' in out,
+                      (mismatch(repo, ref2), out[-1500:])))
+
+        # --- 3. a put-back followed by a rerun ----------------------------
+        repo, seeded = build('putback')
+        up(repo, tool).parent.mkdir(parents=True, exist_ok=True)
+        up(repo, tool).write_bytes(show(seeded, tool))
+        fx.commit(repo, 'catalogue at the seeded commit, tools/ still in it')
+        ref1 = fx.upstream(seeded, {moved: show(seeded, moved) + b'\nFirst move.\n',
+                                    tool: show(seeded, tool) + b'\n# upstream changed it\n'})
+        rc, out1 = fx.update(repo, ref1)
+        staged = [l for l in fx.git(repo, 'diff', '--cached', '--name-only').splitlines() if l]
+        dropped_first = not up(repo, tool).exists()
+        # As a FAILED run leaves it: its output staged and recorded.
+        pu.record_staged_output(repo, staged)
+        # The person changes the manifest afterwards (practice_audit.py
+        # --redecide writes a decline there), so the put-back leaves it,
+        # naming ref1, while it puts the copy back to HEAD.
+        m = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+        m['_redecided'] = 'a change of the person\'s, after the failure'
+        (repo / 'process' / 'manifest.json').write_text(json.dumps(m, indent=2) + '\n',
+                                                        encoding='utf-8')
+        rc, out = fx.update(repo, ref1)
+        m = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+        cases.append(('after a put-back and a rerun, what the first run deleted stays '
+                      'deleted and the copy is the recorded commit',
+                      dropped_first and 'put back to HEAD' in out
+                      and not up(repo, tool).exists() and mismatch(repo, ref1) == []
+                      and 'Still your local edit' not in out,
+                      (dropped_first, mismatch(repo, ref1), out[-1500:])))
+        cases.append(('...the manifest the person changed has its record of the copy '
+                      'put back with the copy, and keeps the person\'s change',
+                      'its record of the copy goes back to' in out
+                      and m.get('_redecided') and m['upstream']['commit'] == ref1,
+                      [l for l in out.splitlines() if 'earlier run' in l]))
+
+        # --- 5. a run that fails before staging records what it wrote -----
+        repo, seeded = build('early')
+        up(repo, tool).parent.mkdir(parents=True, exist_ok=True)
+        up(repo, tool).write_bytes(show(seeded, tool))
+        fx.commit(repo, 'catalogue at the seeded commit, tools/ still in it')
+        ref1 = fx.upstream(seeded, {moved: show(seeded, moved) + b'\nFirst move.\n'})
+        rc, out1 = fx.sh(sys.executable, '-c', (
+            'import sys\n'
+            f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+            'import precedent_update as pu\n'
+            'real = pu.run\n'
+            'def run(argv, cwd):\n'
+            '    if any(str(a).endswith("precedent_sync_views.py") for a in argv):\n'
+            '        return 1, "stubbed: the view sync failed"\n'
+            '    return real(argv, cwd)\n'
+            'pu.run = run\n'
+            f'sys.exit(pu.main(["--repo", {str(repo)!r}, "--from-ref", {ref1!r}, '
+            '"--skip-check"]))\n'), cwd=repo)
+        held = pu._read_record(repo).get('paths') or {}
+        cases.append(('a run that fails before its staging step records what it wrote '
+                      'and what it deleted',
+                      rc == 2 and 'the view sync failed' in out1
+                      and held.get(f'process/upstream/{moved}')
+                      and f'process/upstream/{tool}' in held
+                      and held[f'process/upstream/{tool}'] is None,
+                      (rc, sorted(held)[:8], out1[-800:])))
+        ref2 = fx.upstream(ref1, {edited: show(seeded, edited) + b'\nSecond move.\n'})
+        rc, out = fx.update(repo, ref2)
+        cases.append(('...so the rerun, after the source moved, puts it back as its own '
+                      'output, deletes the dropped file again, and ends on the new '
+                      'commit',
+                      'put back to HEAD' in out and 'not committed' not in out
+                      and not up(repo, tool).exists() and mismatch(repo, ref2) == []
+                      and 'DONE' in out, (mismatch(repo, ref2), out[-1500:])))
+
+        # --- 4. the postcondition, called directly ------------------------
+        post = getattr(pu, 'catalogue_copy_postcondition', None)
+        repo, seeded = build('direct')
+        mine = 'gotchas/not-upstream-text.md'
+        up(repo, mine).parent.mkdir(parents=True, exist_ok=True)
+        up(repo, mine).write_text('Text upstream never shipped here.\n', encoding='utf-8')
+        fx.commit(repo, 'catalogue, and a file of this repo\'s own in it')
+        for put_back, name in (((), 'a file nothing resolved is left for the person, '
+                                    'not overwritten'),
+                               ((f'process/upstream/{mine}',),
+                                'the same file, shown by the record as an earlier '
+                                'run\'s deletion the put-back restored, is deleted '
+                                'again')):
+            rep = pu.Report()
+            if post is None:
+                cases.append((name, False, 'no catalogue_copy_postcondition'))
+                continue
+            with contextlib.redirect_stdout(io.StringIO()):
+                post(repo, rep, put_back)
+            gone = not up(repo, mine).exists()
+            named = any(w == f'process/upstream/{mine}' for w, _ in rep.left)
+            cases.append((name, gone if put_back else (named and not gone),
+                          (rep.left, rep.steps)))
+        # The put-back's own consistency: the record of the copy goes back
+        # with the copy, and only the keys checkin.py record writes.
+        realign = getattr(pu, 'realign_catalogue_record', None)
+        mf = repo / 'process' / 'manifest.json'
+        rd = lambda: json.loads(mf.read_text(encoding='utf-8'))
+        wr = lambda d: mf.write_text(json.dumps(d, indent=2) + '\n', encoding='utf-8')
+        at_head = rd()['upstream']['commit']
+        m = rd()
+        m['upstream'].update(commit='f' * 40, synced_from='f' * 40)
+        m['_mine'] = 1
+        wr(m)
+        wrote = {'process/manifest.json': 'x', 'process/upstream/practices/a.md': 'y'}
+        back = ['process/upstream/practices/a.md']
+        got = realign(repo, wrote, back) if realign else None
+        cases.append(('a manifest not put back has its record of the copy put back to '
+                      'HEAD\'s, the person\'s change kept',
+                      got == at_head and rd()['upstream']['commit'] == at_head
+                      and rd()['upstream']['synced_from'] == at_head
+                      and rd().get('_mine') == 1, (got, rd().get('upstream'))))
+        m = rd()
+        m['upstream'].update(commit='f' * 40, branch='another')
+        wr(m)
+        got = realign(repo, wrote, back) if realign else 'missing'
+        cases.append(('...but not when the person changed another key of its upstream '
+                      'record', got is None and rd()['upstream']['commit'] == 'f' * 40,
+                      (got, rd().get('upstream'))))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_local_edits_fetch_the_vendored_commit_from_upstream():
     """precedent_local_edits.py judges a consuming repository's edits to
     received files against the commit they were vendored from. Run from
@@ -65772,6 +66024,9 @@ def main():
           *check_update_vendors_redecided_decline_sticks())
     check('an update reruns against the source commit it started from until DONE',
           *check_update_vendors_reruns_pinned_to_its_first_commit())
+    check('Update Vendors ends with the catalogue copy its record names, a kept '
+          'local edit reported',
+          *check_update_vendors_leaves_the_copy_its_record_names())
     check_update_vendors_migrates_hand_written_views()
     check('every shipped CI template that runs the checks installs PyYAML first',
           *check_ci_templates_install_pyyaml_before_the_checks())
