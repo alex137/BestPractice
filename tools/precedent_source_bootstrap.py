@@ -342,6 +342,9 @@ def _try_sync(repo_url, clone_path, branch=None):
 # _left_as_it_stands looks for: one string, so rewording the message cannot
 # quietly stop a checkout left in place from being recorded as the source.
 LEFT_ON_ITS_BRANCH = 'Left where it is and not pulled.'
+# How sources_from_brings reports a brought set it read from such a branch;
+# precedent_update's report keys on it.
+READ_ON_ITS_BRANCH = 'on its working branch'
 
 
 def _sync_once(repo_url, clone_path, branch=None):
@@ -1080,6 +1083,19 @@ def sources_from_brings(retries=DEFAULT_RETRIES, skip=()):
                     continue
             ok, msg = _try_sync(url, clone_path.resolve() if clone_path.exists()
                                 else clone_path)
+            if not ok and _left_as_it_stands(clone_path, msg):
+                # On disk, on another branch: the resolver reads it from
+                # there, so it is in force as it stands -- a note, never a
+                # stop. Until 2026-10-08 this read as "could not be fetched
+                # ... its rules are not in force", which was false, and held
+                # the update of every set that brings it while one session
+                # had this set on its own update branch
+                # (todo-2026-10-08-a-brought-set-left-on-its-branch-blocks-the-update).
+                _ok, cur = _run_git(['-C', str(clone_path), 'rev-parse',
+                                     '--abbrev-ref', 'HEAD'])
+                out.append((name, True, f'{READ_ON_ITS_BRANCH} {cur!r}: read as '
+                                        f'it stands there, not pulled'))
+                continue
             out.append((name, ok, msg or 'cloned'))
         except Exception as e:                              # noqa: BLE001
             out.append((name, False, f'{type(e).__name__}: {e}'))
