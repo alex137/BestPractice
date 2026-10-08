@@ -24,12 +24,17 @@ nothing to choose here — this page installs §0, always.
    the project. Tell the administrator, in one sentence, what you are
    about to set up: a practice layer that gives their project durable
    memory, safe concurrent work, and a Getting Started page for members.
-2. **Ask exactly five questions** — the canonical list, in
+2. **Ask exactly five questions, on a first install only** — the canonical list, in
    [spec/INSTALL_QUESTIONS.md](https://github.com/alex137/BestPractice/blob/staging/spec/INSTALL_QUESTIONS.md) — together in one
    message, and wait:
    - *What is this project about?* (one or two sentences) — and: fill in
      `MAP.md`'s deliverables and `AGENTS.md`'s quick index now, or leave
      placeholders? (Default: placeholders, filled in a later conversation.)
+     In the same question, say what you will use for the three things the
+     installer needs and let them correct it: the project's name (from the
+     repository's name), the administrator's GitHub handle (the account
+     running this), and which folders hold what the project publishes
+     (from the tree; "none yet" is fine).
    - *Are there private names or code words that must never appear in
      anything public?* Explain why in one sentence: parts of the practice
      layer can flow back to a public repository, and this list is the
@@ -41,9 +46,16 @@ nothing to choose here — this page installs §0, always.
      facts, can each live in their own repo and be wired in too. Most
      projects have neither yet — that's a complete answer on its own — but
      it costs nothing to offer setting one up in the same conversation, so
-     ask rather than assume no. Mention the public set anyone can
-     declare, [precedent-shared-writing](https://github.com/themorgan/precedent-shared-writing),
-     which a documents project usually wants.
+     ask rather than assume no. Then offer the two public sets by name,
+     one sentence each, and say which you would pick:
+     [precedent-shared-writing](https://github.com/themorgan/precedent-shared-writing),
+     rules for documents people read, which a project that writes for
+     anyone usually wants; and
+     [precedent-shared-ladder](https://github.com/themorgan/precedent-shared-ladder),
+     a way of working where every change moves through named stages and a
+     test branch before it reaches `main`. The ladder set goes with the
+     person, not the project, so it is wired through their own personal
+     set; if they have none, a yes to it is a yes to setting one up.
    - *Which AI Assistant will actually be working in this repo* — Claude
      Code, ChatGPT connected to GitHub, or something else? Explain in one
      sentence: an AI Assistant with no access to a terminal needs

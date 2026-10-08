@@ -467,6 +467,15 @@ ENGINE_FILES = [
     # anyway (practice: timestamps-carry-offset); it has no dependencies of
     # its own beyond the standard library.
     'precedent_time.py',
+    # Files a failure an unattended job could not report anywhere else as an
+    # open item under todo/, and lists the open ones at session start
+    # (tools/bootstrap.sh runs it; practice: automation-issues, added
+    # 2026-10-08). In ENGINE_FILES so a practice set's own jobs get it too.
+    'open_failures.py',
+    # The full check of a commit that already landed, run in the background
+    # (`update_full_check: after` in precedent.json); files a failure through
+    # open_failures.py (added 2026-10-08).
+    'precedent_check_after.py',
     # WHO this repo's commits belong to, resolved the way commit-identity.sh
     # already resolves it. In ENGINE_FILES rather than CONSUMER-only,
     # unlike precedent_resolve.py which it was carved out of: a practice
@@ -724,6 +733,12 @@ ENGINE_FILES = [
     # "What's new?" works in every project, so the log's mechanics ship
     # (practice: whats-new); each project's own log never does.
     'precedent_whats_new.py',
+    # Its other half (Morgan, 2026-10-08): once a day, what OTHER people
+    # landed since the person was last told. The session-start hook and the
+    # reply gate both call it, so a repository without it would carry hooks
+    # naming a file that is not there (the others-did practice, in the ladder set). Each
+    # repository's own mark, tools/others_did_watermark.json, never ships.
+    'precedent_others_did.py',
     # EVERY VOCABULARY WORD HAS TO WORK WHERE THE ENGINE IS VENDORED
     # (2026-09-21, Morgan: "ALL of our vocabulary words should"). A standing
     # command a session cannot carry out is worse than one that does not

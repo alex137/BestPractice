@@ -68,7 +68,14 @@ list; `--move` takes the newest commit instead. Every one is
 listed in the same run, and while any is open the deep check is not started:
 it is the slow step, so it waits until nothing cheaper is in its way. Where
 the landing branch takes the full check, the basic tier runs first, and a
-finding there is reported without starting the full one. **FAILED**
+finding there is reported without starting the full one. **A repository
+whose `precedent.json` says `"update_full_check": "after"` stops at the
+basic tier:** DONE then names
+[precedent_check_after.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check_after.py)
+to start in the background once the update is pushed, which runs the full
+check on what landed and, if it fails, files the failure under `todo/` and
+pushes it (Alex, 2026-10-08, decided). Opt in only where someone is sure to
+hear: the session that starts it, or a host check after the merge. **FAILED**
 (exit 2): a step could not run or the deep check is red, and nothing is
 published. Run it again as it is: the vendored files that run staged and
 nobody has changed since are its own output, so the rerun puts them back and

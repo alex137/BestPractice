@@ -147,6 +147,7 @@ as_of: 2026-10-08
 | [`todo-2026-10-06-freshness-notice-said-behind-for-current-clones`](todo-2026-10-06-freshness-notice-said-behind-for-current-clones.md) | A consumer session (2026-10-05/06) reported that its | 2d | wait | the next time a session-start notice calls a clone BEHIND that is current minute… |
 | [`todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here`](todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here.md) | Two practices in force now read differently on the same moment. | 2d | ask | a decision by Morgan (owner of upstream-bug-stops-here) and Alex (who approved t… |
 | [`todo-2026-10-07-an-engine-change-is-not-rehearsed-against-the-sets-checks`](todo-2026-10-07-an-engine-change-is-not-rehearsed-against-the-sets-checks.md) | Commit 1ef31386 turned the individual set's startup hook into a stub that | 1d | ask |  |
+| [`todo-2026-10-08-tell-morgan-what-others-did`](todo-2026-10-08-tell-morgan-what-others-did.md) | Morgan learned about changes Alex made to Precedent only after something | 0d | ask |  |
 
 ## Decisions (the Person's Call)
 
@@ -158,6 +159,7 @@ as_of: 2026-10-08
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay | 19d | ask |  |
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | 7d | wait | Morgan: noted as a possibility for the future, not approved (2026-10-01) |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. | 5d | ask |  |
+| [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | 0d | ask |  |
 
 ## Unblocked Work
 
@@ -215,6 +217,7 @@ as_of: 2026-10-08
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay |  |
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | Morgan |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. |  |
+| [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | Alex's or Morgan's approval of the plan below, stage by stage |
 
 ## Due Reminders
 

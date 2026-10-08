@@ -389,6 +389,26 @@ def _is_prompt_row(d):
     return True
 
 
+def last_prompt_text(transcript):
+    """-> the text of the prompt that started this turn (the last user row
+    that is not a tool result or meta row), or '' when the transcript cannot
+    be read. What the person sent, a message relayed from another session
+    included -- which is how a reply knows where its paste block goes."""
+    last = ''
+    try:
+        with open(transcript, encoding='utf-8') as fh:
+            for line in fh:
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(d, dict) and _is_prompt_row(d):
+                    last = _row_text(d)
+    except OSError:                              # practice: fail-gracefully
+        return ''
+    return last
+
+
 def turn_wake(transcript):
     """What started this turn, when a background job did -> dict, else None.
 
@@ -945,6 +965,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_delete_link_when_landed',
     'require_section_not_repeated',
     'require_quiet_while_background_runs',
+    'require_reply_block_names_sender',
     'unless_reply_declares_loss',
     # conditions and metadata
     'id', 'requires',            # see _settle (2026-10-02)
@@ -1004,7 +1025,7 @@ def _unknown_predicates(req):
                   if not k.startswith('_') and k not in KNOWN_REQUIREMENT_KEYS)
 
 
-def violations(text, reqs, timeline=None, wake=None):
+def violations(text, reqs, timeline=None, wake=None, prompt=None):
     """-> list of records, one per unmet requirement:
 
         {'kind': 'heading' | 'first_item' | 'sentence' | 'contradiction'
@@ -1416,6 +1437,43 @@ def violations(text, reqs, timeline=None, wake=None):
         # NOT YET LANDED for the other half since 2026-09-21; nothing asked
         # for this half, and a session Booked its branch on 2026-10-06 and
         # gave no link.
+        # require_reply_block_names_sender (Morgan, 2026-10-08, strength:
+        # decided: "yes, extend the rule and add the check"). A message
+        # relayed from another session names that session in its opening
+        # line, so a paste block answering it has a known destination, and
+        # prompt-please wants that destination named inside the block. A
+        # session replying to such a message wrote a block with its own
+        # name and link and none for where it was going, and the person
+        # could not tell which window to paste it into.
+        rule = r.get('require_reply_block_names_sender')
+        if rule and prompt:
+            sm = re.search(rule.get('sender_in_prompt') or '(?!)', prompt,
+                           re.I | re.M)
+            exempt = rule.get('exempt_if_reply_says')
+            outside = re.sub(r'(?ms)^\s{0,3}(`{3,}|~{3,}).*?^\s{0,3}\1\s*$',
+                             '', text)
+            if sm and not (exempt and re.search(exempt, outside, re.I)):
+                url = sm.group(1)
+                marker = rule.get('block_if_matches') or '(?!)'
+                for block in _fenced_blocks(text):
+                    if not re.search(marker, block, re.I | re.M):
+                        continue
+                    if re.search(r'intended for the session', block, re.I) \
+                            and url in block:
+                        continue
+                    out.append({'kind': 'reply_names_sender',
+                                'advisory': advisory, 'message': (
+                        f"[{r.get('_source', '?')}] a paste block answers "
+                        f"the session that sent this turn's message ({url}) "
+                        f"and does not say so. Put \"This prompt is intended "
+                        f"for the session <its name> -- {url}.\" on the line "
+                        f"after its Seed root line, and name it outside the "
+                        f"block too (\"Paste this into <its name> -- {url}\")"
+                        + (f" -- {rule.get('why')}" if rule.get('why') else '')
+                        + "."
+                        + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+                    break
+
         if r.get('require_delete_link_when_landed'):
             for repo, branch, base in _landed_this_turn():
                 enc = urllib.parse.quote(branch, safe='')
@@ -1696,8 +1754,12 @@ def main():
 
     timeline = None
     wake = None
+    prompt = None
     if '--text' in argv:
         text = pathlib.Path(argv[argv.index('--text') + 1]).read_text(encoding='utf-8')
+        if '--prompt' in argv:
+            prompt = pathlib.Path(argv[argv.index('--prompt') + 1]).read_text(
+                encoding='utf-8')
     else:
         try:
             payload = json.loads(sys.stdin.read() or '{}')
@@ -1713,6 +1775,7 @@ def main():
             return 0
         timeline = assistant_timeline(transcript)
         text = last_assistant_text(transcript)
+        prompt = last_prompt_text(transcript)
         # A turn a background job woke is judged by its own words only --
         # never by the last reply's, which last_assistant_text() falls back
         # to when this turn said nothing (2026-10-05).
@@ -1736,7 +1799,7 @@ def main():
         return 0
     if is_trivial_checkin(text) and not (wake and wake.get('quiet_owed')):
         return 0
-    bad = [b for b in violations(text, reqs, timeline, wake)
+    bad = [b for b in violations(text, reqs, timeline, wake, prompt)
            if not b.get('advisory')]
     if not bad:
         return 0
