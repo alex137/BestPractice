@@ -9,7 +9,12 @@
 targets your landing branch** (`python3 tools/precedent_branches.py
 --landing` says which). **No merge needs Alex's
 sign-off, `main` included** (Alex, relayed by Morgan, 2026-09-26) -- once its
-deep check passes, a session may merge a PR into the landing branch. A
+deep check passes, a session may merge a PR into the landing branch. **Where
+that is `main` (the direct route), merge without waiting on the full local
+check:** the pull request's GitHub check and the next Promote report any
+problem afterwards, and the session fixes it then (Alex, 2026-10-08:
+"Didn't we decide that we would merge and get notified of problems
+instead?"). A
 general "PR and merge it" authorization, with no branch named, means the
 landing branch. Check the base branch explicitly before acting -- do not
 assume one because it is the repository's configured default branch, not
