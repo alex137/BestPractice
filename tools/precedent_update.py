@@ -34,8 +34,8 @@ THE STEPS, with no question in between:
      not chase a moving branch (--move takes the newest commit instead)
   2. the engine refresh (the consumer's own copy, which replaces itself and
      runs a second pass), with each committed local edit to an engine file
-     resolved around it by precedent_local_edits.py -- kept, merged, or
-     replaced by upstream's with the commit holding it named -- then the catalogue-pin repoint and the renamed
+     resolved around it by precedent_local_edits.py -- kept, or replaced
+     by upstream's with the commit holding it named -- then the catalogue-pin repoint and the renamed
      precedent-team-* -> precedent-shared-* sources from THIS copy; it
      stops if, with no --from-ref, the engine landed anywhere but the tip
      step 1 fetched, and leaves for you a run budget upstream gives a
@@ -1771,6 +1771,16 @@ class Report:
                   "what the update did with each:")
             for line in lines:
                 print(f"  {line}")
+        # Upstream's version is the default, and what it replaced is the
+        # session's call (Morgan, 2026-10-08), so it is said beside every
+        # outcome, DONE included, never only inside the list above.
+        judge = [rel for outcome, rel, _t in self.edits if outcome == le.PREFERRED]
+        if judge:
+            print(f"\nJUDGE: upstream's version replaced what was left of this "
+                  f"repo's own edit to {', '.join(judge)} (LOCAL EDITS above, "
+                  f"with the diff). Keep yours only where it does something "
+                  f"different and important, with the keep command printed "
+                  f"there; ask the person when it is a close call.")
 
     def _pinned(self):
         if self.pin:
@@ -3039,7 +3049,7 @@ def update(repo, skip_check=False, ref=None, move=False):
     if dirty:
         for rel in dirty:
             rep.leave(rel, 'a vendored file edited here and not committed. Commit '
-                      'it, and the next run keeps, merges or replaces it and says '
+                      'it, and the next run keeps or replaces it and says '
                       'which; or undo the edit. Nothing was written')
         rep.step('engine', 'refused: a vendored file has an uncommitted edit')
         return rep.close()
@@ -3152,7 +3162,7 @@ def update(repo, skip_check=False, ref=None, move=False):
         if dirty:
             for rel in dirty:
                 rep.leave(rel, 'changed here and not committed. Commit it, and '
-                          'the next run keeps, merges or replaces it and says '
+                          'the next run keeps or replaces it and says '
                           'which; or undo the change. Nothing was written')
             rep.step('catalogue', 'refused: the vendored tree has an uncommitted change')
             return rep.close()

@@ -1456,7 +1456,7 @@ def update(clone, force=False, allow_pinned=False, ref=None):
             sys.exit("checkin FAIL: vendored tree differs from the recorded upstream commit — "
                      "that is unexported work the mirror would clobber. Update Vendors "
                      "(tools/precedent_update.py, run from the BestPractice clone) resolves "
-                     "each committed change itself -- keeps it, merges it, or takes "
+                     "each committed change itself -- keeps it, or takes "
                      "upstream's version and says so -- and "
                      "tools/precedent_local_edits.py send carries one upstream. Or pass "
                      "--force to overwrite -- but only after reviewing each file above.")
@@ -1879,7 +1879,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
     if not base:
         return
     # A file Update Vendors is resolving is not a loss either way: its local
-    # lines are kept, merged, or replaced by upstream's with the commit that
+    # lines are kept, or replaced by upstream's with the commit that
     # holds them named (tools/precedent_local_edits.py, 2026-09-29). Only
     # those files are skipped, and the count is said.
     resolving = set(resolving)

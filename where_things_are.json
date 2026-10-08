@@ -242,7 +242,7 @@
       "go_to": "[spec/ONE_COMMAND_UPDATE_PLAN.md](spec/ONE_COMMAND_UPDATE_PLAN.md) (accepted 2026-09-27, mostly built); the command: [tools/precedent_update.py](tools/precedent_update.py); the procedure it replaces: [practices/vendor-update-runbook.md](practices/vendor-update-runbook.md)"
     },
     {
-      "looking_for": "What happens to a consuming repo's own edit to a file it received (an engine file in `tools/`, or `process/upstream/`) — kept, merged or replaced at Update Vendors, and how to send it upstream as a branch",
+      "looking_for": "What happens to a consuming repo's own edit to a file it received (an engine file in `tools/`, or `process/upstream/`) — kept or replaced by upstream's at Update Vendors, and how to send it upstream as a branch",
       "go_to": "[spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md](spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md) (2026-09-29); the tool: [tools/precedent_local_edits.py](tools/precedent_local_edits.py) — `status` lists the edits, `send` carries them upstream; the rule behind it: [practices/upstream-bug-stops-here.md](practices/upstream-bug-stops-here.md)"
     },
     {
