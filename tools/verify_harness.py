@@ -42301,32 +42301,34 @@ def check_agents_templates_conventions_point_to_practices():
           'points to it', not bad, '; '.join(bad))
 
 
-def check_update_seeds_a_ceiling_that_covers_what_it_asks_for():
-    """The AGENTS.md ceiling Update Vendors seeds counts the template
-    sections the same update asks the repo to copy in, so taking them does
-    not fail the ceiling just set; a section left out on an EARLIER run is
-    not asked for and does not count.
+def check_update_seeds_budgets_on_the_run_that_reports_done():
+    """Update Vendors seeds tools/session_load_budgets.json only on the run
+    that reports DONE, measuring the files that run produced -- never on a
+    run that leaves template sections for the person to copy in.
 
-    2026-10-08: a consumer copied in the two sections an update listed and
-    its AGENTS.md measured 8,498 against the 8,100 ceiling that update had
-    seeded at the file's size before the copy (practice: session-load-budget).
-    Both directions, read off the seeded note's own measurement so a step
-    that rewrites AGENTS.md first cannot move the expectation."""
-    fx = _KeptDivergenceFixture('precedent-owed-ceiling-')
+    2026-10-08, a consuming repository: run 1 seeded AGENTS.md at its size
+    before the sections the same run listed (taking them put it at 8,101
+    against 8,100), and the session-start file as the old engine had
+    rendered it (practice: session-load-budget).
+
+    1. a run with a section left for the person writes no registry;
+    2. the next run, after the section is copied in, reports DONE and seeds
+       AGENTS.md as it now stands -- the measurement is the file on disk;
+    3. CONTROL: a consumer with nothing left is seeded on its first run, so
+       the seed did not just stop happening."""
+    fx = _KeptDivergenceFixture('precedent-done-ceiling-')
     pve, cases = fx.pve, []
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
         import build_views as bv
+        import precedent_update as pu
     finally:
         sys.path.pop(0)
     key = '## Conventions'
-
-    def round50(n):
-        return ((int(n * 1.2) + 49) // 50) * 50
+    reg_rel = pathlib.Path('tools') / 'session_load_budgets.json'
 
     def seeded(repo):
-        reg = json.loads((repo / 'tools' / 'session_load_budgets.json')
-                         .read_text(encoding='utf-8'))
+        reg = json.loads((repo / reg_rel).read_text(encoding='utf-8'))
         e = reg['surfaces']['AGENTS.md']
         return e['ceiling'], int(re.match(r'(\d+) tokens', e['_note']).group(1))
     try:
@@ -42335,33 +42337,48 @@ def check_update_seeds_a_ceiling_that_covers_what_it_asks_for():
         sec = pve._instantiate(pve._template_sections(
             fx.template(fx.AGENTS_SRC).decode())[key][1], pve._agents_md_subs(fx.tmp))
         assert sec in tpl, 'template shape moved; repoint this fixture'
-        owed = bv._approx_tokens(sec)
 
         repo = fx.consumer('asked', agents=tpl.replace(sec + '\n\n', ''))
-        fx.update(repo)
-        ceiling, measured = seeded(repo)
-        cases.append((f'a section the update lists to copy in is counted: '
-                      f'ceiling {ceiling} >= {round50(measured + owed)}',
-                      ceiling >= round50(measured + owed)))
+        rc, out = fx.update(repo)
+        cases.append((f'1: a run that leaves a section for the person seeds '
+                      f'nothing (exit {rc})',
+                      rc == pu.LEFT and not (repo / reg_rel).exists()))
+        # The person copies the section in where the template has it: just
+        # before the heading that follows it there.
+        agents = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+        following = tpl.split(sec + '\n\n', 1)[1].split('\n', 1)[0]
+        assert following and following in agents, 'no anchor to copy the section in at'
+        (repo / 'AGENTS.md').write_text(agents.replace(
+            following, sec + '\n\n' + following, 1), encoding='utf-8')
+        fx.sh('git', 'add', '-A', cwd=repo)
+        fx.sh('git', 'commit', '-qm', 'took the section', cwd=repo)
+        rc, out = fx.update(repo)
+        ok = rc == pu.DONE and (repo / reg_rel).exists()
+        detail = ''
+        if ok:
+            ceiling, measured = seeded(repo)
+            now = bv._approx_tokens((repo / 'AGENTS.md').read_text(encoding='utf-8'))
+            ok = measured == now and ceiling >= now
+            detail = f': measured {measured}, file {now}, ceiling {ceiling}'
+        cases.append((f'2: the DONE run seeds AGENTS.md as it stands, section '
+                      f'included (exit {rc}){detail}', ok))
+        staged = subprocess.run(['git', '-C', str(repo), 'diff', '--cached',
+                                 '--name-only'], capture_output=True,
+                                text=True).stdout.split()
+        cases.append(('2b: the seeded registry is staged with the update',
+                      str(reg_rel) in staged))
 
-        repo = fx.consumer('declined', agents=tpl.replace(sec + '\n\n', ''))
-        mf = repo / 'tools' / pve.MANIFEST_NAME
-        data = json.loads(mf.read_text(encoding='utf-8'))
-        data.setdefault(pve.AGENTS_MD_SECTIONS_KEY, {})[key] = None
-        mf.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
-        fx.sh('git', 'commit', '-qam', 'left out on purpose', cwd=repo)
-        fx.update(repo)
-        ceiling, measured = seeded(repo)
-        cases.append((f'CONTROL: a section left out on an earlier run is not: '
-                      f'ceiling {ceiling} == {round50(measured)}',
-                      ceiling == round50(measured)))
-    except (OSError, ValueError, KeyError, AttributeError) as e:
+        repo = fx.consumer('clean')
+        rc, out = fx.update(repo)
+        cases.append((f'3: CONTROL: nothing left, seeded on the first run '
+                      f'(exit {rc})', rc == pu.DONE and (repo / reg_rel).exists()))
+    except (OSError, ValueError, KeyError, AttributeError, AssertionError) as e:
         cases.append((f'fixture could not be read: {type(e).__name__}: {e}', False))
     finally:
         fx.close()
     bad = [n for n, ok in cases if not ok]
-    check(f'Update Vendors seeds an AGENTS.md ceiling covering the sections it '
-          f'asks for ({len(cases)} stated cases)', not bad, '; '.join(bad))
+    check(f'Update Vendors seeds the session-load budgets on the run that '
+          f'reports DONE ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_kept_agents_md_divergence_is_recorded():
@@ -62840,7 +62857,9 @@ def check_brought_sets_have_their_own_session_budget():
     3. a budget at least the share: no finding, and the repo is charged the
        file less the share;
     4. CONTROL: a budget under the share is a finding;
-    5. CONTROL: a person who brings nothing has a share of 0."""
+    5. CONTROL: a person who brings nothing has a share of 0;
+    6-8. the ceiling Update Vendors seeds and the over-target line take the
+       same split, with a CONTROL that the repo's own part still counts."""
     import tempfile, contextlib, io
     import json as _json
     import precedent_session_practices as psp
@@ -62914,6 +62933,38 @@ def check_brought_sets_have_their_own_session_budget():
                 n, f = pc._charge_brought_share(1000 + share)
                 results.append(('4: CONTROL: over budget is a finding',
                                 f is not None and 'over the' in str(f), str(f)))
+                # The seed and the target line read the same split as the
+                # check (charged_to_repo): a ceiling written by Update
+                # Vendors, and the over-target line, never count the brought
+                # sets (2026-10-08, a consuming repository: seeded at 150,
+                # re-measured by hand once the ladder arrived).
+                manifest(fx, budget=share + 10)
+                import precedent_bootstrap_source as pbs
+                import session_load_trend as slt
+                import build_views as bv
+                full = psp.render(*psp.collect(str(repo)), repo=str(repo))
+                (repo / '.precedent').mkdir(exist_ok=True)
+                (repo / '.precedent' / 'SESSION_PRACTICES.md').write_text(
+                    full, encoding='utf-8')
+                pbs._write_session_load_budget(repo, occasion='test')
+                reg_f = repo / 'tools' / 'session_load_budgets.json'
+                reg = _json.loads(reg_f.read_text(encoding='utf-8'))
+                ent = reg['surfaces']['.precedent/SESSION_PRACTICES.md']
+                seeded_n = int(ent['_note'].split()[0])
+                want = bv._approx_tokens(full) - share
+                results.append(('6: the seeded ceiling measures the file less '
+                                'the brought share', seeded_n == want,
+                                f'seeded {seeded_n}, file {bv._approx_tokens(full)}, '
+                                f'share {share}'))
+                ent['target'] = want + 1
+                reg_f.write_text(_json.dumps(reg), encoding='utf-8')
+                results.append(('7: the over-target line charges the repo its '
+                                'part only', slt.over_target(repo) == [],
+                                str(slt.over_target(repo))))
+                ent['target'] = want - 1
+                reg_f.write_text(_json.dumps(reg), encoding='utf-8')
+                results.append(('8: CONTROL: over its own part, it is reported',
+                                len(slt.over_target(repo)) == 1, ''))
                 manifest([])
                 results.append(('5: CONTROL: bringing nothing has no share',
                                 psp.brought_share(repo)[0] == 0, ''))
@@ -66159,7 +66210,7 @@ def main():
     check_kept_agents_md_divergence_is_recorded()
     check_agents_templates_repeat_no_practice_text()
     check_agents_templates_conventions_point_to_practices()
-    check_update_seeds_a_ceiling_that_covers_what_it_asks_for()
+    check_update_seeds_budgets_on_the_run_that_reports_done()
     check_absent_agents_md_section_is_asked_across_self_refresh()
     check_kept_bootstrap_divergence_is_recorded()
     check_legacy_bootstrap_shim_is_replaced()

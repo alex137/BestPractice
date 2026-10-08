@@ -366,7 +366,7 @@ def approval_gap(repo):
             '(practice: session-load-budget)')
 
 
-def ensure_session_load_registry(repo, owed=None):
+def ensure_session_load_registry(repo):
     """Seed tools/session_load_budgets.json in a repository that has none.
     -> {surface: measured tokens} when it wrote one, else None.
 
@@ -381,15 +381,13 @@ def ensure_session_load_registry(repo, owed=None):
     a watermark declaring the status quo, never a judgment that it is the
     right size -- reducing it is the reduction pass the practice asks for.
 
-    `owed`: {surface: tokens} this same update asks the repo to add (the
-    AGENTS.md template sections it lists, pve.agents_md_owed_text), counted
-    into the measurement: on 2026-10-08 a consumer that copied in what the
-    update listed failed the ceiling the update had just seeded."""
+    Called only by the run that reports DONE (seed_budgets_step), on the
+    files that run produced."""
     path = repo / 'tools' / 'session_load_budgets.json'
     if path.exists():
         return None
     import precedent_bootstrap_source as _pbs
-    _pbs._write_session_load_budget(repo, occasion='Update Vendors', owed=owed)
+    _pbs._write_session_load_budget(repo, occasion='Update Vendors')
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
@@ -2781,11 +2779,6 @@ def update(repo, skip_check=False, ref=None, move=False):
                                  .read_text(encoding='utf-8')).get('source_commit')
     except (OSError, ValueError):
         last_synced = None
-    # Which AGENTS.md sections were left out on purpose BEFORE this refresh:
-    # the refresh records a newly missing one the same way, so only this
-    # read tells the seeded budget below which ones it is about to ask for.
-    agents_recorded_before = pve.agents_md_recorded(repo)
-
     # 2. The engine, by the consumer's own copy: refresh() takes ROOT from
     # where it sits. It replaces itself and re-runs, so an old copy still
     # ends on the current code.
@@ -3116,27 +3109,8 @@ def update(repo, skip_check=False, ref=None, move=False):
                  f"personal/README.md#blank-blocklist from {', '.join(dead)}, "
                  f"keeping the sentence (that file exists nowhere)")
 
-    seeded = None
-    if not (repo / 'tools' / 'session_load_budgets.json').exists():
-        try:
-            import build_views as _bv
-            owed_tokens = _bv._approx_tokens(pve.agents_md_owed_text(
-                repo, SOURCE, agents_recorded_before))
-        except Exception:                                    # noqa: BLE001
-            owed_tokens = 0
-        seeded = ensure_session_load_registry(
-            repo, owed={'AGENTS.md': owed_tokens} if owed_tokens else None)
-        if seeded and owed_tokens:
-            rep.step('session-load budget', f"AGENTS.md's ceiling counts the "
-                     f"{owed_tokens:,} tokens of template text this update "
-                     f"asks to be copied in, so taking it stays under it")
-    if seeded:
-        big = max(seeded.items(), key=lambda kv: kv[1] or 0)
-        rep.step('session-load budget', 'tools/session_load_budgets.json '
-                 'seeded at today\'s sizes (' + ', '.join(
-                     f'{k} {v:,} tokens' for k, v in seeded.items() if v) +
-                 f'), so the load check now binds here; {big[0]} is the '
-                 f'largest, and a reduction pass is how it comes down')
+    # A missing tools/session_load_budgets.json is seeded at the close, by
+    # the run that reports DONE (seed_budgets_step), not here.
     gap = approval_gap(repo)
     if gap:
         rep.step('session-load budget', gap)
@@ -3280,8 +3254,57 @@ def manifest_postcondition(repo, rep):
                  'removed: ' + ', '.join(dropped))
 
 
+def seed_budgets_step(repo, rep):
+    """Seed tools/session_load_budgets.json where there is none -- only on
+    the run that reports DONE, measuring the files that run produced, and
+    staged as this update's.
+
+    WHY (2026-10-08, a consuming repository). Run 1 seeded the registry at
+    the sizes the tree had mid-update: AGENTS.md before the template
+    sections the same run listed for copying in (taking them put it at
+    8,101 against a ceiling of 8,100), and .precedent/SESSION_PRACTICES.md
+    as the OLD engine had rendered it at the last session start (150
+    tokens, ceiling 200); the first session start on the new engine
+    rendered 341. Any run with items left for the person ends before the
+    tree is final, so it seeds nothing; the run that reports DONE first
+    renders the session-start file with the engine it just vendored, then
+    measures. Seeding a registry that did not exist is not raising a
+    budget (practice: session-load-budget): an existing registry is never
+    re-measured here, so a ceiling already set only moves by the person's
+    own words or an offset."""
+    if (repo / 'tools' / 'session_load_budgets.json').exists():
+        return
+    if rep.left:
+        rep.step('session-load budget', 'tools/session_load_budgets.json not '
+                 'seeded yet: the run that reports DONE seeds it, measuring '
+                 'what that run produces, so what you copy in from the list '
+                 'below is counted')
+        return
+    renderer = repo / 'tools' / 'precedent_session_practices.py'
+    if renderer.is_file():
+        # The session-start file as the next session will have it: rendered
+        # by the engine this update just vendored, not the one before it.
+        run([sys.executable, str(renderer), '--repo', '.', '--quiet'], repo)
+    seeded = ensure_session_load_registry(repo)
+    if not seeded:
+        return
+    rel = 'tools/session_load_budgets.json'
+    subprocess.run(['git', '-C', str(repo), 'add', '--', rel],
+                   capture_output=True, text=True)
+    if rel not in rep.staged:
+        rep.staged = sorted(rep.staged + [rel])
+    big = max(seeded.items(), key=lambda kv: kv[1] or 0)
+    rep.step('session-load budget', f'{rel} seeded at the sizes this update '
+             f'produced (' + ', '.join(
+                 f'{k} {v:,} tokens' for k, v in seeded.items() if v) +
+             f'; the sets a person brings are held to their own budget and '
+             f'not counted), so the load check now binds here; {big[0]} is '
+             f'the largest, and a reduction pass is how it comes down')
+
+
 def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
+    seed_budgets_step(repo, rep)
     # 5. The repo's own check, at the tier of the branch the update lands
     # on -- the gate before any push. Into pre-staging that is the fast
     # checks on what the update changed; the full check waits for the

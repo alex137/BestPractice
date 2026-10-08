@@ -6255,66 +6255,6 @@ def agents_md_recorded(dest_root):
     return dict(manifest.get(AGENTS_MD_SECTIONS_KEY) or {})
 
 
-def agents_md_owed_text(dest_root, clone, recorded_before=None):
-    """-> the template text this refresh asks AGENTS.md to take in by hand:
-    every section it reports missing, whole, and every block a diverged
-    section lacks (its absent sentences, where it has part of one). '' when
-    nothing is asked.
-
-    WHY (2026-10-08): Update Vendors seeds tools/session_load_budgets.json
-    at the file's size plus ~20%, and in the same run lists template
-    sections to copy in. A consumer copied in two of them and its AGENTS.md
-    measured 8,498 against the 8,100 ceiling the same update had seeded, so
-    the landing check failed on work the update itself had asked for. The
-    seed adds this text to what it measures, so following the update's own
-    list stays within the ceiling it sets.
-
-    `recorded_before`: agents_md_recorded() as it stood BEFORE the refresh.
-    The refresh records a missing section as left out (None) the moment it
-    reports it, so only a section recorded that way beforehand was declined
-    on an earlier run; that one is not asked for and does not count. Kept
-    divergences are not asked for either. Read-only."""
-    manifest = _load_manifest(dest_root / 'tools')
-    kind = manifest.get('kind', DEFAULT_KIND)
-    srcs = AGENTS_MD_TEMPLATES.get(kind, ())
-    commit = (_rev(clone, manifest.get('source_commit') or '')
-              or _rev(clone, f'origin/{FOLLOWED_BRANCH}')
-              or _rev(clone, FOLLOWED_BRANCH))
-    if not srcs or not commit or not (dest_root / AGENTS_MD).is_file():
-        return ''
-    before = recorded_before or {}
-    subs = _agents_md_subs(dest_root)
-    owed = []
-    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-owed-'))
-    try:
-        _read_agents_md_sources(clone, commit, kind, tmp)
-        plan = _agents_md_plan(dest_root, kind, tmp, manifest)
-        if not plan:
-            return ''
-        template = _template_sections((tmp / srcs[0]).read_text(encoding='utf-8'))
-        lines = (dest_root / AGENTS_MD).read_text(encoding='utf-8').split('\n')
-        for key, _src, _n, action, span in plan:
-            section = _instantiate(template[key][1], subs)
-            if action in ('missing', 'absent'):
-                if key in before and before[key] is None:
-                    continue
-                owed.append(section)
-            elif action == 'diverged' and span:
-                lacks = missing_markdown_blocks(_section_text(lines, *span), section)
-                if not lacks:
-                    continue
-                item = f'{AGENTS_MD} {key}'
-                if _kept_divergence(dest_root, item, _sha_text(section),
-                                    _carried_sha(section, lacks))[0] == 'kept':
-                    continue
-                blocks = dict(_md_blocks(section))
-                for offset, _title, _how, absent in lacks:
-                    owed.append(' '.join(absent) if absent else blocks.get(offset, ''))
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-    return '\n\n'.join(t for t in owed if t)
-
-
 def record_agents_md_sections(dest_root, kind, source_root):
     """Record a baseline for each AGENTS.md section an installer just wrote
     from the template -- called by precedent_install.py after seed(), as
