@@ -1,9 +1,18 @@
 ---
-checked_through: 2026-10-06
+checked_through: 2026-10-07
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Wednesday 2026-10-07: main-test-runs-side-by-side
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **GitHub's test before anything reaches main now runs the same command a session runs, in one job**: about 17 minutes instead of up to 30, and one billed job instead of three (deep-check.yml runs `verify_harness.py --as-ci`; the speed-up made locally a week earlier had never reached GitHub's copy, and a check now refuses a second copy of the split).
+- **Changing a hook no longer touches .claude/**, so auto mode stops asking about every hook change (the scripts live in tools/hooks/; .claude/hooks/ holds permanent stubs and one fixed entry per event).
+- **A whole test-suite run now says how long it takes and waits for a go-ahead**, and every time estimate carries its clock time (`verify_harness.py` refuses a full run without `--because`; answer-first-ask-before-long-work).
+- **One repository's update can no longer switch another repository's working branch to main** (precedent_source_bootstrap.py reports a clone on another branch, with the command that moves it, instead of checking out main there).
 
 ## Tuesday 2026-10-06: relayed-messages-get-weighed
 
