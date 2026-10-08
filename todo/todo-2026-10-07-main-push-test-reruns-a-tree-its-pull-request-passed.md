@@ -3,7 +3,7 @@ slug:              todo-2026-10-07-main-push-test-reruns-a-tree-its-pull-request
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-07
-closed:            null
+closed:            2026-10-08
 ---
 ## What
 
@@ -65,3 +65,8 @@ the copy carries `main` and that the merge instruction pins that commit;
 planting the old push makes it fail.
 
 Closes on its own condition, at the next Produce.
+
+**Measured 2026-10-08, closed on it.** The first Produce with the new copy
+(#962, copy `33300089`, staging merged with `main`) merged at 00:50 Buenos
+Aires time; the push run on `main` (`7a577e8b`) finished in 13 seconds,
+against 30 minutes for the same step on `de548da3` the evening before.
