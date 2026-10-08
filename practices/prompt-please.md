@@ -426,7 +426,12 @@ any private source resolved.
 One mechanical check: `prompt-please-landing-authority` in
 `reply_check.json` refuses a paste block that tells
 another session to land, merge, push or open a pull request onto the main
-branch without the person's own words for this handoff quoted in it. In a
+branch without the person's own words for this handoff quoted in it,
+whatever words the block lands with: "make it live", "merge the PR",
+`gh pr merge` and `git push origin main` count as much as "merge into
+main" ([read-for-intent](read-for-intent.md)). A negator exempts a clause
+only when it governs the landing verb there: "don't merge into main" is
+exempt, "Merge it into main, no questions asked" is not. In a
 block that ends at the feature branch, a clause that only narrates what a
 session or tool did or was told ("a tool told it to open a pull request to
 main") is not read as an instruction; every other clause still is.

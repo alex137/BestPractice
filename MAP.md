@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 166 practice files (6 resident, 160 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 168 practice files (6 resident, 162 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -120,6 +120,8 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
 | [quick-index](practices/quick-index.md) | on-demand | looking for where something lives, before searching |
 | [quote-discipline](practices/quote-discipline.md) | on-demand | computing, quoting or tabulating figures |
+| [reach-or-ask](practices/reach-or-ask.md) | on-demand | a tool, check or task cannot reach a repository, service, credential or file it needs |
+| [read-for-intent](practices/read-for-intent.md) | on-demand | reading what a message asks for, or writing one that a session or a check will read |
 | [readers-vocabulary](practices/readers-vocabulary.md) | on-demand | writing an outward-facing document |
 | [reduction-pass](practices/reduction-pass.md) | on-demand | a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state several documents must agree on |
@@ -256,7 +258,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_install.py](tools/precedent_install.py) | Installs Precedent into a project in one command (INSTALL.md section 0 performed mechanically: catalogue, engine, precedent.json, templates, sync, lint) and prints the placeholders it left for a person to adapt |
 | [tools/precedent_ladder.py](tools/precedent_ladder.py) | Says whether the five-stage ladder is in force for the person working here -- a set they bring provides it, and PRECEDENT_NO_LADDERS is not set -- so every engine line chooses the ladder wording or the plain one from one answer (spec/LADDER_OPT_IN_PLAN.md) |
 | [tools/precedent_land.py](tools/precedent_land.py) | Stage 5 (phase 5) — writes an approved candidate into practices/, enforcing the registered-check invariant |
-| [tools/precedent_local_edits.py](tools/precedent_local_edits.py) | A consuming repo's committed edits to files it received (engine files in tools/, process/upstream/): resolved at Update Vendors -- kept, merged, or replaced by upstream's with the commit that holds them named -- and sent upstream as a scrubbed branch by `send` (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md) |
+| [tools/precedent_local_edits.py](tools/precedent_local_edits.py) | A consuming repo's committed edits to files it received (engine files in tools/, process/upstream/): resolved at Update Vendors -- kept, or replaced by upstream's with what was set aside shown and one command from coming back -- and sent upstream as a scrubbed branch by `send` (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md) |
 | [tools/precedent_materialize.py](tools/precedent_materialize.py) | Bridges precedent_resolve.py's multi-source resolution to the single-tree loader tools |
 | [tools/precedent_merge_check.py](tools/precedent_merge_check.py) | The push check on the merge GitHub would make, at its base branch's tier -- `merge-check-gate.sh` runs it before a pull request is merged through GitHub, a push no push gate sees, and again on the merge commit after it, reverting a merge that fails because the base moved in between |
 | [tools/precedent_merge_vendors.py](tools/precedent_merge_vendors.py) | At a merge: when the vendored engine or catalogue is behind, runs Update Vendors from the BestPractice clone and commits the result on its own, or takes it all back and says why; never blocks the merge |
