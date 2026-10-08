@@ -4071,6 +4071,49 @@ def drop_retired_sources(dest_root, archived=(), apply=True, person=None):
     return dropped, kept
 
 
+def undeclared_successors(dest_root, dropped, person=None):
+    """-> [(successor, [dropped names], brought)] for each shared set that a
+    set in `dropped` ([(name, path, why)], drop_retired_sources' answer)
+    names as where its rules went -- its deletion record's `successors` or
+    its own `retired` marker's `folded_into`, one reader for both
+    (precedent_resolve.successors_of) -- when `dest_root`'s precedent.json
+    does not declare it. `brought` is True when the person's own individual
+    set brings it (or is it), so its rules are in force for that person
+    only. A successor that is itself deleted is left out. `person` is
+    _person_sets()'s answer, for a test; None asks it.
+
+    2026-10-08: Update Vendors dropped precedent-shared-working-style and
+    never asked whether to declare precedent-shared-writing, where two of
+    its rules went. With one member whose own set brings it, nothing is
+    lost; with more, everyone else silently loses those rules."""
+    try:
+        import precedent_resolve as pr
+    except Exception:                                           # noqa: BLE001
+        return []
+    gone, carriers = _person_sets() if person is None else person
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    sources = cfg.get('sources') if isinstance(cfg, dict) else None
+    declared = {str(s.get('name') or '') for s in sources or []
+                if isinstance(s, dict)}
+    brought = {pathlib.Path(c).name for c in carriers}
+    dropped_names = {n for n, _p, _w in dropped}
+    found = {}
+    for name, path, _why in dropped:
+        clone = (root / pathlib.Path(str(path or '')).expanduser()).resolve()
+        for succ in (pr.successors_of(gone.get(name))
+                     + pr.successors_of(source_retirement(clone))):
+            if succ in declared or succ in dropped_names or succ in gone:
+                continue
+            froms = found.setdefault(succ, [])
+            if name not in froms:
+                froms.append(name)
+    return [(s, froms, s in brought) for s, froms in found.items()]
+
+
 def drop_deleted_brings(dest_root, apply=True, gone=None):
     """-> [name] of each set `dest_root`'s own precedent-source.json `brings`
     that is deleted (precedent_resolve.deleted_sets), removed from `brings`
@@ -6253,66 +6296,6 @@ def agents_md_recorded(dest_root):
     except (OSError, ValueError):
         return {}
     return dict(manifest.get(AGENTS_MD_SECTIONS_KEY) or {})
-
-
-def agents_md_owed_text(dest_root, clone, recorded_before=None):
-    """-> the template text this refresh asks AGENTS.md to take in by hand:
-    every section it reports missing, whole, and every block a diverged
-    section lacks (its absent sentences, where it has part of one). '' when
-    nothing is asked.
-
-    WHY (2026-10-08): Update Vendors seeds tools/session_load_budgets.json
-    at the file's size plus ~20%, and in the same run lists template
-    sections to copy in. A consumer copied in two of them and its AGENTS.md
-    measured 8,498 against the 8,100 ceiling the same update had seeded, so
-    the landing check failed on work the update itself had asked for. The
-    seed adds this text to what it measures, so following the update's own
-    list stays within the ceiling it sets.
-
-    `recorded_before`: agents_md_recorded() as it stood BEFORE the refresh.
-    The refresh records a missing section as left out (None) the moment it
-    reports it, so only a section recorded that way beforehand was declined
-    on an earlier run; that one is not asked for and does not count. Kept
-    divergences are not asked for either. Read-only."""
-    manifest = _load_manifest(dest_root / 'tools')
-    kind = manifest.get('kind', DEFAULT_KIND)
-    srcs = AGENTS_MD_TEMPLATES.get(kind, ())
-    commit = (_rev(clone, manifest.get('source_commit') or '')
-              or _rev(clone, f'origin/{FOLLOWED_BRANCH}')
-              or _rev(clone, FOLLOWED_BRANCH))
-    if not srcs or not commit or not (dest_root / AGENTS_MD).is_file():
-        return ''
-    before = recorded_before or {}
-    subs = _agents_md_subs(dest_root)
-    owed = []
-    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-owed-'))
-    try:
-        _read_agents_md_sources(clone, commit, kind, tmp)
-        plan = _agents_md_plan(dest_root, kind, tmp, manifest)
-        if not plan:
-            return ''
-        template = _template_sections((tmp / srcs[0]).read_text(encoding='utf-8'))
-        lines = (dest_root / AGENTS_MD).read_text(encoding='utf-8').split('\n')
-        for key, _src, _n, action, span in plan:
-            section = _instantiate(template[key][1], subs)
-            if action in ('missing', 'absent'):
-                if key in before and before[key] is None:
-                    continue
-                owed.append(section)
-            elif action == 'diverged' and span:
-                lacks = missing_markdown_blocks(_section_text(lines, *span), section)
-                if not lacks:
-                    continue
-                item = f'{AGENTS_MD} {key}'
-                if _kept_divergence(dest_root, item, _sha_text(section),
-                                    _carried_sha(section, lacks))[0] == 'kept':
-                    continue
-                blocks = dict(_md_blocks(section))
-                for offset, _title, _how, absent in lacks:
-                    owed.append(' '.join(absent) if absent else blocks.get(offset, ''))
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-    return '\n\n'.join(t for t in owed if t)
 
 
 def record_agents_md_sections(dest_root, kind, source_root):

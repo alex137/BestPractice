@@ -850,10 +850,12 @@ says so, both from the vendored tree under `process/upstream/`.
     cannot reach hands off rather than coming back as a question. **If the safety check refuses a step
     here, report that step by name and stop; never route around it.**
     Claude Code's auto mode refuses this merge as "Merge Without Review"
-    even though the phrase authorizes it (2026-10-01). Say in one line
-    that auto mode stopped it, not this repository's rules, and ask for
-    it again in words that name the branch it lands on: "Merge PR #N into
-    main".
+    even though the phrase authorizes it (2026-10-01). **Ask right away,
+    before running anything else**: after that refusal, even reads are
+    refused under the same reason until the person speaks again (three
+    consumers, 2026-10-04 to 2026-10-08). End the turn with one line that
+    auto mode stopped it, not this repository's rules, and the words that
+    name the step and its branch: "Merge PR #N into <landing branch>".
 
 **A refusal naming a file that no longer exists upstream means reseed, not
 investigate.** The refresh runs *this repo's own vendored copy* of the

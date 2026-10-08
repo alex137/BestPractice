@@ -182,7 +182,9 @@ of this practice is entitled to assume when a repo says
 
 **Singularity crosses the repo boundary.** In a dependent repo, the
 vendored copy of the renderer **is** the implementation and the repo's own
-file is a thin host shim supplying only its document registry — the general
+file is a thin host shim supplying only its document registry, or the list
+in `tools/doc_html_host.json` where no shim is needed; the vendored copy
+never renders BestPractice's own list (2026-10-08) — the general
 engine/shim rule is [engine-plus-host-shims](engine-plus-host-shims.md); this renderer is its strongest case, since
 a spec-only export of "multi-sort with pinning and filters" reimplemented
 from prose differs in a hundred details.

@@ -189,4 +189,6 @@ The philosophy behind all of this lives in
 developers](FOR_DEVELOPERS.md), [a how-to for everyone
 else](FOR_EVERYONE_ELSE.md), or — once it is running — [the
 day-to-day habits](DAILY_HABITS.md). Or explore [this
-repo](https://github.com/alex137/BestPractice).
+repo](https://github.com/alex137/BestPractice). [Precedent in One
+Sentence](ONE_SENTENCE.md) has the whole idea in one line, and [the
+documentation index](README.md) lists every page.
