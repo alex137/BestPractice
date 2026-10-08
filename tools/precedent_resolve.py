@@ -810,8 +810,36 @@ def source_provides(path):
 # and freshness-checking those sets at once; Update Vendors removes them from
 # each precedent.json it runs in (precedent_vendor_engine.retired_sources).
 # Only a shared set can be named: universal, the individual set itself and a
-# repo-local source are never dropped this way.
+# repo-local source are never dropped this way. An entry may add
+# "successors": [<slug>, ...], the shared sets its rules went to.
 DELETED_SETS_KEY = 'deleted_sets'
+
+# Where a retired or deleted set's rules went has two spellings: a deletion
+# record's `successors` (tools/deleted_sets.json, a person's deleted_sets)
+# and a set's own `retired` marker's `folded_into`. They mean the same thing
+# and have one reader. Universal, `precedent` and a repo-local source are
+# never a set a repository declares, so they are never a successor to ask
+# about (2026-10-08: Update Vendors dropped a set whose rules partly went to
+# precedent-shared-writing and never asked whether to declare it).
+NOT_A_DECLARABLE_SET = frozenset({'universal', 'precedent', 'local'})
+
+
+def successors_of(record):
+    """-> [slug] of the shared sets a retirement or deletion record says its
+    rules went to, from `successors` and `folded_into` alike, in order and
+    without repeats; universal and anything that is not a slug left out.
+    [] for a record that says nothing, or for anything not a dict."""
+    out = []
+    if not isinstance(record, dict):
+        return out
+    for key in ('successors', 'folded_into'):
+        names = record.get(key)
+        for n in names if isinstance(names, list) else []:
+            n = n.strip() if isinstance(n, str) else ''
+            if n and SLUG_RE.match(n) and n not in NOT_A_DECLARABLE_SET \
+                    and n not in out:
+                out.append(n)
+    return out
 
 
 def person_individual_path(user_config=None):
@@ -836,7 +864,7 @@ ENGINE_DELETED_SETS = pathlib.Path(__file__).resolve().parent / 'deleted_sets.js
 
 
 def deleted_sets(individual_path=None, user_config=None):
-    """-> {name: {"date": ..., "reason": ...}} for every shared set known to be
+    """-> {name: {"date", "reason", "successors", "from"}} for every shared set known to be
     deleted: the engine's own record (ENGINE_DELETED_SETS) and the person's
     (DELETED_SETS_KEY in their individual set's precedent-source.json); {}
     when neither says anything or can be read."""
@@ -862,6 +890,7 @@ def deleted_sets(individual_path=None, user_config=None):
         if isinstance(e, dict) and isinstance(e.get('name'), str) and e['name'].strip():
             out[e['name'].strip()] = {'date': str(e.get('date') or ''),
                                       'reason': str(e.get('reason') or ''),
+                                      'successors': successors_of(e),
                                       'from': e.get('_from', 'person')}
     return out
 
