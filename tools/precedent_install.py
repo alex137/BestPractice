@@ -694,6 +694,14 @@ def _tiers(dest):
              '(or: python3 tools/precedent_branches.py --ensure-tiers --apply)')
     if _run(['git', 'remote', 'get-url', 'origin'], dest).returncode != 0:
         return f'branch tiers: no origin yet -- {later}'
+    heads = _run(['git', 'ls-remote', '--heads', 'origin', 'main'], dest)
+    if heads.returncode == 0 and not heads.stdout.strip():
+        # A brand-new repository: nothing to open a pull request into, so
+        # the install lands straight on main and the tiers follow it
+        # (Morgan, 2026-10-08).
+        return ('branch tiers: not made yet -- origin has no main, so this is a '
+                'first landing: commit, push straight to main, then make the '
+                'tiers, as INSTALL.md section 0 "The first landing" says')
     lines = []
     try:
         rc = precedent_branches.ensure_tiers(dest, apply=True, say=lines.append,

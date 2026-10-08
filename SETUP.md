@@ -48,7 +48,10 @@ nothing to choose here — this page installs §0, always.
      Code, ChatGPT connected to GitHub, or something else? Explain in one
      sentence: an AI Assistant with no access to a terminal needs
      GitHub's own automated checks for things one with terminal access
-     does not.
+     does not. If it is Claude Code, ask in the same breath for the
+     go-ahead to commit its hooks and settings (`.claude/`): its auto mode
+     holds that commit until they say yes, so ask now rather than stall at
+     the end.
    - *Should the vendored GitHub Actions workflow be on or off?* **Default
      on, since 2026-09-25**: one light check that runs only on a pull
      request into `main` (about one billed minute per merge into `main`),
@@ -159,8 +162,11 @@ nothing to choose here — this page installs §0, always.
    voice"*. **Do not walk them through the sections, and do not ask
    whether a brand guideline exists.** That is a good conversation and
    it is not this one.
-5. **Merge for them or with them.** If you can merge, ask "Shall I make
-   this live?" and do it on their yes. If only they can merge, give them
+5. **Merge for them or with them.** A brand-new repository with no
+   `main` yet takes no pull request: follow INSTALL.md §0's
+   [first landing](INSTALL.md#0-installing-directly-onto-the-precedent-loader)
+   instead, which puts the install straight on `main`. Otherwise, if you
+   can merge, ask "Shall I make this live?" and do it on their yes. If only they can merge, give them
    the pull-request link and tell them exactly what to press.
 6. **Verify the automatic checks, while Actions is on.** On the pull
    request into `main`, confirm `light-check` appears and passes; in a
