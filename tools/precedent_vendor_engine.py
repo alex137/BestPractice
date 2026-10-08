@@ -6110,17 +6110,31 @@ def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
                   f"section is left as it is; that change is not copied in.")
             return True
         return False
+    # 2026-10-08, Morgan (strength: decided): "replace our wording or
+    # version with the upstream version when we have it *EXCEPT* in cases
+    # where there is a substantive difference, in which case you should ASK
+    # THE SESSION USER or use your judgment". Upstream's change reaching the
+    # lines this repository kept differently is that case, so the default
+    # said here is upstream's section, not a copy-in on top of ours.
     print(f"DIVERGED: {AGENTS_MD} \"{key}\" is kept on purpose (\"{reason}\"), "
-          f"and upstream has changed {what} since that was recorded. "
-          f"Upstream's change, from the recorded text to today's:")
+          f"and upstream has changed {what} since that was recorded, on or "
+          f"beside the lines this repository words its own way. Upstream's "
+          f"change, from the recorded text to today's:")
     for line in change[:60]:
         print(f"    {line if len(line) <= 200 else line[:197] + '...'}")
     if len(change) > 60:
         print(f"    ... and {len(change) - 60} more line(s)")
-    print(f"    still kept once what applies is copied in? the person says so, "
-          f"and: {_repin_command(item)}")
+    print(f"    the default is upstream's wording: replace this section with "
+          f"{what} and remove its {KEPT_DIVERGENCES_KEY} entry. Keep this "
+          f"repository's wording only where it does something different and "
+          f"important -- then copy in the rest of upstream's change, say why, "
+          f"and with the person's yes re-pin it: {_repin_command(item)}")
     _left(f'{AGENTS_MD} "{key}"', f'kept on purpose, and upstream changed '
-          f'{what} since (listed above) -- copy in what applies here, then, '
+          f'{what} where this repository words it differently (listed above) '
+          f'-- the default is upstream\'s: replace the section with it and '
+          f'remove the {KEPT_DIVERGENCES_KEY} entry. Keep yours only where it '
+          f'does something different and important (ask the person when it is '
+          f'a close call); then copy in the rest of upstream\'s change and, '
           f'with the person\'s yes, re-pin it: {_repin_command(item)}')
     return True
 
