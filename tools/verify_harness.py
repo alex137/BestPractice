@@ -42455,6 +42455,39 @@ def check_content_record_self_check():
     check(name, p.returncode == 0 and 'OK' in p.stdout, (p.stdout + p.stderr).strip()[-400:])
 
 
+def check_ledger_ignores_checkout_layout():
+    """A fact taken where .git is a directory (a clone) holds where it is a
+    file (a worktree), and the reverse: the repository's own .git entry says
+    how it was checked out, never what the work read. Found 2026-10-07: a
+    ledger written by a landing worktree re-ran every model in every clone,
+    and rewrote itself, inside each full check."""
+    name = 'a ledger fact holds across a clone and a worktree of the same tree'
+    tool = ROOT / 'tools' / 'fact_ledger.py'
+    if not tool.is_file():
+        not_applicable(name, 'tools/fact_ledger.py is absent')
+        return
+    spec = importlib.util.spec_from_file_location('_fl_layout', tool)
+    fl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fl)
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        root = pathlib.Path(d)
+        (root / 'a.txt').write_text('one')
+        (root / '.git').mkdir()
+        led = fl.Ledger(root)
+        f = led.make('doc.md', 'block', 's.py', 'code', b'out', [['x', '.git'], ['f', 'a.txt']])
+        recorded = any(r[1] == '.git' for r in f['reads'])
+        legacy = dict(f, reads=f['reads'] + [['x', '.git', 'dir']])
+        (root / '.git').rmdir()
+        (root / '.git').write_text('gitdir: elsewhere')
+        held = fl.Ledger(root).reads_hold(f) and fl.Ledger(root).reads_hold(legacy)
+        (root / 'a.txt').write_text('two')
+        moved = not fl.Ledger(root).reads_hold(f)
+    check(name, not recorded and held and moved,
+          f'.git recorded: {recorded}; holds across the layouts: {held}; '
+          f'a real change still fails it: {moved}')
+
+
 def check_doc_sync_ledger():
     """doc_sync's ledger skips a block whose code fingerprint, recorded reads
     and output all still hold, and re-emits it when any of the three moves.
@@ -64979,6 +65012,7 @@ def main():
     check_full_tier_needs_a_reason_on_a_quick_landing()
     check_wait_loop_gate_refuses_pgrep_f()
     check_reach_key_self_check()
+    check_ledger_ignores_checkout_layout()
     check_content_record_self_check()
     check_doc_sync_ledger()
     check_doc_sync_fails_fast()
