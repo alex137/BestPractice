@@ -53,7 +53,7 @@ not persist. **Not in force**; no verdict owed.
 | Repo | Path | Verdict |
 |---|---|---|
 | BestPractice | [`tools/reach_key.py`](../tools/reach_key.py) | **Deliberate** -- nothing here imports it; carried upstream 2026-09-27 (`f80024e0`) from a consumer so Update Vendors keeps it. |
-| BestPractice | [`tools/precedent_beta_watermark_check.py`](../tools/precedent_beta_watermark_check.py) | **Live** -- run by `.claude/hooks/session-start.sh` and the reply gate. See the pass 4 finding about its `--depth=50` fetch. |
+| BestPractice | `tools/precedent_beta_watermark_check.py` | **Live** -- run by `.claude/hooks/session-start.sh` and the reply gate. See the pass 4 finding about its `--depth=50` fetch. |
 | BestPractice | `evals/routing`, `evals/routing_synthetic`, `evals/simulation` | **Live** -- each read by a tool in `tools/`. |
 | the individual set | `page.md` | **Ask** -- a two-line file (`# Page` / `Decided (Morgan, 2026-09-08).`) committed by accident with a test-fixture change. `precedent_decommission.py page.md` is not clean, but all five blockers are left-side substring hits (`docs-page.md`, `a-page.md`) that the tool documents as deliberate false positives. |
 | precedent-shared-repo-maintenance | `bootstrap/freshness-guard.sh`, `bootstrap/freshness.snippet.json` | **Deliberate, pending** -- `fresh-before-write` moved to universal 2026-09-28; its own Story says to decide at the deduplication step whether this copy and its check retire. |

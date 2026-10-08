@@ -31,7 +31,7 @@ analogy to `beta-branch-watermark.json`, "a record of what Morgan has
 already been told", living in his individual source rather than here. That
 watermark moved into this repository on 2026-09-22 — Morgan ruled its
 placement a tidiness argument rather than a privacy one — and is now
-[tools/beta_branch_watermark.json](../tools/beta_branch_watermark.json). The
+[tools/others_did_watermark.json](../tools/others_did_watermark.json). The
 principle the handoff drew from it still holds; the example no longer
 illustrates it.
 

@@ -394,16 +394,15 @@ fi
 # Missing here until 2026-09-28: templates/harness/PARALLELS.md named this
 # script as that hook's parallel while the hook ran both and this ran
 # neither, so a codex or gemini-cli session in this repo was never told its
-# vendored engine had fallen behind, or that someone else had pushed to the
-# beta branch. Both exit 0 on no network and never gate; guarded on the
+# vendored engine had fallen behind, or what other people had landed here. Both exit 0 on no network and never gate; guarded on the
 # file like every step above, so an older tree without them still starts.
 if [ -f tools/precedent_engine_freshness.py ]; then
   python3 tools/precedent_engine_freshness.py --quiet || \
     echo "WARN: engine freshness did not run -- whether this repo's vendored engine is current is unknown this session" >&2
 fi
-if [ -f tools/precedent_beta_watermark_check.py ]; then
-  python3 tools/precedent_beta_watermark_check.py || \
-    echo "WARN: beta-branch watermark check did not run -- whether anyone else pushed to precedent-beta-v01 is unknown this session" >&2
+if [ -f tools/precedent_others_did.py ]; then
+  python3 tools/precedent_others_did.py || \
+    echo "WARN: the others-did check did not run -- what other people landed here is unknown this session" >&2
 fi
 
 # A bootstrap that blocks startup is worse than anything it protects against,
