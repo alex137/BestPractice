@@ -21765,13 +21765,40 @@ def check_filename_separator_knows_names_it_did_not_choose():
                  'spec/NOTES_X.md': '# n\n'})
     cases.append(('an ISO date inside a stem is not a "-" separator',
                   out == '', out))
+    # 2026-10-08: the hook scripts Update Vendors writes into a consumer's
+    # tools/ are named by the engine, so beside the consumer's own
+    # snake_case script they are no mix. Planted as a consumer: the
+    # manifest lists them, and one of them is also on the engine's own
+    # shipping list (the BestPractice half of the same answer).
+    import precedent_vendor_engine as pve
+    hooks = ['artifact-publish-gate.sh', 'commit-identity-once.sh',
+             'wait-loop-gate.sh']
+    manifest = json.dumps({'kind': 'consumer', 'files': hooks,
+                           'hook_files': ['reply-gate.sh']}) + '\n'
+    consumer = {'tools/ENGINE_MANIFEST.json': manifest,
+                'tools/my_own_script.sh': '#!/bin/sh\n',
+                '.claude/hooks/reply-gate.sh': '#!/bin/sh\n',
+                '.claude/hooks/my_hook.sh': '#!/bin/sh\n'}
+    consumer.update({f'tools/{h}': '#!/bin/sh\n' for h in hooks})
+    cases.append(('the planted scripts are ones the engine really ships',
+                  set(hooks) <= set(pve.HOOK_SCRIPT_FILES), hooks))
+    out = judge(consumer)
+    cases.append(('a consumer\'s vendored hyphenated scripts beside its own '
+                  'snake_case one are clean', out == '', out))
+    out = judge({'tools/my_own_script.sh': '#!/bin/sh\n',
+                 'tools/my-other-script.sh': '#!/bin/sh\n',
+                 'tools/ENGINE_MANIFEST.json': manifest})
+    cases.append(('CONTROL: two repo-own scripts with different separators '
+                  'still fail', 'tools/' in out and 'first fix the cause' in out,
+                  out))
     out = judge({'notes/a-b.md': '# a\n', 'notes/c_d.md': '# c\n'})
     cases.append(('a genuinely mixed directory still fails, leading with '
                   'the root fix', 'first fix the cause' in out
                   and out.index('first fix the cause') < out.index('Exempt'), out))
     bad = [(n, det) for n, ok, det in cases if not ok]
-    check('filename-separator does not count names a tool fixes or an ISO '
-          'date, and still refuses a real mix, root fix first',
+    check('filename-separator does not count names a tool fixes, files the '
+          'engine ships, or an ISO date, and still refuses a real mix, root '
+          'fix first',
           not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
 
 
@@ -43280,6 +43307,67 @@ def check_push_check_records_over_its_own_ledgers():
     check(name, not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
+def check_markdown_required_only_where_doc_html_runs():
+    """`markdown` is tools/doc_html.py's package alone, so the session check
+    and the push check ask for it only where doc_html.py is present and in
+    use (precedent_push_check.gate_packages).
+
+    THE INCIDENT (2026-10-08). The session check required `markdown` in
+    every repository, though a practice set gets no doc_html.py and a
+    consumer receives one it may never run. Planted: a practice set (no
+    doc_html.py); a consumer whose only mentions of doc_html are in the
+    vendored engine; the same consumer with its own shim loading it; and a
+    repository whose doc_html.py is its own (no manifest, as here). The
+    session check's row is judged with `markdown` stubbed absent."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    import precedent_session_check as psc
+    cases = []
+
+    def plant(files):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='gate-pkgs-'))
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], capture_output=True)
+        return d
+
+    manifest = json.dumps({'kind': 'consumer',
+                           'files': ['doc_html.py', 'precedent_check.py']})
+    consumer = {'tools/ENGINE_MANIFEST.json': manifest,
+                'tools/doc_html.py': 'import markdown\n',
+                'tools/precedent_check.py': '# doc_html.py is a renderer\n',
+                'tools/my_tool.py': 'print("ours")\n'}
+    shim = dict(consumer, **{'tools/render_host.py': 'import doc_html\n'})
+    planted = [
+        ('a practice set without doc_html.py', {'tools/x.py': ''}, False),
+        ('a consumer that never runs doc_html.py', consumer, False),
+        ('CONTROL: a consumer whose own shim loads it', shim, True),
+        ('CONTROL: a repository whose doc_html.py is its own',
+         {'tools/doc_html.py': 'import markdown\n'}, True),
+    ]
+    absent = lambda m: m != 'markdown'
+    for name, files, wants in planted:
+        d = plant(files)
+        try:
+            pkgs = ppc.gate_packages(d)
+            row = psc.gate_packages_row(d, importable=absent)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        cases.append((f'{name}: markdown {"asked" if wants else "not asked"} for',
+                      ('markdown' in pkgs) == wants and 'cmarkgfm' in pkgs
+                      and row[1] == (not wants)
+                      and (('markdown' in row[2]) == wants),
+                      f'{pkgs} {row[1]} {row[2][:80]!r}'))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'markdown is required only where tools/doc_html.py runs '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_push_check_installs_gate_packages():
     """precedent_push_check.py installs the packages the gates import before
     it runs anything, and stops at once, naming them, when it cannot --
@@ -49578,6 +49666,75 @@ def pve_manifest_name():
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_vendor_engine as _pve
     return _pve.MANIFEST_NAME
+
+
+def check_second_pass_judgment_replaces_first_pass_left():
+    """A section the second pass of a self-replacing refresh settles is not
+    left for the person on the first pass's word.
+
+    THE INCIDENT (2026-10-08, a consuming repository's Update Vendors). The
+    report said "kept pin updated" for AGENTS.md's "### Session start" and,
+    in the same run, still listed it under LEFT FOR YOU; the next run was
+    clean. The first pass (the older engine copy) left the section; the
+    second pass, with the new copy, re-pinned it -- and the first pass's
+    item, carried over in _CARRIED_LEFT, was printed because the second
+    pass had not found it itself. Planted: a kept section the second pass
+    re-pins, carrying the first pass's item for it; and the control, an
+    'absent' section, whose carried item is the one the second pass cannot
+    find again and must keep."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    key = '### Session start'
+    other = '### Two check levels'
+    item = f'AGENTS.md {key}'
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        tpl, dest = td / 'tpl', td / 'dest'
+        tpl.mkdir(); dest.mkdir()
+        (tpl / 'T.md').write_text(
+            f'# T\n\n{key}\n\n- **Our own line.** Fine.\n\n'
+            f'- **Upstream block here.** It says a thing.\n', encoding='utf-8')
+        (dest / 'AGENTS.md').write_text(
+            f'# T\n\n{key}\n\n- **Our own line.** Fine.\n', encoding='utf-8')
+        section = pve._template_sections(
+            (tpl / 'T.md').read_text(encoding='utf-8'))[key][1]
+        # Pinned on the template's text alone, as before 2026-10-01: this
+        # pass matches it and upgrades it, printing PIN UPDATED.
+        (dest / 'precedent.json').write_text(json.dumps({
+            pve.KEPT_DIVERGENCES_KEY: {item: {
+                'reason': 'ours', 'template_sha256': pve._sha_text(section)}}}),
+            encoding='utf-8')
+        pve._LEFT_FOR_YOU.clear()
+        pve._CARRIED_LEFT[:] = [
+            (f'AGENTS.md "{key}"', 'diverged from T.md and lacks 1 of its '
+             'blocks (listed above)'),
+            (f'AGENTS.md "{other}"', 'the template has this section and this '
+             'file does not')]
+        plan = [(key, 'T.md', 3, 'diverged', (2, 5)),
+                (other, 'T.md', 9, 'absent', None)]
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                pve._report_agents_md(dest, tpl, plan)
+                pve.print_left_for_you()
+        finally:
+            pve._LEFT_FOR_YOU.clear()
+            pve._CARRIED_LEFT.clear()
+        out = buf.getvalue()
+        left = out.split('Left for you', 1)[1] if 'Left for you' in out else ''
+        cases.append(('this pass re-pinned the kept section', 'PIN UPDATED' in out))
+        cases.append(('...and the first pass\'s item for it is not left',
+                      key not in left))
+        cases.append(('CONTROL: an absent section\'s carried item still is',
+                      other in left))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a section the second pass settles is not left on the first '
+          f'pass\'s word ({len(cases)} stated cases)', not bad,
+          '; '.join(bad) + ' :: ' + out[-600:] if bad else '')
 
 
 def check_kept_section_reports_upstreams_change_not_its_lacks():
@@ -58384,6 +58541,61 @@ def check_update_vendors_onegplanning_findings():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_citations_skip_a_generated_block():
+    """A citation inside a generated block of a hand-written file is not a
+    line the repository can edit, so Update Vendors never lists it.
+
+    THE INCIDENT (2026-10-08). precedent_update.py's "citations of a
+    practice reworded or withdrawn -- read each" named lines inside
+    AGENTS.md's loader block, which the next sync rewrites from the
+    sources. precedent_practice_refs.scan_root counted a file as generated
+    only when its first lines said so; a block inside a hand-written file
+    (generated_blocks.py's two marker styles) stayed 'live'. Planted: one
+    AGENTS.md citing a reworded slug by hand, inside the loader block, and
+    inside a gen: block; only the hand-written line is listed."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import generated_blocks as gb
+    import precedent_practice_refs as ppr
+    import precedent_update as pu
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refs-gen-'))
+    try:
+        (tmp / 'AGENTS.md').write_text(
+            '# Notes\n\n'
+            'Hand-written: follow `upstream-fix` when fixing.\n\n'
+            'More prose.\n\nAnd more, so the block opens past line 6.\n\n'
+            f'{gb.LOADER_BEGIN}\n'
+            'Resident: `upstream-fix` -- fix the cause where it lives.\n'
+            f'{gb.LOADER_END}\n\n'
+            '<!--gen:counts-->\n'
+            'Also `upstream-fix`, in a doc_sync block.\n'
+            '<!--/gen:counts-->\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], capture_output=True, check=True)
+        rows = ppr.scan_root(tmp, {'upstream-fix'})
+        kinds = {r[1]: r[4] for r in rows}
+        cases.append(('the hand-written line is live', kinds.get(3) == 'live', kinds))
+        cases.append(('the loader-block and gen-block lines are generated',
+                      kinds.get(10) == 'generated' and kinds.get(14) == 'generated',
+                      kinds))
+        data = {'slugs': {'upstream-fix': 'Rule reworded'}, 'successors': {},
+                'hits': [{'source': 'this repository', 'file': r[0], 'line': r[1],
+                          'slug': r[2], 'form': r[3], 'kind': r[4],
+                          'must_fix': ppr.must_fix(r)} for r in rows]}
+        fix, read = pu.citation_findings(data)
+        cases.append(('Update Vendors asks for a read of the hand-written line only',
+                      fix == [] and read == ['AGENTS.md:3'], (fix, read)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'citations inside a generated block are not listed for a read '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
     """A consumer's session searched the clones for "Debut" (2026-10-04).
 
@@ -65285,6 +65497,7 @@ def main():
     check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
+    check_markdown_required_only_where_doc_html_runs()
     check_push_check_runs_cheap_checks_first()
     check_push_check_records_over_its_own_ledgers()
     check_push_check_refuses_an_unknown_option()
@@ -65341,6 +65554,8 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
+    check_citations_skip_a_generated_block()
+    check_second_pass_judgment_replaces_first_pass_left()
     check_repin_kept_records_the_persons_words()
     check_hook_changes_never_touch_dot_claude()
     check_sync_names_a_field_its_engine_does_not_know()
