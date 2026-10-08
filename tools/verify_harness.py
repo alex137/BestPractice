@@ -6329,6 +6329,89 @@ def check_sync_does_not_call_a_held_back_check_an_orphan():
           f'stated cases)', not failed, '; '.join(failed))
 
 
+def check_sync_says_which_copy_of_a_claimed_check_runs():
+    """A check whose name a practice in force claims is claimed, whichever
+    source supplies the file. Where the claiming source ships its own copy,
+    that copy runs and the sync says so in one plain line -- never "no
+    practice in force here claims these". Where it ships none, another
+    source's copy is the one vendored.
+
+    THE INCIDENT (2026-10-08). Every sync in a consumer warned that nothing
+    claimed universal's tools/checks/check_commit_author.py and
+    check_buenos_aires_dates.py, while commit-author and buenos-aires-dates
+    were in force there from the person's individual set, which ships and
+    claims its own copies.
+
+    1. the claiming source's copy is the one vendored, and said to run;
+    2. the other source's copy is not reported as claimed by nothing;
+    3. claimed but shipped only by another source: that copy is vendored;
+    4. CONTROL: a check nothing claims is still reported;
+    5. CONTROL: two sources that both claim and ship one file still refuse."""
+    import contextlib, io, tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+    finally:
+        sys.path.pop(0)
+    cases = []
+
+    def ship(root, *stems):
+        (root / 'tools' / 'checks' / 'tests').mkdir(parents=True, exist_ok=True)
+        for stem in stems:
+            (root / 'tools' / 'checks' / f'check_{stem}.py').write_text(
+                f'# {root.name}\n', encoding='utf-8')
+            (root / 'tools' / 'checks' / 'tests' / f'test_{stem}.sh').write_text(
+                'true\n', encoding='utf-8')
+
+    def practice(slug, stem, source):
+        return {'fm': {'slug': slug,
+                       'checked_by': f'tools/checks/check_{stem}.py'},
+                'source': source}
+
+    with _tf.TemporaryDirectory() as td:
+        uni, ind = pathlib.Path(td) / 'precedent', pathlib.Path(td) / 'individual'
+        ship(uni, 'commit_author', 'solo', 'lost')
+        ship(ind, 'commit_author')
+        sources = [{'name': 'precedent', 'path': str(uni), 'level': 'universal'},
+                   {'name': 'precedent-individual', 'path': str(ind),
+                    'level': 'individual'}]
+        res = {'practices': {
+            'commit-author': practice('commit-author', 'commit_author',
+                                      'precedent-individual'),
+            'solo': practice('solo', 'solo', 'precedent-individual')}}
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            plan = pm._plan_checks(sources, res)
+        said = err.getvalue()
+        orphan = next((l for l in said.splitlines() if 'no practice in force' in l), '')
+        got = {(rel, name): src for rel, name, src, _d in plan}
+        cases.append(('1: the claiming source\'s copy is vendored, and said to run',
+                      got.get(('checks', 'check_commit_author.py')) == 'precedent-individual'
+                      and got.get(('checks/tests', 'test_commit_author.sh')) == 'precedent-individual'
+                      and 'check_commit_author.py runs from precedent-individual' in said,
+                      said))
+        cases.append(('2: the other copy is not called claimed by nothing',
+                      'commit_author' not in orphan, orphan))
+        cases.append(('3: claimed, shipped only by another source: that copy is vendored',
+                      got.get(('checks', 'check_solo.py')) == 'precedent'
+                      and 'solo' not in orphan, f'{got} {orphan}'))
+        cases.append(('4: CONTROL: a check nothing claims is still reported',
+                      'check_lost.py (precedent)' in orphan, orphan))
+        res['practices']['commit-author-u'] = practice('commit-author', 'commit_author',
+                                                       'precedent')
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                pm._plan_checks(sources, res)
+            refused = False
+        except pm.MaterializeError:
+            refused = True
+        cases.append(('5: CONTROL: two claiming sources that both ship it still refuse',
+                      refused, ''))
+    failed = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a sync says which copy of a claimed check runs ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(f'{n}: {d[:200]}' for n, d in failed))
+
+
 def check_update_drops_the_dead_blank_blocklist_link():
     """Update Vendors drops the retired install pack's dead link to
     personal/README.md#blank-blocklist from a repository's process/ files,
@@ -42301,32 +42384,34 @@ def check_agents_templates_conventions_point_to_practices():
           'points to it', not bad, '; '.join(bad))
 
 
-def check_update_seeds_a_ceiling_that_covers_what_it_asks_for():
-    """The AGENTS.md ceiling Update Vendors seeds counts the template
-    sections the same update asks the repo to copy in, so taking them does
-    not fail the ceiling just set; a section left out on an EARLIER run is
-    not asked for and does not count.
+def check_update_seeds_budgets_on_the_run_that_reports_done():
+    """Update Vendors seeds tools/session_load_budgets.json only on the run
+    that reports DONE, measuring the files that run produced -- never on a
+    run that leaves template sections for the person to copy in.
 
-    2026-10-08: a consumer copied in the two sections an update listed and
-    its AGENTS.md measured 8,498 against the 8,100 ceiling that update had
-    seeded at the file's size before the copy (practice: session-load-budget).
-    Both directions, read off the seeded note's own measurement so a step
-    that rewrites AGENTS.md first cannot move the expectation."""
-    fx = _KeptDivergenceFixture('precedent-owed-ceiling-')
+    2026-10-08, a consuming repository: run 1 seeded AGENTS.md at its size
+    before the sections the same run listed (taking them put it at 8,101
+    against 8,100), and the session-start file as the old engine had
+    rendered it (practice: session-load-budget).
+
+    1. a run with a section left for the person writes no registry;
+    2. the next run, after the section is copied in, reports DONE and seeds
+       AGENTS.md as it now stands -- the measurement is the file on disk;
+    3. CONTROL: a consumer with nothing left is seeded on its first run, so
+       the seed did not just stop happening."""
+    fx = _KeptDivergenceFixture('precedent-done-ceiling-')
     pve, cases = fx.pve, []
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
         import build_views as bv
+        import precedent_update as pu
     finally:
         sys.path.pop(0)
     key = '## Conventions'
-
-    def round50(n):
-        return ((int(n * 1.2) + 49) // 50) * 50
+    reg_rel = pathlib.Path('tools') / 'session_load_budgets.json'
 
     def seeded(repo):
-        reg = json.loads((repo / 'tools' / 'session_load_budgets.json')
-                         .read_text(encoding='utf-8'))
+        reg = json.loads((repo / reg_rel).read_text(encoding='utf-8'))
         e = reg['surfaces']['AGENTS.md']
         return e['ceiling'], int(re.match(r'(\d+) tokens', e['_note']).group(1))
     try:
@@ -42335,33 +42420,48 @@ def check_update_seeds_a_ceiling_that_covers_what_it_asks_for():
         sec = pve._instantiate(pve._template_sections(
             fx.template(fx.AGENTS_SRC).decode())[key][1], pve._agents_md_subs(fx.tmp))
         assert sec in tpl, 'template shape moved; repoint this fixture'
-        owed = bv._approx_tokens(sec)
 
         repo = fx.consumer('asked', agents=tpl.replace(sec + '\n\n', ''))
-        fx.update(repo)
-        ceiling, measured = seeded(repo)
-        cases.append((f'a section the update lists to copy in is counted: '
-                      f'ceiling {ceiling} >= {round50(measured + owed)}',
-                      ceiling >= round50(measured + owed)))
+        rc, out = fx.update(repo)
+        cases.append((f'1: a run that leaves a section for the person seeds '
+                      f'nothing (exit {rc})',
+                      rc == pu.LEFT and not (repo / reg_rel).exists()))
+        # The person copies the section in where the template has it: just
+        # before the heading that follows it there.
+        agents = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+        following = tpl.split(sec + '\n\n', 1)[1].split('\n', 1)[0]
+        assert following and following in agents, 'no anchor to copy the section in at'
+        (repo / 'AGENTS.md').write_text(agents.replace(
+            following, sec + '\n\n' + following, 1), encoding='utf-8')
+        fx.sh('git', 'add', '-A', cwd=repo)
+        fx.sh('git', 'commit', '-qm', 'took the section', cwd=repo)
+        rc, out = fx.update(repo)
+        ok = rc == pu.DONE and (repo / reg_rel).exists()
+        detail = ''
+        if ok:
+            ceiling, measured = seeded(repo)
+            now = bv._approx_tokens((repo / 'AGENTS.md').read_text(encoding='utf-8'))
+            ok = measured == now and ceiling >= now
+            detail = f': measured {measured}, file {now}, ceiling {ceiling}'
+        cases.append((f'2: the DONE run seeds AGENTS.md as it stands, section '
+                      f'included (exit {rc}){detail}', ok))
+        staged = subprocess.run(['git', '-C', str(repo), 'diff', '--cached',
+                                 '--name-only'], capture_output=True,
+                                text=True).stdout.split()
+        cases.append(('2b: the seeded registry is staged with the update',
+                      str(reg_rel) in staged))
 
-        repo = fx.consumer('declined', agents=tpl.replace(sec + '\n\n', ''))
-        mf = repo / 'tools' / pve.MANIFEST_NAME
-        data = json.loads(mf.read_text(encoding='utf-8'))
-        data.setdefault(pve.AGENTS_MD_SECTIONS_KEY, {})[key] = None
-        mf.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
-        fx.sh('git', 'commit', '-qam', 'left out on purpose', cwd=repo)
-        fx.update(repo)
-        ceiling, measured = seeded(repo)
-        cases.append((f'CONTROL: a section left out on an earlier run is not: '
-                      f'ceiling {ceiling} == {round50(measured)}',
-                      ceiling == round50(measured)))
-    except (OSError, ValueError, KeyError, AttributeError) as e:
+        repo = fx.consumer('clean')
+        rc, out = fx.update(repo)
+        cases.append((f'3: CONTROL: nothing left, seeded on the first run '
+                      f'(exit {rc})', rc == pu.DONE and (repo / reg_rel).exists()))
+    except (OSError, ValueError, KeyError, AttributeError, AssertionError) as e:
         cases.append((f'fixture could not be read: {type(e).__name__}: {e}', False))
     finally:
         fx.close()
     bad = [n for n, ok in cases if not ok]
-    check(f'Update Vendors seeds an AGENTS.md ceiling covering the sections it '
-          f'asks for ({len(cases)} stated cases)', not bad, '; '.join(bad))
+    check(f'Update Vendors seeds the session-load budgets on the run that '
+          f'reports DONE ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_kept_agents_md_divergence_is_recorded():
@@ -43834,6 +43934,99 @@ def check_markdown_required_only_where_doc_html_runs():
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'markdown is required only where tools/doc_html.py runs '
           f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_promote_runs_doc_html_only_where_it_is_in_use():
+    """A Promote rebuilds the composed tree's renders with tools/doc_html.py
+    only where doc_html is in use (precedent_push_check.doc_html_in_use, the
+    rule gate_packages already keeps), and a vendored doc_html.py renders a
+    consumer's own list, never BestPractice's.
+
+    THE INCIDENT (2026-10-08). precedent_branches.py --promote ran
+    tools/doc_html.py in a consuming repository that declined
+    sortable-table-renderer and failed: "no such document:
+    <tree>/spec/PREFORK_AUDIT.md", a BestPractice-only document from the
+    DOCS list the vendored file carried.
+
+    1. a consumer that never runs doc_html: the Promote does not run it;
+    2. CONTROL: the same consumer with its own shim loading it: it runs;
+    3. the real doc_html.py in a consumer with no tools/doc_html_host.json
+       registers nothing, so a bare run renders nothing and succeeds;
+    4. its host file's list is what it registers;
+    5. CONTROL: where doc_html.py is the repo's own, its list is its own."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    manifest = json.dumps({'kind': 'consumer', 'files': ['doc_html.py']})
+    stub = ('import pathlib, sys\n'
+            'pathlib.Path(__file__).resolve().parents[1].joinpath("ran").write_text("x")\n'
+            'sys.exit("doc_html FAIL: no such document: spec/PREFORK_AUDIT.md")\n')
+
+    def plant(files):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='promote-doc-html-'))
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], capture_output=True)
+        return d
+
+    consumer = {'tools/ENGINE_MANIFEST.json': manifest, 'tools/doc_html.py': stub}
+    shim = dict(consumer, **{'tools/render_host.py': 'import doc_html\n'})
+    for name, files, wants in (
+            ('1: a consumer that never runs doc_html', consumer, False),
+            ('2: CONTROL: a consumer whose own shim loads it', shim, True)):
+        d = plant(files)
+        said = []
+        try:
+            pb._rebuild_generated(d, said.append)
+            ran = (d / 'ran').exists()
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        cases.append((f'{name}: doc_html {"runs" if wants else "does not run"}',
+                      ran == wants, f'ran={ran} {said}'))
+
+    try:
+        import markdown  # noqa: F401  doc_html's own package
+        have_md = True
+    except ImportError:
+        have_md = False
+    if have_md:
+        real = (ROOT / 'tools' / 'doc_html.py').read_text(encoding='utf-8')
+
+        def listed(files):
+            d = plant(dict(files, **{'tools/doc_html.py': real}))
+            try:
+                r = subprocess.run([sys.executable, str(d / 'tools' / 'doc_html.py'),
+                                    '--list'], capture_output=True, text=True, cwd=d)
+                bare = subprocess.run([sys.executable, str(d / 'tools' / 'doc_html.py')],
+                                      capture_output=True, text=True, cwd=d)
+                return r.stdout, bare.returncode, r.stderr + bare.stderr
+            finally:
+                shutil.rmtree(d, ignore_errors=True)
+        out, rc, err = listed({'tools/ENGINE_MANIFEST.json': manifest})
+        cases.append(('3: a consumer with no host file registers nothing and a '
+                      'bare run succeeds', out.strip() == '' and rc == 0,
+                      f'{out!r} rc={rc} {err[-200:]!r}'))
+        out, rc, err = listed({'tools/ENGINE_MANIFEST.json': manifest,
+                               'tools/doc_html_host.json': json.dumps(
+                                   {'docs': [['notes/ours.md', 'Ours']]}),
+                               'notes/ours.md': '# Ours\n\n| a | b |\n|---|---|\n| 1 | 2 |\n'})
+        cases.append(('4: the host file\'s list is what it registers',
+                      'notes/ours.md' in out and 'PREFORK' not in out and rc == 0,
+                      f'{out!r} rc={rc} {err[-200:]!r}'))
+        out, rc, err = listed({})
+        cases.append(('5: CONTROL: its own doc_html.py keeps its own list',
+                      'spec/PREFORK_AUDIT.md' in out, f'{out!r}'))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a Promote runs doc_html only where it is in use, over the '
+          f'repository\'s own render list ({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
@@ -62840,7 +63033,9 @@ def check_brought_sets_have_their_own_session_budget():
     3. a budget at least the share: no finding, and the repo is charged the
        file less the share;
     4. CONTROL: a budget under the share is a finding;
-    5. CONTROL: a person who brings nothing has a share of 0."""
+    5. CONTROL: a person who brings nothing has a share of 0;
+    6-8. the ceiling Update Vendors seeds and the over-target line take the
+       same split, with a CONTROL that the repo's own part still counts."""
     import tempfile, contextlib, io
     import json as _json
     import precedent_session_practices as psp
@@ -62914,6 +63109,38 @@ def check_brought_sets_have_their_own_session_budget():
                 n, f = pc._charge_brought_share(1000 + share)
                 results.append(('4: CONTROL: over budget is a finding',
                                 f is not None and 'over the' in str(f), str(f)))
+                # The seed and the target line read the same split as the
+                # check (charged_to_repo): a ceiling written by Update
+                # Vendors, and the over-target line, never count the brought
+                # sets (2026-10-08, a consuming repository: seeded at 150,
+                # re-measured by hand once the ladder arrived).
+                manifest(fx, budget=share + 10)
+                import precedent_bootstrap_source as pbs
+                import session_load_trend as slt
+                import build_views as bv
+                full = psp.render(*psp.collect(str(repo)), repo=str(repo))
+                (repo / '.precedent').mkdir(exist_ok=True)
+                (repo / '.precedent' / 'SESSION_PRACTICES.md').write_text(
+                    full, encoding='utf-8')
+                pbs._write_session_load_budget(repo, occasion='test')
+                reg_f = repo / 'tools' / 'session_load_budgets.json'
+                reg = _json.loads(reg_f.read_text(encoding='utf-8'))
+                ent = reg['surfaces']['.precedent/SESSION_PRACTICES.md']
+                seeded_n = int(ent['_note'].split()[0])
+                want = bv._approx_tokens(full) - share
+                results.append(('6: the seeded ceiling measures the file less '
+                                'the brought share', seeded_n == want,
+                                f'seeded {seeded_n}, file {bv._approx_tokens(full)}, '
+                                f'share {share}'))
+                ent['target'] = want + 1
+                reg_f.write_text(_json.dumps(reg), encoding='utf-8')
+                results.append(('7: the over-target line charges the repo its '
+                                'part only', slt.over_target(repo) == [],
+                                str(slt.over_target(repo))))
+                ent['target'] = want - 1
+                reg_f.write_text(_json.dumps(reg), encoding='utf-8')
+                results.append(('8: CONTROL: over its own part, it is reported',
+                                len(slt.over_target(repo)) == 1, ''))
                 manifest([])
                 results.append(('5: CONTROL: bringing nothing has no share',
                                 psp.brought_share(repo)[0] == 0, ''))
@@ -65679,6 +65906,7 @@ def main():
     check_session_start_charges_brought_sets_to_the_person()
     check_update_drops_the_dead_blank_blocklist_link()
     check_sync_does_not_call_a_held_back_check_an_orphan()
+    check_sync_says_which_copy_of_a_claimed_check_runs()
     check_no_duplication_refuses_a_sets_copy_of_a_universal_rule()
     check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
@@ -66064,6 +66292,7 @@ def main():
     check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
+    check_promote_runs_doc_html_only_where_it_is_in_use()
     check_push_check_installs_gate_packages()
     check_markdown_required_only_where_doc_html_runs()
     check_push_check_runs_cheap_checks_first()
@@ -66159,7 +66388,7 @@ def main():
     check_kept_agents_md_divergence_is_recorded()
     check_agents_templates_repeat_no_practice_text()
     check_agents_templates_conventions_point_to_practices()
-    check_update_seeds_a_ceiling_that_covers_what_it_asks_for()
+    check_update_seeds_budgets_on_the_run_that_reports_done()
     check_absent_agents_md_section_is_asked_across_self_refresh()
     check_kept_bootstrap_divergence_is_recorded()
     check_legacy_bootstrap_shim_is_replaced()

@@ -680,6 +680,41 @@ def _plan_checks(sources, res=None):
         the individual set's three such checks)."""
         return name in _claimed_in_source(source_path)
 
+    # Which sources ship each check and test, so a copy claimed from another
+    # source is judged by whether that source ships one too (claimed_elsewhere).
+    ships = {}
+    for s in sources:
+        d = pathlib.Path(s['path']) / 'tools' / 'checks'
+        for f in ((list(d.glob('check_*.py')) + list((d / 'tests').glob('test_*.sh')))
+                  if d.is_dir() else []):
+            ships.setdefault(f.name, []).append(s['name'])
+    shadowed = []   # (label, the source whose copy runs, the one left behind)
+
+    def claimed_elsewhere(f, label, s):
+        """A copy whose name a practice in force claims from ANOTHER source
+        (unclaimed_here). Claimed is claimed, whichever source supplies the
+        file: where a claiming source ships its own copy, that one runs and
+        this one is left behind, said plainly below unless this source's own
+        practice file keeps it out on purpose (held_back); where none does,
+        this copy is the one the practice in force needs, and is vendored.
+        2026-10-08, a consumer: universal ships scrubbed copies of the
+        individual set's commit-author and buenos-aires-dates checks, the
+        individual set's practices claim them in force there, and every sync
+        listed universal's copies as claimed by nothing."""
+        # A check and its test go together: a claiming source that ships
+        # either one keeps both, so another source's test is never run
+        # against this source's check.
+        stem = f.name[len('check_'):-len('.py')] if f.name.endswith('.py') \
+            else f.name[len('test_'):-len('.sh')]
+        pair = (f'check_{stem}.py', f'test_{stem}.sh')
+        owners = sorted(o for o in claimed_by.get(f.name, ())
+                        if any(o in ships.get(n, ()) for n in pair))
+        if owners:
+            if not held_back(f.name, s['path']):
+                shadowed.append((f'tools/{label}/{f.name}', owners[0], s['name']))
+        elif f'{label}/{f.name}' not in owner_of:
+            claim(f, label, s['name'])
+
     for s in sources:
         src_checks = pathlib.Path(s['path']) / 'tools' / 'checks'
         if not src_checks.is_dir():
@@ -687,10 +722,11 @@ def _plan_checks(sources, res=None):
         for f in sorted(src_checks.glob('*.py')):
             if not f.name.startswith('check_'):
                 skipped.append(f'tools/checks/{f.name} ({s["name"]})')
-            elif claimed_names is not None and (f.name not in claimed_names
-                                                or unclaimed_here(f.name, s['name'])):
+            elif claimed_names is not None and f.name not in claimed_names:
                 if not held_back(f.name, s['path']):
                     orphaned.append(f'tools/checks/{f.name} ({s["name"]})')
+            elif claimed_names is not None and unclaimed_here(f.name, s['name']):
+                claimed_elsewhere(f, 'checks', s)
             else:
                 claim(f, 'checks', s['name'])
         src_tests = src_checks / 'tests'
@@ -704,10 +740,11 @@ def _plan_checks(sources, res=None):
                         undeclared.append(f'{s["name"]} ({f})')
                 elif not f.name.startswith('test_'):
                     skipped.append(f'tools/checks/tests/{f.name} ({s["name"]})')
-                elif claimed_names is not None and (f.name not in claimed_names
-                                                    or unclaimed_here(f.name, s['name'])):
+                elif claimed_names is not None and f.name not in claimed_names:
                     if not held_back(f.name, s['path']):
                         orphaned.append(f'tools/checks/tests/{f.name} ({s["name"]})')
+                elif claimed_names is not None and unclaimed_here(f.name, s['name']):
+                    claimed_elsewhere(f, 'checks/tests', s)
                 else:
                     claim(f, 'checks/tests', s['name'])
     if skipped:
@@ -716,6 +753,12 @@ def _plan_checks(sources, res=None):
     if orphaned:
         print(f"precedent_materialize: no practice in force here claims these, "
               f"not vendored: " + ', '.join(orphaned), file=sys.stderr)
+    checks_shadowed = [x for x in shadowed if '/tests/' not in x[0]]
+    if checks_shadowed:
+        print("precedent_materialize: " + '; '.join(
+            f"{label} runs from {runs}, whose practice in force claims it "
+            f"({left}'s copy is not vendored)" for label, runs, left in checks_shadowed),
+            file=sys.stderr)
     if undeclared:
         print(f"precedent_materialize: replaced here by the generated "
               f"driver, and the source's own tools/checks/tests/"
