@@ -43854,6 +43854,99 @@ def check_markdown_required_only_where_doc_html_runs():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_promote_runs_doc_html_only_where_it_is_in_use():
+    """A Promote rebuilds the composed tree's renders with tools/doc_html.py
+    only where doc_html is in use (precedent_push_check.doc_html_in_use, the
+    rule gate_packages already keeps), and a vendored doc_html.py renders a
+    consumer's own list, never BestPractice's.
+
+    THE INCIDENT (2026-10-08). precedent_branches.py --promote ran
+    tools/doc_html.py in a consuming repository that declined
+    sortable-table-renderer and failed: "no such document:
+    <tree>/spec/PREFORK_AUDIT.md", a BestPractice-only document from the
+    DOCS list the vendored file carried.
+
+    1. a consumer that never runs doc_html: the Promote does not run it;
+    2. CONTROL: the same consumer with its own shim loading it: it runs;
+    3. the real doc_html.py in a consumer with no tools/doc_html_host.json
+       registers nothing, so a bare run renders nothing and succeeds;
+    4. its host file's list is what it registers;
+    5. CONTROL: where doc_html.py is the repo's own, its list is its own."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    manifest = json.dumps({'kind': 'consumer', 'files': ['doc_html.py']})
+    stub = ('import pathlib, sys\n'
+            'pathlib.Path(__file__).resolve().parents[1].joinpath("ran").write_text("x")\n'
+            'sys.exit("doc_html FAIL: no such document: spec/PREFORK_AUDIT.md")\n')
+
+    def plant(files):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='promote-doc-html-'))
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], capture_output=True)
+        return d
+
+    consumer = {'tools/ENGINE_MANIFEST.json': manifest, 'tools/doc_html.py': stub}
+    shim = dict(consumer, **{'tools/render_host.py': 'import doc_html\n'})
+    for name, files, wants in (
+            ('1: a consumer that never runs doc_html', consumer, False),
+            ('2: CONTROL: a consumer whose own shim loads it', shim, True)):
+        d = plant(files)
+        said = []
+        try:
+            pb._rebuild_generated(d, said.append)
+            ran = (d / 'ran').exists()
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        cases.append((f'{name}: doc_html {"runs" if wants else "does not run"}',
+                      ran == wants, f'ran={ran} {said}'))
+
+    try:
+        import markdown  # noqa: F401  doc_html's own package
+        have_md = True
+    except ImportError:
+        have_md = False
+    if have_md:
+        real = (ROOT / 'tools' / 'doc_html.py').read_text(encoding='utf-8')
+
+        def listed(files):
+            d = plant(dict(files, **{'tools/doc_html.py': real}))
+            try:
+                r = subprocess.run([sys.executable, str(d / 'tools' / 'doc_html.py'),
+                                    '--list'], capture_output=True, text=True, cwd=d)
+                bare = subprocess.run([sys.executable, str(d / 'tools' / 'doc_html.py')],
+                                      capture_output=True, text=True, cwd=d)
+                return r.stdout, bare.returncode, r.stderr + bare.stderr
+            finally:
+                shutil.rmtree(d, ignore_errors=True)
+        out, rc, err = listed({'tools/ENGINE_MANIFEST.json': manifest})
+        cases.append(('3: a consumer with no host file registers nothing and a '
+                      'bare run succeeds', out.strip() == '' and rc == 0,
+                      f'{out!r} rc={rc} {err[-200:]!r}'))
+        out, rc, err = listed({'tools/ENGINE_MANIFEST.json': manifest,
+                               'tools/doc_html_host.json': json.dumps(
+                                   {'docs': [['notes/ours.md', 'Ours']]}),
+                               'notes/ours.md': '# Ours\n\n| a | b |\n|---|---|\n| 1 | 2 |\n'})
+        cases.append(('4: the host file\'s list is what it registers',
+                      'notes/ours.md' in out and 'PREFORK' not in out and rc == 0,
+                      f'{out!r} rc={rc} {err[-200:]!r}'))
+        out, rc, err = listed({})
+        cases.append(('5: CONTROL: its own doc_html.py keeps its own list',
+                      'spec/PREFORK_AUDIT.md' in out, f'{out!r}'))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a Promote runs doc_html only where it is in use, over the '
+          f'repository\'s own render list ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_push_check_installs_gate_packages():
     """precedent_push_check.py installs the packages the gates import before
     it runs anything, and stops at once, naming them, when it cannot --
@@ -66115,6 +66208,7 @@ def main():
     check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
+    check_promote_runs_doc_html_only_where_it_is_in_use()
     check_push_check_installs_gate_packages()
     check_markdown_required_only_where_doc_html_runs()
     check_push_check_runs_cheap_checks_first()
