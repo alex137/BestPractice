@@ -1830,7 +1830,8 @@ def diverged_details(out):
     for line in out.splitlines():
         if line.startswith('DIVERGED: '):
             body = line[len('DIVERGED: '):]
-            m = re.match(r'(.+?) (?:\(line \d+\) )?has local edits', body)
+            m = (re.match(r'(.+?) (?:\(line \d+\) )?has local edits', body)
+                 or re.match(r'(.+?) is kept on purpose \(', body))
             key = m.group(1) if m else None
             if key is not None:
                 # A refresh that replaced itself runs a second pass, which
