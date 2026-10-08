@@ -12752,6 +12752,10 @@ def _replace_line(data, text, at=3):
     return ''.join(lines[:at] + [text] + lines[at + 1:]).encode()
 
 
+# The LOCAL EDITS group rule 2 lands in since 2026-10-08.
+PREFERRED_GROUP = "Upstream's version taken over what was left"
+
+
 def _section(out, title):
     """The lines of the LOCAL EDITS group titled `title`, joined."""
     block = out.split('LOCAL EDITS', 1)[-1] if 'LOCAL EDITS' in out else ''
@@ -12761,6 +12765,8 @@ def _section(out, title):
             keep = line.strip().startswith(title)
             continue
         if keep and line.startswith('    - '):
+            got.append(line.strip())
+        elif keep and line.startswith('      '):     # an item's own lines
             got.append(line.strip())
         elif not line.startswith('    '):
             keep = False
@@ -12781,7 +12787,14 @@ def check_update_vendors_resolves_local_edits():
     pre-staging at c1dd37f5: every rule case fails -- the refresh refuses
     ("hand-edited since the last seed/refresh") and no LOCAL EDITS section
     is printed; the refresh-fails case passes there only because nothing was
-    ever swapped, and the journal case fails because nothing replays one."""
+    ever swapped, and the journal case fails because nothing replays one.
+
+    Rule 2 changed 2026-10-08 (Morgan, strength: decided: "a definite
+    preference towards using the upstream wording"): an edit upstream
+    changed elsewhere in the file takes upstream's version, shows the rest
+    as a diff, and `keep` puts it back with a reason. Negative control,
+    measured that day against the code before it: the merged file is kept,
+    and the rule 2 cases fail on "its version is taken"."""
     import hashlib
     fx = _LocalEditsFixture('precedent-local-edits-')
     cases = []
@@ -12833,12 +12846,51 @@ def check_update_vendors_resolves_local_edits():
                       and 'tools/precedent_paths.py' in _section(out, 'Still your local edit')
                       and 'precedent_local_edits.py send' in _section(out, 'Still your local edit'),
                       _section(out, 'Still your local edit') or out[-1500:]))
-        cases.append(('rule 2: a clean merge keeps both changes, and says which '
-                      'checks ran', b'# rule 2: a local fix' in got['precedent_show.py']
-                      and b'# upstream: rule 2' in got['precedent_show.py']
-                      and 'tools/precedent_show.py' in _section(out, 'Merged')
-                      and 'compiles' in _section(out, 'Merged'),
-                      _section(out, 'Merged') or out[-1500:]))
+        # Rule 2 since 2026-10-08 (Morgan, decided): upstream changed the
+        # file, so upstream's version is taken, and what is left of the local
+        # edit goes to the session as a judgment -- shown, saved, one command
+        # from coming back, never kept or dropped silently.
+        pref = _section(out, PREFERRED_GROUP)
+        cases.append(('rule 2: upstream changed the file, so its version is '
+                      'taken over the rest of the local edit',
+                      got['precedent_show.py'] == new['precedent_show.py']
+                      and 'tools/precedent_show.py' in pref
+                      and 'tools/precedent_show.py' not in _section(out, 'Merged'),
+                      pref or out[-1500:]))
+        cases.append(('...and what it dropped is shown as a diff, with the commit '
+                      'holding it and the keep command',
+                      '+# rule 2: a local fix' in pref and c_local in pref
+                      and 'precedent_local_edits.py keep --repo . --path '
+                          'tools/precedent_show.py --object' in pref
+                      and 'different and important' in pref, pref or out[-1500:]))
+        cases.append(('...and the closing report asks for the judgment beside '
+                      'the outcome', 'JUDGE:' in out and 'tools/precedent_show.py'
+                      in out.split('JUDGE:', 1)[-1].split('\n', 1)[0], out[-1500:]))
+        oid = re.search(r'--object ([0-9a-f]+)', pref)
+        if oid:
+            rc_k, out_k = fx.sh(sys.executable, str(ROOT / 'tools' / 'precedent_local_edits.py'),
+                                'keep', '--repo', '.', '--path', 'tools/precedent_show.py',
+                                '--object', oid.group(1), cwd=repo)
+            cases.append(('keep with no reason is refused, and writes nothing',
+                          rc_k == 1 and '--why' in out_k
+                          and (t / 'precedent_show.py').read_bytes() == new['precedent_show.py'],
+                          out_k))
+            rc_k, out_k = fx.sh(sys.executable, str(ROOT / 'tools' / 'precedent_local_edits.py'),
+                                'keep', '--repo', '.', '--path', 'tools/precedent_show.py',
+                                '--object', oid.group(1), '--why', 'a fix upstream lacks',
+                                cwd=repo)
+            kept = (t / 'precedent_show.py').read_bytes()
+            entry = (json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+                     .get('kept_template_divergences') or {}).get('tools/precedent_show.py') or {}
+            cases.append(('keep puts the local edit back on top of upstream\'s change, '
+                          'and records why, pinned to upstream\'s text',
+                          rc_k == 0 and b'# rule 2: a local fix' in kept
+                          and b'# upstream: rule 2' in kept
+                          and entry.get('reason') == 'a fix upstream lacks'
+                          and entry.get('template_sha256') == sha(new['precedent_show.py']),
+                          (out_k, entry)))
+        else:
+            cases.append(('the report names the saved object to keep', False, pref))
         cases.append(('rule 3: a conflict takes upstream\'s version and names the '
                       'commit holding the local one',
                       got['precedent_gate.py'] == new['precedent_gate.py']
@@ -12871,19 +12923,28 @@ def check_update_vendors_resolves_local_edits():
         f.write_bytes(_insert(b, '# rule 2: a local fix\n'))
         tests = repo / 'tools' / 'checks' / 'tests' / 'run_all.sh'
         tests.parent.mkdir(parents=True, exist_ok=True)
-        tests.write_text('#!/usr/bin/env bash\n'
-                         'if grep -q "local fix" tools/precedent_show.py && '
-                         'grep -q "upstream: rule 2" tools/precedent_show.py; then\n'
-                         '  echo "the merged file breaks a fixture test"; exit 1\nfi\n',
-                         encoding='utf-8')
+        failing = ('#!/usr/bin/env bash\n'
+                   'if grep -q "local fix" tools/precedent_show.py && '
+                   'grep -q "upstream: rule 2" tools/precedent_show.py; then\n'
+                   '  echo "the merged file breaks a fixture test"; exit 1\nfi\n')
+        tests.write_text(failing, encoding='utf-8')
         fx.commit(repo, 'a local fix, and a test the merge will fail')
         up = b + b'\n# upstream: rule 2\n'
         rc, out = fx.update(repo, fx.upstream(seeded, {'tools/precedent_show.py': up}))
-        taken = _section(out, "Upstream's version taken")
-        cases.append(('rule 2 whose check fails falls back to upstream\'s version '
-                      'and names the failed check', f.read_bytes() == up
-                      and 'tools/precedent_show.py' in taken and 'run_all.sh' in taken
-                      and 'merged cleanly as text' in taken, taken or out[-1500:]))
+        pref = _section(out, PREFERRED_GROUP)
+        # The update vendors its own run_all.sh over the fixture's, so the
+        # failing test is planted again for the keep that follows.
+        tests.write_text(failing, encoding='utf-8')
+        oid = re.search(r'--object ([0-9a-f]+)', pref)
+        before = (repo / 'precedent.json').read_bytes()
+        rc_k, out_k = (fx.sh(sys.executable, str(ROOT / 'tools' / 'precedent_local_edits.py'),
+                             'keep', '--repo', '.', '--path', 'tools/precedent_show.py',
+                             '--object', oid.group(1), '--why', 'mine', cwd=repo)
+                       if oid else (None, pref or out[-1500:]))
+        cases.append(('keep whose check fails puts upstream\'s version back, records '
+                      'nothing, and names the failed check', f.read_bytes() == up
+                      and rc_k == 1 and 'run_all.sh' in out_k and 'not kept' in out_k
+                      and (repo / 'precedent.json').read_bytes() == before, out_k))
 
         # --- an uncommitted edit: nothing written -----------------------------
         repo = fx.consumer('uncommitted')
@@ -12990,11 +13051,14 @@ def check_update_rerun_after_failed_takes_its_own_output():
             fx.commit(repo, 'a local fix to a received engine file')
             ref = fx.upstream(seeded, {'tools/precedent_show.py': b + b'\n# upstream\n'})
             rc, out = red_update(repo, ref)
+            # Upstream's version, since 2026-10-08 (rule 2 takes it): still
+            # this run's output, and not what HEAD holds.
             merged = f.read_bytes()
             if not touch:
-                cases.append(('the first run ends FAILED on its check, with the merged '
-                              'engine file staged', rc == 2 and 'FAILED' in out
-                              and b'# a local fix' in merged and b'# upstream' in merged
+                cases.append(('the first run ends FAILED on its check, with its '
+                              'own version of the engine file staged', rc == 2
+                              and 'FAILED' in out
+                              and merged == b + b'\n# upstream\n'
                               and 'tools/precedent_show.py' in fx.git(
                                   repo, 'diff', '--cached', '--name-only'), out[-1500:]))
                 rc, out = fx.update(repo, ref)
@@ -13309,7 +13373,8 @@ def check_merge_takes_the_vendor_update():
 def check_update_vendors_resolves_a_catalogue_edit():
     """The same resolution for process/upstream/, a pre-2026-09-14 install's
     mirrored catalogue: a committed, pushed local edit to a vendored
-    practice, where upstream changed the same file elsewhere, is merged, and
+    practice, where upstream changed the same file elsewhere, is resolved
+    (merged until 2026-10-08; upstream's version since, the rest shown), and
     `record` passes because its carry check skips exactly the file being
     resolved (checkin.py record --resolving).
 
@@ -13364,13 +13429,17 @@ def check_update_vendors_resolves_a_catalogue_edit():
         rc, out = fx.update(repo, seeded)
         got = f.read_bytes()
         rec = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
-        cases.append(('a committed local edit in process/upstream/ is merged with '
-                      'upstream\'s change, not refused',
+        # Since 2026-10-08 (Morgan, decided): upstream's version, with the
+        # rest of the edit shown for the session to judge.
+        pref = _section(out, PREFERRED_GROUP)
+        cases.append(('a committed local edit in process/upstream/ that upstream '
+                      'changed elsewhere is resolved, not refused: upstream\'s '
+                      'version taken, the rest shown',
                       'refused' not in out.split('catalogue', 1)[-1][:200]
-                      and b'A line this repo added' in got
-                      and got.rstrip(b'\n').endswith(lines[-1].rstrip('\n').encode())
-                      and f'process/upstream/{practice}' in _section(out, 'Merged'),
-                      out[-2500:]))
+                      and got == upstream_text
+                      and f'process/upstream/{practice}' in pref
+                      and '+A line this repo added' in pref,
+                      (pref or out)[-2500:]))
         cases.append(('...and record passes, its carry check skipping only that file',
                       'catalogue record' in out and 'held' not in out
                       and rec['upstream']['commit'] == head, out[-1500:]))
@@ -14248,13 +14317,18 @@ def check_update_vendors_resolves_hook_and_engine_path_edits():
         rc, out = fx.update(repo, fx.upstream(seeded, {
             'SETUP.md': sb + b'\nUpstream added this line.\n'}))
         sn = s.read_bytes()
+        # Since 2026-10-08 (Morgan, decided) upstream's version is the
+        # default: taken, with the rest of the edit shown for the session.
+        pref = _section(out, PREFERRED_GROUP)
         cases.append(('a committed edit to a path declared under engine_paths is '
-                      'merged, not refused', bool(sb)
+                      'resolved, not refused: upstream\'s version taken, the rest '
+                      'of the edit shown', bool(sb)
                       and 'hand-edited since the last seed' not in out
-                      and b'A line this repo added.' in sn
+                      and b'A line this repo added.' not in sn
                       and b'Upstream added this line.' in sn
-                      and 'docs/SETUP.md' in _section(out, 'Merged'),
-                      (_section(out, 'Merged') or out)[-2000:]))
+                      and 'docs/SETUP.md' in pref
+                      and '+A line this repo added.' in pref,
+                      (pref or out)[-2000:]))
 
         # A hook, in a real install.
         proj = fx.tmp / 'installed'
@@ -14281,12 +14355,15 @@ def check_update_vendors_resolves_hook_and_engine_path_edits():
             rc, out = fx.update(proj, fx.upstream(m['source_commit'], {
                 f'templates/harness/claude-code/hooks/{hook}': hb + b'\n# upstream: hook\n'}))
             hn = h.read_bytes()
-            cases.append(('a committed edit to a vendored hook is merged, not refused',
+            pref = _section(out, PREFERRED_GROUP)
+            cases.append(('a committed edit to a vendored hook is resolved, not '
+                          'refused: upstream\'s version taken, the rest shown',
                           'hand-edited since the last seed' not in out
-                          and b'# a local fix to this hook' in hn
+                          and b'# a local fix to this hook' not in hn
                           and b'# upstream: hook' in hn
-                          and f'.claude/hooks/{hook}' in _section(out, 'Merged'),
-                          (_section(out, 'Merged') or out)[-2000:]))
+                          and f'.claude/hooks/{hook}' in pref
+                          and '+# a local fix to this hook' in pref,
+                          (pref or out)[-2000:]))
     finally:
         fx.close()
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -14323,7 +14400,9 @@ def check_section0_catalogue_resolves_a_committed_edit():
         after = next(i for i, l in enumerate(lines) if i and l.strip() == '---') + 2
         record = json.dumps({'source_commit': head}).encode()
 
-        # Merge: this repo added a line near the top, upstream one at the end.
+        # This repo added a line near the top, upstream one at the end. Since
+        # 2026-10-08 (Morgan, decided) upstream's version is the default, so
+        # it is taken and the rest of the edit is shown for the session.
         rev = fx.upstream(head, {'practices/park-it.md': base + b'\nUpstream: end.\n'})
         d = _section0_repo(fx.tmp, {
             'practices/park-it.md': _insert(base, 'Mine: near the top.\n', at=after),
@@ -14332,10 +14411,12 @@ def check_section0_catalogue_resolves_a_committed_edit():
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
         f = d / 'precedent' / 'universal' / 'practices' / 'park-it.md'
         got = f.read_bytes()
-        cases.append(('a committed edit merges with upstream\'s change, not refused',
-                      ok is True and not rep.left and b'Mine: near the top.' in got
-                      and b'Upstream: end.' in got
-                      and any(o == 'merged' for o, _r, _t in rep.edits),
+        pref = [t for o, _r, t in rep.edits if o == 'upstream-preferred']
+        cases.append(('a committed edit upstream changed elsewhere is not refused: '
+                      'upstream\'s version is taken, and the rest of the edit shown',
+                      ok is True and not rep.left and got == base + b'\nUpstream: end.\n'
+                      and pref and '+Mine: near the top.' in pref[0]
+                      and ' keep --repo . ' in pref[0],
                       (rep.left, rep.edits, rep.steps)))
 
         # Conflict: both changed the same line.
@@ -51072,6 +51153,15 @@ def check_kept_section_reports_upstreams_change_not_its_lacks():
                       done and len(left) == 1 and 'repin-kept' in left[0][1]
                       and '--confirmed' in left[0][1] and 'set its template_sha256' not in out
                       and '(listed above)' in left[0][1]))
+        # 2026-10-08, Morgan (decided): upstream's wording is the default, and
+        # this repository's is kept only where it does something different
+        # and important -- so a change that reaches the kept lines says so.
+        cases.append(('...and says the default is upstream\'s section, keeping this '
+                      'repository\'s only where it does something different and '
+                      'important', "the default is upstream's" in left[0][1]
+                      and 'different and important' in left[0][1]
+                      and 'remove the kept_template_divergences entry' in left[0][1]
+                      and "the default is upstream's wording" in out))
         sys.path.insert(0, str(ROOT / 'tools'))
         import precedent_update as _pu
         got = _pu.diverged_details(out)
