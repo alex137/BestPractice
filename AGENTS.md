@@ -94,7 +94,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~642 of 1750 token budget, 6 of 142 practices (6 universal))
+## Resident block (~642 of 1750 token budget, 6 of 143 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) Answer the easy questions first**, in the same message; the long run
 never gates the answer. **(2) A task longer than a few minutes is proposed,
@@ -188,6 +188,8 @@ When a person's account of their own situation seems contradicted by the evidenc
   their-constraints-are-given — say it once, then work from theirs
 When a second implementation of the same mechanism turns up:
   judgment-check-or-tool — judgment stays prose; checkable gets an audit; a mechanism gets one tool
+When a tool, check or task cannot reach a repository, service, credential or file it needs:
+  reach-or-ask — take read access a tool can grant; ask for anything wider; never just report it
 When a tool, hook, check or gate flags something the person would otherwise have to judge:
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
 When about four or more end-user content files sit scattered around a repo:
