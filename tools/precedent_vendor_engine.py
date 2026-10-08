@@ -733,6 +733,12 @@ ENGINE_FILES = [
     # "What's new?" works in every project, so the log's mechanics ship
     # (practice: whats-new); each project's own log never does.
     'precedent_whats_new.py',
+    # Its other half (Morgan, 2026-10-08): once a day, what OTHER people
+    # landed since the person was last told. The session-start hook and the
+    # reply gate both call it, so a repository without it would carry hooks
+    # naming a file that is not there (the others-did practice, in the ladder set). Each
+    # repository's own mark, tools/others_did_watermark.json, never ships.
+    'precedent_others_did.py',
     # EVERY VOCABULARY WORD HAS TO WORK WHERE THE ENGINE IS VENDORED
     # (2026-09-21, Morgan: "ALL of our vocabulary words should"). A standing
     # command a session cannot carry out is worse than one that does not
