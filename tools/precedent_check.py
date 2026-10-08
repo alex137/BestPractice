@@ -10407,9 +10407,14 @@ def _declared_record_paths():
     and is declared, with its reason, rather than folded into the
     decommissioning registry's exempt_files, which is for records OF a
     decommissioning. Read by precedent_resolve.declared_record_paths(), the
-    one reader the citation scan shares."""
-    import precedent_resolve as _pr
-    return _pr.declared_record_paths(ROOT)
+    one reader the citation scan shares. A resolver that cannot answer (an
+    older or stubbed engine file) declares nothing: fewer exemptions, never
+    more."""
+    try:
+        import precedent_resolve as _pr
+        return list(_pr.declared_record_paths(ROOT))
+    except (ImportError, AttributeError):
+        return []
 
 
 # A document whose lifecycle header says it is finished is a record of what

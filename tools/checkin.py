@@ -1765,7 +1765,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
     names = _dep_git('ls-tree', '-r', '--name-only', f'origin/{dep_branch}', prefix).split()
     landed_all = None
     lost = []
-    upstream_deleted = upstream_older = 0
+    upstream_deleted = upstream_older = upstream_whole = 0
     for name in names:
         rel = name[len(prefix) + 1:]
         if rel in resolving:
@@ -1778,6 +1778,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
         # whose whole copy was upstream text (2026-10-08).
         oid = _dep_git('rev-parse', f'origin/{dep_branch}:{name}').strip()
         if (rel, oid) in upstream_blobs(clone, tip, *bases):
+            upstream_whole += 1
             continue
         committed = _dep_git('show', f'origin/{dep_branch}:{name}')
         # rc is now consulted, and it can only mean one thing: every base
@@ -1817,6 +1818,13 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
               f"landed tree lacks were deleted by upstream itself (git log between "
               f"{', '.join(b[:12] for b in bases)} and the clone's HEAD) -- upstream's "
               f"own deletions, not a loss; not counted.")
+    if upstream_whole:
+        # Said, never skipped silently (2026-10-08): the whole-file test above
+        # now catches what the two line counts below used to explain.
+        print(f"carry check: {upstream_whole} committed file(s) are an earlier "
+              f"upstream version of that same file, as upstream itself shipped it "
+              f"-- upstream's own text, including its own deletions since, not "
+              f"local work; not counted.")
     if upstream_older:
         print(f"carry check: {upstream_older} line(s) the committed tree has and the "
               f"landed tree lacks are in an earlier upstream version of the same file "

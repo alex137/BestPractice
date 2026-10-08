@@ -2464,7 +2464,7 @@ def realign_catalogue_record(repo, wrote, back):
         mirrors = tuple(pr.mirrored_prefixes(repo) or ())
     except Exception:                                          # noqa: BLE001
         mirrors = ()
-    if not any(p.startswith(mirrors or ('process/upstream/',)) for p in back):
+    if not mirrors or not any(p.startswith(mirrors) for p in back):
         return None
     shown = subprocess.run(['git', '-C', str(repo), 'show', f'HEAD:{rel}'],
                            capture_output=True, text=True)

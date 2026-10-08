@@ -38082,7 +38082,8 @@ def check_carry_check_never_counts_upstream_deletions():
         cases.append(('a stale committed stamp still records cleanly',
                       rc == 0 and 'checkin record OK' in out))
         cases.append(('and says it set aside upstream\'s own deletions',
-                      "upstream's own deletions" in out))
+                      "upstream's own deletions" in out
+                      or "upstream's own text, including its own deletions" in out))
 
         # 3. A real loss: a line nobody upstream ever wrote.
         rc, out = _record(_consumer(base / 'three', clone, sha['B'], sha['B'],
