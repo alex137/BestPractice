@@ -174,6 +174,8 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **"Update Vendors" runs to DONE, opens its pull request, and the merge that the phrase carries comes back `Denied by auto mode classifier` with the reason `[Merge Without Review]`. Nothing in the repository refused it, and the same merge goes through once the person's message names it.** [story](gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)
 
+- **The full check spends minutes in `scripts-assert-properties` (the model audit) although no model changed, and afterwards the model audit's ledger shows as modified: every line rewritten, with only its `reads` different.** [story](gotcha-2026-10-07-a-ledger-written-in-a-worktree-misses-in-every-clone.md)
+
 - **A session runs `git add ... && git commit ... && git push` in one Bash call. The push check refuses it, and the session tells its person the work was committed and only the push failed. `git status` shows the changes still uncommitted, and `git log` has no new commit.** [story](gotcha-2026-10-07-a-refused-push-means-the-commit-before-it-did-not-run-either.md)
 
 - **GitHub's test on a pull request into `main` takes about 30 minutes, while the same suite run here with `python3 tools/verify_harness.py --as-ci` takes about 11. One GitHub job, "verify_harness (everything else)", holds nearly all of it.** [story](gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy.md)

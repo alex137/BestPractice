@@ -262,6 +262,22 @@ def note_written(path):
         pass
 
 
+# The repository's own .git entry is a directory in a clone and a file in a
+# worktree, so an existence probe of it (git discovery, a ROOT/".git" test)
+# records how the repository was checked out, not anything the work read.
+# Recorded, it made every fact taken in a landing worktree fail in every
+# clone, and the reverse: a full re-run and a rewritten ledger each time
+# (found 2026-10-07, a consuming repo's model audit re-running all 70 of its
+# scripts inside the full check). The git state work can see is kind "g".
+def checkout_layout(rel):
+    """True for a read of the repository's own .git entry."""
+    return rel == ".git"
+
+
+def _kept(reads):
+    return [r for r in reads if not checkout_layout(r[1])]
+
+
 class Ledger:
     def __init__(self, root, path=None, reach_dirs=(), ignore=()):
         self.root = Path(root)
@@ -389,7 +405,7 @@ class Ledger:
         """The fact was taken under this hook and every read it recorded
         still has the content the work saw."""
         return (f.get("hook") == HOOK_VERSION and f.get("reads") is not None
-                and content_record.Record(f["reads"]).holds(self.reader, self.ignore)[0])
+                and content_record.Record(_kept(f["reads"])).holds(self.reader, self.ignore)[0])
 
     def find(self, scope, name, code, out=None):
         """The holding fact for (scope, name), or None."""
@@ -403,7 +419,7 @@ class Ledger:
         # each read carries the content the work saw (hashed by the hook at
         # the time), never the content at recording time
         keep = {}
-        for r in reads:
+        for r in _kept(reads):
             kind, rel, sig = r if len(r) == 3 else (r[0], r[1], None)
             if kind == "m" and rel in covered:
                 continue
