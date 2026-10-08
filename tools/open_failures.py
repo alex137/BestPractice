@@ -107,8 +107,8 @@ def self_check():
 
 
 def main(argv):
-    if argv[:1] in (["--help"], ["-h"]):
-        print(__doc__.strip())
+    if "--help" in argv or "-h" in argv:
+        print(__doc__)
         return 0
     if "--self-check" in argv:
         return self_check()
