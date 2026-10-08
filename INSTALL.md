@@ -346,6 +346,51 @@ not this section.
     system generates it, Actions permissions and secrets — is explained in
     one place, [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md).**
 
+**The first landing: a repository vendored for the first time, with no
+`main` yet.** A brand-new repository has nothing to open a pull request
+into, so the first install goes straight to `main`. There is nothing on
+`main` to protect and no lower branch to promote from, which makes this the
+one direct push to `main` a repository ever takes, including under a
+person's own rule that `main` changes only by promotion (Morgan, 2026-10-08:
+*"Why not install it straight to main?"*, `strength: decided`). A
+repository that already has a `main`, even one holding only a README, is
+not this case: its install goes on a branch and lands by pull request like
+any other change. In order:
+
+1. **Ask everything at the start**, including the go-ahead to commit the
+   Claude Code hooks and settings (`.claude/`), which
+   [spec/INSTALL_QUESTIONS.md](https://github.com/alex137/BestPractice/blob/staging/spec/INSTALL_QUESTIONS.md)
+   folds into the question about which assistant works there. Claude
+   Code's auto mode holds any commit that changes `.claude/` until the
+   person says yes, and no setting lifts that, so a yes asked for only at
+   commit time stalls the install at its last step.
+2. **Run the installer** as above, then commit everything, authored as the
+   person, on the session's branch.
+3. **Check it at `main`'s tier**:
+   `python3 tools/precedent_push_check.py --tier full --because "first install, going straight to main"`.
+   Its Markdown lint compares against `origin/main`, which does not exist
+   yet, so it stands down and gates nothing. Lint the project's own files
+   whole as well:
+   `git ls-files '*.md' | grep -v '^precedent/universal/\|^practices/' | xargs python3 tools/doc_lint.py`
+   (the two trees left out are the vendored and generated catalogue).
+4. **Push `main` first**: `git push -u origin HEAD:main`. On GitHub, the
+   first branch pushed to an empty repository becomes its default branch,
+   so pushing the session's branch first makes that the default.
+5. **Make the branch tiers, if the person works with them**:
+   `python3 tools/precedent_branches.py --ensure-tiers --apply` creates
+   them from `main` (and says nothing for a person who does not), and
+   writes `staging_branch` into `precedent.json`. That line is part of the
+   install: commit it, push it to `main`, and push the same commit to each
+   tier branch and to the session's branch, so they all start on one
+   commit.
+6. **Confirm it**: `git ls-remote --heads origin` shows `main` and every
+   tier branch on the same commit. From here on, work lands on the landing
+   branch (`python3 tools/precedent_branches.py --landing`) and reaches
+   `main` the way that repository's rules say.
+
+The installer says when a repository is in this case: its branch-tiers
+line names this paragraph whenever `origin` has no `main`.
+
 **What has and has not been rehearsed, stated plainly rather than left to
 be discovered.** Every step here has been walked end to end against a
 scratch repository twice — 2026-09-06 (the
@@ -1445,7 +1490,8 @@ order records a hash the vendored tree doesn't match.
   "upstream": {
     "repo": "https://github.com/<owner>/BestPractice",
     "vendored_at": "process/upstream",
-    "commit": "<hash of the upstream commit last synced>"
+    "commit": "<hash of the upstream commit last synced>",
+    "copy_tree": "<git tree id of process/upstream as recorded -- written by checkin.py record and Update Vendors>"
   },
   "entries": [
     {
@@ -1486,6 +1532,18 @@ order records a hash the vendored tree doesn't match.
 }
 ```
 
+- `upstream.copy_tree` — **the fingerprint of the vendored copy**: the git
+  tree id of `process/upstream/` as it stood when `commit` was recorded,
+  after Update Vendors put back the local edits it keeps. Written by
+  `checkin.py record` and by Update Vendors; never by hand. The
+  `vendored-copy-matches-record` check compares the copy with it, with no
+  BestPractice clone, and names each file that changed since -- the tree it
+  names is in the repository's own history once the copy is committed. A
+  file an entry marks `diverged` or `local-only`, and a path
+  `precedent.json` keeps under `kept_template_divergences` with a reason,
+  is exempt. A manifest without the key is reported as could not verify,
+  and the next Update Vendors adds it; an engine older than the key ignores
+  it.
 - `granularity: "file"` — audited exactly: `local_sha256` is the baseline;
   any later change to the local file flags the entry until it is exported
   and re-baselined, or flipped to `diverged`.
