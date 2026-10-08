@@ -39,7 +39,10 @@ A DAY is a calendar day in the REPOSITORY's timezone (precedent.json
 has to end at the same moment whoever writes it. It changed when the tip
 of `main`'s first-parent line at that day's midnight differs from the tip
 at the midnight before, and a commit that touches only the log itself
-does not count -- the log landing on main would otherwise be news every
+does not count, nor one that only brought Precedent's own files in (an
+Update Vendors: the vendored engine, the catalogue copy, the materialized
+practices, and the views regenerated beside them) -- the log is about this
+repository, not about Precedent -- the log landing on main would otherwise be news every
 day after it. A day with no change is QUIET: it gets no entry, and --days
 names it so the session can say it was skipped. The first run, with no
 log yet, covers the last seven finished days.
@@ -175,6 +178,88 @@ def _touches_only(root, sha, rel):
     return bool(names) and names <= {rel}
 
 
+# Files a regeneration rewrites alongside a vendored update. They count as
+# Precedent's only in a commit that also touched a vendored file, so a
+# repository's own hand edit to its instructions is still its news.
+VIEW_FILES = frozenset({'AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'MAP.md',
+                        'GLOSSARY.md', 'WHERE_THINGS_ARE.md',
+                        '.claude/settings.json', 'todo/TODO.md',
+                        'todo/CLOSED.md', 'gotchas/INDEX.md',
+                        'tools/generated_files.json',
+                        'tools/session_load_budgets.json'})
+
+
+def _json_at(root, sha, rel):
+    rc, text = _git(root, 'show', f'{sha}:{rel}')
+    if rc != 0:
+        return {}
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _vendored_at(root, sha):
+    """-> (exact paths, path prefixes) that Precedent wrote into this
+    repository, as its own records stand at `sha`: the vendored engine
+    (tools/ENGINE_MANIFEST.json), the catalogue copy and its record
+    (process/manifest.json), and what the sync materialized (MANIFEST.json).
+    Empty in a repository that vendors nothing -- BestPractice itself, whose
+    engine is its own news."""
+    exact, prefixes = set(), []
+    eng = _json_at(root, sha, 'tools/ENGINE_MANIFEST.json')
+    if eng:
+        exact.add('tools/ENGINE_MANIFEST.json')
+        exact.update(f'tools/{f}' for f in eng.get('files') or [] if isinstance(f, str))
+        exact.update(f'.claude/hooks/{f}' for f in eng.get('hook_files') or []
+                     if isinstance(f, str))
+        exact.update(f for f in eng.get('ci_workflow_files') or [] if isinstance(f, str))
+        tmpl = eng.get('template_instances_sha256')
+        exact.update(k for k in (tmpl if isinstance(tmpl, dict) else {}))
+    cat = _json_at(root, sha, 'process/manifest.json')
+    if cat:
+        exact.add('process/manifest.json')
+        up = cat.get('upstream') if isinstance(cat.get('upstream'), dict) else {}
+        prefixes.append(str(up.get('vendored_at') or 'process/upstream').strip('/') + '/')
+    mat = _json_at(root, sha, 'MANIFEST.json')
+    if mat.get('generated_by') == 'tools/precedent_materialize.py':
+        exact.add('MANIFEST.json')
+        exact.update(f"practices/{p['slug']}.md" for p in mat.get('practices') or []
+                     if isinstance(p, dict) and isinstance(p.get('slug'), str))
+        for key in ('checks', 'adapters', 'ships'):
+            exact.update(a['path'] for a in mat.get(key) or []
+                         if isinstance(a, dict) and isinstance(a.get('path'), str))
+    return exact, prefixes
+
+
+def _is_precedents(root, sha):
+    """True when a commit only brought Precedent's own files in -- an Update
+    Vendors, a sync of a practice set -- with nothing of the repository's.
+
+    A repository's news log is about that repository (Morgan, 2026-10-08:
+    "it is about what is happening in THAT repo not what is happening in
+    Precedent"). Until then a day whose only change was Update Vendors read
+    as news, and the next session was asked to write an entry about
+    Precedent's changes in, say, a holiday-calendar project."""
+    rc, files = _git(root, 'diff-tree', '--no-commit-id', '--name-only', '-r',
+                     '-m', '--first-parent', sha)
+    names = {f for f in files.splitlines() if f.strip()}
+    if not names:
+        return False
+    # Read at the commit and its parent: an update that deletes a file
+    # upstream dropped no longer lists it afterwards.
+    exact, prefixes = _vendored_at(root, sha)
+    before, before_prefixes = _vendored_at(root, f'{sha}^')
+    exact |= before
+    prefixes += [p for p in before_prefixes if p not in prefixes]
+    if not exact and not prefixes:
+        return False
+    vendored = {n for n in names
+                if n in exact or any(n.startswith(p) for p in prefixes)}
+    return bool(vendored) and names <= vendored | VIEW_FILES
+
+
 def changes_between(root, ref, start, end):
     """-> {'commits': [(short, subject, body)], 'added': [paths]} for the
     first-parent line of `ref` between two moments, the log's own commits
@@ -196,7 +281,7 @@ def changes_between(root, ref, start, end):
             continue
         sha, subject = parts[0], parts[1]
         body = _prose(parts[2] if len(parts) > 2 else '')
-        if _touches_only(root, sha, rel):
+        if _touches_only(root, sha, rel) or _is_precedents(root, sha):
             continue
         commits.append((sha[:9], subject, body))
     if not commits:
