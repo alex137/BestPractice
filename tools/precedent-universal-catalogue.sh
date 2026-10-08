@@ -83,8 +83,8 @@ fi
 if [ -f "$P/tools/precedent_source_bootstrap.py" ]; then
   python3 "$P/tools/precedent_source_bootstrap.py" --sources-from "$P" || true
 fi
-# --quiet: the file is emitted below, whole, so only the spoken commands are
-# printed here -- into the diagnostics, which are emitted first.
+# --quiet: the file is emitted below, whole, and it opens with the spoken
+# commands, so nothing is printed here; printing them too said them twice.
 python3 "$P/tools/precedent_session_practices.py" --repo "$P" --quiet || true
 
 # THIRD STEP, added 2026-09-14: which repos in force can this session actually

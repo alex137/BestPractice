@@ -1198,6 +1198,33 @@ def index_is_redundant(fm):
     return _routes_by_path(fm) or bool(gates)
 
 
+def command_phrases(fm):
+    """-> [phrase] for the spoken commands a practice's `command:` defines,
+    or [] for none, `null`, or a value that does not parse.
+
+    The one test of "this practice defines a command" that both ends of the
+    session file use: precedent_session_practices.spoken_block() lists the
+    practice by these words, and build_loader_block(omit_commands=True)
+    leaves its index line out for the same reason. Were the two to answer
+    differently, a malformed command would fall out of both lists at once."""
+    raw = fm.get('command')
+    if isinstance(raw, (dict, list)):
+        parsed = raw
+    else:
+        raw = str(raw or '').strip()
+        if not raw or raw == 'null':
+            return []
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            return []
+    if isinstance(parsed, dict):
+        parsed = list(parsed)
+    if not isinstance(parsed, list):
+        return []
+    return [w for w in parsed if isinstance(w, str) and w.strip()]
+
+
 def _live_gates(practices):
     """Gate names to advertise: in the engine's own closed vocabulary AND
     holding at least one in-force practice in THIS source.
@@ -1402,7 +1429,7 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
                        block_dir=None, repo_root=None, planned=(),
                        budget_tokens=None, occasion_budget_tokens=None,
                        carried=None, regen_comment=True,
-                       include_code_owners=False):
+                       include_code_owners=False, omit_commands=False):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
     optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
@@ -1434,7 +1461,14 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     regen_comment=False leaves out the "Regenerate with build_views.py"
     comment, which is true only of a block build_views writes into a tracked
     file -- the session-practices file is rebuilt by its own tool every
-    session and has nothing to hand-edit or --check."""
+    session and has nothing to hand-edit or --check.
+
+    omit_commands=True leaves out the occasion-index line of every practice
+    that defines a spoken command (command_phrases). Only the session file
+    asks for it, because it opens with those commands already, one line
+    each (precedent_session_practices.spoken_block), and a session paid for
+    every command twice: once in that list and again in this index. A
+    tracked AGENTS.md has no such list, so its block keeps them."""
     # A practice for code owners only never goes in a block everyone reads
     # (AGENTS.md, whichever tool renders it); the untracked session file asks
     # for them with include_code_owners=True, for a code owner (2026-10-05).
@@ -1488,6 +1522,8 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     for fm, sections in on_demand:
         occasion = _json_str(fm.get('occasion', ''))
         if not occasion:
+            continue
+        if omit_commands and command_phrases(fm):
             continue
         if index_is_redundant(fm):
             routed_out.append(fm['slug'])

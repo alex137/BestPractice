@@ -60404,8 +60404,10 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
     printed nothing, and the consumer's generated Standing instruction never
     pointed at it, because a brought set is left out of defers_sources.
 
-    1. The write prints the block on stdout -- a SessionStart hook's output
+    1. The write prints the file on stdout -- a SessionStart hook's output
        is what reaches the session -- with a spoken trigger's line in it.
+       Since 2026-10-08 that line is in the spoken-commands list the file
+       opens with, not in its occasion index.
     2. --quiet writes the same file and prints nothing, and the set's own
        hook, which emits the file itself, passes it. A consumer declines that
        hook, so its start-up script (templates/bootstrap.sh) runs the write.
@@ -60455,15 +60457,13 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
             return out.getvalue(), (written.read_text(encoding='utf-8')
                                     if written.is_file() else '')
         said, written = run()
-        line = 'When a person says "Debut":'
-        cases.append(('1. the session-start write prints the block, spoken trigger and all',
+        line = '"Debut" -> debut: stage 4'
+        cases.append(('1. the session-start write prints the file, spoken trigger and all',
                       line in said and line in written))
         (repo / '.precedent' / 'SESSION_PRACTICES.md').unlink()
         said, written = run('--quiet')
-        cases.append(('2. --quiet writes the same file and prints only the spoken commands',
-                      said.startswith(getattr(psp, 'SPOKEN_HEAD', '\0'))
-                      and '"Debut" -> debut' in said
-                      and 'Occasion index' not in said and line in written))
+        cases.append(('2. --quiet writes the same file and prints nothing',
+                      said.strip() == '' and line in written))
         hook = (ROOT / 'tools' / 'precedent-universal-catalogue.sh').read_text(encoding='utf-8')
         cases.append(("2. ...and the set's hook, which emits the file whole, passes --quiet",
                       'precedent_session_practices.py" --repo "$P" --quiet' in hook))
@@ -60480,6 +60480,121 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
         shutil.rmtree(tmp, ignore_errors=True)
     failed = [name for name, ok in cases if not ok]
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_session_file_says_each_command_once():
+    """A consuming repository's session file went over its ceiling on
+    2026-10-08, and part of what it paid for was every spoken command twice:
+    precedent_session_practices.py printed a spoken-commands block ahead of
+    the file, and the file's occasion index listed the same practices again.
+
+    1. The file's first section, under its title, is the spoken-commands
+       block, and it lists every practice that defines a command.
+    2. The file's occasion index has no line for any of them, and still has
+       the line of a practice that defines none.
+    3. The tracked AGENTS.md block, rendered by the same function without the
+       option, still lists the command practices in its index.
+    4. main() prints that block once: the file, which opens with it, and
+       nothing ahead of it.
+    5. A brought set's command is charged to the person's brought budget:
+       what the repository pays is the file rendered without the brought
+       set, though that set's command line is in the full file.
+
+    Negative control, run by hand when this landed: with render() passing
+    omit_commands=False, case 2 fails and the rest pass."""
+    import io, contextlib, tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_session_practices as psp
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-commands-once-'))
+    saved = (psp.collect, psp.brought_budget, psp.pr.load_config)
+    try:
+        def practice(d, slug, occasion, clause, command=None):
+            d.mkdir(parents=True, exist_ok=True)
+            (d / f'{slug}.md').write_text(
+                '---\n'
+                f'slug: {slug}\n'
+                f'title: {slug}\n'
+                'tier: on-demand\n'
+                'status: active\n'
+                f'occasion: "{occasion}"\n'
+                f'index_clause: "{clause}"\n'
+                + (f'command: {json.dumps(command)}\n' if command else '')
+                + '---\n\n## Rule\n\nDo it.\n', encoding='utf-8')
+        own, brought = tmp / 'own', tmp / 'ladder'
+        practice(own, 'deep-check', 'asked for a \\"deep check\\"',
+                 'every audit, plus a full read', {'Deep check': 'Check it all.'})
+        practice(own, 'install', 'installing Precedent into a repo',
+                 'precedent_install.py, declare the set')
+        practice(brought, 'debut', 'a person says \\"Debut\\"',
+                 'stage 4: pre-staging into staging', {'Debut': 'Stage 4.'})
+        bare = bv.load_practices(own)
+        full = bare + bv.load_practices(brought)
+        levels = {'deep-check': 'universal', 'install': 'universal',
+                  'debut': 'shared'}
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        text = psp.render(full, levels, [], repo=str(repo))
+        head = psp.SPOKEN_HEAD
+        lines = text.split('\n')
+        title = next(i for i, l in enumerate(lines) if l.startswith('# '))
+        first = next(l for l in lines[title + 1:] if l.strip())
+        cases.append(('1. the file opens, under its title, with the spoken commands',
+                      first == head))
+        cases.append(('1. ...and they list every practice that defines one',
+                      '- "Deep check" -> deep-check: every audit' in text
+                      and '- "Debut" -> debut: stage 4' in text))
+        index = text.split('## Occasion index', 1)[-1]
+        cases.append(('2. the file\'s occasion index has no line for a command practice',
+                      '## Occasion index' in text
+                      and 'deep-check —' not in index and 'debut —' not in index))
+        cases.append(('2. ...and keeps the line of a practice that defines none',
+                      'install — precedent_install.py' in index))
+        tracked, _t, _n = bv.build_loader_block(full)
+        cases.append(('3. the tracked AGENTS.md block still lists the command '
+                      'practices in its index',
+                      'deep-check — every audit' in tracked
+                      and 'debut — stage 4' in tracked and head not in tracked))
+
+        notes = [('deferred', 'a brought set, deferred to this file')]
+        bare_levels = {k: v for k, v in levels.items() if v != 'shared'}
+        psp.collect = lambda r, skip_brought=False: (
+            (bare, bare_levels, notes) if skip_brought else (full, levels, notes))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            psp.main(['--repo', str(repo)])
+        said = out.getvalue()
+        cases.append(('4. main() prints the commands once, at the top of the file',
+                      said.count(head) == 1 and said.count('"Debut" -> debut') == 1
+                      and said.lstrip().startswith('<!-- GENERATED')))
+
+        psp.pr.load_config = lambda r: [
+            {'level': 'shared', 'name': 'ladder', 'path': str(brought),
+             'brought': True}]
+        psp.brought_budget = lambda repo=None: (1000, None)
+        n = bv._approx_tokens(psp.render(full, levels, notes, repo=str(repo)))
+        charged, share, names, budget = psp.charged_to_repo(str(repo), n)
+        bare_text = psp.render(bare, bare_levels, notes, repo=str(repo))
+        cases.append(('5. the repository pays for the file without the brought set',
+                      share > 0 and charged == bv._approx_tokens(bare_text),
+                      f'charged {charged}, bare {bv._approx_tokens(bare_text)}, '
+                      f'share {share}'))
+        cases.append(("5. ...though the brought set's command is in the full file "
+                      "and not in that one",
+                      '"Debut" -> debut' in text and '"Debut"' not in bare_text))
+    except (OSError, TypeError, ValueError, StopIteration, AttributeError) as e:
+        cases.append((f'fixture could not be built ({type(e).__name__}: {e})', False))
+    finally:
+        psp.collect, psp.brought_budget, psp.pr.load_config = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok, *_ in cases if not ok]
+    detail = '; '.join(f'{c[0]} ({c[2]})' if len(c) > 2 and not c[1] else c[0]
+                       for c in cases if not c[1])
+    return (not failed, f'{len(cases)} stated cases', detail)
 
 
 def check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views():
@@ -67115,6 +67230,9 @@ def main():
     check('a set the person brings reaches the session at start: printed, not just '
           'written, and the block always points at the file',
           *check_a_brought_sets_spoken_trigger_reaches_the_session_at_start())
+    check('the session file says each spoken command once: first, and not again '
+          'in its occasion index',
+          *check_session_file_says_each_command_once())
     check('Update Vendors builds the views again after stamping their source, and a '
           'consumer\'s view check skips a view it never had',
           *check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views())
