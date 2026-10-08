@@ -486,6 +486,49 @@ def _promotion_heads(root, base):
     return {PRE_STAGING}
 
 
+def _push_remote(root, args):
+    """-> the remote a `git push <args>` writes to: its first positional
+    argument, else the current branch's configured remote, else origin."""
+    if isinstance(args, str):
+        try:
+            args = shlex.split(args)
+        except ValueError:
+            return 'origin'
+    skip = False
+    for a in args:
+        if skip:
+            skip = False
+            continue
+        if a in _VALUED:
+            skip = True
+            continue
+        if not a.startswith('-'):
+            return a
+    branch = _run(root, 'rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+    configured = _run(root, 'config', f'branch.{branch}.remote').stdout.strip()
+    return configured or 'origin'
+
+
+def _remote_is_empty(root, remote):
+    """True only when the remote answers and holds no branch at all: a
+    brand-new repository, whose first landing creates main.
+
+    Practice promote-only's first-install exception (Morgan, 2026-10-08:
+    "Why not install it straight to main?") lets that one push through, and
+    until 2026-10-08 this gate refused it like any other. Kept to an empty
+    remote on purpose: once anything is there, an existing main (even a
+    README-only one) or a missing staging beside it, the push is refused as
+    before. A remote that cannot be asked (no network, no such remote)
+    answers False, so the push stays refused."""
+    try:
+        r = subprocess.run(['git', '-C', str(root), 'ls-remote', '--heads',
+                            remote],
+                           capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):  # practice: fail-gracefully
+        return False
+    return r.returncode == 0 and not r.stdout.strip()
+
+
 def direct_push_refusal(root, args, user_config=None):
     """-> None, or why a `git push <args>` is refused: promote_only is on
     and the push writes straight to staging or main. A push whose
@@ -495,6 +538,8 @@ def direct_push_refusal(root, args, user_config=None):
         return None
     targets = push_targets(root, args)
     hit = sorted(set(targets or ()) & full_branches(root))
+    if hit and _remote_is_empty(root, _push_remote(root, args)):
+        return None
     if not hit:
         return None
     return (f'{" and ".join(hit)} take{"s" if len(hit) == 1 else ""} work only '
