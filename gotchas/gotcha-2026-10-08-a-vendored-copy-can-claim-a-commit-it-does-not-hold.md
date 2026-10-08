@@ -57,6 +57,11 @@ Three changes in BestPractice, 2026-10-08:
 - A declined file's copy is upstream's text at the recorded commit, so a
   decline is judged against one basis everywhere.
 
+Since then, too: the manifest records a fingerprint of the copy
+(`upstream.copy_tree`), and the repository's own check,
+`vendored-copy-matches-record`, names any file that drifts from it later,
+with no BestPractice clone.
+
 **If you meet the symptom anyway:** compare `process/upstream/` with
 BestPractice at the commit `process/manifest.json` records. A copy that
 differs is stale, and one clean Update Vendors run re-mirrors it. Run it

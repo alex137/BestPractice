@@ -841,6 +841,171 @@ def deleted_here(path):
     return not re.search(r'^\+\s*"commit":', d.stdout, re.M)
 
 
+# The copy's fingerprint, kept in the manifest's `upstream` record beside the
+# commit it names: the git tree id of the vendored tree as recorded, after
+# the local-edit rules have run. Older engines ignore the key.
+#
+# WHY (2026-10-08, a consuming repository; Morgan decided it the same day:
+# "#2 fine also, approved"). Its records named one commit while most of its
+# process/upstream/ was other upstream versions, and nothing in the
+# repository could tell: the manifest held the commit and per-file hashes for
+# adopted files only, so seeing drift took a BestPractice clone. A tree id is
+# one hash over every (path, mode, content hash) pair, so a single key is the
+# whole fingerprint, and naming the files that drifted costs nothing more:
+# once the copy is committed, the tree object that id names is in the
+# repository's own history, and `git ls-tree` lists it. A per-file map would
+# have added a line per vendored file to the manifest -- hundreds, rewritten
+# on every update -- to say what git already keeps.
+COPY_TREE_KEY = 'copy_tree'
+
+# Entry statuses that mean "this repository changes this file on purpose"
+# (INSTALL.md section 5). A declined file is not one: its copy stays
+# upstream's text, because that copy is what the decline is judged by
+# (precedent_local_edits._declined_catalogue_paths).
+_OWN_EDIT_STATUSES = ('diverged', 'local-only')
+
+
+def copy_tree(repo, tree_rel):
+    """-> (tree id, {copy-relative path: blob id}) for the vendored tree at
+    repo-relative `tree_rel` as it stands in the working tree, read the way
+    `git add` would commit it (gitignored files left out); (None, {}) when
+    git cannot say. Read through a scratch index seeded from HEAD, so the
+    repository's own index is never touched."""
+    repo = pathlib.Path(repo)
+    tree_rel = str(tree_rel).strip('/')
+    if not tree_rel or not (repo / tree_rel).is_dir():
+        return None, {}
+    with tempfile.TemporaryDirectory() as td:
+        env = dict(os.environ, GIT_INDEX_FILE=str(pathlib.Path(td) / 'index'))
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                  capture_output=True, text=True)
+        g('read-tree', 'HEAD')       # no commit yet: the index starts empty
+        if g('add', '-A', '--', tree_rel).returncode != 0:
+            return None, {}
+        w = g('write-tree', f'--prefix={tree_rel}/')
+        ls = g('ls-files', '-s', '-z', '--', tree_rel)
+    if w.returncode != 0 or ls.returncode != 0:
+        return None, {}
+    blobs = {}
+    for entry in ls.stdout.split('\0'):
+        meta, _, path = entry.partition('\t')
+        parts = meta.split()
+        if len(parts) == 3 and path.startswith(tree_rel + '/'):
+            blobs[path[len(tree_rel) + 1:]] = parts[1]
+    return w.stdout.strip() or None, blobs
+
+
+def _recorded_blobs(repo, tree_id):
+    """-> {copy-relative path: blob id} the tree object `tree_id` holds, or
+    None when this clone does not have it."""
+    r = subprocess.run(['git', '-C', str(repo), 'ls-tree', '-r', '-z', tree_id],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    out = {}
+    for entry in r.stdout.split('\0'):
+        meta, _, path = entry.partition('\t')
+        parts = meta.split()
+        if len(parts) == 3 and parts[1] == 'blob':
+            out[path] = parts[2]
+    return out
+
+
+def stamp_copy_tree(manifest_path, tree_rel=None):
+    """Record the fingerprint of the copy as it stands now in `manifest_path`'s
+    `upstream` record. -> the tree id written, or None (then the key is
+    removed, so a stale fingerprint never outlives the copy it described)."""
+    manifest_path = pathlib.Path(manifest_path)
+    repo = manifest_path.parent.parent
+    try:
+        data = json.loads(manifest_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    up = data.get('upstream') if isinstance(data, dict) else None
+    if not isinstance(up, dict):
+        return None
+    tree_rel = tree_rel or str(up.get('vendored_at') or 'process/upstream')
+    tid, _ = copy_tree(repo, tree_rel)
+    if tid:
+        up[COPY_TREE_KEY] = tid
+    elif up.pop(COPY_TREE_KEY, None) is None:
+        return None
+    manifest_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return tid
+
+
+def copy_drift(repo):
+    """-> [(manifest, tree, state, detail)], one per process/manifest*.json in
+    `repo` that records an upstream commit, comparing the vendored tree with
+    the fingerprint its manifest records. Needs no upstream clone.
+
+      ok          the copy is what was recorded, apart from files the
+                  repository changes on purpose
+      drifted     detail: [(copy-relative path, 'changed'|'added'|'removed')]
+      unnamed     the copy differs and the recorded tree is not in this
+                  clone, so the files cannot be named; detail: the tree id
+      unrecorded  the manifest predates the fingerprint; detail: the commit
+      unreadable  git could not read the copy; detail: why
+
+    Files the repository changes on purpose are exempt by name: a manifest
+    entry at status diverged or local-only whose local_path is inside the
+    tree, and a path precedent.json keeps under kept_template_divergences
+    with a reason."""
+    repo = pathlib.Path(repo)
+    try:
+        import precedent_vendor_engine as _pve
+        # Only with its reason: an entry without one is a mute button, not
+        # a decision (practice: checks-carry-a-declared-decline).
+        kept = {k for k, v in _pve.kept_template_divergences(repo).items()
+                if v.get('reason')}
+    except Exception:                                         # noqa: BLE001
+        kept = set()
+    out = []
+    for mpath in sorted((repo / 'process').glob('manifest*.json')):
+        mrel = mpath.relative_to(repo).as_posix()
+        try:
+            data = json.loads(mpath.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        up = data.get('upstream') if isinstance(data, dict) else None
+        if not isinstance(up, dict) or not up.get('commit'):
+            continue
+        tree = str(up.get('vendored_at') or 'process/upstream').strip('/')
+        if not (repo / tree).is_dir():
+            continue
+        recorded = up.get(COPY_TREE_KEY)
+        if not recorded:
+            out.append((mrel, tree, 'unrecorded', up['commit']))
+            continue
+        tid, now = copy_tree(repo, tree)
+        if tid is None:
+            out.append((mrel, tree, 'unreadable', f'git could not read {tree}/'))
+            continue
+        if tid == recorded:
+            out.append((mrel, tree, 'ok', None))
+            continue
+        then = _recorded_blobs(repo, recorded)
+        if then is None:
+            out.append((mrel, tree, 'unnamed', recorded))
+            continue
+        own = set(kept)
+        for e in data.get('entries') or []:
+            if isinstance(e, dict) and e.get('status') in _OWN_EDIT_STATUSES \
+                    and e.get('local_path'):
+                own.add(str(e['local_path']))
+        drifted = []
+        for p in sorted(set(then) | set(now)):
+            if then.get(p) == now.get(p) or f'{tree}/{p}' in own:
+                continue
+            drifted.append((p, 'added' if p not in then else
+                            'removed' if p not in now else 'changed'))
+        out.append((mrel, tree, 'drifted' if drifted else 'ok', drifted or None))
+    return out
+
+
 def _manifest():
     # Graceful degradation, not a crash: every caller wants "what does this
     # install record", and a repo with no manifest has a real answer to that
@@ -1291,7 +1456,7 @@ def update(clone, force=False, allow_pinned=False, ref=None):
             sys.exit("checkin FAIL: vendored tree differs from the recorded upstream commit — "
                      "that is unexported work the mirror would clobber. Update Vendors "
                      "(tools/precedent_update.py, run from the BestPractice clone) resolves "
-                     "each committed change itself -- keeps it, merges it, or takes "
+                     "each committed change itself -- keeps it, or takes "
                      "upstream's version and says so -- and "
                      "tools/precedent_local_edits.py send carries one upstream. Or pass "
                      "--force to overwrite -- but only after reviewing each file above.")
@@ -1714,7 +1879,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
     if not base:
         return
     # A file Update Vendors is resolving is not a loss either way: its local
-    # lines are kept, merged, or replaced by upstream's with the commit that
+    # lines are kept, or replaced by upstream's with the commit that
     # holds them named (tools/precedent_local_edits.py, 2026-09-29). Only
     # those files are skipped, and the count is said.
     resolving = set(resolving)
@@ -1908,6 +2073,9 @@ def record(clone, note, accept_loss=False, resolving=(), from_ref=None):
         f"recorded {precedent_time.today()}; verified tree-identical).")
     MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
                         encoding='utf-8')
+    # The copy's fingerprint, for the clone-free check (COPY_TREE_KEY). Update
+    # Vendors records it again once the local-edit rules have run.
+    stamp_copy_tree(MANIFEST, UPSTREAM.relative_to(ROOT).as_posix())
     print(f"checkin record OK: upstream.commit {old} -> {head}")
     print(f"next: commit {MANIFEST.relative_to(ROOT)} in this repo.")
     return 0

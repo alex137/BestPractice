@@ -31,7 +31,9 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   by the update itself, only when no active rule would be lost; amended
   2026-10-06, Morgan (decided) -- \"Please fix all of these at their roots.
   Act\": the merge refreshes stale views, a hook or settings change asks for
-  the person's yes before the commit"
+  the person's yes before the commit; amended 2026-10-08, Morgan (decided)
+  -- upstream's version is the default over a local one: \"a definite
+  preference towards using the upstream wording\""
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -103,21 +105,31 @@ other. What the phrase removes is the second question, not the gate. So a
 failing check is reported, with what failed, and nothing is published -- that
 is the sequence working, not a refusal needing permission to stand.
 
+**Upstream's version is the default.** When upstream has its own version
+of something this repository changed -- a quick fix to a received file, a
+section of a template-made file kept in this repository's own words -- take
+upstream's and drop the local one. **Keep the local one only where it does
+something different and important**: a fix upstream still lacks, a rule
+this repository keeps on purpose. Then keep it, say why, and record it
+(below). **When it is a close call, ask the person**, with your pick. A
+local quick fix ends here: it was always meant to last until upstream had
+its own ([upstream-fix](upstream-fix.md) point 7).
+
 **Every conflicted file is reviewed, never overwritten on sight.** An
 update meets this repo's own changes in many places: a refusal to overwrite
 a hand-edited file, a drift report, a merge conflict, a hand-written rule in
 `AGENTS.md` or `CLAUDE.md` that an updated practice now touches. Each one
-gets the same two questions before anything is resolved: **does the local
-version conflict with what upstream now ships, and is it still needed?**
+gets the same question before anything is resolved: **does the local
+version do anything upstream's does not, and does that matter?**
 
-- **It says what upstream now says**: take upstream. The local copy is a
-  duplicate, and a duplicate is the copy that goes stale.
-- **It conflicts**: ask the person whether the difference is deliberate.
-  If it is, keep it and record it where this repo's tools will see it next
-  time (below). If not, take upstream; the rule in force wins.
-- **It doesn't conflict and is still needed**, because it covers something
-  upstream doesn't: keep it, and carry it into the new version rather than
-  choosing one side wholesale.
+- **It says what upstream now says, or the same in other words**: take
+  upstream's. The local copy is a duplicate, and a duplicate is the copy
+  that goes stale.
+- **It does something different and important**: keep that part, carry
+  upstream's change in around it rather than choosing one side wholesale,
+  and record why where this repo's tools will see it next time (below).
+- **Neither is clear**: ask the person whether the difference is
+  deliberate. If not, take upstream's; the rule in force wins.
 
 **A committed local edit to a received file is reviewed by the command
 itself** (since 2026-09-29,
@@ -126,14 +138,20 @@ for an engine file in `tools/`, a hook or declared engine path the engine
 manifest records, `process/upstream/`, and a section 0 catalogue that has its
 own `CATALOGUE_SYNC.json`. It compares the
 file as it was vendored, as this repo committed it, and as upstream has it
-now: an edit upstream has not touched stays; one that merges cleanly with
-upstream's change, and still compiles and passes this repo's own check
-tests and the check for the branch it lands on, is merged; one upstream changed on the same lines is replaced by
+now: an edit upstream has not touched stays, since upstream has no fix of
+its own yet; one upstream changed on the same lines is replaced by
 upstream's version, most likely the same bug fixed there, and the report
-names the commit holding the local one and how to bring it back. A file
-recorded under `kept_template_divergences` with a reason is never
-replaced. Every one is listed under **LOCAL EDITS** in the report, in every
-outcome, and the ones kept or merged are still local edits:
+names the commit holding the local one and how to bring it back. **One
+upstream changed elsewhere in the file is replaced by upstream's version
+too** (since 2026-10-08; until then the two were merged and kept without
+anyone judging it). What the local edit would still add is shown as a diff
+under **LOCAL EDITS**, a `JUDGE:` line beside the outcome names the file,
+and the session judges it by the rule above:
+`python3 ../BestPractice/tools/precedent_local_edits.py keep --repo . --path FILE --object ID --why "..."`,
+as the report prints it, puts it back over upstream's change, checks it,
+and records the reason. A file recorded under `kept_template_divergences`
+with a reason is never replaced. Every one is listed under **LOCAL EDITS**
+in the report, in every outcome, and the ones kept are still local edits:
 `python3 ../BestPractice/tools/precedent_local_edits.py send --repo . --why "..."`
 carries them upstream as a branch. **An uncommitted edit still stops the
 update, with nothing written.** CI workflows are still refused as before,
@@ -721,8 +739,13 @@ says so, both from the vendored tree under `process/upstream/`.
     the section changed: read three ways against the pinned text, every
     line upstream changed, and the lines beside it, is one the section
     carries as upstream wrote it (since 2026-10-08). The section is never
-    rewritten, so that change is not copied in either. Otherwise, once the
-    person says it is still kept, `python3 tools/precedent_vendor_engine.py repin-kept
+    rewritten, so that change is not copied in either. Otherwise upstream's
+    change reaches what the section words its own way, and **the default is
+    upstream's section** (the rule above): replace the section with it and
+    remove the entry. Where this repository's wording does something
+    different and important, keep it, copy in the rest of upstream's
+    change, and once the person says it is still kept,
+    `python3 tools/precedent_vendor_engine.py repin-kept
     ../BestPractice "AGENTS.md <heading>" --confirmed "<their words>"`
     re-pins it and records their words and the date; never paste the hashes
     by hand. An entry with no reason is
@@ -998,6 +1021,26 @@ the push brings, and the merge refreshes it. A practice declares its hooks
 (`hooks:`, spec/PRACTICE_FORMAT.md) and the sync adds them. A change under
 `.claude/` is a question for you, printed before anything is committed.
 Morgan: *"Please fix all of these at their roots. Act"*. strength: decided.
+
+**2026-10-08: upstream's version is the default.** Update Vendors had
+been merging a consumer's quick fix to a file received from BestPractice
+(BP) with upstream's newer version and keeping the result, and a section of
+a consumer's instructions file kept in its own words asked only that
+upstream's change be copied in around it. Either way a local
+version outlived the upstream one it was a stand-in for, and nobody was
+asked. Morgan: *"I want the vendored-in versions and the repo-local code to
+be as close to (and unchanged from) the general precedent/BP as much as
+reasonable/possible. And because we'll sometimes make local changes as
+"quick fixes" before the fix goes upstream, I think it makes sense that:
+once there is a fix upstream, to then REPLACE our fix with the upstream
+fix, to replace our wording or version with the upstream version when we
+have it *EXCEPT* in cases where there is a substantive difference, in which
+case you should ASK THE SESSION USER or use your judgment (if it does
+something different and important, then we keep it for example). So a
+definite preference towards using the upstream wording."* Strength:
+decided. The update now takes upstream's version and shows what it set
+aside, rather than stopping for a call, so a run never stalls on it and
+nothing is lost without being shown.
 
 ## Install
 Before starting, name the layers this repo vendors and where each records
