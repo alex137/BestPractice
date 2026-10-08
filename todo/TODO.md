@@ -144,10 +144,10 @@ as_of: 2026-10-07
 | [`todo-2026-10-05-decommission-left-three-dead-links`](todo-2026-10-05-decommission-left-three-dead-links.md) | Find out why the practice-set workflow template, retired on 2026-10-01, left three relative links to it. | 2d | ask | out of scope for the repo-maintenance fold that found it; the links themselves a… |
 | [`todo-2026-10-05-finish-folding-the-working-style-set-away`](todo-2026-10-05-finish-folding-the-working-style-set-away.md) | Withdraw the last five rules from the working-style set, then stop declaring it. | 2d | ask | the five universal drafts landing on main, then Update Vendors in every reposito… |
 | [`todo-2026-10-05-move-repo-maintenance-into-universal`](todo-2026-10-05-move-repo-maintenance-into-universal.md) | Finish moving the repo-maintenance set's rules into universal, then retire the set. | 2d | ask | both passes reaching main, then Update Vendors in every repository that declares… |
-| [`todo-2026-10-06-deal-harness-checks-by-measured-time`](todo-2026-10-06-deal-harness-checks-by-measured-time.md) | `verify_harness.py --as-ci` (and now a bare `--all`) deals the rest shard's | 1d | wait |  |
 | [`todo-2026-10-06-freshness-notice-said-behind-for-current-clones`](todo-2026-10-06-freshness-notice-said-behind-for-current-clones.md) | A consumer session (2026-10-05/06) reported that its | 1d | wait | the next time a session-start notice calls a clone BEHIND that is current minute… |
 | [`todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here`](todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here.md) | Two practices in force now read differently on the same moment. | 1d | ask | a decision by Morgan (owner of upstream-bug-stops-here) and Alex (who approved t… |
 | [`todo-2026-10-07-main-push-test-reruns-a-tree-its-pull-request-passed`](todo-2026-10-07-main-push-test-reruns-a-tree-its-pull-request-passed.md) | Merging a Promote's pull request into `main` starts deep-check.yml's push | 0d | ask |  |
+| [`todo-2026-10-07-one-sets-update-moves-another-sets-working-branch`](todo-2026-10-07-one-sets-update-moves-another-sets-working-branch.md) | Update Vendors in one practice set can switch another set's checkout off | 0d | ask |  |
 
 ## Decisions (the Person's Call)
 
