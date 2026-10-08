@@ -3,7 +3,7 @@ slug:              todo-2026-10-07-one-sets-update-moves-another-sets-working-br
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-07
-closed:            null
+closed:            2026-10-07
 ---
 ## What
 
@@ -51,3 +51,14 @@ Two ways, not yet chosen:
 
 Updating two sets in a row, each on its own working branch, leaves both on
 those branches, shown by a harness case that does exactly that.
+
+## Notes
+
+**Fixed 2026-10-07: option 1** (Morgan: "take all your picks"). `_sync_once`
+no longer switches any clone off the branch it is on, marked or not; it
+reports the clone with the command that moves it. The switch-back existed
+for clones made before 2026-09-26 on a remote's default feature branch, and
+a fresh clone has landed on its pinned branch since then.
+`check_source_clone_is_pinned_to_a_branch` now asserts both shapes stay
+where they are: a clone on a remote feature branch, and a clean branch a
+session has just made from `main`, the shape that was switched that night.

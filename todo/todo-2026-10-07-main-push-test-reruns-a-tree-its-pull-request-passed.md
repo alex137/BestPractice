@@ -49,3 +49,19 @@ Two ways, not yet chosen:
 
 A Promote's merge into `main` shows the push run skipped, and the next
 Promote into main does not wait on it.
+
+## Notes
+
+**Built 2026-10-07: option 1** (Morgan, the same night: "take all your
+picks"; the pick offered was option 2, and it changed before building).
+`check_push_to_main_skips_what_already_passed` deliberately keeps a case
+where identical files reach `main` by another route and the run must not
+skip. Option 2 could only tell that case from this one by trusting a GitHub
+field whose meaning was not verified, so it would have reopened that guard.
+Option 1 leaves the skip's rule as it is: the Promote now pushes the merge
+it fully checks, staging merged with `main`, as the copy. The pull
+request's head then contains `main`. `check_main_test_minutes_rule` asserts
+the copy carries `main` and that the merge instruction pins that commit;
+planting the old push makes it fail.
+
+Closes on its own condition, at the next Produce.
