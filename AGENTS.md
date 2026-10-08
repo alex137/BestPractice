@@ -95,7 +95,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~642 of 1750 token budget, 6 of 144 practices (6 universal))
+## Resident block (~642 of 1750 token budget, 6 of 145 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) Answer the easy questions first**, in the same message; the long run
 never gates the answer. **(2) A task longer than a few minutes is proposed,
@@ -265,6 +265,7 @@ When writing content that ships into another repo:
 When writing or changing an automatic repair:
   repair-cannot-discard-work — it must never discard work; reporting is not repairing
 When writing, running or reviewing a gate, audit, cache or heavy solve:
+  checks-read-only-the-work — read this change and its branch; never the whole history or other branches
   gate-ledger — re-runs: record code, reads and result per unit; skip a unit whose fact holds
   gates-fail-fast — cheap checks first; a failure skips the slow ones and stops the work beside it
   review-against-a-contract — skip/cache/hold/refuse code: one-line contract; a finding counts once reproduced
