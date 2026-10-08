@@ -34,7 +34,7 @@ The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are missing
   every `$CLAUDE_PROJECT_DIR` hook path a settings.json declares and fails on
   one that is missing or not executable, in any repository the engine is
   vendored into.
-  [tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)
+  [tools/precedent_refresh_sources.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_refresh_sources.py)
   does the same per attached source and **refuses to "repair" a hook declared
   outside `.claude/hooks/`**: its own first version assumed the standard
   layout, and against that individual set would have installed exactly the

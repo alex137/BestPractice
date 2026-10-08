@@ -31,7 +31,7 @@ A private repo name reaches a public tree by nobody having predicted
   lookbehind keeping `a/acct/x` from matching also rejects
   `github.com/acct/x`, because the character before the owner is `/` there
   too — a stated test case caught that, reading it did not.
-  [tools/very_deep_check.py](../tools/very_deep_check.py) does the other half on
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) does the other half on
   request, asking the GitHub API whether each referenced repo is actually
   private and whether a blocklisted name has since gone public; the push gate
   cannot, because it must work offline and in continuous integration (CI).

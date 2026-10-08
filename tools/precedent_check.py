@@ -1760,6 +1760,16 @@ def _sibling_not_in_force(pdir, base):
             f'where that rule went -- settle that before linking it')
 
 
+def _shipped_link_branch():
+    """The branch a shipped link to this repo names: precedent.json's
+    base_branch, which practice-links-travel requires of practice files."""
+    try:
+        return json.loads((ROOT / 'precedent.json').read_text(
+            encoding='utf-8')).get('base_branch') or 'staging'
+    except (OSError, ValueError):
+        return 'staging'
+
+
 _MD_LINK_TARGET = re.compile(r'\]\(([^)\s#]+)(?:#[^)\s]*)?\)')
 
 
@@ -1778,6 +1788,10 @@ def _shipped_links_travel(ctx):
     # WHY (2026-10-01, from a consumer's update): seven links to
     # templates/harness/LEDGER.md, a file the copy leaves out, were broken
     # in every consumer, and the full set was 195 links in 65 files.
+    # 2026-10-08: judged by checkin.in_shipped_copy, the copy's own rule.
+    # This asked vendoring_rule(), which still counts tools/ as shipped
+    # though since 2026-09-30 a consumer's copy leaves tools/ at home, so
+    # 320 links into tools/ passed here and broke in every consumer.
     if (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file():
         raise NotApplicable('a vendored engine: this repo receives the '
                             'catalogue copy, it does not ship one')
@@ -1805,14 +1819,16 @@ def _shipped_links_travel(ctx):
                 tgt = posixpath.normpath(posixpath.join(posixpath.dirname(rel), t))
                 if tgt.startswith('..'):
                     continue
-                stays = (checkin.vendoring_rule(tgt)
-                         or checkin.vendoring_rule(tgt.rstrip('/') + '/'))
-                if stays and stays[1] is False:
-                    out.append(Finding(
-                        f'{rel}:{i}', f'links to {tgt}, which the catalogue '
-                        f'copy leaves out, so the link is broken in every '
-                        f'consumer -- link it on GitHub instead '
-                        f'(https://github.com/alex137/BestPractice/blob/staging/{tgt})'))
+                # A target missing here is doc_lint's broken link, not this.
+                if not (ROOT / tgt).exists() or checkin.in_shipped_copy(tgt, ROOT):
+                    continue
+                kind = 'tree' if (ROOT / tgt).is_dir() else 'blob'
+                out.append(Finding(
+                    f'{rel}:{i}', f'links to {tgt}, which the catalogue '
+                    f'copy leaves out, so the link is broken in every '
+                    f'consumer -- link it on GitHub instead '
+                    f'(https://github.com/alex137/BestPractice/{kind}/'
+                    f'{_shipped_link_branch()}/{tgt})'))
     return out
 
 

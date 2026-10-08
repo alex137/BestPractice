@@ -83,7 +83,7 @@ this one was not among the 19 the phase-1.5 editorial pass filled in. It
 survives in the practice's own `## Why` (the leak recurred four times in one
 repo before the written rule was replaced by a check) and, in more detail,
 in the origin comment above check 6 in
-[tools/doc_lint.py](../tools/doc_lint.py). Recorded as a gap rather than
+[tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py). Recorded as a gap rather than
 reconstructed from those, which would be writing an incident this branch did
 not witness.
 

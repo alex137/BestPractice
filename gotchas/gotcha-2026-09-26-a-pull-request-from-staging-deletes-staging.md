@@ -56,7 +56,7 @@ button.
   never from staging: `git push origin origin/staging:refs/heads/to-main-DATE`,
   then a pull request from that copy. Measured working 2026-09-26 (#633):
   staging stayed where it was.
-- **The merge gate enforces it.** [tools/precedent_merge_check.py](../tools/precedent_merge_check.py)
+- **The merge gate enforces it.** [tools/precedent_merge_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_merge_check.py)
   reads the pull request's source branch from GitHub's API and refuses to
   merge one that comes from `main`, `staging`, `pre-staging` or
   `precedent-beta-v01` of the same repository, naming the copy command. It

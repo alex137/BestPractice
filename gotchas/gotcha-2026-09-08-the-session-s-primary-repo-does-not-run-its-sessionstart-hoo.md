@@ -43,7 +43,7 @@ The session's PRIMARY repo does not run its SessionStart hooks either,
   **Do not diagnose this from `env`** — `CLAUDE_PROJECT_DIR` is usually
   not set in a tool shell at all, so reading it proves nothing either way.
   Test the *effects*:
-  [tools/precedent_session_check.py](../tools/precedent_session_check.py)
+  [tools/precedent_session_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py)
   checks each guarantee by what
   it left behind (does `.precedent/SESSION_PRACTICES.md` exist, is
   `user.email` a person, is `core.hooksPath` set, do `cmarkgfm` and

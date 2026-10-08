@@ -142,7 +142,7 @@ rule protects.
 **Push gate, and off the occasion index, from 2026-10-01.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines a mechanical check already refuses at push: its tree check runs in the push check's full sweep. no-version-suffix keeps the shared "naming or adding a file" line. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
-Enforced by [tools/precedent_check.py](../tools/precedent_check.py), which
+Enforced by [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py), which
 groups tracked files by (directory, extension) and reports a group using
 both separators. It ignores vendored and materialized trees — those names
 belong to whoever produced them — and takes an exemption list in

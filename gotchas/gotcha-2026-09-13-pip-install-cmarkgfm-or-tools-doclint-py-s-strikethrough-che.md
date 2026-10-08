@@ -18,14 +18,14 @@ standard library, and the two behave differently, which is what makes this
 worth reading twice.
 
 **cmarkgfm — silent.** Without it
-[tools/doc_lint.py](../tools/doc_lint.py)'s strikethrough check does not
+[tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py)'s strikethrough check does not
 fail: it prints a one-line notice and scans for everything else, so a
 document that renders an unintended `<del>` on GitHub passes the gate. The
 `doc-references-are-links` check in
-[tools/precedent_check.py](../tools/precedent_check.py) skips for the same
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) skips for the same
 reason and says so in one line among fifty.
 
-**markdown — one tool, one exit code.** [tools/doc_html.py](../tools/doc_html.py)
+**markdown — one tool, one exit code.** [tools/doc_html.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_html.py)
 imports it at module level, so `--help` exits 1 and the deck engine cannot
 render `.md` slides.
 
@@ -48,7 +48,7 @@ which is a much larger fact than two absent packages: the same session had
 neither the generated session-practices file the private sources write, nor
 the commit backstop. That session
 was rooted one directory ABOVE this repository — see [g17](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g17) — so none of
-its hooks fired, silently. [`python3 tools/precedent_session_check.py`](../tools/precedent_session_check.py) reports
+its hooks fired, silently. [`python3 tools/precedent_session_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py) reports
 all of those guarantees at once, and its packages row now names `pip install`
 as the remedy rather than `--apply`, because `--apply` re-runs the hook that
 could not run.

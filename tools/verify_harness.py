@@ -18992,9 +18992,18 @@ def check_precedent_check_fires():
         # shipped-links-travel -- a shipped document linking relatively to
         # a file the catalogue copy leaves out (2026-10-01: links to
         # templates/harness/LEDGER.md were broken in every consumer).
+        # 2026-10-08: and to an engine file, which a consumer keeps in its
+        # own tools/ while its copy leaves tools/ out -- 320 such links
+        # passed this check while the copy dropped every target.
         case('shipped-links-travel',
              lambda repo: rewrite(repo, 'README.md', lambda t: t +
-                                  '\nSee [the loader](spec/LOADER.md).\n'))
+                                  '\nSee [the loader](spec/LOADER.md) and '
+                                  '[the check](tools/precedent_check.py).\n'))
+        if 'shipped-links-travel' in planted:
+            out = planted['shipped-links-travel'][1]
+            cases.append(('shipped-links-travel: a link into tools/ is a finding '
+                          'too, since the copy leaves tools/ at home',
+                          'links to tools/precedent_check.py' in out))
 
         # checks-use-generated-blocks -- a repo's own check that finds
         # generated text by spelling a marker itself, the shape a shared
@@ -31430,6 +31439,69 @@ def check_history_checks_never_ride_a_reused_pass():
                       and 'FAILED -- commit_author' in out))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_shipped_copy_has_no_broken_links():
+    """A consumer's copy of the catalogue, as it lands under
+    process/upstream/, has no relative link that does not resolve inside it.
+
+    WHY (2026-10-08). A consumer's light check counted 227 broken links,
+    every one inside its process/upstream/: since 2026-09-30 the copy
+    leaves tools/ at home, and shipped documents linked ../tools/... freely,
+    because shipped-links-travel asked a different question than the copy
+    does. This builds the copy the way the copy is defined
+    (checkin.in_shipped_copy, every tracked file) under a scratch
+    process/upstream/ and resolves each Markdown link in it there."""
+    import tempfile, posixpath, shutil as _shutil
+    name = "a consumer's catalogue copy has no broken relative link"
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import checkin, doc_lint
+    except Exception as e:                                    # noqa: BLE001
+        not_applicable(name, f'tools/checkin.py or doc_lint.py did not import: {e}')
+        return
+    finally:
+        sys.path.pop(0)
+    if not hasattr(checkin, 'in_shipped_copy'):
+        not_applicable(name, 'this checkin.py has no in_shipped_copy')
+        return
+    tracked = subprocess.run(['git', '-C', str(ROOT), 'ls-files'],
+                             capture_output=True, text=True).stdout.split('\n')
+    shipped = [f for f in tracked if f and (ROOT / f).is_file()
+               and checkin.in_shipped_copy(f, ROOT)]
+    broken = []
+    with tempfile.TemporaryDirectory() as td:
+        up = pathlib.Path(td) / 'process' / 'upstream'
+        for f in shipped:
+            (up / f).parent.mkdir(parents=True, exist_ok=True)
+            _shutil.copyfile(ROOT / f, up / f)
+        for f in shipped:
+            if not f.endswith('.md'):
+                continue
+            incode = False
+            for i, line in enumerate((up / f).read_text(
+                    encoding='utf-8', errors='ignore').splitlines(), 1):
+                if line.lstrip().startswith(('```', '~~~')):
+                    incode = not incode
+                    continue
+                if incode:
+                    continue
+                clean = doc_lint.CODE_SPAN_RE.sub(lambda m: ' ' * len(m.group(0)), line)
+                for _label, target in doc_lint.LINK_RE.findall(clean):
+                    if target.startswith(('http://', 'https://', 'mailto:', '#')):
+                        continue
+                    bare = target.partition('#')[0]
+                    if not bare or bare.startswith('<'):
+                        continue      # an install placeholder, not a path
+                    tgt = posixpath.normpath(posixpath.join(posixpath.dirname(f), bare))
+                    # Broken in this repo too is doc_lint's finding here, not
+                    # the copy's.
+                    if not (ROOT / tgt).exists():
+                        continue
+                    if not (up / tgt).exists():
+                        broken.append(f'{f}:{i} -> {tgt}')
+    check(f'{name} ({len(shipped)} files copied)', not broken,
+          f'{len(broken)} broken: ' + '; '.join(broken[:8]))
 
 
 def check_promote_picks_its_step():
@@ -65051,6 +65123,7 @@ def main():
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()
     check_promote_picks_its_step()
+    check_shipped_copy_has_no_broken_links()
     check_empty_commits_are_never_counted()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()

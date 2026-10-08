@@ -61,7 +61,7 @@ helper. It is flagged here as the best-fit suspect for the identity flip,
 not established as its cause -- no reproduction isolated `environment-manager`
 doing it.
 
-**This is the same unexplained shape [tools/precedent_session_check.py](../tools/precedent_session_check.py)
+**This is the same unexplained shape [tools/precedent_session_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py)
 row 7 already carries from 2026-09-08**, where a checkout moved from its
 working branch onto the declared base branch mid-session with none of the
 three obvious suspects (`precedent_vendor_engine.py seed`,
@@ -101,7 +101,7 @@ tooling by this session's own evidence. Until a cause is confirmed:
 
 - In this topology (a multi-repo session rooted above every clone it
   touches, none of them `$CLAUDE_PROJECT_DIR`), do not treat a clean
-  [tools/precedent_session_check.py](../tools/precedent_session_check.py)
+  [tools/precedent_session_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py)
   run near session start as good for the rest of the session -- both the
   identity and row 7's branch check can go bad again later with nothing in
   the transcript to explain it. Re-run it before any commit or push, not
@@ -109,7 +109,7 @@ tooling by this session's own evidence. Until a cause is confirmed:
 - Row 7's own baseline stamp only catches a branch move on a run *after*
   the one that recorded the baseline -- it does nothing if the flip happens
   before the first check ever runs. In this topology, run
-  [tools/precedent_session_check.py](../tools/precedent_session_check.py)
+  [tools/precedent_session_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py)
   (by hand; the hook that would otherwise gate this never fires) as close
   to the start of work as possible, specifically so the baseline exists
   before anything can move `HEAD` off it.
@@ -119,7 +119,7 @@ tooling by this session's own evidence. Until a cause is confirmed:
 
 **2026-09-28: a way to run the hooks anyway.** A user-level SessionStart
 hook runs wherever a session opens, and
-[tools/precedent_run_session_hooks.py](../tools/precedent_run_session_hooks.py)
+[tools/precedent_run_session_hooks.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_run_session_hooks.py)
 runs each repository's own SessionStart hooks from it. The one setup-script
 step that installs it is in
 [documentation/CLOUD_SETUP.md](../documentation/CLOUD_SETUP.md) ("When a

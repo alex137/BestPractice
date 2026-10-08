@@ -180,7 +180,7 @@ a path pattern followed by one or more owners — `@username` or
 **Precedent never writes CODEOWNERS by hand. It is a generated file, and its
 source is a registry** ([registry-source-of-truth](../practices/registry-source-of-truth.md)).
 Two kinds of repository, one generator,
-[tools/build_codeowners.py](../tools/build_codeowners.py):
+[tools/build_codeowners.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_codeowners.py):
 
 | Repository | Registry | Generated file | What it says |
 |---|---|---|---|

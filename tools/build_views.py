@@ -2754,8 +2754,9 @@ def render_glossary_md(practices, root=None):
             '',
             "The words the mechanism itself is made of. No single practice "
             "owns these, so they cannot come from a `defines:` field -- they "
-            "are declared in [tools/glossary_terms.json](tools/glossary_terms.json) "
-            "and rendered here. **Everything above is a term some practice "
+            "are declared in "
+            + _travel_link(root, 'tools/glossary_terms.json') +
+            " and rendered here. **Everything above is a term some practice "
             "claimed; everything below is a term the engine needs you to "
             "know before any practice makes sense.**",
             '',
@@ -2787,16 +2788,18 @@ def render_glossary_md(practices, root=None):
 # rather than guessed at, leaving a backticked path that misleads nobody.
 def _stays_home(root, see):
     """True when `see` is a file this repo keeps out of the catalogue copy
-    it ships (tools/checkin.py's VENDORING_RULES), so a relative link to it
+    it ships (tools/checkin.py's in_shipped_copy), so a relative link to it
     from a shipped file is broken in every consumer (2026-10-01)."""
     if (pathlib.Path(root) / 'tools' / 'ENGINE_MANIFEST.json').is_file():
         return False          # a consumer or set receives the copy, ships none
     try:
         import checkin
-        rule = checkin.vendoring_rule(see)
+        # The copy's own rule (2026-10-08): vendoring_rule() still counts
+        # tools/ as shipped, so a GLOSSARY link into tools/ stayed relative
+        # and broke in every consumer.
+        return not checkin.in_shipped_copy(see, root)
     except Exception:                                         # noqa: BLE001
         return False
-    return bool(rule) and rule[1] is False
 
 
 def _travel_link(root, see):

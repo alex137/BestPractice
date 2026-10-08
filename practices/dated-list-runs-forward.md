@@ -110,7 +110,7 @@ every mechanism that would have retired it. The note is still there, and the
 check is what makes it true.
 
 ## Install
-Checked by [`tools/precedent_check.py`](../tools/precedent_check.py), scope
+Checked by [`tools/precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py), scope
 `tree`: it reads every marked block in the files `applies_to` names and
 asserts the two properties in Detail. It is deliberately **blind to
 unmarked lists** — a dated list nobody marked is not checked, which is the

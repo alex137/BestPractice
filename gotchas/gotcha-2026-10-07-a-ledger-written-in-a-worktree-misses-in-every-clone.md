@@ -25,7 +25,7 @@ which the next landing flipped back.
 
 ## Fix
 
-Since 2026-10-07 [tools/fact_ledger.py](../tools/fact_ledger.py) neither
+Since 2026-10-07 [tools/fact_ledger.py](https://github.com/alex137/BestPractice/blob/staging/tools/fact_ledger.py) neither
 records nor checks a read of `.git` itself (`checkout_layout()`); a ledger
 already carrying one holds again with no re-run. The git state work can
 see is recorded separately, as kind `g`. A repository still on the older

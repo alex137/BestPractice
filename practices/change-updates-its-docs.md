@@ -59,7 +59,7 @@ nothing.
 
 **The generated views are not this rule's business.** `AGENTS.md`, `MAP.md`
 and `GLOSSARY.md` are rebuilt from the tree by
-[tools/build_views.py](../tools/build_views.py), and hand-editing them is a
+[tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py), and hand-editing them is a
 separate violation ([generated-artifact-provenance](generated-artifact-provenance.md)).
 This rule is about the prose a person wrote.
 

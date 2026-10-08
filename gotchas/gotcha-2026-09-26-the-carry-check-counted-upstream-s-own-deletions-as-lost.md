@@ -41,7 +41,7 @@ The three updates before it had stepped around the same guard by writing
 
 ## Fix
 
-In the tool ([tools/checkin.py](../tools/checkin.py), `_carry_check`), two mechanisms:
+In the tool ([tools/checkin.py](https://github.com/alex137/BestPractice/blob/staging/tools/checkin.py), `_carry_check`), two mechanisms:
 
 1. A line is pending only if it is absent from the upstream tree at EVERY
    commit the committed tree could have come from: the working manifest's

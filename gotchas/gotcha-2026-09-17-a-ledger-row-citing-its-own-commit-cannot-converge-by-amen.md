@@ -27,7 +27,7 @@ hashed always includes the string trying to name it.
 
 **The fix is to stop chasing it with amends and split into two commits.**
 `templates/harness/LEDGER.md` itself is not inside any of the three
-directories [tools/precedent_check.py](../tools/precedent_check.py)'s `parallel-artifact-ledger` check
+directories [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s `parallel-artifact-ledger` check
 treats as family members (`templates/harness/claude-code`,
 `templates/harness/codex`, `templates/harness/gemini-cli` — see
 [templates/harness/README.md](../templates/harness/README.md)), so a

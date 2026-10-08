@@ -129,7 +129,7 @@ Day to Day](documentation/DAILY_HABITS.md).
 The three ideas above aren't just this project's engineering choices —
 they're one working expression of a broader philosophy about how people
 and AI should work together. **That fuller argument lives in
-[philosophy/](philosophy/)**, starting at
+[philosophy/](https://github.com/alex137/BestPractice/tree/staging/philosophy)**, starting at
 [philosophy/README.md](https://github.com/alex137/BestPractice/blob/staging/philosophy/README.md). It is argument and
 observation: none of it binds work anywhere else in this repository, which
 is what [practices/](practices/) is for.

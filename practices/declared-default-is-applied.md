@@ -48,7 +48,7 @@ without a question:
 
 | The setting | The default | Declared in |
 |---|---|---|
-| The zone a date or a commit is stamped in | `America/New_York` | [precedent.json](https://github.com/alex137/BestPractice/blob/staging/precedent.json)'s `fallback_timezone`, engine at [tools/precedent_time.py](../tools/precedent_time.py) |
+| The zone a date or a commit is stamped in | `America/New_York` | [precedent.json](https://github.com/alex137/BestPractice/blob/staging/precedent.json)'s `fallback_timezone`, engine at [tools/precedent_time.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_time.py) |
 | How to refer to a person who has not said | `they/them` | [declared-pronouns](declared-pronouns.md) |
 | Whether an approval travels to another session | `refused` | `relayed_authorization` in the individual set's `identity.json` |
 | What an open item with no disposition means | `wait` | [open-item-disposition](open-item-disposition.md) |

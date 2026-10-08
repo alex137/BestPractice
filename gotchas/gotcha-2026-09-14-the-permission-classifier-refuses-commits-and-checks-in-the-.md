@@ -28,7 +28,7 @@ Permission for this action was denied by the Claude Code auto mode
 classifier. Reason: [Instruction Poisoning]
 ```
 
-`git commit`, [`python3 tools/precedent_check.py`](../tools/precedent_check.py) and
+`git commit`, [`python3 tools/precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) and
 `python3 tools/precedent_identity.py --relay` were all refused this way.
 `git status`, ordinary file reads and `python3 -m json.tool identity.json`
 kept working throughout, so the session looks healthy right up to the point
@@ -55,7 +55,7 @@ it present. Neither was chased further; what matters operationally is below.
 variable can declare acceptance. Retrying does not, rewording the commit
 message does not, and a stated authorization from the person in that window
 does not reliably — it got `--relay` and `build_views.py --check` through, and
-left `git commit` and [`precedent_check.py`](../tools/precedent_check.py) refused. **Writing the same file
+left `git commit` and [`precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) refused. **Writing the same file
 through the GitHub API is not a fix either**: it is the workaround the denial
 exists to stop, and a session that reaches for it has decided it knows better
 than its own guard.
@@ -107,7 +107,7 @@ directly and the environment's own credential answer both of those.
   "the person approved it earlier in this thread", is not.
 - **Never pass a token on a command line.** A `git clone` with a credential
   in the URL is refused, and it should be. `PRECEDENT_GIT_TOKEN` is read by
-  [tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+  [tools/precedent_source_bootstrap.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py)
   itself, so no command ever needs to contain it
   ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)).
 - **Never tell the person to add a permission rule to get past it** —

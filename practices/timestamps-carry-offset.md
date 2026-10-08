@@ -113,7 +113,7 @@ commit backstop, whose install gate is the identical
 `declared`-versus-inferred distinction.
 
 ## Install
-**Engine.** [tools/precedent_time.py](../tools/precedent_time.py) — the
+**Engine.** [tools/precedent_time.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_time.py) — the
 ladder, plus `today()`, `now()`, `stamp()`, `stamp_iso()`, `compact()`,
 `utc_iso()`, `from_unix()` and `date_from_unix()`. Run it directly
 (`python3 tools/precedent_time.py`) and it prints the current moment **and

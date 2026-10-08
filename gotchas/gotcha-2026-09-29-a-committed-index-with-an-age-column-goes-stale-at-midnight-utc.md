@@ -20,7 +20,7 @@ regeneration`, while the same check is green in the session.
 On 2026-09-29, a little after 22:00 in Buenos Aires, a push check on an
 unrelated engine change spent 16 minutes and then refused. The harness's
 `--as-ci --isolated` run works in a clean clone under `TZ=UTC`, and in UTC it
-was already the 30th. [tools/build_todo_index.py](../tools/build_todo_index.py)
+was already the 30th. [tools/build_todo_index.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_todo_index.py)
 writes an Age column (days since each item was noted) and a Due Reminders
 section, both relative to today, so every Age cell came out one day greater
 than the committed file and `--check` called it drift. The session's own run
