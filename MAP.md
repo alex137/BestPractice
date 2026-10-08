@@ -230,6 +230,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/lease_board.py](tools/lease_board.py) | The lease board -- work in flight across sessions, one JSON file per lease on a coordination branch, push as the lock |
 | [tools/model_audit.py](tools/model_audit.py) | Runs each computing script's own self-assertions and checks the figures it recites |
 | [tools/move_paths.py](tools/move_paths.py) | Moves tracked files or directories and repoints every reference to them in the same change — relative links, path strings, globs, blob URLs; immutable files reported, never rewritten |
+| [tools/open_failures.py](tools/open_failures.py) | Failures an unattended job could not report anywhere else, kept as open blocker items in todo/ and listed at session start |
 | [tools/our_language.py](tools/our_language.py) | Our language: the short list of words a person needs to follow a conversation about Precedent, read from tools/our_language.json and rendered into documentation/OUR_LANGUAGE.md's generated table (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md) |
 | [tools/parse_check.py](tools/parse_check.py) | Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check |
 | [tools/philosophy_backlinks.py](tools/philosophy_backlinks.py) | EXPERIMENTAL — reports item-to-item citations in philosophy/ that run one way only; the return sentence is written by hand, never generated |
