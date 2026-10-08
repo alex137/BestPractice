@@ -2484,6 +2484,16 @@ def _promote_to_main(root, say=print, work=None):
                 f'{MAIN} has changes of its own on the same lines -- merge {MAIN} '
                 f'into {PRE_STAGING}, resolve it there, and Promote again.')
             return 1
+        # THE COPY IS THIS MERGE, NOT STAGING'S TIP (2026-10-07). Pushed as
+        # staging's tip, the pull request's merge into main had main's last
+        # commit as a parent the tested head did not contain -- after any
+        # earlier Produce, GitHub's own merge commit -- so the push test on
+        # main could not tell it had just passed, re-ran the whole suite
+        # (30 minutes that night) and the next Produce waited on it
+        # (todo-2026-10-07-main-push-test-reruns-a-tree-its-pull-request-passed).
+        # This commit contains main, is exactly what the full check below
+        # judges, and is what the pull request's GitHub test then runs.
+        copy_tip = _run(wt, 'rev-parse', 'HEAD').stdout.strip()
         say(f'checking {len(batch)} commit(s) from {staging} with the full push check...')
         t0 = time.monotonic()
         ok, out = _check(root, wt, FULL, dest=MAIN)
@@ -2507,7 +2517,7 @@ def _promote_to_main(root, say=print, work=None):
     # all four shared sets and a consumer); --wait-main-test said the same.
     none_runs = not github_tests(root, stip)
     copy = _to_main_copy(root, due)
-    p = _run(root, 'push', '-q', 'origin', f'{stip}:refs/heads/{copy}')
+    p = _run(root, 'push', '-q', 'origin', f'{copy_tip}:refs/heads/{copy}')
     if p.returncode != 0:
         say(f'could not push the copy {copy}: {p.stderr.strip()[:200]}')
         return 1
@@ -2515,7 +2525,8 @@ def _promote_to_main(root, say=print, work=None):
     say(f'{MAIN.upper()} HAS NOT MOVED YET: this Promote exits '
         f'{PROMOTE_MAIN_NOT_MOVED}, not 0, until the pull request below is merged.\n'
         f'READY FOR {MAIN.upper()}: {len(batch)} commit(s) from {staging} '
-        f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(shown)
+        f'({stip[:12]}), merged with {MAIN} as {copy_tip[:12]} and pushed as '
+        f'{copy}:\n  ' + '\n  '.join(shown)
         + _other_work_note(others, work) + '\n\n'
         + (f'GitHub test: NONE -- no GitHub test runs on this pull request '
            f'(none is installed here, or its path filter does not reach this '
@@ -2530,12 +2541,12 @@ def _promote_to_main(root, say=print, work=None):
         f'Next, and not by this script: open a pull request from {copy} into '
         f'{MAIN}, titled "Promote {staging} into {MAIN} ({len(batch)} '
         f'commit(s))", '
-        + (f'and merge it with a merge commit{_at_head(stip)}' if none_runs else
+        + (f'and merge it with a merge commit{_at_head(copy_tip)}' if none_runs else
            f'wait for its GitHub test with\n'
            f'  python3 tools/precedent_branches.py --wait-main-test {copy}\n'
            f'and merge it with a merge commit once that says PASSED'
            + ('' if due else ' (or, for this not-due copy, NOT DUE)')
-           + _at_head(stip)) +
+           + _at_head(copy_tip)) +
         f'. Never open it from {staging} itself.')
     return PROMOTE_MAIN_NOT_MOVED
 

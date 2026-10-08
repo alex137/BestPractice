@@ -338,6 +338,12 @@ def _try_sync(repo_url, clone_path, branch=None):
     return ok, out
 
 
+# What _sync_once says when it leaves a checkout on another branch, and what
+# _left_as_it_stands looks for: one string, so rewording the message cannot
+# quietly stop a checkout left in place from being recorded as the source.
+LEFT_ON_ITS_BRANCH = 'Left where it is and not pulled.'
+
+
 def _sync_once(repo_url, clone_path, branch=None):
     """The attempt itself, with every early return _try_sync has to wrap."""
     cred = _credential_args(repo_url)
@@ -347,47 +353,25 @@ def _sync_once(repo_url, clone_path, branch=None):
                                 '--abbrev-ref', 'HEAD'])
         if not ok:
             return False, current
-        if current != branch and not _is_marked_clone(clone_path):
-            # Not a clone this tool made, so possibly a session's working
-            # copy -- see CLONE_MARKER. Still in force as it stands.
-            return False, (
-                f"{clone_path} is on {current!r}, not the pinned {branch!r}, "
-                f"and was not cloned by this tool, so it may be somebody's "
-                f"working copy. Left where it is and not pulled.")
         if current != branch:
-            # A clone with uncommitted work is somebody's working copy, and
-            # moving it is not this tool's call to make. Refusing is the safe
-            # direction: an unresolved source is reported loudly at session
-            # start, while a source silently read off the wrong branch is the
-            # exact silent revert this pin exists to prevent.
-            ok, dirty = _run_git(['-C', str(clone_path), 'status', '--porcelain'])
-            if not ok:
-                return False, dirty
-            if dirty.strip():
-                return False, (
-                    f"{clone_path} is on branch {current!r}, not {branch!r}, "
-                    f"and has uncommitted changes. Refusing to move it: a "
-                    f"source read off the wrong branch silently reverts the "
-                    f"repositories that sync from it. Commit or stash there, "
-                    f"then re-run.")
-            ok, out = _run_git([*cred, '-C', str(clone_path), 'fetch',
-                                '--quiet', 'origin', branch])
-            if not ok:
-                if not _branch_absent(out):
-                    return False, out
-                # No branch by that name at all -- see the note in the clone
-                # path below. Leave the checkout where it is and pull that,
-                # rather than refusing and putting the source out of force.
-                print(f"precedent_source_bootstrap: {clone_path} has no branch "
-                      f"{branch!r} on its remote, so it stays on {current!r}. "
-                      f"Declare base_branch in that repository's precedent.json "
-                      f"if {current!r} is what it should be on.", file=sys.stderr)
-                return _run_git([*cred, '-C', str(clone_path), 'pull',
-                                 '--ff-only', '--quiet'])
-            ok, out = _run_git(['-C', str(clone_path), 'checkout', '--quiet',
-                                branch])
-            if not ok:
-                return False, out
+            # NEVER MOVED OFF ANOTHER BRANCH, marked or not (2026-10-07). A
+            # clone this tool made was switched back to its pinned branch
+            # when it was clean, which fixed clones made before 2026-09-26
+            # on a remote's default feature branch -- and also switched a
+            # session's working branch: Update Vendors in one practice set
+            # refreshed a set it brings, found that set's clone clean on the
+            # branch a session had just made for its own update, checked out
+            # main there and pulled, and the next update was committed on
+            # main (todo-2026-10-07-one-sets-update-moves-another-sets-working-branch).
+            # A fresh clone lands on the pinned branch anyway; one that sits
+            # elsewhere is reported with the command that moves it, and left.
+            # Still in force as it stands (practice: repair-cannot-discard-work).
+            how = (f"git -C {clone_path} checkout {branch} && "
+                   f"git -C {clone_path} pull --ff-only")
+            return False, (
+                f"{clone_path} is on {current!r}, not the pinned {branch!r}, so "
+                f"it may be a session's working copy. {LEFT_ON_ITS_BRANCH} "
+                f"If nothing there is anyone's work: {how}")
         cmd = [*cred, '-C', str(clone_path), 'pull', '--ff-only', '--quiet']
     else:
         clone_path.parent.mkdir(parents=True, exist_ok=True)
@@ -633,9 +617,9 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
 
 
 def _left_as_it_stands(clone_path, output):
-    """True when _sync_once declined to move a checkout it did not make (see
-    CLONE_MARKER) and that checkout is a practice source on disk."""
-    return ('was not cloned by this tool' in (output or '')
+    """True when _sync_once left a checkout on another branch rather than
+    move it, and that checkout is a practice source on disk."""
+    return (LEFT_ON_ITS_BRANCH in (output or '')
             and (pathlib.Path(clone_path) / 'practices').is_dir())
 
 
