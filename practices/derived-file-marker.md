@@ -4,10 +4,12 @@ title:       A derived file is marked by a header naming what replaces it
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "Any file a tool regenerates can be the one, in any directory, and the rule is about the file's own header, so no narrower glob names them; the occasion index reaches the moment of creating one, and the check reads every tracked file."
+applies_to_why: "Any file a tool regenerates can be the one, in any directory, and the rule is about the file's own header, so no narrower glob names them. The push gate reaches the moment instead of the occasion index (2026-10-08, a reduction pass), and the check reads every tracked file."
 occasion:    "creating a file regeneration will overwrite"
-gates:       []
+gates:       ["push"]
+gates_why:   "A missing header only matters once the file is pushed where someone else regenerates over it, and the push gate fires before that. index_required: false records that it arrives in time."
 index_clause: "a regenerated file's header names its source, recipe, and command"
+index_required: false
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active

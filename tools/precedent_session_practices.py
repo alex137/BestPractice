@@ -48,21 +48,31 @@ precedent-universal-catalogue.sh, hands the file back as context, but a
 consumer's session-start hook only ran this tool, so a set the person brings
 -- the ladder's stage words, among them -- reached a consumer's session as an
 unread file, and "Debut" had to be searched for. So the write also prints
-the block on stdout, where a SessionStart hook's output becomes context.
-`--quiet` prints only the spoken commands (below), for a hook that emits
-the file itself.
+the file on stdout, where a SessionStart hook's output becomes context.
+`--quiet` prints none of it, for a hook that emits the file itself.
 
 SPOKEN COMMANDS FIRST, AND SMALL (2026-10-04, the review of the above). A
 session opened above several repos gets every repo's start-up output joined
 and cut at a cap, and with five sets attached the ladder lines came after
-the cut. So before anything else -- with --quiet too -- this prints one line
-per practice here that defines a spoken command: its words, its slug and its
-one-line clause, under SPOKEN_HEAD. A session-start runner lifts those
-blocks to the front of everything it hands over (precedent_run_session_hooks.py).
+the cut. So the file OPENS with one line per practice here that defines a
+spoken command: its words, its slug and its one-line clause, under
+SPOKEN_HEAD. A session-start runner lifts those blocks to the front of
+everything it hands over (precedent_run_session_hooks.py).
+
+AND ONLY THERE (2026-10-08, a reduction pass). Until then the block was
+printed ahead of the file, and the file's occasion index listed every one
+of those practices again, so a session paid for each command twice. A
+consuming repository's session file went over its ceiling on exactly that.
+Now the block is the file's first section, the file's occasion index leaves
+those practices out (build_views.build_loader_block's omit_commands), and
+the file is printed once. The tracked AGENTS.md has no such list, so its
+own index still carries them. Because the block is part of the file, the
+share of it a brought set accounts for is charged to the person's brought
+budget, like the rest of that set (brought_share renders through render()).
 
 Run:
   python3 tools/precedent_session_practices.py            # write the file and print it
-  python3 tools/precedent_session_practices.py --quiet    # write it, print the spoken commands
+  python3 tools/precedent_session_practices.py --quiet    # write it, print nothing
   python3 tools/precedent_session_practices.py --check    # report, write nothing
   python3 tools/precedent_session_practices.py --repo DIR
 """
@@ -259,9 +269,16 @@ def render(extra, levels, notes, repo=None):
         '',
         title,
         '',
-        intro,
-        '',
     ]
+    # THE SPOKEN COMMANDS ARE THE FIRST SECTION, ahead of the intro, so
+    # whatever cuts the start-up output short, they come before the cut;
+    # and the occasion index below leaves those practices out
+    # (omit_commands), so each command is paid for once (AND ONLY THERE,
+    # in the module docstring).
+    spoken = spoken_block(extra)
+    if spoken:
+        head += [spoken.rstrip('\n'), '']
+    head += [intro, '']
     unresolved = [n for kind, n in notes if kind == 'unresolved']
     deferred_notes = [n for kind, n in notes if kind == 'deferred']
     # One line, kept short: every session pays for it.
@@ -326,7 +343,8 @@ def render(extra, levels, notes, repo=None):
         block, _tokens, _count = bv.build_loader_block(
             extra, include_code_owners=True, source_levels=levels,
             block_dir=_repo / OUT_DIR, repo_root=_repo,
-            budget_tokens=budget, carried=carried, regen_comment=False)
+            budget_tokens=budget, carried=carried, regen_comment=False,
+            omit_commands=True)
     except bv.ResidentBudgetExceeded as e:
         # OVER BUDGET STILL WRITES, loudly. This runs from a session-start
         # hook: refusing means the session is bound by practices it was never
@@ -337,7 +355,8 @@ def render(extra, levels, notes, repo=None):
         block, _tokens, _count = bv.build_loader_block(
             extra, include_code_owners=True, source_levels=levels,
             block_dir=_repo / OUT_DIR, repo_root=_repo,
-            budget_tokens=e.tokens, carried=carried, regen_comment=False)
+            budget_tokens=e.tokens, carried=carried, regen_comment=False,
+            omit_commands=True)
         head += [
             f'> **Over budget: this block is ~{e.tokens} tokens against a '
             f'declared ceiling of {e.budget}.** It is written anyway, because '
@@ -495,13 +514,11 @@ def spoken_block(extra):
     """-> the spoken-commands block for `extra`, or '' when none of them
     defines a command: SPOKEN_HEAD, then one line per practice --
     `"Debut" -> debut: stage 4: pre-staging into staging, full checks`."""
-    import precedent_vocabulary as voc
     lines = []
     for fm, sections, f in extra:
-        try:
-            words = list(voc._commands_in(fm))
-        except (ValueError, AttributeError):
-            continue
+        # The same test build_loader_block(omit_commands=True) uses to leave
+        # a practice out of the index, so nothing falls out of both.
+        words = bv.command_phrases(fm)
         if not words:
             continue
         slug = bv._json_str(fm.get('slug', '')) or f.stem
@@ -528,22 +545,9 @@ def main(argv=None):
     quiet = '--quiet' in args
 
     extra, levels, notes = collect(repo)
-    if not check_only:
-        # First, and with --quiet too: whatever cuts the start-up output
-        # short, these lines come before it (SPOKEN COMMANDS FIRST above).
-        try:
-            spoken = spoken_block(extra)
-        except Exception as e:                               # noqa: BLE001
-            spoken = ''
-            print(f'precedent session practices: could not list the spoken '
-                  f'commands ({type(e).__name__}: {e})', file=sys.stderr)
-        if spoken:
-            print(spoken)
-        # Said once, at session start, beside the commands: why the
-        # code-owners-only practices are not here (Morgan, 2026-10-05).
-        for _kind, _n in notes:
-            if _kind == 'hidden' and _n:
-                print(_n)
+    # Nothing is printed ahead of the file any more: it opens with the spoken
+    # commands, and its head carries the code-owners note, so printing either
+    # separately put it in front of the session twice (AND ONLY THERE above).
     try:
         text = render(extra, levels, notes, repo=repo)
     except Exception as e:                                   # noqa: BLE001
@@ -585,8 +589,18 @@ def main(argv=None):
         # not a broken one.
         print(f'precedent session practices: could not write '
               f'{out_dir / OUT_NAME}: {e}', file=sys.stderr)
+        # Still printed: the file could not be kept, and the session can
+        # still be shown what it would have said.
+        if extra and not quiet:
+            print(text)
         return 0
 
+    if not extra and not quiet:
+        # Nothing else to print, and a code owner's practices were left out:
+        # say why once, at session start (Morgan, 2026-10-05).
+        for _kind, _n in notes:
+            if _kind == 'hidden' and _n:
+                print(_n)
     if extra:
         by_level = {}
         for slug, lvl in levels.items():
@@ -597,6 +611,9 @@ def main(argv=None):
               f'work here and are not in AGENTS.md.', file=sys.stderr)
         if not quiet:
             # On stdout, so it is in the session's context, not just on disk.
+            # Once, whole: it opens with the spoken commands. --quiet is for
+            # a hook that emits the file itself (precedent-universal-
+            # catalogue.sh), where printing them too would say them twice.
             print(text)
     return 0
 

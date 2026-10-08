@@ -3,8 +3,8 @@ slug:        vendor-neutral-by-default
 title:       New code and rules default to provider-neutral, in any repo that vendors a layer out
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
-applies_to_why: "Which files ship out differs by repository (practices, tools, templates), so no single glob names them; the occasion index reaches it."
+applies_to:  ["tools/**", "templates/**", "practices/**", ".claude/hooks/**"]
+applies_to_why: "What ships out to another repository is a tool, a template, a practice or a hook, so editing one of those is the moment; the path hook reaches it there instead of the occasion index (2026-10-08, a reduction pass)."
 occasion:    "writing a hook, script or rule another repo will vendor"
 gates:       []
 index_clause: "default new code and rules to provider-neutral"

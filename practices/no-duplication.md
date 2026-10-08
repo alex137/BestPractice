@@ -3,8 +3,8 @@ slug:        no-duplication
 title:       "A rule lives in one place: another source adds to it, never repeats it"
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
-applies_to_why: "A set rule is written in that set's own repository, which a consumer never edits, so no glob here can name it; the occasion index reaches it."
+applies_to:  ["practices/**", "local/practices/**"]
+applies_to_why: "A rule is written as a practice file, in a set's practices/ or a repository's local/practices/, so editing one is the moment; the path hook reaches it there instead of the occasion index (2026-10-08, a reduction pass). A consumer never edits a set's own repository, so the index line was paid for in sessions that could not act on it."
 occasion:    "adding or reviewing a set's rule, or one that another source already has"
 gates:       []
 index_clause: "never repeat another source's rule; add to it in a practice of your own"
