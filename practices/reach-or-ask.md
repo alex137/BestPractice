@@ -49,5 +49,7 @@ answered the question in seconds (the copy was current). The person:
 passively announcing you can't."
 
 ## Install
-Nothing to install. It reaches a session through the occasion index, whose
-line is generated from this file.
+Nothing to install, and no mechanical check: whether a gap was one a tool
+could close, or needed the person, is the judgment itself. The occasion
+index carries the trigger, so the line reaches every repository with its
+next catalogue refresh.
