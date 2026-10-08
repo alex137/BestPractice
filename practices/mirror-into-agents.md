@@ -4,11 +4,12 @@ title:       Agent-relevant instructions in a README or other key file also go i
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "Any file can be the one that gains an instruction (a README, a CONTRIBUTING file, a guide), so no narrower glob names them; the occasion index reaches it."
+applies_to_why: "Any file can be the one that gains an instruction (a README, a CONTRIBUTING file, a guide), so no narrower glob names them. The merge gate reaches it instead of the occasion index (2026-10-08, a reduction pass)."
 occasion:    "a key file gains an operational instruction"
 gates:       ["merge"]
+gates_why:   "The mirror has to exist by the time the work lands, and the merge gate fires before it does, so an instruction added anywhere in the branch is caught there. index_required: false records that the gate arrives in time; until 2026-10-08 it was true, and every code owner's session paid for an index line the gate already covered."
 index_clause: "it lands in both AGENTS.md and its human home"
-index_required: true
+index_required: false
 checked_by:  null
 defines:     []
 status:      active
