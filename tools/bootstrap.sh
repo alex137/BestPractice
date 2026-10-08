@@ -409,4 +409,13 @@ fi
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` at the top would otherwise let a non-zero last command take the
 # session down. Every check here reports; none of them gates.
+# OPEN FAILURES (2026-10-08): a failure an unattended job could not report
+# anywhere else (no issues API, `gh` not signed in) is filed as an open
+# blocker item under todo/ and pushed (tools/open_failures.py, practice:
+# automation-issues). Listed here, on stdout, so a session's first context
+# names it, whichever harness started the session. Never gates.
+if [ -f tools/open_failures.py ]; then
+  python3 tools/open_failures.py 2>/dev/null || true
+fi
+
 exit 0

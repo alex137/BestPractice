@@ -467,6 +467,11 @@ ENGINE_FILES = [
     # anyway (practice: timestamps-carry-offset); it has no dependencies of
     # its own beyond the standard library.
     'precedent_time.py',
+    # Files a failure an unattended job could not report anywhere else as an
+    # open item under todo/, and lists the open ones at session start
+    # (tools/bootstrap.sh runs it; practice: automation-issues, added
+    # 2026-10-08). In ENGINE_FILES so a practice set's own jobs get it too.
+    'open_failures.py',
     # WHO this repo's commits belong to, resolved the way commit-identity.sh
     # already resolves it. In ENGINE_FILES rather than CONSUMER-only,
     # unlike precedent_resolve.py which it was carved out of: a practice
