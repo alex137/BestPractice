@@ -5936,6 +5936,18 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
     template_text = None
     complete = []
     for key, src_rel, line_no, action, span in plan:
+        # This pass judges the section on today's state, so what the first
+        # pass of a self-replacing refresh said about it no longer stands:
+        # anything still needing the person is put back below, in this
+        # pass's words. Only 'absent' keeps the first pass's finding, since
+        # that is the one this pass cannot find again (_CARRIED_LEFT).
+        # 2026-10-08, a consuming repository's Update Vendors: the second
+        # pass re-pinned a kept section ("PIN UPDATED") while the first
+        # pass's "lacks N blocks" for the same section was still printed
+        # under Left for you; the next run was clean.
+        if action != 'absent':
+            _CARRIED_LEFT[:] = [(i, w) for i, w in _CARRIED_LEFT
+                                if i != f'{AGENTS_MD} "{key}"']
         if action == 'absent' and reask_absent:
             print(f"  NOTE: {AGENTS_MD} \"{key}\" is recorded as left out, but "
                   f"possibly only by the first pass of this refresh, whose "

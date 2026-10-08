@@ -49556,6 +49556,75 @@ def pve_manifest_name():
     return _pve.MANIFEST_NAME
 
 
+def check_second_pass_judgment_replaces_first_pass_left():
+    """A section the second pass of a self-replacing refresh settles is not
+    left for the person on the first pass's word.
+
+    THE INCIDENT (2026-10-08, a consuming repository's Update Vendors). The
+    report said "kept pin updated" for AGENTS.md's "### Session start" and,
+    in the same run, still listed it under LEFT FOR YOU; the next run was
+    clean. The first pass (the older engine copy) left the section; the
+    second pass, with the new copy, re-pinned it -- and the first pass's
+    item, carried over in _CARRIED_LEFT, was printed because the second
+    pass had not found it itself. Planted: a kept section the second pass
+    re-pins, carrying the first pass's item for it; and the control, an
+    'absent' section, whose carried item is the one the second pass cannot
+    find again and must keep."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    key = '### Session start'
+    other = '### Two check levels'
+    item = f'AGENTS.md {key}'
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        tpl, dest = td / 'tpl', td / 'dest'
+        tpl.mkdir(); dest.mkdir()
+        (tpl / 'T.md').write_text(
+            f'# T\n\n{key}\n\n- **Our own line.** Fine.\n\n'
+            f'- **Upstream block here.** It says a thing.\n', encoding='utf-8')
+        (dest / 'AGENTS.md').write_text(
+            f'# T\n\n{key}\n\n- **Our own line.** Fine.\n', encoding='utf-8')
+        section = pve._template_sections(
+            (tpl / 'T.md').read_text(encoding='utf-8'))[key][1]
+        # Pinned on the template's text alone, as before 2026-10-01: this
+        # pass matches it and upgrades it, printing PIN UPDATED.
+        (dest / 'precedent.json').write_text(json.dumps({
+            pve.KEPT_DIVERGENCES_KEY: {item: {
+                'reason': 'ours', 'template_sha256': pve._sha_text(section)}}}),
+            encoding='utf-8')
+        pve._LEFT_FOR_YOU.clear()
+        pve._CARRIED_LEFT[:] = [
+            (f'AGENTS.md "{key}"', 'diverged from T.md and lacks 1 of its '
+             'blocks (listed above)'),
+            (f'AGENTS.md "{other}"', 'the template has this section and this '
+             'file does not')]
+        plan = [(key, 'T.md', 3, 'diverged', (2, 5)),
+                (other, 'T.md', 9, 'absent', None)]
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                pve._report_agents_md(dest, tpl, plan)
+                pve.print_left_for_you()
+        finally:
+            pve._LEFT_FOR_YOU.clear()
+            pve._CARRIED_LEFT.clear()
+        out = buf.getvalue()
+        left = out.split('Left for you', 1)[1] if 'Left for you' in out else ''
+        cases.append(('this pass re-pinned the kept section', 'PIN UPDATED' in out))
+        cases.append(('...and the first pass\'s item for it is not left',
+                      key not in left))
+        cases.append(('CONTROL: an absent section\'s carried item still is',
+                      other in left))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a section the second pass settles is not left on the first '
+          f'pass\'s word ({len(cases)} stated cases)', not bad,
+          '; '.join(bad) + ' :: ' + out[-600:] if bad else '')
+
+
 def check_kept_section_reports_upstreams_change_not_its_lacks():
     """A section kept on purpose whose template text changed is reported as
     upstream's own change since the pinned text, and re-pinned by itself
@@ -65285,6 +65354,7 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
+    check_second_pass_judgment_replaces_first_pass_left()
     check_repin_kept_records_the_persons_words()
     check_hook_changes_never_touch_dot_claude()
     check_sync_names_a_field_its_engine_does_not_know()
