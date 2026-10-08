@@ -31501,9 +31501,17 @@ def check_promote_picks_its_step():
                       rc == 3 and out.startswith(
                           'Now promoting from staging to main')
                       and 'READY FOR MAIN' in out))
-        cases.append(('into main by a throwaway copy of staging, main itself '
-                      'untouched', tip('main') == main_before and len(copies) == 1
-                      and tip(copies[0].split('refs/heads/', 1)[1]) == tip('staging')))
+        # Since 2026-10-07 the copy is staging merged with main -- the tree
+        # the full check judged -- so the pull request's merge has main as an
+        # ancestor of its head and main's push test recognises it.
+        copy_ref = copies[0].split('refs/heads/', 1)[1] if len(copies) == 1 else ''
+        holds = (lambda a, b: git(work, 'merge-base', '--is-ancestor', a, b)
+                 .returncode == 0)
+        cases.append(('into main by a throwaway copy of staging merged with main, '
+                      'main itself untouched',
+                      tip('main') == main_before and bool(copy_ref)
+                      and holds(tip('staging'), tip(copy_ref))
+                      and holds(main_before, tip(copy_ref))))
         cases.append(('it says the pull request comes from the copy, never from '
                       'staging', 'Never open it from staging itself' in out))
 
@@ -48864,8 +48872,9 @@ def check_merge_instructions_give_the_full_head():
         pb.github_tests, pb.github_test_state = saved
         sys.path.pop(0)
     src = (ROOT / 'tools' / 'precedent_branches.py').read_text(encoding='utf-8')
-    cases.append(('the READY instructions pass the head too',
-                  src.count('_at_head(stip)') >= 2))
+    cases.append(('the READY instructions pass the head too -- the copy\'s own '
+                  'commit, staging merged with main',
+                  src.count('_at_head(copy_tip)') >= 2))
     bad = [n for n, ok in cases if not ok]
     check(f'a Promote\'s merge instructions name the full head commit '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
