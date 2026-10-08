@@ -13094,6 +13094,142 @@ def check_update_vendors_redecided_decline_sticks():
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
 
+def check_update_vendors_reruns_pinned_to_its_first_commit():
+    """An update worked over several rounds of LEFT FOR YOU takes the same
+    source commit on every rerun until one reports DONE, says so, and says
+    how to move.
+
+    2026-10-08, from a consuming repository: each rerun fetched main again,
+    so one update started at one commit and finished against another, and a
+    decline already settled came back because upstream had changed that file
+    again in between. The pin lives in the run-to-run record the FAILED-run
+    restore already keeps in the git directory (precedent-update-staged.json).
+
+    Here: two declines move at the first commit; the person re-decides one
+    and leaves the other open, so every run stays LEFT; upstream then
+    changes the settled one again. The followed branch's tip is stubbed
+    (fetch a no-op, `rev-parse origin/main` answered), so it can move
+    between runs.
+
+    Negative control, measured 2026-10-08 against
+    2026-10-08-produce-copy-check-y1ktn at ae07871f: the rerun mirrors the
+    moved commit's text and asks about the settled decline again, and no run
+    says it is pinned."""
+    import hashlib
+    import contextlib
+    import io
+    import precedent_vendor_engine as _pve
+    branch = _pve.SOURCE_BRANCH
+    fx = _LocalEditsFixture('precedent-update-pin-')
+    cases = []
+    sha = lambda b: hashlib.sha256(b).hexdigest()
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    held_pin = getattr(pu, 'held_pin', lambda _repo: None)
+
+    def run(repo, tip, *extra):
+        return fx.sh(sys.executable, '-c', (
+            'import sys\n'
+            f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+            'import precedent_update as pu\n'
+            'real = pu.run\n'
+            'def run(argv, cwd):\n'
+            '    if argv[:1] == ["git"] and "fetch" in argv:\n'
+            '        return 0, ""\n'
+            f'    if argv[:1] == ["git"] and "rev-parse" in argv and argv[-1] == "origin/{branch}":\n'
+            f'        return 0, {tip!r} + "\\n"\n'
+            '    return real(argv, cwd)\n'
+            'pu.run = run\n'
+            f'sys.exit(pu.main(["--repo", {str(repo)!r}, "--skip-check", *{list(extra)!r}]))\n'),
+            cwd=repo)
+
+    try:
+        repo = fx.consumer('pinned')
+        seeded = fx.seeded_from(repo)
+        settled, still = 'practices/verify-postcondition.md', 'practices/repo-is-memory.md'
+        show = lambda rel: subprocess.run(['git', '-C', str(ROOT), 'show', f'{seeded}:{rel}'],
+                                          capture_output=True).stdout
+        old = {settled: show(settled), still: show(still)}
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream', 'branch': branch,
+                         'commit': seeded, 'scrub_blocklist': None},
+            'entries': [{'practice': pathlib.Path(rel).stem, 'upstream_path': rel,
+                         'local_path': None, 'status': 'declined',
+                         'declined_upstream_sha256': sha(old[rel]), 'notes': 'ours'}
+                        for rel in (settled, still)]}, indent=2) + '\n', encoding='utf-8')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+              '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
+        fx.commit(repo, 'catalogue with two declines')
+        fx.sh('git', 'push', '-q', 'origin', 'HEAD:main', cwd=repo)
+        aud = repo / '.audit' / 'tools'
+        aud.mkdir(parents=True)
+        for n in ('practice_audit.py', 'generated_blocks.py'):
+            shutil.copy(ROOT / 'tools' / n, aud / n)
+        with open(repo / '.git' / 'info' / 'exclude', 'a', encoding='utf-8') as f:
+            f.write('.audit/\n')
+        once = old[settled] + b'\nThe first upstream change.\n'
+        first = fx.upstream(seeded, {settled: once, still: old[still] + b'\nMoved.\n'})
+        moved = fx.upstream(first, {settled: once + b'\nThe second upstream change.\n'})
+        vendored = repo / 'process' / 'upstream' / settled
+        engine = lambda: json.loads((repo / 'tools' / 'ENGINE_MANIFEST.json').read_text(
+            encoding='utf-8')).get('source_commit')
+        asked = lambda out, rel: any('a decline to decide again' in l and rel in l
+                                     for l in out.split('LEFT FOR YOU', 1)[-1].splitlines())
+
+        rc1, out1 = run(repo, first)
+        cases.append(('the first run is left for the person, and says what it is '
+                      'pinned to and how to move',
+                      rc1 == 1 and f'PINNED: a rerun takes {branch} @ {first[:12]}' in out1
+                      and '--move' in out1.split('PINNED:', 1)[-1], out1[-1200:]))
+        fx.sh(sys.executable, str(aud / 'practice_audit.py'), '--redecide',
+              'verify-postcondition', cwd=repo)
+        rc2, out2 = run(repo, moved)
+        cases.append(('the rerun after the branch moved takes the first commit again, '
+                      'engine and catalogue both',
+                      vendored.read_bytes() == once and engine() == first,
+                      (engine(), out2[-1200:])))
+        cases.append(('...so the decline settled against it stays settled, and the '
+                      'open one is still asked',
+                      rc2 == 1 and not asked(out2, settled) and asked(out2, still),
+                      out2.split('LEFT FOR YOU', 1)[-1][-1200:]))
+        cases.append(('...and its source line says it is pinned, that the branch moved, '
+                      'and how to take it',
+                      f'source: {branch} @ {first[:12]} -- pinned' in out2
+                      and f'moved on to {moved[:12]}; --move takes it' in out2,
+                      [l for l in out2.splitlines() if 'source:' in l]))
+        rc3, out3 = run(repo, moved, '--move')
+        held = held_pin(repo)
+        cases.append(('--move takes the branch\'s newest commit and pins that instead, '
+                      'so the settled decline is rightly asked again',
+                      vendored.read_bytes() != once and engine() == moved
+                      and f'moved, as asked, off {first[:12]}' in out3
+                      and asked(out3, settled) and held and held['commit'] == moved
+                      and f'PINNED: a rerun takes {branch} @ {moved[:12]}' in out3,
+                      (rc3, held, out3[-1200:])))
+        # DONE drops the pin; LEFT keeps it, closing the report directly.
+        for left, name in () if not hasattr(pu, 'record_pin') else ((True, 'a LEFT outcome keeps the pin'),
+                           (False, 'a DONE outcome drops it, so the next update starts '
+                                   'from the tip')):
+            pu.record_pin(repo, moved, branch)
+            rep = pu.Report()
+            rep.pin_repo = repo
+            if left:
+                rep.leave('something', 'a call for the person')
+            with contextlib.redirect_stdout(io.StringIO()):
+                rep.close()
+            held = held_pin(repo)
+            cases.append((name, (held is not None) == left, held))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
 def check_local_edits_fetch_the_vendored_commit_from_upstream():
     """precedent_local_edits.py judges a consuming repository's edits to
     received files against the commit they were vendored from. Run from
@@ -65009,6 +65145,8 @@ def main():
     check_update_vendors_resolves_a_catalogue_edit()
     check('a decline re-decided between two Update Vendors runs stays decided',
           *check_update_vendors_redecided_decline_sticks())
+    check('an update reruns against the source commit it started from until DONE',
+          *check_update_vendors_reruns_pinned_to_its_first_commit())
     check_update_vendors_migrates_hand_written_views()
     check('every shipped CI template that runs the checks installs PyYAML first',
           *check_ci_templates_install_pyyaml_before_the_checks())

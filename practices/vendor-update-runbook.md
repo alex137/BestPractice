@@ -59,7 +59,10 @@ and ends with one of three outcomes. It stages what it wrote and deleted
 first, so the deep check judges what the commit will hold. **DONE** (exit
 0): nothing is left, so commit and go on to steps 11 and 12. **LEFT FOR YOU** (exit 1): the calls
 that belong to this repo, each named with its file and its question -- work
-them under the conflicted-file review below, then run it again. Every one is
+them under the conflicted-file review below, then run it again. The rerun
+takes the same source commit the first run read, and so does every run after
+it until one reports DONE, so the target does not move while you work the
+list; `--move` takes the newest commit instead. Every one is
 listed in the same run, and while any is open the deep check is not started:
 it is the slow step, so it waits until nothing cheaper is in its way. Where
 the landing branch takes the full check, the basic tier runs first, and a
