@@ -36,7 +36,7 @@ numbered steps for the parts the two share, and a repo that was installed
 the classic way needs to know what it has. **Such a repo migrates** —
 [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md),
 whole, in one change — and cannot quietly stay classic:
-[tools/practice_audit.py](tools/practice_audit.py)'s check 5 fails on a
+[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py)'s check 5 fails on a
 vendored catalogue nothing loads, `checkin.py update` says the same thing
 in a banner, and `tools/bootstrap.sh` says it at every session start.
 
@@ -102,7 +102,7 @@ assented`).
 
 From a sibling clone of Precedent, on `main` (every install takes its
 updates from `main`, `SOURCE_BRANCH` in
-[tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py), since
+[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py), since
 2026-09-25):
 
 ```
@@ -112,7 +112,7 @@ python3 tools/precedent_install.py <project path> --project-name "<name>" \
     [--output-paths docs,site] [--admin <github handle>] [--team NAME=PATH]
 ```
 
-[tools/precedent_install.py](tools/precedent_install.py) does steps 1, 2,
+[tools/precedent_install.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_install.py) does steps 1, 2,
 4, 5 and 6 below exactly as written, lints the files it wrote, and prints
 what it could not decide: the `<…>` placeholders left in the instantiated
 files (the project's own subject matter), any line still naming a layout
@@ -192,7 +192,7 @@ not this section.
    repo-relative path prefixes — a directory (`"notes"`), a nested one
    (`"docs/drafts"`), or a single file (`"ROADMAP.md"`) — that are this
    project managing itself rather than documents published to anyone. It
-   is what [tools/title_case.py](tools/title_case.py) adds to its own
+   is what [tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py) adds to its own
    built-in exclusions, which are Precedent's directory names and not
    yours. The key only ever *adds* exclusions — nothing a repo declares
    here can pull a vendored `practices/` tree back into scope.
@@ -399,14 +399,14 @@ cover, by design and not oversight:
 - **`MAP.md` and `GLOSSARY.md` are generated, never hand-written** (since
   2026-10-03, [the plan](https://github.com/alex137/BestPractice/blob/staging/spec/GENERATED_FILES_PLAN.md)).
   The repository's own text for each lives in `MAP.source.md` and
-  `GLOSSARY.source.md`; [tools/precedent_sync_views.py](tools/precedent_sync_views.py) copies it in word for
+  `GLOSSARY.source.md`; [tools/precedent_sync_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_sync_views.py) copies it in word for
   word and adds the sections generated from the practice catalogue and the
   engine. Edit the source file, never the view. Either source may instead
   be a directory, `MAP.source/` or `GLOSSARY.source/`, with one file per
   entry, so concurrent branches adding rows never conflict
   (`precedent_migrate_views.py --split` converts one). A repository installed
   before then moves its hand-written views into the source files at its next
-  `Update Vendors` ([tools/precedent_migrate_views.py](tools/precedent_migrate_views.py), which puts
+  `Update Vendors` ([tools/precedent_migrate_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_migrate_views.py), which puts
   everything back rather than lose a word).
 - **The creation pipeline isn't wired into a fresh install yet.**
   Candidates, promotion, and approval routing
@@ -435,8 +435,8 @@ cover, by design and not oversight:
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the
    upstream commit hash you copied from (used by updates, step 2).
-   **Skip [evals/](evals/), [philosophy/](philosophy/), [spec/](spec/),
-   [todo/](todo/), [decisions/](decisions/), [deck/](deck/), [record/](record/),
+   **Skip [evals/](https://github.com/alex137/BestPractice/tree/staging/evals), [philosophy/](https://github.com/alex137/BestPractice/tree/staging/philosophy), [spec/](https://github.com/alex137/BestPractice/tree/staging/spec),
+   [todo/](https://github.com/alex137/BestPractice/tree/staging/todo), [decisions/](https://github.com/alex137/BestPractice/tree/staging/decisions), [deck/](https://github.com/alex137/BestPractice/tree/staging/deck), [record/](record/),
    AGENTS.md and CLAUDE.md.** The first seven fail the same test: they
    answer a question about *building* Precedent rather than using it, and
    nothing a consumer runs reads any of them. AGENTS.md/CLAUDE.md fail a
@@ -449,14 +449,14 @@ cover, by design and not oversight:
    [templates/AGENTS.md.template](templates/AGENTS.md.template), never
    from mirroring this file, so nothing generic is lost by skipping it.
 
-   - [evals/](evals/) is Precedent's own routing-quality measurement corpus
+   - [evals/](https://github.com/alex137/BestPractice/tree/staging/evals) is Precedent's own routing-quality measurement corpus
      (the fixtures behind [spec/LOADER.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOADER.md)'s recall and
      precision figures).
-   - [philosophy/](philosophy/) is the argument *for* the ideas, and
+   - [philosophy/](https://github.com/alex137/BestPractice/tree/staging/philosophy) is the argument *for* the ideas, and
      [binds nothing outside itself](https://github.com/alex137/BestPractice/blob/staging/local/practices/philosophy-is-not-repo-policy.md)
      even here.
-   - [spec/](spec/), [todo/](todo/), [decisions/](decisions/) and
-     [deck/](deck/) are the engine's own build plans, backlog, dated design
+   - [spec/](https://github.com/alex137/BestPractice/tree/staging/spec), [todo/](https://github.com/alex137/BestPractice/tree/staging/todo), [decisions/](https://github.com/alex137/BestPractice/tree/staging/decisions) and
+     [deck/](https://github.com/alex137/BestPractice/tree/staging/deck) are the engine's own build plans, backlog, dated design
      decisions and pitch-deck tooling — contributor material, per
      [spec/DOCUMENT_LIFECYCLE.md](https://github.com/alex137/BestPractice/blob/staging/spec/DOCUMENT_LIFECYCLE.md)'s own
      audience table.
@@ -488,12 +488,12 @@ cover, by design and not oversight:
    Run `python3 tools/checkin.py not-vendored` for the share against the
    tree in front of you rather than trusting a figure typed here, which
    goes stale the week it is written.
-   [tools/checkin.py](tools/checkin.py) excludes the same directories from
+   [tools/checkin.py](https://github.com/alex137/BestPractice/blob/staging/tools/checkin.py) excludes the same directories from
    its drift comparison, so an install that skips them is not reported as
    having drifted, and an existing install that already carries a copy is
    not either — deleting that stale copy is a re-vendor, not something the
    tooling reaches in and does. **No link goes dead by skipping either
-   one**: [tools/doc_lint.py](tools/doc_lint.py) skips the link check
+   one**: [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) skips the link check
    inside a mirrored tree outright, so the vendored README's references
    into `philosophy/` report nothing in a consumer.
 2. **Instantiate the templates** (adaptive — rewrite with the repo's actual
@@ -597,7 +597,7 @@ cover, by design and not oversight:
      itself wrong. Codex reads `AGENTS.md` natively.
      Multiple adapters can be installed side by side.
      **For Codex or Gemini CLI, add that adapter as well as Claude
-     Code's** — [tools/precedent_install.py](tools/precedent_install.py)
+     Code's** — [tools/precedent_install.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_install.py)
      installs the Claude Code one only, and says so in its report. Codex:
      copy [templates/harness/codex/hooks.json](templates/harness/codex/hooks.json)
      to `.codex/hooks.json`. Gemini CLI:
@@ -627,7 +627,7 @@ cover, by design and not oversight:
      **Taking one out means declining it, not just deleting its entry.**
      Since 2026-09-25 a refresh ADDS any hook this repo's kind gets that
      settings.json does not run (`HOOK_WIRING` in
-     [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)),
+     [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)),
      so a hook added upstream reaches repos that are already installed. It
      never edits or removes an entry. The same mechanism means a deleted
      entry comes back on the next refresh unless the repo says no. To say
@@ -882,7 +882,7 @@ cover, by design and not oversight:
      one). Say that out loud before anyone creates a set, rather than
      correcting a name afterwards: renaming a set breaks every
      vendored reference to it, and
-     [`tools/precedent_resolve.py`](tools/precedent_resolve.py) refuses a
+     [`tools/precedent_resolve.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) refuses a
      source declared under any other shape. See
      [`practices/source-naming.md`](practices/source-naming.md).
      A shared source is **resolved live from a sibling checkout, never
@@ -945,7 +945,7 @@ cover, by design and not oversight:
      [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
      at `.claude/hooks/precedent-individual-bootstrap.sh`, which delegates
      to the vendored
-     [`tools/precedent_source_bootstrap.py`](tools/precedent_source_bootstrap.py)
+     [`tools/precedent_source_bootstrap.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py)
      rather than a one-off hand-written clone.
 
      **That clone still needs the session to have git read access to the
@@ -963,7 +963,7 @@ cover, by design and not oversight:
      ordering, not a race — so no instruction to call `add_repo` "first"
      can make that call precede the hook, at any retry count or delay. What
      actually closes it is
-     [tools/precedent_resolve.py](tools/precedent_resolve.py)'s
+     [tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py)'s
      `load_config()`, which treats a still-missing individual config on a
      remote session as *try the bootstrap hook once more*; that
      re-invocation happens inside the agent's own turn, after `add_repo`
@@ -975,7 +975,7 @@ cover, by design and not oversight:
    - **Whichever branch above ran, finish the person before moving on:
      an individual set is not wired until its `identity.json` says who
      they are.** The file ships with placeholders and
-     [`tools/precedent_bootstrap_source.py`](tools/precedent_bootstrap_source.py)'s
+     [`tools/precedent_bootstrap_source.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)'s
      `--verify` reports it unfinished
      until its placeholders — `name`, `email`, `pronouns` and `timezone` — are replaced. **The timezone is
      the one that fails quietly.** Name and address can be resolved from
@@ -1114,7 +1114,7 @@ it the old way — a WARN at every session start naming a fix that failed the
 same way.
 
 0. **(§0 installs) Replace the vendored universal catalogue.**
-   [tools/precedent_update.py](tools/precedent_update.py) does this step itself since 2026-09-28, and
+   [tools/precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py) does this step itself since 2026-09-28, and
    refuses any file that matches neither the last-synced upstream text nor
    the incoming one. It records the commit it synced from in
    `CATALOGUE_SYNC.json` beside `practices/` and judges the next update
@@ -1282,7 +1282,7 @@ same way.
    individual + repo-local into one materialized tree and regenerates
    `AGENTS.md`'s loader block from it. If this repo has
    `tools/ENGINE_MANIFEST.json`, it was vendored with
-   [`tools/precedent_vendor_engine.py`](tools/precedent_vendor_engine.py)'s
+   [`tools/precedent_vendor_engine.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s
    `'consumer'` kind (§0 step 1, or the migration path
    [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)
    step 7 documents) — the same mechanism
@@ -1324,7 +1324,7 @@ same way.
    `refresh` reads `kind` back out of `ENGINE_MANIFEST.json` itself — no
    `--kind` flag needed here, only at first `seed`. It materializes
    `main` specifically (`SOURCE_BRANCH` in
-   [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py),
+   [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py),
    since 2026-09-25), whatever branch this clone has checked out, and refuses to overwrite a hand-edited vendored file unless `--force` —
    this engine carries zero local variance by design, so a local edit is a
    signal to move the change upstream into Precedent instead. After a
@@ -1385,7 +1385,7 @@ ordinary single-repo sessions; only this step needs the dual-repo session.
 
 For projects that choose to give back: on a schedule (a recurring
 `TODO.md` item), in a session with access to the Precedent repo.
-[tools/checkin.py](tools/checkin.py) drives the mechanical steps against a
+[tools/checkin.py](https://github.com/alex137/BestPractice/blob/staging/tools/checkin.py) drives the mechanical steps against a
 local clone of the upstream repo; the deliberate steps (review, PR, merge)
 stay manual:
 

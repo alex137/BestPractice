@@ -107,7 +107,7 @@ suite everyone has learned to read past no longer gates anything.
 
 **The source's half: its own push check runs its tests a second time shaped
 like a consumer**, with git ignoring what consuming repositories commonly
-ignore ([tools/precedent_consumer_shape.py](../tools/precedent_consumer_shape.py)),
+ignore ([tools/precedent_consumer_shape.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_consumer_shape.py)),
 so a test that only works in its home layout fails before it ships. A test
 that plants a fixture file stages it with `git add -f`, never a plain
 `git add`.
@@ -170,7 +170,7 @@ adds the read. Morgan, 2026-10-06 (strength: assented -- he delegated the
 wording).
 
 ## Install
-This repo's own [tools/doc_lint.py](../tools/doc_lint.py) is
+This repo's own [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) is
 already the fast pass — it scans only the markdown a session touched — and
 [tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) is already the full one
 — the public-safe scrub, baseline-hash checks, and everything else that
@@ -182,7 +182,7 @@ adds its own extra fast checks (secret-shaped strings, conflict markers,
 JSON/YAML syntax) folds them into the "light" name rather than inventing a
 third gate — two named gate levels is the right number for almost every repo.
 Those four are already run everywhere by the engine's own `light-check` check
-in [tools/precedent_check.py](../tools/precedent_check.py) (since 2026-10-05,
+in [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) (since 2026-10-05,
 ported from the repository-maintenance set), so a repo gets the minimum audit
 without writing one.
 

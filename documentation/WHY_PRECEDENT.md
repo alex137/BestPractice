@@ -15,7 +15,7 @@ follows automatically, without anyone having to write a policy document by
 hand.
 
 This grew out of a broader philosophy about how people and AI should work
-together, written up in **[philosophy/](../philosophy/)**. What follows
+together, written up in **[philosophy/](https://github.com/alex137/BestPractice/tree/staging/philosophy)**. What follows
 are the practical things Precedent does that put that philosophy to work,
 in five groups.
 
@@ -185,7 +185,7 @@ page that turns the pitch above into the ten ideas underneath it, each
 linked to where the guides say more.
 
 The philosophy behind all of this lives in
-[philosophy/](../philosophy/). For how to actually use Precedent: [a how-to for
+[philosophy/](https://github.com/alex137/BestPractice/tree/staging/philosophy). For how to actually use Precedent: [a how-to for
 developers](FOR_DEVELOPERS.md), [a how-to for everyone
 else](FOR_EVERYONE_ELSE.md), or — once it is running — [the
 day-to-day habits](DAILY_HABITS.md). Or explore [this

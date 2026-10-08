@@ -21,7 +21,7 @@ A stale container is indistinguishable from missing work; the freshness
   the last. 2026-09-01: a session's local branch shared ZERO commits with
   origin, 51 merged commits invisible. 2026-09-06: a session started on a
   5-day-old shallow clone, 207 commits behind `precedent-beta-v01`, and
-  concluded that [tools/precedent_check.py](../tools/precedent_check.py) and
+  concluded that [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) and
   [.github/workflows/deep-check.yml](https://github.com/alex137/BestPractice/blob/staging/.github/workflows/deep-check.yml) "did
   not exist" — they had landed days earlier;
   [.claude/hooks/session-start.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/session-start.sh) stayed

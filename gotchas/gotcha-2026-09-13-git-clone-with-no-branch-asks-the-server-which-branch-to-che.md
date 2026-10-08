@@ -26,7 +26,7 @@ question, check whether something else is asking it for you.** The guard
 against this reads Python, so it never saw a `git clone` making the same
 inference on our behalf — the class is open even though this instance is shut.
 Pinned since 2026-09-10 in
-[tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py); a
+[tools/precedent_source_bootstrap.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py); a
 clone you run by hand is still yours to branch explicitly. Full incident:
 entry 36.
 

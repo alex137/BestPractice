@@ -55,7 +55,7 @@ Part 1), the same rule holds but the mechanism is a frontmatter field, not
 a prose line: `disposition: parked` / `wait` / `ask`, not a
 `**Disposition:**` sentence inside the body. A park keeps the body line as
 well, because the frontmatter cannot say who said "Drop it" or when;
-[`tools/todo_disposition.py`](../tools/todo_disposition.py) `park` writes the
+[`tools/todo_disposition.py`](https://github.com/alex137/BestPractice/blob/staging/tools/todo_disposition.py) `park` writes the
 two together, and where both exist the frontmatter is the one that counts. Widened here, 2026-09-18, once
 `applies_to` covered `todo/todo-*.md` too — before that, a repo running the
 per-item format had no channel telling it this rule still applied to its

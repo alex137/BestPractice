@@ -30,13 +30,13 @@ every session start, and twice in one session it was put back by hand with
 
 ## Fix
 
-Two halves, both in [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py):
+Two halves, both in [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py):
 
 - The refresh asks whether main contains the recorded commit, not only
   whether the two are equal (`engine_is_ahead`). An engine main does not
   contain is newer work: the refresh leaves it as it is and says so, and
   the session-start survey shows the set as AHEAD instead of STALE
-  ([tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)).
+  ([tools/precedent_refresh_sources.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_refresh_sources.py)).
 - `seed` and the set bootstrap refuse to copy from a checkout main does
   not contain, before writing anything. `--off-main` (`--off-main true`
   for the bootstrap) does it on purpose, and the manifest then names the

@@ -76,7 +76,7 @@ rebuilt from the models and the two disagreed.
 
 ## Install
 **Rule 4 is a hook.** `hooks/artifact-publish-gate.sh` runs
-[tools/artifact_publish_gate.py](../tools/artifact_publish_gate.py) before
+[tools/artifact_publish_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/artifact_publish_gate.py) before
 every Artifact publish and refuses a page that is not byte-identical to the
 on-disk render of a registered document, or whose render is older than its
 source. The registry is the renderer's `DOCS` and `COMPOSITE_RENDERS`
@@ -86,7 +86,7 @@ registered and rendered like any other; that cost is the point.
 
 **The engine's generators pass the same way** (2026-10-07). A tool listed in
 the gate's `GENERATORS` notes the sha256 of every page it writes;
-[tools/precedent_stale_branches.py](../tools/precedent_stale_branches.py)
+[tools/precedent_stale_branches.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_stale_branches.py)
 `--html` is the one listed. Its page has no model behind it, so nothing can
 drift, and the gate's question -- is this exactly what the tool produced,
 recently? -- is the one it asks of a render. A consuming repository's session

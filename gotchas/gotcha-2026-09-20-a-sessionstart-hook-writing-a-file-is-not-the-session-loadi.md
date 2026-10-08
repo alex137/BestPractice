@@ -66,7 +66,7 @@ JSON and that `hookSpecificOutput.additionalContext` is the size you expect.
 
 **It came back in consumers (2026-10-04).** The hook above was wired only
 into practice sets. A consumer's session-start hook ran
-[precedent_session_practices.py](../tools/precedent_session_practices.py), which wrote the file and printed nothing,
+[precedent_session_practices.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_practices.py), which wrote the file and printed nothing,
 so a set the person brings -- the ladder's stage words -- reached a
 consumer's session as an unread file, and a session there searched the
 clones for "Debut". The tool now prints the block on stdout as it writes it

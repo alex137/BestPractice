@@ -31,7 +31,7 @@ A tool handed a clone as a *source* can still check that clone out from
   left the pull half-applied instead, which is worse. Fixed forward the same
   day: `update()` now reads the source ref with `git archive` (no checkout, no
   pull, no HEAD movement — the guarantee
-  [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py) already
+  [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py) already
   made explicitly), and mirrors the branch the consumer's own
   `process/manifest.json` records rather than the clone's configured default —
   every consumer tracks `precedent-beta-v01` while `main` is still the

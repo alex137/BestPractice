@@ -775,11 +775,24 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
         cfg = json.loads((repo_path / 'precedent.json').read_text(encoding='utf-8'))
     except Exception as e:
         return [(None, False, f'could not read {repo_path / "precedent.json"}: {e}')]
+    try:
+        import precedent_resolve as pr
+        gone = pr.deleted_sets()
+    except Exception:                                       # noqa: BLE001
+        gone = {}
     for src in cfg.get('sources', []) or []:
         level = LEVEL_ALIASES.get(src.get('level'), src.get('level'))
         if level not in ('shared', 'universal'):
             continue
         name = str(src.get('name') or '').strip()
+        if level == 'shared' and name in gone:
+            # The person deleted it (precedent_resolve.DELETED_SETS_KEY): its
+            # repository may be gone, so it is never cloned again.
+            results.append((name, True, 'its repository is deleted '
+                                        '(tools/deleted_sets.json or your '
+                                        'individual set); not cloned -- Update '
+                                        'Vendors removes it from precedent.json'))
+            continue
         rel = str(src.get('path') or '').strip()
         repo = str(src.get('repo') or '').strip()
         if not name or not rel:

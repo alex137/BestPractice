@@ -76,7 +76,7 @@ so this half takes the wide scope and that one does not. Two rules, two
 scopes, which is exactly what one slug could not express.
 
 ## Install
-[tools/doc_lint.py](../tools/doc_lint.py)'s `scan_heading_skips` is the
+[tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py)'s `scan_heading_skips` is the
 detector, reported in the light check that runs before every commit and
 failing it in scope. `tools/precedent_check.py`'s `heading-outline` gate
 calls the same function on changed documents — one detector, two callers,

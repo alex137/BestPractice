@@ -357,6 +357,9 @@ _widen_refspec() {
   if ! _git config --get-all remote.origin.fetch 2>/dev/null | grep -q 'refs/heads/\*'; then
     _git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null
   fi
+  # A branch deleted on GitHub stops leaving origin/<branch> behind for a
+  # stop hook to push back (bootstrap.sh says why, 2026-10-08).
+  _git config fetch.prune true 2>/dev/null
 }
 
 # THE LANDING BRANCH WINS WHEN IT IS PRE-STAGING (spec/BRANCH_TIERS_PLAN.md,

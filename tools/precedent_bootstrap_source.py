@@ -1443,7 +1443,7 @@ def write_generated_files(dest):
     return path
 
 
-def _write_session_load_budget(dest, occasion='bootstrap'):
+def _write_session_load_budget(dest, occasion='bootstrap', owed=None):
     """Seed tools/session_load_budgets.json so a new set starts with the
     early-warning notice ON, instead of silently absent until someone
     remembers to opt in by hand (practice: session-load-budget).
@@ -1468,6 +1468,10 @@ def _write_session_load_budget(dest, occasion='bootstrap'):
     own SESSION_LOAD_SURFACES checks both, not just whichever the local
     harness happens to read. A repo missing one after this seeds only
     what is actually there, same as the hand-written registries do.
+
+    `owed`: {surface: tokens} the same run is asking the repo to add -- the
+    template sections Update Vendors lists for AGENTS.md -- counted as if
+    already there, so a ceiling never fails the work the run asked for.
     """
     import build_views as bv
     import precedent_time
@@ -1482,11 +1486,15 @@ def _write_session_load_budget(dest, occasion='bootstrap'):
         if not f.is_file():
             continue
         measured = bv._approx_tokens(f.read_text(encoding='utf-8'))
-        ceiling = ((int(measured * 1.2) + 49) // 50) * 50 if measured else 50
+        extra = int((owed or {}).get(rel) or 0)
+        base = measured + extra
+        ceiling = ((int(base * 1.2) + 49) // 50) * 50 if base else 50
         surfaces[rel] = {
             'ceiling': ceiling,
             '_note': f'{measured} tokens measured at {occasion} ({today}). '
-                     f'Ceiling is current + ~20%.',
+                     + (f'Ceiling is that plus the {extra} tokens of template '
+                        f'text the same run asked to be copied in, + ~20%.'
+                        if extra else 'Ceiling is current + ~20%.'),
         }
     path = dest / 'tools' / 'session_load_budgets.json'
     path.parent.mkdir(parents=True, exist_ok=True)

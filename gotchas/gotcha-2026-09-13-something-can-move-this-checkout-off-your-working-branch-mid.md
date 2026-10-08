@@ -27,7 +27,7 @@ against a throwaway clone on a feature branch and none moved `HEAD`. It is
 also **not** the `checkin.py update` incident returning — that one is fixed
 and verified (archived entry 4). Whatever does it is outside this repo's
 tools; do not assume it is fixed. **Detection is the whole remedy available**:
-[tools/precedent_session_check.py](../tools/precedent_session_check.py) stamps
+[tools/precedent_session_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py) stamps
 the branch on its first run and compares on every later one. When it fires the
 work is **not lost** — `git reflog` lists the commit, `git checkout` returns
 to it, `git cherry-pick` recovers anything committed after.

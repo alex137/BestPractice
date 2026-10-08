@@ -67,7 +67,7 @@ but the fact that somebody already paid to find out, so nobody has to pay
 again.
 
 ## Install
-[tools/doc_lint.py](../tools/doc_lint.py) checks all three — it
+[tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) checks all three — it
 gates on files changed vs the default branch (the "fix what you touch"
 scope, which also protects frozen documents), `--all` reports the backlog,
 `--fix` rewrites `~`→`≈` on struck lines; `target=` anchors are reported as

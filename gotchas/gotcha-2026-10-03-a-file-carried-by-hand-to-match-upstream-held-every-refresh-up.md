@@ -25,7 +25,7 @@ was harmless, so the set stayed on its old engine.
 
 ## Fix
 
-[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)'s
+[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s
 refresh compares a drifted engine file or declared engine path with
 upstream's copy, as the BestPractice clone already has it, before refusing.
 An identical file is named and passed; a real edit is still refused. Hooks

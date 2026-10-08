@@ -85,14 +85,14 @@ reaches a session is the occasion index entry above, generated, and the
 `reply` gate reminder.
 
 **`index_required: true`, added 2026-09-22.** Without it,
-[build_views.py](../tools/build_views.py)'s `index_is_redundant()` saw
+[build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)'s `index_is_redundant()` saw
 `gates: ["reply"]` and dropped this rule's own occasion-index line, on the
 theory that the reply gate already routes it. It does not: the reply gate
 fires at the END of a turn, after `create_session` has already run with
 whatever title got chosen. For a rule about what title to pick AT CREATION,
 that is too late to do its job -- the occasion index is the only channel
 that fires before the choice is made.
-[precedent_check.py](../tools/precedent_check.py)'s
+[precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s
 `index-required-is-declared` was meant to catch a missing flag like this one,
 but its regex only recognizes occasions
 phrased as something a *person says* ("Morgan asks", "the message says") --

@@ -37,13 +37,13 @@ retires_when:    null
   the same inference implicitly, on our behalf. **When a rule forbids asking a
   question, check whether something else is asking it for you.**
   Pinned since 2026-09-10:
-  [tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+  [tools/precedent_source_bootstrap.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py)
   clones with an explicit branch and puts an existing clone back on it before
   pulling — declared `base_branch` if the source declares one, else `main`,
   never the remote's HEAD. It **refuses** rather than moving a clone that is on
   the wrong branch with uncommitted work in it, because that is somebody's
   working copy. And
-  [tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)
+  [tools/precedent_refresh_sources.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_refresh_sources.py)
   reports an attached clone sitting off its branch at session start, since a
   pin only takes effect the next time something clones or pulls.
 

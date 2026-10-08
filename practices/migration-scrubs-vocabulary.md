@@ -52,7 +52,7 @@ style nitpick.
 An `exempt_files` entry ending in `/` exempts a whole directory rather
 than one file — for exactly one case: a *materialized*, regenerated
 directory (this repo's own `practices/`, wherever
-[tools/precedent_materialize.py](../tools/precedent_materialize.py) fills
+[tools/precedent_materialize.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_materialize.py) fills
 it in from a repo's declared sources) can legitimately hold *other*
 repos' own content, which isn't this repo's own migration to finish and
 whose file list changes on every sync — hand-listing it file-by-file

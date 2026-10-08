@@ -35,7 +35,7 @@ Something can move this checkout off your working branch mid-session,
   returning; whatever does it is outside this repo's own tools, and the
   next session should not assume it has been fixed.
   **Detection is the whole remedy available.**
-  [tools/precedent_session_check.py](../tools/precedent_session_check.py)
+  [tools/precedent_session_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py)
   stamps the branch on its first run of a session and compares on every
   later one, so the drift is one command away instead of an archaeology
   problem. When it fires: the work is **not lost** — `git reflog` still

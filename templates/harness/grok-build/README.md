@@ -63,7 +63,7 @@ hooks syntax nobody has confirmed would indeed have been a guess. But the
 ledger records *verdicts*, not wirings, and "nobody has confirmed whether
 this can transfer" is a verdict — a more useful one than an absent column.
 So the fourth member-directory went into
-[`tools/precedent_check.py`](../../../tools/precedent_check.py)'s list,
+[`tools/precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s list,
 every row dated before this adapter existed carries a backfilled cell
 saying so, and the unverified-hooks caveat stayed exactly where it belongs:
 in the Bootstrap bullet above, which since 2026-09-28 quotes the
@@ -77,7 +77,7 @@ what Claude Code does that this harness does not, mechanism by mechanism.
 **Read this before assuming your documents are checked.** On 2026-09-21
 Precedent's Markdown lint left GitHub Actions entirely and was replaced by
 `.claude/hooks/doc-lint-gate.sh`, which refuses a `git commit` whose staged
-Markdown fails [doc_lint.py](../../../tools/doc_lint.py). Grok Build
+Markdown fails [doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py). Grok Build
 documents a `PreToolUse` event that could carry it (unverified, see
 Bootstrap above), but not unchanged: the script reads `tool_input.command`,
 and Grok sends `toolInput` in camelCase, so wired as-is the script would

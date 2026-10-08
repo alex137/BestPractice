@@ -28,7 +28,7 @@ ships:       ["tools/create_word_doc.py"]
 ```
 
 **The declaration is what delivers it.**
-[`precedent_materialize.py`](../tools/precedent_materialize.py) copies
+[`precedent_materialize.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_materialize.py) copies
 each shipped file to the same path in every consuming repository, records
 it in `MANIFEST.json`, and reports drift from it. **"Copy it in by hand" is
 not an install step any more** — a practice that says it has a dependency
@@ -53,7 +53,7 @@ A repository that needs its own version declines the shipped one.
 
 ## Detail
 What the check (`practice-carries-its-files`, in
-[`precedent_check.py`](../tools/precedent_check.py)) holds a publishing
+[`precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)) holds a publishing
 repository to, at its own push:
 
 - **every `ships:` entry is legal and present** — a concrete relative path,
@@ -72,7 +72,7 @@ repository to, at its own push:
 
 The static read misses a file a test reaches any other way. The source's
 push check covers that half:
-[`precedent_consumer_shape.py`](../tools/precedent_consumer_shape.py) runs
+[`precedent_consumer_shape.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_consumer_shape.py) runs
 every shipped test in a consumer-shaped scratch copy, which has none of the
 source's own `tools/` except the engine, `tools/checks/` and what practices
 ship, so a test that assumes a source-only file fails at home.

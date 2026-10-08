@@ -59,7 +59,10 @@ and ends with one of three outcomes. It stages what it wrote and deleted
 first, so the deep check judges what the commit will hold. **DONE** (exit
 0): nothing is left, so commit and go on to steps 11 and 12. **LEFT FOR YOU** (exit 1): the calls
 that belong to this repo, each named with its file and its question -- work
-them under the conflicted-file review below, then run it again. Every one is
+them under the conflicted-file review below, then run it again. The rerun
+takes the same source commit the first run read, and so does every run after
+it until one reports DONE, so the target does not move while you work the
+list; `--move` takes the newest commit instead. Every one is
 listed in the same run, and while any is open the deep check is not started:
 it is the slow step, so it waits until nothing cheaper is in its way. Where
 the landing branch takes the full check, the basic tier runs first, and a
@@ -227,7 +230,7 @@ says so, both from the vendored tree under `process/upstream/`.
    which is the whole point of the step.** The ENGINE is read by blob out of
    a freshly fetched commit (see the pin note below), so the clone's checkout
    is irrelevant to it. The CATALOGUE is read from the clone's WORKING TREE —
-   [tools/precedent_materialize.py](../tools/precedent_materialize.py) has no
+   [tools/precedent_materialize.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_materialize.py) has no
    fetch call in it at all — so for that half, whatever is checked out *is*
    the input. Step 1 is not hygiene; it is the correctness argument for
    step 2.
@@ -258,7 +261,7 @@ says so, both from the vendored tree under `process/upstream/`.
 
    **You do not have to name that branch, and you must not check it out.**
    The pin is compiled into the vendored tool as `SOURCE_BRANCH` in
-   [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py),
+   [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py),
    and `refresh` fetches it and reads `tools/` out of it **by blob** —
    `git show <commit>:tools/<file>` — so the clone's own `HEAD`, branch and
    working tree are never touched. A fresh clone satisfies this step; so
@@ -506,7 +509,7 @@ says so, both from the vendored tree under `process/upstream/`.
    file arrives that the environment may not be configured for, and it is
    the one moment somebody is looking at how this repo gets its practices
    at all. Run
-   [tools/precedent_source_credentials.py](../tools/precedent_source_credentials.py);
+   [tools/precedent_source_credentials.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_credentials.py);
    `MISSING` means a source is absent and no credential is set, so the
    session is running on the universal catalogue alone and nothing else
    will say so.
@@ -516,7 +519,7 @@ says so, both from the vendored tree under `process/upstream/`.
    keep succeeding under the old name and nothing anywhere fails. This is
    the one moment a session is already online and already reconciling its
    sources, so it is where the question gets asked. Run
-   [tools/precedent_source_names.py](../tools/precedent_source_names.py);
+   [tools/precedent_source_names.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_names.py);
    `UNVERIFIED` means the name was not checked, which is not the same as
    checked and current.
    **In a hosted session, attach each source with access "push" before
@@ -557,7 +560,7 @@ says so, both from the vendored tree under `process/upstream/`.
    `UNVERIFIED`. Both readings were specific enough to be believed and both
    were about the wrong repository. Fixed at the root rather than in the
    runbook — `consuming_repo_root()` in
-   [tools/precedent_source_credentials.py](../tools/precedent_source_credentials.py)
+   [tools/precedent_source_credentials.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_credentials.py)
    — so these steps need no `--repo` and no caveat. **If either step names a
    path inside `process/`, the engine copy you are running predates that
    fix: pass `--repo .` and take the answer from that run.**
@@ -647,7 +650,7 @@ says so, both from the vendored tree under `process/upstream/`.
     nine live checks by trusting names
     ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
     item 14). A live one is paused first and decommissioned a cycle later,
-    as [tools/precedent_decommission.py](../tools/precedent_decommission.py)
+    as [tools/precedent_decommission.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_decommission.py)
     requires.
 
     **(c) Fix stale source paths.** Each source in `precedent.json` whose
@@ -714,8 +717,12 @@ says so, both from the vendored tree under `process/upstream/`.
     whose new wording the section already carries, re-pins by itself, as a
     `PIN UPDATED` line (since 2026-10-07: a consumer's two kept sections came
     back as long lacks lists over links alone, and another stopped over a
-    phrase it had already adopted). Otherwise, once the person says it is
-    still kept, `python3 tools/precedent_vendor_engine.py repin-kept
+    phrase it had already adopted). So does a change that touches no line
+    the section changed: read three ways against the pinned text, every
+    line upstream changed, and the lines beside it, is one the section
+    carries as upstream wrote it (since 2026-10-08). The section is never
+    rewritten, so that change is not copied in either. Otherwise, once the
+    person says it is still kept, `python3 tools/precedent_vendor_engine.py repin-kept
     ../BestPractice "AGENTS.md <heading>" --confirmed "<their words>"`
     re-pins it and records their words and the date; never paste the hashes
     by hand. An entry with no reason is
@@ -1006,7 +1013,7 @@ carries the repository's current `full_name` in the response body, so a name
 that has moved shows up as a mismatch against what this repo declares. Every
 git operation follows the redirect silently and reports success.
 
-Step 7 runs itself: [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)
+Step 7 runs itself: [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)
 prints the same line after a `refresh` or a `status`, so an update made
 without reading this file still surfaces a source nobody can reach
 (practice: checkable-gets-checked). Asked for by Morgan, 2026-09-09, in the

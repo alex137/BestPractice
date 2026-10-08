@@ -24,7 +24,7 @@ strength:    assented
 ## Rule
 Before a commit that touches shipped content -- a file under `practices/`,
 `templates/`, `.claude/hooks/`, or one of the exact filenames in
-[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)'s
+[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s
 `ENGINE_FILES`/`CONSUMER_ENGINE_FILES` lists -- or that adds a file
 anywhere, reaches the push or merge side of the chain, say five things out
 loud, not one:
@@ -75,7 +75,7 @@ loud, not one:
 5. **Should each new file ship to consumers at all?** Run
    `python3 tools/checkin.py rules`: it lists every file added since the
    landing branch, whether it ships, and the rule in
-   [tools/checkin.py](../tools/checkin.py)'s `VENDORING_RULES` that says so.
+   [tools/checkin.py](https://github.com/alex137/BestPractice/blob/staging/tools/checkin.py)'s `VENDORING_RULES` that says so.
    **A file ships only if a consumer runs it, instantiates it, or its
    people read it to adopt and use Precedent. Ship the machinery, never
    this project's own records:** a consumer gets the tools that keep an

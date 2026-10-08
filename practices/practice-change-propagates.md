@@ -102,9 +102,9 @@ the sets it is cited in and fix the citations there, and do the same from a
 repository that vendors them.
 
 ## Install
-[tools/precedent_practice_refs.py](../tools/precedent_practice_refs.py) is
+[tools/precedent_practice_refs.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_practice_refs.py) is
 the lookup, vendored with the engine so every repository has it. The check
 is `practice-change-propagates` in
-[tools/precedent_check.py](../tools/precedent_check.py), and
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py), and
 [tools/precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py)
 runs the lookup as a step of Update Vendors.

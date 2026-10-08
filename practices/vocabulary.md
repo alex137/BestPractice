@@ -34,7 +34,7 @@ nothing else** beyond that opening line:
 2. **Our language** -- the words a person needs to follow a conversation
    about Precedent (practice, individual set, shared set, full set, in
    force, feature branch, the branch tiers), each with its one-line meaning,
-   from [tools/our_language.json](../tools/our_language.json).
+   from [tools/our_language.json](https://github.com/alex137/BestPractice/blob/staging/tools/our_language.json).
 
 No further preamble, no closing offer, and no advice about which to use.
 
@@ -97,7 +97,7 @@ it is used, by how important someone thinks it is -- is a judgment that goes
 stale and that the person asking cannot predict. A lookup is sorted.
 
 **Adding a word is one edit too**: add it to
-[tools/our_language.json](../tools/our_language.json), and it appears in
+[tools/our_language.json](https://github.com/alex137/BestPractice/blob/staging/tools/our_language.json), and it appears in
 this answer and on [documentation/OUR_LANGUAGE.md](https://github.com/alex137/BestPractice/blob/staging/documentation/OUR_LANGUAGE.md)
 without anyone updating either by hand.
 

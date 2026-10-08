@@ -127,8 +127,8 @@ member merges bypassed the capture and export gates exactly this way,
 2026-08). A required CI check ([GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md)) is
 the form that binds every path to the default branch.
 
-**Install.** [tools/doc_lint.py](tools/doc_lint.py) and
-[tools/practice_audit.py](tools/practice_audit.py) are audits of this kind
+**Install.** [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) and
+[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) are audits of this kind
 (and worked examples for writing your own). Run them before commit; wire them
 into the merge runbook (practice 9).
 
@@ -150,7 +150,7 @@ to content whose status claims it is frozen.
 
 **Install.** `process/manifest.json` (see [INSTALL.md](INSTALL.md)) is itself
 a registry of this kind, with baseline hashes checked by
-[tools/practice_audit.py](tools/practice_audit.py). Build your own registries
+[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py). Build your own registries
 the same shape: entries + status + hash, one owner, one audit.
 
 ## 8. Provenance for generated artifacts
@@ -243,7 +243,7 @@ thread that spent two commits converting a link to a `target="_blank"`
 anchor and reverting it once the rendered page proved the attribute was
 stripped.
 
-**Install.** [tools/doc_lint.py](tools/doc_lint.py) checks all three — it
+**Install.** [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) checks all three — it
 gates on files changed vs the default branch (the "fix what you touch"
 scope, which also protects frozen documents), `--all` reports the backlog,
 `--fix` rewrites `~`→`≈` on struck lines; `target=` anchors are reported as
@@ -330,9 +330,9 @@ export a local commit; the cross-repo step happens only at deliberate
 check-ins.
 
 **Install.** [INSTALL.md](INSTALL.md) is the full playbook;
-[tools/practice_audit.py](tools/practice_audit.py) audits the manifest
+[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) audits the manifest
 (drift between installed files and their recorded baselines) on every run.
-[tools/checkin.py](tools/checkin.py) drives the cross-repo mechanics, and
+[tools/checkin.py](https://github.com/alex137/BestPractice/blob/staging/tools/checkin.py) drives the cross-repo mechanics, and
 **both directions of its mirror destroy work, so both are guarded**:
 `update` refuses to overwrite unexported local changes, and `push` refuses
 when the vendored tree is behind upstream — it deletes files it does not
@@ -357,7 +357,7 @@ not just at check-in. Contributions are patterns and abstracted lessons
 only: no names, code words, identifiers, numbers, or incident text from the
 dependent repo's subject matter. Enforcement is mechanical: the dependent
 repo keeps `process/scrub_blocklist.txt` (regex per line — its private
-vocabulary), and [tools/practice_audit.py](tools/practice_audit.py) scans
+vocabulary), and [tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) scans
 the entire vendored tree against it on every run, failing loudly on any hit.
 The blocklist itself is never exported (it is a map of the secrets). And a
 public repo is **public from its first commit** — content is authored fresh
@@ -443,7 +443,7 @@ low-friction form for the reader who won't leave the page.
 
 **Install.** A writing convention plus one living file (a `GLOSSARY.md` grouped
 by theme, alphabetical within a group), and the natural audit extension
-(practice 6) is built: [tools/doc_lint.py](tools/doc_lint.py) check 3 scans each
+(practice 6) is built: [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) check 3 scans each
 changed document for ALL-CAPS tokens absent from `GLOSSARY.md` — skipping ones
 defined inline on the line (`long form (TOKEN)`) and a stoplist of common
 words/units — and warns, the same "convention → loud check" shape as its
@@ -1319,7 +1319,7 @@ the three verdicts. Do it after the framing check of practice 28, since
 reframing changes who the reader is.
 
 The natural audit extension (practice 6) is a per-repo list of known insider
-terms, checked by [tools/doc_lint.py](tools/doc_lint.py) against documents
+terms, checked by [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) against documents
 marked outward-facing — the same machinery as the scrub blocklist of
 practice 15, aimed at comprehension instead of confidentiality. Keep it
 **warning-level**: a glossed term is a legitimate pass, and only a human can
@@ -1496,7 +1496,7 @@ the three verdicts. Do it after the framing check of practice 28, since
 reframing changes who the reader is.
 
 The natural audit extension (practice 6) is a per-repo list of known insider
-terms, checked by [tools/doc_lint.py](tools/doc_lint.py) against documents
+terms, checked by [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) against documents
 marked outward-facing — the same machinery as the scrub blocklist of
 practice 15, aimed at comprehension instead of confidentiality. Keep it
 **warning-level**: a glossed term is a legitimate pass, and only a human can
@@ -1729,9 +1729,9 @@ legible: the fast one stays cheap enough to run on every commit path with
 no friction, the full one stays a deliberate, named gate that is obviously
 missing if it's skipped.
 
-**Install.** This repo's own [tools/doc_lint.py](tools/doc_lint.py) is
+**Install.** This repo's own [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) is
 already the fast pass — it scans only the markdown a session touched — and
-[tools/practice_audit.py](tools/practice_audit.py) is already the full one
+[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) is already the full one
 — the public-safe scrub, baseline-hash checks, and everything else that
 needs the whole repo. Naming them is the only step this practice adds: pick
 the repo's own pair of names, add both to `GLOSSARY.md` with what each one
@@ -1786,7 +1786,7 @@ practice 33); the render is a committed build product, rebuilt after any
 edit.
 
 **The behavior contract.** This is what the reference implementation
-([tools/doc_html.py](tools/doc_html.py)) delivers on every table, and what
+([tools/doc_html.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_html.py)) delivers on every table, and what
 any reimplementation on another stack must match — it is the spec a reader
 of this practice is entitled to assume when a repo says "practice 46
 render":
@@ -1892,7 +1892,7 @@ render":
 
 **The load-bearing half is singularity.** All table behavior — CSS, JS, sort
 semantics, numeric-aware sort keys — lives in **one** shared renderer with a
-registry of the documents it renders ([tools/doc_html.py](tools/doc_html.py)
+registry of the documents it renders ([tools/doc_html.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_html.py)
 is the reference implementation). A functionality change is made there and
 only there, and the no-argument invocation rebuilds every registered render,
 so the change manifests in every table at once. The test for a new

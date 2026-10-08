@@ -34,7 +34,7 @@ missing sources, relayed this entry's own two candidate causes -- refused
 credential, retired repository -- as a diagnosis, and recommended deleting
 three live source declarations. Both causes were wrong; the clone had simply
 not run yet.
-[tools/precedent_resolve.py](../tools/precedent_resolve.py) prints `MISSING` when
+[tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) prints `MISSING` when
 no credential is set and `SET` when one is set and a clone still failed; the
 session check and the session-start source report print the same line.
 **`add_repo` is the fallback, and what is measured about it does not add up.**

@@ -285,6 +285,39 @@ def sources_resolved_row(verdict, message, unresolved=()):
     return (SOURCES_RESOLVED_ROW, ok, message)
 
 
+def _importable(mod):
+    return subprocess.run([sys.executable, '-c', f'import {mod}'],
+                          capture_output=True).returncode == 0
+
+
+def gate_packages_row(root=ROOT, importable=_importable):
+    """-> the row for the packages this repository's gates import.
+
+    The list is asked of precedent_push_check, which installs the same
+    packages: `markdown` only where tools/doc_html.py is present and in use
+    (gate_packages). Until 2026-10-08 it was required everywhere, so a
+    practice set, which gets no doc_html.py, and a consumer that never runs
+    it, failed this row for a package nothing there imports."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(root) / 'tools'))
+        import precedent_push_check as _ppc
+        packages = _ppc.gate_packages(root)
+    except Exception:                                        # noqa: BLE001
+        packages = ('cmarkgfm', 'markdown')
+    missing = [mod for mod in packages if not importable(mod)]
+    return ('the packages the gates import are installed', not missing,
+            '' if not missing else
+            f'missing {", ".join(missing)} -- doc_lint\'s strikethrough '
+            f'check and tools/doc_html.py degrade rather than fail, so '
+            f'they pass while checking less than they claim. '
+            f'verify_harness does NOT degrade: it fails the checks that '
+            f'need them, naming what each was testing and never what is '
+            f'absent, which cost two full re-runs to attribute on '
+            f'2026-09-14. Remedy: pip install {" ".join(missing)} -- '
+            f'--apply re-runs the hook that installs them, which is the '
+            f'same fix only when the hook can run at all')
+
+
 def checks(offline=False):
     """-> [(name, ok, detail)]. Each is a guarantee a SessionStart hook is
     supposed to have established, tested by its EFFECT rather than by
@@ -429,22 +462,7 @@ def checks(offline=False):
     out.append(('the global commit backstop is installed', ok, detail))
 
     # 5. The packages this repo's own gates import.
-    missing = []
-    for mod in ('cmarkgfm', 'markdown'):
-        if subprocess.run([sys.executable, '-c', f'import {mod}'],
-                          capture_output=True).returncode != 0:
-            missing.append(mod)
-    out.append(('the packages the gates import are installed', not missing,
-                '' if not missing else
-                f'missing {", ".join(missing)} -- doc_lint\'s strikethrough '
-                f'check and tools/doc_html.py degrade rather than fail, so '
-                f'they pass while checking less than they claim. '
-                f'verify_harness does NOT degrade: it fails the checks that '
-                f'need them, naming what each was testing and never what is '
-                f'absent, which cost two full re-runs to attribute on '
-                f'2026-09-14. Remedy: pip install {" ".join(missing)} -- '
-                f'--apply re-runs the hook that installs them, which is the '
-                f'same fix only when the hook can run at all'))
+    out.append(gate_packages_row())
 
     # 6. A single-branch clone's refspec, without which every branch reads
     #    as unpushed forever (AGENTS.md's add_repo entry).

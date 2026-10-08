@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-11"
-approved_by: "Morgan, 2026-09-11 (strength: decided) -- asked whether the very deep check reviews token cost across this repo and the repos it calls, and said the review and the reduction that follows it should be a rule; caps warn on the way into pre-staging and refuse into staging, Morgan, 2026-09-30 (strength: decided)"
+approved_by: "Morgan, 2026-09-11 (strength: decided) -- asked whether the very deep check reviews token cost across this repo and the repos it calls, and said the review and the reduction that follows it should be a rule; caps warn on the way into pre-staging and refuse into staging, Morgan, 2026-09-30 (strength: decided); no raise before a reduction pass, offsets excepted, Morgan, 2026-10-08 (strength: decided)"
 ---
 ## Rule
 **Everything a session loads before it does any work carries a declared
@@ -58,6 +58,16 @@ registry's `approved_budgets`. That covers every budget *in force*, so a
 formula, fallback or newly summed source that makes the number bigger is a
 raise even when no field changed. Never raise one to make a red check green,
 and say any change to a budget in that reply's Boildown.
+
+**Never raise a budget before you are blocked, either, and when one blocks
+you, do a [reduction pass](reduction-pass.md), not a raise** -- every token
+budget, in every source: a ceiling, a cap, a set's `occasion_share_tokens`, a
+person's `brought_sets_tokens`. Ask for a raise only after the pass, with its
+report, and only the person's own words for that raise allow it. **The one
+exception is an offset:** tokens a change frees elsewhere -- a supporting set
+removed, its share given to the set that replaces it -- may pay for a raise
+of up to what they freed, recorded as `"strength": "offset"` with
+`offset_from`, `freed` and `previous_max`, and said with both numbers.
 
 **A cap warns at the quick check and refuses at the full one.** Over a
 cap,
@@ -225,6 +235,19 @@ refuses to write an over-budget block and exits non-zero — and what was
 missing was the second half: its failure message tells a session to demote or
 retire something, and says nothing about whose call that is. The obvious
 reading of a refusal is that the session clears its own path.
+
+**No raise before the block, 2026-10-08.** A session added a set to the
+ones Morgan brings everywhere, measured that it no longer fit his 700-token
+budget for them, and raised the budget to 1,200 in the same commit, telling
+him afterwards. No check saw it: `brought_sets_tokens` was the one budget
+`effective_budgets()` did not read. Morgan: *"I don't like bumping limits,
+instead do a reduction pass ... don't update token limits unless I
+explicitly authorize it, and if you are blocked in that then unblock
+yourself by doing a reduction pass. The exception is if we are making
+changes to remove tokens elsewhere so it evens out then that's fine (such as
+if we remove a supporting set repo then it's okay to allocate its tokens to
+the new repo etc)."* The budget went back to 700, the check now reads it,
+and an offset is recorded with what it freed. Strength: decided.
 
 ## Install
 The registry is
