@@ -56,6 +56,11 @@ nothing to choose here — this page installs §0, always.
      test branch before it reaches `main`. The ladder set goes with the
      person, not the project, so it is wired through their own personal
      set; if they have none, a yes to it is a yes to setting one up.
+     **Mention the ladder set this once and no more.** If they say no, or
+     let it pass, never bring it up again, nor anything that belongs to
+     it: its stages, its test branches, its commands. The rest of the
+     install, and everything after, reads as if it did not exist, which
+     for them it does not.
    - *Which AI Assistant will actually be working in this repo* — Claude
      Code, ChatGPT connected to GitHub, or something else? Explain in one
      sentence: an AI Assistant with no access to a terminal needs
