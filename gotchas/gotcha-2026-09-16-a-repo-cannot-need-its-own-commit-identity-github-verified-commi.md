@@ -28,7 +28,7 @@ that required it.
 Searched afterward: nothing. No practice, no ruleset, no doc anywhere in
 this repo ever required BestPractice to use a different commit identity
 than the person running it, and the repo's own branch-protection checker
-([tools/precedent_boundary_check.py](../tools/precedent_boundary_check.py))
+([tools/precedent_boundary_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_boundary_check.py))
 has no signed-commit check at all.
 More to the point, the claim doesn't match GitHub's own mechanism: the
 Verified badge is scoped to *(a signing key) ↔ (the GitHub account it's

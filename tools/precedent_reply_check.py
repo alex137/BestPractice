@@ -56,6 +56,13 @@ ANOTHER session, window or repository ("your Planning window says
 it's blocked on an upstream bug") is not read as this session's state.
 Added 2026-10-01; an older engine ignores the key.
 
+A `require_in_fence_paired_with` pair may carry
+`narration_exempt_if_block_matches`: in a fenced block that matches it,
+a clause that narrates what a session, tool or check did or was told, in
+the past tense and never to "you", is not read as an instruction to the
+receiving session (see _narrated_clauses). Added 2026-10-08; an older
+engine ignores the key and judges every clause, the stricter reading.
+
 `require_no_bare_pattern` checks a different practice family entirely --
 rule-links and branch-links, both of which say a mentioned destination (a
 PR, a session, a branch, a rule) gets a link the first time it is named, and
@@ -735,6 +742,58 @@ def _fenced_blocks(text):
     return blocks
 
 
+# A clause that narrates: it opens with a session, tool, check or the like
+# as its subject and a past-tense verb ("a tool told it to open a pull
+# request to main", "the last session merged its PR into main"). The
+# subject list holds no person and no "they": "Morgan said to merge into
+# main" is a claim of the person's word, and the rule that uses this exists
+# to make that claim quote the word itself.
+_NARRATION_CLAUSE_RE = re.compile(
+    r"^\W*(?:(?:and|but|so|then|later|earlier|meanwhile|situation)\W+)*"
+    r"(?:(?:a|an|the|that|this|its|their|one|another|other|earlier|previous|"
+    r"last|first|same|sending|vendoring|consuming|update|engine|reply|landing|"
+    r"precedent)\s+){0,3}"
+    r"(?:it|session|tool|agent|script|check|command|hook|gate|job|workflow|"
+    r"bot|run|repository|repo)\s+"
+    r"(?:(?:had|has|have|was|were|then|also|already|just|been|once)\s+)*"
+    r"(?:told|asked|instructed|directed|prompted|said|landed|merged|pushed|"
+    r"promoted|opened|prepared|made|built|tried|wanted|suggested|"
+    r"recommended|proposed|reported|printed)\b", re.I)
+_SECOND_PERSON_RE = re.compile(r"\byou(?:r|rs|rself|'\w+)?\b", re.I)
+# Clause boundaries: sentence and list punctuation, a line break, and the
+# conjunctions an instruction tacked onto narration would start with ("the
+# tool opened a PR, so merge it into main" is two clauses, judged apart).
+_CLAUSE_BOUNDARY_RE = re.compile(r"[.,;:!?\n]|\s(?:and|but|so|then)\s", re.I)
+
+
+def _narrated_clauses(block, trigger):
+    """-> `block` with every narrating clause that matches `trigger` on its
+    own blanked to spaces, so what is left is what the block TELLS the
+    receiving session.
+
+    WHY (2026-10-08): the reply gate refused a paste block whose situation
+    paragraph said a tool had told an earlier session to open a pull
+    request to main. The block ended at the feature branch ("build it on
+    your feature branch, push it there, and stop"), so it granted nothing;
+    the trigger read a report of the past as an order. Judging clause by
+    clause, and forgiving only a clause that both narrates and holds the
+    whole trigger, keeps every instruction in reach: "Then merge it into
+    main" in the same block is its own clause, narrates nothing, and still
+    fails. Strict where unsure -- an unrecognized narration is refused and
+    rewritten, never an instruction let through."""
+    out, start = list(block), 0
+    bounds = [(m.start(), m.end()) for m in _CLAUSE_BOUNDARY_RE.finditer(block)]
+    bounds.append((len(block), len(block)))
+    for b_start, b_end in bounds:
+        clause = block[start:b_start]
+        if (clause.strip() and _NARRATION_CLAUSE_RE.match(clause)
+                and not _SECOND_PERSON_RE.search(clause)
+                and re.search(trigger, clause, re.I | re.M)):
+            out[start:b_start] = ' ' * (b_start - start)
+        start = b_end
+    return ''.join(out)
+
+
 def is_trivial_checkin(text):
     """True when `text` opens with the fixed one-line check-in template
     practices/the-boildown.md names for a turn with nothing visible or
@@ -1101,8 +1160,12 @@ def violations(text, reqs, timeline=None, wake=None):
             trigger, needed = pair.get('if_matches'), pair.get('must_also_match')
             if not (trigger and needed):
                 continue
+            stop = pair.get('narration_exempt_if_block_matches')
             for block in _fenced_blocks(text):
-                m = re.search(trigger, block, re.I | re.M)
+                judged = block
+                if stop and re.search(stop, block, re.I | re.M):
+                    judged = _narrated_clauses(block, trigger)
+                m = re.search(trigger, judged, re.I | re.M)
                 if m and not re.search(needed, block, re.I | re.M):
                     out.append({'kind': 'in_fence_paired', 'advisory': advisory,
                                 'message': (
@@ -1456,7 +1519,10 @@ def main():
                 for pair in r['require_in_fence_paired_with']:
                     bits.append(f"inside a fenced block, /{pair.get('if_matches')}/ "
                                 f"requires /{pair.get('must_also_match')}/ in "
-                                f"the same block")
+                                f"the same block"
+                                + (f" (past-tense narration exempt in a block "
+                                   f"matching /{pair['narration_exempt_if_block_matches']}/)"
+                                   if pair.get('narration_exempt_if_block_matches') else ''))
             if r.get('require_container_safe_if_says'):
                 for ph in r['require_container_safe_if_says']:
                     bits.append(f'"{ph}" requires a container with nothing '

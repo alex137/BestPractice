@@ -52,7 +52,7 @@ Two consequences follow, and both had already produced wrong answers:
    before GitHub sees it — which is why that message is phrased in the
    harness's words rather than GitHub's.
 
-[`tools/github_budget.py`](../tools/github_budget.py)'s own docstring says it *"AUTHENTICATES WHEN A
+[`tools/github_budget.py`](https://github.com/alex137/BestPractice/blob/staging/tools/github_budget.py)'s own docstring says it *"AUTHENTICATES WHEN A
 TOKEN IS SET"*. That is true of the code and false of the outcome here, and
 a session reading it has every reason to believe the token is the lever.
 

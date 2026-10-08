@@ -164,7 +164,7 @@ If a diff surprises you, that line is the first thing to read.
 - [ADOPTING.md](ADOPTING.md) — the non-technical introduction
 - [spec/BOOTSTRAP_NEW_SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md) — the
   full procedure
-  [precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)
+  [precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
   mechanizes, including the
   parts that stay a human step
 - [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) — what a set's own CI costs and

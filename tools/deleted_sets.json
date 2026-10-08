@@ -1,0 +1,27 @@
+{
+  "_comment": [
+    "Shared sets whose repositories are deleted, or about to be. Shipped with the",
+    "engine to every repository, so every person's sessions stop loading, cloning",
+    "and freshness-checking them, and every person's Update Vendors removes them",
+    "from the precedent.json it runs in and from an individual set's `brings`",
+    "(tools/precedent_resolve.py, deleted_sets). A set that only marks itself",
+    "`retired` is dropped only while its clone can still be read; once its",
+    "repository is gone, this list is what still says so. Public sets only: a",
+    "private set a person deletes goes in their own individual set's",
+    "precedent-source.json `deleted_sets`, which is read the same way.",
+    "Morgan, 2026-10-08 (strength: decided): if another person runs Update",
+    "Vendors, it should notice a deleted set too, as a standing rule."
+  ],
+  "sets": [
+    {
+      "name": "precedent-shared-repo-maintenance",
+      "date": "2026-10-08",
+      "reason": "retired 2026-10-06, its rules folded into universal and precedent-shared-writing; repository being deleted"
+    },
+    {
+      "name": "precedent-shared-working-style",
+      "date": "2026-10-08",
+      "reason": "retired 2026-10-06, its rules folded into universal and precedent-shared-writing; repository being deleted"
+    }
+  ]
+}

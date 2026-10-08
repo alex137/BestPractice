@@ -21,7 +21,7 @@ approved_by: "pending review; real paths, index line dropped: Morgan, 2026-10-01
 ## Rule
 Ask a narrower question than "did we follow every practice": **did every
 practice that should have fired, fire?** Two parts, run with
-[tools/routing_audit.py](../tools/routing_audit.py): a mechanical coverage
+[tools/routing_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/routing_audit.py): a mechanical coverage
 check (`coverage`) — every judgment-only on-demand practice (no
 `checked_by`, no `gates`) whose `applies_to` glob matches the files in
 question, reported as a routing-failure candidate — and a rotating deep
@@ -83,7 +83,7 @@ fell through, and what else the plan approved that the tree does not show.
 **Real paths from 2026-10-01.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) gave this rule the audit's own tool and state file in place of `**`, so it leaves the occasion index and fires when the audit is run or changed. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
-[tools/routing_audit.py](../tools/routing_audit.py) implements both parts;
+[tools/routing_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/routing_audit.py) implements both parts;
 `tools/precedent_check.py`'s `routing-audit` check verifies the tool exists
 and that `tools/routing_audit_state.json`, if present, carries no rotation
 entry for a practice that is no longer active — stale bookkeeping a

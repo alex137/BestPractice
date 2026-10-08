@@ -24,17 +24,17 @@ source_practice_number: null
 ---
 ## Rule
 **A hook added from 2026-10-07 on goes in
-[tools/hook_wiring.json](../tools/hook_wiring.json), never in
+[tools/hook_wiring.json](https://github.com/alex137/BestPractice/blob/staging/tools/hook_wiring.json), never in
 `.claude/settings.json` or `HOOK_WIRING`.** In the same commit that adds it:
 
 1. **Put its script in `tools/`** and in `HOOK_SCRIPT_FILES` in
-   [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py), so
+   [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py), so
    it ships with the engine to every kind.
 2. **List it in `tools/hook_wiring.json` under every repo kind that should
    run it**, `consumer`, `source`, or both, with its event, its matcher and,
    if it needs more than a minute, its timeout. The list is by kind, never
    by repository. The fixed `precedent-hooks.sh` entry every repo already
-   has runs it ([tools/precedent_hooks.py](../tools/precedent_hooks.py)).
+   has runs it ([tools/precedent_hooks.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_hooks.py)).
 3. **If no kind should get it, say why**: put it in `HOOKS_NO_KIND` with the
    reason.
 
@@ -81,5 +81,5 @@ per event. strength: decided.
 ## Install
 Nothing to install. It binds only this repository, the one that ships the
 hooks, and the check is already registered in
-[tools/precedent_check.py](../tools/precedent_check.py). It reports "not
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py). It reports "not
 applicable" in any repo without `templates/harness/claude-code/hooks/`.

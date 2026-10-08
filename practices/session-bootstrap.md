@@ -57,7 +57,7 @@ that false by direct test, not merely unconvincing in theory; see Story.
 what the hook was supposed to have written treats "the config is absent,
 and this is a remote session" as "try the hook once more," not "nothing
 is configured" —
-[`tools/precedent_resolve.py`](../tools/precedent_resolve.py)'s own
+[`tools/precedent_resolve.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py)'s own
 `load_config()` does exactly this before concluding an individual source
 doesn't exist. This works precisely because that re-invocation happens
 *inside* the agent's own turn, always after `add_repo` has already run —
@@ -136,8 +136,8 @@ call could be ordered by instruction alone, and it took two independent
 incidents to show that assumption false — an instruction cannot make a
 tool call precede a hook the harness already started running. The first
 fix landed in the engine
-([`tools/precedent_source_bootstrap.py`](../tools/precedent_source_bootstrap.py)'s
-retry, [`tools/precedent_resolve.py`](../tools/precedent_resolve.py)'s
+([`tools/precedent_source_bootstrap.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py)'s
+retry, [`tools/precedent_resolve.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py)'s
 lazy self-heal) rather than as a second, more emphatic instruction — this
 practice's own Rule, applied to itself.
 
@@ -157,7 +157,7 @@ real latency (up to ≈12 seconds) for that zero benefit. The lazy
 self-heal half was unaffected and independently confirmed to work — it
 runs from inside the agent's own turn, after `add_repo`, which is exactly
 where the access exists. Fixed by defaulting
-[`tools/precedent_source_bootstrap.py`](../tools/precedent_source_bootstrap.py)
+[`tools/precedent_source_bootstrap.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py)
 to a single attempt (retry stays available, opt-in, for an unrelated
 genuine transient-network case — never claimed as a fix for this one) and
 correcting every document, including this one, that had stated the retry
@@ -240,7 +240,7 @@ instantiated by
 rather than hand-copied (see
 [spec/BOOTSTRAP_NEW_SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md)). It
 delegates to the vendored
-[`tools/precedent_source_bootstrap.py`](../tools/precedent_source_bootstrap.py),
+[`tools/precedent_source_bootstrap.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py),
 so an improvement to the mechanism — the self-heal `tools/precedent_resolve.py`
 relies on, above — reaches every adopter through the ordinary
 `process/upstream/` sync instead of a hand-edit repeated per repo.

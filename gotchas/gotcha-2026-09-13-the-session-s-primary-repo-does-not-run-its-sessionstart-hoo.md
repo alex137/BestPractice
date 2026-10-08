@@ -25,7 +25,7 @@ guard, the `pip install`, the path-trigger channel — and
 individual practices reach a session at all. **Do not diagnose this from
 `env`** — `CLAUDE_PROJECT_DIR` is usually not set in a tool shell, so reading
 it proves nothing either way. Test the effects:
-[tools/precedent_session_check.py](../tools/precedent_session_check.py) checks
+[tools/precedent_session_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py) checks
 each guarantee by what it left behind, and `--apply` runs the three hooks by
 hand. It cannot itself be a hook, for the obvious reason.
 

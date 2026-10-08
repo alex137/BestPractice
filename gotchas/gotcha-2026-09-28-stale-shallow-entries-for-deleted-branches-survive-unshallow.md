@@ -40,6 +40,6 @@ check above. A tool that did it unattended and misjudged one entry would
 make a really shallow clone read as complete, and the checks that read
 history would then run on history that is not there. Today the failure
 is loud and safe instead: the full check
-([tools/precedent_push_check.py](../tools/precedent_push_check.py))
+([tools/precedent_push_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_push_check.py))
 refuses to run on a clone that still reads as shallow. (Written 2026-10-06, after the 2026-10-05 very
 deep check found no answer recorded.)

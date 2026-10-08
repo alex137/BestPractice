@@ -43,7 +43,7 @@ Attaching the private practice sets is a session-shape question, and what is mea
   error. There is **no ambient credential** for a private repo (a bare
   `git ls-remote` on one asks for a username; the same call on a public repo
   succeeds). And the credential helper in
-  [tools/precedent_source_credentials.py](../tools/precedent_source_credentials.py)
+  [tools/precedent_source_credentials.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_credentials.py)
   **does deliver** a token to git — with a deliberately invalid one, git sent
   it and GitHub rejected it rather than prompting. **So set
   `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` in the environment
@@ -51,7 +51,7 @@ Attaching the private practice sets is a session-shape question, and what is mea
   before the first turn, where no ordering rule can reach it.** **Verified end to end
   2026-09-10**: a real read-scoped token in the environment, and a brand-new
   container came up with all four private sources cloned before the first
-  turn — [tools/precedent_resolve.py](../tools/precedent_resolve.py) reported 146 practices
+  turn — [tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) reported 146 practices
   from 6 sources (41 team, 13 individual) in a repo that had been resolving
   89 from 1. That tool prints `MISSING` when no credential is set and `SET`
   when one is set and a clone still failed, and the session check, the

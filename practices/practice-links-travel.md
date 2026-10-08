@@ -102,7 +102,7 @@ about. No lint anywhere reports it; only reading the link as a claim about
 because `.claude/` does not travel — nothing would catch it if it did.
 
 **Do not assume materialization repairs this for a public source.**
-[precedent_materialize.py](../tools/precedent_materialize.py)'s
+[precedent_materialize.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_materialize.py)'s
 `_rewrite_links` does turn an unplaceable relative link into an absolute
 URL when the source is public, which reads
 like the problem solving itself. It does not, in the install that matters
@@ -216,7 +216,7 @@ previous session wrote prevented neither repeat
 
 **Why no check could see it, stated mechanically**, because this is the part
 that makes the shape worth a rule rather than a reminder:
-[precedent_resolve.py](../tools/precedent_resolve.py)'s `resolve()` skips any
+[precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py)'s `resolve()` skips any
 practice whose status is not `active` before materialization is handed the
 set, so a withdrawn practice is never written into a consumer's `practices/`.
 Both halves of the link are correct in the publishing repository and exactly
@@ -286,15 +286,15 @@ manifest entry is `repo-local`, and suggests a URL only in a repository that
 declares itself public.
 
 ## Install
-[tools/precedent_check.py](../tools/precedent_check.py) enforces it, as a
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) enforces it, as a
 tree-scope check over the practice files this repository owns. It reads
 which engine files travel from
-[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)'s
+[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s
 `CONSUMER_ENGINE_FILES` rather than keeping a second list, and it holds the
 other half too: an absolute upstream URL must use the branch
 `precedent.json` declares and must name a path that actually exists in the
 tree. **For a sibling link it reads the target's own `status:`**, through
-[build_views.py](../tools/build_views.py)'s `is_in_force` rather than a second
+[build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)'s `is_in_force` rather than a second
 copy of the vocabulary, so it fails closed the same way the loader does: a
 status this engine does not recognize counts as not in force. The finding
 names the successor when `in_force_at:` gives one, because a finding that only

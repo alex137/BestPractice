@@ -123,7 +123,7 @@ and run the check across the whole tree in `--warn-only` mode to see the real
 violation count before committing to it; a standard that fails twenty files
 on the commit that introduces it is a standard people switch off.
 [tools/doc_lifecycle.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lifecycle.py) is the check, registered
-in [tools/precedent_check.py](../tools/precedent_check.py); flip it to
+in [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py); flip it to
 blocking once the backfill is done.
 
 Two traps, both hit for real on the way in. Quote any `title` or `summary`

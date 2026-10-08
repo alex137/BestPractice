@@ -54,12 +54,12 @@ and a session takes one initial source, so no session can hold both.
 first — `git push --dry-run --quiet origin HEAD`, exit status only — and
 where the answer is no, keep whatever needed recording somewhere this
 container owns.
-[tools/precedent_beta_watermark_check.py](../tools/precedent_beta_watermark_check.py)
+[tools/precedent_beta_watermark_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_beta_watermark_check.py)
 does exactly that, and its `_can_push` docstring carries the reasoning.
 
 **That file's own watermark moved out of the cross-owner clone entirely on
 2026-09-22** — it is
-[tools/beta_branch_watermark.json](../tools/beta_branch_watermark.json) here
+[tools/beta_branch_watermark.json](https://github.com/alex137/BestPractice/blob/staging/tools/beta_branch_watermark.json) here
 now — so it is no longer the worked example of writing into one. The probe
 stayed: a checkout that is offline, behind or diverged still cannot push, and
 the wall this entry describes is unchanged for anything else that reaches

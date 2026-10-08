@@ -9,7 +9,7 @@ technical work yourself.
 This conversation installs [INSTALL.md](INSTALL.md) §0 — the Precedent
 loader: the practice catalogue, the resident block and occasion index every
 session reads, and the enforced checks — with one command,
-[tools/precedent_install.py](tools/precedent_install.py), which does the file
+[tools/precedent_install.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_install.py), which does the file
 work and then lists what is left for you to adapt. **Since 2026-09-14 this is
 the default** (Morgan, on the very deep check's recommendation; `strength:
 assented`): until then this page installed §1, the classic vendored model,
@@ -76,7 +76,7 @@ nothing to choose here — this page installs §0, always.
    `https://github.com/alex137/BestPractice` beside the project (a sibling
    directory, not inside it) **on its `main` branch** — every install
    takes its updates from `main` (`SOURCE_BRANCH` in
-   [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py),
+   [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py),
    since 2026-09-25), so installing from any other branch makes the first
    session report the engine as behind — and run, from that clone:
 
@@ -117,7 +117,7 @@ nothing to choose here — this page installs §0, always.
    follow [spec/BOOTSTRAP_NEW_SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md) —
    it walks through creating the repository (do it yourself if the session
    can; otherwise hand them the exact command or click-path), running
-   [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py),
+   [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py),
    and wiring the result in exactly
    as INSTALL.md §1 step 9 describes for an existing repo. This is real,
    working tooling, not a promise: it hands them a starter file in the

@@ -119,7 +119,7 @@ gets a line there too, added by whichever install step introduces it.
 
 **What the check reads, and why it reads more than one file.**
 `github-setup-disclosed` in
-[tools/precedent_check.py](../tools/precedent_check.py) fires when a
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) fires when a
 change adds a `.github/workflows/*.yml` file whose filename appears in
 none of the repo's root `GETTING_STARTED.md`, a repo's own root
 `GITHUB_ACTIONS.md`, or `documentation/GITHUB_ACTIONS.md`. Until

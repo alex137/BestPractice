@@ -100,7 +100,7 @@ generates
 for the deliberate read from those files' frontmatter and `## Symptom`
 sections.
 
-[tools/precedent_check.py](../tools/precedent_check.py)'s
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s
 `environment-gotchas` check reads `gotchas/*.md` directly and applies the
 story test to each `status: live` entry's Symptom and Story — it does not
 read the instructions file's pointer at all, only that the catalogue exists

@@ -256,20 +256,19 @@ def stale_declines(manifest_path):
     # source, and every consumer's declines read as gone (2026-09-30, a
     # real consumer whose three declined files were all there, hashes
     # matching).
-    tree = manifest_path.resolve().parents[1] / manifest.get('upstream', {}).get(
-        'vendored_at', 'process/upstream')
+    repo, tree = _manifest_tree(manifest_path, manifest)
     out = []
     for e in manifest.get('entries', []):
         if e.get('status') != 'declined':
             continue
         name = f"{label}:{e.get('practice', '?')}"
         rel = e.get('upstream_path') or ''
-        upstream = _upstream_file(tree, rel)
         if not rel:
             out.append((name, 'declined with no upstream_path, so nothing can tell '
                               'when the practice it declined has moved on'))
             continue
-        if not upstream.is_file():
+        current, upstream = decline_basis(repo, tree, rel)
+        if current is None:
             out.append((name, f'declined {rel}, which is no longer in the vendored tree '
                               f'(renamed, merged or removed upstream) -- find what carries '
                               f'that rule now and decide again'))
@@ -281,9 +280,9 @@ def stale_declines(manifest_path):
                               f'decide again against the current file, then --redecide '
                               f'{e.get("practice", "?")}'))
             continue
-        if sha256(upstream) == recorded:
+        if current == recorded:
             continue
-        fm = _frontmatter(upstream)
+        fm = _frontmatter(upstream) if upstream is not None else {}
         now = []
         status = fm.get('status', '')
         if status and status != 'active':
@@ -309,17 +308,17 @@ def redecide(manifest_paths, practice):
     hits = 0
     for mp in manifest_paths:
         manifest = json.loads(mp.read_text(encoding='utf-8'))
-        tree = ROOT / manifest.get('upstream', {}).get('vendored_at', 'process/upstream')
+        repo, tree = _manifest_tree(mp, manifest)
         for e in manifest.get('entries', []):
             if e.get('practice') != practice or e.get('status') != 'declined':
                 continue
-            upstream = _upstream_file(tree, e.get('upstream_path') or '')
-            if not upstream.is_file():
+            current, _ = decline_basis(repo, tree, e.get('upstream_path') or '')
+            if current is None:
                 print(f"practice_audit --redecide: {practice}'s upstream_path "
                       f"{e.get('upstream_path')!r} is not in the vendored tree; point "
                       f"the entry at what carries the rule now first.")
                 return 1
-            e['declined_upstream_sha256'] = sha256(upstream)
+            e['declined_upstream_sha256'] = current
             mp.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
                           encoding='utf-8')
             print(f"practice_audit --redecide: recorded the current hash of "
@@ -331,6 +330,55 @@ def redecide(manifest_paths, practice):
               f"status 'declined'.")
         return 1
     return 0
+
+
+def _manifest_tree(manifest_path, manifest):
+    """-> (repo, vendored tree) for one process/manifest*.json: the repo that
+    owns the manifest (<repo>/process/manifest*.json), never this module's
+    own ROOT, which is the source clone when precedent_update.py runs this
+    through checkin.py --repo."""
+    repo = manifest_path.resolve().parents[1]
+    return repo, repo / manifest.get('upstream', {}).get('vendored_at', 'process/upstream')
+
+
+def decline_basis(repo, tree, rel):
+    """-> (sha256, path or None): THE hash a decline of upstream file `rel`
+    is judged against, or (None, None) when this repo receives no copy of it.
+    --redecide records it and stale_declines() compares with it, so the two
+    can never disagree (practice: current-rule-governs).
+
+    It is upstream's text at the commit this repo takes, read from what the
+    repo itself holds -- never from a source clone, whose working tree may
+    sit on any branch, and which the consumer's own audit does not have:
+      - a file in the vendored tree: that copy, which the catalogue mirror
+        writes byte for byte from the commit being taken;
+      - a tools/ file the copy leaves out (this repo vendors its own engine,
+        checkin.py _copy_carries_tools): the hash tools/ENGINE_MANIFEST.json
+        records for it, which is upstream's text as the engine refresh wrote
+        it -- the same after a local edit to the file, which the manifest
+        reads as drift against that hash.
+    Until 2026-10-08 the second case hashed `ROOT/tools/...`, and ROOT is
+    this module's repository: the consumer when --redecide ran there, the
+    source clone's working tree when the update ran the check. The update
+    missed a moved decline on its first run and asked about it again on
+    every run after --redecide; a second --redecide undid a hand correction.
+    A tools/ file the engine does not vendor reaches this repo by neither
+    route, so there is no upstream text here to judge a decline by."""
+    if not rel:
+        return None, None
+    up = tree / rel
+    if up.is_file():
+        return sha256(up), up
+    if rel.startswith('tools/'):
+        try:
+            recorded = (json.loads((repo / 'tools' / 'ENGINE_MANIFEST.json').read_text(
+                encoding='utf-8')).get('sha256') or {}).get(rel[len('tools/'):])
+        except (OSError, ValueError, AttributeError):
+            recorded = None
+        if recorded:
+            here = repo / rel
+            return recorded, here if here.is_file() else None
+    return None, None
 
 
 def _upstream_file(tree, rel):

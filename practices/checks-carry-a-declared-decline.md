@@ -85,13 +85,13 @@ No check exists for this practice itself, and it is not obvious one can:
 whether a given check reports a state a repository can legitimately choose
 is a judgment about that check's subject matter, not a property of its
 source. It fires at the `review` gate instead —
-[tools/precedent_gate.py](../tools/precedent_gate.py) review — so a session
+[tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_gate.py) review — so a session
 writing or changing a check is handed this Rule at the moment it matters.
 
 The worked example is in this repository and is the shape to copy:
 `declined_adapters` in [precedent.json](https://github.com/alex137/BestPractice/blob/staging/precedent.json), read by
 `hooks-on-disk-are-reachable` in
-[tools/precedent_check.py](../tools/precedent_check.py), with its four
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py), with its four
 planted cases in [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) —
 the declared decline passing, and each of the three loose-declaration
 states firing.

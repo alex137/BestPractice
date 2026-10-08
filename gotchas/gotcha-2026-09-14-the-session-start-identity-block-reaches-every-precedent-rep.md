@@ -72,7 +72,7 @@ that cannot fail is not a control (practice: `control-asserts-which-failure`,
 instead: that is the failure state, it owns its own state, and the row goes
 red on it.
 
-[tools/precedent_session_check.py](../tools/precedent_session_check.py) now carries that row — *every practice
+[tools/precedent_session_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py) now carries that row — *every practice
 source on this disk commits as a person too* — so the next occurrence is
 reported rather than discovered by a refused commit.
 

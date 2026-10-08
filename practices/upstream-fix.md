@@ -103,6 +103,21 @@ the one it already made, or the one it is about to make.
    it as the fix, and record the durable fix as an open item naming what it
    is blocked on.
 
+   **When it cannot wait, fix it here, and save the upstream fix as a
+   [Prompt Please](prompt-please.md).** A local workaround to a file this
+   repo receives (an engine file, a vendored copy) is allowed when the fix
+   is urgent. In the same turn, write the upstream fix as a Prompt Please,
+   save it in an open item under `todo/` that names the file (a
+   `## Prompt Please` section, the block in a fence), and give it in the
+   reply, so the person takes it upstream when it suits them.
+   `precedent_check.py --only upstream-fix` refuses an edited engine file
+   with neither that item nor one linking the upstream pull request.
+
+   **A check never skips a vendored file silently.** What it finds there is
+   upstream's to fix and never fails this repo, and it is still reported,
+   as upstream's: a skip nobody sees is how a broken copy ships to every
+   repository with nobody noticing.
+
 **The origin and every copy:**
 
 8. **Who else has a copy?** Every other place the same file, or the same
@@ -112,7 +127,8 @@ the one it already made, or the one it is about to make.
    (`python3 tools/upstream_fix.py PATH` sets it up). Another repository,
    or access the session can request, is never a `blocked-on` reason
    ([todo-is-a-handoff](todo-is-a-handoff.md)); an open item about it only
-   waits on that pull request, and links it.
+   waits on that pull request, and links it -- or, for a fix that could not
+   wait, holds the saved Prompt Please (point 7).
 9. **What should have caught it earlier, and why didn't it?** When one gate
    passed what a later one failed (local green but GitHub red, one
    checkout's gate green and another's red), **that difference is its own
@@ -252,6 +268,20 @@ same paragraph into session after session, was whether anything the
 session had run into should go back upstream; that became
 [root-issues](root-issues.md). Points 1 to 4 became standing rules here the
 same day. Strength: decided.
+
+**Silent skips and saved prompts, 2026-10-08.** 320 links in the catalogue
+copy every consumer receives pointed at files the copy leaves out. Nothing
+reported them: BestPractice's own check judged the copy by a stale rule,
+and every consumer's link check skipped vendored files on purpose, so the
+one place the breakage showed was a consumer's hand-written light check.
+Asked how to enforce root fixes more strongly, Morgan took the first half
+of the proposal and replaced the second: *"(a) yes let's do it and (b) no
+because sometimes it's urgent and you need to do how about this idea: what
+if they can fix it BUT they also must do a prompt please so the user can
+easily bring it upstream at his convenience later."* So a vendored file's
+findings are reported, never failed and never hidden, and a local
+workaround to an engine file is allowed with a saved Prompt Please beside
+it. Strength: decided.
 
 ## Install
 **Where the answer goes: [The Boildown](the-boildown.md)'s fix line**,
