@@ -1399,9 +1399,9 @@ CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSA
 
 
 def _blob_id(data):
-    """-> the git object id of `data` as a blob (git's default sha1 format)."""
-    import hashlib
-    return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
+    """-> the git object id of `data` as a blob (checkin.blob_id)."""
+    import checkin
+    return checkin.blob_id(data)
 
 
 def _tree_blobs(where, ref, prefix):
@@ -1423,21 +1423,12 @@ def _upstream_history_blobs(rev):
     commit -- `rev`'s history and every ref the source clone holds -- ever
     carried. The same allowance the carry check makes for upstream's own
     history: a file equal to one of these is upstream's text, not a local
-    edit, whichever commit it was vendored from."""
-    # `-m`: a version a merge commit introduced is upstream's text too.
-    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--format=', '--raw', '-m',
-                        '--no-abbrev', '--no-renames', rev, '--all', '--',
-                        'practices/'], capture_output=True, text=True)
-    out = set()
-    for line in r.stdout.splitlines() if r.returncode == 0 else []:
-        meta, _, path = line.partition('\t')
-        parts = meta.split()
-        if not line.startswith(':') or len(parts) < 4 or not path.startswith('practices/'):
-            continue
-        for oid in parts[2:4]:
-            if oid.strip('0'):
-                out.add((path[len('practices/'):], oid))
-    return out
+    edit, whichever commit it was vendored from. One reading of upstream's
+    history for every layer (checkin.upstream_blobs)."""
+    import checkin
+    return {(path[len('practices/'):], oid)
+            for path, oid in checkin.upstream_blobs(SOURCE, rev)
+            if path.startswith('practices/')}
 
 
 def _catalogue_record(text):
@@ -1610,6 +1601,7 @@ class Report:
         self.staged = []     # the paths this run staged as its own
         self.pin = None      # (repo, commit, branch): the commit reruns take
         self.pin_repo = None # whose pin a DONE drops, --from-ref runs included
+        self.before = None   # what was uncommitted when the run started writing
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -1678,6 +1670,17 @@ class Report:
     def close(self, failed=None):
         if self.pin_repo is not None and not failed and not self.left:
             clear_pin(self.pin_repo)   # DONE: the next update starts fresh
+        if failed and self.repo is None and self.before is not None:
+            # A run that failed before its staging step (the view sync, the
+            # catalogue record) wrote as much as one that failed after it,
+            # and recorded none of it, so its rerun took its output for
+            # someone's: a consuming repository's next run refused 41 files
+            # of its mirror as "changed here and not committed" (2026-10-08).
+            # Staged and recorded the same way, so the rerun puts it back.
+            ours = sorted(dirty_paths(self.pin_repo) - self.before)
+            if ours:
+                stage_update(self.pin_repo, self.before)
+                self.repo, self.staged = self.pin_repo, ours
         if failed and self.repo is not None and self.staged:
             # Only a FAILED run's output is put back by the next one. A run
             # that left items for the person staged answers the next run
@@ -2261,6 +2264,53 @@ def restore_own_staged_output(repo, select):
     return back
 
 
+def realign_catalogue_record(repo, wrote, back):
+    """Keep the catalogue copy and its record together across a put-back.
+    -> the commit the record was put back to, or None.
+
+    restore_own_staged_output() puts back each file an earlier run wrote and
+    nobody has touched since. process/manifest.json is often touched since:
+    practice_audit.py --redecide writes a decline there between a FAILED run
+    and its rerun. Then the copy went back to HEAD and the manifest kept
+    naming the commit the failed run mirrored, and the rerun judged HEAD's
+    older copy against that commit -- every file "a local edit upstream has
+    not changed", kept (2026-10-08, a consuming repository: 440 files).
+    Only the keys checkin.py record writes (commit, synced_from, _note) go
+    back to HEAD's, and only when no other key of `upstream` differs, so a
+    decline or any other change of the person's stays."""
+    rel = 'process/manifest.json'
+    if rel not in wrote or rel in back:
+        return None
+    try:
+        import precedent_resolve as pr
+        mirrors = tuple(pr.mirrored_prefixes(repo) or ())
+    except Exception:                                          # noqa: BLE001
+        mirrors = ()
+    if not any(p.startswith(mirrors or ('process/upstream/',)) for p in back):
+        return None
+    shown = subprocess.run(['git', '-C', str(repo), 'show', f'HEAD:{rel}'],
+                           capture_output=True, text=True)
+    try:
+        head = (json.loads(shown.stdout).get('upstream') or {}) if shown.returncode == 0 else {}
+        data = json.loads((repo / rel).read_text(encoding='utf-8'))
+    except (OSError, ValueError, AttributeError):
+        return None
+    now = data.get('upstream') if isinstance(data, dict) else None
+    own = ('commit', 'synced_from', '_note')
+    if not isinstance(now, dict) or not head.get('commit') or now == head:
+        return None
+    if {k: v for k, v in now.items() if k not in own} != \
+            {k: v for k, v in head.items() if k not in own}:
+        return None
+    fixed = {k: (head[k] if k in own else v) for k, v in now.items()
+             if k not in own or k in head}
+    fixed.update({k: head[k] for k in own if k in head and k not in fixed})
+    data['upstream'] = fixed
+    (repo / rel).write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                            encoding='utf-8')
+    return head['commit']
+
+
 def adopt_engine_output(repo, before, pinned):
     """-> the paths in `before` that are this update's own output, written
     ahead of it, to stage as the update's; [] when any is not.
@@ -2724,12 +2774,24 @@ def update(repo, skip_check=False, ref=None, move=False):
     # this command's own output, written again below -- never an edit to
     # refuse. Put back before `before` is read, so it is not counted as
     # someone's uncommitted work either.
+    # Which of them the earlier run had deleted: put back to HEAD so the
+    # local-edit rules see the committed state, they are deleted again once
+    # the copy is checked against its record (catalogue_copy_postcondition).
+    wrote = _read_record(repo).get('paths') or {}
     back = restore_own_staged_output(repo, vendored_layer_paths)
+    put_back_deleted = {p for p in back if wrote.get(p) is None}
     if back:
         rep.step('earlier run', 'put back to HEAD, to be resolved and written '
                  'again: ' + ', '.join(back) + ' -- staged by an earlier run '
                  'and unchanged since, so its own output, not an edit')
+    realigned = realign_catalogue_record(repo, wrote, back)
+    if realigned:
+        rep.step('earlier run', f'process/manifest.json changed after that run, '
+                 f'so it was not put back with the copy; its record of the copy '
+                 f'goes back to {realigned[:12]}, the commit the copy now holds, '
+                 f'and your other changes to it stay')
     before = dirty_paths(repo)
+    rep.before = before
     engine_tool = repo / 'tools' / 'precedent_vendor_engine.py'
     if not (repo / 'tools' / pve.MANIFEST_NAME).is_file() or not engine_tool.is_file():
         rep.leave(str(repo), "no vendored loader engine (tools/ENGINE_MANIFEST.json), "
@@ -2963,6 +3025,9 @@ def update(repo, skip_check=False, ref=None, move=False):
         rep.step('catalogue record', next((l for l in out.splitlines()
                                            if l.startswith('checkin record')),
                                           'recorded'))
+        # After the local-edit rules, which write back what they keep: the
+        # copy is the commit its record names, or the report says why not.
+        catalogue_copy_postcondition(repo, rep, put_back_deleted)
     else:
         # INSTALL.md section 2, step 0: a section 0 install vendors the
         # universal catalogue at its universal source's own path
@@ -2983,6 +3048,7 @@ def update(repo, skip_check=False, ref=None, move=False):
                                                 or p == f'{rel}/{CATALOGUE_SYNC_NAME}'
                                                 or p in {f'{rel}/{c}' for c in
                                                          CATALOGUE_COMPANIONS})}
+            rep.before = before
 
     # After the templates have moved: what they replaced that an update
     # cannot convert for the repo, the install-once file an update can
@@ -3215,6 +3281,114 @@ def update(repo, skip_check=False, ref=None, move=False):
 
     manifest_postcondition(repo, rep)
     return closing_check(repo, rep, skip_check)
+
+
+def catalogue_copy_postcondition(repo, rep, put_back=()):
+    """The vendored catalogue copy is what the commit its record names gives
+    under the copy rules, when the update ends -- apart from what the
+    repository keeps different on purpose: a local edit this run resolved
+    and kept (LOCAL EDITS says which), one left for the person, and a path
+    precedent.json's kept_template_divergences names. A file that differs
+    otherwise is re-mirrored from that commit when it holds text upstream
+    itself shipped at that path (checkin.upstream_text), or when it is a
+    deletion an earlier run made that this run's put-back restored
+    (`put_back`, still holding HEAD's text); any other is a local edit
+    nothing resolved, so it is left for the person, never overwritten
+    (practice: repair-cannot-discard-work). DONE follows only a match.
+
+    WHY (2026-10-08, a consuming repository). Its process/manifest.json and
+    engine manifest both recorded one commit while 440 of the 604 files
+    under process/upstream/ were other upstream versions and process/upstream/
+    tools/ still held 99 files the copy no longer carries, and the update
+    had said DONE. checkin.py record verifies the tree, but before the
+    local-edit rules put the "edits" back; nothing asked again at the end.
+    -> the repo-relative paths re-mirrored."""
+    import checkin as ck
+    import filecmp
+    import shutil
+    import tempfile
+    ck._select_repo(repo)
+    commit = (ck._manifest().get('upstream') or {}).get('commit')
+    if not commit or not ck.UPSTREAM.is_dir():
+        return []
+    tree = ck.UPSTREAM.relative_to(repo).as_posix()
+    known = {rel for outcome, rel, _t in rep.edits
+             if outcome in (le.KEPT, le.STILL_LOCAL, le.MERGED)}
+    known |= {what for what, _why in rep.left}
+    known |= set(pve.kept_template_divergences(repo))
+    put_back = set(put_back)
+
+    def head_text(rel):
+        return (subprocess.run(['git', '-C', str(repo), 'diff', '--quiet', 'HEAD',
+                                '--', rel], capture_output=True).returncode == 0
+                and subprocess.run(['git', '-C', str(repo), 'cat-file', '-e',
+                                    f'HEAD:{rel}'], capture_output=True).returncode == 0)
+
+    fixed, left, kept = [], [], []
+    with tempfile.TemporaryDirectory() as td:
+        tar = subprocess.run(['git', '-C', str(le._where(SOURCE, commit)), 'archive',
+                              commit], capture_output=True)
+        if tar.returncode != 0:
+            rep.leave(tree, f'could not read {commit[:12]}, the commit '
+                      f'process/manifest.json records, to confirm the copy is it')
+            return []
+        import io
+        import tarfile
+        with tarfile.open(fileobj=io.BytesIO(tar.stdout)) as tf:
+            try:
+                tf.extractall(td, filter='data')
+            except TypeError:   # a Python older than 3.11.4 has no filter
+                tf.extractall(td)
+        src = pathlib.Path(td)
+        theirs = ck._files(src)
+        ours = {p.relative_to(ck.UPSTREAM) for p in ck.UPSTREAM.rglob('*')
+                if p.is_file() and '__pycache__' not in p.parts
+                and p.suffix not in ('.pyc', '.pyo')}
+        for p in sorted(ours | theirs):
+            rel = f'{tree}/{p.as_posix()}'
+            here, there = ck.UPSTREAM / p, src / p
+            if p in ours and p in theirs and filecmp.cmp(here, there, shallow=False):
+                continue
+            if rel in known:
+                kept.append(rel)
+                continue
+            if p in theirs and p not in ours:
+                ok = not ck.deleted_here(here)
+            else:
+                ok = (ck.upstream_text(le._where(SOURCE, commit), here, p, commit)
+                      or (rel in put_back and head_text(rel)))
+            if not ok:
+                left.append(rel)
+                continue
+            if p in theirs:
+                here.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(there, here)
+            else:
+                here.unlink()
+            fixed.append(rel)
+    for d in sorted({(repo / r).parent for r in fixed}, key=lambda d: -len(d.parts)):
+        while d != ck.UPSTREAM and d.is_dir() and not any(d.iterdir()):
+            d.rmdir()
+            d = d.parent
+    for rel in left:
+        rep.leave(rel, f'differs from {commit[:12]}, the commit process/manifest.json '
+                  f'records for the copy, and holds text upstream never shipped '
+                  f'there -- a local edit this update did not resolve, so it is '
+                  f'left as it is. Send it upstream ({le.send_command(repo)}), '
+                  f'record it under precedent.json\'s kept_template_divergences '
+                  f'with a reason, or restore upstream\'s text, then run this again')
+    if fixed:
+        shown = ', '.join(fixed[:12]) + (f' and {len(fixed) - 12} more'
+                                         if len(fixed) > 12 else '')
+        rep.step('catalogue copy', f're-mirrored {len(fixed)} file(s) from '
+                 f'{commit[:12]}, the commit its record names, that did not '
+                 f'match it -- each upstream\'s own text from another commit, '
+                 f'nothing of this repo\'s: {shown}')
+    elif not left:
+        rep.step('catalogue copy', f'matches {commit[:12]}, the commit its '
+                 f'record names' + (f', apart from {len(kept)} file(s) kept on '
+                                    f'purpose or left for you' if kept else ''))
+    return fixed
 
 
 def manifest_postcondition(repo, rep):
