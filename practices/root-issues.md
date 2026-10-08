@@ -25,7 +25,8 @@ approved_by: "Morgan, 2026-10-01 -- coined both names and wrote the meaning
   and the templates and related repos they reach, by replacing the
   quoted paragraph with his new wording; and again the same day, to one
   prompt for a session rooted in every relevant repo instead of one block
-  per finding"
+  per finding; widened by Morgan on 2026-10-08 to fix the warnings a session
+  got, ranked after what broke or could break something"
 strength:    decided
 ---
 ## Rule
@@ -52,6 +53,13 @@ output, hook output at session start, check results, a warning that scrolled
 past and was never mentioned, a rule that steered you wrong, a step you had
 to work around. A warning counts as much as a failure; the question is
 whether its cause lives somewhere other than here, not how loud it was.
+
+**Warnings are fixed too, after what breaks.** A warning whose cause lives
+upstream goes into the prompt as a fix to make -- stop the warning at its
+source -- never as a note to read. Order the findings by harm: **first what
+broke something, then what could break something, then warnings**, and say
+which of the three each one is. A long list of warnings never pushes a
+breakage down the prompt or out of it.
 
 **Your own fixes count too, band-aids above all.** Every fix this session
 made or recommended gets the same question: does it also belong somewhere
@@ -137,6 +145,15 @@ all the relevant repos together, and give it to me as one prompt."* Several
 blocks meant several new sessions for findings that often touch the same
 two or three repos, and each block repeated the same setup. Strength:
 decided.
+
+**Warnings fixed, breakage first, 2026-10-08.** Morgan: *"add include in the
+fixes *warnings* you got (although give priority and preference to issues
+that broke or could break other things first)."* A warning was already a
+finding here, and in practice still reached the prompt as an aside or not at
+all, beside the failures that had cost real time. The same night a
+consumer's 227 broken-link warnings, all from one upstream cause, turned out
+to sit beside a defect that refused every Produce; both belonged in the
+prompt, in that order. Strength: decided.
 
 ## Install
 Nothing mechanical checks that a reply found every upstream finding: whether
