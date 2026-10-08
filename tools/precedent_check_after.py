@@ -157,6 +157,9 @@ def self_check():
 
 
 def main(argv):
+    if "--help" in argv or "-h" in argv:
+        print(__doc__)
+        return 0
     if "--self-check" in argv:
         return self_check()
     root = pathlib.Path(git(pathlib.Path.cwd(), "rev-parse", "--show-toplevel").stdout.strip())

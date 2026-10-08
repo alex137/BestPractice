@@ -107,6 +107,9 @@ def self_check():
 
 
 def main(argv):
+    if "--help" in argv or "-h" in argv:
+        print(__doc__)
+        return 0
     if "--self-check" in argv:
         return self_check()
     if argv[:1] == ["--file"]:
