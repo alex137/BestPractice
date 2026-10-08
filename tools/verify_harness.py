@@ -57407,7 +57407,7 @@ def check_update_fetches_brought_sets_before_the_views():
                   and not rep.left))
     src = (ROOT / 'tools' / 'precedent_update.py').read_text(encoding='utf-8')
     cases.append(('in run order, the step comes before the view sync',
-                  0 < src.find('    brought_sets_step(rep)\n')
+                  0 < src.find('    brought_sets_step(rep, repo=repo)\n')
                   < src.find("    sync = repo / 'tools' / 'precedent_sync_views.py'")))
     bad = [n for n, ok in cases if not ok]
     return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
