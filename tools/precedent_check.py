@@ -8747,52 +8747,62 @@ def _rename_updates_links(ctx):
                            '--stdin'], input='\n'.join(o for o, n in searchable if not n),
                           capture_output=True, text=True)
     ignored_now = set(_ign.stdout.split()) if _ign.returncode in (0, 1) else set()
-    for old, new_path in searchable:
-        if old in ignored_now:
-            continue          # build output now, not deleted -- see above
-        for rel in tracked:
-            if rel == new_path or rel == old:
-                continue
-            if old in withheld:
-                continue      # withheld, not deleted -- see the note above
-            moved = _lives_on_in_own_engine(old)
-            # A file the consuming repo RECEIVED cannot be repointed there:
-            # a mirrored tree, the vendored engine and another source's
-            # materialized files are copied wholesale, and an edit is
-            # overwritten by the next refresh. run() drops those findings
-            # for every check; asking the same one answer here as well only
-            # saves reading the files (practice: upstream-fix).
-            if _received_owner(rel) is not None \
-                    or rel == DECOMMISSIONED_PATHS_REGISTRY \
-                    or any(_exempt_matches(rel, e) for e in _retired_exempt):
-                # The decommissioning registry names every path this repo has
-                # deleted, on purpose (practice: decommission-deletes-files) --
-                # it is the record OF the deletion, not a reference left
-                # behind by one, so reading it as a stranded link would make
-                # every decommissioning fail the moment it was recorded.
-                #
-                # And so is everything the registry's own `exempt_files`
-                # names, which is the half this check was missing: the
-                # migration record explaining the deletion, and the dated
-                # backlog entry it closed, are the same kind of document as
-                # the registry and were being flagged for doing their job.
-                # See _decommissioning_record_exemptions() for the incident.
-                continue
-            if any(_exempt_matches(rel, e) for e in _records):
-                continue      # a declared record: it names what was, then
-            f = ROOT / rel
-            if not f.is_file():
-                continue
-            try:
-                text = f.read_text(encoding='utf-8', errors='ignore')
-            except OSError:
-                continue
-            if _is_history(rel, text):
-                continue      # a generated view, or a closed todo item
-            lines = text.splitlines()
-            in_story = _story_mask(lines) if rel.endswith('.md') else [False] * len(lines)
-            for i, (line, in_generated) in enumerate(
-                    zip(lines, generated_blocks.mask(lines)), 1):
+    # Files outer, paths inner, and each file read and parsed ONCE. Paths
+    # outer re-read and re-parsed every tracked file once per removed path:
+    # on a consumer whose update deleted a few hundred mirrored files that
+    # was about 295 of its full sweep's 313 seconds, measured 2026-10-08,
+    # with the same findings. A file that names none of the paths is
+    # skipped before it is split into lines -- a line can only match a path
+    # the text holds.
+    paths = [(k, old, new_path) for k, (old, new_path) in enumerate(searchable)
+             if old not in ignored_now      # build output now, not deleted -- see above
+             and old not in withheld]       # withheld, not deleted -- see the note above
+    moved_by_old = {old: _lives_on_in_own_engine(old) for _k, old, _n in paths}
+    found = {}
+    for rel in (tracked if paths else []):
+        # A file the consuming repo RECEIVED cannot be repointed there:
+        # a mirrored tree, the vendored engine and another source's
+        # materialized files are copied wholesale, and an edit is
+        # overwritten by the next refresh. run() drops those findings
+        # for every check; asking the same one answer here as well only
+        # saves reading the files (practice: upstream-fix).
+        if _received_owner(rel) is not None \
+                or rel == DECOMMISSIONED_PATHS_REGISTRY \
+                or any(_exempt_matches(rel, e) for e in _retired_exempt):
+            # The decommissioning registry names every path this repo has
+            # deleted, on purpose (practice: decommission-deletes-files) --
+            # it is the record OF the deletion, not a reference left
+            # behind by one, so reading it as a stranded link would make
+            # every decommissioning fail the moment it was recorded.
+            #
+            # And so is everything the registry's own `exempt_files`
+            # names, which is the half this check was missing: the
+            # migration record explaining the deletion, and the dated
+            # backlog entry it closed, are the same kind of document as
+            # the registry and were being flagged for doing their job.
+            # See _decommissioning_record_exemptions() for the incident.
+            continue
+        if any(_exempt_matches(rel, e) for e in _records):
+            continue      # a declared record: it names what was, then
+        f = ROOT / rel
+        if not f.is_file():
+            continue
+        try:
+            text = f.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        here = [(k, old, new_path) for k, old, new_path in paths
+                if old in text and rel != new_path and rel != old]
+        if not here:
+            continue
+        if _is_history(rel, text):
+            continue      # a generated view, or a closed todo item
+        lines = text.splitlines()
+        in_story = _story_mask(lines) if rel.endswith('.md') else [False] * len(lines)
+        in_generated_mask = generated_blocks.mask(lines)
+        for k, old, new_path in here:
+            moved = moved_by_old[old]
+            for i, (line, in_generated) in enumerate(zip(lines, in_generated_mask), 1):
                 if in_story[i - 1]:
                     continue  # a Story section: what happened, named as it was
                 # The loader block is rewritten wholesale by build_views.py
@@ -8818,13 +8828,15 @@ def _rename_updates_links(ctx):
                     if moved:
                         where = (f'deleted; the file is at tools/'
                                  f'{old.split("/tools/", 1)[-1]} now')
-                    out.append(Finding(
+                    found.setdefault(k, []).append(Finding(
                         f'{rel}:{i}',
                         f'still references {old!r}, which this branch '
                         f'{where} -- repoint it in the same change, or the '
                         f'repository is broken at every commit in between',
                         cause=old))
                     break
+    # The order paths-outer gave: by removed path, then by file.
+    out = [x for k in sorted(found) for x in found[k]]
     if not out and skipped:
         print(f'  (rename-updates-links: {skipped} single-segment path(s) '
               f'skipped as too generic to search)')
