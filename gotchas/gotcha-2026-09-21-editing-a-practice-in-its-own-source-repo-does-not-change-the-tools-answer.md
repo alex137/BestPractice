@@ -10,7 +10,7 @@ retires_when:    null
 
 You edit `practices/<slug>.md` **inside the source repo that owns that
 practice**, then run one of the engine tools to confirm the change —
-[tools/precedent_vocabulary.py](../tools/precedent_vocabulary.py) is the
+[tools/precedent_vocabulary.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vocabulary.py) is the
 measured case. **The tool prints the old value.** Exit code 0, no warning, file
 on disk demonstrably correct.
 
@@ -22,14 +22,14 @@ all confirm the edit. The tool keeps disagreeing.
 **Measured 2026-09-21**, twice and from two directions.
 
 A session in `precedent-individual` removed a practice's `command:` field and
-ran [precedent_vocabulary.py](../tools/precedent_vocabulary.py) to check the row was gone. It was still there.
+ran [precedent_vocabulary.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vocabulary.py) to check the row was gone. It was still there.
 The file was right; the tool was reading somewhere else.
 
 **The mechanism is in `collect()` and it is not a bug so much as an unstated
 precedence rule.** It builds one dict keyed by slug:
 
 1. every `practices/*.md` in the **current repo**, tagged `universal`;
-2. then every practice [tools/precedent_resolve.py](../tools/precedent_resolve.py)
+2. then every practice [tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py)
    returns, assigned with a **plain `found[slug] = ...`** — no guard, no
    comparison, no note.
 
@@ -70,7 +70,7 @@ where `/tmp/cfg.json` is a copy of the user config with that source's `path`
 repointed. Remove the worktree afterwards with `git worktree remove`.
 
 **The durable fix landed 2026-09-22, for the measured tool.**
-[precedent_vocabulary.py](../tools/precedent_vocabulary.py) now keeps the
+[precedent_vocabulary.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vocabulary.py) now keeps the
 local file's content when a resolved source supplies the same slug from a
 different path, and prints one line naming the slug, both paths and the
 winner. `--resolved-view` restores the old precedence deliberately. The item
@@ -80,6 +80,6 @@ is closed:
 **The workaround above still earns its place**, for two reasons. Every other
 engine tool reads the resolved view *exclusively* — it never builds a local
 half, so there is no silent override to fix there, and a source-repo edit
-still will not show up in [`precedent_gate.py`](../tools/precedent_gate.py) or [`full_practice_audit.py`](../tools/full_practice_audit.py)
+still will not show up in [`precedent_gate.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_gate.py) or [`full_practice_audit.py`](https://github.com/alex137/BestPractice/blob/staging/tools/full_practice_audit.py)
 until it reaches the checkout the resolver reads. And a consuming repo does
 not get the fix until it takes an `Update Vendors` pass.

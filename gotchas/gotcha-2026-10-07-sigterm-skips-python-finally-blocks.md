@@ -19,7 +19,7 @@ check judges it as committed -- undone right after". It was never undone.
 default handling of SIGTERM ends the process without running `finally`
 blocks -- unlike Ctrl-C, which raises `KeyboardInterrupt` and does run them.
 The `finally` that undoes the stand-in commit in
-[tools/precedent_update.py](../tools/precedent_update.py)'s
+[tools/precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py)'s
 `judged_as_committed()` never ran. The rerun found nothing to stage and did
 not look at HEAD, so the stand-in stayed; a real commit made on top of it
 would have been the one the next undo removed.

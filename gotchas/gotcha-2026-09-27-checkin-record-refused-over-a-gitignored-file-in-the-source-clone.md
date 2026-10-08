@@ -36,7 +36,7 @@ stamped that branch's commit as the upstream one.
 
 ## Fix
 
-Fixed at the root in [tools/checkin.py](../tools/checkin.py). `record`
+Fixed at the root in [tools/checkin.py](https://github.com/alex137/BestPractice/blob/staging/tools/checkin.py). `record`
 and `status` now extract `origin/<pinned branch>` and compare against that
 committed tree, and `record` stamps that commit. `push` deletes only files
 `git ls-files` lists. [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)'s

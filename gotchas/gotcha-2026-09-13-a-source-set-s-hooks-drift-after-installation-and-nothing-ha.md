@@ -20,7 +20,7 @@ thousand bytes shorter than canonical, supporting only `session-start` and
 `UserPromptSubmit` to match, so it is self-consistent, just older), and
 `commit-identity.sh` is one version behind in **all five**, which is what
 uniform drift looks like when canonical moved on after installation.
-[tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)
+[tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
 installs both hooks when a set is created and nothing revisits them; its
 settings.json is also written only `if not settings.exists()`, so
 bootstrapping INTO a directory that already has one — which is what a

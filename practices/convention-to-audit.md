@@ -63,7 +63,7 @@ binds every path to the default branch, including the paths that do not
 involve a session at all.
 
 ## Install
-[tools/doc_lint.py](../tools/doc_lint.py) and
+[tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) and
 [tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) are audits of this kind
 (and worked examples for writing your own). Run them before commit; wire them
 into the merge runbook ([merge-runbook](merge-runbook.md)).

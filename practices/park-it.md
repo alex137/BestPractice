@@ -145,7 +145,7 @@ practice?"* Recorded in
 [spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
 
 ## Install
-[`tools/todo_disposition.py`](../tools/todo_disposition.py) is part of the engine every repository receives. The
+[`tools/todo_disposition.py`](https://github.com/alex137/BestPractice/blob/staging/tools/todo_disposition.py) is part of the engine every repository receives. The
 `open-item-disposition` check in [`tools/precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) backs it up: a
 park with no dated, named body line is reported, and so is a body line that
 disagrees with the frontmatter -- hardest when the body says parked and the

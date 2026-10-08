@@ -119,5 +119,5 @@ is a separate change, made there.
 
 ## Install
 Nothing to install. It fires at the `reply` gate
-([tools/precedent_gate.py](../tools/precedent_gate.py)), so every session
+([tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_gate.py)), so every session
 that writes a reply is shown it.

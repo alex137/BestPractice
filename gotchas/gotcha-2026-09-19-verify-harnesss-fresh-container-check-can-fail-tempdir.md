@@ -66,11 +66,11 @@ mechanism.** A separate session fixing
 [gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools.md](gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools.md)
 found that `check_leak_gate_refuses_a_fresh_container` — the exact check
 this file is about — was fanning out into an unbounded recursive chain of
-[precedent_session_practices.py](../tools/precedent_session_practices.py)
+[precedent_session_practices.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_practices.py)
 subprocesses, all writing inside the same kind of fixture tree this check
 tears down, and measured that check dropping from 241.8s to 1.72s once the
 recursion was fixed (an env-var reentrancy guard in
-[precedent_resolve.py](../tools/precedent_resolve.py)'s
+[precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py)'s
 `_self_heal_stale_render()`).
 241.8s is within a second of the 243.3s this check took in the very run
 that hit the `ENOTEMPTY` documented above — the "transient filesystem race"

@@ -26,7 +26,7 @@ When a person explicitly asks for a "very deep check", run
 passes in Detail, in that order. The tool enumerates the scope — this
 checkout's own top-level documents, plus the `practices/*.md` tree of every
 source in force, resolved exactly the way
-[tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves them for
+[tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) resolves them for
 ordinary loading — and points at the passes (`--checklist` prints them in
 full); reading and judging that scope is
 the session's work, and is nearly the whole cost of this check. Never wired
@@ -736,7 +736,7 @@ confidently.
    the other. Vendoring is the deliberate exception: the engine is copied
    into consuming repos on purpose, so the question there is whether every
    copy came from
-   [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)
+   [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)
    with a recorded commit, never whether a copy exists. *(Found: this
    practice's own checklist, living both in the Detail section below and as
    a `CHECKLIST` string literal inside
@@ -902,7 +902,7 @@ confidently.
     or never registered there at all — then read each practice's `checked_by`
     against that result. A `checked_by` naming a check that never runs in the
     repo holding it is a coverage claim nobody tested, which is the state
-    [tools/precedent_check.py](../tools/precedent_check.py)'s own header says
+    [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s own header says
     the module exists to end.
 
     **What comes out is a coverage report, not a deletion list**, and the
@@ -1354,7 +1354,7 @@ first so this pass spends its attention on what they cannot see.
   and a skeleton file does not read as a document making claims.)*
 - **Broken and misdirected references** — the mechanical half is the
   **MARKDOWN — STRICT SWEEP** section, which runs
-  [tools/doc_lint.py](../tools/doc_lint.py) `--strict --all` over every
+  [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) `--strict --all` over every
   tracked document and hands you per-class and per-file counts. **Strict is
   the point, and this is its only caller.** The light check reads what a
   change touched and the deep check gates on that; neither ever opens a file
@@ -1490,7 +1490,7 @@ first so this pass spends its attention on what they cannot see.
 - **Whether each practice's TIER is still right.** The question above asks
   what the loaded text costs; this one asks which practices should be in it
   at all, and nothing else in Precedent ever asks it. `tier: resident` is
-  governed only by [tools/build_views.py](../tools/build_views.py)'s hard
+  governed only by [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)'s hard
   2,000-token cap, which fails the build outright — so the trade is forced
   once, at the moment somebody adds a resident practice, and the set is never
   revisited afterwards. Read it in both directions. **Demote** a resident
@@ -1765,7 +1765,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   read every mechanism in force — a tool, a workflow, a vendored tree, a
   config — against whether anything still calls it, and where it plainly
   does not, run
-  [tools/precedent_decommission.py](../tools/precedent_decommission.py) on
+  [tools/precedent_decommission.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_decommission.py) on
   the path and act on a clean report exactly as
   [decommission-deletes-files](decommission-deletes-files.md) already
   requires for a deliberate decommissioning. **Where the audit is not
@@ -2010,7 +2010,7 @@ Last because none of it strands an adopter, and none of it is cheap.
 
   **A repo that also keeps a carry watermark reads both.** This one did
   until 2026-09-27, when its upstream-carry notice was retired, and the
-  drift check in [tools/precedent_branches.py](../tools/precedent_branches.py)
+  drift check in [tools/precedent_branches.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_branches.py)
   answers by files what the watermark answered by commits. A watermark
   answers "has the base moved since somebody last carried from it"; this
   answers "what, specifically, has never come across", which is the thing
@@ -2048,10 +2048,10 @@ Last because none of it strands an adopter, and none of it is cheap.
   person will catch.
 
 ## Why
-The mechanical audits ([doc_lint.py](../tools/doc_lint.py),
+The mechanical audits ([doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py),
 [leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py),
-[precedent_check.py](../tools/precedent_check.py),
-[doc_sync.py](../tools/doc_sync.py)) catch broken links, bad syntax, and enforcement drift; the
+[precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py),
+[doc_sync.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_sync.py)) catch broken links, bad syntax, and enforcement drift; the
 routing audit catches a practice that should have fired and didn't. None of
 them reads a document's own argument for whether it still makes sense, and
 none of them can ask whether a check is checking the right thing — a check
@@ -2400,7 +2400,7 @@ this tool's own freshness gate** with *"could not read Username for
 `https://github.com`"*, and the run refused to read a line. The token was
 fine. The tool's `_run_git` shelled out to plain `git`, while the
 credential lives behind a helper only
-[tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+[tools/precedent_source_bootstrap.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py)
 was passing — so a source could be **cloned** at session start and then not
 **fetched** by the check that reads it.
 
@@ -2479,7 +2479,7 @@ that morning, in the conversation that took the markdown check out of CI:
 *"remove all markdown checks in the yml github actions check (but we
 should use the strict markdown in our own that we do)."* The removal
 landed; the parenthesis did not, until now.
-[doc_lint.py](../tools/doc_lint.py)'s warning classes had been gated
+[doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py)'s warning classes had been gated
 nowhere since the strict gate was withdrawn that same day — the right call for a
 commit gate, and it left the classes with no reader at all, because the
 light check only ever sees what a change touched. A sweep is the one
@@ -2487,7 +2487,7 @@ context where a wall of pre-existing warnings is the thing being asked for
 rather than an obstacle to the work in hand.
 
 Building it surfaced two things worth recording. **`--strict` did not
-exist, and nothing said so**: [doc_lint.py](../tools/doc_lint.py) ignored
+exist, and nothing said so**: [doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) ignored
 unknown options silently, so [documentation/GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md)
 had been telling adopters to run `doc_lint.py --strict <files>` as their
 by-hand markdown check — an instruction added by the very commit that
@@ -2632,7 +2632,7 @@ it landed and still unreviewed.
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
 `practices/*.md` tree, reusing
-[tools/precedent_resolve.py](../tools/precedent_resolve.py)'s own source
+[tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py)'s own source
 resolution) and prints this practice's Detail section — read from this file
 at run time rather than kept as a second copy
 inside the script, so the passes the tool prints cannot drift from the

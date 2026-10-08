@@ -175,10 +175,11 @@
       {
         "if_matches": "^(?![^\\n]*\\b(?:do not|don't|never|not|no|nothing|without)\\b)[^\\n]*\\b(?:land|merge|push|pull request|PR)\\w*\\b[^\\n]{0,80}?\\b(?:into|onto|on|to)\\s+[`\\\"']?(?:main|master|the main branch|the base branch)\\b",
         "must_also_match": "^>\\s.+|[\"“'‘][^\"”’']*\\b(?:[Aa]pproved?|[Mm]erge|[Pp]ush|[Ll]and|[Gg]o ahead)\\w*\\b",
-        "why": "a paste block that tells another session to land, merge, push or open a pull request onto the main branch carries landing authority, and only the person's own words for this handoff give it -- quoted in the block, so the receiving session can check them. Without them, the prompt ends with the work built on a feature branch, pushed there, and stopped"
+        "why": "a paste block that tells another session to land, merge, push or open a pull request onto the main branch carries landing authority, and only the person's own words for this handoff give it -- quoted in the block, so the receiving session can check them. Without them, the prompt ends with the work built on a feature branch, pushed there, and stopped",
+        "narration_exempt_if_block_matches": "\\bfeature branch\\b[^\\n]{0,80}?\\bstop\\b"
       }
     ],
-    "why": "2026-10-01: two prompts a session wrote told another session to land work, though the person had not said to. fence-block-for-paste passed both, because it checks that a block says where it goes, not what it authorizes.",
+    "why": "2026-10-01: two prompts a session wrote told another session to land work, though the person had not said to. fence-block-for-paste passed both, because it checks that a block says where it goes, not what it authorizes. 2026-10-08: it refused a block that ended at the feature branch, because the block's situation paragraph reported that a tool had told an earlier session to open a pull request to main; in a block that says it stops at the feature branch, a clause narrating what a session or tool did or was told is not an instruction, and every other clause is still judged.",
     "checks_practice_at": "practices/prompt-please.md",
     "id": "prompt-please-landing-authority"
   }

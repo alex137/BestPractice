@@ -8,7 +8,7 @@ retires_when:    null
 ---
 ## Symptom
 
-[`precedent_reply_check.py`](../tools/precedent_reply_check.py), copied on
+[`precedent_reply_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_reply_check.py), copied on
 its own into another directory, exits
 **0 on every input** — including replies that plainly violate a blocking
 requirement in the `reply_check.json` it was pointed at.
@@ -17,15 +17,15 @@ requirement in the `reply_check.json` it was pointed at.
 
 A 2026-09-22 harness fixture needed to swap the container scanner for a stub
 with a known exit code, so it copied the one file it was testing —
-[tools/precedent_reply_check.py](../tools/precedent_reply_check.py) — into a
+[tools/precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_reply_check.py) — into a
 temp `tools/` beside the stub, and ran it with `--repo <fixture>`.
 
 **It resolved no sources at all.** That script finds the practice sources
-through [`precedent_resolve.py`](../tools/precedent_resolve.py), which it
+through [`precedent_resolve.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py), which it
 imports from *its own directory*, and which in turn needs
-[`split_practices.py`](../tools/split_practices.py),
-[`build_views.py`](../tools/build_views.py) and
-[`precedent_identity.py`](../tools/precedent_identity.py) beside it. With none of them there, the import fails,
+[`split_practices.py`](https://github.com/alex137/BestPractice/blob/staging/tools/split_practices.py),
+[`build_views.py`](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py) and
+[`precedent_identity.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_identity.py) beside it. With none of them there, the import fails,
 the script falls back to "no source declares a `reply_check.json`" and exits 0
 without reading anything. The one line saying so goes to `--explain`; an
 ordinary run prints nothing.

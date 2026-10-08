@@ -32,7 +32,7 @@ reads the upstream tree.
 not reproduce.** Measured on a hosted container that day, both clones landing
 on `precedent-beta-v01` with all 116 practice files present: `--depth 1` took
 **1 second** for 14 MB and 1 commit, and a FULL clone — which is what
-[tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+[tools/precedent_source_bootstrap.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py)
 actually runs for a universal source, with no `--depth` — took **3 seconds**
 for 20 MB and all 1,394 commits. This repository is almost entirely prose, so
 there is very little to transfer. Nobody knows what the ten minutes on

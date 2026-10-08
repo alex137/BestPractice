@@ -64,7 +64,7 @@ they would let everything through.
 **Read this before assuming your documents are checked.** On 2026-09-21
 Precedent's Markdown lint left GitHub Actions entirely and was replaced by
 `.claude/hooks/doc-lint-gate.sh`, which refuses a `git commit` whose staged
-Markdown fails [doc_lint.py](../../../tools/doc_lint.py). Gemini CLI could
+Markdown fails [doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py). Gemini CLI could
 run it from a `BeforeTool` hook, but not unchanged (see above), and no shim
 ships yet.
 

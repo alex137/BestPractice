@@ -1658,6 +1658,64 @@ def run(root, checks, landed=None, reported=None):
 # precedent_session_check.py's "the packages the gates import" row.
 GATE_PACKAGES = ('cmarkgfm', 'markdown')
 
+# The one gate package that is not every repository's: `markdown` is
+# tools/doc_html.py's alone (tabular-shared-renderer's renderer), and a
+# practice set gets no doc_html.py at all, while a consumer receives one it
+# may never run. Until 2026-10-08 both checks asked for it everywhere, so a
+# repository with no use for the renderer was told a package was missing,
+# and a push check without network to install it stopped on it.
+DOC_HTML_PACKAGE = 'markdown'
+
+
+def doc_html_in_use(root):
+    """True where tools/doc_html.py is present and something here runs it.
+
+    In BestPractice, or wherever doc_html.py is the repository's own (no
+    tools/ENGINE_MANIFEST.json lists it), presence is use. Where the engine
+    vendored it, it is in use when a file the repository wrote itself -- a
+    tracked .py or .sh outside the vendored engine and the mirrored
+    catalogue -- names it, which is how a host shim loads it. Unreadable
+    state answers True: asking for a package that is not needed costs a
+    line, and missing one that is costs a check that degrades unseen."""
+    root = Path(root)
+    if not (root / 'tools' / 'doc_html.py').is_file():
+        return False
+    try:
+        m = json.loads((root / 'tools' / 'ENGINE_MANIFEST.json')
+                       .read_text(encoding='utf-8'))
+    except (OSError, ValueError):       # no manifest: doc_html.py is ours
+        return True
+    names = m.get('files') if isinstance(m, dict) else None
+    vendored = {f'tools/{n}' for n in (names or []) if isinstance(n, str)}
+    if 'tools/doc_html.py' not in vendored:
+        return True
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_resolve
+        mirrored = tuple(precedent_resolve.mirrored_prefixes(root))
+    except Exception:                                        # noqa: BLE001
+        mirrored = ('process/upstream/',)
+    r = subprocess.run(['git', '-C', str(root), 'ls-files', '-z', '--',
+                        '*.py', '*.sh'], capture_output=True, text=True)
+    if r.returncode != 0:
+        return True
+    for rel in filter(None, r.stdout.split('\0')):
+        if rel in vendored or rel.startswith(mirrored):
+            continue
+        try:
+            if 'doc_html' in (root / rel).read_text(encoding='utf-8',
+                                                    errors='ignore'):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def gate_packages(root):
+    """GATE_PACKAGES this repository's gates actually import."""
+    return tuple(p for p in GATE_PACKAGES
+                 if p != DOC_HTML_PACKAGE or doc_html_in_use(root))
+
 
 def _importable(mod):
     return subprocess.run([sys.executable, '-c', f'import {mod}'],
@@ -1859,7 +1917,7 @@ def main(argv):
                   'branches-survive-unshallow.md.')
             return 1
 
-    ok_pkgs, note = ensure_gate_packages()
+    ok_pkgs, note = ensure_gate_packages(gate_packages(root))
     if note:
         print(f'precedent_push_check: {"" if ok_pkgs else "FAILED -- "}{note}.',
               flush=True)

@@ -65,7 +65,7 @@ reproduction, and two diagnostic commits proving the check itself
 completes normally without ever surfacing their own logging in that CI
 step's log). This check is **advisory-only as of 2026-09-05**
 (findings still print; they no longer fail the run) until that CI-only
-anomaly is root-caused — see [tools/precedent_check.py](../tools/precedent_check.py)'s
+anomaly is root-caused — see [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s
 own dated comment above `_parallel_artifact_ledger()` for the full
 account, and [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md) for the tracked follow-up and re-promotion
 condition. A session reading this practice should not expect its own

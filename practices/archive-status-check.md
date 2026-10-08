@@ -48,7 +48,7 @@ reply:**
 
 1. Nothing in the container that anybody wants to keep would be lost --
    **every checkout it holds, not just the one this session worked in**.
-   Run [tools/precedent_container_safe.py](../tools/precedent_container_safe.py)
+   Run [tools/precedent_container_safe.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_container_safe.py)
    and read its answer rather than recalling what was pushed. It also lists
    any command this session started that is still running: archiving kills
    it, so stop each one with nothing left to do, or wait for it.

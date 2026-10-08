@@ -33,7 +33,7 @@ means a project's folder of files, kept on GitHub.
 
 *This table is built from one list, so it cannot drift from what the AI
 Assistant uses. Numbers by: our_language.py. To change a word, change
-[tools/our_language.json](../tools/our_language.json), never this page.*
+[tools/our_language.json](https://github.com/alex137/BestPractice/blob/staging/tools/our_language.json), never this page.*
 
 ## Words We No Longer Use
 

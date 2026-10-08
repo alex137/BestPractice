@@ -413,8 +413,14 @@ def check_broken_links(path):
     # first one goes stale (practice: upstream-fix, registry-source-of-truth).
     # Only the LINK check is skipped here -- every other doc_lint finding in
     # a mirror still prints, split out of the gate by _split_vendored().
-    if _is_vendored(rel):
-        return []
+    #
+    # NO LONGER SKIPPED, ONLY KEPT OUT OF THE GATE (Morgan, 2026-10-08:
+    # checks stop skipping vendored files silently). That silence is how 320
+    # broken links shipped in every consumer's copy with nobody seeing one:
+    # BestPractice's own check judged by a stale rule, and every consumer's
+    # check looked away. A mirror's broken link is found now, and
+    # _split_vendored() prints it under the "upstream's to fix" note
+    # instead of failing this repo's gate.
     # Paths exempt, fragments still checked -- see ANCHOR_CHECKED_EXEMPT_DIRS.
     anchors_only = rel.startswith(ANCHOR_CHECKED_EXEMPT_DIRS)
     p = ROOT / path
@@ -992,6 +998,20 @@ def check_index_clause(path):
 # a pull request upstream. Such an item may stay open only to wait on that
 # pull request, so it has to link one.
 UPSTREAM_LINK_RE = re.compile(r'github\.com/[\w.-]+/[\w.-]+/(?:pull|issues)/\d+')
+# ...or a Prompt Please saved in the item for the person to take upstream
+# when it suits them (Morgan, 2026-10-08: "sometimes it's urgent ... they can
+# fix it BUT they also must do a prompt please so the user can easily bring
+# it upstream at his convenience later"): a heading naming it, then a fence.
+UPSTREAM_PROMPT_RE = re.compile(
+    r'^#{2,4}[ \t]+Prompt Please\b[^\n]*\n(?:(?!^#{1,4}[ \t]).*\n)*?^(?:```|~~~)',
+    re.M | re.I)
+
+
+def upstream_handoff(text):
+    """True when an open item hands its upstream fix over: it links the pull
+    request or issue, or it carries a Prompt Please section with the
+    paste-ready block in a fence."""
+    return bool(UPSTREAM_LINK_RE.search(text) or UPSTREAM_PROMPT_RE.search(text))
 UPSTREAM_FIX_TOOL = 'python3 tools/upstream_fix.py'
 # The provenance sentence tools/todo_migrate.py writes into every item it
 # migrated. It names a vendored tool and says nothing about a fix: measured
@@ -1031,7 +1051,7 @@ def check_upstream_item(path, root=None):
     fm = re.match(r'---\n(.*?)\n---', text, re.S)
     head = fm.group(1) if fm else ''
     status = re.search(r'^status:[ \t]*["\']?([\w-]+)', head, re.M)
-    if (status.group(1) if status else 'open') != 'open' or UPSTREAM_LINK_RE.search(text):
+    if (status.group(1) if status else 'open') != 'open' or upstream_handoff(text):
         return None
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -1066,7 +1086,9 @@ def check_upstream_item(path, root=None):
     return (f"open, about a fix in another repository ({named}), and links no "
             f"pull request or issue -- fix it upstream now: request access if "
             f"needed, open the PR, link it here (`{UPSTREAM_FIX_TOOL} {target}` "
-            f"sets it up)")
+            f"sets it up); or, when it cannot wait, keep the local fix and save "
+            f"the upstream one here as a `## Prompt Please` section with the "
+            f"paste-ready block in a fence")
 
 
 def check_file(path, fix=False, known=None):
@@ -1791,7 +1813,9 @@ def main():
                   f"are inside the vendored upstream tree "
                   f"({', '.join(VENDORED_PREFIXES)}). They are upstream's to "
                   f"fix and this repo may not edit them, so they do not fail "
-                  f"this gate -- report them upstream if they look real:")
+                  f"this gate. Hand each one upstream: `{UPSTREAM_FIX_TOOL} "
+                  f"PATH` opens the fix where it lives, or save a Prompt "
+                  f"Please for it in todo/ (practice: upstream-fix):")
             print('\n'.join(theirs[:10]))
             if len(theirs) > 10:
                 print(f"  … and {len(theirs) - 10} more")

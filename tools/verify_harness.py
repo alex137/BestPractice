@@ -8466,6 +8466,8 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
     import very_deep_check as _vdc
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-retired-'))
     cases = []
+    # This machine's own person must not decide a case.
+    NOBODY = ({}, [])
 
     def practice(where, slug):
         d = fx / where / 'practices'
@@ -8497,9 +8499,9 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
                '  ]\n}\n')
         pj = fx / 'repo' / 'precedent.json'
         pj.write_text(cfg, encoding='utf-8')
-        dropped, kept = _pve.drop_retired_sources(fx / 'repo', apply=False)
+        dropped, kept = _pve.drop_retired_sources(fx / 'repo', apply=False, person=NOBODY)
         cases.append(('a dry run writes nothing', pj.read_text(encoding='utf-8') == cfg))
-        dropped, kept = _pve.drop_retired_sources(fx / 'repo')
+        dropped, kept = _pve.drop_retired_sources(fx / 'repo', person=NOBODY)
         names = [s['name'] for s in json.loads(pj.read_text(encoding='utf-8'))['sources']]
         cases.append(('a set that says it is retired, whose rules universal '
                       'carries, is dropped', 'folded' not in names
@@ -8512,7 +8514,7 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
         cases.append(('the file keeps its own comments and layout',
                       '"_note": "kept as written"' in pj.read_text(encoding='utf-8')))
         practice('uni', 'live-rule')
-        dropped, _k = _pve.drop_retired_sources(fx / 'repo', archived={'live'})
+        dropped, _k = _pve.drop_retired_sources(fx / 'repo', archived={'live'}, person=NOBODY)
         names = [s['name'] for s in json.loads(pj.read_text(encoding='utf-8'))['sources']]
         cases.append(('a set GitHub reports archived is dropped once its rules '
                       'are carried -- here the last entry in the list',
@@ -8529,7 +8531,7 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
             {'level': 'shared', 'name': 'twin-a', 'path': '../twin-a'},
             {'level': 'shared', 'name': 'twin-b', 'path': '../twin-b'}]}),
             encoding='utf-8')
-        d2, k2 = _pve.drop_retired_sources(fx / 'repo2', apply=False)
+        d2, k2 = _pve.drop_retired_sources(fx / 'repo2', apply=False, person=NOBODY)
         cases.append(('two retired sets holding the same rule do not vouch for '
                       'each other: both are kept', not d2 and len(k2) == 2))
         cases.append(('archived_declared_sources never turns an unanswered '
@@ -8542,9 +8544,90 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
         cases.append(('the very deep check reports it and writes nothing',
                       'RETIRED SETS' in inspect.getsource(_vdc)
                       and 'ARCHIVED_SOURCES, apply=False' in inspect.getsource(_vdc)))
+
+        # A PERSON'S DELETED SETS (Morgan, 2026-10-08). The person's individual
+        # set lists a set as deleted: it is dropped even with no clone left
+        # to read, and even holding a rule nothing else carries; and a rule
+        # the person's own set carries counts as carried.
+        practice('mine', 'carried-by-me')
+        practice('carried', 'carried-by-me')
+        manifest('carried', True)
+        pj3 = fx / 'repo3' / 'precedent.json'
+        pj3.parent.mkdir()
+        pj3.write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'uni', 'path': '../uni'},
+            {'level': 'shared', 'name': 'carried', 'path': '../carried'},
+            {'level': 'shared', 'name': 'vanished', 'path': '../vanished'},
+            {'level': 'shared', 'name': 'orphaning', 'path': '../orphaning'}]}),
+            encoding='utf-8')
+        person = ({'vanished': {'date': '2026-10-08', 'reason': ''},
+                   'orphaning': {'date': '2026-10-08', 'reason': ''}},
+                  [fx / 'mine'])
+        d3, k3 = _pve.drop_retired_sources(fx / 'repo3', person=person)
+        left = [x['name'] for x in json.loads(pj3.read_text(encoding='utf-8'))['sources']]
+        cases.append(('a set the person deleted is dropped though its clone '
+                      'is gone', 'vanished' not in left))
+        cases.append(('...and though it holds a rule nothing else carries -- '
+                      'the person said so', 'orphaning' not in left and not k3))
+        cases.append(("a retired set whose rule only the person's own set "
+                      'carries is dropped', 'carried' not in left))
+        cases.append(('universal is never dropped', 'uni' in left))
+        # Every session stops loading and cloning a deleted set at once.
+        import precedent_resolve as _pr
+        ind = fx / 'ind'
+        ind.mkdir()
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'ind', 'deleted_sets': [{'name': 'vanished', 'date': '2026-10-08'}]}),
+            encoding='utf-8')
+        ucfg = fx / 'user.json'
+        ucfg.write_text(json.dumps({'individual': {'path': str(ind)}}), encoding='utf-8')
+        got = _pr.deleted_sets(user_config=ucfg)
+        cases.append(("deleted_sets reads the person's list",
+                      got.get('vanished', {}).get('from') == 'person', sorted(got)))
+        cases.append(("...and BestPractice's own record, for every person",
+                      all(got.get(n, {}).get('from') == 'engine' for n in
+                          ('precedent-shared-repo-maintenance',
+                           'precedent-shared-working-style')), sorted(got)))
+        (fx / 'repo4').mkdir()
+        (fx / 'repo4' / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'vanished', 'path': '../vanished'},
+            {'level': 'shared', 'name': 'live', 'path': '../live'}]}), encoding='utf-8')
+        names = [n for _p, _l, n, _note in _pr.declared_source_paths(fx / 'repo4', ucfg)]
+        cases.append(('the freshness guard no longer checks a deleted set',
+                      'vanished' not in names and 'live' in names, names))
+        loaded = [x['name'] for x in _pr.load_config(fx / 'repo4', user_config=str(ucfg))]
+        cases.append(('a session no longer loads a deleted set',
+                      'vanished' not in loaded, loaded))
+        # An individual set's `brings` loses a deleted set at its Update
+        # Vendors; anywhere else, the person is told their own set names it.
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'ind', 'brings': [
+                {'name': 'precedent-shared-working-style', 'repo_url': 'https://github.com/o/a'},
+                {'name': 'kept', 'repo_url': 'https://github.com/o/b'}]}), encoding='utf-8')
+        saved_env = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        try:
+            told = _pve.person_names_deleted(fx / 'repo4')
+            cases.append(("an update elsewhere names the deleted set the person's "
+                          'own individual set still brings',
+                          [n for _w, n in told] == ['precedent-shared-working-style'], told))
+            cases.append(('...and says nothing when run in that individual set itself',
+                          _pve.person_names_deleted(ind) == []))
+        finally:
+            if saved_env is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved_env
+        dropped_b = _pve.drop_deleted_brings(ind)
+        left_b = [b['name'] for b in json.loads(
+            (ind / 'precedent-source.json').read_text(encoding='utf-8'))['brings']]
+        cases.append(("Update Vendors in an individual set drops a deleted set "
+                      'from its brings, and keeps the rest',
+                      dropped_b == ['precedent-shared-working-style'] and left_b == ['kept'],
+                      (dropped_b, left_b)))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
-    bad = [n for n, ok in cases if not ok]
+    bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'a retired or archived set is dropped only when no rule is lost '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
@@ -12995,6 +13078,240 @@ def check_update_vendors_resolves_a_catalogue_edit():
     check(f'Update Vendors resolves a committed local edit in process/upstream/ '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
+
+def check_update_vendors_redecided_decline_sticks():
+    """A decline re-decided between two Update Vendors runs stays decided,
+    and the update and the consumer's own audit judge it against the same
+    text: upstream's, at the commit this repo takes.
+
+    2026-10-08, from a consuming repository: the update left "a decline to
+    decide again"; the person read the new text and ran practice_audit.py
+    --redecide; every rerun listed the same decline again, and a second
+    --redecide put back the hash the person had corrected by hand. For a
+    declined tools/ file -- which the catalogue copy leaves out once the
+    repo vendors its own engine -- the audit fell back to `ROOT/tools/...`,
+    and ROOT is the module's own repository: the consumer when --redecide
+    ran there, the SOURCE CLONE'S WORKING TREE when precedent_update.py ran
+    the same check through checkin.py --repo. Two different files, so the
+    two never agreed. One function now answers for both
+    (practice_audit.decline_basis): a file in the vendored tree is judged
+    by that copy, an engine file by the hash the engine manifest records
+    for upstream's text.
+
+    Negative control, measured 2026-10-08 against
+    2026-10-08-produce-copy-check-y1ktn at ae07871f: the first run never
+    lists the engine-file decline (the source clone's working tree still
+    holds the old text), and every rerun after --redecide lists it again."""
+    import hashlib
+    import precedent_vendor_engine as _pve
+    branch = _pve.SOURCE_BRANCH
+    fx = _LocalEditsFixture('precedent-redecide-')
+    cases = []
+    sha = lambda b: hashlib.sha256(b).hexdigest()
+    try:
+        repo = fx.consumer('decline')
+        seeded = fx.seeded_from(repo)
+        practice, tool = 'practices/verify-postcondition.md', 'tools/precedent_show.py'
+        show = lambda rel: subprocess.run(['git', '-C', str(ROOT), 'show', f'{seeded}:{rel}'],
+                                          capture_output=True).stdout
+        old = {practice: show(practice), tool: show(tool)}
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream', 'branch': branch,
+                         'commit': seeded, 'scrub_blocklist': None},
+            'entries': [{'practice': name, 'upstream_path': rel, 'local_path': None,
+                         'status': 'declined', 'declined_upstream_sha256': sha(old[rel]),
+                         'notes': 'covered by a rule of our own'}
+                        for name, rel in (('verify-postcondition', practice),
+                                          ('precedent-show', tool))]},
+            indent=2) + '\n', encoding='utf-8')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+              '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
+        fx.commit(repo, 'catalogue with two declines')
+        fx.sh('git', 'push', '-q', 'origin', 'HEAD:main', cwd=repo)
+        # This tree's audit, run where the consumer's own runs: a copy inside
+        # the consumer, so it acts on the consumer, kept out of git.
+        aud = repo / '.audit' / 'tools'
+        aud.mkdir(parents=True)
+        for n in ('practice_audit.py', 'generated_blocks.py'):
+            shutil.copy(ROOT / 'tools' / n, aud / n)
+        with open(repo / '.git' / 'info' / 'exclude', 'a', encoding='utf-8') as f:
+            f.write('.audit/\n')
+        new = {practice: old[practice] + b'\nA sentence upstream added.\n',
+               tool: old[tool] + b'\n# upstream changed this tool\n'}
+        ref = fx.upstream(seeded, new)
+
+        def recorded():
+            return {e['upstream_path']: e['declined_upstream_sha256'] for e in json.loads(
+                (repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))['entries']}
+
+        def redecide():
+            for name in ('verify-postcondition', 'precedent-show'):
+                fx.sh(sys.executable, str(aud / 'practice_audit.py'), '--redecide', name,
+                      cwd=repo)
+
+        want = {rel: sha(new[rel]) for rel in new}
+        left = lambda out, rel: [l for l in out.split('LEFT FOR YOU', 1)[-1].splitlines()
+                                 if 'a decline to decide again' in l and rel in l]
+        declines = lambda out: [l.strip()[:200] for l in out.splitlines()
+                                if 'a decline to decide again' in l]
+        _rc, out1 = fx.update(repo, ref)
+        cases.append(('the first run lists both moved declines',
+                      left(out1, practice) and left(out1, tool), declines(out1)))
+        redecide()
+        cases.append(('--redecide records the hash of the text being taken',
+                      recorded() == want, (recorded(), want)))
+        _rc, out2 = fx.update(repo, ref)
+        cases.append(('the rerun does not ask again about either re-decided decline',
+                      not left(out2, practice) and not left(out2, tool), declines(out2)))
+        _rc, audit = fx.sh(sys.executable, str(aud / 'practice_audit.py'), cwd=repo)
+        cases.append(('...and the consumer\'s own audit agrees: no DECLINED failure',
+                      'DECLINED:' not in audit, audit[-1500:]))
+        redecide()
+        cases.append(('a second --redecide keeps the same hashes', recorded() == want,
+                      (recorded(), want)))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+def check_update_vendors_reruns_pinned_to_its_first_commit():
+    """An update worked over several rounds of LEFT FOR YOU takes the same
+    source commit on every rerun until one reports DONE, says so, and says
+    how to move.
+
+    2026-10-08, from a consuming repository: each rerun fetched main again,
+    so one update started at one commit and finished against another, and a
+    decline already settled came back because upstream had changed that file
+    again in between. The pin lives in the run-to-run record the FAILED-run
+    restore already keeps in the git directory (precedent-update-staged.json).
+
+    Here: two declines move at the first commit; the person re-decides one
+    and leaves the other open, so every run stays LEFT; upstream then
+    changes the settled one again. The followed branch's tip is stubbed
+    (fetch a no-op, `rev-parse origin/main` answered), so it can move
+    between runs.
+
+    Negative control, measured 2026-10-08 against
+    2026-10-08-produce-copy-check-y1ktn at ae07871f: the rerun mirrors the
+    moved commit's text and asks about the settled decline again, and no run
+    says it is pinned."""
+    import hashlib
+    import contextlib
+    import io
+    import precedent_vendor_engine as _pve
+    branch = _pve.SOURCE_BRANCH
+    fx = _LocalEditsFixture('precedent-update-pin-')
+    cases = []
+    sha = lambda b: hashlib.sha256(b).hexdigest()
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    held_pin = getattr(pu, 'held_pin', lambda _repo: None)
+
+    def run(repo, tip, *extra):
+        return fx.sh(sys.executable, '-c', (
+            'import sys\n'
+            f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+            'import precedent_update as pu\n'
+            'real = pu.run\n'
+            'def run(argv, cwd):\n'
+            '    if argv[:1] == ["git"] and "fetch" in argv:\n'
+            '        return 0, ""\n'
+            f'    if argv[:1] == ["git"] and "rev-parse" in argv and argv[-1] == "origin/{branch}":\n'
+            f'        return 0, {tip!r} + "\\n"\n'
+            '    return real(argv, cwd)\n'
+            'pu.run = run\n'
+            f'sys.exit(pu.main(["--repo", {str(repo)!r}, "--skip-check", *{list(extra)!r}]))\n'),
+            cwd=repo)
+
+    try:
+        repo = fx.consumer('pinned')
+        seeded = fx.seeded_from(repo)
+        settled, still = 'practices/verify-postcondition.md', 'practices/repo-is-memory.md'
+        show = lambda rel: subprocess.run(['git', '-C', str(ROOT), 'show', f'{seeded}:{rel}'],
+                                          capture_output=True).stdout
+        old = {settled: show(settled), still: show(still)}
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream', 'branch': branch,
+                         'commit': seeded, 'scrub_blocklist': None},
+            'entries': [{'practice': pathlib.Path(rel).stem, 'upstream_path': rel,
+                         'local_path': None, 'status': 'declined',
+                         'declined_upstream_sha256': sha(old[rel]), 'notes': 'ours'}
+                        for rel in (settled, still)]}, indent=2) + '\n', encoding='utf-8')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+              '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
+        fx.commit(repo, 'catalogue with two declines')
+        fx.sh('git', 'push', '-q', 'origin', 'HEAD:main', cwd=repo)
+        aud = repo / '.audit' / 'tools'
+        aud.mkdir(parents=True)
+        for n in ('practice_audit.py', 'generated_blocks.py'):
+            shutil.copy(ROOT / 'tools' / n, aud / n)
+        with open(repo / '.git' / 'info' / 'exclude', 'a', encoding='utf-8') as f:
+            f.write('.audit/\n')
+        once = old[settled] + b'\nThe first upstream change.\n'
+        first = fx.upstream(seeded, {settled: once, still: old[still] + b'\nMoved.\n'})
+        moved = fx.upstream(first, {settled: once + b'\nThe second upstream change.\n'})
+        vendored = repo / 'process' / 'upstream' / settled
+        engine = lambda: json.loads((repo / 'tools' / 'ENGINE_MANIFEST.json').read_text(
+            encoding='utf-8')).get('source_commit')
+        asked = lambda out, rel: any('a decline to decide again' in l and rel in l
+                                     for l in out.split('LEFT FOR YOU', 1)[-1].splitlines())
+
+        rc1, out1 = run(repo, first)
+        cases.append(('the first run is left for the person, and says what it is '
+                      'pinned to and how to move',
+                      rc1 == 1 and f'PINNED: a rerun takes {branch} @ {first[:12]}' in out1
+                      and '--move' in out1.split('PINNED:', 1)[-1], out1[-1200:]))
+        fx.sh(sys.executable, str(aud / 'practice_audit.py'), '--redecide',
+              'verify-postcondition', cwd=repo)
+        rc2, out2 = run(repo, moved)
+        cases.append(('the rerun after the branch moved takes the first commit again, '
+                      'engine and catalogue both',
+                      vendored.read_bytes() == once and engine() == first,
+                      (engine(), out2[-1200:])))
+        cases.append(('...so the decline settled against it stays settled, and the '
+                      'open one is still asked',
+                      rc2 == 1 and not asked(out2, settled) and asked(out2, still),
+                      out2.split('LEFT FOR YOU', 1)[-1][-1200:]))
+        cases.append(('...and its source line says it is pinned, that the branch moved, '
+                      'and how to take it',
+                      f'source: {branch} @ {first[:12]} -- pinned' in out2
+                      and f'moved on to {moved[:12]}; --move takes it' in out2,
+                      [l for l in out2.splitlines() if 'source:' in l]))
+        rc3, out3 = run(repo, moved, '--move')
+        held = held_pin(repo)
+        cases.append(('--move takes the branch\'s newest commit and pins that instead, '
+                      'so the settled decline is rightly asked again',
+                      vendored.read_bytes() != once and engine() == moved
+                      and f'moved, as asked, off {first[:12]}' in out3
+                      and asked(out3, settled) and held and held['commit'] == moved
+                      and f'PINNED: a rerun takes {branch} @ {moved[:12]}' in out3,
+                      (rc3, held, out3[-1200:])))
+        # DONE drops the pin; LEFT keeps it, closing the report directly.
+        for left, name in () if not hasattr(pu, 'record_pin') else ((True, 'a LEFT outcome keeps the pin'),
+                           (False, 'a DONE outcome drops it, so the next update starts '
+                                   'from the tip')):
+            pu.record_pin(repo, moved, branch)
+            rep = pu.Report()
+            rep.pin_repo = repo
+            if left:
+                rep.leave('something', 'a call for the person')
+            with contextlib.redirect_stdout(io.StringIO()):
+                rep.close()
+            held = held_pin(repo)
+            cases.append((name, (held is not None) == left, held))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
 
 def check_local_edits_fetch_the_vendored_commit_from_upstream():
     """precedent_local_edits.py judges a consuming repository's edits to
@@ -18992,9 +19309,18 @@ def check_precedent_check_fires():
         # shipped-links-travel -- a shipped document linking relatively to
         # a file the catalogue copy leaves out (2026-10-01: links to
         # templates/harness/LEDGER.md were broken in every consumer).
+        # 2026-10-08: and to an engine file, which a consumer keeps in its
+        # own tools/ while its copy leaves tools/ out -- 320 such links
+        # passed this check while the copy dropped every target.
         case('shipped-links-travel',
              lambda repo: rewrite(repo, 'README.md', lambda t: t +
-                                  '\nSee [the loader](spec/LOADER.md).\n'))
+                                  '\nSee [the loader](spec/LOADER.md) and '
+                                  '[the check](tools/precedent_check.py).\n'))
+        if 'shipped-links-travel' in planted:
+            out = planted['shipped-links-travel'][1]
+            cases.append(('shipped-links-travel: a link into tools/ is a finding '
+                          'too, since the copy leaves tools/ at home',
+                          'links to tools/precedent_check.py' in out))
 
         # checks-use-generated-blocks -- a repo's own check that finds
         # generated text by spelling a marker itself, the shape a shared
@@ -21705,13 +22031,40 @@ def check_filename_separator_knows_names_it_did_not_choose():
                  'spec/NOTES_X.md': '# n\n'})
     cases.append(('an ISO date inside a stem is not a "-" separator',
                   out == '', out))
+    # 2026-10-08: the hook scripts Update Vendors writes into a consumer's
+    # tools/ are named by the engine, so beside the consumer's own
+    # snake_case script they are no mix. Planted as a consumer: the
+    # manifest lists them, and one of them is also on the engine's own
+    # shipping list (the BestPractice half of the same answer).
+    import precedent_vendor_engine as pve
+    hooks = ['artifact-publish-gate.sh', 'commit-identity-once.sh',
+             'wait-loop-gate.sh']
+    manifest = json.dumps({'kind': 'consumer', 'files': hooks,
+                           'hook_files': ['reply-gate.sh']}) + '\n'
+    consumer = {'tools/ENGINE_MANIFEST.json': manifest,
+                'tools/my_own_script.sh': '#!/bin/sh\n',
+                '.claude/hooks/reply-gate.sh': '#!/bin/sh\n',
+                '.claude/hooks/my_hook.sh': '#!/bin/sh\n'}
+    consumer.update({f'tools/{h}': '#!/bin/sh\n' for h in hooks})
+    cases.append(('the planted scripts are ones the engine really ships',
+                  set(hooks) <= set(pve.HOOK_SCRIPT_FILES), hooks))
+    out = judge(consumer)
+    cases.append(('a consumer\'s vendored hyphenated scripts beside its own '
+                  'snake_case one are clean', out == '', out))
+    out = judge({'tools/my_own_script.sh': '#!/bin/sh\n',
+                 'tools/my-other-script.sh': '#!/bin/sh\n',
+                 'tools/ENGINE_MANIFEST.json': manifest})
+    cases.append(('CONTROL: two repo-own scripts with different separators '
+                  'still fail', 'tools/' in out and 'first fix the cause' in out,
+                  out))
     out = judge({'notes/a-b.md': '# a\n', 'notes/c_d.md': '# c\n'})
     cases.append(('a genuinely mixed directory still fails, leading with '
                   'the root fix', 'first fix the cause' in out
                   and out.index('first fix the cause') < out.index('Exempt'), out))
     bad = [(n, det) for n, ok, det in cases if not ok]
-    check('filename-separator does not count names a tool fixes or an ISO '
-          'date, and still refuses a real mix, root fix first',
+    check('filename-separator does not count names a tool fixes, files the '
+          'engine ships, or an ISO date, and still refuses a real mix, root '
+          'fix first',
           not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
 
 
@@ -23689,6 +24042,33 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'a tier branch, which off the ladder is not a landing':
             'Push it to pre-staging once it is green.',
     }
+    # 2026-10-08: a block that ends at the feature branch may NARRATE a past
+    # landing -- what a session did, what a tool told it -- without that
+    # report being read as an order; every instruction beside it is still
+    # judged, and a claim of the person's word still has to quote it.
+    stop = ('Build it on your feature branch, push it there, and stop; '
+            'open none and land nothing.')
+    told = ('A session had prepared a copy and a tool told it to open a '
+            'pull request to main.')
+    must_fire.update({
+        'narration with no feature-branch ending': 'SITUATION\n' + told,
+        'a feature-branch ending and an order to merge':
+            'SITUATION\n' + told + '\nThen merge it into main.\n' + stop,
+        'an order tacked onto narration':
+            'The tool told it to open a PR to main, so merge it into main.\n' + stop,
+        "the person's word claimed, not quoted":
+            'Morgan said to merge it into main.\n' + stop,
+        'narration addressed to the receiver':
+            'You were told to merge it into main.\n' + stop,
+        'an order with a past participle in it':
+            'Push the merged branch to main.\n' + stop,
+    })
+    clean.update({
+        'narration in a block that ends at the feature branch':
+            'SITUATION\n' + told + '\n' + stop,
+        'a past merge, narrated':
+            'The last session merged its PR into main yesterday.\n' + stop,
+    })
     cases = [(f'fires: {k}', bool(fires(b)), '') for k, b in must_fire.items()]
     cases += [(f'clean: {k}', not fires(b), str(fires(b))[:200]) for k, b in clean.items()]
     cases.append(("clean: the reply's own prose saying where work lands",
@@ -31432,6 +31812,69 @@ def check_history_checks_never_ride_a_reused_pass():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_shipped_copy_has_no_broken_links():
+    """A consumer's copy of the catalogue, as it lands under
+    process/upstream/, has no relative link that does not resolve inside it.
+
+    WHY (2026-10-08). A consumer's light check counted 227 broken links,
+    every one inside its process/upstream/: since 2026-09-30 the copy
+    leaves tools/ at home, and shipped documents linked ../tools/... freely,
+    because shipped-links-travel asked a different question than the copy
+    does. This builds the copy the way the copy is defined
+    (checkin.in_shipped_copy, every tracked file) under a scratch
+    process/upstream/ and resolves each Markdown link in it there."""
+    import tempfile, posixpath, shutil as _shutil
+    name = "a consumer's catalogue copy has no broken relative link"
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import checkin, doc_lint
+    except Exception as e:                                    # noqa: BLE001
+        not_applicable(name, f'tools/checkin.py or doc_lint.py did not import: {e}')
+        return
+    finally:
+        sys.path.pop(0)
+    if not hasattr(checkin, 'in_shipped_copy'):
+        not_applicable(name, 'this checkin.py has no in_shipped_copy')
+        return
+    tracked = subprocess.run(['git', '-C', str(ROOT), 'ls-files'],
+                             capture_output=True, text=True).stdout.split('\n')
+    shipped = [f for f in tracked if f and (ROOT / f).is_file()
+               and checkin.in_shipped_copy(f, ROOT)]
+    broken = []
+    with tempfile.TemporaryDirectory() as td:
+        up = pathlib.Path(td) / 'process' / 'upstream'
+        for f in shipped:
+            (up / f).parent.mkdir(parents=True, exist_ok=True)
+            _shutil.copyfile(ROOT / f, up / f)
+        for f in shipped:
+            if not f.endswith('.md'):
+                continue
+            incode = False
+            for i, line in enumerate((up / f).read_text(
+                    encoding='utf-8', errors='ignore').splitlines(), 1):
+                if line.lstrip().startswith(('```', '~~~')):
+                    incode = not incode
+                    continue
+                if incode:
+                    continue
+                clean = doc_lint.CODE_SPAN_RE.sub(lambda m: ' ' * len(m.group(0)), line)
+                for _label, target in doc_lint.LINK_RE.findall(clean):
+                    if target.startswith(('http://', 'https://', 'mailto:', '#')):
+                        continue
+                    bare = target.partition('#')[0]
+                    if not bare or bare.startswith('<'):
+                        continue      # an install placeholder, not a path
+                    tgt = posixpath.normpath(posixpath.join(posixpath.dirname(f), bare))
+                    # Broken in this repo too is doc_lint's finding here, not
+                    # the copy's.
+                    if not (ROOT / tgt).exists():
+                        continue
+                    if not (up / tgt).exists():
+                        broken.append(f'{f}:{i} -> {tgt}')
+    check(f'{name} ({len(shipped)} files copied)', not broken,
+          f'{len(broken)} broken: ' + '; '.join(broken[:8]))
+
+
 def check_promote_picks_its_step():
     """Promote picks pre-staging -> staging or staging -> main, and says
     which before anything else (Morgan, 2026-09-26, strength: decided: it
@@ -31547,6 +31990,41 @@ def check_promote_picks_its_step():
         cases.append(('it says the pull request comes from the copy, never from '
                       'staging', 'Never open it from staging itself' in out))
 
+        # PROMOTE'S COPY, THEN THE MERGE CHECK, END TO END (2026-10-08). The
+        # copy became a merge of staging and main on 2026-10-07 while the
+        # merge check still let only staging's own tip into main, so every
+        # Produce was refused as "out of date" with staging unmoved. Each copy
+        # below goes through merge_refusal with promote_only on, as the merge
+        # gate would put it.
+        indiv = tmp / 'indiv'
+        indiv.mkdir()
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'promote_only': True}), encoding='utf-8')
+        gate_cfg = tmp / 'gate-config.json'
+        gate_cfg.write_text(_json.dumps({'individual': {'path': str(indiv)}}),
+                            encoding='utf-8')
+
+        def all_copies():
+            return sorted(r[len('refs/heads/'):] for r in (
+                l.split('\t')[1] for l in git(work, 'ls-remote', 'origin',
+                                               'refs/heads/*').stdout.splitlines())
+                if pb.is_main_copy(r[len('refs/heads/'):]))
+
+        def gate(ref):
+            sha = tip(ref)
+            heads = [l.split('\t')[1][len('refs/heads/'):] for l in git(
+                work, 'ls-remote', '--heads', 'origin').stdout.splitlines()
+                if l.split('\t')[0] == sha]
+            return pb.merge_refusal(work, ['main'], heads, str(gate_cfg),
+                                    head_sha=sha)
+
+        first_copy = copy_ref
+        why = gate(first_copy) if first_copy else 'no copy'
+        cases.append(("main already in staging: the copy is staging's own tip, "
+                      'and the merge check lets it into main',
+                      bool(first_copy) and tip(first_copy) == tip('staging')
+                      and why is None, why))
+
         # Land the fold-in the way the pull request would.
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '-B', 'w-main', 'origin/main')
@@ -31555,10 +32033,33 @@ def check_promote_picks_its_step():
 
         on_staging = commit_to('staging', 'two.txt', '2\n')
         commit_to('pre-staging', 'three.txt', '3\n')
+        seen = set(all_copies())
         rc, out = branches('--promote', '--to', 'main', '--work', on_staging)
         cases.append(('both steps waiting, and the step named: --to main wins',
                       rc == 3 and out.startswith(
                           'Now promoting from staging to main')))
+        merge_copy = next(iter(set(all_copies()) - seen), '')
+        parents = git(work, 'rev-list', '--parents', '-n', '1',
+                      tip(merge_copy)).stdout.split() if merge_copy else []
+        why = gate(merge_copy) if merge_copy else 'no copy'
+        cases.append(('main not in staging: the copy is a merge of main and '
+                      "staging's tip, and the merge check lets it into main "
+                      '(it refused every one, 2026-10-08)',
+                      len(parents) == 3 and parents[2] == tip('staging')
+                      and parents[1] == tip('main') and why is None, why))
+        why = gate(first_copy) or ''
+        cases.append(('a copy made before staging moved is refused as out of '
+                      'date', 'out of date' in why, why))
+        # A copy carrying a change of its own beyond the merge is not a copy.
+        git(work, 'checkout', '-q', '--detach', tip(merge_copy))
+        (work / 'extra.txt').write_text('x\n', encoding='utf-8')
+        git(work, 'add', 'extra.txt')
+        git(work, 'commit', '-q', '--amend', '--no-edit')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/to-main-20991231T000000-0300')
+        why = gate('to-main-20991231T000000-0300') or ''
+        cases.append(('a copy whose merge carries a file the merge never made is '
+                      'refused', why != '', why))
+        git(work, 'push', '-q', 'origin', ':refs/heads/to-main-20991231T000000-0300')
         rc, out = branches('--promote', '--work', on_staging)
         cases.append(('both steps waiting and none named is ambiguous: '
                       'pre-staging into staging, even with the work just done '
@@ -31581,7 +32082,8 @@ def check_promote_picks_its_step():
                       and 'Now promoting' not in out))
         wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
         cases.append(('no worktree is left behind', len(wts) == 1))
-    failed = [n for n, ok in cases if not ok]
+    failed = [c[0] + (f' ({c[2]})' if len(c) > 2 and c[2] else '')
+              for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
@@ -34071,10 +34573,70 @@ def _declared_fallback_tz():
     return precedent_time.FALLBACK_TZ
 
 
+def check_local_engine_edit_saves_a_prompt_please():
+    """A consumer may edit an engine file when the fix cannot wait, and then
+    must keep an open todo/ item naming it that links the upstream pull
+    request or saves a Prompt Please (Morgan, 2026-10-08; practice:
+    upstream-fix, point 7). Planted on a consumer-shaped copy: an engine
+    file whose text no longer matches tools/ENGINE_MANIFEST.json."""
+    import shutil, tempfile, hashlib, json as _json
+    name = 'a local edit to an engine file needs a saved Prompt Please or a linked fix'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-local-edit-'))
+    cases = []
+    try:
+        repo = tmp / 'repo'
+        shutil.copytree(ROOT / 'tools', repo / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'format_version': 1, 'visibility': 'private', 'sources': []}), encoding='utf-8')
+        f = repo / 'tools' / 'glossary_terms.json'
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(_json.dumps({
+            'kind': 'consumer',
+            'sha256': {'glossary_terms.json': hashlib.sha256(f.read_bytes()).hexdigest()}}),
+            encoding='utf-8')
+        (repo / 'todo').mkdir()
+        # In force here, as in every consumer that materializes the catalogue.
+        (repo / 'practices').mkdir()
+        shutil.copy2(ROOT / 'practices' / 'upstream-fix.md', repo / 'practices')
+
+        def run():
+            r = subprocess.run([sys.executable, str(repo / 'tools' / 'precedent_check.py'),
+                                '--only', 'upstream-fix'], capture_output=True, text=True,
+                               cwd=str(repo), env=dict(os.environ,
+                               PRECEDENT_USER_CONFIG=str(tmp / 'none.json')))
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run()
+        cases.append(('unedited, it passes', rc == 0, out[-300:]))
+        f.write_text(f.read_text(encoding='utf-8') + ' ', encoding='utf-8')
+        rc, out = run()
+        cases.append(('edited with nothing handed upstream, it is refused, naming '
+                      'the file and both ways out', rc != 0
+                      and 'tools/glossary_terms.json' in out and 'Prompt Please' in out
+                      and 'upstream_fix.py' in out, out[-500:]))
+        item = repo / 'todo' / 'todo-2026-10-08-fix-glossary-upstream.md'
+        item.write_text('---\nstatus: open\n---\n# Fix upstream\n\nPatched '
+                        'tools/glossary_terms.json here.\n\n## Prompt Please\n\n'
+                        'Root it in BestPractice.\n\n```\nFix the term list.\n```\n',
+                        encoding='utf-8')
+        rc, out = run()
+        cases.append(('with an open item naming it and saving a Prompt Please, it '
+                      'passes', rc == 0, out[-400:]))
+        item.write_text(item.read_text(encoding='utf-8').replace('status: open', 'status: done'),
+                        encoding='utf-8')
+        rc, out = run()
+        cases.append(('a closed item does not count', rc != 0, out[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_doc_lint_exempts_links_in_a_mirrored_tree():
-    """A vendored catalogue's relative links are not this repo's to fix, and
-    since 2026-09-14 doc_lint does not report them -- while the repo's own
-    broken link in the same run still is.
+    """A vendored catalogue's relative links are not this repo's to fix, so
+    they never fail its gate -- and since 2026-10-08 doc_lint reports them as
+    upstream's rather than skipping them (it did not report them at all from
+    2026-09-14). The repo's own broken link in the same run still fails.
 
     Both directions in one fixture, because the failure mode of a blanket
     exemption is silence in the half that matters (practice:
@@ -34116,10 +34678,23 @@ def check_doc_lint_exempts_links_in_a_mirrored_tree():
                             '--all'], capture_output=True, text=True, cwd=str(repo))
         out = r.stdout + r.stderr
         broken = [l for l in out.splitlines() if '(no such file)' in l]
-        check('doc_lint reports no broken relative link inside a mirrored '
-              'tree (a vendored catalogue nobody here may edit)',
-              not any('precedent/universal/' in l for l in broken),
+        # 2026-10-08: reported, never hidden -- under the upstream note, and
+        # never failing this repo (Morgan: checks stop skipping vendored
+        # files silently).
+        cases_out = out
+        check('doc_lint REPORTS a broken relative link inside a mirrored tree '
+              'as upstream\'s to fix, instead of skipping it silently',
+              any('precedent/universal/' in l for l in broken)
+              and "upstream's to fix" in out and 'Prompt Please' in out,
               '; '.join(broken)[:300])
+        (repo / 'docs' / 'mine.md').write_text('# Mine\n\nNothing broken.\n',
+                                               encoding='utf-8')
+        r2 = subprocess.run([sys.executable, str(repo / 'tools' / 'doc_lint.py'),
+                             'precedent/universal/practices/some-practice.md'],
+                            capture_output=True, text=True, cwd=str(repo))
+        check('...and a mirrored tree\'s broken link never fails this repo\'s gate',
+              r2.returncode == 0 and 'precedent/universal/' in (r2.stdout + r2.stderr),
+              f'exit {r2.returncode}: {(r2.stdout + r2.stderr)[-300:]}')
         check('doc_lint still reports the repo\'s OWN broken relative link '
               'in the same run',
               any('docs/mine.md' in l for l in broken),
@@ -41686,6 +42261,109 @@ def check_agents_templates_repeat_no_practice_text():
           'asks for a copy session-load-budget then refuses', not bad, '; '.join(bad))
 
 
+def check_agents_templates_conventions_point_to_practices():
+    """A `## Conventions` bullet in an AGENTS.md template that names a
+    practice is a pointer to it: its bold lead, the practice, and a few
+    words more, never the practice's rule said again.
+
+    2026-10-08: taking the loader template's "## Conventions" and "## Practice
+    sources", as Update Vendors asks, added about 1,100 tokens to a
+    consumer's AGENTS.md and failed its landing check, mostly on bullets
+    restating practices that already load when they apply. The verbatim
+    check above did not catch them: they paraphrase. A bullet naming no
+    practice -- template-only instruction such as commit credit -- is not
+    held to this."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    bad = []
+    for rel in ('templates/AGENTS.md.loader.template', 'templates/AGENTS.md.template'):
+        text = (ROOT / rel).read_text(encoding='utf-8')
+        lines = text.split('\n')
+        span = [(a, b) for k, a, b in pve._md_sections(text) if k.strip() == '## Conventions']
+        if len(span) != 1:
+            bad.append(f'{rel}: no single "## Conventions" section')
+            continue
+        for offset, block in pve._md_blocks('\n'.join(lines[span[0][0]:span[0][1]])):
+            slugs = [s for s in re.findall(r'practice\s+`([a-z0-9-]+)`', block)
+                     if (ROOT / 'practices' / f'{s}.md').is_file()]
+            if not slugs or not block.lstrip().startswith(('-', '*')):
+                continue
+            rest = re.sub(r'\*\*.*?\*\*', ' ', block, count=1)
+            rest = re.sub(r'\(practice\s+`[a-z0-9-]+`[^)]*\)', ' ', rest)
+            words = len(re.findall(r"[A-Za-z][\w'-]*", rest))
+            if words > 12:
+                bad.append(f'{rel}:{span[0][0] + offset + 1} names {slugs[0]} and '
+                           f'adds {words} words of its own')
+    check('an AGENTS.md template\'s Conventions bullet naming a practice only '
+          'points to it', not bad, '; '.join(bad))
+
+
+def check_update_seeds_a_ceiling_that_covers_what_it_asks_for():
+    """The AGENTS.md ceiling Update Vendors seeds counts the template
+    sections the same update asks the repo to copy in, so taking them does
+    not fail the ceiling just set; a section left out on an EARLIER run is
+    not asked for and does not count.
+
+    2026-10-08: a consumer copied in the two sections an update listed and
+    its AGENTS.md measured 8,498 against the 8,100 ceiling that update had
+    seeded at the file's size before the copy (practice: session-load-budget).
+    Both directions, read off the seeded note's own measurement so a step
+    that rewrites AGENTS.md first cannot move the expectation."""
+    fx = _KeptDivergenceFixture('precedent-owed-ceiling-')
+    pve, cases = fx.pve, []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    key = '## Conventions'
+
+    def round50(n):
+        return ((int(n * 1.2) + 49) // 50) * 50
+
+    def seeded(repo):
+        reg = json.loads((repo / 'tools' / 'session_load_budgets.json')
+                         .read_text(encoding='utf-8'))
+        e = reg['surfaces']['AGENTS.md']
+        return e['ceiling'], int(re.match(r'(\d+) tokens', e['_note']).group(1))
+    try:
+        tpl = pve._instantiate(fx.template(fx.AGENTS_SRC).decode(),
+                               pve._agents_md_subs(fx.tmp))
+        sec = pve._instantiate(pve._template_sections(
+            fx.template(fx.AGENTS_SRC).decode())[key][1], pve._agents_md_subs(fx.tmp))
+        assert sec in tpl, 'template shape moved; repoint this fixture'
+        owed = bv._approx_tokens(sec)
+
+        repo = fx.consumer('asked', agents=tpl.replace(sec + '\n\n', ''))
+        fx.update(repo)
+        ceiling, measured = seeded(repo)
+        cases.append((f'a section the update lists to copy in is counted: '
+                      f'ceiling {ceiling} >= {round50(measured + owed)}',
+                      ceiling >= round50(measured + owed)))
+
+        repo = fx.consumer('declined', agents=tpl.replace(sec + '\n\n', ''))
+        mf = repo / 'tools' / pve.MANIFEST_NAME
+        data = json.loads(mf.read_text(encoding='utf-8'))
+        data.setdefault(pve.AGENTS_MD_SECTIONS_KEY, {})[key] = None
+        mf.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        fx.sh('git', 'commit', '-qam', 'left out on purpose', cwd=repo)
+        fx.update(repo)
+        ceiling, measured = seeded(repo)
+        cases.append((f'CONTROL: a section left out on an earlier run is not: '
+                      f'ceiling {ceiling} == {round50(measured)}',
+                      ceiling == round50(measured)))
+    except (OSError, ValueError, KeyError, AttributeError) as e:
+        cases.append((f'fixture could not be read: {type(e).__name__}: {e}', False))
+    finally:
+        fx.close()
+    bad = [n for n, ok in cases if not ok]
+    check(f'Update Vendors seeds an AGENTS.md ceiling covering the sections it '
+          f'asks for ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_kept_agents_md_divergence_is_recorded():
     """An AGENTS.md section a repo words its own way ON PURPOSE can be
     recorded, and then Update Vendors finishes: DONE, exit 0 -- until
@@ -43096,6 +43774,67 @@ def check_push_check_records_over_its_own_ledgers():
                       'recorded for tree' in out))
     bad = [c for c, ok in cases if not ok]
     check(name, not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
+def check_markdown_required_only_where_doc_html_runs():
+    """`markdown` is tools/doc_html.py's package alone, so the session check
+    and the push check ask for it only where doc_html.py is present and in
+    use (precedent_push_check.gate_packages).
+
+    THE INCIDENT (2026-10-08). The session check required `markdown` in
+    every repository, though a practice set gets no doc_html.py and a
+    consumer receives one it may never run. Planted: a practice set (no
+    doc_html.py); a consumer whose only mentions of doc_html are in the
+    vendored engine; the same consumer with its own shim loading it; and a
+    repository whose doc_html.py is its own (no manifest, as here). The
+    session check's row is judged with `markdown` stubbed absent."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    import precedent_session_check as psc
+    cases = []
+
+    def plant(files):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='gate-pkgs-'))
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], capture_output=True)
+        return d
+
+    manifest = json.dumps({'kind': 'consumer',
+                           'files': ['doc_html.py', 'precedent_check.py']})
+    consumer = {'tools/ENGINE_MANIFEST.json': manifest,
+                'tools/doc_html.py': 'import markdown\n',
+                'tools/precedent_check.py': '# doc_html.py is a renderer\n',
+                'tools/my_tool.py': 'print("ours")\n'}
+    shim = dict(consumer, **{'tools/render_host.py': 'import doc_html\n'})
+    planted = [
+        ('a practice set without doc_html.py', {'tools/x.py': ''}, False),
+        ('a consumer that never runs doc_html.py', consumer, False),
+        ('CONTROL: a consumer whose own shim loads it', shim, True),
+        ('CONTROL: a repository whose doc_html.py is its own',
+         {'tools/doc_html.py': 'import markdown\n'}, True),
+    ]
+    absent = lambda m: m != 'markdown'
+    for name, files, wants in planted:
+        d = plant(files)
+        try:
+            pkgs = ppc.gate_packages(d)
+            row = psc.gate_packages_row(d, importable=absent)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        cases.append((f'{name}: markdown {"asked" if wants else "not asked"} for',
+                      ('markdown' in pkgs) == wants and 'cmarkgfm' in pkgs
+                      and row[1] == (not wants)
+                      and (('markdown' in row[2]) == wants),
+                      f'{pkgs} {row[1]} {row[2][:80]!r}'))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'markdown is required only where tools/doc_html.py runs '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
 
 
 def check_push_check_installs_gate_packages():
@@ -49398,6 +50137,75 @@ def pve_manifest_name():
     return _pve.MANIFEST_NAME
 
 
+def check_second_pass_judgment_replaces_first_pass_left():
+    """A section the second pass of a self-replacing refresh settles is not
+    left for the person on the first pass's word.
+
+    THE INCIDENT (2026-10-08, a consuming repository's Update Vendors). The
+    report said "kept pin updated" for AGENTS.md's "### Session start" and,
+    in the same run, still listed it under LEFT FOR YOU; the next run was
+    clean. The first pass (the older engine copy) left the section; the
+    second pass, with the new copy, re-pinned it -- and the first pass's
+    item, carried over in _CARRIED_LEFT, was printed because the second
+    pass had not found it itself. Planted: a kept section the second pass
+    re-pins, carrying the first pass's item for it; and the control, an
+    'absent' section, whose carried item is the one the second pass cannot
+    find again and must keep."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    key = '### Session start'
+    other = '### Two check levels'
+    item = f'AGENTS.md {key}'
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        tpl, dest = td / 'tpl', td / 'dest'
+        tpl.mkdir(); dest.mkdir()
+        (tpl / 'T.md').write_text(
+            f'# T\n\n{key}\n\n- **Our own line.** Fine.\n\n'
+            f'- **Upstream block here.** It says a thing.\n', encoding='utf-8')
+        (dest / 'AGENTS.md').write_text(
+            f'# T\n\n{key}\n\n- **Our own line.** Fine.\n', encoding='utf-8')
+        section = pve._template_sections(
+            (tpl / 'T.md').read_text(encoding='utf-8'))[key][1]
+        # Pinned on the template's text alone, as before 2026-10-01: this
+        # pass matches it and upgrades it, printing PIN UPDATED.
+        (dest / 'precedent.json').write_text(json.dumps({
+            pve.KEPT_DIVERGENCES_KEY: {item: {
+                'reason': 'ours', 'template_sha256': pve._sha_text(section)}}}),
+            encoding='utf-8')
+        pve._LEFT_FOR_YOU.clear()
+        pve._CARRIED_LEFT[:] = [
+            (f'AGENTS.md "{key}"', 'diverged from T.md and lacks 1 of its '
+             'blocks (listed above)'),
+            (f'AGENTS.md "{other}"', 'the template has this section and this '
+             'file does not')]
+        plan = [(key, 'T.md', 3, 'diverged', (2, 5)),
+                (other, 'T.md', 9, 'absent', None)]
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                pve._report_agents_md(dest, tpl, plan)
+                pve.print_left_for_you()
+        finally:
+            pve._LEFT_FOR_YOU.clear()
+            pve._CARRIED_LEFT.clear()
+        out = buf.getvalue()
+        left = out.split('Left for you', 1)[1] if 'Left for you' in out else ''
+        cases.append(('this pass re-pinned the kept section', 'PIN UPDATED' in out))
+        cases.append(('...and the first pass\'s item for it is not left',
+                      key not in left))
+        cases.append(('CONTROL: an absent section\'s carried item still is',
+                      other in left))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a section the second pass settles is not left on the first '
+          f'pass\'s word ({len(cases)} stated cases)', not bad,
+          '; '.join(bad) + ' :: ' + out[-600:] if bad else '')
+
+
 def check_kept_section_reports_upstreams_change_not_its_lacks():
     """A section kept on purpose whose template text changed is reported as
     upstream's own change since the pinned text, and re-pinned by itself
@@ -49479,6 +50287,100 @@ def check_kept_section_reports_upstreams_change_not_its_lacks():
     bad = [n for n, ok in cases if not ok]
     check(f'a stale kept section shows upstream\'s change, not its lacks '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_kept_section_repins_a_change_that_misses_the_kept_lines():
+    """A kept AGENTS.md section whose template changed only in lines the
+    consumer carries as upstream wrote them re-pins by itself, with a report
+    line; a change that touches a line the consumer changed still asks.
+
+    WHY. 2026-10-08, a consuming repository: a kept section was re-raised
+    with "with the person's yes, re-pin it" for a template rewording
+    elsewhere in the section, which no difference the consumer kept could
+    be affected by. The judgment is three-way, against the pinned template
+    text (precedent_vendor_engine._change_touches_local), and conservative:
+    a change beside a consumer's line counts as touching it, and no local
+    text at all asks. The consumer's section is never rewritten.
+
+    Negative control, measured 2026-10-08 against
+    2026-10-08-produce-copy-check-y1ktn at ae07871f: the change elsewhere
+    leaves an item for the person (the first case fails)."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    key = '## Working in this repo'
+    para = lambda a, b, c, extra='': (f'{key}\n\n{a}\n\n{extra}{b}\n\n{c}\n')
+    old = para('Run the light check first.', 'Then the deep check.', 'Push last.')
+    local = para('Run our own light check first.', 'Then the deep check.', 'Push last.')
+    elsewhere = para('Run the light check first.', 'Then the deep check.',
+                     'Push only once both pass.')
+    touching = para('Run the light check before every commit.', 'Then the deep check.',
+                    'Push last.')
+    beside = para('Run the light check first.', 'Then the deep check.', 'Push last.',
+                  extra='A new paragraph upstream added here.\n\n')
+    item = f'AGENTS.md {key}'
+    touches = getattr(pve, '_change_touches_local', lambda *_a: None)
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        tpl, dest = td / 'tpl', td / 'dest'
+        tpl.mkdir(); dest.mkdir()
+        (tpl / pve._AGENTS_MD_HISTORY_NAME).write_text(
+            json.dumps({key: [old, elsewhere, touching, beside]}), encoding='utf-8')
+        agents = f'# Repo\n\n{local}'
+
+        def run(section, here):
+            (dest / 'precedent.json').write_text(json.dumps({pve.KEPT_DIVERGENCES_KEY: {
+                item: {'reason': 'we run our own light check',
+                       'template_sha256': pve._sha_text(old)}}}), encoding='utf-8')
+            (dest / 'AGENTS.md').write_text(agents, encoding='utf-8')
+            pve._LEFT_FOR_YOU.clear()
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                done = pve._report_stale_kept(dest, tpl, key, item, 'the template',
+                                              section, pve._sha_text(section), 'c' * 64,
+                                              {}, local=here)
+            entry = json.loads((dest / 'precedent.json').read_text(
+                encoding='utf-8'))[pve.KEPT_DIVERGENCES_KEY][item]
+            return (done, buf.getvalue(), list(pve._LEFT_FOR_YOU), entry,
+                    (dest / 'AGENTS.md').read_text(encoding='utf-8'))
+        done, out, left, entry, after = run(elsewhere, local)
+        cases.append(('a rewording of a line this section carries as upstream wrote it '
+                      're-pins by itself, with a report line',
+                      done and not left and 'PIN UPDATED' in out
+                      and 'touches no line' in out
+                      and entry['template_sha256'] == pve._sha_text(elsewhere),
+                      (left, out)))
+        cases.append(('...and the section keeps its own text', after == agents, after))
+        done, out, left, entry, after = run(touching, local)
+        cases.append(('a change to the line this section changed still asks, and keeps '
+                      'the old pin',
+                      done and len(left) == 1 and 'repin-kept' in left[0][1]
+                      and entry['template_sha256'] == pve._sha_text(old), (left, out)))
+        done, out, left, entry, after = run(beside, local)
+        cases.append(('a paragraph added right beside that line counts as touching it: '
+                      'asks', done and len(left) == 1
+                      and entry['template_sha256'] == pve._sha_text(old), (left, out)))
+        cases.append(('...wherever the matcher places the insertion among the blank '
+                      'lines', all(touches(old, beside, local)
+                                   for local in (local, local.replace('\n\n', '\n\n\n')))
+                      and touches(
+                          old, old.replace('Then the deep check.\n',
+                                           'Then the deep check.\n\nAdded.\n'),
+                          old.replace('Then the deep check.', 'Then ours.')), ''))
+        done, out, left, entry, after = run(elsewhere, None)
+        cases.append(('with no local text to read, it asks', done and len(left) == 1,
+                      (left, out)))
+        cases.append(('the read is three-way against the pinned text, either order',
+                      touches(old, touching, local)
+                      and not touches(old, elsewhere, local)
+                      and not touches(old, local, elsewhere), ''))
+    pve._LEFT_FOR_YOU.clear()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
 
 
 def check_repin_kept_records_the_persons_words():
@@ -51188,6 +52090,38 @@ def check_budget_approvals_see_computed_raises():
         rc, out = run()
         cases.append(('a "decided" approval with no quoted words is refused',
                       rc != 0 and "approved_by quotes nobody's words" in out,
+                      out[-600:]))
+        reset()
+
+        # 2026-10-08: brought_sets_tokens was a budget no check could see,
+        # and a session raised it from 700 to 1,200 unasked.
+        src_p.write_text(json.dumps(dict(json.loads(pristine[src_p]),
+                                         brought_sets_tokens=1200)), encoding='utf-8')
+        rc, out = run()
+        cases.append(("a person's brought_sets_tokens is a budget the check "
+                      'sees: unapproved, it is refused',
+                      rc != 0 and 'brought_sets_tokens is 1200 in force and has '
+                      'no entry in approved_budgets' in out, out[-600:]))
+        reset()
+
+        def offset(freed):
+            def fn(d):
+                d['surfaces']['AGENTS.md']['ceiling'] = 7250
+                d['approved_budgets']['surfaces/AGENTS.md'] = {
+                    'max': 7250, 'strength': 'offset', 'previous_max': 6950,
+                    'freed': freed, 'offset_from': 'a removed shared set',
+                    'approved_by': 'offset, 2026-10-08'}
+            return fn
+
+        edit_reg(offset(400))
+        rc, out = run()
+        cases.append(('a raise paid for by tokens a removal freed passes without '
+                      "the person's words", rc == 0 and '1 passed' in out, out[-600:]))
+        reset()
+        edit_reg(offset(100))
+        rc, out = run()
+        cases.append(('...and one larger than what was freed is refused',
+                      rc != 0 and 'more than the 100 tokens its offset freed' in out,
                       out[-600:]))
         reset()
 
@@ -58170,6 +59104,61 @@ def check_update_vendors_onegplanning_findings():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_citations_skip_a_generated_block():
+    """A citation inside a generated block of a hand-written file is not a
+    line the repository can edit, so Update Vendors never lists it.
+
+    THE INCIDENT (2026-10-08). precedent_update.py's "citations of a
+    practice reworded or withdrawn -- read each" named lines inside
+    AGENTS.md's loader block, which the next sync rewrites from the
+    sources. precedent_practice_refs.scan_root counted a file as generated
+    only when its first lines said so; a block inside a hand-written file
+    (generated_blocks.py's two marker styles) stayed 'live'. Planted: one
+    AGENTS.md citing a reworded slug by hand, inside the loader block, and
+    inside a gen: block; only the hand-written line is listed."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import generated_blocks as gb
+    import precedent_practice_refs as ppr
+    import precedent_update as pu
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refs-gen-'))
+    try:
+        (tmp / 'AGENTS.md').write_text(
+            '# Notes\n\n'
+            'Hand-written: follow `upstream-fix` when fixing.\n\n'
+            'More prose.\n\nAnd more, so the block opens past line 6.\n\n'
+            f'{gb.LOADER_BEGIN}\n'
+            'Resident: `upstream-fix` -- fix the cause where it lives.\n'
+            f'{gb.LOADER_END}\n\n'
+            '<!--gen:counts-->\n'
+            'Also `upstream-fix`, in a doc_sync block.\n'
+            '<!--/gen:counts-->\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], capture_output=True, check=True)
+        rows = ppr.scan_root(tmp, {'upstream-fix'})
+        kinds = {r[1]: r[4] for r in rows}
+        cases.append(('the hand-written line is live', kinds.get(3) == 'live', kinds))
+        cases.append(('the loader-block and gen-block lines are generated',
+                      kinds.get(10) == 'generated' and kinds.get(14) == 'generated',
+                      kinds))
+        data = {'slugs': {'upstream-fix': 'Rule reworded'}, 'successors': {},
+                'hits': [{'source': 'this repository', 'file': r[0], 'line': r[1],
+                          'slug': r[2], 'form': r[3], 'kind': r[4],
+                          'must_fix': ppr.must_fix(r)} for r in rows]}
+        fix, read = pu.citation_findings(data)
+        cases.append(('Update Vendors asks for a read of the hand-written line only',
+                      fix == [] and read == ['AGENTS.md:3'], (fix, read)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'citations inside a generated block are not listed for a read '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
     """A consumer's session searched the clones for "Debut" (2026-10-04).
 
@@ -64625,6 +65614,7 @@ def main():
     check_practice_audit_declined()
     check_freshness_gate_fires()
     check_doc_lint_exempts_links_in_a_mirrored_tree()
+    check_local_engine_edit_saves_a_prompt_please()
     check_repo_may_declare_its_own_fallback_zone()
     check_session_check_reports_a_dead_also_list_entry()
     check_freshness_guard_checks_attached_repositories()
@@ -64778,6 +65768,10 @@ def main():
     check('a merge is judged by the repo\'s landing-tier check, and taken back only if it is the cause',
           *check_merge_is_judged_by_the_landing_check())
     check_update_vendors_resolves_a_catalogue_edit()
+    check('a decline re-decided between two Update Vendors runs stays decided',
+          *check_update_vendors_redecided_decline_sticks())
+    check('an update reruns against the source commit it started from until DONE',
+          *check_update_vendors_reruns_pinned_to_its_first_commit())
     check_update_vendors_migrates_hand_written_views()
     check('every shipped CI template that runs the checks installs PyYAML first',
           *check_ci_templates_install_pyyaml_before_the_checks())
@@ -64992,6 +65986,7 @@ def main():
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()
     check_promote_picks_its_step()
+    check_shipped_copy_has_no_broken_links()
     check_empty_commits_are_never_counted()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
@@ -65070,6 +66065,7 @@ def main():
     check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
+    check_markdown_required_only_where_doc_html_runs()
     check_push_check_runs_cheap_checks_first()
     check_push_check_records_over_its_own_ledgers()
     check_push_check_refuses_an_unknown_option()
@@ -65126,6 +66122,10 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
+    check_citations_skip_a_generated_block()
+    check_second_pass_judgment_replaces_first_pass_left()
+    check('a kept section re-pins by itself when upstream\'s change misses what it kept',
+          *check_kept_section_repins_a_change_that_misses_the_kept_lines())
     check_repin_kept_records_the_persons_words()
     check_hook_changes_never_touch_dot_claude()
     check_sync_names_a_field_its_engine_does_not_know()
@@ -65158,6 +66158,8 @@ def main():
           *check_duplicate_runs_skip_wordless_lines())
     check_kept_agents_md_divergence_is_recorded()
     check_agents_templates_repeat_no_practice_text()
+    check_agents_templates_conventions_point_to_practices()
+    check_update_seeds_a_ceiling_that_covers_what_it_asks_for()
     check_absent_agents_md_section_is_asked_across_self_refresh()
     check_kept_bootstrap_divergence_is_recorded()
     check_legacy_bootstrap_shim_is_replaced()

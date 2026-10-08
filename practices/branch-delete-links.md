@@ -123,7 +123,7 @@ Three things the report must not get wrong, each of which fails silently:
 Offline, in a clone, the mechanical test is `git merge-base --is-ancestor` and
 nothing else is needed — every commit on the branch is already on a protected
 branch, so the branch carries nothing. That is what
-[tools/very_deep_check.py](../tools/very_deep_check.py) does for the checkout
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) does for the checkout
 it runs in.
 
 Over the GitHub API, with no clone, the test is four steps and step 2 is the
@@ -242,7 +242,7 @@ good to do and recommended, but not blocking."* The occasion widened from
 to the reply gate, which is the moment the naming actually happens.
 
 **The mechanism was already written once, in code, and nowhere in prose.**
-[tools/very_deep_check.py](../tools/very_deep_check.py)'s `_branch_url` had
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)'s `_branch_url` had
 carried the filtered-page form and the `safe=''` encoding since 2026-09-08,
 with Morgan's original ask in its docstring — *"make a list of them in the
 session including direct links to them so I can delete them"*. Nothing pointed
@@ -293,7 +293,7 @@ Two surfaces carry this, and both cite it rather than restating it:
   the Chief of Staff owns and make an already expensive check more expensive
   for no new judgment.
 
-The engine side is [tools/very_deep_check.py](../tools/very_deep_check.py):
+The engine side is [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py):
 `_branch_url` builds the link, `_delete_row_lines` renders one row, and
 `_write_branch_report` writes the committed page. A fleet sweep has no clone to
 read and works the API steps above instead.

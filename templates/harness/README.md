@@ -76,7 +76,7 @@ columns — and re-judged, rather than merely counted, on every
 [very deep check](../../practices/very-deep-check.md).
 
 **The Bootstrap column above is a real parallel only since 2026-09-21.** It
-has named [`../../tools/bootstrap.sh`](../../tools/bootstrap.sh) as the
+has named [`../../tools/bootstrap.sh`](https://github.com/alex137/BestPractice/blob/staging/tools/bootstrap.sh) as the
 harness-neutral equivalent of Claude Code's `SessionStart` hook since this
 directory existed, and for all that time the script ran three of the hook's
 seven steps. What the other three adapters were therefore never given: the
@@ -147,7 +147,7 @@ Everything above is about the adapter templates in this directory, which a
 repo installs by hand. A practice source (an individual or shared set) that
 ships its own `bootstrap/*.sh` no longer needs that step: it declares each one
 in its own `precedent.json`, and
-[tools/precedent_materialize.py](../../tools/precedent_materialize.py)
+[tools/precedent_materialize.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_materialize.py)
 installs it into every consuming repo on the same sync that carries the
 practices and checks, recording the copy in that repo's `MANIFEST.json` so a
 later hand-edit shows up as drift. The settings wiring still does not travel

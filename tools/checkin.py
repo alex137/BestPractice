@@ -571,6 +571,25 @@ def _in_copy(rel, carries_tools=None):
     return rel.parts[0] != 'tools' or carries_tools
 
 
+def in_shipped_copy(rel, root=None):
+    """True when repo-relative `rel` -- a file, or a directory holding one --
+    reaches a consumer through the catalogue copy this repo ships, in the
+    shape every consumer has had since 2026-09-30: its own engine in tools/,
+    so the copy's tools/ stays home (_in_copy with carries_tools=False).
+
+    THE ONE ANSWER for a link's target. The link check and the GLOSSARY's
+    links asked vendoring_rule() instead, which still says tools/ is
+    vendored; so ../tools/... links passed here and were broken under every
+    consumer's process/upstream/ (a consumer counted 227, 2026-10-08)."""
+    base = pathlib.Path(root or ROOT)
+    rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix()).as_posix().rstrip('/')
+    if (base / rel).is_dir():
+        return any(_in_copy(f.relative_to(base).as_posix(), carries_tools=False)
+                   for f in (base / rel).rglob('*')
+                   if f.is_file() and '.git' not in f.parts)
+    return _in_copy(rel, carries_tools=False)
+
+
 def rules_report(since=None):
     """`checkin.py rules [REF]`: print, for each file added since REF (the
     landing branch by default), whether it ships and the rule that says so.

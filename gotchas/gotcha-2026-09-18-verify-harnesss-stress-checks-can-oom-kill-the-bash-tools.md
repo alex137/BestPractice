@@ -37,7 +37,7 @@ one of the harness's "N stated cases" checks (the neighborhood of
 `check_precedent_check_fires`, `check_session_check_reports_a_dead_also_list_entry`
 and the session-bootstrap fixtures around it) fans out into hundreds, and at
 its peak over a **thousand**, concurrent
-[`precedent_session_practices.py`](../tools/precedent_session_practices.py)
+[`precedent_session_practices.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_practices.py)
 subprocesses — each individually tiny (a few MB), but enough of them at once
 to blow a cgroup ceiling sized in the low tens of GB, well before the host's
 own free memory ran out. `free -h` on the host looked fine throughout; only
@@ -83,9 +83,9 @@ per-change fix. What worked, practically:
 - Treat one **complete** run (exit 0, or a `FAIL` list you've read and
   fixed) as sufficient evidence — do not keep re-running for reassurance
   once you have one clean pass plus the repo's faster checks
-  ([`doc_lint.py`](../tools/doc_lint.py), [`leak_gate.py`](../tools/leak_gate.py),
-  [`precedent_check.py`](../tools/precedent_check.py),
-  [`doc_sync.py`](../tools/doc_sync.py)), all of which are far less
+  ([`doc_lint.py`](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py), [`leak_gate.py`](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py),
+  [`precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py),
+  [`doc_sync.py`](https://github.com/alex137/BestPractice/blob/staging/tools/doc_sync.py)), all of which are far less
   memory-hungry and did not exhibit this at all.
 - If every retry keeps dying before completion, `dmesg | tail` is the
   fastest way to confirm it is this trap and not a real regression: an
@@ -102,12 +102,12 @@ test cases piling up. Watching a live run's process tree
 (`ps --forest`) instead of only counting processes after the fact showed
 something different: a single **linear recursive chain**, each link an
 identical
-[`precedent_session_practices.py --repo <same path>`](../tools/precedent_session_practices.py)
+[`precedent_session_practices.py --repo <same path>`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_practices.py)
 invocation, 26+ levels deep and still growing when caught.
 
-The actual bug: [`tools/precedent_resolve.py`](../tools/precedent_resolve.py)'s
+The actual bug: [`tools/precedent_resolve.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py)'s
 `_self_heal_stale_render()` spawns
-[`precedent_session_practices.py`](../tools/precedent_session_practices.py)
+[`precedent_session_practices.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_practices.py)
 as a subprocess whenever the untracked `.precedent/SESSION_PRACTICES.md` is
 missing or stale.
 That subprocess itself calls `load_config()`, which reaches the same

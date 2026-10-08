@@ -27,9 +27,9 @@ commit that did not exist.
 Since 2026-10-07 every refusal the commit, push and merge gates give says
 near the top that nothing in the refused command ran. The wording is
 written by the tools (`hook_reason()` in
-[tools/precedent_push_check.py](../tools/precedent_push_check.py),
-[tools/doc_lint.py](../tools/doc_lint.py) and
-[tools/precedent_merge_check.py](../tools/precedent_merge_check.py)), so it
+[tools/precedent_push_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_push_check.py),
+[tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) and
+[tools/precedent_merge_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_merge_check.py)), so it
 reached every repository without a hook change.
 
 **In the session:** commit in a call of its own, check `git status`, then

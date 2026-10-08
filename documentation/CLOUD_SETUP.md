@@ -79,7 +79,7 @@ repositories' SessionStart hooks run**: no commit identity, no practice list
 from your own and your team's sets, no engine refresh. Nothing inside a
 repository can fix this, because nothing inside one runs. A user-level hook
 does run, wherever the session opens, and
-[tools/precedent_run_session_hooks.py](../tools/precedent_run_session_hooks.py)
+[tools/precedent_run_session_hooks.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_run_session_hooks.py)
 is what it calls: it runs each repository's own SessionStart hooks, and does
 nothing in a session opened inside a repository.
 
@@ -226,7 +226,7 @@ comparing `git log -1`.
 the Markdown lint no longer runs in GitHub Actions at all — it was
 re-running a check the session had already run. What replaced it is
 `.claude/hooks/doc-lint-gate.sh`, which refuses a `git commit` whose
-staged Markdown fails [doc_lint.py](../tools/doc_lint.py).
+staged Markdown fails [doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py).
 
 **That is a Claude Code mechanism, and only Claude Code runs it.** A
 GitHub-connected ChatGPT conversation gets no interactive shell, and
