@@ -412,6 +412,42 @@ bucket, that ten consecutive commits cover the whole set, that an ordinary
 change really does run well under half, that no bucket selects zero, and
 that an empty slice runs everything.
 
+## 2026-10-08: the two slowest checks stop running a full sweep
+
+GitHub's deep-check run on pull request #953 (2026-10-07, recorded in
+[tools/harness_check_times.json](../tools/harness_check_times.json)) put
+two checks far ahead of the rest:
+`check_update_vendors_survives_an_upstream_deletion` at about 560 seconds
+and `check_changed_files_only_judges_the_change` at about 400 -- over half
+the suite's serial time, on every Promote into main. The next was about
+46. Morgan, 2026-10-08: *"minor and very very long, so let's fix this
+right now."*
+
+**Both spent nearly all of it in `precedent_check.py --full-sweep`**,
+measured step by step in a cloud session:
+
+| check | the slow step | before | after |
+|---|---|---|---|
+| upstream deletion | the update's own full check on its fixture: 313 of its 319 seconds were the sweep | about 350 s here | about 30 s |
+| changed files only | eleven sweeps of about 28 s each | about 400 s on GitHub | about 42 s here |
+
+- **The upstream-deletion check** runs the update with `--skip-check`,
+  then `timestamps-carry-offset` alone -- the check that failed on
+  2026-09-27 -- on the tree the update staged and on a deleted, unstaged
+  file. Other update checks still run the update's own check.
+- **The changed-files check** runs `--only` the one check each case is
+  about. What `--changed-files-only` does with a finding is the same code
+  whichever checks ran, and every real push into pre-staging runs the full
+  sweep that way.
+
+**A vacuous case, found by putting each fix back out.** The
+upstream-deletion check's last case deleted a file in the mirrored tree
+`process/upstream/`, whose findings have since been set aside, so it
+passed with the fix removed -- in the old, slow version too. It now
+deletes one of the fixture's own files, and fails with the fix removed.
+The other fix (the update staging its deletions) failed its case when
+removed, as it should.
+
 ## Open follow-ups
 
 - **The cross-session copytree-under-threads discrepancy** (no measurable

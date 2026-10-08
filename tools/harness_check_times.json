@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-07, GitHub's runner, the deep-check run on pull request #953 (only the checks that took 2 seconds or more are named; the rest share default_seconds)",
+ "measured": "2026-10-07, GitHub's runner, the deep-check run on pull request #953 (only the checks that took 2 seconds or more are named; the rest share default_seconds); except check_changed_files_only_judges_the_change and check_update_vendors_survives_an_upstream_deletion, re-measured alone in a cloud session on 2026-10-08 after each stopped running the full practice sweep",
  "default_seconds": 0.23,
  "seconds": {
   "check_absent_agents_md_section_is_asked_across_self_refresh": 8.8,
@@ -10,7 +10,7 @@
   "check_bootstrapped_shared_set_carries_current_codeowners": 2.2,
   "check_budget_approvals_see_computed_raises": 2.5,
   "check_build_views_summary_matches_what_it_wrote": 2.9,
-  "check_changed_files_only_judges_the_change": 403.3,
+  "check_changed_files_only_judges_the_change": 42.0,
   "check_ci_workflow_approved_pins_approval_to_content": 3.4,
   "check_commit_identity_ci_cadence": 6.9,
   "check_compaction_offer_owed_printed_at_turn_start": 2.9,
@@ -77,7 +77,7 @@
   "check_update_vendors_resolves_a_catalogue_edit": 13.2,
   "check_update_vendors_resolves_hook_and_engine_path_edits": 21.4,
   "check_update_vendors_resolves_local_edits": 23.3,
-  "check_update_vendors_survives_an_upstream_deletion": 560.2,
+  "check_update_vendors_survives_an_upstream_deletion": 30.0,
   "check_vendor_engine_consumer_case": 12.6,
   "check_vendor_engine_hook_drift_respects_adapters": 7.0,
   "check_vendor_engine_refresh_converges_with_adapter_owned_hooks": 5.6,
