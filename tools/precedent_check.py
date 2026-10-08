@@ -8886,12 +8886,26 @@ def _sentences_saying_gone(lines, i, path):
     return False
 
 
-def _paths_this_repo_removed():
-    """-> every path this repository's history deleted or renamed away and
-    that is still gone, with a directory in it (a bare `README.md` means a
-    different file in every directory). A shallow clone sees less history,
-    which only finds less."""
-    r = _git('log', '--diff-filter=DR', '-M', '--name-status', '--format=', 'HEAD')
+def _paths_this_repo_removed(ctx=None):
+    """-> every path THIS CHANGE deleted or renamed away and that is still
+    gone, with a directory in it (a bare `README.md` means a different file
+    in every directory). The change is ctx.range when the run has one, and
+    otherwise this branch against the published default branch; with
+    neither, nothing.
+
+    Never the whole history (Morgan, 2026-10-08, strength: decided: "WE
+    SHOULD NOT RUN ANY TESTS THAT CHECK THE FULL HISTORY ... THIS NEEDS TO
+    BE A STRONG PRINCIPLE"; practice: checks-read-only-the-work). This read
+    `git log HEAD` until then, so every run re-judged every deletion the
+    repository ever made. A whole-history audit is a run asked for by name:
+    `--only change-updates-its-docs --range <first commit>...HEAD`."""
+    rng = getattr(ctx, 'range', None) if ctx is not None else None
+    if not rng:
+        base = _published_default_branch()
+        if base is None:
+            return set()
+        rng = f'{base}...HEAD'
+    r = _git('diff', '--diff-filter=DR', '-M', '--name-status', rng)
     if r.returncode != 0:
         return set()
     tracked = set(_git('ls-files').stdout.split())
@@ -8941,21 +8955,23 @@ def gone_path_matcher(gone):
 
 
 @check('change-updates-its-docs', 'tree',
-       'no live document names a path this repository once had and has '
-       'since deleted or renamed away',
+       'no live document names a path this change deleted or renamed away',
        'a document that is wrong in any other way: this sees only a path '
-       'that history shows is gone, never a wrong claim, a retired command, '
+       'this change removed -- never one removed earlier in the history, '
+       'unless a run asks for it with --range -- and never a wrong '
+       'claim, a retired command, '
        'or a path this repository never had (a consuming repo\'s own layout, '
        'which docs here describe on purpose). History is left alone, as '
        'rename-updates-links leaves it: a generated view, a closed todo '
        'item, a `## Story` section, a declared record file, a commit-pinned '
        'permalink, and a line that itself says the thing was retired or '
-       'removed. A shallow clone sees less history, so finds less.')
+       'removed.')
 def _docs_name_no_removed_path(ctx):
-    gone = _paths_this_repo_removed()
+    gone = _paths_this_repo_removed(ctx)
     if not gone:
-        raise NotApplicable('this repository\'s history deletes no path that '
-                            'is still gone')
+        raise NotApplicable('this change deletes no path that is still gone '
+                            '(it judges this branch against its base, never '
+                            'the whole history)')
     first_gone = gone_path_matcher(gone)
     exempt = _declared_record_paths() + _decommissioning_record_exemptions()
     # A link to this repository's own branch names a path here too:
@@ -9883,11 +9899,24 @@ def _parallel_artifact_ledger(ctx):
     # it reads only the commits the push brings and pins each finding to the
     # member file the commit changed, which the filter keeps. The full check
     # at staging still reads everything.
-    ranged = bool(getattr(ctx, 'range', None))
-    roots = (set() if ranged else
-             set(_git('rev-list', '--max-parents=0', 'HEAD').stdout.split()))
-    roots |= _shallow_boundary_commits()
-    range_base = ctx.range.split('..')[0] if ranged else None
+    # This change only: the run's range, or this branch against the
+    # published default branch -- never every commit the member
+    # directories ever had (Morgan, 2026-10-08, strength: decided: "WE
+    # SHOULD NOT RUN ANY TESTS THAT CHECK THE FULL HISTORY"; practice:
+    # checks-read-only-the-work). Auditing every past change is a run asked
+    # for by name, with --range starting at the first commit.
+    rng = getattr(ctx, 'range', None)
+    if not rng:
+        base = _published_default_branch()
+        if base is None:
+            raise NotApplicable(
+                'no published default branch to judge this branch against, '
+                'and this check never walks the whole history unasked -- '
+                'pass --range from the first commit to audit it on purpose')
+        rng = f'{base}..HEAD'
+    ranged = True
+    roots = _shallow_boundary_commits()
+    range_base = rng.split('..')[0]
     findings = []
     for member_dir in _LEDGER_MEMBER_DIRS:
         # `git log` is newest-first, so the LAST entry is this member
@@ -9904,7 +9933,7 @@ def _parallel_artifact_ledger(ctx):
         # as a row saying, in effect, "no transfer verdict applicable".
         # (closed and pruned from TODO.md; was the `ledger-root-commit-exemption` item.)
         if ranged:
-            out = _git('log', '--no-merges', '--format=%H', ctx.range,
+            out = _git('log', '--no-merges', '--format=%H', rng,
                        '--', member_dir).stdout.split()
             # A member created inside the range is inception, told apart by
             # its directory not existing at the range's base -- no history
@@ -9912,9 +9941,6 @@ def _parallel_artifact_ledger(ctx):
             created_here = _git('cat-file', '-e',
                                 f'{range_base}:{member_dir}').returncode != 0
             inception = {out[-1]} if out and created_here else set()
-        else:
-            out = _git('log', '--no-merges', '--format=%H', '--', member_dir).stdout.split()
-            inception = {out[-1]} if out else set()
         for full_hash in out:
             if full_hash in roots or full_hash in inception:
                 continue
@@ -9954,7 +9980,7 @@ def _parallel_artifact_ledger(ctx):
     # commit twice by design, in the link text and the URL.
     for full_hash in {h for d in _LEDGER_MEMBER_DIRS
                       for h in _git('log', '--no-merges', '--format=%H',
-                                    *([ctx.range] if ranged else []),
+                                    rng,
                                     '--', d).stdout.split()}:
         # Counted over the change cells only -- see
         # _ledger_change_cells(). Counting whole lines made three correct

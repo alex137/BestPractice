@@ -69,7 +69,7 @@ being checked by it.
 |---|---|---|
 | `acronyms-glossary` | change | a changed document does not introduce a NEW unglossed acronym -- one not already in GLOSSARY.md and not expanded on first use |
 | `catalogue-carries-stories` | tree | every status: active practice in this catalogue carries a non-empty ## Story |
-| `change-updates-its-docs` | tree | no live document names a path this repository once had and has since deleted or renamed away |
+| `change-updates-its-docs` | tree | no live document names a path this change deleted or renamed away |
 | `ci-commits-carry-identity` | tree | a .github/workflows/*.yml that runs `git commit` resolves the author from a declared identity (an identity.json, or an explicit PRECEDENT_COMMIT_*) rather than naming the github-actions bot or configuring a git identity from nothing |
 | `ci-workflow-approved` | tree | every .github/workflows/*.yml or *.yaml file is either the engine's own copy, untouched since the manifest recorded it, or carries the person's approval in precedent.json's github_ci_approved, pinned to its exact content by sha256 -- so adding a workflow, or editing one (a new trigger, a new job), fails until the person approves the new content in their own words. In a consuming repo the finding sends the session to Update Vendors, which writes the shipped workflows from their templates and removes any other nobody approved, rather than to the person |
 | `cite-the-incident` | change | a practice file whose Rule is new or changed must carry a non-empty ## Story |
@@ -131,7 +131,7 @@ being checked by it.
 | `whats-new` | change | a changed What's New log has every entry in the shape: a heading "<Weekday> <date>: <slug>" whose weekday is the date's own, the fixed opening line word for word, every bullet opening with a bold key phrase, and no approver named |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-63 of 179 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+63 of 180 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

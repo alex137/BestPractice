@@ -81,10 +81,13 @@ ledger, with the origin incident ([mistakes-become-rules](mistakes-become-rules.
 This repo's own instance: [templates/harness/LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md)
 for the [claude-code/codex/gemini-cli harness adapter family](https://github.com/alex137/BestPractice/blob/staging/templates/harness/README.md);
 `tools/precedent_check.py`'s `parallel-artifact-ledger` check (found by
-`checked_by` above) walks `git log --no-merges` for each member directory
-(excluding the repository's own root commit, which is inception rather
-than a change) and fails if any commit's hash isn't referenced somewhere
-in the ledger. Checks only that a row exists for every commit that touched
+`checked_by` above) reads `git log --no-merges` for each member directory
+over this branch's commits against its base, or the range the run was
+given, never the whole history
+([checks-read-only-the-work](checks-read-only-the-work.md)), and fails if
+any of those commits' hashes isn't referenced in the ledger. A member
+directory's own first commit is inception rather than a change, and is
+exempt. Checks only that a row exists for every commit that touched
 a member, not that the recorded verdict is correct — see
 [spec/ATTENTION_CEILING.md](https://github.com/alex137/BestPractice/blob/staging/spec/ATTENTION_CEILING.md)'s "audit-judgment
 result" for the run whose blind judge named this gap in the first place.

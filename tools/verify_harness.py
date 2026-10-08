@@ -3388,6 +3388,9 @@ def check_docs_name_no_path_this_repo_removed():
             return r.returncode, r.stdout + r.stderr
         g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
         g('remote', 'add', 'origin', 'https://github.com/acme/widget')
+        # The base the branch is judged against: the check reads this
+        # change, never the whole history (practice: checks-read-only-the-work).
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
         rc, out = run()
         cases.append(('nothing deleted yet: nothing to judge', rc == 0
                       and 'README.md:1' not in out, out[-300:]))
@@ -3407,10 +3410,20 @@ def check_docs_name_no_path_this_repo_removed():
             cases.append((f'{why} is left alone', rel not in out, out[-400:]))
         cases.append(('a "was" in the next sentence excuses nothing',
                       'docs/adjacent.md:1' in out, out[-400:]))
+        # Once the deletion is on the base, the next branch is not judged
+        # for it: the check reads this change, never the whole history
+        # (Morgan, 2026-10-08; practice: checks-read-only-the-work).
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('checkout', '-qb', 'next')
+        (repo / 'docs' / 'unrelated.md').write_text('Unrelated.\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'an unrelated change')
+        rc, out = run()
+        cases.append(('a deletion already on the base is not judged on a later branch',
+                      rc == 0 and 'README.md:1' not in out, out[-400:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'a live document naming a path this repo removed is refused, and '
+    check(f'a live document naming a path this change removed is refused, and '
           f'history is not ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
@@ -20241,13 +20254,14 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'rename, leaving every reference behind')
         case('rename-updates-links', _plant_rename, setup=_setup_rename)
 
-        # change-updates-its-docs -- a file deleted in an earlier commit,
-        # every document that names it left as it was. The unplanted
-        # fixture's history deletes nothing, so it has nothing to judge.
+        # change-updates-its-docs -- a file this branch deleted, every
+        # document that names it left as it was. The unplanted fixture's
+        # branch deletes nothing, so it has nothing to judge; the check reads
+        # the branch against its base, never the whole history.
         def _plant_removed_path(repo):
             git(repo, 'rm', '-q', 'spec/LOADER.md')
             git(repo, 'commit', '-qm', 'delete a file other documents name')
-        case('change-updates-its-docs', _plant_removed_path)
+        case('change-updates-its-docs', _plant_removed_path, setup=_setup_rename)
 
         # shipped-links-travel -- a shipped document linking relatively to
         # a file the catalogue copy leaves out (2026-10-01: links to
@@ -21676,14 +21690,19 @@ def check_precedent_check_fires():
         case('no-rewrite-for-warnings', _plant_rewrite, extra=('--turn-end',),
              setup=_publish_two)
 
-        # parallel-artifact-ledger -- the check reads real git history, but
-        # fresh() deliberately squashes each scratch copy's history into one
-        # new "baseline" commit for isolation, so that commit's own hash has
-        # to be in the ledger before "clean" means clean here.
+        # parallel-artifact-ledger -- the check reads this branch's commits
+        # against its base, never the whole history (Morgan, 2026-10-08;
+        # practice: checks-read-only-the-work). fresh() squashes each
+        # scratch copy into one "baseline" commit, which becomes the base.
         def _ledger_setup(repo):
-            baseline_hash = git(repo, 'rev-parse', 'HEAD')
-            rewrite(repo, 'templates/harness/LEDGER.md',
-                   lambda t: t + f'\n<!-- harness-test baseline: {baseline_hash} -->\n')
+            git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+
+        def _ledger_change(repo, name):
+            (repo / 'templates' / 'harness' / 'claude-code' / name
+             ).write_text('new\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', f'harness change {name}')
+            return git(repo, 'rev-parse', 'HEAD')
 
         def _plant_unledgered_harness_change(repo):
             (repo / 'templates' / 'harness' / 'claude-code' / 'fixture.txt'
@@ -21713,7 +21732,7 @@ def check_precedent_check_fires():
 
         dup = fresh('parallel-artifact-ledger-dup')
         _ledger_setup(dup)
-        _dh = git(dup, 'rev-parse', 'HEAD')
+        _dh = _ledger_change(dup, 'dup.txt')
         rewrite(dup, 'templates/harness/LEDGER.md',
                 lambda s: s + '\n' + _ledger_row(dup, _dh)
                              + '\n' + _ledger_row(dup, _dh) + '\n')
@@ -21724,7 +21743,7 @@ def check_precedent_check_fires():
 
         xref = fresh('parallel-artifact-ledger-xref')
         _ledger_setup(xref)
-        _xh = git(xref, 'rev-parse', 'HEAD')
+        _xh = _ledger_change(xref, 'xref.txt')
         rewrite(xref, 'templates/harness/LEDGER.md',
                 lambda s: s + '\n' + _ledger_row(xref, _xh)
                              + '\n' + _ledger_row(xref, _xh[::-1][:40],
@@ -23594,6 +23613,11 @@ def check_parallel_artifact_ledger_fires():
         (tmp / 'root.txt').write_text('root\n', encoding='utf-8')
         subprocess.run(['git', 'add', '-A'], cwd=tmp, check=True)
         subprocess.run(['git', 'commit', '-q', '-m', 'root'], cwd=tmp, check=True)
+        # The base this branch is judged against: the check reads this
+        # branch's commits, never the whole history (Morgan, 2026-10-08;
+        # practice: checks-read-only-the-work).
+        subprocess.run(['git', 'update-ref', 'refs/remotes/origin/main', 'HEAD'],
+                       cwd=tmp, check=True)
         # Two more commits, because the check excludes two kinds of
         # inception: the repo's own root commit, and the commit that
         # FIRST created a given member directory (TODO.md's
@@ -23651,6 +23675,12 @@ def check_parallel_artifact_ledger_fires():
             f'planted | applied, same reason as the `{member_commit[:7]}` '
             'row | n/a | n/a |\n', encoding='utf-8')
         cited_only = fn(None)
+        # Once the change is on the base, a later run is not judged for it:
+        # an empty ledger and nothing new on the branch is not a finding.
+        ledger_path.write_text('no commit hashes here\n', encoding='utf-8')
+        subprocess.run(['git', 'update-ref', 'refs/remotes/origin/main', member_commit],
+                       cwd=tmp, check=True)
+        already_on_base = fn(None)
 
         # A ledger naming ONLY the later change: the inception commit must
         # not be demanded. Before this exemption, f2078d6 -- the commit
@@ -23671,6 +23701,8 @@ def check_parallel_artifact_ledger_fires():
              "the finding", referenced == []),
             ("a commit named only in another row's prose is NOT ledgered",
              len(cited_only) == 1),
+            ("a change already on the base is not judged again -- the check "
+             "never walks the whole history", already_on_base == []),
         ]
         bad = [n for n, ok in cases if not ok]
         check(f"parallel-artifact-ledger check fires ({len(cases)} stated cases: "
@@ -45806,7 +45838,10 @@ def check_ledger_accepts_a_row_added_with_its_change():
         g('init', '-q')
         ledger.write_text(head)
         (tmp / 'README').write_text('x')
-        commit('root')                                   # repo root: exempt
+        commit('root')                                   # the base
+        # The check reads this branch against its base, never the whole
+        # history (Morgan, 2026-10-08; practice: checks-read-only-the-work).
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
         commit('inception of claude-code', hook_text='v1')  # dir's first: exempt
         with_row = commit('change with its row', hook_text='v2',
                           row='| 2026-09-26 | the gate learns v2 | applied | none | none | none |')
