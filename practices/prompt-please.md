@@ -184,6 +184,12 @@ entirely** -- no placeholder, no "none", no "unknown" -- and carry on with
 the block as normal. When the line is there, the plain sentence outside the
 block names that session too (*"Paste this into \<session name\> --
 \<session link\>."*) rather than telling the person to open a new one.
+**A reply to a message another session sent is always one of these.**
+That session named itself in the message's first line, so the block
+answering it goes back there, and says so on that line, with the name and
+link the message gave; the reply gate refuses a block that does not
+(`reply-block-names-its-session` in `reply_check.json`). The exception is a
+reply whose plain text sends its block to a new session instead.
 
 **Render it as a fence block** -- an actual fenced markdown block (triple
 backticks), never a paragraph that only reads as paste-ready -- per
@@ -388,6 +394,16 @@ live session is already holding the context had no place in the block to be
 told so. Making the outside sentence name the same session, rather than
 still saying "open a new session", was this session's call, so the two
 routings cannot disagree. Strength: decided.
+
+**Extended 2026-10-08.** A session answered a message relayed from another
+session with a paste block that carried its own name and link and nothing
+about where it was going, though the message had named its sender. Morgan
+could not tell which window to paste it into: *"I think a week or so ago, I
+had you update the prompt practice so that you ALWAYS put in the prompt (or
+right before) which session it is for ... Why didn't you do that here?"* The
+session had read the block as a reply, not a prompt, and never loaded this
+rule. Asked whether to extend it to replies and check it, Morgan: *"yes,
+extend the rule and add the check"* (strength: decided).
 
 **Push-back and a way to answer, 2026-10-01.** Morgan asked for two more
 parts: an opening line telling the receiving session to analyze the prompt,
