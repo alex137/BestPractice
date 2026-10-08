@@ -6329,6 +6329,89 @@ def check_sync_does_not_call_a_held_back_check_an_orphan():
           f'stated cases)', not failed, '; '.join(failed))
 
 
+def check_sync_says_which_copy_of_a_claimed_check_runs():
+    """A check whose name a practice in force claims is claimed, whichever
+    source supplies the file. Where the claiming source ships its own copy,
+    that copy runs and the sync says so in one plain line -- never "no
+    practice in force here claims these". Where it ships none, another
+    source's copy is the one vendored.
+
+    THE INCIDENT (2026-10-08). Every sync in a consumer warned that nothing
+    claimed universal's tools/checks/check_commit_author.py and
+    check_buenos_aires_dates.py, while commit-author and buenos-aires-dates
+    were in force there from the person's individual set, which ships and
+    claims its own copies.
+
+    1. the claiming source's copy is the one vendored, and said to run;
+    2. the other source's copy is not reported as claimed by nothing;
+    3. claimed but shipped only by another source: that copy is vendored;
+    4. CONTROL: a check nothing claims is still reported;
+    5. CONTROL: two sources that both claim and ship one file still refuse."""
+    import contextlib, io, tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+    finally:
+        sys.path.pop(0)
+    cases = []
+
+    def ship(root, *stems):
+        (root / 'tools' / 'checks' / 'tests').mkdir(parents=True, exist_ok=True)
+        for stem in stems:
+            (root / 'tools' / 'checks' / f'check_{stem}.py').write_text(
+                f'# {root.name}\n', encoding='utf-8')
+            (root / 'tools' / 'checks' / 'tests' / f'test_{stem}.sh').write_text(
+                'true\n', encoding='utf-8')
+
+    def practice(slug, stem, source):
+        return {'fm': {'slug': slug,
+                       'checked_by': f'tools/checks/check_{stem}.py'},
+                'source': source}
+
+    with _tf.TemporaryDirectory() as td:
+        uni, ind = pathlib.Path(td) / 'precedent', pathlib.Path(td) / 'individual'
+        ship(uni, 'commit_author', 'solo', 'lost')
+        ship(ind, 'commit_author')
+        sources = [{'name': 'precedent', 'path': str(uni), 'level': 'universal'},
+                   {'name': 'precedent-individual', 'path': str(ind),
+                    'level': 'individual'}]
+        res = {'practices': {
+            'commit-author': practice('commit-author', 'commit_author',
+                                      'precedent-individual'),
+            'solo': practice('solo', 'solo', 'precedent-individual')}}
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            plan = pm._plan_checks(sources, res)
+        said = err.getvalue()
+        orphan = next((l for l in said.splitlines() if 'no practice in force' in l), '')
+        got = {(rel, name): src for rel, name, src, _d in plan}
+        cases.append(('1: the claiming source\'s copy is vendored, and said to run',
+                      got.get(('checks', 'check_commit_author.py')) == 'precedent-individual'
+                      and got.get(('checks/tests', 'test_commit_author.sh')) == 'precedent-individual'
+                      and 'check_commit_author.py runs from precedent-individual' in said,
+                      said))
+        cases.append(('2: the other copy is not called claimed by nothing',
+                      'commit_author' not in orphan, orphan))
+        cases.append(('3: claimed, shipped only by another source: that copy is vendored',
+                      got.get(('checks', 'check_solo.py')) == 'precedent'
+                      and 'solo' not in orphan, f'{got} {orphan}'))
+        cases.append(('4: CONTROL: a check nothing claims is still reported',
+                      'check_lost.py (precedent)' in orphan, orphan))
+        res['practices']['commit-author-u'] = practice('commit-author', 'commit_author',
+                                                       'precedent')
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                pm._plan_checks(sources, res)
+            refused = False
+        except pm.MaterializeError:
+            refused = True
+        cases.append(('5: CONTROL: two claiming sources that both ship it still refuse',
+                      refused, ''))
+    failed = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a sync says which copy of a claimed check runs ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(f'{n}: {d[:200]}' for n, d in failed))
+
+
 def check_update_drops_the_dead_blank_blocklist_link():
     """Update Vendors drops the retired install pack's dead link to
     personal/README.md#blank-blocklist from a repository's process/ files,
@@ -65823,6 +65906,7 @@ def main():
     check_session_start_charges_brought_sets_to_the_person()
     check_update_drops_the_dead_blank_blocklist_link()
     check_sync_does_not_call_a_held_back_check_an_orphan()
+    check_sync_says_which_copy_of_a_claimed_check_runs()
     check_no_duplication_refuses_a_sets_copy_of_a_universal_rule()
     check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
