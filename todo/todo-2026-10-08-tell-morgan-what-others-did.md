@@ -4,13 +4,13 @@ kind:              manual
 domain:            mechanism
 severity:          null
 status:            open
-disposition:       ask
+disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
 decision:          "\"This new practice you define is great, approved\" -- a daily summary of what others did, opening the first session after 07:00 Buenos Aires time"
 decision_strength: decided
-waiting_on:        "push access to the ladder set, for the practice file"
+waiting_on:        "the change reaching main, where new sessions start"
 noted:             2026-10-08
 closed:            null
 ---
@@ -81,6 +81,14 @@ landing branch with git plumbing, never through the working tree. Tested by
 in [tools/verify_harness.py](../tools/verify_harness.py), which fails when
 the person's own Claude sessions are not left out.
 
-**Left:** the practice file `others-did.md` for the ladder set. This
-session cannot push there (auto mode refused the access request); the
-draft travels in the handoff.
+**The practice file `others-did.md` landed on the ladder set's
+pre-staging** the same day, once Morgan approved push access to it. Until
+the citation check reads more than this repository's own catalogue
+(todo-2026-09-22-code-cites-practice-validates-against-the-wrong-catalogue),
+the code here names it in plain words.
+
+**Seen working, 2026-10-08 14:30 Buenos Aires time:** this session resumed
+on a checkout carrying the change, and the first prompt opened with Alex's
+57 commits since 2026-09-30; the mark landed on origin/pre-staging as its
+own `[skip ci]` commit. Not yet seen: a second session the same day staying
+quiet, which needs the change on `main`, where new sessions start.
