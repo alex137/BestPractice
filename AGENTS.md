@@ -16,12 +16,8 @@ assume one because it is the repository's configured default branch, not
 even when `main` and `staging` point at the same commit.
 
 **Precedent commands.** A session recognizes each by what the message is
-asking for, not by a keyword; the phrase removes doubt, it does not create a
-requirement. Where a command authorizes something hard to reverse (a push,
-a merge, a mark of how convinced he was) and the reading is a genuine
-judgment call, say the read out loud and confirm first. A full practice
-audit and a very deep check are kept to
-the literal ask, because what they trigger is expensive. **Each line below
+asking for, not by a keyword, and confirms a hard-to-reverse read out loud
+([read-for-intent](practices/read-for-intent.md)). **Each line below
 is an index entry: load the practice (`python3 tools/precedent_show.py
 SLUG`) before acting on one**, and the long form each used to carry here is
 in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
@@ -94,7 +90,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~642 of 1750 token budget, 6 of 142 practices (6 universal))
+## Resident block (~642 of 1750 token budget, 6 of 143 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) Answer the easy questions first**, in the same message; the long run
 never gates the answer. **(2) A task longer than a few minutes is proposed,
@@ -238,6 +234,8 @@ When naming or adding a file:
   no-version-suffix — name a file for what it is; the repository is the version
 When naming or scoping something around a person's skill level:
   technical-describes-people — a skill level describes a person, never a project, repo or file
+When reading what a message asks for, or writing one that a session or a check will read:
+  read-for-intent — the words, the context and the conversation; never the keyword alone
 When renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system:
   rename-updates-links — repoint every link and use of a retired name in the same commit or migration
 When seeding or scheduling a prompt into another session:

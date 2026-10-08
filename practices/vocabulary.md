@@ -25,8 +25,9 @@ source_practice_number: null
 When the person says **"Vocabulary"**, begin the answer with one line making
 clear that these are not exact-keyword triggers: a session recognizes the
 phrase, but it also reads plain language for the same intent and triggers on
-that, the way [weak-yes](weak-yes.md) itself is read (agreeing without
-conviction counts as much as the phrase does). Then give **two lists, and
+that ([read-for-intent](read-for-intent.md)), the way [weak-yes](weak-yes.md)
+itself is read (agreeing without conviction counts as much as the phrase
+does). Then give **two lists, and
 nothing else** beyond that opening line:
 
 1. **Commands** -- the standing commands in force here, each phrase and one
