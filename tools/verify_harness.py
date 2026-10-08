@@ -8581,8 +8581,13 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
             encoding='utf-8')
         ucfg = fx / 'user.json'
         ucfg.write_text(json.dumps({'individual': {'path': str(ind)}}), encoding='utf-8')
-        cases.append(('deleted_sets reads the person\'s list',
-                      list(_pr.deleted_sets(user_config=ucfg)) == ['vanished']))
+        got = _pr.deleted_sets(user_config=ucfg)
+        cases.append(("deleted_sets reads the person's list",
+                      got.get('vanished', {}).get('from') == 'person', sorted(got)))
+        cases.append(("...and BestPractice's own record, for every person",
+                      all(got.get(n, {}).get('from') == 'engine' for n in
+                          ('precedent-shared-repo-maintenance',
+                           'precedent-shared-working-style')), sorted(got)))
         (fx / 'repo4').mkdir()
         (fx / 'repo4' / 'precedent.json').write_text(json.dumps({'sources': [
             {'level': 'shared', 'name': 'vanished', 'path': '../vanished'},
@@ -8593,6 +8598,33 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
         loaded = [x['name'] for x in _pr.load_config(fx / 'repo4', user_config=str(ucfg))]
         cases.append(('a session no longer loads a deleted set',
                       'vanished' not in loaded, loaded))
+        # An individual set's `brings` loses a deleted set at its Update
+        # Vendors; anywhere else, the person is told their own set names it.
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'ind', 'brings': [
+                {'name': 'precedent-shared-working-style', 'repo_url': 'https://github.com/o/a'},
+                {'name': 'kept', 'repo_url': 'https://github.com/o/b'}]}), encoding='utf-8')
+        saved_env = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        try:
+            told = _pve.person_names_deleted(fx / 'repo4')
+            cases.append(("an update elsewhere names the deleted set the person's "
+                          'own individual set still brings',
+                          [n for _w, n in told] == ['precedent-shared-working-style'], told))
+            cases.append(('...and says nothing when run in that individual set itself',
+                          _pve.person_names_deleted(ind) == []))
+        finally:
+            if saved_env is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved_env
+        dropped_b = _pve.drop_deleted_brings(ind)
+        left_b = [b['name'] for b in json.loads(
+            (ind / 'precedent-source.json').read_text(encoding='utf-8'))['brings']]
+        cases.append(("Update Vendors in an individual set drops a deleted set "
+                      'from its brings, and keeps the rest',
+                      dropped_b == ['precedent-shared-working-style'] and left_b == ['kept'],
+                      (dropped_b, left_b)))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
     bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]

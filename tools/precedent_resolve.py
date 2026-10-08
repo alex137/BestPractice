@@ -828,24 +828,41 @@ def person_individual_path(user_config=None):
     return None
 
 
+# The engine's own record, shipped beside this file to every repository: the
+# public sets whose repositories are deleted, for EVERY person, not only the
+# one who deleted them (Morgan, 2026-10-08: when another person runs Update
+# Vendors it should notice too, as a standing rule).
+ENGINE_DELETED_SETS = pathlib.Path(__file__).resolve().parent / 'deleted_sets.json'
+
+
 def deleted_sets(individual_path=None, user_config=None):
-    """-> {name: {"date": ..., "reason": ...}} for every shared set the person
-    has said is deleted (DELETED_SETS_KEY in their individual set's
-    precedent-source.json); {} when none, or nothing can be read."""
+    """-> {name: {"date": ..., "reason": ...}} for every shared set known to be
+    deleted: the engine's own record (ENGINE_DELETED_SETS) and the person's
+    (DELETED_SETS_KEY in their individual set's precedent-source.json); {}
+    when neither says anything or can be read."""
+    raw = []
+    try:
+        eng = json.loads(ENGINE_DELETED_SETS.read_text(encoding='utf-8'))
+        raw += [dict(e, _from='engine') for e in (eng.get('sets') or [])
+                if isinstance(e, dict)] if isinstance(eng, dict) else []
+    except (OSError, ValueError):
+        pass
     path = (pathlib.Path(individual_path) if individual_path
             else person_individual_path(user_config))
-    if path is None:
-        return {}
-    try:
-        man = json.loads((path / SOURCE_MANIFEST).read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return {}
-    raw = man.get(DELETED_SETS_KEY) if isinstance(man, dict) else None
+    if path is not None:
+        try:
+            man = json.loads((path / SOURCE_MANIFEST).read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            man = None
+        mine = man.get(DELETED_SETS_KEY) if isinstance(man, dict) else None
+        raw += [dict(e, _from='person') for e in mine
+                if isinstance(e, dict)] if isinstance(mine, list) else []
     out = {}
     for e in raw if isinstance(raw, list) else []:
         if isinstance(e, dict) and isinstance(e.get('name'), str) and e['name'].strip():
             out[e['name'].strip()] = {'date': str(e.get('date') or ''),
-                                      'reason': str(e.get('reason') or '')}
+                                      'reason': str(e.get('reason') or ''),
+                                      'from': e.get('_from', 'person')}
     return out
 
 

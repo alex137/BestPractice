@@ -372,6 +372,10 @@ ENGINE_FILES = [
     # vendored-engine-file-refs-resolve, on the run that added it -- a
     # vendored build_views.py naming a companion nobody had copied.
     'glossary_terms.json',
+    # The record of shared sets whose repositories are deleted
+    # (precedent_resolve.deleted_sets, 2026-10-08): every person's sessions
+    # and Update Vendors read it, so it travels with the resolver.
+    'deleted_sets.json',
     # A shared set's approvers.json -> CODEOWNERS generator. In the engine
     # rather than in one shared set's own tools/ because that is where it
     # was, and the consequence was a second shared set with declared
@@ -3975,8 +3979,10 @@ def retired_sources(dest_root, archived=(), person=None):
         ret = source_retirement(clone)
         if s.get('level') == 'shared' and name in gone:
             info = gone[name]
-            why = ('you deleted it' + (f' ({info["date"]})' if info.get('date') else '')
-                   + ' -- your individual set lists it in deleted_sets')
+            why = (DELETED_WHY + (f' ({info["date"]})' if info.get('date') else '')
+                   + (' -- BestPractice\'s record of deleted sets, '
+                      'tools/deleted_sets.json' if info.get('from') == 'engine'
+                      else ' -- your individual set lists it in deleted_sets'))
         elif ret is not None:
             why = 'it says it is retired'
             if ret.get('date'):
@@ -4010,7 +4016,7 @@ def retired_sources(dest_root, archived=(), person=None):
 
 # The words retired_sources gives a set the person deleted; such a set is
 # dropped whether or not every rule it held is carried elsewhere.
-DELETED_WHY = 'your individual set lists it in deleted_sets'
+DELETED_WHY = 'its repository is deleted'
 
 
 def drop_retired_sources(dest_root, archived=(), apply=True, person=None):
@@ -4063,6 +4069,62 @@ def drop_retired_sources(dest_root, archived=(), apply=True, person=None):
         new_text = json.dumps(cfg, indent=2, ensure_ascii=False) + '\n'
     path.write_text(new_text, encoding='utf-8')
     return dropped, kept
+
+
+def drop_deleted_brings(dest_root, apply=True, gone=None):
+    """-> [name] of each set `dest_root`'s own precedent-source.json `brings`
+    that is deleted (precedent_resolve.deleted_sets), removed from `brings`
+    unless apply is False. [] for a repository that brings nothing. Only an
+    individual set brings anything; a brought set is never loaded once it
+    is deleted, and this keeps the declaration from naming it forever."""
+    path = pathlib.Path(dest_root) / 'precedent-source.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+        man = json.loads(text)
+    except (OSError, ValueError):
+        return []
+    brings = man.get('brings') if isinstance(man, dict) else None
+    if not isinstance(brings, list):
+        return []
+    if gone is None:
+        try:
+            import precedent_resolve as pr
+            gone = pr.deleted_sets(dest_root)
+        except Exception:                                       # noqa: BLE001
+            gone = {}
+    names = [b.get('name') for b in brings
+             if isinstance(b, dict) and b.get('name') in gone]
+    if names and apply:
+        man['brings'] = [b for b in brings
+                         if not (isinstance(b, dict) and b.get('name') in names)]
+        path.write_text(json.dumps(man, indent=2, ensure_ascii=False) + '\n',
+                        encoding='utf-8')
+    return names
+
+
+def person_names_deleted(repo):
+    """-> [(where, name)] for each deleted set the person's OWN individual set
+    still declares or brings, when that set is not `repo` itself: the person
+    runs Update Vendors there to drop it (Morgan, 2026-10-08: another person's
+    update should notice a deleted set in their own individual set too)."""
+    try:
+        import precedent_resolve as pr
+    except Exception:                                           # noqa: BLE001
+        return []
+    ind = pr.person_individual_path()
+    if ind is None or not ind.is_dir() or ind.resolve() == pathlib.Path(repo).resolve():
+        return []
+    gone = pr.deleted_sets(ind)
+    out = []
+    for f, key in (('precedent-source.json', 'brings'), ('precedent.json', 'sources')):
+        try:
+            data = json.loads((ind / f).read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for e in (data.get(key) if isinstance(data, dict) else None) or []:
+            if isinstance(e, dict) and e.get('name') in gone:
+                out.append((f'{ind / f} `{key}`', e['name']))
+    return out
 
 
 _GH_SLUG_RE = re.compile(r'github\.com[:/]([A-Za-z0-9][\w-]*)/([\w.-]+?)(?:\.git)?/?$')

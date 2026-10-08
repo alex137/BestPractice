@@ -788,8 +788,9 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
         if level == 'shared' and name in gone:
             # The person deleted it (precedent_resolve.DELETED_SETS_KEY): its
             # repository may be gone, so it is never cloned again.
-            results.append((name, True, 'deleted by you (your individual set '
-                                        'lists it); not cloned -- Update '
+            results.append((name, True, 'its repository is deleted '
+                                        '(tools/deleted_sets.json or your '
+                                        'individual set); not cloned -- Update '
                                         'Vendors removes it from precedent.json'))
             continue
         rel = str(src.get('path') or '').strip()

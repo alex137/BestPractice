@@ -527,6 +527,15 @@ def retired_sources_step(repo, rep):
                   f'{why}, but {", ".join(lost)} is in force nowhere else, '
                   f'so it stays declared -- move those rules, or decide to let '
                   f'them go, then run Update Vendors again')
+    for name in pve.drop_deleted_brings(repo) if hasattr(pve, 'drop_deleted_brings') else []:
+        rep.step('retired set', f'{name} is no longer in precedent-source.json '
+                 f'`brings`: its repository is deleted')
+        names.append(name)
+    for where, name in (pve.person_names_deleted(repo)
+                        if hasattr(pve, 'person_names_deleted') else []):
+        rep.leave(where, f'still names {name}, whose repository is deleted. '
+                         f'Nothing loads it any more; run Update Vendors in your '
+                         f'individual set to drop it there')
     for where, text, why in prose_about_dropped_sets(repo, names):
         rep.leave(where, f'{why}: "{text}" -- reword it or remove it')
     proxied = [n for n in notes if n.endswith(getattr(pve, 'PROXY_NOTE', '\0'))]
