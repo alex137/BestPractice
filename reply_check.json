@@ -198,5 +198,16 @@
     "why": "2026-10-01: two prompts a session wrote told another session to land work, though the person had not said to. fence-block-for-paste passed both, because it checks that a block says where it goes, not what it authorizes. 2026-10-08: it refused a block that ended at the feature branch, because the block's situation paragraph reported that a tool had told an earlier session to open a pull request to main; in a block that says it stops at the feature branch, a clause narrating what a session or tool did or was told is not an instruction, and every other clause is still judged. Later on 2026-10-08: the rule skipped any line with 'no' or 'without' in it, so 'Merge it into main, no questions asked' passed; a negator now exempts a clause only when it governs the landing verb, and the rule reads the other ways a block says land (make it live, ship it, merge the PR, gh pr merge, git push origin main). Morgan: 'shouldn't it understand the intent behind commands not just the literal words?' (practice: read-for-intent).",
     "checks_practice_at": "practices/prompt-please.md",
     "id": "prompt-please-landing-authority"
+  },
+  {
+    "practice": "prompt-please",
+    "require_reply_block_names_sender": {
+      "sender_in_prompt": "\\bFrom (?:session )?[\"“][^\"”\\n]{1,200}[\"”]\\s*\\((https://claude\\.ai/code/session_\\w+)\\)",
+      "block_if_matches": "^\\s*From (?:session )?[\"“][^\"”\\n]{1,200}[\"”]\\s*\\(https://claude\\.ai/code/session_|^\\s*Seed root:",
+      "exempt_if_reply_says": "\\bOpen a new session\\b"
+    },
+    "why": "Morgan, 2026-10-08 (strength: decided): \"yes, extend the rule and add the check\". A message relayed from another session names that session in its opening line, so the paste block answering it has a known destination; a reply that wrote its own name and link but not where it was going left him unable to tell which window to paste it into. A reply whose plain text sends the block to a new session (\"Open a new session\") is not asked for one.",
+    "checks_practice_at": "practices/prompt-please.md",
+    "id": "reply-block-names-its-session"
   }
 ]

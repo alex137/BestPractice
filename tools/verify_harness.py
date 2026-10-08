@@ -25053,6 +25053,56 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
           '; '.join(f'{n} {d}' for n, d in bad))
 
 
+def check_reply_check_wants_a_reply_block_to_name_its_session():
+    """tools/precedent_reply_check.py -- a paste block answering a message
+    another session sent says, inside it, which session it goes to.
+
+    2026-10-08: a session answered a relayed message with a block carrying
+    its own name and link and none for its destination, though the message
+    named its sender, and the person could not tell which window to paste
+    it into. Judged against the shipped rule, so a change to either the
+    engine or reply_check.json that loosens it fails here."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_reply_check as rc
+    rule = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+        encoding='utf-8')) if r.get('id') == 'reply-block-names-its-session']
+    cases = [('the shipped rule exists', len(rule) == 1)]
+    sender = 'https://claude.ai/code/session_01SENDERxyz'
+    prompt = (f'the other session wrote this for you: From session "PI: x" '
+              f'({sender}). A session wrote this, not a person.')
+
+    def block(*lines):
+        return 'Reply:\n\n```\n' + '\n'.join(lines) + '\n```\n'
+    own = 'From "BP: me" (https://claude.ai/code/session_01MEabc).'
+    seed = 'Seed root: example/repo. Attach: none.'
+    named = f'This prompt is intended for the session PI: x -- {sender}.'
+
+    def refused(text, p=prompt):
+        return any(v['kind'] == 'reply_names_sender'
+                   for v in rc.violations(text, rule, prompt=p))
+    cases += [
+        ('a block answering the sender without naming it is refused',
+         refused(block(own, '1. done'))),
+        ('a block with a Seed root line and no destination is refused',
+         refused(block(seed, '1. done'))),
+        ("the line must carry the sender's own link",
+         refused(block(own, seed, 'This prompt is intended for the session '
+                       'Other -- https://claude.ai/code/session_01OTHER.'))),
+        ('a block that names the sender passes',
+         not refused(block(own, seed, named, '1. done'))),
+        ('a turn whose prompt came from no session asks for nothing',
+         not refused(block(own, '1. done'), p='Booked')),
+        ('a reply sending its block to a new session asks for nothing',
+         not refused('Open a new session, root it in x.\n\n'
+                     + block(own, seed, '1. do it'))),
+        ('a fenced block that is not a prompt (no From or Seed root line) is '
+         'not judged', not refused(block('git status'))),
+    ]
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'a reply block names the session it answers ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(bad))
+
+
 def check_reply_check_reads_a_landing_trigger_by_clause_and_by_list():
     """The engine keys behind read-for-intent's landing rule, driven with
     fixture rules so the mechanism is tested apart from any one set's data.
@@ -28502,6 +28552,137 @@ def check_materialize_carries_harness_adapters():
           f'collision, settings.json, "..", a wiped directory, and an '
           f'unreadable source config)',
           not bad, '; '.join(bad))
+
+
+def check_sync_keeps_a_hook_whose_stub_has_no_script():
+    """tools/precedent_materialize.py -- a sync never swaps a working hook
+    for the pointer stub when the script the stub runs is not in the repo.
+
+    2026-10-08: a source's adapters began shipping the stub, which runs
+    tools/<its name>. In a consuming repo whose engine predated that move, a
+    sync replaced its commit-identity, freshness-guard and individual-set
+    hooks with pointers to scripts it did not have, so each printed one note
+    and let everything through. A session caught it reading the diff; the
+    sync said nothing. Now the working hook stays, the sync says why and
+    what to run, --check agrees with what it kept, and once the script
+    arrives the next sync installs the stub as an ordinary update."""
+    import shutil, subprocess, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-held-hook-'))
+    cases = []
+    try:
+        uni, consumer = tmp / 'universal', tmp / 'consumer'
+        p = uni / 'practices' / 'uni-fixture.md'
+        p.parent.mkdir(parents=True)
+        p.write_text(
+            '---\nslug: uni-fixture\ntitle: Fixture\ntier: on-demand\n'
+            'severity: default\napplies_to: ["**"]\noccasion: "x"\n'
+            'gates: []\nindex_clause: "x"\nchecked_by: null\ndefines: []\n'
+            'status: active\nsupersedes: []\noverrides: null\n'
+            'added: 2026-10-08\napproved_by: "harness, 2026-10-08"\n'
+            'source_practice_number: null\n---\n## Rule\nx\n\n'
+            '## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+            encoding='utf-8')
+        boot = uni / 'bootstrap'
+        boot.mkdir()
+        src = boot / 'guard.sh'
+        src.write_text('#!/bin/bash\necho real guard\n', encoding='utf-8')
+        os.chmod(src, 0o755)
+        (uni / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'adapters': [
+                {'from': 'bootstrap/guard.sh', 'to': '.claude/hooks/guard.sh'}]}),
+            encoding='utf-8')
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(uni)}]}), encoding='utf-8')
+        fixture_home = tmp / 'home'
+        fixture_home.mkdir()
+        env = {k: v for k, v in os.environ.items()
+               if k != 'CLAUDE_CODE_REMOTE' and not k.startswith('PRECEDENT_')}
+        env['HOME'] = str(fixture_home)
+        tool = str(ROOT / 'tools' / 'precedent_materialize.py')
+
+        def run():
+            r = subprocess.run([sys.executable, tool, '--out', str(consumer),
+                                '--repo', str(consumer)],
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        def drift():
+            sys.path.insert(0, str(ROOT / 'tools'))
+            import precedent_resolve as _pr, precedent_materialize as _pm
+            home = os.environ.get('HOME')
+            os.environ['HOME'] = str(fixture_home)
+            try:
+                srcs = _pr.load_config(str(consumer),
+                                       str(fixture_home / 'no-user-config.json'))
+                return _pm.drift(srcs, _pr.resolve(srcs), consumer)
+            finally:
+                if home is None:
+                    os.environ.pop('HOME', None)
+                else:
+                    os.environ['HOME'] = home
+
+        hook = consumer / '.claude' / 'hooks' / 'guard.sh'
+        rc, out = run()
+        stub = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+                / 'reply-gate.sh').read_bytes()
+        src.write_bytes(stub)
+        rc, out = run()
+        text = hook.read_text(encoding='utf-8') if hook.is_file() else ''
+        cases.append(('the source now ships the stub and tools/guard.sh is '
+                      'missing: the working hook stays',
+                      rc == 0 and 'real guard' in text, out[-400:]))
+        cases.append(('the sync says it kept it, why, and to run Update Vendors',
+                      'KEPT' in out and '.claude/hooks/guard.sh' in out
+                      and 'Update Vendors' in out, out[-400:]))
+        cases.append(('it stays executable', hook.is_file()
+                      and os.access(hook, os.X_OK), ''))
+        found = drift()
+        cases.append(('--check agrees with the kept hook: no drift finding',
+                      not any('guard.sh' in f for f in found),
+                      str([f for f in found if 'guard.sh' in f] or found[:3])))
+
+        (consumer / 'tools').mkdir(exist_ok=True)
+        (consumer / 'tools' / 'guard.sh').write_text('#!/bin/bash\n',
+                                                      encoding='utf-8')
+        rc, out = run()
+        text = hook.read_text(encoding='utf-8') if hook.is_file() else ''
+        cases.append(('once tools/guard.sh is there, the next sync installs '
+                      'the stub, quietly, as an ordinary update',
+                      rc == 0 and 'PRECEDENT HOOK STUB' in text
+                      and 'KEPT' not in out and 'REPLACED' not in out,
+                      out[-400:]))
+
+        hook.unlink()
+        (consumer / 'tools' / 'guard.sh').unlink()
+        rc, out = run()
+        cases.append(('with no hook installed there is nothing to lose: the '
+                      'stub is written', rc == 0 and hook.is_file()
+                      and 'PRECEDENT HOOK STUB' in hook.read_text(encoding='utf-8'),
+                      out[-400:]))
+        # The individual-source stub runs one fixed script whatever name it
+        # is installed under, so the kept-or-installed test reads that name
+        # from the stub, never from the destination.
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_materialize as _pm
+        hooks = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+        ind = (hooks / 'individual-source-bootstrap.sh.template').read_bytes()
+        cases.append(('the individual-source stub is judged by the script it '
+                      'names, not the name it is installed as',
+                      _pm._stub_target(ind, '.claude/hooks/precedent-individual-'
+                                       'bootstrap.sh')
+                      == 'individual-source-bootstrap.sh'
+                      and _pm._stub_target(stub, '.claude/hooks/guard.sh')
+                      == 'guard.sh', ''))
+    except (OSError, ValueError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{c[0]} ({c[2]})' for c in cases if not c[1]]
+    check(f'a sync keeps a working hook whose new stub has no script to run '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_practice_ships_its_files():
@@ -33320,6 +33501,16 @@ def check_promote_only_and_tier_branches():
                       push_refused('origin staging') is not None))
         cases.append(('on: a push to pre-staging goes through',
                       push_refused('origin pre-staging') is None))
+        # The first landing (promote-only's first-install exception, Morgan,
+        # 2026-10-08): a push into a remote holding no branch at all creates
+        # main and goes through; the remote above, which has main, refuses.
+        empty = tmp / 'empty.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(empty))
+        git(work, 'remote', 'add', 'fresh', f'file://{empty}')
+        cases.append(('on: the first push into an empty remote creates main and '
+                      'goes through', push_refused('fresh HEAD:main') is None))
+        cases.append(('on: a remote that cannot be asked keeps the push refused',
+                      push_refused('nosuchremote main') is not None))
         cases.append(('on: a push to a working branch goes through',
                       push_refused('origin claude/x') is None))
         cases.append(('on: pre-staging into staging is the promotion route, '
@@ -67176,6 +67367,7 @@ def main():
     check('the reply check requires a destination for a fence block',
           *check_reply_check_requires_a_destination_for_a_fence_block())
     check_reply_check_refuses_a_paste_block_that_lands_unauthorized()
+    check_reply_check_wants_a_reply_block_to_name_its_session()
     check('the landing trigger reads per clause, from a list, and the old shape '
           'reads as it did', *check_reply_check_reads_a_landing_trigger_by_clause_and_by_list())
     check('the reply check requires the Boildown to open with where the work is',
@@ -67260,6 +67452,7 @@ def main():
     check_materialize_bridges_loader()
     check_shipped_tests_name_their_owner_and_fail_at_home()
     check_materialize_carries_harness_adapters()
+    check_sync_keeps_a_hook_whose_stub_has_no_script()
     check_practice_ships_its_files()
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()

@@ -426,6 +426,15 @@ if [ -f tools/precedent_check.py ] && [ -f tools/ENGINE_MANIFEST.json ] && \
   fi
 fi
 
+# OPEN FAILURES (2026-10-08): a failure an unattended job could not report
+# anywhere else (no issues API, `gh` not signed in) is filed as an open
+# blocker item under todo/ and pushed (tools/open_failures.py, practice:
+# automation-issues). Listed here, on stdout, so a session's first context
+# names it, whichever harness started the session. Never gates.
+if [ -f tools/open_failures.py ]; then
+  python3 tools/open_failures.py 2>/dev/null || true
+fi
+
 # THIS REPOSITORY'S OWN STEPS go in tools/bootstrap.local.sh, never in this
 # file. This file is the template's, and an Update Vendors rewrites it when it
 # is unedited; a step added here makes it a diverged copy, and a step added

@@ -158,6 +158,7 @@ as_of: 2026-10-08
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay | 19d | ask |  |
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | 7d | wait | Morgan: noted as a possibility for the future, not approved (2026-10-01) |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. | 5d | ask |  |
+| [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | 0d | ask |  |
 
 ## Unblocked Work
 
@@ -215,6 +216,7 @@ as_of: 2026-10-08
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay |  |
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | Morgan |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. |  |
+| [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | Alex's or Morgan's approval of the plan below, stage by stage |
 
 ## Due Reminders
 
