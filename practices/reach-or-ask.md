@@ -47,3 +47,9 @@ been attached to the session; a read-only attach, available all along,
 answered the question in seconds (the copy was current). The person:
 "Why not adopt a practice of asking if you need access rather than simply
 passively announcing you can't."
+
+## Install
+Nothing to install, and no mechanical check: whether a gap was one a tool
+could close, or needed the person, is the judgment itself. The occasion
+index carries the trigger, so the line reaches every repository with its
+next catalogue refresh.
