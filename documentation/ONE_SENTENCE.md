@@ -30,6 +30,8 @@ best one can win. Got a better one? Add it.
   or Preference**.
 - **Do things, and define the rules for what you're doing**, as you're
   doing it.
+- **Set precedents!** Just do what you do, and your system learns from the
+  decisions made.
 
 ## Where to Go From Here
 
