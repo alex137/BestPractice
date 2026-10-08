@@ -371,6 +371,18 @@ def effective_budgets(root, registry=None):
         out['occasion_index'] = cap
     if (root / 'precedent-source.json').is_file():
         out['occasion_share_tokens'] = own_occasion_allowance(root)
+        # The sets a person brings are held to this (precedent_session_practices
+        # .brought_budget reads the same field). Left out of this function
+        # until 2026-10-08, so a session raised it from 700 to 1,200 with no
+        # check able to see it; Morgan: "don't update token limits unless I
+        # explicitly authorize it".
+        try:
+            man = json.loads((root / 'precedent-source.json').read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            man = None
+        brought = man.get('brought_sets_tokens') if isinstance(man, dict) else None
+        if isinstance(brought, int) and not isinstance(brought, bool):
+            out['brought_sets_tokens'] = brought
     f = registry or _ENGINE_DIR / 'session_load_budgets.json'
     try:
         surfaces = json.loads(f.read_text(encoding='utf-8')).get('surfaces') or {}

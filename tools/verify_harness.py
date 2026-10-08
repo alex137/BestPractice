@@ -51373,6 +51373,38 @@ def check_budget_approvals_see_computed_raises():
                       out[-600:]))
         reset()
 
+        # 2026-10-08: brought_sets_tokens was a budget no check could see,
+        # and a session raised it from 700 to 1,200 unasked.
+        src_p.write_text(json.dumps(dict(json.loads(pristine[src_p]),
+                                         brought_sets_tokens=1200)), encoding='utf-8')
+        rc, out = run()
+        cases.append(("a person's brought_sets_tokens is a budget the check "
+                      'sees: unapproved, it is refused',
+                      rc != 0 and 'brought_sets_tokens is 1200 in force and has '
+                      'no entry in approved_budgets' in out, out[-600:]))
+        reset()
+
+        def offset(freed):
+            def fn(d):
+                d['surfaces']['AGENTS.md']['ceiling'] = 7250
+                d['approved_budgets']['surfaces/AGENTS.md'] = {
+                    'max': 7250, 'strength': 'offset', 'previous_max': 6950,
+                    'freed': freed, 'offset_from': 'a removed shared set',
+                    'approved_by': 'offset, 2026-10-08'}
+            return fn
+
+        edit_reg(offset(400))
+        rc, out = run()
+        cases.append(('a raise paid for by tokens a removal freed passes without '
+                      "the person's words", rc == 0 and '1 passed' in out, out[-600:]))
+        reset()
+        edit_reg(offset(100))
+        rc, out = run()
+        cases.append(('...and one larger than what was freed is refused',
+                      rc != 0 and 'more than the 100 tokens its offset freed' in out,
+                      out[-600:]))
+        reset()
+
         edit_reg(lambda d: d.pop('approved_budgets'))
         rc, out = run()
         cases.append(('with no approvals list and no main to compare, the '

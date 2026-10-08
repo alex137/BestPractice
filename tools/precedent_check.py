@@ -11419,7 +11419,11 @@ def duplicated_resident_text(root, text, corpus=None):
 # approvals list in the registry, and needs no base: it gives the same answer
 # at commit, push, merge, CI and Promote, whoever merged what.
 _BUDGET_REGISTRY = 'tools/session_load_budgets.json'
-_BUDGET_STRENGTHS = ('decided', 'assented', 'baseline')
+# 'offset' (Morgan, 2026-10-08): a raise paid for by tokens freed elsewhere in
+# the same change -- "if we remove a supporting set repo then it's okay to
+# allocate its tokens to the new repo". It names what was removed and how
+# many tokens that freed, and is never larger than what it freed.
+_BUDGET_STRENGTHS = ('decided', 'assented', 'baseline', 'offset')
 
 
 def _budget_approval_problem(entry):
@@ -11433,6 +11437,18 @@ def _budget_approval_problem(entry):
                 f'{", ".join(_BUDGET_STRENGTHS)}')
     if not _APPROVAL_DATE.search(who):
         return 'has an approved_by with no YYYY-MM-DD date'
+    if strength == 'offset':
+        freed, was = entry.get('freed'), entry.get('previous_max')
+        if not (isinstance(freed, int) and isinstance(was, int)
+                and str(entry.get('offset_from') or '').strip()):
+            return ('is an offset with no "offset_from" (what was removed), '
+                    '"freed" (the tokens that removal freed) and '
+                    '"previous_max" (the approved number before it)')
+        if entry['max'] - was > freed:
+            return (f'raises {was:,} to {entry["max"]:,}, more than the '
+                    f'{freed:,} tokens its offset freed -- the rest needs '
+                    f'the person\'s own words')
+        return None
     if strength != 'baseline' and not _APPROVAL_QUOTE.search(who):
         return ('is marked decided/assented but approved_by quotes nobody\'s '
                 'words')
