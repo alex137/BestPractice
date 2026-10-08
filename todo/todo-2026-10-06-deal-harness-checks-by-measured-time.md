@@ -3,7 +3,7 @@ slug:              todo-2026-10-06-deal-harness-checks-by-measured-time
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-06
-closed:            null
+closed:            2026-10-07
 ---
 ## What
 
@@ -60,3 +60,13 @@ much under it.
 
 Closes on its own condition: the next GitHub test on a pull request into
 `main` shows the parts finishing within about a minute of each other.
+
+**Measured 2026-10-07, closed on it.** The first GitHub run with the new
+deal, on pull request #959, logged "1 of 4 shard process(es) done" at 969
+seconds and all four green at 974. So the three rest parts finished within
+about five seconds of each other. The harness step took 974 seconds, and
+the whole job 16 minutes 41 seconds. Tonight's two runs before the change
+took about 17.5 and 30 minutes as three jobs. The four processes share one
+runner's cores, so the wall time is above the 602-second parts the record
+predicts. The slowest single check sets the floor for whichever part holds
+it.
