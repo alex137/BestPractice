@@ -1708,6 +1708,7 @@ class Report:
         self.edits = []   # (outcome, rel, text) -- precedent_local_edits.resolve()
         self.merges = {}  # rel -> (merged, upstream's) -- judged again at step 5
         self.not_run = None  # what the closing check left to a later tier
+        self.copy_verified = False  # the catalogue copy matched its record
         self.warnings = []   # passed now, refused at a later tier
         self.repo = None     # set with `staged` once stage_update has run
         self.staged = []     # the paths this run staged as its own
@@ -2453,8 +2454,8 @@ def realign_catalogue_record(repo, wrote, back):
     naming the commit the failed run mirrored, and the rerun judged HEAD's
     older copy against that commit -- every file "a local edit upstream has
     not changed", kept (2026-10-08, a consuming repository: 440 files).
-    Only the keys checkin.py record writes (commit, synced_from, _note) go
-    back to HEAD's, and only when no other key of `upstream` differs, so a
+    Only the keys checkin.py record writes (commit, synced_from, _note,
+    copy_tree) go back to HEAD's, and only when no other key of `upstream` differs, so a
     decline or any other change of the person's stays."""
     rel = 'process/manifest.json'
     if rel not in wrote or rel in back:
@@ -2474,7 +2475,7 @@ def realign_catalogue_record(repo, wrote, back):
     except (OSError, ValueError, AttributeError):
         return None
     now = data.get('upstream') if isinstance(data, dict) else None
-    own = ('commit', 'synced_from', '_note')
+    own = ('commit', 'synced_from', '_note', 'copy_tree')
     if not isinstance(now, dict) or not head.get('commit') or now == head:
         return None
     if {k: v for k, v in now.items() if k not in own} != \
@@ -3405,6 +3406,7 @@ def update(repo, skip_check=False, ref=None, move=False):
         rep.step('catalogue, written ahead', f'{len(mirrored)} uncommitted '
                  f'path(s) were an earlier run\'s mirror of the pinned commit, '
                  f'byte for byte; staged as this update\'s')
+    record_copy_fingerprint(repo, rep)
     n = stage_update(repo, before)
     regenerated_step(repo, rep)
     rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
@@ -3565,7 +3567,27 @@ def catalogue_copy_postcondition(repo, rep, put_back=()):
         rep.step('catalogue copy', f'matches {commit[:12]}, the commit its '
                  f'record names' + (f', apart from {len(kept)} file(s) kept on '
                                     f'purpose or left for you' if kept else ''))
+    # Only a copy that matches its record gets a fingerprint recorded
+    # (record_copy_fingerprint, before staging); one with a file in it left
+    # for the person keeps checkin.py record's, so the check names that file.
+    open_calls = {what for what, _why in rep.left}
+    rep.copy_verified = not left and not any(rel in open_calls for rel in kept)
     return fixed
+
+
+def record_copy_fingerprint(repo, rep):
+    """Record the fingerprint of the vendored copy in process/manifest.json,
+    once catalogue_copy_postcondition() found it matches its record and every
+    later step that writes has run -- so the consumer's own check
+    (vendored-copy-matches-record) can tell, with no BestPractice clone, that
+    the copy drifted afterwards (checkin.COPY_TREE_KEY)."""
+    if not getattr(rep, 'copy_verified', False):
+        return
+    import checkin as ck
+    tid = ck.stamp_copy_tree(repo / 'process' / 'manifest.json')
+    if tid:
+        rep.step('catalogue fingerprint', f'recorded ({tid[:12]}), so this '
+                 f'repository\'s own check can see the copy drift from now on')
 
 
 def manifest_postcondition(repo, rep):

@@ -10955,6 +10955,82 @@ def _manifest_entries_resolve(ctx):
             for m, name, rel in pve.dead_manifest_entries(ROOT)]
 
 
+_COPY_DRIFT_SHOWN = 25
+
+
+@check('vendored-copy-matches-record', 'tree',
+       'the vendored catalogue copy (process/upstream/, and each mirror a '
+       'process/manifest_*.json records) is still what was recorded when its '
+       'commit was recorded: the fingerprint process/manifest.json keeps '
+       '(upstream.copy_tree) is compared with the copy as it stands, with no '
+       'BestPractice clone. A file the manifest marks diverged or local-only, '
+       'or that precedent.json keeps under kept_template_divergences with a '
+       'reason, is exempt by name. A manifest written before the fingerprint existed is '
+       'reported COULD NOT VERIFY, and the next Update Vendors records one',
+       'whether the recorded copy was right in the first place -- Update '
+       'Vendors checks that against the upstream commit before it records '
+       'the fingerprint, and that needs the clone. It is blind to a drift '
+       'committed together with a new fingerprint, since the fingerprint is '
+       'the record; and where the recorded tree is not in this clone (a '
+       'shallow clone, or a copy changed before its first commit) it can say '
+       'the copy changed but not which files',
+       practice_backed=False, judges_received=True,
+       selects_on=('process/**', 'tools/checkin.py'))
+def _vendored_copy_matches_record(ctx):
+    # 2026-10-08, a consuming repository: its records named one upstream
+    # commit while most of process/upstream/ held other versions, and nothing
+    # in the repository could tell without a BestPractice clone to compare
+    # with (gotchas/gotcha-2026-10-08-a-vendored-copy-can-claim-a-commit-it-
+    # does-not-hold.md). checkin.copy_drift() is the one answer; this says it.
+    try:
+        import checkin
+        drift = checkin.copy_drift(ROOT)
+    except Exception as e:                           # practice: fail-gracefully
+        raise NotApplicable(f'tools/checkin.py could not be loaded here ({e}), '
+                            f'so there is nothing to compare the copy with')
+    if not drift:
+        raise NotApplicable('no process/manifest*.json here records a vendored '
+                            'copy at an upstream commit')
+    remedy = ('Run Update Vendors once, from a BestPractice clone with its full '
+              'history (python3 ../BestPractice/tools/precedent_update.py '
+              '--repo .): it puts back upstream\'s text at the recorded commit, '
+              'reports any edit of yours instead of overwriting it, and records '
+              'the copy again. To keep a change on purpose, send it upstream, '
+              'or record it under precedent.json\'s kept_template_divergences '
+              'with a reason')
+    out = []
+    for manifest, tree, state, detail in drift:
+        if state == 'unrecorded':
+            out.append(Unverified(manifest, f'records upstream commit '
+                                  f'{detail[:12]} but no fingerprint of {tree}/ '
+                                  f'(upstream.copy_tree) -- it was written before '
+                                  f'the fingerprint existed, so nothing here can '
+                                  f'tell whether the copy has changed since. The '
+                                  f'next Update Vendors records one'))
+        elif state == 'unreadable':
+            out.append(Unverified(manifest, f'{detail}, so the copy could not be '
+                                  f'compared with its recorded fingerprint'))
+        elif state == 'unnamed':
+            out.append(Finding(manifest, f'{tree}/ has changed since this '
+                               f'manifest recorded it (fingerprint '
+                               f'{detail[:12]}), and the recorded tree is not '
+                               f'in this clone, so the files cannot be named '
+                               f'here. {remedy}'))
+        elif state == 'drifted':
+            for path, how in detail[:_COPY_DRIFT_SHOWN]:
+                out.append(Finding(f'{tree}/{path}', f'{how} since {manifest} '
+                                   f'recorded the copy'))
+            more = len(detail) - _COPY_DRIFT_SHOWN
+            out.append(Finding(manifest, f'{len(detail)} file(s) in {tree}/ '
+                               f'differ from the copy it recorded'
+                               + (f' ({more} more not listed above)' if more > 0
+                                  else '')
+                               + f'. The copy is meant to be what the recorded '
+                               f'upstream commit gives, plus the local edits '
+                               f'Update Vendors kept. {remedy}'))
+    return out
+
+
 OPEN_ITEM_FILE_RE = re.compile(r'(?:^|/)(todo|gotcha)-\d{4}-\d{2}-\d{2}-[^/]*\.md$')
 
 
