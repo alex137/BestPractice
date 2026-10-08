@@ -23698,6 +23698,33 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'a tier branch, which off the ladder is not a landing':
             'Push it to pre-staging once it is green.',
     }
+    # 2026-10-08: a block that ends at the feature branch may NARRATE a past
+    # landing -- what a session did, what a tool told it -- without that
+    # report being read as an order; every instruction beside it is still
+    # judged, and a claim of the person's word still has to quote it.
+    stop = ('Build it on your feature branch, push it there, and stop; '
+            'open none and land nothing.')
+    told = ('A session had prepared a copy and a tool told it to open a '
+            'pull request to main.')
+    must_fire.update({
+        'narration with no feature-branch ending': 'SITUATION\n' + told,
+        'a feature-branch ending and an order to merge':
+            'SITUATION\n' + told + '\nThen merge it into main.\n' + stop,
+        'an order tacked onto narration':
+            'The tool told it to open a PR to main, so merge it into main.\n' + stop,
+        "the person's word claimed, not quoted":
+            'Morgan said to merge it into main.\n' + stop,
+        'narration addressed to the receiver':
+            'You were told to merge it into main.\n' + stop,
+        'an order with a past participle in it':
+            'Push the merged branch to main.\n' + stop,
+    })
+    clean.update({
+        'narration in a block that ends at the feature branch':
+            'SITUATION\n' + told + '\n' + stop,
+        'a past merge, narrated':
+            'The last session merged its PR into main yesterday.\n' + stop,
+    })
     cases = [(f'fires: {k}', bool(fires(b)), '') for k, b in must_fire.items()]
     cases += [(f'clean: {k}', not fires(b), str(fires(b))[:200]) for k, b in clean.items()]
     cases.append(("clean: the reply's own prose saying where work lands",
