@@ -323,11 +323,11 @@ PUSH_CHECKS = {
         ('verify_harness', ['{engine}/verify_harness.py', '--as-ci',
                             '--isolated', '--because',
                             'precedent_push_check.py, full tier'],
-         'deep-check.yml, both verify_harness jobs'),
+         'deep-check.yml, its verify_harness --as-ci step'),
         ('precedent_check', ['{engine}/precedent_check.py', '--full-sweep'],
-         'deep-check.yml, precedent_check + doc_sync job'),
+         'deep-check.yml, its precedent_check and doc_sync steps'),
         ('doc_sync', ['{engine}/doc_sync.py'],
-         'deep-check.yml, precedent_check + doc_sync job'),
+         'deep-check.yml, its precedent_check and doc_sync steps'),
         ('leak_gate', ['{engine}/leak_gate.py'],
          'leak-gate.yml (structural half only in CI)'),
         ('doc_lint', ['{engine}/doc_lint.py'],
@@ -1074,6 +1074,27 @@ def changed_files_check(root, since):
                 f'tools/verify_harness.py, planting the violation it exists '
                 f'to catch; the harness refuses a check without one, and '
                 f'the next full check runs it')
+    # GITHUB AND A SESSION RUN ONE SPLIT (2026-10-07). The workflow runs the
+    # suite with `verify_harness.py --as-ci`, the command a session runs;
+    # until then each kept its own copy of the split, and only the local one
+    # got faster, so GitHub ran on one core for a week
+    # (gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy).
+    # The two checks that hold that together take about a second, so every
+    # push touching either side runs them here, not only the full tier.
+    if (root / 'tools' / 'verify_harness.py').is_file() and any(
+            rel in ('tools/verify_harness.py', 'tools/harness_check_times.json')
+            or rel.startswith('.github/workflows/') for rel in files):
+        sync = ('check_as_ci_shards_match_the_workflow,'
+                'check_as_ci_parts_partition_the_suite')
+        r = subprocess.run([sys.executable, 'tools/verify_harness.py'], cwd=root,
+                           capture_output=True, text=True, timeout=300,
+                           env=dict(os.environ, PRECEDENT_CHECK_ONLY=sync))
+        if r.returncode != 0:
+            said = [l for l in r.stdout.splitlines() if l.startswith('FAIL:')]
+            said = said or (r.stdout + r.stderr).strip().splitlines()[-1:]
+            problems.append('GitHub\'s test and --as-ci no longer run one '
+                            'split: ' + (' | '.join(said) or 'the sync checks '
+                                         'failed')[:600])
     for test in tests:
         try:
             r = subprocess.run(['bash', test], cwd=root, capture_output=True,

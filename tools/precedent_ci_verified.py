@@ -27,7 +27,7 @@ believed by nobody. It reports; the person or session decides.
 
 ONE REQUEST per invocation: GET /repos/{slug}/actions/runs?head_sha={sha}.
 The workflow-RUNS endpoint rather than the check-RUNS one deliberately --
-check runs are named for JOBS ("verify_harness (everything else)"), which
+check runs are named for JOBS ("precedent_check + doc_sync + verify_harness --as-ci"), which
 cannot be matched against the workflow files on disk; workflow runs carry
 the workflow's own `name:`, which can.
 

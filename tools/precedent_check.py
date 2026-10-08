@@ -6525,7 +6525,7 @@ def _workflow_reach(text):
     expand, narrow = set(), set()
     lines = [l.split(' #', 1)[0].rstrip() for l in text.splitlines()
              if l.strip() and not l.lstrip().startswith('#')]
-    section, event, key = None, None, None
+    section, event, key, job = None, None, None, None
     for line in lines:
         ind = len(line) - len(line.lstrip(' '))
         body = line.strip()
@@ -6540,7 +6540,11 @@ def _workflow_reach(text):
                         expand.add(f'event:{ev}')
             continue
         if section == 'jobs' and ind == 2 and body.endswith(':'):
-            expand.add(f'job:{body[:-1].strip()}')
+            job = body[:-1].strip()
+            expand.add(f'job:{job}')
+        elif section == 'jobs' and ind == 4 and body.startswith('strategy:'):
+            # A matrix multiplies a job: as much growth as a new one.
+            expand.add(f'matrix:{job}')
         elif section == 'on' and ind == 2:
             m = re.match(r'([\w-]+):\s*(.*)$', body)
             if m:
@@ -6578,7 +6582,17 @@ def _workflow_growth(before, after):
     exp_b, nar_b = _workflow_reach(before)
     events = {a.split(':', 1)[1] for a in exp_a if a.startswith('event:')}
     lost = {n for n in nar_b - nar_a if n.split(':', 1)[0] in events}
-    return sorted((exp_a - exp_b) | {f'no longer {n}' for n in lost})
+    grown = exp_a - exp_b
+    # Jobs are counted, not named: GitHub bills per job, so three jobs
+    # folded into one new one is less CI, not a new job. Until 2026-10-07 a
+    # new name was growth whatever it replaced, and the change that put
+    # BestPractice's three deep-check jobs into one was refused as "more".
+    # The same for matrices.
+    for kind in ('job:', 'matrix:'):
+        if (sum(a.startswith(kind) for a in exp_a)
+                <= sum(b.startswith(kind) for b in exp_b)):
+            grown = {a for a in grown if not a.startswith(kind)}
+    return sorted(grown | {f'no longer {n}' for n in lost})
 
 
 # Where a workflow lives, or the template a workflow is written from.
