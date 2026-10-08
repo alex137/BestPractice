@@ -3,7 +3,7 @@ slug:              todo-2026-10-08-a-brought-set-left-on-its-branch-blocks-the-u
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-08
-closed:            null
+closed:            2026-10-08
 ---
 ## What
 
@@ -40,3 +40,17 @@ for the person. Only a brought set missing from disk stays a stop.
 Two sets updated in a row, the second bringing the first, each on its own
 working branch: both updates end DONE, and the second's report names the
 branch it read the first from.
+
+## Notes
+
+**Fixed 2026-10-08, as proposed** (Morgan: "LETS FIX"). A brought set that
+`_sync_once` leaves on another branch, on disk with its practices, is
+reported by `sources_from_brings` as in force, naming the branch it was
+read from (`READ_ON_ITS_BRANCH`). Update Vendors lists it as its own step,
+"brought sets on a working branch", and leaves nothing for the person. A
+brought set missing from disk, or one that fails to fetch, is still a stop.
+`check_update_never_fetches_the_repo_it_updates` builds the shape that held
+the two updates, a real clone with practices on a branch named
+`session-update`, and asserts: read as it stands with the branch named,
+left on that branch, and reported as a step with nothing left. Planting the
+old behavior fails the first of those.

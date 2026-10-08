@@ -460,10 +460,23 @@ def brought_sets_step(rep, fetch=None, repo=None):
         results = [('brought sets', False, f'{type(e).__name__}: {e}')]
     if not results:
         return
-    good = [n for n, ok, _o in results if ok]
+    try:
+        import precedent_source_bootstrap as psb
+        on_branch = psb.READ_ON_ITS_BRANCH
+    except Exception:                                       # noqa: BLE001
+        on_branch = None
+    # A set read from a working branch is in force as that branch has it,
+    # and the report says which branch, rather than calling it current.
+    branched = [(n, o) for n, ok, o in results
+                if ok and on_branch and str(o).startswith(on_branch)]
+    good = [n for n, ok, o in results
+            if ok and not (on_branch and str(o).startswith(on_branch))]
     bad = [(n, o) for n, ok, o in results if not ok]
     if good:
         rep.step('brought sets', 'on disk and current: ' + ', '.join(good))
+    if branched:
+        rep.step('brought sets on a working branch',
+                 '; '.join(f'{n} {o}' for n, o in branched))
     for name, out in bad:
         rep.leave(f'brought set {name}', f'could not be fetched ({str(out)[-200:]}), '
                   f'so its rules are not in force for this sync; attach it '
