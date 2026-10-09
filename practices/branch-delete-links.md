@@ -115,7 +115,10 @@ Three things the report must not get wrong, each of which fails silently:
    route, whatever a merge test says: a long-lived branch that is
    fast-forwarded to match another reads as merged right after. A filter
    that would also show one of them on the page says so on the row. Morgan,
-   2026-09-28 (strength: decided).
+   2026-09-28 (strength: decided). A branch work no longer moves through is
+   not one of them: one a person has stopped landing on is offered once it
+   holds nothing the branch they land on now lacks, never before
+   (`precedent_branches.never_offered`, 2026-10-09).
 
 ## Detail
 ### Deciding which branches qualify

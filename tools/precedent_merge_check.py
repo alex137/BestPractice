@@ -407,7 +407,19 @@ def landed(argv, pb, search):
             base = bases[0] if bases else None
         if not base or base not in full:
             return 0        # a working branch: its basic check was the gate's
-        rc, out = run_in_worktree(root, sha, 'full', tool_rel)
+        tier, extra = 'full', ()
+        fast = getattr(pb, 'fast_main_copy', None) if pb else None
+        if base == getattr(pb, 'MAIN', 'main') and fast and fast(
+                root, git(root, 'rev-parse', '--verify', '--quiet', f'{sha}^2')):
+            # A fast move into main: the quick checks, as before the merge.
+            # Its full check is GitHub's test, which runs now.
+            tier, extra = 'basic', ('--changed-since', f'{sha}^1')
+        else:
+            # A person who lands straight on staging: that branch's own tier.
+            tiers = getattr(pb, 'tier_for_branch', None) if pb else None
+            if tiers and tiers(root, base)[0] == 'basic':
+                tier, extra = 'basic', ('--changed-since', f'{sha}^1')
+        rc, out = run_in_worktree(root, sha, tier, tool_rel, extra)
     finally:
         subprocess.run(['git', '-C', str(root), 'update-ref', '-d', ns],
                        capture_output=True, text=True)
@@ -534,6 +546,12 @@ def main(argv):
             tiers = [pb.tier_for_branch(root, b) for b in bases]
             full = [t for t in tiers if t[0] == 'full']
             tier, why = full[0] if full else tiers[0]
+            fast = getattr(pb, 'fast_main_copy', None)
+            if pb.MAIN in bases and fast and fast(root, head_sha):
+                # A fast move into main took the quick checks on purpose;
+                # GitHub's test after the merge is its full check.
+                tier, why = 'basic', ('a fast move into main: the quick checks '
+                                      'now, GitHub\'s test after the merge')
         else:
             tier, why = 'full', ('the base branch could not be matched to a '
                                  'branch on origin, so it is checked fully')
@@ -544,8 +562,14 @@ def main(argv):
         # A pull request into pre-staging is judged by the practice checks
         # on the files it changes (precedent_push_check.CHANGED_PRACTICE_CHECK).
         extra = ()
-        if tier == 'basic' and pb and pb.PRE_STAGING in bases:
-            extra = ('--changed-since', f'origin/{pb.PRE_STAGING}')
+        since_for = getattr(pb, 'changed_since_for', None) if pb else None
+        since = (since_for(root, bases) if since_for else
+                 f'origin/{pb.PRE_STAGING}' if pb and pb.PRE_STAGING in bases
+                 else None)
+        if tier == 'basic' and pb and pb.MAIN in bases:
+            since = f'origin/{pb.MAIN}'
+        if tier == 'basic' and since:
+            extra = ('--changed-since', since)
         # A fully checked base is held still while its merge is judged
         # (precedent_branches.hold_for_landing): a Promote or another landing
         # moving it now would make this pass stale before it is used.
