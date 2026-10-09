@@ -4389,6 +4389,60 @@ def seed_maintainers(dest_root, logins=None, today=None):
     return logins, how
 
 
+def timezone_offer(dest_root, user_config=None):
+    """-> one line offering the owner's own zone as precedent.json's
+    `fallback_timezone`, or None. Offered, never written: the person says
+    yes, and the session adds the line.
+
+    Offered only when all of it holds: precedent.json declares no
+    fallback_timezone; it names exactly one maintainer; the person running
+    this is that maintainer (their declared GitHub username); and their
+    identity.json declares a zone that loads.
+
+    WHY (2026-10-08, from a consumer). A single person's repository never
+    declared fallback_timezone, so its GitHub Actions job -- where no
+    person's identity.json reaches -- dated its failure records and issue
+    stamps in the engine's last resort, New York, the right default for a
+    team, instead of its one owner's zone (precedent_time.py, rungs 5-6)."""
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(cfg, dict) or cfg.get('fallback_timezone'):
+        return None
+    people = [m for m in cfg.get('maintainers') or [] if isinstance(m, dict)]
+    if len(people) != 1:
+        return None
+    login = str(people[0].get('github') or '').lstrip('@').lower()
+    try:
+        import precedent_identity as _pid
+        ident = _pid.declared_identity(root, user_config)
+    except Exception:                                           # noqa: BLE001
+        return None
+    me = (os.environ.get('PRECEDENT_GITHUB_USER', '').strip()
+          or str(ident.get('github') or '')).lstrip('@').lower()
+    zone = str(ident.get('timezone') or '').strip()
+    if not login or me != login or not zone:
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(zone)
+    except Exception:                                           # noqa: BLE001
+        return None
+    try:
+        import precedent_time as _pt
+        last = _pt.FALLBACK_TZ
+    except Exception:                                           # noqa: BLE001
+        last = 'the engine\'s last-resort zone'
+    return (f'@{login} is this repository\'s only maintainer -- you -- and '
+            f'precedent.json declares no fallback_timezone, so whatever runs '
+            f'where your identity does not reach (a GitHub Actions job, its '
+            f'failure records and issue stamps) dates in {last}. Say yes to '
+            f'add "fallback_timezone": "{zone}" (your zone, from your '
+            f'identity.json) to precedent.json.')
+
+
 def _rev_text(repo_dir, *args):
     """-> stdout of `git -C repo_dir <args>`, stripped, or '' on failure."""
     try:

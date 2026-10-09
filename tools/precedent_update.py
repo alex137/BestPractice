@@ -754,6 +754,14 @@ def maintainers_step(repo, rep):
         rep.step('code owners', f'named {", ".join("@" + w for w in written)} '
                  f'in precedent.json\'s maintainers ({how}); change the list '
                  f'there any time -- it is never rewritten once set')
+    # A single owner's own zone, offered for the records nobody's identity
+    # reaches (2026-10-08) -- a question for the person, never written here.
+    try:
+        offer = pve.timezone_offer(repo)
+    except Exception:                                          # noqa: BLE001
+        offer = None
+    if offer:
+        rep.ask('time zone', offer)
 
 
 def renamed_sources_step(repo, rep, engine_out):
