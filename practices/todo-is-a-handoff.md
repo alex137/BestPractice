@@ -103,7 +103,10 @@ vendors (read from the vendoring manifests and `precedent.json`'s sources,
 never a list of its own), or its `blocked_on` or `waiting_on` names a
 repository a source comes from. It uses no keywords: "vendor" and "access"
 matched real outside blockers in a consumer. Closed items are never
-flagged. The finding names
+flagged. A link's address is reading the file, and the program an
+interpreter runs in a code span or a fence (`python3 tools/x.py`) is using
+it, so neither counts as naming it; the same path in prose or in a link's
+text does (2026-10-08). The finding names
 [tools/upstream_fix.py](https://github.com/alex137/BestPractice/blob/staging/tools/upstream_fix.py),
 which sets the fix up in the source's clone and never edits the copy. This
 does not license patching the local copy

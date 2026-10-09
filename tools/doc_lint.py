@@ -1036,6 +1036,31 @@ _MIGRATION_STAMP_RE = re.compile(
 
 
 _LINK_TARGET_RE = re.compile(r'\]\([^)\s]*(?:\s+"[^"]*")?\)')
+# A fenced block, then an inline code span: the two places a command is
+# written down to be run.
+_CODE_FENCE_RE = re.compile(r'^([ \t]*)(`{3,}|~{3,})[^\n]*\n.*?^\1\2[ \t]*$',
+                            re.M | re.S)
+_CODE_SPAN_RE = re.compile(r'(`+)(?!`)(.+?)(?<!`)\1(?!`)', re.S)
+# The program argument of an interpreter: `python3 tools/x.py`, `bash
+# tools/bootstrap.sh`, `/usr/bin/env python3 -I ../Engine/tools/y.py`.
+# Only that one argument -- a path passed later on the same line is a file
+# the command reads or changes, and still counts as named.
+_RUN_PROGRAM_RE = re.compile(
+    r'(?<![\w.-])((?:[\w./-]*/)?(?:python(?:3(?:\.\d+)?)?|bash|sh|php|node))'
+    r'((?:[ \t]+-[\w-]+)*)[ \t]+(?![-"\'`])[^\s`\'"]+')
+
+
+def _drop_run_programs(text):
+    """`text` with every interpreter's program argument removed from its
+    code spans and fenced blocks, so running a vendored tool is not read as
+    naming it. The program is replaced by a placeholder, never dropped, so
+    the second pass over a fence's text finds the same argument again
+    rather than taking the next flag's value for a program."""
+    def strip(chunk):
+        return _RUN_PROGRAM_RE.sub(lambda m: m.group(1) + m.group(2) + ' PROGRAM',
+                                   chunk)
+    text = _CODE_FENCE_RE.sub(lambda m: strip(m.group(0)), text)
+    return _CODE_SPAN_RE.sub(lambda m: strip(m.group(0)), text)
 
 
 def check_upstream_item(path, root=None):
@@ -1056,7 +1081,15 @@ def check_upstream_item(path, root=None):
     blockers in a consumer (a vendor's quote, access to a website). And
     repository names count only in the stated reason, because in the body
     they are mostly links to upstream reading (two of the three body hits in
-    the same consumer were a pointer to an upstream file)."""
+    the same consumer were a pointer to an upstream file).
+
+    Running a vendored tool is using it, the same way a link's address is
+    reading it: a path that is the program argument of an interpreter
+    (python, python3, bash, sh, php, node) inside a code span or a fenced
+    block does not count (2026-10-08: a consumer's item that said to run
+    `python3 tools/open_failures.py --file ...` was refused, and had to link
+    the tool instead of writing the command). The same path in prose, in a
+    link's text, or as a later argument of the command still counts."""
     root = pathlib.Path(root or ROOT)
     p = pathlib.PurePosixPath(str(path))
     if p.parent.name != 'todo' or not (p.name.startswith('todo-') and p.suffix == '.md'):
@@ -1080,7 +1113,8 @@ def check_upstream_item(path, root=None):
     # refused for a one-line note until it linked an unrelated pull
     # request). Only the address goes; the link's own text still counts,
     # so "[tools/doc_lint.py](...) misreads a fence" is still caught.
-    body = _LINK_TARGET_RE.sub('](', _MIGRATION_STAMP_RE.sub('', text))
+    body = _drop_run_programs(
+        _LINK_TARGET_RE.sub('](', _MIGRATION_STAMP_RE.sub('', text)))
     lead = r'(?:(?<=\.\./)|(?<![\w./-]))'
     named = None
     for e in entries:
