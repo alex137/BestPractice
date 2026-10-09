@@ -895,6 +895,49 @@ def deleted_sets(individual_path=None, user_config=None):
     return out
 
 
+def declared_deleted_sets(repo, user_config=None):
+    """-> [(name, info)] for each shared set `repo`'s precedent.json still
+    declares that deleted_sets() lists, in declaration order; [] when there
+    is none or the file cannot be read.
+
+    One reader for every tool that counts what is missing. A deleted set's
+    clone is never made (precedent_source_bootstrap skips it), so until
+    2026-10-09 the credentials check, the freshness notice and the session
+    check all counted it as an unresolved source and sent a consumer's
+    session after git and the proxy for a clone that was never meant to
+    happen. It is not missing; it is waiting for Update Vendors to remove
+    it."""
+    try:
+        cfg = json.loads((pathlib.Path(repo) / REPO_CONFIG).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    sources = cfg.get('sources') if isinstance(cfg, dict) else None
+    named = [str(s.get('name') or '').strip() for s in sources or []
+             if isinstance(s, dict) and normalize_level(s.get('level')) == 'shared']
+    if not any(named):
+        return []
+    gone = deleted_sets(user_config=user_config)
+    out = []
+    for name in named:
+        if name in gone and name not in [n for n, _ in out]:
+            out.append((name, gone[name]))
+    return out
+
+
+def deleted_sets_note(found):
+    """-> the one line every tool prints for declared_deleted_sets()'s
+    answer, or '' when it is empty. Written once so the credentials check,
+    the freshness notice and the session check say the same thing."""
+    if not found:
+        return ''
+    parts = []
+    for name, info in found:
+        why = '; '.join(x for x in (info.get('date'), info.get('reason')) if x)
+        parts.append(f'{name} is deleted' + (f' ({why})' if why else ''))
+    return ('; '.join(parts) + ' -- not missing: Update Vendors removes it from '
+            'precedent.json. A deleted set is never cloned by hand.')
+
+
 # What a `brings` URL may look like. Anything else -- above all a string that
 # starts with "-", which git would read as an option to `git clone` rather
 # than a repository -- is skipped, never handed to git.

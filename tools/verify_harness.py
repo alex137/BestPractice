@@ -184,6 +184,15 @@ import tempfile as _tempfile_for_env  # noqa: E402
 os.environ['PRECEDENT_GITHUB_USER_URL'] = (
     pathlib.Path(_tempfile_for_env.gettempdir()) / 'harness-github-knows-nobody.json').as_uri()
 
+# AND WHAT A FAILED CLONE LEAVES BEHIND (2026-10-09). The source bootstrap
+# keeps git's output for a clone that failed beside the user config, so the
+# credentials check can quote it later. Fixtures fail clones on purpose, and
+# without this every one of them would write a note into the real
+# ~/.config/precedent that a real session would then quote.
+os.environ['PRECEDENT_CLONE_NOTES'] = str(
+    pathlib.Path(_tempfile_for_env.mkdtemp(prefix='harness-clone-notes-'))
+    / 'clone-failures.json')
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'
@@ -37125,6 +37134,88 @@ def check_session_check_never_calls_an_unfetched_clone_current():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_session_check_stamps_at_session_start():
+    """The "still on the branch it started on" row takes its baseline from
+    the session-start hook, and a move onto a tier branch after the work
+    landed is normal; a move that strands work still fails.
+
+    WHY. 2026-10-09, a consumer: the baseline was written by the check's
+    first run, mid-session on a feature branch, and after a promote left
+    the checkout on main the row said "started on <feature>, now on main",
+    wrong on both counts."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_session_check as psc
+    cases = []
+    for f in ('tools/bootstrap.sh', 'templates/bootstrap.sh',
+              '.claude/hooks/session-start.sh'):
+        cases.append((f'{f} records the start (--stamp-start)',
+                      '--stamp-start' in (ROOT / f).read_text(encoding='utf-8'), ''))
+    with tempfile.TemporaryDirectory() as t:
+        repo = pathlib.Path(t) / 'repo'
+        repo.mkdir()
+
+        def git(*args):
+            p = subprocess.run(['git', '-C', str(repo), *args],
+                               capture_output=True, text=True)
+            return p.returncode, p.stdout.strip(), p.stderr.strip()
+
+        def commit(msg, name='f'):
+            (repo / name).write_text(msg)
+            git('add', '-A')
+            git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', msg)
+
+        git('init', '-q', '-b', 'main')
+        commit('one')
+        git('branch', 'pre-staging')
+        git('checkout', '-q', '-b', '2026-10-09-feature-abcde')
+        stamp = psc.session_stamp_path(git)
+        stamp.write_text('somewhere-else\n0000\n')
+        cases.append(('the session-start stamp overwrites an older record with '
+                      'the branch the session starts on',
+                      psc.stamp_session_start(stamp, git)
+                      and stamp.read_text().split()[0] == '2026-10-09-feature-abcde',
+                      stamp.read_text()))
+        commit('feature work', 'g')
+        # Promoted: merged into pre-staging (and origin's copy), and main
+        # takes the same content as a commit of its own, not a merge.
+        git('checkout', '-q', 'pre-staging')
+        git('-c', 'user.name=t', '-c', 'user.email=t@t', 'merge', '-q', '--no-ff',
+            '-m', 'land', '2026-10-09-feature-abcde')
+        git('update-ref', 'refs/remotes/origin/pre-staging', 'pre-staging')
+        git('checkout', '-q', 'main')
+        commit('feature work, copied onto main', 'g')
+        r = psc._session_branch_row(stamp, git)
+        cases.append(('after a promote leaves the checkout on main, the row '
+                      'passes: the start branch\'s work is on a tier',
+                      bool(r) and r[1] is True and 'tier branch' in r[2], str(r)))
+        # Stranded: a new start branch with work on no tier, then main.
+        git('checkout', '-q', '-b', '2026-10-09-other-abcde')
+        psc.stamp_session_start(stamp, git)
+        commit('unmerged work', 'h')
+        git('checkout', '-q', 'main')
+        r = psc._session_branch_row(stamp, git)
+        cases.append(('a move onto main that leaves work on no tier still fails',
+                      bool(r) and r[1] is False, str(r)))
+        # A linked worktree: the stamp lives in its own git directory.
+        wt = pathlib.Path(t) / 'wt'
+        git('worktree', 'add', '-q', '-b', 'wt-branch', str(wt), 'main')
+
+        def wgit(*args):
+            p = subprocess.run(['git', '-C', str(wt), *args],
+                               capture_output=True, text=True)
+            return p.returncode, p.stdout.strip(), p.stderr.strip()
+        path = psc.session_stamp_path(wgit)
+        cases.append(('in a linked worktree the stamp goes in its own git '
+                      'directory, which exists', path.parent.is_dir()
+                      and psc.stamp_session_start(path, wgit), str(path)))
+    sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session check takes its baseline from session start '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
 def check_session_check_adopts_a_detached_start():
     """A cloud session starts detached and moves onto its branch: not a jump.
 
@@ -51793,6 +51884,327 @@ def check_session_check_names_a_declared_retired_set():
         sys.path.pop(0)
     bad = [n for n, ok in cases if not ok]
     check(f'the session check names a declared set that retired itself '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_deleted_set_is_not_an_unresolved_source():
+    """A declared shared set whose repository is deleted is never counted as
+    an unresolved or unverified source, and every tool that would have
+    counted it says, in one line, that it is deleted and that Update Vendors
+    removes it.
+
+    WHY. 2026-10-09, a consumer after Update Vendors: session start skipped
+    two deleted sets on purpose (precedent_source_bootstrap), and then the
+    credentials check reported them as "did not resolve ... a credential IS
+    set ... look at what git said", the freshness notice counted them in
+    "NOT VERIFIED -- 2 source(s)", and the session blamed git and the proxy
+    and cloned one by hand. Also: what git said for a real clone failure is
+    kept and quoted, and the session check's row on a deleted set never
+    tells it the set still holds rules or reads from a clone."""
+    import tempfile, io
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr
+    import precedent_source_credentials as _psc
+    import precedent_engine_freshness as _pef
+    import precedent_session_check as _psck
+    cases = []
+    try:
+        eng = json.loads(_pr.ENGINE_DELETED_SETS.read_text(encoding='utf-8'))
+        gone = (eng.get('sets') or [{}])[0].get('name')
+    except (OSError, ValueError):
+        gone = None
+    if not gone:
+        not_applicable('a deleted set is not an unresolved source',
+                       'tools/deleted_sets.json lists no set to plant')
+        sys.path.pop(0)
+        return
+    saved_env = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',)}
+    saved_root = _psck.ROOT
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            repo, home = td / 'repo', td / 'home'
+            repo.mkdir()
+            ucfg = home / '.config' / 'precedent' / 'config.json'
+            ucfg.parent.mkdir(parents=True)
+            ucfg.write_text('{"format_version": 1}\n', encoding='utf-8')
+            os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+            notes = td / 'notes.json'
+
+            def declare(*names):
+                (repo / 'precedent.json').write_text(json.dumps({
+                    'format_version': 1, 'sources': [
+                        {'level': 'universal', 'name': 'precedent', 'path': '.'}]
+                    + [{'level': 'shared', 'name': n, 'path': f'../{n}'}
+                       for n in names]}), encoding='utf-8')
+
+            env = {'HOME': str(home), 'PRECEDENT_USER_CONFIG': str(ucfg),
+                   'CLAUDE_CODE_REMOTE': 'true',
+                   'PRECEDENT_CLONE_NOTES': str(notes)}
+            declare(gone)
+            why = _psc.unresolved_private_sources(repo, env=env)
+            cases.append(('a declared deleted set is not unresolved',
+                          not any(n == gone for _, n, _ in why), str(why)))
+            verdict, msg = _psc.assess(repo, env=env)
+            cases.append(('with nothing else missing the verdict is OK, with a '
+                          'note that it is deleted and Update Vendors removes it',
+                          verdict == 'ok' and f'{gone} is deleted' in msg
+                          and 'Update Vendors removes it' in msg,
+                          f'{verdict}: {msg}'))
+            live = 'precedent-shared-live-fixture'
+            declare(gone, live)
+            notes.write_text(json.dumps({live: {
+                'output': 'error: RPC failed; HTTP 429 curl 22 too many requests',
+                'when': '2026-10-09T10:00:00-0300'}}), encoding='utf-8')
+            verdict, msg = _psc.assess(repo, env={**env, _psc.TOKEN_ENV: 'tok'})
+            named = msg.split('did not resolve (', 1)[-1].split(')', 1)[0]
+            cases.append(('a real missing set still reads SET and is named; the '
+                          'deleted one is not among the unresolved',
+                          verdict == 'set' and live in named and gone not in named,
+                          f'{verdict}: {msg}'))
+            cases.append(('...the deleted one gets its note there too',
+                          f'{gone} is deleted' in msg, msg))
+            cases.append(('...and what git said when it last tried the real one '
+                          'is quoted', 'HTTP 429' in msg, msg))
+
+            declare(gone)
+            out = io.StringIO()
+            _pef.report(repo, quiet=True, out=out)
+            text = out.getvalue()
+            cases.append(('the freshness notice does not count a deleted set as '
+                          'not verified, and says it is deleted',
+                          'NOT VERIFIED' not in text and f'{gone} is deleted' in text,
+                          text))
+            rows = _pef.collect_targets(repo)
+            cases.append(('...and has no row reading it as a source',
+                          not any(gone in str(r.get('label')) for r in rows), str(rows)))
+
+            _psck.ROOT = repo
+            rows = _psck._retired_sources_rows()
+            detail = rows[0][2] if rows else ''
+            cases.append(('the session check says a deleted set is never cloned '
+                          'by hand, and never that the update keeps it',
+                          len(rows) == 1 and 'never cloned by hand' in detail
+                          and 'when every rule it holds' not in detail, detail))
+    finally:
+        _psck.ROOT = saved_root
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a deleted set is never counted as an unresolved or unverified '
+          f'source ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
+
+
+def check_source_bootstrap_keeps_what_git_said():
+    """precedent_source_bootstrap keeps git's output for a failed clone
+    where the credentials check can quote it, removes it once the clone
+    succeeds, and tries once more only after a failure that can pass on its
+    own -- HTTP 429 or a dropped network, never an access failure.
+
+    WHY. 2026-10-09: a consumer's session saw "look at what git said" and
+    had nothing to look at; the hook's stderr had scrolled past at session
+    start."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_bootstrap as _psb
+    cases = []
+    for text, want in (('error: RPC failed; HTTP 429 curl 22', True),
+                       ('fatal: unable to access: Connection reset by peer', True),
+                       ('fatal: unable to access: Could not resolve host: x', True),
+                       ('fatal: Authentication failed for https://x', False),
+                       ('error: RPC failed; HTTP 403 curl 22', False),
+                       ('remote: Repository not found.', False)):
+        cases.append((f'transient({text!r}) is {want}',
+                      _psb._transient(text) is want, ''))
+    saved = _psb._try_sync
+    try:
+        for first, want_calls, want_ok in (
+                ('error: RPC failed; HTTP 429', 2, True),
+                ('fatal: Authentication failed', 1, False)):
+            calls, sleeps = [], []
+
+            def fake(url, path, branch=None, _first=first):
+                calls.append(url)
+                return (False, _first) if len(calls) == 1 else (True, '')
+            _psb._try_sync = fake
+            with tempfile.TemporaryDirectory() as td:
+                ok, _ = _psb.ensure_source('shared', 'x', 'file:///nowhere',
+                                           pathlib.Path(td) / 'x', None,
+                                           sleep=sleeps.append)
+            cases.append((f'after {first!r}: {want_calls} attempt(s)',
+                          len(calls) == want_calls and ok is want_ok
+                          and len(sleeps) == want_calls - 1,
+                          f'calls={len(calls)} ok={ok} sleeps={sleeps}'))
+    finally:
+        _psb._try_sync = saved
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        env_was = os.environ.get(_psb.CLONE_NOTES_ENV)
+        os.environ[_psb.CLONE_NOTES_ENV] = str(td / 'notes.json')
+        try:
+            repo = td / 'repo'
+            repo.mkdir()
+            (repo / 'precedent.json').write_text(json.dumps({'sources': [
+                {'level': 'shared', 'name': 'precedent-shared-fx',
+                 'path': '../precedent-shared-fx'}]}), encoding='utf-8')
+            base = td / 'origin'
+            base.mkdir()
+            _psb.sources_from_repo(repo, base_url=base.as_uri())
+            note = _psb.read_clone_failures().get('precedent-shared-fx') or {}
+            cases.append(('a failed clone leaves git\'s own output, kept for '
+                          'the later gate', bool(note.get('output')), str(note)))
+            src = base / 'precedent-shared-fx'
+            (src / 'practices').mkdir(parents=True)
+            (src / 'practices' / 'a.md').write_text('x\n', encoding='utf-8')
+            g = ['git', '-C', str(src), '-c', 'user.name=t', '-c',
+                 'user.email=t@example.com']
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(src)], check=True)
+            subprocess.run(g + ['add', '-A'], check=True)
+            subprocess.run(g + ['commit', '-qm', 'x'], check=True)
+            res = _psb.sources_from_repo(repo, base_url=base.as_uri())
+            cases.append(('...and once the clone succeeds the note is gone',
+                          'precedent-shared-fx' not in _psb.read_clone_failures()
+                          and any(ok for _, ok, _ in res), str(res)))
+        finally:
+            if env_was is None:
+                os.environ.pop(_psb.CLONE_NOTES_ENV, None)
+            else:
+                os.environ[_psb.CLONE_NOTES_ENV] = env_was
+    sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the source bootstrap keeps what git said and retries only a '
+          f'transient failure ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_runbook_names_the_postcondition_after_a_merge():
+    """vendor-update-runbook step 12 makes the merge tool's own result the
+    postcondition for the turn that merges, and moves the confirming fetch
+    to the next turn; the auto-mode gotcha records that a SUCCESSFUL merge
+    starts the refusals too.
+
+    WHY. 2026-10-09, a consumer: after a merge that went through, a
+    read-only fetch and grep to confirm it were refused as "Merge Without
+    Review" until the person spoke. The runbook said to verify, and the
+    only verification the turn could still run was the tool's answer."""
+    run = (ROOT / 'practices' / 'vendor-update-runbook.md').read_text(encoding='utf-8')
+    step = run.split('12. **Publish it', 1)[-1].split('\n## ', 1)[0]
+    got = (ROOT / 'gotchas' /
+           'gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md'
+           ).read_text(encoding='utf-8')
+    cases = [
+        ('step 12 names the merge tool\'s result as the postcondition',
+         'merged: true' in step and 'postcondition' in step),
+        ('...and puts the confirming fetch at the start of the next turn, '
+         'or leaves it to the next stage\'s tool, saying which',
+         'next turn' in step and "next stage's own tool" in step),
+        ('the gotcha has the 2026-10-09 case of a merge that succeeded',
+         '2026-10-09' in got and 'merge that succeeds' in got),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'the runbook names what a merging turn can still verify '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_update_done_names_the_branch_to_commit_on():
+    """An Update Vendors run on a tier branch ends by printing the command
+    that moves the staged update onto a branch precedent_branch_name.py
+    names; on a session branch it prints nothing of the kind; and DONE no
+    longer speaks a shared set's vocabulary.
+
+    WHY. 2026-10-09, a consumer: DONE said "commit, then run Go update's
+    chain" without naming a branch, the session made one by hand, and the
+    push check refused it as not made by tools/precedent_branch_name.py."""
+    import tempfile, inspect
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as _pu
+    import precedent_branch_name as _pbn
+    cases = []
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td) / 'repo'
+            g = ['git', '-C', str(repo), '-c', 'user.name=t', '-c',
+                 'user.email=t@example.com']
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], check=True)
+            (repo / 'precedent.json').write_text('{"format_version": 1}\n',
+                                                 encoding='utf-8')
+            subprocess.run(g + ['add', '-A'], check=True)
+            subprocess.run(g + ['commit', '-qm', 'x'], check=True)
+            line = _pu.feature_branch_line(repo) or ''
+            cases.append(('on main, DONE prints the switch command',
+                          _pu.SWITCH_COMMAND in line, line))
+            subprocess.run(g + ['switch', '-q', '-c', 'pre-staging'], check=True)
+            cases.append(('...and on pre-staging',
+                          _pu.SWITCH_COMMAND in (_pu.feature_branch_line(repo) or ''),
+                          ''))
+            subprocess.run(g + ['switch', '-q', '-c',
+                                '2026-10-09-some-work-abcde'], check=True)
+            cases.append(('on a session branch it prints nothing',
+                          _pu.feature_branch_line(repo) is None, ''))
+        name = subprocess.run([sys.executable, str(ROOT / 'tools' /
+                                                   'precedent_branch_name.py'),
+                               '--no-check', 'update-vendors'],
+                              capture_output=True, text=True).stdout.strip()
+        cases.append(('the name the command makes is one the push check accepts',
+                      bool(name) and _pbn.name_refusal(name) is None, name))
+        done = inspect.getsource(_pu.Report.close)
+        cases.append(('DONE calls it, and says nothing of "Go update"',
+                      'feature_branch_line(' in done and 'Go update' not in done, ''))
+    finally:
+        sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'Update Vendors names the branch to commit on from a tier branch '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_vdc_is_a_known_acronym_everywhere():
+    """VDC (very deep check) is in the engine glossary registry, which ships
+    to every repository and renders bold into each one's GLOSSARY.md, where
+    doc_lint reads its known acronyms -- so a repository that receives
+    practices/very-deep-check.md no longer gets an unglossed-acronym warning
+    for a quoted "add that to VDC".
+
+    WHY. 2026-10-09, a consumer: doc_lint flagged VDC in its copy of that
+    practice. BestPractice never saw it, because its own corpus happens to
+    use "vdc" as a word (very_deep_check imported as _vdc), which a
+    consumer's corpus does not."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as _bv
+    import precedent_vendor_engine as _pve
+    import doc_lint as _dl
+    sys.path.pop(0)
+    terms = {t['term']: t for t in _bv._engine_glossary_terms(ROOT)}
+    text = (ROOT / 'practices' / 'very-deep-check.md').read_text(encoding='utf-8')
+    # What a consumer's doc_lint knows: the stoplist plus its glossary's
+    # bold terms, which for the engine vocabulary are these terms. No
+    # corpus: a consumer's corpus need not use "vdc" as a word.
+    known = set(_dl.ACRONYM_STOP) | {t.upper() for t in terms}
+    saved = _dl.looks_like_a_word
+    _dl.looks_like_a_word = lambda tok: False
+    try:
+        flagged = [f for f in _dl.scan_unglossed(text, known,
+                                                 'practices/very-deep-check.md')
+                   if 'VDC' in str(f)]
+    finally:
+        _dl.looks_like_a_word = saved
+    cases = [
+        ('the engine glossary defines VDC, pointing at very-deep-check',
+         'VDC' in terms and terms['VDC'].get('see') == 'practices/very-deep-check.md'),
+        ('...and the registry ships with the engine',
+         'glossary_terms.json' in _pve.ENGINE_FILES),
+        ('GLOSSARY.md here carries it bold, where doc_lint reads it',
+         '| **VDC** |' in (ROOT / 'GLOSSARY.md').read_text(encoding='utf-8')),
+        ('a consumer\'s doc_lint, with no corpus help, does not flag VDC in '
+         'very-deep-check.md', 'VDC' in text and not flagged),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'VDC is a known acronym in every repository that gets the engine '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
@@ -68775,6 +69187,12 @@ def main():
     check_sync_names_files_still_naming_removed_checks()
     check_over_target_line_says_whose_load_and_how_to_break_it_down()
     check_session_check_names_a_declared_retired_set()
+    check_deleted_set_is_not_an_unresolved_source()
+    check_source_bootstrap_keeps_what_git_said()
+    check_runbook_names_the_postcondition_after_a_merge()
+    check_update_done_names_the_branch_to_commit_on()
+    check_session_check_stamps_at_session_start()
+    check_vdc_is_a_known_acronym_everywhere()
     check_gates_promise_no_override()
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()

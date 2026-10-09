@@ -71,7 +71,9 @@ THE STEPS, with no question in between:
      the push will
 
 THE REPORT, and the exit code a session acts on:
-  0  DONE -- nothing is left. Commit, then run Go update's chain.
+  0  DONE -- nothing is left. Commit on a branch of its own (DONE prints
+     the command when the checkout sits on a tier branch), then land it on
+     your landing branch.
   1  LEFT FOR YOU -- only the calls that belong to this repo: an
      uncommitted edit to a received file, a kept-on-purpose file upstream
      has since changed, a line a check-in would lose, a decline to decide
@@ -89,8 +91,8 @@ and is staged as such when every file matches the manifest. It never
 leaves a commit behind, and never merges. The one thing it pushes is a
 missing branch tier (pre-staging or staging), made at a commit origin
 already has; the deep check's temporary commit is undone before it
-reports. Those stay with the session, under Go update's
-chain, where the authorization already lives.
+reports. Those stay with the session, which lands the update the way the
+repository lands work, where the authorization already lives.
 """
 import argparse
 import json
@@ -1732,6 +1734,48 @@ MERGE_HEAD_NOTE = (
     "mode refusing even reads until the person speaks.")
 
 
+# THE BRANCH THE UPDATE IS COMMITTED ON (2026-10-09). An update run on a
+# tier branch -- main, staging, pre-staging -- ended "commit, then land it"
+# without naming a branch, and a consumer's session made one by hand; the
+# push check refused it, since a session branch is named by
+# tools/precedent_branch_name.py. The update does not move the checkout
+# itself: it reads the current branch at several steps, and a switch in the
+# middle of a run is a state nothing else here expects. `git switch -c` from
+# HEAD keeps the staged diff exactly as it is, so the command is printed for
+# the session to run before it commits.
+SWITCH_COMMAND = ('git switch --no-track -c '
+                  '"$(python3 tools/precedent_branch_name.py update-vendors)"')
+
+
+def feature_branch_line(repo):
+    """-> the line DONE prints when `repo`'s checkout is on a tier branch
+    (precedent_branches.tier_branches, its landing branch, or its declared
+    base), or None on any other branch or when it cannot be read."""
+    if repo is None:
+        return None
+    try:
+        r = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--abbrev-ref',
+                            'HEAD'], capture_output=True, text=True)
+    except OSError:
+        return None
+    cur = r.stdout.strip() if r.returncode == 0 else ''
+    if not cur or cur == 'HEAD':
+        return None
+    tiers = set(pb.tier_branches(repo))
+    for read in (lambda: pb.landing_branch(repo)[0], lambda: pb.base_branch(repo)):
+        try:
+            name = read()
+        except Exception:                                    # noqa: BLE001
+            name = None
+        if name:
+            tiers.add(name)
+    if cur not in tiers:
+        return None
+    return (f"This checkout is on {cur}, a tier branch. Before committing, move "
+            f"the staged update onto a branch of its own (it carries the staged "
+            f"diff as it is): {SWITCH_COMMAND}")
+
+
 class Report:
     def __init__(self):
         self.steps = []   # (name, one-line outcome)
@@ -1895,13 +1939,16 @@ class Report:
             return LEFT
         for line in self.warnings:
             print(f"\nWARNING: {line}")
+        switch = feature_branch_line(self.pin_repo)
         if self.asks:
             print("\nDONE -- nothing left for this repo to decide. Ask the "
                   "question(s) above, review the staged diff, commit, then land "
                   "it the way this repository lands work.")
         else:
             print("\nDONE -- nothing left to decide. Review the staged diff, "
-                  "commit, then run Go update's chain.")
+                  "commit, then land it on your landing branch.")
+        if switch:
+            print(switch)
         print(MERGE_HEAD_NOTE)
         if self.not_run:
             print(self.not_run)

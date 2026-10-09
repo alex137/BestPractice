@@ -71,7 +71,13 @@ same way (2026-10-08).
 It does steps 1, 3, 4, 5, 6 and 10 in order, with no question in between,
 and ends with one of three outcomes. It stages what it wrote and deleted
 first, so the deep check judges what the commit will hold. **DONE** (exit
-0): nothing is left, so commit and go on to steps 11 and 12. **LEFT FOR YOU** (exit 1): the calls
+0): nothing is left, so commit and go on to steps 11 and 12. **When the
+checkout is on `main` or on the branch your work lands on**, DONE prints the command that moves the staged update onto
+a session branch first, `git switch --no-track -c "$(python3
+tools/precedent_branch_name.py update-vendors)"`: the push check refuses a
+branch that tool did not name, and `git switch -c` carries the staged diff
+as it is. The update prints it rather than switching itself, because it
+reads the current branch at several steps (2026-10-09). **LEFT FOR YOU** (exit 1): the calls
 that belong to this repo, each named with its file and its question -- work
 them under the conflicted-file review below, then run it again. The rerun
 takes the same source commit the first run read, and so does every run after
@@ -905,6 +911,16 @@ says so, both from the vendored tree under `process/upstream/`.
     way starts the same refusal of every later command as one auto mode
     refused (a consumer, 2026-10-08). The update's DONE says so, and every
     merge line `precedent_branches.py` prints carries the head in full.
+    **When the merge goes through, the merge tool's own result is the
+    postcondition for this turn**: name it before the call (the pull
+    request merged into the landing branch), then report what the tool
+    returned, `merged: true` and the merge commit's SHA, and run nothing
+    after it. Even a read-only `git fetch` after a successful merge the
+    person's words did not name is refused as "Merge Without Review" (a
+    consumer, 2026-10-09). The fetch that confirms the landing branch holds
+    the merge runs at the start of the next turn, or is skipped when the
+    next stage's own tool confirms it, and the reply says which of the two
+    will happen.
 
 **A refusal naming a file that no longer exists upstream means reseed, not
 investigate.** The refresh runs *this repo's own vendored copy* of the
