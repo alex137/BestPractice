@@ -28,7 +28,10 @@ THE STEPS, with no question in between:
   0. a journal an earlier run left when it was killed mid-swap is
      replayed, so this repo's local edits are back before anything reads
      the tree
-  1. the source clone fetches the branch every install follows, and the
+  1. the source clone fetches the branch every install follows, and on
+     main takes the newest commit whose GitHub test passed, saying so when
+     that is not the newest (source_commit; --take-anyway takes a named
+     commit on the person's word), and the
      commit this run takes is recorded: until a run reports DONE, a rerun
      takes that same commit, so an update worked over several rounds does
      not chase a moving branch (--move takes the newest commit instead)
@@ -52,6 +55,14 @@ THE STEPS, with no question in between:
      ...) that is still, verbatim, wording its template has since dropped,
      left for you -- reported, never rewritten
      then, where precedent.json names no landing_branch, pre-staging
+  3c. for a person whose own identity.json lands them straight on staging,
+     in a repository whose precedent.json does not make pre-staging the
+     landing branch for others (switched to staging first when they are
+     its only maintainer), while origin still has pre-staging: its waiting work merged into staging (--land's
+     composition, quick checks), this repo's own instructions and links
+     that send work to pre-staging repointed, and the branch offered for
+     deletion as a link once it holds nothing staging lacks -- never
+     deleted. Silent for everyone else
   4. the views regenerated -- the loader block, and in a practice set
      MAP.md and GLOSSARY.md too; in a repository that uses Precedent, a
      hand-written MAP.md or GLOSSARY.md moved into MAP.source.md /
@@ -102,6 +113,7 @@ import re
 import signal
 import subprocess
 import sys
+import urllib.parse
 
 HERE = pathlib.Path(__file__).resolve()
 SOURCE = HERE.parents[1]
@@ -997,6 +1009,344 @@ def retired_mentions(repo, engine_out):
     return out
 
 
+# UPGRADING OFF PRE-STAGING (2026-10-09). A person who lands straight on
+# staging (precedent_branches.lands_on_staging) no longer uses pre-staging.
+# Morgan, 2026-10-09: when this reaches the repositories that vendor the
+# engine, "make sure we have a smooth upgrade process for each. Merging the
+# branches, telling he can delete pre-staging, updating previous mentions/
+# links within each repo, etc etc." So, for that person only -- their own
+# identity.json declares landing_branch "staging", never a default, and the
+# repository's precedent.json does not still make pre-staging the landing
+# branch for others (precedent_branches.pre_staging_unused; that case says
+# in one line why it waited) -- and only while origin still has pre-staging:
+#   1. work waiting on pre-staging is brought into staging by --land's own
+#      composition (precedent_branches.land: staging, then main's direct
+#      work, then pre-staging, by merge commits, the quick checks, a push
+#      never forced). A conflict or a red check moves nothing and says what
+#      to do (practice: repair-cannot-discard-work);
+#   2. once it holds nothing staging lacks, it is offered for deletion as a
+#      link, never deleted (practice: never-delete-a-remote-branch);
+#   3. this repository's own Markdown that tells a reader work lands on
+#      pre-staging, or links to this repository's pre-staging tree, is
+#      repointed to staging (practice: rename-updates-links). Conservative:
+#      only the clear instructions and links below are rewritten; every
+#      other mention is listed with why it was left.
+# It runs before the views are regenerated, so they render the reworded
+# sources. For anyone else it does nothing and says nothing.
+RETIRE_PRE_STAGING_HEADER = 'PRE-STAGING IS RETIRED -- your work lands on staging now:'
+
+# A clear instruction: a verb that sends work somewhere, then the branch.
+_PS_TOKEN = r'(?P<q>[`"\']?)pre-staging(?P=q)(?![\w-])'
+_PS_INSTRUCTION = re.compile(
+    r'(?i)\b(?:(?:land|lands|landing|push|pushes|pushing|merge|merges|merging'
+    r'|target|targets|targeting|retarget|retargets|base|bases)'
+    r'(?:\s+(?:it|them|this|work|your\s+work|the\s+work|the\s+change|'
+    r'changes|your\s+changes|the\s+branch|your\s+branch))?'
+    r'|(?:a\s+|the\s+)?(?:pull\s+requests?|PRs?))'
+    r'\s+(?:on|onto|to|into|against|at)\s+' + _PS_TOKEN)
+# A link into a tree, file or history on a GitHub branch.
+_PS_LINK = re.compile(r'github\.com/(?P<slug>[^/\s()]+/[^/\s()]+)/'
+                      r'(?P<kind>tree|blob|commits)/pre-staging(?=[/)\s#?"\'>\]]|$)')
+_DATED = re.compile(r'\b20\d\d-\d\d-\d\d\b')
+# Words that make a line read as history or a comparison, not an instruction.
+_HISTORY_WORDS = re.compile(
+    r'(?i)\b(?:today|until|used\s+to|no\s+longer|was|were|had|before|'
+    r'formerly|previously|retired|old|instead\s+of|rather\s+than)\b')
+_HEADING = re.compile(r'^(#{1,6})\s+(.*)$')
+_FENCE = re.compile(r'^\s*(```|~~~)')
+# Whole files that are history: what they record stays as it was.
+_HISTORY_DIRS = ('gotchas/', 'record/')
+
+
+def _retire_scope(repo):
+    """-> (files, history): this repository's own hand-written Markdown to
+    read, and the tracked Markdown left whole as history. Vendored copies
+    (the catalogue mirror, a vendored universal source, engine files) and
+    generated views are neither: they are not this repository's to word."""
+    r = subprocess.run(['git', '-C', str(repo), 'ls-files', '-z', '--', '*.md'],
+                       capture_output=True, text=True)
+    tracked = [p for p in r.stdout.split('\0') if p] if r.returncode == 0 else []
+    vendored = ['process/upstream/']
+    try:
+        uni = universal_catalogue_path(repo)
+    except Exception:                                        # noqa: BLE001
+        uni = None
+    if uni:
+        vendored.append(uni.rstrip('/') + '/')
+    engine = _engine_owned(repo)
+    try:
+        import precedent_resolve as pr
+        records = list(pr.declared_record_paths(repo))
+    except Exception:                                        # noqa: BLE001
+        records = []
+    files, history = [], []
+    for rel in tracked:
+        if rel in engine or any(rel.startswith(v) for v in vendored):
+            continue
+        if _is_generated_view(repo, rel):
+            continue
+        if (rel.startswith(_HISTORY_DIRS)
+                or any(rel == p or (p.endswith('/') and rel.startswith(p))
+                       for p in records)
+                or (rel.startswith('todo/') and _closed_item(repo / rel))):
+            history.append(rel)
+            continue
+        files.append(rel)
+    return files, history
+
+
+def _closed_item(path):
+    """True for an open-item file whose frontmatter status is not open."""
+    try:
+        head = path.read_text(encoding='utf-8', errors='ignore')[:2000]
+    except OSError:
+        return False
+    if not head.startswith('---\n'):
+        return False
+    m = re.search(r'^status:[ \t]*(\S+)', head[:max(head.find('\n---', 4), 0)], re.M)
+    return bool(m) and m.group(1).strip('"\'') not in ('open', 'claimed')
+
+
+def reword_pre_staging(text, slug):
+    """-> (new_text, changed, left): `text` (one Markdown file) with each clear
+    instruction to land on pre-staging, and each link to `slug`'s pre-staging
+    tree, file or history, repointed to staging. `changed` is [(line, why)]
+    and `left` [(line, why)] for every other line that names pre-staging,
+    1-based. Front matter, generated blocks, code blocks, a Story section and
+    anything under a dated heading are never rewritten."""
+    import generated_blocks
+    lines = text.split('\n')
+    hidden = generated_blocks.mask(lines)
+    changed, left = [], []
+    fence = False
+    story = None          # heading level of an open Story section
+    dated = None          # heading level of an open dated section
+    front = lines[:1] == ['---']
+    for i, line in enumerate(lines):
+        if front:
+            if i and line.strip() == '---':
+                front = False
+            continue
+        if _FENCE.match(line):
+            fence = not fence
+            if 'pre-staging' in line:
+                left.append((i + 1, 'code block'))
+            continue
+        h = None if fence else _HEADING.match(line)
+        if h:
+            level = len(h.group(1))
+            if story is not None and level <= story:
+                story = None
+            if dated is not None and level <= dated:
+                dated = None
+            if re.match(r'(?i)story\b', h.group(2).strip()):
+                story = level
+            elif _DATED.search(h.group(2)):
+                dated = level
+        if 'pre-staging' not in line or hidden[i]:
+            continue
+        why = ('code block' if fence else
+               'Story section, history' if story is not None else
+               'under a dated heading, history' if dated is not None else
+               'dated line, history' if _DATED.search(line) else
+               'quotation' if line.lstrip().startswith('>') else
+               'table row' if line.lstrip().startswith('|') else
+               'reads as history or a comparison' if _HISTORY_WORDS.search(line)
+               else None)
+        if why:
+            left.append((i + 1, why))
+            continue
+        said = _PS_INSTRUCTION.sub(lambda m: m.group(0)[:m.start('q') - m.start(0)]
+                                   + f'{m.group("q")}staging{m.group("q")}', line)
+        new = _PS_LINK.sub(lambda m: (m.group(0).replace('/pre-staging', '/staging')
+                                      if slug and m.group('slug').lower() == slug.lower()
+                                      else m.group(0)), said)
+        if new != line:
+            lines[i] = new
+            changed.append((i + 1, ' and '.join(
+                w for w, did in (('instruction', said != line), ('link', new != said))
+                if did)))
+        if 'pre-staging' in new:
+            other = _PS_LINK.search(new)
+            left.append((i + 1, 'link into another repository' if other
+                         else 'not a clear instruction'))
+    return '\n'.join(lines), changed, left
+
+
+# THE SOLE MAINTAINER MAY SWITCH THE REPOSITORY (2026-10-09). The one thing
+# that keeps pre-staging for an explicit staging lander is precedent.json
+# making it the landing branch for others. Where precedent.json's
+# `maintainers` names exactly one person and that person is the one running
+# this -- matched as timezone_offer matches them, by the GitHub username
+# precedent_audience.viewer reads -- nobody else can be landing there, so
+# the value is switched to staging, that one value and nothing else, and the
+# retirement goes on in the same run. Two maintainers, or none named, keep
+# the one-line wait: the call is theirs together.
+_REPO_LANDS_ON_PRE_STAGING = re.compile(
+    r'("' + re.escape(pb.LANDING_SETTING) + r'"\s*:\s*)"' + re.escape(pb.PRE_STAGING) + '"')
+
+
+def sole_maintainer_is_you(repo):
+    """-> '@login' when precedent.json's `maintainers` names exactly one
+    person and the person running this is that one, else None."""
+    people = [m for m in pb.precedent_json(repo).get('maintainers') or []
+              if isinstance(m, dict) and str(m.get('github') or '').strip()]
+    if len(people) != 1:
+        return None
+    login = str(people[0]['github']).strip().lstrip('@').lower()
+    try:
+        import precedent_audience as pa
+        gh, _email = pa.viewer(repo)
+    except Exception:                                        # noqa: BLE001
+        return None
+    return f'@{login}' if gh and gh.lower() == login else None
+
+
+def switch_repo_landing_to_staging(repo):
+    """Change precedent.json's `landing_branch` from pre-staging to staging,
+    every other byte kept. -> True when written; False, writing nothing,
+    unless the value appears exactly once and the result still parses."""
+    path = pathlib.Path(repo) / 'precedent.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return False
+    found = list(_REPO_LANDS_ON_PRE_STAGING.finditer(text))
+    if len(found) != 1:
+        return False
+    m = found[0]
+    new = text[:m.start()] + m.group(1) + f'"{pb.STAGING}"' + text[m.end():]
+    try:
+        if json.loads(new).get(pb.LANDING_SETTING) != pb.STAGING:
+            return False
+    except ValueError:
+        return False
+    path.write_text(new, encoding='utf-8')
+    return True
+
+
+def retire_pre_staging_step(repo, rep):
+    """Update Vendors' upgrade off pre-staging, for a person who lands on
+    staging (see RETIRE_PRE_STAGING_HEADER above). Reports on `rep`: one
+    step line, and the block close() prints in every outcome (rep.retired).
+    Silent for anyone else, and once origin has no pre-staging."""
+    repo = pathlib.Path(repo)
+    # Only the person's own identity.json declaring staging retires it, and
+    # never while the repository makes it others' landing branch
+    # (precedent_branches.pre_staging_unused): one line says it waited.
+    unused, waits = pb.pre_staging_unused(repo)
+    if waits and pb._remote_tip(repo, pb.PRE_STAGING):
+        if (sole_maintainer_is_you(repo)
+                and 'precedent.json' not in set(rep.before or ())
+                and switch_repo_landing_to_staging(repo)):
+            rep.step('precedent.json', f'{pb.LANDING_SETTING} {pb.PRE_STAGING} '
+                     f'-> {pb.STAGING}, since you are this repository\'s only '
+                     f'maintainer')
+            unused, waits = pb.pre_staging_unused(repo)
+        else:
+            rep.step('pre-staging', f'kept, not retired: {waits}')
+    if not unused:
+        return
+    state, _ptip = pb.pre_staging_retired(repo, fetch=True)
+    if state is None:
+        return
+    staging = pb.staging_branch(repo)
+    block = []
+    if state == pb.RETIRED_WAITING:
+        said = []
+        rc = pb.land(repo, work=f'origin/{pb.PRE_STAGING}', say=said.append)
+        text = '\n'.join(said)
+        result = next((l for l in reversed(said)
+                       if l.startswith(pb.LAND_RESULT)), '')
+        if rc != 0:
+            rep.step('pre-staging', f'not brought into {staging}; nothing moved')
+            if 'conflicts with' in result:
+                why = (f'{pb.PRE_STAGING} holds work {staging} lacks, and it does '
+                       f'not merge cleanly: the same lines changed on both sides. '
+                       f'Nothing moved, and nothing was dropped')
+            elif 'quick checks failed' in result:
+                why = (f'{pb.PRE_STAGING} holds work {staging} lacks, and the quick '
+                       f'checks failed on {staging} with it merged in. Nothing moved')
+            else:
+                why = (f'{pb.PRE_STAGING} holds work {staging} lacks, and it could '
+                       f'not be brought in ({result or "see the lines below"}). '
+                       f'Nothing moved')
+            rep.leave(pb.PRE_STAGING, why + '. To bring it in: '
+                      f'`git switch --no-track -c "$(python3 tools/precedent_branch_name.py '
+                      f'merge pre-staging)" origin/{pb.PRE_STAGING}`, then '
+                      f'`git merge origin/{staging} origin/{pb.MAIN}`, fix what '
+                      f'it names and commit, `git push -u origin HEAD`, then '
+                      f'`python3 tools/precedent_branches.py --land '
+                      f'"$(git branch --show-current)"`, and run Update Vendors '
+                      f'again')
+            rep.details[pb.PRE_STAGING] = [l for l in text.splitlines()
+                                           if l.strip()][-12:]
+            return
+        moved = [l.split('   <- ', 1)[0].rstrip() for l in text.splitlines()
+                 if l.startswith(('LANDED ', 'BROUGHT IN ', 'REBUILT ', '  '))]
+        block.append(f'merged into {staging}, with the quick checks:')
+        block += [f'  {l}' for l in moved]
+        state, _ptip = pb.pre_staging_retired(repo, fetch=True)
+        if state != pb.RETIRED_MERGED:
+            rep.step('pre-staging', f'its work brought into {staging}; it gained '
+                     f'more meanwhile')
+            block.append(f'{pb.PRE_STAGING} gained work while this ran; run Update '
+                         f'Vendors again to bring that in too.')
+            rep.retired = block
+            return
+    slug = pb._slug(repo)
+    files, history = _retire_scope(repo)
+    before = set(rep.before or ())
+    changed, left = [], []
+    for rel in files:
+        path = repo / rel
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        if 'pre-staging' not in text:
+            continue
+        new, did, kept = reword_pre_staging(text, slug)
+        if did and rel in before:
+            # Never mixed into somebody's uncommitted work.
+            left += [(rel, n, 'uncommitted edits in this file') for n, _w in did]
+        elif did:
+            path.write_text(new, encoding='utf-8')
+            changed += [(rel, n, w) for n, w in did]
+        left += [(rel, n, w) for n, w in kept]
+    in_history = []
+    for rel in history:
+        try:
+            n = (repo / rel).read_text(encoding='utf-8', errors='ignore').count('pre-staging')
+        except OSError:
+            n = 0
+        if n:
+            in_history.append(n)
+    if changed:
+        block.append('reworded to staging: ' + ', '.join(
+            f'{rel}:{n} ({w})' for rel, n, w in changed))
+    if left:
+        shown = left[:10]
+        block.append('left as they are: ' + '; '.join(
+            f'{rel}:{n} ({w})' for rel, n, w in shown)
+            + (f'; and {len(left) - len(shown)} more' if len(left) > len(shown) else ''))
+    if in_history:
+        block.append(f'left as history: {sum(in_history)} mention(s) in '
+                     f'{len(in_history)} record file(s) (gotchas/, record/, closed '
+                     f'todo items, declared record paths)')
+    link = (f'https://github.com/{slug}/branches/all?query='
+            + urllib.parse.quote(pb.PRE_STAGING, safe='')) if slug else None
+    block.append(f'{pb.PRE_STAGING} holds nothing {staging} lacks and is no '
+                 f'longer used, so it is safe to delete: '
+                 + (link or "GitHub's branches page, with its trash icon"))
+    rep.retired = block
+    rep.step('pre-staging', 'retired'
+             + (f', its work merged into {staging}' if len(block) and
+                block[0].startswith('merged into') else '')
+             + (f', {len(changed)} mention(s) reworded' if changed else '')
+             + '; safe to delete')
+
+
 FULL_VIEWS = ('MAP.md', 'GLOSSARY.md')
 
 
@@ -1809,6 +2159,8 @@ class Report:
         self.pin_repo = None # whose pin a DONE drops, --from-ref runs included
         self.before = None   # what was uncommitted when the run started writing
         self.earlier = set() # of `before`, what an earlier run staged, unchanged
+        self.retired = []    # retire_pre_staging_step's block, every outcome
+        self.commit_note = None  # a --take-anyway: said in the commit message
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -1875,6 +2227,19 @@ class Report:
                   f"different and important, with the keep command printed "
                   f"there; ask the person when it is a close call.")
 
+    def _retired_block(self):
+        # Said in every outcome: a merge into staging has already been
+        # pushed by then, and the delete link is the person's to act on.
+        if self.retired:
+            print(f"\n{RETIRE_PRE_STAGING_HEADER}")
+            for line in self.retired:
+                print(f"  {line}")
+
+    def _commit_note(self):
+        if self.commit_note:
+            print(f"\nCOMMIT MESSAGE: say this in it, in these words: "
+                  f"{self.commit_note}")
+
     def _pinned(self):
         if self.pin:
             _repo, commit, branch = self.pin
@@ -1918,6 +2283,7 @@ class Report:
             print(f"  {name}: {outcome}")
         self._local_edits()
         self._questions()
+        self._retired_block()
         if failed:
             # What the update left for the person is printed on a failure
             # too. 2026-09-28: a consumer's refresh named its bootstrap.sh as
@@ -1949,6 +2315,7 @@ class Report:
                 for line in self.details.get(what, []):
                     print(f"    {line}")
             self._pinned()
+            self._commit_note()
             if self.loud:
                 self._banner()
             return LEFT
@@ -1964,6 +2331,7 @@ class Report:
                   "commit, then land it on your landing branch.")
         if switch:
             print(switch)
+        self._commit_note()
         print(MERGE_HEAD_NOTE)
         if self.not_run:
             print(self.not_run)
@@ -2533,9 +2901,13 @@ def held_pin(repo):
     return None
 
 
-def record_pin(repo, commit, branch):
+def record_pin(repo, commit, branch, note=None):
+    """`note`: what the commit message must say about how the commit was
+    chosen (a --take-anyway), so a rerun says it again."""
     data = _read_record(repo)
     data['pin'] = {'commit': commit, 'branch': branch}
+    if note:
+        data['pin']['note'] = note
     _write_record(repo, data)
 
 
@@ -2566,7 +2938,8 @@ def take_pin(repo, follow, move=False):
                       f'not in {SOURCE}, so it starts from the tip')
     if tip and tip != commit:
         return commit, (f'pinned: the commit this update started from. {follow} '
-                        f'has moved on to {tip[:12]}; --move takes it')
+                        f'has moved on to {tip[:12]}; --move takes it, or the '
+                        f'newest commit before it whose GitHub test passed')
     return commit, 'pinned: the commit this update started from, still the tip'
 
 
@@ -3116,11 +3489,146 @@ def tiers_step(repo, rep):
         rep.leave('branch tiers', 'pre-staging and staging could not both be '
                   'made on origin -- ' + ' '.join(tier_lines)[-400:])
     else:
+        # pre-staging is no tier for a person who lands on staging
+        # (precedent_branches.pre_staging_retired), so it is not named.
         rep.step('branch tiers', '; '.join(made) if made else
-                 'pre-staging, staging and main all present')
+                 'staging and main both present' if pb.pre_staging_unused(repo)[0]
+                 else 'pre-staging, staging and main all present')
 
 
-def update(repo, skip_check=False, ref=None, move=False):
+# ONLY A MAIN THAT PASSED GITHUB'S TEST IS TAKEN (2026-10-09, the main
+# landing plan, piece A; Morgan, the same day: "Act on the ... plan").
+# The risk of a fast route to main is not main being red for half an hour; it
+# is another repository running Update Vendors in that half hour and taking
+# a broken engine into itself. On 2026-10-09 a test that no longer fit sat on
+# main for about an hour. So the update takes the newest main commit whose
+# GitHub test passed, and when that is not the newest, says which it took,
+# how far behind, and why -- for everyone, Alex included (decision 1).
+#
+# Main's first-parent line only: each of those commits is a push to main,
+# which the test runs on; a commit inside a merged branch was tested, if at
+# all, as part of its pull request. GREEN_WINDOW bounds the look back, and
+# with it the API calls (two or three a commit, github_test_state).
+GREEN_WINDOW = 10
+# The emergency override, in the person's own words ("take <commit>
+# anyway"), recorded in the report and the commit message.
+TAKE_FLAG = '--take-anyway'
+_STATE_WORDS = {'failed': 'failed on', 'running': 'is still running on',
+                'none': 'has not run on'}
+
+
+def main_test_state(sha, tests):
+    """-> (state, detail): main's GitHub test on `sha` of the source clone,
+    as precedent_branches.github_test_state reads it. Its own name so the
+    harness can stand GitHub in."""
+    return pb.github_test_state(SOURCE, sha, tests)
+
+
+def _why_not_newer(skipped):
+    """-> "GitHub's test is still running on X and failed on Y" for the
+    newer commits passed over, newest first, grouped by state."""
+    groups = {}
+    for sha, state in skipped:
+        groups.setdefault(state, []).append(sha[:12])
+    parts = []
+    for state, shas in groups.items():
+        named = ', '.join(shas[:3]) + (f' and {len(shas) - 3} more' if len(shas) > 3 else '')
+        parts.append(f'{_STATE_WORDS.get(state, state + " on")} {named}')
+    return "GitHub's test " + ' and '.join(parts)
+
+
+def source_commit(follow, tip, take=None):
+    """-> {'commit', 'step', 'warning', 'commit_note', 'failed'}: the commit
+    of the source clone this update takes when no --from-ref names one.
+
+    `tip` is `follow`'s newest commit. Off main, or with no GitHub test in
+    the source (precedent_branches.github_tests), the tip, as before. On
+    main, the newest first-parent commit whose test passed; a 'step' line
+    when that is not the tip. GitHub not answering about the tip: the tip,
+    with a 'warning', never silently. Nothing passed within GREEN_WINDOW, or
+    GitHub stopping partway: 'failed', and nothing is taken.
+
+    With `take`, the person named a commit of `follow` to take anyway: it is
+    taken whatever its test says, and the step and 'commit_note' record that
+    it was their word."""
+    out = {'commit': tip, 'step': None, 'warning': None, 'commit_note': None,
+           'failed': None}
+    if take:
+        rc, sha = run(['git', '-C', str(SOURCE), 'rev-parse', '--verify', '-q',
+                       f'{take}^{{commit}}'], SOURCE)
+        sha = sha.strip()
+        if rc != 0 or not sha:
+            out['failed'] = f'{TAKE_FLAG} {take}: no such commit in {SOURCE}'
+            return out
+        if tip and run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor',
+                        sha, tip], SOURCE)[0] != 0:
+            out['failed'] = (f'{TAKE_FLAG} {take}: {sha[:12]} is not on {follow}, so '
+                             f'it is not a {follow} commit to take anyway. '
+                             f'--from-ref vendors any commit, for testing')
+            return out
+        tests = pb.github_tests(SOURCE, sha)
+        state, detail = main_test_state(sha, tests) if tests else (
+            'none', 'no GitHub test is installed')
+        out['commit'] = sha
+        if state == 'passed':
+            out['step'] = (f"took {follow} @ {sha[:12]} on the person's word "
+                           f"({TAKE_FLAG}); its GitHub test passed")
+            out['commit_note'] = (f"Took BestPractice {follow} @ {sha[:12]} on the "
+                                  f"person's word ({TAKE_FLAG}).")
+        else:
+            out['step'] = (f"took {follow} @ {sha[:12]} on the person's word "
+                           f"({TAKE_FLAG}), although its GitHub test had not "
+                           f"passed ({state}: {detail})")
+            out['commit_note'] = (f"Took BestPractice {follow} @ {sha[:12]} on the "
+                                  f"person's word ({TAKE_FLAG}), although its "
+                                  f"GitHub test had not passed.")
+        return out
+    if follow != pb.MAIN or not tip:
+        return out
+    tests = pb.github_tests(SOURCE, tip)
+    if not tests:
+        return out
+    rc, listed = run(['git', '-C', str(SOURCE), 'rev-list', '--first-parent',
+                      f'--max-count={GREEN_WINDOW}', tip], SOURCE)
+    commits = listed.split() if rc == 0 else [tip]
+    skipped = []
+    for sha in commits:
+        state, detail = main_test_state(sha, tests)
+        if state == 'passed':
+            out['commit'] = sha
+            if skipped:
+                n = len(skipped)
+                out['step'] = (f"took {follow} @ {sha[:12]}, {n} commit"
+                               f"{'s' if n != 1 else ''} behind the newest {follow}, "
+                               f"{tip[:12]}, because {_why_not_newer(skipped)}. This "
+                               f"repo gets the newer ones once their test passes")
+            return out
+        if state == 'unknown':
+            if not skipped:
+                out['warning'] = (f"could not ask GitHub whether {follow}'s test "
+                                  f"passed ({detail}), so this took the newest "
+                                  f"{follow}, {tip[:12]}, without knowing. Run it "
+                                  f"again once GitHub answers")
+                return out
+            out['failed'] = (f"GitHub stopped answering ({detail}) while this "
+                             f"looked for the newest {follow} whose test passed, "
+                             f"after finding that {_why_not_newer(skipped)}. "
+                             f"Nothing was taken. Run "
+                             f"it again, or take a commit anyway in the person's "
+                             f"own words with {TAKE_FLAG} <commit>")
+            out['commit'] = None
+            return out
+        skipped.append((sha, state))
+    out['commit'] = None
+    out['failed'] = (f"none of {follow}'s newest {len(commits)} commits passed "
+                     f"GitHub's test: {_why_not_newer(skipped)}. Nothing was "
+                     f"taken. Run it again once {follow}'s test passes, or take "
+                     f"a commit anyway in the person's own words with "
+                     f"{TAKE_FLAG} <commit>")
+    return out
+
+
+def update(repo, skip_check=False, ref=None, move=False, take=None):
     rep = Report()
     rep.pin_repo = repo
     elsewhere = source_is_its_own_clone()
@@ -3196,22 +3704,12 @@ def update(repo, skip_check=False, ref=None, move=False):
             return rep.close(f"could not fetch origin/{follow} in "
                              f"{SOURCE}:\n{tail(out, repo=repo)}")
     # An unfinished update keeps the commit it started from (held_pin); an
-    # explicit --from-ref neither reads nor moves it.
-    pinned, said = (None, None) if ref else take_pin(repo, follow, move)
+    # explicit --from-ref neither reads nor moves it, and --take-anyway
+    # moves it to the commit the person named.
+    pinned, said = (None, None) if ref else take_pin(repo, follow, move or bool(take))
     rc, head = run(['git', '-C', str(SOURCE), 'rev-parse',
                     ref or pinned or f'origin/{follow}'], SOURCE)
     head_ok = rc == 0
-    rep.step('source', (f"{follow} @ {head.strip()[:12]}" if head_ok
-                        else f"could not read {ref or pinned or 'origin/' + follow}")
-             + (f" -- {said}" if said else ''))
-    if ref is None and head_ok:
-        record_pin(repo, head.strip(), follow)
-        rep.pin = (repo, head.strip(), follow)
-    # What the catalogue is mirrored from: the commit read just above, the
-    # one the engine is handed too -- never a second read of the branch by
-    # checkin.py update's own fetch, which a pinned rerun would undo.
-    take = ref or (head.strip() if head_ok else None)
-
     # The commit the vendored engine -- and so a section 0 catalogue, which
     # moves with it -- was last synced from. Read now: step 2 rewrites it.
     try:
@@ -3219,6 +3717,45 @@ def update(repo, skip_check=False, ref=None, move=False):
                                  .read_text(encoding='utf-8')).get('source_commit')
     except (OSError, ValueError):
         last_synced = None
+    # Main is taken only where its GitHub test passed (source_commit), once,
+    # here: a pinned rerun takes the commit its first run chose.
+    chosen = {}
+    if ref is None and head_ok and not pinned:
+        newest = head.strip()
+        chosen = source_commit(follow, newest, take)
+        if chosen['failed']:
+            return rep.close(chosen['failed'])
+        if (chosen['commit'] != newest and not take and last_synced
+                and pve.engine_is_ahead(SOURCE, last_synced, chosen['commit'])
+                and not pve.engine_is_ahead(SOURCE, last_synced, newest)):
+            return rep.close(
+                f"this repo's engine is already at {follow} @ {last_synced[:12]}, "
+                f"newer than {chosen['commit'][:12]}, the newest {follow} whose "
+                f"GitHub test passed: {chosen['step']}. Nothing was taken. Run it "
+                f"again once {follow}'s test passes, or take a commit anyway in "
+                f"the person's own words with {TAKE_FLAG} <commit>")
+        head = chosen['commit'] + '\n'
+    elif ref is None and pinned:
+        chosen = {'commit_note': (held_pin(repo) or {}).get('note')}
+        if chosen['commit_note']:
+            chosen['step'] = f"kept from the run that started it: {chosen['commit_note']}"
+    rep.step('source', (f"{follow} @ {head.strip()[:12]}" if head_ok
+                        else f"could not read {ref or pinned or 'origin/' + follow}")
+             + (f" -- {said}" if said else ''))
+    if chosen.get('step'):
+        rep.step('GitHub test', chosen['step'])
+    if chosen.get('warning'):
+        rep.step('GitHub test', f"WARNING: {chosen['warning']}")
+        rep.warnings.append(chosen['warning'])
+    rep.commit_note = chosen.get('commit_note')
+    if ref is None and head_ok:
+        record_pin(repo, head.strip(), follow, note=rep.commit_note)
+        rep.pin = (repo, head.strip(), follow)
+    # What the catalogue is mirrored from: the commit read just above, the
+    # one the engine is handed too -- never a second read of the branch by
+    # checkin.py update's own fetch, which a pinned rerun would undo.
+    take = ref or (head.strip() if head_ok else None)
+
     # 2. The engine, by the consumer's own copy: refresh() takes ROOT from
     # where it sits. It replaces itself and re-runs, so an old copy still
     # ends on the current code.
@@ -3454,6 +3991,12 @@ def update(repo, skip_check=False, ref=None, move=False):
     # the old catalogue, it read as "in force nowhere else" and the set was
     # kept (a consumer's update, 2026-10-06).
     dropped_sets = retired_sources_step(repo, rep)
+
+    # 3c. Off pre-staging, for a person who lands on staging: what waits there
+    # merged into staging, this repo's own instructions and links repointed,
+    # the branch offered for deletion. Before the views, so they render the
+    # reworded sources.
+    retire_pre_staging_step(repo, rep)
 
     # 4. The views. A refresh changes what the loader renders.
     #
@@ -3999,10 +4542,17 @@ def main(argv=None):
     ap.add_argument('--from-ref', default=None,
                     help='vendor this commit of the source instead of its '
                          f'origin/{pve.SOURCE_BRANCH} -- for testing a commit')
+    ap.add_argument(TAKE_FLAG, dest='take', default=None, metavar='COMMIT',
+                    help='take this commit of the followed branch although its '
+                         'GitHub test has not passed -- only on the person\'s '
+                         'own word, in an emergency; recorded in the report and '
+                         'the commit message. Without it, main is taken at its '
+                         'newest commit whose GitHub test passed')
     ap.add_argument('--move', action='store_true',
                     help='an unfinished update reruns against the commit it '
                          'started from until it reports DONE; take the '
-                         'followed branch\'s newest commit instead')
+                         'followed branch\'s newest commit instead (on main, '
+                         'the newest whose GitHub test passed)')
     a = ap.parse_args(argv)
     repo = pathlib.Path(a.repo).resolve()
     if repo == SOURCE:
@@ -4015,7 +4565,12 @@ def main(argv=None):
         print("precedent_update FAIL: --move and --from-ref both say which "
               "commit to take; pass one.")
         return FAILED
-    return update(repo, skip_check=a.skip_check, ref=a.from_ref, move=a.move)
+    if a.take and a.from_ref:
+        print(f"precedent_update FAIL: {TAKE_FLAG} and --from-ref both say which "
+              "commit to take; pass one.")
+        return FAILED
+    return update(repo, skip_check=a.skip_check, ref=a.from_ref, move=a.move,
+                  take=a.take)
 
 
 if __name__ == '__main__':
