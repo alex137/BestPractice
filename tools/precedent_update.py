@@ -683,8 +683,8 @@ def prose_about_dropped_sets(repo, dropped):
     except ValueError:
         cfg = None
     srcs = cfg.get('sources') if isinstance(cfg, dict) else None
-    shared_left = any(isinstance(s, dict) and s.get('level') in ('shared', 'team')
-                      for s in srcs or [])
+    import precedent_resolve as pr
+    shared_left = any(pr.declared_level(s) == 'shared' for s in srcs or [])
     match = _dropped_set_matcher(names, shared_left)
     out = []
     if cfg is not None:
@@ -811,6 +811,20 @@ def renamed_sources_step(repo, rep, engine_out):
              'precedent-team-* names (name, path and level team -> shared): '
              + ', '.join(f'{o} -> {n}' for o, n in dict(done).items())
              + ' -- nothing to decide')
+
+
+def level_alias_step(repo, rep):
+    """Rewrite every `"level": "team"` in precedent.json to `"shared"`, on
+    every run that finds one, and say so in one line. The old word still
+    resolves; the file just stops saying something the tools have to
+    translate (pve.retire_level_aliases). Runs after renamed_sources_step,
+    which already re-levels a renamed set, so this names the rest. The
+    write is staged with the rest of the update (stage_update)."""
+    names = pve.retire_level_aliases(repo)
+    if names:
+        rep.step('source levels', 'precedent.json now declares '
+                 + ', '.join(names) + ' at level "shared", the current word '
+                 'for the older "team" -- the same level, nothing to decide')
 
 
 # The engine's WARN for a file that still names one it just deleted
@@ -1502,8 +1516,9 @@ def universal_catalogue_path(repo):
         data = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
+    import precedent_resolve as pr
     for src in data.get('sources') or []:
-        if not isinstance(src, dict) or src.get('level') != 'universal':
+        if not isinstance(src, dict) or pr.declared_level(src) != 'universal':
             continue
         path = str(src.get('path') or '').strip().rstrip('/')
         if not path or path.startswith(('/', '~')) or '..' in pathlib.PurePosixPath(path).parts:
@@ -3323,6 +3338,7 @@ def update(repo, skip_check=False, ref=None, move=False):
         rep.step('catalogue pin', f'repointed to {follow} '
                  f'(the branch this repo follows; nothing to ask)')
     renamed_sources_step(repo, rep, out)
+    level_alias_step(repo, rep)
     maintainers_step(repo, rep)
 
     # 3. The catalogue, where there is one, by the source clone's checkin.py.

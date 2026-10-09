@@ -199,9 +199,30 @@ FORBIDDEN_PATHS = [
 # vendored where the resolver is deliberately absent.
 SOURCE_MANIFEST = 'precedent-source.json'
 DEFAULT_INDIVIDUAL_NAME = 'precedent-individual'
-# The levels whose sources are private by default. `team` is the pre-2026-09-18
-# spelling of `shared` and still reads.
-PRIVATE_LEVELS = ('shared', 'team', 'individual')
+# The levels whose sources are private by default. A level is compared only
+# through _declared_level, so the pre-2026-09-18 spelling `team` reads as
+# `shared` and the list never needs it.
+PRIVATE_LEVELS = ('shared', 'individual')
+# The resolver's alias table, for a tree this gate is vendored into without
+# the resolver. verify_harness.py asserts it still equals
+# precedent_resolve.LEVEL_ALIASES, so the two cannot drift; a leak gate that
+# read an old-word private set as public would fail open.
+_FALLBACK_LEVEL_ALIASES = {'team': 'shared'}
+
+
+def _declared_level(src):
+    """precedent_resolve.declared_level where the resolver is beside this
+    gate, else the same reading from the fallback table above."""
+    if not isinstance(src, dict):
+        return None
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+        return _pr.declared_level(src)
+    except Exception:                                           # noqa: BLE001
+        return _FALLBACK_LEVEL_ALIASES.get(src.get('level'), src.get('level'))
+    finally:
+        sys.path.pop(0)
 
 
 def private_set_names(root=None):
@@ -215,7 +236,7 @@ def private_set_names(root=None):
     except (OSError, ValueError):
         return names
     for s in data.get('sources', []) or []:
-        if (s or {}).get('level') in PRIVATE_LEVELS and isinstance(s.get('name'), str):
+        if _declared_level(s) in PRIVATE_LEVELS and isinstance(s.get('name'), str):
             names.add(s['name'].strip().lower())
     return names
 
@@ -234,7 +255,7 @@ def _manifest_says_private(text):
     vis = str(data.get('visibility') or '').strip().lower()
     if vis == 'private':
         return True
-    return vis != 'public' and data.get('level') in PRIVATE_LEVELS
+    return vis != 'public' and _declared_level(data) in PRIVATE_LEVELS
 
 # Exactly one path is exempt from the path rules, by full path, and it is
 # not a loophole: it is the canonical SessionStart hook every consuming
@@ -1491,7 +1512,7 @@ def _private_sources_declared(root=None):
         # guessing "no private sources" here would fail open in exactly the
         # direction this function exists to close (practice: fail-gracefully).
         return True
-    return any((s or {}).get('level') in PRIVATE_LEVELS
+    return any(_declared_level(s) in PRIVATE_LEVELS
                for s in data.get('sources', []))
 
 
@@ -1538,7 +1559,7 @@ def _private_sources_resolved(root=None):
         return True, []
     missing = {(m or {}).get('name') for m in res.get('missing', [])}
     private = [s for s in sources
-               if (s or {}).get('level') in PRIVATE_LEVELS]
+               if _declared_level(s) in PRIVATE_LEVELS]
     unresolved = [s.get('name') for s in private if s.get('name') in missing]
     resolved = [s.get('name') for s in private if s.get('name') not in missing]
     return bool(resolved), unresolved

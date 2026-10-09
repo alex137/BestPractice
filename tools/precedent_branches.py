@@ -1041,6 +1041,126 @@ def _changed_into_main(root, sha):
     return [l for l in r.stdout.splitlines() if l.strip()]
 
 
+# A WORKFLOW GITHUB SKIPS HERE BY DESIGN IS NOT ONE OF MAIN'S GITHUB TESTS
+# (2026-10-09). The leak-gate template gates its only job on
+# `github.event.repository.private != true`: in a private repository it never
+# runs, and GitHub records a skipped run for it on every pull request. A
+# skipped run never counts as a pass (github_test_state), so a private
+# consumer's wait read "leak-gate.yml never ran on it. Do not merge" on every
+# pull request into main, for good, and the due check blamed an Update
+# Vendors that would bring the same file. One definition, read by every
+# reader of main's GitHub test: a workflow whose jobs are ALL gated off in a
+# private repository, in a repository whose precedent.json declares
+# visibility private. Anything else skipped still never reads as passed.
+_PRIVATE_GATE = re.compile(
+    r'\A(?:github\.event\.repository\.private\s*!=\s*true'
+    r'|!\s*github\.event\.repository\.private'
+    r'|github\.event\.repository\.private\s*==\s*false)\Z')
+
+
+def _conjuncts(expr):
+    """-> the top-level `&&` parts of a workflow expression, each stripped of
+    `${{ }}` and of parentheses that wrap the whole part."""
+    expr = expr.strip()
+    if expr.startswith('${{') and expr.endswith('}}'):
+        expr = expr[3:-2].strip()
+    parts, depth, start, quote = [], 0, 0, False
+    i = 0
+    while i < len(expr):
+        c = expr[i]
+        if c == "'":
+            quote = not quote
+        elif not quote and c == '(':
+            depth += 1
+        elif not quote and c == ')':
+            depth -= 1
+        elif not quote and depth == 0 and expr.startswith('&&', i):
+            parts.append(expr[start:i])
+            start = i + 2
+            i += 1
+        i += 1
+    parts.append(expr[start:])
+    out = []
+    for p in parts:
+        p = ' '.join(p.split())
+        while p.startswith('(') and p.endswith(')') and _balanced(p[1:-1]):
+            p = p[1:-1].strip()
+        out.append(p)
+    return out
+
+
+def _balanced(text):
+    """True when `text`'s parentheses pair up on their own."""
+    depth = 0
+    for c in text:
+        depth += {'(': 1, ')': -1}.get(c, 0)
+        if depth < 0:
+            return False
+    return depth == 0
+
+
+def _job_conditions(text):
+    """-> [the job-level `if:` expression, or None] for each job in a
+    workflow's text; [] when it declares none."""
+    lines = text.splitlines()
+    at = next((i for i, l in enumerate(lines) if re.match(r'jobs:[ \t]*(#.*)?$', l)), None)
+    if at is None:
+        return []
+    body = []
+    for l in lines[at + 1:]:
+        if l.strip() and not l[0].isspace() and not l.startswith('#'):
+            break
+        body.append(l)
+
+    def indent(l):
+        return len(l) - len(l.lstrip(' '))
+    real = [l for l in body if l.strip() and not l.lstrip().startswith('#')]
+    if not real:
+        return []
+    job_at = indent(real[0])
+    prop_at = next((indent(l) for l in real if indent(l) > job_at), None)
+    conds = []
+    i = 0
+    while i < len(body):
+        l = body[i]
+        i += 1
+        if not l.strip() or l.lstrip().startswith('#'):
+            continue
+        if indent(l) == job_at:
+            conds.append(None)
+            continue
+        m = re.match(r' *if:[ \t]*(.*)$', l)
+        if not (conds and m and indent(l) == prop_at and conds[-1] is None):
+            continue
+        value = m.group(1).strip()
+        if value[:1] in ('>', '|'):          # a folded or literal block
+            more = []
+            while i < len(body) and (not body[i].strip() or indent(body[i]) > prop_at):
+                more.append(body[i].strip())
+                i += 1
+            value = ' '.join(x for x in more if x)
+        elif len(value) > 1 and value[0] == value[-1] == '"':
+            value = value[1:-1]
+        conds[-1] = value
+    return conds
+
+
+def skipped_by_design(root, text):
+    """True when GitHub never runs this workflow's jobs in this repository:
+    every job is gated on `github.event.repository.private != true` (or
+    `!github.event.repository.private`) as a whole condition or a top-level
+    `&&` part of one, and precedent.json declares visibility private. Main's
+    GitHub test leaves such a workflow out, and nothing else does: in a
+    public repository, or for a workflow skipped for any other reason, a
+    skipped run is still a run that did not happen."""
+    if precedent_json(root).get('visibility') != 'private':
+        return False
+    conds = _job_conditions(text or '')
+    return bool(conds) and all(
+        c is not None and any(_PRIVATE_GATE.match(p) for p in _conjuncts(c))
+        for c in conds)
+
+
 def github_tests(root, sha):
     """-> [(path, dispatchable)] for each workflow in `sha`'s tree that runs
     on a pull request of `sha` into main: main's GitHub test. [] when the
@@ -1056,7 +1176,12 @@ def github_tests(root, sha):
     required. 2026-10-04: a consumer's Produce touched neither path of its
     docs check, GitHub rightly never ran it, and the wait said "never ran
     on it. Do not merge" for good. When the diff cannot be read, the
-    workflow is required, as before."""
+    workflow is required, as before.
+
+    A workflow GitHub never runs in this repository (skipped_by_design: a
+    private repository, and every job gated off there) is not required
+    either; its skipped run is not a pass, and waiting for one waited
+    forever (2026-10-09)."""
     out = []
     changed = False   # read once, and only for a workflow with a path filter
     names = _git(root, 'ls-tree', '--name-only', f'{sha}:.github/workflows') or ''
@@ -1065,6 +1190,8 @@ def github_tests(root, sha):
             continue
         path = f'.github/workflows/{name}'
         text = _git(root, 'show', f'{sha}:{path}') or ''
+        if skipped_by_design(root, text):
+            continue
         on = re.search(r'^on:[ \t]*(.*)\n((?:[ \t]+.*\n|[ \t]*#.*\n|\n)*)', text + '\n', re.M)
         if not on:
             continue
@@ -1284,6 +1411,11 @@ def _run_github_test(root, sha, tests, say, gh=None):
 # "if and only if the setting is turned on ... AND the number of hours is
 # more than the number defined since the last successful test".
 NOT_DUE_PREFIX = 'to-main-not-due-'
+# The installed workflows whose CURRENT template (templates/github-actions/
+# <name>.template) carries the not-due skip: the only ones Update Vendors
+# can bring it to. A consumer has no templates beside its engine, so this
+# names them; verify_harness.py checks it against the templates themselves.
+NOT_DUE_SKIP_TEMPLATES = ('light-check.yml',)
 CADENCE_KEYS = ('github_ci_every_hours', 'ci_every_hours')
 FORCE_ENV = 'PRECEDENT_CI_NOW'
 
@@ -1475,9 +1607,16 @@ def main_test_due(root, tip, gh=None, user_config=None):
     old = [p for p, _ in tests
            if NOT_DUE_PREFIX not in (_git(root, 'show', f'{tip}:{p}') or '')]
     if old:
-        return True, (f'{note}{old[0]} predates the not-due skip, so it runs on every '
-                      f'pull request into {MAIN} until Update Vendors brings the '
-                      f'current one')
+        # Update Vendors cures this only where the current template carries
+        # the skip. Until 2026-10-09 every such workflow was told to wait for
+        # one, leak-gate.yml included, whose template has never had it.
+        if old[0].rsplit('/', 1)[-1] in NOT_DUE_SKIP_TEMPLATES:
+            return True, (f'{note}{old[0]} predates the not-due skip, so it runs on '
+                          f'every pull request into {MAIN} until Update Vendors '
+                          f'brings the current one')
+        return True, (f'{note}{old[0]} has no not-due skip, and no template this '
+                      f'engine ships gives it one, so GitHub runs it on every pull '
+                      f'request into {MAIN} whatever this decides')
     when, problem = last_main_test_pass(root, tests, gh)
     if problem:
         return True, note + problem
