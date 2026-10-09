@@ -282,22 +282,3 @@ suite, so the pair costs about what one run costs (measured 4m01s against
 ~4m20s, 2026-09-22). It reproduces CI's command SHAPE, never CI's
 environment: a local session resolves private sources CI cannot, so green
 here means the sharding is not what breaks, not that CI will be green.
-
-**The full tier reruns only what changed** (Morgan, 2026-10-09, strength:
-decided: a local full-tier run tests only what a changed file can reach, and
-GitHub still runs everything). `verify_harness.py --as-ci` -- and so the
-push check's full tier, the move into the staging tier -- keeps a ledger of
-the checks that passed: the code each can reach and every file, listing,
-path probe and environment variable it or its Python children read, by
-content hash. The next local full-tier run skips a check whose record still
-holds and prints it as `UNCHANGED:`, never `PASS:`, with its own count on
-the summary line. A check whose reads cannot all be seen has no record and
-runs every time; a failure drops a check's records. GitHub
-(`GITHUB_ACTIONS=true`, or `CI` set) ignores the ledger;
-`PRECEDENT_HARNESS_RERUN_ALL=1` runs everything locally;
-`PRECEDENT_HARNESS_LEDGER_WHY=1` says what moved for each check that runs.
-It lives in the clone's git directory and on the `precedent-check-receipts`
-branch (`PRECEDENT_NO_SHARED_PASS=1` keeps it local). The contract, and what
-it cannot see, is the block comment above `_CheckLedger` in
-[tools/verify_harness.py](../tools/verify_harness.py); the practice is
-[gate-ledger](../practices/gate-ledger.md).
