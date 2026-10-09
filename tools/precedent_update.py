@@ -54,7 +54,8 @@ THE STEPS, with no question in between:
      then, where precedent.json names no landing_branch, pre-staging
   3c. for a person whose own identity.json lands them straight on staging,
      in a repository whose precedent.json does not make pre-staging the
-     landing branch for others, while origin still has pre-staging: its waiting work merged into staging (--land's
+     landing branch for others (switched to staging first when they are
+     its only maintainer), while origin still has pre-staging: its waiting work merged into staging (--land's
      composition, quick checks), this repo's own instructions and links
      that send work to pre-staging repointed, and the branch offered for
      deletion as a link once it holds nothing staging lacks -- never
@@ -1169,6 +1170,58 @@ def reword_pre_staging(text, slug):
     return '\n'.join(lines), changed, left
 
 
+# THE SOLE MAINTAINER MAY SWITCH THE REPOSITORY (2026-10-09). The one thing
+# that keeps pre-staging for an explicit staging lander is precedent.json
+# making it the landing branch for others. Where precedent.json's
+# `maintainers` names exactly one person and that person is the one running
+# this -- matched as timezone_offer matches them, by the GitHub username
+# precedent_audience.viewer reads -- nobody else can be landing there, so
+# the value is switched to staging, that one value and nothing else, and the
+# retirement goes on in the same run. Two maintainers, or none named, keep
+# the one-line wait: the call is theirs together.
+_REPO_LANDS_ON_PRE_STAGING = re.compile(
+    r'("' + re.escape(pb.LANDING_SETTING) + r'"\s*:\s*)"' + re.escape(pb.PRE_STAGING) + '"')
+
+
+def sole_maintainer_is_you(repo):
+    """-> '@login' when precedent.json's `maintainers` names exactly one
+    person and the person running this is that one, else None."""
+    people = [m for m in pb.precedent_json(repo).get('maintainers') or []
+              if isinstance(m, dict) and str(m.get('github') or '').strip()]
+    if len(people) != 1:
+        return None
+    login = str(people[0]['github']).strip().lstrip('@').lower()
+    try:
+        import precedent_audience as pa
+        gh, _email = pa.viewer(repo)
+    except Exception:                                        # noqa: BLE001
+        return None
+    return f'@{login}' if gh and gh.lower() == login else None
+
+
+def switch_repo_landing_to_staging(repo):
+    """Change precedent.json's `landing_branch` from pre-staging to staging,
+    every other byte kept. -> True when written; False, writing nothing,
+    unless the value appears exactly once and the result still parses."""
+    path = pathlib.Path(repo) / 'precedent.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return False
+    found = list(_REPO_LANDS_ON_PRE_STAGING.finditer(text))
+    if len(found) != 1:
+        return False
+    m = found[0]
+    new = text[:m.start()] + m.group(1) + f'"{pb.STAGING}"' + text[m.end():]
+    try:
+        if json.loads(new).get(pb.LANDING_SETTING) != pb.STAGING:
+            return False
+    except ValueError:
+        return False
+    path.write_text(new, encoding='utf-8')
+    return True
+
+
 def retire_pre_staging_step(repo, rep):
     """Update Vendors' upgrade off pre-staging, for a person who lands on
     staging (see RETIRE_PRE_STAGING_HEADER above). Reports on `rep`: one
@@ -1180,7 +1233,15 @@ def retire_pre_staging_step(repo, rep):
     # (precedent_branches.pre_staging_unused): one line says it waited.
     unused, waits = pb.pre_staging_unused(repo)
     if waits and pb._remote_tip(repo, pb.PRE_STAGING):
-        rep.step('pre-staging', f'kept, not retired: {waits}')
+        if (sole_maintainer_is_you(repo)
+                and 'precedent.json' not in set(rep.before or ())
+                and switch_repo_landing_to_staging(repo)):
+            rep.step('precedent.json', f'{pb.LANDING_SETTING} {pb.PRE_STAGING} '
+                     f'-> {pb.STAGING}, since you are this repository\'s only '
+                     f'maintainer')
+            unused, waits = pb.pre_staging_unused(repo)
+        else:
+            rep.step('pre-staging', f'kept, not retired: {waits}')
     if not unused:
         return
     state, _ptip = pb.pre_staging_retired(repo, fetch=True)

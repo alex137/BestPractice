@@ -58853,7 +58853,9 @@ def check_update_vendors_retires_pre_staging():
     cases = []
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
-        env = _stale_ref_fixture_env(tmp)
+        # Who is running it comes from identity.json alone, never this
+        # machine's own PRECEDENT_GITHUB_USER.
+        env = dict(_stale_ref_fixture_env(tmp), PRECEDENT_GITHUB_USER='')
         work, git, _branches, tip = _promote_fixture(
             tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
         bare = tmp / 'origin.git'
@@ -58976,25 +58978,42 @@ def check_update_vendors_retires_pre_staging():
                       and 'pre-staging' in res.get('vdc', []), out[-300:]))
 
         # --- the repository still makes pre-staging others' landing branch ---
-        person(landing_branch='staging', promote_only=True)
+        person(landing_branch='staging', promote_only=True, github='p-user')
         pj = text('precedent.json')
-        (work / 'precedent.json').write_text(_json.dumps(dict(
-            _json.loads(pj), landing_branch='pre-staging')), encoding='utf-8')
-        res, out = call('step')
-        steps = res.get('steps') or []
-        cases.append(('while precedent.json makes pre-staging others\' landing '
-                      'branch: nothing moved, nothing reworded, no offer',
-                      tips() == before and text('AGENTS.md') == agents
-                      and not res.get('retired') and not res.get('left'),
-                      out[-300:]))
-        cases.append(('and one line says why it waited',
-                      len(steps) == 1 and steps[0][0] == 'pre-staging'
-                      and 'precedent.json still makes pre-staging' in steps[0][1],
-                      str(steps)[:300]))
+
+        def repo_lands_on_pre_staging(maintainers):
+            data = dict(_json.loads(pj), landing_branch='pre-staging')
+            if maintainers is not None:
+                data['maintainers'] = [{'github': m} for m in maintainers]
+            body = _json.dumps(data, indent=2) + '\n'
+            (work / 'precedent.json').write_text(body, encoding='utf-8')
+            return body
+
+        for label, maintainers in (('no maintainers named', None),
+                                   ('two maintainers, you one of them',
+                                    ['p-user', 'someone-else']),
+                                   ('one maintainer who is someone else',
+                                    ['someone-else'])):
+            body = repo_lands_on_pre_staging(maintainers)
+            res, out = call('step')
+            steps = res.get('steps') or []
+            cases.append((f'{label}, precedent.json making pre-staging others\' '
+                          f'landing branch: nothing moved, nothing reworded, no '
+                          f'offer, precedent.json untouched',
+                          tips() == before and text('AGENTS.md') == agents
+                          and text('precedent.json') == body
+                          and not res.get('retired') and not res.get('left'),
+                          out[-300:]))
+            cases.append((f'{label}: one line says why it waited',
+                          len(steps) == 1 and steps[0][0] == 'pre-staging'
+                          and 'precedent.json still makes pre-staging' in steps[0][1],
+                          str(steps)[:300]))
         res, out = call('offers')
-        cases.append(('and it is not offered for deletion',
+        cases.append(('and while it waits it is not offered for deletion',
                       'pre-staging' in res.get('never', []), out[-300:]))
-        (work / 'precedent.json').write_text(pj, encoding='utf-8')
+        # The sole maintainer, who is the person running this: the switch
+        # is made, and the retirement runs in the same call below.
+        body = repo_lands_on_pre_staging(['P-User'])
 
         # --- the person who lands on staging, work waiting on pre-staging ---
         res, out = call('offers')
@@ -59005,6 +59024,18 @@ def check_update_vendors_retires_pre_staging():
         main_before, ps_before = tip('main'), tip('pre-staging')
         res, out = call('step')
         retired = res.get('retired') or []
+        steps = res.get('steps') or []
+        cases.append(('the only maintainer, running it: precedent.json\'s '
+                      'landing_branch is switched to staging, every other byte '
+                      'kept', text('precedent.json') == body.replace(
+                          '"landing_branch": "pre-staging"',
+                          '"landing_branch": "staging"'), text('precedent.json')))
+        cases.append(('it is said in one line, before the retirement runs',
+                      steps[:1] == [['precedent.json', 'landing_branch pre-staging '
+                                     '-> staging, since you are this '
+                                     'repository\'s only maintainer']]
+                      and len(steps) == 2 and steps[1][0] == 'pre-staging',
+                      str(steps)[:300]))
         cases.append(('the waiting work is brought into staging, with main\'s '
                       'direct work', on(waiting, 'staging') and on(direct, 'staging'),
                       out[-400:]))
@@ -59146,7 +59177,9 @@ def check_promote_ends_with_its_result_line():
 
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
-        env = _stale_ref_fixture_env(tmp)
+        # Who is running it comes from identity.json alone, never this
+        # machine's own PRECEDENT_GITHUB_USER.
+        env = dict(_stale_ref_fixture_env(tmp), PRECEDENT_GITHUB_USER='')
         work, git, _branches, tip = _promote_fixture(
             tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
         git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
@@ -59185,7 +59218,9 @@ def check_promote_ends_with_its_result_line():
 
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
-        env = _stale_ref_fixture_env(tmp)
+        # Who is running it comes from identity.json alone, never this
+        # machine's own PRECEDENT_GITHUB_USER.
+        env = dict(_stale_ref_fixture_env(tmp), PRECEDENT_GITHUB_USER='')
         work, git, _branches, tip = _promote_fixture(
             tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
         git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
