@@ -15048,6 +15048,22 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
                          '(../tools/doc_lint.py) at each check-in.', False),
         'named-in-link-text': ('open', 'null', '[tools/doc_lint.py]'
                                '(../tools/doc_lint.py) misreads a fence.', True),
+        # Running a vendored tool is using it (2026-10-08, a consumer's item
+        # saying to run a vendored tool was refused): the program argument
+        # of an interpreter in a code span or a fence does not count; the
+        # same path as a later argument, or in prose beside it, does.
+        'runs-in-span': ('open', 'null', 'Run `python3 tools/doc_lint.py '
+                         '--fix todo/x.md` before each commit.', False),
+        'runs-in-fence': ('open', 'null', 'At each check-in:\n\n```\n'
+                          'bash ../tools/doc_lint.py\n'
+                          '/usr/bin/env python3 -I tools/doc_lint.py --repo .\n'
+                          '```', False),
+        'argument-in-span': ('open', 'null', '`grep -n fence tools/doc_lint.py` '
+                             'shows the misread.', True),
+        'later-argument': ('open', 'null', '`python3 tools/other.py '
+                           'tools/doc_lint.py` shows the misread.', True),
+        'runs-and-names': ('open', 'null', 'Run `python3 tools/doc_lint.py`; '
+                           'tools/doc_lint.py misreads a fence.', True),
     }
     cases = []
     with tempfile.TemporaryDirectory() as td:
