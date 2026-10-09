@@ -60,8 +60,9 @@ In order of how often each piece hurts during an outage:
    could not be reached and finish on the vendored copy. Small; mostly
    wording and exit codes.
 2. **Checks after a merge run on our side.** The full check of what landed
-   runs locally in the background after the push (built in a consuming
-   repository on 2026-10-08 as `land_next.py --check-after`), so GitHub
+   runs locally in the background after the push (built on 2026-10-08 as
+   `tools/precedent_check_after.py`, which `tools/land_next.py` names after
+   every vendor update it lands), so GitHub
    Actions becomes one more place a failure can show up, not the only one.
 3. **Failures are filed in the repository.** A failure no one is watching is
    written as a blocker item under `todo/` and pushed, and listed at session
