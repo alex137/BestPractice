@@ -6715,10 +6715,13 @@ def check_session_start_charges_brought_sets_to_the_person():
         import precedent_session_practices as psp
     finally:
         sys.path.pop(0)
-    saved = (psp.brought_share, psp.brought_budget)
+    # charged_to_repo reads both renders through _brought_renders since
+    # 2026-10-09, so the stand-in replaces that: 1500 with the brought set,
+    # 900 without it, a share of 600.
+    saved = (psp._brought_renders, psp.brought_budget)
     cases = []
     try:
-        psp.brought_share = lambda repo=None: (600, ['precedent-shared-ladder'])
+        psp._brought_renders = lambda repo=None: (1500, 900, ['precedent-shared-ladder'])
         psp.brought_budget = lambda repo=None: (700, '/ind')
         n, note, over = psc._charge_brought_share(1500)
         cases.append(('the brought share leaves the repository\'s count',
@@ -6731,12 +6734,12 @@ def check_session_start_charges_brought_sets_to_the_person():
         n, note, over = psc._charge_brought_share(1500)
         cases.append(('no budget declared: charged to the repository, as before',
                       n == 1500 and note == '' and over is None))
-        psp.brought_share = lambda repo=None: (0, [])
+        psp._brought_renders = lambda repo=None: (None, None, [])
         psp.brought_budget = lambda repo=None: (700, '/ind')
         cases.append(('nothing brought: unchanged',
                       psc._charge_brought_share(1500) == (1500, '', None)))
     finally:
-        psp.brought_share, psp.brought_budget = saved
+        psp._brought_renders, psp.brought_budget = saved
     failed = [nm for nm, ok in cases if not ok]
     check(f'the session-start check charges brought sets to the person '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
@@ -66229,9 +66232,15 @@ def check_brought_sets_have_their_own_session_budget():
                                 f is None and n == 1000 + share, f'{n} {f}'))
                 manifest(fx, budget=share + 10)
                 n, f = pc._charge_brought_share(1000 + share)
+                # Since 2026-10-09 the charge is the file as this engine
+                # renders it now without the brought sets, never the figure
+                # read off disk less the share (the two could come from
+                # different engines).
+                bare = psp._brought_renders(str(repo))[1]
                 results.append(('3: within budget, no finding, and the repo is '
-                                'charged the file less the share',
-                                f is None and n == 1000, f'{n} {f}'))
+                                'charged the file rendered without the share',
+                                f is None and bare is not None and n == bare,
+                                f'{n} {f} bare={bare}'))
                 manifest(fx, budget=max(0, share - 10))
                 n, f = pc._charge_brought_share(1000 + share)
                 results.append(('4: CONTROL: over budget is a finding',
