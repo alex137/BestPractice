@@ -14464,22 +14464,38 @@ def check_update_vendors_leaves_the_copy_its_record_names():
                                            capture_output=True).stdout
     up = lambda repo, rel: repo / 'process' / 'upstream' / rel
 
+    pristine = {}
+
     def build(name):
-        repo = fx.consumer(name)
-        seeded = fx.seeded_from(repo)
-        (repo / 'process').mkdir()
-        (repo / 'process' / 'manifest.json').write_text(json.dumps({
-            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
-                         'vendored_at': 'process/upstream', 'branch': branch,
-                         'commit': seeded, 'scrub_blocklist': None},
-            'entries': []}, indent=2) + '\n', encoding='utf-8')
-        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
-              '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
-        # Answer the bare fixture's first-run questions, so a later run can
-        # end DONE.
-        fx.update(repo, seeded)
-        fx.commit(repo, 'catalogue at the seeded commit')
-        return repo, seeded
+        # Built once, copied for each case (Morgan, 2026-10-09: "share the
+        # fake project"). Every case starts from the same consumer: its
+        # catalogue vendored at the seeded commit and its first update run.
+        # That took about 30 seconds a case, five times over; two builds
+        # differ only by MANIFEST.json's generated_at_utc and their commit
+        # times. Each case gets its own copy of the repository and of its
+        # bare origin, and nothing a case does reaches another.
+        if not pristine:
+            repo = fx.consumer('pristine')
+            seeded = fx.seeded_from(repo)
+            (repo / 'process').mkdir()
+            (repo / 'process' / 'manifest.json').write_text(json.dumps({
+                'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                             'vendored_at': 'process/upstream', 'branch': branch,
+                             'commit': seeded, 'scrub_blocklist': None},
+                'entries': []}, indent=2) + '\n', encoding='utf-8')
+            fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+                  '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
+            # Answer the bare fixture's first-run questions, so a later run
+            # can end DONE.
+            fx.update(repo, seeded)
+            fx.commit(repo, 'catalogue at the seeded commit')
+            pristine.update(repo=repo, seeded=seeded)
+        repo, bare = fx.tmp / name, fx.tmp / f'{name}.git'
+        shutil.copytree(pristine['repo'], repo, symlinks=True)
+        shutil.copytree(fx.tmp / 'pristine.git', bare, symlinks=True)
+        fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=repo)
+        fx.sh('git', 'fetch', '-q', 'origin', cwd=repo)
+        return repo, pristine['seeded']
 
     def mismatch(repo, ref):
         """-> the copy-relative paths where the copy is not `ref` under the
