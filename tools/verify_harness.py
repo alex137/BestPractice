@@ -59186,8 +59186,9 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
                       and 'Say yes to continue' not in out, out[-300:]))
 
         # A private repository whose GitHub test is not due on this move:
-        # nothing runs the full suite on it, and the session is told so and
-        # not sent to wait on a skipped test (Morgan, 2026-10-09).
+        # the session is not sent to wait on a skipped test, and runs the
+        # full suite on main here after the merge instead (Morgan,
+        # 2026-10-09).
         commit_on('staging', 'quiet', 'quiet.txt', 'q\n')
         run('--land', 'quiet')
         pj_path = work / 'precedent.json'
@@ -59199,12 +59200,13 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
         rc, out = run('--promote', '--to', 'main', '--fast')
         last = out.strip().splitlines()[-1] if out.strip() else ''
         pj_path.write_text(pj_before, encoding='utf-8')
-        cases.append(('a fast move whose GitHub test is not due says nothing '
-                      'runs the full suite, names Debut, and sends no one to '
-                      'wait', rc == 3 and 'not due on this one' in out
-                      and 'Debut (Run tests)' in out
+        cases.append(('a fast move whose GitHub test is not due sends no one '
+                      'to wait on it, and has the full suite run on main here '
+                      'after the merge', rc == 3 and 'not due on this one' in out
+                      and '--run-tests main' in out
                       and '--wait-main-test' not in last
-                      and 'do not wait' in last, out[-500:]))
+                      and 'do not wait' in last and '--run-tests main' in last,
+                      out[-500:]))
 
         # --- the full move into main is unchanged ---
         full_runs()
