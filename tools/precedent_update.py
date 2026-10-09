@@ -52,8 +52,9 @@ THE STEPS, with no question in between:
      ...) that is still, verbatim, wording its template has since dropped,
      left for you -- reported, never rewritten
      then, where precedent.json names no landing_branch, pre-staging
-  3c. for a person who lands straight on staging, while origin still has
-     pre-staging: its waiting work merged into staging (--land's
+  3c. for a person whose own identity.json lands them straight on staging,
+     in a repository whose precedent.json does not make pre-staging the
+     landing branch for others, while origin still has pre-staging: its waiting work merged into staging (--land's
      composition, quick checks), this repo's own instructions and links
      that send work to pre-staging repointed, and the branch offered for
      deletion as a link once it holds nothing staging lacks -- never
@@ -1009,8 +1010,11 @@ def retired_mentions(repo, engine_out):
 # Morgan, 2026-10-09: when this reaches the repositories that vendor the
 # engine, "make sure we have a smooth upgrade process for each. Merging the
 # branches, telling he can delete pre-staging, updating previous mentions/
-# links within each repo, etc etc." So, for that person only, and only while
-# origin still has pre-staging:
+# links within each repo, etc etc." So, for that person only -- their own
+# identity.json declares landing_branch "staging", never a default, and the
+# repository's precedent.json does not still make pre-staging the landing
+# branch for others (precedent_branches.pre_staging_unused; that case says
+# in one line why it waited) -- and only while origin still has pre-staging:
 #   1. work waiting on pre-staging is brought into staging by --land's own
 #      composition (precedent_branches.land: staging, then main's direct
 #      work, then pre-staging, by merge commits, the quick checks, a push
@@ -1171,6 +1175,14 @@ def retire_pre_staging_step(repo, rep):
     step line, and the block close() prints in every outcome (rep.retired).
     Silent for anyone else, and once origin has no pre-staging."""
     repo = pathlib.Path(repo)
+    # Only the person's own identity.json declaring staging retires it, and
+    # never while the repository makes it others' landing branch
+    # (precedent_branches.pre_staging_unused): one line says it waited.
+    unused, waits = pb.pre_staging_unused(repo)
+    if waits and pb._remote_tip(repo, pb.PRE_STAGING):
+        rep.step('pre-staging', f'kept, not retired: {waits}')
+    if not unused:
+        return
     state, _ptip = pb.pre_staging_retired(repo, fetch=True)
     if state is None:
         return
@@ -1258,11 +1270,6 @@ def retire_pre_staging_step(repo, rep):
         block.append(f'left as history: {sum(in_history)} mention(s) in '
                      f'{len(in_history)} record file(s) (gotchas/, record/, closed '
                      f'todo items, declared record paths)')
-    if (pb.precedent_json(repo).get(pb.LANDING_SETTING) == pb.PRE_STAGING):
-        block.append(f'precedent.json still makes {pb.PRE_STAGING} the landing '
-                     f'branch for anyone here who has not chosen one; left as '
-                     f'it is, since it is theirs -- set it to "{staging}" if '
-                     f'nobody else lands on {pb.PRE_STAGING}.')
     link = (f'https://github.com/{slug}/branches/all?query='
             + urllib.parse.quote(pb.PRE_STAGING, safe='')) if slug else None
     block.append(f'{pb.PRE_STAGING} holds nothing {staging} lacks and is no '
@@ -3408,7 +3415,7 @@ def tiers_step(repo, rep):
         # pre-staging is no tier for a person who lands on staging
         # (precedent_branches.pre_staging_retired), so it is not named.
         rep.step('branch tiers', '; '.join(made) if made else
-                 'staging and main both present' if pb.lands_on_staging(repo)[0]
+                 'staging and main both present' if pb.pre_staging_unused(repo)[0]
                  else 'pre-staging, staging and main all present')
 
 

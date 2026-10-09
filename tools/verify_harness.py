@@ -58954,13 +58954,20 @@ def check_update_vendors_retires_pre_staging():
                 ('landing on pre-staging', dict(landing_branch='pre-staging',
                                                 promote_only=True)),
                 ('landing on main', dict(landing_branch='main', promote_only=True)),
-                ('staging without promote_only', dict(landing_branch='staging'))):
+                ('staging without promote_only', dict(landing_branch='staging')),
+                ('no landing branch of their own (staging only by default)',
+                 dict(promote_only=True))):
             person(**settings)
             res, out = call('step')
             cases.append((f'{label}: the step does nothing and says nothing',
                           res == {'steps': [], 'left': [], 'retired': []}
                           and tips() == before and text('AGENTS.md') == agents,
                           out[-300:]))
+        person(promote_only=True)
+        res, out = call('offers')
+        cases.append(('no landing branch of their own: it is never offered',
+                      'pre-staging' in res.get('never', [])
+                      and 'pre-staging' not in res.get('stale', ['x']), out[-300:]))
         person(landing_branch='pre-staging', promote_only=True)
         res, out = call('offers')
         cases.append(('landing on pre-staging: it is never offered',
@@ -58968,8 +58975,28 @@ def check_update_vendors_retires_pre_staging():
                       and 'pre-staging' not in res.get('stale', ['x'])
                       and 'pre-staging' in res.get('vdc', []), out[-300:]))
 
-        # --- the person who lands on staging, work waiting on pre-staging ---
+        # --- the repository still makes pre-staging others' landing branch ---
         person(landing_branch='staging', promote_only=True)
+        pj = text('precedent.json')
+        (work / 'precedent.json').write_text(_json.dumps(dict(
+            _json.loads(pj), landing_branch='pre-staging')), encoding='utf-8')
+        res, out = call('step')
+        steps = res.get('steps') or []
+        cases.append(('while precedent.json makes pre-staging others\' landing '
+                      'branch: nothing moved, nothing reworded, no offer',
+                      tips() == before and text('AGENTS.md') == agents
+                      and not res.get('retired') and not res.get('left'),
+                      out[-300:]))
+        cases.append(('and one line says why it waited',
+                      len(steps) == 1 and steps[0][0] == 'pre-staging'
+                      and 'precedent.json still makes pre-staging' in steps[0][1],
+                      str(steps)[:300]))
+        res, out = call('offers')
+        cases.append(('and it is not offered for deletion',
+                      'pre-staging' in res.get('never', []), out[-300:]))
+        (work / 'precedent.json').write_text(pj, encoding='utf-8')
+
+        # --- the person who lands on staging, work waiting on pre-staging ---
         res, out = call('offers')
         cases.append(('while it holds work staging lacks, pre-staging is never '
                       'offered', 'pre-staging' in res.get('never', [])

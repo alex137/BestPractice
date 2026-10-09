@@ -822,19 +822,58 @@ def tier_branches(root):
 # links within each repo". Update Vendors carries that upgrade
 # (precedent_update.retire_pre_staging_step). For everyone else pre-staging
 # stays a tier, never offered.
+#
+# ONLY AN EXPLICIT CHOICE RETIRES IT (2026-10-09). A person with no
+# landing_branch of their own can resolve to staging by default; if that
+# were enough, their Update Vendors in a repository where somebody else
+# still lands on pre-staging would merge that work with the quick checks
+# only, reword the repository's documents and offer the branch for
+# deletion before its owner switched. So it takes the person's own
+# identity.json saying "staging" (and promote_only on, lands_on_staging),
+# and a repository whose precedent.json still makes pre-staging the landing
+# branch for others keeps it: it is theirs.
 RETIRED_WAITING = 'waiting'
 RETIRED_MERGED = 'merged'
 
 
+def _declared_landing(root, user_config=None):
+    """-> the landing_branch the person's own identity.json declares, or
+    None when none does (a default is not a declaration)."""
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email') and LANDING_SETTING in ident:
+            return ident[LANDING_SETTING]
+    return None
+
+
+def pre_staging_unused(root, user_config=None):
+    """-> (unused, waits): unused is True when pre-staging is retired for
+    this person -- their identity.json declares landing_branch "staging",
+    they land straight there (lands_on_staging), and this repository's
+    precedent.json does not make pre-staging the landing branch for others.
+    `waits` is the reason, when only that last condition holds it back;
+    None otherwise."""
+    if _declared_landing(root, user_config) != STAGING \
+            or not lands_on_staging(root, user_config)[0]:
+        return False, None
+    if precedent_json(root).get(LANDING_SETTING) == PRE_STAGING:
+        return False, (f'precedent.json still makes {PRE_STAGING} the landing '
+                       f'branch for anyone here who has not chosen one, so it '
+                       f'is still in use; set "{LANDING_SETTING}": '
+                       f'"{STAGING}" there if nobody else lands on '
+                       f'{PRE_STAGING}, then run this again')
+    return True, None
+
+
 def pre_staging_retired(root, user_config=None, fetch=False):
     """-> (state, tip): whether origin's pre-staging is retired for this
-    person, and what it holds. state None: it is not -- they do not land
-    straight on staging, or origin has no pre-staging (as this checkout last
+    person, and what it holds. state None: it is not (pre_staging_unused
+    says why), or origin has no pre-staging (as this checkout last
     fetched it; with `fetch`, as origin says now). RETIRED_WAITING: it holds
     work staging lacks. RETIRED_MERGED: merging it into staging would change
     no file, so deleting it loses nothing. Never raises."""
     try:
-        if not lands_on_staging(root, user_config)[0]:
+        if not pre_staging_unused(root, user_config)[0]:
             return None, None
         staging = staging_branch(root)
         if fetch:
@@ -895,7 +934,7 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
         missing.append(f'{staging} on origin')
     # A person who lands on staging has no use for pre-staging, and making
     # it again would undo the deletion they were offered (pre_staging_retired).
-    retired = lands_on_staging(root)[0]
+    retired = pre_staging_unused(root)[0]
     if not retired and not _remote_tip(root, PRE_STAGING):
         missing.append(f'{PRE_STAGING} on origin')
     if not missing:
@@ -2126,11 +2165,12 @@ def sync_pre_staging(root, say=print, check=False):
     and never copied. A conflict stops the sync and pushes nothing. Nothing
     here ever pushes to staging or main.
 
-    For a person who lands straight on staging (lands_on_staging) this does
-    nothing and -> True: pre-staging is retired for them, so it is neither
-    made again after they delete it nor fed while it waits to be
-    (pre_staging_retired)."""
-    if lands_on_staging(root)[0]:
+    For a person for whom pre-staging is retired (pre_staging_unused: their
+    own identity.json lands them on staging, and the repository does not
+    make pre-staging others' landing branch) this does nothing and -> True,
+    so it is neither made again after they delete it nor fed while it waits
+    to be."""
+    if pre_staging_unused(root)[0]:
         return True
     staging = staging_branch(root)
     _run(root, 'fetch', '-q', 'origin', staging)
