@@ -40,6 +40,18 @@ if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
     echo "WARN: pip install failed - doc_lint strikethrough check, .md deck slides, and tools/doc_html.py all degrade - pip stderr: ${pip_err}" >&2
 fi
 
+# WHAT IS BROKEN COMES FIRST (2026-10-09, the main landing plan, piece B,
+# layer 2): an open "main's test failed" issue, which deep-check.yml opens
+# when the test on main fails, then the failures an unattended job filed
+# under todo/ (tools/open_failures.py). tools/bootstrap.sh has run this
+# since 2026-10-08; this hook never had, so a Claude Code session here was
+# not told. First, on stdout, so it is not cut off behind the longer
+# notices below. One GitHub call; when GitHub cannot be read it says so in
+# one line. Never gates.
+if [ -f tools/open_failures.py ]; then
+  python3 tools/open_failures.py 2>/dev/null || true
+fi
+
 # Repair a single-branch clone's refspec before anything tries to fetch.
 # A repository attached mid-session (Claude Code's `add_repo`, and any
 # `git clone --single-branch`) is handed exactly one refspec --

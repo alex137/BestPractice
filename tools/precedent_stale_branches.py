@@ -12,7 +12,11 @@ no change `main` lacks (a Promote's fix branch or copy of staging whose merge co
 changed nothing). NEVER LISTED, whatever their state: `main`, `staging`,
 `pre-staging`, staging's old name `precedent-beta-v01`, and the engine's own
 branches (`precedent-check-receipts`, `precedent-promote-lock`) -- Morgan,
-2026-10-05: "(And never pre-staging or staging)".
+2026-10-05: "(And never pre-staging or staging)". ONE EXCEPTION, 2026-10-09:
+for a person who lands straight on staging, `pre-staging` is retired, and once
+it holds nothing staging lacks it is listed like any finished branch
+(precedent_branches.never_offered; Morgan: "telling he can delete
+pre-staging"). Staging and main are never listed, for anyone.
 
 WHICH REPOSITORIES: every git checkout precedent_container_safe.py finds
 (this repo, its siblings, the home directory's clones, declared sources),
@@ -94,6 +98,17 @@ def _repos(found=None):
     return out
 
 
+def _retired_pre_staging(repo):
+    """True when `repo`'s pre-staging is retired for this person and holds
+    nothing staging lacks (precedent_branches.never_offered, the one rule).
+    False whenever that cannot be read: it then stays never listed."""
+    try:
+        import precedent_branches as pb
+        return pb.PRE_STAGING not in pb.never_offered(repo)
+    except Exception:                                        # noqa: BLE001
+        return False
+
+
 def stale_in(repo, fetch=False):
     """-> [(branch, last_commit_date)] for `repo`, or None with no origin/main."""
     if fetch:
@@ -107,7 +122,13 @@ def stale_in(repo, fetch=False):
               _git(repo, 'branch', '-r', '--merged', 'origin/main',
                    '--format=%(refname:short)').stdout.splitlines()}
     out = []
+    retired = 'pre-staging' in names and _retired_pre_staging(repo)
     for b in sorted(set(names)):
+        if b == 'pre-staging' and retired:
+            # Measured against staging, where its work went, not main.
+            date = _git(repo, 'log', '-1', '--format=%cs', f'origin/{b}').stdout.strip()
+            out.append((b, date))
+            continue
         if b in NEVER or b == 'origin':
             continue
         ref = f'origin/{b}'
@@ -198,7 +219,7 @@ li + li { border-top:1px solid var(--line); }
 <main>
 <header>
 <h1>Branch cleanup</h1>
-<p class="lede">{{TOTAL}} branches, all already in <code>main</code>, so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, <code>pre-staging</code> and the engine's own branches. Ticks are remembered in this browser only.</p>
+<p class="lede">{{TOTAL}} branches, all already in <code>main</code> (a retired <code>pre-staging</code>: already in <code>staging</code>), so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, <code>pre-staging</code> while it is in use, and the engine's own branches. Ticks are remembered in this browser only.</p>
 </header>
 <div class="bar"><span class="progress" id="progress">0 of {{TOTAL}} done</span><button type="button" id="clear">Clear ticks</button></div>
 {{SECTIONS}}
