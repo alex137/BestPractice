@@ -14859,6 +14859,24 @@ def check_update_vendors_takes_only_a_main_that_passed():
         if saved_state is not None:
             pu.main_test_state = saved_state
         shutil.rmtree(tmp, ignore_errors=True)
+    # GitHub's refusal is a refusal, never "no runs" (2026-10-09: a session
+    # with no GitHub access to BestPractice read "not enabled for this
+    # session" as main's test never having run).
+    import precedent_branches as _pb
+
+    class _Refuses:
+        def call(self, path, cache=True):
+            return ({'message': 'GitHub access to this repository is not '
+                     'enabled for this session. Use add_repo to request '
+                     'access.'}, None)
+    runs, err = _pb._runs_on(_Refuses(), 'o/r', 'abc')
+    cases.append(('a refusal is read as GitHub not answering, with its own '
+                  'words', runs is None and 'add_repo' in (err or ''), err))
+    _pb._CURRENT_SLUG.pop('o/r', None)
+    name, err = _pb._current_slug(_Refuses(), 'o/r')
+    _pb._CURRENT_SLUG.pop('o/r', None)
+    cases.append(('the name check says the same',
+                  name is None and 'add_repo' in (err or ''), err))
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
 
@@ -59359,7 +59377,8 @@ def check_update_vendors_retires_pre_staging():
         pj = text('precedent.json')
 
         def repo_lands_on_pre_staging(maintainers):
-            data = dict(_json.loads(pj), landing_branch='pre-staging')
+            data = dict(_json.loads(pj), landing_branch='pre-staging',
+                        _landing_branch_comment=['Work lands on pre-staging here.'])
             if maintainers is not None:
                 data['maintainers'] = [{'github': m} for m in maintainers]
             body = _json.dumps(data, indent=2) + '\n'
@@ -59420,7 +59439,17 @@ def check_update_vendors_retires_pre_staging():
         git(work, 'reset', '-q', 'HEAD~1')
         git(work, 'checkout', '-q', 'HEAD', '--', 'tools/precedent_branches.py')
         # The second pass, the sole maintainer running it: the switch is
-        # made, and the retirement runs in the same call below.
+        # made, and the retirement runs in the same call below. A copy of a
+        # practice from another source, which names pre-staging as an
+        # instruction, is the source's to word, never this repository's.
+        (work / 'practices').mkdir(exist_ok=True)
+        borrowed = 'Push it to pre-staging.\n'
+        (work / 'practices' / 'borrowed.md').write_text(borrowed, encoding='utf-8')
+        (work / 'MANIFEST.json').write_text(_json.dumps({'practices': [
+            {'slug': 'borrowed', 'source': 'precedent-individual'}]}),
+            encoding='utf-8')
+        git(work, 'add', 'practices/borrowed.md', 'MANIFEST.json')
+        git(work, 'commit', '-q', '-m', 'a practice copied from a source')
 
         # --- the person who lands on staging, work waiting on pre-staging ---
         res, out = call('offers')
@@ -59473,6 +59502,15 @@ def check_update_vendors_retires_pre_staging():
                               for l in retired)
                       and any('AGENTS.md:7 (link into another repository)' in l
                               for l in retired), str(retired)[:600]))
+        cases.append(('a copy of another source\'s practice is left as it is, '
+                      'and named with its source',
+                      text('practices/borrowed.md') == borrowed
+                      and any('practices/borrowed.md (from precedent-individual)' in l
+                              for l in retired), str(retired)[:600]))
+        cases.append(('the run that switched says precedent.json\'s comment '
+                      'still describes pre-staging',
+                      any(l.startswith('precedent.json: landing_branch is now staging')
+                          for l in retired), str(retired)[:600]))
         cases.append(('a gotcha is left alone, counted as history',
                       text(gotcha) == '# Trap\n\nPush to pre-staging failed.\n'
                       and any(l.startswith('left as history: 1 mention')
@@ -59498,6 +59536,9 @@ def check_update_vendors_retires_pre_staging():
                                   for l in retired), str(retired)[:300]))
         cases.append(('and still says it is retired, with the link',
                       any(l.endswith(link) for l in retired), str(retired)[-300:]))
+        cases.append(('and does not ask about precedent.json\'s comment again',
+                      not any(l.startswith('precedent.json:') for l in retired),
+                      str(retired)[:300]))
 
         # --- a conflict: nothing moves, nothing is reworded, no offer ---
         git(work, 'add', '-A')
