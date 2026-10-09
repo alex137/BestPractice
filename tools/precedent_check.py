@@ -6011,6 +6011,100 @@ def _index_required_is_declared(ctx):
     return out
 
 
+CODE_OWNERS_IN_INDEX_KEY = 'code_owners_in_index'
+
+
+@check('code-owner-practice-stays-out-of-the-index', 'tree',
+       'a practice marked visible_to: code-owners never costs a line of the '
+       "always-loaded session file: it is on-demand and reaches a session "
+       'by a real applies_to, a gates: moment or a command: phrase, unless '
+       'tools/session_load_budgets.json lists it under code_owners_in_index '
+       'with a reason; an entry there that no longer needs to be is a '
+       'finding too',
+       'whether the route given is a GOOD one: an applies_to that names files '
+       'the occasion is never about passes as readily as one that fits. It '
+       'also judges only the practices this repository publishes -- a '
+       "received one is judged by its own source's run.",
+       practice_backed=False,
+       selects_on=('practices/*.md', 'local/practices/*.md',
+                   'tools/session_load_budgets.json'))
+def _code_owner_practice_stays_out_of_the_index(ctx):
+    """WHY (2026-10-08). A practice marked `visible_to: code-owners` is left
+    out of the tracked block and carried instead by the session file a code
+    owner's session writes (.precedent/SESSION_PRACTICES.md), and that file
+    is charged against the consuming repository's own session-load ceiling.
+    A consuming repository's Debut failed that day on it: about 27 such
+    practices, most with no route but the occasion index, each cost an index
+    line in a project where the people working are code owners. The fix of
+    the day gave most of them a real route; this keeps a new one, or one
+    newly marked for code owners, from bringing the cost back. Morgan
+    decided not to move the charge onto the person instead.
+
+    THE TEST is build_views.lands_in_occasion_index(), with commands
+    omitted as the session file renders them, plus a resident tier: the
+    question the renderer answers, never a second reading of it. An
+    exception is a person's call and lives in the registry with its reason,
+    and an exception that has stopped being needed is reported, so the list
+    only shrinks."""
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as bv
+        import precedent_audience as pa
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'build_views is not importable here ({e})')
+    dirs = [d for d in (ROOT / 'practices', ROOT / 'local' / 'practices')
+            if d.is_dir()]
+    if not dirs:
+        raise NotApplicable('no practices/ tree in this repo')
+    reg = _session_load_budgets() or {}
+    allowed = reg.get(CODE_OWNERS_IN_INDEX_KEY) or {}
+    out, landing = [], set()
+    registry = 'tools/session_load_budgets.json'
+    if not isinstance(allowed, dict):
+        out.append(Finding(registry, f'{CODE_OWNERS_IN_INDEX_KEY} must be an '
+                                     f'object of slug -> one-line reason'))
+        allowed = {}
+    for d in dirs:
+        for fm, _sections, f in bv.load_practices(d):
+            if not pa.for_code_owners(fm):
+                continue
+            resident = fm.get('tier') == 'resident'
+            if not resident and not bv.lands_in_occasion_index(
+                    fm, omit_commands=True):
+                continue
+            slug = fm['slug']
+            landing.add(slug)
+            if slug in allowed:
+                continue
+            rel = f.relative_to(ROOT) if hasattr(f, 'relative_to') else f
+            where = ('is resident, so every code owner\'s session file carries '
+                     'its whole Rule' if resident else
+                     'has no route but the occasion index, so every code '
+                     'owner\'s session file carries a line for it')
+            out.append(Finding(
+                str(rel),
+                f'is marked visible_to: code-owners and {where}, charged to '
+                f'every consuming repository\'s session-load ceiling. Give it '
+                f'a route instead'
+                + (' (and make it tier: on-demand)' if resident else '')
+                + ': applies_to naming the files its occasion is about (not '
+                  '"**"), a gates: moment (merge, review, push or reply), or '
+                  'a command: phrase a person says. If none fits, ask the '
+                  'person: an exception is theirs to record, with its reason, '
+                  f'under {CODE_OWNERS_IN_INDEX_KEY} in {registry}'))
+    for slug, why in sorted(allowed.items()):
+        if not isinstance(why, str) or not why.strip():
+            out.append(Finding(registry, f'{CODE_OWNERS_IN_INDEX_KEY} lists '
+                                         f'{slug} with no reason'))
+        elif slug not in landing:
+            out.append(Finding(registry, f'{CODE_OWNERS_IN_INDEX_KEY} lists '
+                                         f'{slug}, which no longer lands in '
+                                         f'the occasion index (or is gone, or '
+                                         f'is no longer for code owners) -- '
+                                         f'remove the entry'))
+    return out
+
+
 @check('timestamps-carry-offset', 'tree',
        'no tracked Python file stamps a moment with a bare `date.today()`, '
        '`utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` '

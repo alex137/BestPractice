@@ -1198,6 +1198,20 @@ def index_is_redundant(fm):
     return _routes_by_path(fm) or bool(gates)
 
 
+def lands_in_occasion_index(fm, omit_commands=False):
+    """Whether this practice costs an occasion-index line in a block that
+    carries it -- the one test build_loader_block applies, kept here so
+    precedent_check.py's `code-owner-practice-stays-out-of-the-index` asks
+    the same question the renderer answers. `omit_commands` as there: the
+    session file leaves a command's line out, since its spoken words are
+    listed on their own."""
+    if fm.get('tier') != 'on-demand' or not _json_str(fm.get('occasion', '')):
+        return False
+    if omit_commands and command_phrases(fm):
+        return False
+    return not index_is_redundant(fm)
+
+
 def command_phrases(fm):
     """-> [phrase] for the spoken commands a practice's `command:` defines,
     or [] for none, `null`, or a value that does not parse.
@@ -1521,14 +1535,10 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     routed_out = []
     for fm, sections in on_demand:
         occasion = _json_str(fm.get('occasion', ''))
-        if not occasion:
-            continue
-        if omit_commands and command_phrases(fm):
-            continue
-        if index_is_redundant(fm):
-            routed_out.append(fm['slug'])
-            continue
-        by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
+        if lands_in_occasion_index(fm, omit_commands):
+            by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
+        elif occasion and not (omit_commands and command_phrases(fm)):
+            routed_out.append(fm['slug'])       # index_is_redundant
 
     index_lines = []
     for occasion in sorted(by_occasion):

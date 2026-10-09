@@ -15048,6 +15048,22 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
                          '(../tools/doc_lint.py) at each check-in.', False),
         'named-in-link-text': ('open', 'null', '[tools/doc_lint.py]'
                                '(../tools/doc_lint.py) misreads a fence.', True),
+        # Running a vendored tool is using it (2026-10-08, a consumer's item
+        # saying to run a vendored tool was refused): the program argument
+        # of an interpreter in a code span or a fence does not count; the
+        # same path as a later argument, or in prose beside it, does.
+        'runs-in-span': ('open', 'null', 'Run `python3 tools/doc_lint.py '
+                         '--fix todo/x.md` before each commit.', False),
+        'runs-in-fence': ('open', 'null', 'At each check-in:\n\n```\n'
+                          'bash ../tools/doc_lint.py\n'
+                          '/usr/bin/env python3 -I tools/doc_lint.py --repo .\n'
+                          '```', False),
+        'argument-in-span': ('open', 'null', '`grep -n fence tools/doc_lint.py` '
+                             'shows the misread.', True),
+        'later-argument': ('open', 'null', '`python3 tools/other.py '
+                           'tools/doc_lint.py` shows the misread.', True),
+        'runs-and-names': ('open', 'null', 'Run `python3 tools/doc_lint.py`; '
+                           'tools/doc_lint.py misreads a fence.', True),
     }
     cases = []
     with tempfile.TemporaryDirectory() as td:
@@ -15076,6 +15092,96 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
             quiet = r.returncode == 0 and 'UPSTREAM FIX' not in r.stdout
             cases.append((f'{slug}: {"fires" if fires else "passes"}',
                           fired if fires else quiet))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_code_owner_practice_stays_out_of_the_index():
+    """precedent_check.py's code-owner-practice-stays-out-of-the-index
+    (2026-10-08): a practice marked `visible_to: code-owners` is carried by a
+    code owner's session file, charged to the consuming repository's
+    session-load ceiling, and a consuming repository's Debut failed on about 27 of
+    them costing index lines. The check refuses one whose only route is the
+    occasion index, or which is resident, and says what to add; it passes one
+    routed by a real applies_to, a gate or a command, a practice for everyone,
+    and an exception the registry lists with a reason; and it reports an
+    exception that is no longer needed, or carries no reason."""
+    import tempfile, shutil
+    import build_views as _bv              # noqa: F401 -- cached for the check
+    import precedent_audience as _pa       # noqa: F401
+    import precedent_check as pc
+    name = 'a code-owner practice stays out of the occasion index'
+    fm = ('---\nslug:        {slug}\ntitle:       A planted case\n'
+          'tier:        {tier}\nseverity:    default\n'
+          'applies_to:  {applies}\noccasion:    "doing {slug}"\n'
+          'gates:       {gates}\ncommand:     {command}\n'
+          'index_clause: "a planted case"\nchecked_by:  null\n'
+          'defines:     []\nstatus:      active\nsupersedes:  []\n'
+          'overrides:   null\nadded:       "2026-10-08"\n'
+          'approved_by: "fixture"\n{visible}---\n\n## Rule\nPlanted.\n\n'
+          '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n')
+    owners = 'visible_to:  code-owners\n'
+    plants = {
+        # slug: (tier, applies_to, gates, command, visible_to, fires)
+        'unrouted': ('on-demand', '["**"]', '[]', 'null', owners, True),
+        'resident': ('resident', '["docs/**"]', '[]', 'null', owners, True),
+        'by-path': ('on-demand', '["docs/**"]', '[]', 'null', owners, False),
+        'by-gate': ('on-demand', '["**"]', '["push"]', 'null', owners, False),
+        'by-command': ('on-demand', '["**"]', '[]',
+                       '{"Planted Phrase": "A planted command."}', owners, False),
+        'for-everyone': ('on-demand', '["**"]', '[]', 'null', '', False),
+        'excepted': ('on-demand', '["**"]', '[]', 'null', owners, False),
+    }
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='code-owner-index-'))
+    saved = pc.ROOT
+    try:
+        (tmp / 'practices').mkdir()
+        (tmp / 'tools').mkdir()
+        for slug, (tier, applies, gates, command, visible, _f) in plants.items():
+            (tmp / 'practices' / f'{slug}.md').write_text(fm.format(
+                slug=slug, tier=tier, applies=applies, gates=gates,
+                command=command, visible=visible), encoding='utf-8')
+        reg = tmp / 'tools' / 'session_load_budgets.json'
+
+        def run(allowed):
+            reg.write_text(json.dumps({'code_owners_in_index': allowed}),
+                           encoding='utf-8')
+            pc.ROOT = tmp
+            try:
+                return pc._code_owner_practice_stays_out_of_the_index(None)
+            finally:
+                pc.ROOT = saved
+
+        got = run({'excepted': 'no path or gate names its moment.',
+                   'gone-now': 'was needed once.', 'by-path': 'stale.',
+                   'no-reason': ''})
+        hit = {pathlib.PurePath(f.file()).stem for f in got
+               if f.file().startswith('practices/')}
+        for slug, (*_x, fires) in plants.items():
+            cases.append((f'{slug}: {"refused" if fires else "passes"}',
+                          (slug in hit) == fires))
+        text = ' '.join(str(f) for f in got)
+        cases.append(('the refusal says to add applies_to, a gate or a command',
+                      all(w in text for w in ('applies_to', 'gates:', 'command:'))))
+        reg_findings = ' '.join(str(f) for f in got
+                                if f.file() == 'tools/session_load_budgets.json')
+        cases.append(('an exception for a practice that is gone is reported',
+                      'gone-now' in reg_findings and 'remove the entry' in reg_findings))
+        cases.append(('an exception for a routed practice is reported',
+                      'by-path' in reg_findings))
+        cases.append(('an exception with no reason is reported',
+                      'no-reason with no reason' in reg_findings))
+        cases.append(('a needed exception is not reported',
+                      'excepted' not in reg_findings))
+        got = run({})
+        cases.append(('with no exceptions, the excepted practice is refused',
+                      any(f.file() == 'practices/excepted.md' for f in got)))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -21325,6 +21431,26 @@ def check_precedent_check_fires():
                 '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
                 encoding='utf-8')
         case('index-required-is-declared', _plant_ird)
+
+        # code-owner-practice-stays-out-of-the-index -- a practice for code
+        # owners whose only route is the occasion index, so every code
+        # owner's session file pays a line for it (2026-10-08).
+        def _plant_copsooti(repo):
+            (repo / 'practices' / 'zzz-owner-only.md').write_text(
+                '---\nslug:        zzz-owner-only\n'
+                'title:       An owner-only rule\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\n'
+                'occasion:    "running the repository a planted way"\n'
+                'gates:       []\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nsupersedes:  []\n'
+                'overrides:   null\nadded:       "2026-10-08"\n'
+                'approved_by: "fixture"\nvisible_to:  code-owners\n---\n\n'
+                '## Rule\nPlanted.\n\n'
+                '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
+                encoding='utf-8')
+        case('code-owner-practice-stays-out-of-the-index', _plant_copsooti)
 
 
         # docs-track-models -- an owned figure restated in the prose
@@ -68269,6 +68395,7 @@ def main():
     check_lint_runs_the_hosts_shim()
     check_lint_refuses_an_open_item_waiting_on_an_upstream_fix()
     check_upstream_fix_sets_up_the_fix_in_the_source()
+    check_code_owner_practice_stays_out_of_the_index()
     check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
