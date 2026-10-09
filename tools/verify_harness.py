@@ -6715,10 +6715,13 @@ def check_session_start_charges_brought_sets_to_the_person():
         import precedent_session_practices as psp
     finally:
         sys.path.pop(0)
-    saved = (psp.brought_share, psp.brought_budget)
+    # charged_to_repo reads both renders through _brought_renders since
+    # 2026-10-09, so the stand-in replaces that: 1500 with the brought set,
+    # 900 without it, a share of 600.
+    saved = (psp._brought_renders, psp.brought_budget)
     cases = []
     try:
-        psp.brought_share = lambda repo=None: (600, ['precedent-shared-ladder'])
+        psp._brought_renders = lambda repo=None: (1500, 900, ['precedent-shared-ladder'])
         psp.brought_budget = lambda repo=None: (700, '/ind')
         n, note, over = psc._charge_brought_share(1500)
         cases.append(('the brought share leaves the repository\'s count',
@@ -6731,12 +6734,12 @@ def check_session_start_charges_brought_sets_to_the_person():
         n, note, over = psc._charge_brought_share(1500)
         cases.append(('no budget declared: charged to the repository, as before',
                       n == 1500 and note == '' and over is None))
-        psp.brought_share = lambda repo=None: (0, [])
+        psp._brought_renders = lambda repo=None: (None, None, [])
         psp.brought_budget = lambda repo=None: (700, '/ind')
         cases.append(('nothing brought: unchanged',
                       psc._charge_brought_share(1500) == (1500, '', None)))
     finally:
-        psp.brought_share, psp.brought_budget = saved
+        psp._brought_renders, psp.brought_budget = saved
     failed = [nm for nm, ok in cases if not ok]
     check(f'the session-start check charges brought sets to the person '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
@@ -8919,6 +8922,19 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
         cases.append(("a retired set whose rule only the person's own set "
                       'carries is dropped', 'carried' not in left))
         cases.append(('universal is never dropped', 'uni' in left))
+        # A set declared at the older `team` level is the same set
+        # (normalize_level): it is dropped too, not skipped (a consumer's
+        # update, 2026-10-09, kept two deleted sets declared as `team`).
+        pj5 = fx / 'repo5' / 'precedent.json'
+        pj5.parent.mkdir()
+        pj5.write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'uni', 'path': '../uni'},
+            {'level': 'team', 'name': 'vanished', 'path': '../vanished'}]}),
+            encoding='utf-8')
+        _pve.drop_retired_sources(fx / 'repo5', person=person)
+        left5 = [x['name'] for x in json.loads(pj5.read_text(encoding='utf-8'))['sources']]
+        cases.append(('a deleted set declared at the older `team` level is '
+                      'dropped too', left5 == ['uni'], left5))
         # Every session stops loading and cloning a deleted set at once.
         import precedent_resolve as _pr
         ind = fx / 'ind'
@@ -8977,6 +8993,196 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
     bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'a retired or archived set is dropped only when no rule is lost '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+# A raw comparison of a source's `level` against a level name: the field
+# read straight (`x.get('level')`, `x['level']`, or a name bound to either in
+# the same function) on one side, a level name or a *LEVELS tuple on the
+# other. precedent_resolve.declared_level / normalize_level is the one
+# reader; a comparison through it is a call, never matched here.
+_LEVEL_NAMES = frozenset({'shared', 'team', 'individual', 'universal'})
+
+
+def _raw_level_comparisons(text):
+    """-> [line numbers] of raw level comparisons in Python `text`."""
+    import ast
+
+    def raw(n):
+        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                and n.func.attr == 'get' and n.args
+                and isinstance(n.args[0], ast.Constant) and n.args[0].value == 'level'):
+            return True
+        return (isinstance(n, ast.Subscript) and isinstance(n.slice, ast.Constant)
+                and n.slice.value == 'level')
+
+    def names(n):
+        if isinstance(n, ast.Constant):
+            return n.value in _LEVEL_NAMES
+        if isinstance(n, (ast.Tuple, ast.List, ast.Set)):
+            return any(isinstance(e, ast.Constant) and e.value in _LEVEL_NAMES
+                       for e in n.elts)
+        if isinstance(n, ast.Name):
+            return n.id.upper().endswith('LEVELS')
+        return isinstance(n, ast.Attribute) and n.attr.upper().endswith('LEVELS')
+
+    out = set()
+    tree = ast.parse(text)
+    for scope in ast.walk(tree):
+        if not isinstance(scope, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        bound = set()
+        for a in ast.walk(scope):
+            if not isinstance(a, ast.Assign):
+                continue
+            for t in a.targets:
+                if isinstance(t, ast.Name) and raw(a.value):
+                    bound.add(t.id)
+                if isinstance(t, ast.Tuple) and isinstance(a.value, ast.Tuple):
+                    bound |= {te.id for te, ve in zip(t.elts, a.value.elts)
+                              if isinstance(te, ast.Name) and raw(ve)}
+        for c in ast.walk(scope):
+            if not isinstance(c, ast.Compare):
+                continue
+            sides = [c.left] + list(c.comparators)
+            if any(names(s) for s in sides) and any(
+                    raw(s) or (isinstance(s, ast.Name) and s.id in bound) for s in sides):
+                out.add(c.lineno)
+    return sorted(out)
+
+
+def check_source_level_reads_go_through_the_normalizer():
+    """No tool compares a source's raw `level` against a level name.
+
+    2026-10-09: a consumer declared two deleted sets at the older `team`
+    level and Update Vendors removed neither, because the drop compared the
+    raw field against "shared" while the resolver read `team` as shared. The
+    same raw comparison sat in a dozen other tools, several kept right only
+    by a hand-written ('shared', 'team') pair. Every one now reads the level
+    through precedent_resolve.declared_level (or normalize_level); this
+    refuses a new raw one anywhere in tools/, and shows the scan catching
+    the shapes it is meant to catch. The fallback alias tables kept for a
+    copy with no resolver beside it must equal the resolver's own."""
+    cases = []
+    skip = {'verify_harness.py', 'precedent_resolve.py'}
+    hits = []
+    for f in sorted((ROOT / 'tools').glob('*.py')):
+        if f.name in skip:
+            continue
+        try:
+            hits += [f'{f.name}:{n}' for n in
+                     _raw_level_comparisons(f.read_text(encoding='utf-8'))]
+        except (OSError, SyntaxError) as e:
+            hits.append(f'{f.name}: unreadable ({e})')
+    cases.append(('no tool compares a raw source level', not hits, ', '.join(hits[:20])))
+    injected = {
+        "def f(s):\n    return s.get('level') == 'shared'\n": True,
+        "def f(s):\n    return s['level'] in ('shared', 'team')\n": True,
+        "def f(s):\n    lvl, p = s.get('level'), s.get('path')\n    return lvl not in X_LEVELS\n": True,
+        "def f(s):\n    return s.get('level') in bv.PRIVATE_LEVELS\n": True,
+        "def f(s):\n    return pr.declared_level(s) == 'shared'\n": False,
+        "def f(s):\n    return pr.normalize_level(s.get('level')) in ('shared',)\n": False,
+        "def f(s):\n    return s.get('level') == 'repo-local'\n": False,
+    }
+    for code, want in injected.items():
+        got = bool(_raw_level_comparisons(code))
+        cases.append((('catches ' if want else 'passes ') + code.split('\n')[-2].strip(),
+                      got == want))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_resolve as _pr
+        import leak_gate as _lg
+        import precedent_source_bootstrap as _psb
+        import precedent_engine_freshness as _pef
+    finally:
+        sys.path.pop(0)
+    for mod, attr in ((_lg, '_FALLBACK_LEVEL_ALIASES'), (_psb, 'LEVEL_ALIASES'),
+                      (_pef, '_FALLBACK_LEVEL_ALIASES')):
+        cases.append((f'{mod.__name__}.{attr} equals the resolver\'s alias table',
+                      getattr(mod, attr, None) == _pr.LEVEL_ALIASES))
+    dl = getattr(_pr, 'declared_level', None)
+    ds = getattr(_pr, 'declared_sources', None)
+    cases.append(('declared_level reads team as shared, and leaves shared alone',
+                  dl is not None and dl({'level': 'team'}) == 'shared'
+                  and dl({'level': 'shared'}) == 'shared' and dl('x') is None))
+    got = ds({'sources': [{'level': 'team', 'name': 'a'}, 'junk',
+                          {'level': 'universal', 'name': 'u'}]}) if ds else []
+    cases.append(('declared_sources normalizes every entry and drops non-objects',
+                  [(s['name'], s['level']) for s in got] == [('a', 'shared'), ('u', 'universal')]))
+    bad = [c[0] + (f' ({c[2]})' if len(c) > 2 and c[2] else '') for c in cases if not c[1]]
+    check(f'every source-level comparison goes through the one reader '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_update_vendors_retires_the_team_level_word():
+    """Update Vendors rewrites `"level": "team"` to `"shared"` in a
+    consumer's precedent.json on every run that finds one -- any source, not
+    only a renamed set -- says so in one line, keeps every other byte, and
+    does nothing the second time. A previously raw reader (the session
+    check's sources-resolved row) also judges a `team`-level set as shared."""
+    import tempfile, io, contextlib
+    pu, pve, pr = _update_tools()
+    step = getattr(pu, 'level_alias_step', None)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-team-level-'))
+    try:
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        text = ('{\n  "_comment": ["kept as written"],\n  "sources": [\n'
+                '    {"level": "universal", "name": "precedent", "path": "../BestPractice"},\n'
+                '    {"level":"team", "name": "writing",\n'
+                '     "path": "../writing"},\n'
+                '    {"level": "shared", "name": "ladder", "path": "../ladder"},\n'
+                '    {"level": "team", "name": "style", "path": "../style"}\n'
+                '  ],\n  "note": "a team of two"\n}\n')
+        (repo / 'precedent.json').write_text(text, encoding='utf-8')
+        if step is None:
+            cases.append(('precedent_update has level_alias_step()', False))
+        else:
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep)
+            after = (repo / 'precedent.json').read_text(encoding='utf-8')
+            levels = {s['name']: s['level'] for s in json.loads(after)['sources']}
+            cases.append(('both team-level sources now say shared',
+                          levels == {'precedent': 'universal', 'writing': 'shared',
+                                     'ladder': 'shared', 'style': 'shared'}, levels))
+            cases.append(('every other byte is kept',
+                          after == text.replace('"level":"team"', '"level":"shared"')
+                          .replace('"level": "team"', '"level": "shared"')))
+            lines = [o for _n, o in rep.steps if 'writing' in o]
+            cases.append(('the report says so in one line, naming both',
+                          len(lines) == 1 and 'style' in lines[0], rep.steps))
+            rep2 = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep2)
+            cases.append(('a second run changes nothing and says nothing',
+                          (repo / 'precedent.json').read_text(encoding='utf-8') == after
+                          and not rep2.steps, rep2.steps))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import precedent_source_credentials as _psc
+            import precedent_session_check as _sc
+        finally:
+            sys.path.pop(0)
+        old = tmp / 'old'
+        old.mkdir()
+        (old / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'team', 'name': 'absent-set', 'path': '../absent-set'}]}),
+            encoding='utf-8')
+        env = {'HOME': str(tmp), 'PRECEDENT_USER_CONFIG': str(tmp / 'none.json')}
+        un = [u for u in _psc.unresolved_private_sources(old, env) if u[1] == 'absent-set']
+        cases.append(('a team-level set that is not on disk is reported unresolved, as shared',
+                      [u[0] for u in un] == ['shared'], un))
+        row = _sc.sources_resolved_row('set', 'msg', un)
+        cases.append(('...and fails the sources-resolved row, token or no token',
+                      row[1] is False, row))
+    except (OSError, ValueError, KeyError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'Update Vendors retires the `team` level word ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
 
 
 def check_dropped_set_and_proxy_and_template_refs():
@@ -66229,9 +66435,15 @@ def check_brought_sets_have_their_own_session_budget():
                                 f is None and n == 1000 + share, f'{n} {f}'))
                 manifest(fx, budget=share + 10)
                 n, f = pc._charge_brought_share(1000 + share)
+                # Since 2026-10-09 the charge is the file as this engine
+                # renders it now without the brought sets, never the figure
+                # read off disk less the share (the two could come from
+                # different engines).
+                bare = psp._brought_renders(str(repo))[1]
                 results.append(('3: within budget, no finding, and the repo is '
-                                'charged the file less the share',
-                                f is None and n == 1000, f'{n} {f}'))
+                                'charged the file rendered without the share',
+                                f is None and bare is not None and n == bare,
+                                f'{n} {f} bare={bare}'))
                 manifest(fx, budget=max(0, share - 10))
                 n, f = pc._charge_brought_share(1000 + share)
                 results.append(('4: CONTROL: over budget is a finding',
@@ -69065,6 +69277,8 @@ def main():
     check_generated_files_candidates_are_repo_rooted_claims()
     check_incident_coverage_reads_what_the_gotcha_names()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
+    check_source_level_reads_go_through_the_normalizer()
+    check_update_vendors_retires_the_team_level_word()
     check_dropped_set_and_proxy_and_template_refs()
     check_dropped_set_prose_successors_and_families()
     check_removal_selects_its_checks()

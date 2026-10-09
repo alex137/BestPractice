@@ -203,6 +203,18 @@ def _received_owner(rel, repo=None):
     return ppr.received_owner(rel, _received_owners(repo))
 
 
+def _declared_level(src):
+    """precedent_resolve.declared_level -- a declared source's level, with
+    the older `team` read as `shared` -- the one way a check here compares a
+    level. Guarded like _mirrored: without a resolver beside this copy only
+    the raw field is there."""
+    try:
+        import precedent_resolve as pr
+    except Exception:                                           # noqa: BLE001
+        return src.get('level') if isinstance(src, dict) else None
+    return pr.declared_level(src)
+
+
 def _mirrored(repo):
     """-> tuple of repo-relative prefixes this repo mirrors; () if none."""
     key = str(repo)
@@ -983,7 +995,7 @@ def _no_duplication(ctx):
         src = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         raise NotApplicable('this repo is not a practice source (no precedent-source.json)')
-    if not isinstance(src, dict) or src.get('level') == 'universal':
+    if not isinstance(src, dict) or _declared_level(src) == 'universal':
         raise NotApplicable('universal is where the one full copy lives')
     if src.get('retired'):
         raise NotApplicable('this set says it is retired; its copies leave with it')
@@ -992,7 +1004,7 @@ def _no_duplication(ctx):
         sources = _pr.load_config(str(ROOT))
     except Exception as e:                                   # noqa: BLE001
         raise NotApplicable(f'the declared sources could not be read ({e})')
-    uni = [pathlib.Path(s['path']) for s in sources if s.get('level') == 'universal']
+    uni = [pathlib.Path(s['path']) for s in sources if _declared_level(s) == 'universal']
     uni = [u for u in uni if (u / 'practices').is_dir()]
     if not uni:
         raise NotApplicable('no universal source is cloned here to compare with')
@@ -1052,7 +1064,7 @@ def _universal_change_reaches_overrides(ctx):
         src = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return []
-    if not isinstance(src, dict) or src.get('level') != 'universal':
+    if not isinstance(src, dict) or _declared_level(src) != 'universal':
         return []
     changed = []
     for f in ctx.changed_matching(r'^practices/[^/]+\.md$'):
@@ -1072,7 +1084,7 @@ def _universal_change_reaches_overrides(ctx):
     for f in changed:
         slug = pathlib.PurePosixPath(f).stem
         for s in sources:
-            if s.get('level') in ('universal', 'repo-local'):
+            if _declared_level(s) in ('universal', 'repo-local'):
                 continue
             copy = pathlib.Path(s['path']) / 'practices' / f'{slug}.md'
             try:
@@ -1664,7 +1676,7 @@ def _universal_source_root():
     except Exception:                                # practice: fail-gracefully
         return None
     for s in sources:
-        if s.get('level') == 'universal':
+        if _declared_level(s) == 'universal':
             try:
                 root = (ROOT / s['path']).resolve()
             except Exception:
@@ -3752,7 +3764,7 @@ def _practice_is_reachable(ctx):
         if wired and str(fm.get('visible_to') or '').strip('" \'') == 'code-owners':
             via_session.append(slug)
             continue
-        if s['level'] in session_channel_levels or (wired and s.get('brought')):
+        if _declared_level(s) in session_channel_levels or (wired and s.get('brought')):
             # A set the person brings is never in a tracked view, public
             # repository or private (build_views.sources_for_tracked_block),
             # so wherever the channel is wired it reaches them through it.
@@ -5159,7 +5171,7 @@ def _declared_sources_are_cloned(ctx):
     for src in cfg.get('sources') or []:
         if not isinstance(src, dict):
             continue
-        if src.get('level') not in ('shared', 'team', 'universal'):
+        if _declared_level(src) not in ('shared', 'universal'):
             continue
         rel = str(src.get('path') or '').strip()
         if not rel:
@@ -7793,7 +7805,7 @@ def _private_source_names(root):
                 encoding='utf-8'))
         except (OSError, ValueError):
             decl = {}
-        vis = decl.get('visibility') or ('private' if s.get('level') == 'individual'
+        vis = decl.get('visibility') or ('private' if _declared_level(s) == 'individual'
                                          else 'public')
         if vis == 'public':
             continue

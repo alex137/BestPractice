@@ -1365,6 +1365,20 @@ def remind(offline=True, prefix='precedent'):
     return '\n'.join(lines)
 
 
+def _declared_level(src):
+    """precedent_resolve.declared_level -- a declared source's level, with
+    the older `team` read as `shared` -- imported when needed; without a
+    resolver beside this copy only the raw field is there."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+        return _pr.declared_level(src)
+    except Exception:                                           # noqa: BLE001
+        return src.get('level') if isinstance(src, dict) else None
+    finally:
+        sys.path.pop(0)
+
+
 def _expand_source_path(path):
     """The same expansion the guard's _also_resolve does, so this row agrees
     with the thing it is reporting on rather than approximating it."""
@@ -1401,7 +1415,7 @@ def _declared_source_clones():
         path = (path if path.is_absolute() else ROOT / path).resolve()
         if path == ROOT.resolve() or not (path / '.git').exists():
             continue
-        out.append((str(path), 'main' if src.get('level') == 'universal'
+        out.append((str(path), 'main' if _declared_level(src) == 'universal'
                     else None))
     # AND THE UNIVERSAL CLONE EACH ATTACHED SET READS (2026-10-02). A set
     # under another parent -- the individual set in $HOME beside a project
@@ -1418,7 +1432,7 @@ def _declared_source_clones():
         except (OSError, ValueError):
             continue
         for src in (scfg.get('sources') if isinstance(scfg, dict) else None) or []:
-            if not isinstance(src, dict) or src.get('level') != 'universal':
+            if not isinstance(src, dict) or _declared_level(src) != 'universal':
                 continue
             raw = src.get('path')
             if not isinstance(raw, str) or not raw:

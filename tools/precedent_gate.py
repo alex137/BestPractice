@@ -159,7 +159,7 @@ def practices_by_gate(practices_dir=None):
 # repositories, and this repo is public. Imported from build_views where it
 # is declared, with a literal fallback for a partial vendor: the two
 # answering differently is the failure this whole split exists to prevent.
-PRIVATE_LEVELS = getattr(bv, 'PRIVATE_LEVELS', ('shared', 'team', 'individual'))
+PRIVATE_LEVELS = getattr(bv, 'PRIVATE_LEVELS', ('shared', 'individual'))
 
 
 def resolved_gate_practices(root, gate):
@@ -238,7 +238,7 @@ def resolved_gate_practices(root, gate):
     # See this function's own docstring: the ONE signal available here for
     # what this repo's own unresolved practices/ files actually are.
     unresolved_level = (
-        None if any(s.get('level') == 'universal' for s in sources)
+        None if any(pr.declared_level(s) == 'universal' for s in sources)
         else 'universal')
     try:
         res = pr.resolve(sources)
