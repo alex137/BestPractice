@@ -1113,6 +1113,9 @@ def _github_slug(repo_dir):
 # Why it bites at all: every Promote fast-forwards the lower tiers, so an
 # ancestor test calls pre-staging and precedent-beta-v01 "merged" right after
 # one -- and staging itself was deleted from a merge page on 2026-09-26.
+# The one exception, 2026-10-09, is in _never_deletable: a pre-staging
+# retired for a person who lands on staging, once it holds nothing staging
+# lacks. Staging and main stay here for everyone.
 NEVER_DELETE_BRANCHES = frozenset({
     'main', 'master', 'staging', 'pre-staging', 'precedent-beta-v01',
     'precedent-promote-lock', 'precedent-check-receipts'})
@@ -1141,6 +1144,11 @@ def _never_deletable(repo_dir):
         import precedent_branches as _pb
         names |= set(_pb.tier_branches(pathlib.Path(repo_dir)))
         names.add(_pb.LOCK_BRANCH)
+        # The one exception (2026-10-09): pre-staging retired for a person
+        # who lands on staging, holding nothing staging lacks, is offered
+        # like any finished branch (precedent_branches.never_offered).
+        if _pb.PRE_STAGING not in _pb.never_offered(pathlib.Path(repo_dir)):
+            names.discard(_pb.PRE_STAGING)
     except Exception:                                            # noqa: BLE001
         pass
     if repo_dir:

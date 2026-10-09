@@ -58824,6 +58824,266 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_update_vendors_retires_pre_staging():
+    """The upgrade off pre-staging, for a person who lands straight on
+    staging (Morgan, 2026-10-09: "make sure we have a smooth upgrade process
+    for each. Merging the branches, telling he can delete pre-staging,
+    updating previous mentions/links within each repo"). Update Vendors'
+    retire_pre_staging_step, on a local bare origin:
+
+    - work on pre-staging that staging lacks is brought into staging by
+      --land's composition, with main's direct work; nothing is dropped and
+      pre-staging itself is left where it was;
+    - once pre-staging holds nothing staging lacks it is offered for
+      deletion with the filtered branches-page link, and the stale-branch
+      lister and the very deep check offer it too -- never staging or main;
+    - a clear instruction and a link to this repo's pre-staging tree are
+      repointed to staging; a dated line, a Story section, another
+      repository's link and a gotcha are left alone and listed;
+    - a second run changes nothing and says it is retired, with the link;
+    - a conflict stops with nothing moved, nothing reworded and no offer;
+    - once it is gone, nothing makes it again and the step says nothing;
+    - anyone else (landing on pre-staging or main, or no promote_only)
+      sees nothing at all."""
+    import tempfile, json as _json
+    name = 'Update Vendors retires pre-staging for a person who lands on staging'
+    if not (ROOT / 'tools' / 'precedent_update.py').exists():
+        not_applicable(name, 'tools/precedent_update.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        work, git, _branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
+        bare = tmp / 'origin.git'
+        # Origin answers as GitHub's o/r, so a delete link can be built.
+        git(work, 'remote', 'set-url', 'origin', 'https://github.com/o/r.git')
+        git(work, 'config', f'url.file://{bare}.insteadOf',
+            'https://github.com/o/r.git')
+        indiv = tmp / 'indiv'
+        indiv.mkdir()
+        (tmp / 'config.json').write_text(_json.dumps(
+            {'individual': {'path': str(indiv)}}), encoding='utf-8')
+
+        def person(**settings):
+            (indiv / 'identity.json').write_text(_json.dumps(
+                {'email': 'p' + chr(64) + 'example.com', **settings}),
+                encoding='utf-8')
+
+        agents = ('# Notes\n\n'
+                  'Work lands on `pre-staging` and waits there.\n'
+                  'See [the tree](https://github.com/o/r/tree/pre-staging/docs).\n'
+                  '2026-10-01: we chose to push to pre-staging first.\n'
+                  'Promote pre-staging into staging when ready.\n'
+                  'Upstream keeps [its own](https://github.com/x/y/tree/pre-staging).\n'
+                  '\n## Story\n\nSessions push to pre-staging here.\n'
+                  '\n## Next\n\nOpen a pull request into pre-staging.\n')
+        gotcha = 'gotchas/gotcha-2026-10-01-pushes.md'
+        (work / 'gotchas').mkdir()
+        (work / gotcha).write_text('# Trap\n\nPush to pre-staging failed.\n',
+                                   encoding='utf-8')
+        (work / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'docs')
+        git(work, 'push', '-q', 'origin', 'HEAD:main', 'HEAD:staging',
+            'HEAD:pre-staging')
+
+        script = tmp / 'step.py'
+        script.write_text(
+            'import json, pathlib, sys\n'
+            f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+            'import precedent_update as pu, precedent_branches as pb\n'
+            'import precedent_stale_branches as sb\n'
+            'repo = pathlib.Path(sys.argv[2])\n'
+            'if sys.argv[1] == "step":\n'
+            '    rep = pu.Report(); rep.before = set()\n'
+            '    pu.retire_pre_staging_step(repo, rep)\n'
+            '    rep._retired_block()\n'
+            '    print("RESULT " + json.dumps({"steps": rep.steps, '
+            '"left": rep.left, "retired": rep.retired}))\n'
+            'elif sys.argv[1] == "offers":\n'
+            '    import very_deep_check as v\n'
+            '    print("RESULT " + json.dumps({"never": pb.never_offered(repo), '
+            '"stale": [b for b, _d in sb.stale_in(repo, fetch=True) or []], '
+            '"vdc": sorted(v._never_deletable(repo))}))\n'
+            'elif sys.argv[1] == "tiers":\n'
+            '    print("RESULT " + json.dumps({"rc": pb.ensure_tiers(repo, '
+            'apply=True, say=lambda *a: None)}))\n', encoding='utf-8')
+
+        def call(what):
+            p = subprocess.run([sys.executable, str(script), what, str(work)],
+                               cwd=work, capture_output=True, text=True, env=env)
+            line = next((l for l in p.stdout.splitlines()
+                         if l.startswith('RESULT ')), None)
+            res = _json.loads(line[len('RESULT '):]) if line else {}
+            return res, p.stdout + p.stderr
+
+        def commit_on(branch, path, text):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', 'tmp-' + branch, f'origin/{branch}')
+            (work / path).write_text(text, encoding='utf-8')
+            git(work, 'add', '-A')
+            git(work, 'commit', '-q', '-m', f'{path} on {branch}')
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+            sha = git(work, 'rev-parse', 'HEAD').stdout.strip()
+            git(work, 'checkout', '-q', 'main')
+            git(work, 'reset', '-q', '--hard', 'origin/main')
+            return sha
+
+        def on(sha, branch):
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'merge-base', '--is-ancestor', sha,
+                       f'origin/{branch}').returncode == 0
+
+        def tips():
+            return tuple(tip(b) for b in ('main', 'staging', 'pre-staging'))
+
+        def text(rel):
+            return (work / rel).read_text(encoding='utf-8')
+
+        waiting = commit_on('pre-staging', 'ps.txt', 'p\n')
+        direct = commit_on('main', 'direct.txt', 'd\n')
+        git(work, 'checkout', '-q', 'main')
+        git(work, 'reset', '-q', '--hard', 'origin/main')
+        link = 'https://github.com/o/r/branches/all?query=pre-staging'
+
+        # --- everyone else: nothing done, nothing said ---
+        before = tips()
+        for label, settings in (
+                ('landing on pre-staging', dict(landing_branch='pre-staging',
+                                                promote_only=True)),
+                ('landing on main', dict(landing_branch='main', promote_only=True)),
+                ('staging without promote_only', dict(landing_branch='staging'))):
+            person(**settings)
+            res, out = call('step')
+            cases.append((f'{label}: the step does nothing and says nothing',
+                          res == {'steps': [], 'left': [], 'retired': []}
+                          and tips() == before and text('AGENTS.md') == agents,
+                          out[-300:]))
+        person(landing_branch='pre-staging', promote_only=True)
+        res, out = call('offers')
+        cases.append(('landing on pre-staging: it is never offered',
+                      'pre-staging' in res.get('never', [])
+                      and 'pre-staging' not in res.get('stale', ['x'])
+                      and 'pre-staging' in res.get('vdc', []), out[-300:]))
+
+        # --- the person who lands on staging, work waiting on pre-staging ---
+        person(landing_branch='staging', promote_only=True)
+        res, out = call('offers')
+        cases.append(('while it holds work staging lacks, pre-staging is never '
+                      'offered', 'pre-staging' in res.get('never', [])
+                      and 'pre-staging' not in res.get('stale', ['x'])
+                      and 'pre-staging' in res.get('vdc', []), out[-300:]))
+        main_before, ps_before = tip('main'), tip('pre-staging')
+        res, out = call('step')
+        retired = res.get('retired') or []
+        cases.append(('the waiting work is brought into staging, with main\'s '
+                      'direct work', on(waiting, 'staging') and on(direct, 'staging'),
+                      out[-400:]))
+        cases.append(('nothing dropped: main and pre-staging did not move',
+                      tip('main') == main_before and tip('pre-staging') == ps_before))
+        cases.append(('the block says what was merged into staging',
+                      any(l.startswith('merged into staging') for l in retired)
+                      and any('ps.txt' in l for l in retired), str(retired)[:400]))
+        cases.append(('and offers pre-staging for deletion with the filtered '
+                      'link', any(l.endswith(link) for l in retired),
+                      str(retired)[-300:]))
+        now = text('AGENTS.md')
+        cases.append(('a clear instruction is repointed',
+                      'Work lands on `staging` and waits there.' in now
+                      and 'Open a pull request into staging.' in now, now))
+        cases.append(('a link to this repo\'s pre-staging tree is repointed',
+                      'https://github.com/o/r/tree/staging/docs' in now, now))
+        cases.append(('a dated line, a Story section, a mention that is no '
+                      'instruction and another repository\'s link are left',
+                      '2026-10-01: we chose to push to pre-staging first.' in now
+                      and 'Sessions push to pre-staging here.' in now
+                      and 'Promote pre-staging into staging' in now
+                      and 'github.com/x/y/tree/pre-staging' in now, now))
+        cases.append(('each change and each mention left is listed, file:line',
+                      any('reworded to staging: AGENTS.md:3 (instruction)' in l
+                          for l in retired)
+                      and any('AGENTS.md:5 (dated line, history)' in l
+                              for l in retired)
+                      and any('AGENTS.md:7 (link into another repository)' in l
+                              for l in retired), str(retired)[:600]))
+        cases.append(('a gotcha is left alone, counted as history',
+                      text(gotcha) == '# Trap\n\nPush to pre-staging failed.\n'
+                      and any(l.startswith('left as history: 1 mention')
+                              for l in retired), str(retired)[-300:]))
+        res, out = call('offers')
+        cases.append(('fully merged: never_offered drops pre-staging and keeps '
+                      'staging and main', 'pre-staging' not in res.get('never', ['pre-staging'])
+                      and {'staging', 'main'} <= set(res.get('never', []))
+                      and 'pre-staging' not in res.get('vdc', ['pre-staging']),
+                      out[-300:]))
+        cases.append(('the stale-branch lister offers it, never staging or main',
+                      'pre-staging' in res.get('stale', [])
+                      and not {'staging', 'main'} & set(res.get('stale', [])),
+                      out[-300:]))
+
+        # --- a second run: nothing changes; it says retired, with the link ---
+        before, docs = tips(), now
+        res, out = call('step')
+        retired = res.get('retired') or []
+        cases.append(('a second run changes nothing',
+                      tips() == before and text('AGENTS.md') == docs
+                      and not any(l.startswith(('merged into', 'reworded'))
+                                  for l in retired), str(retired)[:300]))
+        cases.append(('and still says it is retired, with the link',
+                      any(l.endswith(link) for l in retired), str(retired)[-300:]))
+
+        # --- a conflict: nothing moves, nothing is reworded, no offer ---
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'reworded')
+        git(work, 'push', '-q', 'origin', 'HEAD:main')
+        commit_on('pre-staging', 'list.txt', 'from pre-staging\n')
+        commit_on('staging', 'list.txt', 'from staging\n')
+        (work / 'more.md').write_text('Push it to pre-staging.\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'more')
+        before = tips()
+        res, out = call('step')
+        cases.append(('a conflict stops: nothing moved',
+                      tips() == before, out[-300:]))
+        cases.append(('nothing reworded, and no delete offer',
+                      text('more.md') == 'Push it to pre-staging.\n'
+                      and not res.get('retired'), str(res)[:300]))
+        cases.append(('it says what to do, naming --land',
+                      any(w == 'pre-staging' and '--land' in why
+                          and 'Nothing moved' in why
+                          for w, why in res.get('left', [])), str(res)[:400]))
+
+        # --- once it is gone: never made again, and nothing said ---
+        git(bare, 'update-ref', '-d', 'refs/heads/pre-staging')
+        git(work, 'fetch', '-q', '--prune', 'origin')
+        res, out = call('tiers')
+        cases.append(('ensure_tiers does not make pre-staging again for them',
+                      res.get('rc') == 0 and not tip('pre-staging'), out[-300:]))
+        res, out = call('step')
+        cases.append(('and the step says nothing at all',
+                      res == {'steps': [], 'left': [], 'retired': []}, out[-300:]))
+    # Where it runs: inside update(), before the views are regenerated, so
+    # they render the reworded sources.
+    import inspect
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as _pu
+        src = inspect.getsource(_pu.update)
+    except Exception as e:                                   # noqa: BLE001
+        src = f'{type(e).__name__}: {e}'
+    finally:
+        sys.path.pop(0)
+    step = src.find('retire_pre_staging_step(repo, rep)')
+    views = src.find("sync = repo / 'tools' / 'precedent_sync_views.py'")
+    cases.append(('update() runs the step before it regenerates the views',
+                  0 <= step < views, src[:120] if step < 0 else ''))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_promote_ends_with_its_result_line():
     """A Promote's last line of output is its verdict, on every path.
 
@@ -70570,6 +70830,7 @@ def main():
     check_stop_hook_says_each_state_once()
     check_promote_into_main_exits_nonzero_until_main_moves()
     check_landing_on_staging_run_tests_and_fast_move_into_main()
+    check_update_vendors_retires_pre_staging()
     check_promote_ends_with_its_result_line()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()

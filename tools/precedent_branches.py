@@ -811,6 +811,59 @@ def tier_branches(root):
                    staging_branch(root)})
 
 
+# PRE-STAGING, RETIRED FOR A PERSON WHO LANDS ON STAGING (2026-10-09). Such a
+# person (lands_on_staging) never lands on pre-staging again, so for them it
+# is neither made nor fed here any more, and once it holds nothing staging
+# lacks it is offered for deletion like any finished branch -- as a link,
+# never deleted by a session (practice: never-delete-a-remote-branch).
+# Morgan, 2026-10-09: when this reaches the repositories that vendor the
+# engine, "make sure we have a smooth upgrade process for each. Merging the
+# branches, telling he can delete pre-staging, updating previous mentions/
+# links within each repo". Update Vendors carries that upgrade
+# (precedent_update.retire_pre_staging_step). For everyone else pre-staging
+# stays a tier, never offered.
+RETIRED_WAITING = 'waiting'
+RETIRED_MERGED = 'merged'
+
+
+def pre_staging_retired(root, user_config=None, fetch=False):
+    """-> (state, tip): whether origin's pre-staging is retired for this
+    person, and what it holds. state None: it is not -- they do not land
+    straight on staging, or origin has no pre-staging (as this checkout last
+    fetched it; with `fetch`, as origin says now). RETIRED_WAITING: it holds
+    work staging lacks. RETIRED_MERGED: merging it into staging would change
+    no file, so deleting it loses nothing. Never raises."""
+    try:
+        if not lands_on_staging(root, user_config)[0]:
+            return None, None
+        staging = staging_branch(root)
+        if fetch:
+            if not _remote_tip(root, PRE_STAGING):
+                return None, None
+            _run(root, 'fetch', '-q', 'origin', PRE_STAGING, staging)
+        ptip = _git(root, 'rev-parse', '--verify', '-q',
+                    f'refs/remotes/origin/{PRE_STAGING}^{{commit}}')
+        if not ptip:
+            return None, None
+        stip = _git(root, 'rev-parse', '--verify', '-q',
+                    f'refs/remotes/origin/{staging}^{{commit}}')
+        if stip and _brings_nothing(root, stip, ptip):
+            return RETIRED_MERGED, ptip
+        return RETIRED_WAITING, ptip
+    except Exception:                                       # noqa: BLE001
+        return None, None
+
+
+def never_offered(root, user_config=None):
+    """-> the tier branches never offered for deletion here: tier_branches,
+    less a pre-staging retired for this person that holds nothing staging
+    lacks. Staging and main are never offered, whoever asks."""
+    names = set(tier_branches(root))
+    if pre_staging_retired(root, user_config)[0] == RETIRED_MERGED:
+        names.discard(PRE_STAGING)
+    return sorted(names)
+
+
 def ensure_tiers(root, apply=False, say=print, new_install=False):
     """Make origin carry pre-staging and a real staging branch. -> 0 when
     both exist (or were just made), 1 when something is missing and
@@ -840,10 +893,14 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
                        f'{MAIN} here)')
     elif not _remote_tip(root, staging):
         missing.append(f'{staging} on origin')
-    if not _remote_tip(root, PRE_STAGING):
+    # A person who lands on staging has no use for pre-staging, and making
+    # it again would undo the deletion they were offered (pre_staging_retired).
+    retired = lands_on_staging(root)[0]
+    if not retired and not _remote_tip(root, PRE_STAGING):
         missing.append(f'{PRE_STAGING} on origin')
     if not missing:
-        say(f'tiers: {PRE_STAGING} -> {staging} -> {MAIN}, all present.')
+        say(f'tiers: {staging} -> {MAIN}, both present.' if retired else
+            f'tiers: {PRE_STAGING} -> {staging} -> {MAIN}, all present.')
         return 0
     if not apply:
         say('tiers: missing ' + '; '.join(missing) +
@@ -890,6 +947,9 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
                             encoding='utf-8')
             say(f'wrote "{STAGING_KEY}": "{STAGING}" into precedent.json -- commit '
                 f'it; {MAIN} now takes work from {STAGING} by pull request.')
+    if retired:
+        say(f'tiers: {staging_branch(root)} -> {MAIN}.')
+        return 0
     if not sync_pre_staging(root, say):
         return 1
     say(f'tiers: {PRE_STAGING} -> {staging_branch(root)} -> {MAIN}.')
@@ -2064,7 +2124,14 @@ def sync_pre_staging(root, say=print, check=False):
     Promote runs with `check`. What passes is merged into pre-staging, a
     basic-tier push; what fails is reported with the commit and the reason,
     and never copied. A conflict stops the sync and pushes nothing. Nothing
-    here ever pushes to staging or main."""
+    here ever pushes to staging or main.
+
+    For a person who lands straight on staging (lands_on_staging) this does
+    nothing and -> True: pre-staging is retired for them, so it is neither
+    made again after they delete it nor fed while it waits to be
+    (pre_staging_retired)."""
+    if lands_on_staging(root)[0]:
+        return True
     staging = staging_branch(root)
     _run(root, 'fetch', '-q', 'origin', staging)
     stip = _remote_tip(root, staging)
