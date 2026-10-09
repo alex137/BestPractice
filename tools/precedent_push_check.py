@@ -1225,6 +1225,10 @@ def _changed_since(root, argv):
     finally:
         sys.path.pop(0)
     targets = precedent_branches.push_targets(root, cmd) or []
+    since_for = getattr(precedent_branches, 'changed_since_for', None)
+    if since_for:
+        # pre-staging, or staging for a person who lands straight on it.
+        return since_for(root, targets)
     if precedent_branches.PRE_STAGING in targets:
         return f'origin/{precedent_branches.PRE_STAGING}'
     return None
@@ -1300,6 +1304,14 @@ def _full_tier_refusal(root, argv):
         sys.path.pop(0)
     if tier != BASIC:
         return None
+    if landing != precedent_branches.PRE_STAGING:
+        # A person who lands straight on staging asks for the full suite
+        # with --run-tests, which records it for the move into main.
+        return (f'--tier full asks for the ~12-minute suite, and your landing '
+                f'branch, {landing}, takes the quick check: run this bare. The '
+                f'full suite is `python3 tools/precedent_branches.py --run-tests`, '
+                f'which records its result for the move into main. If you really '
+                f'mean this, say why: --tier full --because "<reason>".')
     return (f'--tier full asks for the ~12-minute suite, and your landing '
             f'branch, {landing}, takes the quick check: run this bare, which '
             f'is what Booked needs. The full check is the Debut\'s, and it '

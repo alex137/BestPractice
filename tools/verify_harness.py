@@ -58567,6 +58567,263 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_landing_on_staging_run_tests_and_fast_move_into_main():
+    """The approved plan of 2026-10-09 (retire pre-staging for those who opt
+    in, make the full local suite optional, make the move into main fast),
+    as the engine builds it, generically:
+
+    - A person whose landing branch is staging, with promote_only on, lands
+      there: the push gate and the merge gate let their own landing branch
+      through, while main stays promotion-only. A push there takes the quick
+      checks.
+    - Staging's reconciliation with main does not change (Morgan: "make sure
+      that staging doesn't change what it does now, in reconciling the
+      versions sent directly to main with our staging"): a landing that
+      lacks a commit made directly on main is refused at the gates, and
+      --land composes it in, as the Promote into staging does. Nothing on
+      main is dropped.
+    - --run-tests runs the full local suite, moves nothing, and records
+      pass or fail for the commit it tested.
+    - --promote --to main --fast runs no full suite, prints the head commit
+      in full and the after-merge wait; a failed --run-tests on that very
+      commit asks (exit 4) and --despite-failed-tests goes on; a failure on
+      an older commit is stale and asks nothing.
+    - Everyone else's routes are as before."""
+    import tempfile, json as _json
+    name = ('landing straight on staging, --run-tests and the fast move into '
+            'main')
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        runs = tmp / 'runs'
+        runs.write_text('')
+        env = dict(_stale_ref_fixture_env(tmp), RUNS=str(runs))
+        work, git, branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging'))
+        cfg = tmp / 'config.json'
+        indiv = tmp / 'indiv'
+        indiv.mkdir()
+        cfg.write_text(_json.dumps({'individual': {'path': str(indiv)}}),
+                       encoding='utf-8')
+
+        def person(**settings):
+            (indiv / 'identity.json').write_text(_json.dumps(
+                {'email': 'p' + chr(64) + 'example.com', **settings}),
+                encoding='utf-8')
+
+        # The full suite's stub counts its runs and fails while FAIL is in
+        # the tree; the quick checks never run it. A GitHub test is
+        # installed, so the move into main has one to name.
+        (work / 'tools' / 'precedent_check.py').write_text(
+            'import os, pathlib, sys\n'
+            'if not {"--changed-files-only", "--only"} & set(sys.argv):\n'
+            '    open(os.environ["RUNS"], "a").write("run\\n")\n'
+            '    if pathlib.Path("FAIL").exists():\n'
+            '        print("precedent_check: 1 violated")\n'
+            '        sys.exit(1)\n'
+            'print("precedent_check: 3 passed, 0 violated")\n', encoding='utf-8')
+        (work / '.github' / 'workflows').mkdir(parents=True)
+        (work / '.github' / 'workflows' / 'test.yml').write_text(
+            'on:\n  pull_request:\n    branches: [main]\njobs: {}\n',
+            encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'stubs')
+        git(work, 'push', '-q', 'origin', 'HEAD:main', 'HEAD:staging')
+
+        def full_runs():
+            n = runs.read_text().count('run')
+            runs.write_text('')
+            return n
+
+        def commit_on(base, branch, path, text, push_to=None):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', branch, f'origin/{base}')
+            (work / path).write_text(text, encoding='utf-8')
+            git(work, 'add', '-A')
+            git(work, 'commit', '-q', '-m', f'{path} on {branch}')
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{push_to or branch}')
+            return git(work, 'rev-parse', 'HEAD').stdout.strip()
+
+        def on(sha, branch):
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'merge-base', '--is-ancestor', sha,
+                       f'origin/{branch}').returncode == 0
+
+        def run(*a):
+            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                               cwd=work, capture_output=True, text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        refusal = getattr(pb, 'direct_push_refusal', None)
+        merge_refusal = getattr(pb, 'merge_refusal', None)
+
+        def push_why(args):
+            return refusal(work, args, str(cfg))
+
+        def merge_why(bases, heads, sha=None):
+            return merge_refusal(work, bases, heads, str(cfg), head_sha=sha)
+
+        # --- the default, unchanged: landing on pre-staging, promote_only on ---
+        person(landing_branch='pre-staging', promote_only=True)
+        why = push_why('origin HEAD:staging') or ''
+        cases.append(('default: with pre-staging as the landing branch, a push to '
+                      'staging is still refused, naming pre-staging',
+                      'HEAD:pre-staging' in why, why[:200]))
+        cases.append(('default: a push to staging is still fully checked',
+                      pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'full'))
+        why = merge_why(['staging'], ['claude/x']) or ''
+        cases.append(('default: a working branch into staging is still refused, '
+                      'saying to retarget at pre-staging',
+                      'Retarget it at pre-staging' in why, why[:200]))
+        rc, out = run('--land')
+        cases.append(('default: --land is not their route (exit 2), and moves '
+                      'nothing', rc == 2, out[-200:]))
+        person(landing_branch='staging')
+        cases.append(('default: landing on staging without promote_only is '
+                      'fully checked, as before',
+                      pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'full'))
+
+        # --- landing straight on staging ---
+        person(landing_branch='staging', promote_only=True)
+        git(work, 'checkout', '-q', '-B', 'level', 'origin/staging')
+        cases.append(('a push to their own landing branch, staging, goes through',
+                      push_why('origin HEAD:staging') is None,
+                      str(push_why('origin HEAD:staging'))[:200]))
+        why = push_why('origin HEAD:main') or ''
+        cases.append(('main still takes work only by promotion, and the refusal '
+                      'names --land and the fast move',
+                      'promote_only is on' in why and '--land' in why
+                      and '--fast' in why, why[:200]))
+        cases.append(('a push to staging takes the quick checks; main stays full',
+                      pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'basic'
+                      and pb.tier_for_branch(work, 'main', str(cfg))[0] == 'full'))
+        cases.append(('a pull request into staging carrying main is merged',
+                      merge_why(['staging'], ['level'],
+                                git(work, 'rev-parse', 'HEAD').stdout.strip()) is None))
+        why = merge_why(['main'], ['level']) or ''
+        cases.append(('a working branch into main is still refused, saying to '
+                      'retarget at staging, their landing branch',
+                      'Retarget it at staging' in why, why[:200]))
+
+        # A commit made directly on main, then work cut from staging.
+        direct = commit_on('main', 'hotfix', 'direct.txt', 'd\n', push_to='main')
+        feat = commit_on('staging', 'feat', 'feat.txt', 'f\n')
+        why = push_why('origin HEAD:staging') or ''
+        cases.append(('a push to staging lacking main\'s direct commit is refused, '
+                      'naming the commit and --land',
+                      '--land' in why and 'direct.txt' in why, why[:300]))
+        why = merge_why(['staging'], ['feat'], feat) or ''
+        cases.append(('so is a pull request into staging that lacks it',
+                      '--land' in why, why[:200]))
+        main_before = tip('main')
+        full_runs()
+        rc, out = run('--land', 'feat')
+        cases.append(('--land composes and lands: exit 0, one LAND RESULT line '
+                      'last', rc == 0 and out.strip().splitlines()[-1].startswith(
+                          'LAND RESULT: staging <- feat: LANDED at '), out[-400:]))
+        cases.append(('staging now carries the commit made directly on main, and '
+                      'the work', on(direct, 'staging') and on(feat, 'staging')))
+        cases.append(('main did not move, and kept its own commit',
+                      tip('main') == main_before and on(direct, 'main')))
+        cases.append(('it ran the quick checks only', full_runs() == 0))
+        cases.append(('it said what it brought in from main',
+                      'BROUGHT IN 1 commit(s) made directly on main' in out))
+        rc, out = run('--land', 'feat')
+        cases.append(('landing it again: nothing to land, exit 0',
+                      rc == 0 and 'NOTHING TO LAND' in out, out[-200:]))
+
+        # --- --run-tests ---
+        before = (tip('main'), tip('staging'))
+        rc, out = run('--run-tests')
+        rec = (pb.run_tests_record(work, 'staging')
+               if hasattr(pb, 'run_tests_record') else None) or {}
+        cases.append(('--run-tests passes: exit 0, the full suite ran once',
+                      rc == 0 and full_runs() == 1, out[-300:]))
+        cases.append(('it recorded a pass for staging\'s commit',
+                      rec.get('result') == 'passed'
+                      and rec.get('commit') == tip('staging')))
+        cases.append(('it moved nothing', (tip('main'), tip('staging')) == before))
+
+        # --- the fast move into main ---
+        def copies():
+            return sorted(l.split('refs/heads/')[-1] for l in git(
+                work, 'ls-remote', 'origin', 'refs/heads/*').stdout.splitlines()
+                if 'to-main' in l)
+
+        rc, out = run('--promote', '--to', 'main', '--fast')
+        last = out.strip().splitlines()[-1] if out.strip() else ''
+        made = copies()
+        head = git(work, 'rev-parse', f'origin/{made[-1]}').stdout.strip() if made else ''
+        cases.append(('the fast move: exit 3 (main has not moved), no full suite',
+                      rc == 3 and full_runs() == 0, out[-400:]))
+        cases.append(('it prints the copy\'s head commit in all 40 characters',
+                      len(head) == 40 and f'at head commit {head}' in out))
+        cases.append(('its result line says GitHub\'s test runs after the merge '
+                      'and names --wait-main-test',
+                      last.startswith('PROMOTE RESULT: main <- staging: ')
+                      and 'runs after the merge' in last
+                      and '--wait-main-test' in last, last))
+        cases.append(('the copy contains main, so nothing that reached main '
+                      'directly is dropped', bool(head) and on(direct, made[-1])))
+        cases.append(('the merge gate can tell the copy is a fast one',
+                      bool(getattr(pb, 'fast_main_copy', lambda *a: None)(work, head))))
+
+        # A failed --run-tests on staging's current commit asks.
+        commit_on('staging', 'breaks', 'FAIL', 'x\n')
+        run('--land', 'breaks')
+        full_runs()
+        rc, out = run('--run-tests')
+        rec = (pb.run_tests_record(work, 'staging')
+               if hasattr(pb, 'run_tests_record') else None) or {}
+        cases.append(('--run-tests fails: exit 1, recorded as failed with the '
+                      'check named, for staging\'s commit',
+                      rc == 1 and rec.get('result') == 'failed'
+                      and rec.get('commit') == tip('staging')
+                      and any(f.get('check') == 'precedent_check'
+                              for f in rec.get('failed') or []), out[-300:]))
+        full_runs()
+        before = copies()
+        rc, out = run('--promote', '--to', 'main', '--fast')
+        cases.append(('after it, the fast move asks: exit 4, the failing check '
+                      'on its own line, the question in the person\'s words, '
+                      'nothing pushed',
+                      rc == 4 and '  precedent_check: ' in out
+                      and 'Run the move anyway? Say yes to continue' in out
+                      and copies() == before, out[-400:]))
+        rc, out = run('--promote', '--to', 'main', '--fast',
+                      '--despite-failed-tests')
+        cases.append(('--despite-failed-tests goes on: exit 3, a copy made, still '
+                      'no full suite', rc == 3 and copies() != before
+                      and full_runs() == 0, out[-300:]))
+
+        # A failure recorded on an older commit is stale.
+        commit_on('staging', 'more', 'more.txt', 'm\n')
+        run('--land', 'more')
+        rc, out = run('--promote', '--to', 'main', '--fast')
+        cases.append(('a failure on an older commit is reported stale and asks '
+                      'nothing: exit 3', rc == 3 and 'STALE' in out
+                      and 'Say yes to continue' not in out, out[-300:]))
+
+        # --- the full move into main is unchanged ---
+        full_runs()
+        rc, out = run('--promote', '--to', 'main')
+        cases.append(('without --fast, the move into main runs the full suite, as '
+                      'before', full_runs() >= 1 and 'full push check' in out,
+                      f'exit {rc}: {out[-300:]}'))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_promote_ends_with_its_result_line():
     """A Promote's last line of output is its verdict, on every path.
 
@@ -70312,6 +70569,7 @@ def main():
     check_stop_hook_ignores_commits_another_remote_ref_has()
     check_stop_hook_says_each_state_once()
     check_promote_into_main_exits_nonzero_until_main_moves()
+    check_landing_on_staging_run_tests_and_fast_move_into_main()
     check_promote_ends_with_its_result_line()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
