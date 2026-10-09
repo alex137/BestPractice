@@ -808,5 +808,12 @@
       "from": "templates/harness/claude-code/hooks/stop-reply-check.sh",
       "to": ".claude/hooks/stop-reply-check.sh"
     }
-  ]
+  ],
+  "_github_ci_approved_comment": "The person's approval of a workflow edit, pinned to the file's content (practice: ci-workflow-approved). In this repo the check judges only growth, and a failure-only step is not growth; recorded anyway, so the words behind the step that opens an issue when main's test fails sit beside the file they approved.",
+  "github_ci_approved": {
+    ".github/workflows/deep-check.yml": {
+      "sha256": "e13974014fb3ed23a55a8a0e9d57eb4aa72066a0504778ded182507ddf9bad09",
+      "approved_by": "Morgan, 2026-10-09: \"Act on the ... plan\" (the plan's piece B, layer 2: a failed test on main opens a GitHub issue)"
+    }
+  }
 }
