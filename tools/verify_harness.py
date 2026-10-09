@@ -52163,6 +52163,51 @@ def check_update_done_names_the_branch_to_commit_on():
           '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 
 
+def check_vdc_is_a_known_acronym_everywhere():
+    """VDC (very deep check) is in the engine glossary registry, which ships
+    to every repository and renders bold into each one's GLOSSARY.md, where
+    doc_lint reads its known acronyms -- so a repository that receives
+    practices/very-deep-check.md no longer gets an unglossed-acronym warning
+    for a quoted "add that to VDC".
+
+    WHY. 2026-10-09, a consumer: doc_lint flagged VDC in its copy of that
+    practice. BestPractice never saw it, because its own corpus happens to
+    use "vdc" as a word (very_deep_check imported as _vdc), which a
+    consumer's corpus does not."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as _bv
+    import precedent_vendor_engine as _pve
+    import doc_lint as _dl
+    sys.path.pop(0)
+    terms = {t['term']: t for t in _bv._engine_glossary_terms(ROOT)}
+    text = (ROOT / 'practices' / 'very-deep-check.md').read_text(encoding='utf-8')
+    # What a consumer's doc_lint knows: the stoplist plus its glossary's
+    # bold terms, which for the engine vocabulary are these terms. No
+    # corpus: a consumer's corpus need not use "vdc" as a word.
+    known = set(_dl.ACRONYM_STOP) | {t.upper() for t in terms}
+    saved = _dl.looks_like_a_word
+    _dl.looks_like_a_word = lambda tok: False
+    try:
+        flagged = [f for f in _dl.scan_unglossed(text, known,
+                                                 'practices/very-deep-check.md')
+                   if 'VDC' in str(f)]
+    finally:
+        _dl.looks_like_a_word = saved
+    cases = [
+        ('the engine glossary defines VDC, pointing at very-deep-check',
+         'VDC' in terms and terms['VDC'].get('see') == 'practices/very-deep-check.md'),
+        ('...and the registry ships with the engine',
+         'glossary_terms.json' in _pve.ENGINE_FILES),
+        ('GLOSSARY.md here carries it bold, where doc_lint reads it',
+         '| **VDC** |' in (ROOT / 'GLOSSARY.md').read_text(encoding='utf-8')),
+        ('a consumer\'s doc_lint, with no corpus help, does not flag VDC in '
+         'very-deep-check.md', 'VDC' in text and not flagged),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'VDC is a known acronym in every repository that gets the engine '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_gates_promise_no_override():
     """No gate that refuses a commit, push or merge tells the session it may
     go ahead by saying so: none of them has a way through.
@@ -69147,6 +69192,7 @@ def main():
     check_runbook_names_the_postcondition_after_a_merge()
     check_update_done_names_the_branch_to_commit_on()
     check_session_check_stamps_at_session_start()
+    check_vdc_is_a_known_acronym_everywhere()
     check_gates_promise_no_override()
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
