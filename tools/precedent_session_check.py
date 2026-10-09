@@ -310,7 +310,7 @@ def _session_branch_row(stamp, git):
             return (name, True, f'started on {started!r} and moved onto {cur!r}, '
                                 f'which carries all of it -- nothing is stranded; '
                                 f'{cur!r} is now the baseline')
-    # A MOVE ONTO A TIER BRANCH IS THE LADDER'S OWN (2026-10-09). After a
+    # A MOVE ONTO A TIER BRANCH IS ORDINARY PROMOTE WORK (2026-10-09). After a
     # promote the checkout sits on main, staging or pre-staging; that is
     # the normal end of a stage, not a jump. It passes when the branch it
     # started on is held by a tier branch, here or on origin -- the work
