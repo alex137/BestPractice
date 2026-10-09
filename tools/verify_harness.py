@@ -62373,6 +62373,14 @@ def check_session_file_says_each_command_once():
         cases.append(("5. ...though the brought set's command is in the full file "
                       "and not in that one",
                       '"Debut" -> debut' in text and '"Debut"' not in bare_text))
+        # 2026-10-09: the file on disk was written by an older engine at
+        # session start and measured 190 tokens more than this engine's
+        # render, and n less the share charged all 190 to the repository.
+        stale, _s, _n, _b = psp.charged_to_repo(str(repo), n + 190)
+        cases.append(('6. a file on disk that an older engine wrote does not move '
+                      'the charge: it is the bare render, whatever n says',
+                      stale == charged == bv._approx_tokens(bare_text),
+                      f'charged {stale} for n+190, {charged} for n'))
     except (OSError, TypeError, ValueError, StopIteration, AttributeError) as e:
         cases.append((f'fixture could not be built ({type(e).__name__}: {e})', False))
     finally:
