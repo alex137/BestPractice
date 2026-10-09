@@ -37738,6 +37738,107 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
           not failed, '; '.join(failed))
 
 
+def check_freshness_guard_never_tells_a_tier_branch_to_merge():
+    """On a tier branch the stale-base remedy is a new working branch.
+
+    Reported 2026-10-08 from a consuming repository: a session on main was
+    told "Bring it up to date deliberately: git merge origin/pre-staging",
+    which makes the local main diverge from origin/main. On main, staging
+    or pre-staging the guard now says to start a working branch from
+    origin/<base> with `git switch --no-track -c`, named by
+    precedent_branch_name.py where the checkout has it -- `--no-track`
+    because `git checkout -b X origin/pre-staging` makes X track the tier,
+    and a bare `git push` would then land there.
+
+    CONTROL: a working branch on the same stale base still gets the merge.
+    Both modes that print the remedy are run (session-start's WARN and
+    pre-write's block), through both hook copies."""
+    import tempfile
+    name = 'the freshness guard never tells a tier branch to merge its base'
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
+    missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
+    if missing:
+        not_applicable(name, f'not in this tree: {missing}')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ)
+        env.pop('CLAUDE_PROJECT_DIR', None)
+        env['TMPDIR'] = str(tmp / 'sentinels')
+        (tmp / 'sentinels').mkdir()
+        env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = 'Harness'
+        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = 'harness@example.com'
+
+        def _git(d, *a):
+            r = subprocess.run(['git', '-C', str(d), *a],
+                               capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                raise RuntimeError('tier-remedy fixture setup failed: git %s: %s'
+                                   % (' '.join(a), (r.stderr or r.stdout).strip()))
+            return r
+
+        origin = tmp / 'origin'
+        _git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        seed = tmp / 'seed'
+        _git(tmp, 'init', '-q', '-b', 'main', str(seed))
+        (seed / 'tools').mkdir()
+        (seed / 'tools' / 'precedent_branch_name.py').write_text(
+            'print("2026-10-08-x-abcde")\n', encoding='utf-8')
+        _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'one')
+        _git(seed, 'remote', 'add', 'origin', str(origin))
+        _git(seed, 'push', '-q', 'origin', 'main', 'main:pre-staging', 'main:feature')
+        _git(seed, 'commit', '-q', '--allow-empty', '-m', 'on pre-staging only')
+        _git(seed, 'push', '-q', 'origin', 'main:pre-staging')
+
+        def _run(guard, cwd, mode, session):
+            payload = json.dumps({'session_id': session, 'tool_name': 'Write',
+                                  'tool_input': {'file_path': 'x'}})
+            return subprocess.run(['bash', str(guard), mode, 'pre-staging'],
+                                  cwd=str(cwd), input=payload,
+                                  capture_output=True, text=True, env=env)
+
+        for guard in guards:
+            tag = ('installed' if guard.parent.parent.parent == ROOT
+                   else 'template')
+            for branch, tier in (('main', True), ('feature', False)):
+                d = tmp / f'{tag}-{branch}'
+                _git(tmp, 'clone', '-q', str(origin), str(d))
+                if branch != 'main':
+                    _git(d, 'checkout', '-q', branch)
+                for mode in ('session-start', 'pre-write'):
+                    err = _run(guard, d, mode, f'{tag}-{branch}-{mode}').stderr
+                    said = 'missing 1 commit(s) from origin/pre-staging' in err
+                    if tier:
+                        ok = (said and 'is a tier branch' in err
+                              and 'git switch --no-track -c' in err
+                              and 'tools/precedent_branch_name.py' in err
+                              and 'origin/pre-staging' in err
+                              and 'Bring it up to date' not in err)
+                        what = (f'{tag} {mode}: on main, the remedy is a new '
+                                f'untracked branch named by the naming tool, not '
+                                f'a merge')
+                    else:
+                        ok = (said and 'git merge origin/pre-staging' in err
+                              and 'is a tier branch' not in err)
+                        what = (f'{tag} {mode}: CONTROL: a working branch is '
+                                f'still told to merge its base')
+                    cases.append((what, ok, err[-500:]))
+            # Main itself was not touched by either run.
+            cases.append((f'{tag}: the guard moved nothing on main',
+                          _git(tmp / f'{tag}-main', 'rev-parse', 'HEAD').stdout
+                          == _git(tmp / f'{tag}-main', 'rev-parse', 'origin/main').stdout,
+                          ''))
+
+    bad = [(n, e) for n, ok, e in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases, both copies)',
+          not bad, '; '.join(f'{n} -- {e}' for n, e in bad))
+
+
 def check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch():
     """bootstrap.sh's freshness block, the same split
     check_freshness_guard_waves_through_a_branch_origin_never_saw asserts
@@ -67137,6 +67238,7 @@ def main():
     check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_user_prompt_never_resets_mid_session()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
+    check_freshness_guard_never_tells_a_tier_branch_to_merge()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
     check_bootstrap_runs_every_tool_session_start_runs()
     check_codex_hooks_template_runs_the_claude_gates()
