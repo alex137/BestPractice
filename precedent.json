@@ -815,5 +815,13 @@
       "sha256": "e13974014fb3ed23a55a8a0e9d57eb4aa72066a0504778ded182507ddf9bad09",
       "approved_by": "Morgan, 2026-10-09: \"Act on the ... plan\" (the plan's piece B, layer 2: a failed test on main opens a GitHub issue)"
     }
-  }
+  },
+  "landing_branch": "staging",
+  "_landing_branch_comment": [
+    "Where Booked lands for anyone on the ladder whose own identity.json names",
+    "no landing_branch: straight on staging, with the quick checks; Produce moves",
+    "staging into main fast, and GitHub's test runs after the merge. Anyone off",
+    "the ladder lands on main, as before. Set 2026-10-09 (Morgan: \"Please update",
+    "BP so it uses the new system\"); pre-staging was the landing branch until then."
+  ]
 }

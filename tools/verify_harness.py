@@ -14859,6 +14859,24 @@ def check_update_vendors_takes_only_a_main_that_passed():
         if saved_state is not None:
             pu.main_test_state = saved_state
         shutil.rmtree(tmp, ignore_errors=True)
+    # GitHub's refusal is a refusal, never "no runs" (2026-10-09: a session
+    # with no GitHub access to BestPractice read "not enabled for this
+    # session" as main's test never having run).
+    import precedent_branches as _pb
+
+    class _Refuses:
+        def call(self, path, cache=True):
+            return ({'message': 'GitHub access to this repository is not '
+                     'enabled for this session. Use add_repo to request '
+                     'access.'}, None)
+    runs, err = _pb._runs_on(_Refuses(), 'o/r', 'abc')
+    cases.append(('a refusal is read as GitHub not answering, with its own '
+                  'words', runs is None and 'add_repo' in (err or ''), err))
+    _pb._CURRENT_SLUG.pop('o/r', None)
+    name, err = _pb._current_slug(_Refuses(), 'o/r')
+    _pb._CURRENT_SLUG.pop('o/r', None)
+    cases.append(('the name check says the same',
+                  name is None and 'add_repo' in (err or ''), err))
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
 
@@ -59185,6 +59203,104 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
                       'nothing: exit 3', rc == 3 and 'STALE' in out
                       and 'Say yes to continue' not in out, out[-300:]))
 
+        # A private repository whose GitHub test is not due (Morgan,
+        # 2026-10-09): the full suite runs on main here after the merge,
+        # unless Debut passed on exactly this, only prose changed, or the
+        # person asked for a fast one -- and the end-of-turn check holds
+        # the turn until it has started.
+        pj_path = work / 'precedent.json'
+        pj_before = pj_path.read_text(encoding='utf-8')
+        bare = tmp / 'origin.git'
+
+        def private(on):
+            pj_path.write_text(_json.dumps(dict(_json.loads(pj_before),
+                                                visibility='private',
+                                                github_ci_main_test='never'),
+                                           indent=2) + '\n' if on else pj_before,
+                               encoding='utf-8')
+
+        def merged(out):
+            m = re.search(r'expectedHeadSha ([0-9a-f]{40})', out)
+            if m:
+                git(bare, 'update-ref', 'refs/heads/main', m.group(1))
+                git(work, 'fetch', '-q', 'origin')
+            return m.group(1) if m else ''
+
+        def fast(*extra):
+            private(True)
+            try:
+                rc, out = run('--promote', '--to', 'main', '--fast', *extra)
+            finally:
+                private(False)
+            return rc, out, (out.strip().splitlines()[-1] if out.strip() else '')
+
+        # The earlier failing check's FAIL file comes off staging first, so a
+        # full run on main can pass.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'unbreak', 'origin/staging')
+        if (work / 'FAIL').exists():
+            git(work, 'rm', '-q', 'FAIL')
+            git(work, 'commit', '-q', '-m', 'FAIL off staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/unbreak')
+        run('--land', 'unbreak')
+        commit_on('staging', 'quiet', 'quiet.json', '{}\n')
+        run('--land', 'quiet')
+        rc, out, last = fast()
+        cases.append(('not due, code changed: no one waits on GitHub, and the '
+                      'full suite on main is asked for after the merge',
+                      rc == 3 and 'not due on this one' in out
+                      and '--wait-main-test' not in last
+                      and '--run-tests main' in last, out[-500:]))
+        sha = merged(out)
+        owed = pb.full_check_owed(work) if hasattr(pb, 'full_check_owed') else None
+        cases.append(('once merged, the end-of-turn check says the full check '
+                      'is owed and not started',
+                      bool(owed) and owed[0][0] == sha and owed[0][1] == 'none',
+                      str(owed)))
+        rc, out = run('--run-tests', 'main')
+        owed = pb.full_check_owed(work) if hasattr(pb, 'full_check_owed') else None
+        cases.append(('after --run-tests main passes, nothing is owed',
+                      rc == 0 and owed == [], f'exit {rc}: {owed} {out[-200:]}'))
+
+        commit_on('staging', 'prose', 'notes.md', '# Notes\n\nA line.\n')
+        run('--land', 'prose')
+        rc, out, last = fast()
+        cases.append(('only prose changed: no full check after, and it says why',
+                      rc == 3 and 'only prose changed' in out
+                      and '--run-tests main' not in last, out[-400:]))
+        merged(out)
+
+        commit_on('staging', 'tested', 'tested.json', '{}\n')
+        run('--land', 'tested')
+        run('--run-tests')
+        rc, out, last = fast()
+        cases.append(('Debut (Run tests) passed on exactly this: no full check '
+                      'after', rc == 3 and 'already passed on exactly this' in out
+                      and '--run-tests main' not in last, out[-400:]))
+        merged(out)
+
+        commit_on('staging', 'hurry', 'hurry.json', '{}\n')
+        run('--land', 'hurry')
+        rc, out, last = fast('--no-full-after')
+        marked = git(work, 'ls-remote', 'origin',
+                     'refs/precedent/main-unchecked').stdout.strip()
+        cases.append(('asked for fast: no full check after, it says so, and '
+                      'main is marked as moved without one, on origin',
+                      rc == 3 and 'asked for a fast one' in out
+                      and '--run-tests main' not in last and bool(marked),
+                      out[-400:]))
+        merged(out)
+        state = pb.main_unchecked(work) if hasattr(pb, 'main_unchecked') else None
+        cases.append(('the mark counts the moves made without a full check',
+                      bool(state) and state[1] >= 1, str(state)))
+        rc, out = run('--run-tests', 'main')
+        cleared = not git(work, 'ls-remote', 'origin',
+                          'refs/precedent/main-unchecked').stdout.strip()
+        cases.append(('the next full run on main clears the mark',
+                      rc == 0 and cleared, out[-300:]))
+        commit_on('staging', 'last', 'last.json', '{}\n')
+        run('--land', 'last')
+
         # --- the full move into main is unchanged ---
         full_runs()
         rc, out = run('--promote', '--to', 'main')
@@ -59359,7 +59475,8 @@ def check_update_vendors_retires_pre_staging():
         pj = text('precedent.json')
 
         def repo_lands_on_pre_staging(maintainers):
-            data = dict(_json.loads(pj), landing_branch='pre-staging')
+            data = dict(_json.loads(pj), landing_branch='pre-staging',
+                        _landing_branch_comment=['Work lands on pre-staging here.'])
             if maintainers is not None:
                 data['maintainers'] = [{'github': m} for m in maintainers]
             body = _json.dumps(data, indent=2) + '\n'
@@ -59420,7 +59537,17 @@ def check_update_vendors_retires_pre_staging():
         git(work, 'reset', '-q', 'HEAD~1')
         git(work, 'checkout', '-q', 'HEAD', '--', 'tools/precedent_branches.py')
         # The second pass, the sole maintainer running it: the switch is
-        # made, and the retirement runs in the same call below.
+        # made, and the retirement runs in the same call below. A copy of a
+        # practice from another source, which names pre-staging as an
+        # instruction, is the source's to word, never this repository's.
+        (work / 'practices').mkdir(exist_ok=True)
+        borrowed = 'Push it to pre-staging.\n'
+        (work / 'practices' / 'borrowed.md').write_text(borrowed, encoding='utf-8')
+        (work / 'MANIFEST.json').write_text(_json.dumps({'practices': [
+            {'slug': 'borrowed', 'source': 'precedent-individual'}]}),
+            encoding='utf-8')
+        git(work, 'add', 'practices/borrowed.md', 'MANIFEST.json')
+        git(work, 'commit', '-q', '-m', 'a practice copied from a source')
 
         # --- the person who lands on staging, work waiting on pre-staging ---
         res, out = call('offers')
@@ -59473,6 +59600,15 @@ def check_update_vendors_retires_pre_staging():
                               for l in retired)
                       and any('AGENTS.md:7 (link into another repository)' in l
                               for l in retired), str(retired)[:600]))
+        cases.append(('a copy of another source\'s practice is left as it is, '
+                      'and named with its source',
+                      text('practices/borrowed.md') == borrowed
+                      and any('practices/borrowed.md (from precedent-individual)' in l
+                              for l in retired), str(retired)[:600]))
+        cases.append(('the run that switched says precedent.json\'s comment '
+                      'still describes pre-staging',
+                      any(l.startswith('precedent.json: landing_branch is now staging')
+                          for l in retired), str(retired)[:600]))
         cases.append(('a gotcha is left alone, counted as history',
                       text(gotcha) == '# Trap\n\nPush to pre-staging failed.\n'
                       and any(l.startswith('left as history: 1 mention')
@@ -59498,6 +59634,9 @@ def check_update_vendors_retires_pre_staging():
                                   for l in retired), str(retired)[:300]))
         cases.append(('and still says it is retired, with the link',
                       any(l.endswith(link) for l in retired), str(retired)[-300:]))
+        cases.append(('and does not ask about precedent.json\'s comment again',
+                      not any(l.startswith('precedent.json:') for l in retired),
+                      str(retired)[:300]))
 
         # --- a conflict: nothing moves, nothing is reworded, no offer ---
         git(work, 'add', '-A')

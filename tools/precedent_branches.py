@@ -126,9 +126,13 @@ CLI:
                                             0 moved or nothing to move, 1 refused,
                                             3 main not moved yet (its pull request
                                             is still to open, test and merge)
-  precedent_branches.py --promote --to main --fast [--despite-failed-tests]
+  precedent_branches.py --promote --to main --fast [--despite-failed-tests] [--no-full-after]
                                             staging into main with the quick checks
-                                            only; GitHub's test runs after the merge.
+                                            only; GitHub's test runs after the merge,
+                                            or, when it is not due, the full local
+                                            suite on main here (full_check_after);
+                                            --no-full-after when the person asked
+                                            for a fast one
                                             4 (PROMOTE_ASKS) when --run-tests failed on
                                             staging's current commit: ask the person,
                                             and on a yes add --despite-failed-tests
@@ -1498,11 +1502,27 @@ def github_tests(root, sha):
     return out
 
 
+def _refusal(data, key):
+    """-> GitHub's own message when `data` is a refusal rather than the
+    answer asked for: a JSON object carrying `message` and not `key`. The
+    API answers a refusal (403, 404, or a session proxy that has no access
+    to the repository) with such an object and a normal-looking body, so it
+    read as "no runs" -- on 2026-10-09 a session without access to
+    BestPractice said main's test "shows no run" when the real answer was
+    "GitHub access to this repository is not enabled for this session"."""
+    if isinstance(data, dict) and key not in data and data.get('message'):
+        return str(data['message'])
+    return None
+
+
 def _runs_on(gh, slug, sha):
     data, err = gh.call(f'repos/{slug}/actions/runs?head_sha={sha}&per_page=100',
                         cache=False)
     if err or not isinstance(data, dict):
         return None, err or 'GitHub gave an answer this could not read'
+    refused = _refusal(data, 'workflow_runs')
+    if refused:
+        return None, f'GitHub refused: {refused}'
     return data.get('workflow_runs') or [], None
 
 
@@ -1515,8 +1535,10 @@ def _current_slug(gh, slug):
     if slug not in _CURRENT_SLUG:
         data, err = gh.call(f'repos/{slug}', cache=False)
         name = data.get('full_name') if isinstance(data, dict) else None
+        refused = _refusal(data, 'full_name')
         _CURRENT_SLUG[slug] = (name, None) if name else (
-            None, err or 'its answer named no repository')
+            None, err or (f'GitHub refused: {refused}' if refused
+                          else 'its answer named no repository'))
     return _CURRENT_SLUG[slug]
 
 
@@ -2718,7 +2740,7 @@ def promote_result_line(root, rc, to=None, last=''):
 
 
 def promote(root, say=print, to=None, work=None, fast=False,
-            despite_failed_tests=False):
+            despite_failed_tests=False, no_full_after=False):
     """Run a Promote (_promote_run) and end it, on every path -- an error and
     a refusal included -- with promote_result_line as the last thing said.
     `fast` and `despite_failed_tests` are the fast move into main's
@@ -2731,7 +2753,8 @@ def promote(root, say=print, to=None, work=None, fast=False,
         say(msg)
     rc = None
     try:
-        rc = _promote_run(root, heard, to, work, fast, despite_failed_tests)
+        rc = _promote_run(root, heard, to, work, fast, despite_failed_tests,
+                          no_full_after)
         return rc
     finally:
         say(promote_result_line(root, rc, to, last[0]))
@@ -2739,7 +2762,7 @@ def promote(root, say=print, to=None, work=None, fast=False,
 
 
 def _promote_run(root, say=print, to=None, work=None, fast=False,
-                 despite_failed_tests=False):
+                 despite_failed_tests=False, no_full_after=False):
     """Pick the step (promotion_step), SAY it, then run it, one window at a
     time. -> 0 promoted, nothing to promote, or another window already
     promoting; 1 refused (a failing check, a conflict, a race);
@@ -2789,7 +2812,8 @@ def _promote_run(root, say=print, to=None, work=None, fast=False,
         run = _promote_unlocked if step == STAGING else _promote_to_main
     kw = {'work': work} if work else {}
     if fast and run is _promote_to_main:
-        kw.update(fast=True, despite_failed_tests=despite_failed_tests)
+        kw.update(fast=True, despite_failed_tests=despite_failed_tests,
+                  no_full_after=no_full_after)
     if kw and run in (_promote_unlocked, _promote_to_main):
         run = (lambda r, s, f=run, kw=kw: f(r, s, **kw))
     state, info = _lock_claim(root, say)
@@ -3076,7 +3100,7 @@ def main_test_holds_produce(root, say=print, gh=None):
 
 
 def _promote_to_main(root, say=print, work=None, fast=False,
-                     despite_failed_tests=False):
+                     despite_failed_tests=False, no_full_after=False):
     """Staging into main: the full check on exactly what main would hold,
     then a throwaway copy of staging for the pull request into main, whose
     GitHub test is the last gate (spec/BRANCH_TIERS_PLAN.md: main gets "all
@@ -3085,7 +3109,8 @@ def _promote_to_main(root, say=print, work=None, fast=False,
     the copy is ready and main has not moved yet; 0 nothing to promote; 1
     refused. `fast` is _promote_to_main_fast instead."""
     if fast:
-        return _promote_to_main_fast(root, say, work, despite_failed_tests)
+        return _promote_to_main_fast(root, say, work, despite_failed_tests,
+                                     no_full_after)
     staging = staging_branch(root)
     held = main_test_holds_produce(root, say)
     if held:
@@ -3245,6 +3270,54 @@ def _record_fast_main(root, sha, entry):
         pass
 
 
+def full_check_owed(root, fetch=True):
+    """-> [(copy_sha, state, line)] for each fast move into main recorded
+    here that needs the full local suite after it (full_check_after), is on
+    main now, and has no full run on main covering it: state 'none' (never
+    started) or 'failed'. A run still going counts as started. [] when none
+    is owed, or nothing can be read. The end-of-turn check reads this."""
+    try:
+        path = _fast_main_path(root)
+        data = (_read_json(path) if path else None) or {}
+        pending = [(sha, e) for sha, e in data.items()
+                   if isinstance(e, dict) and e.get('full_after')
+                   and not e.get('full_after_done')]
+        if not pending:
+            return []
+        if fetch:
+            _run(root, 'fetch', '-q', 'origin', MAIN)
+        rec = run_tests_record(root, MAIN) or {}
+        out, done = [], []
+        for sha, e in pending:
+            if _run(root, 'merge-base', '--is-ancestor', sha,
+                    f'origin/{MAIN}').returncode != 0:
+                continue                            # not merged: nothing owed yet
+            ran = rec.get('commit')
+            covers = bool(ran) and _run(root, 'merge-base', '--is-ancestor',
+                                        sha, ran).returncode == 0
+            if covers and rec.get('result') == 'passed':
+                done.append(sha)
+                continue
+            if covers and rec.get('result') == 'running':
+                continue
+            if covers and rec.get('result') == 'failed':
+                out.append((sha, 'failed', ', '.join(
+                    f.get('check', '?') for f in rec.get('failed') or [])
+                    or 'see its output'))
+            else:
+                out.append((sha, 'none', e.get('full_after_why') or ''))
+        if done:
+            for sha in done:
+                data[sha]['full_after_done'] = True
+            try:
+                path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+            except OSError:
+                pass
+        return out
+    except Exception:                                       # noqa: BLE001
+        return []
+
+
 def failed_tests_ask(root, branch, tip):
     """-> (asks, lines): what the last --run-tests on `branch` says about its
     tip `tip`. `asks` is True only when it FAILED on exactly that commit;
@@ -3259,6 +3332,10 @@ def failed_tests_ask(root, branch, tip):
                        f'commit ({str(rec.get("commit"))[:12]}, {when}); it is '
                        f'STALE -- {branch} is at {tip[:12]} now -- so it decides '
                        f'nothing here.']
+    if rec.get('result') == 'running':
+        return False, [f'--run-tests is still running on this commit, or was '
+                       f'stopped before it finished ({tip[:12]}, started {when}); '
+                       f'it has passed nothing yet.']
     if rec.get('result') != 'failed':
         return False, [f'--run-tests PASSED on this commit ({tip[:12]}, {when}).']
     failed = rec.get('failed') or []
@@ -3266,6 +3343,101 @@ def failed_tests_ask(root, branch, tip):
                    f'{len(failed)} failing check(s):']
                   + [f'  {f.get("check")}: {f.get("line") or "(no detail)"}'
                      for f in failed])
+
+
+NO_FULL_AFTER_FLAG = '--no-full-after'
+UNCHECKED_REF = 'refs/precedent/main-unchecked'
+# Prose a reader reads, which the quick checks already lint and link-check:
+# a move of nothing else needs no full suite (Morgan, 2026-10-09: "I don't
+# think we should force the big test for small content updates"). Rules,
+# tools, hooks, workflows, settings and instruction files are never prose.
+_PROSE_SUFFIXES = ('.md', '.txt')
+_NEVER_PROSE = ('practices/', 'local/practices/', 'tools/', '.claude/',
+                '.github/', 'templates/', 'doc-recipes/')
+_INSTRUCTION_FILES = ('AGENTS.md', 'CLAUDE.md', 'GEMINI.md')
+
+
+def only_prose_changed(root, base, tip):
+    """-> True when every path that differs between `base` and `tip` is
+    prose: a .md or .txt file outside the rule, tool, hook, workflow and
+    template trees, and not an instructions file."""
+    changed = [p for p in (_git(root, 'diff', '--name-only', base, tip) or '').splitlines()
+               if p.strip()]
+    if not changed:
+        return False
+    return all(p.endswith(_PROSE_SUFFIXES)
+               and not p.startswith(_NEVER_PROSE)
+               and p.rsplit('/', 1)[-1] not in _INSTRUCTION_FILES
+               for p in changed)
+
+
+def full_check_after(root, test_runs, stip, mtip, asked_fast=False):
+    """-> (needed, why): does a fast move of staging `stip` into main `mtip`
+    need the full local suite run on main after the merge? Only when all
+    four of Morgan's conditions hold (2026-10-09): GitHub's test does not run
+    on it (`test_runs` false: not due, or none installed); no Debut (Run
+    tests) passed on exactly this staging and main; more than prose
+    changed; and the person did not ask for a fast one (`asked_fast`)."""
+    if test_runs:
+        return False, 'GitHub\'s test runs on it after the merge'
+    rec = run_tests_record(root, staging_branch(root)) or {}
+    if (rec.get('result') == 'passed' and rec.get('commit') == stip
+            and rec.get('main') == mtip):
+        return False, (f'Debut (Run tests) already passed on exactly this '
+                       f'({stip[:12]}, with {MAIN} at {mtip[:12]})')
+    if only_prose_changed(root, mtip, stip):
+        return False, 'only prose changed, which the quick checks cover'
+    if asked_fast:
+        return False, ('you asked for a fast one, so no full check runs on it '
+                       f'now; {MAIN} is marked as moved without one until the '
+                       f'next full run')
+    return True, (f'GitHub\'s test does not run on it, so the full local suite '
+                  f'runs on {MAIN} here after the merge')
+
+
+def mark_main_unchecked(root, sha):
+    """Record on origin that main moved without a full check, at `sha`, the
+    first such move: one ref, kept until a full run clears it, so a run of
+    fast moves is seen from any session, not only this container's."""
+    if _git(root, 'ls-remote', 'origin', UNCHECKED_REF):
+        return
+    _run(root, 'push', '-q', 'origin', f'{sha}:{UNCHECKED_REF}')
+
+
+def main_unchecked(root, fetch=True):
+    """-> (since_sha, moves) when main has moved without a full check since
+    since_sha (moves: how many merges into main since then, at least 1), or
+    None."""
+    line = _git(root, 'ls-remote', 'origin', UNCHECKED_REF) if fetch else ''
+    since = (line or '').split()[0] if line else ''
+    if not since:
+        return None
+    if fetch:
+        _run(root, 'fetch', '-q', 'origin', MAIN, since)
+    merges = _git(root, 'rev-list', '--count', '--first-parent', '--merges',
+                  f'{since}..origin/{MAIN}') or '0'
+    try:
+        n = int(merges) + 1
+    except ValueError:
+        n = 1
+    return since, n
+
+
+def clear_main_unchecked(root, checked):
+    """A full check passed on `checked`, a commit of main: drop the mark when
+    it covers the first unchecked move. Never raises."""
+    try:
+        line = _git(root, 'ls-remote', 'origin', UNCHECKED_REF) or ''
+        since = line.split()[0] if line else ''
+        if not since:
+            return False
+        _run(root, 'fetch', '-q', 'origin', since)
+        if _run(root, 'merge-base', '--is-ancestor', since, checked).returncode == 0:
+            _run(root, 'push', '-q', 'origin', f':{UNCHECKED_REF}')
+            return True
+    except Exception:                                       # noqa: BLE001
+        pass
+    return False
 
 
 def _main_test_note(root):
@@ -3285,7 +3457,8 @@ def _main_test_note(root):
     return ''
 
 
-def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False):
+def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False,
+                          no_full_after=False):
     """The fast move into main: quick checks, the copy, the merge
     instruction, and GitHub's test after the merge. -> PROMOTE_MAIN_NOT_MOVED
     when the copy is ready; PROMOTE_ASKS when --run-tests failed on this
@@ -3353,16 +3526,34 @@ def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False
     if p.returncode != 0:
         say(f'could not push the copy {copy}: {p.stderr.strip()[:200]}')
         return 1
+    shown, others = mark_other_work(root, batch, work)
+    wait = (f'python3 tools/precedent_branches.py --wait-main-test {copy}')
+    # A private repository tests main at most every N hours, and some have
+    # no GitHub test at all: then the full suite runs here after the merge,
+    # unless one of Morgan's other conditions says it is not needed
+    # (full_check_after; 2026-10-09: "I want to make sure there's a full
+    # check *somewhere* on the push to main, afterwards").
+    test_runs = not none_runs and bool(due)
+    skipped = not test_runs
+    full_after, full_why = full_check_after(root, test_runs, stip, mtip,
+                                            asked_fast=no_full_after)
+    if skipped and no_full_after and not full_after and 'asked for a fast' in full_why:
+        mark_main_unchecked(root, copy_tip)
+    gh_line = ('no GitHub test runs here' if none_runs else
+               f'GitHub\'s test is not due on this one ({_why})')
+    after = (f'{gh_line}, so the full suite runs here instead, after the '
+             f'merge: python3 tools/precedent_branches.py --run-tests {MAIN}, in '
+             f'the background, and fix {MAIN} at once if it fails'
+             if full_after else
+             f'{gh_line}, and no full check is needed after it: {full_why}'
+             if skipped else
+             f'GitHub\'s test runs after the merge; wait on it with {wait} and '
+             f'fix {MAIN} at once if it fails')
     _record_fast_main(root, copy_tip, {
         'copy': copy, 'staging': stip, 'main': mtip,
         'despite_failed_tests': bool(asks),
+        'full_after': bool(full_after), 'full_after_why': full_why,
         'at': time.strftime('%Y-%m-%dT%H:%M:%S%z')})
-    shown, others = mark_other_work(root, batch, work)
-    wait = (f'python3 tools/precedent_branches.py --wait-main-test {copy}')
-    after = ('no GitHub test runs here, so the quick checks were the whole '
-             'check' if none_runs else
-             f'GitHub\'s test runs after the merge; wait on it with {wait} and '
-             f'fix {MAIN} at once if it fails')
     say(f'{MAIN.upper()} HAS NOT MOVED YET: this Promote exits '
         f'{PROMOTE_MAIN_NOT_MOVED}, not 0, until the pull request below is merged.\n'
         f'READY FOR {MAIN.upper()} (FAST): {len(batch)} commit(s) from {staging} '
@@ -3378,7 +3569,11 @@ def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False
         f'from {staging} itself.')
     _verdict(f'READY FOR {MAIN.upper()} (FAST): open a pull request from {copy} '
              f'into {MAIN} and merge it now with expectedHeadSha {copy_tip}; '
-             + ('no GitHub test runs here' if none_runs else
+             + (f'no GitHub test runs on this one, so do not wait for one; after '
+                f'the merge run the full suite here with --run-tests {MAIN}'
+                if full_after else
+                f'no GitHub test runs on this one and no full check is needed '
+                f'after it ({full_why})' if skipped else
                 f'the GitHub test runs after the merge -- wait on it with '
                 f'--wait-main-test {copy}')
              + f'; {MAIN} has not moved yet', move=move)
@@ -3948,6 +4143,11 @@ def _run_tests(root, branch, say):
            f'{staging} would' if above else '')
         + ' -- nothing moves...')
     t0 = time.monotonic()
+    # Said before the run, so the end-of-turn check can tell a full run on
+    # main that is under way, in the background, from one never started.
+    _record_run_tests(root, {'branch': branch, 'commit': tip, 'tested': None,
+                             'main': mtip, 'result': 'running', 'failed': [],
+                             'at': time.strftime('%Y-%m-%dT%H:%M:%S%z')})
     with _Worktree(root, tip) as wt:
         conflict, merged, _rebuilt = _compose_onto(root, wt, branch, (), above,
                                                    (), say)
@@ -3968,6 +4168,9 @@ def _run_tests(root, branch, say):
     where = _record_run_tests(root, entry)
     noted = f' Recorded in {where}.' if where else ' (could not be recorded)'
     if ok:
+        if branch == MAIN and clear_main_unchecked(root, tip):
+            noted += (f' {MAIN} had moved without a full check; this clears '
+                      f'that mark.')
         say(f'the full local suite PASSED on {branch} ({tip}), in {took:.0f}s.'
             + noted)
         return 0, f'PASSED on {tip}; nothing moved'
@@ -4096,7 +4299,7 @@ def _main(argv):
             if len(rest) >= 2 and rest[0] in ('--to', '--work'):
                 opts[rest[0][2:]] = rest[1]
                 rest = rest[2:]
-            elif rest[0] in ('--fast', DESPITE_FLAG):
+            elif rest[0] in ('--fast', DESPITE_FLAG, NO_FULL_AFTER_FLAG):
                 opts[rest[0]] = True
                 rest = rest[1:]
             else:
@@ -4106,13 +4309,15 @@ def _main(argv):
             opts['to'] = MAIN
         if rest or opts.get('to', STAGING) not in (STAGING, MAIN) or (
                 fast and opts['to'] != MAIN) or (
-                opts.get(DESPITE_FLAG) and not fast):
+                (opts.get(DESPITE_FLAG) or opts.get(NO_FULL_AFTER_FLAG)) and not fast):
             print('usage: precedent_branches.py --promote [--to staging|main] '
-                  '[--work BRANCH-OR-COMMIT] [--fast [--despite-failed-tests]]'
+                  '[--work BRANCH-OR-COMMIT] [--fast [--despite-failed-tests] '
+                  '[--no-full-after]]'
                   '  (--fast is the move into main)', file=sys.stderr)
             return 2
         return promote(root, to=opts.get('to'), work=opts.get('work'),
-                       fast=fast, despite_failed_tests=bool(opts.get(DESPITE_FLAG)))
+                       fast=fast, despite_failed_tests=bool(opts.get(DESPITE_FLAG)),
+                       no_full_after=bool(opts.get(NO_FULL_AFTER_FLAG)))
     if argv[:1] == ['--land'] and len(argv) <= 2:
         return land(root, argv[1] if len(argv) == 2 else None)
     if argv[:1] == ['--run-tests'] and len(argv) <= 2:
