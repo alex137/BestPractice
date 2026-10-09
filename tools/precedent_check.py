@@ -836,8 +836,43 @@ class Ctx:
                 if 'A' in code or '?' in code:
                     self.added.append(name)
             if not self.changed:
-                self.scope_reason = ('the working tree is clean, so no change '
-                                     'is in scope')
+                self._scope_to_branch()
+
+    def _scope_to_branch(self):
+        """A clean tree on a branch ahead of its base: judge the branch.
+
+        A bare run on a clean checkout used to say "the working tree is
+        clean, so no change is in scope" and pass every change-scope check
+        without reading a line -- after the commit, which is exactly when a
+        session runs it to see whether the branch is fit to push. Found
+        2026-10-08 in a consumer: a branch renamed a page and left a stale
+        key in a tool and lines in two ledgers; the push passed and the
+        landing's full check failed on them. The work in scope once the tree
+        is clean is what this branch carries and its base lacks, so that is
+        what is judged. On the base itself, or with no base to compare
+        against, nothing is in scope, and the note says which."""
+        base = _published_default_branch()
+        if base is None:
+            self.scope_reason = ('the working tree is clean and there is no '
+                                 'published base branch to compare against, '
+                                 'so no change is in scope')
+            return
+        mb = _git('merge-base', base, 'HEAD')
+        ahead = _git('rev-list', '--count', f'{base}..HEAD').stdout.strip()
+        if mb.returncode != 0 or ahead in ('', '0'):
+            self.scope_reason = (f'the working tree is clean and HEAD carries '
+                                 f'nothing {base} lacks, so no change is in '
+                                 f'scope')
+            return
+        fork = mb.stdout.strip()
+        self.range = f'{fork}..HEAD'
+        self.base = fork
+        st = _git('diff', '--name-status', self.range).stdout.splitlines()
+        self.changed = [l.split('\t')[-1] for l in st if l.strip()]
+        self.added = [l.split('\t')[-1] for l in st if l.startswith('A')]
+        self.scope_reason = (f'the working tree is clean, so the {ahead} '
+                             f'commit(s) this branch carries since {base} are '
+                             f'in scope')
 
     def added_files(self):
         """`git status --porcelain` collapses an untracked DIRECTORY to one
