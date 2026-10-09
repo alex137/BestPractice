@@ -431,6 +431,76 @@ def normalize_level(level):
     return LEVEL_ALIASES.get(level, level)
 
 
+# practice: upstream-fix -- the one reader of a declared source's level.
+# Every tool that compares a source's level against a level name goes
+# through declared_level() or declared_sources(), never the raw `level`
+# field: a consumer declared two deleted sets at the older `team` level and
+# Update Vendors removed neither, because the drop compared the raw field
+# against "shared" while the resolver read it as shared (2026-10-09). The
+# same raw comparison sat in a dozen other tools, some patched by hand with
+# a ('shared', 'team') pair. verify_harness.py's
+# check_source_level_reads_go_through_the_normalizer refuses a new one.
+def declared_level(source):
+    """`source`'s level as the resolver reads it -- `team` -> `shared` --
+    or None when `source` is not a dict. Safe on a source load_config()
+    already normalized: the alias table maps no canonical level."""
+    return normalize_level(source.get('level')) if isinstance(source, dict) else None
+
+
+def declared_sources(cfg):
+    """-> precedent.json's `sources` as copies, each with its `level` read
+    through declared_level(); entries that are not objects are left out.
+    `cfg` is the loaded config, or a repository root or precedent.json path,
+    read without load_config()'s validation or self-heal (an unreadable or
+    absent file gives [])."""
+    if not isinstance(cfg, dict):
+        p = pathlib.Path(cfg)
+        p = p / REPO_CONFIG if p.is_dir() else p
+        try:
+            cfg = json.loads(p.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            return []
+    raw = cfg.get('sources') if isinstance(cfg, dict) else None
+    return [dict(s, level=declared_level(s)) for s in (raw if isinstance(raw, list) else ())
+            if isinstance(s, dict)]
+
+
+_ALIASED_LEVEL_RE = re.compile(r'("level"\s*:\s*)"(' + '|'.join(
+    re.escape(a) for a in LEVEL_ALIASES) + r')"')
+
+
+def retire_level_aliases(text):
+    """-> (new_text, [source names]) for precedent.json's `text` with every
+    source declared at an old level word (`team`) declared at its canonical
+    one instead. Each word is swapped where it stands, so the file keeps its
+    layout and every other byte; only when that does not give back exactly
+    the intended object is the file rewritten whole. Unparseable text, or a
+    file with nothing to retire, comes back unchanged with no names."""
+    try:
+        cfg = json.loads(text)
+    except ValueError:
+        return text, []
+    raw = cfg.get('sources') if isinstance(cfg, dict) else None
+    if not isinstance(raw, list):
+        return text, []
+    names = [str(s.get('name') or s.get('path') or '?') for s in raw
+             if isinstance(s, dict) and s.get('level') in LEVEL_ALIASES]
+    if not names:
+        return text, []
+    want = dict(cfg, sources=[dict(s, level=declared_level(s))
+                              if isinstance(s, dict) and s.get('level') in LEVEL_ALIASES
+                              else s for s in raw])
+    new_text = _ALIASED_LEVEL_RE.sub(
+        lambda m: m.group(1) + json.dumps(LEVEL_ALIASES[m.group(2)]), text)
+    try:
+        ok = json.loads(new_text) == want
+    except ValueError:
+        ok = False
+    if not ok:
+        new_text = json.dumps(want, indent=2, ensure_ascii=False) + '\n'
+    return new_text, names
+
+
 def _precedence_rank(level):
     """0 = weakest (walked first), higher = stronger (walked later, wins on a
     shared slug). The one place PRECEDENCE's highest-first order gets
@@ -893,6 +963,49 @@ def deleted_sets(individual_path=None, user_config=None):
                                       'successors': successors_of(e),
                                       'from': e.get('_from', 'person')}
     return out
+
+
+def declared_deleted_sets(repo, user_config=None):
+    """-> [(name, info)] for each shared set `repo`'s precedent.json still
+    declares that deleted_sets() lists, in declaration order; [] when there
+    is none or the file cannot be read.
+
+    One reader for every tool that counts what is missing. A deleted set's
+    clone is never made (precedent_source_bootstrap skips it), so until
+    2026-10-09 the credentials check, the freshness notice and the session
+    check all counted it as an unresolved source and sent a consumer's
+    session after git and the proxy for a clone that was never meant to
+    happen. It is not missing; it is waiting for Update Vendors to remove
+    it."""
+    try:
+        cfg = json.loads((pathlib.Path(repo) / REPO_CONFIG).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    sources = cfg.get('sources') if isinstance(cfg, dict) else None
+    named = [str(s.get('name') or '').strip() for s in sources or []
+             if isinstance(s, dict) and normalize_level(s.get('level')) == 'shared']
+    if not any(named):
+        return []
+    gone = deleted_sets(user_config=user_config)
+    out = []
+    for name in named:
+        if name in gone and name not in [n for n, _ in out]:
+            out.append((name, gone[name]))
+    return out
+
+
+def deleted_sets_note(found):
+    """-> the one line every tool prints for declared_deleted_sets()'s
+    answer, or '' when it is empty. Written once so the credentials check,
+    the freshness notice and the session check say the same thing."""
+    if not found:
+        return ''
+    parts = []
+    for name, info in found:
+        why = '; '.join(x for x in (info.get('date'), info.get('reason')) if x)
+        parts.append(f'{name} is deleted' + (f' ({why})' if why else ''))
+    return ('; '.join(parts) + ' -- not missing: Update Vendors removes it from '
+            'precedent.json. A deleted set is never cloned by hand.')
 
 
 # What a `brings` URL may look like. Anything else -- above all a string that
@@ -1816,6 +1929,29 @@ def forwarding_map(res):
         live = follow_in_force_at(slug, resolved, retired)
         if live is not None:
             out[slug] = live
+    return out
+
+
+def additions_to(slug, resolved, retired=()):
+    """-> [practice] in force in `resolved` whose `adds_to:` lands on the
+    same live rule `slug` does, sorted by slug, never including `slug`'s own
+    practice.
+
+    Both ends are followed through deduplications (follow_in_force_at), so
+    an addition attaches to the rule in force: one written against a slug
+    since merged into another still shows with the live one, and asking for
+    the old name shows the live rule's additions (Morgan, 2026-10-09: an
+    addition loads with the rule it adds to). [] when `slug` ends nowhere."""
+    live = follow_in_force_at(slug, resolved, list(retired or ()))
+    if live is None:
+        return []
+    out = []
+    for other, practice in sorted(resolved.items()):
+        base = bv.adds_to(practice.get('fm') or {})
+        if not base or other == live:
+            continue
+        if follow_in_force_at(base, resolved, list(retired or ())) == live:
+            out.append(practice)
     return out
 
 

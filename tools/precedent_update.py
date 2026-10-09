@@ -71,7 +71,9 @@ THE STEPS, with no question in between:
      the push will
 
 THE REPORT, and the exit code a session acts on:
-  0  DONE -- nothing is left. Commit, then run Go update's chain.
+  0  DONE -- nothing is left. Commit on a branch of its own (DONE prints
+     the command when the checkout sits on a tier branch), then land it on
+     your landing branch.
   1  LEFT FOR YOU -- only the calls that belong to this repo: an
      uncommitted edit to a received file, a kept-on-purpose file upstream
      has since changed, a line a check-in would lose, a decline to decide
@@ -89,8 +91,8 @@ and is staged as such when every file matches the manifest. It never
 leaves a commit behind, and never merges. The one thing it pushes is a
 missing branch tier (pre-staging or staging), made at a commit origin
 already has; the deep check's temporary commit is undone before it
-reports. Those stay with the session, under Go update's
-chain, where the authorization already lives.
+reports. Those stay with the session, which lands the update the way the
+repository lands work, where the authorization already lives.
 """
 import argparse
 import json
@@ -681,8 +683,8 @@ def prose_about_dropped_sets(repo, dropped):
     except ValueError:
         cfg = None
     srcs = cfg.get('sources') if isinstance(cfg, dict) else None
-    shared_left = any(isinstance(s, dict) and s.get('level') in ('shared', 'team')
-                      for s in srcs or [])
+    import precedent_resolve as pr
+    shared_left = any(pr.declared_level(s) == 'shared' for s in srcs or [])
     match = _dropped_set_matcher(names, shared_left)
     out = []
     if cfg is not None:
@@ -754,6 +756,14 @@ def maintainers_step(repo, rep):
         rep.step('code owners', f'named {", ".join("@" + w for w in written)} '
                  f'in precedent.json\'s maintainers ({how}); change the list '
                  f'there any time -- it is never rewritten once set')
+    # A single owner's own zone, offered for the records nobody's identity
+    # reaches (2026-10-08) -- a question for the person, never written here.
+    try:
+        offer = pve.timezone_offer(repo)
+    except Exception:                                          # noqa: BLE001
+        offer = None
+    if offer:
+        rep.ask('time zone', offer)
 
 
 def renamed_sources_step(repo, rep, engine_out):
@@ -801,6 +811,20 @@ def renamed_sources_step(repo, rep, engine_out):
              'precedent-team-* names (name, path and level team -> shared): '
              + ', '.join(f'{o} -> {n}' for o, n in dict(done).items())
              + ' -- nothing to decide')
+
+
+def level_alias_step(repo, rep):
+    """Rewrite every `"level": "team"` in precedent.json to `"shared"`, on
+    every run that finds one, and say so in one line. The old word still
+    resolves; the file just stops saying something the tools have to
+    translate (pve.retire_level_aliases). Runs after renamed_sources_step,
+    which already re-levels a renamed set, so this names the rest. The
+    write is staged with the rest of the update (stage_update)."""
+    names = pve.retire_level_aliases(repo)
+    if names:
+        rep.step('source levels', 'precedent.json now declares '
+                 + ', '.join(names) + ' at level "shared", the current word '
+                 'for the older "team" -- the same level, nothing to decide')
 
 
 # The engine's WARN for a file that still names one it just deleted
@@ -1055,6 +1079,19 @@ def generated_full_views(repo):
             if (pathlib.Path(repo) / name).is_file()
             and (_bv.is_generated_view(pathlib.Path(repo) / name)
                  or (srcs.get(name) and _bv.has_own_source(repo, srcs[name])))]
+
+
+def clone_command(repo):
+    """-> the command that runs the BestPractice clone's own copy of this
+    file for `repo`: the clone found by its origin beside the repo
+    (pve.find_source_clones -- the attach tool's lowercase
+    alex137/bestpractice path included, 2026-10-08), else ../BestPractice."""
+    try:
+        found = pve.find_source_clones(repo)
+    except Exception:                                          # noqa: BLE001
+        found = []
+    where = (os.path.relpath(found[0], repo) if found else '../BestPractice')
+    return f'python3 {where}/tools/precedent_update.py --repo .'
 
 
 def source_is_its_own_clone():
@@ -1479,8 +1516,9 @@ def universal_catalogue_path(repo):
         data = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
+    import precedent_resolve as pr
     for src in data.get('sources') or []:
-        if not isinstance(src, dict) or src.get('level') != 'universal':
+        if not isinstance(src, dict) or pr.declared_level(src) != 'universal':
             continue
         path = str(src.get('path') or '').strip().rstrip('/')
         if not path or path.startswith(('/', '~')) or '..' in pathlib.PurePosixPath(path).parts:
@@ -1698,6 +1736,61 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
         return True
 
 
+# What DONE says about the merge that lands the update. 2026-10-08, a
+# consumer: the session merged Update Vendors' own pull request with a
+# 7-character expected head; GitHub's merge refused it, and the failed merge
+# left Claude Code's auto mode refusing even reads until the person spoke
+# (gotchas/gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md).
+MERGE_HEAD_NOTE = (
+    "Merging its pull request: give the merge tool the full 40-character "
+    "head commit, never a short one -- `git rev-parse HEAD` right after the "
+    "push, or `git ls-remote origin refs/heads/<branch>` -- or no expected "
+    "head at all. GitHub refuses a short one, and a failed merge leaves auto "
+    "mode refusing even reads until the person speaks.")
+
+
+# THE BRANCH THE UPDATE IS COMMITTED ON (2026-10-09). An update run on a
+# tier branch -- main, staging, pre-staging -- ended "commit, then land it"
+# without naming a branch, and a consumer's session made one by hand; the
+# push check refused it, since a session branch is named by
+# tools/precedent_branch_name.py. The update does not move the checkout
+# itself: it reads the current branch at several steps, and a switch in the
+# middle of a run is a state nothing else here expects. `git switch -c` from
+# HEAD keeps the staged diff exactly as it is, so the command is printed for
+# the session to run before it commits.
+SWITCH_COMMAND = ('git switch --no-track -c '
+                  '"$(python3 tools/precedent_branch_name.py update-vendors)"')
+
+
+def feature_branch_line(repo):
+    """-> the line DONE prints when `repo`'s checkout is on a tier branch
+    (precedent_branches.tier_branches, its landing branch, or its declared
+    base), or None on any other branch or when it cannot be read."""
+    if repo is None:
+        return None
+    try:
+        r = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--abbrev-ref',
+                            'HEAD'], capture_output=True, text=True)
+    except OSError:
+        return None
+    cur = r.stdout.strip() if r.returncode == 0 else ''
+    if not cur or cur == 'HEAD':
+        return None
+    tiers = set(pb.tier_branches(repo))
+    for read in (lambda: pb.landing_branch(repo)[0], lambda: pb.base_branch(repo)):
+        try:
+            name = read()
+        except Exception:                                    # noqa: BLE001
+            name = None
+        if name:
+            tiers.add(name)
+    if cur not in tiers:
+        return None
+    return (f"This checkout is on {cur}, a tier branch. Before committing, move "
+            f"the staged update onto a branch of its own (it carries the staged "
+            f"diff as it is): {SWITCH_COMMAND}")
+
+
 class Report:
     def __init__(self):
         self.steps = []   # (name, one-line outcome)
@@ -1861,13 +1954,17 @@ class Report:
             return LEFT
         for line in self.warnings:
             print(f"\nWARNING: {line}")
+        switch = feature_branch_line(self.pin_repo)
         if self.asks:
             print("\nDONE -- nothing left for this repo to decide. Ask the "
                   "question(s) above, review the staged diff, commit, then land "
                   "it the way this repository lands work.")
         else:
             print("\nDONE -- nothing left to decide. Review the staged diff, "
-                  "commit, then run Go update's chain.")
+                  "commit, then land it on your landing branch.")
+        if switch:
+            print(switch)
+        print(MERGE_HEAD_NOTE)
         if self.not_run:
             print(self.not_run)
         return DONE
@@ -2143,10 +2240,101 @@ def migrates_to_stubs(repo, paths):
     return False
 
 
-def harness_ask(paths, last=False):
+def _git_show(repo, spec):
+    r = subprocess.run(['git', '-C', str(repo), 'show', spec],
+                       capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+
+
+_HOOK_NAME = re.compile(r'([A-Za-z0-9_.-]+\.sh)\b')
+
+
+def _settings_entries(text):
+    """-> {(event, matcher, command)} in a settings.json's `hooks`, or None
+    when it is not JSON."""
+    try:
+        data = json.loads(text) if text else {}
+    except ValueError:
+        return None
+    out = set()
+    hooks = data.get('hooks') if isinstance(data, dict) else None
+    for event, groups in (hooks or {}).items() if isinstance(hooks, dict) else ():
+        for g in groups if isinstance(groups, list) else ():
+            if not isinstance(g, dict):
+                continue
+            for h in g.get('hooks') or []:
+                if isinstance(h, dict) and h.get('command'):
+                    out.add((event, g.get('matcher') or '', h['command']))
+    return out
+
+
+def _settings_cases(was, now):
+    """What a settings.json change is, in words: a hook for an event type it
+    had no entry for, a hook's command path rewritten, an entry added or
+    dropped, or a change outside the hooks."""
+    before, after = _settings_entries(was), _settings_entries(now)
+    if before is None or after is None:
+        return ['settings.json changed (it does not read as JSON)']
+    cases = []
+    old_events = {e for e, _m, _c in before}
+    new_events = sorted({e for e, _m, _c in after} - old_events)
+    for ev in new_events:
+        names = sorted({(_HOOK_NAME.search(c) or [None, c])[1]
+                        for e, _m, c in after if e == ev})
+        cases.append(f'settings.json gains a hook for a new event type, {ev} '
+                     f'({", ".join(names)})')
+    added = {x for x in after - before if x[0] not in new_events}
+    removed = before - after
+    name = lambda c: (_HOOK_NAME.search(c) or [None, c])[1]
+    for a in sorted(added):
+        twin = next((r for r in sorted(removed)
+                     if r[0] == a[0] and name(r[2]) == name(a[2])), None)
+        if twin:
+            removed.discard(twin)
+            cases.append(f'settings.json rewrites the path of {name(a[2])} '
+                         f'({a[0]}): {twin[2]} -> {a[2]}')
+        else:
+            cases.append(f'settings.json gains an entry for {name(a[2])} ({a[0]})')
+    for r in sorted(removed):
+        cases.append(f'settings.json drops its entry for {name(r[2])} ({r[0]})')
+    if not cases and (was or '') != (now or ''):
+        cases.append('settings.json changes outside its hook entries')
+    return cases
+
+
+def harness_cases(repo, paths):
+    """-> what each staged .claude/ path is, in plain words, read from the
+    index against HEAD. With hooks as permanent stubs (2026-10-07), an
+    ordinary update stages nothing under .claude/, so whatever is left is
+    one of a few known cases, and the person is told which."""
+    cases = []
+    for rel in paths:
+        now, was = _git_show(repo, f':{rel}'), _git_show(repo, f'HEAD:{rel}')
+        name = rel.rsplit('/', 1)[-1]
+        if rel == '.claude/settings.json':
+            cases.extend(_settings_cases(was, now))
+        elif rel.startswith('.claude/hooks/'):
+            if was is None:
+                cases.append(f'a new hook file, {name}')
+            elif now is None:
+                cases.append(f'a hook file removed, {name}')
+            elif STUB_MARKER in now and STUB_MARKER not in was:
+                cases.append(f'{name} becomes the permanent stub')
+            elif STUB_MARKER in now:
+                cases.append(f'the hook stub itself changed, {name}')
+            else:
+                cases.append(f'a hook that is not yet a stub changed, {name}')
+        else:
+            cases.append(f'{rel} changed')
+    return cases
+
+
+def harness_ask(paths, last=False, cases=None):
     """The question for the person when an update changes hooks or settings.
     `last`: this is the update that turns the hooks into permanent stubs, so
-    the question says, in plain words, that it is the last one."""
+    the question says, in plain words, that it is the last one. `cases`:
+    harness_cases(), so any other question says which kind of change it is
+    rather than only that something under .claude/ moved."""
     if last:
         return (f'this update changes {len(paths)} file(s) under .claude/ one '
                 f'last time: each hook becomes a permanent pointer to the '
@@ -2158,12 +2346,13 @@ def harness_ask(paths, last=False):
                 f'through, and a merge that takes the update by itself needs '
                 f'it as {HARNESS_GO_AHEAD}="<their words>". Files: '
                 f'{", ".join(paths)}')
-    return (f'this update changes {", ".join(paths)}. Claude Code\'s auto mode '
-            f'holds a commit that changes hooks or settings until the person '
-            f'says yes, so ask now, naming these files, before committing. '
-            f'Their yes is what lets the commit through; a merge that takes '
-            f'the update by itself needs it as {HARNESS_GO_AHEAD}="<their '
-            f'words>"')
+    what = f' -- {"; ".join(cases)}' if cases else ''
+    return (f'this update changes {", ".join(paths)}{what}. Claude Code\'s '
+            f'auto mode holds a commit that changes hooks or settings until '
+            f'the person says yes, so ask now, naming these files and what '
+            f'each change is, before committing. Their yes is what lets the '
+            f'commit through; a merge that takes the update by itself needs '
+            f'it as {HARNESS_GO_AHEAD}="<their words>"')
 
 
 def stage_update(repo, before):
@@ -2940,8 +3129,7 @@ def update(repo, skip_check=False, ref=None, move=False):
                          f"which is {elsewhere} -- a vendored copy, not a "
                          f"BestPractice clone, so it would fetch the wrong "
                          f"repository. Run the clone's own copy from the "
-                         f"consuming repo: python3 ../BestPractice/tools/"
-                         f"precedent_update.py --repo .")
+                         f"consuming repo: {clone_command(repo)}")
     # A run killed during the deep check can leave its stand-in commit at
     # HEAD; undo it before anything is staged (undo_leftover_standin).
     leftover = undo_leftover_standin(repo)
@@ -3150,6 +3338,7 @@ def update(repo, skip_check=False, ref=None, move=False):
         rep.step('catalogue pin', f'repointed to {follow} '
                  f'(the branch this repo follows; nothing to ask)')
     renamed_sources_step(repo, rep, out)
+    level_alias_step(repo, rep)
     maintainers_step(repo, rep)
 
     # 3. The catalogue, where there is one, by the source clone's checkin.py.
@@ -3436,7 +3625,8 @@ def update(repo, skip_check=False, ref=None, move=False):
                      f'the person\'s go-ahead: "{words}"')
         else:
             rep.ask('hooks and settings',
-                    harness_ask(harness, last=migrates_to_stubs(repo, harness)))
+                    harness_ask(harness, last=migrates_to_stubs(repo, harness),
+                                cases=harness_cases(repo, harness)))
 
     # 4b. Files that still name what the refresh deleted: the full check's
     # rename-updates-links refuses each one at the Promote, so they are
@@ -3781,9 +3971,15 @@ def closing_check(repo, rep, skip_check=False):
         # pushed it -- passes the basic tier and is refused at the Debut.
         cap = next((l.strip() for l in out.splitlines()
                     if l.startswith('WARNING: over a session-load size cap')), None)
+        # The check's own line carries the file, its size, the limit and the
+        # check that measured it (precedent_push_check._cap_warning_last);
+        # a check vendored before 2026-10-08 said only "(<step>, above)",
+        # and nothing of that step's output is in this report, so that
+        # "above" is dropped rather than left pointing at nothing.
         if cap:
-            rep.warnings.append(cap[len('WARNING: '):] + ' This update\'s own '
-                                'regenerated blocks count toward it.')
+            cap = re.sub(r',\s*above\)', ')', cap[len('WARNING: '):])
+            rep.warnings.append(cap + ' This update\'s own regenerated blocks '
+                                'count toward it.')
         if tier != pb.FULL:
             rep.not_run = (f"Only the {tier} check ran, the one {landing} takes. "
                            f"The full check was NOT run; "
@@ -3811,8 +4007,9 @@ def main(argv=None):
     repo = pathlib.Path(a.repo).resolve()
     if repo == SOURCE:
         print("precedent_update FAIL: --repo is this BestPractice clone itself. "
-              "Run it from the consuming repo: "
-              "python3 ../BestPractice/tools/precedent_update.py --repo .")
+              "Run it from the consuming repo: python3 <this clone>/tools/"
+              "precedent_update.py --repo . -- the clone is whichever "
+              "checkout's origin is alex137/BestPractice, wherever it sits.")
         return FAILED
     if a.move and a.from_ref:
         print("precedent_update FAIL: --move and --from-ref both say which "

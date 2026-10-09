@@ -79,6 +79,14 @@ import build_views as bv  # noqa: E402
 import precedent_source_pins as psp  # noqa: E402
 
 
+class NotVerifiable(Exception):
+    """--check cannot judge the views here: they were generated with
+    practices from a person's individual set, and none resolves in this
+    environment (build_views.individual_not_verifiable, the one decision
+    every reader of the loader block shares). Exit 0, and said in those
+    words -- neither drift nor a pass."""
+
+
 
 def _lost_practices(repo, res, sources, withheld):
     """-> {'blocking': [(slug, source)], 'source_dropped': [(slug, source)]}.
@@ -141,7 +149,7 @@ def _lost_practices(repo, res, sources, withheld):
     # universal refused on all fourteen of its rules.
     record_withdrawn = {}
     for s in sources:
-        if s.get('level') == 'universal' and s.get('path'):
+        if pr.declared_level(s) == 'universal' and s.get('path'):
             for slug in pr.withdrawn_record(s['path']):
                 record_withdrawn[(slug, s.get('name'))] = True
 
@@ -399,6 +407,10 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
             f"precedent.json; a person declares their own individual set in "
             f"their user-level config ({pr.DEFAULT_USER_CONFIG}, or "
             f"{pr.USER_CONFIG_ENV}).")
+    if check:
+        why = bv.individual_not_verifiable(pathlib.Path(repo), loaded)
+        if why:
+            raise NotVerifiable(why)
     res = pr.resolve(sources, context=brought)
     for m in res['missing']:
         print(f"precedent_sync_views: the {m['level']} source {m['name']!r} "
@@ -504,7 +516,7 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
     omitted = []
     if public:
         omitted = sorted({p['level'] for p in res['practices'].values()
-                          if p['level'] in bv.PRIVATE_LEVELS})
+                          if pr.declared_level(p) in bv.PRIVATE_LEVELS})
         if omitted:
             # RE-RESOLVE without the private sources rather than filtering
             # them out of the finished result. A private practice can WIN a
@@ -517,9 +529,9 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
             # universal source defines.
             withheld_slugs = sorted(
                 slug for slug, pr_ in res['practices'].items()
-                if pr_['level'] in bv.PRIVATE_LEVELS)
+                if pr.declared_level(pr_) in bv.PRIVATE_LEVELS)
             sources = [s for s in sources
-                       if s['level'] not in bv.PRIVATE_LEVELS]
+                       if pr.declared_level(s) not in bv.PRIVATE_LEVELS]
             res = pr.resolve(sources, context=brought)
             # A slug that a publishable source ALSO defines is not withheld --
             # the re-resolve above brings it back, from text this repo may
@@ -713,7 +725,7 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
                        for r in (res.get('retired') or []) if isinstance(r, dict)}
             # A rule deleted outright has no stub: its record line says where.
             for s_ in sources:
-                if s_.get('level') == 'universal' and s_.get('path'):
+                if pr.declared_level(s_) == 'universal' and s_.get('path'):
                     hist_ = pr.withdrawn_history(s_['path'])
                     for slug_, gone_ in pr.withdrawn_record(s_['path']).items():
                         gone_to.setdefault((slug_, s_.get('name')),
@@ -1078,7 +1090,7 @@ def _waiting_on_a_capability(sources, blocking):
 def _brought_not_on_disk(sources):
     """-> the brought-set entries the individual source declares that are
     not on disk."""
-    ind = next((s for s in sources if s.get('level') == 'individual'), None)
+    ind = next((s for s in sources if pr.declared_level(s) == 'individual'), None)
     if not ind or not ind.get('path'):
         return []
     return [b for b in pr.brought_sources(ind['path'], warn=False)
@@ -1094,7 +1106,7 @@ def _where_removed_went(repo, user_config, removed):
     except Exception:                                        # noqa: BLE001
         return out
     for s in sources:
-        if s.get('level') == 'universal' and s.get('path'):
+        if pr.declared_level(s) == 'universal' and s.get('path'):
             history = pr.withdrawn_history(s['path'])
             for slug, (date, name) in pr.withdrawn_record(s['path']).items():
                 if slug in out and slug in history:
@@ -1352,6 +1364,11 @@ def main():
             repo, user_config, check=check, allow_missing=allow_missing,
             allow_removals=allow_removals, skip_unresolved=skip_unresolved,
             for_branch=for_branch, allow_rollback=allow_rollback)
+    except NotVerifiable as e:
+        print(f"precedent_sync_views --check NOT VERIFIABLE: {e}, so whether "
+              f"the generated views are current was not checked. Re-run where "
+              f"that person's individual set resolves.")
+        return 0
     except (pr.ResolveError, pm.MaterializeError) as e:
         if check and skip_unresolved:
             # The push check's basic tier asks this where a source may not be

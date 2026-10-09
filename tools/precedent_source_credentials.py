@@ -359,6 +359,15 @@ def persist_credential_helper(clone_path, repo_url, env=None, run=None):
     return True
 
 
+def _declared_level(src):
+    """precedent_resolve.declared_level -- `team` read as `shared` -- or
+    the raw field where no resolver sits beside this copy."""
+    pr = _engine_module('precedent_resolve')
+    if pr is not None and hasattr(pr, 'declared_level'):
+        return pr.declared_level(src)
+    return src.get('level') if isinstance(src, dict) else None
+
+
 def _read_json(path):
     try:
         return json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
@@ -523,6 +532,69 @@ _CONFIG_REMEDY = {
 }
 
 
+def _engine_module(name):
+    """-> the engine module `name` beside this file, or None where this
+    copy of the engine predates it."""
+    try:
+        if str(HERE) not in sys.path:
+            sys.path.insert(0, str(HERE))
+        return __import__(name)
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def deleted_declared(repo_root=None, env=None):
+    """-> [(name, info)] for each shared set this repo's precedent.json
+    declares that is deleted (precedent_resolve.declared_deleted_sets, the
+    one reader), with the person's own deleted sets read from the user
+    config `env` names.
+
+    A deleted set is skipped by the session-start clone on purpose, so it is
+    never an unresolved source. Reported 2026-10-09 from a consumer: two
+    deleted sets were counted here as "did not resolve ... a credential IS
+    set ... look at what git said", and the session went looking for a git
+    or proxy fault behind a clone nothing had attempted."""
+    env = os.environ if env is None else env
+    pr = _engine_module('precedent_resolve')
+    if pr is None or not hasattr(pr, 'declared_deleted_sets'):
+        return []
+    try:
+        return pr.declared_deleted_sets(repo_root or ROOT,
+                                        user_config=_user_config_path(env))
+    except Exception:                                       # noqa: BLE001
+        return []
+
+
+def _deleted_note(repo_root, env):
+    """-> ' ' + the one-line note on declared deleted sets, or ''."""
+    pr = _engine_module('precedent_resolve')
+    found = deleted_declared(repo_root, env)
+    if not found or pr is None:
+        return ''
+    return ' Not counted: ' + pr.deleted_sets_note(found)
+
+
+def _git_said(unresolved, env):
+    """-> ' ' + what git said the last time session start tried to clone
+    each unresolved source (precedent_source_bootstrap's clone notes), or ''
+    when nothing was kept. The bootstrap's stderr scrolls past at session
+    start; this is where a later gate can still read it."""
+    psb = _engine_module('precedent_source_bootstrap')
+    if psb is None or not hasattr(psb, 'read_clone_failures'):
+        return ''
+    notes = psb.read_clone_failures(env)
+    said = []
+    for _level, name, _why in unresolved:
+        n = notes.get(name)
+        if isinstance(n, dict) and n.get('output'):
+            when = f" at {n['when']}" if n.get('when') else ''
+            said.append(f"{name}{when}: {' '.join(str(n['output']).split())}")
+    if not said:
+        return ''
+    return (' What git said when session start last tried to clone it -- '
+            + ' | '.join(said) + '.')
+
+
 def unresolved_private_sources(repo_root=None, env=None):
     """-> [(level, name, why)] for every PRIVATE-level source this repo
     expects and this session does not have on disk.
@@ -537,13 +609,18 @@ def unresolved_private_sources(repo_root=None, env=None):
     out = []
 
     cfg = _read_json(root / 'precedent.json') or {}
+    deleted = {n for n, _ in deleted_declared(root, env)}
     for src in cfg.get('sources', []) or []:
         # 'shared' since 2026-09-18; 'team' is the old spelling a config
         # written before then still carries. Until 2026-09-29 this read only
         # 'team', so every set declared the current way was skipped and a
         # missing shared set was never reported -- the retired word hid the
-        # bug (practice: rename-updates-links).
-        if src.get('level') not in ('shared', 'team'):
+        # bug (practice: rename-updates-links). Read through the resolver's
+        # one reader since 2026-10-09, so neither word is spelled here.
+        if _declared_level(src) != 'shared':
+            continue
+        if str(src.get('name') or '').strip() in deleted:
+            # Deleted, so never cloned: not unresolved (deleted_declared).
             continue
         path = (root / str(src.get('path', ''))).resolve()
         if not (path / 'practices').is_dir():
@@ -640,9 +717,11 @@ def assess(repo_root=None, env=None):
     """
     env = os.environ if env is None else env
     unresolved = unresolved_private_sources(repo_root, env)
+    deleted_note = _deleted_note(repo_root, env)
     if not unresolved:
         return 'ok', (f'every private practice source this repo expects is on '
-                      f'disk; {TOKEN_ENV} is not needed here')
+                      f'disk; {TOKEN_ENV} is not needed here' + deleted_note)
+    said = _git_said(unresolved, env)
     named = ', '.join(f'{level}/{name}' for level, name, _ in unresolved)
     detail = '; '.join(why for _, _, why in unresolved)
 
@@ -678,7 +757,8 @@ def assess(repo_root=None, env=None):
                 f'the individual practice source did not resolve, and this is '
                 f'not an access problem: {cfg_path} -- '
                 f'{_CONFIG_REMEDY[cfg_code]} {TOKEN_ENV} is not involved '
-                f'either way, so do not change it on account of this line.')
+                f'either way, so do not change it on account of this line.'
+                + deleted_note)
         tail = _CONFIG_HOSTED_CLAUSE
 
     var = token_var(env)
@@ -694,14 +774,15 @@ def assess(repo_root=None, env=None):
             f'is refused for most repositories because it is scoped to the '
             f'ones the harness attached. '
             + tail +
-            f' Sources: {detail}')
+            f' Sources: {detail}.' + said + deleted_note)
     if (env.get(TOKEN_ENV) or '').strip() == INHERIT:
         return 'missing', (
             f'{len(unresolved)} private source(s) did not resolve ({named}). '
             f'{TOKEN_ENV}={INHERIT} asked to use this container\'s own git '
             f'credential, and none of {", ".join(INHERITED_ENVS)} is set -- so '
             f'there was nothing to inherit and no credential was sent. Set '
-            f'{TOKEN_ENV} to a real token instead. Sources: {detail}')
+            f'{TOKEN_ENV} to a real token instead. Sources: {detail}.'
+            + said + deleted_note)
     return 'missing', (
         f'{len(unresolved)} private source(s) did not resolve ({named}), and '
         f'{TOKEN_ENV} is not set in this environment. Until one of the two is '
@@ -719,7 +800,7 @@ def assess(repo_root=None, env=None):
         f'"never set" and "set after this container started" -- start a NEW '
         f'session and check `env | grep -c PRECEDENT` before concluding '
         f'anything about the token itself. '
-        + tail)
+        + tail + said + deleted_note)
 
 
 def remind(repo_root=None, env=None, prefix='precedent_source_credentials'):

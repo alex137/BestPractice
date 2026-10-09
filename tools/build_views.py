@@ -470,7 +470,20 @@ def _approx_tokens(text):
 # tools/precedent_session_practices.py renders exactly this complement into
 # an untracked file instead -- one definition, so the two cannot disagree
 # about which practices a public repo's session is otherwise never shown.
-PRIVATE_LEVELS = ('shared', 'team', 'individual')
+PRIVATE_LEVELS = ('shared', 'individual')
+
+
+def _declared_level(src):
+    """precedent_resolve.declared_level -- a declared source's level with
+    `team` read as `shared` -- imported when called, since that module
+    imports this one. Compare levels only through it: a list of private
+    levels then never needs the old word in it. A copy of this file with no
+    resolver beside it has only the raw field."""
+    try:
+        import precedent_resolve as _pr
+    except Exception:                                           # noqa: BLE001
+        return src.get('level') if isinstance(src, dict) else None
+    return _pr.declared_level(src)
 
 
 _VISIBILITY_WARNED = set()
@@ -555,8 +568,8 @@ def repo_is_public(root):
             for src in (json.loads(
                     (pathlib.Path(root) / 'precedent.json').read_text(
                         encoding='utf-8')).get('sources') or []):
-                if src.get('level') in PRIVATE_LEVELS:
-                    dropped.append(f"{src.get('level')}:{src.get('name')}")
+                if _declared_level(src) in PRIVATE_LEVELS:
+                    dropped.append(f"{_declared_level(src)}:{src.get('name')}")
         except (ValueError, OSError, AttributeError, TypeError):
             dropped = []
         if dropped:
@@ -1151,6 +1164,30 @@ def _occasion_clause(rule_text, max_len=90):
 # full by every session, so a line that routes nothing is paid for every turn.
 INDEX_REQUIRED_FIELD = 'index_required'
 
+# AN ADDITION LOADS WITH THE RULE IT ADDS TO (Morgan, 2026-10-09, strength:
+# decided, "Option 1"). A set may hold a footnote to another source's rule:
+# what that rule means where the set is in force. It used to reach a session
+# only through an occasion-index line of its own, some forced in with
+# index_required, so every session paid a line for a rule it already had in
+# view whenever the base did. `adds_to: <slug>` names the base instead, and
+# every channel that shows the base shows the addition with it:
+# precedent_show.py SLUG, the gate that prints the base, and a spoken-command
+# line's marker. So an addition never gets an index line of its own and is
+# never resident (spec/PRACTICE_FORMAT.md, "adds_to").
+ADDS_TO_FIELD = 'adds_to'
+
+
+def adds_to(fm):
+    """-> the slug this practice adds to, or '' when it adds to none (the
+    field absent, empty or `null`). The one reading of the field, so the
+    renderer, the check and every channel that attaches an addition to its
+    base agree on what counts as one."""
+    raw = fm.get(ADDS_TO_FIELD)
+    if not isinstance(raw, str):
+        return ''
+    value = _json_str(raw).strip()
+    return '' if value in ('', 'null') else value
+
 
 def _routes_by_path(fm):
     """True when `applies_to` names REAL paths, so precedent_paths.py fires.
@@ -1196,6 +1233,28 @@ def index_is_redundant(fm):
         return False
     gates = _json_list(fm.get('gates', '')) or []
     return _routes_by_path(fm) or bool(gates)
+
+
+def lands_in_occasion_index(fm, omit_commands=False):
+    """Whether this practice costs an occasion-index line in a block that
+    carries it -- the one test build_loader_block applies, kept here so
+    precedent_check.py's `code-owner-practice-stays-out-of-the-index` asks
+    the same question the renderer answers. `omit_commands` as there: the
+    session file leaves a command's line out, since its spoken words are
+    listed on their own.
+
+    An addition (`adds_to:`) never lands: it loads with the rule it adds
+    to, through precedent_show.py and the gates (ADDS_TO_FIELD)."""
+    if fm.get('tier') != 'on-demand' or not _json_str(fm.get('occasion', '')):
+        return False
+    if adds_to(fm):
+        # Shown with its base wherever the base is shown, so a line of its
+        # own would be paid for twice -- index_required included, which
+        # asked for a line only because no other channel existed then.
+        return False
+    if omit_commands and command_phrases(fm):
+        return False
+    return not index_is_redundant(fm)
 
 
 def command_phrases(fm):
@@ -1480,8 +1539,11 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     block_dir = (pathlib.Path(block_dir) if block_dir is not None else ROOT).resolve()
     repo_root = (pathlib.Path(repo_root).resolve()
                  if repo_root is not None else block_dir)
+    # An addition is never resident: it loads with the rule it adds to
+    # (ADDS_TO_FIELD), and precedent_check's `adds-to-names-a-rule-in-force`
+    # refuses one marked resident.
     resident = [(fm, sections, f) for fm, sections, f in practices
-                if fm.get('tier') == 'resident']
+                if fm.get('tier') == 'resident' and not adds_to(fm)]
     resident.sort(key=lambda t: t[0]['slug'])
 
     placed = []
@@ -1521,14 +1583,11 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     routed_out = []
     for fm, sections in on_demand:
         occasion = _json_str(fm.get('occasion', ''))
-        if not occasion:
-            continue
-        if omit_commands and command_phrases(fm):
-            continue
-        if index_is_redundant(fm):
-            routed_out.append(fm['slug'])
-            continue
-        by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
+        if lands_in_occasion_index(fm, omit_commands):
+            by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
+        elif occasion and not adds_to(fm) \
+                and not (omit_commands and command_phrases(fm)):
+            routed_out.append(fm['slug'])       # index_is_redundant
 
     index_lines = []
     for occasion in sorted(by_occasion):
@@ -1956,8 +2015,8 @@ def _split_declared(root, declared):
                 f"second copy of it")
         return tracked, deferred, notes
     if repo_is_public(root):
-        deferred = [s for s in declared if s['level'] in PRIVATE_LEVELS]
-        tracked = [s for s in declared if s['level'] not in PRIVATE_LEVELS]
+        deferred = [s for s in declared if _declared_level(s) in PRIVATE_LEVELS]
+        tracked = [s for s in declared if _declared_level(s) not in PRIVATE_LEVELS]
         if deferred:
             notes.append(
                 f"{', '.join(s['name'] + ' (' + s['level'] + ')' for s in deferred)} "
@@ -2040,7 +2099,74 @@ def source_levels_from_manifest(root):
 
 
 class _BlockNotVerifiable(Exception):
-    """A declared source is unreachable, so the block cannot be judged."""
+    """A source the block was built from is unreachable here, so the block
+    cannot be judged. The reason, when there is one, is its first argument."""
+
+
+# The two marks render_agents_md leaves of individual-level practices in a
+# block: the "machine-dependent" disclosure paragraph, and the resident
+# header's level breakdown, "(5 individual, 6 universal)".
+_INDIVIDUAL_PARAGRAPH = re.compile(
+    r'\*\*(\d+) of the practices in this generated\s+tree came from an '
+    r'INDIVIDUAL source\*\*')
+_INDIVIDUAL_IN_HEADER = re.compile(r'[(,]\s*(\d+) individual[,)]')
+
+
+def committed_individual_count(root):
+    """-> how many individual-level practices this repository's COMMITTED
+    views say were in force when they were generated, 0 when none.
+
+    The one reader of that evidence, for every check that regenerates or
+    measures the loader block. Three places can show it: the loader block's
+    disclosure paragraph, its resident header's level breakdown, and the
+    levels MANIFEST.json records. Each can be absent on its own (a block
+    with no resident practice has neither of the first two), so the largest
+    count any of them shows is the answer."""
+    counts = [0]
+    agents = root / 'AGENTS.md'
+    try:
+        text = agents.read_text(encoding='utf-8') if agents.is_file() else ''
+    except OSError:
+        text = ''
+    if BEGIN_MARKER in text and END_MARKER in text:
+        block = text[text.index(BEGIN_MARKER):text.index(END_MARKER)]
+        counts += [int(m) for m in _INDIVIDUAL_PARAGRAPH.findall(block)]
+        for line in block.splitlines():
+            if line.startswith('## Resident block'):
+                counts += [int(m) for m in _INDIVIDUAL_IN_HEADER.findall(line)]
+    levels = source_levels_from_manifest(root) or {}
+    counts.append(sum(1 for lvl in levels.values() if lvl == 'individual'))
+    return max(counts)
+
+
+def individual_not_verifiable(root, sources):
+    """-> why the loader block cannot be judged here, or None.
+
+    THE SHARED DECISION for every check that regenerates or measures the
+    loader block (build_views --check and --budgets, and
+    precedent_sync_views --check, which precedent_check and the push check
+    call). An individual source is never declared in a repository's own
+    precedent.json: it resolves through the person's user-level config, so
+    on a bare GitHub runner it is not "missing", it is simply not there, and
+    the declared-source guard in loader_practices never sees it. A block
+    committed with individual practices, regenerated without them, read as
+    hand-edited -- a consuming repository's pull request into main failed
+    GitHub's light check on exactly that, with nothing stale (2026-10-09).
+
+    `sources` is what load_config returned here: an individual source
+    declared in the user config is in it even when its clone is absent, and
+    that case is the ordinary missing-source report. This answers only the
+    other one -- no individual source at all, while the committed views say
+    one was in force -- so a real hand-edit is still caught wherever the
+    person's individual set does resolve."""
+    if any(_declared_level(s) == 'individual' for s in sources):
+        return None
+    n = committed_individual_count(root)
+    if not n:
+        return None
+    return (f"the committed views carry {n} practice(s) from an individual "
+            f"source, which resolves through a person's user-level config, "
+            f"and none resolves in this environment")
 
 
 def _code_owners_only(fm):
@@ -2053,8 +2179,15 @@ def _code_owners_only(fm):
     return _pa.for_code_owners(fm)
 
 
-def loader_practices(root, own_practices):
+def loader_practices(root, own_practices, individual_absent='notice'):
     """-> (practices, source_levels) for the AGENTS.md loader block.
+
+    `individual_absent` says what to do when the committed block carries
+    individual practices and no individual set resolves here
+    (individual_not_verifiable): 'raise' _BlockNotVerifiable, for a run that
+    only judges the block (--check, --budgets); 'notice', for a write, which
+    goes on and says what it leaves out; 'ignore', for a run that never
+    touches the block (--views-only).
 
     THE BLOCK RENDERS EVERY SOURCE THE REPO DECLARES, not just its own
     catalogue. Precedent's own repo declares three -- universal (itself),
@@ -2111,6 +2244,7 @@ def loader_practices(root, own_practices):
               file=sys.stderr)
         return own_practices, source_levels_from_manifest(root)
 
+    loaded = declared
     # Exclude, keep going, and SAY so on stderr rather than silently.
     declared, _deferred, _notes = sources_for_tracked_block(root, declared)
     for n in _notes:
@@ -2119,6 +2253,18 @@ def loader_practices(root, own_practices):
     # Only this repo's own source: nothing to merge, keep the old path.
     if len(declared) <= 1:
         return own_practices, source_levels_from_manifest(root)
+
+    # The individual set is not declared here, so the missing-source guard
+    # below never sees it: in a bare checkout it is absent, not missing.
+    why = individual_not_verifiable(root, loaded)
+    if why and individual_absent == 'raise':
+        print(f"build_views: NOT VERIFIABLE -- {why}, so the loader block can "
+              f"be neither confirmed current nor reported stale here. Re-run "
+              f"where that person's individual set resolves.", file=sys.stderr)
+        raise _BlockNotVerifiable(why)
+    if why and individual_absent == 'notice':
+        print(f"build_views NOTICE: {why}; the block written here leaves "
+              f"those practices out.", file=sys.stderr)
 
     # A brought set is left out of the block but still counts for what is in
     # force (precedent_resolve.resolve's `context`).
@@ -2161,7 +2307,7 @@ def loader_practices(root, own_practices):
     # without it, a real consumer's AGENTS.md disagreed permanently with
     # what precedent_sync_views.py (materialize.py + build_views.py
     # --agents-only) actually produces for the same tree.
-    if not any(s['level'] == 'universal' and _same_repository(s['path'], root)
+    if not any(_declared_level(s) == 'universal' and _same_repository(s['path'], root)
                for s in declared):
         resolved = {slug: v for slug, v in resolved.items()
                     if not _is_engine_dev_scoped(v['fm'])}
@@ -2962,8 +3108,11 @@ def main():
     # the set it publishes. Only the loader block covers every declared
     # source, because that block is what a session actually loads.
     try:
-        block_practices, levels = loader_practices(root, practices)
-    except _BlockNotVerifiable:
+        block_practices, levels = loader_practices(
+            root, practices,
+            individual_absent=('ignore' if views_only else
+                               'raise' if check or STRICT_BUDGETS else 'notice'))
+    except _BlockNotVerifiable as e:
         # Exit 0: not verified is not a failure, and not a pass either --
         # the reason is already on stderr, in those words.
         if check:
@@ -2974,8 +3123,9 @@ def main():
         # write refusal below). It says it measured nothing, in words
         # precedent_check.py turns into COULD NOT VERIFY, never a pass.
         if STRICT_BUDGETS:
-            print(BUDGETS_NOT_VERIFIED + ": a declared source is not "
-                  "reachable here, so the loader block's caps were not measured")
+            print(BUDGETS_NOT_VERIFIED + ": " + (
+                e.args[0] if e.args else "a declared source is not reachable "
+                "here") + ", so the loader block's caps were not measured")
             return 0
         sys.exit("build_views FAIL: refusing to WRITE a loader block from an "
                  "incomplete source set -- that would silently drop every "

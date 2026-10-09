@@ -85,6 +85,17 @@ main; that pull request's GitHub test is main's last gate, so main itself
 is never pushed from here. That state exits 3 (PROMOTE_MAIN_NOT_MOVED), not
 0, and says first that main has not moved: exit 0 means the branch moved.
 
+EVERY PROMOTE ENDS WITH ONE RESULT LINE (2026-10-08). Whatever path a run
+takes -- moved, nothing to move, refused, not finished, ready for main's
+pull request, or stopped by an error -- the last line it prints is
+
+  PROMOTE RESULT: <to> <- <from>: <verdict>
+
+with any commit in it written in full. A session reads that one line from
+the command's own output: a consuming repository's session that wrote a
+Debut's log to a file was refused the `tail` that would have read it back,
+and could not say whether the Debut had worked.
+
 IN A PRIVATE REPOSITORY THAT GITHUB TEST RUNS AT MOST ONCE EVERY
 github_ci_every_hours (2026-10-01, spec/CI_CADENCE_PLAN.md, "Promote
 decides"; see main_test_due). When it is not due, the copy is named
@@ -1030,6 +1041,126 @@ def _changed_into_main(root, sha):
     return [l for l in r.stdout.splitlines() if l.strip()]
 
 
+# A WORKFLOW GITHUB SKIPS HERE BY DESIGN IS NOT ONE OF MAIN'S GITHUB TESTS
+# (2026-10-09). The leak-gate template gates its only job on
+# `github.event.repository.private != true`: in a private repository it never
+# runs, and GitHub records a skipped run for it on every pull request. A
+# skipped run never counts as a pass (github_test_state), so a private
+# consumer's wait read "leak-gate.yml never ran on it. Do not merge" on every
+# pull request into main, for good, and the due check blamed an Update
+# Vendors that would bring the same file. One definition, read by every
+# reader of main's GitHub test: a workflow whose jobs are ALL gated off in a
+# private repository, in a repository whose precedent.json declares
+# visibility private. Anything else skipped still never reads as passed.
+_PRIVATE_GATE = re.compile(
+    r'\A(?:github\.event\.repository\.private\s*!=\s*true'
+    r'|!\s*github\.event\.repository\.private'
+    r'|github\.event\.repository\.private\s*==\s*false)\Z')
+
+
+def _conjuncts(expr):
+    """-> the top-level `&&` parts of a workflow expression, each stripped of
+    `${{ }}` and of parentheses that wrap the whole part."""
+    expr = expr.strip()
+    if expr.startswith('${{') and expr.endswith('}}'):
+        expr = expr[3:-2].strip()
+    parts, depth, start, quote = [], 0, 0, False
+    i = 0
+    while i < len(expr):
+        c = expr[i]
+        if c == "'":
+            quote = not quote
+        elif not quote and c == '(':
+            depth += 1
+        elif not quote and c == ')':
+            depth -= 1
+        elif not quote and depth == 0 and expr.startswith('&&', i):
+            parts.append(expr[start:i])
+            start = i + 2
+            i += 1
+        i += 1
+    parts.append(expr[start:])
+    out = []
+    for p in parts:
+        p = ' '.join(p.split())
+        while p.startswith('(') and p.endswith(')') and _balanced(p[1:-1]):
+            p = p[1:-1].strip()
+        out.append(p)
+    return out
+
+
+def _balanced(text):
+    """True when `text`'s parentheses pair up on their own."""
+    depth = 0
+    for c in text:
+        depth += {'(': 1, ')': -1}.get(c, 0)
+        if depth < 0:
+            return False
+    return depth == 0
+
+
+def _job_conditions(text):
+    """-> [the job-level `if:` expression, or None] for each job in a
+    workflow's text; [] when it declares none."""
+    lines = text.splitlines()
+    at = next((i for i, l in enumerate(lines) if re.match(r'jobs:[ \t]*(#.*)?$', l)), None)
+    if at is None:
+        return []
+    body = []
+    for l in lines[at + 1:]:
+        if l.strip() and not l[0].isspace() and not l.startswith('#'):
+            break
+        body.append(l)
+
+    def indent(l):
+        return len(l) - len(l.lstrip(' '))
+    real = [l for l in body if l.strip() and not l.lstrip().startswith('#')]
+    if not real:
+        return []
+    job_at = indent(real[0])
+    prop_at = next((indent(l) for l in real if indent(l) > job_at), None)
+    conds = []
+    i = 0
+    while i < len(body):
+        l = body[i]
+        i += 1
+        if not l.strip() or l.lstrip().startswith('#'):
+            continue
+        if indent(l) == job_at:
+            conds.append(None)
+            continue
+        m = re.match(r' *if:[ \t]*(.*)$', l)
+        if not (conds and m and indent(l) == prop_at and conds[-1] is None):
+            continue
+        value = m.group(1).strip()
+        if value[:1] in ('>', '|'):          # a folded or literal block
+            more = []
+            while i < len(body) and (not body[i].strip() or indent(body[i]) > prop_at):
+                more.append(body[i].strip())
+                i += 1
+            value = ' '.join(x for x in more if x)
+        elif len(value) > 1 and value[0] == value[-1] == '"':
+            value = value[1:-1]
+        conds[-1] = value
+    return conds
+
+
+def skipped_by_design(root, text):
+    """True when GitHub never runs this workflow's jobs in this repository:
+    every job is gated on `github.event.repository.private != true` (or
+    `!github.event.repository.private`) as a whole condition or a top-level
+    `&&` part of one, and precedent.json declares visibility private. Main's
+    GitHub test leaves such a workflow out, and nothing else does: in a
+    public repository, or for a workflow skipped for any other reason, a
+    skipped run is still a run that did not happen."""
+    if precedent_json(root).get('visibility') != 'private':
+        return False
+    conds = _job_conditions(text or '')
+    return bool(conds) and all(
+        c is not None and any(_PRIVATE_GATE.match(p) for p in _conjuncts(c))
+        for c in conds)
+
+
 def github_tests(root, sha):
     """-> [(path, dispatchable)] for each workflow in `sha`'s tree that runs
     on a pull request of `sha` into main: main's GitHub test. [] when the
@@ -1045,7 +1176,12 @@ def github_tests(root, sha):
     required. 2026-10-04: a consumer's Produce touched neither path of its
     docs check, GitHub rightly never ran it, and the wait said "never ran
     on it. Do not merge" for good. When the diff cannot be read, the
-    workflow is required, as before."""
+    workflow is required, as before.
+
+    A workflow GitHub never runs in this repository (skipped_by_design: a
+    private repository, and every job gated off there) is not required
+    either; its skipped run is not a pass, and waiting for one waited
+    forever (2026-10-09)."""
     out = []
     changed = False   # read once, and only for a workflow with a path filter
     names = _git(root, 'ls-tree', '--name-only', f'{sha}:.github/workflows') or ''
@@ -1054,6 +1190,8 @@ def github_tests(root, sha):
             continue
         path = f'.github/workflows/{name}'
         text = _git(root, 'show', f'{sha}:{path}') or ''
+        if skipped_by_design(root, text):
+            continue
         on = re.search(r'^on:[ \t]*(.*)\n((?:[ \t]+.*\n|[ \t]*#.*\n|\n)*)', text + '\n', re.M)
         if not on:
             continue
@@ -1273,6 +1411,11 @@ def _run_github_test(root, sha, tests, say, gh=None):
 # "if and only if the setting is turned on ... AND the number of hours is
 # more than the number defined since the last successful test".
 NOT_DUE_PREFIX = 'to-main-not-due-'
+# The installed workflows whose CURRENT template (templates/github-actions/
+# <name>.template) carries the not-due skip: the only ones Update Vendors
+# can bring it to. A consumer has no templates beside its engine, so this
+# names them; verify_harness.py checks it against the templates themselves.
+NOT_DUE_SKIP_TEMPLATES = ('light-check.yml',)
 CADENCE_KEYS = ('github_ci_every_hours', 'ci_every_hours')
 FORCE_ENV = 'PRECEDENT_CI_NOW'
 
@@ -1464,9 +1607,16 @@ def main_test_due(root, tip, gh=None, user_config=None):
     old = [p for p, _ in tests
            if NOT_DUE_PREFIX not in (_git(root, 'show', f'{tip}:{p}') or '')]
     if old:
-        return True, (f'{note}{old[0]} predates the not-due skip, so it runs on every '
-                      f'pull request into {MAIN} until Update Vendors brings the '
-                      f'current one')
+        # Update Vendors cures this only where the current template carries
+        # the skip. Until 2026-10-09 every such workflow was told to wait for
+        # one, leak-gate.yml included, whose template has never had it.
+        if old[0].rsplit('/', 1)[-1] in NOT_DUE_SKIP_TEMPLATES:
+            return True, (f'{note}{old[0]} predates the not-due skip, so it runs on '
+                          f'every pull request into {MAIN} until Update Vendors '
+                          f'brings the current one')
+        return True, (f'{note}{old[0]} has no not-due skip, and no template this '
+                      f'engine ships gives it one, so GitHub runs it on every pull '
+                      f'request into {MAIN} whatever this decides')
     when, problem = last_main_test_pass(root, tests, gh)
     if problem:
         return True, note + problem
@@ -1557,9 +1707,12 @@ def _at_head(sha):
     expected head. A merge through GitHub's API takes the head it expects in
     full (expectedHeadSha), and the twelve-character form printed everywhere
     else here is refused there; a session in nomen-omen read the short one
-    back and had to look the rest up (2026-10-06). Pinning the head also
+    back and had to look the rest up (2026-10-06); a session elsewhere passed
+    seven characters, the merge failed, and auto mode then refused even its
+    reads (2026-10-08), so the line says so outright. Pinning the head also
     means a copy that moved after its check is not merged by mistake."""
-    return f', at head commit {sha}' if sha else ''
+    return (f', at head commit {sha} -- the merge tool takes all 40 '
+            f'characters, as here, or no expected head at all' if sha else '')
 
 
 def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
@@ -2233,7 +2386,67 @@ def retired_set_hold(root, env=None):
             'with PRECEDENT_RETIRED_SET_EDIT="<their words>".')
 
 
+# What the run that is under way decided, for promote_result_line: set by
+# _verdict at the point each path knows it, read once the run is over.
+_RESULT = {}
+
+
+def _verdict(text, move=None):
+    """Record this Promote's verdict, one line, for its closing result line."""
+    _RESULT['verdict'] = ' '.join(str(text).split())
+    if move:
+        _RESULT['move'] = move
+
+
+_REASON_PREFIXES = ('PROMOTE REFUSED: ', 'NOT PROMOTED: ', 'PROMOTE NOT FINISHED, ')
+
+
+def promote_result_line(root, rc, to=None, last=''):
+    """-> the single line a Promote ends on: which move, and what became of
+    it. `rc` is the run's exit status (None when an error stopped it) and
+    `last` the last thing it said, the reason when no path recorded one."""
+    try:
+        staging = staging_branch(root)
+    except Exception:
+        staging = STAGING
+    move = _RESULT.get('move') or (
+        f'{MAIN} <- {staging}' if to == MAIN else f'{staging} <- {PRE_STAGING}')
+    verdict = _RESULT.get('verdict')
+    if not verdict:
+        reason = ' '.join((str(last or '').strip().splitlines() or [''])[0].split())
+        for prefix in _REASON_PREFIXES:
+            if reason.startswith(prefix):
+                reason = reason[len(prefix):]
+        reason = reason[:240] or 'see the lines above'
+        if rc is None:
+            verdict = f'NOT PROMOTED: the run stopped on an error ({reason})'
+        elif rc == 0:
+            verdict = f'NOTHING PROMOTED: {reason}'
+        else:
+            verdict = f'NOT PROMOTED: {reason}'
+    return f'PROMOTE RESULT: {move}: {verdict}'
+
+
 def promote(root, say=print, to=None, work=None):
+    """Run a Promote (_promote_run) and end it, on every path -- an error and
+    a refusal included -- with promote_result_line as the last thing said.
+    -> _promote_run's exit status."""
+    _RESULT.clear()
+    last = ['']
+
+    def heard(msg=''):
+        last[0] = msg
+        say(msg)
+    rc = None
+    try:
+        rc = _promote_run(root, heard, to, work)
+        return rc
+    finally:
+        say(promote_result_line(root, rc, to, last[0]))
+        _RESULT.clear()
+
+
+def _promote_run(root, say=print, to=None, work=None):
     """Pick the step (promotion_step), SAY it, then run it, one window at a
     time. -> 0 promoted, nothing to promote, or another window already
     promoting; 1 refused (a failing check, a conflict, a race);
@@ -2252,12 +2465,14 @@ def promote(root, say=print, to=None, work=None):
         # staging branch, and left its lock branch behind on origin.
         say(f'this repository has only {MAIN}, and work lands there '
             f'directly, so there is nothing to promote.')
+        _verdict(f'NOTHING TO PROMOTE: this repository has only {MAIN}')
         return 0
     step, why = promotion_step(root, to, work)
     staging = staging_branch(root)
     above = _drifted_from_above(root) if step is None else []
     if step is None and not above:
         say(f'nothing to promote: {why}.')
+        _verdict(f'NOTHING TO PROMOTE: {why}')
         return 0
     if step is None:
         # Nothing climbs, but something arrived from above -- a bot commit
@@ -2287,6 +2502,8 @@ def promote(root, say=print, to=None, work=None):
             f'nothing. It carries what was on {PRE_STAGING} when it started; '
             f'anything pushed there since goes in the next Promote. Do not '
             f'Promote again while it runs.')
+        _verdict(f'NOT PROMOTED: another window is promoting right now ({info}); '
+                 f'do not Promote again while it runs')
         return 0
     if state == 'none':
         say(f'NOTE: could not take the Promote lock ({info}); going ahead '
@@ -2588,6 +2805,8 @@ def _promote_to_main(root, say=print, work=None):
     batch = _new_commits(root, mtip, stip)
     if not batch:
         say(f'nothing to promote: {MAIN} already has everything on {staging}.')
+        _verdict(f'NOTHING TO PROMOTE: {MAIN} already has everything on '
+                 f'{staging} ({stip})', move=f'{MAIN} <- {staging}')
         return 0
     with _Worktree(root, mtip) as wt:
         copy_tip = main_copy_tip(
@@ -2665,6 +2884,11 @@ def _promote_to_main(root, say=print, work=None):
            + ('' if due else ' (or, for this not-due copy, NOT DUE)')
            + _at_head(copy_tip)) +
         f'. Never open it from {staging} itself.')
+    _verdict(f'READY FOR {MAIN.upper()}: open a pull request from {copy} into '
+             f'{MAIN}, then merge with expectedHeadSha {copy_tip}'
+             + ('' if none_runs else ' once its GitHub test says PASSED'
+                + ('' if due else ' (or NOT DUE)'))
+             + f'; {MAIN} has not moved yet', move=f'{MAIN} <- {staging}')
     return PROMOTE_MAIN_NOT_MOVED
 
 
@@ -2808,6 +3032,8 @@ def _promote_unlocked(root, say=print, work=None):
     if not fix and not above and _run(root, 'merge-base', '--is-ancestor', ptip,
                                       stip).returncode == 0 and not staging_brings:
         say(f'nothing to promote: {staging} already has everything on {PRE_STAGING}.')
+        _verdict(f'NOTHING TO PROMOTE: {staging} already has everything on '
+                 f'{PRE_STAGING} ({stip})', move=f'{staging} <- {PRE_STAGING}')
         return 0
     from_above = '; '.join(f'{b}\'s {len(c)} commit(s)' for b, _, c in above)
     with _Worktree(root, stip) as wt:
@@ -2843,6 +3069,8 @@ def _promote_unlocked(root, say=print, work=None):
             [f'{new}:refs/heads/{PRE_STAGING}'] if new != ptip else [])
         if not refs:
             say(f'nothing to promote: {staging} and {PRE_STAGING} are level.')
+            _verdict(f'NOTHING TO PROMOTE: {staging} and {PRE_STAGING} are level '
+                     f'at {new}', move=f'{staging} <- {PRE_STAGING}')
             return 0
         p = _run(wt, 'push', '--atomic', '-q', 'origin', *refs)
         if p.returncode != 0 and 'does not support --atomic' in p.stderr:
@@ -2877,6 +3105,8 @@ def _promote_unlocked(root, say=print, work=None):
             f'and they passed the full check.')
     say(f'{staging} and {PRE_STAGING} are both at {new[:12]} now.')
     _mirror_legacy(root, staging, new, say)
+    _verdict(f'PROMOTED at {new} ({staging} and {PRE_STAGING} are both there)',
+             move=f'{staging} <- {PRE_STAGING}')
     return 0
 
 
@@ -2918,6 +3148,8 @@ def _not_finished(root, say, sha, staging, what, todo):
     again, so nothing is lost if the container goes; it reaches origin only
     when the session pushes a fix to it."""
     fix = _fix_branch(root)
+    reason = ' '.join((str(what).strip().splitlines() or [''])[0].split())[:240]
+    _verdict(f'NOT PROMOTED: {reason}', move=f'{staging} <- {PRE_STAGING}')
     b = _run(root, 'branch', fix, sha)
     if b.returncode != 0:
         say(f'PROMOTE NOT FINISHED, and neither {staging} nor {PRE_STAGING} '
@@ -2931,6 +3163,9 @@ def _not_finished(root, say, sha, staging, what, todo):
         f'with `git push -u origin {fix}`; then\n'
         f'  python3 tools/precedent_branches.py --promote --to staging --work {fix}\n'
         f'which takes the fix in first and moves both tiers together.')
+    _verdict(f'NOT PROMOTED: {reason} The composition is on the local branch '
+             f'{fix} ({sha}); fix it there, push it, and Promote again with '
+             f'--work {fix}', move=f'{staging} <- {PRE_STAGING}')
     return 1
 
 
@@ -2944,6 +3179,8 @@ def _raced(root, say, staging, stip, ptip, new, p):
         say(f'{staging} moved to the checked composition ({new[:12]}), but '
             f'{PRE_STAGING} gained work while the check ran, so it was not '
             f'moved; the next Promote levels it.')
+        _verdict(f'PROMOTED at {new} ({staging} only; {PRE_STAGING} gained work '
+                 f'meanwhile and was not moved)', move=f'{staging} <- {PRE_STAGING}')
         return 0
     if now_s != stip:
         # Most often another window promoted the same batch while this one
@@ -2957,6 +3194,8 @@ def _raced(root, say, staging, stip, ptip, new, p):
                 f'{staging} ({now_s[:12]}) already has everything that was on '
                 f'{PRE_STAGING}. Nothing was pushed, and there is nothing '
                 f'left to promote.')
+            _verdict(f'NOTHING TO PROMOTE: another window promoted this batch; '
+                     f'{staging} is at {now_s}', move=f'{staging} <- {PRE_STAGING}')
             return 0
         say(f'{staging} moved while the check ran, so nothing was pushed; '
             f'Promote again. ({p.stderr.strip()[:200]})')

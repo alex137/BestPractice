@@ -99,6 +99,14 @@ fi
 # against each other line by line. Each step reports and never gates,
 # exactly like every other block here.
 
+# Where this session starts, recorded now: the branch and commit, so the
+# session check's "still on the branch it started on" row compares against
+# the real start and not against wherever its first run happened to be
+# (2026-10-09). Overwrites any earlier record; prints nothing.
+if [ -f tools/precedent_session_check.py ]; then
+  python3 tools/precedent_session_check.py --stamp-start 2>/dev/null || true
+fi
+
 # Clone the declared SHARED sources, where the environment carries a
 # credential (PRECEDENT_GIT_TOKEN / PRECEDENT_SOURCE_BASE_URL --
 # documentation/PER_MACHINE_SETUP.md). No token, no network call: the tool

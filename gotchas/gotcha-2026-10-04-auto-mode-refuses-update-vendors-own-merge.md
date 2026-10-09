@@ -56,13 +56,46 @@ now, so it is the classifier's ordinary behaviour, not a fluke: after a
 refused merge, anything the session runs before the person's next message
 is likely refused too, and only spends the turn.
 
+**2026-10-08, a consumer: a merge that fails starts it too.** This
+time auto mode let the merge call through, and GitHub refused it: the
+session had passed a 7-character expected head SHA, and the merge tool
+takes all 40 characters or none. After that failed call the same refusals
+followed, reads included. So the spiral does not need the classifier to
+refuse the merge first; a merge that fails for any reason can set it off.
+Since that day the update's DONE says to merge with the full 40-character
+head (`git rev-parse HEAD` right after the push) or none, every merge line
+Promote prints carries the head in full, and
+[vendor-update-runbook](../practices/vendor-update-runbook.md) step 12 says
+the same.
+
+**2026-10-09, a consumer: a merge that succeeds starts it too.** After
+Update Vendors (`main` moving from `bcbe1ced` to `57bc7895`), the merge of
+the update's pull request went through, and so did a landing merge the
+person's words had not named. The session's next command, a read-only
+`git fetch` and a grep to confirm the merged content, was refused as
+`[Merge Without Review]`, and so was everything after it until the person
+spoke. It is
+[the 2026-10-01 refusal](gotcha-2026-10-01-auto-mode-blocks-the-read-after-update-vendors-merges-its-own.md)
+again, this time after a landing merge as well. So any merge the person's
+own words did not name, refused, failed or successful, can leave the rest
+of the turn unable to read. The postcondition for that turn is the merge
+tool's own answer (`merged: true` and the merge commit's SHA), reported as
+the tool gave it; the fetch that confirms the branch waits for the next
+turn, or for the next stage's own tool, and the reply says which
+([vendor-update-runbook](../practices/vendor-update-runbook.md) step 12).
+
 It is the merge-shaped twin of
 [the refusal of a bare Promote into main](gotcha-2026-09-30-auto-mode-refuses-a-bare-promote-into-main-as-a-production.md),
 and the same fix applies.
 
 ## Fix
 
-**In the session:** stop at once, run nothing else, and end the turn
+**After a merge that went through:** report the merge tool's own result
+(`merged: true`, the merge commit's SHA) as that turn's postcondition and
+run nothing else. Confirm the branch's content with a fetch at the start of
+the next turn, or let the next stage's tool confirm it, and say which.
+
+**After a refused or failed merge:** stop at once, run nothing else, and end the turn
 asking for the merge by name: one line that Claude Code's own safety check
 stopped it, not the repository's rules, and the words that name it, "Merge
 PR #N into <landing branch>". A check, a read or a count run first is

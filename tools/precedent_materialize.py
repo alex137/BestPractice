@@ -1293,7 +1293,7 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
         placed = _rewrite_links(data, practice['file'], out_dir,
                                 sibling_slugs=all_slugs,
                                 planned_out=planned_out,
-                                may_name_source_repo=practice['level'] != 'individual',
+                                may_name_source_repo=pr.normalize_level(practice['level']) != 'individual',
                                 forwards=forwards, forward_files=forward_files)
         if not dry_run:
             dest.write_bytes(placed)

@@ -271,6 +271,48 @@ ROOT = ENGINE_DIR.parent
 SOURCE_REPO = 'https://github.com/alex137/BestPractice'
 SOURCE_BRANCH = 'main'  # the default every install follows -- see docstring
 
+# A BestPractice clone is known by its origin, not its directory name.
+# 2026-10-08, from a consumer: the attach tool cloned it at a lowercase
+# <owner>/<repo> path (alex137/bestpractice), and the runbook's
+# ../BestPractice found nothing there. Any host, any case, .git or not.
+_SOURCE_ORIGIN = re.compile(r'[/:]alex137/bestpractice(?:\.git)?/*$', re.I)
+
+
+def is_source_clone(path):
+    """True when `path` is the top of a git checkout whose origin is
+    BestPractice and which carries tools/precedent_update.py."""
+    path = pathlib.Path(path)
+    if not ((path / '.git').exists()
+            and (path / 'tools' / 'precedent_update.py').is_file()):
+        return False
+    r = subprocess.run(['git', '-C', str(path), 'remote', 'get-url', 'origin'],
+                       capture_output=True, text=True)
+    return r.returncode == 0 and bool(_SOURCE_ORIGIN.search(r.stdout.strip()))
+
+
+def find_source_clones(near):
+    """-> the BestPractice clones near the repository `near`, by origin: its
+    siblings, and one level further down for the attach tool's
+    <owner>/<repo> layout. ../BestPractice first when it is one."""
+    near = pathlib.Path(near).resolve()
+    base = near.parent
+    found = []
+    try:
+        cands = [base / 'BestPractice'] + sorted(base.iterdir()) + sorted(
+            p for d in base.iterdir() if d.is_dir() and d != near
+            and not d.name.startswith('.')
+            for p in (d.iterdir() if os.access(d, os.R_OK | os.X_OK) else ()))
+    except OSError:
+        cands = [base / 'BestPractice']
+    for c in cands:
+        try:
+            c = c.resolve()
+            if c != near and c not in found and c.is_dir() and is_source_clone(c):
+                found.append(c)
+        except OSError:
+            continue
+    return found
+
 # WHICH BRANCH ONE INSTALL FOLLOWS (2026-10-05). SOURCE_BRANCH is the
 # default; a consuming repo may name `staging` instead, in its own
 # precedent.json, as `"upstream_branch": "staging"`. Alex, 2026-10-05, in
@@ -746,7 +788,9 @@ ENGINE_FILES = [
     # landed since the person was last told. The session-start hook and the
     # reply gate both call it, so a repository without it would carry hooks
     # naming a file that is not there (the others-did practice, in the ladder set). Each
-    # repository's own mark, tools/others_did_watermark.json, never ships.
+    # repository's own mark lives on its origin's refs/precedent/others-did,
+    # outside every branch, and never ships (nor does the file it lived in
+    # before 2026-10-08, tools/others_did_watermark.json).
     'precedent_others_did.py',
     # EVERY VOCABULARY WORD HAS TO WORK WHERE THE ENGINE IS VENDORED
     # (2026-09-21, Morgan: "ALL of our vocabulary words should"). A standing
@@ -3840,8 +3884,8 @@ def repoint_renamed_sources(dest_root):
             if old != new:
                 s[key] = new
                 swaps.append((json.dumps(old), json.dumps(new)))
-        if s.get('level') == 'team':
-            s['level'] = 'shared'
+        if _declared_level(s) != s.get('level'):
+            s['level'] = _declared_level(s)
             relevelled.append(new_name)
         if (new_name, new_path) != (name, where) or kept:
             done.append((name, new_name, where, new_path, kept))
@@ -3874,6 +3918,27 @@ def repoint_renamed_sources(dest_root):
     if new_text != text:
         path.write_text(new_text, encoding='utf-8')
     return done
+
+
+def retire_level_aliases(dest_root):
+    """-> [source names] whose `"level": "team"` in `dest_root`'s
+    precedent.json this rewrote to `"level": "shared"`, the word in use
+    since 2026-09-18. Every source, not only a renamed set
+    (repoint_renamed_sources): the old word still resolves, and every tool
+    reads it through precedent_resolve.declared_level, but a file that says
+    one thing while the tools mean another is how a raw comparison went
+    wrong for a consumer on 2026-10-09. Idempotent; every other byte is
+    kept (precedent_resolve.retire_level_aliases)."""
+    import precedent_resolve as pr
+    path = pathlib.Path(dest_root) / 'precedent.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return []
+    new_text, names = pr.retire_level_aliases(text)
+    if new_text != text:
+        path.write_text(new_text, encoding='utf-8')
+    return names
 
 
 # A practice set that has been folded away says so in its own
@@ -3951,6 +4016,16 @@ def _active_practice_slugs(clone):
     return out
 
 
+def _declared_level(s):
+    """A declared source's level with its alias read, `team` -> `shared`:
+    precedent_resolve.declared_level, the one reader. Comparing the raw
+    field let a set declared at the older `team` level slip past the
+    retired- and deleted-set drop, so Update Vendors never removed it (a
+    consumer's update, 2026-10-09)."""
+    import precedent_resolve as pr
+    return pr.declared_level(s)
+
+
 def _person_sets():
     """-> (deleted {name: info}, [carrier paths]) for the person running this:
     the sets their individual set says they deleted, and the individual set
@@ -3998,11 +4073,11 @@ def retired_sources(dest_root, archived=(), person=None):
 
     out = []
     for s in sources:
-        if not isinstance(s, dict) or s.get('level') not in ('shared', 'individual'):
+        if not isinstance(s, dict) or _declared_level(s) not in ('shared', 'individual'):
             continue
         name, clone = str(s.get('name') or ''), where(s)
         ret = source_retirement(clone)
-        if s.get('level') == 'shared' and name in gone:
+        if _declared_level(s) == 'shared' and name in gone:
             info = gone[name]
             why = (DELETED_WHY + (f' ({info["date"]})' if info.get('date') else '')
                    + (' -- BestPractice\'s record of deleted sets, '
@@ -4222,7 +4297,7 @@ def archived_declared_sources(dest_root):
     except (OSError, ValueError):
         return archived, notes
     for s in cfg.get('sources') or []:
-        if not isinstance(s, dict) or s.get('level') not in ('shared', 'individual'):
+        if not isinstance(s, dict) or _declared_level(s) not in ('shared', 'individual'):
             continue
         name = str(s.get('name') or '')
         clone = root / pathlib.Path(str(s.get('path') or '')).expanduser()
@@ -4355,6 +4430,60 @@ def seed_maintainers(dest_root, logins=None, today=None):
         new_text = json.dumps(cfg, indent=2, ensure_ascii=False) + '\n'
     path.write_text(new_text, encoding='utf-8')
     return logins, how
+
+
+def timezone_offer(dest_root, user_config=None):
+    """-> one line offering the owner's own zone as precedent.json's
+    `fallback_timezone`, or None. Offered, never written: the person says
+    yes, and the session adds the line.
+
+    Offered only when all of it holds: precedent.json declares no
+    fallback_timezone; it names exactly one maintainer; the person running
+    this is that maintainer (their declared GitHub username); and their
+    identity.json declares a zone that loads.
+
+    WHY (2026-10-08, from a consumer). A single person's repository never
+    declared fallback_timezone, so its GitHub Actions job -- where no
+    person's identity.json reaches -- dated its failure records and issue
+    stamps in the engine's last resort, New York, the right default for a
+    team, instead of its one owner's zone (precedent_time.py, rungs 5-6)."""
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(cfg, dict) or cfg.get('fallback_timezone'):
+        return None
+    people = [m for m in cfg.get('maintainers') or [] if isinstance(m, dict)]
+    if len(people) != 1:
+        return None
+    login = str(people[0].get('github') or '').lstrip('@').lower()
+    try:
+        import precedent_identity as _pid
+        ident = _pid.declared_identity(root, user_config)
+    except Exception:                                           # noqa: BLE001
+        return None
+    me = (os.environ.get('PRECEDENT_GITHUB_USER', '').strip()
+          or str(ident.get('github') or '')).lstrip('@').lower()
+    zone = str(ident.get('timezone') or '').strip()
+    if not login or me != login or not zone:
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(zone)
+    except Exception:                                           # noqa: BLE001
+        return None
+    try:
+        import precedent_time as _pt
+        last = _pt.FALLBACK_TZ
+    except Exception:                                           # noqa: BLE001
+        last = 'the engine\'s last-resort zone'
+    return (f'@{login} is this repository\'s only maintainer -- you -- and '
+            f'precedent.json declares no fallback_timezone, so whatever runs '
+            f'where your identity does not reach (a GitHub Actions job, its '
+            f'failure records and issue stamps) dates in {last}. Say yes to '
+            f'add "fallback_timezone": "{zone}" (your zone, from your '
+            f'identity.json) to precedent.json.')
 
 
 def _rev_text(repo_dir, *args):

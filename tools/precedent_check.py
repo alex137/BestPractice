@@ -203,6 +203,18 @@ def _received_owner(rel, repo=None):
     return ppr.received_owner(rel, _received_owners(repo))
 
 
+def _declared_level(src):
+    """precedent_resolve.declared_level -- a declared source's level, with
+    the older `team` read as `shared` -- the one way a check here compares a
+    level. Guarded like _mirrored: without a resolver beside this copy only
+    the raw field is there."""
+    try:
+        import precedent_resolve as pr
+    except Exception:                                           # noqa: BLE001
+        return src.get('level') if isinstance(src, dict) else None
+    return pr.declared_level(src)
+
+
 def _mirrored(repo):
     """-> tuple of repo-relative prefixes this repo mirrors; () if none."""
     key = str(repo)
@@ -1018,7 +1030,7 @@ def _no_duplication(ctx):
         src = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         raise NotApplicable('this repo is not a practice source (no precedent-source.json)')
-    if not isinstance(src, dict) or src.get('level') == 'universal':
+    if not isinstance(src, dict) or _declared_level(src) == 'universal':
         raise NotApplicable('universal is where the one full copy lives')
     if src.get('retired'):
         raise NotApplicable('this set says it is retired; its copies leave with it')
@@ -1027,7 +1039,7 @@ def _no_duplication(ctx):
         sources = _pr.load_config(str(ROOT))
     except Exception as e:                                   # noqa: BLE001
         raise NotApplicable(f'the declared sources could not be read ({e})')
-    uni = [pathlib.Path(s['path']) for s in sources if s.get('level') == 'universal']
+    uni = [pathlib.Path(s['path']) for s in sources if _declared_level(s) == 'universal']
     uni = [u for u in uni if (u / 'practices').is_dir()]
     if not uni:
         raise NotApplicable('no universal source is cloned here to compare with')
@@ -1087,7 +1099,7 @@ def _universal_change_reaches_overrides(ctx):
         src = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return []
-    if not isinstance(src, dict) or src.get('level') != 'universal':
+    if not isinstance(src, dict) or _declared_level(src) != 'universal':
         return []
     changed = []
     for f in ctx.changed_matching(r'^practices/[^/]+\.md$'):
@@ -1107,7 +1119,7 @@ def _universal_change_reaches_overrides(ctx):
     for f in changed:
         slug = pathlib.PurePosixPath(f).stem
         for s in sources:
-            if s.get('level') in ('universal', 'repo-local'):
+            if _declared_level(s) in ('universal', 'repo-local'):
                 continue
             copy = pathlib.Path(s['path']) / 'practices' / f'{slug}.md'
             try:
@@ -1699,7 +1711,7 @@ def _universal_source_root():
     except Exception:                                # practice: fail-gracefully
         return None
     for s in sources:
-        if s.get('level') == 'universal':
+        if _declared_level(s) == 'universal':
             try:
                 root = (ROOT / s['path']).resolve()
             except Exception:
@@ -3023,6 +3035,17 @@ def _generated_artifact_provenance(ctx):
             return out
         argv.append('--agents-only')
     r = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True)
+    if r.returncode == 0 and 'NOT VERIFIABLE' in r.stdout + r.stderr:
+        # build_views.py could not rebuild the block from what it was built
+        # from: a declared source, or the person's individual set, is not
+        # here. Neither stale nor current -- and until 2026-10-09 the exit 0
+        # read as a pass here, while the individual case failed outright.
+        said = next((l.split('NOT VERIFIABLE', 1)[1].strip(' -:')
+                     for l in (r.stdout + r.stderr).splitlines()
+                     if 'NOT VERIFIABLE' in l), '')
+        out.append(Unverified('AGENTS.md', 'the generated views were not '
+                              'compared with a fresh regeneration: ' + said))
+        return out
     if r.returncode != 0:
         # The line that says WHAT drifted. build_views.py prints notices
         # after it (a set deferred, a practice not in force), and quoting the
@@ -3776,7 +3799,7 @@ def _practice_is_reachable(ctx):
         if wired and str(fm.get('visible_to') or '').strip('" \'') == 'code-owners':
             via_session.append(slug)
             continue
-        if s['level'] in session_channel_levels or (wired and s.get('brought')):
+        if _declared_level(s) in session_channel_levels or (wired and s.get('brought')):
             # A set the person brings is never in a tracked view, public
             # repository or private (build_views.sources_for_tracked_block),
             # so wherever the channel is wired it reaches them through it.
@@ -5183,7 +5206,7 @@ def _declared_sources_are_cloned(ctx):
     for src in cfg.get('sources') or []:
         if not isinstance(src, dict):
             continue
-        if src.get('level') not in ('shared', 'team', 'universal'):
+        if _declared_level(src) not in ('shared', 'universal'):
             continue
         rel = str(src.get('path') or '').strip()
         if not rel:
@@ -6021,6 +6044,8 @@ def _index_required_is_declared(ctx):
             continue
         if fm.get('command') not in (None, '', 'null'):
             continue                      # a command is a spoken trigger by construction
+        if getattr(bv, 'adds_to', lambda _fm: '')(fm):
+            continue                      # loads with its base, never by an index line
         declared = str(fm.get(bv.INDEX_REQUIRED_FIELD, '')).strip().strip('"').lower()
         if declared in ('true', 'false'):
             continue
@@ -6043,6 +6068,194 @@ def _index_required_is_declared(ctx):
                'It is currently kept in the index. ')
             + f'Set {bv.INDEX_REQUIRED_FIELD}: true to keep its index line, or '
               f'false to record that the gate really does arrive in time'))
+    return out
+
+
+CODE_OWNERS_IN_INDEX_KEY = 'code_owners_in_index'
+
+
+@check('code-owner-practice-stays-out-of-the-index', 'tree',
+       'a practice marked visible_to: code-owners never costs a line of the '
+       "always-loaded session file: it is on-demand and reaches a session "
+       'by a real applies_to, a gates: moment or a command: phrase, unless '
+       'tools/session_load_budgets.json lists it under code_owners_in_index '
+       'with a reason; an entry there that no longer needs to be is a '
+       'finding too',
+       'whether the route given is a GOOD one: an applies_to that names files '
+       'the occasion is never about passes as readily as one that fits. It '
+       'also judges only the practices this repository publishes -- a '
+       "received one is judged by its own source's run.",
+       practice_backed=False,
+       selects_on=('practices/*.md', 'local/practices/*.md',
+                   'tools/session_load_budgets.json'))
+def _code_owner_practice_stays_out_of_the_index(ctx):
+    """WHY (2026-10-08). A practice marked `visible_to: code-owners` is left
+    out of the tracked block and carried instead by the session file a code
+    owner's session writes (.precedent/SESSION_PRACTICES.md), and that file
+    is charged against the consuming repository's own session-load ceiling.
+    A consuming repository's Debut failed that day on it: about 27 such
+    practices, most with no route but the occasion index, each cost an index
+    line in a project where the people working are code owners. The fix of
+    the day gave most of them a real route; this keeps a new one, or one
+    newly marked for code owners, from bringing the cost back. Morgan
+    decided not to move the charge onto the person instead.
+
+    THE TEST is build_views.lands_in_occasion_index(), with commands
+    omitted as the session file renders them, plus a resident tier: the
+    question the renderer answers, never a second reading of it. An
+    exception is a person's call and lives in the registry with its reason,
+    and an exception that has stopped being needed is reported, so the list
+    only shrinks."""
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as bv
+        import precedent_audience as pa
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'build_views is not importable here ({e})')
+    dirs = [d for d in (ROOT / 'practices', ROOT / 'local' / 'practices')
+            if d.is_dir()]
+    if not dirs:
+        raise NotApplicable('no practices/ tree in this repo')
+    reg = _session_load_budgets() or {}
+    allowed = reg.get(CODE_OWNERS_IN_INDEX_KEY) or {}
+    out, landing = [], set()
+    registry = 'tools/session_load_budgets.json'
+    if not isinstance(allowed, dict):
+        out.append(Finding(registry, f'{CODE_OWNERS_IN_INDEX_KEY} must be an '
+                                     f'object of slug -> one-line reason'))
+        allowed = {}
+    for d in dirs:
+        for fm, _sections, f in bv.load_practices(d):
+            if not pa.for_code_owners(fm):
+                continue
+            resident = fm.get('tier') == 'resident'
+            if not resident and not bv.lands_in_occasion_index(
+                    fm, omit_commands=True):
+                continue
+            slug = fm['slug']
+            landing.add(slug)
+            if slug in allowed:
+                continue
+            rel = f.relative_to(ROOT) if hasattr(f, 'relative_to') else f
+            where = ('is resident, so every code owner\'s session file carries '
+                     'its whole Rule' if resident else
+                     'has no route but the occasion index, so every code '
+                     'owner\'s session file carries a line for it')
+            out.append(Finding(
+                str(rel),
+                f'is marked visible_to: code-owners and {where}, charged to '
+                f'every consuming repository\'s session-load ceiling. Give it '
+                f'a route instead'
+                + (' (and make it tier: on-demand)' if resident else '')
+                + ': applies_to naming the files its occasion is about (not '
+                  '"**"), a gates: moment (merge, review, push or reply), or '
+                  'a command: phrase a person says. If none fits, ask the '
+                  'person: an exception is theirs to record, with its reason, '
+                  f'under {CODE_OWNERS_IN_INDEX_KEY} in {registry}'))
+    for slug, why in sorted(allowed.items()):
+        if not isinstance(why, str) or not why.strip():
+            out.append(Finding(registry, f'{CODE_OWNERS_IN_INDEX_KEY} lists '
+                                         f'{slug} with no reason'))
+        elif slug not in landing:
+            out.append(Finding(registry, f'{CODE_OWNERS_IN_INDEX_KEY} lists '
+                                         f'{slug}, which no longer lands in '
+                                         f'the occasion index (or is gone, or '
+                                         f'is no longer for code owners) -- '
+                                         f'remove the entry'))
+    return out
+
+
+@check('adds-to-names-a-rule-in-force', 'tree',
+       'a practice carrying adds_to: names a rule some source in force here '
+       'carries (followed through deduplications), never itself, and is not '
+       'tier: resident',
+       'whether the addition really belongs with the rule it names, or says '
+       'anything that rule does not. A base in a source that did not resolve '
+       'this session is reported as could-not-verify, not as a violation.',
+       practice_backed=False, binds_publishers=True,
+       selects_on=('practices/*.md', 'local/practices/*.md',
+                   'tools/build_views.py', 'tools/precedent_resolve.py'))
+def _adds_to_names_a_rule_in_force(ctx):
+    """WHY (2026-10-09). An addition loads only with the rule it adds to: it
+    has no occasion-index line and is never resident (build_views.
+    ADDS_TO_FIELD; Morgan, "Option 1"). So an `adds_to:` naming a slug
+    nothing carries -- a typo, a rule renamed without a deduplicated stub,
+    a base in a set this repository does not declare -- leaves the addition
+    reaching no session at all, silently. Naming itself is the same loss by
+    a shorter road, and a resident addition would be loaded twice over or
+    not with its base, so it is refused too.
+
+    THE TEST is precedent_resolve.follow_in_force_at() over this
+    repository's resolution, plus this repository's own practice files:
+    a practice set's own practices are not one of its declared sources, and
+    an addition may name a rule of the same set."""
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as bv
+        import precedent_resolve as pr
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'build_views is not importable here ({e})')
+    if not hasattr(bv, 'adds_to'):
+        raise NotApplicable("this engine's build_views.py predates adds_to")
+    dirs = [d for d in (ROOT / 'practices', ROOT / 'local' / 'practices')
+            if d.is_dir()]
+    if not dirs:
+        raise NotApplicable('no practices/ tree in this repo')
+    own = []
+    for d in dirs:
+        own.extend(bv.load_practices(d, in_force_only=False, announce=False))
+    additions = [(fm, f) for fm, _s, f in own
+                 if bv.adds_to(fm) and bv.is_in_force(fm)]
+    if not additions:
+        return []
+    try:
+        res = pr.resolve(pr.load_config(str(ROOT)))
+    except Exception as e:                                   # noqa: BLE001
+        res = {'practices': {}, 'retired': [],
+               'missing': [{'level': '?', 'name': 'declared sources',
+                            'reason': str(e)}]}
+    resolved = dict(res.get('practices') or {})
+    retired = list(res.get('retired') or [])
+    for fm, _s, f in own:
+        slug = fm.get('slug', pathlib.Path(f).stem)
+        if bv.is_in_force(fm):
+            resolved.setdefault(slug, {'slug': slug, 'fm': fm})
+        else:
+            retired.append({'slug': slug, 'fm': fm})
+    missed = [f"{m.get('level')}/{m.get('name')}"
+              for m in res.get('missing') or []]
+    out = []
+    for fm, f in additions:
+        rel = str(f.relative_to(ROOT)) if hasattr(f, 'relative_to') else str(f)
+        if _foreign_practice(rel):
+            continue
+        slug, base = fm.get('slug', pathlib.Path(f).stem), bv.adds_to(fm)
+        if fm.get('tier') == 'resident':
+            out.append(Finding(rel, f'carries adds_to: {base} and is tier: '
+                                    f'resident. An addition loads with the '
+                                    f'rule it adds to; make it tier: '
+                                    f'on-demand'))
+        if base == slug:
+            out.append(Finding(rel, f'adds_to: names its own slug, {slug}, so '
+                                    f'no rule carries it and no session is '
+                                    f'shown it. Name the rule it adds to'))
+            continue
+        if pr.follow_in_force_at(base, resolved, retired) is not None:
+            continue
+        if missed:
+            out.append(Unverified(rel, f'adds_to: {base} names no rule in '
+                                       f'force among the sources that '
+                                       f'resolved, and {", ".join(missed)} did '
+                                       f'not resolve this session -- it may '
+                                       f'be there'))
+            continue
+        out.append(Finding(rel, f'adds_to: {base} names no rule any source in '
+                                f'force here carries, so this addition '
+                                f'reaches no session: it has no index line '
+                                f'of its own. Name the slug of the rule it '
+                                f'adds to (`precedent_show.py SLUG` finds '
+                                f'one), or declare the source that carries '
+                                f'it'))
     return out
 
 
@@ -7627,7 +7840,7 @@ def _private_source_names(root):
                 encoding='utf-8'))
         except (OSError, ValueError):
             decl = {}
-        vis = decl.get('visibility') or ('private' if s.get('level') == 'individual'
+        vis = decl.get('visibility') or ('private' if _declared_level(s) == 'individual'
                                          else 'public')
         if vis == 'public':
             continue
@@ -11860,9 +12073,12 @@ def _loader_within_caps(ctx):
         # no sibling practice sets): the caps were not measured, which is
         # neither a violation nor a pass (2026-09-30).
         if 'budgets NOT VERIFIED' in out:
-            return [Unverified('AGENTS.md', 'the loader block\'s caps were not '
-                               'measured: a declared source is not reachable '
-                               'here, so the block cannot be built from it')]
+            said = next((l.split('NOT VERIFIED', 1)[1].strip(' :')
+                         for l in out.splitlines() if 'budgets NOT VERIFIED' in l),
+                        '')
+            return [Unverified('AGENTS.md', said or 'the loader block\'s caps '
+                               'were not measured: a declared source is not '
+                               'reachable here')]
         return []
     why = [l for l in out.splitlines() if 'FAIL' in l]
     return [Finding('AGENTS.md', (why[-1] if why else

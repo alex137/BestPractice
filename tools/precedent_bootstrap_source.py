@@ -95,7 +95,6 @@ import precedent_vendor_engine
 import precedent_branches
 
 LEVELS = {'individual', 'shared'}
-LEVEL_ALIASES = {'team': 'shared'}   # the pre-2026-09-18 spelling still reads
 SKELETONS = {
     'individual': ROOT / 'templates' / 'practice-set-individual',
     'shared': ROOT / 'templates' / 'practice-set-shared',
@@ -447,7 +446,7 @@ def ensure_universal_source(dest):
     cfg = pathlib.Path(dest) / 'precedent.json'
     data = _load_json(cfg) or {'format_version': 1}
     sources = data.setdefault('sources', [])
-    if any(s.get('level') == 'universal' for s in sources):
+    if any(precedent_resolve.declared_level(s) == 'universal' for s in sources):
         return cfg, False
     sources.append({'level': 'universal', 'name': UNIVERSAL_SOURCE_NAME,
                     'path': UNIVERSAL_SOURCE_PATH})
@@ -732,7 +731,7 @@ def verify(level, path):
 
     An empty blocklist stays fine on purpose: an empty
     one is a deliberate state, an absent one is a gap."""
-    level = LEVEL_ALIASES.get(level, level)
+    level = precedent_resolve.normalize_level(level)
     skeleton = SKELETONS.get(level)
     if skeleton is None or not skeleton.is_dir():
         return []
@@ -782,7 +781,7 @@ def verify(level, path):
     # because bootstrap() only ever runs when a set is created -- the same
     # shape as the hook findings above, and the reason verify() exists.
     cfg = _load_json(path / 'precedent.json') or {}
-    if not any(s.get('level') == 'universal'
+    if not any(precedent_resolve.declared_level(s) == 'universal'
                for s in (cfg.get('sources') or [])):
         missing.append(
             "precedent.json declares no universal source, so this set "
@@ -1289,7 +1288,7 @@ def _git(*args):
 
 def bootstrap(level, name, dest, approvers=None, force=False,
               visibility='private', off_main=False):
-    level = LEVEL_ALIASES.get(level, level)
+    level = precedent_resolve.normalize_level(level)
     if level not in LEVELS:
         raise BootstrapRefused(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
     if visibility not in ('private', 'public'):
@@ -1768,7 +1767,7 @@ def write_repo_config(repo_config_dir, name, dest, force=False):
     data = _load_json(config_path) or {'format_version': 1, 'sources': []}
     sources = data.setdefault('sources', [])
     rel_path = os.path.relpath(dest, repo_config_dir)
-    existing = next((s for s in sources if s.get('level') in ('shared', 'team')
+    existing = next((s for s in sources if precedent_resolve.declared_level(s) == 'shared'
                       and s.get('name') == name), None)
     if existing:
         if existing.get('path') != rel_path and not force:
@@ -1815,7 +1814,7 @@ def _infer_level(path):
     """
     m = _load_json(path / precedent_resolve.SOURCE_MANIFEST) or {}
     if m.get('level'):
-        return LEVEL_ALIASES.get(m['level'], m['level'])
+        return precedent_resolve.normalize_level(m['level'])
     if (path / 'approvers.json').exists():
         return 'shared'
     for name in ('identity.json', 'config.json', 'config.json.sample'):
@@ -1838,7 +1837,7 @@ def main():
         if not target.is_dir():
             sys.exit(f"precedent_bootstrap_source FAIL: --verify {target} is "
                      f"not a directory")
-        level = LEVEL_ALIASES.get(args.get('--level'), args.get('--level')) or _infer_level(target)
+        level = precedent_resolve.normalize_level(args.get('--level')) or _infer_level(target)
         if level not in LEVELS:
             sys.exit(f"precedent_bootstrap_source FAIL: cannot tell whether "
                      f"{target} is a team or an individual set (no "
@@ -1855,7 +1854,7 @@ def main():
             print(f"  - {m}")
         return 1
 
-    level = LEVEL_ALIASES.get(args.get('--level'), args.get('--level'))
+    level = precedent_resolve.normalize_level(args.get('--level'))
     name = args.get('--name')
     dest = args.get('--dest')
 

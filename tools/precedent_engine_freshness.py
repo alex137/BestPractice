@@ -153,13 +153,18 @@ def refresh_remedy(root, clone):
 # --------------------------------------------------------------------------
 # What this repo declares, and every way each declared source is reached.
 
+# The resolver's alias table, for a copy with no resolver beside it;
+# verify_harness.py asserts it equals precedent_resolve.LEVEL_ALIASES.
+_FALLBACK_LEVEL_ALIASES = {'team': 'shared'}
+
+
 def _normalize_level(level):
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
         import precedent_resolve as _pr
         return _pr.normalize_level(level)
     except Exception:                                        # noqa: BLE001
-        return {'team': 'shared'}.get(str(level or '').strip().lower(),
+        return _FALLBACK_LEVEL_ALIASES.get(str(level or '').strip().lower(),
                                       str(level or '').strip().lower())
 
 
@@ -211,12 +216,25 @@ def declared_sources(root, user=True):
     return sources, notes
 
 
+def _deleted_declared(root):
+    """-> ({names}, one-line note) for the shared sets precedent.json
+    declares that are deleted (precedent_resolve.declared_deleted_sets, the
+    one reader); (set(), '') where this engine copy predates it."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+        found = _pr.declared_deleted_sets(root)
+        return {n for n, _ in found}, _pr.deleted_sets_note(found)
+    except Exception:                                        # noqa: BLE001
+        return set(), ''
+
+
 def _vendored_manifest_path(root, src):
     """process/manifest.json holds the universal tree; a named set's code
     dirs are tracked by process/manifest_<name>.json (checkin.py's
     convention)."""
     root = pathlib.Path(root)
-    if src['level'] == 'universal':
+    if _normalize_level(src['level']) == 'universal':
         return root / 'process' / 'manifest.json'
     return root / 'process' / f"manifest_{src['name']}.json"
 
@@ -274,8 +292,18 @@ def collect_targets(root='.'):
     sources, notes = declared_sources(root)
     for n in notes:
         rows.append({'label': REPO_CONFIG, 'kind': 'config', 'problem': n})
+    # A DELETED SET IS NOT AN UNVERIFIED ONE (2026-10-09). Session start
+    # never clones a set whose repository is deleted, so it has no clone to
+    # compare and was counted in "NOT VERIFIED -- N source(s)". A consumer's
+    # session read that as a clone failure and went after git and the proxy.
+    # It gets one note row instead, which report() prints and never counts.
+    deleted, note = _deleted_declared(root)
+    if note:
+        rows.append({'label': REPO_CONFIG, 'kind': 'deleted', 'note': note})
     for src in sources:
         if src['level'] == 'repo-local':
+            continue
+        if _normalize_level(src['level']) == 'shared' and src['name'] in deleted:
             continue
         who = f"{src['name']} ({src['level']})"
         reached = 0
@@ -487,7 +515,7 @@ def source_mentions(root='.'):
     for src in sources:
         if src['level'] == 'repo-local' or src['path'] == root:
             continue
-        if src['level'] != 'universal':
+        if _normalize_level(src['level']) != 'universal':
             terms.add(src['name'])
         repos.append(src.get('repo'))
     for r in repos:
@@ -613,6 +641,10 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
     behind = unverified = current = engine_behind = 0
     unverified_sources = 0        # what --quiet reports: no engine row there
     for row in rows:              # to verify is not a source left unverified
+        if row['kind'] == 'deleted':
+            print(f"freshness: not checked, and not counted -- {row['note']}",
+                  file=out)
+            continue
         if row.get('problem'):
             unverified += 1
             if not row.get('nothing_vendored'):
@@ -680,7 +712,8 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
               f'tools/precedent_engine_freshness.py for which (not verified '
               f'is not current)', file=out)
     if not quiet:
-        print(f'freshness: {len(rows)} row(s) -- {current} current, '
+        print(f"freshness: {sum(r['kind'] != 'deleted' for r in rows)} "
+              f'row(s) -- {current} current, '
               f'{behind} behind, {unverified} not verified (not verified is '
               f'not current)', file=out)
     return 0

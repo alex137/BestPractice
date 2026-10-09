@@ -76,6 +76,7 @@ Run:
   python3 tools/precedent_session_practices.py --check    # report, write nothing
   python3 tools/precedent_session_practices.py --repo DIR
 """
+import collections
 import json
 import os
 import pathlib
@@ -447,7 +448,7 @@ def brought_budget(repo=None):
         sources = pr.load_config(repo or str(_ENGINE_DIR.parent))
     except Exception:                                        # noqa: BLE001
         return None, None
-    ind = next((s for s in sources if s.get('level') == 'individual'), None)
+    ind = next((s for s in sources if pr.declared_level(s) == 'individual'), None)
     if not ind:
         return None, None
     try:
@@ -459,19 +460,16 @@ def brought_budget(repo=None):
     return (v if isinstance(v, int) else None), ind['path']
 
 
-def brought_share(repo=None):
-    """-> (tokens, [names]): how much of this file the sets the person
-    brings account for, measured as the file rendered with them minus the
-    file rendered without them -- so a rule of the person's own that needs
-    the ladder counts as part of bringing it. (0, []) when nothing is
-    brought or either rendering fails."""
-    repo = str(repo or _ENGINE_DIR.parent)
+def _brought_renders(repo):
+    """-> (full tokens, bare tokens, [names]): this file rendered now by this
+    engine, with and without the sets the person brings. (None, None, names)
+    when nothing is brought or either rendering fails."""
     try:
         names = [s['name'] for s in pr.load_config(repo) if s.get('brought')]
     except Exception:                                        # noqa: BLE001
-        return 0, []
+        return None, None, []
     if not names:
-        return 0, []
+        return None, None, []
     import contextlib, io
     try:
         # The renders' own notes were already printed by the real run.
@@ -479,8 +477,20 @@ def brought_share(repo=None):
             full = render(*collect(repo), repo=repo)
             bare = render(*collect(repo, skip_brought=True), repo=repo)
     except Exception:                                        # noqa: BLE001
+        return None, None, names
+    return bv._approx_tokens(full), bv._approx_tokens(bare), names
+
+
+def brought_share(repo=None):
+    """-> (tokens, [names]): how much of this file the sets the person
+    brings account for, measured as the file rendered with them minus the
+    file rendered without them -- so a rule of the person's own that needs
+    the ladder counts as part of bringing it. (0, []) when nothing is
+    brought or either rendering fails."""
+    full, bare, names = _brought_renders(str(repo or _ENGINE_DIR.parent))
+    if full is None:
         return 0, names
-    return max(0, bv._approx_tokens(full) - bv._approx_tokens(bare)), names
+    return max(0, full - bare), names
 
 
 def charged_to_repo(repo, n):
@@ -499,15 +509,26 @@ def charged_to_repo(repo, n):
 
     With no budget declared the share stays charged to the repository, as
     it was before the budget existed (Morgan, 2026-10-03, strength:
-    assented), and the share is returned so a caller can say so."""
+    assented), and the share is returned so a caller can say so.
+
+    The charge is the file rendered NOW without the brought sets, never `n`
+    less the share. `n` is read off the file on disk, which the last session
+    start wrote -- with whatever engine was vendored then -- while the share
+    is rendered by this one, so subtracting one from the other charged the
+    repository for the difference between two engines. 2026-10-09, a
+    consuming repository's Update Vendors: the file on disk measured 1,366
+    and this engine's render 1,176, so a repository whose own part was 312
+    was charged 502 against a ceiling of 400, and the update warned that the
+    next Debut would refuse it."""
     try:
-        share, names = brought_share(repo)
+        full, bare, names = _brought_renders(str(repo))
+        share = max(0, full - bare) if full is not None else 0
         budget = brought_budget(repo)[0] if share else None
     except Exception:                                        # noqa: BLE001
         return n, 0, [], None
     if not share or budget is None:
         return n, share, names, budget
-    return n - share, share, names, budget
+    return bare, share, names, budget
 
 
 def spoken_block(extra):
@@ -515,6 +536,11 @@ def spoken_block(extra):
     defines a command: SPOKEN_HEAD, then one line per practice --
     `"Debut" -> debut: stage 4: pre-staging into staging, full checks`."""
     lines = []
+    # An addition (`adds_to:`) loads with its base through precedent_show.py,
+    # so the base's line only says how many there are here, never a line
+    # each (Morgan, 2026-10-09).
+    n_added = collections.Counter(bv.adds_to(fm) for fm, _s, _f in extra
+                                  if bv.adds_to(fm))
     for fm, sections, f in extra:
         # The same test build_loader_block(omit_commands=True) uses to leave
         # a practice out of the index, so nothing falls out of both.
@@ -523,7 +549,10 @@ def spoken_block(extra):
             continue
         slug = bv._json_str(fm.get('slug', '')) or f.stem
         clause = bv._index_clause(fm, sections)
-        lines.append(', '.join(f'"{w}"' for w in words) + f' -> {slug}: {clause}')
+        n = n_added.get(slug, 0)
+        marker = f' (+ {n} addition{"s" if n != 1 else ""} here)' if n else ''
+        lines.append(', '.join(f'"{w}"' for w in words)
+                     + f' -> {slug}: {clause}{marker}')
     if not lines:
         return ''
     return '\n'.join([SPOKEN_HEAD] + [f'- {l}' for l in sorted(lines)]) + '\n'

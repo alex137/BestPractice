@@ -153,7 +153,6 @@ import precedent_time           # noqa: E402  (practice: timestamps-carry-offset
 import precedent_resolve as _pr  # noqa: E402  (the withdrawal record's one format)
 
 LEVELS = ('individual', 'shared', 'universal')
-LEVEL_ALIASES = {'team': 'shared'}   # the pre-2026-09-18 spelling still reads
 STRENGTHS = ('decided', 'assented')
 
 
@@ -811,8 +810,8 @@ WITHDRAWN_RECORD_HEADER = (
 def move(slug, from_level, from_path, to_level, to_path, approved_by,
          strength=None, story=None, dry_run=False, dedupe_only=False,
          accept_reach_loss=False, withdraw=False, say=print):
-    from_level = LEVEL_ALIASES.get(from_level, from_level)
-    to_level = LEVEL_ALIASES.get(to_level, to_level)
+    from_level = _pr.normalize_level(from_level)
+    to_level = _pr.normalize_level(to_level)
     # --withdraw-from-universal (spec/LADDER_OPT_IN_PLAN.md step 4): the
     # reach loss is the POINT -- the rule is meant for the people who bring
     # the destination set, and nobody else. A deduplicated stub would print
@@ -1227,7 +1226,7 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
 def mentions_only(slug, from_level, from_path, to_level, to_path,
                   dry_run=False, say=print):
     """Step 3 alone, for a move made before the tool fixed mentions."""
-    to_level = LEVEL_ALIASES.get(to_level, to_level)
+    to_level = _pr.normalize_level(to_level)
     src, dest = _practice_path(from_path, slug), _practice_path(to_path, slug)
     withdrawn = (not src.is_file()
                  and slug in _pr.withdrawn_record(from_path))

@@ -163,6 +163,13 @@ def _is_tier_ref(git, ref):
     for prefix in ('refs/remotes/', 'refs/heads/', 'origin/'):
         if name.startswith(prefix):
             name = name[len(prefix):]
+    return name in _tier_names(git)
+
+
+def _tier_names(git):
+    """-> every branch name that is a tier here: main, staging,
+    pre-staging, the old staging name, and whatever precedent.json declares
+    as base, staging or landing branch."""
     names = set(_TIER_NAMES)
     rc, top, _ = git('rev-parse', '--show-toplevel')
     if rc == 0 and top:
@@ -173,7 +180,61 @@ def _is_tier_ref(git, ref):
                                                  'landing_branch') if cfg.get(k)}
         except (OSError, ValueError, AttributeError):
             pass
-    return name in names
+    return names
+
+
+def _landed_on_a_tier(git, started, start_sha):
+    """-> the tier branch (local or origin's) that holds the work of the
+    branch the session started on, or None. The start branch's tip as it is
+    now, or its recorded commit when the branch is gone."""
+    rc, tip, _ = git('rev-parse', '--verify', '-q', f'refs/heads/{started}')
+    tip = tip if rc == 0 and tip else start_sha
+    if not tip:
+        return None
+    for name in sorted(_tier_names(git)):
+        for ref in (f'refs/heads/{name}', f'refs/remotes/origin/{name}'):
+            if git('rev-parse', '--verify', '-q', ref)[0] != 0:
+                continue
+            if git('merge-base', '--is-ancestor', tip, ref)[0] == 0:
+                return name
+    return None
+
+
+STAMP_NAME = 'precedent-session-branch'
+
+
+def session_stamp_path(git=None):
+    """-> where the session's starting branch is recorded: inside this
+    checkout's own git directory, which in a linked worktree is not ROOT/.git
+    (a file there, not a directory)."""
+    git = git or _git
+    rc, gd, _ = git('rev-parse', '--absolute-git-dir')
+    if rc == 0 and gd:
+        return pathlib.Path(gd.strip()) / STAMP_NAME
+    return ROOT / '.git' / STAMP_NAME
+
+
+def stamp_session_start(stamp=None, git=None):
+    """Record the branch and commit this session starts on, overwriting any
+    earlier record. -> True when written.
+
+    Run by the session-start hook (tools/bootstrap.sh and BestPractice's own
+    .claude/hooks/session-start.sh), so the baseline is the session's real
+    start. Until 2026-10-09 it was written by this check's first run, which
+    can come mid-session on a feature branch: after a promote moved the
+    checkout to main, the row said "started on <feature>, now on main",
+    wrong about where it started and about the move being a fault."""
+    git = git or _git
+    stamp = stamp or session_stamp_path(git)
+    rc, cur, _ = git('rev-parse', '--abbrev-ref', 'HEAD')
+    if rc != 0 or not cur:
+        return False
+    _, sha, _ = git('rev-parse', 'HEAD')
+    try:
+        stamp.write_text(f'{cur}\n{sha}\n')
+    except OSError:
+        return False
+    return True
 
 
 def _session_branch_row(stamp, git):
@@ -203,8 +264,11 @@ def _session_branch_row(stamp, git):
 
     if not stamp.is_file():
         write()
-        return (name, None, f'first run this session -- recorded {cur!r} as '
-                            f'the baseline to compare against later')
+        return (name, None, f'no record of where this session started (the '
+                            f'session-start hook writes it: '
+                            f'precedent_session_check.py --stamp-start) -- '
+                            f'recorded {cur!r} now as the baseline to compare '
+                            f'against later')
     lines = stamp.read_text().split()
     started = lines[0] if lines else ''
     start_sha = lines[1] if len(lines) > 1 else ''
@@ -246,6 +310,21 @@ def _session_branch_row(stamp, git):
             return (name, True, f'started on {started!r} and moved onto {cur!r}, '
                                 f'which carries all of it -- nothing is stranded; '
                                 f'{cur!r} is now the baseline')
+    # A MOVE ONTO A TIER BRANCH IS ORDINARY PROMOTE WORK (2026-10-09). After a
+    # promote the checkout sits on main, staging or pre-staging; that is
+    # the normal end of a stage, not a jump. It passes when the branch it
+    # started on is held by a tier branch, here or on origin -- the work
+    # landed. A start branch whose commits are on no tier is still the
+    # finding this row exists for: the 2026-09 incidents above left work
+    # on a branch nothing had merged.
+    if started != 'HEAD' and cur != 'HEAD' and _is_tier_ref(git, cur):
+        held = _landed_on_a_tier(git, started, start_sha)
+        if held:
+            write()
+            return (name, True, f'started on {started!r} and moved onto the tier '
+                                f'branch {cur!r}; the work of {started!r} is on '
+                                f'{held!r}, so nothing is stranded; {cur!r} is '
+                                f'now the baseline')
     return (name, False,
             f'started on {started!r}, now on {cur!r}. Work committed before '
             f'the move is on {started!r} and is NOT lost -- `git checkout '
@@ -516,7 +595,7 @@ def checks(offline=False):
     #    for the life of the session, which teaches everyone to skim past it
     #    -- including the day it catches a real jump. The stamp now carries
     #    the commit too; see _session_branch_row.
-    row = _session_branch_row(ROOT / '.git' / 'precedent-session-branch', _git)
+    row = _session_branch_row(session_stamp_path(), _git)
     if row:
         out.append(row)
 
@@ -878,18 +957,37 @@ def _retired_sources_rows():
         return []
     if not found:
         return []
+    # A DELETED SET IS SAID SEPARATELY (2026-10-09). Update Vendors drops it
+    # whatever it held (pve.DELETED_WHY), and session start never clones it,
+    # so "keeps it declared until those rules move" and "a check reading its
+    # clone" were both untrue of it -- and a consumer's session, told only
+    # that sources were missing, cloned a deleted set by hand.
+    deleted_why = getattr(pve, 'DELETED_WHY', '\0')
+    gone = [(n, w) for n, _p, w, _l in found if deleted_why in w]
     said = []
     for name, _path, why, lost in found:
+        if deleted_why in why:
+            continue
         said.append(f'{name}: {why}' + (
             f'; it still holds {", ".join(lost)}, in force nowhere else, so '
             f'the update keeps it declared until those rules move or you let '
             f'them go' if lost else ''))
+    detail = []
+    if gone:
+        detail.append('; '.join(f'{n}: {w}' for n, w in gone)
+                      + '. Update Vendors removes it from '
+                      'precedent.json, whatever it held. Session start does not '
+                      'clone it and nothing should: a deleted set is never '
+                      'cloned by hand')
+    if said:
+        detail.append('; '.join(said) + '. While it stays declared, the checks '
+                      'that read it disagree: the view sync reads it where it '
+                      'was last synced, a check reading its clone reads it as '
+                      'it stands. Update Vendors drops it from precedent.json '
+                      'when every rule it holds is in force in another declared '
+                      'set')
     return [('every practice set this repository declares is still active', False,
-             '; '.join(said) + '. While it stays declared, the checks that read '
-             'it disagree: the view sync reads it where it was last synced, a '
-             'check reading its clone reads it as it stands. Update Vendors '
-             'drops it from precedent.json when every rule it holds is in force '
-             'in another declared set: python3 ../BestPractice/tools/'
+             '. '.join(detail) + ': python3 ../BestPractice/tools/'
              'precedent_update.py --repo .')]
 
 
@@ -1267,6 +1365,20 @@ def remind(offline=True, prefix='precedent'):
     return '\n'.join(lines)
 
 
+def _declared_level(src):
+    """precedent_resolve.declared_level -- a declared source's level, with
+    the older `team` read as `shared` -- imported when needed; without a
+    resolver beside this copy only the raw field is there."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+        return _pr.declared_level(src)
+    except Exception:                                           # noqa: BLE001
+        return src.get('level') if isinstance(src, dict) else None
+    finally:
+        sys.path.pop(0)
+
+
 def _expand_source_path(path):
     """The same expansion the guard's _also_resolve does, so this row agrees
     with the thing it is reporting on rather than approximating it."""
@@ -1303,7 +1415,7 @@ def _declared_source_clones():
         path = (path if path.is_absolute() else ROOT / path).resolve()
         if path == ROOT.resolve() or not (path / '.git').exists():
             continue
-        out.append((str(path), 'main' if src.get('level') == 'universal'
+        out.append((str(path), 'main' if _declared_level(src) == 'universal'
                     else None))
     # AND THE UNIVERSAL CLONE EACH ATTACHED SET READS (2026-10-02). A set
     # under another parent -- the individual set in $HOME beside a project
@@ -1320,7 +1432,7 @@ def _declared_source_clones():
         except (OSError, ValueError):
             continue
         for src in (scfg.get('sources') if isinstance(scfg, dict) else None) or []:
-            if not isinstance(src, dict) or src.get('level') != 'universal':
+            if not isinstance(src, dict) or _declared_level(src) != 'universal':
                 continue
             raw = src.get('path')
             if not isinstance(raw, str) or not raw:
@@ -1446,7 +1558,13 @@ def main():
     ap.add_argument('--apply', action='store_true',
                     help='run this repo\'s SessionStart hooks by hand, then '
                          're-check')
+    ap.add_argument('--stamp-start', action='store_true',
+                    help='record the branch and commit this session starts on '
+                         '(the session-start hook runs this), then exit')
     args = ap.parse_args()
+    if args.stamp_start:
+        stamp_session_start()
+        return 0
 
     if args.apply:
         print('applying the SessionStart hooks by hand:\n')

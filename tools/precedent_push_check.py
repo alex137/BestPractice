@@ -449,7 +449,12 @@ GUARDS = {'precedent_check': _guard_precedent_check,
 STAND_DOWNS = {'leak_gate': ('NOT APPLICABLE', 'stood down -- it inspected '
                              'nothing (a private repository)'),
                'doc_lint': ('NOTHING IS BEING GATED', 'stood down -- no '
-                            'Markdown file was in scope')}
+                            'Markdown file was in scope'),
+               # The views were generated with a person's individual set,
+               # and none resolves here (build_views.individual_not_verifiable).
+               'views_sync': ('NOT VERIFIABLE', 'not verified -- the views '
+                              'carry practices from an individual set this '
+                              'machine cannot reach')}
 
 
 def git(root, *args):
@@ -867,19 +872,54 @@ SIZE_CAP_WARNINGS = ('over a size cap. The quick check',
                      'over a size cap. Allowed onto pre-staging',
                      'build_views WARNING:')
 CAP_WARNED = []           # the steps that printed one, this run
+CAP_DETAILS = []          # what each said: file, measure and limit
+_CAP_BLOCK = re.compile(r'^WARNING\s+(\S+)\s+\S+\s+over a size cap')
 
 
-def _cap_warning_last():
+def _cap_details(text):
+    """-> one short line per cap a step's output says is over: the file, its
+    measured size and its limit, in the check's own words, cut at the first
+    sentence. The findings under precedent_check.py's WARNING block, and
+    build_views.py's own WARNING line.
+
+    WHY (2026-10-08, from a consumer's Update Vendors). The closing line
+    said only "over a session-load size cap (changed_practice, above)": a
+    passing step's output is never printed, so "above" pointed at nothing,
+    and the person was told a cap was over without which file, how far, or
+    which limit."""
+    got, block = [], False
+    for line in text.splitlines():
+        if _CAP_BLOCK.match(line):
+            block = True
+            continue
+        if block and line.startswith('    ') and line.strip():
+            got.append(re.split(r'\. | -- ', line.strip(), maxsplit=1)[0])
+            continue
+        block = False
+        if line.startswith('build_views WARNING:') and 'Written anyway' in line:
+            msg = line[len('build_views WARNING:'):].split(' Written anyway')[0]
+            got.append('the AGENTS.md loader block: '
+                       + re.split(r'\. | -- ', msg.strip(), maxsplit=1)[0])
+    return list(dict.fromkeys(got))
+
+
+def _cap_warning_last(tier=None):
     """Say it last, where the push gate's short tail of a pass shows it:
     a size cap is over, allowed onto pre-staging, refused at the Debut
-    (Morgan, 2026-09-30: warn on pre-staging, no change for staging)."""
-    if CAP_WARNED and _ladder_off():
-        print(f'WARNING: over a session-load size cap ({", ".join(CAP_WARNED)}, '
-              f'above). Allowed onto this branch; the full check refuses it, '
+    (Morgan, 2026-09-30: warn on pre-staging, no change for staging).
+    One line that carries the file, its size, the limit and the check that
+    measured it, since Update Vendors repeats this line and nothing else."""
+    if not CAP_WARNED:
+        return
+    what = '; '.join(CAP_DETAILS) or 'the step did not say which file'
+    by = (f'measured by the {tier} check\'s {", ".join(CAP_WARNED)} step'
+          if tier else f'measured by the {", ".join(CAP_WARNED)} step')
+    head = f'WARNING: over a session-load size cap -- {what} ({by}).'
+    if _ladder_off():
+        print(f'{head} Allowed onto this branch; the full check refuses it, '
               f'so bring it under first (a Reduction pass). Tell the person.')
-    elif CAP_WARNED:
-        print(f'WARNING: over a session-load size cap ({", ".join(CAP_WARNED)}, '
-              f'above). Allowed onto pre-staging; the Debut into staging '
+    else:
+        print(f'{head} Allowed onto pre-staging; the Debut into staging '
               f'refuses it, so bring it under first (a Reduction pass). Tell '
               f'the person.')
 
@@ -1611,6 +1651,8 @@ def run(root, checks, landed=None, reported=None):
         if p.returncode == 0 and any(m in p.stdout + p.stderr
                                      for m in SIZE_CAP_WARNINGS):
             CAP_WARNED.append(name)
+            CAP_DETAILS.extend(d for d in _cap_details(p.stdout + p.stderr)
+                               if d not in CAP_DETAILS)
         if p.returncode == 0:
             marker, note = STAND_DOWNS.get(name, (None, None))
             if marker and marker in p.stdout + p.stderr:
@@ -2008,7 +2050,7 @@ def main(argv):
               f'to a working branch; {", ".join(reported)} found only what is '
               f'already on origin\'s tier branches (above). NOT recorded as a '
               f'pass, since a push to a tier branch judges those findings.')
-        _cap_warning_last()
+        _cap_warning_last(tier)
         return 0
     if tree and path:
         rec = {'tree': tree, 'checks': signature(checks), 'kind': kind,
@@ -2037,7 +2079,7 @@ def main(argv):
               f'working tree with uncommitted changes -- NOT recorded, since '
               f'the push sends the commit, not these edits. Commit, then run '
               f'it again or let the push gate do it.')
-    _cap_warning_last()
+    _cap_warning_last(tier)
     return 0
 
 
