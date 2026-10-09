@@ -75,13 +75,20 @@ while the run was reading it leaves the unit without a fact. A fact also
 records the hook that saw its reads, so a change to what the hook watches
 invalidates every fact taken under the old one.
 
-**Some gates cannot be ledgered.** A test harness whose checks test the
-environment itself (a file's existence in the harness's own process, git
-and network calls made by tool children, state one check leaves for the
-next) cannot be observed well enough: a sound ledger leaves nearly every
-slow check without a fact, and an unsound one replays a PASS over a real
-failure. Measure the sound version's saving before shipping one, and
-do not ship it when the saving is small.
+**A test harness is the hard case.** Its checks test the environment
+itself (a file's existence in the harness's own process, git and network
+calls made by tool children, state one check leaves for the next), and an
+unsound ledger replays a PASS over a real failure. A sound one records
+those too, or refuses the fact: existence tests and environment reads in
+the harness's own process, every Python child traced, a forked worker
+traced, a read-only git query recorded by its answer and asked again, a
+copy of the repository recorded by the repository's state, and a cache
+that outlives the check that filled it charged to every later check that
+reaches it. Whatever is still out of sight -- a shell script or a writing
+git command pointed at the checkout, the network, a temporary directory
+another check left behind -- means no fact, and that check runs every
+time. **Measure the sound version's saving before relying on it**, and
+report a skipped check as unchanged, never as passed.
 
 **A check never refuses to record its own pass because of ledger facts
 it wrote.** A gate that refreshes its ledger dirties the tree it is
@@ -155,6 +162,10 @@ harness ledger against checks that truly failed and saw it replay eight
 of nine as PASS. It was switched off, then removed: a sound version
 would have skipped almost nothing.
 
+On 2026-10-09 Morgan decided the full tier should rerun only what a
+changed file can reach, with GitHub still running everything, and the
+harness ledger was rebuilt to the rules above. Its first full seeding run, on 2026-10-09, recorded facts for 383 of the 617 check functions that ran and took 32 minutes, against about 11 for a run without the tracer; 234 still run every time, most of them because a check hands a repository path to a shell script or a program on another machine. GitHub's deep check never reads it.
+
 ## Install
 Give each gate that re-runs work to compare its output a ledger file
 (merged by union when committed, or local and ignored when the gate's
@@ -162,4 +173,7 @@ authority lives in CI), a fact per unit recorded only on a clean pass,
 and a `--full` switch. Record reads with an audit hook in the process
 that did the work, never by declaration. The shared engine is
 `tools/fact_ledger.py`, over `tools/content_record.py`; the document gate and the model audit in this
-repository use it. The harness has none, for the reason above.
+repository use it. The harness keeps its own (`_CheckLedger` in
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)), on the same fingerprint and hashing, because
+its checks need a tracer that follows children the gate tools' hook treats
+as opaque; GitHub never reads it.

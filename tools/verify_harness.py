@@ -2103,7 +2103,10 @@ class _CheckLedger:
                 parts.append(f + ':' + _ledger_digest(pathlib.Path(f).read_bytes()))
             except OSError:
                 parts.append(f + ':missing')
-        return _ledger_digest('\0'.join(parts))
+        # a temporary directory's own name (the isolated run's $HOME is one)
+        # is new every run: the same machine is the same context
+        blank = self.trace.tracer.cr._temp_blanked
+        return _ledger_digest('\0'.join(blank(p) for p in parts))
 
     def _py_digest(self):
         h = hashlib.sha256()
