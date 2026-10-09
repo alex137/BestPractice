@@ -128,6 +128,15 @@ and `precedent_show.py`, `precedent_paths.py` and the gates leave it out for
 everyone else. **Hiding changes what a session is told, never what is
 enforced**: a check behind a hidden practice still runs on every push.
 Morgan, 2026-10-05 (strength: decided).
+**A code-owner practice needs a route of its own**: the session file that
+carries it is charged to the consuming repository's session-load ceiling, so
+it gets an `applies_to` naming real paths, a `gates:` moment or a
+`command:`, never an occasion-index line alone.
+`python3 tools/precedent_check.py --only
+code-owner-practice-stays-out-of-the-index` refuses one that has none,
+unless [tools/session_load_budgets.json](../tools/session_load_budgets.json)'s
+`code_owners_in_index` lists it with a reason (2026-10-08, after a consuming
+repository's Debut failed on about 27 of them).
 
 ### Field order — one order, written down in code and checked
 
