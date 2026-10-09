@@ -85,6 +85,17 @@ main; that pull request's GitHub test is main's last gate, so main itself
 is never pushed from here. That state exits 3 (PROMOTE_MAIN_NOT_MOVED), not
 0, and says first that main has not moved: exit 0 means the branch moved.
 
+EVERY PROMOTE ENDS WITH ONE RESULT LINE (2026-10-08). Whatever path a run
+takes -- moved, nothing to move, refused, not finished, ready for main's
+pull request, or stopped by an error -- the last line it prints is
+
+  PROMOTE RESULT: <to> <- <from>: <verdict>
+
+with any commit in it written in full. A session reads that one line from
+the command's own output: a consuming repository's session that wrote a
+Debut's log to a file was refused the `tail` that would have read it back,
+and could not say whether the Debut had worked.
+
 IN A PRIVATE REPOSITORY THAT GITHUB TEST RUNS AT MOST ONCE EVERY
 github_ci_every_hours (2026-10-01, spec/CI_CADENCE_PLAN.md, "Promote
 decides"; see main_test_due). When it is not due, the copy is named
@@ -2233,7 +2244,67 @@ def retired_set_hold(root, env=None):
             'with PRECEDENT_RETIRED_SET_EDIT="<their words>".')
 
 
+# What the run that is under way decided, for promote_result_line: set by
+# _verdict at the point each path knows it, read once the run is over.
+_RESULT = {}
+
+
+def _verdict(text, move=None):
+    """Record this Promote's verdict, one line, for its closing result line."""
+    _RESULT['verdict'] = ' '.join(str(text).split())
+    if move:
+        _RESULT['move'] = move
+
+
+_REASON_PREFIXES = ('PROMOTE REFUSED: ', 'NOT PROMOTED: ', 'PROMOTE NOT FINISHED, ')
+
+
+def promote_result_line(root, rc, to=None, last=''):
+    """-> the single line a Promote ends on: which move, and what became of
+    it. `rc` is the run's exit status (None when an error stopped it) and
+    `last` the last thing it said, the reason when no path recorded one."""
+    try:
+        staging = staging_branch(root)
+    except Exception:
+        staging = STAGING
+    move = _RESULT.get('move') or (
+        f'{MAIN} <- {staging}' if to == MAIN else f'{staging} <- {PRE_STAGING}')
+    verdict = _RESULT.get('verdict')
+    if not verdict:
+        reason = ' '.join((str(last or '').strip().splitlines() or [''])[0].split())
+        for prefix in _REASON_PREFIXES:
+            if reason.startswith(prefix):
+                reason = reason[len(prefix):]
+        reason = reason[:240] or 'see the lines above'
+        if rc is None:
+            verdict = f'NOT PROMOTED: the run stopped on an error ({reason})'
+        elif rc == 0:
+            verdict = f'NOTHING PROMOTED: {reason}'
+        else:
+            verdict = f'NOT PROMOTED: {reason}'
+    return f'PROMOTE RESULT: {move}: {verdict}'
+
+
 def promote(root, say=print, to=None, work=None):
+    """Run a Promote (_promote_run) and end it, on every path -- an error and
+    a refusal included -- with promote_result_line as the last thing said.
+    -> _promote_run's exit status."""
+    _RESULT.clear()
+    last = ['']
+
+    def heard(msg=''):
+        last[0] = msg
+        say(msg)
+    rc = None
+    try:
+        rc = _promote_run(root, heard, to, work)
+        return rc
+    finally:
+        say(promote_result_line(root, rc, to, last[0]))
+        _RESULT.clear()
+
+
+def _promote_run(root, say=print, to=None, work=None):
     """Pick the step (promotion_step), SAY it, then run it, one window at a
     time. -> 0 promoted, nothing to promote, or another window already
     promoting; 1 refused (a failing check, a conflict, a race);
@@ -2252,12 +2323,14 @@ def promote(root, say=print, to=None, work=None):
         # staging branch, and left its lock branch behind on origin.
         say(f'this repository has only {MAIN}, and work lands there '
             f'directly, so there is nothing to promote.')
+        _verdict(f'NOTHING TO PROMOTE: this repository has only {MAIN}')
         return 0
     step, why = promotion_step(root, to, work)
     staging = staging_branch(root)
     above = _drifted_from_above(root) if step is None else []
     if step is None and not above:
         say(f'nothing to promote: {why}.')
+        _verdict(f'NOTHING TO PROMOTE: {why}')
         return 0
     if step is None:
         # Nothing climbs, but something arrived from above -- a bot commit
@@ -2287,6 +2360,8 @@ def promote(root, say=print, to=None, work=None):
             f'nothing. It carries what was on {PRE_STAGING} when it started; '
             f'anything pushed there since goes in the next Promote. Do not '
             f'Promote again while it runs.')
+        _verdict(f'NOT PROMOTED: another window is promoting right now ({info}); '
+                 f'do not Promote again while it runs')
         return 0
     if state == 'none':
         say(f'NOTE: could not take the Promote lock ({info}); going ahead '
@@ -2588,6 +2663,8 @@ def _promote_to_main(root, say=print, work=None):
     batch = _new_commits(root, mtip, stip)
     if not batch:
         say(f'nothing to promote: {MAIN} already has everything on {staging}.')
+        _verdict(f'NOTHING TO PROMOTE: {MAIN} already has everything on '
+                 f'{staging} ({stip})', move=f'{MAIN} <- {staging}')
         return 0
     with _Worktree(root, mtip) as wt:
         copy_tip = main_copy_tip(
@@ -2665,6 +2742,11 @@ def _promote_to_main(root, say=print, work=None):
            + ('' if due else ' (or, for this not-due copy, NOT DUE)')
            + _at_head(copy_tip)) +
         f'. Never open it from {staging} itself.')
+    _verdict(f'READY FOR {MAIN.upper()}: open a pull request from {copy} into '
+             f'{MAIN}, then merge with expectedHeadSha {copy_tip}'
+             + ('' if none_runs else ' once its GitHub test says PASSED'
+                + ('' if due else ' (or NOT DUE)'))
+             + f'; {MAIN} has not moved yet', move=f'{MAIN} <- {staging}')
     return PROMOTE_MAIN_NOT_MOVED
 
 
@@ -2808,6 +2890,8 @@ def _promote_unlocked(root, say=print, work=None):
     if not fix and not above and _run(root, 'merge-base', '--is-ancestor', ptip,
                                       stip).returncode == 0 and not staging_brings:
         say(f'nothing to promote: {staging} already has everything on {PRE_STAGING}.')
+        _verdict(f'NOTHING TO PROMOTE: {staging} already has everything on '
+                 f'{PRE_STAGING} ({stip})', move=f'{staging} <- {PRE_STAGING}')
         return 0
     from_above = '; '.join(f'{b}\'s {len(c)} commit(s)' for b, _, c in above)
     with _Worktree(root, stip) as wt:
@@ -2843,6 +2927,8 @@ def _promote_unlocked(root, say=print, work=None):
             [f'{new}:refs/heads/{PRE_STAGING}'] if new != ptip else [])
         if not refs:
             say(f'nothing to promote: {staging} and {PRE_STAGING} are level.')
+            _verdict(f'NOTHING TO PROMOTE: {staging} and {PRE_STAGING} are level '
+                     f'at {new}', move=f'{staging} <- {PRE_STAGING}')
             return 0
         p = _run(wt, 'push', '--atomic', '-q', 'origin', *refs)
         if p.returncode != 0 and 'does not support --atomic' in p.stderr:
@@ -2877,6 +2963,8 @@ def _promote_unlocked(root, say=print, work=None):
             f'and they passed the full check.')
     say(f'{staging} and {PRE_STAGING} are both at {new[:12]} now.')
     _mirror_legacy(root, staging, new, say)
+    _verdict(f'PROMOTED at {new} ({staging} and {PRE_STAGING} are both there)',
+             move=f'{staging} <- {PRE_STAGING}')
     return 0
 
 
@@ -2918,6 +3006,8 @@ def _not_finished(root, say, sha, staging, what, todo):
     again, so nothing is lost if the container goes; it reaches origin only
     when the session pushes a fix to it."""
     fix = _fix_branch(root)
+    reason = ' '.join((str(what).strip().splitlines() or [''])[0].split())[:240]
+    _verdict(f'NOT PROMOTED: {reason}', move=f'{staging} <- {PRE_STAGING}')
     b = _run(root, 'branch', fix, sha)
     if b.returncode != 0:
         say(f'PROMOTE NOT FINISHED, and neither {staging} nor {PRE_STAGING} '
@@ -2931,6 +3021,9 @@ def _not_finished(root, say, sha, staging, what, todo):
         f'with `git push -u origin {fix}`; then\n'
         f'  python3 tools/precedent_branches.py --promote --to staging --work {fix}\n'
         f'which takes the fix in first and moves both tiers together.')
+    _verdict(f'NOT PROMOTED: {reason} The composition is on the local branch '
+             f'{fix} ({sha}); fix it there, push it, and Promote again with '
+             f'--work {fix}', move=f'{staging} <- {PRE_STAGING}')
     return 1
 
 
@@ -2944,6 +3037,8 @@ def _raced(root, say, staging, stip, ptip, new, p):
         say(f'{staging} moved to the checked composition ({new[:12]}), but '
             f'{PRE_STAGING} gained work while the check ran, so it was not '
             f'moved; the next Promote levels it.')
+        _verdict(f'PROMOTED at {new} ({staging} only; {PRE_STAGING} gained work '
+                 f'meanwhile and was not moved)', move=f'{staging} <- {PRE_STAGING}')
         return 0
     if now_s != stip:
         # Most often another window promoted the same batch while this one
@@ -2957,6 +3052,8 @@ def _raced(root, say, staging, stip, ptip, new, p):
                 f'{staging} ({now_s[:12]}) already has everything that was on '
                 f'{PRE_STAGING}. Nothing was pushed, and there is nothing '
                 f'left to promote.')
+            _verdict(f'NOTHING TO PROMOTE: another window promoted this batch; '
+                     f'{staging} is at {now_s}', move=f'{staging} <- {PRE_STAGING}')
             return 0
         say(f'{staging} moved while the check ran, so nothing was pushed; '
             f'Promote again. ({p.stderr.strip()[:200]})')

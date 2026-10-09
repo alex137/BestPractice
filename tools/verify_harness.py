@@ -56480,6 +56480,135 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_promote_ends_with_its_result_line():
+    """A Promote's last line of output is its verdict, on every path.
+
+    Reported 2026-10-08 from a consuming repository: a session ran a Debut
+    with its output written to a log file, and Claude Code's auto mode
+    refused the `tail` that would have read the log back, so the session
+    could not say whether the Debut had worked. The verdict now comes last
+    on stdout whatever happens -- moved, nothing to move, refused, ready
+    for main's pull request, or an error -- as one line opening
+    "PROMOTE RESULT:", any commit in it written in full, so the command's
+    own output answers without a second read.
+
+    Asserted on stdout alone: a line that only reached stderr would not be
+    the last line a session reads from a redirected run."""
+    import re as _re
+    import tempfile
+    name = 'a Promote ends with one PROMOTE RESULT line, on every path'
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    sha40 = _re.compile(r'\b[0-9a-f]{40}\b')
+    cases = []
+
+    def run(work, env, *a):
+        p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                           cwd=work, capture_output=True, text=True, env=env)
+        lines = p.stdout.rstrip('\n').splitlines()
+        return p.returncode, (lines[-1] if lines else ''), p.stdout
+
+    def one_result(out):
+        return sum(1 for l in out.splitlines() if l.startswith('PROMOTE RESULT:')) == 1
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        work, git, _branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+        (work / 'two.txt').write_text('2\n', encoding='utf-8')
+        git(work, 'add', 'two.txt')
+        git(work, 'commit', '-q', '-m', 'work')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+
+        rc, last, out = run(work, env, '--promote', '--to', 'staging')
+        moved = tip('staging')
+        cases.append((f'a Debut that moves ends "PROMOTE RESULT: staging <- '
+                      f'pre-staging: PROMOTED at <full sha>" (rc={rc}, last: {last!r})',
+                      rc == 0 and last.startswith(
+                          'PROMOTE RESULT: staging <- pre-staging: PROMOTED at ')
+                      and bool(moved) and moved in sha40.findall(last)
+                      and one_result(out)))
+
+        rc, last, out = run(work, env, '--promote', '--to', 'staging')
+        cases.append((f'a Debut with nothing to move says so last (rc={rc}, '
+                      f'last: {last!r})',
+                      rc == 0 and last.startswith(
+                          'PROMOTE RESULT: staging <- pre-staging: NOTHING TO PROMOTE')
+                      and one_result(out)))
+
+        rc, last, out = run(work, env, '--promote', '--to', 'main')
+        copy = next((l.split('pull request from ', 1)[1].split()[0]
+                     for l in [last] if 'pull request from ' in l), '')
+        cases.append((f'a Produce ready for its pull request ends READY FOR MAIN '
+                      f'with the copy and its full head (rc={rc}, last: {last!r})',
+                      rc == 3 and last.startswith(
+                          'PROMOTE RESULT: main <- staging: READY FOR MAIN: open a '
+                          'pull request from ')
+                      and bool(copy) and tip(copy) != ''
+                      and f'expectedHeadSha {tip(copy)}' in last
+                      and one_result(out)))
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        work, git, _branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+        (work / 'tools' / 'precedent_check.py').write_text(
+            'import sys\nprint("precedent_check: 0 passed, 1 violated")\n'
+            'sys.exit(1)\n', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'a check that fails')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+        before = tip('staging')
+        rc, last, out = run(work, env, '--promote', '--to', 'staging')
+        cases.append((f'a refused Debut ends NOT PROMOTED, with a reason and '
+                      f'the fix branch\'s full commit (rc={rc}, last: {last!r})',
+                      rc == 1 and tip('staging') == before
+                      and last.startswith(
+                          'PROMOTE RESULT: staging <- pre-staging: NOT PROMOTED: ')
+                      and 'full check failed' in last
+                      and bool(sha40.search(last)) and one_result(out)))
+
+        # An error mid-run still ends on the line, after the run's own output.
+        sys.path.insert(0, str(work / 'tools'))
+        try:
+            import importlib
+            spec = importlib.util.spec_from_file_location(
+                '_pb_result_line', work / 'tools' / 'precedent_branches.py')
+            pb = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(pb)
+        finally:
+            sys.path.pop(0)
+
+        def boom(*_a, **_k):
+            raise RuntimeError('planted failure')
+        pb.promotion_step = boom
+        said, raised = [], None
+        saved = {k: os.environ.get(k) for k in env}
+        os.environ.update(env)
+        try:
+            pb.promote(str(work), say=said.append, to='main')
+        except RuntimeError as exc:
+            raised = exc
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        cases.append((f'an error still ends on the result line, and is not '
+                      f'swallowed (last: {said[-1] if said else None!r})',
+                      raised is not None and bool(said)
+                      and said[-1].startswith('PROMOTE RESULT: main <- staging: '
+                                              'NOT PROMOTED: the run stopped on an error')))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 @_without_session_id
 def check_reply_gate_refreshes_the_landing_branch():
     """The reply gate's NOT YET LANDED line reads origin/<landing branch>
@@ -67636,6 +67765,7 @@ def main():
     check_stop_hook_ignores_commits_another_remote_ref_has()
     check_stop_hook_says_each_state_once()
     check_promote_into_main_exits_nonzero_until_main_moves()
+    check_promote_ends_with_its_result_line()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
     check_loader_block_covers_every_declared_source()
