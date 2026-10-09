@@ -23567,6 +23567,17 @@ def check_precedent_check_fires():
             if wf.is_dir():
                 shutil.rmtree(wf)
             wf.mkdir(parents=True)
+            # The workflows went, so the repo's own approvals of them go too:
+            # an approval naming a removed file is a finding of its own, and
+            # the clean tree must have none (2026-10-09: BestPractice
+            # recorded one for deep-check.yml and this case went red).
+            pj = repo / 'precedent.json'
+            if pj.is_file():
+                d = json.loads(pj.read_text(encoding='utf-8'))
+                if d.pop('github_ci_approved', None) is not None:
+                    d.pop('_github_ci_approved_comment', None)
+                    pj.write_text(json.dumps(d, indent=2) + '\n',
+                                  encoding='utf-8')
             body = 'name: Leak gate\n'
             (wf / 'leak-gate.yml').write_text(body, encoding='utf-8')
             (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
