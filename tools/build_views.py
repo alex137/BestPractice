@@ -2086,7 +2086,74 @@ def source_levels_from_manifest(root):
 
 
 class _BlockNotVerifiable(Exception):
-    """A declared source is unreachable, so the block cannot be judged."""
+    """A source the block was built from is unreachable here, so the block
+    cannot be judged. The reason, when there is one, is its first argument."""
+
+
+# The two marks render_agents_md leaves of individual-level practices in a
+# block: the "machine-dependent" disclosure paragraph, and the resident
+# header's level breakdown, "(5 individual, 6 universal)".
+_INDIVIDUAL_PARAGRAPH = re.compile(
+    r'\*\*(\d+) of the practices in this generated\s+tree came from an '
+    r'INDIVIDUAL source\*\*')
+_INDIVIDUAL_IN_HEADER = re.compile(r'[(,]\s*(\d+) individual[,)]')
+
+
+def committed_individual_count(root):
+    """-> how many individual-level practices this repository's COMMITTED
+    views say were in force when they were generated, 0 when none.
+
+    The one reader of that evidence, for every check that regenerates or
+    measures the loader block. Three places can show it: the loader block's
+    disclosure paragraph, its resident header's level breakdown, and the
+    levels MANIFEST.json records. Each can be absent on its own (a block
+    with no resident practice has neither of the first two), so the largest
+    count any of them shows is the answer."""
+    counts = [0]
+    agents = root / 'AGENTS.md'
+    try:
+        text = agents.read_text(encoding='utf-8') if agents.is_file() else ''
+    except OSError:
+        text = ''
+    if BEGIN_MARKER in text and END_MARKER in text:
+        block = text[text.index(BEGIN_MARKER):text.index(END_MARKER)]
+        counts += [int(m) for m in _INDIVIDUAL_PARAGRAPH.findall(block)]
+        for line in block.splitlines():
+            if line.startswith('## Resident block'):
+                counts += [int(m) for m in _INDIVIDUAL_IN_HEADER.findall(line)]
+    levels = source_levels_from_manifest(root) or {}
+    counts.append(sum(1 for lvl in levels.values() if lvl == 'individual'))
+    return max(counts)
+
+
+def individual_not_verifiable(root, sources):
+    """-> why the loader block cannot be judged here, or None.
+
+    THE SHARED DECISION for every check that regenerates or measures the
+    loader block (build_views --check and --budgets, and
+    precedent_sync_views --check, which precedent_check and the push check
+    call). An individual source is never declared in a repository's own
+    precedent.json: it resolves through the person's user-level config, so
+    on a bare GitHub runner it is not "missing", it is simply not there, and
+    the declared-source guard in loader_practices never sees it. A block
+    committed with individual practices, regenerated without them, read as
+    hand-edited -- a consuming repository's pull request into main failed
+    GitHub's light check on exactly that, with nothing stale (2026-10-09).
+
+    `sources` is what load_config returned here: an individual source
+    declared in the user config is in it even when its clone is absent, and
+    that case is the ordinary missing-source report. This answers only the
+    other one -- no individual source at all, while the committed views say
+    one was in force -- so a real hand-edit is still caught wherever the
+    person's individual set does resolve."""
+    if any(s.get('level') == 'individual' for s in sources):
+        return None
+    n = committed_individual_count(root)
+    if not n:
+        return None
+    return (f"the committed views carry {n} practice(s) from an individual "
+            f"source, which resolves through a person's user-level config, "
+            f"and none resolves in this environment")
 
 
 def _code_owners_only(fm):
@@ -2099,8 +2166,15 @@ def _code_owners_only(fm):
     return _pa.for_code_owners(fm)
 
 
-def loader_practices(root, own_practices):
+def loader_practices(root, own_practices, individual_absent='notice'):
     """-> (practices, source_levels) for the AGENTS.md loader block.
+
+    `individual_absent` says what to do when the committed block carries
+    individual practices and no individual set resolves here
+    (individual_not_verifiable): 'raise' _BlockNotVerifiable, for a run that
+    only judges the block (--check, --budgets); 'notice', for a write, which
+    goes on and says what it leaves out; 'ignore', for a run that never
+    touches the block (--views-only).
 
     THE BLOCK RENDERS EVERY SOURCE THE REPO DECLARES, not just its own
     catalogue. Precedent's own repo declares three -- universal (itself),
@@ -2157,6 +2231,7 @@ def loader_practices(root, own_practices):
               file=sys.stderr)
         return own_practices, source_levels_from_manifest(root)
 
+    loaded = declared
     # Exclude, keep going, and SAY so on stderr rather than silently.
     declared, _deferred, _notes = sources_for_tracked_block(root, declared)
     for n in _notes:
@@ -2165,6 +2240,18 @@ def loader_practices(root, own_practices):
     # Only this repo's own source: nothing to merge, keep the old path.
     if len(declared) <= 1:
         return own_practices, source_levels_from_manifest(root)
+
+    # The individual set is not declared here, so the missing-source guard
+    # below never sees it: in a bare checkout it is absent, not missing.
+    why = individual_not_verifiable(root, loaded)
+    if why and individual_absent == 'raise':
+        print(f"build_views: NOT VERIFIABLE -- {why}, so the loader block can "
+              f"be neither confirmed current nor reported stale here. Re-run "
+              f"where that person's individual set resolves.", file=sys.stderr)
+        raise _BlockNotVerifiable(why)
+    if why and individual_absent == 'notice':
+        print(f"build_views NOTICE: {why}; the block written here leaves "
+              f"those practices out.", file=sys.stderr)
 
     # A brought set is left out of the block but still counts for what is in
     # force (precedent_resolve.resolve's `context`).
@@ -3008,8 +3095,11 @@ def main():
     # the set it publishes. Only the loader block covers every declared
     # source, because that block is what a session actually loads.
     try:
-        block_practices, levels = loader_practices(root, practices)
-    except _BlockNotVerifiable:
+        block_practices, levels = loader_practices(
+            root, practices,
+            individual_absent=('ignore' if views_only else
+                               'raise' if check or STRICT_BUDGETS else 'notice'))
+    except _BlockNotVerifiable as e:
         # Exit 0: not verified is not a failure, and not a pass either --
         # the reason is already on stderr, in those words.
         if check:
@@ -3020,8 +3110,9 @@ def main():
         # write refusal below). It says it measured nothing, in words
         # precedent_check.py turns into COULD NOT VERIFY, never a pass.
         if STRICT_BUDGETS:
-            print(BUDGETS_NOT_VERIFIED + ": a declared source is not "
-                  "reachable here, so the loader block's caps were not measured")
+            print(BUDGETS_NOT_VERIFIED + ": " + (
+                e.args[0] if e.args else "a declared source is not reachable "
+                "here") + ", so the loader block's caps were not measured")
             return 0
         sys.exit("build_views FAIL: refusing to WRITE a loader block from an "
                  "incomplete source set -- that would silently drop every "
