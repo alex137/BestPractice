@@ -56,6 +56,18 @@ now, so it is the classifier's ordinary behaviour, not a fluke: after a
 refused merge, anything the session runs before the person's next message
 is likely refused too, and only spends the turn.
 
+**2026-10-08, a consumer: a merge that fails starts it too.** This
+time auto mode let the merge call through, and GitHub refused it: the
+session had passed a 7-character expected head SHA, and the merge tool
+takes all 40 characters or none. After that failed call the same refusals
+followed, reads included. So the spiral does not need the classifier to
+refuse the merge first; a merge that fails for any reason can set it off.
+Since that day the update's DONE says to merge with the full 40-character
+head (`git rev-parse HEAD` right after the push) or none, every merge line
+Promote prints carries the head in full, and
+[vendor-update-runbook](../practices/vendor-update-runbook.md) step 12 says
+the same.
+
 It is the merge-shaped twin of
 [the refusal of a bare Promote into main](gotcha-2026-09-30-auto-mode-refuses-a-bare-promote-into-main-as-a-production.md),
 and the same fix applies.

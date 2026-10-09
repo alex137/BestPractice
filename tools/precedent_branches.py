@@ -1557,9 +1557,12 @@ def _at_head(sha):
     expected head. A merge through GitHub's API takes the head it expects in
     full (expectedHeadSha), and the twelve-character form printed everywhere
     else here is refused there; a session in nomen-omen read the short one
-    back and had to look the rest up (2026-10-06). Pinning the head also
+    back and had to look the rest up (2026-10-06); a session elsewhere passed
+    seven characters, the merge failed, and auto mode then refused even its
+    reads (2026-10-08), so the line says so outright. Pinning the head also
     means a copy that moved after its check is not merged by mistake."""
-    return f', at head commit {sha}' if sha else ''
+    return (f', at head commit {sha} -- the merge tool takes all 40 '
+            f'characters, as here, or no expected head at all' if sha else '')
 
 
 def wait_for_main_test(root, sha, say=print, gh=None, copy=None):

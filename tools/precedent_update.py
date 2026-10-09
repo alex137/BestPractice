@@ -1698,6 +1698,19 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
         return True
 
 
+# What DONE says about the merge that lands the update. 2026-10-08, a
+# consumer: the session merged Update Vendors' own pull request with a
+# 7-character expected head; GitHub's merge refused it, and the failed merge
+# left Claude Code's auto mode refusing even reads until the person spoke
+# (gotchas/gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md).
+MERGE_HEAD_NOTE = (
+    "Merging its pull request: give the merge tool the full 40-character "
+    "head commit, never a short one -- `git rev-parse HEAD` right after the "
+    "push, or `git ls-remote origin refs/heads/<branch>` -- or no expected "
+    "head at all. GitHub refuses a short one, and a failed merge leaves auto "
+    "mode refusing even reads until the person speaks.")
+
+
 class Report:
     def __init__(self):
         self.steps = []   # (name, one-line outcome)
@@ -1868,6 +1881,7 @@ class Report:
         else:
             print("\nDONE -- nothing left to decide. Review the staged diff, "
                   "commit, then run Go update's chain.")
+        print(MERGE_HEAD_NOTE)
         if self.not_run:
             print(self.not_run)
         return DONE

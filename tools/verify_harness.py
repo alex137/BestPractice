@@ -57794,6 +57794,58 @@ def check_update_done_names_the_check_it_ran():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_merge_lines_carry_the_full_head():
+    """Every line that tells a session how to merge -- Update Vendors' DONE,
+    Promote's merge lines, the runbook's step 12 -- says the merge tool takes
+    the full 40-character head commit or none.
+
+    WHY. 2026-10-08, a consumer: the session merged Update Vendors' own pull
+    request with a 7-character expected head SHA, GitHub refused it, and the
+    failed merge left auto mode refusing even read-only commands until the
+    person spoke (gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge).
+
+    Negative control, measured 2026-10-08: before the fix DONE named no head
+    at all, _at_head gave only the bare SHA, and the runbook and gotcha said
+    nothing of a short SHA -- every case below failed but the first."""
+    import contextlib, io
+    pu, _pve, _pr = _update_tools()
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    sha = 'b' * 40
+    cases = [('Promote\'s merge line carries all 40 characters',
+              sha in pb._at_head(sha))]
+    cases.append(('...and says the merge tool takes all 40 or none',
+                  '40' in pb._at_head(sha) and 'or no expected head' in pb._at_head(sha)))
+    for asks in ([], [('q', 'a question')]):
+        rep = pu.Report()
+        rep.asks = list(asks)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = rep.close()
+        out = buf.getvalue().split('DONE', 1)[-1]
+        cases.append((f'DONE{" with a question" if asks else ""} says to merge '
+                      f'with the full 40-character head, and how to read it',
+                      rc == pu.DONE and '40-character' in out
+                      and 'git rev-parse HEAD' in out and 'git ls-remote' in out,
+                      out[-500:]))
+    runbook = (ROOT / 'practices' / 'vendor-update-runbook.md').read_text(encoding='utf-8')
+    step12 = runbook.split('12. **Publish it', 1)[-1].split('## Detail', 1)[0]
+    cases.append(('the runbook\'s step 12 says the merge needs the full '
+                  '40-character head or none',
+                  'full 40-character head commit, or none' in step12))
+    gotcha = (ROOT / 'gotchas' /
+              'gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md'
+              ).read_text(encoding='utf-8')
+    cases.append(('the gotcha records that a failed merge starts the spiral too',
+                  '7-character' in gotcha and 'a merge that fails' in gotcha))
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'every merge instruction carries the full head commit '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_update_vendors_reports_dropped_template_wording():
     """An install-once file still carrying wording its template has since
     dropped is left for the person, by file and line -- and nothing else is.
@@ -67617,6 +67669,7 @@ def main():
     check_update_vendors_reports_dropped_template_wording()
     check_update_vendors_dropped_wording_reads_a_views_source()
     check_update_done_names_the_check_it_ran()
+    check_update_merge_lines_carry_the_full_head()
     check_update_leaves_no_dead_manifest_entry()
     check_update_in_force_nowhere_asks_once()
     check_update_repoints_moved_engine_commands()
