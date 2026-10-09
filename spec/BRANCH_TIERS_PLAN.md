@@ -12,6 +12,19 @@ summary:       "Every repo gets three branches with three levels of checking: pr
 
 # Three branch tiers -- pre-staging, staging, main
 
+**2026-10-09: what changed since this was written.** A person can now land
+straight on `staging` instead of `pre-staging`: with `promote_only` on and
+`landing_branch` set to `staging`, `python3 tools/precedent_branches.py
+--land` brings `main`'s direct commits in and runs the quick checks, so
+`staging` is that person's quick tier. `--run-tests` runs the full local
+suite on request and moves nothing, and `--promote --to main --fast` moves
+`staging` into `main` with the quick checks, the GitHub test running right
+after the merge. Update Vendors takes only a `main` whose GitHub test
+passed. The current description is
+[AGENTS_COMMANDS_IN_FULL.md](AGENTS_COMMANDS_IN_FULL.md#two-check-levels)
+and `python3 tools/precedent_branches.py --help`; the text below is kept
+as written.
+
 **The problem.** Morgan works in the cloud version of Claude Code, often
 with eight or more windows open at once, each editing a different part of
 the same document. Since the local push check came back on 2026-09-25

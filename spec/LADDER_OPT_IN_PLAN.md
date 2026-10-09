@@ -12,6 +12,19 @@ summary:       "The five-stage ladder (Consider, Act, Booked, Debut, Produce), i
 
 # The ladder as an opt-in set
 
+**2026-10-09: what changed since this was written.** A person can now land
+straight on `staging` instead of `pre-staging`: with `promote_only` on and
+`landing_branch` set to `staging`, `python3 tools/precedent_branches.py
+--land` brings `main`'s direct commits in and runs the quick checks, so
+`staging` is that person's quick tier. `--run-tests` runs the full local
+suite on request and moves nothing, and `--promote --to main --fast` moves
+`staging` into `main` with the quick checks, the GitHub test running right
+after the merge. Update Vendors takes only a `main` whose GitHub test
+passed. The current description is
+[AGENTS_COMMANDS_IN_FULL.md](AGENTS_COMMANDS_IN_FULL.md#two-check-levels)
+and `python3 tools/precedent_branches.py --help`; the text below is kept
+as written.
+
 Morgan approved this plan on 2026-10-02 ("Go ... Let's do it, Act on the
 plan!"), after a day of planning and four rounds of outside review by
 another session. Every decision below is recorded with its strength. It is written
