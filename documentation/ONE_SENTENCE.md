@@ -32,6 +32,9 @@ best one can win. Got a better one? Add it.
   doing it.
 - **Set precedents!** Just do what you do, and your system learns from the
   decisions made.
+- **In the background, every little decision and preference is tracked**,
+  with the moment it was made and the reason why, and smartly applied going
+  forward, all automatically.
 
 ## Where to Go From Here
 
