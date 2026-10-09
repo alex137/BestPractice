@@ -35,6 +35,11 @@ best one can win. Got a better one? Add it.
 - **In the background, every little decision and preference is tracked**,
   with the moment it was made and the reason why, and smartly applied going
   forward, all automatically.
+- **Let everyone learn to be a manager**, thinking in terms of creating
+  and enforcing policies for themselves and others.
+- **NixOS for people:** don't micromanage how things are done, but focus
+  on making and maintaining the rulesets that guide everything getting
+  done.
 
 ## Where to Go From Here
 
