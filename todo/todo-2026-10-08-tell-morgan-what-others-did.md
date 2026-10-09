@@ -81,6 +81,14 @@ landing branch with git plumbing, never through the working tree. Tested by
 in [tools/verify_harness.py](../tools/verify_harness.py), which fails when
 the person's own Claude sessions are not left out.
 
+**The mark moved off the landing branch the same day.** In a consuming
+repository the first reply's status check committed "Others-did mark ...
+[skip ci]" onto pre-staging, and the next Produce carried it to main. The
+mark now lives on origin's `refs/precedent/others-did`, a ref outside
+every branch, pushed and fetched by name, so it rides no Promote; the old
+file on the landing branch is read once to carry marks over and never
+written again. Tested by `check_others_did_mark_never_lands_on_a_branch`.
+
 **The practice file `others-did.md` landed on the ladder set's
 pre-staging** the same day, once Morgan approved push access to it. Until
 the citation check reads more than this repository's own catalogue

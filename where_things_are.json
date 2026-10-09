@@ -331,7 +331,7 @@
     },
     {
       "looking_for": "What other people landed here since you were last told, once a day",
-      "go_to": "[tools/precedent_others_did.py](tools/precedent_others_did.py) — one line at session start; the report itself opens the first reply after 07:00 in your own timezone, through the reply gate. The mark is [tools/others_did_watermark.json](tools/others_did_watermark.json), keyed by person and **never hand-edited** — the tool commits it onto the landing branch on the run that reports, and only then"
+      "go_to": "[tools/precedent_others_did.py](tools/precedent_others_did.py) — one line at session start; the report itself opens the first reply after 07:00 in your own timezone, through the reply gate. The mark is `others_did_watermark.json` on origin's `refs/precedent/others-did`, a ref outside every branch, keyed by person and **never hand-edited** — the tool commits and pushes it there on the run that reports, and only then; [tools/others_did_watermark.json](tools/others_did_watermark.json) is where it lived before 2026-10-08, read once to carry old marks over"
     },
     {
       "looking_for": "Practices that fire at a moment rather than in a file",
