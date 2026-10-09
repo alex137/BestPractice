@@ -3995,6 +3995,20 @@ def _active_practice_slugs(clone):
     return out
 
 
+def _declared_level(s):
+    """A declared source's level with its alias read, `team` -> `shared`, as
+    precedent_resolve.normalize_level reads it. Comparing the raw field let
+    a set declared at the older `team` level slip past the retired- and
+    deleted-set drop, so Update Vendors never removed it (a consumer's
+    update, 2026-10-09)."""
+    level = s.get('level') if isinstance(s, dict) else None
+    try:
+        import precedent_resolve as pr
+    except Exception:                                           # noqa: BLE001
+        return 'shared' if level == 'team' else level
+    return pr.normalize_level(level)
+
+
 def _person_sets():
     """-> (deleted {name: info}, [carrier paths]) for the person running this:
     the sets their individual set says they deleted, and the individual set
@@ -4042,11 +4056,11 @@ def retired_sources(dest_root, archived=(), person=None):
 
     out = []
     for s in sources:
-        if not isinstance(s, dict) or s.get('level') not in ('shared', 'individual'):
+        if not isinstance(s, dict) or _declared_level(s) not in ('shared', 'individual'):
             continue
         name, clone = str(s.get('name') or ''), where(s)
         ret = source_retirement(clone)
-        if s.get('level') == 'shared' and name in gone:
+        if _declared_level(s) == 'shared' and name in gone:
             info = gone[name]
             why = (DELETED_WHY + (f' ({info["date"]})' if info.get('date') else '')
                    + (' -- BestPractice\'s record of deleted sets, '
@@ -4266,7 +4280,7 @@ def archived_declared_sources(dest_root):
     except (OSError, ValueError):
         return archived, notes
     for s in cfg.get('sources') or []:
-        if not isinstance(s, dict) or s.get('level') not in ('shared', 'individual'):
+        if not isinstance(s, dict) or _declared_level(s) not in ('shared', 'individual'):
             continue
         name = str(s.get('name') or '')
         clone = root / pathlib.Path(str(s.get('path') or '')).expanduser()

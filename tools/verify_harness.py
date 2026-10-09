@@ -8919,6 +8919,19 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
         cases.append(("a retired set whose rule only the person's own set "
                       'carries is dropped', 'carried' not in left))
         cases.append(('universal is never dropped', 'uni' in left))
+        # A set declared at the older `team` level is the same set
+        # (normalize_level): it is dropped too, not skipped (a consumer's
+        # update, 2026-10-09, kept two deleted sets declared as `team`).
+        pj5 = fx / 'repo5' / 'precedent.json'
+        pj5.parent.mkdir()
+        pj5.write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'uni', 'path': '../uni'},
+            {'level': 'team', 'name': 'vanished', 'path': '../vanished'}]}),
+            encoding='utf-8')
+        _pve.drop_retired_sources(fx / 'repo5', person=person)
+        left5 = [x['name'] for x in json.loads(pj5.read_text(encoding='utf-8'))['sources']]
+        cases.append(('a deleted set declared at the older `team` level is '
+                      'dropped too', left5 == ['uni'], left5))
         # Every session stops loading and cloning a deleted set at once.
         import precedent_resolve as _pr
         ind = fx / 'ind'
