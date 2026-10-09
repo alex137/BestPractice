@@ -15098,6 +15098,210 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def _addition_fixture_practice(slug, *, tier='on-demand', status='active',
+                               to='null', adds='', extra='', gates='[]',
+                               rule='Do the thing.', occasion='doing the fixture'):
+    """A minimal practice file for the adds_to cases: `adds` is the slug it
+    adds to ('' for none), `extra` any further frontmatter lines."""
+    return ('---\nslug:        ' + slug + '\ntitle:       A fixture practice\n'
+            f'tier:        {tier}\nseverity:    default\n'
+            'applies_to:  ["**"]\n'
+            f'occasion:    "{occasion}"\ngates:       {gates}\n'
+            'index_clause: "fixture"\n' + extra + 'checked_by:  null\n'
+            f'defines:     []\nstatus:      {status}\nin_force_at: {to}\n'
+            'supersedes:  []\noverrides:   null\n'
+            + (f'adds_to:     {adds}\n' if adds else '')
+            + 'added:       "2026-10-09"\napproved_by: "Fixture, 2026-10-09"\n'
+            f'---\n\n## Rule\n{rule}\n\n## Why\nBecause.\n\n## Story\n'
+            'A dated incident.\n')
+
+
+def check_additions_load_with_their_rule():
+    """An addition (`adds_to: SLUG`, Morgan, 2026-10-09, "Option 1") loads
+    with the rule it adds to and costs no occasion-index line of its own.
+
+    Cases: lands_in_occasion_index() refuses an addition even with
+    index_required: true, and the rendered block carries the base's line and
+    not the addition's, nor a resident addition's Rule; precedent_show.py on
+    the base prints the addition from ANOTHER declared source, under its own
+    heading; on the addition, names the base; on a deduplicated slug, shows
+    the live rule with its additions, including one written against the old
+    name; the gate that prints the base prints the addition after it, though
+    the addition registers no gate; the spoken-commands line for a base
+    marks how many additions it has. CONTROL: a rule nobody adds to shows
+    no addition heading."""
+    import shutil, tempfile
+    import build_views as bv
+    import precedent_session_practices as psp
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-adds-to-'))
+    P = _addition_fixture_practice
+    try:
+        added = P('its-addition', adds='base-rule',
+                  extra='index_required: true\n',
+                  occasion='a person says \\"Do The Fixture\\"',
+                  rule='The addition says more.')
+        d = tmp / 'render' / 'practices'
+        d.mkdir(parents=True)
+        (d / 'base-rule.md').write_text(P('base-rule'), encoding='utf-8')
+        (d / 'its-addition.md').write_text(added, encoding='utf-8')
+        (d / 'resident-addition.md').write_text(
+            P('resident-addition', tier='resident', adds='base-rule',
+              rule='RESIDENT ADDITION TEXT.'), encoding='utf-8')
+        loaded = bv.load_practices(d, announce=False)
+        fms = {f['slug']: f for f, _s, _f in loaded}
+        cases.append(('an addition never lands in the occasion index, even with '
+                      'index_required: true',
+                      bv.lands_in_occasion_index(fms['its-addition']) is False
+                      and bv.lands_in_occasion_index(fms['base-rule']) is True, ''))
+        block, _t, _c = bv.build_loader_block(loaded, block_dir=d.parent)
+        cases.append(('the rendered block lists the base and not the addition, '
+                      'and carries no resident addition',
+                      'base-rule' in block and 'its-addition' not in block
+                      and 'RESIDENT ADDITION TEXT.' not in block, block[-600:]))
+
+        base, extra = tmp / 'set-base', tmp / 'set-extra'
+        for s, name in ((base, 'fx-set-base'), (extra, 'fx-set-extra')):
+            (s / 'practices').mkdir(parents=True)
+            (s / 'precedent-source.json').write_text(
+                json.dumps({'name': name, 'level': 'shared'}), encoding='utf-8')
+        (base / 'practices' / 'base-rule.md').write_text(
+            P('base-rule', gates='["review"]', rule='The base rule.'),
+            encoding='utf-8')
+        (base / 'practices' / 'old-rule.md').write_text(
+            P('old-rule', status='deduplicated', to='base-rule'), encoding='utf-8')
+        (base / 'practices' / 'lonely-rule.md').write_text(
+            P('lonely-rule', rule='Nobody adds to this.'), encoding='utf-8')
+        (extra / 'practices' / 'its-addition.md').write_text(added, encoding='utf-8')
+        (extra / 'practices' / 'old-name-addition.md').write_text(
+            P('old-name-addition', adds='old-rule', rule='Written against the old name.'),
+            encoding='utf-8')
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        (repo / 'precedent.json').write_text(json.dumps({'format_version': 1, 'sources': [
+            {'level': 'shared', 'name': 'fx-set-base', 'path': str(base)},
+            {'level': 'shared', 'name': 'fx-set-extra', 'path': str(extra)}]}),
+            encoding='utf-8')
+        env = {**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json')}
+
+        def tool(*args):
+            r = subprocess.run([sys.executable, *args], capture_output=True,
+                               text=True, env=env, timeout=120)
+            return r.returncode, r.stdout + r.stderr
+
+        def show(slug):
+            return tool(str(ROOT / 'tools' / 'precedent_show.py'), '--repo',
+                        str(repo), slug)
+        rc, out = show('base-rule')
+        cases.append(('show on the base prints the addition from the other source',
+                      rc == 0 and 'The base rule.' in out
+                      and 'Addition in force here (from shared/fx-set-extra): '
+                          'its-addition' in out
+                      and 'The addition says more.' in out
+                      and out.index('The base rule.') < out.index('The addition says more.'),
+                      out[-600:]))
+        cases.append(('...including one written against a deduplicated name',
+                      'Written against the old name.' in out, out[-600:]))
+        rc, out = show('its-addition')
+        cases.append(('show on the addition names the rule it adds to',
+                      rc == 0 and 'The addition says more.' in out
+                      and 'Adds to `base-rule`' in out, out[-400:]))
+        rc, out = show('old-rule')
+        cases.append(('show on a deduplicated slug attaches the additions to the '
+                      'live rule',
+                      rc == 0 and 'old-rule -> base-rule' in out
+                      and 'its-addition' in out, out[-600:]))
+        rc, out = show('lonely-rule')
+        cases.append(('CONTROL: a rule nobody adds to shows no addition',
+                      rc == 0 and 'Nobody adds to this.' in out
+                      and 'Addition in force here' not in out, out[-300:]))
+        rc, out = tool(str(ROOT / 'tools' / 'precedent_gate.py'), 'review',
+                       '--repo', str(repo))
+        cases.append(('the gate that prints the base prints its addition after it',
+                      'The base rule.' in out and 'The addition says more.' in out
+                      and out.index('The base rule.') < out.index('The addition says more.'),
+                      out[-600:]))
+
+        cmd = P('spoken-rule', extra='command:     {"Do The Fixture": "A fixture."}\n')
+        cd = tmp / 'spoken'
+        cd.mkdir()
+        (cd / 'spoken-rule.md').write_text(cmd, encoding='utf-8')
+        (cd / 'spoken-addition.md').write_text(
+            P('spoken-addition', adds='spoken-rule'), encoding='utf-8')
+        spoken = psp.spoken_block(bv.load_practices(cd, announce=False))
+        cases.append(('the spoken-commands line marks the base\'s additions, and '
+                      'adds no line for one',
+                      '(+ 1 addition here)' in spoken
+                      and 'spoken-addition' not in spoken, spoken))
+    except (OSError, ValueError, KeyError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
+
+
+def check_adds_to_names_a_rule_in_force():
+    """precedent_check.py's adds-to-names-a-rule-in-force (2026-10-09): an
+    addition reaches a session only with the rule it adds to, so one naming
+    a slug no source in force carries, or naming itself, or marked resident,
+    is refused. It passes an addition to a rule of the same set, one to a
+    deduplicated slug whose chain ends in force, and a practice with no
+    adds_to at all."""
+    import tempfile, shutil
+    import build_views as _bv              # noqa: F401 -- cached for the check
+    import precedent_check as pc
+    P = _addition_fixture_practice
+    plants = {
+        # slug: (text, fires)
+        'base-rule': (P('base-rule'), False),
+        'old-rule': (P('old-rule', status='deduplicated', to='base-rule'), False),
+        'good-addition': (P('good-addition', adds='base-rule'), False),
+        'via-old-name': (P('via-old-name', adds='old-rule'), False),
+        'typo-addition': (P('typo-addition', adds='base-rul'), True),
+        'self-addition': (P('self-addition', adds='self-addition'), True),
+        'resident-addition': (P('resident-addition', tier='resident',
+                                adds='base-rule'), True),
+    }
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='adds-to-check-'))
+    saved = pc.ROOT
+    env_saved = os.environ.get('PRECEDENT_USER_CONFIG')
+    try:
+        (tmp / 'practices').mkdir()
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'sources': []}), encoding='utf-8')
+        for slug, (text, _f) in plants.items():
+            (tmp / 'practices' / f'{slug}.md').write_text(text, encoding='utf-8')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-user-config.json')
+        pc.ROOT = tmp
+        try:
+            got = pc._adds_to_names_a_rule_in_force(None)
+        finally:
+            pc.ROOT = saved
+        hit = {pathlib.PurePath(f.file()).stem for f in got
+               if not isinstance(f, pc.Unverified)}
+        for slug, (_t, fires) in plants.items():
+            cases.append((f'{slug}: {"refused" if fires else "passes"}',
+                          (slug in hit) == fires))
+        text = ' '.join(str(f) for f in got)
+        cases.append(('the refusal names the slug that resolves nowhere',
+                      'adds_to: base-rul ' in text))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        pc.ROOT = saved
+        if env_saved is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = env_saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check(f'adds_to names a rule in force ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 def check_code_owner_practice_stays_out_of_the_index():
     """precedent_check.py's code-owner-practice-stays-out-of-the-index
     (2026-10-08): a practice marked `visible_to: code-owners` is carried by a
@@ -15133,6 +15337,11 @@ def check_code_owner_practice_stays_out_of_the_index():
                        '{"Planted Phrase": "A planted command."}', owners, False),
         'for-everyone': ('on-demand', '["**"]', '[]', 'null', '', False),
         'excepted': ('on-demand', '["**"]', '[]', 'null', owners, False),
+        # An addition loads with the rule it adds to, so it lands nowhere
+        # on its own (2026-10-09), index_required or not.
+        'addition': ('on-demand', '["**"]', '[]', 'null',
+                     owners + 'adds_to:     by-path\nindex_required: true\n',
+                     False),
     }
     cases = []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='code-owner-index-'))
@@ -21453,6 +21662,28 @@ def check_precedent_check_fires():
                 '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
                 encoding='utf-8')
         case('code-owner-practice-stays-out-of-the-index', _plant_copsooti)
+
+        # adds-to-names-a-rule-in-force -- an addition that names itself, so
+        # no rule carries it and no session is shown it (2026-10-09). Itself
+        # rather than an unknown slug: the fixture's other sources do not
+        # resolve, and a base that might live in one is could-not-verify.
+        def _plant_atnarif(repo):
+            (repo / 'practices' / 'zzz-own-addition.md').write_text(
+                '---\nslug:        zzz-own-addition\n'
+                'title:       An addition to itself\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\n'
+                'occasion:    "doing a planted thing"\n'
+                'gates:       []\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nsupersedes:  []\n'
+                'overrides:   null\nadds_to:     zzz-own-addition\n'
+                'added:       "2026-10-09"\n'
+                'approved_by: "fixture"\n---\n\n'
+                '## Rule\nPlanted.\n\n'
+                '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
+                encoding='utf-8')
+        case('adds-to-names-a-rule-in-force', _plant_atnarif)
 
 
         # docs-track-models -- an owned figure restated in the prose
@@ -68244,6 +68475,9 @@ def main():
     check('the session file says each spoken command once: first, and not again '
           'in its occasion index',
           *check_session_file_says_each_command_once())
+    check('an addition loads with the rule it adds to: no index line, shown by '
+          'precedent_show and the gate with its base, marked on a spoken command',
+          *check_additions_load_with_their_rule())
     check('Update Vendors builds the views again after stamping their source, and a '
           'consumer\'s view check skips a view it never had',
           *check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views())
@@ -68398,6 +68632,7 @@ def main():
     check_lint_refuses_an_open_item_waiting_on_an_upstream_fix()
     check_upstream_fix_sets_up_the_fix_in_the_source()
     check_code_owner_practice_stays_out_of_the_index()
+    check_adds_to_names_a_rule_in_force()
     check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
