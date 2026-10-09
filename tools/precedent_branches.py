@@ -846,15 +846,41 @@ def _declared_landing(root, user_config=None):
     return None
 
 
+# A person moving off pre-staging one repository at a time (Morgan,
+# 2026-10-09: "I want to fully complete one repo at a time"). Their own
+# landing_branch stays unset, so each repository's precedent.json decides,
+# and an old engine reads that the same way; Update Vendors' second pass
+# in a repository switches its precedent.json to staging
+# (precedent_update.retire_pre_staging_step).
+RETIRE_SETTING = 'retire_pre_staging'
+
+
+def moves_repo_by_repo(root, user_config=None):
+    """-> True when the person's own identity.json says retire_pre_staging
+    is true and promote_only is on."""
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email') and RETIRE_SETTING in ident:
+            return ident[RETIRE_SETTING] is True \
+                and promote_only(root, user_config)[0]
+    return False
+
+
 def pre_staging_unused(root, user_config=None):
     """-> (unused, waits): unused is True when pre-staging is retired for
     this person -- their identity.json declares landing_branch "staging",
     they land straight there (lands_on_staging), and this repository's
     precedent.json does not make pre-staging the landing branch for others.
     `waits` is the reason, when only that last condition holds it back;
-    None otherwise."""
-    if _declared_landing(root, user_config) != STAGING \
-            or not lands_on_staging(root, user_config)[0]:
+    None otherwise.
+
+    A person moving repository by repository (moves_repo_by_repo) declares
+    no landing_branch: for them it is unused once this repository's
+    precedent.json says staging, and waits while it says pre-staging."""
+    declared = _declared_landing(root, user_config) == STAGING
+    if not declared and not moves_repo_by_repo(root, user_config):
+        return False, None
+    if declared and not lands_on_staging(root, user_config)[0]:
         return False, None
     if precedent_json(root).get(LANDING_SETTING) == PRE_STAGING:
         return False, (f'precedent.json still makes {PRE_STAGING} the landing '
@@ -862,6 +888,8 @@ def pre_staging_unused(root, user_config=None):
                        f'is still in use; set "{LANDING_SETTING}": '
                        f'"{STAGING}" there if nobody else lands on '
                        f'{PRE_STAGING}, then run this again')
+    if not lands_on_staging(root, user_config)[0]:
+        return False, None
     return True, None
 
 
