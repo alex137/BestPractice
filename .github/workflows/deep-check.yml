@@ -227,6 +227,13 @@ jobs:
     needs: already-tested
     if: ${{ !cancelled() && needs.already-tested.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
+    # The workflow's two read permissions, plus issues: write for the last
+    # step alone. A job's permissions replace the workflow's, so the two
+    # are said again here.
+    permissions:
+      contents: read
+      actions: read
+      issues: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -264,3 +271,50 @@ jobs:
       # the last gate before main, so rotation buys nothing it needs.
       - name: Run the verification harness, side by side
         run: python3 tools/verify_harness.py --as-ci
+
+      # MAIN'S TEST FAILED: SAY SO WHERE NOBODY CAN MISS IT (2026-10-09, the
+      # main landing plan, piece B, layer 2). Approved by Morgan with the
+      # plan that names this step, 2026-10-09: "Act on the ... plan". A
+      # red main used to be found by whoever looked next. This files an
+      # issue labelled main-test-failed, or adds the run to the one already
+      # open, and the next session here lists it first
+      # (tools/open_failures.py). Only when a step above failed, and only on
+      # main itself (a push, or the button) or a pull request into main. No
+      # extra job and no extra runner: a few seconds, on a failure only.
+      # A fork's pull request gets a read-only token, so the step may fail
+      # there; continue-on-error keeps that from hiding the real failure.
+      - name: Open an issue when main's test fails
+        if: >-
+          failure() && (
+          (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'pull_request' && github.base_ref == 'main'))
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -u
+          label=main-test-failed
+          if [ -n "$PR_NUMBER" ]; then
+            where="pull request #$PR_NUMBER into main"
+          else
+            where="main @ ${GITHUB_SHA:0:12}"
+          fi
+          failing=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/jobs" \
+            --jq '[.jobs[].steps[]? | select(.conclusion == "failure") | .name] | join(", ")' \
+            2>/dev/null) || failing=''
+          body="GitHub's test failed on $where.
+
+          Run: $RUN_URL
+          Failing: ${failing:-could not be read; open the run}
+
+          Until main's test passes again, Update Vendors in other repositories takes the last main whose test passed. Fix it before other work, then close this issue."
+          open=$(gh issue list --label "$label" --state open --json number --jq '.[0].number // empty' 2>/dev/null) || open=''
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          else
+            gh label create "$label" --color B60205 --description "GitHub's test on main failed" 2>/dev/null || true
+            gh issue create --title "main's test failed" --label "$label" --body "$body"
+          fi

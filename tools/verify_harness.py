@@ -10064,12 +10064,17 @@ def check_update_hands_the_engine_refresh_the_followed_tip():
                 return 0, followed_tip + '\n'
             return saved_run(argv, cwd)
         pu.run = fetchless
+        # GitHub stood in: every commit's test passed, so the tip is taken.
+        saved_state = getattr(pu, 'main_test_state', None)
+        pu.main_test_state = lambda sha, tests: ('passed', 'stand-in')
         out = io.StringIO()
         try:
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
                 pu.update(repo, skip_check=True)
         finally:
             pu.run = saved_run
+            if saved_state is not None:
+                pu.main_test_state = saved_state
         return out.getvalue()
 
     try:
@@ -14609,6 +14614,7 @@ def check_update_vendors_reruns_pinned_to_its_first_commit():
             f'        return 0, {tip!r} + "\\n"\n'
             '    return real(argv, cwd)\n'
             'pu.run = run\n'
+            'pu.main_test_state = lambda sha, tests: ("passed", "stand-in")\n'
             f'sys.exit(pu.main(["--repo", {str(repo)!r}, "--skip-check", *{list(extra)!r}]))\n'),
             cwd=repo)
 
@@ -14695,6 +14701,350 @@ def check_update_vendors_reruns_pinned_to_its_first_commit():
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
+
+def check_update_vendors_takes_only_a_main_that_passed():
+    """Update Vendors takes the newest main commit whose GitHub test passed,
+    and says so in one line when that is not the newest: which commit, how
+    many commits behind, and why. GitHub not answering takes the tip with a
+    warning; --take-anyway takes a named commit on the person's word and
+    records it for the commit message.
+
+    2026-10-09, the main landing plan, piece A (Morgan, "Act on the
+    ... plan"): a test that no longer fit sat on main for about an hour,
+    and any repository updated in that hour would have taken it. Here the
+    update runs in-process against a planted consumer whose engine copy is a
+    stand-in recording the commit it was handed (as
+    check_update_hands_the_engine_refresh_the_followed_tip does), main's
+    tip is stubbed to this clone's HEAD, and GitHub is stood in through
+    precedent_update.main_test_state, answering per commit of HEAD's
+    first-parent line.
+
+    Negative control, measured 2026-10-09 against origin/main at d14a6fd6:
+    the red, running and unreachable cases take the tip with no line, and
+    the override is an unknown argument. The green case takes the same
+    commit there; it fails only on GitHub never having been asked."""
+    import contextlib
+    import io
+    import tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-update-green-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+    line = git(ROOT, 'rev-list', '--first-parent', '--max-count=3', 'HEAD').stdout.split()
+    if len(line) < 3:
+        shutil.rmtree(tmp, ignore_errors=True)
+        return (True, 'not applicable: fewer than three first-parent commits here', '')
+    c0, c1, _c2 = line
+    saved_run = pu.run
+    saved_state = getattr(pu, 'main_test_state', None)
+    cases = []
+
+    def planted(name):
+        repo = tmp / name
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / pve.MANIFEST_NAME).write_text(json.dumps({
+            'source_commit': _c2, 'kind': 'consumer', 'files': []}), encoding='utf-8')
+        argv_file = tmp / f'{name}-argv.json'
+        (repo / 'tools' / 'precedent_vendor_engine.py').write_text(
+            'import json, pathlib, sys\n'
+            f'open({str(argv_file)!r}, "w").write(json.dumps(sys.argv[1:]))\n'
+            'a = sys.argv[1:]\n'
+            'ref = a[a.index("--from-ref") + 1] if "--from-ref" in a else "none"\n'
+            'm = pathlib.Path(__file__).with_name("ENGINE_MANIFEST.json")\n'
+            'd = json.loads(m.read_text()); d["source_commit"] = ref\n'
+            'm.write_text(json.dumps(d))\n'
+            'print("precedent_vendor_engine refresh OK (consumer): 1 file(s) "\n'
+            '      "refreshed from " + ref + " @ " + ref[:12])\n', encoding='utf-8')
+        git(tmp, 'init', '-q', '-b', 'main', str(repo))
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'installed\n\nSession: none available (fixture)')
+        return repo, argv_file
+
+    def run_update(name, states, take=None):
+        repo, argv_file = planted(name)
+
+        def fetchless(argv, cwd):
+            if argv[:1] == ['git'] and 'fetch' in argv:
+                return 0, ''
+            if argv[:1] == ['git'] and 'rev-parse' in argv \
+                    and argv[-1] == f'origin/{pve.SOURCE_BRANCH}':
+                return 0, c0 + '\n'
+            return saved_run(argv, cwd)
+        asked = []
+
+        def state(sha, tests):
+            asked.append(sha)
+            return states.get(sha, ('failed', 'stand-in: not planted'))
+        pu.run = fetchless
+        pu.main_test_state = state
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                if take:
+                    pu.update(repo, skip_check=True, take=take)
+                else:
+                    pu.update(repo, skip_check=True)
+        except TypeError as e:
+            out.write(f'\nupdate() takes no override: {e}')
+        finally:
+            pu.run = saved_run
+            if saved_state is not None:
+                pu.main_test_state = saved_state
+        argv = json.loads(argv_file.read_text()) if argv_file.is_file() else []
+        handed = argv[argv.index('--from-ref') + 1] if '--from-ref' in argv else None
+        held = getattr(pu, 'held_pin', lambda _r: None)(repo) or {}
+        return out.getvalue(), handed, held, asked
+
+    def steps(text):
+        return [l for l in text.splitlines() if l.startswith('precedent_update: GitHub test:')]
+
+    try:
+        text, handed, _held, asked = run_update('green', {c0: ('passed', 'ok')})
+        cases.append(('(a) the newest main passed: it is taken, one question asked of '
+                      'GitHub, and no line about it',
+                      handed == c0 and asked == [c0] and not steps(text),
+                      (handed, asked, steps(text))))
+
+        text, handed, _held, _a = run_update('red', {c0: ('failed', 'url'),
+                                                     c1: ('passed', 'ok')})
+        want = (f"precedent_update: GitHub test: took main @ {c1[:12]}, 1 commit behind "
+                f"the newest main, {c0[:12]}, because GitHub's test failed on "
+                f"{c0[:12]}. This repo gets the newer ones once their test passes")
+        cases.append(('(b) the newest main is red: the one before it is taken, said in '
+                      'one line with the count and the reason',
+                      handed == c1 and steps(text) == [want], (handed, steps(text))))
+
+        text, handed, _held, _a = run_update('running', {c0: ('running', 'busy'),
+                                                         c1: ('passed', 'ok')})
+        cases.append(('(c) the newest main is still being tested: the one before it, '
+                      '"still running"',
+                      handed == c1 and len(steps(text)) == 1
+                      and f"is still running on {c0[:12]}" in steps(text)[0]
+                      and '1 commit behind' in steps(text)[0], (handed, steps(text))))
+
+        text, handed, _held, asked = run_update('unreachable', {
+            c0: ('unknown', 'curl exited 6'), c1: ('passed', 'ok')})
+        cases.append(('(d) GitHub cannot be reached: the newest main, with a warning that '
+                      'names why, never silently',
+                      handed == c0 and asked == [c0] and len(steps(text)) == 1
+                      and 'WARNING: could not ask GitHub' in steps(text)[0]
+                      and 'curl exited 6' in steps(text)[0], (handed, steps(text))))
+
+        text, handed, held, _a = run_update('override', {c1: ('failed', 'url')},
+                                            take=c1[:10])
+        cases.append(('(e) --take-anyway takes the named red commit, says it was the '
+                      'person\'s word, and keeps that for the commit message',
+                      handed == c1 and len(steps(text)) == 1
+                      and "on the person's word (--take-anyway), although its GitHub "
+                          "test had not passed" in steps(text)[0]
+                      and (f"Took BestPractice main @ {c1[:12]} on the person's word "
+                           f"(--take-anyway), although its GitHub test had not passed."
+                           in (held.get('note') or '') + text.split('COMMIT MESSAGE: ', 1)[-1]
+                           if 'COMMIT MESSAGE: ' in text or held.get('note') else False),
+                      (handed, steps(text), held, text[-700:])))
+
+        text, handed, _held, _a = run_update('all-red', {})
+        cases.append(('...and with nothing green in reach, nothing is taken and the '
+                      'override is named',
+                      handed is None and 'Nothing was taken' in text
+                      and '--take-anyway <commit>' in text, (handed, text[-600:])))
+    finally:
+        pu.run = saved_run
+        if saved_state is not None:
+            pu.main_test_state = saved_state
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def _workflow_step_block(text, name):
+    """-> the lines of the step named `name` in a workflow's text, or []."""
+    lines = text.splitlines()
+    at = next((i for i, l in enumerate(lines)
+               if re.match(r'\s*- name:\s*' + re.escape(name) + r'\s*$', l)), None)
+    if at is None:
+        return []
+    ind = len(lines[at]) - len(lines[at].lstrip())
+    out = [lines[at]]
+    for l in lines[at + 1:]:
+        if l.strip() and len(l) - len(l.lstrip()) <= ind:
+            break
+        out.append(l)
+    return out
+
+
+def _actions_if(expr, event, ref, base_ref, failed):
+    """Evaluate a GitHub Actions `if:` expression of the shape the issue
+    step uses (failure(), ==, !=, &&, ||, parentheses, quoted strings),
+    for one run. Anything else in it raises, so a new shape is seen."""
+    s = expr.replace('${{', '').replace('}}', '')
+    s = s.replace('failure()', 'True' if failed else 'False')
+    s = (s.replace('github.event_name', repr(event)).replace('github.base_ref', repr(base_ref))
+         .replace('github.ref', repr(ref)))
+    s = s.replace('&&', ' and ').replace('||', ' or ').replace("'", '"')
+    if re.search(r'\b(?!and\b|or\b|not\b)[A-Za-z_][\w.]*\s*\(', s) or 'github.' in s:
+        raise ValueError(f'an expression this does not read: {expr}')
+    return bool(eval(s, {'__builtins__': {}}, {'True': True, 'False': False}))
+
+
+def check_main_test_failure_opens_an_issue():
+    """BestPractice's own deep-check.yml ends its one job with a step that
+    files an issue labelled main-test-failed, or comments on the open one,
+    when the test failed -- on main itself or on a pull request into main,
+    never otherwise -- with issues: write the only permission added, and no
+    new job. The next session here lists that issue first
+    (check_session_start_lists_a_red_main_first).
+
+    2026-10-09, the main landing plan, piece B, layer 2. The step's `if:`
+    is evaluated here for each kind of run, not matched as text.
+
+    Negative control, measured 2026-10-09 against origin/main at d14a6fd6:
+    no such step, and the job carries no permissions of its own."""
+    wf = ROOT / '.github' / 'workflows' / 'deep-check.yml'
+    text = wf.read_text(encoding='utf-8') if wf.is_file() else ''
+    cases = []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import open_failures as of
+    finally:
+        sys.path.pop(0)
+    label = getattr(of, 'MAIN_TEST_LABEL', 'main-test-failed')
+    block = _workflow_step_block(text, "Open an issue when main's test fails")
+    body = '\n'.join(block)
+    cases.append(('the step exists', bool(block), wf.name))
+    jobs = re.findall(r'^  ([\w-]+):\s*$', text.split('\njobs:', 1)[-1], re.M)
+    cases.append(('no job was added for it: still already-tested and deep-check',
+                  jobs == ['already-tested', 'deep-check'], jobs))
+    deep = text.split('\n  deep-check:', 1)[-1]
+    steps = re.findall(r'^      - name:\s*(.+)$', deep, re.M)
+    cases.append(('it is the deep-check job\'s last step, after the harness',
+                  bool(steps) and steps[-1] == "Open an issue when main's test fails"
+                  and 'verification harness' in ' '.join(steps[:-1]), steps))
+    m = re.search(r'^\s+if:\s*>-?\s*\n((?:\s{10,}.*\n)+)', body + '\n', re.M) \
+        or re.search(r'^\s+if:\s*(.+)$', body, re.M)
+    expr = ' '.join(m.group(1).split()) if m else ''
+    runs = [
+        ('push', 'refs/heads/main', '', True, True),
+        ('workflow_dispatch', 'refs/heads/main', '', True, True),
+        ('pull_request', 'refs/pull/9/merge', 'main', True, True),
+        ('push', 'refs/heads/main', '', False, False),
+        ('pull_request', 'refs/pull/9/merge', 'main', False, False),
+        ('push', 'refs/heads/feature', '', True, False),
+        ('workflow_dispatch', 'refs/heads/feature', '', True, False),
+        ('pull_request', 'refs/pull/9/merge', 'release', True, False),
+    ]
+    for event, ref, base, failed, want in runs:
+        try:
+            got = _actions_if(expr, event, ref, base, failed) if expr else None
+        except Exception as e:                                # noqa: BLE001
+            got = f'unreadable: {e}'
+        cases.append((f'{event} on {ref}{" into " + base if base else ""}, '
+                      f'{"failed" if failed else "passed"}: '
+                      f'{"files an issue" if want else "does nothing"}',
+                      got is want, (expr, got)))
+    perms = re.search(r'^    permissions:\s*\n((?:      .*\n)+)', deep, re.M)
+    got = sorted(l.strip() for l in (perms.group(1) if perms else '').splitlines()
+                 if l.strip() and not l.strip().startswith('#'))
+    top = re.search(r'^permissions:\s*\n((?:  .*\n|\s*#.*\n)+)', text, re.M)
+    top_got = sorted(l.strip() for l in (top.group(1) if top else '').splitlines()
+                     if l.strip() and not l.strip().startswith('#'))
+    cases.append(('the job adds issues: write to the workflow\'s two read '
+                  'permissions, and nothing else',
+                  got == sorted(top_got + ['issues: write'])
+                  and 'issues: write' not in top_got, (got, top_got)))
+    cases.append(('it files the issue under the label session start reads, or '
+                  'comments on the open one, and links the run',
+                  f'label={label}' in body and 'gh issue create' in body
+                  and 'gh issue comment' in body and '--state open' in body
+                  and 'RUN_URL' in body and 'continue-on-error: true' in body,
+                  label))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_session_start_lists_a_red_main_first():
+    """At session start, an open main-test-failed issue is the first line
+    tools/open_failures.py prints, ahead of the failures filed under todo/;
+    a GitHub that cannot be read is one line saying so; a repository whose
+    workflows never open such an issue asks GitHub nothing. And this repo's
+    own Claude Code session-start hook runs it before anything else that
+    prints, which it never ran at all before 2026-10-09 (only
+    tools/bootstrap.sh did).
+
+    Negative control, measured 2026-10-09 against origin/main at d14a6fd6:
+    open_failures.py has no report_lines and reads no issue, and the hook
+    does not run it."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import open_failures as of
+    finally:
+        sys.path.pop(0)
+    report = getattr(of, 'report_lines', None)
+    label = getattr(of, 'MAIN_TEST_LABEL', 'main-test-failed')
+    cases = []
+
+    class Gh:
+        def __init__(self, answer):
+            self.answer, self.calls = answer, []
+
+        def call(self, path, cache=True, **_kw):
+            self.calls.append(path)
+            return self.answer
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-red-main-'))
+    try:
+        def repo(name, with_label):
+            r = tmp / name
+            (r / '.github' / 'workflows').mkdir(parents=True)
+            (r / '.github' / 'workflows' / 'test.yml').write_text(
+                f'on: push\n# opens {label if with_label else "nothing"}\n', encoding='utf-8')
+            subprocess.run(['git', 'init', '-q', str(r)], capture_output=True)
+            subprocess.run(['git', '-C', str(r), 'remote', 'add', 'origin',
+                            'https://github.com/owner/name.git'], capture_output=True)
+            of.write_item(r, 'Landing failed: feat/x', 'boom', 'It lands.', '2026-10-09')
+            return r
+        red = repo('red', True)
+        gh = Gh(([{'number': 7, 'title': "main's test failed",
+                   'html_url': 'https://github.com/owner/name/issues/7'},
+                  {'number': 8, 'title': 'a pull request', 'pull_request': {}}], None))
+        lines = report(red, gh) if report else []
+        cases.append(('an open main-test-failed issue is the first line, the todo/ '
+                      'failures after it',
+                      len(lines) >= 3 and lines[0].startswith("MAIN'S TEST FAILED: issue #7")
+                      and 'issues/7' in lines[0] and lines[1].startswith('OPEN FAILURES (1)')
+                      and not any('#8' in l for l in lines), lines))
+        cases.append(('...asked once, of the repository\'s own issues, by label',
+                      gh.calls == [f'repos/owner/name/issues?labels={label}'
+                                   f'&state=open&per_page=20'], gh.calls))
+        down = Gh((None, 'curl exited 6'))
+        lines = report(red, down) if report else []
+        cases.append(('GitHub cannot be read: one line says so, and the todo/ '
+                      'failures still follow',
+                      len(lines) >= 2 and lines[0].startswith("MAIN'S TEST: could not read")
+                      and 'curl exited 6' in lines[0] and lines[1].startswith('OPEN FAILURES'),
+                      lines))
+        quiet = Gh(([], None))
+        lines = report(repo('plain', False), quiet) if report else ['no report_lines']
+        cases.append(('a repository whose workflows open no such issue asks GitHub '
+                      'nothing', quiet.calls == [] and lines[0].startswith('OPEN FAILURES'),
+                      (quiet.calls, lines)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    hook = (ROOT / '.claude' / 'hooks' / 'session-start.sh')
+    calls = re.findall(r'^\s*python3\s+(?:"[^"]*/)?(?:tools/)?([\w.]+\.py)', hook.read_text(
+        encoding='utf-8') if hook.is_file() else '', re.M)
+    cases.append(('this repo\'s Claude Code session-start hook runs open_failures.py '
+                  'before any other tool', calls[:1] == ['open_failures.py'], calls[:4]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
+
 
 def check_update_vendors_leaves_the_copy_its_record_names():
     """Update Vendors ends with the vendored catalogue copy holding exactly
@@ -59486,12 +59836,17 @@ def check_update_vendors_rehearsal_findings():
 
         def run_update(repo):
             pu.run = fetchless
+            # GitHub stood in: the tip's test passed, so the tip is taken.
+            saved_state = getattr(pu, 'main_test_state', None)
+            pu.main_test_state = lambda sha, tests: ('passed', 'stand-in')
             out = io.StringIO()
             try:
                 with contextlib.redirect_stdout(out):
                     rc = pu.update(repo, skip_check=True)
             finally:
                 pu.run = saved_run
+                if saved_state is not None:
+                    pu.main_test_state = saved_state
             return rc, out.getvalue()
 
         cases = []
@@ -69824,6 +70179,13 @@ def main():
           *check_update_vendors_declined_catalogue_copy_is_upstreams())
     check('an update reruns against the source commit it started from until DONE',
           *check_update_vendors_reruns_pinned_to_its_first_commit())
+    check('Update Vendors takes the newest main whose GitHub test passed, and says '
+          'when that is not the newest',
+          *check_update_vendors_takes_only_a_main_that_passed())
+    check('a failed test on main opens a GitHub issue, from one step that runs only '
+          'then', *check_main_test_failure_opens_an_issue())
+    check('session start lists an open "main\'s test failed" issue first',
+          *check_session_start_lists_a_red_main_first())
     check('Update Vendors ends with the catalogue copy its record names, a kept '
           'local edit reported',
           *check_update_vendors_leaves_the_copy_its_record_names())

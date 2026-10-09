@@ -28,7 +28,10 @@ THE STEPS, with no question in between:
   0. a journal an earlier run left when it was killed mid-swap is
      replayed, so this repo's local edits are back before anything reads
      the tree
-  1. the source clone fetches the branch every install follows, and the
+  1. the source clone fetches the branch every install follows, and on
+     main takes the newest commit whose GitHub test passed, saying so when
+     that is not the newest (source_commit; --take-anyway takes a named
+     commit on the person's word), and the
      commit this run takes is recorded: until a run reports DONE, a rerun
      takes that same commit, so an update worked over several rounds does
      not chase a moving branch (--move takes the newest commit instead)
@@ -1809,6 +1812,7 @@ class Report:
         self.pin_repo = None # whose pin a DONE drops, --from-ref runs included
         self.before = None   # what was uncommitted when the run started writing
         self.earlier = set() # of `before`, what an earlier run staged, unchanged
+        self.commit_note = None  # a --take-anyway: said in the commit message
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -1874,6 +1878,11 @@ class Report:
                   f"with the diff). Keep yours only where it does something "
                   f"different and important, with the keep command printed "
                   f"there; ask the person when it is a close call.")
+
+    def _commit_note(self):
+        if self.commit_note:
+            print(f"\nCOMMIT MESSAGE: say this in it, in these words: "
+                  f"{self.commit_note}")
 
     def _pinned(self):
         if self.pin:
@@ -1949,6 +1958,7 @@ class Report:
                 for line in self.details.get(what, []):
                     print(f"    {line}")
             self._pinned()
+            self._commit_note()
             if self.loud:
                 self._banner()
             return LEFT
@@ -1964,6 +1974,7 @@ class Report:
                   "commit, then land it on your landing branch.")
         if switch:
             print(switch)
+        self._commit_note()
         print(MERGE_HEAD_NOTE)
         if self.not_run:
             print(self.not_run)
@@ -2533,9 +2544,13 @@ def held_pin(repo):
     return None
 
 
-def record_pin(repo, commit, branch):
+def record_pin(repo, commit, branch, note=None):
+    """`note`: what the commit message must say about how the commit was
+    chosen (a --take-anyway), so a rerun says it again."""
     data = _read_record(repo)
     data['pin'] = {'commit': commit, 'branch': branch}
+    if note:
+        data['pin']['note'] = note
     _write_record(repo, data)
 
 
@@ -2566,7 +2581,8 @@ def take_pin(repo, follow, move=False):
                       f'not in {SOURCE}, so it starts from the tip')
     if tip and tip != commit:
         return commit, (f'pinned: the commit this update started from. {follow} '
-                        f'has moved on to {tip[:12]}; --move takes it')
+                        f'has moved on to {tip[:12]}; --move takes it, or the '
+                        f'newest commit before it whose GitHub test passed')
     return commit, 'pinned: the commit this update started from, still the tip'
 
 
@@ -3120,7 +3136,139 @@ def tiers_step(repo, rep):
                  'pre-staging, staging and main all present')
 
 
-def update(repo, skip_check=False, ref=None, move=False):
+# ONLY A MAIN THAT PASSED GITHUB'S TEST IS TAKEN (2026-10-09, the main
+# landing plan, piece A; Morgan, the same day: "Act on the ... plan").
+# The risk of a fast route to main is not main being red for half an hour; it
+# is another repository running Update Vendors in that half hour and taking
+# a broken engine into itself. On 2026-10-09 a test that no longer fit sat on
+# main for about an hour. So the update takes the newest main commit whose
+# GitHub test passed, and when that is not the newest, says which it took,
+# how far behind, and why -- for everyone, Alex included (decision 1).
+#
+# Main's first-parent line only: each of those commits is a push to main,
+# which the test runs on; a commit inside a merged branch was tested, if at
+# all, as part of its pull request. GREEN_WINDOW bounds the look back, and
+# with it the API calls (two or three a commit, github_test_state).
+GREEN_WINDOW = 10
+# The emergency override, in the person's own words ("take <commit>
+# anyway"), recorded in the report and the commit message.
+TAKE_FLAG = '--take-anyway'
+_STATE_WORDS = {'failed': 'failed on', 'running': 'is still running on',
+                'none': 'has not run on'}
+
+
+def main_test_state(sha, tests):
+    """-> (state, detail): main's GitHub test on `sha` of the source clone,
+    as precedent_branches.github_test_state reads it. Its own name so the
+    harness can stand GitHub in."""
+    return pb.github_test_state(SOURCE, sha, tests)
+
+
+def _why_not_newer(skipped):
+    """-> "GitHub's test is still running on X and failed on Y" for the
+    newer commits passed over, newest first, grouped by state."""
+    groups = {}
+    for sha, state in skipped:
+        groups.setdefault(state, []).append(sha[:12])
+    parts = []
+    for state, shas in groups.items():
+        named = ', '.join(shas[:3]) + (f' and {len(shas) - 3} more' if len(shas) > 3 else '')
+        parts.append(f'{_STATE_WORDS.get(state, state + " on")} {named}')
+    return "GitHub's test " + ' and '.join(parts)
+
+
+def source_commit(follow, tip, take=None):
+    """-> {'commit', 'step', 'warning', 'commit_note', 'failed'}: the commit
+    of the source clone this update takes when no --from-ref names one.
+
+    `tip` is `follow`'s newest commit. Off main, or with no GitHub test in
+    the source (precedent_branches.github_tests), the tip, as before. On
+    main, the newest first-parent commit whose test passed; a 'step' line
+    when that is not the tip. GitHub not answering about the tip: the tip,
+    with a 'warning', never silently. Nothing passed within GREEN_WINDOW, or
+    GitHub stopping partway: 'failed', and nothing is taken.
+
+    With `take`, the person named a commit of `follow` to take anyway: it is
+    taken whatever its test says, and the step and 'commit_note' record that
+    it was their word."""
+    out = {'commit': tip, 'step': None, 'warning': None, 'commit_note': None,
+           'failed': None}
+    if take:
+        rc, sha = run(['git', '-C', str(SOURCE), 'rev-parse', '--verify', '-q',
+                       f'{take}^{{commit}}'], SOURCE)
+        sha = sha.strip()
+        if rc != 0 or not sha:
+            out['failed'] = f'{TAKE_FLAG} {take}: no such commit in {SOURCE}'
+            return out
+        if tip and run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor',
+                        sha, tip], SOURCE)[0] != 0:
+            out['failed'] = (f'{TAKE_FLAG} {take}: {sha[:12]} is not on {follow}, so '
+                             f'it is not a {follow} commit to take anyway. '
+                             f'--from-ref vendors any commit, for testing')
+            return out
+        tests = pb.github_tests(SOURCE, sha)
+        state, detail = main_test_state(sha, tests) if tests else (
+            'none', 'no GitHub test is installed')
+        out['commit'] = sha
+        if state == 'passed':
+            out['step'] = (f"took {follow} @ {sha[:12]} on the person's word "
+                           f"({TAKE_FLAG}); its GitHub test passed")
+            out['commit_note'] = (f"Took BestPractice {follow} @ {sha[:12]} on the "
+                                  f"person's word ({TAKE_FLAG}).")
+        else:
+            out['step'] = (f"took {follow} @ {sha[:12]} on the person's word "
+                           f"({TAKE_FLAG}), although its GitHub test had not "
+                           f"passed ({state}: {detail})")
+            out['commit_note'] = (f"Took BestPractice {follow} @ {sha[:12]} on the "
+                                  f"person's word ({TAKE_FLAG}), although its "
+                                  f"GitHub test had not passed.")
+        return out
+    if follow != pb.MAIN or not tip:
+        return out
+    tests = pb.github_tests(SOURCE, tip)
+    if not tests:
+        return out
+    rc, listed = run(['git', '-C', str(SOURCE), 'rev-list', '--first-parent',
+                      f'--max-count={GREEN_WINDOW}', tip], SOURCE)
+    commits = listed.split() if rc == 0 else [tip]
+    skipped = []
+    for sha in commits:
+        state, detail = main_test_state(sha, tests)
+        if state == 'passed':
+            out['commit'] = sha
+            if skipped:
+                n = len(skipped)
+                out['step'] = (f"took {follow} @ {sha[:12]}, {n} commit"
+                               f"{'s' if n != 1 else ''} behind the newest {follow}, "
+                               f"{tip[:12]}, because {_why_not_newer(skipped)}. This "
+                               f"repo gets the newer ones once their test passes")
+            return out
+        if state == 'unknown':
+            if not skipped:
+                out['warning'] = (f"could not ask GitHub whether {follow}'s test "
+                                  f"passed ({detail}), so this took the newest "
+                                  f"{follow}, {tip[:12]}, without knowing. Run it "
+                                  f"again once GitHub answers")
+                return out
+            out['failed'] = (f"GitHub stopped answering ({detail}) while this "
+                             f"looked for the newest {follow} whose test passed, "
+                             f"after finding that {_why_not_newer(skipped)}. "
+                             f"Nothing was taken. Run "
+                             f"it again, or take a commit anyway in the person's "
+                             f"own words with {TAKE_FLAG} <commit>")
+            out['commit'] = None
+            return out
+        skipped.append((sha, state))
+    out['commit'] = None
+    out['failed'] = (f"none of {follow}'s newest {len(commits)} commits passed "
+                     f"GitHub's test: {_why_not_newer(skipped)}. Nothing was "
+                     f"taken. Run it again once {follow}'s test passes, or take "
+                     f"a commit anyway in the person's own words with "
+                     f"{TAKE_FLAG} <commit>")
+    return out
+
+
+def update(repo, skip_check=False, ref=None, move=False, take=None):
     rep = Report()
     rep.pin_repo = repo
     elsewhere = source_is_its_own_clone()
@@ -3196,22 +3344,12 @@ def update(repo, skip_check=False, ref=None, move=False):
             return rep.close(f"could not fetch origin/{follow} in "
                              f"{SOURCE}:\n{tail(out, repo=repo)}")
     # An unfinished update keeps the commit it started from (held_pin); an
-    # explicit --from-ref neither reads nor moves it.
-    pinned, said = (None, None) if ref else take_pin(repo, follow, move)
+    # explicit --from-ref neither reads nor moves it, and --take-anyway
+    # moves it to the commit the person named.
+    pinned, said = (None, None) if ref else take_pin(repo, follow, move or bool(take))
     rc, head = run(['git', '-C', str(SOURCE), 'rev-parse',
                     ref or pinned or f'origin/{follow}'], SOURCE)
     head_ok = rc == 0
-    rep.step('source', (f"{follow} @ {head.strip()[:12]}" if head_ok
-                        else f"could not read {ref or pinned or 'origin/' + follow}")
-             + (f" -- {said}" if said else ''))
-    if ref is None and head_ok:
-        record_pin(repo, head.strip(), follow)
-        rep.pin = (repo, head.strip(), follow)
-    # What the catalogue is mirrored from: the commit read just above, the
-    # one the engine is handed too -- never a second read of the branch by
-    # checkin.py update's own fetch, which a pinned rerun would undo.
-    take = ref or (head.strip() if head_ok else None)
-
     # The commit the vendored engine -- and so a section 0 catalogue, which
     # moves with it -- was last synced from. Read now: step 2 rewrites it.
     try:
@@ -3219,6 +3357,45 @@ def update(repo, skip_check=False, ref=None, move=False):
                                  .read_text(encoding='utf-8')).get('source_commit')
     except (OSError, ValueError):
         last_synced = None
+    # Main is taken only where its GitHub test passed (source_commit), once,
+    # here: a pinned rerun takes the commit its first run chose.
+    chosen = {}
+    if ref is None and head_ok and not pinned:
+        newest = head.strip()
+        chosen = source_commit(follow, newest, take)
+        if chosen['failed']:
+            return rep.close(chosen['failed'])
+        if (chosen['commit'] != newest and not take and last_synced
+                and pve.engine_is_ahead(SOURCE, last_synced, chosen['commit'])
+                and not pve.engine_is_ahead(SOURCE, last_synced, newest)):
+            return rep.close(
+                f"this repo's engine is already at {follow} @ {last_synced[:12]}, "
+                f"newer than {chosen['commit'][:12]}, the newest {follow} whose "
+                f"GitHub test passed: {chosen['step']}. Nothing was taken. Run it "
+                f"again once {follow}'s test passes, or take a commit anyway in "
+                f"the person's own words with {TAKE_FLAG} <commit>")
+        head = chosen['commit'] + '\n'
+    elif ref is None and pinned:
+        chosen = {'commit_note': (held_pin(repo) or {}).get('note')}
+        if chosen['commit_note']:
+            chosen['step'] = f"kept from the run that started it: {chosen['commit_note']}"
+    rep.step('source', (f"{follow} @ {head.strip()[:12]}" if head_ok
+                        else f"could not read {ref or pinned or 'origin/' + follow}")
+             + (f" -- {said}" if said else ''))
+    if chosen.get('step'):
+        rep.step('GitHub test', chosen['step'])
+    if chosen.get('warning'):
+        rep.step('GitHub test', f"WARNING: {chosen['warning']}")
+        rep.warnings.append(chosen['warning'])
+    rep.commit_note = chosen.get('commit_note')
+    if ref is None and head_ok:
+        record_pin(repo, head.strip(), follow, note=rep.commit_note)
+        rep.pin = (repo, head.strip(), follow)
+    # What the catalogue is mirrored from: the commit read just above, the
+    # one the engine is handed too -- never a second read of the branch by
+    # checkin.py update's own fetch, which a pinned rerun would undo.
+    take = ref or (head.strip() if head_ok else None)
+
     # 2. The engine, by the consumer's own copy: refresh() takes ROOT from
     # where it sits. It replaces itself and re-runs, so an old copy still
     # ends on the current code.
@@ -3999,10 +4176,17 @@ def main(argv=None):
     ap.add_argument('--from-ref', default=None,
                     help='vendor this commit of the source instead of its '
                          f'origin/{pve.SOURCE_BRANCH} -- for testing a commit')
+    ap.add_argument(TAKE_FLAG, dest='take', default=None, metavar='COMMIT',
+                    help='take this commit of the followed branch although its '
+                         'GitHub test has not passed -- only on the person\'s '
+                         'own word, in an emergency; recorded in the report and '
+                         'the commit message. Without it, main is taken at its '
+                         'newest commit whose GitHub test passed')
     ap.add_argument('--move', action='store_true',
                     help='an unfinished update reruns against the commit it '
                          'started from until it reports DONE; take the '
-                         'followed branch\'s newest commit instead')
+                         'followed branch\'s newest commit instead (on main, '
+                         'the newest whose GitHub test passed)')
     a = ap.parse_args(argv)
     repo = pathlib.Path(a.repo).resolve()
     if repo == SOURCE:
@@ -4015,7 +4199,12 @@ def main(argv=None):
         print("precedent_update FAIL: --move and --from-ref both say which "
               "commit to take; pass one.")
         return FAILED
-    return update(repo, skip_check=a.skip_check, ref=a.from_ref, move=a.move)
+    if a.take and a.from_ref:
+        print(f"precedent_update FAIL: {TAKE_FLAG} and --from-ref both say which "
+              "commit to take; pass one.")
+        return FAILED
+    return update(repo, skip_check=a.skip_check, ref=a.from_ref, move=a.move,
+                  take=a.take)
 
 
 if __name__ == '__main__':
