@@ -59216,7 +59216,10 @@ def check_update_vendors_retires_pre_staging():
     - a conflict stops with nothing moved, nothing reworded and no offer;
     - once it is gone, nothing makes it again and the step says nothing;
     - anyone else (landing on pre-staging or main, or no promote_only)
-      sees nothing at all."""
+      sees nothing at all;
+    - a person moving repo by repo (retire_pre_staging) has the
+      repository's precedent.json switched only by a second pass, once the
+      repository's committed engine can land on staging."""
     import tempfile, json as _json
     name = 'Update Vendors retires pre-staging for a person who lands on staging'
     if not (ROOT / 'tools' / 'precedent_update.py').exists():
@@ -59330,7 +59333,9 @@ def check_update_vendors_retires_pre_staging():
                 ('landing on main', dict(landing_branch='main', promote_only=True)),
                 ('staging without promote_only', dict(landing_branch='staging')),
                 ('no landing branch of their own (staging only by default)',
-                 dict(promote_only=True))):
+                 dict(promote_only=True)),
+                ('repo by repo without promote_only',
+                 dict(retire_pre_staging=True))):
             person(**settings)
             res, out = call('step')
             cases.append((f'{label}: the step does nothing and says nothing',
@@ -59383,9 +59388,39 @@ def check_update_vendors_retires_pre_staging():
         res, out = call('offers')
         cases.append(('and while it waits it is not offered for deletion',
                       'pre-staging' in res.get('never', []), out[-300:]))
-        # The sole maintainer, who is the person running this: the switch
-        # is made, and the retirement runs in the same call below.
+        # Repo by repo (Morgan, 2026-10-09: "I want to fully complete one
+        # repo at a time"): no landing_branch of their own, so the
+        # repository's precedent.json decides, and only its second Update
+        # Vendors switches it.
+        person(retire_pre_staging=True, promote_only=True, github='p-user')
+        body = repo_lands_on_pre_staging(['p-user', 'someone-else'])
+        res, out = call('step')
+        steps = res.get('steps') or []
+        cases.append(('repo by repo, two maintainers: it waits, in one line, '
+                      'with nothing moved and precedent.json untouched',
+                      len(steps) == 1 and steps[0][0] == 'pre-staging'
+                      and 'precedent.json still makes pre-staging' in steps[0][1]
+                      and tips() == before and text('precedent.json') == body,
+                      str(steps)[:300]))
         body = repo_lands_on_pre_staging(['P-User'])
+        engine = work / 'tools' / 'precedent_branches.py'
+        engine.write_text(text('tools/precedent_branches.py').replace(
+            'def lands_on_staging(', 'def lands_elsewhere('), encoding='utf-8')
+        git(work, 'commit', '-q', '-m', 'an engine from before', '--',
+            'tools/precedent_branches.py')
+        res, out = call('step')
+        steps = res.get('steps') or []
+        cases.append(('the first pass, its committed engine older: precedent.json '
+                      'untouched, nothing moved, one line says the next run '
+                      'moves it', text('precedent.json') == body
+                      and tips() == before and not res.get('retired')
+                      and len(steps) == 1 and steps[0][0] == 'pre-staging'
+                      and 'run Update Vendors again' in steps[0][1],
+                      str(steps)[:300]))
+        git(work, 'reset', '-q', 'HEAD~1')
+        git(work, 'checkout', '-q', 'HEAD', '--', 'tools/precedent_branches.py')
+        # The second pass, the sole maintainer running it: the switch is
+        # made, and the retirement runs in the same call below.
 
         # --- the person who lands on staging, work waiting on pre-staging ---
         res, out = call('offers')
