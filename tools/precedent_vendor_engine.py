@@ -779,7 +779,9 @@ ENGINE_FILES = [
     # landed since the person was last told. The session-start hook and the
     # reply gate both call it, so a repository without it would carry hooks
     # naming a file that is not there (the others-did practice, in the ladder set). Each
-    # repository's own mark, tools/others_did_watermark.json, never ships.
+    # repository's own mark lives on its origin's refs/precedent/others-did,
+    # outside every branch, and never ships (nor does the file it lived in
+    # before 2026-10-08, tools/others_did_watermark.json).
     'precedent_others_did.py',
     # EVERY VOCABULARY WORD HAS TO WORK WHERE THE ENGINE IS VENDORED
     # (2026-09-21, Morgan: "ALL of our vocabulary words should"). A standing

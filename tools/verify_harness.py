@@ -25920,6 +25920,73 @@ def check_code_owners_only_practices_reach_only_code_owners():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_stale_branches_lists_one_repository_once():
+    """precedent_stale_branches.py lists a repository once, however it is
+    reached.
+
+    Reported 2026-10-08 from a consuming repository: the stale-branch page
+    listed one repository twice, because `_repos()` keyed on the origin's
+    (owner, name) exactly as spelled, and the same repository was reached
+    as .../bestpractice and .../BestPractice. GitHub names are
+    case-insensitive, so the key is now casefolded, keeping the first
+    spelling seen; and a path that reaches a directory already seen (a
+    link, or a case-insensitive filesystem) is skipped outright.
+
+    CONTROL: a different repository is still listed."""
+    import tempfile
+    import types
+    name = 'the stale-branch listing names one repository once'
+    if not (ROOT / 'tools' / 'precedent_stale_branches.py').exists():
+        not_applicable(name, 'tools/precedent_stale_branches.py is absent')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_stale_branches as sb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    saved = sys.modules.get('precedent_container_safe')
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        def repo(dirname, url):
+            d = tmp / dirname
+            subprocess.run(['git', 'init', '-q', str(d)], capture_output=True, check=True)
+            subprocess.run(['git', '-C', str(d), 'remote', 'add', 'origin', url],
+                           capture_output=True, check=True)
+            return d
+        first = repo('BestPractice', 'https://github.com/Alex137/BestPractice.git')
+        second = repo('bestpractice-2', 'https://github.com/alex137/bestpractice')
+        other = repo('other', 'https://github.com/alex137/something-else.git')
+        link = tmp / 'linked'
+        link.symlink_to(first, target_is_directory=True)
+
+        def listed(found):
+            sys.modules['precedent_container_safe'] = types.SimpleNamespace(
+                checkouts=lambda: list(found))
+            try:
+                return sb._repos()
+            finally:
+                if saved is None:
+                    sys.modules.pop('precedent_container_safe', None)
+                else:
+                    sys.modules['precedent_container_safe'] = saved
+
+        got = listed([first, second, other])
+        slugs = [s_ for _p, s_ in got]
+        cases.append(('two clones whose origins differ only in case are one '
+                      f'repository, shown as first spelled ({slugs})',
+                      slugs.count(('Alex137', 'BestPractice')) == 1
+                      and not any(s_ == ('alex137', 'bestpractice') for s_ in slugs)))
+        cases.append((f'CONTROL: a different repository is still listed ({slugs})',
+                      ('alex137', 'something-else') in slugs and len(slugs) == 2))
+        got = listed([link, first, other])
+        cases.append(('one clone reached through two paths is listed once '
+                      f'({[str(p_) for p_, _s in got]})', len(got) == 2))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_reply_check_requires_the_boildown_first_line():
     """`require_first_item_under_heading` refuses a Boildown whose first
     bullet does not say where the work is.
@@ -27037,9 +27104,10 @@ def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
     sitting idle on staging, so it went to a per-container note. So:
 
     - the report is left for the first prompt (`remind()`), printed once;
-    - the mark lands on the landing branch on origin while the work clone
-      sits on a feature branch with a staged edit, which stays exactly as
-      it was (HEAD, index and the staged file);
+    - the mark lands on origin's refs/precedent/others-did (outside every
+      branch; check_others_did_mark_never_lands_on_a_branch has the detail)
+      while the work clone sits on a feature branch with a staged edit,
+      which stays exactly as it was (HEAD, index and the staged file);
     - at most one report a day, none before 07:00, and nothing from the
       person's own commits;
     - a commit signed only by Claude is the person's when its session also
@@ -27121,7 +27189,7 @@ def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
 
         def mark():
             r = subprocess.run(['git', '-C', str(origin), 'show',
-                                f'pre-staging:{pod.WATERMARK_PATH}'],
+                                f'{pod.MARK_REF}:{pod.MARK_FILE}'],
                                capture_output=True, text=True)
             return json.loads(r.stdout)['seen_by']['owner'] if r.returncode == 0 else None
 
@@ -27157,16 +27225,16 @@ def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
         cases.append(('the reply gate hands it over once',
                       pod.remind(work) is None, 'a second remind() returned text'))
         m = mark()
-        cases.append(('the mark moved on origin/pre-staging',
+        cases.append(("the mark moved on origin's mark ref",
                       bool(m) and m.get('told_at', '').startswith('2026-10-09T08:00'), repr(m)))
         after = (git(work, 'rev-parse', 'HEAD'), git(work, 'diff', '--cached', '--name-only'))
         cases.append(("the work clone's branch, HEAD and staged edit are untouched",
                       after == before and git(work, 'branch', '--show-current') == 'feature',
                       f'{before} -> {after}'))
-        body = git(origin, 'log', '-1', '--format=%B', 'pre-staging')
-        cases.append(('the mark commit carries a session trailer and skips CI',
-                      'Session: https://claude.ai/code/session_01Harness' in body
-                      and '[skip ci]' in body, body))
+        body = git(origin, 'log', '-1', '--format=%B', pod.MARK_REF)
+        cases.append(('the mark commit carries a session trailer',
+                      'Session: https://claude.ai/code/session_01Harness' in body,
+                      body))
 
         status, lines = run(at(1, 10))
         cases.append(('reported once that day, not again',
@@ -27188,6 +27256,170 @@ def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
+
+
+def check_others_did_mark_never_lands_on_a_branch():
+    """The others-did mark lives on refs/precedent/others-did, never a branch.
+
+    Reported 2026-10-08 from a consuming repository: the status check a
+    session runs in its first reply committed "Others-did mark ... [skip
+    ci]" onto origin/pre-staging and pushed it, and the next Produce carried
+    it up to main. publish() now pushes only to MARK_REF, a ref outside
+    refs/heads fetched and pushed by name, so it is no branch, rides no
+    Promote and lands on no tier.
+
+    Asserted against a local bare origin whose `update` hook logs every ref
+    a push touches: the first run's mark (a baseline) and the next day's
+    (a report) are both pushed, and neither touches a refs/heads/ ref; every
+    branch tip on origin is where it was. check() in a SECOND clone, which
+    has never seen the mark, reads it back from the ref (it is told it
+    already reported today). MIGRATION: a repository whose landing branch
+    still carries the old tools/others_did_watermark.json is read from it,
+    and the next mark still goes to the ref, not to the branch."""
+    import datetime, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_others_did as pod
+    finally:
+        sys.path.pop(0)
+    if not hasattr(pod, 'MARK_REF'):
+        return (False, '0 stated cases',
+                'precedent_others_did.py has no MARK_REF: the mark still goes '
+                'onto the landing branch')
+    MINE, THEIRS = 'owner@example.com', 'colleague@example.com'
+    cases = []
+
+    def git(cwd, *args, author=MINE):
+        env = dict(os.environ, GIT_AUTHOR_EMAIL=author, GIT_COMMITTER_EMAIL=author,
+                   GIT_AUTHOR_NAME=author.split('@')[0],
+                   GIT_COMMITTER_NAME=author.split('@')[0])
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True, env=env)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    saved = {k: os.environ.get(k) for k in
+             ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
+              'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG',
+              'PRECEDENT_SESSION_URL', 'GIT_CONFIG_GLOBAL')}
+    saved_off = pod.off_ladder
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='others-did-ref-'))
+    try:
+        os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
+        os.environ['PRECEDENT_COMMIT_NAME'] = 'Owner'
+        os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
+        os.environ['PRECEDENT_SESSION_URL'] = 'https://claude.ai/code/session_01Harness'
+        os.environ['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        pod.off_ladder = lambda root, user_config=None: False
+        day = datetime.datetime(2026, 10, 8, tzinfo=datetime.timezone.utc)
+
+        def at(days, hour):
+            return day + datetime.timedelta(days=days, hours=hour)
+
+        def make_origin(name, old_mark=None):
+            origin = tmp / f'{name}.git'
+            git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+            log = tmp / f'{name}-pushed.log'
+            hook = origin / 'hooks' / 'update'
+            hook.write_text(f'#!/bin/sh\necho "$1" >> "{log}"\nexit 0\n',
+                            encoding='utf-8')
+            hook.chmod(0o755)
+            seed = tmp / f'{name}-seed'
+            git(tmp, 'clone', '-q', str(origin), str(seed))
+            (seed / 'a.txt').write_text('a\n', encoding='utf-8')
+            # The report is left in .precedent/, which must be ignored for
+            # the tool to write it (and only then does it record the mark).
+            (seed / '.gitignore').write_text('.precedent/\n', encoding='utf-8')
+            if old_mark is not None:
+                (seed / 'tools').mkdir()
+                (seed / pod.WATERMARK_PATH).write_text(json.dumps(old_mark),
+                                                       encoding='utf-8')
+            git(seed, 'add', '-A')
+            git(seed, 'commit', '-qm', 'c0')
+            git(seed, 'push', '-q', 'origin', 'main', 'main:pre-staging', 'main:staging')
+            log.write_text('', encoding='utf-8')
+            return origin, seed, log
+
+        def heads(origin):
+            return git(origin, 'for-each-ref', '--format=%(refname) %(objectname)',
+                       'refs/heads/')
+
+        def clone(origin, name):
+            d = tmp / name
+            git(tmp, 'clone', '-q', str(origin), str(d))
+            git(d, 'checkout', '-q', '-b', 'feature')
+            return d
+
+        origin, seed, log = make_origin('fresh')
+        before = heads(origin)
+        work = clone(origin, 'work')
+        status, lines = pod.check(root=work, now=at(0, 8), land='pre-staging')
+        pushed = log.read_text(encoding='utf-8').split()
+        cases.append(('a first run records its baseline on the mark ref, and on '
+                      f'no branch ({status} {lines}; pushed {pushed})',
+                      status == 'ok' and 'baselined' in lines[0]
+                      and pushed == [pod.MARK_REF]))
+        cases.append(('every branch on origin is where it was', heads(origin) == before))
+
+        other = clone(origin, 'other')
+        status, lines = pod.check(root=other, now=at(0, 9), land='pre-staging')
+        cases.append(('a second clone that never saw the mark reads it back from '
+                      f'the ref ({status} {lines})',
+                      status == 'ok' and 'already told today' in lines[0]))
+
+        git(seed, 'commit', '-q', '--allow-empty', '-m', 'their change', author=THEIRS)
+        git(seed, 'push', '-q', 'origin', 'HEAD:pre-staging')
+        before = heads(origin)
+        log.write_text('', encoding='utf-8')
+        status, lines = pod.check(root=work, now=at(1, 8), land='pre-staging')
+        pushed = log.read_text(encoding='utf-8').split()
+        cases.append(('a report the next day moves the mark ref and no branch '
+                      f'({status} {lines}; pushed {pushed})',
+                      status == 'alert' and pushed == [pod.MARK_REF]
+                      and heads(origin) == before))
+        cases.append(('the mark ref holds one file, the registry, with this '
+                      'person\'s row',
+                      git(origin, 'ls-tree', '--name-only', pod.MARK_REF) == pod.MARK_FILE
+                      and json.loads(git(origin, 'show',
+                                         f'{pod.MARK_REF}:{pod.MARK_FILE}'))
+                      ['seen_by']['owner']['told_at'].startswith('2026-10-09T08:00')))
+        cases.append(('no refs/heads/ ref was ever pushed by the tool',
+                      not any(r.startswith('refs/heads/') for r in pushed)))
+
+        # MIGRATION: the old file on the landing branch is read, never written.
+        told = at(2, 7).isoformat(timespec='seconds')
+        origin2, seed2, log2 = make_origin('old', old_mark={'seen_by': {'owner': {
+            'told_at': told, 'tips': {}, 'note': 'reported'}}})
+        before = heads(origin2)
+        work2 = clone(origin2, 'work-old')
+        status, lines = pod.check(root=work2, now=at(2, 9), land='pre-staging')
+        cases.append(('MIGRATION: a mark only on the old file is read from it '
+                      f'({status} {lines})',
+                      status == 'ok' and 'already told today' in lines[0]
+                      and log2.read_text(encoding='utf-8').split() == []))
+        git(seed2, 'commit', '-q', '--allow-empty', '-m', 'their change', author=THEIRS)
+        git(seed2, 'push', '-q', 'origin', 'HEAD:pre-staging')
+        before = heads(origin2)
+        log2.write_text('', encoding='utf-8')
+        status, lines = pod.check(root=work2, now=at(3, 8), land='pre-staging')
+        pushed = log2.read_text(encoding='utf-8').split()
+        cases.append(('MIGRATION: the next mark goes to the ref, and the old file '
+                      f'is left as it was ({status} {lines}; pushed {pushed})',
+                      status == 'alert' and pushed == [pod.MARK_REF]
+                      and heads(origin2) == before))
+    finally:
+        pod.off_ladder = saved_off
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
 def check_trivial_checkin_exempts_the_boildown_gate():
@@ -37736,6 +37968,107 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
           f'session-start, unreachable origin still blocked, stale base '
           f'still refused)',
           not failed, '; '.join(failed))
+
+
+def check_freshness_guard_never_tells_a_tier_branch_to_merge():
+    """On a tier branch the stale-base remedy is a new working branch.
+
+    Reported 2026-10-08 from a consuming repository: a session on main was
+    told "Bring it up to date deliberately: git merge origin/pre-staging",
+    which makes the local main diverge from origin/main. On main, staging
+    or pre-staging the guard now says to start a working branch from
+    origin/<base> with `git switch --no-track -c`, named by
+    precedent_branch_name.py where the checkout has it -- `--no-track`
+    because `git checkout -b X origin/pre-staging` makes X track the tier,
+    and a bare `git push` would then land there.
+
+    CONTROL: a working branch on the same stale base still gets the merge.
+    Both modes that print the remedy are run (session-start's WARN and
+    pre-write's block), through both hook copies."""
+    import tempfile
+    name = 'the freshness guard never tells a tier branch to merge its base'
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
+    missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
+    if missing:
+        not_applicable(name, f'not in this tree: {missing}')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ)
+        env.pop('CLAUDE_PROJECT_DIR', None)
+        env['TMPDIR'] = str(tmp / 'sentinels')
+        (tmp / 'sentinels').mkdir()
+        env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = 'Harness'
+        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = 'harness@example.com'
+
+        def _git(d, *a):
+            r = subprocess.run(['git', '-C', str(d), *a],
+                               capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                raise RuntimeError('tier-remedy fixture setup failed: git %s: %s'
+                                   % (' '.join(a), (r.stderr or r.stdout).strip()))
+            return r
+
+        origin = tmp / 'origin'
+        _git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        seed = tmp / 'seed'
+        _git(tmp, 'init', '-q', '-b', 'main', str(seed))
+        (seed / 'tools').mkdir()
+        (seed / 'tools' / 'precedent_branch_name.py').write_text(
+            'print("2026-10-08-x-abcde")\n', encoding='utf-8')
+        _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'one')
+        _git(seed, 'remote', 'add', 'origin', str(origin))
+        _git(seed, 'push', '-q', 'origin', 'main', 'main:pre-staging', 'main:feature')
+        _git(seed, 'commit', '-q', '--allow-empty', '-m', 'on pre-staging only')
+        _git(seed, 'push', '-q', 'origin', 'main:pre-staging')
+
+        def _run(guard, cwd, mode, session):
+            payload = json.dumps({'session_id': session, 'tool_name': 'Write',
+                                  'tool_input': {'file_path': 'x'}})
+            return subprocess.run(['bash', str(guard), mode, 'pre-staging'],
+                                  cwd=str(cwd), input=payload,
+                                  capture_output=True, text=True, env=env)
+
+        for guard in guards:
+            tag = ('installed' if guard.parent.parent.parent == ROOT
+                   else 'template')
+            for branch, tier in (('main', True), ('feature', False)):
+                d = tmp / f'{tag}-{branch}'
+                _git(tmp, 'clone', '-q', str(origin), str(d))
+                if branch != 'main':
+                    _git(d, 'checkout', '-q', branch)
+                for mode in ('session-start', 'pre-write'):
+                    err = _run(guard, d, mode, f'{tag}-{branch}-{mode}').stderr
+                    said = 'missing 1 commit(s) from origin/pre-staging' in err
+                    if tier:
+                        ok = (said and 'is a tier branch' in err
+                              and 'git switch --no-track -c' in err
+                              and 'tools/precedent_branch_name.py' in err
+                              and 'origin/pre-staging' in err
+                              and 'Bring it up to date' not in err)
+                        what = (f'{tag} {mode}: on main, the remedy is a new '
+                                f'untracked branch named by the naming tool, not '
+                                f'a merge')
+                    else:
+                        ok = (said and 'git merge origin/pre-staging' in err
+                              and 'is a tier branch' not in err)
+                        what = (f'{tag} {mode}: CONTROL: a working branch is '
+                                f'still told to merge its base')
+                    cases.append((what, ok, err[-500:]))
+            # Main itself was not touched by either run.
+            cases.append((f'{tag}: the guard moved nothing on main',
+                          _git(tmp / f'{tag}-main', 'rev-parse', 'HEAD').stdout
+                          == _git(tmp / f'{tag}-main', 'rev-parse', 'origin/main').stdout,
+                          ''))
+
+    bad = [(n, e) for n, ok, e in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases, both copies)',
+          not bad, '; '.join(f'{n} -- {e}' for n, e in bad))
 
 
 def check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch():
@@ -56480,6 +56813,135 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_promote_ends_with_its_result_line():
+    """A Promote's last line of output is its verdict, on every path.
+
+    Reported 2026-10-08 from a consuming repository: a session ran a Debut
+    with its output written to a log file, and Claude Code's auto mode
+    refused the `tail` that would have read the log back, so the session
+    could not say whether the Debut had worked. The verdict now comes last
+    on stdout whatever happens -- moved, nothing to move, refused, ready
+    for main's pull request, or an error -- as one line opening
+    "PROMOTE RESULT:", any commit in it written in full, so the command's
+    own output answers without a second read.
+
+    Asserted on stdout alone: a line that only reached stderr would not be
+    the last line a session reads from a redirected run."""
+    import re as _re
+    import tempfile
+    name = 'a Promote ends with one PROMOTE RESULT line, on every path'
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    sha40 = _re.compile(r'\b[0-9a-f]{40}\b')
+    cases = []
+
+    def run(work, env, *a):
+        p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                           cwd=work, capture_output=True, text=True, env=env)
+        lines = p.stdout.rstrip('\n').splitlines()
+        return p.returncode, (lines[-1] if lines else ''), p.stdout
+
+    def one_result(out):
+        return sum(1 for l in out.splitlines() if l.startswith('PROMOTE RESULT:')) == 1
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        work, git, _branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+        (work / 'two.txt').write_text('2\n', encoding='utf-8')
+        git(work, 'add', 'two.txt')
+        git(work, 'commit', '-q', '-m', 'work')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+
+        rc, last, out = run(work, env, '--promote', '--to', 'staging')
+        moved = tip('staging')
+        cases.append((f'a Debut that moves ends "PROMOTE RESULT: staging <- '
+                      f'pre-staging: PROMOTED at <full sha>" (rc={rc}, last: {last!r})',
+                      rc == 0 and last.startswith(
+                          'PROMOTE RESULT: staging <- pre-staging: PROMOTED at ')
+                      and bool(moved) and moved in sha40.findall(last)
+                      and one_result(out)))
+
+        rc, last, out = run(work, env, '--promote', '--to', 'staging')
+        cases.append((f'a Debut with nothing to move says so last (rc={rc}, '
+                      f'last: {last!r})',
+                      rc == 0 and last.startswith(
+                          'PROMOTE RESULT: staging <- pre-staging: NOTHING TO PROMOTE')
+                      and one_result(out)))
+
+        rc, last, out = run(work, env, '--promote', '--to', 'main')
+        copy = next((l.split('pull request from ', 1)[1].split()[0]
+                     for l in [last] if 'pull request from ' in l), '')
+        cases.append((f'a Produce ready for its pull request ends READY FOR MAIN '
+                      f'with the copy and its full head (rc={rc}, last: {last!r})',
+                      rc == 3 and last.startswith(
+                          'PROMOTE RESULT: main <- staging: READY FOR MAIN: open a '
+                          'pull request from ')
+                      and bool(copy) and tip(copy) != ''
+                      and f'expectedHeadSha {tip(copy)}' in last
+                      and one_result(out)))
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        work, git, _branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+        (work / 'tools' / 'precedent_check.py').write_text(
+            'import sys\nprint("precedent_check: 0 passed, 1 violated")\n'
+            'sys.exit(1)\n', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'a check that fails')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+        before = tip('staging')
+        rc, last, out = run(work, env, '--promote', '--to', 'staging')
+        cases.append((f'a refused Debut ends NOT PROMOTED, with a reason and '
+                      f'the fix branch\'s full commit (rc={rc}, last: {last!r})',
+                      rc == 1 and tip('staging') == before
+                      and last.startswith(
+                          'PROMOTE RESULT: staging <- pre-staging: NOT PROMOTED: ')
+                      and 'full check failed' in last
+                      and bool(sha40.search(last)) and one_result(out)))
+
+        # An error mid-run still ends on the line, after the run's own output.
+        sys.path.insert(0, str(work / 'tools'))
+        try:
+            import importlib
+            spec = importlib.util.spec_from_file_location(
+                '_pb_result_line', work / 'tools' / 'precedent_branches.py')
+            pb = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(pb)
+        finally:
+            sys.path.pop(0)
+
+        def boom(*_a, **_k):
+            raise RuntimeError('planted failure')
+        pb.promotion_step = boom
+        said, raised = [], None
+        saved = {k: os.environ.get(k) for k in env}
+        os.environ.update(env)
+        try:
+            pb.promote(str(work), say=said.append, to='main')
+        except RuntimeError as exc:
+            raised = exc
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        cases.append((f'an error still ends on the result line, and is not '
+                      f'swallowed (last: {said[-1] if said else None!r})',
+                      raised is not None and bool(said)
+                      and said[-1].startswith('PROMOTE RESULT: main <- staging: '
+                                              'NOT PROMOTED: the run stopped on an error')))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 @_without_session_id
 def check_reply_gate_refreshes_the_landing_branch():
     """The reply gate's NOT YET LANDED line reads origin/<landing branch>
@@ -67427,6 +67889,8 @@ def main():
     check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_user_prompt_never_resets_mid_session()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
+    check_freshness_guard_never_tells_a_tier_branch_to_merge()
+    check_stale_branches_lists_one_repository_once()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
     check_bootstrap_runs_every_tool_session_start_runs()
     check_codex_hooks_template_runs_the_claude_gates()
@@ -67768,6 +68232,8 @@ def main():
     check_archive_guard_refuses_work_left_on_a_feature_branch()
     check('others-did reports what others landed once a day, without touching the checkout',
           *check_others_did_reports_others_once_a_day_and_never_touches_the_checkout())
+    check('the others-did mark lives on refs/precedent/others-did and never on a branch',
+          *check_others_did_mark_never_lands_on_a_branch())
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
     check_close_detect_counts_only_this_sessions_reverts()
@@ -68060,6 +68526,7 @@ def main():
     check_stop_hook_ignores_commits_another_remote_ref_has()
     check_stop_hook_says_each_state_once()
     check_promote_into_main_exits_nonzero_until_main_moves()
+    check_promote_ends_with_its_result_line()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
     check_loader_block_covers_every_declared_source()
