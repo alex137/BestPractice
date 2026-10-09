@@ -111,15 +111,23 @@ def expected_workflows(root, branch='', base=''):
 
     Blind to `paths:`/`paths-ignore:` filters and to glob branch patterns; a
     workflow scoped by either is over-reported rather than missed, which is
-    the safe direction for a thing that only ever advises."""
+    the safe direction for a thing that only ever advises.
+
+    A workflow GitHub never runs in this repository is not expected:
+    precedent_branches.skipped_by_design, the one definition main's GitHub
+    test uses too (leak-gate.yml in a private repository, 2026-10-09, whose
+    skipped run read here as "did not pass")."""
     names = set()
     d = pathlib.Path(root) / '.github' / 'workflows'
     if not d.is_dir():
         return names
+    by_design = _skipped_by_design()
     for f in sorted(list(d.glob('*.yml')) + list(d.glob('*.yaml'))):
         try:
             text = f.read_text(encoding='utf-8', errors='replace')
         except OSError:
+            continue
+        if by_design(root, text):
             continue
         name = re.search(r'^name:[ \t]*(.+?)[ \t]*$', text, re.M)
         if not name:
@@ -144,6 +152,19 @@ def expected_workflows(root, branch='', base=''):
         if wanted:
             names.add(name.group(1).strip().strip('"\''))
     return names
+
+
+def _skipped_by_design():
+    """-> precedent_branches.skipped_by_design, or a stand-in that skips
+    nothing when that file is not beside this one."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_branches as pb
+        return pb.skipped_by_design
+    except Exception:                                         # noqa: BLE001
+        return lambda root, text: False
+    finally:
+        sys.path.pop(0)
 
 
 def _fetch_runs(slug, sha):
