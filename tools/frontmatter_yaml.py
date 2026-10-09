@@ -127,6 +127,10 @@ FIELD_ORDER = (
     'visible_to',
     'supersedes',
     'overrides',
+    # The rule this practice adds to, by slug: it loads with that rule and
+    # takes no occasion-index line of its own (build_views.ADDS_TO_FIELD;
+    # Morgan, 2026-10-09).
+    'adds_to',
     'added',
     'approved_by',
     'strength',

@@ -44,7 +44,13 @@ and re-run the bootstrap, which links its path instead of cloning again.
 repo's `precedent.json` resolves (`../<name>`, beside the repo). If that path
 already holds a working clone — `git -C <path> rev-parse HEAD` succeeds —
 use it. If not, clone it there, and do so even when the attach tool attached
-nothing, which is what it does for a public set.
+nothing, which is what it does for a public set. **The one exception is a
+deleted set** (listed in `tools/deleted_sets.json` or in your individual
+set's `deleted_sets`): it is never cloned, by session start or by hand, and
+Update Vendors removes it from `precedent.json`. Session start says so in a
+one-line note; it is not a missing source (2026-10-09, after a consumer's
+session read the old "did not resolve" message as a clone failure and cloned
+one by hand).
 
 ## Why
 A second clone of the individual set is one nothing loads. An edit

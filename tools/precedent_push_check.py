@@ -433,7 +433,12 @@ GUARDS = {'precedent_check': _guard_precedent_check,
 STAND_DOWNS = {'leak_gate': ('NOT APPLICABLE', 'stood down -- it inspected '
                              'nothing (a private repository)'),
                'doc_lint': ('NOTHING IS BEING GATED', 'stood down -- no '
-                            'Markdown file was in scope')}
+                            'Markdown file was in scope'),
+               # The views were generated with a person's individual set,
+               # and none resolves here (build_views.individual_not_verifiable).
+               'views_sync': ('NOT VERIFIABLE', 'not verified -- the views '
+                              'carry practices from an individual set this '
+                              'machine cannot reach')}
 
 
 def git(root, *args):

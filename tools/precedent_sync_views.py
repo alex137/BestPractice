@@ -79,6 +79,14 @@ import build_views as bv  # noqa: E402
 import precedent_source_pins as psp  # noqa: E402
 
 
+class NotVerifiable(Exception):
+    """--check cannot judge the views here: they were generated with
+    practices from a person's individual set, and none resolves in this
+    environment (build_views.individual_not_verifiable, the one decision
+    every reader of the loader block shares). Exit 0, and said in those
+    words -- neither drift nor a pass."""
+
+
 
 def _lost_practices(repo, res, sources, withheld):
     """-> {'blocking': [(slug, source)], 'source_dropped': [(slug, source)]}.
@@ -399,6 +407,10 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
             f"precedent.json; a person declares their own individual set in "
             f"their user-level config ({pr.DEFAULT_USER_CONFIG}, or "
             f"{pr.USER_CONFIG_ENV}).")
+    if check:
+        why = bv.individual_not_verifiable(pathlib.Path(repo), loaded)
+        if why:
+            raise NotVerifiable(why)
     res = pr.resolve(sources, context=brought)
     for m in res['missing']:
         print(f"precedent_sync_views: the {m['level']} source {m['name']!r} "
@@ -1352,6 +1364,11 @@ def main():
             repo, user_config, check=check, allow_missing=allow_missing,
             allow_removals=allow_removals, skip_unresolved=skip_unresolved,
             for_branch=for_branch, allow_rollback=allow_rollback)
+    except NotVerifiable as e:
+        print(f"precedent_sync_views --check NOT VERIFIABLE: {e}, so whether "
+              f"the generated views are current was not checked. Re-run where "
+              f"that person's individual set resolves.")
+        return 0
     except (pr.ResolveError, pm.MaterializeError) as e:
         if check and skip_unresolved:
             # The push check's basic tier asks this where a source may not be

@@ -192,6 +192,90 @@ def expected_branch(clone_path):
 DEFAULT_RETRIES = 1
 DEFAULT_RETRY_DELAY = 2.0
 
+# ONE MORE TRY, ONLY FOR A FAILURE THAT CAN PASS ON ITS OWN (2026-10-09).
+# The default above stays one attempt, for the reason it gives. A clone the
+# git proxy turned away for too many requests at once, or a connection that
+# dropped, is a different failure: the same command a few seconds later
+# usually works, and the session start is the only time the clone is tried.
+# So exactly those outputs get one more attempt after a short wait. Never an
+# authentication failure or a repository that is not found: waiting does not
+# change either, and those keep their own message (_diagnose).
+TRANSIENT_RETRY_DELAY = 5.0
+_TRANSIENT_RE = re.compile(r'\b429\b|too many requests|connection reset|'
+                           r'timed out|could not resolve host|rpc failed',
+                           re.IGNORECASE)
+_NOT_TRANSIENT_RE = re.compile(r'\b40[13]\b|authentication failed|'
+                               r'invalid username or token|could not read '
+                               r'username|terminal prompts disabled|'
+                               r'repository not found', re.IGNORECASE)
+
+
+def _transient(output):
+    """True when git's `output` names a failure worth one more try: HTTP
+    429 or a dropped or unreachable network, and nothing about access."""
+    text = output or ''
+    return bool(_TRANSIENT_RE.search(text)) and not _NOT_TRANSIENT_RE.search(text)
+
+
+# WHAT GIT SAID, KEPT FOR THE GATE THAT RUNS LATER (2026-10-09). A clone
+# that fails at session start prints git's output to the hook's stderr,
+# which the session rarely sees, and the credentials check that reports the
+# source missing hours later had nothing to quote but "look at what git
+# said". So the last ~500 characters are kept here, one entry per source,
+# replaced on every failed attempt and removed when the clone succeeds, and
+# precedent_source_credentials.assess() quotes them. Beside the user config
+# (PRECEDENT_USER_CONFIG's directory, else ~/.config/precedent), never in a
+# repository; PRECEDENT_CLONE_NOTES names another file, for a test.
+CLONE_NOTES_ENV = 'PRECEDENT_CLONE_NOTES'
+CLONE_NOTES_NAME = 'clone-failures.json'
+CLONE_NOTE_CHARS = 500
+
+
+def clone_notes_path(env=None):
+    env = os.environ if env is None else env
+    if (env.get(CLONE_NOTES_ENV) or '').strip():
+        return pathlib.Path(env[CLONE_NOTES_ENV]).expanduser()
+    cfg = (env.get('PRECEDENT_USER_CONFIG') or '').strip()
+    if cfg:
+        return pathlib.Path(cfg).expanduser().parent / CLONE_NOTES_NAME
+    home = env.get('HOME') or str(pathlib.Path.home())
+    return pathlib.Path(home).expanduser() / '.config' / 'precedent' / CLONE_NOTES_NAME
+
+
+def read_clone_failures(env=None):
+    """-> {source name: {"output", "when", "url"}}; {} when nothing is kept."""
+    try:
+        data = json.loads(clone_notes_path(env).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def note_clone_result(name, ok, output='', url='', env=None):
+    """Keep git's output for a failed clone of `name`, or drop the entry
+    when it succeeded. Never raises: a note that cannot be written costs
+    the later message its quote, not the session its start."""
+    if not name:
+        return
+    path = clone_notes_path(env)
+    notes = read_clone_failures(env)
+    if ok and name not in notes:
+        return
+    if ok:
+        notes.pop(name, None)
+    else:
+        notes[name] = {'output': (output or '').strip()[-CLONE_NOTE_CHARS:],
+                       'when': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
+                       'url': url}
+    try:
+        if notes:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(notes, indent=2) + '\n', encoding='utf-8')
+        elif path.exists():
+            path.unlink()
+    except OSError:
+        pass
+
 
 def _load_json(path):
     if path.is_file():
@@ -578,7 +662,9 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
             print(report, file=sys.stderr)
     attempts = max(1, retries)
     last_output = ''
-    for attempt in range(1, attempts + 1):
+    attempt, extra = 0, False
+    while True:
+        attempt += 1
         ok, last_output = _try_sync(repo_url, clone_path, branch=branch)
         # Linked whether or not the pull worked: a tree on disk is in force
         # either way, and the link is what stops a second clone.
@@ -616,7 +702,16 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
             return True, None
         if attempt < attempts:
             sleep(retry_delay)
-    return False, last_output
+            continue
+        if not extra and _transient(last_output):
+            # One more, and only one (TRANSIENT_RETRY_DELAY's comment).
+            extra = True
+            print(f'precedent_source_bootstrap: {name}: git reported a '
+                  f'failure that can pass on its own; trying once more in '
+                  f'{TRANSIENT_RETRY_DELAY:g}s', file=sys.stderr)
+            sleep(TRANSIENT_RETRY_DELAY)
+            continue
+        return False, last_output
 
 
 def _left_as_it_stands(clone_path, output):
@@ -788,6 +883,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
         if level == 'shared' and name in gone:
             # The person deleted it (precedent_resolve.DELETED_SETS_KEY): its
             # repository may be gone, so it is never cloned again.
+            note_clone_result(name, True)
             results.append((name, True, 'its repository is deleted '
                                         '(tools/deleted_sets.json or your '
                                         'individual set); not cloned -- Update '
@@ -824,6 +920,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
                             'something first reads it, not at session start'))
             continue
         if (clone_path / 'practices').is_dir():
+            note_clone_result(name, True)
             # ON DISK IS NOT THE SAME AS CURRENT, and until 2026-09-11 this
             # returned 'already on disk' and stopped -- so a shared-set clone was
             # pulled exactly once, when it was created, and every session
@@ -913,6 +1010,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
         ok, out = ensure_source(level, name, clone_url, clone_path,
                                 None, retries=retries, retry_delay=retry_delay,
                                 branch=branch or _clone_branch(repo_path, level))
+        note_clone_result(name, ok, out or '', url=clone_url)
         results.append((name, ok, out or 'cloned'))
     return results
 
@@ -1281,6 +1379,7 @@ def main(argv=None):
                                     retry_delay=args.retry_delay,
                                     branch=args.branch,
                                     workspace=attach_workspace())
+    note_clone_result(args.name, ok, last_output or '', url=args.repo_url)
     if not ok:
         print(f"precedent_source_bootstrap: {_diagnose(last_output)} "
               f"could not reach {args.repo_url!r} "
