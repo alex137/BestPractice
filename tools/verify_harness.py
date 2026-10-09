@@ -3489,6 +3489,135 @@ def check_loader_caps_unmeasured_without_a_declared_source():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_loader_block_with_an_absent_individual_set():
+    """A loader block committed with individual practices is COULD NOT
+    VERIFY where no individual set resolves, never drift (2026-10-09).
+
+    A consuming repository's pull request into main failed GitHub's light
+    check with generated-artifact-provenance reporting AGENTS.md hand-edited
+    or stale. Nothing was: its block carried five individual-level practices
+    and the "machine-dependent" paragraph, and a bare runner has no
+    individual set, because a person's set resolves through their user-level
+    config and is never declared in the repository. The declared-source
+    guard in build_views.loader_practices never saw it, so --check compared
+    a block built without those practices to one built with them.
+
+    A throwaway private consumer whose block was generated with a fixture
+    individual set, run through the real tools three ways: (a) no user
+    config -- every reader of the block says it could not verify, and the
+    provenance check is not violated; (b) the user config back -- the
+    provenance check passes; (c) as (b), with a hand-edit in the block --
+    still violated, so the fix did not widen past the absent set."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='individual-absent-'))
+    try:
+        c = tmp / 'consumer'
+        (c / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, c / 'tools' / f.name)
+        shutil.copytree(ROOT / 'practices', c / 'up' / 'practices')
+        # The practice the provenance check enforces is in force here, as in
+        # every repository that uses Precedent (its materialized practices/).
+        (c / 'practices').mkdir()
+        shutil.copy(ROOT / 'practices' / 'generated-artifact-provenance.md',
+                    c / 'practices' / 'generated-artifact-provenance.md')
+        fm = ('---\nslug:        {slug}\ntitle:       A fixture practice\n'
+              'tier:        {tier}\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+              'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+              'checked_by:  null\ndefines:     []\nstatus:      active\n'
+              'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-09"\n'
+              'approved_by: "Fixture, 2026-10-09"\n---\n\n## Rule\n{rule}\n\n'
+              '## Why\nBecause.\n\n## Story\nOnce.\n')
+        (c / 'local' / 'practices').mkdir(parents=True)
+        (c / 'local' / 'practices' / 'zz-local.md').write_text(
+            fm.format(slug='zz-local', tier='on-demand', rule='Do it here.'),
+            encoding='utf-8')
+        ind = tmp / 'fixture-individual'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'practices' / 'zz-personal.md').write_text(
+            fm.format(slug='zz-personal', tier='resident',
+                      rule='**Say it plainly.** A fixture individual rule.'),
+            encoding='utf-8')
+        cfg = tmp / 'user-config.json'
+        cfg.write_text(json.dumps({'individual': {'name': 'fixture-individual',
+                                                  'path': str(ind)}}),
+                       encoding='utf-8')
+        (c / 'precedent.json').write_text(json.dumps({'visibility': 'private', 'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'up'},
+            {'level': 'repo-local', 'name': 'local', 'path': 'local'}]}),
+            encoding='utf-8')
+        (c / 'AGENTS.md').write_text('# Notes\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                                     '<!-- END GENERATED -->\n', encoding='utf-8')
+        base = {k: v for k, v in os.environ.items()
+                if k not in ('PRECEDENT_GIT_TOKEN', 'CLAUDE_CODE_REMOTE')}
+        base.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_AUTHOR_NAME='t',
+                    GIT_AUTHOR_EMAIL='t@t', GIT_COMMITTER_NAME='t',
+                    GIT_COMMITTER_EMAIL='t@t')
+        with_set = dict(base, PRECEDENT_USER_CONFIG=str(cfg))
+        without = dict(base, PRECEDENT_USER_CONFIG=str(tmp / 'no-such-config.json'))
+
+        def run(env, *argv):
+            r = subprocess.run([sys.executable, *argv], cwd=c, capture_output=True,
+                               text=True, timeout=300, env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        run(with_set, 'tools/build_views.py', '--agents-only')
+        agents = (c / 'AGENTS.md').read_text(encoding='utf-8')
+        cases.append(('the fixture block carries the individual practice and '
+                      'the machine-dependent paragraph',
+                      'zz-personal' in agents and 'came from an INDIVIDUAL source' in agents
+                      and '1 individual' in agents, agents[:600]))
+        subprocess.run(['git', 'init', '-q'], cwd=c, env=base)
+        subprocess.run(['git', 'add', '-A'], cwd=c, env=base)
+        subprocess.run(['git', 'commit', '-qm', 'x'], cwd=c, env=base)
+
+        def provenance(env):
+            return run(env, 'tools/precedent_check.py', '--only',
+                       'generated-artifact-provenance')
+
+        # (a) No individual set here, as on a bare GitHub runner.
+        rc, out = run(without, 'tools/build_views.py', '--check', '--agents-only')
+        cases.append(('(a) build_views --check exits 0 and says NOT VERIFIABLE, '
+                      'never FAIL', rc == 0 and 'NOT VERIFIABLE' in out
+                      and '--check FAIL' not in out, out[-400:]))
+        rc, out = run(without, 'tools/build_views.py', '--budgets', '--agents-only')
+        cases.append(('(a) --budgets says it measured nothing',
+                      rc == 0 and 'budgets NOT VERIFIED' in out
+                      and 'individual source' in out, out[-400:]))
+        rc, out = provenance(without)
+        cases.append(('(a) generated-artifact-provenance is COULD NOT VERIFY, '
+                      'not a violation',
+                      rc == 0 and '0 violated' in out
+                      and 'COULD NOT VERIFY  generated-artifact-provenance' in out,
+                      out[-600:]))
+        rc, out = run(without, 'tools/precedent_sync_views.py', '--repo', '.',
+                      '--check', '--skip-unresolved')
+        cases.append(('(a) precedent_sync_views --check says NOT VERIFIABLE, '
+                      'not 31 differences', rc == 0 and 'NOT VERIFIABLE' in out
+                      and 'difference(s)' not in out, out[-400:]))
+        # (b) The person's individual set resolves: a real verdict, and clean.
+        rc, out = provenance(with_set)
+        cases.append(('(b) with the individual set, provenance passes',
+                      rc == 0 and '1 passed' in out and '0 violated' in out
+                      and 'COULD NOT VERIFY' not in out, out[-600:]))
+        # (c) ...and a hand-edit is still caught there.
+        (c / 'AGENTS.md').write_text(agents.replace(
+            'A fixture individual rule.', 'A fixture individual rule, edited by hand.'),
+            encoding='utf-8')
+        rc, out = provenance(with_set)
+        cases.append(('(c) a hand-edit with the individual set present is still '
+                      'violated', rc != 0 and '1 violated' in out
+                      and 'stale or hand-edited' in out, out[-600:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a loader block carrying individual practices cannot verify where no '
+          f'individual set resolves, and still fails a hand-edit where one does '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_received_hooks_and_moved_engine_files():
     """A consumer's vendored hooks count as received, and a mirrored engine
     file that lives on in its own tools/ is moved, not gone (2026-09-30).
@@ -7186,10 +7315,16 @@ def check_generated_views_regenerate():
     # down with a raw traceback instead of a reported FAIL line.
     result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'), '--check'],
                              capture_output=True, text=True)
+    name = 'generated views regenerate byte-identically (AGENTS.md loader block, MAP.md, GLOSSARY.md)'
+    said = result.stdout + result.stderr
+    # build_views.py exits 0 when a source the block was built from is not
+    # here: that is not a pass, so it is said (2026-10-09).
+    if result.returncode == 0 and 'NOT VERIFIABLE' in said:
+        not_applicable(name, next(l for l in said.splitlines()
+                                  if 'NOT VERIFIABLE' in l).strip())
+        return
     ok = result.returncode == 0
-    detail = (result.stdout + result.stderr).strip() if not ok else ''
-    check('generated views regenerate byte-identically (AGENTS.md loader block, MAP.md, GLOSSARY.md)',
-          ok, detail)
+    check(name, ok, said.strip() if not ok else '')
 
 
 def check_resident_rule_links_are_placed_for_the_block():
@@ -69113,6 +69248,7 @@ def main():
     check_whats_new_skips_precedents_own_updates()
     check_received_hooks_and_moved_engine_files()
     check_loader_caps_unmeasured_without_a_declared_source()
+    check_loader_block_with_an_absent_individual_set()
     check_rename_links_leaves_dated_records_alone()
     check_rename_links_spares_a_path_moved_into_gitignore()
     check_rename_links_spares_a_url_into_another_repository()

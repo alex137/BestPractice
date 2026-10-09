@@ -2988,6 +2988,17 @@ def _generated_artifact_provenance(ctx):
             return out
         argv.append('--agents-only')
     r = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True)
+    if r.returncode == 0 and 'NOT VERIFIABLE' in r.stdout + r.stderr:
+        # build_views.py could not rebuild the block from what it was built
+        # from: a declared source, or the person's individual set, is not
+        # here. Neither stale nor current -- and until 2026-10-09 the exit 0
+        # read as a pass here, while the individual case failed outright.
+        said = next((l.split('NOT VERIFIABLE', 1)[1].strip(' -:')
+                     for l in (r.stdout + r.stderr).splitlines()
+                     if 'NOT VERIFIABLE' in l), '')
+        out.append(Unverified('AGENTS.md', 'the generated views were not '
+                              'compared with a fresh regeneration: ' + said))
+        return out
     if r.returncode != 0:
         # The line that says WHAT drifted. build_views.py prints notices
         # after it (a set deferred, a practice not in force), and quoting the
@@ -12015,9 +12026,12 @@ def _loader_within_caps(ctx):
         # no sibling practice sets): the caps were not measured, which is
         # neither a violation nor a pass (2026-09-30).
         if 'budgets NOT VERIFIED' in out:
-            return [Unverified('AGENTS.md', 'the loader block\'s caps were not '
-                               'measured: a declared source is not reachable '
-                               'here, so the block cannot be built from it')]
+            said = next((l.split('NOT VERIFIED', 1)[1].strip(' :')
+                         for l in out.splitlines() if 'budgets NOT VERIFIED' in l),
+                        '')
+            return [Unverified('AGENTS.md', said or 'the loader block\'s caps '
+                               'were not measured: a declared source is not '
+                               'reachable here')]
         return []
     why = [l for l in out.splitlines() if 'FAIL' in l]
     return [Finding('AGENTS.md', (why[-1] if why else
