@@ -58046,6 +58046,76 @@ def check_size_cap_warning_names_the_cap():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_update_finds_the_clone_by_its_origin():
+    """The BestPractice clone is found by its origin remote, any case, at
+    the attach tool's <owner>/<repo> path as well as ../BestPractice: by
+    precedent_merge_vendors.find_source and by the update's own refusal of a
+    vendored copy, which names the command to run.
+
+    WHY. 2026-10-08, from a consumer: the attach tool cloned BestPractice at
+    a lowercase alex137/bestpractice path, and the runbook's
+    ../BestPractice found nothing there.
+
+    Negative control, measured 2026-10-08: before the fix find_source
+    returned None for this layout and pve had no find_source_clones."""
+    import tempfile
+    pu, pve, _pr = _update_tools()
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_merge_vendors as pmv
+    finally:
+        sys.path.pop(0)
+    env = _fixture_git_env()
+    cases = []
+    saved = os.environ.pop('PRECEDENT_SOURCE_CLONE', None)
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            base = pathlib.Path(td)
+
+            def clone(rel, origin):
+                d = base / rel
+                (d / 'tools').mkdir(parents=True)
+                (d / 'tools' / 'precedent_update.py').write_text('', encoding='utf-8')
+                subprocess.run(['git', 'init', '-q', str(d)], env=env, capture_output=True)
+                subprocess.run(['git', '-C', str(d), 'remote', 'add', 'origin', origin],
+                               env=env, capture_output=True)
+                return d.resolve()
+            consumer = base / 'consumer'
+            consumer.mkdir()
+            subprocess.run(['git', 'init', '-q', str(consumer)], env=env, capture_output=True)
+            decoy = clone('elsewhere', 'https://github.com/someone/other.git')
+            cases.append(('CONTROL: a clone of another repository is not taken',
+                          pve.find_source_clones(consumer) == []
+                          and pmv.find_source(consumer) is None,
+                          pve.find_source_clones(consumer)))
+            attached = clone('alex137/bestpractice',
+                             'http://127.0.0.1:1/git/alex137/BestPractice')
+            got = pve.find_source_clones(consumer)
+            cases.append(('the attach tool\'s lowercase alex137/bestpractice clone '
+                          'is found by its origin', got == [attached], got))
+            cases.append(('...by the merge step too',
+                          pmv.find_source(consumer) == attached,
+                          pmv.find_source(consumer)))
+            cases.append(('...and the update\'s refusal names the command to run',
+                          pu.clone_command(consumer) ==
+                          'python3 ../alex137/bestpractice/tools/precedent_update.py '
+                          '--repo .', pu.clone_command(consumer)))
+            beside = clone('BestPractice', 'https://github.com/alex137/BestPractice.git')
+            got = pve.find_source_clones(consumer)
+            cases.append(('../BestPractice stays first when it is one',
+                          got[:1] == [beside] and attached in got and decoy not in got,
+                          got))
+    finally:
+        if saved is not None:
+            os.environ['PRECEDENT_SOURCE_CLONE'] = saved
+    runbook = (ROOT / 'practices' / 'vendor-update-runbook.md').read_text(encoding='utf-8')
+    cases.append(('the runbook says the clone is any checkout whose origin is '
+                  'BestPractice', 'any checkout whose origin is' in runbook, ''))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors finds the BestPractice clone by its origin '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_update_vendors_reports_dropped_template_wording():
     """An install-once file still carrying wording its template has since
     dropped is left for the person, by file and line -- and nothing else is.
@@ -67872,6 +67942,7 @@ def main():
     check_update_merge_lines_carry_the_full_head()
     check_update_on_stubs_stages_nothing_under_claude()
     check_size_cap_warning_names_the_cap()
+    check_update_finds_the_clone_by_its_origin()
     check_update_leaves_no_dead_manifest_entry()
     check_update_in_force_nowhere_asks_once()
     check_update_repoints_moved_engine_commands()

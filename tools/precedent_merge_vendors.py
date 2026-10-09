@@ -110,7 +110,8 @@ def find_source(repo, given=None):
     """-> the BestPractice clone whose precedent_update.py to run, or None.
     `--source`, then PRECEDENT_SOURCE_CLONE, then the universal source
     precedent.json declares by path, then a BestPractice clone beside the
-    repo. The update refuses to run from a vendored copy, so the clone is
+    repo, then any clone near it whose origin is BestPractice, whatever its
+    directory is called (pve.find_source_clones). The update refuses to run from a vendored copy, so the clone is
     the only place it can come from."""
     cands = []
     if given:
@@ -131,7 +132,18 @@ def find_source(repo, given=None):
         if c != repo and (c / 'tools' / 'precedent_update.py').is_file() \
                 and (c / '.git').exists():
             return c
-    return None
+    # Wherever the attach tool cloned it (2026-10-08: a lowercase
+    # alex137/bestpractice path, which ../BestPractice never finds), known
+    # by its origin.
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_vendor_engine as pve
+        found = pve.find_source_clones(repo)
+    except Exception:                                        # noqa: BLE001
+        found = []
+    finally:
+        sys.path.pop(0)
+    return found[0] if found else None
 
 
 def preconditions(repo):
@@ -331,7 +343,8 @@ def run(repo, source=None, check_only=False, always=False, extra=()):
     if clone is None:
         print('VENDORS: NOT TAKEN -- no BestPractice clone found to run Update '
               'Vendors from (--source DIR, PRECEDENT_SOURCE_CLONE, a universal '
-              'source declared by path in precedent.json, or ../BestPractice). '
+              'source declared by path in precedent.json, ../BestPractice, or a '
+              'clone beside the repo whose origin is alex137/BestPractice). '
               'Nothing was run.')
         return 0
     print(f'VENDORS: updating from {clone} -- Update Vendors, with its own '

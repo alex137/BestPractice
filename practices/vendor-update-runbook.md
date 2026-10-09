@@ -59,6 +59,15 @@ run the BestPractice clone's own copy -- never a vendored one:
 
     python3 ../BestPractice/tools/precedent_update.py --repo .
 
+**The clone is any checkout whose origin is `alex137/BestPractice`**, at
+whatever path it sits: `../BestPractice` beside the repo, or where the
+attach tool cloned it, often a lowercase `<owner>/<repo>` path such as
+`../alex137/bestpractice`. Run that clone's
+[tools/precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py);
+[precedent_merge_vendors.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_merge_vendors.py)
+and the update's own refusal of a vendored copy find it by its origin the
+same way (2026-10-08).
+
 It does steps 1, 3, 4, 5, 6 and 10 in order, with no question in between,
 and ends with one of three outcomes. It stages what it wrote and deleted
 first, so the deep check judges what the commit will hold. **DONE** (exit

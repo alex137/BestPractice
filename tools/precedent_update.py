@@ -1057,6 +1057,19 @@ def generated_full_views(repo):
                  or (srcs.get(name) and _bv.has_own_source(repo, srcs[name])))]
 
 
+def clone_command(repo):
+    """-> the command that runs the BestPractice clone's own copy of this
+    file for `repo`: the clone found by its origin beside the repo
+    (pve.find_source_clones -- the attach tool's lowercase
+    alex137/bestpractice path included, 2026-10-08), else ../BestPractice."""
+    try:
+        found = pve.find_source_clones(repo)
+    except Exception:                                          # noqa: BLE001
+        found = []
+    where = (os.path.relpath(found[0], repo) if found else '../BestPractice')
+    return f'python3 {where}/tools/precedent_update.py --repo .'
+
+
 def source_is_its_own_clone():
     """-> None when SOURCE, the tree this file sits in, is the top of its own
     git repository -- a BestPractice clone -- else what it is instead.
@@ -3046,8 +3059,7 @@ def update(repo, skip_check=False, ref=None, move=False):
                          f"which is {elsewhere} -- a vendored copy, not a "
                          f"BestPractice clone, so it would fetch the wrong "
                          f"repository. Run the clone's own copy from the "
-                         f"consuming repo: python3 ../BestPractice/tools/"
-                         f"precedent_update.py --repo .")
+                         f"consuming repo: {clone_command(repo)}")
     # A run killed during the deep check can leave its stand-in commit at
     # HEAD; undo it before anything is staged (undo_leftover_standin).
     leftover = undo_leftover_standin(repo)
@@ -3924,8 +3936,9 @@ def main(argv=None):
     repo = pathlib.Path(a.repo).resolve()
     if repo == SOURCE:
         print("precedent_update FAIL: --repo is this BestPractice clone itself. "
-              "Run it from the consuming repo: "
-              "python3 ../BestPractice/tools/precedent_update.py --repo .")
+              "Run it from the consuming repo: python3 <this clone>/tools/"
+              "precedent_update.py --repo . -- the clone is whichever "
+              "checkout's origin is alex137/BestPractice, wherever it sits.")
         return FAILED
     if a.move and a.from_ref:
         print("precedent_update FAIL: --move and --from-ref both say which "
