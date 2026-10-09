@@ -222,7 +222,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_resolve as pr
 
-FATAL_MISSING_LEVELS = ('shared', 'team', 'individual')
+# Compared only through pr.declared_level, so `team` reads as `shared` and
+# the list never needs the old word.
+FATAL_MISSING_LEVELS = ('shared', 'individual')
 
 # How old a MERGED, undeleted branch has to be before the sweep marks it
 # stale. A threshold nobody decided is doctrine, so this is a declared,
@@ -4332,7 +4334,7 @@ def _template_freshness(sources):
     SHAPE_DIRS = ('.claude', 'bootstrap')
     by_level = {}
     for s in sources:
-        lvl, path = s.get('level'), s.get('path')
+        lvl, path = pr.declared_level(s), s.get('path')
         if lvl in FATAL_MISSING_LEVELS and path:
             p = pathlib.Path(path)
             if p.is_dir():
@@ -4400,7 +4402,7 @@ def _skeleton_rel_paths(level):
     bootstrap() writes it at the destination (`.template` stripped, the
     `.sample` suffix kept -- _copy_skeleton strips one and not the other,
     and a check that guesses at that mismatches every file it touches)."""
-    level = getattr(bootstrap_source, 'LEVEL_ALIASES', {}).get(level, level)
+    level = pr.normalize_level(level)
     skeleton = bootstrap_source.SKELETONS.get(level)
     if skeleton is None or not skeleton.is_dir():
         return set()
@@ -4761,7 +4763,7 @@ def _bootstrap_drift_one(level, name, path, collect=None):
 
     real_root = pathlib.Path(path)
     approvers = None
-    if level in ('shared', 'team'):
+    if pr.normalize_level(level) == 'shared':
         try:
             data = json.loads((real_root / 'approvers.json').read_text(encoding='utf-8'))
             approvers = data.get('approvers') or None
@@ -5029,7 +5031,7 @@ def _bootstrap_drift(sources, collect=None):
     (practice: fail-gracefully)."""
     out, seen = [], False
     for s in sources:
-        level, path = s.get('level'), s.get('path')
+        level, path = pr.declared_level(s), s.get('path')
         if level not in FATAL_MISSING_LEVELS or not path:
             continue
         if not pathlib.Path(path).is_dir():
@@ -8437,7 +8439,7 @@ def _main(box):
 
     data = enumerate_scope(repo, user_config)
 
-    fatal_missing = [m for m in data['missing'] if m['level'] in FATAL_MISSING_LEVELS]
+    fatal_missing = [m for m in data['missing'] if pr.declared_level(m) in FATAL_MISSING_LEVELS]
     other_missing = [m for m in data['missing'] if m not in fatal_missing]
     for m in other_missing:
         print(f"very deep check: the {m['level']} source {m['name']!r} "
@@ -8468,7 +8470,7 @@ def _main(box):
         print("FRESHNESS -- declared sources (below the parse, because "
               "precedent.json\nis what names them)\n")
     for s in data['sources']:
-        if s['level'] not in FATAL_MISSING_LEVELS:
+        if pr.declared_level(s) not in FATAL_MISSING_LEVELS:
             continue
         v = freshness(s['path'])
         if do_freshen:
@@ -8936,7 +8938,7 @@ def _main(box):
     _shape_n = 0
     _shape_any = False
     for _s in data['sources']:
-        _lvl, _path = _s.get('level'), _s.get('path')
+        _lvl, _path = pr.declared_level(_s), _s.get('path')
         if _lvl not in FATAL_MISSING_LEVELS or not _path:
             continue
         _shape_any = True
@@ -9085,7 +9087,7 @@ def _main(box):
     _orph_targets = [('this checkout', repo_root)]
     for _s in data['sources']:
         _p = _s.get('path')
-        if _s.get('level') in FATAL_MISSING_LEVELS and _p:
+        if pr.declared_level(_s) in FATAL_MISSING_LEVELS and _p:
             _orph_targets.append((_s.get('name'), pathlib.Path(_p)))
     for _name, _p in _orph_targets:
         if not pathlib.Path(_p).is_dir():
@@ -9507,7 +9509,7 @@ def _main(box):
     # local clone is named and skipped rather than dropped: "could not be
     # swept" and "swept clean" are different answers and must not read alike.
     _fs_targets = [(_s.get('name'), _s.get('path')) for _s in data['sources']
-                   if _s.get('level') in FATAL_MISSING_LEVELS]
+                   if pr.declared_level(_s) in FATAL_MISSING_LEVELS]
     (_fs_since, _fs_slugs, _fs_rows,
      _fs_note, _fs_caveat) = _fix_sweep(repo_root, _fs_targets)
     _fs_findings = 0
@@ -9579,7 +9581,7 @@ def _main(box):
     _sl_targets = [('this checkout', repo_root)]
     for _s in data['sources']:
         _p = _s.get('path')
-        if _s.get('level') in FATAL_MISSING_LEVELS and _p:
+        if pr.declared_level(_s) in FATAL_MISSING_LEVELS and _p:
             _sl_targets.append((_s.get('name'), pathlib.Path(_p)))
     _grand, _sl = 0, []
     for _sname, _sp in _sl_targets:

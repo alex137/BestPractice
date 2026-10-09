@@ -580,8 +580,15 @@ def loader_gaps(root):
     sources = cfg.get('sources', {}) if isinstance(cfg, dict) else {}
     if isinstance(sources, dict):
         sources = list(sources.values())
-    if not any(isinstance(s, dict) and s.get('level') == 'universal'
-               for s in sources or []):
+    try:
+        import precedent_resolve as _pr
+        declared_level = _pr.declared_level
+    except Exception:                                           # noqa: BLE001
+        # No resolver beside this copy: `universal` has no older spelling,
+        # so the raw field answers this one question exactly.
+        def declared_level(s):
+            return s.get('level') if isinstance(s, dict) else None
+    if not any(declared_level(s) == 'universal' for s in sources or []):
         gaps.append('precedent.json declares no `level: "universal"` source, so '
                     'nothing resolves process/upstream/practices/')
     if not any(LOADER_MARKER in (root / n).read_text(encoding='utf-8', errors='replace')

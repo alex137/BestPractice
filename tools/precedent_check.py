@@ -203,6 +203,18 @@ def _received_owner(rel, repo=None):
     return ppr.received_owner(rel, _received_owners(repo))
 
 
+def _declared_level(src):
+    """precedent_resolve.declared_level -- a declared source's level, with
+    the older `team` read as `shared` -- the one way a check here compares a
+    level. Guarded like _mirrored: without a resolver beside this copy only
+    the raw field is there."""
+    try:
+        import precedent_resolve as pr
+    except Exception:                                           # noqa: BLE001
+        return src.get('level') if isinstance(src, dict) else None
+    return pr.declared_level(src)
+
+
 def _mirrored(repo):
     """-> tuple of repo-relative prefixes this repo mirrors; () if none."""
     key = str(repo)
@@ -836,8 +848,43 @@ class Ctx:
                 if 'A' in code or '?' in code:
                     self.added.append(name)
             if not self.changed:
-                self.scope_reason = ('the working tree is clean, so no change '
-                                     'is in scope')
+                self._scope_to_branch()
+
+    def _scope_to_branch(self):
+        """A clean tree on a branch ahead of its base: judge the branch.
+
+        A bare run on a clean checkout used to say "the working tree is
+        clean, so no change is in scope" and pass every change-scope check
+        without reading a line -- after the commit, which is exactly when a
+        session runs it to see whether the branch is fit to push. Found
+        2026-10-08 in a consumer: a branch renamed a page and left a stale
+        key in a tool and lines in two ledgers; the push passed and the
+        landing's full check failed on them. The work in scope once the tree
+        is clean is what this branch carries and its base lacks, so that is
+        what is judged. On the base itself, or with no base to compare
+        against, nothing is in scope, and the note says which."""
+        base = _published_default_branch()
+        if base is None:
+            self.scope_reason = ('the working tree is clean and there is no '
+                                 'published base branch to compare against, '
+                                 'so no change is in scope')
+            return
+        mb = _git('merge-base', base, 'HEAD')
+        ahead = _git('rev-list', '--count', f'{base}..HEAD').stdout.strip()
+        if mb.returncode != 0 or ahead in ('', '0'):
+            self.scope_reason = (f'the working tree is clean and HEAD carries '
+                                 f'nothing {base} lacks, so no change is in '
+                                 f'scope')
+            return
+        fork = mb.stdout.strip()
+        self.range = f'{fork}..HEAD'
+        self.base = fork
+        st = _git('diff', '--name-status', self.range).stdout.splitlines()
+        self.changed = [l.split('\t')[-1] for l in st if l.strip()]
+        self.added = [l.split('\t')[-1] for l in st if l.startswith('A')]
+        self.scope_reason = (f'the working tree is clean, so the {ahead} '
+                             f'commit(s) this branch carries since {base} are '
+                             f'in scope')
 
     def added_files(self):
         """`git status --porcelain` collapses an untracked DIRECTORY to one
@@ -983,7 +1030,7 @@ def _no_duplication(ctx):
         src = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         raise NotApplicable('this repo is not a practice source (no precedent-source.json)')
-    if not isinstance(src, dict) or src.get('level') == 'universal':
+    if not isinstance(src, dict) or _declared_level(src) == 'universal':
         raise NotApplicable('universal is where the one full copy lives')
     if src.get('retired'):
         raise NotApplicable('this set says it is retired; its copies leave with it')
@@ -992,7 +1039,7 @@ def _no_duplication(ctx):
         sources = _pr.load_config(str(ROOT))
     except Exception as e:                                   # noqa: BLE001
         raise NotApplicable(f'the declared sources could not be read ({e})')
-    uni = [pathlib.Path(s['path']) for s in sources if s.get('level') == 'universal']
+    uni = [pathlib.Path(s['path']) for s in sources if _declared_level(s) == 'universal']
     uni = [u for u in uni if (u / 'practices').is_dir()]
     if not uni:
         raise NotApplicable('no universal source is cloned here to compare with')
@@ -1052,7 +1099,7 @@ def _universal_change_reaches_overrides(ctx):
         src = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return []
-    if not isinstance(src, dict) or src.get('level') != 'universal':
+    if not isinstance(src, dict) or _declared_level(src) != 'universal':
         return []
     changed = []
     for f in ctx.changed_matching(r'^practices/[^/]+\.md$'):
@@ -1072,7 +1119,7 @@ def _universal_change_reaches_overrides(ctx):
     for f in changed:
         slug = pathlib.PurePosixPath(f).stem
         for s in sources:
-            if s.get('level') in ('universal', 'repo-local'):
+            if _declared_level(s) in ('universal', 'repo-local'):
                 continue
             copy = pathlib.Path(s['path']) / 'practices' / f'{slug}.md'
             try:
@@ -1664,7 +1711,7 @@ def _universal_source_root():
     except Exception:                                # practice: fail-gracefully
         return None
     for s in sources:
-        if s.get('level') == 'universal':
+        if _declared_level(s) == 'universal':
             try:
                 root = (ROOT / s['path']).resolve()
             except Exception:
@@ -3752,7 +3799,7 @@ def _practice_is_reachable(ctx):
         if wired and str(fm.get('visible_to') or '').strip('" \'') == 'code-owners':
             via_session.append(slug)
             continue
-        if s['level'] in session_channel_levels or (wired and s.get('brought')):
+        if _declared_level(s) in session_channel_levels or (wired and s.get('brought')):
             # A set the person brings is never in a tracked view, public
             # repository or private (build_views.sources_for_tracked_block),
             # so wherever the channel is wired it reaches them through it.
@@ -5159,7 +5206,7 @@ def _declared_sources_are_cloned(ctx):
     for src in cfg.get('sources') or []:
         if not isinstance(src, dict):
             continue
-        if src.get('level') not in ('shared', 'team', 'universal'):
+        if _declared_level(src) not in ('shared', 'universal'):
             continue
         rel = str(src.get('path') or '').strip()
         if not rel:
@@ -7793,7 +7840,7 @@ def _private_source_names(root):
                 encoding='utf-8'))
         except (OSError, ValueError):
             decl = {}
-        vis = decl.get('visibility') or ('private' if s.get('level') == 'individual'
+        vis = decl.get('visibility') or ('private' if _declared_level(s) == 'individual'
                                          else 'public')
         if vis == 'public':
             continue

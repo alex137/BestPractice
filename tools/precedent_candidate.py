@@ -85,6 +85,7 @@ import split_practices as sp  # noqa: E402
 # offset. Never a bare datetime.date.today(): that is the container's UTC.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
+import precedent_resolve  # noqa: E402 -- normalize_level, the one reading of `team`
 
 
 # spec/CANDIDATE_FORMAT.md#signals -- closed vocabulary, same discipline
@@ -97,7 +98,6 @@ SIGNALS = {
     'restated-in-second-scope',
 }
 LEVELS = {'individual', 'shared', 'universal'}
-LEVEL_ALIASES = {'team': 'shared'}   # the pre-2026-09-18 spelling still reads
 STATUSES = {'open', 'promoted', 'expired', 'declined'}
 SLUG_RE = re.compile(r'^[a-z0-9]+(-[a-z0-9]+)*$')
 
@@ -251,7 +251,7 @@ def split_candidate_sections(body):
 
 
 def cmd_create(args):
-    level = LEVEL_ALIASES.get(args.get('--level'), args.get('--level'))
+    level = precedent_resolve.normalize_level(args.get('--level'))
     if level not in LEVELS:
         raise CandidateError(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
     slug = args.get('--slug')
@@ -421,7 +421,7 @@ def _iter_candidates(path):
 
 
 def cmd_list(args):
-    level = LEVEL_ALIASES.get(args.get('--level'), args.get('--level'))
+    level = precedent_resolve.normalize_level(args.get('--level'))
     if level not in LEVELS:
         raise CandidateError(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
     if level == 'universal':
@@ -482,7 +482,7 @@ def set_candidate_status(target, new_status, required_current='open'):
 
 
 def cmd_expire(args):
-    level = LEVEL_ALIASES.get(args.get('--level'), args.get('--level'))
+    level = precedent_resolve.normalize_level(args.get('--level'))
     if level not in ('individual', 'shared'):
         raise CandidateError("--level must be individual or shared for expire "
                               "(a universal candidate is an Issue -- close it there)")

@@ -126,7 +126,7 @@ def all_words(root=ROOT):
         return out, notes + [f'the other sources\' words could not be read ({e})']
     index = {w.lower(): i for i, (w, _m, _s) in enumerate(out)}
     for src in sources:
-        if src['level'] == 'universal':
+        if pr.declared_level(src) == 'universal':
             continue
         reg = pathlib.Path(src['path']) / 'our_language.json'
         if not reg.is_file():

@@ -3884,8 +3884,8 @@ def repoint_renamed_sources(dest_root):
             if old != new:
                 s[key] = new
                 swaps.append((json.dumps(old), json.dumps(new)))
-        if s.get('level') == 'team':
-            s['level'] = 'shared'
+        if _declared_level(s) != s.get('level'):
+            s['level'] = _declared_level(s)
             relevelled.append(new_name)
         if (new_name, new_path) != (name, where) or kept:
             done.append((name, new_name, where, new_path, kept))
@@ -3918,6 +3918,27 @@ def repoint_renamed_sources(dest_root):
     if new_text != text:
         path.write_text(new_text, encoding='utf-8')
     return done
+
+
+def retire_level_aliases(dest_root):
+    """-> [source names] whose `"level": "team"` in `dest_root`'s
+    precedent.json this rewrote to `"level": "shared"`, the word in use
+    since 2026-09-18. Every source, not only a renamed set
+    (repoint_renamed_sources): the old word still resolves, and every tool
+    reads it through precedent_resolve.declared_level, but a file that says
+    one thing while the tools mean another is how a raw comparison went
+    wrong for a consumer on 2026-10-09. Idempotent; every other byte is
+    kept (precedent_resolve.retire_level_aliases)."""
+    import precedent_resolve as pr
+    path = pathlib.Path(dest_root) / 'precedent.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return []
+    new_text, names = pr.retire_level_aliases(text)
+    if new_text != text:
+        path.write_text(new_text, encoding='utf-8')
+    return names
 
 
 # A practice set that has been folded away says so in its own
@@ -3995,6 +4016,16 @@ def _active_practice_slugs(clone):
     return out
 
 
+def _declared_level(s):
+    """A declared source's level with its alias read, `team` -> `shared`:
+    precedent_resolve.declared_level, the one reader. Comparing the raw
+    field let a set declared at the older `team` level slip past the
+    retired- and deleted-set drop, so Update Vendors never removed it (a
+    consumer's update, 2026-10-09)."""
+    import precedent_resolve as pr
+    return pr.declared_level(s)
+
+
 def _person_sets():
     """-> (deleted {name: info}, [carrier paths]) for the person running this:
     the sets their individual set says they deleted, and the individual set
@@ -4042,11 +4073,11 @@ def retired_sources(dest_root, archived=(), person=None):
 
     out = []
     for s in sources:
-        if not isinstance(s, dict) or s.get('level') not in ('shared', 'individual'):
+        if not isinstance(s, dict) or _declared_level(s) not in ('shared', 'individual'):
             continue
         name, clone = str(s.get('name') or ''), where(s)
         ret = source_retirement(clone)
-        if s.get('level') == 'shared' and name in gone:
+        if _declared_level(s) == 'shared' and name in gone:
             info = gone[name]
             why = (DELETED_WHY + (f' ({info["date"]})' if info.get('date') else '')
                    + (' -- BestPractice\'s record of deleted sets, '
@@ -4266,7 +4297,7 @@ def archived_declared_sources(dest_root):
     except (OSError, ValueError):
         return archived, notes
     for s in cfg.get('sources') or []:
-        if not isinstance(s, dict) or s.get('level') not in ('shared', 'individual'):
+        if not isinstance(s, dict) or _declared_level(s) not in ('shared', 'individual'):
             continue
         name = str(s.get('name') or '')
         clone = root / pathlib.Path(str(s.get('path') or '')).expanduser()
