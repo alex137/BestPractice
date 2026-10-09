@@ -2913,6 +2913,88 @@ def check_rename_links_spares_a_path_moved_into_gitignore():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_clean_tree_judges_the_branch():
+    """A bare precedent_check on a clean tree judges what the branch carries
+    since its base, and the basic push tier runs rename-updates-links
+    (2026-10-08). A consumer branch renamed a page and left a stale key in a
+    tool and lines in two ledgers: every push ran the basic tier, which did
+    not include the rename check, and a bare run after the commit said "the
+    working tree is clean, so no change is in scope" and passed every
+    change-scope check unread. Only the landing's full check said so.
+
+    A throwaway consumer: main, then a branch committing a document that
+    skips a heading level and a rename that strands a reference. CONTROL:
+    the same bare run on main itself still finds nothing in scope."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='clean-tree-branch-'))
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        for slug in ('rename-updates-links', 'heading-outline'):
+            shutil.copy(ROOT / 'practices' / f'{slug}.md', up / 'practices')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}]}),
+            encoding='utf-8')
+        (repo / 'docs').mkdir()
+        (repo / 'docs' / 'old_name.md').write_text('# Page\n', encoding='utf-8')
+        (repo / 'README.md').write_text('# Readme\n\nSee docs/old_name.md.\n',
+                                        encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def pc(*a):
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', *a],
+                               cwd=str(repo), capture_output=True, text=True,
+                               env=env, timeout=300)
+            return r.returncode, r.stdout + r.stderr
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        rc, out = pc('--only', 'heading-outline')
+        cases.append(('CONTROL: on main itself a clean tree has nothing in scope',
+                      rc == 0 and 'VIOLATION' not in out, out[-400:]))
+        g('checkout', '-q', '-b', 'work')
+        (repo / 'docs' / 'skips.md').write_text('# Top\n\n### Too deep\n',
+                                                encoding='utf-8')
+        g('mv', 'docs/old_name.md', 'docs/new_name.md')
+        g('add', '-A'); g('commit', '-qm', 'a page that skips a level; a rename')
+        clean = g('status', '--porcelain').stdout.strip() == ''
+        rc, out = pc('--only', 'heading-outline')
+        cases.append(('a clean tree on a branch judges the branch: the committed '
+                      'heading jump is found',
+                      clean and rc != 0 and 'docs/skips.md' in out
+                      and 'commit(s) this branch carries since origin/main' in out,
+                      out[-400:]))
+        rc, out = pc('--only', 'rename-updates-links')
+        cases.append(('the reference the rename stranded is found after the commit',
+                      rc != 0 and 'docs/old_name.md' in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_push_check as _ppc
+    finally:
+        sys.path.pop(0)
+    for kind in ('consumer', 'source'):
+        step = [s for s in _ppc.PUSH_CHECKS[kind] if s[0] == 'rename_links']
+        cases.append((f'a {kind} push runs rename-updates-links at the basic tier',
+                      'rename_links' in _ppc.BASIC_CHECKS and bool(step)
+                      and 'rename-updates-links' in step[0][1], ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a clean tree judges its branch, and the basic tier runs the rename '
+          f'check ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_rename_links_spares_a_url_into_another_repository():
     """A deleted path inside a link to ANOTHER repository names that
     repository's file, not this one's. After go-update moved from the
@@ -6715,10 +6797,13 @@ def check_session_start_charges_brought_sets_to_the_person():
         import precedent_session_practices as psp
     finally:
         sys.path.pop(0)
-    saved = (psp.brought_share, psp.brought_budget)
+    # charged_to_repo reads both renders through _brought_renders since
+    # 2026-10-09, so the stand-in replaces that: 1500 with the brought set,
+    # 900 without it, a share of 600.
+    saved = (psp._brought_renders, psp.brought_budget)
     cases = []
     try:
-        psp.brought_share = lambda repo=None: (600, ['precedent-shared-ladder'])
+        psp._brought_renders = lambda repo=None: (1500, 900, ['precedent-shared-ladder'])
         psp.brought_budget = lambda repo=None: (700, '/ind')
         n, note, over = psc._charge_brought_share(1500)
         cases.append(('the brought share leaves the repository\'s count',
@@ -6731,12 +6816,12 @@ def check_session_start_charges_brought_sets_to_the_person():
         n, note, over = psc._charge_brought_share(1500)
         cases.append(('no budget declared: charged to the repository, as before',
                       n == 1500 and note == '' and over is None))
-        psp.brought_share = lambda repo=None: (0, [])
+        psp._brought_renders = lambda repo=None: (None, None, [])
         psp.brought_budget = lambda repo=None: (700, '/ind')
         cases.append(('nothing brought: unchanged',
                       psc._charge_brought_share(1500) == (1500, '', None)))
     finally:
-        psp.brought_share, psp.brought_budget = saved
+        psp._brought_renders, psp.brought_budget = saved
     failed = [nm for nm, ok in cases if not ok]
     check(f'the session-start check charges brought sets to the person '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
@@ -8919,6 +9004,19 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
         cases.append(("a retired set whose rule only the person's own set "
                       'carries is dropped', 'carried' not in left))
         cases.append(('universal is never dropped', 'uni' in left))
+        # A set declared at the older `team` level is the same set
+        # (normalize_level): it is dropped too, not skipped (a consumer's
+        # update, 2026-10-09, kept two deleted sets declared as `team`).
+        pj5 = fx / 'repo5' / 'precedent.json'
+        pj5.parent.mkdir()
+        pj5.write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'uni', 'path': '../uni'},
+            {'level': 'team', 'name': 'vanished', 'path': '../vanished'}]}),
+            encoding='utf-8')
+        _pve.drop_retired_sources(fx / 'repo5', person=person)
+        left5 = [x['name'] for x in json.loads(pj5.read_text(encoding='utf-8'))['sources']]
+        cases.append(('a deleted set declared at the older `team` level is '
+                      'dropped too', left5 == ['uni'], left5))
         # Every session stops loading and cloning a deleted set at once.
         import precedent_resolve as _pr
         ind = fx / 'ind'
@@ -8977,6 +9075,196 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
     bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'a retired or archived set is dropped only when no rule is lost '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+# A raw comparison of a source's `level` against a level name: the field
+# read straight (`x.get('level')`, `x['level']`, or a name bound to either in
+# the same function) on one side, a level name or a *LEVELS tuple on the
+# other. precedent_resolve.declared_level / normalize_level is the one
+# reader; a comparison through it is a call, never matched here.
+_LEVEL_NAMES = frozenset({'shared', 'team', 'individual', 'universal'})
+
+
+def _raw_level_comparisons(text):
+    """-> [line numbers] of raw level comparisons in Python `text`."""
+    import ast
+
+    def raw(n):
+        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                and n.func.attr == 'get' and n.args
+                and isinstance(n.args[0], ast.Constant) and n.args[0].value == 'level'):
+            return True
+        return (isinstance(n, ast.Subscript) and isinstance(n.slice, ast.Constant)
+                and n.slice.value == 'level')
+
+    def names(n):
+        if isinstance(n, ast.Constant):
+            return n.value in _LEVEL_NAMES
+        if isinstance(n, (ast.Tuple, ast.List, ast.Set)):
+            return any(isinstance(e, ast.Constant) and e.value in _LEVEL_NAMES
+                       for e in n.elts)
+        if isinstance(n, ast.Name):
+            return n.id.upper().endswith('LEVELS')
+        return isinstance(n, ast.Attribute) and n.attr.upper().endswith('LEVELS')
+
+    out = set()
+    tree = ast.parse(text)
+    for scope in ast.walk(tree):
+        if not isinstance(scope, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        bound = set()
+        for a in ast.walk(scope):
+            if not isinstance(a, ast.Assign):
+                continue
+            for t in a.targets:
+                if isinstance(t, ast.Name) and raw(a.value):
+                    bound.add(t.id)
+                if isinstance(t, ast.Tuple) and isinstance(a.value, ast.Tuple):
+                    bound |= {te.id for te, ve in zip(t.elts, a.value.elts)
+                              if isinstance(te, ast.Name) and raw(ve)}
+        for c in ast.walk(scope):
+            if not isinstance(c, ast.Compare):
+                continue
+            sides = [c.left] + list(c.comparators)
+            if any(names(s) for s in sides) and any(
+                    raw(s) or (isinstance(s, ast.Name) and s.id in bound) for s in sides):
+                out.add(c.lineno)
+    return sorted(out)
+
+
+def check_source_level_reads_go_through_the_normalizer():
+    """No tool compares a source's raw `level` against a level name.
+
+    2026-10-09: a consumer declared two deleted sets at the older `team`
+    level and Update Vendors removed neither, because the drop compared the
+    raw field against "shared" while the resolver read `team` as shared. The
+    same raw comparison sat in a dozen other tools, several kept right only
+    by a hand-written ('shared', 'team') pair. Every one now reads the level
+    through precedent_resolve.declared_level (or normalize_level); this
+    refuses a new raw one anywhere in tools/, and shows the scan catching
+    the shapes it is meant to catch. The fallback alias tables kept for a
+    copy with no resolver beside it must equal the resolver's own."""
+    cases = []
+    skip = {'verify_harness.py', 'precedent_resolve.py'}
+    hits = []
+    for f in sorted((ROOT / 'tools').glob('*.py')):
+        if f.name in skip:
+            continue
+        try:
+            hits += [f'{f.name}:{n}' for n in
+                     _raw_level_comparisons(f.read_text(encoding='utf-8'))]
+        except (OSError, SyntaxError) as e:
+            hits.append(f'{f.name}: unreadable ({e})')
+    cases.append(('no tool compares a raw source level', not hits, ', '.join(hits[:20])))
+    injected = {
+        "def f(s):\n    return s.get('level') == 'shared'\n": True,
+        "def f(s):\n    return s['level'] in ('shared', 'team')\n": True,
+        "def f(s):\n    lvl, p = s.get('level'), s.get('path')\n    return lvl not in X_LEVELS\n": True,
+        "def f(s):\n    return s.get('level') in bv.PRIVATE_LEVELS\n": True,
+        "def f(s):\n    return pr.declared_level(s) == 'shared'\n": False,
+        "def f(s):\n    return pr.normalize_level(s.get('level')) in ('shared',)\n": False,
+        "def f(s):\n    return s.get('level') == 'repo-local'\n": False,
+    }
+    for code, want in injected.items():
+        got = bool(_raw_level_comparisons(code))
+        cases.append((('catches ' if want else 'passes ') + code.split('\n')[-2].strip(),
+                      got == want))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_resolve as _pr
+        import leak_gate as _lg
+        import precedent_source_bootstrap as _psb
+        import precedent_engine_freshness as _pef
+    finally:
+        sys.path.pop(0)
+    for mod, attr in ((_lg, '_FALLBACK_LEVEL_ALIASES'), (_psb, 'LEVEL_ALIASES'),
+                      (_pef, '_FALLBACK_LEVEL_ALIASES')):
+        cases.append((f'{mod.__name__}.{attr} equals the resolver\'s alias table',
+                      getattr(mod, attr, None) == _pr.LEVEL_ALIASES))
+    dl = getattr(_pr, 'declared_level', None)
+    ds = getattr(_pr, 'declared_sources', None)
+    cases.append(('declared_level reads team as shared, and leaves shared alone',
+                  dl is not None and dl({'level': 'team'}) == 'shared'
+                  and dl({'level': 'shared'}) == 'shared' and dl('x') is None))
+    got = ds({'sources': [{'level': 'team', 'name': 'a'}, 'junk',
+                          {'level': 'universal', 'name': 'u'}]}) if ds else []
+    cases.append(('declared_sources normalizes every entry and drops non-objects',
+                  [(s['name'], s['level']) for s in got] == [('a', 'shared'), ('u', 'universal')]))
+    bad = [c[0] + (f' ({c[2]})' if len(c) > 2 and c[2] else '') for c in cases if not c[1]]
+    check(f'every source-level comparison goes through the one reader '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_update_vendors_retires_the_team_level_word():
+    """Update Vendors rewrites `"level": "team"` to `"shared"` in a
+    consumer's precedent.json on every run that finds one -- any source, not
+    only a renamed set -- says so in one line, keeps every other byte, and
+    does nothing the second time. A previously raw reader (the session
+    check's sources-resolved row) also judges a `team`-level set as shared."""
+    import tempfile, io, contextlib
+    pu, pve, pr = _update_tools()
+    step = getattr(pu, 'level_alias_step', None)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-team-level-'))
+    try:
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        text = ('{\n  "_comment": ["kept as written"],\n  "sources": [\n'
+                '    {"level": "universal", "name": "precedent", "path": "../BestPractice"},\n'
+                '    {"level":"team", "name": "writing",\n'
+                '     "path": "../writing"},\n'
+                '    {"level": "shared", "name": "ladder", "path": "../ladder"},\n'
+                '    {"level": "team", "name": "style", "path": "../style"}\n'
+                '  ],\n  "note": "a team of two"\n}\n')
+        (repo / 'precedent.json').write_text(text, encoding='utf-8')
+        if step is None:
+            cases.append(('precedent_update has level_alias_step()', False))
+        else:
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep)
+            after = (repo / 'precedent.json').read_text(encoding='utf-8')
+            levels = {s['name']: s['level'] for s in json.loads(after)['sources']}
+            cases.append(('both team-level sources now say shared',
+                          levels == {'precedent': 'universal', 'writing': 'shared',
+                                     'ladder': 'shared', 'style': 'shared'}, levels))
+            cases.append(('every other byte is kept',
+                          after == text.replace('"level":"team"', '"level":"shared"')
+                          .replace('"level": "team"', '"level": "shared"')))
+            lines = [o for _n, o in rep.steps if 'writing' in o]
+            cases.append(('the report says so in one line, naming both',
+                          len(lines) == 1 and 'style' in lines[0], rep.steps))
+            rep2 = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep2)
+            cases.append(('a second run changes nothing and says nothing',
+                          (repo / 'precedent.json').read_text(encoding='utf-8') == after
+                          and not rep2.steps, rep2.steps))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import precedent_source_credentials as _psc
+            import precedent_session_check as _sc
+        finally:
+            sys.path.pop(0)
+        old = tmp / 'old'
+        old.mkdir()
+        (old / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'team', 'name': 'absent-set', 'path': '../absent-set'}]}),
+            encoding='utf-8')
+        env = {'HOME': str(tmp), 'PRECEDENT_USER_CONFIG': str(tmp / 'none.json')}
+        un = [u for u in _psc.unresolved_private_sources(old, env) if u[1] == 'absent-set']
+        cases.append(('a team-level set that is not on disk is reported unresolved, as shared',
+                      [u[0] for u in un] == ['shared'], un))
+        row = _sc.sources_resolved_row('set', 'msg', un)
+        cases.append(('...and fails the sources-resolved row, token or no token',
+                      row[1] is False, row))
+    except (OSError, ValueError, KeyError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'Update Vendors retires the `team` level word ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
 
 
 def check_dropped_set_and_proxy_and_template_refs():
@@ -12726,8 +13014,7 @@ def check_update_vendors_is_one_command():
                          'path': str(ROOT)}]}) + '\n', encoding='utf-8')
         (repo / 'AGENTS.md').write_text(
             f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
-        sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-           'seed', str(repo), '--kind', 'consumer', cwd=repo)
+        _seed_fixture_engine(repo, 'consumer', env, cwd=repo)
         if catalogue:
             _rc, head = sh('git', 'rev-parse', f'origin/{pve_branch}', cwd=ROOT)
             (repo / 'process').mkdir()
@@ -12852,8 +13139,7 @@ def check_update_vendors_is_one_command():
         (src / 'AGENTS.md').write_text(
             f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
         sh('git', 'init', '-q', '-b', 'main', cwd=src)
-        sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-           'seed', str(src), '--kind', 'source', cwd=src)
+        _seed_fixture_engine(src, 'source', env, cwd=src)
         sh(sys.executable, 'tools/build_views.py', '--repo', '.', cwd=src)
         with open(src / 'MAP.md', 'a', encoding='utf-8') as f:
             f.write('| a row a newer engine would render differently |\n')
@@ -12906,6 +13192,373 @@ def check_update_vendors_is_one_command():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+# --------------------------------------------------------------------------
+# ONE SEED, COPIED: the vendored engine the update fixtures start from.
+#
+# Morgan, 2026-10-09: "share the fake project". The end-to-end Update Vendors
+# checks each build small consumers from scratch, and each consumer used to
+# run `precedent_vendor_engine.py seed`, a few seconds apiece, for bytes that
+# are the same every time. Now the first fixture to seed with a given set of
+# inputs keeps a copy of the files seed wrote, and every later one with the
+# same inputs copies them in instead of running it. Each fixture still gets
+# its own fresh files, its own git init and its own commit; nothing mutable
+# is ever shared between checks.
+#
+# CONTRACT (practice: review-against-a-contract): a copy is used only when a
+# fresh seed would write the same bytes -- the key moves whenever anything
+# seed can read moves.
+#
+# The key hashes: this checkout's path, HEAD, the branch HEAD names and the
+# SOURCE_BRANCH refs seed compares against; every uncommitted or untracked
+# file in the checkout, by content (so an edited engine file, committed or
+# not, is a new key); every file already in the destination, by path and
+# content, and the destination's own refs; the kind; the Python running it;
+# the contents of HOME and of the files _SEED_KEY_PATH_VARS name; and every
+# other PRECEDENT_* and GIT_* variable in the environment it runs under. A
+# seed that fails, removes a file, or writes the destination's own path into
+# anything is never kept. Nothing is left out because seed "does not read
+# it": an AGENTS.md that differs is a different key, a miss, never a guess.
+#
+# Concurrency: the harness runs as separate processes. An entry is built in
+# a private directory and renamed into place; a process that loses the race
+# drops its own copy and uses the winner's. A copy that fails part-way is
+# undone and the seed simply runs. The cache is an accelerator, never a
+# dependency (practice: shared-result-cache): PRECEDENT_NO_SEED_CACHE=1
+# turns it off, and any error falls back to a real seed.
+_SEED_CACHE_FORMAT = 1
+_SEED_CACHE_KEEP_SECONDS = 6 * 3600
+# Variables naming a file whose CONTENTS count, not its name: each harness
+# process and fixture gives them a fresh temporary path.
+_SEED_KEY_PATH_VARS = ('PRECEDENT_USER_CONFIG', 'PRECEDENT_CLONE_NOTES')
+
+
+def _seed_cache_dir(env=None):
+    """PRECEDENT_SEED_CACHE_DIR in `env` (or this process's environment)
+    names another directory, for the check of the cache itself."""
+    import tempfile
+    named = (env or {}).get('PRECEDENT_SEED_CACHE_DIR') or os.environ.get(
+        'PRECEDENT_SEED_CACHE_DIR')
+    return (pathlib.Path(named) if named else
+            pathlib.Path(tempfile.gettempdir()) / 'precedent-harness-seed-cache')
+
+
+def _tree_digest(top, skip=('.git',), most=400):
+    """sha256 over every file under `top` (path, mode, bytes), `skip`ped
+    top-level names left out. Symlinks hash as their target string. More
+    than `most` files raises ValueError: a key that would hash a whole home
+    directory is not worth having, so the seed just runs."""
+    h = hashlib.sha256()
+    seen = 0
+    top = pathlib.Path(top)
+    if not top.exists():
+        return 'absent'
+    if top.is_file():
+        return 'file ' + hashlib.sha256(top.read_bytes()).hexdigest()
+    for dirpath, dirnames, filenames in os.walk(top):
+        rel_dir = pathlib.Path(dirpath).relative_to(top)
+        if rel_dir == pathlib.Path('.'):
+            dirnames[:] = [d for d in dirnames if d not in skip]
+        dirnames.sort()
+        h.update(f'D {rel_dir.as_posix()}\n'.encode())
+        for fn in sorted(filenames):
+            seen += 1
+            if seen > most:
+                raise ValueError(f'more than {most} files under {top}')
+            p = pathlib.Path(dirpath) / fn
+            rel = (rel_dir / fn).as_posix()
+            if p.is_symlink():
+                h.update(f'L {rel} {os.readlink(p)}\n'.encode())
+                continue
+            st = p.stat()
+            h.update(f'F {rel} {st.st_mode & 0o777} {st.st_size}\n'.encode())
+            h.update(p.read_bytes())
+    return h.hexdigest()
+
+
+def _seed_cache_key(dest, kind, env, root=None):
+    """-> the key described in the contract above, or None when it cannot
+    be computed (then the seed simply runs)."""
+    import precedent_vendor_engine as _pve
+    dest = pathlib.Path(dest)
+    root = ROOT if root is None else pathlib.Path(root)
+
+    def git(where, *args):
+        r = subprocess.run(['git', '--no-optional-locks', '-C', str(where), *args],
+                           capture_output=True)
+        return r.returncode, r.stdout
+
+    h = hashlib.sha256()
+    h.update(f'format {_SEED_CACHE_FORMAT}\nroot {root}\nkind {kind}\n'
+             f'python {sys.executable} {sys.version}\n'.encode())
+    branch = _pve.SOURCE_BRANCH
+    for args in (('rev-parse', 'HEAD'), ('symbolic-ref', '-q', 'HEAD'),
+                 ('rev-parse', '--verify', '-q', f'refs/remotes/origin/{branch}'),
+                 ('rev-parse', '--verify', '-q', f'refs/heads/{branch}')):
+        rc, out = git(root, *args)
+        h.update(f'{" ".join(args)} -> {rc} '.encode() + out)
+    rc, status = git(root, 'status', '--porcelain=v1', '-z', '--untracked-files=all')
+    if rc != 0:
+        return None
+    h.update(b'status ' + status)
+    entries = status.split(b'\0')
+    i = 0
+    while i < len(entries):
+        entry = entries[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        if entry[:1] in (b'R', b'C'):
+            i += 1                                  # the rename's source path
+        p = root / os.fsdecode(entry[3:])
+        h.update(b'dirty ' + entry[3:] + b' ' + _tree_digest(p).encode())
+    h.update(b'dest ' + _tree_digest(dest).encode())
+    for args in (('symbolic-ref', '-q', 'HEAD'), ('for-each-ref',)):
+        rc, out = git(dest, *args)
+        h.update(f'dest {" ".join(args)} -> {rc} '.encode() + out)
+    for k in ('HOME',) + _SEED_KEY_PATH_VARS:
+        where = env.get(k)
+        h.update(f'{k} '.encode() + (_tree_digest(where).encode() if where else b'unset'))
+    for k in sorted(env):
+        if k.startswith(('PRECEDENT_', 'GIT_')) and k not in _SEED_KEY_PATH_VARS:
+            h.update(f'env {k}={env[k]}\n'.encode())
+    return h.hexdigest()
+
+
+def _seed_cache_prune(cache):
+    """Drop entries nobody has used for _SEED_CACHE_KEEP_SECONDS: a key
+    names one checkout state, so an old one is never read again."""
+    now = time.time()
+    try:
+        children = list(cache.iterdir())
+    except OSError:
+        return
+    for child in children:
+        try:
+            if now - child.stat().st_mtime > _SEED_CACHE_KEEP_SECONDS:
+                shutil.rmtree(child, ignore_errors=True)
+        except OSError:
+            pass
+
+
+def _snapshot_files(top):
+    """{relative path: (mode, sha256)} for every file under `top` but .git,
+    and {relative path: ('dir',)} for every directory."""
+    got = {}
+    top = pathlib.Path(top)
+    for dirpath, dirnames, filenames in os.walk(top):
+        if pathlib.Path(dirpath) == top:
+            dirnames[:] = [d for d in dirnames if d != '.git']
+        for d in dirnames:
+            got[(pathlib.Path(dirpath) / d).relative_to(top).as_posix()] = ('dir',)
+        for fn in filenames:
+            p = pathlib.Path(dirpath) / fn
+            if p.is_symlink():
+                got[p.relative_to(top).as_posix()] = ('link', os.readlink(p))
+            else:
+                got[p.relative_to(top).as_posix()] = (
+                    p.stat().st_mode & 0o777,
+                    hashlib.sha256(p.read_bytes()).hexdigest())
+    return got
+
+
+def _seed_fixture_engine(dest, kind, env, cwd):
+    """`precedent_vendor_engine.py seed <dest> --kind <kind>`, run under
+    `env` from `cwd` -- or the files an earlier seed with the same key wrote,
+    copied into `dest`. Returns (returncode, output); a copy returns 0 and
+    says so. Only for fixtures that use nothing of seed's but the files it
+    writes (its output names the destination, so a copy cannot repeat it)."""
+    dest = pathlib.Path(dest)
+
+    def real_seed():
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+                            'seed', str(dest), '--kind', kind],
+                           cwd=str(cwd), env=env, capture_output=True)
+        return r.returncode, (r.stdout + r.stderr).decode(errors='replace')
+
+    if env.get('PRECEDENT_NO_SEED_CACHE') == '1':     # every fixture env copies os.environ
+        return real_seed()
+    cache = _seed_cache_dir(env)
+    try:
+        key = _seed_cache_key(dest, kind, env)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        key = None                          # an accelerator, never a dependency
+    if key is None:
+        return real_seed()
+    entry = cache / key
+    files = entry / 'files'
+    if (entry / 'complete').is_file():
+        made = []
+        try:
+            os.utime(entry)                 # in use: the prune leaves it
+            for dirpath, dirnames, filenames in os.walk(files):
+                dirnames.sort()
+                rel_dir = pathlib.Path(dirpath).relative_to(files)
+                for d in dirnames:
+                    target = dest / rel_dir / d
+                    if not target.is_dir():
+                        target.mkdir()
+                        made.append(target)
+                for fn in sorted(filenames):
+                    src, target = pathlib.Path(dirpath) / fn, dest / rel_dir / fn
+                    if not target.exists():
+                        made.append(target)
+                    shutil.copy2(src, target)
+            return 0, f'seed: copied from the harness seed cache ({key[:12]})'
+        except OSError:
+            for t in reversed(made):        # undo, then seed for real
+                try:
+                    t.rmdir() if t.is_dir() else t.unlink()
+                except OSError:
+                    pass
+            return real_seed()
+    before = _snapshot_files(dest)
+    rc, out = real_seed()
+    if rc != 0:
+        return rc, out
+    try:
+        after = _snapshot_files(dest)
+        if set(before) - set(after):
+            return rc, out                  # it removed a file: a copy cannot say so
+        wrote = sorted(rel for rel, v in after.items() if before.get(rel) != v)
+        needle = os.fsencode(str(dest.resolve()))
+        needle2 = os.fsencode(str(dest))
+        if any(after[rel][0] == 'link' for rel in wrote):
+            return rc, out                  # a symlink: copied files only
+        for rel in wrote:
+            p = dest / rel
+            if after[rel] != ('dir',):
+                data = p.read_bytes()
+                if needle in data or needle2 in data:
+                    return rc, out          # path-dependent: never kept
+        cache.mkdir(parents=True, exist_ok=True)
+        _seed_cache_prune(cache)
+        import tempfile
+        staging = pathlib.Path(tempfile.mkdtemp(prefix=f'.build-{key[:12]}-', dir=cache))
+        try:
+            (staging / 'files').mkdir()
+            for rel in wrote:               # sorted: a directory before its files
+                src, target = dest / rel, staging / 'files' / rel
+                if after[rel] == ('dir',):
+                    target.mkdir(parents=True, exist_ok=True)
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, target)
+            (staging / 'complete').write_text(key + '\n', encoding='utf-8')
+            os.rename(staging, entry)       # atomic; loses to an entry already there
+        except OSError:
+            pass
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
+    except OSError:
+        pass
+    return rc, out
+
+
+def check_seed_cache_copies_what_a_seed_writes():
+    """The fixture seed cache (_seed_fixture_engine) holds its contract: a
+    copy is byte-for-byte what a real seed writes, mode bits included, and
+    the key moves whenever an input seed can read moves (practice:
+    review-against-a-contract).
+
+    Discriminating cases (practice: control-asserts-which-failure): the
+    first seed into an empty cache really runs and its output says so; the
+    second is a copy and says so; both trees equal a seed run with the cache
+    off. The key cases use a scratch checkout as the root, never this one,
+    so no other check running beside this one sees a dirty tree: an edited
+    tracked file, an untracked file, a new commit, a different
+    precedent.json in the destination, a variable in the environment and a
+    file appearing in HOME each give a new key, and putting the edit back
+    gives the old one."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-seed-cache-'))
+    cases = []
+    try:
+        (tmp / 'home').mkdir()
+        env = {**os.environ, 'HOME': str(tmp / 'home'),
+               'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json'),
+               'PRECEDENT_SEED_CACHE_DIR': str(tmp / 'cache'),
+               'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+               'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'}
+        env.pop('PRECEDENT_NO_SEED_CACHE', None)
+
+        def dest(name, cfg='{"format_version": 1}\n'):
+            d = tmp / name
+            d.mkdir()
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(d)],
+                           capture_output=True, env=env)
+            (d / 'precedent.json').write_text(cfg, encoding='utf-8')
+            (d / 'AGENTS.md').write_text('# fixture\n', encoding='utf-8')
+            return d
+
+        def tree(d):
+            return {p.relative_to(d).as_posix():
+                    (p.read_bytes() if p.is_file() else None, p.stat().st_mode)
+                    for p in sorted(d.rglob('*'))
+                    if '.git' not in p.relative_to(d).parts}
+
+        real = dest('real')
+        _seed_fixture_engine(real, 'consumer', {**env, 'PRECEDENT_NO_SEED_CACHE': '1'},
+                             cwd=real)
+        cases.append(('CONTROL: with the cache off nothing is kept',
+                      not (tmp / 'cache').exists(), ''))
+        first, second = dest('first'), dest('second')
+        rc1, out1 = _seed_fixture_engine(first, 'consumer', env, cwd=first)
+        rc2, out2 = _seed_fixture_engine(second, 'consumer', env, cwd=second)
+        cases.append(('the first seed into an empty cache really runs',
+                      rc1 == 0 and 'SEEDED' in out1, out1[-300:]))
+        cases.append(('the second is a copy, and says so',
+                      rc2 == 0 and 'copied from the harness seed cache' in out2,
+                      out2[-300:]))
+        want = tree(real)
+        cases.append(('both trees are what a real seed writes, byte for byte and '
+                      'mode for mode', len(want) > 10 and tree(first) == want
+                      and tree(second) == want,
+                      f'{len(want)} paths; first {tree(first) == want}, '
+                      f'second {tree(second) == want}'))
+
+        # The key, against a scratch checkout standing in for this one.
+        root = tmp / 'root'
+        (root / 'tools').mkdir(parents=True)
+        engine = root / 'tools' / 'engine.py'
+        engine.write_text('print("engine")\n', encoding='utf-8')
+        git = lambda *a: subprocess.run(['git', '-C', str(root), *a],
+                                        capture_output=True, env=env)
+        git('init', '-q', '-b', 'main')
+        git('add', '-A')
+        git('commit', '-qm', 'base')
+        probe = dest('probe')
+        key = lambda e=env, d=probe: _seed_cache_key(d, 'consumer', e, root=root)
+        base = key()
+        cases.append(('the key is stable on unchanged inputs', base == key(), base))
+        engine.write_text('print("edited")\n', encoding='utf-8')
+        edited = key()
+        engine.write_text('print("engine")\n', encoding='utf-8')
+        cases.append(('an uncommitted edit to an engine file moves the key, and '
+                      'putting it back restores it', edited != base and key() == base, ''))
+        (root / 'tools' / 'new_engine.py').write_text('x = 1\n', encoding='utf-8')
+        cases.append(('an untracked file moves the key', key() != base, ''))
+        git('add', '-A')
+        git('commit', '-qm', 'a new engine file')
+        cases.append(('a new commit moves the key', key() != base, ''))
+        now = key()
+        other = dest('other', '{"format_version": 1, "upstream_branch": "staging"}\n')
+        cases.append(('a different precedent.json in the destination moves the key',
+                      key(d=other) != now, ''))
+        cases.append(('a different PRECEDENT_ variable moves the key',
+                      key({**env, 'PRECEDENT_ASSUME_LADDER': 'x'}) != now, ''))
+        cases.append(('...and a fresh path for the user config, still absent, does not',
+                      key({**env, 'PRECEDENT_USER_CONFIG': str(tmp / 'elsewhere.json')})
+                      == now, ''))
+        (tmp / 'home' / '.gitconfig').write_text('[user]\n\tname = x\n', encoding='utf-8')
+        cases.append(('a file appearing in HOME moves the key', key() != now, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 class _LocalEditsFixture:
     """Consumer-shaped fixtures for tools/precedent_local_edits.py, shared by
     the checks below (practice: fixture-owns-its-state): HOME, the user
@@ -12947,8 +13600,7 @@ class _LocalEditsFixture:
         (repo / 'precedent.json').write_text(json.dumps(cfg) + '\n', encoding='utf-8')
         (repo / 'AGENTS.md').write_text(
             f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
-        self.sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-                'seed', str(repo), '--kind', 'consumer', cwd=repo)
+        _seed_fixture_engine(repo, 'consumer', self.env, cwd=repo)
         self.sh('git', 'add', '-A', cwd=repo)
         self.sh('git', 'commit', '-qm', 'installed', cwd=repo)
         bare = self.tmp / f'{name}.git'
@@ -14100,22 +14752,38 @@ def check_update_vendors_leaves_the_copy_its_record_names():
                                            capture_output=True).stdout
     up = lambda repo, rel: repo / 'process' / 'upstream' / rel
 
+    pristine = {}
+
     def build(name):
-        repo = fx.consumer(name)
-        seeded = fx.seeded_from(repo)
-        (repo / 'process').mkdir()
-        (repo / 'process' / 'manifest.json').write_text(json.dumps({
-            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
-                         'vendored_at': 'process/upstream', 'branch': branch,
-                         'commit': seeded, 'scrub_blocklist': None},
-            'entries': []}, indent=2) + '\n', encoding='utf-8')
-        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
-              '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
-        # Answer the bare fixture's first-run questions, so a later run can
-        # end DONE.
-        fx.update(repo, seeded)
-        fx.commit(repo, 'catalogue at the seeded commit')
-        return repo, seeded
+        # Built once, copied for each case (Morgan, 2026-10-09: "share the
+        # fake project"). Every case starts from the same consumer: its
+        # catalogue vendored at the seeded commit and its first update run.
+        # That took about 30 seconds a case, five times over; two builds
+        # differ only by MANIFEST.json's generated_at_utc and their commit
+        # times. Each case gets its own copy of the repository and of its
+        # bare origin, and nothing a case does reaches another.
+        if not pristine:
+            repo = fx.consumer('pristine')
+            seeded = fx.seeded_from(repo)
+            (repo / 'process').mkdir()
+            (repo / 'process' / 'manifest.json').write_text(json.dumps({
+                'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                             'vendored_at': 'process/upstream', 'branch': branch,
+                             'commit': seeded, 'scrub_blocklist': None},
+                'entries': []}, indent=2) + '\n', encoding='utf-8')
+            fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+                  '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
+            # Answer the bare fixture's first-run questions, so a later run
+            # can end DONE.
+            fx.update(repo, seeded)
+            fx.commit(repo, 'catalogue at the seeded commit')
+            pristine.update(repo=repo, seeded=seeded)
+        repo, bare = fx.tmp / name, fx.tmp / f'{name}.git'
+        shutil.copytree(pristine['repo'], repo, symlinks=True)
+        shutil.copytree(fx.tmp / 'pristine.git', bare, symlinks=True)
+        fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=repo)
+        fx.sh('git', 'fetch', '-q', 'origin', cwd=repo)
+        return repo, pristine['seeded']
 
     def mismatch(repo, ref):
         """-> the copy-relative paths where the copy is not `ref` under the
@@ -32227,7 +32895,9 @@ def check_push_check_gate():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "generated_files" if '
+                   'sys.argv else "rename_links" if '
+                   '"rename-updates-links" in sys.argv else '
+                   '"generated_files" if '
                    '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
@@ -32773,7 +33443,9 @@ def check_merge_check_gate():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "generated_files" if '
+                   'sys.argv else "rename_links" if '
+                   '"rename-updates-links" in sys.argv else '
+                   '"generated_files" if '
                    '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
@@ -33046,7 +33718,9 @@ def check_promote_pre_staging():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "generated_files" if '
+                   'sys.argv else "rename_links" if '
+                   '"rename-updates-links" in sys.argv else '
+                   '"generated_files" if '
                    '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
@@ -34976,6 +35650,177 @@ def check_main_test_without_individual_source():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_private_repo_skipped_gate_is_not_main_test():
+    """A workflow GitHub never runs in this repository is not one of main's
+    GitHub tests, and nothing else changes (2026-10-09).
+
+    THE INCIDENT. In a private consuming repository the pull request into
+    main showed the light check passed and leak-gate.yml "skipped": its
+    template gates its only job on `github.event.repository.private != true`.
+    A skipped run never counts as a pass, so --wait-main-test said
+    "leak-gate.yml never ran on it. Do not merge" on every pull request,
+    for good, and the Promote blamed an Update Vendors that would bring the
+    same file. One definition, precedent_branches.skipped_by_design, read by
+    github_tests and precedent_ci_verified alike.
+
+    THE NEGATIVE CASES ARE THE POINT: the same skipped run in a public
+    repository, and a skipped workflow that is NOT gated on privacy in a
+    private one, still never read as passed."""
+    import importlib.util, json as _json, subprocess as _sp, tempfile
+    name = 'a workflow skipped by design in a private repository is not main\'s GitHub test'
+    src = ROOT / 'tools' / 'precedent_branches.py'
+    tpl_dir = ROOT / 'templates' / 'github-actions'
+    leak_tpl, light_tpl = (tpl_dir / 'leak-gate.yml.template',
+                           tpl_dir / 'light-check.yml.template')
+    if not (src.exists() and leak_tpl.is_file() and light_tpl.is_file()):
+        not_applicable(name, 'precedent_branches.py or a workflow template is absent')
+        return
+    spec = importlib.util.spec_from_file_location('_pb_skipped_by_design', src)
+    pb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pb)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_ci_verified as pciv
+    finally:
+        sys.path.pop(0)
+    cases = []
+    for t in sorted(tpl_dir.glob('*.yml.template')):
+        wf = t.name[:-len('.template')]
+        cases.append((f'NOT_DUE_SKIP_TEMPLATES names {wf} exactly when its template '
+                      f'carries the not-due skip',
+                      (pb.NOT_DUE_PREFIX in t.read_text(encoding='utf-8'))
+                      == (wf in pb.NOT_DUE_SKIP_TEMPLATES)))
+    LEAK, LIGHT, OTHER = ('.github/workflows/leak-gate.yml',
+                          '.github/workflows/light-check.yml',
+                          '.github/workflows/other.yml')
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'repo'
+        wfd = repo / '.github' / 'workflows'
+        wfd.mkdir(parents=True)
+
+        def git(*a):
+            return _sp.run(['git', *a], cwd=repo, env=env, capture_output=True,
+                           text=True, check=True).stdout.strip()
+
+        def commit(visibility, files):
+            pj = {'base_branch': 'main', 'github_ci_main_test': 168}
+            if visibility:
+                pj['visibility'] = visibility
+            (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+            for p in list(wfd.iterdir()):
+                p.unlink()
+            for path, text in files.items():
+                (repo / path).write_text(text, encoding='utf-8')
+            git('add', '-A')
+            git('commit', '-q', '--allow-empty', '-m', 'fixture')
+            return git('rev-parse', 'HEAD')
+
+        git('init', '-q', '-b', 'main')
+        # Named, as this repository's own leak-gate.yml is:
+        # precedent_ci_verified expects only a workflow with a `name:`.
+        real = {LEAK: 'name: Leak gate\n' + leak_tpl.read_text(encoding='utf-8'),
+                LIGHT: light_tpl.read_text(encoding='utf-8')}
+        # Gated, but not on privacy: skipped for its own reason.
+        other = ('name: Other\non:\n  pull_request:\n    branches: [main]\n'
+                 'jobs:\n  other:\n    if: github.event_name == \'push\'\n'
+                 '    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n')
+        # Two jobs, only one gated on privacy: the other still runs.
+        half = ('name: Half\non:\n  pull_request:\njobs:\n  a:\n'
+                '    if: ${{ github.event.repository.private != true }}\n'
+                '    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n'
+                '  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n')
+        # The negated form, and a privacy gate that is one `&&` part.
+        negated = ('name: Neg\non:\n  pull_request:\njobs:\n  n:\n'
+                   '    if: >-\n      (!github.event.repository.private)\n'
+                   '      && github.actor != \'bot\'\n'
+                   '    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n')
+
+        def run(path, conclusion):
+            return {'path': path, 'status': 'completed', 'conclusion': conclusion,
+                    'created_at': '2026-10-09T12:00:00Z', 'html_url': 'U'}
+
+        class GH:
+            def __init__(self, runs):
+                self.runs = runs
+
+            def call(self, path, cache=True):
+                if path == 'repos/o/r':
+                    return {'full_name': 'o/r'}, None
+                if '/pulls' in path:
+                    return [], None
+                if '/actions/workflows/' in path:
+                    wf = path.split('/actions/workflows/')[1].split('/')[0]
+                    return {'workflow_runs': [
+                        dict(r, head_branch='main', created_at='2026-10-09T12:00:00Z')
+                        for r in self.runs if r['path'].endswith('/' + wf)
+                        and r['conclusion'] == 'success']}, None
+                return {'workflow_runs': self.runs}, None
+
+        pb._slug = lambda root: 'o/r'
+        pb.GITHUB_POLL_SECONDS = 0
+        pb.GITHUB_START_WAIT_SECONDS = 0
+        pb.GITHUB_TEST_WAIT_SECONDS = 0
+        incident = [run(LIGHT, 'success'), run(LEAK, 'skipped')]
+
+        def wait(sha, runs):
+            said = []
+            return pb.wait_for_main_test(repo, sha, said.append, GH(runs)), said[-1]
+
+        sha = commit('private', real)
+        rc, said = wait(sha, incident)
+        cases.append(('(a) private repo, light check passed and leak-gate skipped: '
+                      'the wait says PASSED', rc == 0 and 'PASSED' in said))
+        cases.append(('...because leak-gate.yml is not one of main\'s GitHub tests '
+                      'there, and the light check still is',
+                      [p for p, _ in pb.github_tests(repo, sha)] == [LIGHT]))
+        cases.append(('...and precedent_ci_verified does not expect it either',
+                      'Leak gate' not in ' '.join(pciv.expected_workflows(repo, 'x', 'main'))
+                      and pciv.expected_workflows(repo, 'x', 'main')))
+        due, why = pb.main_test_due(repo, sha, gh=GH(incident))
+        cases.append(('(d) the due check no longer sends a private repo to Update '
+                      'Vendors over leak-gate.yml', 'Update Vendors' not in why
+                      and 'leak-gate' not in why))
+        sha = commit('public', real)
+        rc, said = wait(sha, incident)
+        cases.append(('(b) the same runs in a public repository: NOT passed, '
+                      'leak-gate.yml never ran', rc == 1 and 'NONE' in said
+                      and 'leak-gate.yml' in said))
+        cases.append(('...and precedent_ci_verified still expects it there',
+                      'Leak gate' in pciv.expected_workflows(repo, 'x', 'main')))
+        sha = commit(None, real)
+        cases.append(('...and in a repository that declares no visibility',
+                      LEAK in [p for p, _ in pb.github_tests(repo, sha)]))
+        sha = commit('private', dict(real, **{OTHER: other}))
+        rc, said = wait(sha, incident + [run(OTHER, 'skipped')])
+        cases.append(('(c) private repo, a workflow NOT gated on privacy skipped: '
+                      'NOT passed', rc == 1 and 'other.yml' in said))
+        sha = commit('private', {LIGHT: real[LIGHT],
+                                 '.github/workflows/half.yml': half})
+        cases.append(('...nor one with a job the privacy gate does not reach',
+                      '.github/workflows/half.yml' in [p for p, _ in pb.github_tests(repo, sha)]))
+        sha = commit('private', {LIGHT: real[LIGHT],
+                                 '.github/workflows/neg.yml': negated})
+        cases.append(('the negated form, as one && part of a folded if:, is the '
+                      'same gate', [p for p, _ in pb.github_tests(repo, sha)] == [LIGHT]))
+        cases.append(('the light check\'s own if:, privacy only inside an ||, is '
+                      'never read as skipped by design',
+                      not pb.skipped_by_design(repo, real[LIGHT])))
+        sha = commit('private', {LIGHT: real[LIGHT], OTHER: other})
+        due, why = pb.main_test_due(repo, sha, gh=GH([run(LIGHT, 'success')]))
+        cases.append(('(d) a workflow no shipped template gives the not-due skip is '
+                      'due, and the advice does not name Update Vendors',
+                      due is True and 'other.yml' in why and 'Update Vendors' not in why))
+        sha = commit('private', {LIGHT: 'on:\n  pull_request:\n    branches: [main]\n'
+                                        'jobs:\n  x:\n    runs-on: ubuntu-latest\n'})
+        due, why = pb.main_test_due(repo, sha, gh=GH([]))
+        cases.append(('...while an old light-check.yml, whose template does carry it, '
+                      'is still sent to Update Vendors',
+                      due is True and 'Update Vendors' in why))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_main_test_cadence():
     """Main's GitHub test runs at most once every github_ci_every_hours in a
     private repository, decided by Promote before GitHub starts anything
@@ -35217,7 +36062,9 @@ def check_sync_copies_work_from_above_once_checked():
                        'name = ("ci_workflows" if "ci-workflow-approved" in '
                        'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                        '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "generated_files" if '
+                   'sys.argv else "rename_links" if '
+                   '"rename-updates-links" in sys.argv else '
+                   '"generated_files" if '
                    '"generated-files-registered" in '
                        'sys.argv else "precedent_check")\n'
                        if t == 'precedent_check' else f'name = "{t}"\n')
@@ -35664,7 +36511,9 @@ def check_promote_composes_main_and_moves_both_tiers():
                    'name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "generated_files" if '
+                   'sys.argv else "rename_links" if '
+                   '"rename-updates-links" in sys.argv else '
+                   '"generated_files" if '
                    '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
@@ -44219,8 +45068,7 @@ class _KeptDivergenceFixture:
             agents = self.pve._instantiate(self.template(self.AGENTS_SRC).decode(),
                                            self.pve._agents_md_subs(repo))
         (repo / 'AGENTS.md').write_text(agents, encoding='utf-8')
-        self.sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-                'seed', str(repo), '--kind', 'consumer', cwd=repo)
+        _seed_fixture_engine(repo, 'consumer', self.env, cwd=repo)
         (repo / 'tools' / 'bootstrap.sh').write_bytes(
             self.template(self.BOOT_SRC) if boot is None else boot)
         self.sh('git', 'add', '-A', cwd=repo)
@@ -62373,6 +63221,14 @@ def check_session_file_says_each_command_once():
         cases.append(("5. ...though the brought set's command is in the full file "
                       "and not in that one",
                       '"Debut" -> debut' in text and '"Debut"' not in bare_text))
+        # 2026-10-09: the file on disk was written by an older engine at
+        # session start and measured 190 tokens more than this engine's
+        # render, and n less the share charged all 190 to the repository.
+        stale, _s, _n, _b = psp.charged_to_repo(str(repo), n + 190)
+        cases.append(('6. a file on disk that an older engine wrote does not move '
+                      'the charge: it is the bare render, whatever n says',
+                      stale == charged == bv._approx_tokens(bare_text),
+                      f'charged {stale} for n+190, {charged} for n'))
     except (OSError, TypeError, ValueError, StopIteration, AttributeError) as e:
         cases.append((f'fixture could not be built ({type(e).__name__}: {e})', False))
     finally:
@@ -66050,9 +66906,15 @@ def check_brought_sets_have_their_own_session_budget():
                                 f is None and n == 1000 + share, f'{n} {f}'))
                 manifest(fx, budget=share + 10)
                 n, f = pc._charge_brought_share(1000 + share)
+                # Since 2026-10-09 the charge is the file as this engine
+                # renders it now without the brought sets, never the figure
+                # read off disk less the share (the two could come from
+                # different engines).
+                bare = psp._brought_renders(str(repo))[1]
                 results.append(('3: within budget, no finding, and the repo is '
-                                'charged the file less the share',
-                                f is None and n == 1000, f'{n} {f}'))
+                                'charged the file rendered without the share',
+                                f is None and bare is not None and n == bare,
+                                f'{n} {f} bare={bare}'))
                 manifest(fx, budget=max(0, share - 10))
                 n, f = pc._charge_brought_share(1000 + share)
                 results.append(('4: CONTROL: over budget is a finding',
@@ -68886,6 +69748,8 @@ def main():
     check_generated_files_candidates_are_repo_rooted_claims()
     check_incident_coverage_reads_what_the_gotcha_names()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
+    check_source_level_reads_go_through_the_normalizer()
+    check_update_vendors_retires_the_team_level_word()
     check_dropped_set_and_proxy_and_template_refs()
     check_dropped_set_prose_successors_and_families()
     check_removal_selects_its_checks()
@@ -68920,6 +69784,8 @@ def main():
           *check_refresh_repoints_a_retired_catalogue_pin())
     check('a repo\'s upstream_branch declaration is followed, and only main or staging',
           *check_upstream_branch_declaration_is_followed())
+    check('the fixture seed cache copies exactly what a seed writes, under a key '
+          'that moves with its inputs', *check_seed_cache_copies_what_a_seed_writes())
     check('Update Vendors runs as one command and stops only for the repo\'s own calls',
           *check_update_vendors_is_one_command())
     check('an update that deletes a vendored file upstream dropped ends DONE',
@@ -69200,6 +70066,7 @@ def main():
     check_main_test_minutes_rule()
     check_main_test_repo_setting()
     check_main_test_without_individual_source()
+    check_private_repo_skipped_gate_is_not_main_test()
     check_source_clone_is_pinned_to_a_branch()
     check_consumer_bootstrap_clones_declared_sources()
     check_generator_wires_every_template_guard_mode()
@@ -69252,6 +70119,7 @@ def main():
     check_rename_links_leaves_dated_records_alone()
     check_rename_links_spares_a_path_moved_into_gitignore()
     check_rename_links_spares_a_url_into_another_repository()
+    check_clean_tree_judges_the_branch()
     check_untracked_renders_use_source_fingerprints()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_bootstrap_new_branch_compared_to_landing_branch()
