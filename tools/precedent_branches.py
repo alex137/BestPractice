@@ -1502,11 +1502,27 @@ def github_tests(root, sha):
     return out
 
 
+def _refusal(data, key):
+    """-> GitHub's own message when `data` is a refusal rather than the
+    answer asked for: a JSON object carrying `message` and not `key`. The
+    API answers a refusal (403, 404, or a session proxy that has no access
+    to the repository) with such an object and a normal-looking body, so it
+    read as "no runs" -- on 2026-10-09 a session without access to
+    BestPractice said main's test "shows no run" when the real answer was
+    "GitHub access to this repository is not enabled for this session"."""
+    if isinstance(data, dict) and key not in data and data.get('message'):
+        return str(data['message'])
+    return None
+
+
 def _runs_on(gh, slug, sha):
     data, err = gh.call(f'repos/{slug}/actions/runs?head_sha={sha}&per_page=100',
                         cache=False)
     if err or not isinstance(data, dict):
         return None, err or 'GitHub gave an answer this could not read'
+    refused = _refusal(data, 'workflow_runs')
+    if refused:
+        return None, f'GitHub refused: {refused}'
     return data.get('workflow_runs') or [], None
 
 
@@ -1519,8 +1535,10 @@ def _current_slug(gh, slug):
     if slug not in _CURRENT_SLUG:
         data, err = gh.call(f'repos/{slug}', cache=False)
         name = data.get('full_name') if isinstance(data, dict) else None
+        refused = _refusal(data, 'full_name')
         _CURRENT_SLUG[slug] = (name, None) if name else (
-            None, err or 'its answer named no repository')
+            None, err or (f'GitHub refused: {refused}' if refused
+                          else 'its answer named no repository'))
     return _CURRENT_SLUG[slug]
 
 
