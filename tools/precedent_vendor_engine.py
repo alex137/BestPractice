@@ -476,6 +476,12 @@ ENGINE_FILES = [
     # (`update_full_check: after` in precedent.json); files a failure through
     # open_failures.py (added 2026-10-08).
     'precedent_check_after.py',
+    # The lander and its queue (added 2026-10-08): land every queued branch
+    # on the trunk, then take Update Vendors. Built in a consumer repository
+    # on 2026-10-04 and moved here; the repository's own audits, caches and
+    # ledgers are its precedent.json "lander" block.
+    'land_queue.py',
+    'land_next.py',
     # WHO this repo's commits belong to, resolved the way commit-identity.sh
     # already resolves it. In ENGINE_FILES rather than CONSUMER-only,
     # unlike precedent_resolve.py which it was carved out of: a practice
