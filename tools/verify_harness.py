@@ -57953,6 +57953,99 @@ def check_update_on_stubs_stages_nothing_under_claude():
           not bad, '; '.join(bad)[:3000])
 
 
+def check_size_cap_warning_names_the_cap():
+    """The size-cap warning the push check ends on, and Update Vendors
+    repeats, names the file, its measured size, the limit and the check
+    tier that measured it, and points "above" at nothing.
+
+    WHY. 2026-10-08, from a consumer's Update Vendors: the report said
+    "over a session-load size cap (changed_practice, above)". A passing
+    step's output is never printed, so "above" pointed nowhere, and the
+    update kept only that first line -- no file, figure or limit.
+
+    Negative control, measured 2026-10-08: before the fix the push check's
+    line carried only the step name and ", above", and the update passed it
+    on as it was -- every case but the controls failed."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_push_check as ppc
+    finally:
+        sys.path.pop(0)
+    pu, _pve, _pr = _update_tools()
+    cases = []
+    saved = (list(ppc.CAP_WARNED), list(ppc.CAP_DETAILS))
+    real = pu.check_with_merge_fallback
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-cap-warning-'))
+    try:
+        (tmp / 'step.py').write_text(
+            'import sys\n'
+            'print("\\nWARNING    session-load-budget \\u2014 over a size cap. The '
+            'quick check lets it through; the full check refuses it.")\n'
+            'print("    AGENTS.md: 6,549 tokens, every session, over its declared '
+            'ceiling of 6,000. Run the reduction pass -- delete what is duplicated")\n'
+            'print("  the rule:")\n'
+            'print("build_views WARNING: resident block is ~2100 tokens, over the '
+            '2000-token hard cap -- demote or retire a resident practice. Written '
+            'anyway: the quick check lets it through", file=sys.stderr)\n',
+            encoding='utf-8')
+        ppc.CAP_WARNED[:], ppc.CAP_DETAILS[:] = [], []
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            failed, _m, _t, _f = ppc.run(tmp, [('changed_practice',
+                                                [sys.executable, 'step.py'], 'x')])
+            ppc._cap_warning_last('basic')
+        line = next((l for l in buf.getvalue().splitlines()
+                     if l.startswith('WARNING: over a session-load size cap')), '')
+        cases.append(('CONTROL: the step passed and its warning was noticed',
+                      not failed and ppc.CAP_WARNED == ['changed_practice'],
+                      buf.getvalue()[-600:]))
+        cases.append(('the closing line names the file, its size and its limit',
+                      'AGENTS.md: 6,549 tokens' in line and 'ceiling of 6,000' in line,
+                      line))
+        cases.append(('...and build_views\' loader-block cap, with its figures',
+                      '~2100 tokens, over the 2000-token hard cap' in line, line))
+        cases.append(('...and the tier and step that measured it, with no "above"',
+                      "basic check's changed_practice step" in line
+                      and 'above' not in line, line))
+
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / 'precedent_push_check.py').write_text('', encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'pre-staging'}), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        saved_cfg = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+        try:
+            for said, want in ((line, 'AGENTS.md: 6,549 tokens'),
+                               ('WARNING: over a session-load size cap '
+                                '(changed_practice, above). Allowed onto '
+                                'pre-staging.', '(changed_practice)')):
+                pu.check_with_merge_fallback = lambda _r, _rep, _a, _l, o=said: (
+                    0, 'passed\n' + o + '\n')
+                rep = pu.Report()
+                with contextlib.redirect_stdout(io.StringIO()):
+                    pu.closing_check(repo, rep)
+                w = ' '.join(rep.warnings)
+                cases.append((f'the update carries the check\'s line whole '
+                              f'({"current" if said is line else "older"} wording), '
+                              f'with no dangling "above"',
+                              want in w and 'above' not in w, w))
+        finally:
+            if saved_cfg is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
+    finally:
+        ppc.CAP_WARNED[:], ppc.CAP_DETAILS[:] = saved
+        pu.check_with_merge_fallback = real
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the size-cap warning names the file, figure, limit and tier '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_update_vendors_reports_dropped_template_wording():
     """An install-once file still carrying wording its template has since
     dropped is left for the person, by file and line -- and nothing else is.
@@ -67778,6 +67871,7 @@ def main():
     check_update_done_names_the_check_it_ran()
     check_update_merge_lines_carry_the_full_head()
     check_update_on_stubs_stages_nothing_under_claude()
+    check_size_cap_warning_names_the_cap()
     check_update_leaves_no_dead_manifest_entry()
     check_update_in_force_nowhere_asks_once()
     check_update_repoints_moved_engine_commands()

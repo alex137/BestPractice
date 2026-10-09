@@ -3888,9 +3888,15 @@ def closing_check(repo, rep, skip_check=False):
         # pushed it -- passes the basic tier and is refused at the Debut.
         cap = next((l.strip() for l in out.splitlines()
                     if l.startswith('WARNING: over a session-load size cap')), None)
+        # The check's own line carries the file, its size, the limit and the
+        # check that measured it (precedent_push_check._cap_warning_last);
+        # a check vendored before 2026-10-08 said only "(<step>, above)",
+        # and nothing of that step's output is in this report, so that
+        # "above" is dropped rather than left pointing at nothing.
         if cap:
-            rep.warnings.append(cap[len('WARNING: '):] + ' This update\'s own '
-                                'regenerated blocks count toward it.')
+            cap = re.sub(r',\s*above\)', ')', cap[len('WARNING: '):])
+            rep.warnings.append(cap + ' This update\'s own regenerated blocks '
+                                'count toward it.')
         if tier != pb.FULL:
             rep.not_run = (f"Only the {tier} check ran, the one {landing} takes. "
                            f"The full check was NOT run; "
