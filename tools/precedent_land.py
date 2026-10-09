@@ -185,6 +185,8 @@ def land(candidate_path, level, repo_path, approved_by, against,
          strength=None):
     if strength is not None and strength not in STRENGTHS:
         raise LandRefused(f'--strength must be one of {sorted(STRENGTHS)}, not {strength!r}')
+    # A caller passing the older `team` gets `shared`, as the CLI does.
+    level = pc.precedent_resolve.normalize_level(level)
     result = pp.promote(candidate_path, level, against)  # raises PromoteRefused on failure
     fm = result['fm']
     checked_by = fm.get('proposed_checked_by')
@@ -290,7 +292,7 @@ def _parse_args(argv):
 def main():
     args = _parse_args(sys.argv[1:])
     candidate_path = args.get('--file')
-    level = {'team': 'shared'}.get(args.get('--level'), args.get('--level'))
+    level = pc.precedent_resolve.normalize_level(args.get('--level'))
     if not candidate_path or level not in pc.LEVELS:
         sys.exit(f"precedent_land FAIL: --file CANDIDATE.md and --level "
                   f"({sorted(pc.LEVELS)}) are both required")

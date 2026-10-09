@@ -149,7 +149,7 @@ def _lost_practices(repo, res, sources, withheld):
     # universal refused on all fourteen of its rules.
     record_withdrawn = {}
     for s in sources:
-        if s.get('level') == 'universal' and s.get('path'):
+        if pr.declared_level(s) == 'universal' and s.get('path'):
             for slug in pr.withdrawn_record(s['path']):
                 record_withdrawn[(slug, s.get('name'))] = True
 
@@ -516,7 +516,7 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
     omitted = []
     if public:
         omitted = sorted({p['level'] for p in res['practices'].values()
-                          if p['level'] in bv.PRIVATE_LEVELS})
+                          if pr.declared_level(p) in bv.PRIVATE_LEVELS})
         if omitted:
             # RE-RESOLVE without the private sources rather than filtering
             # them out of the finished result. A private practice can WIN a
@@ -529,9 +529,9 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
             # universal source defines.
             withheld_slugs = sorted(
                 slug for slug, pr_ in res['practices'].items()
-                if pr_['level'] in bv.PRIVATE_LEVELS)
+                if pr.declared_level(pr_) in bv.PRIVATE_LEVELS)
             sources = [s for s in sources
-                       if s['level'] not in bv.PRIVATE_LEVELS]
+                       if pr.declared_level(s) not in bv.PRIVATE_LEVELS]
             res = pr.resolve(sources, context=brought)
             # A slug that a publishable source ALSO defines is not withheld --
             # the re-resolve above brings it back, from text this repo may
@@ -725,7 +725,7 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
                        for r in (res.get('retired') or []) if isinstance(r, dict)}
             # A rule deleted outright has no stub: its record line says where.
             for s_ in sources:
-                if s_.get('level') == 'universal' and s_.get('path'):
+                if pr.declared_level(s_) == 'universal' and s_.get('path'):
                     hist_ = pr.withdrawn_history(s_['path'])
                     for slug_, gone_ in pr.withdrawn_record(s_['path']).items():
                         gone_to.setdefault((slug_, s_.get('name')),
@@ -1090,7 +1090,7 @@ def _waiting_on_a_capability(sources, blocking):
 def _brought_not_on_disk(sources):
     """-> the brought-set entries the individual source declares that are
     not on disk."""
-    ind = next((s for s in sources if s.get('level') == 'individual'), None)
+    ind = next((s for s in sources if pr.declared_level(s) == 'individual'), None)
     if not ind or not ind.get('path'):
         return []
     return [b for b in pr.brought_sources(ind['path'], warn=False)
@@ -1106,7 +1106,7 @@ def _where_removed_went(repo, user_config, removed):
     except Exception:                                        # noqa: BLE001
         return out
     for s in sources:
-        if s.get('level') == 'universal' and s.get('path'):
+        if pr.declared_level(s) == 'universal' and s.get('path'):
             history = pr.withdrawn_history(s['path'])
             for slug, (date, name) in pr.withdrawn_record(s['path']).items():
                 if slug in out and slug in history:

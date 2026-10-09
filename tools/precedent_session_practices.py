@@ -448,7 +448,7 @@ def brought_budget(repo=None):
         sources = pr.load_config(repo or str(_ENGINE_DIR.parent))
     except Exception:                                        # noqa: BLE001
         return None, None
-    ind = next((s for s in sources if s.get('level') == 'individual'), None)
+    ind = next((s for s in sources if pr.declared_level(s) == 'individual'), None)
     if not ind:
         return None, None
     try:

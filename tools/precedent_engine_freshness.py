@@ -153,13 +153,18 @@ def refresh_remedy(root, clone):
 # --------------------------------------------------------------------------
 # What this repo declares, and every way each declared source is reached.
 
+# The resolver's alias table, for a copy with no resolver beside it;
+# verify_harness.py asserts it equals precedent_resolve.LEVEL_ALIASES.
+_FALLBACK_LEVEL_ALIASES = {'team': 'shared'}
+
+
 def _normalize_level(level):
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
         import precedent_resolve as _pr
         return _pr.normalize_level(level)
     except Exception:                                        # noqa: BLE001
-        return {'team': 'shared'}.get(str(level or '').strip().lower(),
+        return _FALLBACK_LEVEL_ALIASES.get(str(level or '').strip().lower(),
                                       str(level or '').strip().lower())
 
 
@@ -229,7 +234,7 @@ def _vendored_manifest_path(root, src):
     dirs are tracked by process/manifest_<name>.json (checkin.py's
     convention)."""
     root = pathlib.Path(root)
-    if src['level'] == 'universal':
+    if _normalize_level(src['level']) == 'universal':
         return root / 'process' / 'manifest.json'
     return root / 'process' / f"manifest_{src['name']}.json"
 
@@ -298,7 +303,7 @@ def collect_targets(root='.'):
     for src in sources:
         if src['level'] == 'repo-local':
             continue
-        if src['level'] == 'shared' and src['name'] in deleted:
+        if _normalize_level(src['level']) == 'shared' and src['name'] in deleted:
             continue
         who = f"{src['name']} ({src['level']})"
         reached = 0
@@ -510,7 +515,7 @@ def source_mentions(root='.'):
     for src in sources:
         if src['level'] == 'repo-local' or src['path'] == root:
             continue
-        if src['level'] != 'universal':
+        if _normalize_level(src['level']) != 'universal':
             terms.add(src['name'])
         repos.append(src.get('repo'))
     for r in repos:
