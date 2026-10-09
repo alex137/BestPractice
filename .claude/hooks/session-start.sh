@@ -158,6 +158,14 @@ if [ -f tools/precedent_session_practices.py ]; then
     echo "WARN: could not write .precedent/SESSION_PRACTICES.md - this session is not being shown the team/individual practices in force here" >&2
 fi
 
+# Where this session starts, recorded now: the branch and commit, so the
+# session check's "still on the branch it started on" row compares against
+# the real start and not against wherever its first run happened to be
+# (2026-10-09). Overwrites any earlier record; prints nothing.
+if [ -f tools/precedent_session_check.py ]; then
+  python3 tools/precedent_session_check.py --stamp-start 2>/dev/null || true
+fi
+
 # The PRIVATE practice sources, when this environment carries a credential.
 #
 # THIS IS THE ONE STEP THAT CAN RUN BEFORE THE AGENT'S FIRST TURN, and that

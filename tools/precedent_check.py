@@ -2988,6 +2988,17 @@ def _generated_artifact_provenance(ctx):
             return out
         argv.append('--agents-only')
     r = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True)
+    if r.returncode == 0 and 'NOT VERIFIABLE' in r.stdout + r.stderr:
+        # build_views.py could not rebuild the block from what it was built
+        # from: a declared source, or the person's individual set, is not
+        # here. Neither stale nor current -- and until 2026-10-09 the exit 0
+        # read as a pass here, while the individual case failed outright.
+        said = next((l.split('NOT VERIFIABLE', 1)[1].strip(' -:')
+                     for l in (r.stdout + r.stderr).splitlines()
+                     if 'NOT VERIFIABLE' in l), '')
+        out.append(Unverified('AGENTS.md', 'the generated views were not '
+                              'compared with a fresh regeneration: ' + said))
+        return out
     if r.returncode != 0:
         # The line that says WHAT drifted. build_views.py prints notices
         # after it (a set deferred, a practice not in force), and quoting the
@@ -5986,6 +5997,8 @@ def _index_required_is_declared(ctx):
             continue
         if fm.get('command') not in (None, '', 'null'):
             continue                      # a command is a spoken trigger by construction
+        if getattr(bv, 'adds_to', lambda _fm: '')(fm):
+            continue                      # loads with its base, never by an index line
         declared = str(fm.get(bv.INDEX_REQUIRED_FIELD, '')).strip().strip('"').lower()
         if declared in ('true', 'false'):
             continue
@@ -6102,6 +6115,100 @@ def _code_owner_practice_stays_out_of_the_index(ctx):
                                          f'the occasion index (or is gone, or '
                                          f'is no longer for code owners) -- '
                                          f'remove the entry'))
+    return out
+
+
+@check('adds-to-names-a-rule-in-force', 'tree',
+       'a practice carrying adds_to: names a rule some source in force here '
+       'carries (followed through deduplications), never itself, and is not '
+       'tier: resident',
+       'whether the addition really belongs with the rule it names, or says '
+       'anything that rule does not. A base in a source that did not resolve '
+       'this session is reported as could-not-verify, not as a violation.',
+       practice_backed=False, binds_publishers=True,
+       selects_on=('practices/*.md', 'local/practices/*.md',
+                   'tools/build_views.py', 'tools/precedent_resolve.py'))
+def _adds_to_names_a_rule_in_force(ctx):
+    """WHY (2026-10-09). An addition loads only with the rule it adds to: it
+    has no occasion-index line and is never resident (build_views.
+    ADDS_TO_FIELD; Morgan, "Option 1"). So an `adds_to:` naming a slug
+    nothing carries -- a typo, a rule renamed without a deduplicated stub,
+    a base in a set this repository does not declare -- leaves the addition
+    reaching no session at all, silently. Naming itself is the same loss by
+    a shorter road, and a resident addition would be loaded twice over or
+    not with its base, so it is refused too.
+
+    THE TEST is precedent_resolve.follow_in_force_at() over this
+    repository's resolution, plus this repository's own practice files:
+    a practice set's own practices are not one of its declared sources, and
+    an addition may name a rule of the same set."""
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as bv
+        import precedent_resolve as pr
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'build_views is not importable here ({e})')
+    if not hasattr(bv, 'adds_to'):
+        raise NotApplicable("this engine's build_views.py predates adds_to")
+    dirs = [d for d in (ROOT / 'practices', ROOT / 'local' / 'practices')
+            if d.is_dir()]
+    if not dirs:
+        raise NotApplicable('no practices/ tree in this repo')
+    own = []
+    for d in dirs:
+        own.extend(bv.load_practices(d, in_force_only=False, announce=False))
+    additions = [(fm, f) for fm, _s, f in own
+                 if bv.adds_to(fm) and bv.is_in_force(fm)]
+    if not additions:
+        return []
+    try:
+        res = pr.resolve(pr.load_config(str(ROOT)))
+    except Exception as e:                                   # noqa: BLE001
+        res = {'practices': {}, 'retired': [],
+               'missing': [{'level': '?', 'name': 'declared sources',
+                            'reason': str(e)}]}
+    resolved = dict(res.get('practices') or {})
+    retired = list(res.get('retired') or [])
+    for fm, _s, f in own:
+        slug = fm.get('slug', pathlib.Path(f).stem)
+        if bv.is_in_force(fm):
+            resolved.setdefault(slug, {'slug': slug, 'fm': fm})
+        else:
+            retired.append({'slug': slug, 'fm': fm})
+    missed = [f"{m.get('level')}/{m.get('name')}"
+              for m in res.get('missing') or []]
+    out = []
+    for fm, f in additions:
+        rel = str(f.relative_to(ROOT)) if hasattr(f, 'relative_to') else str(f)
+        if _foreign_practice(rel):
+            continue
+        slug, base = fm.get('slug', pathlib.Path(f).stem), bv.adds_to(fm)
+        if fm.get('tier') == 'resident':
+            out.append(Finding(rel, f'carries adds_to: {base} and is tier: '
+                                    f'resident. An addition loads with the '
+                                    f'rule it adds to; make it tier: '
+                                    f'on-demand'))
+        if base == slug:
+            out.append(Finding(rel, f'adds_to: names its own slug, {slug}, so '
+                                    f'no rule carries it and no session is '
+                                    f'shown it. Name the rule it adds to'))
+            continue
+        if pr.follow_in_force_at(base, resolved, retired) is not None:
+            continue
+        if missed:
+            out.append(Unverified(rel, f'adds_to: {base} names no rule in '
+                                       f'force among the sources that '
+                                       f'resolved, and {", ".join(missed)} did '
+                                       f'not resolve this session -- it may '
+                                       f'be there'))
+            continue
+        out.append(Finding(rel, f'adds_to: {base} names no rule any source in '
+                                f'force here carries, so this addition '
+                                f'reaches no session: it has no index line '
+                                f'of its own. Name the slug of the rule it '
+                                f'adds to (`precedent_show.py SLUG` finds '
+                                f'one), or declare the source that carries '
+                                f'it'))
     return out
 
 
@@ -11919,9 +12026,12 @@ def _loader_within_caps(ctx):
         # no sibling practice sets): the caps were not measured, which is
         # neither a violation nor a pass (2026-09-30).
         if 'budgets NOT VERIFIED' in out:
-            return [Unverified('AGENTS.md', 'the loader block\'s caps were not '
-                               'measured: a declared source is not reachable '
-                               'here, so the block cannot be built from it')]
+            said = next((l.split('NOT VERIFIED', 1)[1].strip(' :')
+                         for l in out.splitlines() if 'budgets NOT VERIFIED' in l),
+                        '')
+            return [Unverified('AGENTS.md', said or 'the loader block\'s caps '
+                               'were not measured: a declared source is not '
+                               'reachable here')]
         return []
     why = [l for l in out.splitlines() if 'FAIL' in l]
     return [Finding('AGENTS.md', (why[-1] if why else

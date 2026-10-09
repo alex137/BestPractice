@@ -75,6 +75,14 @@ if [ "$local_session" != "1" ] && [ -f .claude/hooks/commit-identity.sh ]; then
     echo "WARN: commit-identity.sh failed - commits may be authored as whatever git is already configured with" >&2
 fi
 
+# Where this session starts, recorded now: the branch and commit, so the
+# session check's "still on the branch it started on" row compares against
+# the real start and not against wherever its first run happened to be
+# (2026-10-09). Overwrites any earlier record; prints nothing.
+if [ -f tools/precedent_session_check.py ]; then
+  python3 tools/precedent_session_check.py --stamp-start 2>/dev/null || true
+fi
+
 # Clone every shared practice set precedent.json declares, beside this repo,
 # where the environment carries a credential (PRECEDENT_GIT_TOKEN and
 # PRECEDENT_SOURCE_BASE_URL -- documentation/PER_MACHINE_SETUP.md); pull the

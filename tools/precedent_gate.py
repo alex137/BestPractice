@@ -1204,8 +1204,21 @@ def main():
               "ones do; never quote the text of one that is private into a "
               "commit message, a pull request or an issue.\n")
 
+    # ADDITIONS LOAD WITH THEIR RULE (Morgan, 2026-10-09): each practice
+    # printed here brings every addition in force that names it in
+    # `adds_to:`, right after it, whether or not the addition registers this
+    # gate itself. One that does is printed there, not twice.
+    additions = {}
+    for slug in slugs:
+        try:
+            additions[slug] = ps._additions(root, slug)
+        except Exception:                                    # noqa: BLE001
+            additions[slug] = []
+    attached = {a for adds in additions.values() for a, *_r in adds}
     print(f"# Practices for the {gate} gate — {vocab[gate]}\n")
     for slug in slugs:
+        if slug in attached:
+            continue
         level, name, path = registered[slug]
         fm, sections = sp._read_practice_file(path)
         # None means resolution did not account for this practice at all
@@ -1234,6 +1247,11 @@ def main():
                       or bv._json_str(fm.get('title', '')).strip())
             clause = bv._standing_prefix(fm) + clause
             print(f"- **{slug}** ({where}) — {clause}")
+            for a_slug, a_where, a_fm, a_sections in additions.get(slug, ()):
+                a_clause = (bv._json_str(a_fm.get('index_clause', '')).strip()
+                            or bv._json_str(a_fm.get('title', '')).strip())
+                print(f"  - adds to it: **{a_slug}** ({a_where}) — "
+                      f"{bv._standing_prefix(a_fm)}{a_clause}")
             continue
         block = (f"### {slug} ({where}){ps._standing_note(fm)}\n"
                  f"{sections.get('rule', '').strip()}")
@@ -1241,6 +1259,10 @@ def main():
             note = ps._source_unreachable_note(manifest, slug)
             if note:
                 block += f"\n{note}"
+        for a_slug, a_where, a_fm, a_sections in additions.get(slug, ()):
+            block += (f"\n\n#### Addition in force here (from {a_where}): "
+                      f"{a_slug}{ps._standing_note(a_fm)}\n"
+                      f"{(a_sections.get('rule') or '').strip()}")
         print(f"{block}\n")
     if gate == 'reply':
         _print_hard_requirements(root)

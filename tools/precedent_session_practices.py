@@ -76,6 +76,7 @@ Run:
   python3 tools/precedent_session_practices.py --check    # report, write nothing
   python3 tools/precedent_session_practices.py --repo DIR
 """
+import collections
 import json
 import os
 import pathlib
@@ -515,6 +516,11 @@ def spoken_block(extra):
     defines a command: SPOKEN_HEAD, then one line per practice --
     `"Debut" -> debut: stage 4: pre-staging into staging, full checks`."""
     lines = []
+    # An addition (`adds_to:`) loads with its base through precedent_show.py,
+    # so the base's line only says how many there are here, never a line
+    # each (Morgan, 2026-10-09).
+    n_added = collections.Counter(bv.adds_to(fm) for fm, _s, _f in extra
+                                  if bv.adds_to(fm))
     for fm, sections, f in extra:
         # The same test build_loader_block(omit_commands=True) uses to leave
         # a practice out of the index, so nothing falls out of both.
@@ -523,7 +529,10 @@ def spoken_block(extra):
             continue
         slug = bv._json_str(fm.get('slug', '')) or f.stem
         clause = bv._index_clause(fm, sections)
-        lines.append(', '.join(f'"{w}"' for w in words) + f' -> {slug}: {clause}')
+        n = n_added.get(slug, 0)
+        marker = f' (+ {n} addition{"s" if n != 1 else ""} here)' if n else ''
+        lines.append(', '.join(f'"{w}"' for w in words)
+                     + f' -> {slug}: {clause}{marker}')
     if not lines:
         return ''
     return '\n'.join([SPOKEN_HEAD] + [f'- {l}' for l in sorted(lines)]) + '\n'

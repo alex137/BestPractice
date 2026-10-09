@@ -1,9 +1,18 @@
 ---
-checked_through: 2026-10-07
+checked_through: 2026-10-08
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Thursday 2026-10-08: daily-report-of-others-work
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Once a day, a session now tells you what other people landed**, before it answers your first question (tools/precedent_others_did.py lists every commit on the shared branches that is not yours since you were last told).
+- **What's new now stays about each project's own work**: an update pulled in from Precedent no longer shows up as a project's news (precedent_whats_new.py skips commits that touch only vendored files and generated views).
+- **Every session loads less before its first answer**: each spoken command is listed once, and five owner-only rules now fire on the files they are about (a single-owner project's session file went from about 435 tokens to 312).
+- **A shared set someone deletes stops loading in every project**, and every project's next update removes it from its precedent.json (tools/deleted_sets.json, read by the bootstrap, the resolver and Update Vendors).
 
 ## Wednesday 2026-10-07: main-test-runs-side-by-side
 

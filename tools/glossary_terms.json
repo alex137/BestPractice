@@ -59,6 +59,11 @@
       "term": "occasion index",
       "definition": "The generated list of *when X, read Y* lines -- one per on-demand practice, naming the moment it applies and the one line that gets it opened. It is how a rule reaches a session that had no reason to go looking for it.",
       "see": "spec/LOADER.md"
+    },
+    {
+      "term": "VDC",
+      "definition": "Short for very deep check, the full read of every repository in force against itself that runs only when someone asks for it by name. Written as the initials in quoted requests (\"add that to VDC\"), so it is listed here, where every repository's glossary carries it and the acronym check reads it as known (2026-10-09).",
+      "see": "practices/very-deep-check.md"
     }
   ]
 }
