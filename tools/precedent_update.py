@@ -2157,10 +2157,101 @@ def migrates_to_stubs(repo, paths):
     return False
 
 
-def harness_ask(paths, last=False):
+def _git_show(repo, spec):
+    r = subprocess.run(['git', '-C', str(repo), 'show', spec],
+                       capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+
+
+_HOOK_NAME = re.compile(r'([A-Za-z0-9_.-]+\.sh)\b')
+
+
+def _settings_entries(text):
+    """-> {(event, matcher, command)} in a settings.json's `hooks`, or None
+    when it is not JSON."""
+    try:
+        data = json.loads(text) if text else {}
+    except ValueError:
+        return None
+    out = set()
+    hooks = data.get('hooks') if isinstance(data, dict) else None
+    for event, groups in (hooks or {}).items() if isinstance(hooks, dict) else ():
+        for g in groups if isinstance(groups, list) else ():
+            if not isinstance(g, dict):
+                continue
+            for h in g.get('hooks') or []:
+                if isinstance(h, dict) and h.get('command'):
+                    out.add((event, g.get('matcher') or '', h['command']))
+    return out
+
+
+def _settings_cases(was, now):
+    """What a settings.json change is, in words: a hook for an event type it
+    had no entry for, a hook's command path rewritten, an entry added or
+    dropped, or a change outside the hooks."""
+    before, after = _settings_entries(was), _settings_entries(now)
+    if before is None or after is None:
+        return ['settings.json changed (it does not read as JSON)']
+    cases = []
+    old_events = {e for e, _m, _c in before}
+    new_events = sorted({e for e, _m, _c in after} - old_events)
+    for ev in new_events:
+        names = sorted({(_HOOK_NAME.search(c) or [None, c])[1]
+                        for e, _m, c in after if e == ev})
+        cases.append(f'settings.json gains a hook for a new event type, {ev} '
+                     f'({", ".join(names)})')
+    added = {x for x in after - before if x[0] not in new_events}
+    removed = before - after
+    name = lambda c: (_HOOK_NAME.search(c) or [None, c])[1]
+    for a in sorted(added):
+        twin = next((r for r in sorted(removed)
+                     if r[0] == a[0] and name(r[2]) == name(a[2])), None)
+        if twin:
+            removed.discard(twin)
+            cases.append(f'settings.json rewrites the path of {name(a[2])} '
+                         f'({a[0]}): {twin[2]} -> {a[2]}')
+        else:
+            cases.append(f'settings.json gains an entry for {name(a[2])} ({a[0]})')
+    for r in sorted(removed):
+        cases.append(f'settings.json drops its entry for {name(r[2])} ({r[0]})')
+    if not cases and (was or '') != (now or ''):
+        cases.append('settings.json changes outside its hook entries')
+    return cases
+
+
+def harness_cases(repo, paths):
+    """-> what each staged .claude/ path is, in plain words, read from the
+    index against HEAD. With hooks as permanent stubs (2026-10-07), an
+    ordinary update stages nothing under .claude/, so whatever is left is
+    one of a few known cases, and the person is told which."""
+    cases = []
+    for rel in paths:
+        now, was = _git_show(repo, f':{rel}'), _git_show(repo, f'HEAD:{rel}')
+        name = rel.rsplit('/', 1)[-1]
+        if rel == '.claude/settings.json':
+            cases.extend(_settings_cases(was, now))
+        elif rel.startswith('.claude/hooks/'):
+            if was is None:
+                cases.append(f'a new hook file, {name}')
+            elif now is None:
+                cases.append(f'a hook file removed, {name}')
+            elif STUB_MARKER in now and STUB_MARKER not in was:
+                cases.append(f'{name} becomes the permanent stub')
+            elif STUB_MARKER in now:
+                cases.append(f'the hook stub itself changed, {name}')
+            else:
+                cases.append(f'a hook that is not yet a stub changed, {name}')
+        else:
+            cases.append(f'{rel} changed')
+    return cases
+
+
+def harness_ask(paths, last=False, cases=None):
     """The question for the person when an update changes hooks or settings.
     `last`: this is the update that turns the hooks into permanent stubs, so
-    the question says, in plain words, that it is the last one."""
+    the question says, in plain words, that it is the last one. `cases`:
+    harness_cases(), so any other question says which kind of change it is
+    rather than only that something under .claude/ moved."""
     if last:
         return (f'this update changes {len(paths)} file(s) under .claude/ one '
                 f'last time: each hook becomes a permanent pointer to the '
@@ -2172,12 +2263,13 @@ def harness_ask(paths, last=False):
                 f'through, and a merge that takes the update by itself needs '
                 f'it as {HARNESS_GO_AHEAD}="<their words>". Files: '
                 f'{", ".join(paths)}')
-    return (f'this update changes {", ".join(paths)}. Claude Code\'s auto mode '
-            f'holds a commit that changes hooks or settings until the person '
-            f'says yes, so ask now, naming these files, before committing. '
-            f'Their yes is what lets the commit through; a merge that takes '
-            f'the update by itself needs it as {HARNESS_GO_AHEAD}="<their '
-            f'words>"')
+    what = f' -- {"; ".join(cases)}' if cases else ''
+    return (f'this update changes {", ".join(paths)}{what}. Claude Code\'s '
+            f'auto mode holds a commit that changes hooks or settings until '
+            f'the person says yes, so ask now, naming these files and what '
+            f'each change is, before committing. Their yes is what lets the '
+            f'commit through; a merge that takes the update by itself needs '
+            f'it as {HARNESS_GO_AHEAD}="<their words>"')
 
 
 def stage_update(repo, before):
@@ -3450,7 +3542,8 @@ def update(repo, skip_check=False, ref=None, move=False):
                      f'the person\'s go-ahead: "{words}"')
         else:
             rep.ask('hooks and settings',
-                    harness_ask(harness, last=migrates_to_stubs(repo, harness)))
+                    harness_ask(harness, last=migrates_to_stubs(repo, harness),
+                                cases=harness_cases(repo, harness)))
 
     # 4b. Files that still name what the refresh deleted: the full check's
     # rename-updates-links refuses each one at the Promote, so they are

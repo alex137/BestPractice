@@ -57846,6 +57846,113 @@ def check_update_merge_lines_carry_the_full_head():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_update_on_stubs_stages_nothing_under_claude():
+    """A consumer whose hooks are already the permanent stubs takes an
+    update that changes a hook's real script (tools/push-check-gate.sh) and
+    the engine's own wiring (tools/hook_wiring.json), and nothing under
+    .claude/ is staged -- so there is no go-ahead to ask for. Whatever an
+    update still stages there is named for what it is: a hook for a new
+    event type, a settings.json path rewrite, a new hook file.
+
+    WHY. 2026-10-08, from a consumer's Update Vendors: the update stopped
+    for the person's yes on .claude/ changes after the move to stubs
+    (2026-10-07) was meant to end that, and the question said only that
+    files under .claude/ changed.
+
+    Measured 2026-10-08: the first half already held on pre-staging (the
+    stubs do keep .claude/ still), so it stands as a guard; the second half
+    failed before harness_cases() -- the question named the paths only."""
+    pu, _pve, _pr = _update_tools()
+    fx = _LocalEditsFixture('precedent-stub-update-')
+    cases = []
+    try:
+        proj = fx.tmp / 'installed'
+        fx.sh('git', 'init', '-q', '-b', 'main', str(proj), cwd=fx.tmp)
+        (proj / 'README.md').write_text('# Notes\n', encoding='utf-8')
+        fx.commit(proj, 'before')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'precedent_install.py'), str(proj),
+              '--project-name', 'Notes', cwd=ROOT)
+        fx.commit(proj, 'installed')
+        fx.sh('git', 'clone', '-q', '--bare', str(proj), str(fx.tmp / 'installed.git'),
+              cwd=fx.tmp)
+        fx.sh('git', 'remote', 'add', 'origin', str(fx.tmp / 'installed.git'), cwd=proj)
+        fx.sh('git', 'fetch', '-q', 'origin', cwd=proj)
+        hook = proj / '.claude' / 'hooks' / 'push-check-gate.sh'
+        stubs = sorted(proj.glob('.claude/hooks/*.sh'))
+        cases.append(('CONTROL: the install leaves every hook a stub',
+                      hook.is_file() and stubs and all(
+                          pu.STUB_MARKER in p.read_text(encoding='utf-8') for p in stubs),
+                      [p.name for p in stubs]))
+        seeded = json.loads((proj / 'tools' / 'ENGINE_MANIFEST.json')
+                            .read_text(encoding='utf-8'))['source_commit']
+        body = (ROOT / 'tools' / 'push-check-gate.sh').read_bytes()
+        wiring = json.loads((ROOT / 'tools' / 'hook_wiring.json').read_text(encoding='utf-8'))
+        wiring['consumer'] = list(wiring.get('consumer') or []) + [
+            {'event': 'PreToolUse', 'matcher': 'Bash', 'script': 'wait-loop-gate.sh'}]
+        # The install vendored this checkout's working tree; a practice
+        # edited and not yet committed here would read as a local edit
+        # against a commit built from HEAD, so the upstream commit carries
+        # those files as they are on disk.
+        dirty = subprocess.run(['git', '-C', str(ROOT), 'diff', '--name-only', 'HEAD',
+                                '--', 'practices/'], capture_output=True,
+                               text=True).stdout.split()
+        changes = {rel: (ROOT / rel).read_bytes() for rel in dirty
+                   if (ROOT / rel).is_file()}
+        changes.update({
+            'tools/push-check-gate.sh': body + b'\n# upstream changed what the hook does\n',
+            'tools/hook_wiring.json': (json.dumps(wiring, indent=2) + '\n').encode()})
+        rev = fx.upstream(seeded, changes)
+        rc, out = fx.update(proj, rev)
+        staged = fx.git(proj, 'diff', '--cached', '--name-only')
+        cases.append(('CONTROL: the update took both changes, staged in tools/',
+                      'tools/push-check-gate.sh' in staged
+                      and 'tools/hook_wiring.json' in staged, (rc, staged, out[-800:])))
+        cases.append(('...and staged nothing under .claude/, so it asks nothing',
+                      '.claude/' not in staged and 'hooks and settings' not in out,
+                      (staged, out[-800:])))
+
+        # What is still staged there is named for what it is.
+        repo = fx.tmp / 'named'
+        fx.sh('git', 'init', '-q', '-b', 'main', str(repo), cwd=fx.tmp)
+        stub = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' /
+                'push-check-gate.sh').read_text(encoding='utf-8')
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        (repo / '.claude' / 'hooks' / 'push-check-gate.sh').write_text(stub, encoding='utf-8')
+        cmd = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/push-check-gate.sh'
+        settings = lambda d: (json.dumps({'hooks': d}, indent=2) + '\n')
+        entry = lambda c, m=None: [dict({'hooks': [{'type': 'command', 'command': c}]},
+                                        **({'matcher': m} if m else {}))]
+        (repo / '.claude' / 'settings.json').write_text(
+            settings({'PreToolUse': entry(cmd, 'Bash')}), encoding='utf-8')
+        fx.commit(repo, 'stubs')
+        (repo / '.claude' / 'settings.json').write_text(settings({
+            'PreToolUse': entry('bash .claude/hooks/push-check-gate.sh', 'Bash'),
+            'Notification': entry('"$CLAUDE_PROJECT_DIR"/.claude/hooks/notice-gate.sh')}),
+            encoding='utf-8')
+        (repo / '.claude' / 'hooks' / 'notice-gate.sh').write_text(stub, encoding='utf-8')
+        fx.sh('git', 'add', '-A', cwd=repo)
+        paths = pu.harness_changes(repo)
+        got = pu.harness_cases(repo, paths)
+        ask = pu.harness_ask(paths, cases=got)
+        cases.append(('a hook for a new event type is named as one',
+                      any('new event type, Notification' in c for c in got), got))
+        cases.append(('a settings.json path rewrite is named as one',
+                      any('rewrites the path of push-check-gate.sh' in c for c in got), got))
+        cases.append(('a new hook file is named as one',
+                      any(c == 'a new hook file, notice-gate.sh' for c in got), got))
+        cases.append(('...and the question carries them',
+                      'new event type' in ask and 'rewrites the path' in ask
+                      and pu.HARNESS_GO_AHEAD in ask, ask))
+    except (OSError, subprocess.CalledProcessError, KeyError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        fx.close()
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'an update on stub hooks stages nothing under .claude/, and names '
+          f'whatever it does stage there ({len(cases)} stated cases)',
+          not bad, '; '.join(bad)[:3000])
+
+
 def check_update_vendors_reports_dropped_template_wording():
     """An install-once file still carrying wording its template has since
     dropped is left for the person, by file and line -- and nothing else is.
@@ -67670,6 +67777,7 @@ def main():
     check_update_vendors_dropped_wording_reads_a_views_source()
     check_update_done_names_the_check_it_ran()
     check_update_merge_lines_carry_the_full_head()
+    check_update_on_stubs_stages_nothing_under_claude()
     check_update_leaves_no_dead_manifest_entry()
     check_update_in_force_nowhere_asks_once()
     check_update_repoints_moved_engine_commands()
