@@ -32,12 +32,19 @@ used to read on turn one.
   and merges — **without asking again.** **Either path ends on the branch on
   `origin`** — the person's landing branch
   (`python3 tools/precedent_branches.py --landing`: the repository's own
-  staging branch, unless their `landing_branch` says `pre-staging` -- the
-  tiered route, which Morgan's does -- or `main`), for the pull request
-  too; never `main` for being the configured default. A high-risk change
-  landed on pre-staging gets one plain, unbolded line in The Boildown saying
-  how far pre-staging is ahead of staging, with no urgency — a Promote can
-  move it whenever it suits. **A commit still sitting
+  staging branch, unless their `landing_branch` says `pre-staging` or
+  `main`), for the pull request too; never `main` for being the configured
+  default. **A person with `promote_only` on whose landing branch is
+  `staging` lands with `python3 tools/precedent_branches.py --land
+  [BRANCH]`** (since 2026-10-09): it brings `main`'s direct commits into
+  `staging` first, the same composition the move into `staging` has always
+  used, runs the quick checks, and pushes `staging`, ending
+  `LAND RESULT: ...` (exit 0 landed or nothing to land, 1 refused, 2 not
+  this person's route). A plain push or pull request into `staging` that
+  lacks `main`'s direct commits is refused and pointed at `--land`. A
+  high-risk change landed below `main` gets one plain, unbolded line in The
+  Boildown saying how far its branch is ahead of the tier above, with no
+  urgency — moving it up waits until it suits. **A commit still sitting
   in the local clone has not landed anything**: fetch and confirm `origin` carries it
   before the reply says where the work went. Say which path you took, and why,
   in the reply. Unsure which it is? High-risk. A step this session cannot
@@ -150,6 +157,15 @@ used to read on turn one.
   consuming repo: it runs every step that needs no judgment and stops once,
   listing only this repo's own calls
   ([spec/ONE_COMMAND_UPDATE_PLAN.md](../spec/ONE_COMMAND_UPDATE_PLAN.md)).
+  **Since 2026-10-09 it takes only a `main` whose GitHub test passed**: the
+  newest such commit, skipping anything pending or failed, and when that is
+  not the newest it says which commit it took, how many commits behind it
+  is, and why. When GitHub cannot be asked it takes the tip and warns. In an
+  emergency `--take-anyway <commit>` takes a named commit on the person's
+  own words, and the report and commit message say so. A failed GitHub test
+  on `main` opens an issue labelled `main-test-failed` (or comments on the
+  open one), and session start lists it before anything else
+  ([tools/open_failures.py](../tools/open_failures.py)).
 
 **Most weak agreement never uses the phrase**, which is why `Weak yes` is only
 half of it. The other half is
@@ -260,7 +276,25 @@ practice audit's scrub-gate and practice-export-loop (2026-10-02), seconds
 `branch_push_checks` says `full`. A push or pull request into
 `pre-staging` also checks the files it changes, and what it breaks
 elsewhere (a tree check's finding the push caused, since 2026-10-07), in
-seconds (`checks-follow-the-tier`). A pull request merged through GitHub
+seconds (`checks-follow-the-tier`). **Since 2026-10-09 so does a push or
+pull request into `staging` by a person who lands there** (`promote_only`
+on, `landing_branch` `staging`): staging is that person's quick tier. For
+them the full suite is asked for, not paid on every landing:
+`python3 tools/precedent_branches.py --run-tests [BRANCH]` (default: the
+landing branch) runs the full local suite on the branch composed with
+`main`'s direct work, moves nothing, records pass or fail, and ends
+`RUN TESTS RESULT: ...` (exit 0 passed, 1 failed). The fast move into
+`main`, `python3 tools/precedent_branches.py --promote --to main --fast`,
+runs the quick checks, builds the copy for the pull request into `main`,
+exits 3 (`main` not moved) and prints the copy's full head commit: merge
+that pull request at once at that head, then wait on the GitHub test,
+which runs after the merge, with `--wait-main-test COPY`, and fix a red
+`main` in the same sitting. If the last `--run-tests` failed on staging's
+current commit, the fast move lists the failures, exits 4 and prints the
+question to ask the person in their words; on a yes, run it again with
+`--despite-failed-tests`. Without `--fast`, the move into `main` runs the
+full local suite and waits on the GitHub test before the merge, as
+before. A pull request merged through GitHub
 gets the same check at its base branch's tier, from `merge-check-gate.sh`.
 `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and
 `0 violated`, never a passed/skipped count** — those grow as checks are

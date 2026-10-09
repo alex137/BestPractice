@@ -750,7 +750,8 @@ why it stays at `**` and which channel reaches it instead (the occasion
 index, a gate, a check). `gates_why`, optional, says why the practice fires
 at the moment it names. `precedent_check.py --only routing-reason` refuses
 an on-demand practice with no `applies_to_why`, file by file, so the refusal
-comes at `pre-staging`.
+comes at the quick tier: `pre-staging`, or `staging` for a person who lands
+there.
 
 **Until 2026-09-29 these reasons lived in a second file**,
 `tools/routing_scope.json`, which had to list every practice by hand. That

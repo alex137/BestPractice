@@ -21,6 +21,14 @@ is closed, another agent can check the directory and work on a fix").
 
 An item is dated in the person's zone (practice: timestamps-carry-offset)
 and closed the usual way: `status: done`, with what fixed it.
+
+MAIN'S TEST FAILED COMES FIRST (2026-10-09, the main landing plan, piece
+B, layer 2). Where this repository's own workflow opens a GitHub issue
+labelled main-test-failed when the test on main fails (BestPractice's
+deep-check.yml), an open one is listed before anything else here: a red main
+is what every other repository's Update Vendors is held behind. One API call
+through github_budget.py, and none in a repository whose workflows never
+open such an issue; when GitHub cannot be read, one line says so.
 """
 import pathlib
 import re
@@ -29,6 +37,9 @@ import sys
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 BATCH = "failures"
+# The label .github/workflows/deep-check.yml puts on the issue it opens when
+# main's test fails.
+MAIN_TEST_LABEL = "main-test-failed"
 
 
 def _slug(text):
@@ -93,6 +104,59 @@ def open_items(repo=ROOT):
     return out
 
 
+def main_test_issues(repo=ROOT, gh=None):
+    """-> ([(number, title, url)] of open main-test-failed issues, None), or
+    (None, why GitHub could not be read). ([], None) with no call at all
+    where none of the repository's workflows names the label."""
+    repo = pathlib.Path(repo)
+    wf = repo / ".github" / "workflows"
+    texts = [f.read_text(encoding="utf-8", errors="replace")
+             for f in sorted(wf.glob("*.y*ml"))] if wf.is_dir() else []
+    if not any(MAIN_TEST_LABEL in t for t in texts):
+        return [], None
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_branches as pb
+        gh = gh or pb._sibling("github_budget")
+        slug = pb._slug(repo)
+    except Exception as e:                        # noqa: BLE001 -- reported
+        return None, f"could not load the GitHub helpers: {e}"
+    finally:
+        sys.path.pop(0)
+    if gh is None or not slug:
+        return None, ("no github.com origin could be read here" if not slug
+                      else "github_budget.py is not beside this file")
+    data, err = gh.call(f"repos/{slug}/issues?labels={MAIN_TEST_LABEL}"
+                        f"&state=open&per_page=20", cache=False)
+    if err or not isinstance(data, list):
+        return None, err or "GitHub gave an answer this could not read"
+    return [(i.get("number"), i.get("title") or "", i.get("html_url") or "")
+            for i in data if isinstance(i, dict) and "pull_request" not in i], None
+
+
+def report_lines(repo=ROOT, gh=None):
+    """-> the session-start lines: an open main-test-failed issue first,
+    then the open failure items under todo/."""
+    repo = pathlib.Path(repo)
+    lines = []
+    issues, problem = main_test_issues(repo, gh)
+    if problem:
+        lines.append(f"MAIN'S TEST: could not read GitHub's issues to see whether "
+                     f"main's test failed ({problem}).")
+    for number, title, url in issues or []:
+        lines.append(f"MAIN'S TEST FAILED: issue #{number} is open, \"{title}\" "
+                     f"({url}). Tell the person first, and fix it before other "
+                     f"work; close the issue once main's test passes.")
+    items = open_items(repo)
+    if items:
+        lines.append(f"OPEN FAILURES ({len(items)}): an unattended job filed these "
+                     "under todo/ because it could not report them anywhere else. "
+                     "Tell the person, and fix them before other work:")
+        for f, title in items:
+            lines.append(f"  - {f.relative_to(repo)}: {title}")
+    return lines
+
+
 def self_check():
     import tempfile
     with tempfile.TemporaryDirectory() as td:
@@ -124,13 +188,8 @@ def main(argv):
                 if "--what" in argv else sys.stdin.read())
         print(write_item(ROOT, title, what, closes).relative_to(ROOT))
         return 0
-    items = open_items()
-    if items:
-        print(f"OPEN FAILURES ({len(items)}): an unattended job filed these under todo/ "
-              "because it could not report them anywhere else. Tell the person, and fix "
-              "them before other work:")
-        for f, title in items:
-            print(f"  - {f.relative_to(ROOT)}: {title}")
+    for line in report_lines():
+        print(line)
     return 0
 
 
