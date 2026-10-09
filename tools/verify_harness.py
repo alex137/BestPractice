@@ -59185,28 +59185,103 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
                       'nothing: exit 3', rc == 3 and 'STALE' in out
                       and 'Say yes to continue' not in out, out[-300:]))
 
-        # A private repository whose GitHub test is not due on this move:
-        # the session is not sent to wait on a skipped test, and runs the
-        # full suite on main here after the merge instead (Morgan,
-        # 2026-10-09).
-        commit_on('staging', 'quiet', 'quiet.txt', 'q\n')
-        run('--land', 'quiet')
+        # A private repository whose GitHub test is not due (Morgan,
+        # 2026-10-09): the full suite runs on main here after the merge,
+        # unless Debut passed on exactly this, only prose changed, or the
+        # person asked for a fast one -- and the end-of-turn check holds
+        # the turn until it has started.
         pj_path = work / 'precedent.json'
         pj_before = pj_path.read_text(encoding='utf-8')
-        pj_path.write_text(_json.dumps(dict(_json.loads(pj_before),
-                                            visibility='private',
-                                            github_ci_main_test='never'),
-                                       indent=2) + '\n', encoding='utf-8')
-        rc, out = run('--promote', '--to', 'main', '--fast')
-        last = out.strip().splitlines()[-1] if out.strip() else ''
-        pj_path.write_text(pj_before, encoding='utf-8')
-        cases.append(('a fast move whose GitHub test is not due sends no one '
-                      'to wait on it, and has the full suite run on main here '
-                      'after the merge', rc == 3 and 'not due on this one' in out
-                      and '--run-tests main' in out
+        bare = tmp / 'origin.git'
+
+        def private(on):
+            pj_path.write_text(_json.dumps(dict(_json.loads(pj_before),
+                                                visibility='private',
+                                                github_ci_main_test='never'),
+                                           indent=2) + '\n' if on else pj_before,
+                               encoding='utf-8')
+
+        def merged(out):
+            m = re.search(r'expectedHeadSha ([0-9a-f]{40})', out)
+            if m:
+                git(bare, 'update-ref', 'refs/heads/main', m.group(1))
+                git(work, 'fetch', '-q', 'origin')
+            return m.group(1) if m else ''
+
+        def fast(*extra):
+            private(True)
+            try:
+                rc, out = run('--promote', '--to', 'main', '--fast', *extra)
+            finally:
+                private(False)
+            return rc, out, (out.strip().splitlines()[-1] if out.strip() else '')
+
+        # The earlier failing check's FAIL file comes off staging first, so a
+        # full run on main can pass.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'unbreak', 'origin/staging')
+        if (work / 'FAIL').exists():
+            git(work, 'rm', '-q', 'FAIL')
+            git(work, 'commit', '-q', '-m', 'FAIL off staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/unbreak')
+        run('--land', 'unbreak')
+        commit_on('staging', 'quiet', 'quiet.json', '{}\n')
+        run('--land', 'quiet')
+        rc, out, last = fast()
+        cases.append(('not due, code changed: no one waits on GitHub, and the '
+                      'full suite on main is asked for after the merge',
+                      rc == 3 and 'not due on this one' in out
                       and '--wait-main-test' not in last
-                      and 'do not wait' in last and '--run-tests main' in last,
-                      out[-500:]))
+                      and '--run-tests main' in last, out[-500:]))
+        sha = merged(out)
+        owed = pb.full_check_owed(work) if hasattr(pb, 'full_check_owed') else None
+        cases.append(('once merged, the end-of-turn check says the full check '
+                      'is owed and not started',
+                      bool(owed) and owed[0][0] == sha and owed[0][1] == 'none',
+                      str(owed)))
+        rc, out = run('--run-tests', 'main')
+        owed = pb.full_check_owed(work) if hasattr(pb, 'full_check_owed') else None
+        cases.append(('after --run-tests main passes, nothing is owed',
+                      rc == 0 and owed == [], f'exit {rc}: {owed} {out[-200:]}'))
+
+        commit_on('staging', 'prose', 'notes.md', '# Notes\n\nA line.\n')
+        run('--land', 'prose')
+        rc, out, last = fast()
+        cases.append(('only prose changed: no full check after, and it says why',
+                      rc == 3 and 'only prose changed' in out
+                      and '--run-tests main' not in last, out[-400:]))
+        merged(out)
+
+        commit_on('staging', 'tested', 'tested.json', '{}\n')
+        run('--land', 'tested')
+        run('--run-tests')
+        rc, out, last = fast()
+        cases.append(('Debut (Run tests) passed on exactly this: no full check '
+                      'after', rc == 3 and 'already passed on exactly this' in out
+                      and '--run-tests main' not in last, out[-400:]))
+        merged(out)
+
+        commit_on('staging', 'hurry', 'hurry.json', '{}\n')
+        run('--land', 'hurry')
+        rc, out, last = fast('--no-full-after')
+        marked = git(work, 'ls-remote', 'origin',
+                     'refs/precedent/main-unchecked').stdout.strip()
+        cases.append(('asked for fast: no full check after, it says so, and '
+                      'main is marked as moved without one, on origin',
+                      rc == 3 and 'asked for a fast one' in out
+                      and '--run-tests main' not in last and bool(marked),
+                      out[-400:]))
+        merged(out)
+        state = pb.main_unchecked(work) if hasattr(pb, 'main_unchecked') else None
+        cases.append(('the mark counts the moves made without a full check',
+                      bool(state) and state[1] >= 1, str(state)))
+        rc, out = run('--run-tests', 'main')
+        cleared = not git(work, 'ls-remote', 'origin',
+                          'refs/precedent/main-unchecked').stdout.strip()
+        cases.append(('the next full run on main clears the mark',
+                      rc == 0 and cleared, out[-300:]))
+        commit_on('staging', 'last', 'last.json', '{}\n')
+        run('--land', 'last')
 
         # --- the full move into main is unchanged ---
         full_runs()

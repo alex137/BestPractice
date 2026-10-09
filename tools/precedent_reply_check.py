@@ -963,6 +963,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_container_safe_if_says',
     'require_landed_if_says',
     'require_delete_link_when_landed',
+    'require_full_check_after_fast_main',
     'require_section_not_repeated',
     'require_quiet_while_background_runs',
     'require_reply_block_names_sender',
@@ -1474,6 +1475,28 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                         + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
                     break
 
+        # require_full_check_after_fast_main (Morgan, 2026-10-09: "I want to
+        # make sure there's a full check *somewhere* on the push to main,
+        # afterwards"). A fast move into main whose GitHub test does not run
+        # owes the full local suite on main after its merge, unless one of
+        # his exceptions applied (precedent_branches.full_check_after); the
+        # turn does not end with it never started, or failed and unfixed.
+        if r.get('require_full_check_after_fast_main'):
+            for sha, state, detail in _full_check_owed():
+                if state == 'failed':
+                    msg = (f"main's full check after the fast move "
+                           f"{sha[:12]} FAILED ({detail}). Fix main now, then "
+                           f"run it again: python3 tools/precedent_branches.py "
+                           f"--run-tests main")
+                else:
+                    msg = (f"the fast move {sha[:12]} is on main and its full "
+                           f"check has not been started ({detail}). Start it "
+                           f"before ending the turn, in the background: "
+                           f"python3 tools/precedent_branches.py --run-tests main")
+                out.append({'kind': 'full-check-after', 'advisory': False,
+                            'message': f"[{r.get('_source', '?')}] {msg}"
+                            + (f" (practice: {r['practice']})" if r.get('practice') else '')})
+
         if r.get('require_delete_link_when_landed'):
             for repo, branch, base in _landed_this_turn():
                 enc = urllib.parse.quote(branch, safe='')
@@ -1490,6 +1513,19 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                     f"into. Never delete it yourself."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
+
+
+def _full_check_owed(root=None):
+    """precedent_branches.full_check_owed for this checkout, or [] when it
+    cannot be imported: an engine too old to have it owes nothing."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_branches as pb
+        top = root or (subprocess.run(['git', 'rev-parse', '--show-toplevel'],
+                                      capture_output=True, text=True).stdout.strip())
+        return pb.full_check_owed(top) if top and hasattr(pb, 'full_check_owed') else []
+    except Exception:                                       # noqa: BLE001
+        return []
 
 
 def _landed_this_turn(root=None):
@@ -1733,6 +1769,10 @@ def main():
             if r.get('require_delete_link_when_landed'):
                 bits.append('a branch that landed during this turn gets its '
                             'one-click delete link (branches/all?query=)')
+            if r.get('require_full_check_after_fast_main'):
+                bits.append('a fast move into main whose GitHub test does not '
+                            'run has its full local suite on main started, '
+                            'and fixed if it failed, before the turn ends')
             if r.get('require_landed_if_says'):
                 for ph in r['require_landed_if_says']:
                     bits.append(f'"{ph}" requires no work left on a feature '
