@@ -41,7 +41,16 @@ used to read on turn one.
   used, runs the quick checks, and pushes `staging`, ending
   `LAND RESULT: ...` (exit 0 landed or nothing to land, 1 refused, 2 not
   this person's route). A plain push or pull request into `staging` that
-  lacks `main`'s direct commits is refused and pointed at `--land`. A
+  lacks `main`'s direct commits is refused and pointed at `--land`.
+  **Moving one repository at a time** (since 2026-10-09): the person sets
+  `"retire_pre_staging": true` and no `landing_branch` in their own
+  `identity.json`, so each repository's `precedent.json` decides, and an
+  older engine reads it the same way. In a repository whose only
+  maintainer they are, Update Vendors' first pass brings the engine and
+  nothing else; the second, once that engine has landed, switches the
+  repository's `landing_branch` to `staging`, brings anything left on
+  `pre-staging` in, rewords its instructions, and prints the delete link
+  for `pre-staging`. A
   high-risk change landed below `main` gets one plain, unbolded line in The
   Boildown saying how far its branch is ahead of the tier above, with no
   urgency — moving it up waits until it suits. **A commit still sitting

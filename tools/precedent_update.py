@@ -1202,6 +1202,15 @@ def sole_maintainer_is_you(repo):
     return f'@{login}' if gh and gh.lower() == login else None
 
 
+def committed_engine_lands_on_staging(repo):
+    """-> True when the engine this repository has committed (HEAD's
+    tools/precedent_branches.py) can land work straight on staging: one
+    that predates it would refuse every landing there once precedent.json
+    says staging."""
+    rc, out = run(['git', 'show', 'HEAD:tools/precedent_branches.py'], repo)
+    return rc == 0 and 'def lands_on_staging(' in out
+
+
 def switch_repo_landing_to_staging(repo):
     """Change precedent.json's `landing_branch` from pre-staging to staging,
     every other byte kept. -> True when written; False, writing nothing,
@@ -1236,7 +1245,16 @@ def retire_pre_staging_step(repo, rep):
     # (precedent_branches.pre_staging_unused): one line says it waited.
     unused, waits = pb.pre_staging_unused(repo)
     if waits and pb._remote_tip(repo, pb.PRE_STAGING):
-        if (sole_maintainer_is_you(repo)
+        if not committed_engine_lands_on_staging(repo):
+            # The first pass brings the engine and nothing else; the switch
+            # waits for the next run, once that engine has landed (Morgan,
+            # 2026-10-09: "do the vendor updates, tell you, then I'll do
+            # the vendor updates again").
+            rep.step('pre-staging', f'kept for now: this update brings the '
+                     f'engine that lands work straight on {pb.STAGING}. Land '
+                     f'it, then run Update Vendors again: that run moves this '
+                     f'repository onto {pb.STAGING}')
+        elif (sole_maintainer_is_you(repo)
                 and 'precedent.json' not in set(rep.before or ())
                 and switch_repo_landing_to_staging(repo)):
             rep.step('precedent.json', f'{pb.LANDING_SETTING} {pb.PRE_STAGING} '
