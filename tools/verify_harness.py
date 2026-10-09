@@ -37134,6 +37134,88 @@ def check_session_check_never_calls_an_unfetched_clone_current():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_session_check_stamps_at_session_start():
+    """The "still on the branch it started on" row takes its baseline from
+    the session-start hook, and a move onto a tier branch after the work
+    landed is normal; a move that strands work still fails.
+
+    WHY. 2026-10-09, a consumer: the baseline was written by the check's
+    first run, mid-session on a feature branch, and after a promote left
+    the checkout on main the row said "started on <feature>, now on main",
+    wrong on both counts."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_session_check as psc
+    cases = []
+    for f in ('tools/bootstrap.sh', 'templates/bootstrap.sh',
+              '.claude/hooks/session-start.sh'):
+        cases.append((f'{f} records the start (--stamp-start)',
+                      '--stamp-start' in (ROOT / f).read_text(encoding='utf-8'), ''))
+    with tempfile.TemporaryDirectory() as t:
+        repo = pathlib.Path(t) / 'repo'
+        repo.mkdir()
+
+        def git(*args):
+            p = subprocess.run(['git', '-C', str(repo), *args],
+                               capture_output=True, text=True)
+            return p.returncode, p.stdout.strip(), p.stderr.strip()
+
+        def commit(msg, name='f'):
+            (repo / name).write_text(msg)
+            git('add', '-A')
+            git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', msg)
+
+        git('init', '-q', '-b', 'main')
+        commit('one')
+        git('branch', 'pre-staging')
+        git('checkout', '-q', '-b', '2026-10-09-feature-abcde')
+        stamp = psc.session_stamp_path(git)
+        stamp.write_text('somewhere-else\n0000\n')
+        cases.append(('the session-start stamp overwrites an older record with '
+                      'the branch the session starts on',
+                      psc.stamp_session_start(stamp, git)
+                      and stamp.read_text().split()[0] == '2026-10-09-feature-abcde',
+                      stamp.read_text()))
+        commit('feature work', 'g')
+        # Promoted: merged into pre-staging (and origin's copy), and main
+        # takes the same content as a commit of its own, not a merge.
+        git('checkout', '-q', 'pre-staging')
+        git('-c', 'user.name=t', '-c', 'user.email=t@t', 'merge', '-q', '--no-ff',
+            '-m', 'land', '2026-10-09-feature-abcde')
+        git('update-ref', 'refs/remotes/origin/pre-staging', 'pre-staging')
+        git('checkout', '-q', 'main')
+        commit('feature work, copied onto main', 'g')
+        r = psc._session_branch_row(stamp, git)
+        cases.append(('after a promote leaves the checkout on main, the row '
+                      'passes: the start branch\'s work is on a tier',
+                      bool(r) and r[1] is True and 'tier branch' in r[2], str(r)))
+        # Stranded: a new start branch with work on no tier, then main.
+        git('checkout', '-q', '-b', '2026-10-09-other-abcde')
+        psc.stamp_session_start(stamp, git)
+        commit('unmerged work', 'h')
+        git('checkout', '-q', 'main')
+        r = psc._session_branch_row(stamp, git)
+        cases.append(('a move onto main that leaves work on no tier still fails',
+                      bool(r) and r[1] is False, str(r)))
+        # A linked worktree: the stamp lives in its own git directory.
+        wt = pathlib.Path(t) / 'wt'
+        git('worktree', 'add', '-q', '-b', 'wt-branch', str(wt), 'main')
+
+        def wgit(*args):
+            p = subprocess.run(['git', '-C', str(wt), *args],
+                               capture_output=True, text=True)
+            return p.returncode, p.stdout.strip(), p.stderr.strip()
+        path = psc.session_stamp_path(wgit)
+        cases.append(('in a linked worktree the stamp goes in its own git '
+                      'directory, which exists', path.parent.is_dir()
+                      and psc.stamp_session_start(path, wgit), str(path)))
+    sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session check takes its baseline from session start '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
 def check_session_check_adopts_a_detached_start():
     """A cloud session starts detached and moves onto its branch: not a jump.
 
@@ -69064,6 +69146,7 @@ def main():
     check_source_bootstrap_keeps_what_git_said()
     check_runbook_names_the_postcondition_after_a_merge()
     check_update_done_names_the_branch_to_commit_on()
+    check_session_check_stamps_at_session_start()
     check_gates_promise_no_override()
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
