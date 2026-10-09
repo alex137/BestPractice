@@ -25920,6 +25920,73 @@ def check_code_owners_only_practices_reach_only_code_owners():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_stale_branches_lists_one_repository_once():
+    """precedent_stale_branches.py lists a repository once, however it is
+    reached.
+
+    Reported 2026-10-08 from a consuming repository: the stale-branch page
+    listed one repository twice, because `_repos()` keyed on the origin's
+    (owner, name) exactly as spelled, and the same repository was reached
+    as .../bestpractice and .../BestPractice. GitHub names are
+    case-insensitive, so the key is now casefolded, keeping the first
+    spelling seen; and a path that reaches a directory already seen (a
+    link, or a case-insensitive filesystem) is skipped outright.
+
+    CONTROL: a different repository is still listed."""
+    import tempfile
+    import types
+    name = 'the stale-branch listing names one repository once'
+    if not (ROOT / 'tools' / 'precedent_stale_branches.py').exists():
+        not_applicable(name, 'tools/precedent_stale_branches.py is absent')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_stale_branches as sb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    saved = sys.modules.get('precedent_container_safe')
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        def repo(dirname, url):
+            d = tmp / dirname
+            subprocess.run(['git', 'init', '-q', str(d)], capture_output=True, check=True)
+            subprocess.run(['git', '-C', str(d), 'remote', 'add', 'origin', url],
+                           capture_output=True, check=True)
+            return d
+        first = repo('BestPractice', 'https://github.com/Alex137/BestPractice.git')
+        second = repo('bestpractice-2', 'https://github.com/alex137/bestpractice')
+        other = repo('other', 'https://github.com/alex137/something-else.git')
+        link = tmp / 'linked'
+        link.symlink_to(first, target_is_directory=True)
+
+        def listed(found):
+            sys.modules['precedent_container_safe'] = types.SimpleNamespace(
+                checkouts=lambda: list(found))
+            try:
+                return sb._repos()
+            finally:
+                if saved is None:
+                    sys.modules.pop('precedent_container_safe', None)
+                else:
+                    sys.modules['precedent_container_safe'] = saved
+
+        got = listed([first, second, other])
+        slugs = [s_ for _p, s_ in got]
+        cases.append(('two clones whose origins differ only in case are one '
+                      f'repository, shown as first spelled ({slugs})',
+                      slugs.count(('Alex137', 'BestPractice')) == 1
+                      and not any(s_ == ('alex137', 'bestpractice') for s_ in slugs)))
+        cases.append((f'CONTROL: a different repository is still listed ({slugs})',
+                      ('alex137', 'something-else') in slugs and len(slugs) == 2))
+        got = listed([link, first, other])
+        cases.append(('one clone reached through two paths is listed once '
+                      f'({[str(p_) for p_, _s in got]})', len(got) == 2))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_reply_check_requires_the_boildown_first_line():
     """`require_first_item_under_heading` refuses a Boildown whose first
     bullet does not say where the work is.
@@ -67239,6 +67306,7 @@ def main():
     check_freshness_guard_user_prompt_never_resets_mid_session()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_freshness_guard_never_tells_a_tier_branch_to_merge()
+    check_stale_branches_lists_one_repository_once()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
     check_bootstrap_runs_every_tool_session_start_runs()
     check_codex_hooks_template_runs_the_claude_gates()
