@@ -3359,8 +3359,18 @@ def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False
         'at': time.strftime('%Y-%m-%dT%H:%M:%S%z')})
     shown, others = mark_other_work(root, batch, work)
     wait = (f'python3 tools/precedent_branches.py --wait-main-test {copy}')
+    # A private repository tests main at most every N hours: when this move
+    # is not due one, nothing runs the full suite on it, and the session must
+    # not wait on a test that is skipped (Morgan, 2026-10-09, on the weekly
+    # test and the fast move: "does this effect our quicker testing plan?").
+    skipped = not none_runs and not due
     after = ('no GitHub test runs here, so the quick checks were the whole '
              'check' if none_runs else
+             (f'GitHub\'s test is not due on this one ({_why}), so the quick '
+              f'checks were the whole check and nothing runs the full suite on '
+              f'it; say so in the reply, and that Debut (Run tests) before '
+              f'Produce is the way to have it tested in full')
+             if skipped else
              f'GitHub\'s test runs after the merge; wait on it with {wait} and '
              f'fix {MAIN} at once if it fails')
     say(f'{MAIN.upper()} HAS NOT MOVED YET: this Promote exits '
@@ -3379,6 +3389,8 @@ def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False
     _verdict(f'READY FOR {MAIN.upper()} (FAST): open a pull request from {copy} '
              f'into {MAIN} and merge it now with expectedHeadSha {copy_tip}; '
              + ('no GitHub test runs here' if none_runs else
+                'GitHub\'s test is not due on this one, so nothing runs the full '
+                'suite on it -- do not wait for one' if skipped else
                 f'the GitHub test runs after the merge -- wait on it with '
                 f'--wait-main-test {copy}')
              + f'; {MAIN} has not moved yet', move=move)
