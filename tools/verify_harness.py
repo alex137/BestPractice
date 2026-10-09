@@ -9864,7 +9864,9 @@ def check_debut_waits_for_an_open_produce_pull_request():
         cases.append(('GitHub unreachable does not hold (the merge check still '
                       'refuses a stale copy)',
                       _pb.produce_waiting_hold(repo, gh=_GH(None)) is None))
-    src = inspect.getsource(_pb.promote)
+    # promote() wraps _promote_run() since 2026-10-08, to end every run with
+    # its PROMOTE RESULT line; the order is read where the moves are made.
+    src = inspect.getsource(getattr(_pb, '_promote_run', _pb.promote))
     cases.append(('promote() asks before moving pre-staging into staging',
                   'produce_waiting_hold(root)' in src
                   and src.index('if step == STAGING:') < src.index('produce_waiting_hold(root)')))
