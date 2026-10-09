@@ -96,6 +96,25 @@
     "surfaces/CLAUDE.md": {"max": 200, "strength": "baseline", "approved_by": "baseline 2026-09-30"},
     "surfaces/.precedent/SESSION_PRACTICES.md": {"max": 4000, "strength": "baseline", "approved_by": "baseline 2026-09-30"}
   },
+  "_code_owners_in_index_comment": [
+    "The practices marked visible_to: code-owners that may still cost a line",
+    "of a code owner's session file, each with the reason no applies_to, gate",
+    "or command can reach it. tools/precedent_check.py --only",
+    "code-owner-practice-stays-out-of-the-index refuses any other such",
+    "practice, and an entry here that no longer lands in the index.",
+    "",
+    "WHY (2026-10-08): that file is charged to the consuming repository's",
+    "session-load ceiling, and a consuming repository's Debut failed on about",
+    "27 code-owner practices that each cost an index line. Most were given a",
+    "route that day; these three were not, and are listed rather than given",
+    "an applies_to that would name files their occasion is not about.",
+    "Adding one is a person's call. The list only shrinks."
+  ],
+  "code_owners_in_index": {
+    "drift-notice": "Session start is a moment, not a file, and no gate fires at it.",
+    "install": "Installing touches a repository with no Precedent files yet, so no path inside it names the moment.",
+    "rule-scope-ask": "A rule is proposed in conversation before any file exists, so no path or gate names the moment."
+  },
   "surfaces": {
     "AGENTS.md": {
       "ceiling": 6950,
