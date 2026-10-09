@@ -476,6 +476,15 @@ ENGINE_FILES = [
     # (`update_full_check: after` in precedent.json); files a failure through
     # open_failures.py (added 2026-10-08).
     'precedent_check_after.py',
+    # The lander and its queue (added 2026-10-08): land every queued branch
+    # on the trunk, then take Update Vendors. Built in a consumer repository
+    # on 2026-10-04 and moved here; the repository's own audits, caches and
+    # ledgers are its precedent.json "lander" block.
+    'land_queue.py',
+    'land_next.py',
+    # land_queue.py's git store on the coord branch (also the lease board's
+    # and the result cache's), imported at module level.
+    'branch_store.py',
     # WHO this repo's commits belong to, resolved the way commit-identity.sh
     # already resolves it. In ENGINE_FILES rather than CONSUMER-only,
     # unlike precedent_resolve.py which it was carved out of: a practice
@@ -935,7 +944,9 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     #                       tools/model_audit.py; a consumer's own list is
     #                       tools/model_audit_host.json, never this file)
     #   lease_board.py   -- lease-in-flight-work
-    #   branch_store.py  -- the git store under the lease board and the cache
+    #   (branch_store.py, the git store under the lease board and the
+    #   cache, moved to ENGINE_FILES on 2026-10-08: land_queue.py imports
+    #   it at module level, and a source set gets land_queue.py)
     #   result_cache.py  -- shared-result-cache
     #   reach_key.py     -- the memo key shared-result-cache keys on
     #   fact_ledger.py   -- gate-ledger (doc_sync and model_audit import it)
@@ -944,7 +955,6 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     'table_fmt.py',
     'model_audit.py',
     'lease_board.py',
-    'branch_store.py',
     'result_cache.py',
     'reach_key.py',
     'fact_ledger.py',
