@@ -12726,8 +12726,7 @@ def check_update_vendors_is_one_command():
                          'path': str(ROOT)}]}) + '\n', encoding='utf-8')
         (repo / 'AGENTS.md').write_text(
             f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
-        sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-           'seed', str(repo), '--kind', 'consumer', cwd=repo)
+        _seed_fixture_engine(repo, 'consumer', env, cwd=repo)
         if catalogue:
             _rc, head = sh('git', 'rev-parse', f'origin/{pve_branch}', cwd=ROOT)
             (repo / 'process').mkdir()
@@ -12852,8 +12851,7 @@ def check_update_vendors_is_one_command():
         (src / 'AGENTS.md').write_text(
             f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
         sh('git', 'init', '-q', '-b', 'main', cwd=src)
-        sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-           'seed', str(src), '--kind', 'source', cwd=src)
+        _seed_fixture_engine(src, 'source', env, cwd=src)
         sh(sys.executable, 'tools/build_views.py', '--repo', '.', cwd=src)
         with open(src / 'MAP.md', 'a', encoding='utf-8') as f:
             f.write('| a row a newer engine would render differently |\n')
@@ -12906,6 +12904,373 @@ def check_update_vendors_is_one_command():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+# --------------------------------------------------------------------------
+# ONE SEED, COPIED: the vendored engine the update fixtures start from.
+#
+# Morgan, 2026-10-09: "share the fake project". The end-to-end Update Vendors
+# checks each build small consumers from scratch, and each consumer used to
+# run `precedent_vendor_engine.py seed`, a few seconds apiece, for bytes that
+# are the same every time. Now the first fixture to seed with a given set of
+# inputs keeps a copy of the files seed wrote, and every later one with the
+# same inputs copies them in instead of running it. Each fixture still gets
+# its own fresh files, its own git init and its own commit; nothing mutable
+# is ever shared between checks.
+#
+# CONTRACT (practice: review-against-a-contract): a copy is used only when a
+# fresh seed would write the same bytes -- the key moves whenever anything
+# seed can read moves.
+#
+# The key hashes: this checkout's path, HEAD, the branch HEAD names and the
+# SOURCE_BRANCH refs seed compares against; every uncommitted or untracked
+# file in the checkout, by content (so an edited engine file, committed or
+# not, is a new key); every file already in the destination, by path and
+# content, and the destination's own refs; the kind; the Python running it;
+# the contents of HOME and of the files _SEED_KEY_PATH_VARS name; and every
+# other PRECEDENT_* and GIT_* variable in the environment it runs under. A
+# seed that fails, removes a file, or writes the destination's own path into
+# anything is never kept. Nothing is left out because seed "does not read
+# it": an AGENTS.md that differs is a different key, a miss, never a guess.
+#
+# Concurrency: the harness runs as separate processes. An entry is built in
+# a private directory and renamed into place; a process that loses the race
+# drops its own copy and uses the winner's. A copy that fails part-way is
+# undone and the seed simply runs. The cache is an accelerator, never a
+# dependency (practice: shared-result-cache): PRECEDENT_NO_SEED_CACHE=1
+# turns it off, and any error falls back to a real seed.
+_SEED_CACHE_FORMAT = 1
+_SEED_CACHE_KEEP_SECONDS = 6 * 3600
+# Variables naming a file whose CONTENTS count, not its name: each harness
+# process and fixture gives them a fresh temporary path.
+_SEED_KEY_PATH_VARS = ('PRECEDENT_USER_CONFIG', 'PRECEDENT_CLONE_NOTES')
+
+
+def _seed_cache_dir(env=None):
+    """PRECEDENT_SEED_CACHE_DIR in `env` (or this process's environment)
+    names another directory, for the check of the cache itself."""
+    import tempfile
+    named = (env or {}).get('PRECEDENT_SEED_CACHE_DIR') or os.environ.get(
+        'PRECEDENT_SEED_CACHE_DIR')
+    return (pathlib.Path(named) if named else
+            pathlib.Path(tempfile.gettempdir()) / 'precedent-harness-seed-cache')
+
+
+def _tree_digest(top, skip=('.git',), most=400):
+    """sha256 over every file under `top` (path, mode, bytes), `skip`ped
+    top-level names left out. Symlinks hash as their target string. More
+    than `most` files raises ValueError: a key that would hash a whole home
+    directory is not worth having, so the seed just runs."""
+    h = hashlib.sha256()
+    seen = 0
+    top = pathlib.Path(top)
+    if not top.exists():
+        return 'absent'
+    if top.is_file():
+        return 'file ' + hashlib.sha256(top.read_bytes()).hexdigest()
+    for dirpath, dirnames, filenames in os.walk(top):
+        rel_dir = pathlib.Path(dirpath).relative_to(top)
+        if rel_dir == pathlib.Path('.'):
+            dirnames[:] = [d for d in dirnames if d not in skip]
+        dirnames.sort()
+        h.update(f'D {rel_dir.as_posix()}\n'.encode())
+        for fn in sorted(filenames):
+            seen += 1
+            if seen > most:
+                raise ValueError(f'more than {most} files under {top}')
+            p = pathlib.Path(dirpath) / fn
+            rel = (rel_dir / fn).as_posix()
+            if p.is_symlink():
+                h.update(f'L {rel} {os.readlink(p)}\n'.encode())
+                continue
+            st = p.stat()
+            h.update(f'F {rel} {st.st_mode & 0o777} {st.st_size}\n'.encode())
+            h.update(p.read_bytes())
+    return h.hexdigest()
+
+
+def _seed_cache_key(dest, kind, env, root=None):
+    """-> the key described in the contract above, or None when it cannot
+    be computed (then the seed simply runs)."""
+    import precedent_vendor_engine as _pve
+    dest = pathlib.Path(dest)
+    root = ROOT if root is None else pathlib.Path(root)
+
+    def git(where, *args):
+        r = subprocess.run(['git', '--no-optional-locks', '-C', str(where), *args],
+                           capture_output=True)
+        return r.returncode, r.stdout
+
+    h = hashlib.sha256()
+    h.update(f'format {_SEED_CACHE_FORMAT}\nroot {root}\nkind {kind}\n'
+             f'python {sys.executable} {sys.version}\n'.encode())
+    branch = _pve.SOURCE_BRANCH
+    for args in (('rev-parse', 'HEAD'), ('symbolic-ref', '-q', 'HEAD'),
+                 ('rev-parse', '--verify', '-q', f'refs/remotes/origin/{branch}'),
+                 ('rev-parse', '--verify', '-q', f'refs/heads/{branch}')):
+        rc, out = git(root, *args)
+        h.update(f'{" ".join(args)} -> {rc} '.encode() + out)
+    rc, status = git(root, 'status', '--porcelain=v1', '-z', '--untracked-files=all')
+    if rc != 0:
+        return None
+    h.update(b'status ' + status)
+    entries = status.split(b'\0')
+    i = 0
+    while i < len(entries):
+        entry = entries[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        if entry[:1] in (b'R', b'C'):
+            i += 1                                  # the rename's source path
+        p = root / os.fsdecode(entry[3:])
+        h.update(b'dirty ' + entry[3:] + b' ' + _tree_digest(p).encode())
+    h.update(b'dest ' + _tree_digest(dest).encode())
+    for args in (('symbolic-ref', '-q', 'HEAD'), ('for-each-ref',)):
+        rc, out = git(dest, *args)
+        h.update(f'dest {" ".join(args)} -> {rc} '.encode() + out)
+    for k in ('HOME',) + _SEED_KEY_PATH_VARS:
+        where = env.get(k)
+        h.update(f'{k} '.encode() + (_tree_digest(where).encode() if where else b'unset'))
+    for k in sorted(env):
+        if k.startswith(('PRECEDENT_', 'GIT_')) and k not in _SEED_KEY_PATH_VARS:
+            h.update(f'env {k}={env[k]}\n'.encode())
+    return h.hexdigest()
+
+
+def _seed_cache_prune(cache):
+    """Drop entries nobody has used for _SEED_CACHE_KEEP_SECONDS: a key
+    names one checkout state, so an old one is never read again."""
+    now = time.time()
+    try:
+        children = list(cache.iterdir())
+    except OSError:
+        return
+    for child in children:
+        try:
+            if now - child.stat().st_mtime > _SEED_CACHE_KEEP_SECONDS:
+                shutil.rmtree(child, ignore_errors=True)
+        except OSError:
+            pass
+
+
+def _snapshot_files(top):
+    """{relative path: (mode, sha256)} for every file under `top` but .git,
+    and {relative path: ('dir',)} for every directory."""
+    got = {}
+    top = pathlib.Path(top)
+    for dirpath, dirnames, filenames in os.walk(top):
+        if pathlib.Path(dirpath) == top:
+            dirnames[:] = [d for d in dirnames if d != '.git']
+        for d in dirnames:
+            got[(pathlib.Path(dirpath) / d).relative_to(top).as_posix()] = ('dir',)
+        for fn in filenames:
+            p = pathlib.Path(dirpath) / fn
+            if p.is_symlink():
+                got[p.relative_to(top).as_posix()] = ('link', os.readlink(p))
+            else:
+                got[p.relative_to(top).as_posix()] = (
+                    p.stat().st_mode & 0o777,
+                    hashlib.sha256(p.read_bytes()).hexdigest())
+    return got
+
+
+def _seed_fixture_engine(dest, kind, env, cwd):
+    """`precedent_vendor_engine.py seed <dest> --kind <kind>`, run under
+    `env` from `cwd` -- or the files an earlier seed with the same key wrote,
+    copied into `dest`. Returns (returncode, output); a copy returns 0 and
+    says so. Only for fixtures that use nothing of seed's but the files it
+    writes (its output names the destination, so a copy cannot repeat it)."""
+    dest = pathlib.Path(dest)
+
+    def real_seed():
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+                            'seed', str(dest), '--kind', kind],
+                           cwd=str(cwd), env=env, capture_output=True)
+        return r.returncode, (r.stdout + r.stderr).decode(errors='replace')
+
+    if env.get('PRECEDENT_NO_SEED_CACHE') == '1':     # every fixture env copies os.environ
+        return real_seed()
+    cache = _seed_cache_dir(env)
+    try:
+        key = _seed_cache_key(dest, kind, env)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        key = None                          # an accelerator, never a dependency
+    if key is None:
+        return real_seed()
+    entry = cache / key
+    files = entry / 'files'
+    if (entry / 'complete').is_file():
+        made = []
+        try:
+            os.utime(entry)                 # in use: the prune leaves it
+            for dirpath, dirnames, filenames in os.walk(files):
+                dirnames.sort()
+                rel_dir = pathlib.Path(dirpath).relative_to(files)
+                for d in dirnames:
+                    target = dest / rel_dir / d
+                    if not target.is_dir():
+                        target.mkdir()
+                        made.append(target)
+                for fn in sorted(filenames):
+                    src, target = pathlib.Path(dirpath) / fn, dest / rel_dir / fn
+                    if not target.exists():
+                        made.append(target)
+                    shutil.copy2(src, target)
+            return 0, f'seed: copied from the harness seed cache ({key[:12]})'
+        except OSError:
+            for t in reversed(made):        # undo, then seed for real
+                try:
+                    t.rmdir() if t.is_dir() else t.unlink()
+                except OSError:
+                    pass
+            return real_seed()
+    before = _snapshot_files(dest)
+    rc, out = real_seed()
+    if rc != 0:
+        return rc, out
+    try:
+        after = _snapshot_files(dest)
+        if set(before) - set(after):
+            return rc, out                  # it removed a file: a copy cannot say so
+        wrote = sorted(rel for rel, v in after.items() if before.get(rel) != v)
+        needle = os.fsencode(str(dest.resolve()))
+        needle2 = os.fsencode(str(dest))
+        if any(after[rel][0] == 'link' for rel in wrote):
+            return rc, out                  # a symlink: copied files only
+        for rel in wrote:
+            p = dest / rel
+            if after[rel] != ('dir',):
+                data = p.read_bytes()
+                if needle in data or needle2 in data:
+                    return rc, out          # path-dependent: never kept
+        cache.mkdir(parents=True, exist_ok=True)
+        _seed_cache_prune(cache)
+        import tempfile
+        staging = pathlib.Path(tempfile.mkdtemp(prefix=f'.build-{key[:12]}-', dir=cache))
+        try:
+            (staging / 'files').mkdir()
+            for rel in wrote:               # sorted: a directory before its files
+                src, target = dest / rel, staging / 'files' / rel
+                if after[rel] == ('dir',):
+                    target.mkdir(parents=True, exist_ok=True)
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, target)
+            (staging / 'complete').write_text(key + '\n', encoding='utf-8')
+            os.rename(staging, entry)       # atomic; loses to an entry already there
+        except OSError:
+            pass
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
+    except OSError:
+        pass
+    return rc, out
+
+
+def check_seed_cache_copies_what_a_seed_writes():
+    """The fixture seed cache (_seed_fixture_engine) holds its contract: a
+    copy is byte-for-byte what a real seed writes, mode bits included, and
+    the key moves whenever an input seed can read moves (practice:
+    review-against-a-contract).
+
+    Discriminating cases (practice: control-asserts-which-failure): the
+    first seed into an empty cache really runs and its output says so; the
+    second is a copy and says so; both trees equal a seed run with the cache
+    off. The key cases use a scratch checkout as the root, never this one,
+    so no other check running beside this one sees a dirty tree: an edited
+    tracked file, an untracked file, a new commit, a different
+    precedent.json in the destination, a variable in the environment and a
+    file appearing in HOME each give a new key, and putting the edit back
+    gives the old one."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-seed-cache-'))
+    cases = []
+    try:
+        (tmp / 'home').mkdir()
+        env = {**os.environ, 'HOME': str(tmp / 'home'),
+               'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json'),
+               'PRECEDENT_SEED_CACHE_DIR': str(tmp / 'cache'),
+               'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+               'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'}
+        env.pop('PRECEDENT_NO_SEED_CACHE', None)
+
+        def dest(name, cfg='{"format_version": 1}\n'):
+            d = tmp / name
+            d.mkdir()
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(d)],
+                           capture_output=True, env=env)
+            (d / 'precedent.json').write_text(cfg, encoding='utf-8')
+            (d / 'AGENTS.md').write_text('# fixture\n', encoding='utf-8')
+            return d
+
+        def tree(d):
+            return {p.relative_to(d).as_posix():
+                    (p.read_bytes() if p.is_file() else None, p.stat().st_mode)
+                    for p in sorted(d.rglob('*'))
+                    if '.git' not in p.relative_to(d).parts}
+
+        real = dest('real')
+        _seed_fixture_engine(real, 'consumer', {**env, 'PRECEDENT_NO_SEED_CACHE': '1'},
+                             cwd=real)
+        cases.append(('CONTROL: with the cache off nothing is kept',
+                      not (tmp / 'cache').exists(), ''))
+        first, second = dest('first'), dest('second')
+        rc1, out1 = _seed_fixture_engine(first, 'consumer', env, cwd=first)
+        rc2, out2 = _seed_fixture_engine(second, 'consumer', env, cwd=second)
+        cases.append(('the first seed into an empty cache really runs',
+                      rc1 == 0 and 'SEEDED' in out1, out1[-300:]))
+        cases.append(('the second is a copy, and says so',
+                      rc2 == 0 and 'copied from the harness seed cache' in out2,
+                      out2[-300:]))
+        want = tree(real)
+        cases.append(('both trees are what a real seed writes, byte for byte and '
+                      'mode for mode', len(want) > 10 and tree(first) == want
+                      and tree(second) == want,
+                      f'{len(want)} paths; first {tree(first) == want}, '
+                      f'second {tree(second) == want}'))
+
+        # The key, against a scratch checkout standing in for this one.
+        root = tmp / 'root'
+        (root / 'tools').mkdir(parents=True)
+        engine = root / 'tools' / 'engine.py'
+        engine.write_text('print("engine")\n', encoding='utf-8')
+        git = lambda *a: subprocess.run(['git', '-C', str(root), *a],
+                                        capture_output=True, env=env)
+        git('init', '-q', '-b', 'main')
+        git('add', '-A')
+        git('commit', '-qm', 'base')
+        probe = dest('probe')
+        key = lambda e=env, d=probe: _seed_cache_key(d, 'consumer', e, root=root)
+        base = key()
+        cases.append(('the key is stable on unchanged inputs', base == key(), base))
+        engine.write_text('print("edited")\n', encoding='utf-8')
+        edited = key()
+        engine.write_text('print("engine")\n', encoding='utf-8')
+        cases.append(('an uncommitted edit to an engine file moves the key, and '
+                      'putting it back restores it', edited != base and key() == base, ''))
+        (root / 'tools' / 'new_engine.py').write_text('x = 1\n', encoding='utf-8')
+        cases.append(('an untracked file moves the key', key() != base, ''))
+        git('add', '-A')
+        git('commit', '-qm', 'a new engine file')
+        cases.append(('a new commit moves the key', key() != base, ''))
+        now = key()
+        other = dest('other', '{"format_version": 1, "upstream_branch": "staging"}\n')
+        cases.append(('a different precedent.json in the destination moves the key',
+                      key(d=other) != now, ''))
+        cases.append(('a different PRECEDENT_ variable moves the key',
+                      key({**env, 'PRECEDENT_ASSUME_LADDER': 'x'}) != now, ''))
+        cases.append(('...and a fresh path for the user config, still absent, does not',
+                      key({**env, 'PRECEDENT_USER_CONFIG': str(tmp / 'elsewhere.json')})
+                      == now, ''))
+        (tmp / 'home' / '.gitconfig').write_text('[user]\n\tname = x\n', encoding='utf-8')
+        cases.append(('a file appearing in HOME moves the key', key() != now, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 class _LocalEditsFixture:
     """Consumer-shaped fixtures for tools/precedent_local_edits.py, shared by
     the checks below (practice: fixture-owns-its-state): HOME, the user
@@ -12947,8 +13312,7 @@ class _LocalEditsFixture:
         (repo / 'precedent.json').write_text(json.dumps(cfg) + '\n', encoding='utf-8')
         (repo / 'AGENTS.md').write_text(
             f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
-        self.sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-                'seed', str(repo), '--kind', 'consumer', cwd=repo)
+        _seed_fixture_engine(repo, 'consumer', self.env, cwd=repo)
         self.sh('git', 'add', '-A', cwd=repo)
         self.sh('git', 'commit', '-qm', 'installed', cwd=repo)
         bare = self.tmp / f'{name}.git'
@@ -44219,8 +44583,7 @@ class _KeptDivergenceFixture:
             agents = self.pve._instantiate(self.template(self.AGENTS_SRC).decode(),
                                            self.pve._agents_md_subs(repo))
         (repo / 'AGENTS.md').write_text(agents, encoding='utf-8')
-        self.sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-                'seed', str(repo), '--kind', 'consumer', cwd=repo)
+        _seed_fixture_engine(repo, 'consumer', self.env, cwd=repo)
         (repo / 'tools' / 'bootstrap.sh').write_bytes(
             self.template(self.BOOT_SRC) if boot is None else boot)
         self.sh('git', 'add', '-A', cwd=repo)
@@ -68928,6 +69291,8 @@ def main():
           *check_refresh_repoints_a_retired_catalogue_pin())
     check('a repo\'s upstream_branch declaration is followed, and only main or staging',
           *check_upstream_branch_declaration_is_followed())
+    check('the fixture seed cache copies exactly what a seed writes, under a key '
+          'that moves with its inputs', *check_seed_cache_copies_what_a_seed_writes())
     check('Update Vendors runs as one command and stops only for the repo\'s own calls',
           *check_update_vendors_is_one_command())
     check('an update that deletes a vendored file upstream dropped ends DONE',
