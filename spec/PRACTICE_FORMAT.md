@@ -53,6 +53,7 @@ requires:    []               # OPTIONAL -- capabilities it needs in force; see 
 visible_to:  null             # OPTIONAL -- code-owners shows it to code owners only; see below
 supersedes:  []
 overrides:   null
+adds_to:     null             # OPTIONAL -- the slug of the rule this one adds to; see below
 added:       null                # see "What's deferred" below
 approved_by: "BestPractice (pre-fork)"
 strength:    null             # OPTIONAL -- decided | assented; see below
@@ -137,6 +138,40 @@ code-owner-practice-stays-out-of-the-index` refuses one that has none,
 unless [tools/session_load_budgets.json](../tools/session_load_budgets.json)'s
 `code_owners_in_index` lists it with a reason (2026-10-08, after a consuming
 repository's Debut failed on about 27 of them).
+
+### `adds_to` — an addition loads with the rule it adds to
+
+**Optional; absent means the practice stands on its own.** The slug of
+another practice, in any source in force, that this one adds to: a set's
+footnote to a rule it does not own, saying what that rule means where the
+set is in force. Everything the base says still holds; the addition only
+adds. **An addition loads with its base and costs no line of its own**
+(Morgan, 2026-10-09, strength: decided, "Option 1"):
+
+- `build_views.py` never gives it an occasion-index line, `index_required:
+  true` included, and never renders it resident. The one test is
+  `build_views.lands_in_occasion_index()`, which
+  `code-owner-practice-stays-out-of-the-index` shares, so an addition marked `visible_to: code-owners` needs no
+  route of its own either.
+- `python3 tools/precedent_show.py SLUG` prints, after SLUG's section, the
+  same section of every addition in force here from any source, each under
+  "Addition in force here (from SOURCE): SLUG". Both slugs are followed
+  through deduplications, so an addition attaches to the live rule. Showing
+  the addition itself says which rule it adds to.
+- A gate that prints the base prints its additions right after it, whether
+  or not an addition registers that gate itself, and a spoken command's
+  line in `.precedent/SESSION_PRACTICES.md` says how many additions it has
+  here, never a line each.
+
+Before this field, an addition reached a session only through an index line
+of its own, so every session paid for it whether or not the base came up,
+and the code-owner check refused the ones marked for code owners.
+`python3 tools/precedent_check.py --only adds-to-names-a-rule-in-force`
+refuses an `adds_to:` naming a slug no source in force carries, one naming
+itself and one marked `tier: resident`, since each leaves the addition
+reaching no session. An addition keeps its `occasion:` and
+`index_clause:` for the views that list every practice; `index_required:`
+does nothing on one and can be dropped.
 
 ### Field order — one order, written down in code and checked
 

@@ -30,6 +30,13 @@ front-load the whole thing, Story included, defeating the split.
 Multiple slugs concatenate, each under its own "### slug" heading, so a
 caller loading several practices for one occasion gets one block back.
 
+ADDITIONS LOAD WITH THEIR RULE (Morgan, 2026-10-09). After a practice, the
+same section of every practice in force here, from any source, whose
+`adds_to:` names it follows under "#### Addition in force here (from
+SOURCE): SLUG". Both slugs are followed through deduplications, so an
+addition attaches to the live rule. Showing an addition itself says which
+rule it adds to.
+
 Exit 1, with a clear message naming the missing slug, on any slug that
 doesn't resolve to a practices/*.md file -- this is a degrade-gracefully
 tool (personal pack fail-gracefully, generalized): a bad slug in an occasion
@@ -283,6 +290,103 @@ def _from_declared_sources(root, slugs):
     return found, note
 
 
+_RESOLUTION = {}
+
+
+def _resolution(root):
+    """-> resolve()'s result for `root`'s declared sources, or None when
+    they could not be read or resolved. Once per run: every slug shown asks
+    it for that slug's additions."""
+    key = str(root)
+    if key not in _RESOLUTION:
+        try:
+            import precedent_resolve as pr
+            _RESOLUTION[key] = pr.resolve(pr.load_config(str(root)))
+        except Exception:                                    # noqa: BLE001
+            _RESOLUTION[key] = None
+    return _RESOLUTION[key]
+
+
+def _live_slug(root, slug):
+    """-> the slug in force that `slug` ends on, following deduplications,
+    or `slug` itself when the sources did not resolve or it ends nowhere."""
+    res = _resolution(root)
+    if not res:
+        return slug
+    import precedent_resolve as pr
+    return pr.follow_in_force_at(slug, res.get('practices', {}),
+                                 res.get('retired') or []) or slug
+
+
+def _additions(root, slug):
+    """-> [(addition slug, where, fm, sections)] for every practice in force
+    here whose `adds_to:` lands on `slug`'s live rule: from every resolved
+    source, and from this repo's own practices/ for a materialized snapshot
+    whose sources did not resolve this session. Never fatal."""
+    live = _live_slug(root, slug)
+    found = {}
+    res = _resolution(root)
+    if res:
+        import precedent_resolve as pr
+        for practice in pr.additions_to(live, res.get('practices', {}),
+                                        res.get('retired') or []):
+            level = practice.get('level') or 'unknown level'
+            where = (level if level in ('universal', 'repo-local')
+                     else f"{level}/{practice.get('source', '')}")
+            found[practice['slug']] = (where, practice['fm'],
+                                       practice.get('sections') or {})
+    practices_dir = root / 'practices'
+    if practices_dir.is_dir():
+        for f in sorted(practices_dir.glob('*.md')):
+            if f.stem in found or f.stem == live:
+                continue
+            try:
+                fm, sections = sp._read_practice_file(f)
+            except sp.PracticeFileError:
+                continue
+            base = bv.adds_to(fm)
+            if base and base in (slug, live) and bv.is_in_force(fm):
+                found[fm.get('slug', f.stem)] = ('this repo', fm, sections)
+    out = []
+    for other, (where, fm, sections) in sorted(found.items()):
+        try:
+            import precedent_audience as pa
+            if not pa.visible(fm, root):
+                continue                 # code owners only, as everywhere
+        except ImportError:
+            pass
+        out.append((other, where, fm, sections))
+    return out
+
+
+def _with_additions(block, root, slug, section):
+    """`block` with `slug`'s additions in force here appended, each under
+    its own heading, showing the same `section`."""
+    for other, where, fm, sections in _additions(root, slug):
+        body = (sections.get(section) or '').strip()
+        block += (f"\n\n#### Addition in force here (from {where}): "
+                  f"{other}{_standing_note(fm)}\n"
+                  f"{body if body else '(no ' + section + ' recorded yet)'}")
+    return block
+
+
+def _adds_to_line(root, fm):
+    """-> the line an addition's own block carries, naming its base, or ''
+    for a practice that adds to none."""
+    base = bv.adds_to(fm)
+    if not base:
+        return ''
+    res = _resolution(root)
+    live = _live_slug(root, base)
+    in_force = (not res) or live in res.get('practices', {})
+    if not in_force:
+        return (f"Adds to `{base}`, which is not in force here, so no rule "
+                f"carries this one with it.")
+    shown = base if live == base else f"{base}` (now `{live}`)"
+    return (f"Adds to `{shown}`: `precedent_show.py {live}` shows the two "
+            f"together.")
+
+
 def _hidden_for_viewer(fm, root, slug):
     """-> the line printed in place of a practice marked for code owners only
     when this session's person is not shown to be one, else None
@@ -333,6 +437,10 @@ def main():
             if fm.get('tier') != 'on-demand':
                 continue
             occasion = bv._json_str(fm.get('occasion', ''))
+            if occasion and bv.adds_to(fm):
+                rows.append((fm['slug'], occasion,
+                             f"the rule it adds to, {bv.adds_to(fm)}"))
+                continue
             if occasion and bv.index_is_redundant(fm):
                 globs = bv._json_list(fm.get('applies_to', '')) or []
                 gates = bv._json_list(fm.get('gates', '')) or []
@@ -407,7 +515,10 @@ def main():
             note = _source_unreachable_note(manifest, slug)
             if note:
                 block += f"\n{note}"
-        out.append(block)
+        line = _adds_to_line(root, _fm)
+        if line:
+            block = block.replace(head + '\n', f"{head}\n{line}\n\n", 1)
+        out.append(_with_additions(block, root, slug, section))
 
     if missing:
         found, why = _from_declared_sources(root, missing)
@@ -434,7 +545,10 @@ def main():
             banner = _not_in_force_banner(_fm, live)
             if banner:
                 block = f"{head}\n{banner}\n\n{body}"
-            out.append(block)
+            line = _adds_to_line(root, _fm)
+            if line:
+                block = block.replace(head + '\n', f"{head}\n{line}\n\n", 1)
+            out.append(_with_additions(block, root, live, section))
             missing.remove(slug)
     if missing:
         sys.exit(f"precedent show FAIL: unknown slug(s), no practices/*.md file "

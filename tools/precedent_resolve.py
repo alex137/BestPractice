@@ -1819,6 +1819,29 @@ def forwarding_map(res):
     return out
 
 
+def additions_to(slug, resolved, retired=()):
+    """-> [practice] in force in `resolved` whose `adds_to:` lands on the
+    same live rule `slug` does, sorted by slug, never including `slug`'s own
+    practice.
+
+    Both ends are followed through deduplications (follow_in_force_at), so
+    an addition attaches to the rule in force: one written against a slug
+    since merged into another still shows with the live one, and asking for
+    the old name shows the live rule's additions (Morgan, 2026-10-09: an
+    addition loads with the rule it adds to). [] when `slug` ends nowhere."""
+    live = follow_in_force_at(slug, resolved, list(retired or ()))
+    if live is None:
+        return []
+    out = []
+    for other, practice in sorted(resolved.items()):
+        base = bv.adds_to(practice.get('fm') or {})
+        if not base or other == live:
+            continue
+        if follow_in_force_at(base, resolved, list(retired or ())) == live:
+            out.append(practice)
+    return out
+
+
 def _is_blocking(practice):
     """`severity: blocking` is meaningful for any level except the very top
     of PRECEDENCE -- there is nothing ranked above the top level, so nothing
