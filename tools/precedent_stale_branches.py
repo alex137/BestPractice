@@ -53,17 +53,43 @@ def _slug(repo):
     return (m.group(1), m.group(2)) if m else None
 
 
-def _repos():
+def _same_place(repo):
+    """-> a key equal for every path that reaches the same directory: its
+    device and inode, which a case-insensitive filesystem and a symbolic
+    link both share, else the resolved path."""
     try:
-        import precedent_container_safe as cs
-        found = cs.checkouts()
-    except Exception:                                        # noqa: BLE001
-        found = [_ENGINE_DIR.parent]
-    out, seen = [], set()
+        st = pathlib.Path(repo).stat()
+        return ('inode', st.st_dev, st.st_ino)
+    except OSError:
+        return ('path', str(pathlib.Path(repo).resolve()))
+
+
+def _repos(found=None):
+    """-> [(path, (owner, name))], one per repository. ONE REPOSITORY IS
+    LISTED ONCE (2026-10-08): GitHub names are case-insensitive, so the key
+    is the casefolded (owner, name) and the first spelling seen is the one
+    shown; and a path whose real path was already seen -- one clone reached
+    as both .../bestpractice and .../BestPractice, or through a link -- is
+    skipped before its origin is even read. A consuming repository's session
+    saw the same repository listed twice, once per spelling."""
+    if found is None:
+        try:
+            import precedent_container_safe as cs
+            found = cs.checkouts()
+        except Exception:                                    # noqa: BLE001
+            found = [_ENGINE_DIR.parent]
+    out, seen, real_seen = [], set(), set()
     for repo in found:
+        real = _same_place(repo)
+        if real in real_seen:
+            continue
+        real_seen.add(real)
         slug = _slug(repo)
-        if slug and slug not in seen:
-            seen.add(slug)
+        if not slug:
+            continue
+        key = tuple(part.casefold() for part in slug)
+        if key not in seen:
+            seen.add(key)
             out.append((pathlib.Path(repo), slug))
     return out
 

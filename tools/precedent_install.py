@@ -767,6 +767,14 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     say(f'  code owners: ' + (f'named {", ".join("@" + o for o in _owners)} in '
                               f'precedent.json\'s maintainers ({_how})'
                               if _owners else f'none written: {_how}'))
+    # The owner's own zone for what runs where no identity reaches, offered
+    # and never written (2026-10-08; precedent_vendor_engine.timezone_offer).
+    try:
+        _offer = _pve.timezone_offer(dest)
+    except Exception:                                         # noqa: BLE001
+        _offer = None
+    if _offer:
+        say(f'  time zone, an offer: {_offer}')
     written, skipped = _instantiate_root_files(dest, project, owner_repo, admin, branch, ci_enabled, force)
     say(f'  instantiated: {", ".join(written)}' + (f' (kept existing: {", ".join(skipped)})' if skipped else ''))
     lp_written, lp_skipped = _instantiate_local_practices(dest, force)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Once a day, from the first session after 07:00 in the person's own timezone, says what OTHER people landed in this repository since that person was last told -- every commit on its shared branches that is not theirs -- and hands the session a block to open its first reply with; the per-person mark lives in tools/others_did_watermark.json on the landing branch and is written there without touching the checkout
+"""Once a day, from the first session after 07:00 in the person's own timezone, says what OTHER people landed in this repository since that person was last told -- every commit on its shared branches that is not theirs -- and hands the session a block to open its first reply with; the per-person mark lives on origin's refs/precedent/others-did, outside every branch, and is written there without touching the checkout
 
 Say what other people did here since you were last told, once a day.
 
@@ -19,8 +19,20 @@ saw it, and (2) it could write its mark only into a checkout sitting idle
 on staging, which a session on a feature branch never is, so the mark went
 to a per-container note and every new container would have said it again.
 This file fixes both: the notice reaches the session through the reply
-gate on the first prompt, and the mark is committed to the landing branch
-with git plumbing, never through the working tree, the index or HEAD.
+gate on the first prompt, and the mark is committed with git plumbing,
+never through the working tree, the index or HEAD.
+
+WHERE THE MARK LIVES: refs/precedent/others-did on origin (2026-10-08),
+a ref outside refs/heads, holding one file, others_did_watermark.json,
+with its own history. It is fetched and pushed by name, so it is not a
+branch: it never appears in a branch list, never rides a Promote, and
+never lands on a tier. Until then the mark was a commit on the landing
+branch itself, and a status check run in a session's first reply pushed
+"Others-did mark ... [skip ci]" straight onto a consuming repository's
+pre-staging, from where the next Produce carried it up to main. A
+repository that still has only the old file, tools/others_did_watermark.json
+on its landing branch, is READ from there once, to carry its marks over;
+nothing is written there again.
 
 WHO IT IS FOR. The whole five-stage ladder set turns it on
 (`precedent_ladder.ladder_in_force`): a person off the ladder hears
@@ -68,6 +80,12 @@ import precedent_time             # noqa: E402
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
+# The ref the shared mark lives on, on origin and in every clone that has
+# fetched it, and the one file its tree holds.
+MARK_REF = 'refs/precedent/others-did'
+MARK_FILE = 'others_did_watermark.json'
+# Where the mark lived before 2026-10-08, on the landing branch: read once,
+# for migration, never written.
 WATERMARK_PATH = 'tools/others_did_watermark.json'
 LOCAL_NOTE = '.precedent/others-did-local.json'
 PENDING = '.precedent/others-did-pending.md'
@@ -157,10 +175,28 @@ def _heads(repo, branches):
 
 # ---------------------------------------------------------------- the mark
 
+def _fetch_mark(repo):
+    """Bring origin's mark ref into this clone, at the same name. -> True
+    fetched, False origin has none yet (the local ref is dropped, so a stale
+    one is never built on), None origin could not be reached."""
+    code, _ = git(repo, 'fetch', '-q', '--no-tags', 'origin',
+                  f'+{MARK_REF}:{MARK_REF}')
+    if code == 0:
+        return True
+    code, _ = git(repo, 'ls-remote', '--exit-code', 'origin', MARK_REF)
+    if code == 2:
+        git(repo, 'update-ref', '-d', MARK_REF)
+        return False
+    return None
+
+
 def _read_shared(repo, land):
-    """The registry as the landing branch holds it -- the shared truth, which
-    the working tree may be behind -- else the working tree's copy."""
-    code, text = git(repo, 'show', f'origin/{land}:{WATERMARK_PATH}')
+    """The registry as origin's mark ref holds it (last fetched). Where no
+    mark ref exists yet, the registry the landing branch held before the
+    mark moved (read only; MIGRATION), else the working tree's copy of it."""
+    code, text = git(repo, 'show', f'{MARK_REF}:{MARK_FILE}')
+    if code != 0:
+        code, text = git(repo, 'show', f'origin/{land}:{WATERMARK_PATH}')
     if code != 0:
         try:
             text = (pathlib.Path(repo) / WATERMARK_PATH).read_text(encoding='utf-8')
@@ -222,57 +258,48 @@ def _session_trailer():
 
 
 def publish(repo, land, registry, identity, message):
-    """Commit the registry onto origin/<land> and push it, WITHOUT the working
-    tree, the index or HEAD: a blob, a tree built in a private index, a
-    commit on top of the branch's tip. The session's own work cannot be
-    swept into it, and nothing is left behind locally if the push fails.
+    """Commit the registry onto origin's MARK_REF and push it there, by name,
+    WITHOUT the working tree, the index or HEAD: a blob, a one-file tree, a
+    commit on the mark's own last commit. Never onto a branch -- `land` is
+    not written, whatever it is -- so the mark cannot ride a Promote or sit
+    on a tier. The session's own work cannot be swept into it, and nothing is
+    left behind locally if the push fails.
 
     -> (ok, phrase). One retry on a rejected push, after a fresh fetch: a
-    second session landing at the same moment is the expected race."""
+    second session recording at the same moment is the expected race."""
+    del land  # where the mark used to go; kept in the signature for callers
     body = json.dumps(registry, indent=2, ensure_ascii=False) + '\n'
-    gitdir = git(repo, 'rev-parse', '--absolute-git-dir')[1]
-    index = os.path.join(gitdir, 'others-did-index')
-    env = {'GIT_INDEX_FILE': index}
+    env = {}
     if identity.get('name'):
         env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = identity['name']
     if identity.get('email'):
         env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = identity['email']
     last = ''
-    try:
-        for _attempt in range(2):
-            git(repo, 'fetch', '-q', 'origin',
-                f'+refs/heads/{land}:refs/remotes/origin/{land}')
-            code, base = git(repo, 'rev-parse', '--verify', '--quiet', f'origin/{land}')
-            if code != 0 or not base:
-                return False, f'origin/{land} does not exist'
-            code, blob = git(repo, 'hash-object', '-w', '--stdin', input=body)
-            if code != 0:
-                return False, 'could not write the mark into git'
-            if git(repo, 'read-tree', base, env=env)[0] != 0:
-                return False, 'could not read the branch tree'
-            git(repo, 'update-index', '--add', '--cacheinfo',
-                f'100644,{blob},{WATERMARK_PATH}', env=env)
-            code, tree = git(repo, 'write-tree', env=env)
-            if code != 0:
-                return False, 'could not build the tree'
-            code, base_tree = git(repo, 'rev-parse', f'{base}^{{tree}}')
-            if tree == base_tree:
-                return True, 'already recorded'
-            code, commit = git(repo, 'commit-tree', tree, '-p', base,
-                               '-m', message, '-m', _session_trailer(), env=env)
-            if code != 0:
-                return False, 'could not build the commit'
-            code, out = git(repo, 'push', '-q', 'origin', f'{commit}:refs/heads/{land}')
-            if code == 0:
-                git(repo, 'update-ref', f'refs/remotes/origin/{land}', commit)
-                return True, f'recorded on origin/{land}'
-            last = out
-    finally:
-        try:
-            os.remove(index)
-        except OSError:
-            pass
-    return False, f'the push to origin/{land} was refused{": " + last if last else ""}'
+    for _attempt in range(2):
+        if _fetch_mark(repo) is None:
+            return False, 'could not reach origin'
+        code, parent = git(repo, 'rev-parse', '--verify', '--quiet',
+                           f'{MARK_REF}^{{commit}}')
+        parent = parent if code == 0 else ''
+        code, blob = git(repo, 'hash-object', '-w', '--stdin', input=body)
+        if code != 0:
+            return False, 'could not write the mark into git'
+        code, tree = git(repo, 'mktree', input=f'100644 blob {blob}\t{MARK_FILE}\n')
+        if code != 0 or not tree:
+            return False, 'could not build the tree'
+        if parent and git(repo, 'rev-parse', f'{parent}^{{tree}}')[1] == tree:
+            return True, 'already recorded'
+        code, commit = git(repo, 'commit-tree', tree,
+                           *(['-p', parent] if parent else []),
+                           '-m', message, '-m', _session_trailer(), env=env)
+        if code != 0:
+            return False, 'could not build the commit'
+        code, out = git(repo, 'push', '-q', 'origin', f'{commit}:{MARK_REF}')
+        if code == 0:
+            git(repo, 'update-ref', MARK_REF, commit)
+            return True, f'recorded on origin\'s {MARK_REF}'
+        last = out
+    return False, f'the push to origin\'s {MARK_REF} was refused{": " + last if last else ""}'
 
 
 # ---------------------------------------------------------------- attribution
@@ -363,6 +390,13 @@ def _new_commits(repo, heads, tips, told_at):
     commits = []
     for rec in out.split('\x1e'):
         parts = rec.strip('\n').split('\x1f')
+        # git() strips its output, and Python counts \x1e and \x1f as
+        # whitespace: the LAST commit, when its body is empty, arrives
+        # without its trailing separator, and was dropped (2026-10-08, a
+        # one-commit report of a colleague's commit with no body said
+        # "nobody else changed anything").
+        if len(parts) == 4:
+            parts.append('')
         if len(parts) == 5 and parts[0]:
             commits.append(tuple(parts))
     return commits
@@ -420,7 +454,7 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None, now=None,
     branches = watched_branches(repo)
     if not no_fetch:
         fetched = _fetch(repo, branches)
-        if fetched is None:
+        if fetched is None or _fetch_mark(repo) is None:
             return 'unknown', ['could not reach origin -- what others did is '
                                'unknown this session']
     heads = _heads(repo, branches)
@@ -441,13 +475,14 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None, now=None,
             'What each person was last told about other people\'s commits,',
             'keyed by a slug of their declared name (never their email: this',
             'file is public). told_at is when; tips are the branch tips that',
-            'report covered. Written by tools/precedent_others_did.py onto the',
-            'landing branch directly, never through anyone\'s working tree.',
+            'report covered. Written by tools/precedent_others_did.py onto',
+            f'origin\'s {MARK_REF}, outside every branch, never through',
+            'anyone\'s working tree.',
         ]
         if not no_push:
             ok, phrase = publish(repo, land, registry, me,
                                  f'Others-did mark: {me.get("name") or key} told '
-                                 f'through {now.strftime("%Y-%m-%d %H:%M")} [skip ci]')
+                                 f'through {now.strftime("%Y-%m-%d %H:%M")}')
             if ok:
                 return phrase
         else:

@@ -425,6 +425,51 @@ _resolve_staging_base() {
   printf '%s' "${head_ref#origin/}"
 }
 
+# A TIER BRANCH IS NEVER BROUGHT UP TO DATE BY A MERGE (2026-10-08). The
+# stale-base remedy, "git merge origin/<base>", is right for a working
+# branch and wrong on main, staging or pre-staging: a consuming
+# repository's session on main was told to merge origin/pre-staging into
+# it, which makes the local main diverge from origin/main. On a tier the
+# remedy is a new working branch from origin/<base>, named by
+# precedent_branch_name.py and made with --no-track: `git checkout -b X
+# origin/pre-staging` sets X to track pre-staging, so a bare `git push`
+# from X would land on the tier.
+_is_tier_branch() {
+  case "$1" in
+    main|staging|pre-staging|precedent-beta-v01) return 0 ;;
+  esac
+  local tool="$ROOT/tools/precedent_branches.py"
+  # A repository's own staging name (precedent.json): the tool's --tier
+  # says `full` for every tier above pre-staging, whatever it is called.
+  if [ -f "$tool" ] && command -v python3 >/dev/null 2>&1; then
+    [ "$(cd "$ROOT" && python3 "$tool" --tier "$1" 2>/dev/null | head -n1)" = "full" ] && return 0
+  fi
+  return 1
+}
+
+# The command that makes a session's working branch: always through the
+# naming tool where this checkout has it, so a hand-made name is not first
+# refused at push time.
+_new_branch_cmd() {
+  local base="$1"
+  if [ -f "$ROOT/tools/precedent_branch_name.py" ]; then
+    printf 'git switch --no-track -c "$(python3 tools/precedent_branch_name.py <a few words for the work>)" origin/%s' "$base"
+  else
+    printf 'git switch --no-track -c <date>-<what-the-work-is>-<session-id> origin/%s' "$base"
+  fi
+}
+
+# -> the remedy for '$1' missing commits from origin/'$2'.
+_stale_base_remedy() {
+  local branch="$1" base="$2"
+  if _is_tier_branch "$branch"; then
+    printf "'%s' is a tier branch, so do NOT merge origin/%s into it -- that makes the local %s diverge from origin/%s. Start a working branch from origin/%s instead, untracked so a bare push cannot reach a tier: %s" \
+      "$branch" "$base" "$branch" "$branch" "$base" "$(_new_branch_cmd "$base")"
+  else
+    printf 'Bring it up to date deliberately: git merge origin/%s' "$base"
+  fi
+}
+
 _is_shallow() {
   [ "$(_git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]
 }
@@ -680,7 +725,7 @@ _session_start_one() {
           local n caveat=""
           n="$(_behind_base_count "$base")"
           _is_shallow && caveat=" (shallow clone -- the count may be approximate, but the answer is not: fetch deeper if you need the exact number)"
-          echo "WARN: freshness-guard: '$branch' is missing $n commit(s) from origin/$base$caveat. This is the stale-base case: the branch can be perfectly in sync with its own remote and still be built on an old base. Bring it up to date deliberately: git merge origin/$base" >&2
+          echo "WARN: freshness-guard: '$branch' is missing $n commit(s) from origin/$base$caveat. This is the stale-base case: the branch can be perfectly in sync with its own remote and still be built on an old base. $(_stale_base_remedy "$branch" "$base")" >&2
         fi
       fi
     fi
@@ -961,7 +1006,7 @@ _pre_write_one() {
     if _have_ref "origin/$base" && ! _contains_base "$base"; then
       local n
       n="$(_behind_base_count "$base")"
-      _pw_block "'$branch' is missing $n commit(s) from origin/$base -- it is in sync with its own remote and still built on a stale base, which is the case that keeps producing work against code that moved. Bring it up to date: git merge origin/$base"
+      _pw_block "'$branch' is missing $n commit(s) from origin/$base -- it is in sync with its own remote and still built on a stale base, which is the case that keeps producing work against code that moved. $(_stale_base_remedy "$branch" "$base")"
     fi
   fi
 
