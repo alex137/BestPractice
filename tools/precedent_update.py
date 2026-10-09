@@ -1073,7 +1073,7 @@ def _retire_scope(repo):
         uni = None
     if uni:
         vendored.append(uni.rstrip('/') + '/')
-    engine = _engine_owned(repo)
+    engine = _engine_owned(repo) | set(_materialized_practices(repo))
     try:
         import precedent_resolve as pr
         records = list(pr.declared_record_paths(repo))
@@ -1093,6 +1093,25 @@ def _retire_scope(repo):
             continue
         files.append(rel)
     return files, history
+
+
+def _materialized_practices(repo):
+    """-> {repo-relative path: source name} for each practices/<slug>.md
+    MANIFEST.json says the sync wrote. Each is a copy of a practice that
+    lives elsewhere (a source repository, or this repository's own local/
+    tree), so the next sync puts back whatever is written into it: the
+    retire step words the original, never the copy. On 2026-10-09 it
+    "reworded" a copy of the person's promote-only rule that the same run's
+    view regeneration then put back."""
+    try:
+        mf = json.loads((pathlib.Path(repo) / 'MANIFEST.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for p in mf.get('practices') or []:
+        if isinstance(p, dict) and p.get('slug'):
+            out[f"practices/{p['slug']}.md"] = str(p.get('source') or '')
+    return out
 
 
 def _closed_item(path):
@@ -1244,6 +1263,7 @@ def retire_pre_staging_step(repo, rep):
     # never while the repository makes it others' landing branch
     # (precedent_branches.pre_staging_unused): one line says it waited.
     unused, waits = pb.pre_staging_unused(repo)
+    switched = False
     if waits and pb._remote_tip(repo, pb.PRE_STAGING):
         if not committed_engine_lands_on_staging(repo):
             # The first pass brings the engine and nothing else; the switch
@@ -1257,6 +1277,7 @@ def retire_pre_staging_step(repo, rep):
         elif (sole_maintainer_is_you(repo)
                 and 'precedent.json' not in set(rep.before or ())
                 and switch_repo_landing_to_staging(repo)):
+            switched = True
             rep.step('precedent.json', f'{pb.LANDING_SETTING} {pb.PRE_STAGING} '
                      f'-> {pb.STAGING}, since you are this repository\'s only '
                      f'maintainer')
@@ -1352,6 +1373,25 @@ def retire_pre_staging_step(repo, rep):
         block.append(f'left as history: {sum(in_history)} mention(s) in '
                      f'{len(in_history)} record file(s) (gotchas/, record/, closed '
                      f'todo items, declared record paths)')
+    elsewhere = []
+    for rel, source in sorted(_materialized_practices(repo).items()):
+        if source in ('', 'local'):
+            continue                    # its original is under local/, read above
+        try:
+            body = (repo / rel).read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        if reword_pre_staging(body, slug)[1]:
+            elsewhere.append(f'{rel} (from {source})')
+    if elsewhere:
+        block.append('copies of practices from other sources still name '
+                     'pre-staging as an instruction; reword each in its own '
+                     'source, never here: ' + ', '.join(elsewhere))
+    if switched and 'pre-staging' in json.dumps(
+            pb.precedent_json(repo).get('_landing_branch_comment') or ''):
+        block.append('precedent.json: landing_branch is now staging, and its '
+                     '_landing_branch_comment still describes pre-staging; '
+                     'reword it in this same commit')
     link = (f'https://github.com/{slug}/branches/all?query='
             + urllib.parse.quote(pb.PRE_STAGING, safe='')) if slug else None
     block.append(f'{pb.PRE_STAGING} holds nothing {staging} lacks and is no '
@@ -3623,10 +3663,17 @@ def source_commit(follow, tip, take=None):
             return out
         if state == 'unknown':
             if not skipped:
+                again = ("Run it again once GitHub answers")
+                if 'add_repo' in (detail or '') or 'not enabled for this session' in (detail or ''):
+                    # The session has no GitHub access to the source: no
+                    # wait fixes that, attaching it does (practice:
+                    # reach-or-ask).
+                    again = (f"This session has no GitHub access to "
+                             f"{pb._slug(SOURCE) or 'BestPractice'}: attach it "
+                             f"(add_repo, read access), then run it again")
                 out['warning'] = (f"could not ask GitHub whether {follow}'s test "
                                   f"passed ({detail}), so this took the newest "
-                                  f"{follow}, {tip[:12]}, without knowing. Run it "
-                                  f"again once GitHub answers")
+                                  f"{follow}, {tip[:12]}, without knowing. {again}")
                 return out
             out['failed'] = (f"GitHub stopped answering ({detail}) while this "
                              f"looked for the newest {follow} whose test passed, "
