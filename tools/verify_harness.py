@@ -40293,6 +40293,12 @@ def check_commit_identity_copies_are_identical():
             cands.append(pathlib.Path(path))
         for base in cands:
             cand = base / 'bootstrap' / 'commit-identity.sh'
+            # Since 2026-10-07 a set carries the hook STUB, which runs the
+            # engine's script and holds no logic of its own, so it never
+            # matches the script byte for byte. Only a full copy can lag.
+            if cand.exists() and b'# PRECEDENT HOOK STUB.' in cand.read_bytes():
+                third = 'stub'
+                break
             if cand.exists():
                 third = cand
                 digests[cand] = _h.sha256(cand.read_bytes()).hexdigest()
@@ -40331,9 +40337,14 @@ def check_commit_identity_copies_are_identical():
             continue
         seen_dirs.add(real)
         cand = sib / '.claude' / 'hooks' / 'commit-identity.sh'
+        if cand.exists() and b'# PRECEDENT HOOK STUB.' in cand.read_bytes():
+            continue
         if cand.exists():
             digests[cand] = _h.sha256(cand.read_bytes()).hexdigest()
-    if third is None:
+    if third == 'stub':
+        note = (' (the individual source carries the hook stub, which holds no '
+                'logic of its own, so it was not compared)')
+    elif third is None:
         note = (' (the individual source\'s copy was not reachable from here '
                 'and was NOT compared)')
     uniq = set(digests.values())
