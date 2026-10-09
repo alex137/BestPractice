@@ -52029,6 +52029,58 @@ def check_runbook_names_the_postcondition_after_a_merge():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_update_done_names_the_branch_to_commit_on():
+    """An Update Vendors run on a tier branch ends by printing the command
+    that moves the staged update onto a branch precedent_branch_name.py
+    names; on a session branch it prints nothing of the kind; and DONE no
+    longer speaks a shared set's vocabulary.
+
+    WHY. 2026-10-09, a consumer: DONE said "commit, then run Go update's
+    chain" without naming a branch, the session made one by hand, and the
+    push check refused it as not made by tools/precedent_branch_name.py."""
+    import tempfile, inspect
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as _pu
+    import precedent_branch_name as _pbn
+    cases = []
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td) / 'repo'
+            g = ['git', '-C', str(repo), '-c', 'user.name=t', '-c',
+                 'user.email=t@example.com']
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], check=True)
+            (repo / 'precedent.json').write_text('{"format_version": 1}\n',
+                                                 encoding='utf-8')
+            subprocess.run(g + ['add', '-A'], check=True)
+            subprocess.run(g + ['commit', '-qm', 'x'], check=True)
+            line = _pu.feature_branch_line(repo) or ''
+            cases.append(('on main, DONE prints the switch command',
+                          _pu.SWITCH_COMMAND in line, line))
+            subprocess.run(g + ['switch', '-q', '-c', 'pre-staging'], check=True)
+            cases.append(('...and on pre-staging',
+                          _pu.SWITCH_COMMAND in (_pu.feature_branch_line(repo) or ''),
+                          ''))
+            subprocess.run(g + ['switch', '-q', '-c',
+                                '2026-10-09-some-work-abcde'], check=True)
+            cases.append(('on a session branch it prints nothing',
+                          _pu.feature_branch_line(repo) is None, ''))
+        name = subprocess.run([sys.executable, str(ROOT / 'tools' /
+                                                   'precedent_branch_name.py'),
+                               '--no-check', 'update-vendors'],
+                              capture_output=True, text=True).stdout.strip()
+        cases.append(('the name the command makes is one the push check accepts',
+                      bool(name) and _pbn.name_refusal(name) is None, name))
+        done = inspect.getsource(_pu.Report.close)
+        cases.append(('DONE calls it, and says nothing of "Go update"',
+                      'feature_branch_line(' in done and 'Go update' not in done, ''))
+    finally:
+        sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'Update Vendors names the branch to commit on from a tier branch '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
 def check_gates_promise_no_override():
     """No gate that refuses a commit, push or merge tells the session it may
     go ahead by saying so: none of them has a way through.
@@ -69011,6 +69063,7 @@ def main():
     check_deleted_set_is_not_an_unresolved_source()
     check_source_bootstrap_keeps_what_git_said()
     check_runbook_names_the_postcondition_after_a_merge()
+    check_update_done_names_the_branch_to_commit_on()
     check_gates_promise_no_override()
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()

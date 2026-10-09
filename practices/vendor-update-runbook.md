@@ -71,7 +71,13 @@ same way (2026-10-08).
 It does steps 1, 3, 4, 5, 6 and 10 in order, with no question in between,
 and ends with one of three outcomes. It stages what it wrote and deleted
 first, so the deep check judges what the commit will hold. **DONE** (exit
-0): nothing is left, so commit and go on to steps 11 and 12. **LEFT FOR YOU** (exit 1): the calls
+0): nothing is left, so commit and go on to steps 11 and 12. **When the
+checkout is on `main` or on the branch your work lands on**, DONE prints the command that moves the staged update onto
+a session branch first, `git switch --no-track -c "$(python3
+tools/precedent_branch_name.py update-vendors)"`: the push check refuses a
+branch that tool did not name, and `git switch -c` carries the staged diff
+as it is. The update prints it rather than switching itself, because it
+reads the current branch at several steps (2026-10-09). **LEFT FOR YOU** (exit 1): the calls
 that belong to this repo, each named with its file and its question -- work
 them under the conflicted-file review below, then run it again. The rerun
 takes the same source commit the first run read, and so does every run after
