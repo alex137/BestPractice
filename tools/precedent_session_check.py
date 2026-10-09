@@ -878,18 +878,37 @@ def _retired_sources_rows():
         return []
     if not found:
         return []
+    # A DELETED SET IS SAID SEPARATELY (2026-10-09). Update Vendors drops it
+    # whatever it held (pve.DELETED_WHY), and session start never clones it,
+    # so "keeps it declared until those rules move" and "a check reading its
+    # clone" were both untrue of it -- and a consumer's session, told only
+    # that sources were missing, cloned a deleted set by hand.
+    deleted_why = getattr(pve, 'DELETED_WHY', '\0')
+    gone = [(n, w) for n, _p, w, _l in found if deleted_why in w]
     said = []
     for name, _path, why, lost in found:
+        if deleted_why in why:
+            continue
         said.append(f'{name}: {why}' + (
             f'; it still holds {", ".join(lost)}, in force nowhere else, so '
             f'the update keeps it declared until those rules move or you let '
             f'them go' if lost else ''))
+    detail = []
+    if gone:
+        detail.append('; '.join(f'{n}: {w}' for n, w in gone)
+                      + '. Update Vendors removes it from '
+                      'precedent.json, whatever it held. Session start does not '
+                      'clone it and nothing should: a deleted set is never '
+                      'cloned by hand')
+    if said:
+        detail.append('; '.join(said) + '. While it stays declared, the checks '
+                      'that read it disagree: the view sync reads it where it '
+                      'was last synced, a check reading its clone reads it as '
+                      'it stands. Update Vendors drops it from precedent.json '
+                      'when every rule it holds is in force in another declared '
+                      'set')
     return [('every practice set this repository declares is still active', False,
-             '; '.join(said) + '. While it stays declared, the checks that read '
-             'it disagree: the view sync reads it where it was last synced, a '
-             'check reading its clone reads it as it stands. Update Vendors '
-             'drops it from precedent.json when every rule it holds is in force '
-             'in another declared set: python3 ../BestPractice/tools/'
+             '. '.join(detail) + ': python3 ../BestPractice/tools/'
              'precedent_update.py --repo .')]
 
 

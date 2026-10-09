@@ -184,6 +184,15 @@ import tempfile as _tempfile_for_env  # noqa: E402
 os.environ['PRECEDENT_GITHUB_USER_URL'] = (
     pathlib.Path(_tempfile_for_env.gettempdir()) / 'harness-github-knows-nobody.json').as_uri()
 
+# AND WHAT A FAILED CLONE LEAVES BEHIND (2026-10-09). The source bootstrap
+# keeps git's output for a clone that failed beside the user config, so the
+# credentials check can quote it later. Fixtures fail clones on purpose, and
+# without this every one of them would write a note into the real
+# ~/.config/precedent that a real session would then quote.
+os.environ['PRECEDENT_CLONE_NOTES'] = str(
+    pathlib.Path(_tempfile_for_env.mkdtemp(prefix='harness-clone-notes-'))
+    / 'clone-failures.json')
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'
@@ -51796,6 +51805,201 @@ def check_session_check_names_a_declared_retired_set():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_deleted_set_is_not_an_unresolved_source():
+    """A declared shared set whose repository is deleted is never counted as
+    an unresolved or unverified source, and every tool that would have
+    counted it says, in one line, that it is deleted and that Update Vendors
+    removes it.
+
+    WHY. 2026-10-09, a consumer after Update Vendors: session start skipped
+    two deleted sets on purpose (precedent_source_bootstrap), and then the
+    credentials check reported them as "did not resolve ... a credential IS
+    set ... look at what git said", the freshness notice counted them in
+    "NOT VERIFIED -- 2 source(s)", and the session blamed git and the proxy
+    and cloned one by hand. Also: what git said for a real clone failure is
+    kept and quoted, and the session check's row on a deleted set never
+    tells it the set still holds rules or reads from a clone."""
+    import tempfile, io
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr
+    import precedent_source_credentials as _psc
+    import precedent_engine_freshness as _pef
+    import precedent_session_check as _psck
+    cases = []
+    try:
+        eng = json.loads(_pr.ENGINE_DELETED_SETS.read_text(encoding='utf-8'))
+        gone = (eng.get('sets') or [{}])[0].get('name')
+    except (OSError, ValueError):
+        gone = None
+    if not gone:
+        not_applicable('a deleted set is not an unresolved source',
+                       'tools/deleted_sets.json lists no set to plant')
+        sys.path.pop(0)
+        return
+    saved_env = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',)}
+    saved_root = _psck.ROOT
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            repo, home = td / 'repo', td / 'home'
+            repo.mkdir()
+            ucfg = home / '.config' / 'precedent' / 'config.json'
+            ucfg.parent.mkdir(parents=True)
+            ucfg.write_text('{"format_version": 1}\n', encoding='utf-8')
+            os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+            notes = td / 'notes.json'
+
+            def declare(*names):
+                (repo / 'precedent.json').write_text(json.dumps({
+                    'format_version': 1, 'sources': [
+                        {'level': 'universal', 'name': 'precedent', 'path': '.'}]
+                    + [{'level': 'shared', 'name': n, 'path': f'../{n}'}
+                       for n in names]}), encoding='utf-8')
+
+            env = {'HOME': str(home), 'PRECEDENT_USER_CONFIG': str(ucfg),
+                   'CLAUDE_CODE_REMOTE': 'true',
+                   'PRECEDENT_CLONE_NOTES': str(notes)}
+            declare(gone)
+            why = _psc.unresolved_private_sources(repo, env=env)
+            cases.append(('a declared deleted set is not unresolved',
+                          not any(n == gone for _, n, _ in why), str(why)))
+            verdict, msg = _psc.assess(repo, env=env)
+            cases.append(('with nothing else missing the verdict is OK, with a '
+                          'note that it is deleted and Update Vendors removes it',
+                          verdict == 'ok' and f'{gone} is deleted' in msg
+                          and 'Update Vendors removes it' in msg,
+                          f'{verdict}: {msg}'))
+            live = 'precedent-shared-live-fixture'
+            declare(gone, live)
+            notes.write_text(json.dumps({live: {
+                'output': 'error: RPC failed; HTTP 429 curl 22 too many requests',
+                'when': '2026-10-09T10:00:00-0300'}}), encoding='utf-8')
+            verdict, msg = _psc.assess(repo, env={**env, _psc.TOKEN_ENV: 'tok'})
+            named = msg.split('did not resolve (', 1)[-1].split(')', 1)[0]
+            cases.append(('a real missing set still reads SET and is named; the '
+                          'deleted one is not among the unresolved',
+                          verdict == 'set' and live in named and gone not in named,
+                          f'{verdict}: {msg}'))
+            cases.append(('...the deleted one gets its note there too',
+                          f'{gone} is deleted' in msg, msg))
+            cases.append(('...and what git said when it last tried the real one '
+                          'is quoted', 'HTTP 429' in msg, msg))
+
+            declare(gone)
+            out = io.StringIO()
+            _pef.report(repo, quiet=True, out=out)
+            text = out.getvalue()
+            cases.append(('the freshness notice does not count a deleted set as '
+                          'not verified, and says it is deleted',
+                          'NOT VERIFIED' not in text and f'{gone} is deleted' in text,
+                          text))
+            rows = _pef.collect_targets(repo)
+            cases.append(('...and has no row reading it as a source',
+                          not any(gone in str(r.get('label')) for r in rows), str(rows)))
+
+            _psck.ROOT = repo
+            rows = _psck._retired_sources_rows()
+            detail = rows[0][2] if rows else ''
+            cases.append(('the session check says a deleted set is never cloned '
+                          'by hand, and never that the update keeps it',
+                          len(rows) == 1 and 'never cloned by hand' in detail
+                          and 'when every rule it holds' not in detail, detail))
+    finally:
+        _psck.ROOT = saved_root
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a deleted set is never counted as an unresolved or unverified '
+          f'source ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
+
+
+def check_source_bootstrap_keeps_what_git_said():
+    """precedent_source_bootstrap keeps git's output for a failed clone
+    where the credentials check can quote it, removes it once the clone
+    succeeds, and tries once more only after a failure that can pass on its
+    own -- HTTP 429 or a dropped network, never an access failure.
+
+    WHY. 2026-10-09: a consumer's session saw "look at what git said" and
+    had nothing to look at; the hook's stderr had scrolled past at session
+    start."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_bootstrap as _psb
+    cases = []
+    for text, want in (('error: RPC failed; HTTP 429 curl 22', True),
+                       ('fatal: unable to access: Connection reset by peer', True),
+                       ('fatal: unable to access: Could not resolve host: x', True),
+                       ('fatal: Authentication failed for https://x', False),
+                       ('error: RPC failed; HTTP 403 curl 22', False),
+                       ('remote: Repository not found.', False)):
+        cases.append((f'transient({text!r}) is {want}',
+                      _psb._transient(text) is want, ''))
+    saved = _psb._try_sync
+    try:
+        for first, want_calls, want_ok in (
+                ('error: RPC failed; HTTP 429', 2, True),
+                ('fatal: Authentication failed', 1, False)):
+            calls, sleeps = [], []
+
+            def fake(url, path, branch=None, _first=first):
+                calls.append(url)
+                return (False, _first) if len(calls) == 1 else (True, '')
+            _psb._try_sync = fake
+            with tempfile.TemporaryDirectory() as td:
+                ok, _ = _psb.ensure_source('shared', 'x', 'file:///nowhere',
+                                           pathlib.Path(td) / 'x', None,
+                                           sleep=sleeps.append)
+            cases.append((f'after {first!r}: {want_calls} attempt(s)',
+                          len(calls) == want_calls and ok is want_ok
+                          and len(sleeps) == want_calls - 1,
+                          f'calls={len(calls)} ok={ok} sleeps={sleeps}'))
+    finally:
+        _psb._try_sync = saved
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        env_was = os.environ.get(_psb.CLONE_NOTES_ENV)
+        os.environ[_psb.CLONE_NOTES_ENV] = str(td / 'notes.json')
+        try:
+            repo = td / 'repo'
+            repo.mkdir()
+            (repo / 'precedent.json').write_text(json.dumps({'sources': [
+                {'level': 'shared', 'name': 'precedent-shared-fx',
+                 'path': '../precedent-shared-fx'}]}), encoding='utf-8')
+            base = td / 'origin'
+            base.mkdir()
+            _psb.sources_from_repo(repo, base_url=base.as_uri())
+            note = _psb.read_clone_failures().get('precedent-shared-fx') or {}
+            cases.append(('a failed clone leaves git\'s own output, kept for '
+                          'the later gate', bool(note.get('output')), str(note)))
+            src = base / 'precedent-shared-fx'
+            (src / 'practices').mkdir(parents=True)
+            (src / 'practices' / 'a.md').write_text('x\n', encoding='utf-8')
+            g = ['git', '-C', str(src), '-c', 'user.name=t', '-c',
+                 'user.email=t@example.com']
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(src)], check=True)
+            subprocess.run(g + ['add', '-A'], check=True)
+            subprocess.run(g + ['commit', '-qm', 'x'], check=True)
+            res = _psb.sources_from_repo(repo, base_url=base.as_uri())
+            cases.append(('...and once the clone succeeds the note is gone',
+                          'precedent-shared-fx' not in _psb.read_clone_failures()
+                          and any(ok for _, ok, _ in res), str(res)))
+        finally:
+            if env_was is None:
+                os.environ.pop(_psb.CLONE_NOTES_ENV, None)
+            else:
+                os.environ[_psb.CLONE_NOTES_ENV] = env_was
+    sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the source bootstrap keeps what git said and retries only a '
+          f'transient failure ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
 def check_gates_promise_no_override():
     """No gate that refuses a commit, push or merge tells the session it may
     go ahead by saying so: none of them has a way through.
@@ -68775,6 +68979,8 @@ def main():
     check_sync_names_files_still_naming_removed_checks()
     check_over_target_line_says_whose_load_and_how_to_break_it_down()
     check_session_check_names_a_declared_retired_set()
+    check_deleted_set_is_not_an_unresolved_source()
+    check_source_bootstrap_keeps_what_git_said()
     check_gates_promise_no_override()
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
