@@ -14,7 +14,7 @@ The pull request page shows the light check passed and
 `.github/workflows/leak-gate.yml` "skipped".
 `python3 tools/precedent_branches.py --wait-main-test COPY` prints
 "GitHub test NONE on SHA: .github/workflows/leak-gate.yml never ran on it.
-Do not merge." The Promote before it printed "GitHub test: DUE --
+Do not merge." The step that opened the pull request printed "GitHub test: DUE --
 .github/workflows/leak-gate.yml predates the not-due skip, so it runs on
 every pull request into main until Update Vendors brings the current one."
 
