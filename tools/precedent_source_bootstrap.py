@@ -81,6 +81,8 @@ import sys
 import time
 
 LEVELS = {'individual', 'shared'}
+# The resolver's alias table, for this hook running with no resolver beside
+# it; verify_harness.py asserts it equals precedent_resolve.LEVEL_ALIASES.
 LEVEL_ALIASES = {'team': 'shared'}   # the pre-2026-09-18 spelling still reads
 
 # WHICH BRANCH A SOURCE IS CLONED FROM, AND WHY IT IS NAMED HERE RATHER THAN
@@ -873,10 +875,14 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     try:
         import precedent_resolve as pr
         gone = pr.deleted_sets()
+        declared_level = pr.declared_level
     except Exception:                                       # noqa: BLE001
         gone = {}
+
+        def declared_level(s):      # no resolver beside this hook
+            return LEVEL_ALIASES.get(s.get('level'), s.get('level'))
     for src in cfg.get('sources', []) or []:
-        level = LEVEL_ALIASES.get(src.get('level'), src.get('level'))
+        level = declared_level(src)
         if level not in ('shared', 'universal'):
             continue
         name = str(src.get('name') or '').strip()

@@ -448,6 +448,80 @@ deletes one of the fixture's own files, and fails with the fix removed.
 The other fix (the update staging its deletions) failed its case when
 removed, as it should.
 
+## 2026-10-09: the update checks share their fake project
+
+Morgan, 2026-10-09: *"share the fake project"*. The end-to-end Update
+Vendors checks each build small consuming projects from scratch. Profiled
+one subprocess at a time in a cloud session, **most of a check's time is
+the update it is testing** (about 10 to 28 seconds a run), so that stays.
+Two parts of the setup repeated identical work:
+
+- **The engine seed.** Every consumer ran `precedent_vendor_engine.py
+  seed`, about 3.7 seconds, for the same bytes. The first seed with a
+  given set of inputs now keeps a copy on disk, and later ones copy it in
+  (about 0.1 seconds). Each fixture still gets its own files, git init
+  and commit.
+- **One check's whole consumer.**
+  `check_update_vendors_leaves_the_copy_its_record_names` built the same
+  consumer five times, each with its catalogue vendored and a first
+  update run, about 30 seconds apiece. Two builds differ only by a
+  timestamp in `MANIFEST.json` and their commit times. It now builds it
+  once per run and gives each case its own copy of the repository and its
+  bare origin.
+
+**The seed cache's contract** (practice
+[review-against-a-contract](../practices/review-against-a-contract.md)):
+a copy is used only when a fresh seed would write the same bytes, so the
+key moves whenever anything seed can read moves. It hashes this
+checkout's HEAD, branch and `main` refs, every uncommitted or untracked
+file in it, every file already in the destination and the destination's
+refs, the kind, HOME, the user config, and the `PRECEDENT_` and `GIT_`
+environment. A seed that fails, deletes a file or writes its
+destination's path is never kept. Entries are built privately and renamed
+into place, so the harness's parallel parts can share them; entries
+unused for six hours are pruned; `PRECEDENT_NO_SEED_CACHE=1` turns it
+off. `check_seed_cache_copies_what_a_seed_writes` holds it: a copy equals
+a real seed byte for byte and mode for mode, and the key moves with each
+input. With the key blind to the checkout, or a copy that drops mode
+bits, that check fails.
+
+**Measured** in one cloud session, base and branch run one after the
+other for each check, while other sessions loaded the machine (load
+average 2 to 8), so single-check differences under about ten seconds are
+noise:
+
+| check, run alone (seconds) | base | branch |
+|---|---|---|
+| `check_update_vendors_leaves_the_copy_its_record_names` | 320 | 182 |
+| `check_update_vendors_is_one_command` | 105 | 95 |
+| `check_send_carries_a_local_edit_upstream` | 93 | 95 |
+| `check_kept_agents_md_divergence_is_recorded` | 94 | 92 |
+| `check_merge_takes_the_vendor_update` | 61 | 51 |
+| `check_update_vendors_resolves_local_edits` | 58 | 49 |
+| `check_update_rerun_after_failed_takes_its_own_output` | 57 | 59 |
+| `check_update_vendors_resolves_hook_and_engine_path_edits` | 56 | 57 |
+| `check_update_vendors_resolves_a_catalogue_edit` | 42 | 40 |
+| `check_kept_bootstrap_divergence_is_recorded` | 42 | 39 |
+| `check_changed_files_only_judges_the_change` (no seeded fixture) | 63 | 63 |
+| `check_update_vendors_survives_an_upstream_deletion` (no seeded fixture) | 51 | 63 |
+| `check_update_vendors_converges_consumer_ci` (no seeded fixture) | 32 | 32 |
+
+Run alone, a check pays for the first seed of each kind of consumer
+itself. Run together, as the full check runs them, the cache is shared:
+**the 20 checks that build these fixtures took 1520 seconds on the base
+and 1277 on the branch**, the branch's figure including the new 10-second
+check of the cache, and wrote 8 cache entries for their consumers.
+
+**What this did not touch.** The update runs themselves, and the full
+clone of this repository that `check_send_carries_a_local_edit_upstream`
+makes (about 13 seconds). Several heavy update checks
+(`check_update_vendors_leaves_the_copy_its_record_names`,
+`check_update_vendors_declined_catalogue_copy_is_upstreams`,
+`check_update_vendors_reruns_pinned_to_its_first_commit` and others) are
+missing from [tools/harness_check_times.json](../tools/harness_check_times.json),
+so `--as-ci` deals them as 0.23 seconds each; that file is regenerated
+only by a full `--as-ci --record-times` run.
+
 ## Open follow-ups
 
 - **The cross-session copytree-under-threads discrepancy** (no measurable

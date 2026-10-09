@@ -354,7 +354,8 @@ def assess(repo, env=None, user_config=None, canonical=()):
         declared_repo = (src.get('repo') or '').rstrip('/').rsplit('/', 1)[-1]
         declared_repo = declared_repo[:-4] if declared_repo.endswith('.git') else declared_repo
         expected = declared_repo or src['name']
-        if src['level'] in ('shared', 'team', 'individual') and name != expected:
+        if (pr.declared_level(src) if pr else src['level']) in ('shared', 'individual') \
+                and name != expected:
             row['declared_drift'] = (
                 f'precedent.json (or the user config) declares {expected!r} '
                 f'while the clone fetches from {owner}/{name}')

@@ -258,6 +258,12 @@ GENERATED_FILES_CHECK = (
     'generated_files', ['{engine}/precedent_check.py', '--only',
                         'generated-files-registered'],
     'nothing -- it ran only inside the full sweep')
+# A reference left pointing at a path this branch renamed away: basic tier
+# (BASIC_CHECKS says why). The full sweep runs it too.
+RENAME_LINKS_CHECK = (
+    'rename_links', ['{engine}/precedent_check.py', '--only',
+                     'rename-updates-links'],
+    'nothing -- it ran only inside the full sweep, at the landing')
 CI_WORKFLOWS_CHECK = (
     'ci_workflows', ['{engine}/precedent_check.py', '--only',
                      'ci-workflow-approved'],
@@ -286,10 +292,18 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # todo/TODO.md stale, the push to pre-staging passed, and only the full
 # check said so. Two seconds. Not upstream's: there precedent_check.py is
 # full-only by design, and BestPractice's commit backstop rebuilds these.
+# rename_links joins a consumer's and a practice set's basic tier
+# (2026-10-08): a branch renamed a page and repointed the references a
+# search for *.py and *.md found, but not a key in a tool's table or lines
+# in two ledgers. Every push of the branch passed, and the landing's full
+# check failed on them. It judges only what this branch renamed or deleted
+# against its base -- a finding no push but this branch's could bring --
+# and takes seconds.
 BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
                 'session_trailer', 'ci_workflows', 'light_check', 'build_views',
                 'views_sync',
-                'scrub_gate', 'practice_export_loop', 'generated_files'}
+                'scrub_gate', 'practice_export_loop', 'generated_files',
+                'rename_links'}
 BASIC, FULL = 'basic', 'full'
 # A PUSH TO A WORKING BRANCH IS JUDGED ON WHAT IT BRINGS (2026-09-28). A
 # consumer session could not push its claude/* branch: commit_author refused
@@ -345,6 +359,7 @@ PUSH_CHECKS = {
         ('doc_lint', ['{engine}/doc_lint.py'],
          'doc-lint.yml, retired 2026-09-21'),
         GENERATED_FILES_CHECK,
+        RENAME_LINKS_CHECK,
         CI_WORKFLOWS_CHECK,
         DEEP_CHECK_SUITE,
         CONSUMER_SHAPE_SUITE,
@@ -358,6 +373,7 @@ PUSH_CHECKS = {
         ('doc_lint', ['{engine}/doc_lint.py'],
          'bestpractice-docs.yml, retired 2026-09-21'),
         GENERATED_FILES_CHECK,
+        RENAME_LINKS_CHECK,
         CI_WORKFLOWS_CHECK,
         # Whether the generated views still match the practice sources
         # (2026-10-03): a reduction pass retired practices in the shared sets,
