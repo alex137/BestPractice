@@ -71,6 +71,20 @@ STAGED_RECORD = 'precedent-update-staged.json'   # precedent_update.py's
 DONE, LEFT, FAILED = 0, 1, 2                     # precedent_update.py's exits
 
 
+def _declared_level(src):
+    """precedent_resolve.declared_level -- a declared source's level, with
+    the older `team` read as `shared` -- imported when needed; without a
+    resolver beside this copy only the raw field is there."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+        return _pr.declared_level(src)
+    except Exception:                                           # noqa: BLE001
+        return src.get('level') if isinstance(src, dict) else None
+    finally:
+        sys.path.pop(0)
+
+
 def _git(repo, *args):
     return subprocess.run(['git', '-C', str(repo), *args], capture_output=True,
                           text=True)
@@ -123,7 +137,7 @@ def find_source(repo, given=None):
     except (OSError, ValueError):
         cfg = {}
     for src in cfg.get('sources') or []:
-        if src.get('level') == 'universal' and src.get('path'):
+        if _declared_level(src) == 'universal' and src.get('path'):
             p = pathlib.Path(src['path'])
             cands.append(p if p.is_absolute() else repo / p)
     cands.append(repo.parent / 'BestPractice')

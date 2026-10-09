@@ -3884,8 +3884,8 @@ def repoint_renamed_sources(dest_root):
             if old != new:
                 s[key] = new
                 swaps.append((json.dumps(old), json.dumps(new)))
-        if s.get('level') == 'team':
-            s['level'] = 'shared'
+        if _declared_level(s) != s.get('level'):
+            s['level'] = _declared_level(s)
             relevelled.append(new_name)
         if (new_name, new_path) != (name, where) or kept:
             done.append((name, new_name, where, new_path, kept))
@@ -3918,6 +3918,27 @@ def repoint_renamed_sources(dest_root):
     if new_text != text:
         path.write_text(new_text, encoding='utf-8')
     return done
+
+
+def retire_level_aliases(dest_root):
+    """-> [source names] whose `"level": "team"` in `dest_root`'s
+    precedent.json this rewrote to `"level": "shared"`, the word in use
+    since 2026-09-18. Every source, not only a renamed set
+    (repoint_renamed_sources): the old word still resolves, and every tool
+    reads it through precedent_resolve.declared_level, but a file that says
+    one thing while the tools mean another is how a raw comparison went
+    wrong for a consumer on 2026-10-09. Idempotent; every other byte is
+    kept (precedent_resolve.retire_level_aliases)."""
+    import precedent_resolve as pr
+    path = pathlib.Path(dest_root) / 'precedent.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return []
+    new_text, names = pr.retire_level_aliases(text)
+    if new_text != text:
+        path.write_text(new_text, encoding='utf-8')
+    return names
 
 
 # A practice set that has been folded away says so in its own
@@ -3996,17 +4017,13 @@ def _active_practice_slugs(clone):
 
 
 def _declared_level(s):
-    """A declared source's level with its alias read, `team` -> `shared`, as
-    precedent_resolve.normalize_level reads it. Comparing the raw field let
-    a set declared at the older `team` level slip past the retired- and
-    deleted-set drop, so Update Vendors never removed it (a consumer's
-    update, 2026-10-09)."""
-    level = s.get('level') if isinstance(s, dict) else None
-    try:
-        import precedent_resolve as pr
-    except Exception:                                           # noqa: BLE001
-        return 'shared' if level == 'team' else level
-    return pr.normalize_level(level)
+    """A declared source's level with its alias read, `team` -> `shared`:
+    precedent_resolve.declared_level, the one reader. Comparing the raw
+    field let a set declared at the older `team` level slip past the
+    retired- and deleted-set drop, so Update Vendors never removed it (a
+    consumer's update, 2026-10-09)."""
+    import precedent_resolve as pr
+    return pr.declared_level(s)
 
 
 def _person_sets():

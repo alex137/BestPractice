@@ -470,7 +470,20 @@ def _approx_tokens(text):
 # tools/precedent_session_practices.py renders exactly this complement into
 # an untracked file instead -- one definition, so the two cannot disagree
 # about which practices a public repo's session is otherwise never shown.
-PRIVATE_LEVELS = ('shared', 'team', 'individual')
+PRIVATE_LEVELS = ('shared', 'individual')
+
+
+def _declared_level(src):
+    """precedent_resolve.declared_level -- a declared source's level with
+    `team` read as `shared` -- imported when called, since that module
+    imports this one. Compare levels only through it: a list of private
+    levels then never needs the old word in it. A copy of this file with no
+    resolver beside it has only the raw field."""
+    try:
+        import precedent_resolve as _pr
+    except Exception:                                           # noqa: BLE001
+        return src.get('level') if isinstance(src, dict) else None
+    return _pr.declared_level(src)
 
 
 _VISIBILITY_WARNED = set()
@@ -555,8 +568,8 @@ def repo_is_public(root):
             for src in (json.loads(
                     (pathlib.Path(root) / 'precedent.json').read_text(
                         encoding='utf-8')).get('sources') or []):
-                if src.get('level') in PRIVATE_LEVELS:
-                    dropped.append(f"{src.get('level')}:{src.get('name')}")
+                if _declared_level(src) in PRIVATE_LEVELS:
+                    dropped.append(f"{_declared_level(src)}:{src.get('name')}")
         except (ValueError, OSError, AttributeError, TypeError):
             dropped = []
         if dropped:
@@ -2002,8 +2015,8 @@ def _split_declared(root, declared):
                 f"second copy of it")
         return tracked, deferred, notes
     if repo_is_public(root):
-        deferred = [s for s in declared if s['level'] in PRIVATE_LEVELS]
-        tracked = [s for s in declared if s['level'] not in PRIVATE_LEVELS]
+        deferred = [s for s in declared if _declared_level(s) in PRIVATE_LEVELS]
+        tracked = [s for s in declared if _declared_level(s) not in PRIVATE_LEVELS]
         if deferred:
             notes.append(
                 f"{', '.join(s['name'] + ' (' + s['level'] + ')' for s in deferred)} "
@@ -2146,7 +2159,7 @@ def individual_not_verifiable(root, sources):
     other one -- no individual source at all, while the committed views say
     one was in force -- so a real hand-edit is still caught wherever the
     person's individual set does resolve."""
-    if any(s.get('level') == 'individual' for s in sources):
+    if any(_declared_level(s) == 'individual' for s in sources):
         return None
     n = committed_individual_count(root)
     if not n:
@@ -2294,7 +2307,7 @@ def loader_practices(root, own_practices, individual_absent='notice'):
     # without it, a real consumer's AGENTS.md disagreed permanently with
     # what precedent_sync_views.py (materialize.py + build_views.py
     # --agents-only) actually produces for the same tree.
-    if not any(s['level'] == 'universal' and _same_repository(s['path'], root)
+    if not any(_declared_level(s) == 'universal' and _same_repository(s['path'], root)
                for s in declared):
         resolved = {slug: v for slug, v in resolved.items()
                     if not _is_engine_dev_scoped(v['fm'])}

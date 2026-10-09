@@ -359,6 +359,15 @@ def persist_credential_helper(clone_path, repo_url, env=None, run=None):
     return True
 
 
+def _declared_level(src):
+    """precedent_resolve.declared_level -- `team` read as `shared` -- or
+    the raw field where no resolver sits beside this copy."""
+    pr = _engine_module('precedent_resolve')
+    if pr is not None and hasattr(pr, 'declared_level'):
+        return pr.declared_level(src)
+    return src.get('level') if isinstance(src, dict) else None
+
+
 def _read_json(path):
     try:
         return json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
@@ -606,8 +615,9 @@ def unresolved_private_sources(repo_root=None, env=None):
         # written before then still carries. Until 2026-09-29 this read only
         # 'team', so every set declared the current way was skipped and a
         # missing shared set was never reported -- the retired word hid the
-        # bug (practice: rename-updates-links).
-        if src.get('level') not in ('shared', 'team'):
+        # bug (practice: rename-updates-links). Read through the resolver's
+        # one reader since 2026-10-09, so neither word is spelled here.
+        if _declared_level(src) != 'shared':
             continue
         if str(src.get('name') or '').strip() in deleted:
             # Deleted, so never cloned: not unresolved (deleted_declared).
