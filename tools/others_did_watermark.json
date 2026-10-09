@@ -8,11 +8,11 @@
   ],
   "seen_by": {
     "morgan-f": {
-      "told_at": "2026-10-08T14:30:38-03:00",
+      "told_at": "2026-10-09T07:07:35-03:00",
       "tips": {
-        "main": "255a2e47e5701a65906306a20099caf4e693f06c",
-        "staging": "e23bd0a2ea5e9f7adc705293b1be1e9da9a064c6",
-        "pre-staging": "2f0629dc5f7431ff40a360c959954400811b48f9"
+        "main": "57bc789506bc5fcf529fb56992cac3a71a7f8843",
+        "staging": "7b41814d410641cd9918f44dae54a31dd5c20985",
+        "pre-staging": "e20c4343a1f2cb244f4e983a99867c580d6f87fa"
       },
       "note": "reported"
     }
