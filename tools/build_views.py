@@ -1151,6 +1151,30 @@ def _occasion_clause(rule_text, max_len=90):
 # full by every session, so a line that routes nothing is paid for every turn.
 INDEX_REQUIRED_FIELD = 'index_required'
 
+# AN ADDITION LOADS WITH THE RULE IT ADDS TO (Morgan, 2026-10-09, strength:
+# decided, "Option 1"). A set may hold a footnote to another source's rule:
+# what that rule means where the set is in force. It used to reach a session
+# only through an occasion-index line of its own, some forced in with
+# index_required, so every session paid a line for a rule it already had in
+# view whenever the base did. `adds_to: <slug>` names the base instead, and
+# every channel that shows the base shows the addition with it:
+# precedent_show.py SLUG, the gate that prints the base, and a spoken-command
+# line's marker. So an addition never gets an index line of its own and is
+# never resident (spec/PRACTICE_FORMAT.md, "adds_to").
+ADDS_TO_FIELD = 'adds_to'
+
+
+def adds_to(fm):
+    """-> the slug this practice adds to, or '' when it adds to none (the
+    field absent, empty or `null`). The one reading of the field, so the
+    renderer, the check and every channel that attaches an addition to its
+    base agree on what counts as one."""
+    raw = fm.get(ADDS_TO_FIELD)
+    if not isinstance(raw, str):
+        return ''
+    value = _json_str(raw).strip()
+    return '' if value in ('', 'null') else value
+
 
 def _routes_by_path(fm):
     """True when `applies_to` names REAL paths, so precedent_paths.py fires.
@@ -1204,8 +1228,16 @@ def lands_in_occasion_index(fm, omit_commands=False):
     precedent_check.py's `code-owner-practice-stays-out-of-the-index` asks
     the same question the renderer answers. `omit_commands` as there: the
     session file leaves a command's line out, since its spoken words are
-    listed on their own."""
+    listed on their own.
+
+    An addition (`adds_to:`) never lands: it loads with the rule it adds
+    to, through precedent_show.py and the gates (ADDS_TO_FIELD)."""
     if fm.get('tier') != 'on-demand' or not _json_str(fm.get('occasion', '')):
+        return False
+    if adds_to(fm):
+        # Shown with its base wherever the base is shown, so a line of its
+        # own would be paid for twice -- index_required included, which
+        # asked for a line only because no other channel existed then.
         return False
     if omit_commands and command_phrases(fm):
         return False
@@ -1494,8 +1526,11 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     block_dir = (pathlib.Path(block_dir) if block_dir is not None else ROOT).resolve()
     repo_root = (pathlib.Path(repo_root).resolve()
                  if repo_root is not None else block_dir)
+    # An addition is never resident: it loads with the rule it adds to
+    # (ADDS_TO_FIELD), and precedent_check's `adds-to-names-a-rule-in-force`
+    # refuses one marked resident.
     resident = [(fm, sections, f) for fm, sections, f in practices
-                if fm.get('tier') == 'resident']
+                if fm.get('tier') == 'resident' and not adds_to(fm)]
     resident.sort(key=lambda t: t[0]['slug'])
 
     placed = []
@@ -1537,7 +1572,8 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
         occasion = _json_str(fm.get('occasion', ''))
         if lands_in_occasion_index(fm, omit_commands):
             by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
-        elif occasion and not (omit_commands and command_phrases(fm)):
+        elif occasion and not adds_to(fm) \
+                and not (omit_commands and command_phrases(fm)):
             routed_out.append(fm['slug'])       # index_is_redundant
 
     index_lines = []
