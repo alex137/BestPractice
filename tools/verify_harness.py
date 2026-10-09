@@ -52000,6 +52000,35 @@ def check_source_bootstrap_keeps_what_git_said():
           '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 
 
+def check_runbook_names_the_postcondition_after_a_merge():
+    """vendor-update-runbook step 12 makes the merge tool's own result the
+    postcondition for the turn that merges, and moves the confirming fetch
+    to the next turn; the auto-mode gotcha records that a SUCCESSFUL merge
+    starts the refusals too.
+
+    WHY. 2026-10-09, a consumer: after a merge that went through, a
+    read-only fetch and grep to confirm it were refused as "Merge Without
+    Review" until the person spoke. The runbook said to verify, and the
+    only verification the turn could still run was the tool's answer."""
+    run = (ROOT / 'practices' / 'vendor-update-runbook.md').read_text(encoding='utf-8')
+    step = run.split('12. **Publish it', 1)[-1].split('\n## ', 1)[0]
+    got = (ROOT / 'gotchas' /
+           'gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md'
+           ).read_text(encoding='utf-8')
+    cases = [
+        ('step 12 names the merge tool\'s result as the postcondition',
+         'merged: true' in step and 'postcondition' in step),
+        ('...and puts the confirming fetch at the start of the next turn, '
+         'or leaves it to the next stage\'s tool, saying which',
+         'next turn' in step and "next stage's own tool" in step),
+        ('the gotcha has the 2026-10-09 case of a merge that succeeded',
+         '2026-10-09' in got and 'merge that succeeds' in got),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'the runbook names what a merging turn can still verify '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_gates_promise_no_override():
     """No gate that refuses a commit, push or merge tells the session it may
     go ahead by saying so: none of them has a way through.
@@ -68981,6 +69010,7 @@ def main():
     check_session_check_names_a_declared_retired_set()
     check_deleted_set_is_not_an_unresolved_source()
     check_source_bootstrap_keeps_what_git_said()
+    check_runbook_names_the_postcondition_after_a_merge()
     check_gates_promise_no_override()
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()

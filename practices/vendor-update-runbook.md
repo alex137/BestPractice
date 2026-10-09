@@ -905,6 +905,16 @@ says so, both from the vendored tree under `process/upstream/`.
     way starts the same refusal of every later command as one auto mode
     refused (a consumer, 2026-10-08). The update's DONE says so, and every
     merge line `precedent_branches.py` prints carries the head in full.
+    **When the merge goes through, the merge tool's own result is the
+    postcondition for this turn**: name it before the call (the pull
+    request merged into the landing branch), then report what the tool
+    returned, `merged: true` and the merge commit's SHA, and run nothing
+    after it. Even a read-only `git fetch` after a successful merge the
+    person's words did not name is refused as "Merge Without Review" (a
+    consumer, 2026-10-09). The fetch that confirms the landing branch holds
+    the merge runs at the start of the next turn, or is skipped when the
+    next stage's own tool confirms it, and the reply says which of the two
+    will happen.
 
 **A refusal naming a file that no longer exists upstream means reseed, not
 investigate.** The refresh runs *this repo's own vendored copy* of the
