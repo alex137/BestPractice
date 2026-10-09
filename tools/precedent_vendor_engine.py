@@ -271,6 +271,48 @@ ROOT = ENGINE_DIR.parent
 SOURCE_REPO = 'https://github.com/alex137/BestPractice'
 SOURCE_BRANCH = 'main'  # the default every install follows -- see docstring
 
+# A BestPractice clone is known by its origin, not its directory name.
+# 2026-10-08, from a consumer: the attach tool cloned it at a lowercase
+# <owner>/<repo> path (alex137/bestpractice), and the runbook's
+# ../BestPractice found nothing there. Any host, any case, .git or not.
+_SOURCE_ORIGIN = re.compile(r'[/:]alex137/bestpractice(?:\.git)?/*$', re.I)
+
+
+def is_source_clone(path):
+    """True when `path` is the top of a git checkout whose origin is
+    BestPractice and which carries tools/precedent_update.py."""
+    path = pathlib.Path(path)
+    if not ((path / '.git').exists()
+            and (path / 'tools' / 'precedent_update.py').is_file()):
+        return False
+    r = subprocess.run(['git', '-C', str(path), 'remote', 'get-url', 'origin'],
+                       capture_output=True, text=True)
+    return r.returncode == 0 and bool(_SOURCE_ORIGIN.search(r.stdout.strip()))
+
+
+def find_source_clones(near):
+    """-> the BestPractice clones near the repository `near`, by origin: its
+    siblings, and one level further down for the attach tool's
+    <owner>/<repo> layout. ../BestPractice first when it is one."""
+    near = pathlib.Path(near).resolve()
+    base = near.parent
+    found = []
+    try:
+        cands = [base / 'BestPractice'] + sorted(base.iterdir()) + sorted(
+            p for d in base.iterdir() if d.is_dir() and d != near
+            and not d.name.startswith('.')
+            for p in (d.iterdir() if os.access(d, os.R_OK | os.X_OK) else ()))
+    except OSError:
+        cands = [base / 'BestPractice']
+    for c in cands:
+        try:
+            c = c.resolve()
+            if c != near and c not in found and c.is_dir() and is_source_clone(c):
+                found.append(c)
+        except OSError:
+            continue
+    return found
+
 # WHICH BRANCH ONE INSTALL FOLLOWS (2026-10-05). SOURCE_BRANCH is the
 # default; a consuming repo may name `staging` instead, in its own
 # precedent.json, as `"upstream_branch": "staging"`. Alex, 2026-10-05, in
@@ -4345,6 +4387,60 @@ def seed_maintainers(dest_root, logins=None, today=None):
         new_text = json.dumps(cfg, indent=2, ensure_ascii=False) + '\n'
     path.write_text(new_text, encoding='utf-8')
     return logins, how
+
+
+def timezone_offer(dest_root, user_config=None):
+    """-> one line offering the owner's own zone as precedent.json's
+    `fallback_timezone`, or None. Offered, never written: the person says
+    yes, and the session adds the line.
+
+    Offered only when all of it holds: precedent.json declares no
+    fallback_timezone; it names exactly one maintainer; the person running
+    this is that maintainer (their declared GitHub username); and their
+    identity.json declares a zone that loads.
+
+    WHY (2026-10-08, from a consumer). A single person's repository never
+    declared fallback_timezone, so its GitHub Actions job -- where no
+    person's identity.json reaches -- dated its failure records and issue
+    stamps in the engine's last resort, New York, the right default for a
+    team, instead of its one owner's zone (precedent_time.py, rungs 5-6)."""
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(cfg, dict) or cfg.get('fallback_timezone'):
+        return None
+    people = [m for m in cfg.get('maintainers') or [] if isinstance(m, dict)]
+    if len(people) != 1:
+        return None
+    login = str(people[0].get('github') or '').lstrip('@').lower()
+    try:
+        import precedent_identity as _pid
+        ident = _pid.declared_identity(root, user_config)
+    except Exception:                                           # noqa: BLE001
+        return None
+    me = (os.environ.get('PRECEDENT_GITHUB_USER', '').strip()
+          or str(ident.get('github') or '')).lstrip('@').lower()
+    zone = str(ident.get('timezone') or '').strip()
+    if not login or me != login or not zone:
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(zone)
+    except Exception:                                           # noqa: BLE001
+        return None
+    try:
+        import precedent_time as _pt
+        last = _pt.FALLBACK_TZ
+    except Exception:                                           # noqa: BLE001
+        last = 'the engine\'s last-resort zone'
+    return (f'@{login} is this repository\'s only maintainer -- you -- and '
+            f'precedent.json declares no fallback_timezone, so whatever runs '
+            f'where your identity does not reach (a GitHub Actions job, its '
+            f'failure records and issue stamps) dates in {last}. Say yes to '
+            f'add "fallback_timezone": "{zone}" (your zone, from your '
+            f'identity.json) to precedent.json.')
 
 
 def _rev_text(repo_dir, *args):
