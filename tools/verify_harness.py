@@ -2913,6 +2913,88 @@ def check_rename_links_spares_a_path_moved_into_gitignore():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_clean_tree_judges_the_branch():
+    """A bare precedent_check on a clean tree judges what the branch carries
+    since its base, and the basic push tier runs rename-updates-links
+    (2026-10-08). A consumer branch renamed a page and left a stale key in a
+    tool and lines in two ledgers: every push ran the basic tier, which did
+    not include the rename check, and a bare run after the commit said "the
+    working tree is clean, so no change is in scope" and passed every
+    change-scope check unread. Only the landing's full check said so.
+
+    A throwaway consumer: main, then a branch committing a document that
+    skips a heading level and a rename that strands a reference. CONTROL:
+    the same bare run on main itself still finds nothing in scope."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='clean-tree-branch-'))
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        for slug in ('rename-updates-links', 'heading-outline'):
+            shutil.copy(ROOT / 'practices' / f'{slug}.md', up / 'practices')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}]}),
+            encoding='utf-8')
+        (repo / 'docs').mkdir()
+        (repo / 'docs' / 'old_name.md').write_text('# Page\n', encoding='utf-8')
+        (repo / 'README.md').write_text('# Readme\n\nSee docs/old_name.md.\n',
+                                        encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def pc(*a):
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', *a],
+                               cwd=str(repo), capture_output=True, text=True,
+                               env=env, timeout=300)
+            return r.returncode, r.stdout + r.stderr
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        rc, out = pc('--only', 'heading-outline')
+        cases.append(('CONTROL: on main itself a clean tree has nothing in scope',
+                      rc == 0 and 'VIOLATION' not in out, out[-400:]))
+        g('checkout', '-q', '-b', 'work')
+        (repo / 'docs' / 'skips.md').write_text('# Top\n\n### Too deep\n',
+                                                encoding='utf-8')
+        g('mv', 'docs/old_name.md', 'docs/new_name.md')
+        g('add', '-A'); g('commit', '-qm', 'a page that skips a level; a rename')
+        clean = g('status', '--porcelain').stdout.strip() == ''
+        rc, out = pc('--only', 'heading-outline')
+        cases.append(('a clean tree on a branch judges the branch: the committed '
+                      'heading jump is found',
+                      clean and rc != 0 and 'docs/skips.md' in out
+                      and 'commit(s) this branch carries since origin/main' in out,
+                      out[-400:]))
+        rc, out = pc('--only', 'rename-updates-links')
+        cases.append(('the reference the rename stranded is found after the commit',
+                      rc != 0 and 'docs/old_name.md' in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_push_check as _ppc
+    finally:
+        sys.path.pop(0)
+    for kind in ('consumer', 'source'):
+        step = [s for s in _ppc.PUSH_CHECKS[kind] if s[0] == 'rename_links']
+        cases.append((f'a {kind} push runs rename-updates-links at the basic tier',
+                      'rename_links' in _ppc.BASIC_CHECKS and bool(step)
+                      and 'rename-updates-links' in step[0][1], ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a clean tree judges its branch, and the basic tier runs the rename '
+          f'check ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_rename_links_spares_a_url_into_another_repository():
     """A deleted path inside a link to ANOTHER repository names that
     repository's file, not this one's. After go-update moved from the
@@ -32433,7 +32515,9 @@ def check_push_check_gate():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "generated_files" if '
+                   'sys.argv else "rename_links" if '
+                   '"rename-updates-links" in sys.argv else '
+                   '"generated_files" if '
                    '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
@@ -32979,7 +33063,9 @@ def check_merge_check_gate():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "generated_files" if '
+                   'sys.argv else "rename_links" if '
+                   '"rename-updates-links" in sys.argv else '
+                   '"generated_files" if '
                    '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
@@ -33252,7 +33338,9 @@ def check_promote_pre_staging():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "generated_files" if '
+                   'sys.argv else "rename_links" if '
+                   '"rename-updates-links" in sys.argv else '
+                   '"generated_files" if '
                    '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
@@ -35594,7 +35682,9 @@ def check_sync_copies_work_from_above_once_checked():
                        'name = ("ci_workflows" if "ci-workflow-approved" in '
                        'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                        '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "generated_files" if '
+                   'sys.argv else "rename_links" if '
+                   '"rename-updates-links" in sys.argv else '
+                   '"generated_files" if '
                    '"generated-files-registered" in '
                        'sys.argv else "precedent_check")\n'
                        if t == 'precedent_check' else f'name = "{t}"\n')
@@ -36041,7 +36131,9 @@ def check_promote_composes_main_and_moves_both_tiers():
                    'name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "generated_files" if '
+                   'sys.argv else "rename_links" if '
+                   '"rename-updates-links" in sys.argv else '
+                   '"generated_files" if '
                    '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
@@ -69646,6 +69738,7 @@ def main():
     check_rename_links_leaves_dated_records_alone()
     check_rename_links_spares_a_path_moved_into_gitignore()
     check_rename_links_spares_a_url_into_another_repository()
+    check_clean_tree_judges_the_branch()
     check_untracked_renders_use_source_fingerprints()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_bootstrap_new_branch_compared_to_landing_branch()
