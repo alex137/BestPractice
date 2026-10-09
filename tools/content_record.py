@@ -15,6 +15,16 @@ An input is (kind, name). The kinds a Reader knows:
   f   a file's content              d   a directory's listing (names)
   x   whether a path exists          e   an environment variable
   g   a git repository's state (HEAD, refs, the working tree by content)
+  p   a path as a stat sees it: missing, a directory, a file with its
+      executable bits, or a symbolic link and its target
+  v   an environment variable, with each temporary directory's own name
+      blanked (a fixture made fresh each run is the same input every run)
+  w   the whole environment, blanked as v, leaving out ENV_VOLATILE and
+      the comma-separated names the input's name lists
+  q   what a read-only git query answers: its exit status and output, run
+      again where it ran (the name is JSON: [directory, argv, variables set,
+      variables unset], "{root}" standing for the root), with the root's own
+      path and each temporary directory's name blanked in the answer
 
 A signature is a sha256 hex digest, truncated to `length` characters when
 the caller keeps short ones (the fact ledger keeps 16). Two text schemes for
@@ -33,12 +43,17 @@ re-reads every input and returns (True, []) or (False, [what moved]).
 """
 import hashlib
 import os
+import re
+import stat
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 VERSION = "1"
 SCHEMES = ("raw", "rstrip")
+# Variables a shell rewrites on its own (kind w never counts them).
+ENV_VOLATILE = ("OLDPWD", "PWD", "SHLVL", "_")
 
 
 def digest(data, length=None):
@@ -62,6 +77,31 @@ def file_hash(path, scheme="raw", length=None):
         with open(path, encoding="utf-8") as f:
             return digest(text_rstrip(f.read()), length)
     raise ValueError(f"unknown scheme {scheme!r}; known: {', '.join(SCHEMES)}")
+
+
+def _temp_blanked(value):
+    """`value` with every `<temp dir>/<one name>` turned into `<tmp>`: the
+    name tempfile chose this run, which no input of the work can be."""
+    out = value
+    for base in sorted({tempfile.gettempdir(), os.path.realpath(tempfile.gettempdir())},
+                       key=len, reverse=True):
+        out = re.sub(re.escape(base.rstrip(os.sep)) + r"/[^/:\s]+", "<tmp>", out)
+    return out
+
+
+def _probe(p):
+    try:
+        st = os.lstat(p)
+    except (OSError, ValueError):
+        return "missing"
+    if stat.S_ISLNK(st.st_mode):
+        try:
+            return "link:" + os.readlink(p)
+        except OSError:
+            return "link:?"
+    if stat.S_ISDIR(st.st_mode):
+        return "dir"
+    return "file:" + oct(st.st_mode & 0o111)
 
 
 class Reader:
@@ -91,13 +131,48 @@ class Reader:
             self._repo[key] = h.hexdigest()[:self.length] if self.length else h.hexdigest()
         return self._repo[key]
 
+    def _query(self, name):
+        import json
+        try:
+            where, argv, put, drop = json.loads(name)
+        except (ValueError, TypeError):
+            return "unreadable"
+        root = str(self.root)
+        argv = [str(a).replace("{root}", root) for a in argv]
+        if not argv or os.path.basename(argv[0]) != "git":
+            return "not a git query"
+        env = dict(os.environ)
+        env.update({k: str(v).replace("{root}", root) for k, v in put.items()})
+        for k in drop:
+            env.pop(k, None)
+        cwd = where.replace("{root}", root) if where.startswith("{root}") else str(self.root / where)
+        try:
+            r = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, timeout=120)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return "failed:" + type(e).__name__
+        text = (f"{r.returncode}\0".encode() + r.stdout + b"\0" + r.stderr).decode("utf-8", "surrogateescape")
+        for base in sorted({root, os.path.realpath(root)}, key=len, reverse=True):
+            text = text.replace(base, "{root}")
+        return digest(_temp_blanked(text).encode("utf-8", "surrogateescape"), self.length)
+
     def sig(self, kind, name):
         if kind == "e":
             v = os.environ.get(name)
             return digest("\0unset" if v is None else v, self.length)
+        if kind == "v":
+            v = os.environ.get(name)
+            return digest("\0unset" if v is None else _temp_blanked(v), self.length)
+        if kind == "w":
+            left_out = set(ENV_VOLATILE) | set(filter(None, name.split(",")))
+            return digest("\0".join(f"{k}={_temp_blanked(v)}" for k, v in sorted(os.environ.items())
+                                     if k not in left_out), self.length)
         p = self.root / name
         if kind == "x":
             return "dir" if p.is_dir() else ("file" if os.path.lexists(p) else "missing")
+        if kind == "p":
+            return _probe(p)
+        if kind == "q":
+            return self._query(name)
         if kind == "g":
             return self.repo_state(p)
         try:
@@ -172,6 +247,50 @@ def self_check():
         (root / "a.txt").unlink()
         if Reader(root).sig("f", "a.txt") != "missing":
             bad.append("a missing file is not 'missing'")
+        # p: a probe sees the type, a file's executable bits and a link's target
+        (root / "run.sh").write_text("")
+        before = Reader(root).sig("p", "run.sh")
+        os.chmod(root / "run.sh", 0o755)
+        if Reader(root).sig("p", "run.sh") == before or before != "file:0o0":
+            bad.append(f"a probe does not see a file's executable bits: {before}")
+        os.symlink("d", root / "ln")
+        if Reader(root).sig("p", "ln") != "link:d" or Reader(root).sig("p", "gone2") != "missing":
+            bad.append("a probe does not tell a link and a missing path apart")
+        # q: a git query answers the same until what it reads moves
+        subprocess.run(["git", "init", "-q", str(root)], capture_output=True)
+        q = '[".", ["git", "ls-files", "--others"], {}, []]'
+        before_q = Reader(root).sig("q", q)
+        if before_q != Reader(root).sig("q", q) or len(before_q) != 16:
+            bad.append("a git query does not answer the same twice")
+        (root / "new.txt").write_text("")
+        if Reader(root).sig("q", q) == before_q:
+            bad.append("a git query's answer does not move with what it reads")
+        if Reader(root).sig("q", '[".", ["rm", "-rf", "."], {}, []]') != "not a git query":
+            bad.append("a query that is not git is run")
+        # v and w: a temporary directory's own name is blanked, nothing else is
+        os.environ["CONTENT_RECORD_T"] = str(Path(tempfile.gettempdir()) / "tmpAAAA" / "home")
+        pwd = os.environ.get("PWD")
+        try:
+            a = Reader(root).sig("v", "CONTENT_RECORD_T")
+            wa = Reader(root).sig("w", "")
+            os.environ["CONTENT_RECORD_T"] = str(Path(tempfile.gettempdir()) / "tmpBBBB" / "home")
+            if Reader(root).sig("v", "CONTENT_RECORD_T") != a or Reader(root).sig("w", "") != wa:
+                bad.append("a temporary directory's own name is not blanked")
+            os.environ["CONTENT_RECORD_T"] = str(Path(tempfile.gettempdir()) / "tmpBBBB" / "work")
+            if Reader(root).sig("v", "CONTENT_RECORD_T") == a or Reader(root).sig("w", "") == wa:
+                bad.append("a change under a temporary directory is blanked too")
+            if Reader(root).sig("w", "CONTENT_RECORD_T") == wa:
+                bad.append("w does not leave out the names it lists")
+            pwd, w_before = os.environ.get("PWD"), Reader(root).sig("w", "")
+            os.environ["PWD"] = (pwd or "") + "-moved"
+            if Reader(root).sig("w", "") != w_before:
+                bad.append("w counts a variable the shell rewrites on its own")
+        finally:
+            os.environ.pop("CONTENT_RECORD_T", None)
+            if pwd is None:
+                os.environ.pop("PWD", None)
+            else:
+                os.environ["PWD"] = pwd
     return bad
 
 
