@@ -3332,6 +3332,23 @@ def check_workflow_growth_needs_the_persons_words():
         cases.append((f'{name}: {"grows" if grows else "adds no CI work"}',
                       bool(got) == grows, str(got)))
     cases.append(('a new workflow is all growth', bool(pc._workflow_growth(None, base)), ''))
+    # A LIST WHERE THERE WAS NONE NARROWS (2026-10-10): BestPractice's own
+    # leak-gate.yml went from every branch but one to main only, and was
+    # refused as running more.
+    every = ('on:\n  push:\n    branches-ignore: [old-name]\n'
+             'jobs:\n  scan:\n    runs-on: ubuntu-latest\n')
+    for name, before, after, grows in (
+            ('every branch but one -> main only', every,
+             every.replace('branches-ignore: [old-name]', 'branches: [main]'), False),
+            ('every branch -> main only', every.replace('    branches-ignore: [old-name]\n', ''),
+             every.replace('branches-ignore: [old-name]', 'branches: [main]'), False),
+            ('an ignored branch now listed', every,
+             every.replace('branches-ignore: [old-name]', 'branches: [old-name]'), True),
+            ('an ignore filter dropped with nothing in its place', every,
+             every.replace('    branches-ignore: [old-name]\n', ''), True)):
+        got = pc._workflow_growth(before, after)
+        cases.append((f'{name}: {"grows" if grows else "adds no CI work"}',
+                      bool(got) == grows, str(got)))
     two = base + '  more:\n    runs-on: ubuntu-latest\n'
     cases.append(('two jobs folded into one new one adds no CI work',
                   not pc._workflow_growth(two, base.replace('  check:\n', '  one:\n')),
