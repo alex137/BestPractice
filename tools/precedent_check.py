@@ -8180,9 +8180,33 @@ def _is_vendored(path):
     return path.startswith(_mirrored(ROOT))
 
 
+def _in_record_path(rel, records):
+    """True when `rel` is one of the repository's declared records
+    (precedent.json `record_paths`): the path itself, or under an entry
+    ending in "/"."""
+    rel = str(rel).replace('\\', '/')
+    return any(rel == r or (r.endswith('/') and rel.startswith(r))
+               for r in records)
+
+
 def _md_in_scope(ctx):
+    """The changed Markdown the writing checks read: never a vendored file,
+    and never a declared record.
+
+    RECORDS ARE LEFT AS WRITTEN (2026-10-10, a consumer filing call
+    transcripts). Its first two transcripts could not be committed: the
+    acronym, figure and heading checks flagged what people SAID on the
+    calls, and the only ways past were editing the record of their speech,
+    exempting the whole repo, or storing it where no check reads it. Every
+    caller of this is about how text is written -- strikethrough, heading
+    levels, acronyms, figures, labels, current-state wording, indexes -- so
+    a file the repository declares in record_paths is out of all of them.
+    The leak and private-name checks are separate tools that read every
+    file, records included."""
+    records = _declared_record_paths()
     return [f for f in ctx.changed
-            if f.endswith('.md') and not _is_vendored(f) and (ROOT / f).exists()]
+            if f.endswith('.md') and not _is_vendored(f) and (ROOT / f).exists()
+            and not _in_record_path(f, records)]
 
 
 @check('doc-references-are-links', 'change',
@@ -8269,9 +8293,12 @@ def _headline_capitalization(ctx):
     # asks it rather than carrying a second copy of the boundary, and passes
     # ROOT so the repo-declared half is read from THIS repo's config rather
     # than the process's working directory.
+    # A declared record keeps the headings it was filed with (2026-10-10,
+    # the same transcripts as _md_in_scope's note).
+    records = _declared_record_paths()
     scope = [f for f in ctx.changed
              if f.endswith('.md') and title_case.is_outward(f, root=ROOT)
-             and (ROOT / f).exists()]
+             and (ROOT / f).exists() and not _in_record_path(f, records)]
     if not scope:
         raise NotApplicable('no changed outward-facing document is in scope')
     out = []

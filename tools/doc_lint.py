@@ -177,9 +177,31 @@ def is_file_reference(span):
 FROZEN_PREFIXES = ()
 
 def drop_frozen(files):
+    files = drop_records(files)
     if not FROZEN_PREFIXES:
         return files
     return [f for f in files if not pathlib.PurePath(f).name.startswith(FROZEN_PREFIXES)]
+
+
+def drop_records(files):
+    """Leave out the files this repository declares as records
+    (precedent.json `record_paths`, read by precedent_resolve, its one
+    reader): a call transcript or a dated audit keeps what was said or
+    filed, and is not linted into something else (2026-10-10, a consumer's
+    transcripts, refused on the speakers' own words). A file named
+    explicitly on the command line is still linted, unless it came from the
+    commit gate (--scope-changed). An engine with no
+    resolver declares nothing: fewer exemptions, never more."""
+    try:
+        import precedent_resolve as _pr
+        records = list(_pr.declared_record_paths(ROOT))
+    except Exception:                                          # noqa: BLE001
+        return files
+    if not records:
+        return files
+    return [f for f in files
+            if not any(f == r or (r.endswith('/') and f.startswith(r))
+                       for r in records)]
 
 # ---- acronym check (check 3) ----
 ACRONYM_RE = re.compile(r'\b([A-Z]{2}[A-Z0-9]{0,4})\b')   # 2-6 chars, ≥2 leading letters
@@ -1654,6 +1676,10 @@ def main():
             print("(explicit paths are resolved against the repo root — a missing "
                   "file scanned as 'OK' is a silent no-op)")
             return 2
+        if '--scope-changed' in flags:
+            # The commit gate (doc-lint-gate.sh) names the staged files; a
+            # declared record among them is left as filed, as above.
+            files = drop_records(files)
     else:
         files, gate = drop_frozen(changed_md()), True
 

@@ -50950,6 +50950,79 @@ def check_vocabulary_lets_a_local_practice_name_a_local_script():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_writing_checks_leave_a_declared_record_as_filed():
+    """The writing checks leave a file the repository declares in
+    record_paths as it was filed; the same file anywhere else is still
+    checked.
+
+    2026-10-10, a consumer filing call transcripts: the first two could not
+    be committed, because the acronym, figure and heading checks flagged
+    what people SAID on the calls. record_paths already declared records for
+    the link and citation checks, and the writing checks never asked it.
+    Planted: one transcript with a skipped heading level and a lowercase
+    heading, under a declared record directory and outside it."""
+    import tempfile, types
+    name = 'the writing checks leave a declared record as filed'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+        import doc_lint as dl
+    finally:
+        sys.path.pop(0)
+    saved = (pc.ROOT, dl.ROOT)
+    cases = []
+    text = ('# Call with the team\n\n### what the client said about the CRM\n\n'
+            'He put it at 40 percent, from memory.\n')
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            for d in ('calls', 'notes'):
+                (repo / d).mkdir()
+                (repo / d / '2026-10-01-call.md').write_text(text, encoding='utf-8')
+            pc.ROOT = dl.ROOT = repo
+            ctx = types.SimpleNamespace(root=repo, changed=[
+                'calls/2026-10-01-call.md', 'notes/2026-10-01-call.md'])
+
+            def run(fn):
+                try:
+                    return [f.file() if hasattr(f, 'file') else str(f) for f in fn(ctx)]
+                except pc.NotApplicable:
+                    return []
+
+            def both():
+                return (run(pc._heading_outline), run(pc._headline_capitalization),
+                        pc._md_in_scope(ctx), dl.drop_frozen(list(ctx.changed)))
+            (repo / 'precedent.json').write_text('{}', encoding='utf-8')
+            before = both()
+            (repo / 'precedent.json').write_text(json.dumps({'record_paths': [
+                {'path': 'calls/', 'reason': 'call transcripts'}]}), encoding='utf-8')
+            after = both()
+
+            def hits(rows, where):
+                return any(where in r for r in rows)
+            cases.append(('control: undeclared, the transcript\'s skipped heading level is flagged',
+                          hits(before[0], 'calls/')))
+            cases.append(('control: undeclared, its lowercase heading is flagged',
+                          hits(before[1], 'calls/')))
+            cases.append(('declared, heading-outline leaves it alone',
+                          not hits(after[0], 'calls/')))
+            cases.append(('declared, headline capitalization leaves it alone',
+                          not hits(after[1], 'calls/')))
+            cases.append(('declared, the shared writing-check scope (acronyms, figures, '
+                          'labels...) leaves it out',
+                          'calls/2026-10-01-call.md' not in after[2]))
+            cases.append(('declared, doc_lint\'s changed-file gate leaves it out',
+                          'calls/2026-10-01-call.md' not in after[3]))
+            cases.append(('the same file outside record_paths is still checked, every way',
+                          hits(after[0], 'notes/') and hits(after[1], 'notes/')
+                          and 'notes/2026-10-01-call.md' in after[2]
+                          and 'notes/2026-10-01-call.md' in after[3]))
+    finally:
+        pc.ROOT, dl.ROOT = saved
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_landed_check_names_the_tier_that_ran():
     """After a merge, the line says whether the base moved from the trees,
     and names the check that actually ran.
@@ -73198,6 +73271,7 @@ def main():
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
+    check_writing_checks_leave_a_declared_record_as_filed()
     check_vocabulary_lets_a_local_practice_name_a_local_script()
     check_doc_lint_leaves_a_received_practice_to_its_source()
     check_one_upstream_move_is_said_once_at_session_start()
