@@ -72271,6 +72271,12 @@ def check_todo_gotcha_stale_reference_fires():
     cases.append(('a TODO.md#slug link is reported',
                   any('old-slug' in o for o in out), repr(out)))
 
+    out = run({'documentation/X.md': (
+        'due: [table](https://github.com/o/r/blob/main/todo/TODO.md#due-reminders)'
+        ' or [here](../todo/TODO.md#due-reminders)\n')})
+    cases.append(('...but a link into the live index todo/TODO.md, by '
+                  'anchor, raises nothing', out == [], repr(out)))
+
     out = run({'todo/todo-2026-01-01-old-slug.md':
               '---\nslug: todo-2026-01-01-old-slug\n---\n## What\nfine\n'})
     cases.append(('...and a real migrated item file alone raises nothing',

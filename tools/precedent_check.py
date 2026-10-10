@@ -11239,7 +11239,11 @@ def _open_item_disposition_copies(ctx):
 # catalogue practice -- there is no practices/<slug>.md for it to be in
 # force against, the same shape as open-item-disposition's sibling checks
 # that guard a file's grammar rather than a rule a session follows.
-TODO_STALE_LINK_RE = re.compile(r'(\.\./)?\bTODO\.md#[a-zA-Z0-9-]+')
+# Not todo/TODO.md: that is the live generated index, and a link to one
+# of its sections (#due-reminders) is current, not a pre-migration
+# citation (2026-10-10, a people-facing page linking the Due Reminders
+# table was refused).
+TODO_STALE_LINK_RE = re.compile(r'(\.\./)?(?<!todo/)\bTODO\.md#[a-zA-Z0-9-]+')
 BARE_GOTCHA_ANCHOR_RE = re.compile(r'\]\(#g\d+\)')
 ITEM_N_PHRASE_RE = re.compile(
     r'\bTODO(?:\.md)?\s+item\s+\d+\b|\bitem\s+\d+\s*\(\s*(?:was|closed)\b',
