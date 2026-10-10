@@ -890,7 +890,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             # The person deleted it (precedent_resolve.DELETED_SETS_KEY): its
             # repository may be gone, so it is never cloned again.
             note_clone_result(name, True)
-            results.append((name, True, 'its repository is deleted '
+            results.append((name, True, 'it is on the list of deleted sets '
                                         '(tools/deleted_sets.json or your '
                                         'individual set); not cloned -- Update '
                                         'Vendors removes it from precedent.json'))
