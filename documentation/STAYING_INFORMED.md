@@ -56,16 +56,25 @@ scheduled job. When one of those gets stuck, it has to reach a person who
 can fix it, and a line buried in a log nobody opens doesn't.
 
 - **A stuck job opens an issue on GitHub**, so you get GitHub's usual
-  notification. If it can't open one, it writes the problem into the
-  project's to-do folder instead, and **the next conversation in that
-  project tells you about it first** and fixes it.
+  notification, with nobody working. If it
+  can't open one, it writes the problem into the project's to-do folder
+  instead, and **the next conversation in that project tells you about it
+  first** and fixes it.
+- **Precedent's own test does this.** When the full test of a change that
+  went live fails, it opens an issue saying so, and closes that issue
+  itself once a later run passes. Changes go live first and are tested
+  after, deliberately, so work isn't held up waiting for the test; the
+  issue is how you hear when one goes wrong.
+- **You can do the same for your own jobs.** Anything you run unattended
+  in your own projects, such as a job that keeps a calendar in sync, can
+  open an issue when it fails. **It's the simplest way to get an urgent
+  notification out of a project**, because it reaches you through GitHub
+  whether or not anyone has a conversation open. Ask your AI Assistant to
+  set it up; the practice behind it is
+  [automation-issues](https://github.com/alex137/BestPractice/blob/staging/practices/automation-issues.md).
 - **A job that skips something optional says so.** If it couldn't reach
   something it didn't strictly need, it carries on and reports the skip.
   A silent skip looks exactly like a job that's working.
-- **A change that goes live and then fails its check on GitHub shows up
-  as a failure on that change**, and the next conversation fixes it.
-  Problems are caught after the change goes live, deliberately, so work
-  isn't held up waiting for the check.
 
 ## "Am I Running an Old Version of the Rules?"
 
@@ -85,16 +94,23 @@ was set aside**.
 
 ## "What's Waiting on Me?"
 
-- **Open questions about the project** live as to-do items, and each one
+- **Anything you'll need to know later becomes a to-do item**, written
+  into the project's to-do folder rather than left in the chat. Each item
   says whether an Assistant may bring it up with you. Most say no: they
   wait quietly until you ask about them. Only the ones marked to ask get
   raised, so you aren't nagged about things you've already set aside. Say
   *"Drop it"* and an item is never raised again.
-- **Reminders work the same way.** Say *"Todo reminder"* with a date and
-  the item gets raised in the first conversation on or after that date,
-  not at a set time on a clock. A clock tied to one conversation stops
-  when that conversation closes; an item written into the project waits
-  for whoever opens it next.
+- **A reminder is a to-do item with a date.** Say *"Todo reminder"*, what
+  to remind you of, and when. From that date the item counts as due, and
+  it waits in the project for whoever opens it next. That's deliberate: an
+  alarm set inside one conversation stops when that conversation closes.
+  **Today, due reminders are listed, not raised.** They sit together at
+  the bottom of the project's to-do list (Precedent's own is
+  [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md#due-reminders))
+  and count when you ask for *"Three Things"*. The wrap-up at the end of a
+  reply offers at most one to-do, picked because it bears on what you're
+  working on, not because its date came. To see what's due, ask *"What
+  reminders are due?"*
 - **A practice someone wants added to your team's set** reaches you
   through the notifications you already get, if you're one of the people
   who approve those ([Adopting Precedent](ADOPTING.md)).
@@ -126,10 +142,10 @@ reaches the people who should know.
 **If nobody opens a conversation in a project, nothing in this page
 happens.** The daily note, the reminders, the "you're behind" warning:
 each one waits for the next conversation to come along. The exceptions
-are a stuck job's issue and a failed check, which reach you through
-GitHub's own notifications, and an approval request, which reaches you
-through the notifications you already get, whether or not anyone is
-working.
+are a GitHub issue opened by a stuck job or a failed test, which reaches
+you through GitHub's own notifications, and an approval request, which
+reaches you through the notifications you already get, whether or not
+anyone is working.
 
 That is a deliberate trade. Scheduled jobs cost money, break silently when
 the conversation they belong to closes, and send messages nobody reads.
