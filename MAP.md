@@ -252,6 +252,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_check.py](tools/precedent_check.py) | The ENFORCED loading channel — runs every practice's `checked_by` script |
 | [tools/precedent_check_after.py](tools/precedent_check_after.py) | The full check of a commit that already landed, run in the background; a failure is filed under todo/ and pushed |
 | [tools/precedent_ci_verified.py](tools/precedent_ci_verified.py) | Did CI actually run, and pass, on the commit about to be merged — advisory, one API call |
+| [tools/precedent_clone_lock.py](tools/precedent_clone_lock.py) | One run at a time in a clone several runs share. |
 | [tools/precedent_close_detect.py](tools/precedent_close_detect.py) | Stage 1's trigger — at the close of a session that merged and is ready to archive, offers at most one practice candidate found in that session's own material |
 | [tools/precedent_consumer_shape.py](tools/precedent_consumer_shape.py) | A practice source's check tests run the way a consuming repository runs them -- with git ignoring what a consumer typically ignores, in a copy without the source's own tools/ (only the engine, tools/checks/ and what practices ship) -- so a test that passes only in its home layout fails at home; a source's push check runs it |
 | [tools/precedent_container_safe.py](tools/precedent_container_safe.py) | Would anything be lost if this container went away? Scans every git checkout in it for uncommitted, untracked and unpushed work |
