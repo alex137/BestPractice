@@ -188,6 +188,7 @@
         ],
         "must_also_match": "^>\\s.+|(?<!\\w)[\"“'‘][^\"”’']*\\b(?:[Aa]pproved?|[Mm]erge|[Pp]ush|[Ll]and|[Gg]o ahead)\\w*\\b",
         "why": "a paste block that tells another session to land, merge, push or open a pull request onto the main branch, or says the same in other words (make it live, ship it, gh pr merge, git push origin main) carries landing authority, and only the person's own words for this handoff give it -- quoted in the block, so the receiving session can check them. Without them, the prompt ends with the work built on a feature branch, pushed there, and stopped",
+        "narration_exempt": true,
         "narration_exempt_if_block_matches": "\\bfeature branch\\b[^\\n]{0,80}?\\bstop\\b",
         "negation_exempt_if_clause_negates": {
           "before": "\\b(?:do not|does not|did not|not|never|no|nothing|none|neither|nor|\\w+n['’]t)\\b(?!\\s+(?:hesitate|forget|fail|wait|delay|bother|need|only|just|matter|later|longer|questions?|problem|stop)\\b)|\\bwithout\\b(?!\\s+(?!(?:land|merg|push|promot|open|ship|deploy|releas|mak|fast)\\w*)\\w+ing\\b)",
