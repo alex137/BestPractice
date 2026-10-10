@@ -32784,6 +32784,83 @@ def check_rename_links_spares_a_commit_pinned_permalink():
           '; '.join(failed) + ('' if not failed else f' -- {out[-600:]}'))
 
 
+def check_rename_links_spares_a_longer_path_and_manifest_notes():
+    """rename-updates-links reads a deleted path inside a longer path, or
+in a manifest entry's notes, as a reference left behind.
+
+THE INCIDENT (2026-10-10, three consumers). Each deleted its own
+tools/sound_human_freshness.py to run the pack's copy under
+process/<pack>/tools/, repointed every line, and every repointed line was
+refused as still naming the deleted file; so was a manifest note recording
+an old rename. The DISCRIMINATING CASES are the first two. The other two
+are the control: a bare mention and a ../ link from a subdirectory still
+name the deleted file and are still reported.
+"""
+    import tempfile, json as _json, shutil as _shutil
+    checker = ROOT / 'tools' / 'precedent_check.py'
+    name = 'rename-updates-links spares a longer path and manifest notes'
+    if not checker.exists():
+        not_applicable(name, 'tools/precedent_check.py is not present here')
+        return
+    pages = {
+        'LONGER.md': 'Run `process/pack/tools/doomed.py fresh` instead.\n',
+        'process/manifest.json': '{\n  "entries": [\n    {\n      "notes": "2026-08-28: renamed to tools/doomed.py"\n    }\n  ]\n}\n',
+        'PROSE.md': 'Step 3: run `tools/doomed.py` first.\n',
+        'docs/SUB.md': 'See [it](../tools/doomed.py).\n',
+    }
+    with tempfile.TemporaryDirectory() as td:
+        base = pathlib.Path(td) / 'repo'
+        (base / 'process').mkdir(parents=True)
+        (base / 'tools').mkdir()
+        # Seeded, then overwritten with this tree's checker -- seeding copies
+        # the COMMITTED engine (see check_retirement_record_is_not_a_stranded_link).
+        subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+             'seed', str(base), '--kind', 'consumer'],
+            capture_output=True, text=True, timeout=300)
+        (base / 'practices').mkdir(exist_ok=True)
+        _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
+                      base / 'practices' / 'rename-updates-links.md')
+        _shutil.copy2(checker, base / 'tools' / 'precedent_check.py')
+        (base / 'precedent.json').write_text(
+            _json.dumps({'format_version': 1, 'sources': [],
+                         'visibility': 'private'}), encoding='utf-8')
+        (base / 'tools' / 'doomed.py').write_text('# doomed\n', encoding='utf-8')
+        (base / 'process' / 'pack' / 'tools').mkdir(parents=True)
+        (base / 'process' / 'pack' / 'tools' / 'doomed.py').write_text('# kept\n', encoding='utf-8')
+        (base / 'docs').mkdir()
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(base), *a],
+                                  capture_output=True, text=True, env=env)
+        g('init', '-q', '-b', 'main')
+        g('config', 'user.email', 'h@example.com')
+        g('config', 'user.name', 'H')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        (base / 'tools' / 'doomed.py').unlink()
+        for page, text in pages.items():
+            (base / page).write_text(text, encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'delete it, cite it four ways')
+        r = subprocess.run(
+            [sys.executable, 'tools/precedent_check.py',
+             '--only', 'rename-updates-links'],
+            capture_output=True, text=True, cwd=str(base), timeout=300, env=env)
+        out = r.stdout + r.stderr
+    cases = [
+        ('THE DISCRIMINATING CASE: the deleted path inside a longer path is '
+         'not reported', 'LONGER.md' not in out),
+        ('...nor in a manifest entry\'s notes', 'manifest.json' not in out),
+        ('the bare path in prose is still reported', 'PROSE.md' in out),
+        ('a ../ link from a subdirectory is still reported', 'SUB.md' in out),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-600:]}'))
+
+
 def _changed_files_fixture(tmp):
     """-> (repo, run) for precedent_push_check.changed_files_check against a
     consumer-shaped repo at `tmp`, run in-process: the script's own main()
@@ -72372,6 +72449,7 @@ def main():
     check_update_rerun_rerecords_a_template_file_the_first_run_wrote()
     check_audit_says_where_a_moved_bootstrap_section_went()
     check_push_check_walks_every_commit_it_publishes()
+    check_rename_links_spares_a_longer_path_and_manifest_notes()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_landed_reduction_quiets_the_reduction_ask()

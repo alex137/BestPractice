@@ -8880,6 +8880,42 @@ def _published_default_branch():
     return None
 
 
+_PATH_CHAR = re.compile(r'[\w.\-]')
+_BRANCH_URL_TAIL = re.compile(
+    r'(?:https?://github\.com/[\w.-]+/[\w.-]+/(?:blob|tree|raw)/[\w.\-]+/'
+    r'|https?://raw\.githubusercontent\.com/[\w.-]+/[\w.-]+/[\w.\-]+/)$')
+
+
+def _names_path(line, path):
+    """True when `line` names `path` itself: not as the tail of a longer
+    path (process/pack/tools/x.py does not name tools/x.py), but with a
+    ./ or ../ in front it still does, the way a link from a subdirectory
+    writes it.
+
+    WHY (2026-10-10, three consumers). A repo deleted its own
+    tools/sound_human_freshness.py to run the copy its practice pack ships
+    under process/<pack>/tools/ instead, repointed every
+    reference, and every one of the repointed lines was refused as still
+    naming the deleted file."""
+    start = 0
+    while True:
+        i = line.find(path, start)
+        if i < 0:
+            return False
+        start = i + 1
+        k = i
+        while k > 0 and (_PATH_CHAR.match(line[k - 1]) or line[k - 1] == '/'):
+            k -= 1
+        prefix = line[k:i]
+        if not prefix or (prefix.endswith('/') and all(
+                seg in ('.', '..') for seg in prefix[:-1].split('/'))):
+            return True
+        # A GitHub link to the file on a branch names it too (other
+        # repositories' URLs are stripped before this is asked).
+        if _BRANCH_URL_TAIL.search(line[:i]):
+            return True
+
+
 PINNED_PERMALINK_RE = re.compile(
     r'https?://(?:github\.com/[^/\s]+/[^/\s]+/(?:blob|tree|raw)/'
     r'|raw\.githubusercontent\.com/[^/\s]+/[^/\s]+/)[0-9a-f]{40}/[^\s)\]>"\'`]*')
@@ -9081,8 +9117,14 @@ def _rename_updates_links(ctx):
                 # and still counts.
                 # And a URL into ANOTHER repository names that repository's
                 # file, not this one's (_strip_other_repo_urls).
-                if old in line and old in _strip_other_repo_urls(
-                        PINNED_PERMALINK_RE.sub('', line), _own_slug):
+                # A manifest entry's notes are its history: what was done,
+                # with the paths as they were then (2026-10-10, a consumer's
+                # process/manifest.json recorded a rename of a file this
+                # branch later deleted).
+                if rel.endswith('.json') and line.lstrip().startswith('"notes"'):
+                    continue
+                if old in line and _names_path(_strip_other_repo_urls(
+                        PINNED_PERMALINK_RE.sub('', line), _own_slug), old):
                     if moved and is_guarded_fallback(rel, line, old):
                         continue  # the fallback beside tools/, as templates write it
                     where = f'renamed to {new_path}' if new_path else 'deleted'
