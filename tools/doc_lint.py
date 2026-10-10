@@ -1089,7 +1089,16 @@ def check_upstream_item(path, root=None):
     block does not count (2026-10-08: a consumer's item that said to run
     `python3 tools/open_failures.py --file ...` was refused, and had to link
     the tool instead of writing the command). The same path in prose, in a
-    link's text, or as a later argument of the command still counts."""
+    link's text, or as a later argument of the command still counts.
+
+    Two more readings that are not the subject (2026-10-10, a consumer's
+    Update Vendors): a fenced block is quoted material -- a check's verbatim
+    output names its own script -- so nothing inside a fence counts; and an
+    item whose stated reason names its blocker, and that blocker is no
+    repository a source comes from (waiting_on: the person), says what it
+    waits on, so a vendored path in its body does not make it an upstream
+    fix. The consumer's item asked whether the person grandfathers three
+    commits, quoted the check's output, and was refused for it."""
     root = pathlib.Path(root or ROOT)
     p = pathlib.PurePosixPath(str(path))
     if p.parent.name != 'todo' or not (p.name.startswith('todo-') and p.suffix == '.md'):
@@ -1113,8 +1122,14 @@ def check_upstream_item(path, root=None):
     # refused for a one-line note until it linked an unrelated pull
     # request). Only the address goes; the link's own text still counts,
     # so "[tools/doc_lint.py](...) misreads a fence" is still caught.
-    body = _drop_run_programs(
-        _LINK_TARGET_RE.sub('](', _MIGRATION_STAMP_RE.sub('', text)))
+    reason = ' '.join(v.strip().strip('"\'') for v in re.findall(
+        r'^(?:blocked_on|waiting_on):(.*)$', head, re.M))
+    reason = re.sub(r'\b(?:null|none|~)\b', '', reason, flags=re.I).strip()
+    if reason and not any(re.search(r'(?<![\w.-])' + re.escape(n) + r'(?![\w-])',
+                                    reason, re.I) for n in names):
+        return None
+    body = _CODE_FENCE_RE.sub('', _drop_run_programs(
+        _LINK_TARGET_RE.sub('](', _MIGRATION_STAMP_RE.sub('', text))))
     lead = r'(?:(?<=\.\./)|(?<![\w./-]))'
     named = None
     for e in entries:
@@ -1125,7 +1140,6 @@ def check_upstream_item(path, root=None):
             named = m.group(0).rstrip('.,;:')
             break
     if named is None:
-        reason = ' '.join(re.findall(r'^(?:blocked_on|waiting_on):(.*)$', head, re.M))
         named = next((n for n in names if re.search(
             r'(?<![\w.-])' + re.escape(n) + r'(?![\w-])', reason, re.I)), None)
         if named is None:

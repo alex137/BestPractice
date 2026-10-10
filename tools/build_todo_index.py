@@ -85,6 +85,9 @@ KIND_LABELS = {
     'decision': 'Decisions (the person\'s call)',
 }
 KIND_ORDER = ['analysis', 'verify', 'manual', 'decision']
+# Kinds people reach for that are not one of the four; the refusal suggests
+# `manual` for these (2026-10-10, a consumer's item filed as `task`).
+KIND_SYNONYMS = {'task', 'todo', 'action', 'chore'}
 
 # spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's own frontmatter table: status is
 # open | done | dropped, nothing else. An item outside this set (`closed`
@@ -168,8 +171,12 @@ def read_todo_item(path):
         sys.exit(f'build_todo_index FAIL: {path} is open with kind: '
                   f'{kind!r}, not one of {", ".join(KIND_ORDER)} -- '
                   f'TODO.md has no table for it, so it would silently '
-                  f'vanish from the open-items list. A bug to fix is '
-                  f'`analysis`; a choice for a person is `decision`.')
+                  f'vanish from the open-items list. Pick one: `analysis` '
+                  f'(a bug or question to work out), `verify` (something to '
+                  f'check is true), `manual` (a person has to do something), '
+                  f'`decision` (a person has to choose)'
+                  + (f'. A `{kind}` is usually `manual`.'
+                     if str(kind).lower() in KIND_SYNONYMS else '.'))
     return item
 
 

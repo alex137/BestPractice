@@ -979,6 +979,84 @@ _MENTION = re.compile(r"^WARN: precedent_vendor_engine: (?P<gone>\S+) was .+?, "
 # Files whose mentions of a mirrored engine path are commands a session
 # runs or a harness allows, not prose about the past.
 MOVED_ENGINE_FILES = ('AGENTS.md', 'CLAUDE.md', '.claude/settings.json')
+
+# Engine paths that moved, old -> new: every consumer that named an old one
+# fails its next push on rename-updates-links unless the update repoints it
+# (repoint_renamed_engine_paths). Add a row whenever an engine or
+# materialized check path moves.
+# 2026-10-10: the commit checks became engine files (49b31179); a
+# consumer's second Update Vendors run failed on four live mentions of the
+# old paths that the first run never listed.
+ENGINE_PATH_MOVES = {
+    'tools/checks/check_commit_author.py': 'tools/check_commit_author.py',
+    'tools/checks/check_buenos_aires_dates.py': 'tools/check_commit_dates.py',
+}
+TEXT_SUFFIXES = ('.md', '.json', '.sh', '.py', '.yml', '.yaml', '.txt', '.toml')
+
+
+def repoint_renamed_engine_paths(repo):
+    """-> [(rel, n)]: rewrite each live mention of an ENGINE_PATH_MOVES old
+    path to its new one, in the repo's own tracked text, where the old path
+    is gone and the new one is there. Left as written, exactly as
+    rename-updates-links leaves them: history (a closed todo item, a
+    generated view, a finished document, a Story section), a generated
+    block, a sentence saying the thing moved or is gone, and a line that
+    already names the new path. Vendored and engine files are never
+    touched: their own source rewrites them."""
+    import generated_blocks
+    import precedent_check as pc
+    moves = {o: n for o, n in ENGINE_PATH_MOVES.items()
+             if not (repo / o).exists() and (repo / n).exists()}
+    if not moves:
+        return []
+    r = subprocess.run(['git', '-C', str(repo), 'ls-files'],
+                       capture_output=True, text=True)
+    own = set(_own_shell_scripts(repo))
+    try:
+        received = set(json.loads((repo / 'tools' / 'ENGINE_MANIFEST.json')
+                                  .read_text(encoding='utf-8')).get('files') or ())
+    except (OSError, ValueError, AttributeError):
+        received = set()
+    import precedent_resolve as pr
+    mirrors = tuple(pr.mirrored_prefixes(repo) or ())
+    pats = {o: re.compile(r'(?<![\w./-])' + re.escape(o) + r'(?![\w/-])')
+            for o in moves}
+    done = []
+    for rel in (r.stdout.split() if r.returncode == 0 else []):
+        if not rel.endswith(TEXT_SUFFIXES) and rel not in own:
+            continue
+        if (mirrors and rel.startswith(mirrors)) or rel.startswith(
+                ('practices/', '.precedent/', '.claude/hooks/')) \
+                or (rel.startswith('tools/') and rel[len('tools/'):] in received):
+            continue
+        f = repo / rel
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not any(o in text for o in moves) or pc._is_history(rel, text):
+            continue
+        lines = text.split('\n')
+        gen = generated_blocks.mask(lines) if rel.endswith('.md') else [False] * len(lines)
+        story = pc._story_mask(lines) if rel.endswith('.md') else [False] * len(lines)
+        n = 0
+        for i, line in enumerate(lines):
+            if gen[i] or story[i]:
+                continue
+            new_line = line
+            for o, nw in moves.items():
+                if not pats[o].search(new_line) or nw in new_line \
+                        or pc._sentences_saying_gone(lines, i, o):
+                    continue
+                new_line = pats[o].sub(nw, new_line)
+            if new_line != line:
+                lines[i] = new_line
+                n += 1
+        if n:
+            f.write_text('\n'.join(lines), encoding='utf-8')
+            done.append((rel, n))
+    return done
+
 MIRRORED_TOOL_RE = re.compile(r'(?<![\w./-])process/upstream/tools/([\w.-]+)')
 
 
@@ -4522,6 +4600,13 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
     # process/upstream/tools/... `|| true` in that commit, and the
     # session-start step silently did nothing (a consumer rehearsal,
     # 2026-10-03).
+    renamed = repoint_renamed_engine_paths(repo)
+    if renamed:
+        rep.step('repointed', 'engine paths that moved now name their new '
+                 'place: ' + ', '.join(
+                     f'{rel} ({n} line{"s" if n != 1 else ""})'
+                     for rel, n in renamed) + ' -- '
+                 + '; '.join(f'{o} -> {n}' for o, n in ENGINE_PATH_MOVES.items()))
     moved, stranded = repoint_moved_engine_mentions(repo)
     for rel, n, path in stranded:
         rep.leave(f'{rel}:{n}', f'calls {path}, which is gone, and tools/ has '
