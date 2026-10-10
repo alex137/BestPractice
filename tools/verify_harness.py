@@ -56463,6 +56463,77 @@ def check_audit_says_where_a_moved_bootstrap_section_went():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_push_check_walks_every_commit_it_publishes():
+    """The push check runs the leak gate over every commit the push would
+    publish, messages included, not only over the tree they end at.
+
+    THE INCIDENT (2026-10-10). One commit named a private repository in a
+    test fixture; the next scrubbed it. The landing's quick checks ran the
+    leak gate on the final tree, which was clean, and the first commit went
+    out to a public branch with the name in it. The DISCRIMINATING CASE is
+    the first: no planned check walked the commits before. The others prove
+    the range is what the push publishes -- a leak a later commit scrubbed
+    still fails, and once those commits are on a remote nothing is
+    re-judged -- and that a tree already passed does not skip it.
+    The fixture owns its repositories (fixture-owns-its-state)."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    cases = []
+    planned = {n: a for n, a, _r in ppc.plan(ROOT, tier=ppc.BASIC)[1]}
+    walk = planned.get('leak_gate_commits') or []
+    cases.append(('THE DISCRIMINATING CASE: a basic push plans the leak gate '
+                  'over the commits it publishes',
+                  walk[-2:] == ['--range', ppc.LEAK_COMMITS_RANGE]
+                  and str(walk[1]).endswith('leak_gate.py'), walk))
+    cases.append(('a tree that already passed still walks the commits',
+                  'leak_gate_commits' in ppc.HISTORY_CHECKS, ''))
+    cases.append(('the full tier walks them too',
+                  'leak_gate_commits' in {n for n, _a, _r in ppc.plan(ROOT)[1]}, ''))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-leakwalk-'))
+    try:
+        env = {**_fixture_git_env(), 'HOME': str(tmp / 'home')}
+        env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        (tmp / 'home').mkdir()
+        g = lambda *a: subprocess.run(['git', '-C', str(tmp / 'repo'), *a],
+                                      env=env, capture_output=True, text=True)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(tmp / 'origin.git')], env=env, capture_output=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(tmp / 'repo')],
+                       env=env, capture_output=True)
+        repo = tmp / 'repo'
+        (repo / 'tools').mkdir()
+        for name in ('leak_gate.py', 'leak-blocklist.default.txt'):
+            shutil.copy(ROOT / 'tools' / name, repo / 'tools' / name)
+        (repo / 'ok.md').write_text('fine\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('remote', 'add', 'origin', str(tmp / 'origin.git'))
+        g('push', '-q', 'origin', 'main')
+        home_path = '/' + 'Users/someone/notes'       # assembled: see check_leak_gate_fires
+        (repo / 'notes.md').write_text(f'see {home_path}\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'notes')
+        (repo / 'notes.md').write_text('clean\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'scrub')
+
+        def gate(*args):
+            return subprocess.run([sys.executable, 'tools/leak_gate.py', *args],
+                                  cwd=str(repo), env=env, capture_output=True,
+                                  text=True).returncode
+        cases.append(('CONTROL: the final tree is clean', gate() == 0, ''))
+        cases.append(('a leak a later commit scrubbed fails the commit walk',
+                      gate('--range', ppc.LEAK_COMMITS_RANGE) == 1, ''))
+        g('push', '-q', 'origin', 'main')
+        cases.append(('once the commits are on a remote, they are not re-judged',
+                      gate('--range', ppc.LEAK_COMMITS_RANGE) == 0, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the push check walks every commit it publishes '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_landed_reduction_quiets_the_reduction_ask():
     """An over-target file whose reduction has already landed on the landing
     branch is reported as waiting on a Promote, not as needing another pass.
@@ -72300,6 +72371,7 @@ def main():
     check_clone_lock_makes_parallel_updates_wait()
     check_update_rerun_rerecords_a_template_file_the_first_run_wrote()
     check_audit_says_where_a_moved_bootstrap_section_went()
+    check_push_check_walks_every_commit_it_publishes()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_landed_reduction_quiets_the_reduction_ask()
