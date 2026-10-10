@@ -59371,7 +59371,10 @@ def check_update_vendors_retires_pre_staging():
                   'Promote pre-staging into staging when ready.\n'
                   'Upstream keeps [its own](https://github.com/x/y/tree/pre-staging).\n'
                   '\n## Story\n\nSessions push to pre-staging here.\n'
-                  '\n## Next\n\nOpen a pull request into pre-staging.\n')
+                  '\n## Next\n\nOpen a pull request into pre-staging.\n'
+                  '\n## Notes\n\n2026-10-07: handoff prompt, kept as sent:\n\n'
+                  '    2. **Push to `pre-staging` (Booked) refused.**\n'
+                  '\n- a list item\n    continued: push to `pre-staging`.\n')
         gotcha = 'gotchas/gotcha-2026-10-01-pushes.md'
         (work / 'gotchas').mkdir()
         (work / gotcha).write_text('# Trap\n\nPush to pre-staging failed.\n',
@@ -59585,6 +59588,13 @@ def check_update_vendors_retires_pre_staging():
         cases.append(('a clear instruction is repointed',
                       'Work lands on `staging` and waits there.' in now
                       and 'Open a pull request into staging.' in now, now))
+        cases.append(('a prompt quoted as an indented code block is left as '
+                      'it was, and listed as code',
+                      '    2. **Push to `pre-staging` (Booked) refused.**' in now
+                      and any('AGENTS.md:21 (code block)' in l for l in retired),
+                      str(retired)[:600]))
+        cases.append(('an indented line that continues a list item is still '
+                      'reworded', '    continued: push to `staging`.' in now, now))
         cases.append(('a link to this repo\'s pre-staging tree is repointed',
                       'https://github.com/o/r/tree/staging/docs' in now, now))
         cases.append(('a dated line, a Story section, a mention that is no '
