@@ -33967,6 +33967,99 @@ def check_push_check_gate():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_global_pre_push_runs_the_leak_gate():
+    """The global pre-push hook commit-identity.sh writes runs the leak gate
+    over every commit a push would publish, on any branch, before the
+    repository's own pre-push -- so a plain `git push` is checked locally,
+    whatever harness is or is not loaded.
+
+    THE INCIDENT (2026-10-10). A session rooted above its repositories, which
+    never loads the harness's push gate, pushed a working branch with a
+    private repository's name in a commit; nothing ran. Morgan, the same
+    day: "it's important that leak-gate goes to every branch, but the check
+    must be local to avoid lots of github minutes billing issues". The
+    DISCRIMINATING CASE is the first: on the hook before this, the push
+    went through. The fixture owns its repositories and its HOME."""
+    import shutil, tempfile
+    cases = []
+    ci_hook = ROOT / 'tools' / 'commit-identity.sh'
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = {**_fixture_git_env(), 'HOME': str(tmp / 'home')}
+        env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        (tmp / 'home').mkdir()
+        # An empty file of its own rather than /dev/null, so this fixture
+        # never depends on the device being one.
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        g = lambda cwd, *a, **e: subprocess.run(
+            ['git', '-C', str(cwd), *a], capture_output=True, text=True,
+            env={**env, **e})
+        bare, work = tmp / 'origin.git', tmp / 'work'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        g(tmp, 'init', '-q', '-b', 'main', str(work))
+        (work / 'tools').mkdir()
+        for name in ('leak_gate.py', 'leak-blocklist.default.txt'):
+            shutil.copy(ROOT / 'tools' / name, work / 'tools' / name)
+        (work / 'identity.json').write_text(json.dumps(
+            {'name': 'T', 'email': 't@example.com', 'timezone': 'UTC'}),
+            encoding='utf-8')
+        (work / 'a.md').write_text('a\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'base')
+        g(work, 'remote', 'add', 'origin', f'file://{bare}')
+        g(work, 'push', '-q', 'origin', 'main')
+        hooks = tmp / 'hooks'
+        # The global config the hook is pointed at is a symlink to an empty
+        # file, standing in for /dev/null: git reads it, and it is not a
+        # regular file (a device cannot be made without root, a fifo would
+        # block git's read, a directory stops git outright). On 2026-10-10
+        # this very test, run with the fixture's GIT_CONFIG_GLOBAL=/dev/null,
+        # had `git config --global` replace the container's /dev/null with
+        # an ordinary file.
+        (tmp / 'empty').write_text('', encoding='utf-8')
+        decoy = tmp / 'not-a-file'
+        decoy.symlink_to(tmp / 'empty')
+        subprocess.run(['bash', str(ci_hook)], capture_output=True, text=True,
+                       timeout=120,
+                       env=dict(env, CLAUDE_PROJECT_DIR=str(work),
+                                GIT_CONFIG_GLOBAL=str(decoy),
+                                PRECEDENT_COMMIT_NAME='T',
+                                PRECEDENT_COMMIT_EMAIL='t@example.com',
+                                PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                                PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                                PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+        cases.append(('the hook never writes a global config that is not a '
+                      'regular file -- it is left exactly as it was',
+                      decoy.is_symlink() and (tmp / 'empty').read_text() == '',
+                      ''))
+        g(work, 'config', 'core.hooksPath', str(hooks))
+        home_path = '/' + 'Users/someone/notes'       # assembled: see check_leak_gate_fires
+        (work / 'b.md').write_text(f'see {home_path}\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'notes', '--no-verify')
+        (work / 'b.md').write_text('clean\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'scrub', '--no-verify')
+        r = g(work, 'push', 'origin', 'HEAD:refs/heads/feature')
+        cases.append(('THE DISCRIMINATING CASE: a branch push carrying a leak a '
+                      'later commit scrubbed is refused, saying why',
+                      r.returncode != 0 and 'push refused: the leak gate' in r.stderr
+                      and not g(work, 'ls-remote', 'origin', 'feature').stdout.strip(),
+                      r.stderr[-600:]))
+        r = g(work, 'push', 'origin', 'HEAD:refs/heads/feature',
+              PRECEDENT_SKIP_LEAK_GATE='1')
+        cases.append(('PRECEDENT_SKIP_LEAK_GATE=1 lets one push through, and says so',
+                      r.returncode == 0 and 'leak gate SKIPPED' in r.stderr,
+                      r.stderr[-400:]))
+        (work / 'c.md').write_text('c\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'clean', '--no-verify')
+        r = g(work, 'push', 'origin', 'HEAD:refs/heads/feature')
+        cases.append(('a clean push goes through, judging only the new commit',
+                      r.returncode == 0, r.stderr[-400:]))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the global pre-push runs the leak gate on every push '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_global_backstop_runs_person_fixer():
     """The commit backstop runs the person's own commit-time fixer --
     `bootstrap/pre-commit-fix` in their individual source -- before every
@@ -72680,6 +72773,7 @@ def main():
     check_push_check_walks_every_commit_it_publishes()
     check_rename_links_spares_a_longer_path_and_manifest_notes()
     check_reply_gate_counts_staging_as_a_landing_branch()
+    check_global_pre_push_runs_the_leak_gate()
     check_others_did_says_why_its_push_was_refused()
     check_archived_set_question_names_the_attach_fix()
     check_session_load_target_is_reported_each_reply()

@@ -82,12 +82,18 @@
 # AGENTS.md's own routing rule), so reading it would narrow the scan on
 # exactly the branch that matters.
 on:
-  push:
-  # `synchronize` REMOVED 2026-09-21, and here it was pure duplication
-  # rather than a trade. This workflow's `push:` is unrestricted -- every
-  # push to every branch -- and a push to a branch with an open pull
-  # request fires BOTH `push` and `pull_request.synchronize`. So every
-  # such push ran this gate twice on the identical tree.
+  # NO `push:` SINCE 2026-10-10 (Morgan: "it's important that leak-gate goes
+  # to every branch, but the check must be local to avoid lots of github
+  # minutes billing issues"). It ran on every push to every branch, one
+  # billed job each. Every branch is now checked before it is published, on
+  # the machine that pushes: the global pre-push hook tools/commit-identity.sh
+  # writes runs tools/leak_gate.py over each commit a push carries. This
+  # workflow keeps the pull request, which the merge into main waits on and
+  # which is the only scan a fork's branch gets.
+  #
+  # `synchronize` REMOVED 2026-09-21: a push to a branch with an open pull
+  # request fired BOTH `push` and `pull_request.synchronize`, so every such
+  # push ran this gate twice on the identical tree.
   #
   # What `pull_request:` is still here FOR is the fork case: a fork's
   # pushes do not fire `push` in the repository being contributed to, so
