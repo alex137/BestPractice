@@ -56410,7 +56410,7 @@ def check_audit_says_where_a_moved_bootstrap_section_went():
     from tools/bootstrap.sh and present in tools/bootstrap.local.sh, names
     that file and the local_path to set.
 
-    THE INCIDENT (2026-10-10, a consumer). Its voicedef-pack freshness line
+    THE INCIDENT (2026-10-10, a consumer). Its style-pack freshness line
     was moved into tools/bootstrap.local.sh when the engine's template took
     over tools/bootstrap.sh, and its manifest entry kept naming bootstrap.sh;
     the audit warned "section_marker not found" on every run, with no hint
@@ -56419,7 +56419,7 @@ def check_audit_says_where_a_moved_bootstrap_section_went():
     The fixture owns its repository (fixture-owns-its-state)."""
     import shutil, tempfile
     cases = []
-    marker = 'process/voicedef/tools/pack_sync.py fresh'
+    marker = 'process/stylepack/tools/pack_sync.py fresh'
     with tempfile.TemporaryDirectory() as tmp:
         repo = pathlib.Path(tmp)
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)],
@@ -56429,15 +56429,15 @@ def check_audit_says_where_a_moved_bootstrap_section_went():
             shutil.copy2(ROOT / 'tools' / name, repo / 'tools')
         (repo / 'tools' / 'bootstrap.sh').write_text('#!/bin/sh\nexit 0\n',
                                                     encoding='utf-8')
-        (repo / 'process' / 'voicedef').mkdir(parents=True)
+        (repo / 'process' / 'stylepack').mkdir(parents=True)
 
         def run(local_text):
             (repo / 'tools' / 'bootstrap.local.sh').write_text(local_text,
                                                               encoding='utf-8')
-            (repo / 'process' / 'manifest_voicedef.json').write_text(json.dumps({
-                'upstream': {'repo': 'example/pack', 'vendored_at': 'process/voicedef',
+            (repo / 'process' / 'manifest_stylepack.json').write_text(json.dumps({
+                'upstream': {'repo': 'example/pack', 'vendored_at': 'process/stylepack',
                              'scrub_blocklist': None},
-                'entries': [{'practice': 'bootstrap-freshness-voicedef',
+                'entries': [{'practice': 'bootstrap-freshness-stylepack',
                              'upstream_path': 'templates/x.template',
                              'local_path': 'tools/bootstrap.sh',
                              'granularity': 'section', 'section_marker': marker,

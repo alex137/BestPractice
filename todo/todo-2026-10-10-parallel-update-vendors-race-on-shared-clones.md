@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          "All these bugs - fix them on BP now, if it is filed we might not get to it"
+decision:          "All these bugs - fix them on `BP` now, if it is filed we might not get to it"
 decision_strength: decided
 waiting_on:        null
 noted:             2026-10-10
