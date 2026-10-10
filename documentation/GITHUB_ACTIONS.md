@@ -38,8 +38,10 @@ Two workflows run on this repo itself, in [.github/workflows/](https://github.co
   workflow.
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
   (`b3bfb54`). Runs [tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py)'s structural
-  layer on every push and every pull request, on every branch (this repo is
-  the branch being published, not just its default). It is the unbypassable
+  layer on a push to `main`. Until 2026-10-10 it ran on every push to every
+  branch; every branch is now checked before it is published, locally, by
+  the leak gate in the global pre-push hook (Morgan, 2026-10-10: "the check
+  must be local to avoid lots of github minutes billing issues"). It is the unbypassable
   backstop for the private-source separation described in
   [spec/PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md)'s "Source — Who a
   Practice Belongs To": a `git push --no-verify` can skip the local
@@ -153,10 +155,12 @@ Runs No CI" below).
 **What a new install gets, since 2026-09-25** ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)):
 one GitHub test and no more. `light-check.yml` runs only on a pull request
 into `main`, about one billed minute per merge into main in a private repo;
-`leak-gate.yml` runs on every push in a public repo, where a push is
-publication, and never in a private one, where its job is skipped before a
-runner starts. Every other push is checked on the person's own machine by
-the push check. **The installer writes these by default**; a declared
+`leak-gate.yml` runs on a pull request in a public repo, and never in a
+private one, where its job is skipped before a runner starts. Every push,
+to any branch, is checked on the person's own machine: by the push check,
+and by the leak gate in the global pre-push hook every session start writes
+(since 2026-10-10; until then `leak-gate.yml` also ran on every push, one
+billed job each). **The installer writes these by default**; a declared
 `"github_ci_workflows": "disabled"` still installs nothing. **Since
 2026-09-27 the engine owns both**: every Update Vendors writes them from the
 templates over any hand-made or hand-edited copy, and removes every other

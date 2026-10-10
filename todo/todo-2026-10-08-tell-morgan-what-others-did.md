@@ -65,7 +65,9 @@ approved" (strength: decided).**
 Where the "last told" mark is kept: a branch kept only for it was
 rejected ("weird and confusing and could be deleted"); the per-person file
 the beta-branch check already kept was approved ("#2 -- this is great"), and
-is now [tools/others_did_watermark.json](../tools/others_did_watermark.json).
+was a JSON file under `tools/` (moved to origin's `refs/precedent/others-did`
+on 2026-10-08; removed 2026-10-10, when the report started counting from
+the person's own last commit instead: [the decision](todo-2026-10-10-others-did-mark-cannot-be-pushed-from-a-cloud-session.md)).
 Claude-signed commits: "great". The mechanism must be part of Precedent
 itself, so future people in the repository get it (Morgan, 2026-10-08).
 
