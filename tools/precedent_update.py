@@ -121,6 +121,7 @@ sys.path.insert(0, str(HERE.parent))
 import precedent_vendor_engine as pve  # noqa: E402
 import precedent_branches as pb  # noqa: E402
 import precedent_local_edits as le  # noqa: E402
+from precedent_clone_lock import held  # noqa: E402
 
 DONE, LEFT, FAILED = 0, 1, 2
 
@@ -186,6 +187,21 @@ def rebaseline_vendored_entries(repo, rewritten=()):
         mf.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                       encoding='utf-8')
     return done
+
+
+def this_updates_output(repo, before, earlier):
+    """-> the paths this update wrote: changed by this run, plus what an
+    earlier run of it staged and nobody has touched since (`earlier`, from
+    earlier_runs_output).
+
+    WHY THE SECOND HALF (2026-10-10, two consumers). A run that stopped LEFT
+    FOR YOU had rewritten .claude/settings.json from its template and staged
+    it. Its rerun found the file already uncommitted, so not among what IT
+    changed, and left the manifest's old hash in place; the practice audit
+    then failed the file as DRIFT until it was re-recorded by hand. A file
+    the person changed between the runs has an unstaged change on top, is
+    not in `earlier`, and still fails the audit as theirs."""
+    return (dirty_paths(repo) - set(before)) | set(earlier or ())
 
 
 def _is_generated_view(repo, rel):
@@ -4004,8 +4020,14 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
     if problem:
         rep.leave('precedent.json', problem)
     if ref is None:
-        rc, out = run(['git', '-C', str(SOURCE), 'fetch', 'origin',
-                       pve.tracking_refspec(follow)], SOURCE)
+        # Held while it fetches: every repo's update fetches into this one
+        # clone, and two at once lose a ref lock (precedent_clone_lock).
+        try:
+            with held(SOURCE):
+                rc, out = run(['git', '-C', str(SOURCE), 'fetch', 'origin',
+                               pve.tracking_refspec(follow)], SOURCE)
+        except TimeoutError as e:
+            rc, out = 1, str(e)
         if rc != 0:
             return rep.close(f"could not fetch origin/{follow} in "
                              f"{SOURCE}:\n{tail(out, repo=repo)}")
@@ -4387,7 +4409,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
             rep.step('views', 'regenerated')
 
     # After the views, because the view sync writes harness adapters too.
-    rebased = rebaseline_vendored_entries(repo, dirty_paths(repo) - before)
+    rebased = rebaseline_vendored_entries(
+        repo, this_updates_output(repo, before, rep.earlier))
     if rebased:
         rep.step('manifest baselines', 're-recorded for files this update '
                  'rewrote, to upstream or from a template: ' + ', '.join(rebased))
