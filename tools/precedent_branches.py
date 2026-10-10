@@ -2982,14 +2982,21 @@ def promote_branch_name(root, slug, taken):
 
 def _workflows_know_new_copy_names(root):
     """True when every GitHub test at staging's tip recognizes the new copy
-    names (or none is installed). A repository that has not taken the
-    workflow carrying them would run its test on a not-due copy, so its
-    copies keep the old names until Update Vendors brings it."""
+    names, or does not look at copy names at all (or none is installed). A
+    repository that has not taken the workflow carrying them would run its
+    test on a not-due copy, so its copies keep the old names until Update
+    Vendors brings it. A workflow that never names a copy (BestPractice's
+    own deep check runs on every pull request into main) is indifferent, so
+    it no longer holds the copies to the old names (Morgan, 2026-10-09:
+    "those should be aligned with the format I like: 2026-12-31-slug-abcdef")."""
     tip = _remote_tip(root, staging_branch(root))
     if not tip:
         return False
-    return all(COPY_NAME_MARKER in (_git(root, 'show', f'{tip}:{p}') or '')
-               for p, _d in github_tests(root, tip))
+
+    def knows(p):
+        body = _git(root, 'show', f'{tip}:{p}') or ''
+        return COPY_NAME_MARKER in body or 'to-main-' not in body
+    return all(knows(p) for p, _d in github_tests(root, tip))
 
 
 def _to_main_copy(root, due=True):
