@@ -15064,6 +15064,70 @@ def check_session_start_lists_a_red_main_first():
     return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_alerting_test_is_listed_as_a_test():
+    """A job's deliberate alerting test files an item that session start
+    lists as a test to confirm, never as a failure, and that closes on the
+    person's answer rather than on another run.
+
+    2026-10-09, a private consuming repository: its sync's alerting test
+    failed as intended, filed the usual blocker, and every session then
+    opened with "the sync failed" until another Actions run cleared it.
+
+    Negative control, measured 2026-10-09 against origin/staging at
+    331e011e: write_item takes no alerting_test, and there is no
+    alerting_tests or close_item."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import open_failures as of
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-alert-test-'))
+    try:
+        try:
+            real = of.write_item(tmp, 'The sync failed', 'boom', 'A run succeeds.',
+                                 '2026-10-09')
+            test = of.write_item(tmp, 'The alerting test ran', 'refused', 'They confirm.',
+                                 '2026-10-09', alerting_test=True)
+        except TypeError as e:
+            return (False, '0 stated cases', f'write_item takes no alerting_test: {e}')
+        head = test.read_text(encoding='utf-8').split('\n---', 1)[0]
+        cases.append(('the test item is no blocker, and is the person\'s to confirm',
+                      'severity:          null' in head and 'kind:              manual' in head,
+                      head))
+        cases.append(('it is not one of the failures',
+                      [f for f, _ in of.open_items(tmp)] == [real], of.open_items(tmp)))
+        lines = of.report_lines(tmp)
+        at = [i for i, l in enumerate(lines) if l.startswith('ALERTING TESTS (1)')]
+        cases.append(('session start lists it after the failures, as a test, with the '
+                      'way to close it',
+                      lines[:1] and lines[0].startswith('OPEN FAILURES (1)') and at
+                      and 'not failures' in lines[at[0]] and '--close' in lines[at[0]]
+                      and lines[at[0] + 1].endswith('The alerting test ran')
+                      and not any('alerting test ran' in l for l in lines[:at[0]]), lines))
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'open_failures.py'),
+                            '--close', str(test), '--because', 'Morgan: the alert arrived'],
+                           capture_output=True, text=True)
+        text = test.read_text(encoding='utf-8')
+        cases.append(('--close closes it on the answer, saying what closed it',
+                      r.returncode == 0 and 'status:            done' in text
+                      and 'closed:            "' in text and '- [x] **' in text
+                      and 'closed: Morgan: the alert arrived' in text
+                      and of.alerting_tests(tmp) == [], (r.returncode, r.stderr, text[-200:])))
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'open_failures.py'),
+                            '--close', str(test), '--because', 'again'],
+                           capture_output=True, text=True)
+        cases.append(('closing it twice is refused', r.returncode == 1, r.returncode))
+        lines = of.report_lines(tmp)
+        cases.append(('once closed, session start no longer lists it',
+                      not any(l.startswith('ALERTING TESTS') for l in lines), lines))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_leaves_the_copy_its_record_names():
     """Update Vendors ends with the vendored catalogue copy holding exactly
     what the commit process/manifest.json records gives under the copy
@@ -71008,6 +71072,8 @@ def main():
           'then', *check_main_test_failure_opens_an_issue())
     check('session start lists an open "main\'s test failed" issue first',
           *check_session_start_lists_a_red_main_first())
+    check('a deliberate alerting test is listed as a test to confirm, never as a '
+          'failure', *check_alerting_test_is_listed_as_a_test())
     check('Update Vendors ends with the catalogue copy its record names, a kept '
           'local edit reported',
           *check_update_vendors_leaves_the_copy_its_record_names())
