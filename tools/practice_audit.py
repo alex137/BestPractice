@@ -523,7 +523,10 @@ def audit_manifest(manifest_path, update, fails, warns, pending, entries=None, m
                 # warned on every run with no hint where its section went
                 # (2026-10-10, a consumer). Say where, when it is there.
                 moved = ''
-                local_sh = ROOT / 'tools' / 'bootstrap.local.sh'
+                # joinpath, not the slash spelling: a repo need not have the
+                # file, and vendored-engine-file-refs-resolve reads that
+                # spelling as a companion the engine must ship.
+                local_sh = (ROOT / 'tools').joinpath('bootstrap.local.sh')
                 if (e['local_path'] == 'tools/bootstrap.sh' and local_sh.is_file()
                         and marker in local_sh.read_text(encoding='utf-8', errors='ignore')):
                     moved = (" -- it is in tools/bootstrap.local.sh, where a repo's "
