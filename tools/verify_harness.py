@@ -34974,7 +34974,7 @@ def check_promote_pre_staging():
         cases.append(('a Promote that finds the lock freshly held by another '
                       'window does nothing, says who has it, and says not to '
                       'Promote again', rc == 0
-                      and 'another window is promoting right now' in out
+                      and 'another window is promoting or landing right now' in out
                       and 'held by another window' in out
                       and tip('beta') == before
                       and lock_subject() == 'held by another window [skip ci]'))
@@ -51048,6 +51048,145 @@ def check_writing_checks_leave_a_declared_record_as_filed():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
+
+def check_landers_wait_their_turn_for_the_lock():
+    """Both landers hold the lock Promote takes, and wait while it is held.
+
+    2026-10-10, a consumer: one session landed small edits on its landing
+    branch every thirty to sixty seconds, and the queue lander's six
+    attempts over two runs all ended "push rejected; master kept moving".
+    Each attempt took about 25 seconds of merge, resync and check, then
+    started over at once, so it could never win. Neither lander took the
+    lock Promote and the merge gate already take. Now both do, from the
+    merge to the push, and a busy lock is waited out with a growing,
+    jittered pause rather than refused. The fixture: a scratch origin, a
+    second window holding the lock when the lander starts and freeing it
+    during the first wait, and a gate that records who holds the lock while
+    the lander checks.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-lock-'))
+    cases = []
+    try:
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, os, pathlib, subprocess, sys, time
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+import precedent_branches as pb
+import land_next as ln
+import land_queue
+td = pathlib.Path({str(tmp)!r})
+out = {{}}
+# The backoff on its own: busy twice, then held.
+seen, now = [], [0.0]
+states = iter([('busy', 'w1'), ('busy', 'w1'), ('held', 'c')])
+real_claim = pb._lock_claim
+pb._lock_claim = lambda root, say, what=None: next(states)
+def nap(s):
+    seen.append(s); now[0] += s
+r = pb.wait_for_landing_lock('.', 'x', say=lambda *a: None, sleep=nap,
+                             clock=lambda: now[0], jitter=lambda: 0.5)
+out['backoff'] = [r, list(seen)]
+pb._lock_claim = lambda root, say, what=None: ('busy', 'w2')
+seen.clear(); now[0] = 0.0
+r = pb.wait_for_landing_lock('.', 'x', say=lambda *a: None, limit=60, sleep=nap,
+                             clock=lambda: now[0], jitter=lambda: 0.9)
+out['gives_up'] = [r, now[0]]
+pb._lock_claim = real_claim
+# --land: a lock that never frees lands nothing; a held one is released.
+released, composed = [], []
+pb.lands_on_staging = lambda root: (True, 'fixture')
+pb._git = lambda root, *a: 'abc123' if a[0] == 'rev-parse' else ''
+pb._run = lambda root, *a, **k: subprocess.CompletedProcess(a, 0, '', '')
+pb._land_composed = lambda *a: (composed.append(a[2]), (0, 'LANDED at x'))[1]  # root, sha, label, ...
+pb.wait_for_landing_lock = lambda root, what, say: ('busy', 'held by w3')
+out['land_busy'] = [list(pb._land('.', 'feat', 'feat', 'staging', lambda *a: None)), list(composed)]
+pb.wait_for_landing_lock = lambda root, what, say: ('held', 'c9')
+pb._lock_release = lambda root, held, say: released.append(held)
+out['land_held'] = [list(pb._land('.', 'feat', 'feat', 'staging', lambda *a: None)), list(composed), released]
+import importlib; importlib.reload(pb)
+# The queue lander, end to end on a scratch origin.
+ln.report_failure = lambda *a: ''
+ln.TRUNK, ln.SHARED_CACHES, ln.LEDGERS = 'master', ('.cache',), ()
+origin, work, other = td / 'o.git', td / 'w', td / 'other'
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'master', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g = lambda *a: ln.git(work, *a)
+g('checkout', '-q', '-b', 'master')
+(work / 'base.txt').write_text('b\\n')
+(work / 'gate.py').write_text(
+    "import subprocess,pathlib\\n"
+    "subprocess.run(['git','fetch','-q','origin','precedent-promote-lock'])\\n"
+    "s=subprocess.run(['git','log','-1','--format=%s','FETCH_HEAD'],capture_output=True,text=True).stdout\\n"
+    "pathlib.Path({str(tmp / 'during')!r}).write_text(s)\\n")
+g('add', '-A'); g('commit', '-qm', 'base'); g('push', '-q', 'origin', 'master')
+g('checkout', '-q', '-b', 'feat/x'); (work / 'x.txt').write_text('x\\n')
+g('add', '-A'); g('commit', '-qm', 'x'); g('push', '-q', 'origin', 'feat/x')
+g('checkout', '-q', 'master')
+subprocess.run(['git', 'clone', '-q', str(origin), str(other)], capture_output=True)
+os.environ['PRECEDENT_SESSION_NAME'] = 'other window'
+state, held = pb._lock_claim(other, lambda *a: None)
+os.environ['PRECEDENT_SESSION_NAME'] = 'the lander'
+out['other_claimed'] = state
+waits = []
+def free_on_first_wait(s):
+    waits.append(s)
+    if len(waits) == 1:
+        pb._lock_release(other, held, lambda *a: None)
+time.sleep = free_on_first_wait
+store = land_queue._store(work)
+land_queue.request(store, 'feat/x', repo=work)
+rc = ln.land_queue_run(work, gates=[('gate', ['python3', 'gate.py'])], push_check=['true'],
+                       bestpractice=None, store=store, sync_cmd=None)
+g('fetch', '-q', 'origin', 'master', 'precedent-promote-lock')
+out['lander'] = dict(rc=rc, waits=len(waits),
+                     landed='x.txt' in g('ls-tree', '--name-only', 'origin/master').stdout,
+                     during=(td / 'during').read_text() if (td / 'during').exists() else '',
+                     after=g('log', '-1', '--format=%s', 'origin/precedent-promote-lock').stdout.strip())
+print(json.dumps(out))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=180)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-600:]
+        b = out.get('backoff') or [[None], []]
+        cases.append(('a busy lock is waited out: two waits, then it is held',
+                      b[0] == ['held', 'c'] and len(b[1]) == 2, why if not out else str(b)))
+        cases.append(('each wait is longer than the last (5s, then 10s, at the '
+                      'middle of the jitter)', b[1] == [5.0, 10.0], str(b[1])))
+        gu = out.get('gives_up') or [[None], 0]
+        cases.append(('a lock held past the limit returns busy, and the waits '
+                      'never run past the limit', gu[0] == ['busy', 'w2'] and gu[1] <= 60,
+                      str(gu)))
+        lb = out.get('land_busy') or [[None, ''], ['?']]
+        cases.append(('--land with the lock still held lands nothing and says '
+                      'why', lb[0][0] == 1 and 'landing lock' in lb[0][1] and lb[1] == [],
+                      str(lb)))
+        lh = out.get('land_held') or [[None], [], []]
+        cases.append(('--land with the lock held by itself lands, and frees '
+                      'the lock after', lh[0][0] == 0 and lh[1] == ['feat'] and lh[2] == ['c9'],
+                      str(lh)))
+        ld = out.get('lander') or {}
+        cases.append(('the queue lander waits while another window holds the '
+                      'lock, then lands', out.get('other_claimed') == 'held'
+                      and ld.get('rc') == 0 and ld.get('landed') and ld.get('waits', 0) >= 1,
+                      str(ld) or why))
+        cases.append(('...holding the lock itself while its gate runs',
+                      'held by the lander' in ld.get('during', '')
+                      and 'landing feat/x on master' in ld.get('during', ''),
+                      ld.get('during', '')))
+        cases.append(('...and frees it once it has landed',
+                      ld.get('after', '').startswith('free'), ld.get('after', '')))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'landers wait their turn for the lock ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
 def check_landed_check_names_the_tier_that_ran():
     """After a merge, the line says whether the base moved from the trees,
@@ -73372,6 +73511,7 @@ def main():
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
+    check_landers_wait_their_turn_for_the_lock()
     check_writing_checks_leave_a_declared_record_as_filed()
     check_vocabulary_lets_a_local_practice_name_a_local_script()
     check_doc_lint_leaves_a_received_practice_to_its_source()
