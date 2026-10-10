@@ -1047,6 +1047,31 @@ def _remote_tip(root, branch):
     return None
 
 
+# MAIN'S TEST LEAVES A GIT MARKER WHEN IT PASSES (Morgan, 2026-10-10: "yes,
+# build it and take it to main"). A session in another repository usually
+# cannot ask GitHub's API about BestPractice, so Update Vendors took main on
+# trust there, even on a day its test had failed. deep-check.yml now pushes
+# PASSED_PREFIX + <tree> when the test passes on main or on a pull request
+# into main, naming the tree it tested; plain git reads it anywhere a fetch
+# works. Keyed by tree, not commit: a pull request's run tests the merge of
+# its head into main, and the commit main gets from that merge has the same
+# files under another name.
+PASSED_PREFIX = 'refs/precedent/passed/'
+
+
+def passed_markers(root):
+    """-> the set of trees main's GitHub test marked as passed on origin, or
+    None when origin could not be read. One ls-remote, no API call."""
+    p = subprocess.run(['git', '-C', str(root), 'ls-remote', 'origin',
+                        PASSED_PREFIX + '*'], capture_output=True, text=True,
+                       timeout=60)
+    if p.returncode != 0:
+        return None
+    return {ref[len(PASSED_PREFIX):] for ref in
+            (line.partition('\t')[2] for line in p.stdout.splitlines())
+            if ref.startswith(PASSED_PREFIX)}
+
+
 class CommitRefused(Exception):
     """A commit this module was about to make has nobody to author it, in a
     repository that enforces who does (precedent_identity.IdentityRequired).

@@ -227,11 +227,15 @@ jobs:
     needs: already-tested
     if: ${{ !cancelled() && needs.already-tested.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
-    # The workflow's two read permissions, plus issues: write for the last
-    # step alone. A job's permissions replace the workflow's, so the two
-    # are said again here.
+    # The workflow's two read permissions, plus issues: write for the step
+    # that opens an issue on a failure, and contents: write for the one that
+    # pushes the passed marker. A job's permissions replace the workflow's,
+    # so the read one is said again here. Write access in a job that runs
+    # the branch's own code gives nothing new: a pull request from this
+    # repository is opened by someone who can already push, and a fork's
+    # pull request gets a read-only token whatever this says.
     permissions:
-      contents: read
+      contents: write
       actions: read
       issues: write
     steps:
@@ -271,6 +275,29 @@ jobs:
       # the last gate before main, so rotation buys nothing it needs.
       - name: Run the verification harness, side by side
         run: python3 tools/verify_harness.py --as-ci
+
+      # MAIN'S TEST PASSED: LEAVE A MARKER ANY CLONE CAN READ (Morgan,
+      # 2026-10-10: "yes, build it and take it to main"). Update Vendors in
+      # another repository takes only a main whose test passed, and a
+      # session there usually cannot ask GitHub's API about this one, so it
+      # took main on trust. This pushes refs/precedent/passed/<tree> at the
+      # commit it tested, and plain git reads it (precedent_branches.
+      # passed_markers). The tree, not the commit: a pull request's run
+      # tests the merge of its head into main, and main's own commit after
+      # the merge has the same files. A push to a refs/precedent/ ref starts
+      # no workflow. Only when everything above passed, on the same runs the
+      # failure step below covers; a few seconds, no extra job.
+      - name: Mark these files as passed
+        if: >-
+          success() && (
+          (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'pull_request' && github.base_ref == 'main'))
+        continue-on-error: true
+        run: |
+          set -u
+          tree=$(git rev-parse 'HEAD^{tree}')
+          git push --quiet origin "HEAD:refs/precedent/passed/$tree" \
+            || echo "::warning::Could not push the passed marker for $tree; Update Vendors elsewhere falls back to asking GitHub."
 
       # MAIN'S TEST FAILED: SAY SO WHERE NOBODY CAN MISS IT (2026-10-09, the
       # main landing plan, piece B, layer 2). Approved by Morgan with the
