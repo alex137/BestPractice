@@ -4193,8 +4193,11 @@ def check_freshness_covers_every_declared_source():
              full_before.getvalue().count('freshness: current --') == 4),
             ('the engine row reads BEHIND once its upstream moves',
              'ENGINE BEHIND UPSTREAM: vendored engine (tools/)' in after),
-            ('the universal vendored tree reads BEHIND',
-             'BEHIND UPSTREAM: precedent (universal) vendored at process/upstream' in after),
+            ('the universal vendored tree, behind at the same commit, is named '
+             'in the engine\'s line: one move, one line (2026-10-10)',
+             'ENGINE BEHIND UPSTREAM: vendored engine (tools/) and precedent '
+             '(universal) vendored at process/upstream have' in after
+             and after.count(str(engine_up)) == 1),
             ('the shared set\'s vendored code reads BEHIND',
              'BEHIND UPSTREAM: set (shared) vendored at process/set' in after),
             ('the shared set\'s live clone reads BEHIND and names the refresh '
@@ -29394,8 +29397,10 @@ def check_update_repoints_engine_paths_that_moved():
 
 def check_archived_set_question_names_the_attach_fix():
     """When GitHub refuses to say whether a declared set is archived because
-    the session has no API access to it, the note names the fix: add_repo,
-    access "push". Any other failure keeps its own words.
+    the session has no API access to it, the note is one quiet line that
+    asks for no access (2026-10-10: it asked for add_repo with access
+    "push", a write grant for a read-only question, and a second consumer
+    pushed back). Any other failure keeps its own words.
 
     THE INCIDENT (2026-10-10, a consumer's Update Vendors). Every run said
     "GitHub could not say whether it is archived (GitHub access to this
@@ -29424,10 +29429,14 @@ def check_archived_set_question_names_the_attach_fix():
                                                'repository is not enabled for '
                                                'this session. Use add_repo.')
             _a, notes = pve.archived_declared_sources(root)
-            cases.append(('THE DISCRIMINATING CASE: a not-attached refusal names '
-                          'add_repo, access "push", and the repository',
-                          len(notes) == 1 and 'access "push"' in notes[0]
-                          and 'example/a-set' in notes[0], notes))
+            # Changed 2026-10-10, a second consumer: asking for push access
+            # to answer a read-only question is too much to ask. One quiet
+            # line, no attach advice.
+            cases.append(('THE DISCRIMINATING CASE: a not-attached refusal is one '
+                          'quiet line that asks for no access',
+                          len(notes) == 1 and 'push' not in notes[0]
+                          and 'add_repo' not in notes[0]
+                          and 'left declared' in notes[0], notes))
             # A public set answers without a login (2026-10-10, a consumer:
             # every run asked for push access to a public set).
             def public(path, auth=True, **_k):
@@ -29449,7 +29458,7 @@ def check_archived_set_question_names_the_attach_fix():
         finally:
             _gbm.call = saved
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'the archived-set question names the attach fix '
+    check(f'the archived-set question asks for no access it does not need '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
@@ -50676,6 +50685,68 @@ def check_push_check_runs_approved_workflow_steps():
         cases.append(('a shell step is named once, setup is not',
                       [(w, st) for w, st, _c in unrun]
                       == [('.github/workflows/own-check.yml', 'A shell check')], unrun))
+        # 2026-10-10, a consumer whose workflows ARE its product (a live
+        # sync with secrets): every step was called a missed check, and a
+        # quoted argument was rejected outright.
+        (wf / 'product.yml').write_text(
+            'on:\n  push:\n    branches: [main]\njobs:\n  s:\n    steps:\n'
+            '      - name: Sync\n        run: python3 tools/sync.py --live\n'
+            '      - name: Verify the sync\n        run: php bin/verify.php\n',
+            encoding='utf-8')
+        (wf / 'button.yml').write_text(
+            'on:\n  workflow_dispatch:\njobs:\n  s:\n    steps:\n'
+            '      - name: Live test\n        run: python3 tools/live_test.py\n',
+            encoding='utf-8')
+        (wf / 'on-change.yml').write_text(
+            'on: [pull_request]\njobs:\n  s:\n    steps:\n'
+            '      - name: Record a failure\n'
+            '        run: python3 tools/file_todo.py file "$RUN_URL" "$OUTCOME"\n'
+            '      - name: Lint the docs\n'
+            '        run: python3 tools/doc_check.py --root "docs dir" --strict\n'
+            '      - name: Test with the run\n'
+            '        run: python3 tools/test_run.py "$RUN_URL"\n'
+            '      - name: Deploy\n        run: python3 tools/deploy.py\n',
+            encoding='utf-8')
+        approved = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        approved['github_ci_approved'].update({
+            '.github/workflows/product.yml': {'sha256': 'x', 'approved_by': 'p',
+                                              'role': 'deliverable'},
+            '.github/workflows/button.yml': {'sha256': 'x', 'approved_by': 'p'},
+            '.github/workflows/on-change.yml': {'sha256': 'x', 'approved_by': 'p'}})
+        (repo / 'precedent.json').write_text(json.dumps(approved), encoding='utf-8')
+        checks, unrun = ppc.approved_workflow_checks(repo)
+        argvs = [c[1][1:] for c in checks]
+        named = [(pathlib.Path(w).name, st) for w, st, _c in unrun]
+        cases.append(('a workflow marked deliverable is neither run nor named',
+                      not any(a[0] == 'tools/sync.py' for a in argvs)
+                      and not any(w == 'product.yml' for w, _s in named), (argvs, named)))
+        cases.append(('a button-only workflow is never a change\'s test',
+                      not any(a[0] == 'tools/live_test.py' for a in argvs)
+                      and not any(w == 'button.yml' for w, _s in named), (argvs, named)))
+        cases.append(('a quoted argument is run, unquoted',
+                      ['tools/doc_check.py', '--root', 'docs dir', '--strict'] in argvs, argvs))
+        cases.append(('a step that is not a check is neither run nor named',
+                      not any(a[0] in ('tools/deploy.py', 'tools/file_todo.py') for a in argvs)
+                      and ('on-change.yml', 'Deploy') not in named
+                      and ('on-change.yml', 'Record a failure') not in named, (argvs, named)))
+        cases.append(('a check reading GitHub\'s environment is named, never run',
+                      ('on-change.yml', 'Test with the run') in named
+                      and not any(a[0] == 'tools/test_run.py' for a in argvs), (argvs, named)))
+        import precedent_update as _pu
+
+        class _Rep:
+            def __init__(self):
+                self.lines = []
+
+            def step(self, n, o):
+                self.lines.append(o)
+        rep = _Rep()
+        _pu.approved_workflows_step(repo, rep)
+        said = [l for l in rep.lines if 'only on GitHub' in l]
+        cases.append(('Update Vendors names them in one line: a count and the files',
+                      len(said) == 1 and '2 check step(s)' in said[0]
+                      and 'on-change.yml' in said[0] and 'own-check.yml' in said[0]
+                      and 'deliverable' in said[0], rep.lines))
     # In this repository, deep-check.yml's steps call tools the push check
     # already runs at its own tier, so a basic push never gains the suite.
     _kind, basic = ppc.plan(ROOT, tier=ppc.BASIC)
@@ -50736,6 +50807,219 @@ def check_push_check_honours_not_binding():
         cases.append((f'declared not binding, the push check skips it, says '
                       f'EXEMPT with the reason, and passes (exit {rc})',
                       rc == 0 and 'EXEMPT' in out and reason in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_one_upstream_move_is_said_once_at_session_start():
+    """Session start says one upstream move once.
+
+    2026-10-10, a consumer's session start: one BestPractice move printed
+    "NOTICE: BestPractice upstream has moved", "ENGINE BEHIND UPSTREAM" and
+    "BEHIND UPSTREAM" for the same two commits. The freshness notice names
+    the engine and the catalogue in one line when they are behind at the
+    same commit (checked in check_freshness_covers_every_declared_source);
+    the bootstrap template runs checkin.py fresh only where that notice
+    cannot run. Alongside: the citations step of Update Vendors says how a
+    dated record stops being listed (record_paths), the same day."""
+    name = 'one upstream move is said once at session start'
+    text = (ROOT / 'templates' / 'bootstrap.sh').read_text(encoding='utf-8')
+    block = text[text.index('for _ck in tools/checkin.py'):]
+    block = block[:block.index('done')]
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as _pu
+    finally:
+        sys.path.pop(0)
+    hint = _pu.record_paths_hint(['process/PRECEDENT_MIGRATION.md:12 (`go-merge`, renamed)',
+                                  'tools/x.py:3'])
+    gate_src = (ROOT / 'tools' / 'precedent_gate.py').read_text(encoding='utf-8')
+    cases = [
+        ('the reply gate gives no stale-branch count of its own: it reads '
+         'without a fetch, the page after one (2026-10-10: 13 met 16)',
+         'branch(es) "\n' not in gate_src and 'f"across {len(_groups)}' not in gate_src
+         and 'the page counts them' in gate_src),
+        ('checkin.py fresh is skipped where the freshness notice runs',
+         '! -f tools/precedent_engine_freshness.py' in block),
+        ('the citations step names record_paths for a Markdown file it lists',
+         'record_paths' in hint and 'process/PRECEDENT_MIGRATION.md' in hint
+         and 'tools/x.py' not in hint),
+        ('...and says nothing when there is no Markdown file to read',
+         _pu.record_paths_hint(['tools/x.py:3']) == ''),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_doc_lint_leaves_a_received_practice_to_its_source():
+    """doc_lint's unlinked-reference warning skips a practice a consuming
+    repo received from another source, and still warns on its own.
+
+    2026-10-10, a consumer's update: two individual-set practices' Story
+    sections named files of another repository in backticks, and every
+    repo that received them saw eight "is not a link" lines at every update
+    -- in files the next sync overwrites, so nobody there could act on
+    them. Planted: one received practice, one repo-local, the same line."""
+    import tempfile
+    name = 'doc_lint leaves a received practice\'s links to its source'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_lint as dl
+    finally:
+        sys.path.pop(0)
+    saved_root, saved_cache = dl.ROOT, list(dl._RECEIVED)
+    cases = []
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            (repo / 'practices').mkdir()
+            line = 'The helper lives in `precedent_resolve.py` and `README.md`.\n'
+            for slug in ('received', 'own'):
+                (repo / 'practices' / f'{slug}.md').write_text(line, encoding='utf-8')
+            (repo / 'README.md').write_text('x\n', encoding='utf-8')
+            dl.ROOT = repo
+            dl._RECEIVED.clear()
+            before = dl.check_file('practices/received.md')[1]
+            (repo / 'MANIFEST.json').write_text(json.dumps({'practices': [
+                {'slug': 'received', 'level': 'individual', 'source': 'someone'},
+                {'slug': 'own', 'level': 'repo-local', 'source': 'local'}]}),
+                encoding='utf-8')
+            dl._RECEIVED.clear()
+            got = dl.check_file('practices/received.md')[1]
+            own = dl.check_file('practices/own.md')[1]
+            cases.append(('control: with no MANIFEST.json the line is flagged', bool(before)))
+            cases.append(('a practice received from another source is not flagged', got == []))
+            cases.append(('a repo-local practice still is', bool(own)))
+    finally:
+        dl.ROOT = saved_root
+        dl._RECEIVED[:] = saved_cache
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_vocabulary_lets_a_local_practice_name_a_local_script():
+    """vocabulary-reaches-the-consumer judges a repo-local command practice
+    by whether its script is in the repo, not by the engine lists.
+
+    2026-10-10, a consumer: its own practice declared a standing command and named
+    its own tools/notes_file.py, and the check refused it as missing from
+    ENGINE_FILES -- a failure that cannot happen to a practice that never
+    leaves the repo. The session dropped the command to get past, and the
+    word left that repo's Vocabulary. Planted: the same practice, local with
+    its script, local without it, and received (the engine rule, unchanged)."""
+    import tempfile, types
+    name = 'a repo-local command practice may name the repo\'s own script'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'practices').mkdir()
+        (repo / 'tools').mkdir()
+        (repo / 'practices' / 'pull-notes.md').write_text(
+            '---\nslug: pull-notes\nscope: any-adopter\n'
+            'command: {"Pull notes": "Bring in every new note."}\n---\n\n'
+            '## Rule\nRun `python3 tools/notes_file.py`.\n', encoding='utf-8')
+
+        def run(level, script):
+            if level:
+                (repo / 'MANIFEST.json').write_text(json.dumps({'practices': [
+                    {'slug': 'pull-notes', 'level': level, 'source': 'x'}]}),
+                    encoding='utf-8')
+            elif (repo / 'MANIFEST.json').exists():
+                (repo / 'MANIFEST.json').unlink()
+            f = repo / 'tools' / 'notes_file.py'
+            if script:
+                f.write_text('print(1)\n', encoding='utf-8')
+            elif f.exists():
+                f.unlink()
+            return pc._vocabulary_reaches_the_consumer(types.SimpleNamespace(root=repo))
+
+        cases.append(('THE DISCRIMINATING CASE: local, with its script here, passes',
+                      run('repo-local', True) == []))
+        cases.append(('local, with its script missing, still fails',
+                      len(run('repo-local', False)) == 1))
+        cases.append(('received from a set, the engine rule holds as before',
+                      len(run('individual', True)) == 1))
+        cases.append(('no MANIFEST.json: today\'s rule, no guessing',
+                      len(run(None, True)) == 1))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_landed_check_names_the_tier_that_ran():
+    """After a merge, the line says whether the base moved from the trees,
+    and names the check that actually ran.
+
+    2026-10-10, a consuming repository's fast move into main: the merge
+    check printed "main MOVED ... It has now had its own full check" when
+    main had not moved and only the quick check had run, because "landed as
+    checked" needed words only the full tier prints. A session believing it
+    may skip the full check it still owes. Planted: a merge whose tree is
+    the head's, one where the base moved, and one squash-merged."""
+    import tempfile
+    name = 'the merge check says whether the base moved and which check ran'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_merge_check as pmc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), GIT_CONFIG_NOSYSTEM='1')
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(tmp / 'r'), *a], capture_output=True,
+                                  text=True, env=env).stdout.strip()
+
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(tmp / 'r')], env=env)
+        (tmp / 'r' / 'a').write_text('1', encoding='utf-8')
+        git('add', '-A'); git('commit', '-q', '-m', 'base')
+        git('checkout', '-q', '-b', 'pr')
+        (tmp / 'r' / 'b').write_text('1', encoding='utf-8')
+        git('add', '-A'); git('commit', '-q', '-m', 'the change')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '-m', 'merge, main still', 'pr')
+        still = git('rev-parse', 'HEAD')
+        git('reset', '-q', '--hard', 'HEAD^1')
+        (tmp / 'r' / 'c').write_text('1', encoding='utf-8')
+        git('add', '-A'); git('commit', '-q', '-m', 'another window')
+        git('merge', '-q', '--no-ff', '-m', 'merge, main moved', 'pr')
+        moved = git('rev-parse', 'HEAD')
+        squash = git('rev-parse', 'HEAD^1')
+        cases.append(('a merge holding the head\'s tree is "as checked"',
+                      pmc.same_tree_as_checked(tmp / 'r', still) is True))
+        cases.append(('a merge after the base moved is not',
+                      pmc.same_tree_as_checked(tmp / 'r', moved) is False))
+        cases.append(('a commit with no second parent cannot be told',
+                      pmc.same_tree_as_checked(tmp / 'r', squash) is None))
+    rc, line = pmc.landed_verdict('main', 7, 'a' * 40, 'basic', 0, 'passed', True)
+    cases.append(('a fast move that kept main still: landed as checked, never MOVED',
+                  rc == 0 and 'as checked' in line and 'MOVED' not in line))
+    cases.append(('...it names the quick check, and says the full check is still owed',
+                  'quick check' in line and 'full check' in line
+                  and 'own full check' not in line))
+    rc, line = pmc.landed_verdict('main', 7, 'a' * 40, 'basic', 0, 'passed', False)
+    cases.append(('a base that moved says MOVED and the quick check, not "full"',
+                  'MOVED' in line and 'quick check' in line and 'own full check' not in line))
+    rc, line = pmc.landed_verdict('staging', 7, 'a' * 40, 'full', 0, 'passed', False)
+    cases.append(('a full check on a moved base says so', 'MOVED' in line and 'full check' in line))
+    rc, line = pmc.landed_verdict('staging', 7, 'a' * 40, 'full', 0,
+                                  'this exact tree already passed', None)
+    cases.append(('with no second parent, the recorded pass still reads as checked',
+                  'as checked' in line))
+    cases.append(('a failure is left to the revert path',
+                  pmc.landed_verdict('main', 7, 'a' * 40, 'full', 1, 'x', False) is None))
+    rc, line = pmc.landed_verdict('main', 7, 'a' * 40, 'full', 2, 'boom', True)
+    cases.append(('could-not-check exits 2 and never says MOVED on a still base',
+                  rc == 2 and 'MOVED' not in line and 'boom' in line))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -72913,6 +73197,10 @@ def main():
     check_global_pre_push_runs_the_leak_gate()
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
+    check_landed_check_names_the_tier_that_ran()
+    check_vocabulary_lets_a_local_practice_name_a_local_script()
+    check_doc_lint_leaves_a_received_practice_to_its_source()
+    check_one_upstream_move_is_said_once_at_session_start()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_landed_reduction_quiets_the_reduction_ask()

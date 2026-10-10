@@ -4338,12 +4338,19 @@ def archived_declared_sources(dest_root):
             if getattr(_gb, 'is_proxy_refusal', lambda _t: False)(msg):
                 notes.append(f'{name}: {PROXY_NOTE}')
                 continue
-            fix = getattr(_gb, 'attach_remedy', lambda *_a: '')(
-                msg, f'{m.group(1)}/{m.group(2)}')
-            notes.append(f'{name}: GitHub could not say whether it is archived '
-                         + (f'-- {fix}' if fix else
-                            f'({msg}) -- left declared; "Not Found" can mean the '
-                            f'access is gone, not the repository'))
+            # NO REMEDY HERE (2026-10-10, a second consumer). This note named
+            # add_repo with access "push" for a session not attached to the
+            # set -- a write grant to answer a read-only question, which even
+            # failed for a public set when GitHub refused the anonymous call
+            # too. Whether a set is archived is a bonus: a set that says it
+            # is retired is dropped all the same (retired_sources). So the
+            # note is one quiet line, the reason kept short.
+            if getattr(_gb, 'attach_remedy', lambda *_a: '')(
+                    msg, f'{m.group(1)}/{m.group(2)}'):
+                msg = 'this session has no GitHub API access to it'
+            notes.append(f'{name}: whether it is archived could not be read '
+                         f'here ({msg[:120]}); left declared -- a set that says '
+                         f'it is retired is still dropped')
             continue
         if data.get('archived'):
             archived.add(name)

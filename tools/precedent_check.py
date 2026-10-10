@@ -7371,6 +7371,24 @@ def _vocabulary_reaches_the_consumer(ctx):
             f'that inspected nothing reads exactly like one that cleared '
             f'the repo')
 
+    # A REPO-LOCAL PRACTICE NEVER TRAVELS (2026-10-10, a consumer). Its
+    # `command:` named tools/notes_file.py, a script of that repo's own, and
+    # this refused it as missing from the engine lists -- a failure that
+    # cannot happen to a practice authored, with its script, in the one repo
+    # that reads it. The session dropped the `command:` to get past, and the
+    # word left the repo's Vocabulary. So the repo's MANIFEST.json says each
+    # practice's level; a repo-local one must name scripts the repo has,
+    # and every other level is judged against the engine lists as before.
+    # No MANIFEST.json, or a practice it does not list: today's rule.
+    levels = {}
+    try:
+        _man = json.loads((ctx.root / 'MANIFEST.json').read_text(encoding='utf-8'))
+        for _row in (_man.get('practices') or []) if isinstance(_man, dict) else []:
+            if isinstance(_row, dict) and _row.get('slug'):
+                levels[_row['slug']] = _row.get('level')
+    except (OSError, ValueError):
+        pass
+
     findings = []
     for path, text in command_practices:
         slug = path.stem
@@ -7395,6 +7413,15 @@ def _vocabulary_reaches_the_consumer(ctx):
         named = sorted({m for m in _re.findall(r'tools/([A-Za-z0-9_]+\.py)',
                                                text)})
         for script in named:
+            if levels.get(slug) == 'repo-local':
+                if not (ctx.root / 'tools' / script).is_file():
+                    findings.append(Finding(
+                        f'practices/{slug}.md',
+                        f'is this repository\'s own practice, declares a '
+                        f'standing command, and names tools/{script}, which '
+                        f'is not in this repository: the person can say the '
+                        f'word and the script it points at is not there'))
+                continue
             if script in NEVER_VENDORED or script in consumer:
                 continue
             findings.append(Finding(

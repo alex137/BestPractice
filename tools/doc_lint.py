@@ -196,6 +196,29 @@ ACRONYM_SKIP_FILES = {'GLOSSARY.md'}
 # so "link the ones you touched" is advice nobody can take there. Only the
 # unlinked-reference warning is skipped; every other check still runs.
 UNLINKED_SKIP_FILES = {'todo/TODO.md', 'todo/CLOSED.md', 'gotchas/INDEX.md'}
+
+
+def received_practice_files(root=None):
+    """-> {'practices/<slug>.md'} for each practice this repository received
+    from another source: listed in its MANIFEST.json (a consuming repo's
+    record of what precedent_sync_views.py materialized) at any level but
+    repo-local. An edit there is overwritten by the next sync, so a bare
+    file name in one is its source's to link, not this repo's; the
+    unlinked-reference warning skips them. WHY (2026-10-10, a consumer's
+    update): two individual-set practices' Story sections gave eight
+    "is not a link" lines in every repo that received them, at every
+    update, naming files of another repository that no link here could
+    reach. Every other check still runs on them."""
+    try:
+        man = json.loads(((root or ROOT) / 'MANIFEST.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return set()
+    out = set()
+    for row in man.get('practices') or [] if isinstance(man, dict) else []:
+        if isinstance(row, dict) and row.get('slug') and \
+                row.get('level') not in (None, 'repo-local'):
+            out.add(f"practices/{row['slug']}.md")
+    return out
 # common words / units / universally-known tech that are never worth glossing:
 ACRONYM_STOP = {
     'THE','AND','FOR','NOT','BUT','ALL','ONE','TWO','OUR','YOU','WHO','WHY','HOW','NEW',
@@ -1153,6 +1176,15 @@ def check_upstream_item(path, root=None):
             f"paste-ready block in a fence")
 
 
+_RECEIVED = []
+
+
+def _received():
+    if not _RECEIVED:
+        _RECEIVED.append(received_practice_files())
+    return _RECEIVED[0]
+
+
 def check_file(path, fix=False, known=None):
     strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
@@ -1167,6 +1199,7 @@ def check_file(path, fix=False, known=None):
         unglossed = scan_unglossed(
             (ROOT / path).read_text(encoding='utf-8', errors='ignore'),
             known, path)
+    received = str(path).replace('\\', '/') in _received()
     for i, line in iter_prose_lines(path):
         if HAVE_GFM and renders_del(line) and '~~' not in line:
             if fix:
@@ -1176,7 +1209,7 @@ def check_file(path, fix=False, known=None):
         # unlinked refs: a `file.md` code span not immediately followed by ](
         for m in REF_RE.finditer(line):
             after = line[m.end():m.end()+2]
-            if (after != '](' and is_file_reference(m.group(1))
+            if (after != '](' and is_file_reference(m.group(1)) and not received
                     and str(path).replace('\\', '/') not in UNLINKED_SKIP_FILES):
                 unlinked.append((i, m.group(1)))
         # target= anchors: GitHub strips the attribute from rendered HTML (check 4);
