@@ -4079,7 +4079,8 @@ def retired_sources(dest_root, archived=(), person=None):
         ret = source_retirement(clone)
         if _declared_level(s) == 'shared' and name in gone:
             info = gone[name]
-            why = (DELETED_WHY + (f' ({info["date"]})' if info.get('date') else '')
+            said = '; '.join(x for x in (info.get('date'), info.get('reason')) if x)
+            why = (DELETED_WHY + (f' ({said})' if said else '')
                    + (' -- BestPractice\'s record of deleted sets, '
                       'tools/deleted_sets.json' if info.get('from') == 'engine'
                       else ' -- your individual set lists it in deleted_sets'))
@@ -4115,8 +4116,12 @@ def retired_sources(dest_root, archived=(), person=None):
 
 
 # The words retired_sources gives a set the person deleted; such a set is
-# dropped whether or not every rule it held is carried elsewhere.
-DELETED_WHY = 'its repository is deleted'
+# dropped whether or not every rule it held is carried elsewhere. They say
+# what the record says, never that the repository is gone: on 2026-10-10 a
+# consumer's update printed "its repository is deleted" for two sets whose
+# repositories still answered, because the record said "being deleted".
+# The record's own reason follows them (retired_sources).
+DELETED_WHY = 'it is on the list of deleted sets'
 
 
 def drop_retired_sources(dest_root, archived=(), apply=True, person=None):

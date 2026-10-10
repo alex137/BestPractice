@@ -8992,10 +8992,19 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
             {'level': 'shared', 'name': 'vanished', 'path': '../vanished'},
             {'level': 'shared', 'name': 'orphaning', 'path': '../orphaning'}]}),
             encoding='utf-8')
-        person = ({'vanished': {'date': '2026-10-08', 'reason': ''},
+        person = ({'vanished': {'date': '2026-10-08',
+                                'reason': 'retired; repository being deleted'},
                    'orphaning': {'date': '2026-10-08', 'reason': ''}},
                   [fx / 'mine'])
         d3, k3 = _pve.drop_retired_sources(fx / 'repo3', person=person)
+        # It says what the record says, never more (2026-10-10: a consumer
+        # was told "its repository is deleted" of two repositories that
+        # still answered, because the record said "being deleted").
+        why = next((w for n, _p, w in d3 if n == 'vanished'), '')
+        cases.append(("a deleted set's reason is the record's own words, not "
+                      "a claim that its repository is gone",
+                      'repository being deleted' in why
+                      and 'repository is deleted' not in why))
         left = [x['name'] for x in json.loads(pj3.read_text(encoding='utf-8'))['sources']]
         cases.append(('a set the person deleted is dropped though its clone '
                       'is gone', 'vanished' not in left))
@@ -52958,6 +52967,93 @@ def check_update_asks_before_changing_hooks():
               and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
 
 
+def check_update_question_names_new_gates():
+    """The hooks-and-settings question Update Vendors puts to the person
+    names every hook the update newly wires into settings.json and what it
+    refuses, and says "nothing changes about when anything is blocked" only
+    when that is true.
+
+    WHY. 2026-10-10, a consumer's Update Vendors: the last-time question
+    (hooks becoming stubs) said nothing changed about blocking, while the
+    same update wired artifact-publish-gate.sh, which refuses a hand-written
+    page. The person's yes to that sentence is what lets the commit through.
+
+    Negative control, measured 2026-10-10: on staging's code the gate case
+    fails -- harness_ask ignored `cases` when `last` was set, and said the
+    sentence anyway."""
+    import inspect, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    env = _fixture_git_env()
+    cases = []
+    stub = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' /
+            'push-check-gate.sh').read_text(encoding='utf-8')
+    hook = lambda n: f'"$CLAUDE_PROJECT_DIR"/.claude/hooks/{n}'
+    def settings(entries):
+        d = {}
+        for ev, m, c in entries:
+            d.setdefault(ev, []).append(dict({'hooks': [{'type': 'command',
+                                                         'command': c}]},
+                                             **({'matcher': m} if m else {})))
+        return json.dumps({'hooks': d}, indent=2) + '\n'
+    base = [('PreToolUse', 'Bash', hook('push-check-gate.sh'))]
+    dispatch = [(ev, None, hook('precedent-hooks.sh') + f' {ev}')
+                for ev in ('PreToolUse', 'Stop')]
+    gate = [('PreToolUse', 'Artifact', hook('artifact-publish-gate.sh'))]
+    rewrite = [('PreToolUse', 'Bash', 'bash .claude/hooks/push-check-gate.sh')]
+
+    def ask(after, migrate=True):
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                          capture_output=True, text=True)
+            g('init', '-q', '-b', 'main')
+            (repo / '.claude' / 'hooks').mkdir(parents=True)
+            (repo / '.claude' / 'hooks' / 'push-check-gate.sh').write_text(
+                '#!/bin/bash\n# the real hook, before stubs\nexit 0\n', encoding='utf-8')
+            (repo / '.claude' / 'settings.json').write_text(settings(base),
+                                                            encoding='utf-8')
+            g('add', '-A'); g('commit', '-qm', 'before')
+            if migrate:
+                (repo / '.claude' / 'hooks' / 'push-check-gate.sh').write_text(
+                    stub, encoding='utf-8')
+            (repo / 'tools').mkdir()
+            shutil.copy(ROOT / 'tools' / 'artifact-publish-gate.sh',
+                        repo / 'tools' / 'artifact-publish-gate.sh')
+            (repo / '.claude' / 'settings.json').write_text(settings(after),
+                                                            encoding='utf-8')
+            g('add', '-A')
+            paths = pu.harness_changes(repo)
+            # Older code had neither; read so, it fails a stated case below
+            # rather than crashing (the negative control).
+            gates = getattr(pu, 'harness_new_gates', lambda r, p: [])(repo, paths)
+            more = ({'gates': gates} if 'gates' in
+                    inspect.signature(pu.harness_ask).parameters else {})
+            return gates, pu.harness_ask(
+                paths, last=pu.migrates_to_stubs(repo, paths),
+                cases=pu.harness_cases(repo, paths), **more)
+
+    quiet = 'Nothing changes about when anything is blocked'
+    gates, said = ask(base + dispatch)
+    cases.append(('CONTROL: the move to stubs with only the per-event '
+                  'entries says nothing new is blocked', gates == [] and quiet in said,
+                  said))
+    gates, said = ask(base + dispatch + gate)
+    cases.append(('the move to stubs that also wires a gate names it and what '
+                  'it refuses, and never says nothing new is blocked',
+                  [n for n, _e, _w in gates] == ['artifact-publish-gate.sh']
+                  and 'artifact-publish-gate.sh (PreToolUse)' in said
+                  and 'REFUSES to publish' in said and quiet not in said, said))
+    gates, said = ask(rewrite + dispatch)
+    cases.append(("a hook's path rewritten is not a new gate", gates == [], gates))
+    gates, said = ask(base + gate, migrate=False)
+    cases.append(('an ordinary update that wires a gate names what it refuses '
+                  'too', 'REFUSES to publish' in said and quiet not in said, said))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the hooks question names each newly wired gate and what it '
+          f'refuses ({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
+
+
 def check_landed_branch_gets_its_delete_link():
     """A branch that was not on its landing branch when the turn began and is
     by the turn's end is used up: the stop hook refuses a reply that gives no
@@ -53536,7 +53632,7 @@ def check_deleted_set_is_not_an_unresolved_source():
             verdict, msg = _psc.assess(repo, env=env)
             cases.append(('with nothing else missing the verdict is OK, with a '
                           'note that it is deleted and Update Vendors removes it',
-                          verdict == 'ok' and f'{gone} is deleted' in msg
+                          verdict == 'ok' and f'{gone} is on the list of deleted sets' in msg
                           and 'Update Vendors removes it' in msg,
                           f'{verdict}: {msg}'))
             live = 'precedent-shared-live-fixture'
@@ -53551,7 +53647,7 @@ def check_deleted_set_is_not_an_unresolved_source():
                           verdict == 'set' and live in named and gone not in named,
                           f'{verdict}: {msg}'))
             cases.append(('...the deleted one gets its note there too',
-                          f'{gone} is deleted' in msg, msg))
+                          f'{gone} is on the list of deleted sets' in msg, msg))
             cases.append(('...and what git said when it last tried the real one '
                           'is quoted', 'HTTP 429' in msg, msg))
 
@@ -53561,7 +53657,7 @@ def check_deleted_set_is_not_an_unresolved_source():
             text = out.getvalue()
             cases.append(('the freshness notice does not count a deleted set as '
                           'not verified, and says it is deleted',
-                          'NOT VERIFIED' not in text and f'{gone} is deleted' in text,
+                          'NOT VERIFIED' not in text and f'{gone} is on the list of deleted sets' in text,
                           text))
             rows = _pef.collect_targets(repo)
             cases.append(('...and has no row reading it as a source',
@@ -71570,6 +71666,7 @@ def main():
     check_stale_views_judged_on_what_a_push_brings()
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
+    check_update_question_names_new_gates()
     check_promote_branches_are_named_like_session_branches()
     check_landed_branch_gets_its_delete_link()
     check_install_and_update_name_the_code_owners()

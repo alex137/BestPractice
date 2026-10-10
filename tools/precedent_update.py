@@ -562,11 +562,11 @@ def retired_sources_step(repo, rep):
                   f'them go, then run Update Vendors again')
     for name in pve.drop_deleted_brings(repo) if hasattr(pve, 'drop_deleted_brings') else []:
         rep.step('retired set', f'{name} is no longer in precedent-source.json '
-                 f'`brings`: its repository is deleted')
+                 f'`brings`: it is on the list of deleted sets')
         names.append(name)
     for where, name in (pve.person_names_deleted(repo)
                         if hasattr(pve, 'person_names_deleted') else []):
-        rep.leave(where, f'still names {name}, whose repository is deleted. '
+        rep.leave(where, f'still names {name}, which is on the list of deleted sets. '
                          f'Nothing loads it any more; run Update Vendors in your '
                          f'individual set to drop it there')
     for where, text, why in prose_about_dropped_sets(repo, names):
@@ -2820,25 +2820,92 @@ def harness_cases(repo, paths):
     return cases
 
 
-def harness_ask(paths, last=False, cases=None):
+# The fixed per-event entry every hook added since 2026-10-07 runs through.
+# It is not itself a gate: it runs what tools/hook_wiring.json lists.
+DISPATCH_HOOK = 'precedent-hooks.sh'
+
+
+def hook_purpose(repo, name):
+    """-> what hook `name` does, in its own words: the first sentence of its
+    header comment that says so, from the engine copy in tools/ (or the hook
+    beside the settings), skipping the "Claude Code adapter:" prefix, a bare
+    "Stop hook." and an "Install to ..." line. Read from the script so the
+    question never carries a second, drifting description."""
+    filler = re.compile(r'^(\w+ hook\.?|Install to .*)$')
+    for where in (pathlib.Path(repo) / 'tools' / name,
+                  pathlib.Path(repo) / '.claude' / 'hooks' / name):
+        try:
+            lines = where.read_text(encoding='utf-8').splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        if any(STUB_MARKER in line for line in lines[:3]):
+            continue                    # a stub only points at tools/<name>
+        header = []
+        for line in lines[1:] if lines and lines[0].startswith('#!') else lines:
+            if not line.startswith('#'):
+                break
+            header.append(line.lstrip('#').strip())
+        text = re.sub(r'\bClaude Code adapter:\s*', '', ' '.join(header))
+        for sentence in re.split(r'(?<=[.!?])\s+', text):
+            sentence = sentence.strip()
+            if sentence and not filler.match(sentence):
+                return sentence.rstrip('.')
+    return f'what it does is in tools/{name}'
+
+
+def harness_new_gates(repo, paths):
+    """-> [(name, event, purpose)]: each hook settings.json now runs at an
+    event where HEAD's settings.json did not run it -- a new entry, never a
+    path rewrite of one already there, and never the per-event dispatch
+    entry. Read from the index against HEAD.
+
+    WHY (2026-10-10, a consumer's Update Vendors). The last-time question
+    said "nothing changes about when anything is blocked" while the same
+    update wired artifact-publish-gate.sh into settings.json, a gate that
+    refuses a hand-written page; the person's yes to that sentence was what
+    let the commit through."""
+    if '.claude/settings.json' not in paths:
+        return []
+    before = _settings_entries(_git_show(repo, 'HEAD:.claude/settings.json')) or set()
+    after = _settings_entries(_git_show(repo, ':.claude/settings.json')) or set()
+    name = lambda c: (_HOOK_NAME.search(c) or [None, c])[1]
+    had = {(e, name(c)) for e, _m, c in before}
+    out = []
+    for e, _m, c in sorted(after - before):
+        n = name(c)
+        if n == DISPATCH_HOOK or (e, n) in had or any(x[:2] == (n, e) for x in out):
+            continue
+        out.append((n, e, hook_purpose(repo, n)))
+    return out
+
+
+def harness_ask(paths, last=False, cases=None, gates=None):
     """The question for the person when an update changes hooks or settings.
     `last`: this is the update that turns the hooks into permanent stubs, so
     the question says, in plain words, that it is the last one. `cases`:
     harness_cases(), so any other question says which kind of change it is
-    rather than only that something under .claude/ moved."""
+    rather than only that something under .claude/ moved. `gates`:
+    harness_new_gates(), each hook newly wired and what it does -- so the
+    question never says nothing new is blocked when something is."""
+    new = ''
+    if gates:
+        new = (f'It also wires {len(gates)} hook(s) this repository did not '
+               f'run before, and each can refuse what it names: '
+               + '; '.join(f'{n} ({e}): {w}' for n, e, w in gates) + '. ')
     if last:
+        blocked = (new if gates else
+                   'Nothing changes about when anything is blocked. ')
         return (f'this update changes {len(paths)} file(s) under .claude/ one '
                 f'last time: each hook becomes a permanent pointer to the '
                 f'engine, and settings.json gains one fixed entry per event '
-                f'for hooks added later. Nothing changes about when anything '
-                f'is blocked, and from now on hook changes arrive with the '
-                f'engine without this question. Ask the person in those '
-                f'words before committing; their yes is what lets the commit '
-                f'through, and a merge that takes the update by itself needs '
-                f'it as {HARNESS_GO_AHEAD}="<their words>". Files: '
-                f'{", ".join(paths)}')
+                f'for hooks added later. {blocked}From now on hook changes '
+                f'arrive with the engine without this question. Ask the '
+                f'person in those words before committing; their yes is what '
+                f'lets the commit through, and a merge that takes the update '
+                f'by itself needs it as {HARNESS_GO_AHEAD}="<their words>". '
+                f'Files: {", ".join(paths)}')
     what = f' -- {"; ".join(cases)}' if cases else ''
-    return (f'this update changes {", ".join(paths)}{what}. Claude Code\'s '
+    return (f'this update changes {", ".join(paths)}{what}. {new}Claude Code\'s '
             f'auto mode holds a commit that changes hooks or settings until '
             f'the person says yes, so ask now, naming these files and what '
             f'each change is, before committing. Their yes is what lets the '
@@ -4337,7 +4404,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
         else:
             rep.ask('hooks and settings',
                     harness_ask(harness, last=migrates_to_stubs(repo, harness),
-                                cases=harness_cases(repo, harness)))
+                                cases=harness_cases(repo, harness),
+                                gates=harness_new_gates(repo, harness)))
 
     # 4b. Files that still name what the refresh deleted: the full check's
     # rename-updates-links refuses each one at the Promote, so they are
