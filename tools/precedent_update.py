@@ -608,6 +608,11 @@ _SET_COUNT_RE = re.compile(
     r'\b(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b'
     r'(?:\s+of\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+))?'
     r'(?:\s+[\w*-]+){0,2}?\s+(?:practice\s+)?(?:sets|sources)\b', re.I)
+# "sources" alone is a common word -- "two sources reveal them" was about
+# kinds of review evidence (a consumer's update, 2026-10-10) -- so a count of
+# sources is a count of practice sets only beside a word that says so.
+_SET_CONTEXT_RE = re.compile(
+    r'practice|precedent|shared|declar|resolv|loader|catalogue|\bsets?\b', re.I)
 _SET_FAMILY_RE = re.compile(r'\b([a-z0-9]+(?:-[a-z0-9]+)*-)\*')
 _SHARED_SETS_RE = re.compile(r'\bshared\s+(?:practice\s+)?(?:sets|sources)\b', re.I)
 # Fields of a precedent.json source the engine owns, not prose.
@@ -640,6 +645,9 @@ def _dropped_set_matcher(names, shared_left):
                                    f'{", ".join(sorted(set(covered)))}, '
                                    f'which this update stopped declaring')
         m = _SET_COUNT_RE.search(line)
+        if m and m.group(0).lower().endswith('sources') and \
+                not _SET_CONTEXT_RE.search(line):
+            m = None
         if m:
             return m.start(), (f'counts the declared sets, and this update '
                                f'dropped {len(names)}')
