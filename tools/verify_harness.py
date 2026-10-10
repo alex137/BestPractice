@@ -51067,6 +51067,86 @@ def check_writing_checks_leave_a_declared_record_as_filed():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_one_list_declares_a_record():
+    """precedent.json's record_paths is the one list of records: the
+    retired-names scrub reads it too, and Update Vendors moves a flagged
+    file the person already listed in retired_vocabulary.json's
+    exempt_files over to it.
+
+    2026-10-10, a consumer (Morgan: "that is a good suggestion for
+    upstream"): its migration record was exempt from the old-names scrub
+    through exempt_files, and the citation check, which reads record_paths,
+    still flagged six old practice names in it. Silencing both meant naming
+    the file twice. exempt_files is NOT read as records: it also lists a
+    materialized practices/ tree and live items that must name a retired
+    secret, which are not records."""
+    import tempfile
+    name = 'one list declares a record'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    saved = pc.ROOT
+    cases = []
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            (repo / 'process').mkdir()
+            (repo / 'todo').mkdir()
+            (repo / 'process' / 'MIGRATION.md').write_text(
+                'We moved off OldPack on 2026-09-24.\n', encoding='utf-8')
+            (repo / 'todo' / 'delete-secret.md').write_text(
+                'Delete the OldPack secret.\n', encoding='utf-8')
+            vocab = {'_comment': 'why', 'terms': ['OldPack'],
+                     'exempt_files': ['process/MIGRATION.md', 'todo/delete-secret.md',
+                                      'practices/']}
+            vpath = repo / 'process' / 'retired_vocabulary.json'
+            vpath.write_text(json.dumps(vocab) + '\n', encoding='utf-8')
+            cpath = repo / 'precedent.json'
+            cpath.write_text(json.dumps({'sources': []}, indent=2) + '\n', encoding='utf-8')
+            pc.ROOT = repo
+
+            def scrubbed():
+                return sorted({f.where.split(':')[0] for f in pc._repo_retired_terms(vpath, None)})
+            vpath.write_text(json.dumps({'terms': ['OldPack'], 'exempt_files': []}) + '\n',
+                             encoding='utf-8')
+            cases.append(('control: with no list, the scrub flags the record',
+                          'process/MIGRATION.md' in scrubbed()))
+            cpath.write_text(json.dumps({'sources': [], 'record_paths': [
+                {'path': 'process/MIGRATION.md', 'reason': 'r'}]}, indent=2) + '\n',
+                encoding='utf-8')
+            cases.append(('THE DISCRIMINATING CASE: declared in record_paths alone, '
+                          'the scrub leaves it', 'process/MIGRATION.md' not in scrubbed()))
+            cases.append(('...and still flags a file on no list',
+                          'todo/delete-secret.md' in scrubbed()))
+            cpath.write_text(json.dumps({'sources': []}, indent=2) + '\n', encoding='utf-8')
+            vpath.write_text(json.dumps(vocab) + '\n', encoding='utf-8')
+            moved = pu.adopt_listed_records(repo, {'process/MIGRATION.md', 'tools/x.py'})
+            cfg = json.loads(cpath.read_text(encoding='utf-8'))
+            after = json.loads(vpath.read_text(encoding='utf-8'))
+            cases.append(('Update Vendors moves the flagged, already-listed file to '
+                          'record_paths, with a reason',
+                          moved == ['process/MIGRATION.md']
+                          and [e['path'] for e in cfg.get('record_paths', [])]
+                          == ['process/MIGRATION.md']
+                          and all(e.get('reason') for e in cfg['record_paths'])))
+            cases.append(('...takes it off exempt_files, in the file\'s own one-line layout',
+                          after['exempt_files'] == ['todo/delete-secret.md', 'practices/']
+                          and vpath.read_text(encoding='utf-8').count('\n') == 1))
+            cases.append(('...and never moves a directory or a file it did not flag',
+                          'practices/' in after['exempt_files']
+                          and 'todo/delete-secret.md' in after['exempt_files']))
+            cases.append(('the scrub still leaves the moved record alone',
+                          'process/MIGRATION.md' not in scrubbed()))
+            cases.append(('a second run moves nothing',
+                          pu.adopt_listed_records(repo, {'process/MIGRATION.md'}) == []))
+    finally:
+        pc.ROOT = saved
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
 def check_landers_wait_their_turn_for_the_lock():
     """Both landers hold the lock Promote takes, and wait while it is held.
 
@@ -73717,6 +73797,7 @@ def main():
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
+    check_one_list_declares_a_record()
     check_landers_wait_their_turn_for_the_lock()
     check_a_failure_item_lists_the_index_it_creates()
     check_global_pre_push_refuses_a_tree_the_check_failed()
