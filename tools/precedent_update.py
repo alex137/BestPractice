@@ -350,7 +350,7 @@ def ensure_headroom_floor(repo):
 
 
 
-def seed_baseline_approvals(repo, data, path):
+def seed_baseline_approvals(repo, data, path, approved_by=None):
     """Record every budget in force as a `"strength": "baseline"` approval in
     a registry Update Vendors has JUST seeded, so budget-within-approval
     binds from the first run instead of reporting SKIPPED for ever. Only
@@ -372,8 +372,9 @@ def seed_baseline_approvals(repo, data, path):
     day = _time.strftime('%Y-%m-%d')
     data['approved_budgets'] = {
         k: {'max': v, 'strength': 'baseline',
-            'approved_by': f'baseline {day}: seeded by Update Vendors with the '
-                           f'registry, at the values in force'}
+            'approved_by': f'baseline {day}: ' + (approved_by or
+                           'seeded by Update Vendors with the registry, at the '
+                           'values in force')}
         for k, v in sorted(now.items()) if isinstance(v, int)}
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     return True
@@ -381,7 +382,10 @@ def seed_baseline_approvals(repo, data, path):
 
 def approval_gap(repo):
     """-> a sentence for the report when the registry exists and has no
-    approved_budgets (so budget-within-approval skips every run), else None."""
+    approved_budgets (so budget-within-approval skips every run), else None.
+    Where no budget went up since the registry was first committed, it
+    records them as the baseline itself and the sentence says so; it asks
+    the person only about a budget that did go up."""
     path = repo / 'tools' / 'session_load_budgets.json'
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
@@ -389,11 +393,61 @@ def approval_gap(repo):
         return None
     if not isinstance(data, dict) or isinstance(data.get('approved_budgets'), dict):
         return None
+    first, raised = _raised_since_first_commit(repo, path)
+    if first and not raised:
+        # Nothing went up since the registry was first committed, so there is
+        # no raise to launder: record the numbers in force and say so, rather
+        # than asking the person to confirm numbers nobody changed (Morgan,
+        # 2026-10-10: "How do we AVOID this becoming a constant hassle that
+        # the user has to think about all the time?").
+        if seed_baseline_approvals(repo, data, path, approved_by=(
+                f'no budget went up since this registry was first committed '
+                f'({first[:12]}); recorded by Update Vendors at the values in '
+                f'force')):
+            return ('recorded the budgets in force as the baseline in '
+                          'tools/session_load_budgets.json: none went up since '
+                          f'the registry was first committed ({first[:12]})')
+    which = (f' Raised since its first commit ({first[:12]}): '
+             f'{", ".join(raised)} -- ask only about those.' if first and raised
+             else '')
     return ('tools/session_load_budgets.json has no approved_budgets, so the '
             'check that no budget was raised without approval skips on every '
             'run. Ask the person to confirm the numbers in force are ones '
             'they chose, then record each as "strength": "baseline" '
-            '(practice: session-load-budget)')
+            f'(practice: session-load-budget).{which}')
+
+
+def _raised_since_first_commit(repo, path):
+    """-> (sha of the commit that added the registry, [budget keys whose
+    number in force is higher now than in that commit]), or (None, None)
+    when there is no history to read. Each side is read through
+    build_views.effective_budgets, the function that enforces it; a budget
+    the first commit did not have counts as raised."""
+    import subprocess as _sp
+    import tempfile as _tf
+    rel = path.relative_to(repo).as_posix()
+    log = _sp.run(['git', '-C', str(repo), 'log', '--diff-filter=A',
+                   '--format=%H', '--', rel], capture_output=True, text=True)
+    shas = log.stdout.split() if log.returncode == 0 else []
+    if not shas:
+        return None, None
+    first = shas[-1]
+    old = _sp.run(['git', '-C', str(repo), 'show', f'{first}:{rel}'],
+                  capture_output=True, text=True)
+    if old.returncode != 0:
+        return None, None
+    try:
+        import build_views as _bv
+        with _tf.TemporaryDirectory() as td:
+            then_path = pathlib.Path(td) / 'session_load_budgets.json'
+            then_path.write_text(old.stdout, encoding='utf-8')
+            then = _bv.effective_budgets(repo, registry=then_path)
+        now = _bv.effective_budgets(repo, registry=path)
+    except Exception:                                        # noqa: BLE001
+        return None, None
+    raised = sorted(k for k, v in now.items() if isinstance(v, int)
+                    and not (isinstance(then.get(k), int) and v <= then[k]))
+    return first, raised
 
 
 def ensure_session_load_registry(repo):
