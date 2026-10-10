@@ -226,6 +226,14 @@ def _extra_internal(root):
     return _paths_config(root)[0]
 
 
+def output_paths_declared(root="."):
+    """Has this repo said, in precedent.json's `output_paths`, which documents
+    it publishes? Other checks that judge "reader-facing documents" ask this
+    first, so a repo that answered the question once is not second-guessed by
+    each of them separately."""
+    return _paths_config(root)[1] is not None
+
+
 def is_outward(rel_path, root="."):
     """Is a repo-relative path a document published to people outside the
     project? True for anything not excluded above, and not named by the

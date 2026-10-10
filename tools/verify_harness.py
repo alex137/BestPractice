@@ -5263,6 +5263,29 @@ def check_doc_lint_fires():
         cases.append(('plain prose near those words is not residue',
                       not dl.check_residue('prose-clean.md')))
 
+        # 2026-10-10: a repo that declares its reader-facing documents has
+        # answered which files are deliverables. A rule that tells a writer
+        # not to quote "from memory", in a working document it did not
+        # declare, is the rule itself, not residue; the same words in a
+        # declared document still fire. title_case caches its config per
+        # root, so the cache is cleared on both sides of the declaration.
+        import title_case as _tc
+        _tc._PATHS_CONFIG.clear()
+        (tmp / 'precedent.json').write_text(
+            '{"output_paths": ["guide.md"]}', encoding='utf-8')
+        rule = "Don't reconstruct a quote from memory; mark it to check.\n"
+        (tmp / 'rulebook.md').write_text(rule, encoding='utf-8')
+        (tmp / 'guide.md').write_text(rule, encoding='utf-8')
+        cases.append(('residue words in a working doc are not flagged when '
+                      'the repo declares its output_paths without it',
+                      not dl.check_residue('rulebook.md')))
+        cases.append(('the same words in a declared output path are still '
+                      'flagged', bool(dl.check_residue('guide.md'))))
+        (tmp / 'precedent.json').unlink()
+        _tc._PATHS_CONFIG.clear()
+        cases.append(('with no output_paths declared, a working doc is '
+                      'judged as before', bool(dl.check_residue('rulebook.md'))))
+
         # REF_RE's `[^`]+` swallows a whole command line, so a backticked
         # invocation counted as an unlinked file reference -- 177 of 2,323
         # findings in this tree on 2026-09-21, none of them fixable by a
