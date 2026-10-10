@@ -839,6 +839,11 @@ def find_violations() -> list[str]:
 
 
 if __name__ == "__main__":
+    # Every engine tool answers --help (verify_harness: every tool answers
+    # --help with exit 0); this one has lived in tools/ since 2026-10-10.
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__.strip())
+        sys.exit(0)
     _argv = sys.argv[1:]
     if "--range" in _argv:
         _i = _argv.index("--range")
