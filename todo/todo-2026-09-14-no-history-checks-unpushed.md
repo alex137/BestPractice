@@ -18,8 +18,8 @@ closed:            null
 
 - <a id="no-history-checks-unpushed"></a>**Two individual-set checks crashed
     on a repo with no commits. CLOSED 2026-09-14 — they skip it now, saying
-    there is no history yet.** `tools/checks/check_commit_author.py` and
-    `tools/checks/check_buenos_aires_dates.py` called `git log` with
+    there is no history yet.** `tools/check_commit_author.py` and
+    `tools/check_commit_dates.py` called `git log` with
     `check=True`. An unborn HEAD makes git log exit 128, the
     `CalledProcessError` escaped `find_violations()`, and
     [tools/precedent_check.py](../tools/precedent_check.py) printed the traceback
