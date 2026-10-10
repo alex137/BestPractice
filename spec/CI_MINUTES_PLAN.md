@@ -52,7 +52,7 @@ Totals, computed directly from the file:
 | 15 | `sync-voice-packs.yml` | Morgan's own automation |
 | 11 | `unified-prompt-check.yml` | not in this repo's tree |
 | 11 | `platform-docs-check.yml` | not in this repo's tree |
-| 10 | `voicedef-pack-sync.yml` | Morgan's own automation |
+| 10 | a voice-pack sync workflow (its name names a private repository) | Morgan's own automation |
 | 7 | `practice-links-travel.yml` | not in this repo's tree |
 | 4 | `sync-sound-human.yml` | Morgan's own automation |
 | 4 | `engine-refresh.yml` | current template, practice-set repos |
@@ -84,8 +84,8 @@ in repos that mostly haven't migrated onto the current engine yet, and
 `ci_workflows` field has no path to them at all — it only ever wrote
 `bestpractice-docs.yml`.
 
-Separately: `personal-pack-sync.yml`, `sync-voice-packs.yml`,
-`voicedef-pack-sync.yml`, `sync-sound-human.yml`, and
+Separately: `personal-pack-sync.yml`, `sync-voice-packs.yml`, a
+voice-pack sync workflow, `sync-sound-human.yml`, and
 `sync-voice-guidelines-to-sound-human.yml` (72 minutes total) are Morgan's
 own domain automation — voice-pack and personal-data syncing — not
 anything Precedent installs or owns. This plan flags them because they show
