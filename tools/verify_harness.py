@@ -56195,6 +56195,51 @@ def check_todo_index_check_survives_midnight():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_todo_index_refuses_an_unknown_kind():
+    """An open item whose kind TODO.md has no table for fails the build,
+    rather than vanishing from the open-items list.
+
+    THE INCIDENT (2026-10-10). Two engine bugs were filed as `kind: bug`;
+    the index built clean and listed neither. The DISCRIMINATING CASE is
+    the first: it passed on the code before this check. The others prove a
+    known kind still builds and a closed item keeps whatever kind it had.
+    The fixture owns its tree (fixture-owns-its-state)."""
+    import contextlib, importlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    todo = importlib.import_module('build_todo_index')
+    cases = []
+
+    def build(kind, status):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp)
+            (repo / 'todo').mkdir()
+            closed = 'closed: 2026-10-10\n' if status != 'open' else ''
+            (repo / 'todo' / 'todo-2026-10-10-an-item.md').write_text(
+                f'---\nslug: todo-2026-10-10-an-item\nstatus: {status}\n'
+                f'kind: {kind}\nnoted: 2026-10-10\n{closed}disposition: wait\n'
+                '---\n\n## What\n\n**An item.**\n', encoding='utf-8')
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    todo.main(['--repo', str(repo)])
+            except SystemExit as e:
+                return str(e.code), ''
+            return '', (repo / 'todo' / 'TODO.md').read_text(encoding='utf-8')
+
+    err, _ = build('bug', 'open')
+    cases.append(('THE DISCRIMINATING CASE: an open `kind: bug` item fails '
+                  'the build and names the kinds that exist',
+                  'kind:' in err and 'analysis' in err, err))
+    err, out = build('analysis', 'open')
+    cases.append(('POSITIVE CONTROL: an open analysis item builds and is listed',
+                  not err and 'todo-2026-10-10-an-item' in out, err))
+    err, _ = build('bug', 'done')
+    cases.append(('a closed item is not refused for its kind', not err, err))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the TODO index refuses an open item of unknown kind '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_landed_reduction_quiets_the_reduction_ask():
     """An over-target file whose reduction has already landed on the landing
     branch is reported as waiting on a Promote, not as needing another pass.
@@ -72028,6 +72073,7 @@ def main():
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_engine_tools_say_which_repo_they_read()
     check_todo_index_check_survives_midnight()
+    check_todo_index_refuses_an_unknown_kind()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_landed_reduction_quiets_the_reduction_ask()
