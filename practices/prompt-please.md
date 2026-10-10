@@ -210,6 +210,13 @@ fenced: *"Open a new session, root it in \<repository\>, attaching
 \<repositories, or 'none'\>."* The block is what gets pasted; this sentence
 is what tells the person to go paste it, and where.
 
+**Assume the person never reads the block.** They copy it and paste it; they
+do not study it. So anything in it they should know -- what it recommends,
+a risk it names, a call it makes or leaves for them -- is said in the reply
+too, before or after the block, in a line or two: *"This prompt recommends
+X; it leaves Y for you to decide."* (Morgan, 2026-10-09: "assume that any
+'prompt please' note given to me ... will NOT be read by me".)
+
 **Never call a session-creating or session-messaging tool for this, and
 never wake a live session either.** Produce the prompt and tell the person
 to open a new window and paste it in themselves -- the same standing
@@ -433,6 +440,14 @@ none of it ([no-duplication](no-duplication.md)), so a change here is made
 here only.
 
 **2026-10-06: a suggestion, said in so many words.** The opening line already asked the receiving session to analyze the prompt rather than just carry it out, and sessions still sometimes did just carry one out. Morgan: *"when I give you a message from another session, you sometimes just do it ... Can you add to the command so that in the intro to the prompt you create, can you instruct the other session to take the below as a suggestion from the other session that you yourself ... should analyze and then and push back on as needed."* The line now opens by saying the text is a suggestion from another session, not the person's instruction, and ends "Act only on what holds up"; [relayed-message-is-a-suggestion](relayed-message-is-a-suggestion.md) says the same from the receiving side. strength: decided.
+
+**2026-10-09: the person does not read the block.** Morgan: *"you should
+assume that any 'prompt please' note given to me/a user to copy-paste into
+another session will NOT be read by me/the session user, so if there's
+anything in it that I/the session user should know, then to tell us before
+or after the note, on both the sending side and the recipient session should
+do the same."* The sending half is the paragraph above; the receiving half
+is in [relayed-message-is-a-suggestion](relayed-message-is-a-suggestion.md).
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated
