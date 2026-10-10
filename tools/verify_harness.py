@@ -72426,6 +72426,75 @@ def check_todo_gotcha_stale_reference_fires():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_due_reminder_reaches_the_reply():
+    """build_todo_index.remind() -- the reply gate's DUE REMINDER block
+    (practice: todo-reminder, the-boildown item 10). Against a planted
+    todo/ (fixture-owns-its-state: every field an assertion reads is
+    written here): only an open `ask` item whose remind_on has arrived is
+    due, the longest-due is named first, one an earlier reply already
+    carries is skipped, and nothing due prints nothing."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_todo_index as bti
+
+    def item(slug, **fm):
+        fields = {'slug': slug, 'title': f'"{slug} title"', 'status': 'open',
+                  'kind': 'manual', 'noted': '2026-01-01'}
+        fields.update(fm)
+        body = ''.join(f'{k}: {v}\n' for k, v in fields.items())
+        return f'---\n{body}---\n## What\nx\n'
+
+    def run(files, replies=None):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-due-'))
+        try:
+            for name, text in files.items():
+                p = d / 'todo' / f'{name}.md'
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(text, encoding='utf-8')
+            transcript = None
+            if replies is not None:
+                transcript = d / 't.jsonl'
+                transcript.write_text(''.join(
+                    json.dumps({'type': 'assistant', 'message': {
+                        'usage': {}, 'content': [{'type': 'text', 'text': r}]}})
+                    + '\n' for r in replies), encoding='utf-8')
+            return bti.remind(d, str(transcript) if transcript else None)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    files = {
+        'todo-2026-01-01-older': item('todo-2026-01-01-older',
+                                      disposition='ask', remind_on='2020-01-02'),
+        'todo-2026-01-01-oldest': item('todo-2026-01-01-oldest',
+                                       disposition='ask', remind_on='2020-01-01'),
+        'todo-2026-01-01-future': item('todo-2026-01-01-future',
+                                       disposition='ask', remind_on='2999-01-01'),
+        'todo-2026-01-01-waiting': item('todo-2026-01-01-waiting',
+                                        disposition='wait', remind_on='2020-01-01'),
+        'todo-2026-01-01-finished': item('todo-2026-01-01-finished',
+                                         status='done', disposition='ask',
+                                         remind_on='2020-01-01'),
+    }
+    cases = []
+    out = run(files)
+    cases.append(('the longest-due open ask item is named, and counts the '
+                  'one other due', 'todo-2026-01-01-oldest.md' in out
+                  and '1 other reminder' in out, out))
+    out = run(files, ['earlier: see todo/todo-2026-01-01-oldest.md'])
+    cases.append(('an item an earlier reply already carried is skipped for '
+                  'the next one', 'todo-2026-01-01-older.md' in out, out))
+    out = run(files, ['todo-2026-01-01-oldest and todo-2026-01-01-older'])
+    cases.append(('every due item already shown prints nothing', out == '', out))
+    out = run({k: v for k, v in files.items()
+               if k not in ('todo-2026-01-01-oldest', 'todo-2026-01-01-older')})
+    cases.append(('not yet due, wait, and done items print nothing',
+                  out == '', out))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a due reminder reaches the reply gate, by date, once per '
+          f'conversation ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:200]!r}' for n, d in bad))
+
+
 def check_todo_and_gotcha_sweeps():
     """very_deep_check.py's two Part 3 sweeps -- _open_item_sweep and
     _gotcha_retirement_candidates -- against planted fixtures
@@ -73423,6 +73492,7 @@ def main():
     check_install_names_every_not_vendored_dir()
     check_philosophy_readme_lists_every_file()
     check_todo_gotcha_stale_reference_fires()
+    check_due_reminder_reaches_the_reply()
     check_todo_and_gotcha_sweeps()
 
     # RECAP THE FAILURES BY NAME, immediately before the summary line.
