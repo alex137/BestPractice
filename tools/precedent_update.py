@@ -880,12 +880,18 @@ def approved_workflows_step(repo, rep):
         rep.step('approved workflows', f'{len(checks)} step(s) of this repo\'s '
                  f'own approved workflows run in the push check too: '
                  + ', '.join(n.split(': ', 1)[-1] for n, _a, _r in checks))
-    for wf, step, cmd in unrun:
-        rep.step('approved workflows', f'{wf}, step "{step}", runs only on '
-                 f'GitHub: `{cmd[:100]}` is not a plain `python3 tools/<x>.py` '
-                 f'call. A check there is first seen as GitHub\'s test after '
-                 f'the merge; move it into a tools/ script the step calls, and '
-                 f'the push check runs it too')
+    if unrun:
+        # One line, said once (2026-10-10: one line per step, each printed
+        # again in the summary, read as a wall). The steps are the
+        # check-like ones of workflows GitHub runs on a change; the product
+        # itself is never here (approved_workflow_checks).
+        files = sorted({pathlib.Path(wf).name for wf, _s, _c in unrun})
+        rep.step('approved workflows', f'{len(unrun)} check step(s) in '
+                 f'{", ".join(files)} run only on GitHub, so a failure there is '
+                 f'first seen after the merge. To run one here too, make it a '
+                 f'plain `python3 tools/<x>.py` call; a workflow that is the '
+                 f'product, not a test, takes `"role": "{ppc.DELIVERABLE_ROLE}"` '
+                 f'in its precedent.json github_ci_approved entry')
 
 
 def maintainers_step(repo, rep):
@@ -3626,6 +3632,25 @@ def citation_findings(data, engine=frozenset()):
     return fix, read
 
 
+def record_paths_hint(read):
+    """-> how to stop a dated record being listed again, naming the files
+    the read list points into, or ''.
+
+    WHY (2026-10-10, a consumer's update). Six of its seven citations were
+    in its 2026-09-24 migration record, correct as written and never to
+    change, and nothing said how to stop them coming back at every update.
+    A file declared in precedent.json's record_paths is history to this
+    lookup (precedent_practice_refs.py); nothing is guessed from a name."""
+    files = sorted({w.split(':', 1)[0] for w in read
+                    if w.split(':', 1)[0].endswith('.md')})
+    if not files:
+        return ''
+    return (f'. If {", ".join(files)} {"is" if len(files) == 1 else "are"} a '
+            f'dated record that stays as written, list it in precedent.json\'s '
+            f'record_paths ({{"path": ..., "reason": ...}}) and it is not '
+            f'listed again')
+
+
 TEMP_COMMIT_MESSAGE = ('precedent_update: the staged update, committed only so the '
                        'deep check judges it as committed -- undone right after')
 
@@ -4683,7 +4708,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
                  + (f'; {len(read)} citation(s) of a practice reworded or '
                     f'withdrawn -- read each, it may describe the old rule '
                     f'or name the old slug: '
-                    + ', '.join(read) if read else ''))
+                    + ', '.join(read) if read else '')
+                 + record_paths_hint(read))
 
     manifest_postcondition(repo, rep)
     return closing_check(repo, rep, skip_check)

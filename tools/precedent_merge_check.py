@@ -342,6 +342,57 @@ def revert_landing(root, base, sha, number, pb=None):
     return True, f'{base} is back at the tree it had before the merge ({commit[:12]})'
 
 
+def same_tree_as_checked(root, sha):
+    """-> True when the merge commit `sha` holds exactly the tree of the
+    pull request's head (its second parent), the tree the gate checked;
+    False when they differ, so the base moved in between; None when it
+    cannot be told (a squash or rebase merge has no second parent)."""
+    landed_tree = git(root, 'rev-parse', '--verify', '--quiet', f'{sha}^{{tree}}')
+    head_tree = git(root, 'rev-parse', '--verify', '--quiet', f'{sha}^2^{{tree}}')
+    if not landed_tree or not head_tree:
+        return None
+    return landed_tree == head_tree
+
+
+def landed_verdict(base, number, sha, tier, rc, out, same):
+    """-> (exit code, the line to print) for a check of what landed that
+    did not fail (rc 0, or 2 for could-not-check), else None: a failure
+    reverts, which landed() does itself.
+
+    WHY (2026-10-10). A session's fast move into main printed "main MOVED
+    ... It has now had its own full check" when main had not moved and the
+    check that ran was the quick one: the "landed as checked" line needed
+    the words 'this exact tree already passed', which only the full tier
+    prints. A session that believes that line may skip the full check it
+    still owes. So whether the base moved is read from the trees, and the
+    line names the check that actually ran."""
+    which = ('quick check (the files it changed)' if tier == 'basic'
+             else f'{tier} check')
+    owed = (' Its full check is GitHub\'s test on the branch, still to come.'
+            if tier == 'basic' else '')
+    if rc == 0 and (same or (same is None
+                             and 'this exact tree already passed' in out)):
+        return 0, (f'precedent_merge_check: pull request #{number} landed on '
+                   f'{base} as checked ({sha[:12]}). The {which} passed on it.'
+                   + owed)
+    if rc == 0 and same is None:
+        return 0, (f'precedent_merge_check: pull request #{number} landed on '
+                   f'{base} as {sha[:12]}, a tree the gate may not have seen '
+                   f'(no second parent to compare). The {which} passed on it.'
+                   + owed)
+    moved = (f'{base} MOVED while pull request #{number} merged, so what '
+             f'landed ({sha[:12]}) was not what the gate checked'
+             if same is False else
+             f'what pull request #{number} landed on {base} ({sha[:12]})')
+    if rc == 0:
+        return 0, f'precedent_merge_check: {moved}. The {which} passed on it.' + owed
+    if rc != 1:
+        tail = '\n'.join(out.rstrip().splitlines()[-TAIL_LINES:])
+        return 2, (f'precedent_merge_check: {moved}, and it could not be '
+                   f'checked here:\n{tail}')
+    return None
+
+
 def landed(argv, pb, search):
     """--landed [SHA]: after a merge through GitHub, check what actually
     landed, and undo it when it fails.
@@ -419,28 +470,21 @@ def landed(argv, pb, search):
             tiers = getattr(pb, 'tier_for_branch', None) if pb else None
             if tiers and tiers(root, base)[0] == 'basic':
                 tier, extra = 'basic', ('--changed-since', f'{sha}^1')
+        same = same_tree_as_checked(root, sha)
         rc, out = run_in_worktree(root, sha, tier, tool_rel, extra)
     finally:
         subprocess.run(['git', '-C', str(root), 'update-ref', '-d', ns],
                        capture_output=True, text=True)
-    if rc == 0 and 'this exact tree already passed' in out:
-        print(f'precedent_merge_check: pull request #{number} landed on {base} '
-              f'as checked ({sha[:12]}).')
-        return 0
-    if rc == 0:
-        print(f'precedent_merge_check: {base} MOVED while pull request '
-              f'#{number} merged, so what landed ({sha[:12]}) was not what the '
-              f'gate checked. It has now had its own full check, and passed.')
-        return 0
+    said = landed_verdict(base, number, sha, tier, rc, out, same)
+    if said is not None:
+        print(said[1])
+        return said[0]
     tail = '\n'.join(out.rstrip().splitlines()[-TAIL_LINES:])
-    if rc != 1:
-        print(f'precedent_merge_check: {base} MOVED while pull request '
-              f'#{number} merged, and what landed ({sha[:12]}) could not be '
-              f'checked here:\n{tail}')
-        return 2
     done, what = revert_landing(root, base, sha, number, pb)
-    print(f'precedent_merge_check: {base} MOVED while pull request #{number} '
-          f'merged, and what landed ({sha[:12]}) FAILED its full check. '
+    moved = (f'{base} MOVED while pull request #{number} merged, and what '
+             f'landed ({sha[:12]})' if same is False else
+             f'what pull request #{number} landed on {base} ({sha[:12]})')
+    print(f'precedent_merge_check: {moved} FAILED its {tier} check. '
           + (f'Reverted: {what}. The pull request\'s branch still has the '
              f'work: merge {base} into it, fix the finding, and merge again.'
              if done else f'{what}. Fix it on {base} now.')
