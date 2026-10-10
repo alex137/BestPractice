@@ -23,7 +23,8 @@ The rest of this page goes question by question.
 ## "What Changed in This Project?"
 
 **Ask *"What's new?"*** The AI Assistant brings the project's daily log
-([WHATS_NEW.md](../WHATS_NEW.md) here) up to date and shows it to you: one
+(Precedent's own is
+[WHATS_NEW.md](https://github.com/alex137/BestPractice/blob/staging/WHATS_NEW.md)) up to date and shows it to you: one
 entry for each day something happened, each with the **three or so most
 important changes** of that day, in plain words. Quiet days get no entry.
 Changes to documents count as news as much as changes to code.
