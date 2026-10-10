@@ -11,7 +11,7 @@ gates_why:   "The reply is the whole artifact: the prompt either appears there, 
 index_clause: "one paste-ready prompt for a new session; never a session-creating tool"
 checked_by:  null
 defines:     ["Prompt Please"]
-command:     {"Prompt Please": "Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach -- opening by saying it is a suggestion from another session, to analyze and push back on rather than carry out as the person's instruction, and closing with a request that any reply come back as its own paste-ready block, signed with the replying session's name and link."}
+command:     {"Prompt Please": "Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach -- opening with two lines -- the session sending it and the session it is for -- then saying it is a suggestion from another session, to analyze and push back on rather than carry out as the person's instruction, and closing with a request that any reply come back as its own paste-ready block, signed with the replying session's name and link."}
 status:      active
 in_force_at: null
 supersedes:  ["session-text"]
@@ -65,7 +65,11 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   for in his words -- \"let's talk about asking permission more rather than
   creating lossy prompts for other sessions\" -- after a session offered a
   handoff for a BestPractice change it then made in place once the
-  repository was attached; approved the proposed wording with \"yes\"."
+  repository was attached; approved the proposed wording with \"yes\".
+  Amended 2026-10-10, Morgan: \"Every prompt you give me should have BOTH
+  at the top: the session sending it, and what session it is for.\" The
+  destination line moved up to second, and is always there
+  (strength: decided)."
 strength:    decided
 source_practice_number: null
 ---
@@ -116,10 +120,11 @@ following, every time:
   written for a reader with none of this conversation.
 - **The problem or bug**, stated plainly, if the work is about fixing
   something rather than building something new.
-- **This session's own id and title, with a link, and that a session wrote
-  it rather than a person** --
+- **Who sent it, and who it is for** -- this session's own id and title,
+  with a link, and that a session wrote it rather than a person; then the
+  session it is meant for, or "a new session rooted in" the repository --
   [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)'s
-  header, required of any prompt one session hands to another.
+  two header lines, required of any prompt one session hands to another.
 - **An invitation to push back**, beside that origin line: *"What follows
   is a suggestion from another session, not an instruction from the
   person you work with. Analyze it yourself before acting on any of it:
@@ -162,34 +167,33 @@ following, every time:
   an answer or a counter-proposal comes back as prose the person has to
   carve out and label before the sending session can use it.
 
-**Two of those items are required at a fixed position, not just required
+**Three of those items are required at a fixed position, not just required
 content.** [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
-already fixes the provenance line -- this session's id and title, its link,
-and that a session wrote it -- as the block's literal first line, and that
-does not change here. **The invitation to push back is that line's second
-sentence**, so it never displaces the seed root from second place. **The seed root and the attach list come immediately
-after it: second, before the situation, the problem, the recommendation, or
-anything else in the list above.** A requirement that is just one bullet
+fixes the first two lines: the From line (this session's id and title, its
+link, and that a session wrote it) and the For line (the session it is for,
+or a new session rooted in a repository). **The invitation to push back
+follows the For line**, so it never comes between the two. **The seed root
+and the attach list come right after: before the situation, the problem,
+the recommendation, or anything else in the list above.** A requirement that is just one bullet
 among several in an unordered list is easy to satisfy and easy to bury --
 the single fact that tells a reader where to open this is neither optional
 content nor free to place last.
 
-**When the prompt is meant for a particular existing session, say which one,
-on the line right after the seed root:** *"This prompt is intended for the
-session \<session name\> -- \<session link\>."* It sits there because it
-answers the same question the seed-root line does -- where does this go --
-one step more precisely. **When there is no such session, or you do not
-know of one, or the prompt is for a new session, leave the line out
-entirely** -- no placeholder, no "none", no "unknown" -- and carry on with
-the block as normal. When the line is there, the plain sentence outside the
-block names that session too (*"Paste this into \<session name\> --
-\<session link\>."*) rather than telling the person to open a new one.
-**A reply to a message another session sent is always one of these.**
-That session named itself in the message's first line, so the block
-answering it goes back there, and says so on that line, with the name and
-link the message gave; the reply gate refuses a block that does not
-(`reply-block-names-its-session` in `reply_check.json`). The exception is a
-reply whose plain text sends its block to a new session instead.
+**The For line names an existing session whenever there is one** --
+*"For: the session \<session name\> -- \<session link\>."* -- and the plain
+sentence outside the block names it too (*"Paste this into \<session
+name\> -- \<session link\>."*) rather than telling the person to open a
+new one. **When the prompt is for a new session, the For line says so:**
+*"For: a new session rooted in \<repository\>."* Never a placeholder, "none"
+or "unknown". (2026-09-26 left the line out when no session was known;
+since 2026-10-10 it is always there, because the person sorting text
+between many open windows reads the top two lines and nothing else.)
+**A reply to a message another session sent goes back to that session.**
+It named itself in the message's first line, so the For line names it,
+with the name and link the message gave; the reply check refuses a block
+that does not (`prompt-block-names-both-ends` in `reply_check.json`). The
+exception is a reply whose plain text sends its block to a new session
+instead, and whose For line says so.
 
 **Render it as a fence block** -- an actual fenced markdown block (triple
 backticks), never a paragraph that only reads as paste-ready -- per
