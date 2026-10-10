@@ -1003,7 +1003,8 @@ def deleted_sets_note(found):
     parts = []
     for name, info in found:
         why = '; '.join(x for x in (info.get('date'), info.get('reason')) if x)
-        parts.append(f'{name} is deleted' + (f' ({why})' if why else ''))
+        parts.append(f'{name} is on the list of deleted sets'
+                     + (f' ({why})' if why else ''))
     return ('; '.join(parts) + ' -- not missing: Update Vendors removes it from '
             'precedent.json. A deleted set is never cloned by hand.')
 
