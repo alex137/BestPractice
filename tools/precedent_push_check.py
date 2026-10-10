@@ -220,7 +220,8 @@ SKIP_IS_FINE_WITHOUT_IDENTITY = {'commit_author', 'commit_dates'}
 # same tree in four repositories, and the bot-authored merge commits it had
 # just made went out unjudged; one of those repositories' own full sweep
 # failed on its staging afterwards (practice: upstream-fix).
-HISTORY_CHECKS = {'commit_author', 'commit_dates', 'session_trailer'}
+HISTORY_CHECKS = {'commit_author', 'commit_dates', 'session_trailer',
+                  'leak_gate_commits'}
 # session_trailer (2026-09-29): a repository that declares the shared set
 # carrying check_session_trailer.py gets it materialized beside the other
 # two, and it judges only the commits origin does not have yet -- what this
@@ -305,12 +306,15 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # check failed on them. It judges only what this branch renamed or deleted
 # against its base -- a finding no push but this branch's could bring --
 # and takes seconds.
-BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
+BASIC_CHECKS = {'doc_lint', 'leak_gate', 'leak_gate_commits', 'commit_author', 'commit_dates',
                 'session_trailer', 'ci_workflows', 'light_check', 'build_views',
                 'views_sync',
                 'scrub_gate', 'practice_export_loop', 'generated_files',
                 'rename_links'}
 BASIC, FULL = 'basic', 'full'
+# The commits a push would publish: everything HEAD has that no remote
+# ref does (leak_gate.py's own documented form for a new branch).
+LEAK_COMMITS_RANGE = 'HEAD --not --remotes'
 # A PUSH TO A WORKING BRANCH IS JUDGED ON WHAT IT BRINGS (2026-09-28). A
 # consumer session could not push its claude/* branch: commit_author refused
 # over two old commits already on main, ci_workflows over a workflow file
@@ -454,6 +458,8 @@ GUARDS = {'precedent_check': _guard_precedent_check,
 # marker is the tool's own wording; the note replaces "passed".
 STAND_DOWNS = {'leak_gate': ('NOT APPLICABLE', 'stood down -- it inspected '
                              'nothing (a private repository)'),
+               'leak_gate_commits': ('NOT APPLICABLE', 'stood down -- it '
+                                     'inspected nothing (a private repository)'),
                'doc_lint': ('NOTHING IS BEING GATED', 'stood down -- no '
                             'Markdown file was in scope'),
                # The views were generated with a person's individual set,
@@ -589,6 +595,16 @@ def plan(root, engine=HERE, tier=FULL):
         if argv[0].endswith('.py'):
             argv = [sys.executable, *argv]
         out.append((name, argv, replaces))
+        # A push publishes every commit it carries, not only the tree they
+        # end at. 2026-10-10: one commit named a private repository in a
+        # test, the next scrubbed it, the tree passed, and the first commit
+        # went out to a public branch with the name in it. So the leak gate
+        # also walks the commits no remote has yet, messages included.
+        if name == 'leak_gate':
+            out.append(('leak_gate_commits',
+                        [*argv, '--range', LEAK_COMMITS_RANGE],
+                        'nothing: the tree check alone let a commit that a '
+                        'later one scrubbed go out (2026-10-10)'))
     # A workflow step calling a tool this list already runs is left to this
     # list, which owns its tier: BestPractice's own deep-check.yml runs the
     # full suite, which a basic push must not.

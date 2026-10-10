@@ -418,7 +418,19 @@ def _try_sync(repo_url, clone_path, branch=None):
     --ff-only` pulls whatever branch the checkout is already sitting on. A
     clone that landed on the wrong branch once therefore stayed there and
     kept pulling it, session after session, with nothing saying so."""
-    ok, out = _sync_once(repo_url, clone_path, branch=branch)
+    # One run at a time per clone: Update Vendors in several repos at once
+    # pulls the same brought sets (precedent_clone_lock, 2026-10-10). An
+    # engine older than the lock has no module to import, and syncs unlocked.
+    try:
+        from precedent_clone_lock import held
+    except ImportError:
+        import contextlib
+        held = lambda _p: contextlib.nullcontext()          # noqa: E731
+    try:
+        with held(clone_path):
+            ok, out = _sync_once(repo_url, clone_path, branch=branch)
+    except TimeoutError as e:
+        return False, str(e)
     if ok:
         _persist_credential(clone_path, repo_url)
     return ok, out
