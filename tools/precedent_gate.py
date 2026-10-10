@@ -1062,7 +1062,7 @@ def main():
         except ImportError:
             pass
 
-        # What other people landed here since this person was last told,
+        # What other people landed here since this person's own last commit,
         # left by the session-start hook for the first prompt and printed
         # once (the others-did practice, in the ladder set). One local file read; no fetch, so a
         # reply with no news costs nothing. An older engine without the

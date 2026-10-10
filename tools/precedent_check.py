@@ -6910,6 +6910,37 @@ def _workflow_growth(before, after):
     events = {a.split(':', 1)[1] for a in exp_a if a.startswith('event:')}
     lost = {n for n in nar_b - nar_a if n.split(':', 1)[0] in events}
     grown = exp_a - exp_b
+
+    # A LIST WHERE THERE WAS NONE NARROWS (2026-10-10). An event with no
+    # `branches:` list fires on every branch, so giving it one -- `push:
+    # branches: [main]` in place of `branches-ignore: [old-name]` -- is less
+    # CI, and it was refused as "more". A listed item is growth only where
+    # the event already had a list of that kind, or where the item is one
+    # the old filter excluded; a dropped `-ignore` filter is not growth when
+    # a list of the same kind now stands in its place and does not bring
+    # back what it ignored.
+    def _parts(atom):
+        bits = atom.split(':', 2)
+        return bits if len(bits) == 3 else (None, None, None)
+
+    def _listed_growth(atom):
+        ev, key, it = _parts(atom)
+        if key not in _WF_LIST_KEYS:
+            return True
+        return (f'{ev}:has-{key}' in nar_b
+                or f'{ev}:{key}-ignore:{it}' in nar_b)
+
+    def _ignore_lost(atom):
+        ev, key, it = _parts(atom)
+        if not key or not key.endswith('-ignore'):
+            return True
+        listed = key[:-len('-ignore')]
+        if f'{ev}:has-{listed}' in nar_a:
+            return f'{ev}:{listed}:{it}' in exp_a
+        return True
+
+    grown = {a for a in grown if _listed_growth(a)}
+    lost = {n for n in lost if _ignore_lost(n)}
     # Jobs are counted, not named: GitHub bills per job, so three jobs
     # folded into one new one is less CI, not a new job. Until 2026-10-07 a
     # new name was growth whatever it replaced, and the change that put
