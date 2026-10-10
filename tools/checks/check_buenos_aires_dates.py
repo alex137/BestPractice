@@ -438,7 +438,9 @@ def _bot_emails() -> set[str]:
 # GitHub gave it, in UTC, whoever it names as author. The person never chose
 # that offset, so it is no finding here, the way check_session_trailer.py
 # skips the same committer. Found 2026-10-10: a consumer's merge gate
-# refused every GitHub-button merge over the test merge's "+0000".
+# refused every GitHub-button merge over the test merge's "+0000". Morgan,
+# the same day: "it's fine if github does things in UTC, the buenos aires
+# timezone is just for me."
 WEB_FLOW_COMMITTER = "noreply@github.com"
 
 
