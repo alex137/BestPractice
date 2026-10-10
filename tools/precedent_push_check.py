@@ -486,6 +486,93 @@ def repo_kind(engine=HERE):
     return None
 
 
+# A REPOSITORY'S OWN APPROVED WORKFLOWS RUN HERE TOO (2026-10-10). A consumer
+# keeps workflows of its own through Update Vendors, recorded in
+# precedent.json's github_ci_approved, and this list ran none of what they
+# run: every local tier passed a change that platform-docs-check.yml then
+# failed as GitHub's test on the pull request into main, a fix and a second
+# Produce later. The workflow file stays the one record of its commands: each
+# step that is a plain `python3 tools/<x>.py [args]` call runs here, at every
+# tier, as the repo's own light check does; a workflow the engine installs
+# (ENGINE_MANIFEST's ci_workflow_files) is skipped, since this list already
+# carries what it runs, and so is a step calling an engine file. Any other
+# step is named by Update Vendors, once per update (the second answer of
+# approved_workflow_checks), so nobody reads a pass as covering it.
+APPROVED_WORKFLOWS_KEY = 'github_ci_approved'
+_LOCAL_STEP_RE = re.compile(r'^(python3?)\s+(tools/[\w./-]+\.py)((?:\s+[\w./=:@-]+)*)\s*$')
+_SETUP_STEP_RE = re.compile(r'^(?:python3?\s+-m\s+pip|pip3?|echo|set|cd|export|git\s+config|true)\b')
+
+
+def _workflow_commands(text):
+    """-> [(step name, command)] for every `run:` line in a workflow, a
+    block's lines one by one. Read line by line, not as YAML: nothing here
+    may need PyYAML, and a run step's shape is regular enough."""
+    out, name, block, indent = [], '', False, 0
+    for line in text.splitlines():
+        stripped = line.strip()
+        lead = len(line) - len(line.lstrip())
+        if block:
+            if stripped and lead <= indent:
+                block = False
+            elif stripped and not stripped.startswith('#'):
+                out.append((name, stripped))
+                continue
+            else:
+                continue
+        m = re.match(r'^\s*-?\s*name:\s*(.+?)\s*$', line)
+        if m:
+            name = m.group(1).strip('"\'')
+        m = re.match(r'^(\s*)-?\s*run:\s*(.*?)\s*$', line)
+        if m:
+            if m.group(2) in ('|', '>', '|-', '>-'):
+                block, indent = True, len(m.group(1))
+            elif m.group(2):
+                out.append((name, m.group(2)))
+    return out
+
+
+def approved_workflow_checks(root):
+    """-> (checks, unrun): `checks` [(name, argv, replaces)] for each local
+    step of each workflow precedent.json's github_ci_approved keeps; `unrun`
+    [(workflow, step, command)] for the steps this cannot run here."""
+    root = Path(root)
+    try:
+        approved = json.loads((root / 'precedent.json').read_text(
+            encoding='utf-8')).get(APPROVED_WORKFLOWS_KEY) or {}
+    except (OSError, ValueError, AttributeError):
+        return [], []
+    try:
+        man = json.loads((root / 'tools' / 'ENGINE_MANIFEST.json').read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        man = {}
+    engine_wf = set(man.get('ci_workflow_files') or [])
+    try:                    # the engine's own workflows, by name, whatever an
+        import precedent_vendor_engine as _pve      # older manifest recorded
+        engine_wf |= {d for rows in _pve.CI_WORKFLOW_TEMPLATES.values()
+                      for _t, d in rows}
+    except Exception:                                          # noqa: BLE001
+        pass
+    engine_tools = {f'tools/{f}' for f in man.get('files') or []}
+    checks, unrun = [], []
+    for rel in sorted(approved if isinstance(approved, dict) else []):
+        wf = root / rel
+        if rel in engine_wf or not wf.is_file():
+            continue
+        for step, cmd in _workflow_commands(wf.read_text(encoding='utf-8', errors='replace')):
+            m = _LOCAL_STEP_RE.match(cmd)
+            if m and '${{' not in cmd:
+                if m.group(2) in engine_tools:
+                    continue
+                checks.append((f'workflow {Path(rel).name}: {m.group(2)}',
+                               [sys.executable, m.group(2), *m.group(3).split()],
+                               f'its step "{step}" on GitHub'))
+            elif not _SETUP_STEP_RE.match(cmd) and \
+                    not any(u[:2] == (rel, step) for u in unrun):
+                unrun.append((rel, step, cmd))       # one line per step
+    return checks, unrun
+
+
 def plan(root, engine=HERE, tier=FULL):
     """-> (kind, [(name, argv, replaces)]) with {engine} resolved relative
     to `root`, so the commands print the way a person would type them.
@@ -502,6 +589,13 @@ def plan(root, engine=HERE, tier=FULL):
         if argv[0].endswith('.py'):
             argv = [sys.executable, *argv]
         out.append((name, argv, replaces))
+    # A workflow step calling a tool this list already runs is left to this
+    # list, which owns its tier: BestPractice's own deep-check.yml runs the
+    # full suite, which a basic push must not.
+    planned = {Path(a[0].replace('{engine}', str(rel))).as_posix()
+               for _n, a, _r in PUSH_CHECKS[kind] if a}
+    out.extend(c for c in approved_workflow_checks(root)[0]
+               if Path(c[1][1]).as_posix() not in planned)
     return kind, out
 
 

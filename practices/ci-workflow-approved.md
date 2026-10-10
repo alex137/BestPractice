@@ -93,6 +93,12 @@ is what the check reads for it, so it needs no approval entry.
 Re-baselining an edited engine workflow with `record-ci` is an approval
 too, and needs the same words.
 
+An approved workflow of the repository's own is also run before the push,
+as far as it can be (2026-10-10): the push check runs each of its
+steps that is a plain `python3 tools/<x>.py` call, at every tier, and Update
+Vendors names any other step, which only GitHub runs. A check meant to stop
+a push belongs in such a script.
+
 ## Why
 Cost follows the trigger, and the trigger is one line. A session tuning a
 workflow sees a good reason for that line in front of it. It does not see the

@@ -50202,6 +50202,87 @@ def check_push_gate_judges_only_what_a_working_branch_brings():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_push_check_runs_approved_workflow_steps():
+    """The push check runs each plain `python3 tools/<x>.py` step of a
+    workflow the repo keeps in precedent.json's github_ci_approved, at every
+    tier; never a workflow the engine installs, a step calling an engine
+    file, or a tool its own list already runs; and names each other step
+    once.
+
+    WHY. 2026-10-10, a consumer's Update Vendors and Produce: every local
+    tier passed a change its own platform-docs-check.yml then failed as
+    GitHub's test on the pull request into main -- a fix and a second
+    Produce. Nothing local ran that workflow's check.
+
+    Negative control, measured 2026-10-10: on staging's code there is no
+    approved_workflow_checks, and plan() lists none of these steps."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        wf = repo / '.github' / 'workflows'
+        wf.mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        (wf / 'own-check.yml').write_text(
+            'jobs:\n  check:\n    steps:\n'
+            '      - uses: actions/checkout@v4\n'
+            '      - name: Docs are current\n'
+            '        run: python3 tools/check_docs.py --strict\n'
+            '      - name: Two at once\n'
+            '        run: |\n'
+            '          python3 tools/build_a.py --check\n'
+            '          python3 tools/build_b.py --check\n'
+            '      - name: Engine step\n'
+            '        run: python3 tools/precedent_check.py\n'
+            '      - name: A shell check\n'
+            '        run: |\n'
+            '          test -s README.md\n'
+            '          grep -q x README.md\n'
+            '      - name: Setup\n'
+            '        run: python -m pip install pyyaml\n', encoding='utf-8')
+        (wf / 'light-check.yml').write_text(
+            'jobs:\n  c:\n    steps:\n      - run: python3 tools/light.py\n',
+            encoding='utf-8')
+        (wf / 'unapproved.yml').write_text(
+            'jobs:\n  c:\n    steps:\n      - run: python3 tools/never.py\n',
+            encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({'github_ci_approved': {
+            '.github/workflows/own-check.yml': {'sha256': 'x', 'approved_by': 'p'},
+            '.github/workflows/light-check.yml': {'sha256': 'x', 'approved_by': 'p'}}}),
+            encoding='utf-8')
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'files': ['precedent_check.py'], 'ci_workflow_files': []}), encoding='utf-8')
+        checks, unrun = (ppc.approved_workflow_checks(repo)
+                         if hasattr(ppc, 'approved_workflow_checks') else ([], []))
+        argvs = [c[1][1:] for c in checks]
+        cases.append(('a plain step, with its arguments, is a check',
+                      ['tools/check_docs.py', '--strict'] in argvs, argvs))
+        cases.append(("each line of a block step is its own check",
+                      ['tools/build_a.py', '--check'] in argvs
+                      and ['tools/build_b.py', '--check'] in argvs, argvs))
+        cases.append(('a step calling an engine file is left to the engine',
+                      not any(a[0] == 'tools/precedent_check.py' for a in argvs), argvs))
+        cases.append(('a workflow the engine installs is skipped, whatever the '
+                      'manifest recorded', not any(a[0] == 'tools/light.py' for a in argvs),
+                      argvs))
+        cases.append(('an unapproved workflow is not read',
+                      not any(a[0] == 'tools/never.py' for a in argvs), argvs))
+        cases.append(('a shell step is named once, setup is not',
+                      [(w, st) for w, st, _c in unrun]
+                      == [('.github/workflows/own-check.yml', 'A shell check')], unrun))
+    # In this repository, deep-check.yml's steps call tools the push check
+    # already runs at its own tier, so a basic push never gains the suite.
+    _kind, basic = ppc.plan(ROOT, tier=ppc.BASIC)
+    cases.append(("BestPractice's own deep-check.yml adds nothing to a basic push",
+                  not any(n.startswith('workflow ') for n, _a, _r in basic),
+                  [n for n, _a, _r in basic]))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the push check runs the local steps of approved workflows '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
+
+
 def check_push_check_honours_not_binding():
     """precedent_push_check.py honours a repo's `not_binding` exactly as
     precedent_check.py does, by asking precedent_check's own
@@ -60659,6 +60740,22 @@ def check_mirrored_prefixes_answers_both_install_models():
         cases.append(('a process/upstream/ tree with no manifest is still a '
                       'mirror -- that is a half-finished install, not a repo '
                       'that owns the tree', 'process/upstream/' in s1b, str(s1b)))
+
+        # A domain pack vendored beside the catalogue (2026-10-10): a
+        # mirror where its manifest names the repo it comes from, and the
+        # source's own tree where it records none.
+        (tmp / 'pk' / 'process' / 'voicepack').mkdir(parents=True)
+        write('pk/process/manifest_voicepack.json', {'upstream': {
+            'repo': 'https://example.invalid/pack', 'vendored_at': 'process/voicepack'}})
+        pk = pr.mirrored_prefixes(tmp / 'pk')
+        cases.append(('a pack whose manifest names its upstream repo is a mirror',
+                      'process/voicepack/' in pk, str(pk)))
+        (tmp / 'pks' / 'process' / 'voicepack').mkdir(parents=True)
+        write('pks/process/manifest_voicepack.json', {'upstream': {
+            'repo': None, 'vendored_at': 'process/voicepack'}})
+        pks = pr.mirrored_prefixes(tmp / 'pks')
+        cases.append(("...and the pack's own source, recording no upstream "
+                      "repo, owns that tree", 'process/voicepack/' not in pks, str(pks)))
 
         # A SOURCE SET: `path: "."`. Its practices/ is its own.
         (tmp / 'set' / 'practices').mkdir(parents=True)
@@ -72016,6 +72113,7 @@ def main():
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()
     check_push_gate_judges_only_what_a_working_branch_brings()
+    check_push_check_runs_approved_workflow_steps()
     check_push_check_honours_not_binding()
     check_merge_gate_waits_for_a_current_merge_ref()
     check_title_case_never_corrupts_content()
