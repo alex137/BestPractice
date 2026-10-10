@@ -14912,6 +14912,11 @@ def check_update_vendors_takes_only_a_main_that_passed():
                       and 'left no passed marker, and GitHub could not be asked, on '
                           f'{c0[:12]}' in steps(text)[0]
                       and 'WARNING' not in steps(text)[0], (handed, steps(text))))
+        cases.append(('(g2) ...and that line names the fix: attach the source with '
+                      'add_repo, access "push" (2026-10-10, a consumer that had to '
+                      'work it out)',
+                      len(steps(text)) == 1 and 'add_repo, access "push"' in steps(text)[0],
+                      steps(text)))
         text, handed, _held, _a = run_update('marked-red', {
             c0: ('failed', 'url')}, marks=[tree(c1)])
         cases.append(('(h) a red tip with GitHub answering: the marked commit '
@@ -14925,6 +14930,9 @@ def check_update_vendors_takes_only_a_main_that_passed():
                       handed == c0 and len(steps(text)) == 1
                       and 'WARNING' in steps(text)[0]
                       and 'carries a passed marker' in steps(text)[0], (handed, steps(text))))
+        cases.append(('(i2) a network failure, not missing access: no attach advice',
+                      'add_repo' not in steps(text)[0] if steps(text) else False,
+                      steps(text)))
 
         text, handed, _held, _a = run_update('all-red', {})
         cases.append(('...and with nothing green in reach, nothing is taken and the '
@@ -29100,6 +29108,55 @@ def check_others_did_says_why_its_push_was_refused():
                       g(repo, 'status', '--porcelain').stdout.strip() == '', ''))
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the others-did mark says why its push was refused '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
+def check_archived_set_question_names_the_attach_fix():
+    """When GitHub refuses to say whether a declared set is archived because
+    the session has no API access to it, the note names the fix: add_repo,
+    access "push". Any other failure keeps its own words.
+
+    THE INCIDENT (2026-10-10, a consumer's Update Vendors). Every run said
+    "GitHub could not say whether it is archived (GitHub access to this
+    repository is not enabled for this session ...)" and stopped there.
+    The DISCRIMINATING CASE is the first. The fixture owns its repositories."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    import github_budget as _gbm
+    cases = []
+    saved = _gbm.call
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td) / 'repo'
+        clone = pathlib.Path(td) / 'set'
+        for d in (root, clone):
+            subprocess.run(['git', 'init', '-q', str(d)], capture_output=True,
+                           env=_fixture_git_env())
+        subprocess.run(['git', '-C', str(clone), 'remote', 'add', 'origin',
+                        'https://github.com/example/a-set'], capture_output=True,
+                       env=_fixture_git_env())
+        (root / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'a-set', 'path': '../set'}]}),
+            encoding='utf-8')
+        try:
+            _gbm.call = lambda path, **_k: (None, 'GitHub access to this '
+                                               'repository is not enabled for '
+                                               'this session. Use add_repo.')
+            _a, notes = pve.archived_declared_sources(root)
+            cases.append(('THE DISCRIMINATING CASE: a not-attached refusal names '
+                          'add_repo, access "push", and the repository',
+                          len(notes) == 1 and 'access "push"' in notes[0]
+                          and 'example/a-set' in notes[0], notes))
+            _gbm.call = lambda path, **_k: (None, 'curl exited 6')
+            _a, notes = pve.archived_declared_sources(root)
+            cases.append(('another failure keeps its own words, with no attach advice',
+                          len(notes) == 1 and 'curl exited 6' in notes[0]
+                          and 'add_repo' not in notes[0], notes))
+        finally:
+            _gbm.call = saved
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the archived-set question names the attach fix '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
@@ -72589,6 +72646,7 @@ def main():
     check_rename_links_spares_a_longer_path_and_manifest_notes()
     check_reply_gate_counts_staging_as_a_landing_branch()
     check_others_did_says_why_its_push_was_refused()
+    check_archived_set_question_names_the_attach_fix()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_landed_reduction_quiets_the_reduction_ask()
