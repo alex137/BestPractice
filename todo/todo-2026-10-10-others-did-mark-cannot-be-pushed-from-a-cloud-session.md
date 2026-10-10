@@ -27,19 +27,47 @@ container starts the baseline over.
 
 ## Options
 
-1. **An orphan branch, `precedent/others-did`.** Pushable from a cloud
-   session today. It shows in every repository's branch list, and the
-   branch sweep and the "branches you can delete" lists would have to leave
-   it alone. It never rides a Promote: it shares no history with the tiers.
-2. **Write the ref through the GitHub API** (create the blob, tree and
-   commit, then the ref), which the proxy may treat differently from a git
-   push. Unmeasured, and much more code than a push.
-3. **Leave it.** Cloud sessions keep re-baselining, and the report only
-   fires from a machine that can push the ref.
+What has to be true: the mark survives a new container, and a cloud session
+can write it. Measured: a branch push works there; a ref outside branches
+(`refs/precedent/...`) is refused with 403.
 
-My pick is 1: it is measured to work, and a branch nobody merges is the
-standard home for data like this. Its cost is one extra branch name per
-repository.
+1. **Keep no mark at all: report what others landed since your own last
+   commit in the repository.** Nothing to store and nothing to push, so it
+   works in every environment, with no access beyond reading the repository.
+   The report reads "since you last committed here, on DATE". Cost: until
+   you commit in that repository again, each new container repeats the same
+   list. The container's own mark still stops a repeat inside one session.
+   The wording changes from "since you were last told" to "since your last
+   commit".
+2. **An orphan branch, `precedent/others-did`.** Pushable today. It shares
+   no history with the tiers, so it never rides a Promote. Costs: one extra
+   branch in every repository's branch list; the branch sweep and the
+   "branches you can delete" lists must leave it out; and a workflow that
+   runs on a push to any branch runs on every mark. BestPractice's
+   `leak-gate.yml` does, so it would bill one job per mark until that
+   workflow skips the branch. Deleting it by accident only restarts the
+   baseline.
+3. **A file on the landing branch** -- how the mark worked until
+   2026-10-08. Pushable. It was moved off because a mark commit landed on
+   staging and rode the next Produce to main, every day.
+4. **Write the ref through GitHub's API** (blob, tree, commit, then the ref
+   under `refs/precedent/`). The API needs the repository attached with
+   access "push", which a session usually is not. Unmeasured whether the
+   proxy allows it. The most code of any option.
+5. **Keep every repository's marks in your individual set.** One place per
+   person. A session in another repository needs push access to the
+   individual set to write it, and it normally has read access only, so this
+   fails in the same sessions it is meant to fix.
+6. **A GitHub issue or a repository variable holding the mark.** Visible
+   to every collaborator, needs API access with "push", and a variable
+   needs admin rights. Worse than 4 on every count.
+7. **Leave it as it is.** Cloud sessions re-baseline in every new container,
+   and the report fires only from a machine that can push the ref.
+
+**My pick is 1.** It needs no permission anywhere, and "since your last
+commit here" is close to what the report is for. Its one cost, a repeated
+list until you commit, is small in the repositories you work in. If
+repeats are not acceptable, 2 is the one that works today.
 
 ## Notes
 
