@@ -569,6 +569,11 @@ def retired_sources_step(repo, rep):
         rep.leave(where, f'still names {name}, which is on the list of deleted sets. '
                          f'Nothing loads it any more; run Update Vendors in your '
                          f'individual set to drop it there')
+    for name in dropped_before_this_run(repo):
+        if name not in names:
+            rep.step('retired set', f'{name} was dropped by an earlier run of '
+                     f'this update, still uncommitted: its practices go too')
+            names.append(name)
     for where, text, why in prose_about_dropped_sets(repo, names):
         rep.leave(where, f'{why}: "{text}" -- reword it or remove it')
     proxied = [n for n in notes if n.endswith(getattr(pve, 'PROXY_NOTE', '\0'))]
@@ -735,6 +740,49 @@ def prose_about_dropped_sets(repo, dropped):
             hit = match(line)
             if hit:
                 out.append((f'{f.name}:{i}', _excerpt(line, hit[0]), hit[1]))
+    return out
+
+
+def dropped_before_this_run(repo, person=None):
+    """-> the names of the sets the committed precedent.json (HEAD) declares
+    and the working tree's no longer does, where each is on the list of
+    deleted sets or says it is retired: an earlier run of this update
+    dropped them and stopped on items left for the person. `person`:
+    _person_sets()'s answer, for a test.
+
+    WHY (2026-10-10, a consumer's Update Vendors). The first run dropped
+    two deleted sets and let the view sync remove their six practices. It
+    ended LEFT FOR YOU, and every rerun then FAILED: the sets were no longer
+    declared, so this update did not count them as its own drop, while the
+    view sync still read the committed MANIFEST.json, which recorded their
+    practices, and refused to remove them. The session re-declared both
+    sets before each rerun to get past it. A set dropped by hand is not
+    counted: that refusal is the sync's to make."""
+    head = _git_show(repo, 'HEAD:precedent.json')
+    try:
+        before = (json.loads(head) if head else {}).get('sources') or []
+        now = json.loads((pathlib.Path(repo) / 'precedent.json')
+                         .read_text(encoding='utf-8')).get('sources') or []
+    except (OSError, ValueError, AttributeError):
+        return []
+    declared = {str(s.get('name') or '') for s in now if isinstance(s, dict)}
+    if person is None:
+        try:
+            person = pve._person_sets()
+        except Exception:
+            person = ({}, [])
+    gone = person[0] or {}
+    out = []
+    for s in before:
+        if not isinstance(s, dict):
+            continue
+        name = str(s.get('name') or '')
+        if not name or name in declared or name in out:
+            continue
+        clone = (pathlib.Path(repo) / pathlib.Path(str(s.get('path') or ''))
+                 .expanduser()).resolve()
+        if name in gone or pve.source_retirement(clone) is not None:
+            out.append(name)
     return out
 
 

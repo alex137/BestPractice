@@ -9519,6 +9519,45 @@ def check_dropped_set_prose_successors_and_families():
           not bad, '; '.join(bad))
 
 
+def check_update_rerun_keeps_the_sets_it_dropped():
+    """A rerun of an unfinished Update Vendors still counts a deleted set an
+    earlier run dropped, so the view sync may remove its practices; a set
+    dropped by hand is not counted (2026-10-10, a consumer whose every
+    rerun failed until it re-declared the two sets)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as _pu
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        d = pathlib.Path(tmp)
+        run = lambda *a: subprocess.run(['git', '-C', str(d), *a],
+                                        capture_output=True, text=True)
+        run('init', '-q')
+        cfg = lambda names: json.dumps({'sources': [
+            {'level': 'shared', 'name': n, 'path': f'../{n}'} for n in names]})
+        (d / 'precedent.json').write_text(cfg(['gone', 'by-hand', 'kept']),
+                                          encoding='utf-8')
+        run('add', '-A')
+        run('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'x')
+        (d / 'precedent.json').write_text(cfg(['kept']), encoding='utf-8')
+        person = ({'gone': {'from': 'engine'}}, [])
+        got = _pu.dropped_before_this_run(d, person=person)
+        cases.append(('a deleted set an earlier run dropped is counted',
+                      got == ['gone'], got))
+        out = ("refusing to WRITE: this sync would remove 1 practice(s) this "
+               "repository's committed MANIFEST.json records, whose source name "
+               "is not among the sources precedent.json declares -- x "
+               "(recorded from gone). THREE things")
+        cases.append(('so the view sync refusing its practices counts as this update dropping them',
+                      _pu.removals_this_update_caused(out, got) == ['x']))
+        (d / 'precedent.json').write_text(cfg(['gone', 'by-hand', 'kept']),
+                                          encoding='utf-8')
+        cases.append(('nothing is counted once it is declared again',
+                      _pu.dropped_before_this_run(d, person=person) == []))
+    bad = [c[0] + (f' ({c[2]})' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a rerun of Update Vendors still counts the deleted sets an earlier '
+          f'run dropped ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
 def check_new_rule_shows_its_debt_and_booked_names_it():
     """When a sync brings in an enforced practice, or changes one, its check
     runs once across the repository and what does not hold yet is listed --
@@ -71226,6 +71265,7 @@ def main():
     check_update_vendors_retires_the_team_level_word()
     check_dropped_set_and_proxy_and_template_refs()
     check_dropped_set_prose_successors_and_families()
+    check_update_rerun_keeps_the_sets_it_dropped()
     check_removal_selects_its_checks()
     check_update_never_fetches_the_repo_it_updates()
     check_engine_capability_holds_a_practice_back()
