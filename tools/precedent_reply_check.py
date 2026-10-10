@@ -62,6 +62,10 @@ a clause that narrates what a session, tool or check did or was told, in
 the past tense and never to "you", is not read as an instruction to the
 receiving session (see _narrated_clauses). Added 2026-10-08; an older
 engine ignores the key and judges every clause, the stricter reading.
+Since 2026-10-10 the pair may also say `narration_exempt: true`: on every
+block, a past-tense report of a done thing ("the update merged into staging")
+is never an instruction, whether or not the block stops at Act; a report of
+what somebody was told still needs the stop. An older engine ignores it, the stricter way.
 
 The same pair may also carry, since later on 2026-10-08:
 
@@ -792,11 +796,22 @@ _NARRATION_CLAUSE_RE = re.compile(
     r"last|first|same|sending|vendoring|consuming|update|engine|reply|landing|"
     r"precedent)\s+){0,3}"
     r"(?:it|session|tool|agent|script|check|command|hook|gate|job|workflow|"
-    r"bot|run|repository|repo)\s+"
+    r"bot|run|repository|repo|update|change|changes|commit|commits|branch|"
+    r"fix|fixes|work|merge|(?:PR|pull\s+request)(?:\s*#?\d+)?)\s+"
     r"(?:(?:had|has|have|was|were|then|also|already|just|been|once)\s+)*"
     r"(?:told|asked|instructed|directed|prompted|said|landed|merged|pushed|"
     r"promoted|opened|prepared|made|built|tried|wanted|suggested|"
     r"recommended|proposed|reported|printed)\b", re.I)
+# A narrated clause whose verb is a DONE THING, not a told one: "the update
+# merged into staging" reports an event, while "a tool told it to open a PR
+# to main" reports an order, which a reader may take up. Only the first is
+# forgiven in a block that does not end at Act (2026-10-10).
+_NARRATED_EVENT_RE = re.compile(
+    r"\b(?:had|has|have|was|were|been)?\s*(?:landed|merged|pushed|promoted|"
+    r"opened|built|made)\b", re.I)
+_NARRATED_ORDER_RE = re.compile(
+    r"\b(?:told|asked|instructed|directed|prompted|said|wanted|suggested|"
+    r"recommended|proposed|tried)\b", re.I)
 _SECOND_PERSON_RE = re.compile(r"\byou(?:r|rs|rself|'\w+)?\b", re.I)
 # Clause boundaries: sentence and list punctuation, a line break, and the
 # conjunctions an instruction tacked onto narration would start with ("the
@@ -831,7 +846,7 @@ def _first_trigger(patterns, s):
     return best
 
 
-def _narrated_clauses(block, trigger):
+def _narrated_clauses(block, trigger, events_only=False):
     """-> `block` with every narrating clause that matches `trigger` (one
     regex or a list) on its own blanked to spaces, so what is left is what the block TELLS the
     receiving session.
@@ -845,7 +860,11 @@ def _narrated_clauses(block, trigger):
     whole trigger, keeps every instruction in reach: "Then merge it into
     main" in the same block is its own clause, narrates nothing, and still
     fails. Strict where unsure -- an unrecognized narration is refused and
-    rewritten, never an instruction let through."""
+    rewritten, never an instruction let through.
+
+    `events_only` (2026-10-10): forgive only a clause reporting a done thing
+    ("the update merged into staging"), never one reporting what somebody
+    was told -- the reading for a block that does not end at Act."""
     out, start = list(block), 0
     bounds = [(m.start(), m.end()) for m in _CLAUSE_BOUNDARY_RE.finditer(block)]
     bounds.append((len(block), len(block)))
@@ -853,6 +872,8 @@ def _narrated_clauses(block, trigger):
         clause = block[start:b_start]
         if (clause.strip() and _NARRATION_CLAUSE_RE.match(clause)
                 and not _SECOND_PERSON_RE.search(clause)
+                and not (events_only and (_NARRATED_ORDER_RE.search(clause)
+                                          or not _NARRATED_EVENT_RE.search(clause)))
                 and _first_trigger(_as_patterns(trigger), clause)):
             out[start:b_start] = ' ' * (b_start - start)
         start = b_end
@@ -1311,10 +1332,25 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                 continue
             stop = pair.get('narration_exempt_if_block_matches')
             negator = pair.get('negation_exempt_if_clause_negates')
+            # NARRATION IS NEVER AN ORDER (2026-10-10, a consumer's root-
+            # issues reply): "The update merged into staging as PR #47", in
+            # a block's situation paragraph, was refused as granting landing
+            # -- the narration exemption applied only to a block that also
+            # said it stops at Act. A clause that narrates, in the past
+            # tense, with a third-person subject and never "you", REPORTING A
+            # DONE THING tells the receiving session nothing to do, whatever
+            # else the block says, so a source may ask for that on every
+            # block (`narration_exempt`: true). A report of what somebody was
+            # TOLD ("a tool told it to open a PR to main") is still forgiven
+            # only where the block ends at Act: a reader may take it up. An
+            # instruction in the same block is its own clause, still judged.
+            always = pair.get('narration_exempt') is True
             for block in _fenced_blocks(text):
                 judged = block
                 if stop and re.search(stop, block, re.I | re.M):
                     judged = _narrated_clauses(block, triggers)
+                elif always:
+                    judged = _narrated_clauses(block, triggers, events_only=True)
                 if negator:
                     judged = _negated_clauses(judged, triggers, negator)
                 m = _first_trigger(triggers, judged)

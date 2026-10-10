@@ -27128,6 +27128,10 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'a negated line': 'Open no pull request and merge nothing into main.',
         'a tier branch, which off the ladder is not a landing':
             'Push it to pre-staging once it is green.',
+        # 2026-10-10, a consumer's root-issues reply: a report of a past
+        # merge, with no ending at Act, is not an order.
+        'a report of a past merge, as the rule ships':
+            'Situation: the update merged into main as PR #48. Read the diff.',
     }
     # 2026-10-08: a block that ends at the feature branch may NARRATE a past
     # landing -- what a session did, what a tool told it -- without that
@@ -27330,6 +27334,28 @@ def check_reply_check_reads_a_landing_trigger_by_clause_and_by_list():
          fires(split, 'Merge not this into main.')),
         ('a trigger across a clause boundary is never forgiven',
          fires(listed, 'Do not wait, merge it into main.')),
+    ]
+    # 2026-10-10, a consumer's root-issues reply: "The update merged into
+    # staging as PR #47" in a block's situation paragraph was refused as a
+    # landing order. With narration_exempt a report of the past is never one,
+    # whether or not the block stops at Act; an order beside it still fires.
+    told = rule(if_matches=tier, narration_exempt=True)
+    report = ('Situation: the consuming repo ran Update Vendors. The update '
+              'merged into staging as PR #47.')
+    cases += [
+        ('narration_exempt: a block that only reports a past merge passes',
+         not fires(told, report)),
+        ('...and "PR #47 merged into staging" reads as a report too',
+         not fires(told, 'PR #47 merged into staging an hour ago.')),
+        ('...while an order in the same block still fires',
+         fires(told, report + '\nNow merge it into main.')),
+        ('...and a report to "you" is not forgiven',
+         fires(told, 'The update you merged into staging stays.')),
+        ('without the key, the same report is still judged (the stricter '
+         'reading an older source gets)', fires(rule(if_matches=tier), report)),
+        ('...but a report of what a tool TOLD a session still needs the stop: '
+         'a reader may take it up',
+         fires(told, 'A tool told it to merge it into main.')),
     ]
     bad = [n for n, ok in cases if not ok]
     return not bad, '; '.join(bad)
@@ -50950,6 +50976,79 @@ def check_vocabulary_lets_a_local_practice_name_a_local_script():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_writing_checks_leave_a_declared_record_as_filed():
+    """The writing checks leave a file the repository declares in
+    record_paths as it was filed; the same file anywhere else is still
+    checked.
+
+    2026-10-10, a consumer filing call transcripts: the first two could not
+    be committed, because the acronym, figure and heading checks flagged
+    what people SAID on the calls. record_paths already declared records for
+    the link and citation checks, and the writing checks never asked it.
+    Planted: one transcript with a skipped heading level and a lowercase
+    heading, under a declared record directory and outside it."""
+    import tempfile, types
+    name = 'the writing checks leave a declared record as filed'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+        import doc_lint as dl
+    finally:
+        sys.path.pop(0)
+    saved = (pc.ROOT, dl.ROOT)
+    cases = []
+    text = ('# Call with the team\n\n### what the client said about the CRM\n\n'
+            'He put it at 40 percent, from memory.\n')
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            for d in ('calls', 'notes'):
+                (repo / d).mkdir()
+                (repo / d / '2026-10-01-call.md').write_text(text, encoding='utf-8')
+            pc.ROOT = dl.ROOT = repo
+            ctx = types.SimpleNamespace(root=repo, changed=[
+                'calls/2026-10-01-call.md', 'notes/2026-10-01-call.md'])
+
+            def run(fn):
+                try:
+                    return [f.file() if hasattr(f, 'file') else str(f) for f in fn(ctx)]
+                except pc.NotApplicable:
+                    return []
+
+            def both():
+                return (run(pc._heading_outline), run(pc._headline_capitalization),
+                        pc._md_in_scope(ctx), dl.drop_frozen(list(ctx.changed)))
+            (repo / 'precedent.json').write_text('{}', encoding='utf-8')
+            before = both()
+            (repo / 'precedent.json').write_text(json.dumps({'record_paths': [
+                {'path': 'calls/', 'reason': 'call transcripts'}]}), encoding='utf-8')
+            after = both()
+
+            def hits(rows, where):
+                return any(where in r for r in rows)
+            cases.append(('control: undeclared, the transcript\'s skipped heading level is flagged',
+                          hits(before[0], 'calls/')))
+            cases.append(('control: undeclared, its lowercase heading is flagged',
+                          hits(before[1], 'calls/')))
+            cases.append(('declared, heading-outline leaves it alone',
+                          not hits(after[0], 'calls/')))
+            cases.append(('declared, headline capitalization leaves it alone',
+                          not hits(after[1], 'calls/')))
+            cases.append(('declared, the shared writing-check scope (acronyms, figures, '
+                          'labels...) leaves it out',
+                          'calls/2026-10-01-call.md' not in after[2]))
+            cases.append(('declared, doc_lint\'s changed-file gate leaves it out',
+                          'calls/2026-10-01-call.md' not in after[3]))
+            cases.append(('the same file outside record_paths is still checked, every way',
+                          hits(after[0], 'notes/') and hits(after[1], 'notes/')
+                          and 'notes/2026-10-01-call.md' in after[2]
+                          and 'notes/2026-10-01-call.md' in after[3]))
+    finally:
+        pc.ROOT, dl.ROOT = saved
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_landed_check_names_the_tier_that_ran():
     """After a merge, the line says whether the base moved from the trees,
     and names the check that actually ran.
@@ -73204,6 +73303,7 @@ def main():
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
+    check_writing_checks_leave_a_declared_record_as_filed()
     check_vocabulary_lets_a_local_practice_name_a_local_script()
     check_doc_lint_leaves_a_received_practice_to_its_source()
     check_one_upstream_move_is_said_once_at_session_start()
