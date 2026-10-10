@@ -24,6 +24,8 @@ Works](TEN_THINGS.md).
   by step, for people who write code.
 - [How to Use This Day to Day](DAILY_HABITS.md) — the habits and phrases,
   short enough to keep open.
+- [Staying Informed](STAYING_INFORMED.md) — how you hear what changed,
+  what others did, what broke, and what is waiting on you.
 - [The Working Method](METHOD.md) — branches, plain text, and composed
   prompts, for power users.
 - [Working With Precedent on a Phone](MOBILE.md).
