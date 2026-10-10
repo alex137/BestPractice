@@ -4323,6 +4323,17 @@ def archived_declared_sources(dest_root):
             continue
         data, err = _gb.call(f'repos/{m.group(1)}/{m.group(2)}')
         if err or not isinstance(data, dict) or 'full_name' not in data:
+            # A public set answers without any credential, and the session
+            # proxy serves that. Asked second, so a private set still gets
+            # the authenticated answer (unauthenticated, GitHub says Not
+            # Found for a private repository and a deleted one alike).
+            # 2026-10-10, a consumer: every run told the session to attach a
+            # PUBLIC set with push access, against session start's own
+            # read-only rule.
+            pub, _perr = _gb.call(f'repos/{m.group(1)}/{m.group(2)}', auth=False)
+            if isinstance(pub, dict) and 'full_name' in pub:
+                data, err = pub, None
+        if err or not isinstance(data, dict) or 'full_name' not in data:
             msg = err or str((data or {}).get('message') or 'no answer')
             if getattr(_gb, 'is_proxy_refusal', lambda _t: False)(msg):
                 notes.append(f'{name}: {PROXY_NOTE}')

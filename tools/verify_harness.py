@@ -16668,6 +16668,19 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
                            'tools/doc_lint.py` shows the misread.', True),
         'runs-and-names': ('open', 'null', 'Run `python3 tools/doc_lint.py`; '
                            'tools/doc_lint.py misreads a fence.', True),
+        # 2026-10-10, a consumer's Update Vendors: an item asking whether the
+        # person grandfathers three commits quoted a check's output, which
+        # names its own script, and was refused as an upstream fix. A fence
+        # is quoted material; and an item whose stated reason is a person
+        # says what it waits on.
+        'quoted-output': ('open', 'null', 'The check said:\n\n```\n'
+                          'FAIL tools/doc_lint.py: 3 commit(s) out of zone\n```'
+                          '\n\nGrandfather them, or rewrite?', False),
+        'waiting-on-a-person': ('open', 'the person, to say whether to '
+                                'grandfather them', 'tools/doc_lint.py refuses '
+                                'three old commits.', False),
+        'reason-names-a-source': ('open', 'a fix in some-set', 'tools/doc_lint.py '
+                                  'misreads a fence.', True),
     }
     cases = []
     with tempfile.TemporaryDirectory() as td:
@@ -29321,6 +29334,64 @@ def check_others_did_counts_from_your_last_commit_and_writes_nothing_to_origin()
             '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
 
 
+def check_update_repoints_engine_paths_that_moved():
+    """Update Vendors rewrites live mentions of an engine path that moved
+    (ENGINE_PATH_MOVES) in the consumer's own text, and leaves history as
+    written.
+
+    THE INCIDENT (2026-10-10, a consumer's Update Vendors): the commit
+    checks moved from tools/checks/ to tools/, the first run listed nothing,
+    and the second failed its push check on four live mentions of the old
+    paths -- a _comment in precedent.json and three open todo items. The
+    DISCRIMINATING CASE is those two kinds of file."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    old, new = 'tools/checks/check_commit_author.py', 'tools/check_commit_author.py'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        env = _fixture_git_env()
+        subprocess.run(['git', 'init', '-q', str(repo)], env=env, capture_output=True)
+        (repo / 'tools').mkdir()
+        (repo / new).write_text('# engine\n', encoding='utf-8')
+        (repo / 'todo').mkdir()
+        files = {
+            'precedent.json': '{"_comment": "author check: %s"}\n' % old,
+            'todo/todo-2026-10-01-open.md': ('---\nstatus: open\n---\n'
+                                             f'Run `{old}` on the range.\n'),
+            'todo/todo-2026-10-01-closed.md': ('---\nstatus: done\n---\n'
+                                               f'Ran `{old}`.\n'),
+            'NOTES.md': (f'The check was renamed from {old}.\n\n'
+                         f'Both: {old} became {new}.\n\n'
+                         f'## Story\n\nIt lived at {old}.\n'),
+        }
+        for rel, body in files.items():
+            (repo / rel).write_text(body, encoding='utf-8')
+        subprocess.run(['git', '-C', td, 'add', '-A'], env=env, capture_output=True)
+        subprocess.run(['git', '-C', td, 'commit', '-qm', 'x'], env=env, capture_output=True)
+        done = dict(pu.repoint_renamed_engine_paths(repo))
+        read = lambda rel: (repo / rel).read_text(encoding='utf-8')
+        cases.append(('THE DISCRIMINATING CASE: precedent.json and an open todo '
+                      'item name the new path',
+                      new in read('precedent.json') and old not in read('precedent.json')
+                      and new in read('todo/todo-2026-10-01-open.md')
+                      and old not in read('todo/todo-2026-10-01-open.md'), done))
+        cases.append(('a closed todo item is history, left as written',
+                      old in read('todo/todo-2026-10-01-closed.md'), ''))
+        cases.append(('a sentence saying it was renamed, a line already naming the '
+                      'new path, and a Story section are left as written',
+                      read('NOTES.md') == files['NOTES.md'], read('NOTES.md')))
+        cases.append(('it reports what it changed, file by file',
+                      set(done) == {'precedent.json', 'todo/todo-2026-10-01-open.md'},
+                      done))
+        cases.append(('a second run changes nothing',
+                      pu.repoint_renamed_engine_paths(repo) == [], ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors repoints engine paths that moved ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_archived_set_question_names_the_attach_fix():
     """When GitHub refuses to say whether a declared set is archived because
     the session has no API access to it, the note names the fix: add_repo,
@@ -29357,6 +29428,19 @@ def check_archived_set_question_names_the_attach_fix():
                           'add_repo, access "push", and the repository',
                           len(notes) == 1 and 'access "push"' in notes[0]
                           and 'example/a-set' in notes[0], notes))
+            # A public set answers without a login (2026-10-10, a consumer:
+            # every run asked for push access to a public set).
+            def public(path, auth=True, **_k):
+                if auth:
+                    return None, ('GitHub access to this repository is not '
+                                  'enabled for this session. Use add_repo.')
+                return {'full_name': 'example/a-set', 'archived': flag[0]}, None
+            for flag in ([False], [True]):
+                _gbm.call = public
+                a, notes = pve.archived_declared_sources(root)
+                cases.append((f'a public set {"archived" if flag[0] else "in use"} is '
+                              'answered without a login, with no attach advice',
+                              not notes and (a == {'a-set'}) == flag[0], (a, notes)))
             _gbm.call = lambda path, **_k: (None, 'curl exited 6')
             _a, notes = pve.archived_declared_sources(root)
             cases.append(('another failure keeps its own words, with no attach advice',
@@ -56574,6 +56658,13 @@ def check_todo_index_refuses_an_unknown_kind():
     cases.append(('THE DISCRIMINATING CASE: an open `kind: bug` item fails '
                   'the build and names the kinds that exist',
                   'kind:' in err and 'analysis' in err, err))
+    err, _ = build('task', 'open')
+    cases.append(('the refusal names all four kinds, one line each, and suggests '
+                  '`manual` for a `task` (2026-10-10: it named two, and the '
+                  'consumer found `manual` by reading the source)',
+                  all(f'`{k}`' in err for k in ('analysis', 'verify', 'manual',
+                                                 'decision'))
+                  and 'A `task` is usually `manual`' in err, err))
     err, out = build('analysis', 'open')
     cases.append(('POSITIVE CONTROL: an open analysis item builds and is listed',
                   not err and 'todo-2026-10-10-an-item' in out, err))
@@ -72821,6 +72912,7 @@ def main():
     check_reply_gate_counts_staging_as_a_landing_branch()
     check_global_pre_push_runs_the_leak_gate()
     check_archived_set_question_names_the_attach_fix()
+    check_update_repoints_engine_paths_that_moved()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_landed_reduction_quiets_the_reduction_ask()
