@@ -96,6 +96,51 @@ def mask(lines):
     return inside
 
 
+_CODE_FENCE = re.compile(r'^ {0,3}(```|~~~)')
+_LIST_ITEM = re.compile(r'^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)')
+
+
+def code_mask(lines):
+    """-> one bool per line: True where the line is Markdown code -- a
+    fenced block, its fence lines included, or an INDENTED block (four
+    spaces or a tab, after a blank line or another such line, and not a
+    list item's continuation, as CommonMark reads it). The one reading every
+    tool that rewrites prose shares, so a quoted prompt, log or transcript
+    is never rewritten as if it were an instruction: on 2026-10-09 one
+    rewriter knew only fenced blocks and rewrote a quoted 2026-10-07 handoff
+    prompt's record of where a push went."""
+    if isinstance(lines, str):
+        lines = lines.splitlines()
+    code = [False] * len(lines)
+    fence = None
+    indented, in_list, prev_blank = False, False, True
+    for i, line in enumerate(lines):
+        m = _CODE_FENCE.match(line)
+        if fence is not None:
+            code[i] = True
+            if m and m.group(1)[0] == fence:
+                fence = None
+            continue
+        if m:
+            code[i] = True
+            fence = m.group(1)[0]
+            indented, prev_blank = False, False
+            continue
+        if not line.strip():
+            prev_blank = True
+            continue
+        deep = line.startswith(('    ', '\t'))
+        if deep and (indented or (prev_blank and not in_list)):
+            code[i] = True
+            indented, prev_blank = True, False
+            continue
+        if not deep:
+            indented = False
+            in_list = bool(_LIST_ITEM.match(line))
+        prev_blank = False
+    return code
+
+
 def blank(text):
     """-> `text` with every generated line emptied and every other line,
     and every line number, kept -- for a scan that reports line numbers."""

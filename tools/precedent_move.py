@@ -151,6 +151,7 @@ import split_practices as sp    # noqa: E402
 import frontmatter_yaml         # noqa: E402  (FIELD_ORDER)
 import precedent_time           # noqa: E402  (practice: timestamps-carry-offset)
 import precedent_resolve as _pr  # noqa: E402  (the withdrawal record's one format)
+import generated_blocks          # noqa: E402  (code_mask: code is never rewritten)
 
 LEVELS = ('individual', 'shared', 'universal')
 STRENGTHS = ('decided', 'assented')
@@ -432,11 +433,11 @@ def _rehome_sibling_links(text, dest_dir):
         changed.append(f'{m.group(0)} -> {new}')
         return new
 
-    out, fence = [], False
-    for line in text.splitlines(keepends=True):
-        if line.lstrip().startswith(('```', '~~~')):
-            fence = not fence
-        if fence or line.lstrip().startswith(('```', '~~~')):
+    out = []
+    split = text.splitlines(keepends=True)
+    code = generated_blocks.code_mask([l.rstrip('\r\n') for l in split])
+    for line, is_code in zip(split, code):
+        if is_code:
             out.append(line)
             continue
         out.append(_SIBLING_LINK_RE.sub(repl, line))
@@ -642,16 +643,16 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
                     para = []
                 para.append(i)
             settle(para)
-            out, fence, story, dirty = [], False, False, False
+            out, story, dirty = [], False, False
+            code = generated_blocks.code_mask(lines)
             for i, line in enumerate(lines):
                 stripped = line.lstrip()
-                if stripped.startswith(('```', '~~~')):
-                    fence = not fence
+                if code[i]:
                     out.append(line)
                     continue
                 if f.suffix == '.md' and stripped.startswith('## '):
                     story = stripped.strip().lower() == '## story'
-                if fence or story or slug not in line or historical[i]:
+                if story or slug not in line or historical[i]:
                     out.append(line)
                     continue
                 new = line
