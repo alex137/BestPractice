@@ -966,7 +966,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_full_check_after_fast_main',
     'require_section_not_repeated',
     'require_quiet_while_background_runs',
-    'require_reply_block_names_sender',
+    'require_prompt_block_header',
     'unless_reply_declares_loss',
     # conditions and metadata
     'id', 'requires',            # see _settle (2026-10-02)
@@ -1438,42 +1438,73 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
         # NOT YET LANDED for the other half since 2026-09-21; nothing asked
         # for this half, and a session Booked its branch on 2026-10-06 and
         # gave no link.
-        # require_reply_block_names_sender (Morgan, 2026-10-08, strength:
-        # decided: "yes, extend the rule and add the check"). A message
-        # relayed from another session names that session in its opening
-        # line, so a paste block answering it has a known destination, and
-        # prompt-please wants that destination named inside the block. A
-        # session replying to such a message wrote a block with its own
-        # name and link and none for where it was going, and the person
-        # could not tell which window to paste it into.
-        rule = r.get('require_reply_block_names_sender')
-        if rule and prompt:
-            sm = re.search(rule.get('sender_in_prompt') or '(?!)', prompt,
-                           re.I | re.M)
-            exempt = rule.get('exempt_if_reply_says')
+        # require_prompt_block_header (Morgan, 2026-10-10, strength:
+        # decided: "Every prompt you give me should have BOTH at the top: the
+        # session sending it, and what session it is for ... and enforce
+        # it"). A paste block that is a prompt for another session opens
+        # with two lines: From (the session sending it, with its link) and
+        # For (the session it goes to, with its link, or "a new session
+        # rooted in" a repository). It replaced require_reply_block_names_
+        # sender (2026-10-08), which asked for the destination only in a
+        # reply to a relayed message, anywhere in the block, and recognized
+        # the sender only as `From "..." (link)`, so a message opening
+        # "Sent automatically by the session ..." passed it unread.
+        rule = r.get('require_prompt_block_header')
+        if rule:
+            is_prompt = rule.get('prompt_block_if_matches') or '(?!)'
+            from_re = rule.get('from_line') or '(?!)'
+            for_re = rule.get('for_line') or '(?!)'
             outside = re.sub(r'(?ms)^\s{0,3}(`{3,}|~{3,}).*?^\s{0,3}\1\s*$',
                              '', text)
-            if sm and not (exempt and re.search(exempt, outside, re.I)):
-                url = sm.group(1)
-                marker = rule.get('block_if_matches') or '(?!)'
-                for block in _fenced_blocks(text):
-                    if not re.search(marker, block, re.I | re.M):
-                        continue
-                    if re.search(r'intended for the session', block, re.I) \
-                            and url in block:
-                        continue
-                    out.append({'kind': 'reply_names_sender',
-                                'advisory': advisory, 'message': (
-                        f"[{r.get('_source', '?')}] a paste block answers "
-                        f"the session that sent this turn's message ({url}) "
-                        f"and does not say so. Put \"This prompt is intended "
-                        f"for the session <its name> -- {url}.\" on the line "
-                        f"after its Seed root line, and name it outside the "
-                        f"block too (\"Paste this into <its name> -- {url}\")"
-                        + (f" -- {rule.get('why')}" if rule.get('why') else '')
-                        + "."
-                        + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
-                    break
+            sender = None
+            if prompt:
+                sm = re.search(rule.get('sender_in_prompt') or '(?!)', prompt,
+                               re.I | re.M)
+                sender = sm.group(1) if sm else None
+            exempt = rule.get('exempt_if_reply_says')
+            to_new = bool(exempt and re.search(exempt, outside, re.I))
+            tail = (f" (practice: {r['practice']})" if r.get('practice') else '')
+
+            def _refuse(why):
+                out.append({'kind': 'prompt_header', 'advisory': advisory,
+                            'message': f"[{r.get('_source', '?')}] {why}"
+                            + (f" -- {rule.get('why')}" if rule.get('why') else '')
+                            + '.' + tail})
+            for block in _fenced_blocks(text):
+                if not re.search(is_prompt, block, re.I | re.M):
+                    continue
+                lines = [l.strip() for l in block.splitlines() if l.strip()]
+                first = lines[0] if lines else ''
+                second = lines[1] if len(lines) > 1 else ''
+                if not re.search(from_re, first, re.I):
+                    _refuse("a paste block written for another session does "
+                            "not open with the session sending it. Make its "
+                            "first line: \"Sent automatically by the session "
+                            "<this session's title> (<id>) -- <link>. Nobody "
+                            "typed this.\"")
+                    continue
+                if not re.search(for_re, second, re.I):
+                    want = (f"\"For: the session <its name> -- {sender}.\""
+                            if sender and not to_new else
+                            "\"For: the session <its name> -- <its link>.\" or "
+                            "\"For: a new session rooted in <owner/repo>.\"")
+                    _refuse("a paste block written for another session does "
+                            "not say, on its second line, which session it is "
+                            f"for. Make its second line {want}")
+                    continue
+                if sender and not to_new and sender not in second:
+                    _refuse("this turn's message came from another session "
+                            f"({sender}), and the paste block answering it is "
+                            "for some other destination. Its For line names "
+                            "that session, with that link -- or the reply says "
+                            "\"Open a new session\" and the For line says so")
+                    continue
+                named = re.search(r'https://claude\.ai/code/session_\w+', second)
+                if named and named.group(0) not in outside:
+                    _refuse("the paste block is for the session "
+                            f"{named.group(0)}, and the reply does not say so "
+                            "outside the block. Add one plain sentence: "
+                            f"\"Paste this into <its name> -- {named.group(0)}.\"")
 
         # require_full_check_after_fast_main (Morgan, 2026-10-09: "I want to
         # make sure there's a full check *somewhere* on the push to main,

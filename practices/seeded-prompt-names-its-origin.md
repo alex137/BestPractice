@@ -1,6 +1,6 @@
 ---
 slug:        seeded-prompt-names-its-origin
-title:       "A prompt one session seeds into another says which session sent it"
+title:       "A prompt one session writes for another opens with which session sent it and which it is for"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
@@ -8,7 +8,7 @@ applies_to_why: "No locus, and for a sharper reason than most: what triggers it 
 occasion:    "seeding or scheduling a prompt into another session"
 gates:       []
 gates_why:   "No gate. The moment is the harness call, which is not one of merge, review, push or reply -- a session can seed a prompt in the middle of any of them, and pinning it to the reply gate would miss every spawn that happens mid-turn."
-index_clause: "it opens by naming the session that sent it"
+index_clause: "line 1 names the session that sent it, line 2 the session it is for"
 checked_by:  null
 defines:     []
 status:      active
@@ -31,22 +31,46 @@ approved_by: "Morgan, 2026-09-12 -- asked for the behaviour in his own words aft
   session's proposal (strength: assented).
   Amended 2026-09-23 again, adding the sending-side gate: proposed by this
   session as a hook refusing an unlabelled prompt; Morgan: \"On your 3
-  suggestions, I love them, let's do them.\" (strength: decided)."
+  suggestions, I love them, let's do them.\" (strength: decided).
+  Amended 2026-10-10, adding the second line, after a session handed him a
+  reply block that named its sender and not where it was going: \"Every
+  prompt you give me should have BOTH at the top: the session sending it,
+  and what session it is for. Please update the `BP` rules to reflect this,
+  and enforce it.\" (strength: decided)."
 strength:    decided
 source_practice_number: null
 ---
 ## Rule
-**When a session puts a prompt into another session -- spawning a new one,
-scheduling a message into an existing one, or handing a person paste-ready
-text to carry into a session themselves ([my-options](my-options.md),
-[prompt-please](prompt-please.md)) -- that prompt's literal FIRST LINE,
-before anything else, says where it came from:** the sending session's
-**title and id**, a **link** to it, and that **a session sent it rather than
-a person typing it**. Not a header buried after a greeting or a summary --
-the first line, so the provenance is the first thing read.
+**When a session writes a prompt for another session -- spawning a new
+one, scheduling a message into an existing one, or handing a person
+paste-ready text to carry into a session themselves, a reply to another
+session's message included ([my-options](my-options.md),
+[prompt-please](prompt-please.md)) -- its first two lines say where it came
+from and where it goes, before anything else:**
+
+1. **From:** the sending session's **title and id**, a **link** to it, and
+   that **a session sent it rather than a person typing it**.
+2. **For:** the session it is meant for, by **title and link** -- or, when
+   it is for no existing session, **"a new session rooted in"** the
+   repository to open it in.
 
 *"Sent automatically by the session `<title>` (`<session id>`) --
-https://claude.ai/code/<session id>. Nobody typed this."*
+https://claude.ai/code/<session id>. Nobody typed this."*\
+*"For: the session `<title>` -- https://claude.ai/code/<session id>."* or
+*"For: a new session rooted in `<owner/repo>`."*
+
+**Both lines, every time, at the very top.** The person carrying the text
+between windows has many sessions open; the second line is what tells them
+which window to paste it into, and it is no use below the fold. A reply to
+a message another session sent goes back to that session, so its For line
+names it, with the link the message gave. A "new session" For line is a
+real destination, not a placeholder: never "none" or "unknown". The reply
+says the same outside the block, in one plain sentence (*"Paste this into
+`<title>` -- `<link>`"*, or *"Open a new session rooted in `<repo>`"*),
+because the person copies the block without reading it
+([prompt-please](prompt-please.md)). The reply check refuses a paste block
+that lacks either line, or puts them anywhere but first
+(`prompt-block-names-both-ends` in `reply_check.json`).
 
 **A prompt asserting what a person said carries this twice as hard.** *"Morgan
 has authorized X"* is a claim about a human being, made by software, and naming
@@ -254,3 +278,16 @@ incident had this rule in front of it and still put its session link last.
 A rule that only memory enforces had failed the one time it mattered, so the
 Detail's "no mechanical check" became `seeded-prompt-gate.sh`, which refuses
 the call before the text leaves.
+
+**The second line, 2026-10-10.** A session answered a message another
+session had relayed with a paste block whose first line named itself, and
+nothing named where the block was going. A rule for that already existed
+in [prompt-please](prompt-please.md), with a check, and neither caught it:
+the check recognized a sender only in the shape "From session ...", while
+the message said "Sent automatically by the session ...", and the reply's
+own block used a third shape. The session was also rooted above every
+repository it worked in, so no end-of-turn check ran at all. Morgan:
+*"Every prompt you give me should have BOTH at the top: the session sending
+it, and what session it is for."* So the For line moved here, beside the
+From line, required in every prompt, and the check reads both shapes of
+sender line.

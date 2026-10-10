@@ -246,7 +246,7 @@ When reading what a message asks for, or writing one that a session or a check w
 When renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system:
   rename-updates-links — repoint every link and use of a retired name in the same commit or migration
 When seeding or scheduling a prompt into another session:
-  seeded-prompt-names-its-origin — it opens by naming the session that sent it
+  seeded-prompt-names-its-origin — line 1 names the session that sent it, line 2 the session it is for
 When setting up a project a session works in, or a session reporting that its checkout is behind:
   fresh-before-write — verify and fast-forward the checkout before the first write, never after
 When starting work the repository or another session may already cover:
