@@ -27128,6 +27128,10 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'a negated line': 'Open no pull request and merge nothing into main.',
         'a tier branch, which off the ladder is not a landing':
             'Push it to pre-staging once it is green.',
+        # 2026-10-10, a consumer's root-issues reply: a report of a past
+        # merge, with no ending at Act, is not an order.
+        'a report of a past merge, as the rule ships':
+            'Situation: the update merged into main as PR #48. Read the diff.',
     }
     # 2026-10-08: a block that ends at the feature branch may NARRATE a past
     # landing -- what a session did, what a tool told it -- without that
@@ -27330,6 +27334,28 @@ def check_reply_check_reads_a_landing_trigger_by_clause_and_by_list():
          fires(split, 'Merge not this into main.')),
         ('a trigger across a clause boundary is never forgiven',
          fires(listed, 'Do not wait, merge it into main.')),
+    ]
+    # 2026-10-10, a consumer's root-issues reply: "The update merged into
+    # staging as PR #47" in a block's situation paragraph was refused as a
+    # landing order. With narration_exempt a report of the past is never one,
+    # whether or not the block stops at Act; an order beside it still fires.
+    told = rule(if_matches=tier, narration_exempt=True)
+    report = ('Situation: the consuming repo ran Update Vendors. The update '
+              'merged into staging as PR #47.')
+    cases += [
+        ('narration_exempt: a block that only reports a past merge passes',
+         not fires(told, report)),
+        ('...and "PR #47 merged into staging" reads as a report too',
+         not fires(told, 'PR #47 merged into staging an hour ago.')),
+        ('...while an order in the same block still fires',
+         fires(told, report + '\nNow merge it into main.')),
+        ('...and a report to "you" is not forgiven',
+         fires(told, 'The update you merged into staging stays.')),
+        ('without the key, the same report is still judged (the stricter '
+         'reading an older source gets)', fires(rule(if_matches=tier), report)),
+        ('...but a report of what a tool TOLD a session still needs the stop: '
+         'a reader may take it up',
+         fires(told, 'A tool told it to merge it into main.')),
     ]
     bad = [n for n, ok in cases if not ok]
     return not bad, '; '.join(bad)
