@@ -160,6 +160,7 @@ as_of: 2026-10-10
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | 9d | wait | Morgan: noted as a possibility for the future, not approved (2026-10-01) |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. | 7d | ask |  |
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | 2d | ask |  |
+| [`todo-2026-10-10-others-did-mark-cannot-be-pushed-from-a-cloud-session`](todo-2026-10-10-others-did-mark-cannot-be-pushed-from-a-cloud-session.md) | From a cloud session, the others-did mark cannot be pushed to where it lives, so the daily "what others landed" report m | 0d | ask | Morgan's choice of where the mark lives |
 
 ## Unblocked Work
 
@@ -218,6 +219,7 @@ as_of: 2026-10-10
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | Morgan |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. |  |
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | Alex's or Morgan's approval of the plan below, stage by stage |
+| [`todo-2026-10-10-others-did-mark-cannot-be-pushed-from-a-cloud-session`](todo-2026-10-10-others-did-mark-cannot-be-pushed-from-a-cloud-session.md) | From a cloud session, the others-did mark cannot be pushed to where it lives, so the daily "what others landed" report m | Morgan |
 
 ## Due Reminders
 

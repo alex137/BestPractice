@@ -29056,6 +29056,54 @@ def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
             '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
 
 
+def check_others_did_says_why_its_push_was_refused():
+    """When origin refuses the others-did mark, the message carries git's
+    own reason.
+
+    THE INCIDENT (2026-10-10, a consumer). Session start printed "the push
+    to origin's refs/precedent/others-did was refused; kept in this
+    container only", with nothing after "refused": git says why only on
+    stderr, and the helper kept stdout. Measured once it did keep it: from
+    a cloud session the git proxy answers that push with HTTP 403 while
+    branch pushes go through. The DISCRIMINATING CASE stands an origin
+    whose pre-receive hook refuses the ref in for that proxy.
+    The fixture owns its repositories (fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_others_did as pod
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _fixture_git_env()
+        g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                           capture_output=True, text=True)
+        bare = tmp / 'origin.git'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        hook = bare / 'hooks' / 'pre-receive'
+        hook.write_text('#!/bin/sh\necho "refs outside refs/heads are not '
+                        'accepted here" >&2\nexit 1\n', encoding='utf-8')
+        hook.chmod(0o755)
+        # The fixture's git config switches hooks off; this origin's own
+        # config switches its pre-receive back on.
+        g(bare, 'config', 'core.hooksPath', str(bare / 'hooks'))
+        repo = tmp / 'repo'
+        g(tmp, 'init', '-q', '-b', 'main', str(repo))
+        (repo / 'a.md').write_text('a\n', encoding='utf-8')
+        g(repo, 'add', '-A'); g(repo, 'commit', '-qm', 'a')
+        g(repo, 'remote', 'add', 'origin', f'file://{bare}')
+        ok, phrase = pod.publish(repo, 'main', {'people': {}},
+                                 {'name': 'T', 'email': 't@example.com'},
+                                 'others-did mark')
+        cases.append(("THE DISCRIMINATING CASE: a refused push names git's "
+                      "reason", not ok and 'not accepted here' in phrase, phrase))
+        cases.append(('...and the checkout is untouched',
+                      g(repo, 'status', '--porcelain').stdout.strip() == '', ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the others-did mark says why its push was refused '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_others_did_mark_never_lands_on_a_branch():
     """The others-did mark lives on refs/precedent/others-did, never a branch.
 
@@ -72540,6 +72588,7 @@ def main():
     check_push_check_walks_every_commit_it_publishes()
     check_rename_links_spares_a_longer_path_and_manifest_notes()
     check_reply_gate_counts_staging_as_a_landing_branch()
+    check_others_did_says_why_its_push_was_refused()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_landed_reduction_quiets_the_reduction_ask()
