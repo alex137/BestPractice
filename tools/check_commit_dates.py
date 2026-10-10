@@ -1,8 +1,25 @@
 #!/usr/bin/env python3
-"""check_buenos_aires_dates.py -- the mechanical check for
-practices/buenos-aires-dates.md.
+"""Each commit carries the declared person's time zone (practice buenos-aires-dates)
 
-# practice: buenos-aires-dates
+The engine's one copy of this check, for every kind of repository.
+
+Its rule, buenos-aires-dates, lives in a person's own practice set, not in the
+universal catalogue, so it is named here without a citation: engine code
+cites only the catalogue it ships with (code-cites-practice).
+precedent_push_check.IDENTITY_SLUGS and the practice's checked_by tie the
+two together.
+
+ONE COPY, SHIPPED BY THE ENGINE (Morgan, 2026-10-10: "yes ... build the
+shared check"). This file and its twin, check_commit_author.py, live in tools/ as engine
+files, so every repository runs the same copy: BestPractice, every practice
+set and every consumer. Until that day the practice's own set (the person's
+individual set) shipped a copy in tools/checks/, which every consumer
+materialized, while BestPractice kept a port of its own. The two drifted:
+the set's copies lacked the bot-author warning, PRECEDENT_CHECK_RANGE and
+the skip of commits GitHub makes, and a consumer's merge gate refused every
+GitHub-button merge for it. Nothing personal is written here: the zone and
+the author come from the declared identity, and a repository's own
+exemptions from its identity.json or precedent.json.
 
 Scope: tree. Covers only the mechanically checkable half of the practice:
 the git-commit mechanism. `git` records each commit's author-date UTC
@@ -49,7 +66,7 @@ import zoneinfo
 # FileNotFoundError from inside the violation printer (2026-09-06). The rule
 # text always ships beside the script, so it is looked up against SOURCE_ROOT
 # and can no longer be absent; only what to audit is overridable.
-SOURCE_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+SOURCE_ROOT = pathlib.Path(__file__).resolve().parent.parent
 ROOT = pathlib.Path(os.environ.get("PRECEDENT_CHECK_ROOT") or SOURCE_ROOT)
 PRACTICE_FILE = SOURCE_ROOT / "practices" / "buenos-aires-dates.md"
 
@@ -159,7 +176,7 @@ def _identity_module():
     for name in ("precedent_identity", "precedent_resolve"):
         for d in (ROOT / "tools",
                   ROOT / "process" / "upstream" / "tools",
-                  pathlib.Path(__file__).resolve().parent.parent,
+                  pathlib.Path(__file__).resolve().parent,
                   SOURCE_ROOT / "tools"):
             if (d / (name + ".py")).is_file():
                 sys.path.insert(0, str(d))
@@ -422,7 +439,7 @@ def _bot_emails() -> set[str]:
     container's offset, so judging it here would refuse the very commit that
     rule allows."""
     for d in (ROOT / "tools", ROOT / "process" / "upstream" / "tools",
-              pathlib.Path(__file__).resolve().parent.parent):
+              pathlib.Path(__file__).resolve().parent):
         if (d / "precedent_session_check.py").is_file():
             sys.path.insert(0, str(d))
             break

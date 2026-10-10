@@ -8702,7 +8702,7 @@ def check_bot_authored_commits_are_warned_where_no_person_is_declared():
     import tempfile, json as _json, shutil as _shutil
     name = ('Commit author: a bot-authored commit in a pull request\'s range '
             'is WARNED about, never refused, where no person is declared')
-    script = ROOT / 'tools' / 'checks' / 'check_commit_author.py'
+    script = ROOT / 'tools' / 'check_commit_author.py'
     need = [script, ROOT / 'tools' / 'precedent_session_check.py',
             ROOT / 'tools' / 'precedent_identity.py']
     absent = [str(p.relative_to(ROOT)) for p in need if not p.exists()]
@@ -8733,7 +8733,7 @@ def check_bot_authored_commits_are_warned_where_no_person_is_declared():
             env = dict(ambient)
             if rng:
                 env['PRECEDENT_CHECK_RANGE'] = rng
-            p = subprocess.run([sys.executable, str(work / 'tools' / 'checks'
+            p = subprocess.run([sys.executable, str(work / 'tools'
                                                     / script.name), *args],
                                cwd=str(work), capture_output=True, text=True,
                                env=env)
@@ -20776,9 +20776,19 @@ def check_precedent_check_fires():
 
         # --- the baseline must be clean, or every case below is meaningless
         base = fresh('baseline')
+        # The same isolation run() applies (fixture-owns-its-state): no
+        # PRECEDENT_COMMIT_*, and no user-level config to reach the person's
+        # own individual set. With either, the commit-author check failed
+        # this baseline on the fixture's own `harness` commit (2026-10-10,
+        # once a change touching the check machinery made every check run
+        # here).
+        _env = {k: v for k, v in os.environ.items()
+                if k not in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
+                             'PRECEDENT_COMMIT_TZ', 'PRECEDENT_LEAK_BLOCKLIST')}
+        _env['PRECEDENT_USER_CONFIG'] = str(base / '.no-user-config.json')
         _r = subprocess.run(
             [sys.executable, str(base / 'tools' / 'precedent_check.py')],
-            capture_output=True, text=True, cwd=str(base))
+            capture_output=True, text=True, cwd=str(base), env=_env)
         rc = _r.returncode
         # On a failure, the failing checks' own findings go into the detail:
         # a bare rc said only the slug of this case, and under --as-ci
@@ -24183,7 +24193,7 @@ def check_precedent_check_fires():
                      'PRECEDENT_ALLOW_ANY_AUTHOR': '1'})
 
         case('check_commit_author', _plant_commit_author, env_extra=_ID_ENV)
-        case('check_buenos_aires_dates', _plant_buenos_aires_dates,
+        case('check_commit_dates', _plant_buenos_aires_dates,
              setup=_setup_buenos_aires_dates, env_extra=_ID_ENV)
 
         # --- and the registry must not contain an untested claim ------------
@@ -34816,9 +34826,9 @@ def check_history_checks_never_ride_a_reused_pass():
     is the one being exercised (practice: control-asserts-which-failure)."""
     import tempfile, shutil as _shutil
     name = 'History checks never ride a reused pass'
-    author_check = ROOT / 'tools' / 'checks' / 'check_commit_author.py'
+    author_check = ROOT / 'tools' / 'check_commit_author.py'
     if not author_check.exists():
-        not_applicable(name, 'tools/checks/check_commit_author.py is absent')
+        not_applicable(name, 'tools/check_commit_author.py is absent')
         return
     cases = []
     with tempfile.TemporaryDirectory() as td:
@@ -34827,7 +34837,7 @@ def check_history_checks_never_ride_a_reused_pass():
         bot_git = dict(ambient, GIT_AUTHOR_NAME='Claude',
                        GIT_AUTHOR_EMAIL='noreply@anthropic.com')
         work, bare = _engine_commit_fixture(tmp, 'work', 'consumer', person_git)
-        _shutil.copy2(author_check, work / 'tools' / 'checks' / author_check.name)
+        _shutil.copy2(author_check, work / 'tools' / author_check.name)
 
         def git(cwd, *args, env=person_git):
             return subprocess.run(['git', '-C', str(cwd), *args],
@@ -50074,7 +50084,7 @@ def _push_gate_fixture(tmp, real_modules=()):
             '    print("\\nprecedent_check: %d passed, %d violated" '
             '% (0 if bad else 1, 1 if bad else 0))\n'
             '    sys.exit(1 if bad else 0)\n', encoding='utf-8')
-    (tools / 'checks' / 'check_commit_author.py').write_text(
+    (tools / 'check_commit_author.py').write_text(
         '#!/usr/bin/env python3\n'
         '"""Stand-in: every commit reachable from HEAD, as older copies read."""\n'
         '# practice: commit-author\n'
@@ -53337,13 +53347,13 @@ def check_date_check_skips_commits_github_made():
     WHY. 2026-10-10, a consumer: the merge gate refused every GitHub-button
     merge, because the test merge carried the person as author and a
     "+0000" date. The same skip already stood in check_session_trailer.py.
-    The check's source is the individual set; this is BestPractice's copy.
+    Since 2026-10-10 this is the one copy, the engine's tools/.
 
     Negative control, measured 2026-10-10: on staging's copy the GitHub
     commit is a finding and the range is ignored."""
     import tempfile
     cases = []
-    script = ROOT / 'tools' / 'checks' / 'check_buenos_aires_dates.py'
+    script = ROOT / 'tools' / 'check_commit_dates.py'
     zone = 'America/Argentina/Buenos_Aires'
     with tempfile.TemporaryDirectory() as td:
         repo = pathlib.Path(td)
@@ -54152,7 +54162,7 @@ def check_gate_refusals_are_worded_by_their_tools():
         (repo / 'tools' / 'checks').mkdir(parents=True)
         subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
         shutil.copy(ROOT / 'tools' / 'precedent_push_check.py', repo / 'tools')
-        (repo / 'tools' / 'checks' / 'check_commit_author.py').write_text(
+        (repo / 'tools' / 'check_commit_author.py').write_text(
             'print("AUTHOR-FINDING-9"); raise SystemExit(1)\n', encoding='utf-8')
         payload = json.dumps({'tool_input': {'command': 'git commit -m x && git push'},
                               'cwd': str(repo)})

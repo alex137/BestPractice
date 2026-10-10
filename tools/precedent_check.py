@@ -494,6 +494,11 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     return deco
 
 
+# The commit-identity checks the engine ships in tools/ (2026-10-10), which
+# register_materialized_checks() registers beside the materialized ones.
+ENGINE_IDENTITY_CHECKS = ('check_commit_author.py', 'check_commit_dates.py')
+
+
 def register_materialized_checks():
     """Register one CHECKS entry per `tools/checks/check_*.py` script this
     repo's sources materialized into it (precedent_materialize.py writes
@@ -552,7 +557,13 @@ def register_materialized_checks():
     checks_dirs = [(ROOT / 'tools').joinpath('checks'),
                    (ROOT / 'local').joinpath('tools', 'checks')]
     checks_dirs = [d for d in checks_dirs if d.is_dir()]
-    if not checks_dirs:
+    # The two commit-identity checks are ENGINE files since 2026-10-10, one
+    # copy in tools/ for every repository (check_commit_dates.py's header
+    # says why). Registered first, so a stale copy a source still
+    # materializes under tools/checks/ never runs in their place.
+    engine_scripts = [(ROOT / 'tools').joinpath(n) for n in ENGINE_IDENTITY_CHECKS]
+    engine_scripts = [f for f in engine_scripts if f.is_file()]
+    if not checks_dirs and not engine_scripts:
         return
     claimed = {}
     for d in ((ROOT / 'practices'), (ROOT / 'local' / 'practices')):
@@ -562,7 +573,8 @@ def register_materialized_checks():
             except sp.PracticeFileError:
                 continue
             cb = (fm.get('checked_by') or '').strip().strip('"').strip("'")
-            if cb.endswith('.py') and '/checks/' in cb:
+            if cb.endswith('.py') and ('/checks/' in cb or pathlib.PurePath(cb).name
+                                       in ENGINE_IDENTITY_CHECKS):
                 claimed[pathlib.PurePath(cb).name] = fm.get('slug', f.stem)
 
     # One script per FILENAME, and the materialized copy wins. The two
@@ -584,7 +596,7 @@ def register_materialized_checks():
     # materialize into itself (Precedent's own `path: "."` source) has no
     # `tools/checks/` at all, so its `local/` scripts still run in place,
     # which is what they are written for.
-    by_name = {}
+    by_name = {f.name: f for f in engine_scripts}
     for d in checks_dirs:
         for s in sorted(d.glob('check_*.py')):
             by_name.setdefault(s.name, s)   # checks_dirs is in preference order
@@ -627,7 +639,8 @@ def register_materialized_checks():
             # this, run()'s "practice not in force" gate skipped every
             # fallback-slug script unconditionally -- found 2026-09-22 in
             # BestPractice, which permanently tracks check_commit_author.py
-            # and check_buenos_aires_dates.py (commit 9d16b6ae) with no
+            # and check_buenos_aires_dates.py (commit 9d16b6ae; both engine
+            # files in tools/ since 2026-10-10) with no
             # practices/*.md for either (that text is precedent-individual's,
             # private): `precedent_check.py --only check_commit_author`
             # reported SKIPPED "this check belongs to a source this repo
@@ -5456,8 +5469,8 @@ def _no_hardcoded_git_identity(ctx):
 
     Deliberately narrow: it does not verify the hardcoded value against
     identity.json's own value. That drift check is a heavier, more
-    specific job -- precedent-individual's own private check_commit_author.py
-    already does it for the one repo where self-declaring is correct -- and
+    specific job -- the engine's tools/check_commit_author.py already does
+    it for the one repo where self-declaring is correct -- and
     promoting it into this shared engine is a bigger step than this check
     takes on."""
     settings = ROOT / '.claude' / 'settings.json'

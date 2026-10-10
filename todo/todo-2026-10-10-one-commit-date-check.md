@@ -4,19 +4,19 @@ kind:              decision
 domain:            engine
 severity:          null
 status:            open
-disposition:       ask
+disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Morgan's yes to one copy of each commit-identity check, shipped by the engine"
+decision:          "yes to both, move the sets and build the shared check"
+decision_strength: decided
+waiting_on:        "the change landing in BestPractice and the individual set, and their Update Vendors"
 noted:             2026-10-10
 closed:            null
 ---
 ## What
 
-The commit-date check ([check_buenos_aires_dates.py](../tools/checks/check_buenos_aires_dates.py)) has two copies that
+The commit-date check ([check_buenos_aires_dates.py](../tools/check_commit_dates.py), now tools/check_commit_dates.py,) has two copies that
 drift apart. One is the source in Morgan's individual set, which every
 consuming repository materializes and runs. The other is BestPractice's
 port in [tools/checks/](../tools/checks/). On 2026-10-10, three gaps between
@@ -28,7 +28,7 @@ them turned up in one afternoon:
 - neither skipped a commit GitHub itself made, so a consumer's merge gate
   refused every GitHub-button merge.
 
-The author check ([check_commit_author.py](../tools/checks/check_commit_author.py)) has the same shape and the same
+The author check ([check_commit_author.py](../tools/check_commit_author.py)) has the same shape and the same
 risk.
 
 ## Recommendation
@@ -56,3 +56,13 @@ copies differ. It keeps both copies and only catches drift after the fact.
   (BestPractice branch `2026-10-10-rerun-and-github-merge-dates-y1ktn`,
   precedent-individual branch `2026-10-10-github-merge-dates-y1ktn`).
   Morgan asked whether there should be one shared date check.
+- 2026-10-10: Morgan, "yes to both, move the sets and build the shared
+  check". Built on BestPractice branch
+  `2026-10-10-one-commit-identity-check-y1ktn` and precedent-individual
+  branch `2026-10-10-one-commit-identity-check-y1ktn`, stopped at Act.
+  The two checks are engine files in tools/ (check_commit_author.py,
+  check_commit_dates.py), so materialize never writes them and the
+  tools/checks/ question does not arise. The individual set drops its
+  copies and tests, points its practices' checked_by at the engine files,
+  and moves its hardcoded exemptions into its identity.json. Close this
+  once both are on main and the individual set has taken the engine.

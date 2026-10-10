@@ -83,7 +83,7 @@
 # to enforce, so nothing refused them until a full check did. What the
 # morning change got right stays: his zone is applied to HIS commits, and
 # no shared repo's history is audited against it
-# (check_buenos_aires_dates.py stands down outside an individual source).
+# (check_commit_dates.py stands down outside an individual source).
 #
 # The fallback is APPLIED but NOT ENFORCED, and the two halves have
 # different reasons:
