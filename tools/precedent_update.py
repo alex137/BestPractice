@@ -3632,6 +3632,61 @@ def citation_findings(data, engine=frozenset()):
     return fix, read
 
 
+def adopt_listed_records(repo, flagged):
+    """Move each file the citations step `flagged` that process/
+    retired_vocabulary.json's exempt_files names into precedent.json's
+    record_paths, and take it off exempt_files -> [the paths moved].
+
+    WHY (2026-10-10, a consumer; Morgan: "that is a good suggestion for
+    upstream"). A file could be declared history in two places, each read
+    by its own check: the citation check flagged six old practice names in
+    a migration record that the old-names scrub already exempted, and
+    silencing both meant naming the file twice -- two declarations of one
+    fact, which drift. record_paths is now the one list (the scrub reads it
+    too), so an entry the person already made is carried over: their
+    declaration, moved, never a guess. Only an exact file the citation step
+    flagged moves: a directory entry (a materialized tree) and a live file
+    exempt for another reason (an open item that must name a retired
+    secret) are not records, and stay.
+    precedent.json is rewritten only where it reads back byte for byte as
+    two-space JSON, and the registry only in a layout it reads back in
+    (two-space or one line); otherwise that file is left as it is."""
+    root = pathlib.Path(repo)
+    vpath, cpath = root / 'process' / 'retired_vocabulary.json', root / 'precedent.json'
+    try:
+        vtext, ctext = vpath.read_text(encoding='utf-8'), cpath.read_text(encoding='utf-8')
+        vocab, cfg = json.loads(vtext), json.loads(ctext)
+    except (OSError, ValueError):
+        return []
+    if not (isinstance(vocab, dict) and isinstance(cfg, dict)):
+        return []
+
+    def dumps(obj):
+        return json.dumps(obj, indent=2, ensure_ascii=False) + '\n'
+    if dumps(cfg) != ctext:
+        return []
+    exempt = vocab.get('exempt_files') or []
+    records = cfg.get('record_paths') or []
+    have = {(e.get('path') if isinstance(e, dict) else e) for e in records}
+    moved = [e for e in exempt if isinstance(e, str) and e in flagged
+             and e not in have and (root / e).is_file()]
+    if not moved:
+        return []
+    reason = ('a dated record, kept as written: listed in process/'
+              'retired_vocabulary.json\'s exempt_files as a file where the '
+              'retired names stay, and moved here by Update Vendors so it is '
+              'declared once')
+    cfg['record_paths'] = list(records) + [{'path': m, 'reason': reason} for m in moved]
+    cpath.write_text(dumps(cfg), encoding='utf-8')
+    for shape in (dumps, lambda o: json.dumps(o, ensure_ascii=False) + '\n',
+                  lambda o: json.dumps(o, ensure_ascii=False)):
+        if shape(vocab) == vtext:           # its own layout, kept
+            vocab['exempt_files'] = [e for e in exempt if e not in moved]
+            vpath.write_text(shape(vocab), encoding='utf-8')
+            break
+    return moved
+
+
 def record_paths_hint(read):
     """-> how to stop a dated record being listed again, naming the files
     the read list points into, or ''.
@@ -4699,6 +4754,15 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
                  'tools/precedent_practice_refs.py --withdrawn before pushing')
     else:
         fix, read = cited
+        adopted = adopt_listed_records(
+            repo, {w.split(':', 1)[0] for w in read})
+        if adopted:
+            rep.step('records', f'{", ".join(adopted)} '
+                     f'{"is" if len(adopted) == 1 else "are"} now declared in '
+                     f'precedent.json\'s record_paths, moved from '
+                     f'process/retired_vocabulary.json\'s exempt_files: one '
+                     f'list of records, which every check reads')
+            read = [w for w in read if w.split(':', 1)[0] not in adopted]
         for where, why in fix:
             rep.leave(where, why)
         rep.step('citations',
