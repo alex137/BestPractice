@@ -1452,6 +1452,21 @@ def mirrored_prefixes(repo):
     if (repo_root / 'process' / 'upstream').is_dir():
         _add('process/upstream')
 
+    # SIGNAL 4: a domain pack vendored beside the catalogue, recorded in its
+    # own process/manifest_<pack>.json (practice_audit.py audits every
+    # process/manifest*.json the same way). Its `upstream.repo` names where
+    # it comes from; a repository that IS the pack's source records null
+    # there, and its tree is its own. 2026-10-10: the file-header stamper,
+    # which skips mirrors, stamped a voice pack's README in three consuming
+    # repositories, and each next pack sync refused it as local drift.
+    for manifest in sorted((repo_root / 'process').glob('manifest_*.json')):
+        try:
+            upstream = json.loads(manifest.read_text(encoding='utf-8')).get('upstream') or {}
+            if upstream.get('repo') and upstream.get('vendored_at'):
+                _add(upstream['vendored_at'])
+        except (ValueError, OSError, AttributeError, TypeError):
+            pass
+
     # SIGNAL 3: every source this repo VENDORS, read off precedent.json.
     # load_config() is deliberately not used: it resolves the individual
     # source, which can self-heal by running a hook and cloning a repo --
