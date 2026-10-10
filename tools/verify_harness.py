@@ -27140,54 +27140,81 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
           '; '.join(f'{n} {d}' for n, d in bad))
 
 
-def check_reply_check_wants_a_reply_block_to_name_its_session():
-    """tools/precedent_reply_check.py -- a paste block answering a message
-    another session sent says, inside it, which session it goes to.
+def check_reply_check_wants_a_prompt_block_to_name_both_ends():
+    """tools/precedent_reply_check.py -- a paste block written for another
+    session opens with two lines: the session sending it (From) and the
+    session it is for (For), or "a new session rooted in" a repository.
 
-    2026-10-08: a session answered a relayed message with a block carrying
-    its own name and link and none for its destination, though the message
-    named its sender, and the person could not tell which window to paste
-    it into. Judged against the shipped rule, so a change to either the
-    engine or reply_check.json that loosens it fails here."""
+    Morgan, 2026-10-10: "Every prompt you give me should have BOTH at the
+    top: the session sending it, and what session it is for ... and enforce
+    it." THE INCIDENT, the discriminating case: a session answered a message
+    opening "Sent automatically by the session ..." with a block that named
+    itself and not its destination. The check before this one recognized a
+    sender only as `From "..." (link)`, so it never fired. Judged against
+    the shipped rule, so loosening either the engine or reply_check.json
+    fails here."""
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_reply_check as rc
     rule = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
-        encoding='utf-8')) if r.get('id') == 'reply-block-names-its-session']
+        encoding='utf-8')) if r.get('id') == 'prompt-block-names-both-ends']
     cases = [('the shipped rule exists', len(rule) == 1)]
-    sender = 'https://claude.ai/code/session_01SENDERxyz'
-    prompt = (f'the other session wrote this for you: From session "PI: x" '
-              f'({sender}). A session wrote this, not a person.')
+    sender = 'https://claude.ai/code/session_014zVauR9GhVyVVgSNEMLyGb'
+    relayed = ('Sent automatically by the session "Zoom/Hangouts transcripts '
+               'to GitHub" (session_014zVauR9GhVyVVgSNEMLyGb) -- '
+               f'{sender}. Nobody typed this.\nSeed root: alex137/BestPractice.')
+    me = 'https://claude.ai/code/session_01MEabcdef'
+    origin = (f'Sent automatically by the session "BP: me" (session_01MEabcdef) '
+              f'-- {me}. Nobody typed this.')
+    old_shape = f'From "BP: me" (session_01MEabcdef) -- {me}'
+    for_sender = f'For: the session "Zoom/Hangouts transcripts to GitHub" -- {sender}.'
+    for_new = 'For: a new session rooted in alex137/BestPractice.'
 
-    def block(*lines):
-        return 'Reply:\n\n```\n' + '\n'.join(lines) + '\n```\n'
-    own = 'From "BP: me" (https://claude.ai/code/session_01MEabc).'
-    seed = 'Seed root: example/repo. Attach: none.'
-    named = f'This prompt is intended for the session PI: x -- {sender}.'
+    def reply(*lines, outside=f'Paste this into Zoom/Hangouts -- {sender}.'):
+        return outside + '\n\n```\n' + '\n'.join(lines) + '\n```\n'
 
-    def refused(text, p=prompt):
-        return any(v['kind'] == 'reply_names_sender'
+    def refused(text, p=relayed):
+        return any(v['kind'] == 'prompt_header'
                    for v in rc.violations(text, rule, prompt=p))
     cases += [
-        ('a block answering the sender without naming it is refused',
-         refused(block(own, '1. done'))),
-        ('a block with a Seed root line and no destination is refused',
-         refused(block(seed, '1. done'))),
-        ("the line must carry the sender's own link",
-         refused(block(own, seed, 'This prompt is intended for the session '
-                       'Other -- https://claude.ai/code/session_01OTHER.'))),
-        ('a block that names the sender passes',
-         not refused(block(own, seed, named, '1. done'))),
-        ('a turn whose prompt came from no session asks for nothing',
-         not refused(block(own, '1. done'), p='Booked')),
-        ('a reply sending its block to a new session asks for nothing',
-         not refused('Open a new session, root it in x.\n\n'
-                     + block(own, seed, '1. do it'))),
-        ('a fenced block that is not a prompt (no From or Seed root line) is '
-         'not judged', not refused(block('git status'))),
+        ("THE DISCRIMINATING CASE: the block that slipped through -- its own "
+         "name first, no For line, answering a 'Sent automatically' message",
+         refused(reply(old_shape, '', 'Done and on main.'))),
+        ('a block with both lines, the For line naming the sender, passes',
+         not refused(reply(origin, for_sender, 'Done and on main.'))),
+        ('the old From shape still counts as the first line',
+         not refused(reply(old_shape, for_sender, 'Done.'))),
+        ('the For line must be the SECOND line, not further down',
+         refused(reply(origin, 'Seed root: x/y.', for_sender))),
+        ('the From line must be the FIRST line',
+         refused(reply(for_sender, origin, 'Done.'))),
+        ("a For line naming another session, in answer to the sender, is refused",
+         refused(reply(origin, 'For: the session Other -- '
+                       'https://claude.ai/code/session_01OTHERxyz.', 'Done.',
+                       outside='Paste this into Other -- '
+                               'https://claude.ai/code/session_01OTHERxyz.'))),
+        ('a placeholder For line is refused',
+         refused(reply(origin, 'For: unknown', 'Done.'), p='Prompt Please')),
+        ('a new-session prompt passes with "For: a new session rooted in"',
+         not refused(reply(origin, for_new, 'Seed root: alex137/BestPractice.',
+                           outside='Open a new session rooted in alex137/BestPractice.'),
+                     p='Prompt Please')),
+        ('a new-session prompt with no For line is refused',
+         refused(reply(origin, 'Seed root: alex137/BestPractice.', 'Do it.',
+                       outside='Open a new session rooted in alex137/BestPractice.'),
+                 p='Prompt Please')),
+        ('answering a sender, the reply may send the block to a new session '
+         'instead, and says so in both places',
+         not refused(reply(origin, for_new, 'Do it.',
+                           outside='Open a new session rooted in alex137/BestPractice.'))),
+        ('a block for an existing session that the reply never names outside '
+         'the block is refused',
+         refused(reply(origin, for_sender, 'Done.', outside='Here it is.'))),
+        ('a fenced block that is not a prompt is not judged',
+         not refused(reply('git status', outside='Run this.'))),
     ]
     bad = [c[0] for c in cases if not c[1]]
-    check(f'a reply block names the session it answers ({len(cases)} stated '
-          f'cases)', not bad, '; '.join(bad))
+    check(f'a prompt block names both the session sending it and the one it is '
+          f'for ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_reply_check_reads_a_landing_trigger_by_clause_and_by_list():
@@ -72423,7 +72450,7 @@ def main():
     check('the reply check requires a destination for a fence block',
           *check_reply_check_requires_a_destination_for_a_fence_block())
     check_reply_check_refuses_a_paste_block_that_lands_unauthorized()
-    check_reply_check_wants_a_reply_block_to_name_its_session()
+    check_reply_check_wants_a_prompt_block_to_name_both_ends()
     check('the landing trigger reads per clause, from a list, and the old shape '
           'reads as it did', *check_reply_check_reads_a_landing_trigger_by_clause_and_by_list())
     check('the reply check requires the Boildown to open with where the work is',
