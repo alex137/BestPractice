@@ -795,6 +795,29 @@ def removals_this_update_caused(out, dropped):
     return []
 
 
+def approved_workflows_step(repo, rep):
+    """Say which steps of the repo's own approved workflows the push check
+    runs here, and name each one only GitHub runs (2026-10-10: a consumer's
+    platform-docs-check.yml failed only as GitHub's test on the pull request
+    into main, after every local tier passed). Said once per update, never
+    on every push."""
+    try:
+        import precedent_push_check as ppc
+        checks, unrun = ppc.approved_workflow_checks(repo)
+    except Exception:                                          # noqa: BLE001
+        return
+    if checks:
+        rep.step('approved workflows', f'{len(checks)} step(s) of this repo\'s '
+                 f'own approved workflows run in the push check too: '
+                 + ', '.join(n.split(': ', 1)[-1] for n, _a, _r in checks))
+    for wf, step, cmd in unrun:
+        rep.step('approved workflows', f'{wf}, step "{step}", runs only on '
+                 f'GitHub: `{cmd[:100]}` is not a plain `python3 tools/<x>.py` '
+                 f'call. A check there is first seen as GitHub\'s test after '
+                 f'the merge; move it into a tools/ script the step calls, and '
+                 f'the push check runs it too')
+
+
 def maintainers_step(repo, rep):
     """Name the repository's code owners when it names none: everyone who
     can edit it on GitHub now, in precedent.json's `maintainers`
@@ -4274,6 +4297,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
     # the old catalogue, it read as "in force nowhere else" and the set was
     # kept (a consumer's update, 2026-10-06).
     dropped_sets = retired_sources_step(repo, rep)
+    approved_workflows_step(repo, rep)
 
     # 3c. Off pre-staging, for a person who lands on staging: what waits there
     # merged into staging, this repo's own instructions and links repointed,
