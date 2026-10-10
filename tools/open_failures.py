@@ -31,6 +31,9 @@ deep-check.yml), an open one is listed before anything else here: a red main
 is what every other repository's Update Vendors is held behind. One API call
 through github_budget.py, and none in a repository whose workflows never
 open such an issue; when GitHub cannot be read, one line says so.
+The same workflow closes the issue once the test passes on main's current
+head (tools/close_main_test_issue.sh, 2026-10-10), so an open one means main
+is red now; before that, one stayed open eleven hours past a green main.
 
 AN ALERTING TEST IS NOT A FAILURE (Morgan, 2026-10-09; practice:
 automation-issues). A job's alerting test fails on purpose, to prove the

@@ -143,6 +143,13 @@ jobs:
     name: Already tested?
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    # issues: write only for the step that closes a main-test-failed issue
+    # when these files already passed. A job's permissions replace the
+    # workflow's, so the two read ones are said again here.
+    permissions:
+      contents: read
+      actions: read
+      issues: write
     outputs:
       skip: ${{ steps.already.outputs.skip }}
     steps:
@@ -202,6 +209,20 @@ jobs:
           echo "$msg"
           echo "$msg" >> "$GITHUB_STEP_SUMMARY"
 
+      # MAIN IS GREEN WITHOUT A RUN: these exact files already passed, so the
+      # deep-check job is skipped and its own close step never runs. Close a
+      # main-test-failed issue from here instead (tools/close_main_test_issue.sh;
+      # the step in the deep-check job says why).
+      - name: Close the issue when these files already passed
+        if: steps.already.outputs.skip == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HOW: these exact files already passed this check
+        run: bash tools/close_main_test_issue.sh
+
   # ONE JOB, THE SAME COMMAND A SESSION RUNS, since 2026-10-07. Until then
   # this was three jobs: the heavy check, "everything else", and
   # precedent_check + doc_sync. "Everything else" ran about 570 checks one
@@ -227,8 +248,9 @@ jobs:
     needs: already-tested
     if: ${{ !cancelled() && needs.already-tested.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
-    # The workflow's two read permissions, plus issues: write for the step
-    # that opens an issue on a failure, and contents: write for the one that
+    # The workflow's two read permissions, plus issues: write for the steps
+    # that open an issue on a failure and close it on a pass, and
+    # contents: write for the one that
     # pushes the passed marker. A job's permissions replace the workflow's,
     # so the read one is said again here. Write access in a job that runs
     # the branch's own code gives nothing new: a pull request from this
@@ -276,6 +298,28 @@ jobs:
       - name: Run the verification harness, side by side
         run: python3 tools/verify_harness.py --as-ci
 
+      # MAIN'S TEST PASSED: CLOSE THE ISSUE THAT SAID IT FAILED (2026-10-10).
+      # The step at the end of this job opens a main-test-failed issue when
+      # main's test fails; nothing closed it, and issue #1036 stayed open
+      # about eleven hours while main passed at least three times, so the
+      # next session was sent to fix a green main. Only on success, and only
+      # on main itself (a push, or the button), never on a pull request: a
+      # pull request into main passing says nothing about main. The script
+      # closes nothing unless this run tested main's current head, so an
+      # older run finishing green cannot close a newer failure. The
+      # already-tested job does the same when it skips this one.
+      - name: Close the issue when main's test passes again
+        if: >-
+          success() &&
+          github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HOW: this run passed
+        run: bash tools/close_main_test_issue.sh
+
       # MAIN'S TEST PASSED: LEAVE A MARKER ANY CLONE CAN READ (Morgan,
       # 2026-10-10: "yes, build it and take it to main"). Update Vendors in
       # another repository takes only a main whose test passed, and a
@@ -305,8 +349,10 @@ jobs:
       # red main used to be found by whoever looked next. This files an
       # issue labelled main-test-failed, or adds the run to the one already
       # open, and the next session here lists it first
-      # (tools/open_failures.py). Only when a step above failed, and only on
-      # main itself (a push, or the button) or a pull request into main. No
+      # (tools/open_failures.py); a pass on main's head closes it
+      # (tools/close_main_test_issue.sh, from either job). Only when a step
+      # above failed, and only on main itself (a push, or the button) or a
+      # pull request into main. No
       # extra job and no extra runner: a few seconds, on a failure only.
       # A fork's pull request gets a read-only token, so the step may fail
       # there; continue-on-error keeps that from hiding the real failure.
