@@ -169,7 +169,11 @@ used to read on turn one.
   **Since 2026-10-09 it takes only a `main` whose GitHub test passed**: the
   newest such commit, skipping anything pending or failed, and when that is
   not the newest it says which commit it took, how many commits behind it
-  is, and why. When GitHub cannot be asked it takes the tip and warns. In an
+  is, and why. **It reads the answer from a git marker first** (since
+2026-10-10): a passed test on `main` pushes `refs/precedent/passed/<tree>`,
+which any clone can read, so a session with no GitHub access to BestPractice
+still takes only a `main` that passed. When neither a marker nor GitHub
+answers, it takes the tip and warns. In an
   emergency `--take-anyway <commit>` takes a named commit on the person's
   own words, and the report and commit message say so. A failed GitHub test
   on `main` opens an issue labelled `main-test-failed` (or comments on the

@@ -14743,6 +14743,7 @@ def check_update_vendors_takes_only_a_main_that_passed():
     c0, c1, _c2 = line
     saved_run = pu.run
     saved_state = getattr(pu, 'main_test_state', None)
+    saved_marks = getattr(pu, 'passed_trees', None)
     cases = []
 
     def planted(name):
@@ -14766,7 +14767,10 @@ def check_update_vendors_takes_only_a_main_that_passed():
         git(repo, 'commit', '-qm', 'installed\n\nSession: none available (fixture)')
         return repo, argv_file
 
-    def run_update(name, states, take=None):
+    def tree(sha):
+        return git(ROOT, 'rev-parse', f'{sha}^{{tree}}').stdout.strip()
+
+    def run_update(name, states, take=None, marks=()):
         repo, argv_file = planted(name)
 
         def fetchless(argv, cwd):
@@ -14783,6 +14787,9 @@ def check_update_vendors_takes_only_a_main_that_passed():
             return states.get(sha, ('failed', 'stand-in: not planted'))
         pu.run = fetchless
         pu.main_test_state = state
+        # The passed markers are stood in too: the real ones are on origin,
+        # and a run here must not read the network or main's real history.
+        pu.passed_trees = lambda: set(marks)
         out = io.StringIO()
         try:
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
@@ -14796,6 +14803,8 @@ def check_update_vendors_takes_only_a_main_that_passed():
             pu.run = saved_run
             if saved_state is not None:
                 pu.main_test_state = saved_state
+            if saved_marks is not None:
+                pu.passed_trees = saved_marks
         argv = json.loads(argv_file.read_text()) if argv_file.is_file() else []
         handed = argv[argv.index('--from-ref') + 1] if '--from-ref' in argv else None
         held = getattr(pu, 'held_pin', lambda _r: None)(repo) or {}
@@ -14849,6 +14858,37 @@ def check_update_vendors_takes_only_a_main_that_passed():
                            if 'COMMIT MESSAGE: ' in text or held.get('note') else False),
                       (handed, steps(text), held, text[-700:])))
 
+        # THE GIT MARKER (2026-10-10, Morgan: "yes, build it and take it
+        # to main"): deep-check.yml pushes refs/precedent/passed/<tree> when
+        # main's test passes, so a session that cannot ask GitHub's API
+        # still takes only a main that passed.
+        text, handed, _held, asked = run_update('marked', {}, marks=[tree(c0)])
+        cases.append(('(f) the newest main carries a passed marker: it is taken, '
+                      'GitHub is never asked, and no line about it',
+                      handed == c0 and asked == [] and not steps(text),
+                      (handed, asked, steps(text))))
+        text, handed, _held, _a = run_update('marked-older', {
+            c0: ('unknown', 'not enabled for this session')}, marks=[tree(c1)])
+        cases.append(('(g) GitHub cannot be asked and only the commit before carries '
+                      'a marker: that one is taken, said in one line, no warning',
+                      handed == c1 and len(steps(text)) == 1
+                      and 'left no passed marker, and GitHub could not be asked, on '
+                          f'{c0[:12]}' in steps(text)[0]
+                      and 'WARNING' not in steps(text)[0], (handed, steps(text))))
+        text, handed, _held, _a = run_update('marked-red', {
+            c0: ('failed', 'url')}, marks=[tree(c1)])
+        cases.append(('(h) a red tip with GitHub answering: the marked commit '
+                      'before it, as for any older green one',
+                      handed == c1 and len(steps(text)) == 1
+                      and f"failed on {c0[:12]}" in steps(text)[0], (handed, steps(text))))
+        text, handed, _held, _a = run_update('marks-out-of-reach', {
+            sha: ('unknown', 'curl exited 6') for sha in line}, marks=['0' * 40])
+        cases.append(('(i) markers exist but none in reach, and GitHub cannot be asked: '
+                      'the newest main with a warning, as before markers',
+                      handed == c0 and len(steps(text)) == 1
+                      and 'WARNING' in steps(text)[0]
+                      and 'carries a passed marker' in steps(text)[0], (handed, steps(text))))
+
         text, handed, _held, _a = run_update('all-red', {})
         cases.append(('...and with nothing green in reach, nothing is taken and the '
                       'override is named',
@@ -14858,6 +14898,8 @@ def check_update_vendors_takes_only_a_main_that_passed():
         pu.run = saved_run
         if saved_state is not None:
             pu.main_test_state = saved_state
+        if saved_marks is not None:
+            pu.passed_trees = saved_marks
         shutil.rmtree(tmp, ignore_errors=True)
     # GitHub's refusal is a refusal, never "no runs" (2026-10-09: a session
     # with no GitHub access to BestPractice read "not enabled for this
@@ -14903,6 +14945,7 @@ def _actions_if(expr, event, ref, base_ref, failed):
     for one run. Anything else in it raises, so a new shape is seen."""
     s = expr.replace('${{', '').replace('}}', '')
     s = s.replace('failure()', 'True' if failed else 'False')
+    s = s.replace('success()', 'False' if failed else 'True')
     s = (s.replace('github.event_name', repr(event)).replace('github.base_ref', repr(base_ref))
          .replace('github.ref', repr(ref)))
     s = s.replace('&&', ' and ').replace('||', ' or ').replace("'", '"')
@@ -14972,16 +15015,110 @@ def check_main_test_failure_opens_an_issue():
     top = re.search(r'^permissions:\s*\n((?:  .*\n|\s*#.*\n)+)', text, re.M)
     top_got = sorted(l.strip() for l in (top.group(1) if top else '').splitlines()
                      if l.strip() and not l.strip().startswith('#'))
-    cases.append(('the job adds issues: write to the workflow\'s two read '
-                  'permissions, and nothing else',
-                  got == sorted(top_got + ['issues: write'])
-                  and 'issues: write' not in top_got, (got, top_got)))
+    # contents: write since 2026-10-10, for the passed marker
+    # (check_main_test_pass_leaves_a_git_marker).
+    want = sorted([l for l in top_got if l != 'contents: read']
+                  + ['contents: write', 'issues: write'])
+    cases.append(('the job adds issues: write and contents: write to the '
+                  'workflow\'s read permissions, and nothing else',
+                  got == want and 'issues: write' not in top_got, (got, top_got)))
     cases.append(('it files the issue under the label session start reads, or '
                   'comments on the open one, and links the run',
                   f'label={label}' in body and 'gh issue create' in body
                   and 'gh issue comment' in body and '--state open' in body
                   and 'RUN_URL' in body and 'continue-on-error: true' in body,
                   label))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_main_test_pass_leaves_a_git_marker():
+    """When main's test passes -- on main itself or on a pull request into
+    main, never otherwise -- deep-check.yml pushes refs/precedent/passed/
+    <tree> at the commit it tested, before the failure step and with no
+    new job, and precedent_branches.passed_markers reads those trees back
+    from origin with plain git.
+
+    2026-10-10 (Morgan: "yes, build it and take it to main"): a session in
+    a consuming repository could not ask GitHub's API about BestPractice, so
+    its Update Vendors took main without knowing whether the test passed.
+
+    Negative control, measured 2026-10-10 against origin/staging at
+    06cbfce8: no such step, and no passed_markers."""
+    import tempfile
+    wf = ROOT / '.github' / 'workflows' / 'deep-check.yml'
+    text = wf.read_text(encoding='utf-8') if wf.is_file() else ''
+    cases = []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    prefix = getattr(pb, 'PASSED_PREFIX', None)
+    block = _workflow_step_block(text, 'Mark these files as passed')
+    body = '\n'.join(block)
+    cases.append(('the step exists', bool(block), wf.name))
+    deep = text.split('\n  deep-check:', 1)[-1]
+    steps = re.findall(r'^      - name:\s*(.+)$', deep, re.M)
+    cases.append(('it comes after the harness and before the failure step, in the '
+                  'same job', 'Mark these files as passed' in steps
+                  and steps.index('Mark these files as passed')
+                  == steps.index("Open an issue when main's test fails") - 1
+                  and 'verification harness' in ' '.join(
+                      steps[:steps.index('Mark these files as passed')]), steps))
+    m = re.search(r'^\s+if:\s*>-?\s*\n((?:\s{10,}.*\n)+)', body + '\n', re.M)
+    expr = ' '.join(m.group(1).split()) if m else ''
+    runs = [
+        ('push', 'refs/heads/main', '', False, True),
+        ('workflow_dispatch', 'refs/heads/main', '', False, True),
+        ('pull_request', 'refs/pull/9/merge', 'main', False, True),
+        ('push', 'refs/heads/main', '', True, False),
+        ('pull_request', 'refs/pull/9/merge', 'main', True, False),
+        ('push', 'refs/heads/feature', '', False, False),
+        ('pull_request', 'refs/pull/9/merge', 'release', False, False),
+    ]
+    for event, ref, base, failed, want in runs:
+        try:
+            got = _actions_if(expr, event, ref, base, failed) if expr else None
+        except Exception as e:                                # noqa: BLE001
+            got = f'unreadable: {e}'
+        cases.append((f'{event} on {ref}{" into " + base if base else ""}, '
+                      f'{"failed" if failed else "passed"}: '
+                      f'{"marks" if want else "does nothing"}', got is want, (expr, got)))
+    cases.append(('it pushes the tested tree under the prefix the engine reads, and a '
+                  'failed push only warns',
+                  prefix == 'refs/precedent/passed/' and "rev-parse 'HEAD^{tree}'" in body
+                  and f'HEAD:{prefix}$tree' in body and 'continue-on-error: true' in body,
+                  (prefix, body)))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-passed-marker-'))
+    try:
+        env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+                   GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+                   GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+        def git(*args):
+            return subprocess.run(['git', *args], env=env, capture_output=True, text=True)
+        git('init', '-q', '--bare', str(tmp / 'origin.git'))
+        git('init', '-q', '-b', 'main', str(tmp / 'clone'))
+        clone = tmp / 'clone'
+        (clone / 'f').write_text('x', encoding='utf-8')
+        git('-C', str(clone), 'add', 'f')
+        git('-C', str(clone), 'commit', '-qm', 'one')
+        git('-C', str(clone), 'remote', 'add', 'origin', str(tmp / 'origin.git'))
+        tree = git('-C', str(clone), 'rev-parse', 'HEAD^{tree}').stdout.strip()
+        reader = getattr(pb, 'passed_markers', None)
+        before = reader(clone) if reader else 'no passed_markers'
+        git('-C', str(clone), 'push', '-q', 'origin', f'HEAD:{prefix}{tree}',
+            'HEAD:refs/heads/main')
+        after = reader(clone) if reader else 'no passed_markers'
+        cases.append(('passed_markers reads the trees back from origin, and nothing '
+                      'else', before == set() and after == {tree}, (before, after)))
+        git('-C', str(clone), 'remote', 'set-url', 'origin', str(tmp / 'nowhere.git'))
+        gone = reader(clone) if reader else 'no passed_markers'
+        cases.append(('an origin that cannot be read is None, not "nothing passed"',
+                      gone is None, gone))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
 
@@ -71070,6 +71207,8 @@ def main():
           *check_update_vendors_takes_only_a_main_that_passed())
     check('a failed test on main opens a GitHub issue, from one step that runs only '
           'then', *check_main_test_failure_opens_an_issue())
+    check('a passed test on main leaves a git marker any clone can read',
+          *check_main_test_pass_leaves_a_git_marker())
     check('session start lists an open "main\'s test failed" issue first',
           *check_session_start_lists_a_red_main_first())
     check('a deliberate alerting test is listed as a test to confirm, never as a '
