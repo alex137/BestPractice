@@ -2,9 +2,11 @@
 """Failures an unattended job could not report anywhere else, kept as open blocker items in todo/ and listed at session start
 
     python3 tools/open_failures.py                       # list the open ones
-    python3 tools/open_failures.py --file TITLE --closes TEXT [--what FILE]
+    python3 tools/open_failures.py --file TITLE --closes TEXT [--what FILE] [--alerting-test]
                                                          # write one (the finding on
                                                          # stdin, or from FILE)
+    python3 tools/open_failures.py --close PATH --because TEXT
+                                                         # close one, saying what closed it
     python3 tools/open_failures.py --self-check
 
 practice: automation-issues -- a blocked unattended job reports through a
@@ -29,6 +31,14 @@ deep-check.yml), an open one is listed before anything else here: a red main
 is what every other repository's Update Vendors is held behind. One API call
 through github_budget.py, and none in a repository whose workflows never
 open such an issue; when GitHub cannot be read, one line says so.
+
+AN ALERTING TEST IS NOT A FAILURE (Morgan, 2026-10-09; practice:
+automation-issues). A job's alerting test fails on purpose, to prove the
+alert reaches the person, so it still files -- that is part of what it tests -- but with --alerting-test: no
+`severity: blocker`, `kind: manual`, and listed at session start as a test
+to confirm, never with the failures. It closes on the person's answer
+(--close), not on a later run: a passed test once read "the sync failed"
+first in every session until someone spent another run to clear it.
 """
 import pathlib
 import re
@@ -40,6 +50,8 @@ BATCH = "failures"
 # The label .github/workflows/deep-check.yml puts on the issue it opens when
 # main's test fails.
 MAIN_TEST_LABEL = "main-test-failed"
+# What marks an alerting test's item, on its checkbox line.
+TEST_MARK = "an alerting test an unattended job filed here"
 
 
 def _slug(text):
@@ -55,8 +67,10 @@ def _today(root):
         sys.path.pop(0)
 
 
-def write_item(repo, title, what, closes, today=None):
-    """Write one open failure item under todo/ in `repo`. -> its path."""
+def write_item(repo, title, what, closes, today=None, alerting_test=False):
+    """Write one open failure item under todo/ in `repo`. -> its path.
+    With alerting_test, the failure was deliberate: the item is the person's
+    to confirm (kind manual, no severity), and never one of open_items()."""
     repo = pathlib.Path(repo)
     today = today or _today(repo)
     todo = repo / "todo"
@@ -68,9 +82,9 @@ def write_item(repo, title, what, closes, today=None):
     path.write_text(
         "---\n"
         f"slug:              {path.stem}\n"
-        "kind:              analysis\n"
+        f"kind:              {'manual' if alerting_test else 'analysis'}\n"
         "domain:            null\n"
-        "severity:          blocker\n"
+        f"severity:          {'null' if alerting_test else 'blocker'}\n"
         "status:            open\n"
         "disposition:       null\n"
         "remind_on:         null\n"
@@ -83,12 +97,47 @@ def write_item(repo, title, what, closes, today=None):
         "closed:            null\n"
         "---\n"
         "## What\n\n"
-        f"- [ ] **{title}** (a failure an unattended job filed here; fix it before other work)\n\n"
+        + (f"- [ ] **{title}** ({TEST_MARK}: the failure was deliberate; "
+           "ask the person whether the alert reached them)\n\n" if alerting_test else
+           f"- [ ] **{title}** (a failure an unattended job filed here; fix it before other work)\n\n")
+        + 
         f"```\n{what.strip()}\n```\n\n"
         "## How It Closes\n\n"
         f"{closes}\n\n"
         "## Notes\n", encoding="utf-8")
     return path
+
+
+def _status_open(text):
+    head = text.split("\n---", 1)[0]
+    return bool(re.search(r"^status:\s*open\s*$", head, re.M)), head
+
+
+def alerting_tests(repo=ROOT):
+    """-> [(path, title)] for every open alerting-test item."""
+    out = []
+    for f in sorted((pathlib.Path(repo) / "todo").glob("todo-*.md")):
+        text = f.read_text(encoding="utf-8", errors="replace")
+        is_open, _ = _status_open(text)
+        m = re.search(r"^- \[ \] \*\*(.+?)\*\* \(" + re.escape(TEST_MARK), text, re.M)
+        if is_open and m:
+            out.append((f, m.group(1)))
+    return out
+
+
+def close_item(path, because, today=None):
+    """Close one item this file wrote: `status: done`, dated, ticked, with
+    what closed it as its last note. -> True, or False if it was not open."""
+    path = pathlib.Path(path)
+    text = path.read_text(encoding="utf-8")
+    if not _status_open(text)[0]:
+        return False
+    today = today or _today(path.parent.parent)
+    text = re.sub(r"^status:(\s*)open\s*$", r"status:\1done", text, count=1, flags=re.M)
+    text = re.sub(r"^closed:(\s*)null\s*$", rf'closed:\1"{today}"', text, count=1, flags=re.M)
+    text = text.replace("- [ ] **", "- [x] **", 1)
+    path.write_text(text.rstrip("\n") + f"\n- {today}: closed: {because}\n", encoding="utf-8")
+    return True
 
 
 def open_items(repo=ROOT):
@@ -154,6 +203,15 @@ def report_lines(repo=ROOT, gh=None):
                      "Tell the person, and fix them before other work:")
         for f, title in items:
             lines.append(f"  - {f.relative_to(repo)}: {title}")
+    tests = alerting_tests(repo)
+    if tests:
+        lines.append(f"ALERTING TESTS ({len(tests)}): a job failed on purpose to prove "
+                     "its alert reaches the person. These are not failures. Ask the "
+                     "person whether the alert arrived, check the run failed the way "
+                     "the test intends, and close each on the answer "
+                     "(open_failures.py --close PATH --because TEXT):")
+        for f, title in tests:
+            lines.append(f"  - {f.relative_to(repo)}: {title}")
     return lines
 
 
@@ -166,6 +224,11 @@ def self_check():
         ok = len(found) == 2 and p != q and found[0][1] == "Landing failed: feat/x"
         q.write_text(q.read_text().replace("status:            open", "status:            done"))
         ok &= len(open_items(td)) == 1
+        t = write_item(td, "Alerting test ran", "boom", "The person confirms.",
+                       "2026-10-09", alerting_test=True)
+        ok &= len(open_items(td)) == 1 and alerting_tests(td) == [(t, "Alerting test ran")]
+        ok &= close_item(t, "the alert arrived", "2026-10-09") and not alerting_tests(td)
+        ok &= not close_item(t, "again", "2026-10-09")
     print(f"open_failures self-check: {'OK' if ok else 'FAILED'}")
     return 0 if ok else 1
 
@@ -181,12 +244,25 @@ def main(argv):
             title = argv[1]
             closes = argv[argv.index("--closes") + 1]
         except (IndexError, ValueError):
-            print("usage: open_failures.py --file TITLE --closes TEXT [--what FILE]",
-                  file=sys.stderr)
+            print("usage: open_failures.py --file TITLE --closes TEXT [--what FILE] "
+                  "[--alerting-test]", file=sys.stderr)
             return 2
         what = (pathlib.Path(argv[argv.index("--what") + 1]).read_text(encoding="utf-8")
                 if "--what" in argv else sys.stdin.read())
-        print(write_item(ROOT, title, what, closes).relative_to(ROOT))
+        print(write_item(ROOT, title, what, closes,
+                         alerting_test="--alerting-test" in argv).relative_to(ROOT))
+        return 0
+    if argv[:1] == ["--close"]:
+        try:
+            path = pathlib.Path(argv[1])
+            because = argv[argv.index("--because") + 1]
+        except (IndexError, ValueError):
+            print("usage: open_failures.py --close PATH --because TEXT", file=sys.stderr)
+            return 2
+        if not close_item(path if path.is_absolute() else ROOT / path, because):
+            print(f"{path} is not open", file=sys.stderr)
+            return 1
+        print(f"closed {path}")
         return 0
     for line in report_lines():
         print(line)
