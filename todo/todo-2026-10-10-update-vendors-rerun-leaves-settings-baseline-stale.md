@@ -3,16 +3,16 @@ slug:              todo-2026-10-10-update-vendors-rerun-leaves-settings-baseline
 kind:              analysis
 domain:            engine
 severity:          minor
-status:            open
-disposition:       ask
+status:            done
+disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        Morgan, whether to fix it now
+decision:          "All these bugs - fix them on BP now, if it is filed we might not get to it"
+decision_strength: decided
+waiting_on:        null
 noted:             2026-10-10
-closed:            null
+closed:            2026-10-10
 ---
 ## What
 
@@ -36,5 +36,10 @@ at LEFT FOR YOU, reruns it, and expects the scrub gate to pass.
 
 ## Notes
 
-Not fixed in the session that found it because nobody asked for it there;
-offered to Morgan.
+Fixed 2026-10-10, the same day, on Morgan's word:
+`this_updates_output` in [tools/precedent_update.py](../tools/precedent_update.py)
+counts what an earlier run staged and nobody touched since as this update's
+output, so its template-file baselines are re-recorded on the rerun. A file
+the person changed between the runs is still left for the audit. The
+harness test `check_update_rerun_rerecords_a_template_file_the_first_run_wrote`
+fails on the code before it.
