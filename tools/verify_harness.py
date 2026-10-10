@@ -53319,10 +53319,11 @@ def check_update_question_names_new_gates():
                 (repo / '.claude' / 'hooks' / 'push-check-gate.sh').write_text(
                     stub, encoding='utf-8')
             (repo / 'tools').mkdir()
-            shutil.copy(ROOT / 'tools' / 'artifact-publish-gate.sh',
-                        repo / 'tools' / 'artifact-publish-gate.sh')
-            (repo / '.claude' / 'settings.json').write_text(settings(after),
-                                                            encoding='utf-8')
+            for script in ('artifact-publish-gate.sh', 'wait-loop-gate.sh'):
+                shutil.copy(ROOT / 'tools' / script, repo / 'tools' / script)
+            (repo / '.claude' / 'settings.json').write_text(
+                after if isinstance(after, str) else settings(after),
+                encoding='utf-8')
             g('add', '-A')
             paths = pu.harness_changes(repo)
             # Older code had neither; read so, it fails a stated case below
@@ -53350,6 +53351,30 @@ def check_update_question_names_new_gates():
     gates, said = ask(base + gate, migrate=False)
     cases.append(('an ordinary update that wires a gate names what it refuses '
                   'too', 'REFUSES to publish' in said and quiet not in said, said))
+    # THE SHAPE OF 2026-10-10 (a consumer's Update Vendors at 78d970b): the
+    # move to stubs, the per-event dispatch entries, and TWO gates wired for
+    # the first time on different matchers -- wait-loop-gate.sh on Bash,
+    # where a hook already ran, and artifact-publish-gate.sh on Artifact.
+    wait = [('PreToolUse', 'Bash', hook('wait-loop-gate.sh'))]
+    both = sorted(['artifact-publish-gate.sh', 'wait-loop-gate.sh'])
+    gates, said = ask(base + dispatch + gate + wait)
+    cases.append(('the move to stubs wiring two gates on different matchers '
+                  'names both, never the dispatch entry, and never says nothing '
+                  'new is blocked',
+                  sorted(n for n, _e, _w in gates) == both
+                  and 'wait-loop-gate.sh (PreToolUse)' in said
+                  and 'artifact-publish-gate.sh (PreToolUse)' in said
+                  and 'precedent-hooks.sh' not in said and quiet not in said
+                  and 'one last time' in said, said))
+    shared = json.loads(settings(base + dispatch + gate))
+    for block in shared['hooks']['PreToolUse']:
+        if block.get('matcher') == 'Bash':
+            block['hooks'].append({'type': 'command',
+                                   'command': hook('wait-loop-gate.sh')})
+    gates, said = ask(json.dumps(shared, indent=2) + '\n')
+    cases.append(("...and the same when the Bash gate joins the Bash block "
+                  "already there", sorted(n for n, _e, _w in gates) == both
+                  and quiet not in said, said))
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'the hooks question names each newly wired gate and what it '
           f'refuses ({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
@@ -61112,6 +61137,16 @@ def check_reply_gate_counts_staging_as_a_landing_branch():
             cases.append(("...and the gate says staging is ahead of 'main'",
                           any("staging is 1 commit(s) ahead of 'main'" in l
                               for l in got), str(got)))
+            # Off the ladder there are no tiers: work lands on main, whatever
+            # precedent.json's landing_branch says (Morgan, 2026-10-10:
+            # "staging is the landing branch ONLY if people use the ladders
+            # repo, for the normal repo, it should be main").
+            os.environ.pop(_pr.ASSUME_LADDER_ENV, None)
+            got = pg._unlanded_work(repo, siblings=False)
+            cases.append(("OFF THE LADDER: merged into staging is still not "
+                          "landed -- the branch is reported against 'main'",
+                          any("'main'" in l and 'feature' in l for l in got)
+                          and not any('ahead of' in l for l in got), str(got)))
         finally:
             pg._this_session_id = saved_sid
             if saved_ladder is None:
