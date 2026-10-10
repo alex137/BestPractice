@@ -20776,9 +20776,17 @@ def check_precedent_check_fires():
 
         # --- the baseline must be clean, or every case below is meaningless
         base = fresh('baseline')
+        # The same declared-identity scrub run() applies (fixture-owns-its-
+        # state): a session whose environment carries PRECEDENT_COMMIT_*
+        # failed this baseline on the fixture's own `harness` commit
+        # (2026-10-10, once a change touching the check machinery made every
+        # check run here).
+        _env = {k: v for k, v in os.environ.items()
+                if k not in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
+                             'PRECEDENT_COMMIT_TZ')}
         _r = subprocess.run(
             [sys.executable, str(base / 'tools' / 'precedent_check.py')],
-            capture_output=True, text=True, cwd=str(base))
+            capture_output=True, text=True, cwd=str(base), env=_env)
         rc = _r.returncode
         # On a failure, the failing checks' own findings go into the detail:
         # a bare rc said only the slug of this case, and under --as-ci
