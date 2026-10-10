@@ -196,6 +196,15 @@ the per-file read, and nothing deletes them by name.
 
 ## Item 2b — pushback: this repo's own three workflows are a different case
 
+**Superseded for `leak-gate.yml` on 2026-10-10.** Morgan: "it's important
+that leak-gate goes to every branch, but the check must be local to avoid
+lots of github minutes billing issues." It now runs on a push to `main`
+only, and every branch is checked before it is published by the leak gate
+in the global pre-push hook that `tools/commit-identity.sh` writes. What
+that gives up is the server-side scan of a `git push --no-verify`, which
+the reasoning below held was the point. The reasoning is kept as the record
+of why it ran on every branch until then.
+
 **I'm pushing back on this one rather than folding it in.**
 docs.yml (retired 2026-09-21),
 [deep-check.yml](../.github/workflows/deep-check.yml), and

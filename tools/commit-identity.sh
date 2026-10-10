@@ -545,8 +545,26 @@ fi
 #
 # The bot identity is never treated as a thing worth preserving: it is what
 # is being displaced.
+# NEVER WRITE A GLOBAL CONFIG THAT IS NOT A FILE (2026-10-10). A test ran this
+# hook with GIT_CONFIG_GLOBAL=/dev/null, the usual way to give a fixture an
+# empty global config. `git config --global` writes by renaming a lock file
+# over its target, so it replaced the container's /dev/null with an ordinary
+# file, and every later git command read "bad config line 1 in file
+# /dev/null". Global writes are skipped, and the reason said, whenever the
+# global config is pointed at anything other than a regular file.
+_global_config_writable() {
+  [ -n "${GIT_CONFIG_GLOBAL:-}" ] || return 0
+  [ -e "$GIT_CONFIG_GLOBAL" ] || return 0
+  [ -f "$GIT_CONFIG_GLOBAL" ] && [ ! -L "$GIT_CONFIG_GLOBAL" ] && return 0
+  return 1
+}
+
 _set_global_identity() {
   [ "$declared" -eq 1 ] || [ "$authenticated" -eq 1 ] || return 0
+  if ! _global_config_writable; then
+    echo "NOTE: commit-identity: GIT_CONFIG_GLOBAL is $GIT_CONFIG_GLOBAL, which is not a regular file, so the global identity is left alone (writing it would replace that file)." >&2
+    return 0
+  fi
   [ -n "$email" ] || return 0
   local g_name g_email g_gpgsign
   g_name="$(git config --global --get user.name 2>/dev/null || true)"
@@ -1198,7 +1216,7 @@ GLOBALHOOK
   # nothing is a cost every repository would pay.
   for hook in applypatch-msg pre-applypatch post-applypatch commit-msg \
               pre-merge-commit post-commit pre-rebase post-checkout \
-              post-merge pre-push post-rewrite pre-auto-gc \
+              post-merge post-rewrite pre-auto-gc \
               sendemail-validate; do
     cat > "$dir/$hook" <<PASSTHROUGH
 #!/bin/sh
@@ -1215,13 +1233,70 @@ exit 0
 PASSTHROUGH
     chmod +x "$dir/$hook" 2>/dev/null || true
   done
+  _write_pre_push "$dir"
   _write_ci_cadence "$dir"
 
-  if [ "$existing" != "$dir" ]; then
+  if [ "$existing" != "$dir" ] && ! _global_config_writable; then
+    echo "NOTE: commit-identity: GIT_CONFIG_GLOBAL is $GIT_CONFIG_GLOBAL, which is not a regular file, so core.hooksPath is not set globally (writing it would replace that file); the hooks are written to $dir." >&2
+  elif [ "$existing" != "$dir" ]; then
     git config --global core.hooksPath "$dir" 2>/dev/null && \
       echo "NOTE: commit-identity: installed a GLOBAL commit backstop at $dir (core.hooksPath). It refuses a bot-authored or wrong-timezone commit in EVERY repository, including ones attached after this session started, and chains to each repository's own hook of the same name rather than replacing it." >&2
   fi
 }
+# THE LEAK GATE ON EVERY PUSH, LOCALLY (Morgan, 2026-10-10: "it's important
+# that leak-gate goes to every branch, but the check must be local to avoid
+# lots of github minutes billing issues"). A push publishes every commit it
+# carries, so before any push from a repository that ships
+# tools/leak_gate.py, this runs it over each pushed commit no remote has yet,
+# messages included -- the same range precedent_push_check's leak_gate_commits
+# walks. Here it guards a plain `git push` too: a session rooted above its
+# repositories never loads the harness's push gate, and on 2026-10-10 such a
+# push published a private name. A repository's own pre-push still runs
+# after, with the same arguments and stdin; a repository whose own hook is
+# the leak gate itself (templates/hooks/pre-push) is not scanned twice.
+# PRECEDENT_SKIP_LEAK_GATE=1 skips it for one push and says so; `git push
+# --no-verify` skips every hook, as git always has.
+_write_pre_push() {
+  cat > "$1/pre-push" <<PREPUSH
+#!/bin/sh
+$marker -- GLOBAL pre-push, installed by the commit-identity hook.
+# Runs the leak gate over what the push publishes, then the repository's own
+# pre-push. Safe to delete; rewritten at every session start.
+_input="\$(cat)"
+_top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+_common="\$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git rev-parse --absolute-git-dir 2>/dev/null || true)"
+_own="\$_common/hooks/pre-push"
+_gate="\$_top/tools/leak_gate.py"
+if [ -n "\$_top" ] && [ -f "\$_gate" ] && command -v python3 >/dev/null 2>&1 \\
+   && ! { [ -f "\$_own" ] && grep -q "Precedent leak gate" "\$_own" 2>/dev/null; }; then
+  if [ "\${PRECEDENT_SKIP_LEAK_GATE:-}" = 1 ]; then
+    echo "pre-push: leak gate SKIPPED for this push (PRECEDENT_SKIP_LEAK_GATE=1)" >&2
+  else
+    _zero=0000000000000000000000000000000000000000
+    _fail=0
+    for _sha in \$(printf '%s\\n' "\$_input" | awk 'NF == 4 { print \$2 }'); do
+      [ "\$_sha" = "\$_zero" ] && continue
+      git cat-file -e "\$_sha^{commit}" 2>/dev/null || continue
+      if ! _out="\$(cd "\$_top" && python3 "\$_gate" --range "\$_sha --not --remotes" 2>&1)"; then
+        printf '%s\\n' "\$_out" >&2
+        _fail=1
+      fi
+    done
+    if [ "\$_fail" = 1 ]; then
+      echo "push refused: the leak gate found the above in a commit this push would publish. Rewrite that commit (it is not on any remote yet), then push again." >&2
+      exit 1
+    fi
+  fi
+fi
+if [ -n "\$_common" ] && [ -x "\$_own" ] && ! grep -q "$marker" "\$_own" 2>/dev/null; then
+  printf '%s\\n' "\$_input" | "\$_own" "\$@"
+  exit \$?
+fi
+exit 0
+PREPUSH
+  chmod +x "$1/pre-push" 2>/dev/null || true
+}
+
 _install_global_backstop
 
 # The applied fallback is said out loud even when it changed nothing this

@@ -192,4 +192,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **The leak gate refuses a landing over a private repository's name in a file. You scrub the name in a new commit, the landing passes, and the branch you landed on is clean. The first commit, the one with the name in it, is still in the public branch's history: `git log -S'<name>'` finds it, and anyone can read it on GitHub.** [story](gotcha-2026-10-10-a-leak-a-later-commit-scrubs-is-still-published.md)
 
+- **Every git command in a test fixture fails with "fatal: bad config line 1 in file /dev/null". `ls -l /dev/null` shows an ordinary file (`-rw-rw-rw-`) instead of a character device (`crw-rw-rw-`), holding text such as "/bin/bash: line 1: unalias: unsetenv: not found".** [story](gotcha-2026-10-10-git-config-global-with-dev-null-replaces-dev-null.md)
+
 - **In a Claude Code cloud session, every GitHub tool call fails with "invalid session": creating a pull request, listing them, merging one. The step that moves work up to main says to open a pull request and merge it "with the merge tool", and there is no tool that works.** [story](gotcha-2026-10-10-github-mcp-invalid-session-use-gh-api-rest.md)

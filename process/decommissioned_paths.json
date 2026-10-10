@@ -145,6 +145,11 @@
       "path": "tools/beta_branch_watermark.json",
       "reason": "Replaced by tools/precedent_others_did.py and tools/others_did_watermark.json (2026-10-08): the daily report of what others landed, delivered at the first prompt, with its mark committed onto the landing branch",
       "decommissioned_at": "2026-10-08"
+    },
+    {
+      "path": "tools/others_did_watermark.json",
+      "reason": "The others-did report counts from the person's own last commit since 2026-10-10 (Morgan: \"Go with option 1\") and stores no mark; this file held the mark before 2026-10-08 and was read only to carry old marks over",
+      "decommissioned_at": "2026-10-10"
     }
   ],
   "exempt_files": [
