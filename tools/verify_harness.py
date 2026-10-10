@@ -52477,6 +52477,20 @@ def check_promote_branches_are_named_like_session_branches():
             check('CONTROL: where the GitHub test knows only the old names, a copy '
                   'keeps one, so a not-due copy is still skipped',
                   have_tests and old.startswith(pb.NOT_DUE_PREFIX), f'{old} tests={have_tests}')
+            # A GitHub test that never names a copy (BestPractice's own deep
+            # check runs on every pull request into main) does not care what
+            # the copy is called, so it gets the session-branch format too
+            # (Morgan, 2026-10-09).
+            wf.write_text('name: Deep check\non:\n  pull_request:\n    branches: [main]\n'
+                          'jobs:\n  check:\n    runs-on: ubuntu-latest\n'
+                          '    steps:\n      - run: echo ok\n', encoding='utf-8')
+            run('git', 'commit', '-qam', 'a workflow that names no copy', cwd=repo)
+            run('git', 'push', '-q', 'origin', 'staging', cwd=repo)
+            run('git', 'fetch', '-q', 'origin', cwd=repo)
+            plain = pb._to_main_copy(repo)
+            check('where the GitHub test names no copy at all, a copy is named '
+                  '<date>-promote-to-main-<id>',
+                  plain == f'{day}-promote-to-main-abcde', plain)
     finally:
         for k, v in saved.items():
             if v is None:
