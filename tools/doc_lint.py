@@ -1269,9 +1269,28 @@ def is_record_doc(path):
     return RECORD_MARKER in head
 
 
+def is_declared_internal(path):
+    """True when the repo has declared its reader-facing documents
+    (precedent.json `output_paths`) and `path` is not one of them.
+
+    The residue patterns are written for a deliverable. Run over a working
+    document they misfire on the rules themselves: a voice rulebook's "don't
+    reconstruct a quote from memory" reads as a recalled figure. A consumer
+    whose generated rulebook prompt failed the landing check on exactly that
+    line, though it had declared only README.md and GETTING_STARTED.md as
+    published, is where this came from (2026-10-10). A repo that declares
+    nothing keeps the old behaviour, where every non-record doc is judged.
+    (practice: deliverables-look-like-output)"""
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import title_case
+    if not title_case.output_paths_declared(ROOT):
+        return False
+    return not title_case.is_outward(path, ROOT)
+
+
 def check_residue(path):
     """[(lineno, message)] process-residue hits in a deliverable doc."""
-    if is_record_doc(path):
+    if is_record_doc(path) or is_declared_internal(path):
         return []
     out = []
     # Was r"\]\([^)]*_(record|diligence)\.md\)" -- only two of the six
