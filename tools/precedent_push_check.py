@@ -243,13 +243,19 @@ PUSH_TIME_SINCE = {'session_trailer': '--all-history'}
 # old to know the variable ignores it and behaves as before.
 STANDIN_COMMIT_ENV = 'PRECEDENT_STANDIN_COMMIT'
 IDENTITY_CHECKS = (
-    ('commit_author', ['{engine}/checks/check_commit_author.py'],
+    ('commit_author', ['{engine}/check_commit_author.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
-    ('commit_dates', ['{engine}/checks/check_buenos_aires_dates.py'],
+    ('commit_dates', ['{engine}/check_commit_dates.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
     ('session_trailer', ['{engine}/checks/check_session_trailer.py'],
      'nothing -- the trailer was judged only inside a full sweep'),
 )
+# The practice each identity check enforces, for not_binding: the two
+# engine copies in tools/ cite no practice (theirs live in a person's own
+# set), so the slug is written here rather than read from a `# practice:`
+# line; check_session_trailer.py, materialized, carries its own.
+IDENTITY_SLUGS = {'commit_author': 'commit-author',
+                  'commit_dates': 'buenos-aires-dates'}
 # Every workflow file is the engine's own untouched copy or carries the
 # person's approval pinned to its content (practice: ci-workflow-approved).
 # Every file a tool writes is current with its tool: basic tier
@@ -1618,8 +1624,9 @@ def run(root, checks, landed=None, reported=None):
             print(f'[{i}/{len(checks)}] {name}: not here -- this repo has no '
                   f'{argv[1]}', flush=True)
             continue
-        slug = _practice_of(script) if script.is_file() and \
-            'checks' in Path(argv[1]).parts else None
+        slug = IDENTITY_SLUGS.get(name) or (
+            _practice_of(script) if script.is_file() and
+            'checks' in Path(argv[1]).parts else None)
         if slug and slug in not_binding():
             print(f'[{i}/{len(checks)}] {name}: EXEMPT -- this repo declares '
                   f'{slug} not binding in precedent.json: '
@@ -2137,8 +2144,8 @@ def hook_reason(outcome, out, top='', tool='tools/precedent_push_check.py'):
 
 def identity_hook_reason(findings):
     """-> the whole text commit-identity-push-gate.sh refuses with,
-    `findings` being what tools/checks/check_commit_author.py and
-    check_buenos_aires_dates.py reported. Written here, not in the hook,
+    `findings` being what tools/check_commit_author.py and
+    tools/check_commit_dates.py reported. Written here, not in the hook,
     for the reason hook_reason() gives (moved 2026-10-07)."""
     return ('The commit-identity push gate REFUSED this push.\n\n'
             f'{NOTHING_RAN}\n\n'

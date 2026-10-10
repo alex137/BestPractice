@@ -2212,7 +2212,7 @@ def _identity_reality(repo_dir, days=30, cap=300):
             notes.append(f'(shallow: history starts {_shallow}; window '
                          f'truncated)')
     # The repo's own exemptions, read the way check_commit_author.py and
-    # check_buenos_aires_dates.py read them (identity.json and
+    # check_commit_dates.py read them (identity.json and
     # precedent.json at the root): a commit a person already exempted, with
     # a note saying why, is not a finding a second time.
     _exempt = _grandfathered_shas(repo_dir)

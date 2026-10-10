@@ -478,6 +478,7 @@ it. Every gate was green, because no gate can see a number in a sentence.
   closed**; it no longer does. Every practice set now runs
   `precedent_check.py --full-sweep` against its own tree, and a private
   set's check can run upstream too (the individual set's
-  `check_commit_author` and `check_buenos_aires_dates` do) — see
+  `check_commit_author` and `check_buenos_aires_dates` did, until both became
+  one engine copy in `tools/` on 2026-10-10) — see
   [spec/PRIVATE_ENFORCEMENT_BRIEF.md](PRIVATE_ENFORCEMENT_BRIEF.md) for how
   that gap was closed.

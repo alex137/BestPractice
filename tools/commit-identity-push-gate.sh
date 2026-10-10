@@ -1,7 +1,7 @@
 #!/bin/bash
 # Claude Code adapter: PreToolUse hook that REFUSES a `git push` whose
-# history does not pass tools/checks/check_commit_author.py and
-# tools/checks/check_buenos_aires_dates.py.
+# history does not pass tools/check_commit_author.py and
+# tools/check_commit_dates.py.
 #
 # WHY THIS EXISTS (2026-09-21, practice: cite-the-incident). These two
 # checks had just lost their last enforced home, and it took two moves to
@@ -138,8 +138,9 @@ crashed=""
 # only the first finding hides half the picture and invites fixing one
 # value and re-running. This is commit-identity.yml's own `!cancelled()`
 # reasoning, carried over intact.
-for check in check_commit_author check_buenos_aires_dates; do
-    script="$project_dir/tools/checks/$check.py"
+# Engine files in tools/ since 2026-10-10, vendored with this hook.
+for check in check_commit_author check_commit_dates; do
+    script="$project_dir/tools/$check.py"
     [[ -f "$script" ]] || continue
     set +e
     out="$(cd "$project_dir" && python3 "$script" 2>&1)"
