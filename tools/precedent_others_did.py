@@ -359,12 +359,18 @@ def _block(repo_name, since_text, others, unsure):
     lines = [f'WHAT OTHERS DID IN {repo_name} {since_text} '
              f'-- {len(others) + len(unsure)} commit(s) by people other than you.',
              '',
-             'OPEN YOUR FIRST REPLY WITH THIS, before answering the question: a '
-             "short summary in What's New style -- about three bullets, each "
-             'opening with its key phrase in bold, saying who did it and what '
-             'it changes for the person, any change to a rule or to how sessions '
-             'behave always named -- then answer. Say it once; it is not repeated '
-             'in later replies (the others-did practice, in the ladder set).',
+             'OPEN YOUR FIRST REPLY WITH THE THREE OR FOUR MOST IMPORTANT THINGS '
+             'HERE, NEVER THE WHOLE LIST, before answering the question: three '
+             "or four bullets in What's New style, each opening with its key phrase "
+             'in bold, saying who did it and what it changes for the person. '
+             'Pick by what changes for them; a change to a rule or to how '
+             'sessions behave always makes the cut. Leave the rest out: the '
+             'person can ask for more. Then answer. Say it once; it is not '
+             'repeated in later replies (the others-did practice, in the ladder '
+             'set; Morgan, 2026-10-10: "It should not list EVERYTHING, just the '
+             'three or four most important things").',
+             '',
+             'The commits, to choose from -- not to copy into the reply:',
              '']
     by_who = {}
     for sha, who, subject in others:
