@@ -51280,6 +51280,102 @@ print(json.dumps(ln.file_failure(ln.ROOT, 'Landing failed: feat/x', 'push reject
     check(f'a failure item lists the index it creates ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_global_pre_push_refuses_a_tree_the_check_failed():
+    """A tree the push check last failed is refused by the global pre-push.
+
+    2026-10-10: a session rooted in one repository worked in another as an
+    attached clone. That repository's harness hooks never loaded, its push
+    gate among them, and a push went through right after
+    precedent_push_check printed "FAILED -- changed_practice ... do not push
+    past it". The check now writes the failed tree down in the git
+    directory, and the global pre-push hook (every repository, any
+    harness) refuses that tree until a pass clears it. The fixture runs the
+    real push check with stub checks, and the hook commit-identity.sh
+    writes.
+    """
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = {**_fixture_git_env(), 'HOME': str(tmp / 'home'),
+               'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        (tmp / 'home').mkdir()
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        g = lambda cwd, *a, **e: subprocess.run(
+            ['git', '-C', str(cwd), *a], capture_output=True, text=True,
+            env={**env, **e})
+        bare, work = tmp / 'origin.git', tmp / 'work'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        g(tmp, 'init', '-q', '-b', 'main', str(work))
+        (work / 'tools').mkdir()
+        for f in ('precedent_push_check.py', 'precedent_branches.py',
+                  'precedent_merge_check.py'):
+            shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                'import pathlib, sys\n'
+                + ('print("precedent_check: 3 passed, 0 violated")\n'
+                   if t == 'precedent_check' else '')
+                + f'sys.exit(1 if pathlib.Path("FAIL").exists() and "{t}" == "doc_lint" else 0)\n',
+                encoding='utf-8')
+        (work / '.gitignore').write_text('FAIL\n__pycache__/\n', encoding='utf-8')
+        (work / 'a.md').write_text('a\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'base')
+        g(work, 'remote', 'add', 'origin', f'file://{bare}')
+        g(work, 'push', '-q', 'origin', 'main')
+        hooks = tmp / 'hooks'
+        subprocess.run(['bash', str(ROOT / 'tools' / 'commit-identity.sh')],
+                       capture_output=True, text=True, timeout=120,
+                       env=dict(env, CLAUDE_PROJECT_DIR=str(work),
+                                PRECEDENT_COMMIT_NAME='T',
+                                PRECEDENT_COMMIT_EMAIL='t@example.com',
+                                PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                                PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                                PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+        g(work, 'config', 'core.hooksPath', str(hooks))
+        g(work, 'checkout', '-q', '-b', 'feature')
+        (work / 'b.md').write_text('b\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'work', '--no-verify')
+        (work / 'FAIL').write_text('1', encoding='utf-8')
+        pc = lambda: subprocess.run([sys.executable, 'tools/precedent_push_check.py'],
+                                    cwd=str(work), capture_output=True, text=True,
+                                    env=env, timeout=300)
+        r = pc()
+        cases.append(('the fixture push check really fails',
+                      r.returncode != 0 and 'FAILED' in r.stdout, r.stdout[-400:]))
+        p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature')
+        cases.append(('THE DISCRIMINATING CASE: a push of the tree that just '
+                      'failed is refused, naming the failed check',
+                      p.returncode != 0 and 'precedent_push_check FAILED on exactly '
+                      'this tree' in p.stderr and 'doc_lint' in p.stderr
+                      and not g(work, 'ls-remote', 'origin', 'feature').stdout.strip(),
+                      p.stderr[-500:]))
+        p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature',
+              PRECEDENT_SKIP_FAILED_TREE='1')
+        cases.append(('PRECEDENT_SKIP_FAILED_TREE=1 lets one push through, and says so',
+                      p.returncode == 0 and 'SKIPPED' in p.stderr, p.stderr[-400:]))
+        (work / 'c.md').write_text('c\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'more', '--no-verify')
+        p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature')
+        cases.append(('a different tree, never checked, is not refused by this',
+                      p.returncode == 0, p.stderr[-400:]))
+        r = pc()
+        g(work, 'reset', '-q', '--hard', 'HEAD~1')
+        (work / 'FAIL').unlink()
+        r = pc()
+        p = g(work, 'push', '-f', 'origin', 'HEAD:refs/heads/feature')
+        cases.append(('once the same tree passes, it pushes',
+                      r.returncode == 0 and p.returncode == 0,
+                      r.stdout[-300:] + p.stderr[-300:]))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the global pre-push refuses a tree the push check failed '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
 def check_landed_check_names_the_tier_that_ran():
     """After a merge, the line says whether the base moved from the trees,
     and names the check that actually ran.
@@ -73605,6 +73701,7 @@ def main():
     check_landed_check_names_the_tier_that_ran()
     check_landers_wait_their_turn_for_the_lock()
     check_a_failure_item_lists_the_index_it_creates()
+    check_global_pre_push_refuses_a_tree_the_check_failed()
     check_writing_checks_leave_a_declared_record_as_filed()
     check_vocabulary_lets_a_local_practice_name_a_local_script()
     check_doc_lint_leaves_a_received_practice_to_its_source()
