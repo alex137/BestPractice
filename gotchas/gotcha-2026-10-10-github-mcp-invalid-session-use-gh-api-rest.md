@@ -10,8 +10,8 @@ retires_when:    "the GitHub tools stop failing with invalid session in cloud se
 
 In a Claude Code cloud session, every GitHub tool call fails with
 "invalid session": creating a pull request, listing them, merging one. The
-Promote and Produce steps say to open a pull request and merge it "with the
-merge tool", and there is no tool that works.
+step that moves work up to main says to open a pull request and merge it
+"with the merge tool", and there is no tool that works.
 
 `gh pr create` and `gh pr list` fail too, with "HTTP 403: GitHub GraphQL is
 not available from Claude Code sessions; use the REST API".
@@ -30,10 +30,10 @@ REST and the GraphQL refusal were measured in that second session.
 
 When the GitHub tools fail, use REST through `gh api`. Never use `gh pr ...`:
 
-    # open the pull request the Promote named
+    # open the pull request the tool named
     gh api repos/OWNER/REPO/pulls -f title="Promote staging into main" \
         -f head=BRANCH -f base=main -f body="..."
-    # merge it at the head commit the Promote printed, all 40 characters
+    # merge it at the head commit the tool printed, all 40 characters
     gh api -X PUT repos/OWNER/REPO/pulls/NUMBER/merge \
         -f merge_method=merge -f sha=FULL_40_CHARACTER_SHA
 
