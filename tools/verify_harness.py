@@ -27154,6 +27154,24 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'an order with a past participle in it':
             'Push the merged branch to main.\n' + stop,
     })
+    # 2026-10-10, a Prompt Please for a workflow fix: a present-tense
+    # description of the event a workflow reacts to is no order. The verb
+    # is what makes one, so the same nouns after "Open a" still fire.
+    clean.update({
+        'THE BUG: a workflow trigger described, across two sentences':
+            'The step should run only on main itself, after a push, never a '
+            'pull request. Today it also fires on a pull request into main.',
+        'a condition: after every push to main':
+            'The check runs after every push to main.',
+    })
+    must_fire.update({
+        'an order whose object follows "Open a"':
+            'Open a PR into main once the checks pass.',
+        'an order that names the event as its timing':
+            'Merge it after a push to main.',
+        'a described event beside an order, in one sentence':
+            'It fires on a pull request into main, so merge it into main.',
+    })
     clean.update({
         'narration in a block that ends at the feature branch':
             'SITUATION\n' + told + '\n' + stop,
