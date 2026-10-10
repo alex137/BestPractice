@@ -60933,6 +60933,95 @@ def check_reply_gate_refreshes_the_landing_branch():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_reply_gate_counts_staging_as_a_landing_branch():
+    """In a repo whose landing branch is staging, work merged into staging
+    has landed: the reply gate prints no NOT YET LANDED line for it, and
+    says instead that staging is ahead of main.
+
+    THE INCIDENT (2026-10-10, a consumer). Its second Update Vendors retired
+    pre-staging and set landing_branch to staging. A branch merged into
+    staging still read "NOT YET LANDED ... NOT on 'main'", and the reply
+    check, reading the same lines, refused "You can archive this session"
+    for work already landed; the gentle "a Promote can move them" line was
+    computed only for pre-staging. The DISCRIMINATING CASE is the second;
+    the first is the control that the branch is still reported before its
+    merge. The fixture owns its repositories and its session id."""
+    import tempfile
+    import precedent_gate as pg
+    name = 'the reply gate counts staging as a landing branch'
+    cases = []
+    saved = {k: os.environ.get(k) for k in
+             ('PRECEDENT_USER_CONFIG', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM')}
+    saved_sid = pg._this_session_id
+    import precedent_resolve as _pr
+    saved_ladder = os.environ.get(_pr.ASSUME_LADDER_ENV)
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        for k in saved:
+            os.environ[k] = env[k]
+        # On the ladder, as the person in the incident was: off it, work
+        # lands on main by design and staging is not a landing branch.
+        os.environ[_pr.ASSUME_LADDER_ENV] = '1'
+        pg._this_session_id = lambda: ''       # every commit here is "ours"
+        try:
+            def git(cwd, *a):
+                return subprocess.run(['git', '-C', str(cwd), *a],
+                                      capture_output=True, text=True, env=env)
+
+            def write(repo, path, text):
+                (repo / path).write_text(text, encoding='utf-8')
+                git(repo, 'add', path)
+                git(repo, 'commit', '-q', '-m', f'edit {path}')
+
+            bare = tmp / 'origin.git'
+            git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+            repo = tmp / 'repo'
+            git(tmp, 'init', '-q', '-b', 'main', str(repo))
+            write(repo, 'precedent.json', json.dumps(
+                {'base_branch': 'main', 'landing_branch': 'staging',
+                 'staging_branch': 'staging', 'sources': []}))
+            git(repo, 'remote', 'add', 'origin', f'file://{bare}')
+            git(repo, 'push', '-q', '-u', 'origin', 'main')
+            git(repo, 'push', '-q', 'origin', 'main:staging')
+            git(repo, 'fetch', '-q', 'origin')
+            git(repo, 'checkout', '-q', '-b', 'feature')
+            write(repo, 'b.txt', 'b\n')
+            git(repo, 'push', '-q', '-u', 'origin', 'feature')
+            got = pg._unlanded_work(repo, siblings=False)
+            cases.append(("CONTROL: before the merge, the branch is reported as "
+                          "not on staging",
+                          any("'staging'" in l and 'feature' in l for l in got),
+                          str(got)))
+
+            other = tmp / 'other'
+            git(tmp, 'clone', '-q', '-b', 'staging', f'file://{bare}', str(other))
+            git(other, 'merge', '-q', '--no-ff', '-m', 'merge feature',
+                'origin/feature')
+            git(other, 'push', '-q', 'origin', 'staging')
+            git(repo, 'fetch', '-q', 'origin')
+            got = pg._unlanded_work(repo, siblings=False)
+            cases.append(('THE DISCRIMINATING CASE: merged into staging, the '
+                          'branch is not reported as unlanded',
+                          not any('feature' in l for l in got), str(got)))
+            cases.append(("...and the gate says staging is ahead of 'main'",
+                          any("staging is 1 commit(s) ahead of 'main'" in l
+                              for l in got), str(got)))
+        finally:
+            pg._this_session_id = saved_sid
+            if saved_ladder is None:
+                os.environ.pop(_pr.ASSUME_LADDER_ENV, None)
+            else:
+                os.environ[_pr.ASSUME_LADDER_ENV] = saved_ladder
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+    failed = [f'{n} [{d}]' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_not_binding_actually_exempts_a_check():
     """A `not_binding` entry has to change the RUN, not just the
     reachability report.
@@ -72450,6 +72539,7 @@ def main():
     check_audit_says_where_a_moved_bootstrap_section_went()
     check_push_check_walks_every_commit_it_publishes()
     check_rename_links_spares_a_longer_path_and_manifest_notes()
+    check_reply_gate_counts_staging_as_a_landing_branch()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_landed_reduction_quiets_the_reduction_ask()
