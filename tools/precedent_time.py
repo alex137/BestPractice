@@ -41,7 +41,7 @@ registry-source-of-truth).
      fallback, in case there is no defined individual timezone defined"
      (strength: decided). What the morning change was right about stays:
      his zone is not AUDITED against a shared repo's history, where other
-     people's commits live (check_buenos_aires_dates.py stands down
+     people's commits live (check_commit_dates.py stands down
      outside an individual source). It is only applied to his own records.
   4. TZ in the environment          — the harness `env` block, itself derived
                                       from identity.json at session start
