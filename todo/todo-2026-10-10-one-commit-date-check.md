@@ -52,7 +52,7 @@ copies differ. It keeps both copies and only catches drift after the fact.
 
 ## Notes
 
-- 2026-10-10: raised after the VoiceDef merge-gate fix
+- 2026-10-10: raised after a consumer's merge-gate fix
   (BestPractice branch `2026-10-10-rerun-and-github-merge-dates-y1ktn`,
   precedent-individual branch `2026-10-10-github-merge-dates-y1ktn`).
   Morgan asked whether there should be one shared date check.
