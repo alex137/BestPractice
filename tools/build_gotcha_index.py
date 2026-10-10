@@ -128,6 +128,19 @@ def render_index_md(items):
     return '\n'.join(lines).rstrip() + '\n'
 
 
+
+def register_outputs(repo):
+    """List this tool's outputs in the repository's own
+    tools/generated_files.json when it keeps one (precedent_regenerate.
+    register says why). -> the paths added. An engine too old to carry the
+    helper lists nothing, as before."""
+    try:
+        import precedent_regenerate as rg
+    except ImportError:
+        return []
+    return rg.register(repo, rg.own_entries('tools/build_gotcha_index.py', ['gotchas/INDEX.md'],
+                                            'gotchas/gotcha-*.md'))
+
 def main(argv):
     repo = ROOT
     check = False
@@ -167,6 +180,8 @@ def main(argv):
     print(f'build_gotcha_index: wrote {out_path.relative_to(repo)} from '
           f'{live_n} live entr{"y" if live_n == 1 else "ies"} '
           f'({len(items) - live_n} retired, not listed).')
+    for rel in register_outputs(repo):
+        print(f'  tools/generated_files.json: now lists {rel}')
     return 0
 
 

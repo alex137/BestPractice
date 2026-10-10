@@ -18,13 +18,16 @@ permissions already allow; it changes nothing but the path.
 
 For each branch `land_queue.py next` names, it:
 
-1. marks it `landing`, fetches it, and merges the commit that was queued
+1. waits its turn for the lock Promote and --land take (the branch
+   precedent-promote-lock; a busy lock is waited out, up to ten minutes),
+   then marks it `landing`, fetches it, and merges the commit that was queued
    (never a later one) into the trunk with `--no-ff`; a conflict confined
    to the generated lists it may rebuild is rebuilt, any other fails;
 2. runs the repository's own gates;
 3. resyncs the practice views, as a commit of its own if they moved;
 4. runs the push check until it leaves no check-ledger files changed;
-5. pushes the trunk, and on a rejected push starts that branch over on the
+5. pushes the trunk, and on a rejected push (someone pushed without the
+   lock) waits a few jittered seconds and starts that branch over on the
    new trunk, at most three times;
 6. confirms by a fresh fetch that the merge commit is on the trunk, and
    only then marks the branch `landed`.
@@ -256,6 +259,43 @@ def prepare(repo, bestpractice, detached=False):
                check=False).returncode == 0
 
 
+@contextlib.contextmanager
+def landing_lock(repo, what):
+    """Hold the lock Promote and --land take (precedent_branches.py,
+    wait_for_landing_lock) for one landing, waiting while another window
+    holds it. Yields None once held, or when the lock cannot be used at all
+    (the landing goes ahead as before); yields the holder when it stayed
+    held past the wait, and the caller lands nothing. Master is reset to
+    origin's after the claim, so the landing starts from the trunk as it is
+    once the turn is ours."""
+    try:
+        import precedent_branches as pb
+    except Exception as e:  # noqa: BLE001
+        log(f"landing lock not used: precedent_branches did not import ({e})")
+        yield None
+        return
+    state, info = pb.wait_for_landing_lock(repo, what, log)
+    if state == "busy":
+        yield info
+        return
+    if state == "none":
+        log(f"landing lock not used: {info}")
+    reset_to_origin(repo)
+    try:
+        yield None
+    finally:
+        if state == "held":
+            pb.release_hold(repo, info)
+
+
+def retry_pause(attempt, sleep=time.sleep):
+    """A short, jittered wait before starting over on a moved trunk, so a
+    push that keeps losing to one that does not take the lock is not retried
+    in step with it."""
+    import random
+    sleep(min(5 * 2 ** (attempt - 1), 30) * (0.5 + random.random()))
+
+
 def reset_to_origin(repo):
     git(repo, "merge", "--abort", check=False)
     git(repo, "fetch", "-q", "origin", TRUNK)
@@ -272,7 +312,9 @@ def file_failure(repo, title, finding, closes):
             reset_to_origin(repo)
             path = open_failures.write_item(repo, title, finding, closes)
             run(repo, ["python3", "tools/build_todo_index.py"])
-            git(repo, "add", "todo")
+            # -A, not todo/: the index builder may also list its files in
+            # tools/generated_files.json, and the tree was reset just above.
+            git(repo, "add", "-A")
             git(repo, "commit", "-q", "-m", f"Open failure: {title}{TRAILER}")
         except Exception as e:  # noqa: BLE001
             log(f"could not file the failure under todo/: {e}")
@@ -325,7 +367,14 @@ def vendor_line(out):
 def update_vendors(repo, push_check, vendor_cmd):
     """Take the vendor step on master itself, and land what it committed.
     -> (ok, line, landed commit or "")."""
-    for _ in range(PUSH_TRIES):
+    with landing_lock(repo, f"Update Vendors on {TRUNK}") as held_by:
+        if held_by:
+            return False, f"vendor update: the landing lock stayed held ({held_by})", ""
+        return _update_vendors(repo, push_check, vendor_cmd)
+
+
+def _update_vendors(repo, push_check, vendor_cmd):
+    for attempt in range(1, PUSH_TRIES + 1):
         before = git(repo, "rev-parse", "HEAD").stdout.strip()
         line = vendor_line(run(repo, vendor_cmd)[1])
         log(line)
@@ -338,6 +387,8 @@ def update_vendors(repo, push_check, vendor_cmd):
         if detail != "rejected":
             return False, f"{line} -- not landed: {detail}", ""
         log("push rejected, master moved; taking the vendor step again")
+        if attempt < PUSH_TRIES:
+            retry_pause(attempt)
     return False, f"vendor update: push rejected {PUSH_TRIES} times", ""
 
 
@@ -418,6 +469,13 @@ def land_one(repo, store, rec, gates, push_check, vendor_cmd, sync_cmd=SYNC_VIEW
     git(repo, "fetch", "-q", "origin", branch, check=False)
     if git(repo, "cat-file", "-e", f"{commit}^{{commit}}", check=False).returncode != 0:
         return False, f"commit {commit[:12]} is not on origin any more (the branch was rewritten?)"
+    with landing_lock(repo, f"landing {branch} on {TRUNK}") as held_by:
+        if held_by:
+            return False, f"the landing lock stayed held ({held_by}); {TRUNK} did not move"
+        return _land_attempts(repo, branch, commit, gates, push_check, vendor_cmd, sync_cmd)
+
+
+def _land_attempts(repo, branch, commit, gates, push_check, vendor_cmd, sync_cmd):
     for attempt in range(1, PUSH_TRIES + 1):
         log(f"{branch}: merging {commit[:12]} (attempt {attempt})")
         m = git(repo, "merge", "--no-ff", "--no-edit", "-m",
@@ -451,6 +509,8 @@ def land_one(repo, store, rec, gates, push_check, vendor_cmd, sync_cmd=SYNC_VIEW
         if detail != "rejected":
             return False, detail
         log(f"{branch}: push rejected, master moved; starting over on the new master")
+        if attempt < PUSH_TRIES:
+            retry_pause(attempt)
     return False, f"push rejected {PUSH_TRIES} times; master kept moving"
 
 

@@ -693,6 +693,62 @@ def record_path(root):
     return (root / p) if p else None
 
 
+# A FAILED TREE IS NOT PUSHED (2026-10-10). A session working in a
+# repository it was not started in loads none of that repository's harness
+# hooks, push-check-gate.sh among them, and pushed a branch right after this
+# tool had printed "FAILED ... do not push past it". Nothing stopped it. A
+# failure is now written down against the tree it judged, in the git
+# directory every worktree shares, and the global pre-push hook
+# (commit-identity.sh, _write_pre_push) refuses a push of that tree, from
+# any repository, under any harness. A pass of the same tree clears it. The
+# hook runs no check itself: on a ladder push it would re-run the full
+# suite a session's own gate has already run.
+FAILED_TREES = 'precedent-push-check-failed.json'
+FAILED_TREES_KEPT = 50
+
+
+def failed_trees_path(root):
+    p = git(root, 'rev-parse', '--path-format=absolute', '--git-common-dir')
+    return Path(p) / FAILED_TREES if p else None
+
+
+def _failed_trees(path):
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def note_failed_tree(root, tree, failed):
+    """Record that `tree` failed `failed` (check names). Never raises."""
+    path = failed_trees_path(root)
+    if not (tree and path):
+        return
+    try:
+        data = _failed_trees(path)
+        data.pop(tree, None)
+        data[tree] = {'failed': list(failed),
+                      'at': time.strftime('%Y-%m-%dT%H:%M:%S%z')}
+        keep = dict(list(data.items())[-FAILED_TREES_KEPT:])
+        path.write_text(json.dumps(keep, indent=2) + '\n', encoding='utf-8')
+    except OSError:
+        pass
+
+
+def clear_failed_tree(root, tree):
+    """A pass of `tree` clears any failure recorded for it. Never raises."""
+    path = failed_trees_path(root)
+    if not (tree and path and path.is_file()):
+        return
+    data = _failed_trees(path)
+    if data.pop(tree, None) is not None:
+        try:
+            path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        except OSError:
+            pass
+
+
 def dirty_paths(root):
     """-> the repo-relative tracked paths with uncommitted changes (both
     sides of a rename), or None when git cannot say."""
@@ -2136,6 +2192,7 @@ def main(argv):
               + (' but the checks that judge commits rather than files.'
                  if history else '.'), flush=True)
         if not history:
+            clear_failed_tree(root, rec.get('tree'))
             return 0
         failed, _missing, total, findings = run(root, history, landed)
         if failed:
@@ -2146,7 +2203,9 @@ def main(argv):
                   f'({total:.0f}s). The files passed before, but a commit '
                   f'here since then did not. Fix the commit and run this '
                   f'again; do not push past it.')
+            note_failed_tree(root, rec.get('tree'), failed)
             return 1
+        clear_failed_tree(root, rec.get('tree'))
         return 0
 
     if git(root, 'rev-parse', '--is-shallow-repository') == 'true':
@@ -2230,11 +2289,15 @@ def main(argv):
         print(f'\nprecedent_push_check: FAILED -- {", ".join(failed)} '
               f'({total:.0f}s). Fix the finding and run this again; do not '
               f'push past it.')
+        # Only a tree the run judged exactly: over uncommitted edits it
+        # judged something no push sends.
+        note_failed_tree(root, tree or (tree_before if not moved else None), failed)
         return 1
     if missing:
         print(f'\nprecedent_push_check: passed, but {", ".join(missing)} '
               f'could not run here -- this repo does not carry the tool. '
               f'Refresh the vendored engine to get it.')
+    clear_failed_tree(root, tree)
     path = record_path(root)
     if reported:
         # Not recorded: the pass stood only because this push goes to a

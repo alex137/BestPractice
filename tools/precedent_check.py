@@ -9686,7 +9686,13 @@ def _repo_retired_terms(cfg_path, _ol):
     # An exempt_files entry ending in `/` exempts a directory: a
     # materialized one holds other sources' content that can share a
     # retired term by coincidence, and its file list changes every sync.
-    exempt_files = [RETIRED_VOCAB_CONFIG] + exempt_files
+    # A DECLARED RECORD KEEPS THE OLD NAMES TOO (2026-10-10, a consumer's
+    # migration record). precedent.json's record_paths is the one list of
+    # files that are records -- the citation, link and writing checks read
+    # it -- so this scrub reads it as well, and a record is declared once.
+    # exempt_files stays for what is not a record (a materialized tree, a
+    # generated index), and still works for a record listed there before.
+    exempt_files = [RETIRED_VOCAB_CONFIG] + exempt_files + _declared_record_paths()
     retired = [(t, 'this repository\'s current wording', [_retired_term_re(t)])
                for t in terms]
     out = []

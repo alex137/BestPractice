@@ -266,10 +266,7 @@ def render_todo_md(items, today):
         lines.append('(none)')
     lines.append('')
 
-    due = [it for it in open_items
-           if it.get('disposition') == 'ask' and it.get('remind_on')
-           and it.get('remind_on') <= today]
-    due.sort(key=lambda it: it.get('remind_on') or '')
+    due = due_items(open_items, today)
     lines += [f'## {_h("Due Reminders")}', '']
     if due:
         lines += ['| Item | What | Due since |', '|---|---|---|']
@@ -281,6 +278,65 @@ def render_todo_md(items, today):
     lines.append('')
 
     return '\n'.join(lines).rstrip() + '\n'
+
+
+def due_items(items, today):
+    """Open `disposition: ask` items whose `remind_on` has arrived, the
+    longest-due first: the one definition of a due reminder, read by
+    TODO.md's Due Reminders table and by the reply gate's remind() below
+    (practice: todo-reminder)."""
+    due = [it for it in items
+           if it.get('status', 'open') == 'open'
+           and it.get('disposition') == 'ask' and it.get('remind_on')
+           and it.get('remind_on') <= today]
+    due.sort(key=lambda it: it.get('remind_on') or '')
+    return due
+
+
+def remind(root, transcript=None):
+    """The reply gate's block: the longest-due reminder this conversation
+    has not shown yet, for the Boildown's Todo line, or '' when none is due.
+
+    WHY, 2026-10-10. A due reminder was listed in TODO.md's table and
+    nowhere a person looks: the Boildown's one Todo was picked by topic, so
+    four reminders sat due for 10 to 21 days without one reaching Morgan.
+    His fix: "Maybe we should have it show one BY DATE, like when something
+    is due" (strength: decided).
+
+    Once per conversation per item: a reminder whose slug any earlier reply
+    in the transcript already carries is skipped, so it is raised, not
+    nagged. It leaves the list for good when the person answers it -- done,
+    a new `remind_on`, or "Drop it" (`parked`). Local files only; a todo
+    directory this cannot read prints nothing rather than take the gate
+    down (practice: fail-gracefully)."""
+    root = pathlib.Path(root)
+    try:
+        due = due_items(load_items(root / 'todo'),
+                        precedent_time.today(root))
+    except (SystemExit, OSError, ValueError):
+        return ''
+    if not due:
+        return ''
+    shown = ''
+    if transcript and pathlib.Path(transcript).is_file():
+        try:
+            import precedent_reply_check as prc
+            shown = '\n'.join(t for _, t in
+                               (prc.assistant_timeline(transcript) or []))
+        except Exception:                                    # noqa: BLE001
+            shown = ''
+    fresh = [it for it in due if it.slug not in shown]
+    if not fresh:
+        return ''
+    it = fresh[0]
+    others = len(due) - 1
+    more = (f' {others} other reminder(s) are due too; this conversation '
+            f'raises one at a time.' if others else '')
+    return (f"DUE REMINDER (todo-reminder): the Boildown's Todo line is this "
+            f"one, by date, ahead of any pick by topic. Introduce it as \"A "
+            f"reminder you asked for, due since {it.get('remind_on')}:\", "
+            f"link it, and ask whether it is done, gets a new date, or is "
+            f"dropped: {it.title} -- todo/{it.slug}.md.{more}")
 
 
 def render_closed_md(items):
@@ -298,6 +354,19 @@ def render_closed_md(items):
     lines.append('')
     return '\n'.join(lines).rstrip() + '\n'
 
+
+
+def register_outputs(repo):
+    """List this tool's outputs in the repository's own
+    tools/generated_files.json when it keeps one (precedent_regenerate.
+    register says why). -> the paths added. An engine too old to carry the
+    helper lists nothing, as before."""
+    try:
+        import precedent_regenerate as rg
+    except ImportError:
+        return []
+    return rg.register(repo, rg.own_entries('tools/build_todo_index.py', ['todo/TODO.md', 'todo/CLOSED.md'],
+                                            'todo/todo-*.md'))
 
 def main(argv):
     repo = ROOT
@@ -350,6 +419,8 @@ def main(argv):
           f'{len(items)} item(s):')
     for path in outputs:
         print(f'  {path.relative_to(repo)}')
+    for rel in register_outputs(repo):
+        print(f'  tools/generated_files.json: now lists {rel}')
     return 0
 
 

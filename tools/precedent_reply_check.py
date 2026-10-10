@@ -84,6 +84,13 @@ The same pair may also carry, since later on 2026-10-08:
   no questions asked"), and the clause is judged. See _negated_clauses.
   An older engine ignores the key, so a source that drops its old
   line-level lookahead is stricter there, never looser.
+- `description_exempt_if_clause_preceded_by` (2026-10-10): a regex that
+  must end the clause's text just before each landing phrase in it -- a
+  preposition and an article, "on a", "after every". A clause where every
+  landing phrase is such an object describes an event or a condition
+  ("the step fires on a pull request into main") and is forgiven; the verb
+  is what makes an order, so "Open a PR into main" is still judged. See
+  _described_clauses. An older engine ignores the key, the stricter way.
 
 `require_no_bare_pattern` checks a different practice family entirely --
 rule-links and branch-links, both of which say a mentioned destination (a
@@ -928,6 +935,41 @@ def _negated_clauses(block, triggers, negator):
     return ''.join(out)
 
 
+def _described_clauses(block, triggers, before_re):
+    """-> `block` with every clause blanked in which each trigger match is
+    the object of a preposition -- "fires on a pull request into main",
+    "runs after a push to main" -- so what is left is what the block tells
+    the receiving session to do.
+
+    WHY (2026-10-10): a paste block asking for a workflow fix said the step
+    "should run only on main itself, after a push, never a pull request.
+    Today it also fires on a pull request into main". That names an event
+    a workflow reacts to; it orders nothing, and the landing rule refused
+    it. Past tense was already forgiven (_narrated_clauses); a present-tense
+    description of a condition is the same kind of thing.
+
+    `before_re` is the rule's own data: what must END the clause's text just
+    before each match ("on a ", "after every "). The verb is what makes an
+    order, so "Open a pull request into main" stays one -- "Open a" is no
+    preposition -- and "Merge it after a push to main" too, because its
+    match starts at "Merge". Strict where unsure: EVERY match in the clause
+    must be described, and a match running across a clause boundary is
+    never blanked."""
+    out, start = list(block), 0
+    bounds = [(m.start(), m.end()) for m in _CLAUSE_BOUNDARY_RE.finditer(block)]
+    bounds.append((len(block), len(block)))
+    for b_start, b_end in bounds:
+        clause = block[start:b_start]
+        matches = [m for pat in triggers
+                   for m in re.finditer(pat, clause, re.I | re.M)]
+        if clause.strip() and matches and all(
+                re.search(f'(?:{before_re})$', clause[:m.start()], re.I)
+                for m in matches):
+            out[start:b_start] = ' ' * (b_start - start)
+        start = b_end
+    return ''.join(out)
+
+
 def _clause_is_negated(clause, triggers, before_re, object_re):
     """-> True when `clause` holds a trigger match and a negator governs
     every one of them (see _negated_clauses)."""
@@ -1332,6 +1374,7 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                 continue
             stop = pair.get('narration_exempt_if_block_matches')
             negator = pair.get('negation_exempt_if_clause_negates')
+            describer = pair.get('description_exempt_if_clause_preceded_by')
             # NARRATION IS NEVER AN ORDER (2026-10-10, a consumer's root-
             # issues reply): "The update merged into staging as PR #47", in
             # a block's situation paragraph, was refused as granting landing
@@ -1353,6 +1396,8 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                     judged = _narrated_clauses(block, triggers, events_only=True)
                 if negator:
                     judged = _negated_clauses(judged, triggers, negator)
+                if describer:
+                    judged = _described_clauses(judged, triggers, describer)
                 m = _first_trigger(triggers, judged)
                 if m and not re.search(needed, block, re.I | re.M):
                     out.append({'kind': 'in_fence_paired', 'advisory': advisory,

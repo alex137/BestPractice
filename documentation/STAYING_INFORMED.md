@@ -104,13 +104,12 @@ was set aside**.
   to remind you of, and when. From that date the item counts as due, and
   it waits in the project for whoever opens it next. That's deliberate: an
   alarm set inside one conversation stops when that conversation closes.
-  **Today, due reminders are listed, not raised.** They sit together at
-  the bottom of the project's to-do list (Precedent's own is
-  [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md#due-reminders))
-  and count when you ask for *"Three Things"*. The wrap-up at the end of a
-  reply offers at most one to-do, picked because it bears on what you're
-  working on, not because its date came. To see what's due, ask *"What
-  reminders are due?"*
+  **Once it's due, the wrap-up at the end of a reply brings it up**, ahead
+  of anything picked by topic: the one that has waited longest, once per
+  conversation, until you say it's done, give it a new date, or say
+  *"Drop it"*. All the due ones are also listed together at the bottom of
+  the project's to-do list (Precedent's own is
+  [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md#due-reminders)).
 - **A practice someone wants added to your team's set** reaches you
   through the notifications you already get, if you're one of the people
   who approve those ([Adopting Precedent](ADOPTING.md)).

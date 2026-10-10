@@ -599,12 +599,21 @@ widening what sessions may run
    ```json
    {
      "terms": ["<the old repo or system's real name>", "<a retired secret name>", "..."],
-     "exempt_files": ["process/PRECEDENT_MIGRATION.md", "TODO.md", "<any file that is explicitly a historical log by its own stated purpose>"]
+     "exempt_files": ["TODO.md"]
    }
+   ```
+   and declare the migration record, and any other file that is a
+   historical log by its own stated purpose, once, in `precedent.json`:
+   ```json
+   "record_paths": [{"path": "process/PRECEDENT_MIGRATION.md", "reason": "the migration record: what moved where, kept as written"}]
    ```
    `process/PRECEDENT_MIGRATION.md` is **yours to write** — a short record
    of what this migration moved where, which pack section became which
    practice — and it is the one file where the old names may stay in full.
+   `record_paths` is the one list of records: this scrub, the citation
+   check, the link checks and the writing checks all read it, so a record
+   is declared once (2026-10-10; before that it was named in both lists,
+   and Update Vendors now moves such an entry over).
    — then run `python3 process/upstream/tools/precedent_check.py --only retired-words` (the terms) and `... --only migration-scrubs-vocabulary` (a leftover pack), and don't call this step done until both pass. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
 
    **A `/`-suffixed `exempt_files` entry exempts a whole directory**, not
