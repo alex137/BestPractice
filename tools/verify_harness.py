@@ -6930,6 +6930,49 @@ def check_update_seeds_the_session_load_registry():
                       'recorded as approved)', 'no approved_budgets' in gap
                       and 'baseline' in gap and (repo / 'tools' /
                       'session_load_budgets.json').read_text(encoding='utf-8') == mine))
+    # Morgan, 2026-10-10: "How do we AVOID this becoming a constant hassle
+    # that the user has to think about all the time?" With history to read,
+    # a registry no budget of which went up since its first commit is
+    # recorded as the baseline without asking; one that went up is named,
+    # and only the raised budget is asked about.
+    def committed(ceiling_then, ceiling_now):
+        td = tempfile.mkdtemp(prefix='budget-history-')
+        repo = pathlib.Path(td)
+        env = _fixture_git_env()
+        subprocess.run(['git', 'init', '-q', str(repo)], env=env, capture_output=True)
+        (repo / 'tools').mkdir()
+        reg = repo / 'tools' / 'session_load_budgets.json'
+        reg.write_text('{"surfaces": {"CLAUDE.md": {"ceiling": %d}}}\n'
+                       % ceiling_then, encoding='utf-8')
+        (repo / 'CLAUDE.md').write_text('word\n', encoding='utf-8')
+        subprocess.run(['git', '-C', td, 'add', '-A'], env=env, capture_output=True)
+        subprocess.run(['git', '-C', td, 'commit', '-qm', 'seed'], env=env,
+                       capture_output=True)
+        if ceiling_now != ceiling_then:
+            reg.write_text('{"surfaces": {"CLAUDE.md": {"ceiling": %d}}}\n'
+                           % ceiling_now, encoding='utf-8')
+            subprocess.run(['git', '-C', td, 'commit', '-qam', 'raise'],
+                           env=env, capture_output=True)
+        return repo, reg
+    repo, reg = committed(100, 80)
+    note = pu.approval_gap(repo) or ''
+    ap = json.loads(reg.read_text(encoding='utf-8')).get('approved_budgets') or {}
+    cases.append(('THE DISCRIMINATING CASE: a registry whose budgets only went '
+                  'down since its first commit is recorded as the baseline, '
+                  'with no question for the person',
+                  'recorded the budgets in force' in note
+                  and 'Ask the person' not in note
+                  and (ap.get('surfaces/CLAUDE.md') or {}).get('max') == 80
+                  and 'first committed' in (ap.get('surfaces/CLAUDE.md') or {})
+                  .get('approved_by', '')))
+    shutil.rmtree(repo, ignore_errors=True)
+    repo, reg = committed(100, 150)
+    note = pu.approval_gap(repo) or ''
+    cases.append(('a registry with a budget raised since its first commit is '
+                  'never filled in, and the raised budget is named',
+                  'Ask the person' in note and 'surfaces/CLAUDE.md' in note
+                  and 'approved_budgets' not in reg.read_text(encoding='utf-8')))
+    shutil.rmtree(repo, ignore_errors=True)
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
