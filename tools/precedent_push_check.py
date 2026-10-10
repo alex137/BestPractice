@@ -504,8 +504,23 @@ def repo_kind(engine=HERE):
 # carries what it runs, and so is a step calling an engine file. Any other
 # step is named by Update Vendors, once per update (the second answer of
 # approved_workflow_checks), so nobody reads a pass as covering it.
+#
+# ONLY TESTS, NEVER THE PRODUCT (2026-10-10, a consumer whose workflows ARE
+# its deliverable -- a live calendar sync run on GitHub with secrets). Its
+# Update Vendors called every step of them a missed check and said to run it
+# on every push, which would have run the live sync on every push. So a
+# workflow counts only when GitHub runs it on a change (push, pull_request,
+# merge_group), never one an entry marks `"role": "deliverable"`; a step
+# counts only when it looks like a check (its name or command says check,
+# test, lint, audit, verify or validate); and a step reading GitHub's own
+# environment (`$VAR`) is never run here, only named.
 APPROVED_WORKFLOWS_KEY = 'github_ci_approved'
-_LOCAL_STEP_RE = re.compile(r'^(python3?)\s+(tools/[\w./-]+\.py)((?:\s+[\w./=:@-]+)*)\s*$')
+DELIVERABLE_ROLE = 'deliverable'
+_LOCAL_STEP_RE = re.compile(r'^(python3?)\s+(tools/[\w./-]+\.py)(\s.*)?$')
+_CHECK_LIKE_RE = re.compile(
+    r'(?<![a-z])(check|checks|checker|test|tests|lint|linter|audit|verify|'
+    r'validate|validation|phpunit|pytest|unittest|doc_lint)(?![a-z])', re.I)
+_CHANGE_EVENTS = {'push', 'pull_request', 'pull_request_target', 'merge_group'}
 _SETUP_STEP_RE = re.compile(r'^(?:python3?\s+-m\s+pip|pip3?|echo|set|cd|export|git\s+config|true)\b')
 
 
@@ -537,6 +552,47 @@ def _workflow_commands(text):
     return out
 
 
+def _workflow_events(text):
+    """-> the set of events a workflow's `on:` names, or None when there is
+    no `on:` to read (then it is treated as running on a change)."""
+    events, seen, inside = set(), False, False
+    for line in text.splitlines():
+        body = line.split(' #', 1)[0].rstrip()
+        if not body.strip() or body.lstrip().startswith('#'):
+            continue
+        ind = len(body) - len(body.lstrip(' '))
+        if ind == 0:
+            m = re.match(r'["\']?on["\']?:\s*(.*)$', body)
+            inside = bool(m) and not m.group(1).strip()
+            if m:
+                seen = True
+                events |= set(re.findall(r'[\w-]+', m.group(1)))
+            continue
+        if inside and ind == 2:
+            m = re.match(r'\s*-?\s*["\']?([\w-]+)["\']?', body)
+            if m:
+                events.add(m.group(1))
+    return events if seen else None
+
+
+def _local_argv(cmd):
+    """-> the argv of a `python3 tools/<x>.py ARGS` line, quoted arguments
+    unquoted, or None when it is not one, cannot be split, or reads
+    GitHub's environment ($VAR), which only GitHub has."""
+    m = _LOCAL_STEP_RE.match(cmd)
+    if not m or '$' in cmd or '`' in cmd:
+        return None
+    try:
+        import shlex
+        rest = shlex.split(m.group(3) or '')
+    except ValueError:
+        return None
+    if any(t in ('|', '||', '&&', ';', '>', '>>', '<') or t.startswith(('>', '<', '|'))
+           for t in rest):
+        return None
+    return [m.group(2), *rest]
+
+
 def approved_workflow_checks(root):
     """-> (checks, unrun): `checks` [(name, argv, replaces)] for each local
     step of each workflow precedent.json's github_ci_approved keeps; `unrun`
@@ -563,15 +619,23 @@ def approved_workflow_checks(root):
     checks, unrun = [], []
     for rel in sorted(approved if isinstance(approved, dict) else []):
         wf = root / rel
-        if rel in engine_wf or not wf.is_file():
+        entry = approved.get(rel)
+        if rel in engine_wf or not wf.is_file() or (
+                isinstance(entry, dict) and entry.get('role') == DELIVERABLE_ROLE):
             continue
-        for step, cmd in _workflow_commands(wf.read_text(encoding='utf-8', errors='replace')):
-            m = _LOCAL_STEP_RE.match(cmd)
-            if m and '${{' not in cmd:
-                if m.group(2) in engine_tools:
+        text = wf.read_text(encoding='utf-8', errors='replace')
+        events = _workflow_events(text)
+        if events is not None and not events & _CHANGE_EVENTS:
+            continue            # a button or a schedule: never a change's test
+        for step, cmd in _workflow_commands(text):
+            if not (_CHECK_LIKE_RE.search(step) or _CHECK_LIKE_RE.search(cmd)):
+                continue
+            argv = _local_argv(cmd)
+            if argv:
+                if argv[0] in engine_tools:
                     continue
-                checks.append((f'workflow {Path(rel).name}: {m.group(2)}',
-                               [sys.executable, m.group(2), *m.group(3).split()],
+                checks.append((f'workflow {Path(rel).name}: {argv[0]}',
+                               [sys.executable, *argv],
                                f'its step "{step}" on GitHub'))
             elif not _SETUP_STEP_RE.match(cmd) and \
                     not any(u[:2] == (rel, step) for u in unrun):
