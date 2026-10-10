@@ -3,16 +3,16 @@ slug:              todo-2026-10-10-parallel-update-vendors-race-on-shared-clones
 kind:              analysis
 domain:            engine
 severity:          minor
-status:            open
-disposition:       ask
+status:            done
+disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        Morgan, whether to fix it now
+decision:          "All these bugs - fix them on `BP` now, if it is filed we might not get to it"
+decision_strength: decided
+waiting_on:        null
 noted:             2026-10-10
-closed:            null
+closed:            2026-10-10
 ---
 ## What
 
@@ -37,5 +37,11 @@ starts two runs against the same source clone and expects both to finish.
 
 ## Notes
 
-Not fixed in the session that found it because nobody asked for it there;
-offered to Morgan.
+Fixed 2026-10-10, the same day, on Morgan's word: the new
+[tools/precedent_clone_lock.py](../tools/precedent_clone_lock.py) holds an
+operating-system lock inside the clone's git directory, taken by the
+source-clone fetch in [tools/precedent_update.py](../tools/precedent_update.py)
+and by every set clone or pull in
+[tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py).
+A second run waits, saying so, for up to ten minutes. The harness test
+`check_clone_lock_makes_parallel_updates_wait` fails on the code before it.

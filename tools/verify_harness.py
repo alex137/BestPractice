@@ -56240,6 +56240,229 @@ def check_todo_index_refuses_an_unknown_kind():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_clone_lock_makes_parallel_updates_wait():
+    """A clone or pull of a shared set waits while another run holds that
+    clone, and the source-clone fetch in Update Vendors is held the same way.
+
+    THE INCIDENT (2026-10-10). Update Vendors started in four voice repos at
+    once: they fetch into one BestPractice clone and pull the same brought
+    sets, and one run stopped with "cannot lock ref 'refs/remotes/origin/main':
+    is at X but expected Y". Run again alone, it worked. The DISCRIMINATING
+    CASE is the first: a pull through precedent_source_bootstrap._try_sync
+    while another process holds the clone's lock finishes only after that
+    process lets go -- on the code before the lock it finished at once. The
+    others prove the lock gives way when its holder exits, times out by name
+    rather than racing, and wraps the update's own fetch.
+    The fixture owns its repositories (fixture-owns-its-state)."""
+    import importlib, io, tempfile, time
+    sys.path.insert(0, str(ROOT / 'tools'))
+    psb = importlib.import_module('precedent_source_bootstrap')
+    lock = importlib.import_module('precedent_clone_lock')
+    cases = []
+    env = {**os.environ, 'GIT_CONFIG_GLOBAL': os.devnull,
+           'GIT_CONFIG_NOSYSTEM': '1'}
+
+    def git(*a, cwd=None):
+        return subprocess.run(['git', *a], cwd=cwd, capture_output=True,
+                              text=True, env=env)
+
+    hold = ('import sys, time; sys.path.insert(0, sys.argv[1]); '
+            'import precedent_clone_lock as l\n'
+            'with l.held(sys.argv[2]):\n'
+            '    print("held", flush=True); time.sleep(float(sys.argv[3]))\n')
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        origin, clone = tmp / 'origin.git', tmp / 'set'
+        git('init', '-q', '--bare', '-b', 'main', str(origin))
+        work = tmp / 'work'
+        git('init', '-q', '-b', 'main', str(work))
+        (work / 'a.md').write_text('a\n', encoding='utf-8')
+        git('add', '.', cwd=work)
+        git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'a',
+            cwd=work)
+        git('push', '-q', str(origin), 'main', cwd=work)
+        git('clone', '-q', '-b', 'main', str(origin), str(clone))
+
+        holder = subprocess.Popen(
+            [sys.executable, '-c', hold, str(ROOT / 'tools'), str(clone), '2'],
+            stdout=subprocess.PIPE, text=True)
+        holder.stdout.readline()                      # it holds the lock now
+        start = time.monotonic()
+        ok, out = psb._try_sync(str(origin), clone, branch='main')
+        took = time.monotonic() - start
+        holder.wait()
+        cases.append(('THE DISCRIMINATING CASE: a pull while another run holds '
+                      'the clone waits for it, then succeeds',
+                      ok and took >= 1.5, f'ok={ok} took={took:.2f}s {out!r}'))
+
+        holder = subprocess.Popen(
+            [sys.executable, '-c', hold, str(ROOT / 'tools'), str(clone), '3'],
+            stdout=subprocess.PIPE, text=True)
+        holder.stdout.readline()
+        try:
+            with lock.held(clone, wait=0.5, say=io.StringIO()):
+                timed_out = ''
+        except TimeoutError as e:
+            timed_out = str(e)
+        holder.kill(); holder.wait()
+        cases.append(('a lock held past the wait raises, naming the clone, '
+                      'rather than going ahead', str(clone) in timed_out,
+                      timed_out))
+        start = time.monotonic()
+        with lock.held(clone, wait=5):
+            pass
+        cases.append(('a killed holder lets go at once -- no stale lock',
+                      time.monotonic() - start < 1, ''))
+        cases.append(('the lock lives inside the clone\'s git directory',
+                      lock.lock_path(clone) == clone / '.git' / lock.LOCK_NAME,
+                      str(lock.lock_path(clone))))
+
+    src = (ROOT / 'tools' / 'precedent_update.py').read_text(encoding='utf-8')
+    fetch = src.find("'fetch', 'origin',\n")
+    cases.append(("Update Vendors' source-clone fetch sits inside held(SOURCE)",
+                  fetch > 0 and 'with held(SOURCE):' in src[max(0, fetch - 300):fetch],
+                  ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'parallel updates wait their turn on a shared clone '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
+def check_update_rerun_rerecords_a_template_file_the_first_run_wrote():
+    """A rerun of Update Vendors re-records the manifest hash of a file
+    instantiated from a template that the first run rewrote and staged, so
+    the practice audit does not fail it as DRIFT.
+
+    THE INCIDENT (2026-10-10, two consumers). The first run rewrote
+    .claude/settings.json from its template and stopped LEFT FOR YOU. The
+    rerun counted the file as already uncommitted, not as its own output,
+    left the old hash, and the audit failed it until someone ran
+    `practice_audit.py --update-baseline --entry .claude/settings.json`.
+    The DISCRIMINATING CASE is the first: on the code before
+    this_updates_output the hash stayed stale. The second proves a file the
+    person changed between the runs is still not re-recorded.
+    The fixture owns its repository (fixture-owns-its-state)."""
+    import hashlib, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    cases = []
+    rel = '.claude/settings.json'
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp)
+        env = _fixture_git_env()
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        (repo / '.claude').mkdir()
+        (repo / rel).write_text('{"old": true}\n', encoding='utf-8')
+        old = hashlib.sha256((repo / rel).read_bytes()).hexdigest()
+        (repo / 'process').mkdir()
+        mf = repo / 'process' / 'manifest.json'
+
+        def manifest():
+            mf.write_text(json.dumps({'upstream': {'vendored_at': 'process/upstream'},
+                                      'entries': [{
+                'practice': 'claude-code-settings', 'status': 'synced',
+                'upstream_path': 'templates/harness/claude-code/settings.json',
+                'local_path': rel, 'granularity': 'file',
+                'local_sha256': old}]}, indent=2) + '\n', encoding='utf-8')
+        manifest()
+        g('add', '.'); g('commit', '-qm', 'installed')
+
+        # The first run: rewrites the file from the template, stages it, and
+        # records it as its output -- then stops LEFT FOR YOU.
+        (repo / rel).write_text('{"new": true}\n', encoding='utf-8')
+        g('add', rel)
+        pu.record_kept_output(repo, [rel])
+        # The rerun: the file is dirty before it starts.
+        before = pu.dirty_paths(repo)
+        earlier = pu.earlier_runs_output(repo, before)
+        got = pu.rebaseline_vendored_entries(
+            repo, pu.this_updates_output(repo, before, earlier))
+        new = hashlib.sha256((repo / rel).read_bytes()).hexdigest()
+        rec = json.loads(mf.read_text(encoding='utf-8'))['entries'][0]['local_sha256']
+        cases.append(('THE DISCRIMINATING CASE: the rerun re-records the hash of '
+                      'the file the first run wrote', rel in got and rec == new,
+                      f'got={got} rec={rec[:12]} file={new[:12]}'))
+
+        # The person edits the staged file between the runs.
+        manifest()
+        (repo / rel).write_text('{"new": true, "mine": 1}\n', encoding='utf-8')
+        before = pu.dirty_paths(repo)
+        earlier = pu.earlier_runs_output(repo, before)
+        got = pu.rebaseline_vendored_entries(
+            repo, pu.this_updates_output(repo, before, earlier))
+        rec = json.loads(mf.read_text(encoding='utf-8'))['entries'][0]['local_sha256']
+        cases.append(('POSITIVE CONTROL: a change the person made between the '
+                      'runs is not re-recorded', rel not in got and rec == old,
+                      f'got={got}'))
+    src = (ROOT / 'tools' / 'precedent_update.py').read_text(encoding='utf-8')
+    cases.append(('the update re-records through this_updates_output',
+                  'this_updates_output(repo, before, rep.earlier)' in src, ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a rerun re-records a template file the first run wrote '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
+def check_audit_says_where_a_moved_bootstrap_section_went():
+    """The practice audit, finding a manifest section entry's marker missing
+    from tools/bootstrap.sh and present in tools/bootstrap.local.sh, names
+    that file and the local_path to set.
+
+    THE INCIDENT (2026-10-10, a consumer). Its style-pack freshness line
+    was moved into tools/bootstrap.local.sh when the engine's template took
+    over tools/bootstrap.sh, and its manifest entry kept naming bootstrap.sh;
+    the audit warned "section_marker not found" on every run, with no hint
+    where the section went. The DISCRIMINATING CASE is the first. The second
+    proves a marker found nowhere still gets the plain warning.
+    The fixture owns its repository (fixture-owns-its-state)."""
+    import shutil, tempfile
+    cases = []
+    marker = 'process/stylepack/tools/pack_sync.py fresh'
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)],
+                       env=_fixture_git_env(), capture_output=True)
+        (repo / 'tools').mkdir()
+        for name in ('practice_audit.py', 'generated_blocks.py'):
+            shutil.copy2(ROOT / 'tools' / name, repo / 'tools')
+        (repo / 'tools' / 'bootstrap.sh').write_text('#!/bin/sh\nexit 0\n',
+                                                    encoding='utf-8')
+        (repo / 'process' / 'stylepack').mkdir(parents=True)
+
+        def run(local_text):
+            (repo / 'tools' / 'bootstrap.local.sh').write_text(local_text,
+                                                              encoding='utf-8')
+            (repo / 'process' / 'manifest_stylepack.json').write_text(json.dumps({
+                'upstream': {'repo': 'example/pack', 'vendored_at': 'process/stylepack',
+                             'scrub_blocklist': None},
+                'entries': [{'practice': 'bootstrap-freshness-stylepack',
+                             'upstream_path': 'templates/x.template',
+                             'local_path': 'tools/bootstrap.sh',
+                             'granularity': 'section', 'section_marker': marker,
+                             'status': 'synced'}]}), encoding='utf-8')
+            r = subprocess.run([sys.executable, 'tools/practice_audit.py'],
+                               cwd=str(repo), capture_output=True, text=True,
+                               env=_fixture_git_env())
+            return [l for l in (r.stdout + r.stderr).splitlines()
+                    if 'section_marker' in l]
+
+        got = run(marker + ' 2>/dev/null || true\n')
+        cases.append(('THE DISCRIMINATING CASE: the warning names '
+                      'tools/bootstrap.local.sh and the local_path to set',
+                      any('it is in tools/bootstrap.local.sh' in l
+                          and 'local_path to tools/bootstrap.local.sh' in l
+                          for l in got), got))
+        got = run('echo nothing here\n')
+        cases.append(('a marker found nowhere keeps the plain warning',
+                      got and not any('bootstrap.local.sh' in l for l in got), got))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the audit says where a moved bootstrap section went '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_landed_reduction_quiets_the_reduction_ask():
     """An over-target file whose reduction has already landed on the landing
     branch is reported as waiting on a Promote, not as needing another pass.
@@ -72074,6 +72297,9 @@ def main():
     check_engine_tools_say_which_repo_they_read()
     check_todo_index_check_survives_midnight()
     check_todo_index_refuses_an_unknown_kind()
+    check_clone_lock_makes_parallel_updates_wait()
+    check_update_rerun_rerecords_a_template_file_the_first_run_wrote()
+    check_audit_says_where_a_moved_bootstrap_section_went()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_landed_reduction_quiets_the_reduction_ask()

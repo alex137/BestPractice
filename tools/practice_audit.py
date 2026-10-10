@@ -517,7 +517,22 @@ def audit_manifest(manifest_path, update, fails, warns, pending, entries=None, m
         elif gran == 'section':
             marker = e.get('section_marker', '')
             if marker and marker not in local.read_text(encoding='utf-8', errors='ignore'):
-                warns.append(f"[{name}] section_marker not found in {e['local_path']}: '{marker}'")
+                # A repo's own session-start steps moved out of the engine's
+                # tools/bootstrap.sh into tools/bootstrap.local.sh
+                # (2026-10-01), and an entry that still names bootstrap.sh
+                # warned on every run with no hint where its section went
+                # (2026-10-10, a consumer). Say where, when it is there.
+                moved = ''
+                # joinpath, not the slash spelling: a repo need not have the
+                # file, and vendored-engine-file-refs-resolve reads that
+                # spelling as a companion the engine must ship.
+                local_sh = (ROOT / 'tools').joinpath('bootstrap.local.sh')
+                if (e['local_path'] == 'tools/bootstrap.sh' and local_sh.is_file()
+                        and marker in local_sh.read_text(encoding='utf-8', errors='ignore')):
+                    moved = (" -- it is in tools/bootstrap.local.sh, where a repo's "
+                             "own session-start steps live: set this entry's "
+                             "local_path to tools/bootstrap.local.sh")
+                warns.append(f"[{name}] section_marker not found in {e['local_path']}: '{marker}'{moved}")
 
     if update and changed:
         manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')

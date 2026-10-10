@@ -81,8 +81,6 @@ as_of: 2026-10-10
 | [`todo-2026-10-05-very-deep-check-pass-2-findings`](todo-2026-10-05-very-deep-check-pass-2-findings.md) | What the 2026-10-05 very deep check's pass 2 (mechanisms) found and did not | 5d | wait |  |
 | [`todo-2026-10-05-very-deep-check-pass-3-findings`](todo-2026-10-05-very-deep-check-pass-3-findings.md) | What the 2026-10-05 very deep check's pass 3 (does the writing hold | 5d | ask |  |
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 5d | ask |  |
-| [`todo-2026-10-10-parallel-update-vendors-race-on-shared-clones`](todo-2026-10-10-parallel-update-vendors-race-on-shared-clones.md) | Running Update Vendors on several repositories at once fails at random, | 0d | ask |  |
-| [`todo-2026-10-10-update-vendors-rerun-leaves-settings-baseline-stale`](todo-2026-10-10-update-vendors-rerun-leaves-settings-baseline-stale.md) | When Update Vendors stops with LEFT FOR YOU and the person fixes what it | 0d | ask |  |
 
 ## Verify Before External Use
 
@@ -208,8 +206,6 @@ as_of: 2026-10-10
 | [`todo-2026-10-05-very-deep-check-pass-2-findings`](todo-2026-10-05-very-deep-check-pass-2-findings.md) | What the 2026-10-05 very deep check's pass 2 (mechanisms) found and did not | 5d |
 | [`todo-2026-10-05-very-deep-check-pass-3-findings`](todo-2026-10-05-very-deep-check-pass-3-findings.md) | What the 2026-10-05 very deep check's pass 3 (does the writing hold | 5d |
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 5d |
-| [`todo-2026-10-10-parallel-update-vendors-race-on-shared-clones`](todo-2026-10-10-parallel-update-vendors-race-on-shared-clones.md) | Running Update Vendors on several repositories at once fails at random, | 0d |
-| [`todo-2026-10-10-update-vendors-rerun-leaves-settings-baseline-stale`](todo-2026-10-10-update-vendors-rerun-leaves-settings-baseline-stale.md) | When Update Vendors stops with LEFT FOR YOU and the person fixes what it | 0d |
 
 ## Open Decisions
 

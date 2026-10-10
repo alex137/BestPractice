@@ -501,6 +501,10 @@ ENGINE_FILES = [
     # manual step, after which precedent_source_credentials.py went from SET
     # to OK. The mechanism was sound; only its distribution was wrong.
     'precedent_source_bootstrap.py',
+    # The lock precedent_source_bootstrap and precedent_update take on a clone
+    # several runs share, so Update Vendors in several repos at once waits its
+    # turn instead of losing a ref lock (2026-10-10). Standard library only.
+    'precedent_clone_lock.py',
     # precedent_check.py imports it at module scope, so a vendored engine
     # without it does not degrade -- it raises ModuleNotFoundError and takes
     # the whole check run down. Found 2026-09-09 by verify_harness the moment
