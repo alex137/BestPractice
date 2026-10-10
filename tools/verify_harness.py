@@ -15094,6 +15094,122 @@ def check_main_test_failure_opens_an_issue():
     return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_main_test_pass_closes_the_issue():
+    """When main's test passes on main's CURRENT head, deep-check.yml closes
+    any open main-test-failed issue, with a comment linking the run -- from
+    the deep-check job when its run on main passed, and from the
+    already-tested job when a push to main skipped that run because the
+    same files had already passed. Never on a pull request, never on a
+    failure, never on another branch, and never when main has moved past
+    the commit this run tested.
+
+    WHY (2026-10-10, relayed from another session, checked here): issue
+    #1036 stayed open about eleven hours while main's test passed at least
+    three times, and the next session was sent to fix a green main.
+
+    The skipped-run half is this session's own addition to the relayed
+    plan: a push to main whose files already passed skips the deep-check
+    job, so a close step only there would never run on that push.
+
+    The script is run against a stand-in `gh` on PATH, so the
+    head-comparison is exercised, not matched as text.
+
+    Negative control, measured 2026-10-10 against origin/staging at
+    277bc30c: no close step in either job, and no script."""
+    import tempfile
+    wf = ROOT / '.github' / 'workflows' / 'deep-check.yml'
+    script = ROOT / 'tools' / 'close_main_test_issue.sh'
+    text = wf.read_text(encoding='utf-8') if wf.is_file() else ''
+    cases = []
+    deep = text.split('\n  deep-check:', 1)[-1]
+    tested = text.split('\n  already-tested:', 1)[-1].split('\n  deep-check:', 1)[0]
+    block = _workflow_step_block(deep, "Close the issue when main's test passes again")
+    body = '\n'.join(block)
+    cases.append(('the deep-check job has the close step', bool(block), wf.name))
+    steps = re.findall(r'^      - name:\s*(.+)$', deep, re.M)
+    cases.append(('it runs after the harness, and the failure step stays last',
+                  "Close the issue when main's test passes again" in steps
+                  and 'verification harness' in ' '.join(
+                      steps[:steps.index("Close the issue when main's test passes again")])
+                  and steps[-1] == "Open an issue when main's test fails", steps))
+    m = re.search(r'^\s+if:\s*>-?\s*\n((?:\s{10,}.*\n)+)', body + '\n', re.M) \
+        or re.search(r'^\s+if:\s*(.+)$', body, re.M)
+    expr = ' '.join(m.group(1).split()) if m else ''
+    runs = [
+        ('push', 'refs/heads/main', '', False, True),
+        ('workflow_dispatch', 'refs/heads/main', '', False, True),
+        ('pull_request', 'refs/pull/9/merge', 'main', False, False),
+        ('push', 'refs/heads/main', '', True, False),
+        ('push', 'refs/heads/feature', '', False, False),
+        ('workflow_dispatch', 'refs/heads/feature', '', False, False),
+    ]
+    for event, ref, base, failed, want in runs:
+        try:
+            got = _actions_if(expr, event, ref, base, failed) if expr else None
+        except Exception as e:                                # noqa: BLE001
+            got = f'unreadable: {e}'
+        cases.append((f'{event} on {ref}{" into " + base if base else ""}, '
+                      f'{"failed" if failed else "passed"}: '
+                      f'{"closes" if want else "does nothing"}',
+                      got is want, (expr, got)))
+    skip_block = '\n'.join(_workflow_step_block(
+        tested, 'Close the issue when these files already passed'))
+    cases.append(('the already-tested job closes it too, only when it skipped the run',
+                  "if: steps.already.outputs.skip == 'true'" in skip_block
+                  and 'close_main_test_issue.sh' in skip_block, skip_block[:300]))
+    perms = re.search(r'^    permissions:\s*\n((?:      .*\n)+)', tested, re.M)
+    got = sorted(l.strip() for l in (perms.group(1) if perms else '').splitlines()
+                 if l.strip() and not l.strip().startswith('#'))
+    cases.append(('the already-tested job adds issues: write to the two read '
+                  'permissions, and nothing else',
+                  got == ['actions: read', 'contents: read', 'issues: write'], got))
+    cases.append(('both steps run the one script and cannot turn a run red',
+                  'close_main_test_issue.sh' in body
+                  and 'continue-on-error: true' in body
+                  and 'continue-on-error: true' in skip_block, ''))
+
+    def run(head, issues, gh_fails=False):
+        with tempfile.TemporaryDirectory() as td:
+            d = pathlib.Path(td)
+            log = d / 'gh.log'
+            fake = d / 'gh'
+            fake.write_text(
+                '#!/bin/sh\n'
+                f'echo "$*" >> "{log}"\n'
+                + ('exit 1\n' if gh_fails else '')
+                + 'case "$1 $2" in\n'
+                f'  "api repos/o/r/commits/main") echo "{head}" ;;\n'
+                f'  "issue list") printf "{issues}" ;;\n'
+                'esac\nexit 0\n', encoding='utf-8')
+            fake.chmod(0o755)
+            env = dict(os.environ, PATH=f'{d}:{os.environ.get("PATH", "")}',
+                       GH_REPO='o/r', GITHUB_SHA='a' * 40, GH_TOKEN='x',
+                       RUN_URL='https://example.invalid/run/1', HOW='this run passed')
+            r = subprocess.run(['bash', str(script)], env=env,
+                               capture_output=True, text=True)
+            calls = log.read_text(encoding='utf-8') if log.is_file() else ''
+            return r.returncode, calls, r.stdout
+    if script.is_file():
+        rc, calls, out = run('a' * 40, '1036\\n')
+        cases.append(('THE DISCRIMINATING CASE: a pass on main\'s head comments with '
+                      'the run and closes the open issue',
+                      rc == 0 and 'issue comment 1036' in calls
+                      and 'https://example.invalid/run/1' in calls
+                      and 'issue close 1036 --reason completed' in calls, calls + out))
+        rc, calls, out = run('b' * 40, '1036\\n')
+        cases.append(('main moved past the commit this run tested: nothing is closed',
+                      rc == 0 and 'issue close' not in calls
+                      and 'issue list' not in calls, calls + out))
+        rc, calls, out = run('a' * 40, '', gh_fails=True)
+        cases.append(('GitHub unreachable: a warning, exit 0, nothing closed',
+                      rc == 0 and 'issue close' not in calls
+                      and '::warning::' in out, calls + out))
+    else:
+        cases.append(('tools/close_main_test_issue.sh exists', False, 'missing'))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_main_test_pass_leaves_a_git_marker():
     """When main's test passes -- on main itself or on a pull request into
     main, never otherwise -- deep-check.yml pushes refs/precedent/passed/
@@ -72193,6 +72309,9 @@ def main():
           'then', *check_main_test_failure_opens_an_issue())
     check('a passed test on main leaves a git marker any clone can read',
           *check_main_test_pass_leaves_a_git_marker())
+    check('a passed test on main\'s head closes the "main\'s test failed" issue, '
+          'from either job, never from a pull request',
+          *check_main_test_pass_closes_the_issue())
     check('session start lists an open "main\'s test failed" issue first',
           *check_session_start_lists_a_red_main_first())
     check('a deliberate alerting test is listed as a test to confirm, never as a '
