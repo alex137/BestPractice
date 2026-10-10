@@ -4328,9 +4328,12 @@ def archived_declared_sources(dest_root):
             if getattr(_gb, 'is_proxy_refusal', lambda _t: False)(msg):
                 notes.append(f'{name}: {PROXY_NOTE}')
                 continue
+            fix = getattr(_gb, 'attach_remedy', lambda *_a: '')(
+                msg, f'{m.group(1)}/{m.group(2)}')
             notes.append(f'{name}: GitHub could not say whether it is archived '
-                         f'({msg}) -- left declared; "Not Found" can mean the '
-                         f'access is gone, not the repository')
+                         + (f'-- {fix}' if fix else
+                            f'({msg}) -- left declared; "Not Found" can mean the '
+                            f'access is gone, not the repository'))
             continue
         if data.get('archived'):
             archived.add(name)
