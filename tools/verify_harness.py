@@ -59388,7 +59388,11 @@ def check_update_vendors_retires_pre_staging():
                   '\n## Next\n\nOpen a pull request into pre-staging.\n'
                   '\n## Notes\n\n2026-10-07: handoff prompt, kept as sent:\n\n'
                   '    2. **Push to `pre-staging` (Booked) refused.**\n'
-                  '\n- a list item\n    continued: push to `pre-staging`.\n')
+                  '\n- a list item\n    continued: push to `pre-staging`.\n'
+                  '\nThe bug, found 2026-10-07, read as\nfollows: Push to '
+                  '`pre-staging` (Booked) was refused.\n'
+                  '\nIts first line, "Push to `pre-staging` (Booked) refused", '
+                  'is the clue.\n')
         gotcha = 'gotchas/gotcha-2026-10-01-pushes.md'
         (work / 'gotchas').mkdir()
         (work / gotcha).write_text('# Trap\n\nPush to pre-staging failed.\n',
@@ -59609,6 +59613,15 @@ def check_update_vendors_retires_pre_staging():
                       str(retired)[:600]))
         cases.append(('an indented line that continues a list item is still '
                       'reworded', '    continued: push to `staging`.' in now, now))
+        cases.append(('a sentence dated on its first line is history on every '
+                      'line it wraps onto', 'follows: Push to `pre-staging` (Booked) '
+                      'was refused.' in now
+                      and any('AGENTS.md:27 (dated sentence, history)' in l
+                              for l in retired), str(retired)[:700]))
+        cases.append(('a phrase inside double quotes is a quotation, left as '
+                      'it was', '"Push to `pre-staging` (Booked) refused"' in now
+                      and any('AGENTS.md:29 (quotation, history)' in l
+                              for l in retired), str(retired)[:700]))
         cases.append(('a link to this repo\'s pre-staging tree is repointed',
                       'https://github.com/o/r/tree/staging/docs' in now, now))
         cases.append(('a dated line, a Story section, a mention that is no '
@@ -59682,6 +59695,16 @@ def check_update_vendors_retires_pre_staging():
                       any(w == 'pre-staging' and '--land' in why
                           and 'Nothing moved' in why
                           for w, why in res.get('left', [])), str(res)[:400]))
+
+        # --- after the run that moved it, a new mention is deliberate ---
+        # (2026-10-09, reported by another session: a note quoting the old
+        # instruction was reworded on the update after the move.)
+        import precedent_update as _pu_direct
+        cases.append(('once the switch to staging is committed, later runs '
+                      'reword nothing', not _pu_direct.rewords_this_run(work, False, False)))
+        cases.append(('the run that switches, or brings pre-staging\'s work '
+                      'in, rewords', _pu_direct.rewords_this_run(work, True, False)
+                      and _pu_direct.rewords_this_run(work, False, True)))
 
         # --- once it is gone: never made again, and nothing said ---
         git(bare, 'update-ref', '-d', 'refs/heads/pre-staging')
