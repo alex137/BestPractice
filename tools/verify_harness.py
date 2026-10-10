@@ -28934,6 +28934,8 @@ def check_others_did_counts_from_your_last_commit_and_writes_nothing_to_origin()
       and staged edit stay exactly as they were;
     - the report reaches the reply gate once; at most one report a day in a
       container, none before 07:00;
+    - it asks for the three or four most important things, never the whole
+      list (Morgan, 2026-10-10: "It should not list EVERYTHING");
     - a new container repeats the list until the person commits again (the
       cost Morgan accepted), and after that commit says nobody else did
       anything;
@@ -29063,6 +29065,11 @@ def check_others_did_counts_from_your_last_commit_and_writes_nothing_to_origin()
         cases.append(('after 07:00 it reports, counted from the last commit',
                       status == 'alert' and 'since your last commit here' in block,
                       f'{status} {lines}'))
+        cases.append(('the report asks for the three or four most important things, '
+                      'never the whole list (Morgan, 2026-10-10)',
+                      'THREE OR FOUR MOST IMPORTANT' in block
+                      and 'NEVER THE WHOLE LIST' in block
+                      and 'not to copy into the reply' in block, block[:800]))
         cases.append(("THE DISCRIMINATING CASE: a colleague's commit made before the "
                       'last commit and merged after it is reported',
                       'old commit merged late' in block, block[-600:]))
