@@ -1260,13 +1260,35 @@ _write_pre_push() {
   cat > "$1/pre-push" <<PREPUSH
 #!/bin/sh
 $marker -- GLOBAL pre-push, installed by the commit-identity hook.
-# Runs the leak gate over what the push publishes, then the repository's own
-# pre-push. Safe to delete; rewritten at every session start.
+# Refuses a tree the push check last failed, runs the leak gate over what
+# the push publishes, then the repository's own pre-push. Safe to delete;
+# rewritten at every session start.
 _input="\$(cat)"
 _top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
 _common="\$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git rev-parse --absolute-git-dir 2>/dev/null || true)"
 _own="\$_common/hooks/pre-push"
 _gate="\$_top/tools/leak_gate.py"
+# A tree the push check last FAILED is not pushed (precedent_push_check.py,
+# FAILED_TREES): the check's own "do not push past it", made to hold where
+# no harness hook runs. A pass of the same tree clears it.
+_failed="\$_common/precedent-push-check-failed.json"
+if [ -n "\$_common" ] && [ -s "\$_failed" ] && command -v python3 >/dev/null 2>&1; then
+  if [ "\${PRECEDENT_SKIP_FAILED_TREE:-}" = 1 ]; then
+    echo "pre-push: the failed-check refusal SKIPPED for this push (PRECEDENT_SKIP_FAILED_TREE=1)" >&2
+  else
+    for _sha in \$(printf '%s\\n' "\$_input" | awk 'NF == 4 { print \$2 }'); do
+      _tree="\$(git rev-parse --verify --quiet "\$_sha^{tree}" 2>/dev/null || true)"
+      [ -n "\$_tree" ] || continue
+      if _why="\$(python3 -c 'import json,sys
+d = json.load(open(sys.argv[1])).get(sys.argv[2])
+if not d: sys.exit(1)
+print(", ".join(d.get("failed") or []) + (" at " + d["at"] if d.get("at") else ""))' "\$_failed" "\$_tree" 2>/dev/null)"; then
+        echo "push refused: precedent_push_check FAILED on exactly this tree (\$_why) and has not passed on it since. Fix what it found, run python3 tools/precedent_push_check.py again, and push once it passes. PRECEDENT_SKIP_FAILED_TREE=1 lets one push through." >&2
+        exit 1
+      fi
+    done
+  fi
+fi
 if [ -n "\$_top" ] && [ -f "\$_gate" ] && command -v python3 >/dev/null 2>&1 \\
    && ! { [ -f "\$_own" ] && grep -q "Precedent leak gate" "\$_own" 2>/dev/null; }; then
   if [ "\${PRECEDENT_SKIP_LEAK_GATE:-}" = 1 ]; then

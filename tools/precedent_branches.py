@@ -2524,6 +2524,44 @@ def hold_for_landing(root, what):
     return _lock_claim(root, print, what=what)
 
 
+# A LANDING WAITS FOR THE LOCK (2026-10-10). Promote and the merge gate took
+# this lock; the two landers -- --land here and tools/land_next.py -- did
+# not. In a consumer where one session landed small edits on its landing
+# branch every thirty to sixty seconds, the queue lander's six attempts
+# across two runs all ended "push rejected": each attempt re-merged,
+# resynced and re-checked for about 25 seconds, so the branch had always
+# moved before the push. Starting over at once could never win that race,
+# and backing off alone only makes losing it slower. Holding the lock
+# from the merge to the push makes landings take turns; a busy lock is
+# waited out, never a failure, up to LOCK_WAIT_SECONDS.
+LOCK_WAIT_SECONDS = 10 * 60
+
+
+def wait_for_landing_lock(root, what, say=print, limit=LOCK_WAIT_SECONDS,
+                          sleep=None, clock=None, jitter=None):
+    """Claim the lock for a landing, waiting while another window holds it.
+    -> (state, info) as _lock_claim: ('held', commit) once claimed, to be
+    freed with release_hold; ('none', reason) when the lock cannot be used
+    at all, and the landing goes ahead without it, as before; ('busy',
+    holder) when it is still held after `limit` seconds. Each wait doubles,
+    from 5 seconds up to 30, times a random 0.5-1.5, so two waiting windows
+    do not retry in step."""
+    import random
+    sleep, clock = sleep or time.sleep, clock or time.monotonic
+    jitter = jitter or random.random
+    start, pause = clock(), 5.0
+    while True:
+        state, info = _lock_claim(root, say, what=what)
+        waited = clock() - start
+        if state != 'busy' or waited >= limit:
+            return state, info
+        nap = min(pause * (0.5 + jitter()), max(limit - waited, 0.0))
+        say(f'the landing lock is held ({info}); waiting {nap:.0f}s '
+            f'({waited:.0f}s so far, at most {limit // 60} min).')
+        sleep(nap)
+        pause = min(pause * 2, 30.0)
+
+
 def release_hold(root, held):
     """Free a hold_for_landing claim; a failure only says so (the claim
     frees itself after LOCK_STALE_SECONDS)."""
@@ -2843,11 +2881,11 @@ def _promote_run(root, say=print, to=None, work=None, fast=False,
         run = (lambda r, s, f=run, kw=kw: f(r, s, **kw))
     state, info = _lock_claim(root, say)
     if state == 'busy':
-        say(f'another window is promoting right now ({info}), so this one did '
+        say(f'another window is promoting or landing right now ({info}), so this one did '
             f'nothing. It carries what was on {PRE_STAGING} when it started; '
             f'anything pushed there since goes in the next Promote. Do not '
             f'Promote again while it runs.')
-        _verdict(f'NOT PROMOTED: another window is promoting right now ({info}); '
+        _verdict(f'NOT PROMOTED: another window is promoting or landing right now ({info}); '
                  f'do not Promote again while it runs')
         return 0
     if state == 'none':
@@ -4016,6 +4054,29 @@ def _land(root, work, label, staging, say):
     if not sha:
         say(f'{ref!r} is not a branch or commit this checkout can see.')
         return 2, f'NOT LANDED: {ref} names no branch or commit here'
+    state, info = wait_for_landing_lock(root, f'landing {label} on {staging}', say)
+    if state == 'busy':
+        say(f'NOT LANDED, and {staging} did not move: the landing lock was still '
+            f'held after {LOCK_WAIT_SECONDS // 60} minutes ({info}). Land again '
+            f'once it is free.')
+        return 1, f'NOT LANDED: the landing lock stayed held ({info})'
+    if state == 'none':
+        say(f'NOTE: could not take the landing lock ({info}); going ahead '
+            f'without it.')
+        return _land_composed(root, sha, label, staging, why, say)
+    old_handlers = _exit_cleanly_on_signal()
+    try:
+        return _land_composed(root, sha, label, staging, why, say)
+    finally:
+        _ignore_signals(old_handlers)
+        try:
+            _lock_release(root, info, say)
+        finally:
+            _restore_signals(old_handlers)
+
+
+def _land_composed(root, sha, label, staging, why, say):
+    """--land's composition, check and push, run while the lock is held."""
     _run(root, 'fetch', '-q', 'origin', staging)
     stip = _remote_tip(root, staging)
     if not stip:

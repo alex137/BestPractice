@@ -27154,6 +27154,24 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'an order with a past participle in it':
             'Push the merged branch to main.\n' + stop,
     })
+    # 2026-10-10, a Prompt Please for a workflow fix: a present-tense
+    # description of the event a workflow reacts to is no order. The verb
+    # is what makes one, so the same nouns after "Open a" still fire.
+    clean.update({
+        'THE BUG: a workflow trigger described, across two sentences':
+            'The step should run only on main itself, after a push, never a '
+            'pull request. Today it also fires on a pull request into main.',
+        'a condition: after every push to main':
+            'The check runs after every push to main.',
+    })
+    must_fire.update({
+        'an order whose object follows "Open a"':
+            'Open a PR into main once the checks pass.',
+        'an order that names the event as its timing':
+            'Merge it after a push to main.',
+        'a described event beside an order, in one sentence':
+            'It fires on a pull request into main, so merge it into main.',
+    })
     clean.update({
         'narration in a block that ends at the feature branch':
             'SITUATION\n' + told + '\n' + stop,
@@ -34974,7 +34992,7 @@ def check_promote_pre_staging():
         cases.append(('a Promote that finds the lock freshly held by another '
                       'window does nothing, says who has it, and says not to '
                       'Promote again', rc == 0
-                      and 'another window is promoting right now' in out
+                      and 'another window is promoting or landing right now' in out
                       and 'held by another window' in out
                       and tip('beta') == before
                       and lock_subject() == 'held by another window [skip ci]'))
@@ -51129,6 +51147,332 @@ def check_one_list_declares_a_record():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
+def check_landers_wait_their_turn_for_the_lock():
+    """Both landers hold the lock Promote takes, and wait while it is held.
+
+    2026-10-10, a consumer: one session landed small edits on its landing
+    branch every thirty to sixty seconds, and the queue lander's six
+    attempts over two runs all ended "push rejected; master kept moving".
+    Each attempt took about 25 seconds of merge, resync and check, then
+    started over at once, so it could never win. Neither lander took the
+    lock Promote and the merge gate already take. Now both do, from the
+    merge to the push, and a busy lock is waited out with a growing,
+    jittered pause rather than refused. The fixture: a scratch origin, a
+    second window holding the lock when the lander starts and freeing it
+    during the first wait, and a gate that records who holds the lock while
+    the lander checks.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-lock-'))
+    cases = []
+    try:
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, os, pathlib, subprocess, sys, time
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+import precedent_branches as pb
+import land_next as ln
+import land_queue
+td = pathlib.Path({str(tmp)!r})
+out = {{}}
+# The backoff on its own: busy twice, then held.
+seen, now = [], [0.0]
+states = iter([('busy', 'w1'), ('busy', 'w1'), ('held', 'c')])
+real_claim = pb._lock_claim
+pb._lock_claim = lambda root, say, what=None: next(states)
+def nap(s):
+    seen.append(s); now[0] += s
+r = pb.wait_for_landing_lock('.', 'x', say=lambda *a: None, sleep=nap,
+                             clock=lambda: now[0], jitter=lambda: 0.5)
+out['backoff'] = [r, list(seen)]
+pb._lock_claim = lambda root, say, what=None: ('busy', 'w2')
+seen.clear(); now[0] = 0.0
+r = pb.wait_for_landing_lock('.', 'x', say=lambda *a: None, limit=60, sleep=nap,
+                             clock=lambda: now[0], jitter=lambda: 0.9)
+out['gives_up'] = [r, now[0]]
+pb._lock_claim = real_claim
+# --land: a lock that never frees lands nothing; a held one is released.
+released, composed = [], []
+pb.lands_on_staging = lambda root: (True, 'fixture')
+pb._git = lambda root, *a: 'abc123' if a[0] == 'rev-parse' else ''
+pb._run = lambda root, *a, **k: subprocess.CompletedProcess(a, 0, '', '')
+pb._land_composed = lambda *a: (composed.append(a[2]), (0, 'LANDED at x'))[1]  # root, sha, label, ...
+pb.wait_for_landing_lock = lambda root, what, say: ('busy', 'held by w3')
+out['land_busy'] = [list(pb._land('.', 'feat', 'feat', 'staging', lambda *a: None)), list(composed)]
+pb.wait_for_landing_lock = lambda root, what, say: ('held', 'c9')
+pb._lock_release = lambda root, held, say: released.append(held)
+out['land_held'] = [list(pb._land('.', 'feat', 'feat', 'staging', lambda *a: None)), list(composed), released]
+import importlib; importlib.reload(pb)
+# The queue lander, end to end on a scratch origin.
+ln.report_failure = lambda *a: ''
+ln.TRUNK, ln.SHARED_CACHES, ln.LEDGERS = 'master', ('.cache',), ()
+origin, work, other = td / 'o.git', td / 'w', td / 'other'
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'master', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g = lambda *a: ln.git(work, *a)
+g('checkout', '-q', '-b', 'master')
+(work / 'base.txt').write_text('b\\n')
+(work / 'gate.py').write_text(
+    "import subprocess,pathlib\\n"
+    "subprocess.run(['git','fetch','-q','origin','precedent-promote-lock'])\\n"
+    "s=subprocess.run(['git','log','-1','--format=%s','FETCH_HEAD'],capture_output=True,text=True).stdout\\n"
+    "pathlib.Path({str(tmp / 'during')!r}).write_text(s)\\n")
+g('add', '-A'); g('commit', '-qm', 'base'); g('push', '-q', 'origin', 'master')
+g('checkout', '-q', '-b', 'feat/x'); (work / 'x.txt').write_text('x\\n')
+g('add', '-A'); g('commit', '-qm', 'x'); g('push', '-q', 'origin', 'feat/x')
+g('checkout', '-q', 'master')
+subprocess.run(['git', 'clone', '-q', str(origin), str(other)], capture_output=True)
+os.environ['PRECEDENT_SESSION_NAME'] = 'other window'
+state, held = pb._lock_claim(other, lambda *a: None)
+os.environ['PRECEDENT_SESSION_NAME'] = 'the lander'
+out['other_claimed'] = state
+waits = []
+def free_on_first_wait(s):
+    waits.append(s)
+    if len(waits) == 1:
+        pb._lock_release(other, held, lambda *a: None)
+time.sleep = free_on_first_wait
+store = land_queue._store(work)
+land_queue.request(store, 'feat/x', repo=work)
+rc = ln.land_queue_run(work, gates=[('gate', ['python3', 'gate.py'])], push_check=['true'],
+                       bestpractice=None, store=store, sync_cmd=None)
+g('fetch', '-q', 'origin', 'master', 'precedent-promote-lock')
+out['lander'] = dict(rc=rc, waits=len(waits),
+                     landed='x.txt' in g('ls-tree', '--name-only', 'origin/master').stdout,
+                     during=(td / 'during').read_text() if (td / 'during').exists() else '',
+                     after=g('log', '-1', '--format=%s', 'origin/precedent-promote-lock').stdout.strip())
+print(json.dumps(out))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=180)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-600:]
+        b = out.get('backoff') or [[None], []]
+        cases.append(('a busy lock is waited out: two waits, then it is held',
+                      b[0] == ['held', 'c'] and len(b[1]) == 2, why if not out else str(b)))
+        cases.append(('each wait is longer than the last (5s, then 10s, at the '
+                      'middle of the jitter)', b[1] == [5.0, 10.0], str(b[1])))
+        gu = out.get('gives_up') or [[None], 0]
+        cases.append(('a lock held past the limit returns busy, and the waits '
+                      'never run past the limit', gu[0] == ['busy', 'w2'] and gu[1] <= 60,
+                      str(gu)))
+        lb = out.get('land_busy') or [[None, ''], ['?']]
+        cases.append(('--land with the lock still held lands nothing and says '
+                      'why', lb[0][0] == 1 and 'landing lock' in lb[0][1] and lb[1] == [],
+                      str(lb)))
+        lh = out.get('land_held') or [[None], [], []]
+        cases.append(('--land with the lock held by itself lands, and frees '
+                      'the lock after', lh[0][0] == 0 and lh[1] == ['feat'] and lh[2] == ['c9'],
+                      str(lh)))
+        ld = out.get('lander') or {}
+        cases.append(('the queue lander waits while another window holds the '
+                      'lock, then lands', out.get('other_claimed') == 'held'
+                      and ld.get('rc') == 0 and ld.get('landed') and ld.get('waits', 0) >= 1,
+                      str(ld) or why))
+        cases.append(('...holding the lock itself while its gate runs',
+                      'held by the lander' in ld.get('during', '')
+                      and 'landing feat/x on master' in ld.get('during', ''),
+                      ld.get('during', '')))
+        cases.append(('...and frees it once it has landed',
+                      ld.get('after', '').startswith('free'), ld.get('after', '')))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'landers wait their turn for the lock ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_a_failure_item_lists_the_index_it_creates():
+    """Filing the first open item in a repo lists the index files it makes.
+
+    2026-10-10, a consumer with no todo/ yet: the lander filed each failed
+    landing as an open item, build_todo_index.py wrote todo/TODO.md and
+    todo/CLOSED.md, and the push check refused them -- "say they are
+    generated by tools/build_todo_index.py and are not listed in
+    tools/generated_files.json". The failure record was lost and nothing
+    was filed. The builders now list their own outputs in the repo's list,
+    and the lander commits that list with the item. The fixture runs the
+    lander's own failure path on a scratch consumer, against the real
+    generated-files check.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-failure-item-'))
+    cases = []
+    try:
+        origin, work = tmp / 'o.git', tmp / 'w'
+        env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-config.json'))
+        def git(*a, cwd=work):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env)
+        git('init', '-q', '--bare', '-b', 'main', str(origin), cwd=tmp)
+        git('clone', '-q', str(origin), str(work), cwd=tmp)
+        git('checkout', '-q', '-b', 'main')
+        shutil.copytree(ROOT / 'tools', work / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__', 'verify_harness.py'))
+        (work / 'tools' / 'generated_files.json').write_text(
+            json.dumps({'files': []}) + '\n', encoding='utf-8')
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        (work / 'precedent.json').write_text('{}\n', encoding='utf-8')
+        (work / '.gitignore').write_text('__pycache__/\n', encoding='utf-8')
+        git('add', '-A'); git('commit', '-qm', 'base'); git('push', '-q', 'origin', 'main')
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, sys
+sys.path.insert(0, {str(work / 'tools')!r})
+import land_next as ln
+ln.TRUNK = 'main'
+ln.BASIC_CHECK = [sys.executable, 'tools/precedent_check.py', '--only',
+                  'generated-files-registered']
+print(json.dumps(ln.file_failure(ln.ROOT, 'Landing failed: feat/x', 'push rejected 3 times',
+                                 'feat/x lands')))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True, text=True,
+                           cwd=str(work), env=env, timeout=300)
+        filed = (p.stdout.strip().splitlines() or ['""'])[-1]
+        why = (p.stdout + p.stderr)[-500:]
+        git('fetch', '-q', 'origin', 'main')
+        on = git('ls-tree', '-r', '--name-only', 'origin/main').stdout.split()
+        listed = json.loads(git('show', 'origin/main:tools/generated_files.json').stdout
+                            or '{"files": []}')['files']
+        cases.append(('the lander files the failure item on a repo with no todo/ yet',
+                      filed.strip('"').startswith('todo/') and 'todo/TODO.md' in on
+                      and 'todo/CLOSED.md' in on, why))
+        cases.append(('...and the repo\'s own list now names both index files',
+                      {e['path'] for e in listed} >= {'todo/TODO.md', 'todo/CLOSED.md'},
+                      str(listed)))
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'generated-files-registered'], capture_output=True,
+                           text=True, cwd=str(work), env=env, timeout=300)
+        cases.append(('the generated-files check passes on what was pushed',
+                      r.returncode == 0 and ' 0 violated' in r.stdout, r.stdout[-400:]))
+        before = (work / 'tools' / 'generated_files.json').read_text()
+        subprocess.run([sys.executable, 'tools/build_todo_index.py'], cwd=str(work),
+                       env=env, capture_output=True)
+        cases.append(('a second build lists nothing twice',
+                      (work / 'tools' / 'generated_files.json').read_text() == before, ''))
+        (work / 'gotchas').mkdir()
+        g = subprocess.run([sys.executable, 'tools/build_gotcha_index.py'], cwd=str(work),
+                           env=env, capture_output=True, text=True)
+        names = {e['path'] for e in json.loads(
+            (work / 'tools' / 'generated_files.json').read_text())['files']}
+        cases.append(('the gotcha index lists itself the same way',
+                      'gotchas/INDEX.md' in names, g.stdout[-300:]))
+        bare = tmp / 'nolist'
+        shutil.copytree(work / 'tools', bare / 'tools')
+        (bare / 'tools' / 'generated_files.json').unlink()
+        subprocess.run([sys.executable, str(bare / 'tools' / 'build_todo_index.py'),
+                        '--repo', str(bare)], env=env, capture_output=True)
+        cases.append(('a repo that keeps no list is not given one',
+                      (bare / 'todo' / 'TODO.md').is_file()
+                      and not (bare / 'tools' / 'generated_files.json').exists(), ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a failure item lists the index it creates ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_global_pre_push_refuses_a_tree_the_check_failed():
+    """A tree the push check last failed is refused by the global pre-push.
+
+    2026-10-10: a session rooted in one repository worked in another as an
+    attached clone. That repository's harness hooks never loaded, its push
+    gate among them, and a push went through right after
+    precedent_push_check printed "FAILED -- changed_practice ... do not push
+    past it". The check now writes the failed tree down in the git
+    directory, and the global pre-push hook (every repository, any
+    harness) refuses that tree until a pass clears it. The fixture runs the
+    real push check with stub checks, and the hook commit-identity.sh
+    writes.
+    """
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = {**_fixture_git_env(), 'HOME': str(tmp / 'home'),
+               'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        (tmp / 'home').mkdir()
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        g = lambda cwd, *a, **e: subprocess.run(
+            ['git', '-C', str(cwd), *a], capture_output=True, text=True,
+            env={**env, **e})
+        bare, work = tmp / 'origin.git', tmp / 'work'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        g(tmp, 'init', '-q', '-b', 'main', str(work))
+        (work / 'tools').mkdir()
+        for f in ('precedent_push_check.py', 'precedent_branches.py',
+                  'precedent_merge_check.py'):
+            shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                'import pathlib, sys\n'
+                + ('print("precedent_check: 3 passed, 0 violated")\n'
+                   if t == 'precedent_check' else '')
+                + f'sys.exit(1 if pathlib.Path("FAIL").exists() and "{t}" == "doc_lint" else 0)\n',
+                encoding='utf-8')
+        (work / '.gitignore').write_text('FAIL\n__pycache__/\n', encoding='utf-8')
+        (work / 'a.md').write_text('a\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'base')
+        g(work, 'remote', 'add', 'origin', f'file://{bare}')
+        g(work, 'push', '-q', 'origin', 'main')
+        hooks = tmp / 'hooks'
+        subprocess.run(['bash', str(ROOT / 'tools' / 'commit-identity.sh')],
+                       capture_output=True, text=True, timeout=120,
+                       env=dict(env, CLAUDE_PROJECT_DIR=str(work),
+                                PRECEDENT_COMMIT_NAME='T',
+                                PRECEDENT_COMMIT_EMAIL='t@example.com',
+                                PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                                PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                                PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+        g(work, 'config', 'core.hooksPath', str(hooks))
+        g(work, 'checkout', '-q', '-b', 'feature')
+        (work / 'b.md').write_text('b\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'work', '--no-verify')
+        (work / 'FAIL').write_text('1', encoding='utf-8')
+        pc = lambda: subprocess.run([sys.executable, 'tools/precedent_push_check.py'],
+                                    cwd=str(work), capture_output=True, text=True,
+                                    env=env, timeout=300)
+        r = pc()
+        cases.append(('the fixture push check really fails',
+                      r.returncode != 0 and 'FAILED' in r.stdout, r.stdout[-400:]))
+        p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature')
+        cases.append(('THE DISCRIMINATING CASE: a push of the tree that just '
+                      'failed is refused, naming the failed check',
+                      p.returncode != 0 and 'precedent_push_check FAILED on exactly '
+                      'this tree' in p.stderr and 'doc_lint' in p.stderr
+                      and not g(work, 'ls-remote', 'origin', 'feature').stdout.strip(),
+                      p.stderr[-500:]))
+        p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature',
+              PRECEDENT_SKIP_FAILED_TREE='1')
+        cases.append(('PRECEDENT_SKIP_FAILED_TREE=1 lets one push through, and says so',
+                      p.returncode == 0 and 'SKIPPED' in p.stderr, p.stderr[-400:]))
+        (work / 'c.md').write_text('c\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'more', '--no-verify')
+        p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature')
+        cases.append(('a different tree, never checked, is not refused by this',
+                      p.returncode == 0, p.stderr[-400:]))
+        r = pc()
+        g(work, 'reset', '-q', '--hard', 'HEAD~1')
+        (work / 'FAIL').unlink()
+        r = pc()
+        p = g(work, 'push', '-f', 'origin', 'HEAD:refs/heads/feature')
+        cases.append(('once the same tree passes, it pushes',
+                      r.returncode == 0 and p.returncode == 0,
+                      r.stdout[-300:] + p.stderr[-300:]))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the global pre-push refuses a tree the push check failed '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 def check_landed_check_names_the_tier_that_ran():
     """After a merge, the line says whether the base moved from the trees,
@@ -72507,6 +72851,75 @@ def check_todo_gotcha_stale_reference_fires():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_due_reminder_reaches_the_reply():
+    """build_todo_index.remind() -- the reply gate's DUE REMINDER block
+    (practice: todo-reminder, the-boildown item 10). Against a planted
+    todo/ (fixture-owns-its-state: every field an assertion reads is
+    written here): only an open `ask` item whose remind_on has arrived is
+    due, the longest-due is named first, one an earlier reply already
+    carries is skipped, and nothing due prints nothing."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_todo_index as bti
+
+    def item(slug, **fm):
+        fields = {'slug': slug, 'title': f'"{slug} title"', 'status': 'open',
+                  'kind': 'manual', 'noted': '2026-01-01'}
+        fields.update(fm)
+        body = ''.join(f'{k}: {v}\n' for k, v in fields.items())
+        return f'---\n{body}---\n## What\nx\n'
+
+    def run(files, replies=None):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-due-'))
+        try:
+            for name, text in files.items():
+                p = d / 'todo' / f'{name}.md'
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(text, encoding='utf-8')
+            transcript = None
+            if replies is not None:
+                transcript = d / 't.jsonl'
+                transcript.write_text(''.join(
+                    json.dumps({'type': 'assistant', 'message': {
+                        'usage': {}, 'content': [{'type': 'text', 'text': r}]}})
+                    + '\n' for r in replies), encoding='utf-8')
+            return bti.remind(d, str(transcript) if transcript else None)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    files = {
+        'todo-2026-01-01-older': item('todo-2026-01-01-older',
+                                      disposition='ask', remind_on='2020-01-02'),
+        'todo-2026-01-01-oldest': item('todo-2026-01-01-oldest',
+                                       disposition='ask', remind_on='2020-01-01'),
+        'todo-2026-01-01-future': item('todo-2026-01-01-future',
+                                       disposition='ask', remind_on='2999-01-01'),
+        'todo-2026-01-01-waiting': item('todo-2026-01-01-waiting',
+                                        disposition='wait', remind_on='2020-01-01'),
+        'todo-2026-01-01-finished': item('todo-2026-01-01-finished',
+                                         status='done', disposition='ask',
+                                         remind_on='2020-01-01'),
+    }
+    cases = []
+    out = run(files)
+    cases.append(('the longest-due open ask item is named, and counts the '
+                  'one other due', 'todo-2026-01-01-oldest.md' in out
+                  and '1 other reminder' in out, out))
+    out = run(files, ['earlier: see todo/todo-2026-01-01-oldest.md'])
+    cases.append(('an item an earlier reply already carried is skipped for '
+                  'the next one', 'todo-2026-01-01-older.md' in out, out))
+    out = run(files, ['todo-2026-01-01-oldest and todo-2026-01-01-older'])
+    cases.append(('every due item already shown prints nothing', out == '', out))
+    out = run({k: v for k, v in files.items()
+               if k not in ('todo-2026-01-01-oldest', 'todo-2026-01-01-older')})
+    cases.append(('not yet due, wait, and done items print nothing',
+                  out == '', out))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a due reminder reaches the reply gate, by date, once per '
+          f'conversation ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:200]!r}' for n, d in bad))
+
+
 def check_todo_and_gotcha_sweeps():
     """very_deep_check.py's two Part 3 sweeps -- _open_item_sweep and
     _gotcha_retirement_candidates -- against planted fixtures
@@ -73385,6 +73798,9 @@ def main():
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
     check_one_list_declares_a_record()
+    check_landers_wait_their_turn_for_the_lock()
+    check_a_failure_item_lists_the_index_it_creates()
+    check_global_pre_push_refuses_a_tree_the_check_failed()
     check_writing_checks_leave_a_declared_record_as_filed()
     check_vocabulary_lets_a_local_practice_name_a_local_script()
     check_doc_lint_leaves_a_received_practice_to_its_source()
@@ -73505,6 +73921,7 @@ def main():
     check_install_names_every_not_vendored_dir()
     check_philosophy_readme_lists_every_file()
     check_todo_gotcha_stale_reference_fires()
+    check_due_reminder_reaches_the_reply()
     check_todo_and_gotcha_sweeps()
 
     # RECAP THE FAILURES BY NAME, immediately before the summary line.

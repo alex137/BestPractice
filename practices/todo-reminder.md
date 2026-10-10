@@ -68,9 +68,16 @@ whole deep check or a named subset"* is what makes the reminder usable months
 later, by a session that was not here.
 
 **It is a reminder, not a deadline.** Nothing fires on a schedule. What the
-fields do is make the item visible to the two places that look:
-[three-things](three-things.md), which weighs marked items when choosing what
-matters now, and the **Due Reminders** table in generated
+fields do is make the item visible to the three places that look. **The
+first is the end of a reply:** once `remind_on` arrives, the reply gate
+names the longest-due reminder this conversation has not shown yet, and
+[the-boildown](the-boildown.md)'s Todo line raises it, ahead of any pick by
+topic, once per conversation, until the person answers it (done, a new
+date, or "Drop it"). Morgan, 2026-10-10 (strength: decided), after four
+reminders sat due for up to three weeks without one reaching him: *"Maybe
+we should have it show one BY DATE, like when something is due."* The
+others are [three-things](three-things.md), which weighs marked items when
+choosing what matters now, and the **Due Reminders** table in generated
 [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md)
 (built by
 [tools/build_todo_index.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_todo_index.py)),
