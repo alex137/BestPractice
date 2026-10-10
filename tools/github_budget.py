@@ -162,6 +162,24 @@ def _record_limits(headers, path):
 PROXY_REFUSAL_RE = re.compile(r'not permitted through this proxy', re.I)
 
 
+# The session proxy's answer when a repository is not attached to this
+# session with GitHub API access (2026-10-10: two Update Vendors lines said
+# GitHub "could not" answer and stopped, and the session that read them had
+# to work out the remedy itself).
+NOT_ATTACHED_RE = re.compile(r'not enabled for this session', re.I)
+
+
+def attach_remedy(text, slug):
+    """-> the one sentence that fixes a not-attached refusal, or ''.
+    A read attach is not enough: add_repo's "read" serves git fetches only,
+    and GitHub's API needs the repository attached with access "push"."""
+    if not (text and NOT_ATTACHED_RE.search(str(text))):
+        return ''
+    return (f'this session has no GitHub API access to {slug or "that repository"}: '
+            f'attach it with add_repo, access "push" (a read attach does not '
+            f'reach the API), then run this again')
+
+
 def is_proxy_refusal(text):
     """True when an error or message from call() is the session proxy's
     refusal rather than GitHub's answer."""
