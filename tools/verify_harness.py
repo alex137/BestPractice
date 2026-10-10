@@ -53238,6 +53238,161 @@ def check_install_and_update_name_the_code_owners():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_rerun_after_left_for_you_still_drops_a_deleted_set():
+    """Update Vendors, run again after a run that dropped a deleted set and
+    stopped LEFT FOR YOU, still takes the view sync's removal of what that
+    set held -- it does not refuse every rerun.
+
+    WHY. 2026-10-10, a consumer's update to BestPractice 78d970b: the first
+    run dropped precedent-shared-repo-maintenance and
+    precedent-shared-working-style from precedent.json and stopped LEFT FOR
+    YOU. The rerun found nothing left to drop, while the committed
+    MANIFEST.json still recorded their practices, so the view sync refused
+    every rerun ("source name is not among the sources precedent.json
+    declares"). removals_this_update_caused only counted a set the run in
+    hand had dropped.
+
+    Negative control, measured 2026-10-10: on staging's code the second run
+    fails on that refusal."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    fx = _LocalEditsFixture('precedent-rerun-dropped-')
+    cases = []
+    gone = 'precedent-shared-repo-maintenance'
+    try:
+        listed = {e.get('name') for e in json.loads(
+            (ROOT / 'tools' / 'deleted_sets.json').read_text(encoding='utf-8'))['sets']}
+        cases.append((f'CONTROL: {gone} is on the engine\'s deleted-set record',
+                      gone in listed, sorted(listed)))
+        repo = fx.consumer('c', {'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
+            {'level': 'shared', 'name': gone, 'path': '../gone-set'}]})
+        fx.sh(sys.executable, str(repo / 'tools' / 'precedent_sync_views.py'),
+              '--repo', str(repo), cwd=repo)
+        # What the repository held from before the set was listed: one of
+        # its practices, materialized and recorded in MANIFEST.json.
+        man = json.loads((repo / 'MANIFEST.json').read_text(encoding='utf-8'))
+        text = (ROOT / 'practices' / 'park-it.md').read_text(encoding='utf-8')
+        text = re.sub(r'^slug: .*$', 'slug: fixture-gone-rule', text, count=1, flags=re.M)
+        (repo / 'practices' / 'fixture-gone-rule.md').write_text(text, encoding='utf-8')
+        h = hashlib.sha256(text.encode()).hexdigest()[:16]
+        man['practices'].append({'level': 'shared', 'links_rewritten': False,
+                                 'sha256_16': h, 'slug': 'fixture-gone-rule',
+                                 'source': gone, 'source_sha256_16': h})
+        (repo / 'MANIFEST.json').write_text(json.dumps(man, indent=2) + '\n',
+                                            encoding='utf-8')
+        fx.commit(repo, 'held a rule from the set before it was deleted')
+        ref = fx.seeded_from(repo)
+        rc1, out1 = fx.update(repo, ref)
+        declared = [x.get('name') for x in json.loads(
+            (repo / 'precedent.json').read_text(encoding='utf-8'))['sources']]
+        cases.append(('CONTROL: the first run drops the set and stops LEFT FOR '
+                      'YOU, committing nothing',
+                      rc1 == 1 and 'LEFT FOR YOU' in out1 and gone not in declared
+                      and 'fixture-gone-rule' in out1, (rc1, out1[-1500:])))
+        rc2, out2 = fx.update(repo, ref)
+        cases.append(('the rerun takes the removal of what the dropped set held, '
+                      'instead of refusing it',
+                      'not among the sources precedent.json declares' not in out2
+                      and 'view sync failed' not in out2
+                      and not (repo / 'practices' / 'fixture-gone-rule.md').exists(),
+                      (rc2, out2[-2000:])))
+        # And each source of "dropped" on its own.
+        cases.append(('an earlier run\'s drop is in the run-to-run record',
+                      gone in pu.sets_this_update_dropped(repo, [])
+                      if hasattr(pu, 'sets_this_update_dropped') else False, ''))
+        if hasattr(pu, 'record_dropped_sets'):
+            pu.clear_pin(repo)
+            cases.append(('...and clearing the pin clears it',
+                          'dropped_sets' not in pu._read_record(repo), pu._read_record(repo)))
+            saved = pu.pve._person_sets
+            try:
+                pu.pve._person_sets = lambda: ({'listed-set': {}}, [])
+                got = pu.sets_this_update_dropped(repo, [])
+                cases.append(('a set on a deleted-set record counts, with no record '
+                              'of this run', 'listed-set' in got, got))
+                pu.pve._person_sets = lambda: ({'precedent': {}}, [])
+                cases.append(('a set precedent.json still declares never counts',
+                              'precedent' not in pu.sets_this_update_dropped(repo, []),
+                              ''))
+            finally:
+                pu.pve._person_sets = saved
+    except (OSError, ValueError, KeyError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        fx.close()
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'a rerun after LEFT FOR YOU still takes the removal of a dropped '
+          f'set\'s practices ({len(cases)} stated cases)', not bad,
+          '; '.join(bad)[:3000])
+
+
+def check_date_check_skips_commits_github_made():
+    """The commit-date check does not judge a commit GitHub itself committed
+    -- its merge button, a squash, or the test merge refs/pull/N/merge the
+    merge gate judges -- since GitHub writes those in UTC whoever the author
+    is. The person's own commit beside it is still judged, and
+    PRECEDENT_CHECK_RANGE narrows what is judged, as in the author check.
+
+    WHY. 2026-10-10, a consumer: the merge gate refused every GitHub-button
+    merge, because the test merge carried the person as author and a
+    "+0000" date. The same skip already stood in check_session_trailer.py.
+    The check's source is the individual set; this is BestPractice's copy.
+
+    Negative control, measured 2026-10-10: on staging's copy the GitHub
+    commit is a finding and the range is ignored."""
+    import tempfile
+    cases = []
+    script = ROOT / 'tools' / 'checks' / 'check_buenos_aires_dates.py'
+    zone = 'America/Argentina/Buenos_Aires'
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        env = {**_fixture_git_env(), 'PRECEDENT_COMMIT_NAME': 'harness',
+               'PRECEDENT_COMMIT_EMAIL': 'harness@example.com',
+               'PRECEDENT_COMMIT_TZ': zone, 'PRECEDENT_CHECK_ROOT': str(repo),
+               'PRECEDENT_USER_CONFIG': str(repo / 'no-config.json')}
+        env.pop('PRECEDENT_CHECK_RANGE', None)
+        g = lambda *a, **e: subprocess.run(['git', '-C', str(repo), *a],
+                                           env={**env, **e}, capture_output=True,
+                                           text=True)
+        g('init', '-q', '-b', 'main')
+        (repo / 'identity.json').write_text(json.dumps(
+            {'name': 'harness', 'email': 'harness@example.com', 'timezone': zone}),
+            encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-qm', 'identity', TZ=zone, GIT_AUTHOR_NAME='harness',
+          GIT_AUTHOR_EMAIL='harness@example.com')
+        run = lambda **e: subprocess.run([sys.executable, str(script)],
+                                         env={**env, **e}, capture_output=True,
+                                         text=True)
+        r = run()
+        cases.append(('CONTROL: the clean fixture passes', r.returncode == 0,
+                      r.stdout[-400:]))
+        (repo / 'm.txt').write_text('m\n', encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-qm', 'Merge 1234 into 5678', TZ='UTC',
+          GIT_AUTHOR_NAME='harness', GIT_AUTHOR_EMAIL='harness@example.com',
+          GIT_COMMITTER_NAME='GitHub', GIT_COMMITTER_EMAIL='noreply@github.com')
+        r = run()
+        cases.append(('a UTC commit GitHub committed is not a finding',
+                      r.returncode == 0, r.stdout[-400:]))
+        (repo / 'p.txt').write_text('p\n', encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-qm', 'own', TZ='UTC', GIT_AUTHOR_NAME='harness',
+          GIT_AUTHOR_EMAIL='harness@example.com')
+        own = g('rev-parse', '--short=12', 'HEAD').stdout.strip()
+        r = run()
+        cases.append(("the person's own UTC commit beside it still is",
+                      r.returncode == 1 and f'commit {own}' in r.stdout,
+                      r.stdout[-400:]))
+        r = run(PRECEDENT_CHECK_RANGE='HEAD~2..HEAD~1')
+        cases.append(('PRECEDENT_CHECK_RANGE narrows what is judged',
+                      r.returncode == 0, r.stdout[-400:]))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the commit-date check skips commits GitHub made and honors a range '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
+
+
 def check_update_judges_retired_sets_after_the_catalogue():
     """Update Vendors judges a retired set after the catalogue update, and
     takes the view sync's removals when every one came from a set it dropped
@@ -53280,7 +53435,8 @@ def check_update_judges_retired_sets_after_the_catalogue():
                           ok + " whose source is still declared -- y (from z)",
                           ['precedent-shared-repo-maintenance']) == []))
         cases.append(('the update re-runs the sync with --allow-removals only then',
-                      "caused = removals_this_update_caused(out, dropped_sets)" in body
+                      "removals_this_update_caused(\n            out, "
+                      "sets_this_update_dropped(repo, dropped_sets))" in body
                       and "'--allow-removals'], repo)" in body))
     finally:
         sys.path.pop(0)
@@ -71671,6 +71827,8 @@ def main():
     check_landed_branch_gets_its_delete_link()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
+    check_date_check_skips_commits_github_made()
+    check_update_rerun_after_left_for_you_still_drops_a_deleted_set()
     check_promote_commits_carry_a_session_trailer()
     check_merge_instructions_give_the_full_head()
     check_promote_marks_other_sessions_commits()
