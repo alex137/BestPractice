@@ -160,7 +160,6 @@ as_of: 2026-10-10
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | 9d | wait | Morgan: noted as a possibility for the future, not approved (2026-10-01) |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. | 7d | ask |  |
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | 2d | ask |  |
-| [`todo-2026-10-10-one-commit-date-check`](todo-2026-10-10-one-commit-date-check.md) | The commit-date check (check_buenos_aires_dates.py, now tools/check_commit_dates.py,) has two copies that | 0d | wait |  |
 
 ## Unblocked Work
 
@@ -219,7 +218,6 @@ as_of: 2026-10-10
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | Morgan |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. |  |
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | Alex's or Morgan's approval of the plan below, stage by stage |
-| [`todo-2026-10-10-one-commit-date-check`](todo-2026-10-10-one-commit-date-check.md) | The commit-date check (check_buenos_aires_dates.py, now tools/check_commit_dates.py,) has two copies that | the change landing in BestPractice and the individual set, and their Update Vendors |
 
 ## Due Reminders
 
