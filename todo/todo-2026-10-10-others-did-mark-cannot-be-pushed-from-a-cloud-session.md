@@ -3,16 +3,16 @@ slug:              todo-2026-10-10-others-did-mark-cannot-be-pushed-from-a-cloud
 kind:              decision
 domain:            engine
 severity:          notable
-status:            open
-disposition:       ask
+status:            done
+disposition:       wait
 remind_on:         null
-blocked_on:        "Morgan's choice of where the mark lives"
+blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        Morgan
+decision:          "\"Go with option 1\" -- no mark; count from the person's own last commit"
+decision_strength: decided
+waiting_on:        null
 noted:             2026-10-10
-closed:            null
+closed:            2026-10-10
 ---
 ## What
 
@@ -74,5 +74,16 @@ repeats are not acceptable, 2 is the one that works today.
 Found from a relay by the session that ran Update Vendors in a consuming
 repository on 2026-10-10. The refusal message used to carry no reason,
 because the helper kept git's stdout and a refused push explains itself on
-stderr. That is fixed beside this item, with the harness test
-`check_others_did_says_why_its_push_was_refused`.
+stderr. That was fixed beside this item the same day; the push itself is
+gone now, and its test with it.
+
+**Decided 2026-10-10, Morgan: "Go with option 1" (strength: decided).**
+Built the same day: [tools/precedent_others_did.py](../tools/precedent_others_did.py)
+counts what landed on the shared branches after the person's own last
+commit, by when it landed rather than by each commit's own date, so a
+colleague's older commit merged later is still reported. It pushes
+nothing. A note in the container's `.precedent/` stops a repeat within one
+container and is the starting point when it is newer than that commit.
+The old mark file was decommissioned; origin's `refs/precedent/others-did`
+is no longer read or written, and is left where it exists. Harness test:
+`check_others_did_counts_from_your_last_commit_and_writes_nothing_to_origin`.

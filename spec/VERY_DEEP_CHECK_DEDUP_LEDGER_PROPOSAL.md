@@ -31,9 +31,9 @@ analogy to `beta-branch-watermark.json`, "a record of what Morgan has
 already been told", living in his individual source rather than here. That
 watermark moved into this repository on 2026-09-22 — Morgan ruled its
 placement a tidiness argument rather than a privacy one — and became
-[tools/others_did_watermark.json](../tools/others_did_watermark.json), then,
-on 2026-10-08, a file on origin's `refs/precedent/others-did`, outside
-every branch. The
+a file under this repository's `tools/` directory, then, on 2026-10-08, a
+file on origin's `refs/precedent/others-did`, outside every branch, and on
+2026-10-10 no stored mark at all. The
 principle the handoff drew from it still holds; the example no longer
 illustrates it.
 

@@ -28916,28 +28916,33 @@ print(repr(pb.main_test_holds_produce({str(r)!r}, say=lambda *a: None)))
     check(f'Produce sees main changes staging already carries ({len(cases)} '
           f'stated cases)', not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
-def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
-    """tools/precedent_others_did.py (the others-did practice, in the ladder set), end to end on a
-    throwaway origin with main and pre-staging.
+def check_others_did_counts_from_your_last_commit_and_writes_nothing_to_origin():
+    """tools/precedent_others_did.py (the others-did practice, in the ladder
+    set), end to end on a throwaway origin with main and pre-staging.
 
-    It replaced tools/precedent_beta_watermark_check.py on 2026-10-08,
-    which found Alex's commits at that day's session start and still never
-    told Morgan: the notice sat past what the harness shows of the
-    SessionStart output, and its mark could only be written into a checkout
-    sitting idle on staging, so it went to a per-container note. So:
+    WHERE IT STARTS (Morgan, 2026-10-10: "Go with option 1"): the report
+    counts from the person's own last commit here, and nothing is written to
+    origin. Until then a mark of what each person was last told lived on
+    origin's refs/precedent/others-did, and a cloud session's push of it was
+    refused with HTTP 403, so every new container started over. So:
 
-    - the report is left for the first prompt (`remind()`), printed once;
-    - the mark lands on origin's refs/precedent/others-did (outside every
-      branch; check_others_did_mark_never_lands_on_a_branch has the detail)
-      while the work clone sits on a feature branch with a staged edit,
-      which stays exactly as it was (HEAD, index and the staged file);
-    - at most one report a day, none before 07:00, and nothing from the
-      person's own commits;
-    - a commit signed only by Claude is the person's when its session also
-      committed under their name, and someone else's when theirs did.
+    - THE DISCRIMINATING CASE: a colleague's commit made BEFORE the
+      person's last commit, merged after it, is reported -- it is counted by
+      when it landed, not by its own date;
+    - nothing the person did is reported, their Claude session's included;
+    - origin receives no push of any ref, and the work clone's branch, HEAD
+      and staged edit stay exactly as they were;
+    - the report reaches the reply gate once; at most one report a day in a
+      container, none before 07:00;
+    - a new container repeats the list until the person commits again (the
+      cost Morgan accepted), and after that commit says nobody else did
+      anything;
+    - where this container's note is newer than the last commit, the note's
+      tips are the starting point, so what was told is not told again;
+    - a person with no commit here is told so, not handed all of history.
 
-    Each case is checked against the tool's own words, and the first run
-    of a person only baselines (practice: control-asserts-which-failure)."""
+    Each case is checked against the tool's own words
+    (practice: control-asserts-which-failure)."""
     import datetime, shutil, tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_others_did as pod
@@ -28946,14 +28951,19 @@ def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
     BOT = 'noreply@anthropic.com'
     S_MINE = 'https://claude.ai/code/session_01Mine'
     S_THEIRS = 'https://claude.ai/code/session_01Theirs'
+    day = datetime.datetime(2026, 10, 8, tzinfo=datetime.timezone.utc)
     cases = []
 
-    def git(cwd, *args, author=None):
+    def at(days, hour):
+        return day + datetime.timedelta(days=days, hours=hour)
+
+    def git(cwd, *args, author=MINE, when=None):
         env = dict(os.environ)
-        if author:
-            env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = author
-            env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = \
-                'Claude' if author == BOT else author.split('@')[0]
+        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = author
+        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = \
+            'Claude' if author == BOT else author.split('@')[0]
+        if when:
+            env['GIT_AUTHOR_DATE'] = env['GIT_COMMITTER_DATE'] = when.isoformat()
         r = subprocess.run(['git', '-C', str(cwd), *args],
                            capture_output=True, text=True, env=env)
         if r.returncode != 0:
@@ -28963,111 +28973,148 @@ def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
     saved = {k: os.environ.get(k) for k in
              ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
               'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG',
-              'PRECEDENT_SESSION_URL')}
+              'GIT_CONFIG_GLOBAL')}
     saved_off = pod.off_ladder
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='others-did-'))
     try:
         os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
         os.environ['PRECEDENT_COMMIT_NAME'] = 'Owner'
         os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
-        os.environ['PRECEDENT_SESSION_URL'] = 'https://claude.ai/code/session_01Harness'
+        # A file of the fixture's own, never os.devnull: `git config
+        # --global` against /dev/null replaces it with a regular file.
+        os.environ['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
         os.environ.pop('PRECEDENT_USER_CONFIG', None)
         pod.off_ladder = lambda root, user_config=None: False
 
-        origin = tmp / 'origin'
+        origin = tmp / 'origin.git'
         git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        pushed = tmp / 'pushed.log'
+        hook = origin / 'hooks' / 'update'
+        hook.write_text(f'#!/bin/sh\necho "$1" >> "{pushed}"\nexit 0\n',
+                        encoding='utf-8')
+        hook.chmod(0o755)
         seed = tmp / 'seed'
         git(tmp, 'clone', '-q', str(origin), str(seed))
-        (seed / 'tools').mkdir()
-        (seed / 'tools' / 'keep.txt').write_text('x\n', encoding='utf-8')
+        (seed / 'keep.txt').write_text('x\n', encoding='utf-8')
         (seed / '.gitignore').write_text('.precedent/\n', encoding='utf-8')
         git(seed, 'add', '-A')
-        git(seed, 'commit', '-qm', 'c0', author=MINE)
+        git(seed, 'commit', '-qm', 'c0', when=at(0, 0))
         git(seed, 'push', '-q', 'origin', 'main')
         git(seed, 'push', '-q', 'origin', 'main:pre-staging')
 
-        def land(branch, subject, author, trailer=None):
+        def land(branch, subject, author, when, trailer=None):
             git(seed, 'fetch', '-q', 'origin', branch)
             git(seed, 'checkout', '-q', '-B', branch, f'origin/{branch}')
-            (seed / 'f.txt').write_text(subject, encoding='utf-8')
+            (seed / f'{branch}.txt').write_text(subject, encoding='utf-8')
             git(seed, 'add', '-A')
             msg = ['-m', subject] + (['-m', f'Claude-Session: {trailer}'] if trailer else [])
-            git(seed, 'commit', '-q', *msg, author=author)
+            git(seed, 'commit', '-q', *msg, author=author, when=when)
             git(seed, 'push', '-q', 'origin', branch)
 
-        work = tmp / 'work'
-        git(tmp, 'clone', '-q', str(origin), str(work))
+        def clone(name):
+            path = tmp / name
+            git(tmp, 'clone', '-q', str(origin), str(path))
+            return path
+
+        def run(repo, when):
+            return pod.check(root=repo, now=when)
+
+        def pushes():
+            return pushed.read_text(encoding='utf-8').split() if pushed.is_file() else []
+
+        work = clone('work')
         git(work, 'checkout', '-q', '-b', 'feature')
         (work / 'draft.txt').write_text('half done\n', encoding='utf-8')
         git(work, 'add', 'draft.txt')
         before = (git(work, 'rev-parse', 'HEAD'), git(work, 'diff', '--cached', '--name-only'))
+        baseline = len(pushes())
 
-        day = datetime.datetime(2026, 10, 8, tzinfo=datetime.timezone.utc)
+        status, lines = run(work, at(0, 8))
+        cases.append(('CONTROL: with only the person\'s own commit, nobody else '
+                      'changed anything since it',
+                      status == 'ok' and 'nobody else changed anything since your '
+                      'last commit here' in lines[0], f'{status} {lines}'))
 
-        def at(days, hour):
-            return day + datetime.timedelta(days=days, hours=hour)
+        # The person's session commits under their own name, which is what
+        # makes a later commit signed only by Claude in it theirs too.
+        land('pre-staging', 'my own change', MINE, at(0, 9), trailer=S_MINE)
+        # A colleague's pull request: its commit is dated BEFORE the
+        # person's last one and lands by a merge after it.
+        git(seed, 'fetch', '-q', 'origin', 'main')
+        git(seed, 'checkout', '-q', '-B', 'their-pr', 'origin/main')
+        (seed / 'pr.txt').write_text('pr\n', encoding='utf-8')
+        git(seed, 'add', '-A')
+        git(seed, 'commit', '-qm', 'old commit merged late', author=THEIRS, when=at(0, 3))
+        git(seed, 'checkout', '-q', '-B', 'main', 'origin/main')
+        git(seed, 'merge', '-q', '--no-ff', '-m', 'Merge their pull request',
+            'their-pr', author=THEIRS, when=at(0, 10))
+        git(seed, 'push', '-q', 'origin', 'main')
+        land('main', 'their change', THEIRS, at(0, 11))
+        land('pre-staging', 'session signed by Claude, mine', BOT, at(0, 12), trailer=S_MINE)
+        land('main', 'their session change', THEIRS, at(0, 13), trailer=S_THEIRS)
+        land('main', 'session signed by Claude, theirs', BOT, at(0, 14), trailer=S_THEIRS)
 
-        def run(when):
-            return pod.check(root=work, now=when, land='pre-staging')
-
-        def mark():
-            r = subprocess.run(['git', '-C', str(origin), 'show',
-                                f'{pod.MARK_REF}:{pod.MARK_FILE}'],
-                               capture_output=True, text=True)
-            return json.loads(r.stdout)['seen_by']['owner'] if r.returncode == 0 else None
-
-        status, lines = run(at(0, 8))
-        cases.append(('a first run baselines and reports nothing',
-                      status == 'ok' and 'baselined' in lines[0] and mark(),
-                      f'{status} {lines}'))
-
-        land('main', 'their change', THEIRS)
-        land('pre-staging', 'my own change', MINE)
-        land('pre-staging', 'my session change', MINE, trailer=S_MINE)
-        land('pre-staging', 'session signed by Claude, mine', BOT, trailer=S_MINE)
-        land('main', 'their session change', THEIRS, trailer=S_THEIRS)
-        land('main', 'session signed by Claude, theirs', BOT, trailer=S_THEIRS)
-
-        status, lines = run(at(0, 9))
-        cases.append(('a second run the same day says it already told',
-                      status == 'ok' and 'already told today' in lines[0], f'{status} {lines}'))
-        status, lines = run(at(1, 6))
+        status, lines = run(work, at(1, 6))
         cases.append(('nothing before 07:00',
                       status == 'ok' and 'before 07:00' in lines[0], f'{status} {lines}'))
-
-        status, lines = run(at(1, 8))
+        status, lines = run(work, at(1, 8))
         block = pod.remind(work) or ''
-        cases.append(('after 07:00 the next day it reports',
-                      status == 'alert' and 'WHAT OTHERS DID' in block, f'{status} {lines}'))
+        cases.append(('after 07:00 it reports, counted from the last commit',
+                      status == 'alert' and 'since your last commit here' in block,
+                      f'{status} {lines}'))
+        cases.append(("THE DISCRIMINATING CASE: a colleague's commit made before the "
+                      'last commit and merged after it is reported',
+                      'old commit merged late' in block, block[-600:]))
         cases.append(("the report holds the colleague's commits, their Claude session's included",
                       'their change' in block and 'session signed by Claude, theirs' in block,
                       block[-600:]))
         cases.append(("...and none of the person's own, their Claude session's included",
-                      'my own change' not in block and 'my session change' not in block
+                      'my own change' not in block
                       and 'session signed by Claude, mine' not in block, block[-600:]))
         cases.append(('the reply gate hands it over once',
                       pod.remind(work) is None, 'a second remind() returned text'))
-        m = mark()
-        cases.append(("the mark moved on origin's mark ref",
-                      bool(m) and m.get('told_at', '').startswith('2026-10-09T08:00'), repr(m)))
+        status, lines = run(work, at(1, 10))
+        cases.append(('reported once that day in this container, not again',
+                      status == 'ok' and 'already told today' in lines[0], f'{status} {lines}'))
         after = (git(work, 'rev-parse', 'HEAD'), git(work, 'diff', '--cached', '--name-only'))
         cases.append(("the work clone's branch, HEAD and staged edit are untouched",
                       after == before and git(work, 'branch', '--show-current') == 'feature',
                       f'{before} -> {after}'))
-        body = git(origin, 'log', '-1', '--format=%B', pod.MARK_REF)
-        cases.append(('the mark commit carries a session trailer',
-                      'Session: https://claude.ai/code/session_01Harness' in body,
-                      body))
 
-        status, lines = run(at(1, 10))
-        cases.append(('reported once that day, not again',
-                      status == 'ok' and 'already told today' in lines[0], f'{status} {lines}'))
-        land('pre-staging', 'more of my own', MINE)
-        status, lines = run(at(2, 8))
-        cases.append(('a day with only the person\'s own commits says so and writes nothing',
-                      status == 'ok' and 'nobody else' in lines[0]
-                      and mark().get('told_at', '').startswith('2026-10-09T08:00'),
+        other = clone('other-container')
+        status, lines = run(other, at(1, 9))
+        block2 = pod.remind(other) or ''
+        cases.append(('a new container repeats the list until the person commits '
+                      'again (the accepted cost)',
+                      status == 'alert' and 'their change' in block2, f'{status} {lines}'))
+
+        land('main', 'after the report', THEIRS, at(1, 12))
+        status, lines = run(work, at(2, 8))
+        block3 = pod.remind(work) or ''
+        cases.append(("where the container's note is newer than the last commit, "
+                      'it counts from the note: only what came after',
+                      status == 'alert' and 'since you were last told in this '
+                      'container' in block3 and 'after the report' in block3
+                      and 'their change' not in block3, f'{status} {block3[-500:]}'))
+
+        land('pre-staging', 'more of my own', MINE, at(2, 9))
+        status, lines = run(clone('third-container'), at(3, 8))
+        cases.append(('after the person commits again, a new container says '
+                      'nobody else changed anything',
+                      status == 'ok' and 'nobody else changed anything' in lines[0],
                       f'{status} {lines}'))
+
+        cases.append(('origin received no push from the tool: every pushed ref is '
+                      "the fixture's own branch, never a refs/precedent/ mark",
+                      all(r.startswith('refs/heads/') for r in pushes()[baseline:])
+                      and not git(origin, 'for-each-ref', 'refs/precedent'),
+                      repr(pushes()[baseline:])))
+
+        os.environ['PRECEDENT_COMMIT_EMAIL'] = 'newcomer@example.com'
+        status, lines = run(clone('newcomer'), at(3, 8))
+        cases.append(('a person with no commit here is told so, not handed all of history',
+                      status == 'ok' and 'no commit here yet' in lines[0], f'{status} {lines}'))
     finally:
         pod.off_ladder = saved_off
         for k, v in saved.items():
@@ -29079,54 +29126,6 @@ def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
-
-
-def check_others_did_says_why_its_push_was_refused():
-    """When origin refuses the others-did mark, the message carries git's
-    own reason.
-
-    THE INCIDENT (2026-10-10, a consumer). Session start printed "the push
-    to origin's refs/precedent/others-did was refused; kept in this
-    container only", with nothing after "refused": git says why only on
-    stderr, and the helper kept stdout. Measured once it did keep it: from
-    a cloud session the git proxy answers that push with HTTP 403 while
-    branch pushes go through. The DISCRIMINATING CASE stands an origin
-    whose pre-receive hook refuses the ref in for that proxy.
-    The fixture owns its repositories (fixture-owns-its-state)."""
-    import tempfile
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_others_did as pod
-    cases = []
-    with tempfile.TemporaryDirectory() as td:
-        tmp = pathlib.Path(td)
-        env = _fixture_git_env()
-        g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
-                                           capture_output=True, text=True)
-        bare = tmp / 'origin.git'
-        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
-        hook = bare / 'hooks' / 'pre-receive'
-        hook.write_text('#!/bin/sh\necho "refs outside refs/heads are not '
-                        'accepted here" >&2\nexit 1\n', encoding='utf-8')
-        hook.chmod(0o755)
-        # The fixture's git config switches hooks off; this origin's own
-        # config switches its pre-receive back on.
-        g(bare, 'config', 'core.hooksPath', str(bare / 'hooks'))
-        repo = tmp / 'repo'
-        g(tmp, 'init', '-q', '-b', 'main', str(repo))
-        (repo / 'a.md').write_text('a\n', encoding='utf-8')
-        g(repo, 'add', '-A'); g(repo, 'commit', '-qm', 'a')
-        g(repo, 'remote', 'add', 'origin', f'file://{bare}')
-        ok, phrase = pod.publish(repo, 'main', {'people': {}},
-                                 {'name': 'T', 'email': 't@example.com'},
-                                 'others-did mark')
-        cases.append(("THE DISCRIMINATING CASE: a refused push names git's "
-                      "reason", not ok and 'not accepted here' in phrase, phrase))
-        cases.append(('...and the checkout is untouched',
-                      g(repo, 'status', '--porcelain').stdout.strip() == '', ''))
-    bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'the others-did mark says why its push was refused '
-          f'({len(cases)} stated cases)',
-          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
 def check_archived_set_question_names_the_attach_fix():
@@ -29176,170 +29175,6 @@ def check_archived_set_question_names_the_attach_fix():
     check(f'the archived-set question names the attach fix '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
-
-
-def check_others_did_mark_never_lands_on_a_branch():
-    """The others-did mark lives on refs/precedent/others-did, never a branch.
-
-    Reported 2026-10-08 from a consuming repository: the status check a
-    session runs in its first reply committed "Others-did mark ... [skip
-    ci]" onto origin/pre-staging and pushed it, and the next Produce carried
-    it up to main. publish() now pushes only to MARK_REF, a ref outside
-    refs/heads fetched and pushed by name, so it is no branch, rides no
-    Promote and lands on no tier.
-
-    Asserted against a local bare origin whose `update` hook logs every ref
-    a push touches: the first run's mark (a baseline) and the next day's
-    (a report) are both pushed, and neither touches a refs/heads/ ref; every
-    branch tip on origin is where it was. check() in a SECOND clone, which
-    has never seen the mark, reads it back from the ref (it is told it
-    already reported today). MIGRATION: a repository whose landing branch
-    still carries the old tools/others_did_watermark.json is read from it,
-    and the next mark still goes to the ref, not to the branch."""
-    import datetime, shutil, tempfile
-    sys.path.insert(0, str(ROOT / 'tools'))
-    try:
-        import precedent_others_did as pod
-    finally:
-        sys.path.pop(0)
-    if not hasattr(pod, 'MARK_REF'):
-        return (False, '0 stated cases',
-                'precedent_others_did.py has no MARK_REF: the mark still goes '
-                'onto the landing branch')
-    MINE, THEIRS = 'owner@example.com', 'colleague@example.com'
-    cases = []
-
-    def git(cwd, *args, author=MINE):
-        env = dict(os.environ, GIT_AUTHOR_EMAIL=author, GIT_COMMITTER_EMAIL=author,
-                   GIT_AUTHOR_NAME=author.split('@')[0],
-                   GIT_COMMITTER_NAME=author.split('@')[0])
-        r = subprocess.run(['git', '-C', str(cwd), *args],
-                           capture_output=True, text=True, env=env)
-        if r.returncode != 0:
-            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
-        return r.stdout.strip()
-
-    saved = {k: os.environ.get(k) for k in
-             ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
-              'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG',
-              'PRECEDENT_SESSION_URL', 'GIT_CONFIG_GLOBAL')}
-    saved_off = pod.off_ladder
-    tmp = pathlib.Path(tempfile.mkdtemp(prefix='others-did-ref-'))
-    try:
-        os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
-        os.environ['PRECEDENT_COMMIT_NAME'] = 'Owner'
-        os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
-        os.environ['PRECEDENT_SESSION_URL'] = 'https://claude.ai/code/session_01Harness'
-        os.environ['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
-        (tmp / 'gitconfig').write_text('', encoding='utf-8')
-        os.environ.pop('PRECEDENT_USER_CONFIG', None)
-        pod.off_ladder = lambda root, user_config=None: False
-        day = datetime.datetime(2026, 10, 8, tzinfo=datetime.timezone.utc)
-
-        def at(days, hour):
-            return day + datetime.timedelta(days=days, hours=hour)
-
-        def make_origin(name, old_mark=None):
-            origin = tmp / f'{name}.git'
-            git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
-            log = tmp / f'{name}-pushed.log'
-            hook = origin / 'hooks' / 'update'
-            hook.write_text(f'#!/bin/sh\necho "$1" >> "{log}"\nexit 0\n',
-                            encoding='utf-8')
-            hook.chmod(0o755)
-            seed = tmp / f'{name}-seed'
-            git(tmp, 'clone', '-q', str(origin), str(seed))
-            (seed / 'a.txt').write_text('a\n', encoding='utf-8')
-            # The report is left in .precedent/, which must be ignored for
-            # the tool to write it (and only then does it record the mark).
-            (seed / '.gitignore').write_text('.precedent/\n', encoding='utf-8')
-            if old_mark is not None:
-                (seed / 'tools').mkdir()
-                (seed / pod.WATERMARK_PATH).write_text(json.dumps(old_mark),
-                                                       encoding='utf-8')
-            git(seed, 'add', '-A')
-            git(seed, 'commit', '-qm', 'c0')
-            git(seed, 'push', '-q', 'origin', 'main', 'main:pre-staging', 'main:staging')
-            log.write_text('', encoding='utf-8')
-            return origin, seed, log
-
-        def heads(origin):
-            return git(origin, 'for-each-ref', '--format=%(refname) %(objectname)',
-                       'refs/heads/')
-
-        def clone(origin, name):
-            d = tmp / name
-            git(tmp, 'clone', '-q', str(origin), str(d))
-            git(d, 'checkout', '-q', '-b', 'feature')
-            return d
-
-        origin, seed, log = make_origin('fresh')
-        before = heads(origin)
-        work = clone(origin, 'work')
-        status, lines = pod.check(root=work, now=at(0, 8), land='pre-staging')
-        pushed = log.read_text(encoding='utf-8').split()
-        cases.append(('a first run records its baseline on the mark ref, and on '
-                      f'no branch ({status} {lines}; pushed {pushed})',
-                      status == 'ok' and 'baselined' in lines[0]
-                      and pushed == [pod.MARK_REF]))
-        cases.append(('every branch on origin is where it was', heads(origin) == before))
-
-        other = clone(origin, 'other')
-        status, lines = pod.check(root=other, now=at(0, 9), land='pre-staging')
-        cases.append(('a second clone that never saw the mark reads it back from '
-                      f'the ref ({status} {lines})',
-                      status == 'ok' and 'already told today' in lines[0]))
-
-        git(seed, 'commit', '-q', '--allow-empty', '-m', 'their change', author=THEIRS)
-        git(seed, 'push', '-q', 'origin', 'HEAD:pre-staging')
-        before = heads(origin)
-        log.write_text('', encoding='utf-8')
-        status, lines = pod.check(root=work, now=at(1, 8), land='pre-staging')
-        pushed = log.read_text(encoding='utf-8').split()
-        cases.append(('a report the next day moves the mark ref and no branch '
-                      f'({status} {lines}; pushed {pushed})',
-                      status == 'alert' and pushed == [pod.MARK_REF]
-                      and heads(origin) == before))
-        cases.append(('the mark ref holds one file, the registry, with this '
-                      'person\'s row',
-                      git(origin, 'ls-tree', '--name-only', pod.MARK_REF) == pod.MARK_FILE
-                      and json.loads(git(origin, 'show',
-                                         f'{pod.MARK_REF}:{pod.MARK_FILE}'))
-                      ['seen_by']['owner']['told_at'].startswith('2026-10-09T08:00')))
-        cases.append(('no refs/heads/ ref was ever pushed by the tool',
-                      not any(r.startswith('refs/heads/') for r in pushed)))
-
-        # MIGRATION: the old file on the landing branch is read, never written.
-        told = at(2, 7).isoformat(timespec='seconds')
-        origin2, seed2, log2 = make_origin('old', old_mark={'seen_by': {'owner': {
-            'told_at': told, 'tips': {}, 'note': 'reported'}}})
-        before = heads(origin2)
-        work2 = clone(origin2, 'work-old')
-        status, lines = pod.check(root=work2, now=at(2, 9), land='pre-staging')
-        cases.append(('MIGRATION: a mark only on the old file is read from it '
-                      f'({status} {lines})',
-                      status == 'ok' and 'already told today' in lines[0]
-                      and log2.read_text(encoding='utf-8').split() == []))
-        git(seed2, 'commit', '-q', '--allow-empty', '-m', 'their change', author=THEIRS)
-        git(seed2, 'push', '-q', 'origin', 'HEAD:pre-staging')
-        before = heads(origin2)
-        log2.write_text('', encoding='utf-8')
-        status, lines = pod.check(root=work2, now=at(3, 8), land='pre-staging')
-        pushed = log2.read_text(encoding='utf-8').split()
-        cases.append(('MIGRATION: the next mark goes to the ref, and the old file '
-                      f'is left as it was ({status} {lines}; pushed {pushed})',
-                      status == 'alert' and pushed == [pod.MARK_REF]
-                      and heads(origin2) == before))
-    finally:
-        pod.off_ladder = saved_off
-        for k, v in saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-        shutil.rmtree(tmp, ignore_errors=True)
-    bad = [n for n, ok in cases if not ok]
-    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
 def check_trivial_checkin_exempts_the_boildown_gate():
@@ -72536,10 +72371,8 @@ def main():
     check_vocabulary_prefers_the_file_you_are_standing_on()
     check_vocabulary_moves_a_word_to_our_language()
     check_archive_guard_refuses_work_left_on_a_feature_branch()
-    check('others-did reports what others landed once a day, without touching the checkout',
-          *check_others_did_reports_others_once_a_day_and_never_touches_the_checkout())
-    check('the others-did mark lives on refs/precedent/others-did and never on a branch',
-          *check_others_did_mark_never_lands_on_a_branch())
+    check('others-did counts from your last commit and writes nothing to origin',
+          *check_others_did_counts_from_your_last_commit_and_writes_nothing_to_origin())
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
     check_close_detect_counts_only_this_sessions_reverts()
@@ -72791,7 +72624,6 @@ def main():
     check_rename_links_spares_a_longer_path_and_manifest_notes()
     check_reply_gate_counts_staging_as_a_landing_branch()
     check_global_pre_push_runs_the_leak_gate()
-    check_others_did_says_why_its_push_was_refused()
     check_archived_set_question_names_the_attach_fix()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
