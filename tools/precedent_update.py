@@ -3830,6 +3830,16 @@ def _why_not_newer(skipped):
     return "GitHub's test " + ' and '.join(parts)
 
 
+def _attach_remedy(detail):
+    """-> how to give this session GitHub access to the source, when
+    `detail` says it has none; '' otherwise (github_budget.attach_remedy)."""
+    try:
+        import github_budget as _gb
+    except ImportError:
+        return ''
+    return _gb.attach_remedy(detail, pb._slug(SOURCE) or 'alex137/BestPractice')
+
+
 def source_commit(follow, tip, take=None):
     """-> {'commit', 'step', 'warning', 'commit_note', 'failed'}: the commit
     of the source clone this update takes when no --from-ref names one.
@@ -3906,21 +3916,23 @@ def source_commit(follow, tip, take=None):
             out['commit'] = sha
             if skipped:
                 n = len(skipped)
+                fix = _attach_remedy(unknown) if any(
+                    st == 'unmarked' for _s, st in skipped) else ''
                 out['step'] = (f"took {follow} @ {sha[:12]}, {n} commit"
                                f"{'s' if n != 1 else ''} behind the newest {follow}, "
                                f"{tip[:12]}, because {_why_not_newer(skipped)}. This "
-                               f"repo gets the newer ones once their test passes")
+                               f"repo gets the newer ones once their test passes"
+                               + (f" -- or now: {fix}" if fix else ''))
             return out
         if state == 'unknown':
             if not skipped:
                 again = ("Run it again once GitHub answers")
-                if 'add_repo' in (detail or '') or 'not enabled for this session' in (detail or ''):
+                fix = _attach_remedy(detail)
+                if fix:
                     # The session has no GitHub access to the source: no
                     # wait fixes that, attaching it does (practice:
                     # reach-or-ask).
-                    again = (f"This session has no GitHub access to "
-                             f"{pb._slug(SOURCE) or 'BestPractice'}: attach it "
-                             f"(add_repo, read access), then run it again")
+                    again = fix[0].upper() + fix[1:]
                 out['warning'] = (f"could not ask GitHub whether {follow}'s test "
                                   f"passed ({detail}), so this took the newest "
                                   f"{follow}, {tip[:12]}, without knowing. {again}")
@@ -3935,11 +3947,12 @@ def source_commit(follow, tip, take=None):
             return out
         skipped.append((sha, state))
     if any(state == 'unmarked' for _, state in skipped):
+        fix = _attach_remedy(unknown)
         out['warning'] = (f"could not ask GitHub whether {follow}'s test passed "
                           f"({unknown}), and none of {follow}'s newest "
                           f"{len(commits)} commits carries a passed marker, so "
                           f"this took the newest {follow}, {tip[:12]}, without "
-                          f"knowing")
+                          f"knowing" + (f". {fix[0].upper() + fix[1:]}" if fix else ''))
         return out
     out['commit'] = None
     out['failed'] = (f"none of {follow}'s newest {len(commits)} commits passed "

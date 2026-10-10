@@ -34,6 +34,15 @@ repository that still has only the old file, tools/others_did_watermark.json
 on its landing branch, is READ from there once, to carry its marks over;
 nothing is written there again.
 
+A CLOUD SESSION CANNOT WRITE IT THERE (measured 2026-10-10). From a Claude
+Code cloud session, the git proxy answers a push to
+refs/precedent/others-did in a consuming repository with HTTP 403, while a
+push to a branch of the same repository goes through. There the mark is
+baselined in the container only, as session start says, so every new
+container starts it over and the daily report may never fire. Where the
+mark should live instead is an open decision:
+todo/todo-2026-10-10-others-did-mark-cannot-be-pushed-from-a-cloud-session.md.
+
 WHO IT IS FOR. The whole five-stage ladder set turns it on
 (`precedent_ladder.ladder_in_force`): a person off the ladder hears
 nothing. It ships with the engine, so every repository with Precedent
@@ -100,14 +109,19 @@ BOT_EMAILS = {'noreply@anthropic.com'}
 SESSION_RE = re.compile(r'Claude-Session:\s*(https://claude\.ai/code/session_\w+)')
 
 
-def git(repo, *args, env=None, input=None):
-    """-> (returncode, stdout). `env` adds to the environment, never replaces it."""
+def git(repo, *args, env=None, input=None, errors=False):
+    """-> (returncode, stdout). `env` adds to the environment, never replaces it.
+    With `errors`, a failure answers with git's stderr instead: a refused
+    push says why only there, and the refusal message used to carry
+    nothing (2026-10-10, a consumer whose mark never reached origin)."""
     full = None
     if env:
         full = dict(os.environ)
         full.update(env)
     proc = subprocess.run(['git', '-C', str(repo), *args], capture_output=True,
                           text=True, env=full, input=input)
+    if errors and proc.returncode != 0:
+        return proc.returncode, (proc.stderr.strip() or proc.stdout.strip())
     return proc.returncode, proc.stdout.strip()
 
 
@@ -294,11 +308,12 @@ def publish(repo, land, registry, identity, message):
                            '-m', message, '-m', _session_trailer(), env=env)
         if code != 0:
             return False, 'could not build the commit'
-        code, out = git(repo, 'push', '-q', 'origin', f'{commit}:{MARK_REF}')
+        code, out = git(repo, 'push', '-q', 'origin', f'{commit}:{MARK_REF}',
+                        errors=True)
         if code == 0:
             git(repo, 'update-ref', MARK_REF, commit)
             return True, f'recorded on origin\'s {MARK_REF}'
-        last = out
+        last = ' '.join(out.split())[-300:]
     return False, f'the push to origin\'s {MARK_REF} was refused{": " + last if last else ""}'
 
 
