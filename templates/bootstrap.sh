@@ -373,8 +373,14 @@ fi
 # The repo's own tools/ only: the catalogue copy leaves tools/ out once the
 # vendored engine carries checkin.py, and only an update writes this file,
 # so no repo running it still has process/upstream/tools/ (2026-09-30).
+#
+# Not where the notice below runs (2026-10-10): precedent_engine_freshness.py
+# reads process/manifest.json too, so the same upstream move came out here
+# as "NOTICE: BestPractice upstream has moved" and again there, three lines
+# for one fact. This line is kept for an install that has no such tool.
 for _ck in tools/checkin.py; do
-  if [ -f process/manifest.json ] && [ -f "$_ck" ]; then
+  if [ -f process/manifest.json ] && [ -f "$_ck" ] && \
+     [ ! -f tools/precedent_engine_freshness.py ]; then
     python3 "$_ck" fresh || \
       echo "WARN: upstream freshness check failed - not verified" >&2
     break

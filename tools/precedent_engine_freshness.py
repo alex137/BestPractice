@@ -637,7 +637,7 @@ def _engine_detail(root, row, tip, out):
 def report(root='.', with_files=False, quiet=False, out=sys.stdout):
     """One row per way a declared source is reached. Returns 0 always."""
     rows = collect_targets(root)
-    tips = {}
+    tips, held = {}, {}           # held: the vendored rows behind, by move
     behind = unverified = current = engine_behind = 0
     unverified_sources = 0        # what --quiet reports: no engine row there
     for row in rows:              # to verify is not a source left unverified
@@ -685,9 +685,19 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
             continue
         behind += 1
         engine_behind += row['kind'] == 'engine'
-        head = ('ENGINE BEHIND UPSTREAM' if row['kind'] == 'engine'
-                else 'BEHIND UPSTREAM')
-        print(f"{head}: {row['label']} has {row['recorded'][:12]}; "
+        if row['kind'] in ('engine', 'vendored'):
+            # ONE MOVE, ONE LINE (2026-10-10, a consumer's session start: one
+            # upstream move printed as "ENGINE BEHIND UPSTREAM" and "BEHIND
+            # UPSTREAM" for the same two commits). The engine and the catalogue
+            # copy are two layers that move apart, so each keeps its own line
+            # when they differ; at the same commit, both are named in one.
+            gkey = (str(row['url']), row['branch'], row['recorded'], tip)
+            if gkey in held:
+                held[gkey]['rows'].append(row)
+            else:
+                held[gkey] = {'rows': [row], 'tip': tip}
+            continue
+        print(f"BEHIND UPSTREAM: {row['label']} has {row['recorded'][:12]}; "
               f"{row['url']} {row['branch']} is now at {tip[:12]}.", file=out)
         if row['kind'] == 'live':
             print(f"  Its practices load from that clone as it stands, so "
@@ -696,8 +706,19 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
                   f"can, so this one has changes of its own, another branch "
                   f"or commits of its own, or the refresh has not run: "
                   f"{refresh_remedy(root, row['path'])}", file=out)
-        if row['kind'] == 'engine' and with_files:
-            _engine_detail(root, row, tip, out)
+    for group in held.values():
+        grows, tip = group['rows'], group['tip']
+        grows.sort(key=lambda r: r['kind'] != 'engine')
+        head = ('ENGINE BEHIND UPSTREAM' if grows[0]['kind'] == 'engine'
+                else 'BEHIND UPSTREAM')
+        labels = ' and '.join(r['label'] for r in grows)
+        print(f"{head}: {labels} "
+              f"{'have' if len(grows) > 1 else 'has'} "
+              f"{grows[0]['recorded'][:12]}; {grows[0]['url']} "
+              f"{grows[0]['branch']} is now at {tip[:12]}.", file=out)
+        for r in grows:
+            if r['kind'] == 'engine' and with_files:
+                _engine_detail(root, r, tip, out)
     if engine_behind:
         # "Update Vendors" moves a vendored engine or catalogue; a live
         # clone behind its own origin takes the pull named on its own line,
