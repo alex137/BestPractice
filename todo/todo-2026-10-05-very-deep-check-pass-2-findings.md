@@ -29,7 +29,7 @@ individual set in violation of a rule it is exempt from; and the ORPHANS
 section judged a check script by filename alone.
 
 - **Bot-authored commits reach `main` because no gate sees a pull
-  request's commits.** [check_commit_author.py](../tools/checks/check_commit_author.py) reads only commits on no
+  request's commits.** [check_commit_author.py](../tools/check_commit_author.py) reads only commits on no
   remote, and stands down where no identity is declared, which is the CI
   state. Five commits by `noreply@anthropic.com` at +0000 landed in
   BestPractice on 2026-10-02 through a pull request merged on GitHub. Root

@@ -538,6 +538,14 @@ ENGINE_FILES = [
     # about a catalogue, and only the second reason keeps a file out of a
     # set.
     'precedent_identity.py',
+    # The two commit-identity checks, one copy for every kind of repo
+    # (Morgan, 2026-10-10: "build the shared check"). Before, the individual
+    # set shipped them in tools/checks/ for consumers to materialize and
+    # BestPractice kept a port; the copies drifted, and a consumer's merge
+    # gate refused every GitHub-button merge. precedent_push_check.py runs
+    # them on every gate, and precedent_check.py registers them.
+    'check_commit_author.py',
+    'check_commit_dates.py',
     # Whether this session's person is one of the repository's code owners,
     # so a practice marked `visible_to: code-owners` reaches only them
     # (2026-10-05). Beside precedent_identity.py, which it reads, and in
@@ -1292,10 +1300,10 @@ HOOK_TIMEOUTS = {'push-check-gate.sh': 900, 'merge-check-gate.sh': 900,
 # wiring gate below still applies -- but no refresh adds it anywhere.
 HOOKS_NO_KIND = {
     'commit-identity-push-gate.sh':
-        'runs tools/checks/check_commit_author.py and '
-        'check_buenos_aires_dates.py, which are a repo\'s own and never '
-        'vendored -- in a repo without them the hook is a silent no-op, so '
-        'only a repo that carries them wires it',
+        'runs tools/check_commit_author.py and tools/check_commit_dates.py, '
+        'which every repo\'s push check already runs on every push '
+        '(precedent_push_check.IDENTITY_CHECKS), so wiring it everywhere '
+        'would run them twice; a repo that wires it keeps it',
 }
 
 
