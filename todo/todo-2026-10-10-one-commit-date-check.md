@@ -3,16 +3,16 @@ slug:              todo-2026-10-10-one-commit-date-check
 kind:              decision
 domain:            engine
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
 decision:          "yes to both, move the sets and build the shared check"
 decision_strength: decided
-waiting_on:        "the change landing in BestPractice and the individual set, and their Update Vendors"
+waiting_on:        null
 noted:             2026-10-10
-closed:            null
+closed:            2026-10-10
 ---
 ## What
 
@@ -66,3 +66,9 @@ copies differ. It keeps both copies and only catches drift after the fact.
   copies and tests, points its practices' checked_by at the engine files,
   and moves its hardcoded exemptions into its identity.json. Close this
   once both are on main and the individual set has taken the engine.
+- 2026-10-10, closed: on main in all three. BestPractice through PR #1034,
+  with the --help fix GitHub's test asked for in PR #1037 (issue #1035);
+  the individual set through its PR #314, after Update Vendors to e3aaedd1;
+  the writing set through its PR #165. Every other repository takes the
+  engine copies on its next Update Vendors, and its materialized copies
+  under tools/checks/ go when its views next sync.
