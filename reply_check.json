@@ -200,14 +200,16 @@
     "id": "prompt-please-landing-authority"
   },
   {
-    "practice": "prompt-please",
-    "require_reply_block_names_sender": {
-      "sender_in_prompt": "\\bFrom (?:session )?[\"“][^\"”\\n]{1,200}[\"”]\\s*\\((https://claude\\.ai/code/session_\\w+)\\)",
-      "block_if_matches": "^\\s*From (?:session )?[\"“][^\"”\\n]{1,200}[\"”]\\s*\\(https://claude\\.ai/code/session_|^\\s*Seed root:",
+    "practice": "seeded-prompt-names-its-origin",
+    "require_prompt_block_header": {
+      "prompt_block_if_matches": "Sent automatically by the session|Nobody typed this|^\\s*Seed root:|^\\s*For:\\s+(?:the session|a new session)|^\\s*From:?\\s+(?:the )?(?:session\\s+)?[\"“`]|intended for the session",
+      "from_line": "^(?:Sent automatically by the session|From:?\\s)[^\\n]*https://claude\\.ai/code/session_\\w+",
+      "for_line": "^For:\\s+(?:the session\\b[^\\n]*https://claude\\.ai/code/session_\\w+|a new session rooted in\\s+\\S+)",
+      "sender_in_prompt": "(?:Sent automatically by the session|\\bFrom:?\\s+(?:the )?(?:session\\s+)?[\"“`])[^\\n]{0,300}?(https://claude\\.ai/code/session_\\w+)",
       "exempt_if_reply_says": "\\bOpen a new session\\b"
     },
-    "why": "Morgan, 2026-10-08 (strength: decided): \"yes, extend the rule and add the check\". A message relayed from another session names that session in its opening line, so the paste block answering it has a known destination; a reply that wrote its own name and link but not where it was going left him unable to tell which window to paste it into. A reply whose plain text sends the block to a new session (\"Open a new session\") is not asked for one.",
-    "checks_practice_at": "practices/prompt-please.md",
-    "id": "reply-block-names-its-session"
+    "why": "Morgan, 2026-10-10 (strength: decided): \"Every prompt you give me should have BOTH at the top: the session sending it, and what session it is for.\" With many sessions open, the For line is what tells him which window a block goes to. A reply to another session's message goes back to that session; a reply whose plain text says \"Open a new session\" says so in its For line instead. It replaced reply-block-names-its-session (2026-10-08), which recognized a sender only as From \"...\" (link) and missed one opening \"Sent automatically by the session\".",
+    "checks_practice_at": "practices/seeded-prompt-names-its-origin.md",
+    "id": "prompt-block-names-both-ends"
   }
 ]
