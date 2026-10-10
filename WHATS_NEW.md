@@ -1,9 +1,17 @@
 ---
-checked_through: 2026-10-08
+checked_through: 2026-10-09
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Friday 2026-10-09: land-on-staging-move-fast-to-main
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Work now lands straight on staging, and pre-staging is being retired** one repository at a time, each moved by its own next Update Vendors (precedent_branches.py --land; precedent_update.py moves a repository whose person chose staging).
+- **A fast move into main**: the work merges as soon as the quick checks pass, GitHub's test runs after, and where that test is not due the full local suite runs on main instead, on Morgan's four conditions (precedent_branches.py --promote --fast).
+- **Update Vendors only takes a main whose GitHub test passed**, and when it can't ask GitHub it reads a marker that a passing run leaves in git (refs/precedent/passed/).
 
 ## Thursday 2026-10-08: daily-report-of-others-work
 
