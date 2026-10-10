@@ -14912,6 +14912,11 @@ def check_update_vendors_takes_only_a_main_that_passed():
                       and 'left no passed marker, and GitHub could not be asked, on '
                           f'{c0[:12]}' in steps(text)[0]
                       and 'WARNING' not in steps(text)[0], (handed, steps(text))))
+        cases.append(('(g2) ...and that line names the fix: attach the source with '
+                      'add_repo, access "push" (2026-10-10, a consumer that had to '
+                      'work it out)',
+                      len(steps(text)) == 1 and 'add_repo, access "push"' in steps(text)[0],
+                      steps(text)))
         text, handed, _held, _a = run_update('marked-red', {
             c0: ('failed', 'url')}, marks=[tree(c1)])
         cases.append(('(h) a red tip with GitHub answering: the marked commit '
@@ -14925,6 +14930,9 @@ def check_update_vendors_takes_only_a_main_that_passed():
                       handed == c0 and len(steps(text)) == 1
                       and 'WARNING' in steps(text)[0]
                       and 'carries a passed marker' in steps(text)[0], (handed, steps(text))))
+        cases.append(('(i2) a network failure, not missing access: no attach advice',
+                      'add_repo' not in steps(text)[0] if steps(text) else False,
+                      steps(text)))
 
         text, handed, _held, _a = run_update('all-red', {})
         cases.append(('...and with nothing green in reach, nothing is taken and the '
@@ -29054,6 +29062,103 @@ def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
+
+
+def check_others_did_says_why_its_push_was_refused():
+    """When origin refuses the others-did mark, the message carries git's
+    own reason.
+
+    THE INCIDENT (2026-10-10, a consumer). Session start printed "the push
+    to origin's refs/precedent/others-did was refused; kept in this
+    container only", with nothing after "refused": git says why only on
+    stderr, and the helper kept stdout. Measured once it did keep it: from
+    a cloud session the git proxy answers that push with HTTP 403 while
+    branch pushes go through. The DISCRIMINATING CASE stands an origin
+    whose pre-receive hook refuses the ref in for that proxy.
+    The fixture owns its repositories (fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_others_did as pod
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _fixture_git_env()
+        g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                           capture_output=True, text=True)
+        bare = tmp / 'origin.git'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        hook = bare / 'hooks' / 'pre-receive'
+        hook.write_text('#!/bin/sh\necho "refs outside refs/heads are not '
+                        'accepted here" >&2\nexit 1\n', encoding='utf-8')
+        hook.chmod(0o755)
+        # The fixture's git config switches hooks off; this origin's own
+        # config switches its pre-receive back on.
+        g(bare, 'config', 'core.hooksPath', str(bare / 'hooks'))
+        repo = tmp / 'repo'
+        g(tmp, 'init', '-q', '-b', 'main', str(repo))
+        (repo / 'a.md').write_text('a\n', encoding='utf-8')
+        g(repo, 'add', '-A'); g(repo, 'commit', '-qm', 'a')
+        g(repo, 'remote', 'add', 'origin', f'file://{bare}')
+        ok, phrase = pod.publish(repo, 'main', {'people': {}},
+                                 {'name': 'T', 'email': 't@example.com'},
+                                 'others-did mark')
+        cases.append(("THE DISCRIMINATING CASE: a refused push names git's "
+                      "reason", not ok and 'not accepted here' in phrase, phrase))
+        cases.append(('...and the checkout is untouched',
+                      g(repo, 'status', '--porcelain').stdout.strip() == '', ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the others-did mark says why its push was refused '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
+def check_archived_set_question_names_the_attach_fix():
+    """When GitHub refuses to say whether a declared set is archived because
+    the session has no API access to it, the note names the fix: add_repo,
+    access "push". Any other failure keeps its own words.
+
+    THE INCIDENT (2026-10-10, a consumer's Update Vendors). Every run said
+    "GitHub could not say whether it is archived (GitHub access to this
+    repository is not enabled for this session ...)" and stopped there.
+    The DISCRIMINATING CASE is the first. The fixture owns its repositories."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    import github_budget as _gbm
+    cases = []
+    saved = _gbm.call
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td) / 'repo'
+        clone = pathlib.Path(td) / 'set'
+        for d in (root, clone):
+            subprocess.run(['git', 'init', '-q', str(d)], capture_output=True,
+                           env=_fixture_git_env())
+        subprocess.run(['git', '-C', str(clone), 'remote', 'add', 'origin',
+                        'https://github.com/example/a-set'], capture_output=True,
+                       env=_fixture_git_env())
+        (root / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'a-set', 'path': '../set'}]}),
+            encoding='utf-8')
+        try:
+            _gbm.call = lambda path, **_k: (None, 'GitHub access to this '
+                                               'repository is not enabled for '
+                                               'this session. Use add_repo.')
+            _a, notes = pve.archived_declared_sources(root)
+            cases.append(('THE DISCRIMINATING CASE: a not-attached refusal names '
+                          'add_repo, access "push", and the repository',
+                          len(notes) == 1 and 'access "push"' in notes[0]
+                          and 'example/a-set' in notes[0], notes))
+            _gbm.call = lambda path, **_k: (None, 'curl exited 6')
+            _a, notes = pve.archived_declared_sources(root)
+            cases.append(('another failure keeps its own words, with no attach advice',
+                          len(notes) == 1 and 'curl exited 6' in notes[0]
+                          and 'add_repo' not in notes[0], notes))
+        finally:
+            _gbm.call = saved
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the archived-set question names the attach fix '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
 def check_others_did_mark_never_lands_on_a_branch():
@@ -60933,6 +61038,95 @@ def check_reply_gate_refreshes_the_landing_branch():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_reply_gate_counts_staging_as_a_landing_branch():
+    """In a repo whose landing branch is staging, work merged into staging
+    has landed: the reply gate prints no NOT YET LANDED line for it, and
+    says instead that staging is ahead of main.
+
+    THE INCIDENT (2026-10-10, a consumer). Its second Update Vendors retired
+    pre-staging and set landing_branch to staging. A branch merged into
+    staging still read "NOT YET LANDED ... NOT on 'main'", and the reply
+    check, reading the same lines, refused "You can archive this session"
+    for work already landed; the gentle "a Promote can move them" line was
+    computed only for pre-staging. The DISCRIMINATING CASE is the second;
+    the first is the control that the branch is still reported before its
+    merge. The fixture owns its repositories and its session id."""
+    import tempfile
+    import precedent_gate as pg
+    name = 'the reply gate counts staging as a landing branch'
+    cases = []
+    saved = {k: os.environ.get(k) for k in
+             ('PRECEDENT_USER_CONFIG', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM')}
+    saved_sid = pg._this_session_id
+    import precedent_resolve as _pr
+    saved_ladder = os.environ.get(_pr.ASSUME_LADDER_ENV)
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        for k in saved:
+            os.environ[k] = env[k]
+        # On the ladder, as the person in the incident was: off it, work
+        # lands on main by design and staging is not a landing branch.
+        os.environ[_pr.ASSUME_LADDER_ENV] = '1'
+        pg._this_session_id = lambda: ''       # every commit here is "ours"
+        try:
+            def git(cwd, *a):
+                return subprocess.run(['git', '-C', str(cwd), *a],
+                                      capture_output=True, text=True, env=env)
+
+            def write(repo, path, text):
+                (repo / path).write_text(text, encoding='utf-8')
+                git(repo, 'add', path)
+                git(repo, 'commit', '-q', '-m', f'edit {path}')
+
+            bare = tmp / 'origin.git'
+            git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+            repo = tmp / 'repo'
+            git(tmp, 'init', '-q', '-b', 'main', str(repo))
+            write(repo, 'precedent.json', json.dumps(
+                {'base_branch': 'main', 'landing_branch': 'staging',
+                 'staging_branch': 'staging', 'sources': []}))
+            git(repo, 'remote', 'add', 'origin', f'file://{bare}')
+            git(repo, 'push', '-q', '-u', 'origin', 'main')
+            git(repo, 'push', '-q', 'origin', 'main:staging')
+            git(repo, 'fetch', '-q', 'origin')
+            git(repo, 'checkout', '-q', '-b', 'feature')
+            write(repo, 'b.txt', 'b\n')
+            git(repo, 'push', '-q', '-u', 'origin', 'feature')
+            got = pg._unlanded_work(repo, siblings=False)
+            cases.append(("CONTROL: before the merge, the branch is reported as "
+                          "not on staging",
+                          any("'staging'" in l and 'feature' in l for l in got),
+                          str(got)))
+
+            other = tmp / 'other'
+            git(tmp, 'clone', '-q', '-b', 'staging', f'file://{bare}', str(other))
+            git(other, 'merge', '-q', '--no-ff', '-m', 'merge feature',
+                'origin/feature')
+            git(other, 'push', '-q', 'origin', 'staging')
+            git(repo, 'fetch', '-q', 'origin')
+            got = pg._unlanded_work(repo, siblings=False)
+            cases.append(('THE DISCRIMINATING CASE: merged into staging, the '
+                          'branch is not reported as unlanded',
+                          not any('feature' in l for l in got), str(got)))
+            cases.append(("...and the gate says staging is ahead of 'main'",
+                          any("staging is 1 commit(s) ahead of 'main'" in l
+                              for l in got), str(got)))
+        finally:
+            pg._this_session_id = saved_sid
+            if saved_ladder is None:
+                os.environ.pop(_pr.ASSUME_LADDER_ENV, None)
+            else:
+                os.environ[_pr.ASSUME_LADDER_ENV] = saved_ladder
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+    failed = [f'{n} [{d}]' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_not_binding_actually_exempts_a_check():
     """A `not_binding` entry has to change the RUN, not just the
     reachability report.
@@ -72450,6 +72644,9 @@ def main():
     check_audit_says_where_a_moved_bootstrap_section_went()
     check_push_check_walks_every_commit_it_publishes()
     check_rename_links_spares_a_longer_path_and_manifest_notes()
+    check_reply_gate_counts_staging_as_a_landing_branch()
+    check_others_did_says_why_its_push_was_refused()
+    check_archived_set_question_names_the_attach_fix()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_landed_reduction_quiets_the_reduction_ask()

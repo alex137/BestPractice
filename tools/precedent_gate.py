@@ -292,19 +292,21 @@ def _branches_module():
 PROMOTE_RUNNING_MARK = 'another window is already promoting pre-staging'
 
 
-def _unpromoted(repo, staging, _git):
-    """-> how many commits origin/pre-staging carries that origin/<staging>
-    does not, when their content differs; 0 otherwise. Content, not just
-    lineage, for the reason _unlanded_work gives below."""
-    if not _git(repo, 'rev-parse', '--verify', '-q', 'refs/remotes/origin/pre-staging'):
+def _unpromoted(repo, staging, _git, lower='pre-staging'):
+    """-> how many commits origin/<lower> carries that origin/<staging>
+    (the tier above it) does not, when their content differs; 0 otherwise.
+    Content, not just lineage, for the reason _unlanded_work gives below.
+    `lower` is the landing branch: pre-staging, or staging once pre-staging
+    is retired (2026-10-10)."""
+    if not _git(repo, 'rev-parse', '--verify', '-q', f'refs/remotes/origin/{lower}'):
         return 0
     # Only commits that change a file: an empty commit or a merge is never
     # a batch waiting (Morgan, 2026-09-27, strength: decided).
     ahead = _git(repo, 'rev-list', '--count', '--no-merges',
-                 f'origin/{staging}..origin/pre-staging', '--', '.')
+                 f'origin/{staging}..origin/{lower}', '--', '.')
     if not ahead or ahead == '0':
         return 0
-    if not _git(repo, 'diff', '--name-only', f'origin/{staging}', 'origin/pre-staging'):
+    if not _git(repo, 'diff', '--name-only', f'origin/{staging}', f'origin/{lower}'):
         return 0
     return int(ahead)
 
@@ -609,19 +611,29 @@ def _unlanded_work(root, siblings=True, records=None):
                 staging = pb.staging_branch(repo)
             except Exception:                                 # noqa: BLE001
                 landing = base
-            if landing == pb.PRE_STAGING and _git(
+            # Any landing branch below main is where work lands, staging
+            # included. Until 2026-10-10 only pre-staging counted, so in a
+            # repo whose pre-staging had retired, a branch merged into
+            # staging still read NOT YET LANDED against main, and the reply
+            # check refused "you can archive this session" for it (a
+            # consumer, the first day after its pre-staging retired).
+            if landing and landing != pb.MAIN and _git(
                     repo, 'rev-parse', '--verify', '-q',
-                    f'refs/remotes/origin/{pb.PRE_STAGING}'):
+                    f'refs/remotes/origin/{landing}'):
                 base = landing
             elif landing == pb.MAIN and _ladder(repo) is False:
                 # Off the ladder there are no tiers: work has landed when it
                 # is on main, whatever branch the repository's own
                 # contributors work on (spec/LADDER_OPT_IN_PLAN.md D3).
                 base = pb.MAIN
-            pending = _unpromoted(repo, staging, _git) \
-                if landing == pb.PRE_STAGING else None
+            # The tier a landed batch moves up to next: pre-staging into
+            # staging, staging into main.
+            above = staging if landing == pb.PRE_STAGING else \
+                pb.MAIN if landing and landing == staging and landing != pb.MAIN else None
+            pending = _unpromoted(repo, above, _git, lower=landing) \
+                if above else None
             if pending and not _range_is_this_sessions(
-                    repo, f'origin/{staging}..origin/{pb.PRE_STAGING}', own, _git):
+                    repo, f'origin/{above}..origin/{landing}', own, _git):
                 pending = None
             if pending:
                 name = repo.name if repo.resolve() != pathlib.Path(root).resolve() \
@@ -654,8 +666,8 @@ def _unlanded_work(root, siblings=True, records=None):
                 # an urgent, bolded nudge every turn had several windows
                 # promoting at once and racing each other (Morgan,
                 # 2026-09-25, strength: decided).
-                out.append(f"{name}: pre-staging is {pending} commit(s) ahead of "
-                           f"'{staging}' -- a Promote can move them whenever "
+                out.append(f"{name}: {landing} is {pending} commit(s) ahead of "
+                           f"'{above}' -- a Promote can move them whenever "
                            f"it suits")
         if head == base:
             continue
