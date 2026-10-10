@@ -16,7 +16,7 @@ closed:            2026-10-10
 ---
 ## What
 
-The commit-date check ([check_buenos_aires_dates.py](../tools/check_commit_dates.py), now tools/check_commit_dates.py,) has two copies that
+The commit-date check (once named check_buenos_aires_dates, now [tools/check_commit_dates.py](../tools/check_commit_dates.py)) had two copies that
 drift apart. One is the source in Morgan's individual set, which every
 consuming repository materializes and runs. The other is BestPractice's
 port in [tools/checks/](../tools/checks/). On 2026-10-10, three gaps between

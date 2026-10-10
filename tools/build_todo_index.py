@@ -163,6 +163,13 @@ def read_todo_item(path):
                   f'`closed` -- that value belongs to this repo\'s other '
                   f'status vocabulary, tools/doc_lifecycle.py\'s briefs and '
                   f'records, not to a todo item).')
+    kind = item.get('kind')
+    if status == 'open' and kind not in KIND_ORDER:
+        sys.exit(f'build_todo_index FAIL: {path} is open with kind: '
+                  f'{kind!r}, not one of {", ".join(KIND_ORDER)} -- '
+                  f'TODO.md has no table for it, so it would silently '
+                  f'vanish from the open-items list. A bug to fix is '
+                  f'`analysis`; a choice for a person is `decision`.')
     return item
 
 
