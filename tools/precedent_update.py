@@ -1053,7 +1053,6 @@ _HISTORY_WORDS = re.compile(
     r'(?i)\b(?:today|until|used\s+to|no\s+longer|was|were|had|before|'
     r'formerly|previously|retired|old|instead\s+of|rather\s+than)\b')
 _HEADING = re.compile(r'^(#{1,6})\s+(.*)$')
-_FENCE = re.compile(r'^\s*(```|~~~)')
 # Whole files that are history: what they record stays as it was.
 _HISTORY_DIRS = ('gotchas/', 'record/')
 
@@ -1132,12 +1131,19 @@ def reword_pre_staging(text, slug):
     tree, file or history, repointed to staging. `changed` is [(line, why)]
     and `left` [(line, why)] for every other line that names pre-staging,
     1-based. Front matter, generated blocks, code blocks, a Story section and
-    anything under a dated heading are never rewritten."""
+    anything under a dated heading are never rewritten.
+
+    An INDENTED code block counts as code too (CommonMark: four spaces or a
+    tab, after a blank line or another such line, and not a list item's
+    continuation). On 2026-10-09 a handoff prompt quoted that way in an open
+    item's Notes had its "Push to `pre-staging` (Booked) refused" reworded
+    to staging -- a record of where a push went, made false -- because only
+    fenced blocks were recognized."""
     import generated_blocks
     lines = text.split('\n')
     hidden = generated_blocks.mask(lines)
+    code = generated_blocks.code_mask(lines)
     changed, left = [], []
-    fence = False
     story = None          # heading level of an open Story section
     dated = None          # heading level of an open dated section
     front = lines[:1] == ['---']
@@ -1146,12 +1152,11 @@ def reword_pre_staging(text, slug):
             if i and line.strip() == '---':
                 front = False
             continue
-        if _FENCE.match(line):
-            fence = not fence
-            if 'pre-staging' in line:
+        if code[i]:
+            if 'pre-staging' in line and not hidden[i]:
                 left.append((i + 1, 'code block'))
             continue
-        h = None if fence else _HEADING.match(line)
+        h = _HEADING.match(line)
         if h:
             level = len(h.group(1))
             if story is not None and level <= story:
@@ -1164,8 +1169,7 @@ def reword_pre_staging(text, slug):
                 dated = level
         if 'pre-staging' not in line or hidden[i]:
             continue
-        why = ('code block' if fence else
-               'Story section, history' if story is not None else
+        why = ('Story section, history' if story is not None else
                'under a dated heading, history' if dated is not None else
                'dated line, history' if _DATED.search(line) else
                'quotation' if line.lstrip().startswith('>') else
