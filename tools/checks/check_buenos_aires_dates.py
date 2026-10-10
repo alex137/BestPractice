@@ -366,6 +366,11 @@ def _log_scope_args() -> list[str]:
     travel into a consuming repo. See that file's copy for the full
     reasoning (Morgan, 2026-09-22: "Whole history reviews are good for
     things like very deep check but not for daily practice")."""
+    # AN EXPLICIT RANGE WINS, as in check_commit_author.py's copy (added
+    # there 2026-10-06 and missed here until 2026-10-10).
+    rng = os.environ.get("PRECEDENT_CHECK_RANGE")
+    if rng:
+        return [rng.replace("...", "..")]
     if os.environ.get("PRECEDENT_CHECK_FULL_HISTORY") == "1":
         return []
     has_remotes = subprocess.run(
@@ -428,6 +433,17 @@ def _bot_emails() -> set[str]:
         return set()
 
 
+# A commit GitHub itself committed -- its merge button, a squash, or the
+# test merge refs/pull/N/merge the merge gate judges -- carries the date
+# GitHub gave it, in UTC, whoever it names as author. The person never chose
+# that offset, so it is no finding here, the way check_session_trailer.py
+# skips the same committer. Found 2026-10-10: a consumer's merge gate
+# refused every GitHub-button merge over the test merge's "+0000". Morgan,
+# the same day: "it's fine if github does things in UTC, the buenos aires
+# timezone is just for me."
+WEB_FLOW_COMMITTER = "noreply@github.com"
+
+
 def find_violations() -> list[str]:
     if _STAND_DOWN is not None:
         raise _STAND_DOWN
@@ -439,11 +455,13 @@ def find_violations() -> list[str]:
                 f"so no offset can be checked without it"]
     findings = list(_REPO_GRANDFATHERED_FINDINGS)
     bots = _bot_emails()
-    for line in _git_log_lines("--format=%H|%ae|%ad", "--date=format:%z"):
+    for line in _git_log_lines("--format=%H|%ae|%ce|%ad", "--date=format:%z"):
         if not line.strip():
             continue
-        sha, email, offset = line.split("|", 2)
+        sha, email, committer, offset = line.split("|", 3)
         if sha in EFFECTIVE_GRANDFATHERED_SHAS or email.lower() in bots:
+            continue
+        if committer.strip().lower() == WEB_FLOW_COMMITTER:
             continue
         if offset != EXPECTED_OFFSET:
             findings.append(

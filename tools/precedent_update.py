@@ -584,6 +584,8 @@ def retired_sources_step(repo, rep):
                  f'asked on GitHub whether they are archived, so they stay '
                  f'declared; a set that marks itself retired is still found '
                  f'(first: {notes[0]})')
+    if names:
+        record_dropped_sets(repo, names)
     return names
 
 
@@ -741,6 +743,34 @@ def prose_about_dropped_sets(repo, dropped):
 _SOURCE_DROPPED_REFUSAL = re.compile(
     r"whose source name is not among the sources precedent\.json declares -- "
     r"(.*?)\. THREE things", re.S)
+
+
+def sets_this_update_dropped(repo, dropped):
+    """-> every set this update may count as dropped when the view sync
+    refuses to remove what one held: `dropped` (this run's
+    retired_sources_step), the sets an earlier run of this same update
+    dropped (record_dropped_sets), and every set on a deleted-set record
+    (precedent_resolve.deleted_sets) -- less any precedent.json still
+    declares.
+
+    WHY (2026-10-10, a consumer's Update Vendors). The first run dropped two
+    deleted sets from precedent.json and stopped LEFT FOR YOU; the rerun
+    found nothing left to drop, while the committed MANIFEST.json still
+    recorded their practices, so the sync refused every rerun."""
+    out = set(dropped or ())
+    out |= set(_read_record(repo).get('dropped_sets') or ())
+    try:
+        out |= set(pve._person_sets()[0])
+    except Exception:                                          # noqa: BLE001
+        pass
+    try:
+        cfg = json.loads((pathlib.Path(repo) / 'precedent.json')
+                         .read_text(encoding='utf-8'))
+        declared = {str(x.get('name') or '') for x in cfg.get('sources') or []
+                    if isinstance(x, dict)}
+    except (OSError, ValueError, AttributeError):
+        declared = set()
+    return sorted(out - declared)
 
 
 def removals_this_update_caused(out, dropped):
@@ -3135,8 +3165,18 @@ def take_pin(repo, follow, move=False):
 
 def clear_pin(repo):
     data = _read_record(repo)
-    if data.pop('pin', None) is not None:
+    had = [data.pop(k, None) for k in ('pin', 'dropped_sets')]
+    if any(h is not None for h in had):
         _write_record(repo, data)
+
+
+def record_dropped_sets(repo, names):
+    """Write down, in the run-to-run record, the sets this run dropped from
+    precedent.json, so a rerun after LEFT FOR YOU still counts them as the
+    update's own drop (sets_this_update_dropped). Cleared with the pin."""
+    data = _read_record(repo)
+    data['dropped_sets'] = sorted(set(data.get('dropped_sets') or ()) | set(names))
+    _write_record(repo, data)
 
 
 def vendored_layer_paths(repo, paths):
@@ -4263,7 +4303,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
         rep.step('views', 'regenerated (loader block, MAP.md, GLOSSARY.md)')
     elif sync.is_file():
         rc, out = run([sys.executable, str(sync), '--repo', str(repo)], repo)
-        caused = removals_this_update_caused(out, dropped_sets) if rc else []
+        caused = (removals_this_update_caused(
+            out, sets_this_update_dropped(repo, dropped_sets)) if rc else [])
         if caused:
             # The sync refuses to remove what a source no longer declared
             # held, since it cannot tell a drop from a rename. This update
