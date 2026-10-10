@@ -1048,6 +1048,7 @@ _PS_INSTRUCTION = re.compile(
 _PS_LINK = re.compile(r'github\.com/(?P<slug>[^/\s()]+/[^/\s()]+)/'
                       r'(?P<kind>tree|blob|commits)/pre-staging(?=[/)\s#?"\'>\]]|$)')
 _DATED = re.compile(r'\b20\d\d-\d\d-\d\d\b')
+_QUOTED = re.compile(r'"[^"\n]*"|\u201c[^\u201d\n]*\u201d')
 # Words that make a line read as history or a comparison, not an instruction.
 _HISTORY_WORDS = re.compile(
     r'(?i)\b(?:today|until|used\s+to|no\s+longer|was|were|had|before|'
@@ -1143,6 +1144,21 @@ def reword_pre_staging(text, slug):
     lines = text.split('\n')
     hidden = generated_blocks.mask(lines)
     code = generated_blocks.code_mask(lines)
+    # A dated SENTENCE is history on every line it wraps onto: on
+    # 2026-10-09 a note whose date sat two lines above its quote of an old
+    # instruction was reworded. By sentence, not by paragraph: a paragraph
+    # can hold a dated sentence beside a live instruction, and the
+    # instruction is still reworded.
+    para_dated = [False] * len(lines)
+    carry = False
+    for k, ln in enumerate(lines):
+        if not ln.strip() or code[k]:
+            carry = False
+            continue
+        if carry:
+            para_dated[k] = True
+        if _DATED.search(ln) or carry:
+            carry = not ln.rstrip().endswith(('.', '!', '?'))
     changed, left = [], []
     story = None          # heading level of an open Story section
     dated = None          # heading level of an open dated section
@@ -1172,6 +1188,7 @@ def reword_pre_staging(text, slug):
         why = ('Story section, history' if story is not None else
                'under a dated heading, history' if dated is not None else
                'dated line, history' if _DATED.search(line) else
+               'dated sentence, history' if para_dated[i] else
                'quotation' if line.lstrip().startswith('>') else
                'table row' if line.lstrip().startswith('|') else
                'reads as history or a comparison' if _HISTORY_WORDS.search(line)
@@ -1179,8 +1196,17 @@ def reword_pre_staging(text, slug):
         if why:
             left.append((i + 1, why))
             continue
-        said = _PS_INSTRUCTION.sub(lambda m: m.group(0)[:m.start('q') - m.start(0)]
-                                   + f'{m.group("q")}staging{m.group("q")}', line)
+        # A phrase inside double quotes is a report of what something said,
+        # never an instruction (2026-10-09: "Push to `pre-staging` (Booked)
+        # refused" was reworded in a note about the bug).
+        quoted = [(q.start(), q.end()) for q in _QUOTED.finditer(line)]
+
+        def to_staging(m):
+            if any(a <= m.start() < b for a, b in quoted):
+                return m.group(0)
+            return (m.group(0)[:m.start('q') - m.start(0)]
+                    + f'{m.group("q")}staging{m.group("q")}')
+        said = _PS_INSTRUCTION.sub(to_staging, line)
         new = _PS_LINK.sub(lambda m: (m.group(0).replace('/pre-staging', '/staging')
                                       if slug and m.group('slug').lower() == slug.lower()
                                       else m.group(0)), said)
@@ -1191,7 +1217,10 @@ def reword_pre_staging(text, slug):
                 if did)))
         if 'pre-staging' in new:
             other = _PS_LINK.search(new)
+            in_quote = any(a <= new.find('pre-staging') < b for a, b in
+                           [(q.start(), q.end()) for q in _QUOTED.finditer(new)])
             left.append((i + 1, 'link into another repository' if other
+                         else 'quotation, history' if in_quote
                          else 'not a clear instruction'))
     return '\n'.join(lines), changed, left
 
@@ -1223,6 +1252,24 @@ def sole_maintainer_is_you(repo):
     except Exception:                                        # noqa: BLE001
         return None
     return f'@{login}' if gh and gh.lower() == login else None
+
+
+def rewords_this_run(repo, switched, merged_now):
+    """-> True when this run is the one moving the repository off
+    pre-staging, so stale instructions to land there are reworded: it
+    switched precedent.json, it brought pre-staging's work into staging, or
+    the switch is not committed yet (a rerun before the commit). After that,
+    a new mention of pre-staging is usually deliberate, and a reword would
+    rewrite it on every later update (2026-10-09, reported by another
+    session: a note quoting the old instruction was reworded a run later)."""
+    if switched or merged_now:
+        return True
+    rc, out = run(['git', 'show', 'HEAD:precedent.json'], repo)
+    try:
+        committed = json.loads(out).get(pb.LANDING_SETTING) if rc == 0 else None
+    except ValueError:
+        committed = None
+    return committed != pb.STAGING
 
 
 def committed_engine_lands_on_staging(repo):
@@ -1341,6 +1388,8 @@ def retire_pre_staging_step(repo, rep):
     files, history = _retire_scope(repo)
     before = set(rep.before or ())
     changed, left = [], []
+    reword = rewords_this_run(repo, switched, bool(block))
+    deliberate = []
     for rel in files:
         path = repo / rel
         try:
@@ -1350,7 +1399,11 @@ def retire_pre_staging_step(repo, rep):
         if 'pre-staging' not in text:
             continue
         new, did, kept = reword_pre_staging(text, slug)
-        if did and rel in before:
+        if did and not reword:
+            # Moved onto staging in an earlier update: a mention written
+            # since is read as deliberate, reported and never rewritten.
+            deliberate += [(rel, n) for n, _w in did]
+        elif did and rel in before:
             # Never mixed into somebody's uncommitted work.
             left += [(rel, n, 'uncommitted edits in this file') for n, _w in did]
         elif did:
@@ -1365,6 +1418,14 @@ def retire_pre_staging_step(repo, rep):
             n = 0
         if n:
             in_history.append(n)
+    if deliberate:
+        shown = deliberate[:10]
+        block.append('not reworded -- this repository moved onto staging in an '
+                     'earlier update, so a mention of pre-staging now reads as '
+                     'deliberate; change it by hand if it is a stale '
+                     'instruction: ' + ', '.join(f'{rel}:{n}' for rel, n in shown)
+                     + (f'; and {len(deliberate) - len(shown)} more'
+                        if len(deliberate) > len(shown) else ''))
     if changed:
         block.append('reworded to staging: ' + ', '.join(
             f'{rel}:{n} ({w})' for rel, n, w in changed))
