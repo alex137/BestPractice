@@ -3637,7 +3637,8 @@ GREEN_WINDOW = 10
 # anyway"), recorded in the report and the commit message.
 TAKE_FLAG = '--take-anyway'
 _STATE_WORDS = {'failed': 'failed on', 'running': 'is still running on',
-                'none': 'has not run on'}
+                'none': 'has not run on',
+                'unmarked': 'left no passed marker, and GitHub could not be asked, on'}
 
 
 def main_test_state(sha, tests):
@@ -3645,6 +3646,21 @@ def main_test_state(sha, tests):
     as precedent_branches.github_test_state reads it. Its own name so the
     harness can stand GitHub in."""
     return pb.github_test_state(SOURCE, sha, tests)
+
+
+def passed_trees():
+    """-> the trees main's GitHub test marked as passed (git refs under
+    precedent_branches.PASSED_PREFIX on the source's origin), or None when
+    they could not be read. Its own name so the harness can stand it in."""
+    try:
+        return pb.passed_markers(SOURCE)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _tree(sha):
+    rc, out = run(['git', '-C', str(SOURCE), 'rev-parse', f'{sha}^{{tree}}'], SOURCE)
+    return out.strip() if rc == 0 else None
 
 
 def _why_not_newer(skipped):
@@ -3715,8 +3731,23 @@ def source_commit(follow, tip, take=None):
                       f'--max-count={GREEN_WINDOW}', tip], SOURCE)
     commits = listed.split() if rc == 0 else [tip]
     skipped = []
+    # The git marker first: no API call, and it answers where the API cannot
+    # (a session with no GitHub access to BestPractice). An unmarked commit
+    # falls back to asking GitHub.
+    marked = passed_trees() or set()
     for sha in commits:
-        state, detail = main_test_state(sha, tests)
+        if marked and _tree(sha) in marked:
+            state, detail = 'passed', 'its passed marker'
+        else:
+            state, detail = main_test_state(sha, tests)
+        if state == 'unknown' and marked:
+            # GitHub cannot be asked, and the markers can: a commit without
+            # one is not known to have passed, so look further back for the
+            # newest that is. Before the first marker existed there is none
+            # to find, and the tip is taken with a warning, as before.
+            skipped.append((sha, 'unmarked'))
+            unknown = detail
+            continue
         if state == 'passed':
             out['commit'] = sha
             if skipped:
@@ -3749,6 +3780,13 @@ def source_commit(follow, tip, take=None):
             out['commit'] = None
             return out
         skipped.append((sha, state))
+    if any(state == 'unmarked' for _, state in skipped):
+        out['warning'] = (f"could not ask GitHub whether {follow}'s test passed "
+                          f"({unknown}), and none of {follow}'s newest "
+                          f"{len(commits)} commits carries a passed marker, so "
+                          f"this took the newest {follow}, {tip[:12]}, without "
+                          f"knowing")
+        return out
     out['commit'] = None
     out['failed'] = (f"none of {follow}'s newest {len(commits)} commits passed "
                      f"GitHub's test: {_why_not_newer(skipped)}. Nothing was "
