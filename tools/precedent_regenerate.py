@@ -137,6 +137,42 @@ def labelled_entries(repo, engine_rel, listed=(), known=None):
     return out
 
 
+def register(repo, entries):
+    """Add each of `entries` to the repository's own list, unless its path
+    is already there. -> the paths added. Nothing is done where the
+    repository keeps no list at all: generated-files-registered does not
+    apply there, and starting one is Update Vendors' call.
+
+    WHY (2026-10-10). A consumer with no todo/ yet had its lander file a
+    failure as an open item: build_todo_index.py wrote todo/TODO.md and
+    todo/CLOSED.md, the push check refused them as generated files no list
+    named, and the failure record was lost with nothing filed. The tool that
+    writes a file is the one that knows it does, so it lists it."""
+    path = pathlib.Path(repo) / REGISTRY
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except ValueError:
+        return []
+    files = data.setdefault('files', [])
+    have = {e.get('path') for e in files if not e.get('part')}
+    added = [dict(e) for e in entries if e['path'] not in have]
+    if not added:
+        return []
+    files.extend(added)
+    path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return [e['path'] for e in added]
+
+
+def own_entries(tool, paths, edit_instead):
+    """-> the list entries for files `tool` (tools/<name>.py) writes
+    wholesale and checks with its own --check."""
+    return [{'path': rel, 'generated_by': tool, 'edit_instead': edit_instead,
+             'regenerate': f'python3 {tool}', 'check': [tool, '--check']}
+            for rel in paths]
+
+
 def due(entries, staged):
     """-> the entries whose inputs one of `staged` matches, in list order.
     An entry that cannot be rebuilt offline (no `check`) is never due."""

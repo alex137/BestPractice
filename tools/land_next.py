@@ -312,7 +312,9 @@ def file_failure(repo, title, finding, closes):
             reset_to_origin(repo)
             path = open_failures.write_item(repo, title, finding, closes)
             run(repo, ["python3", "tools/build_todo_index.py"])
-            git(repo, "add", "todo")
+            # -A, not todo/: the index builder may also list its files in
+            # tools/generated_files.json, and the tree was reset just above.
+            git(repo, "add", "-A")
             git(repo, "commit", "-q", "-m", f"Open failure: {title}{TRAILER}")
         except Exception as e:  # noqa: BLE001
             log(f"could not file the failure under todo/: {e}")
