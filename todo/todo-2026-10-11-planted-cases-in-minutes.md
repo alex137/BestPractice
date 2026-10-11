@@ -29,7 +29,8 @@ All of it is in [`tools/verify_harness.py`](../tools/verify_harness.py), which i
 [`tools/precedent_check.py`](../tools/precedent_check.py) and every other vendored file stay as they are.
 
 **Step 1, prototyped and measured: 487 s down to 216 s, all 331 stated
-cases passing.**
+cases passing. Built 2026-10-11 (go-ahead in chat: "Build step 1 and
+book it"); steps 2 and 3 stay open.**
 
 1. Fixture `git` runs with `-c core.hooksPath=/dev/null`, in the function's
    `git()` helper and its direct `git` calls. No case depends on a global

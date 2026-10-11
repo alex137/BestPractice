@@ -593,6 +593,12 @@ then one planted and one clean copy side by side, hooks off): 2.4 s for
   violation; the docstring's account of claims that never fired still
   holds.
 
+**Step 1 landed the same day** (all four changes above, in
+`check_precedent_check_fires` itself). Through the real harness it ran in
+188 s and then 218 s, all 331 stated cases passing. Stopping one case from
+planting its violation turned the run red on exactly that case, so
+collecting results later did not hide a failure.
+
 The fix proposed from this is
 [todo-2026-10-11-planted-cases-in-minutes](../todo/todo-2026-10-11-planted-cases-in-minutes.md).
 
