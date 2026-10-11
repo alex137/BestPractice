@@ -2080,12 +2080,32 @@ def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
             break
         time.sleep(GITHUB_POLL_SECONDS)
         state, detail = github_test_state(root, sha, tests, gh)
+    # A fast move merges first and waits after, so by now main may already
+    # carry the commit (2026-10-10: a passed test still said "Merge the pull
+    # request" twice, over a pull request merged half an hour before).
+    merged = _on_main_already(root, sha)
     if state == 'passed':
-        say(f'GitHub test PASSED on {sha[:12]}: {detail}. Merge the pull request '
-            f'into {MAIN} with a merge commit{_at_head(sha)}.')
+        if merged:
+            say(f'GitHub test PASSED on {sha[:12]}: {detail}. {MAIN} already '
+                f'carries it -- the pull request is merged; nothing is left to do.')
+        else:
+            say(f'GitHub test PASSED on {sha[:12]}: {detail}. Merge the pull request '
+                f'into {MAIN} with a merge commit{_at_head(sha)}.')
         return 0
-    say(f'GitHub test {state.upper()} on {sha[:12]}: {detail}. Do not merge.')
+    if merged:
+        say(f'GitHub test {state.upper()} on {sha[:12]}: {detail}. {MAIN} already '
+            f'carries it, so fix {MAIN} now.')
+    else:
+        say(f'GitHub test {state.upper()} on {sha[:12]}: {detail}. Do not merge.')
     return 1
+
+
+def _on_main_already(root, sha):
+    """-> True when origin's main already holds `sha` (after a fresh fetch).
+    False when it does not, or git cannot say."""
+    _run(root, 'fetch', '-q', 'origin', MAIN)
+    return _run(root, 'merge-base', '--is-ancestor', sha,
+                f'origin/{MAIN}').returncode == 0
 
 
 # A FILE A TOOL WRITES is never a merge conflict worth a person's time:
