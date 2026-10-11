@@ -55617,38 +55617,37 @@ def check_update_takes_a_removal_its_source_decommissioned():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
-def check_update_all_vendors_reads_the_persons_list():
-    """precedent_update_all.py reads the list from the individual source it
-    is given, reports what the list has not classified, and refuses to run
-    with no individual source rather than guessing one."""
+def check_update_all_vendors_skips_its_own_source():
+    """precedent_update_all.py never updates the BestPractice repository it
+    runs from -- that repository has a precedent.json too -- and refuses to
+    run with no repositories named, rather than guessing a set."""
     import tempfile
     cases = []
+    tool = str(ROOT / 'tools' / 'precedent_update_all.py')
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update_all as pua
+        own = pua.source_repo()
+    finally:
+        sys.path.pop(0)
+    cases.append(('the tool reads its own source from the clone it runs in',
+                  own == 'alex137/bestpractice'))
     with tempfile.TemporaryDirectory() as tmp:
-        ind = pathlib.Path(tmp) / 'precedent-individual'
-        ind.mkdir()
-        (ind / 'repos_using_precedent.json').write_text(json.dumps({
-            'format_version': 1, 'not_using': [{'repo': 'a/no'}],
-            'repos': [{'repo': 'a/yes', 'kind': 'consumer',
-                       'last_run': None}]}), encoding='utf-8')
-        tool = str(ROOT / 'tools' / 'precedent_update_all.py')
-        r = subprocess.run([sys.executable, tool, '--individual', str(ind),
-                            'unknown', 'A/Yes', 'a/no', 'a/new'],
+        if own:
+            r = subprocess.run([sys.executable, tool, '--workdir', tmp,
+                                '--no-push', own.upper()],
+                               capture_output=True, text=True)
+            cases.append(('its own source, in any case: SKIPPED, nothing '
+                          'cloned', r.returncode == 0
+                          and r.stdout.startswith('SKIPPED')
+                          and not any(pathlib.Path(tmp).iterdir())))
+        r = subprocess.run([sys.executable, tool, '--workdir', tmp],
                            capture_output=True, text=True)
-        cases.append(('unknown names only the unclassified one, in any case',
-                      r.returncode == 0 and r.stdout.split() == ['a/new']))
-        r = subprocess.run([sys.executable, tool, '--individual', str(ind),
-                            'list'], capture_output=True, text=True)
-        cases.append(('list shows a listed repo and that it never ran',
-                      'a/yes' in r.stdout and 'never run' in r.stdout))
-        r = subprocess.run([sys.executable, tool, '--individual', str(ind),
-                            'run', '--workdir', tmp, '--only', 'a/other'],
-                           capture_output=True, text=True)
-        cases.append(('run --only a repo not on the list: refused by name',
-                      r.returncode == 2 and 'Not on the list: a/other'
-                      in r.stderr))
+        cases.append(('no repositories named: refused by argparse',
+                      r.returncode == 2 and 'OWNER/REPO' in r.stderr))
     bad = [n for n, ok in cases if not ok]
-    check(f'Update All Vendors reads the person\'s list '
-          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+    check(f'Update All Vendors skips its own source '
+          f'({len(cases)} stated cases)', not bad and cases, '; '.join(bad))
 
 
 def check_promote_commits_carry_a_session_trailer():
@@ -74808,7 +74807,7 @@ def main():
     check_date_check_skips_commits_github_made()
     check_update_rerun_after_left_for_you_still_drops_a_deleted_set()
     check_update_takes_a_removal_its_source_decommissioned()
-    check_update_all_vendors_reads_the_persons_list()
+    check_update_all_vendors_skips_its_own_source()
     check_promote_commits_carry_a_session_trailer()
     check_merge_instructions_give_the_full_head()
     check_promote_marks_other_sessions_commits()

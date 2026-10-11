@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Update All Vendors: run Update Vendors across every repository on the person's list, from one session, without loading any of those repositories' instructions -- the list lives in the person's individual source (spec/UPDATE_ALL_VENDORS_PLAN.md)
+"""Update All Vendors: run Update Vendors in every repository the person names, one after another, from one session, without loading any of those repositories' instructions; a repository with no precedent.json is reported and left alone (spec/UPDATE_ALL_VENDORS_PLAN.md)
 
 precedent_update_all.py -- Update Vendors for every repository a person uses
 Precedent in, one at a time, from any one session.
@@ -14,45 +14,37 @@ directory, runs that command against it, commits and pushes what DONE
 leaves, and prints one line per repository. The session's context grows by
 a line per repository, not by a set of instructions.
 
-THE LIST. `repos_using_precedent.json` at the root of the person's
-individual source (the path in ~/.config/precedent/config.json, as
-precedent_resolve.person_individual_path reads it). Each person's list sits
-in their own individual source; the tool and the practice are universal.
+NO LIST (Morgan, 2026-10-11: "Is it even worth it to have a list?"). The
+session passes every repository the person can reach that is not archived;
+the tool decides each one fresh: a precedent.json at the landing branch means
+update it, none means NOT USED. A stored list only saved checking the few
+repositories without Precedent, and it went stale whenever one started or
+stopped using it.
 
-    list                      the repositories on the list, with each one's
-                              last outcome
-    unknown OWNER/REPO ...    which of these the list has never classified;
-                              pass every repository the harness can list
-                              (Claude Code's cloud sessions: list_repos)
-    probe OWNER/REPO ...      classify each one: a precedent.json at its
-                              default branch puts it on the list, none puts
-                              it under not_using. Attach a private one first
-    skip OWNER/REPO ... --why TEXT
-                              record each under not_using without opening
-                              it: an archived repository, or not the person's
-    run [--only OWNER/REPO]   the update itself, in list order
-    record OWNER/REPO --merged PR
-                              note that the update's pull request merged
+    python3 tools/precedent_update_all.py --workdir DIR [--trailer LINE]...
+                                          [--no-push] OWNER/REPO ...
 
-WHAT `run` DOES, per repository, and the outcome word it prints:
-  clone (blobless, all history), switch to the person's landing branch for
-  that repository, run precedent_update.py --repo <clone>, then
+Each repository's line starts with one word:
+    SKIPPED   the BestPractice repository itself, which is never updated
+              this way
+    NOT USED  no precedent.json; the clone is deleted
     CURRENT   DONE with nothing staged: already up to date; clone deleted
     PUSHED    DONE: committed on a branch precedent_branch_name.py named,
               with the person's commit identity, and pushed; the line names
               the branch, the base and the full 40-character head for the
               merge. Clone deleted
+    READY     DONE with --no-push: stopped before the commit; clone kept
     ASK       DONE with questions for the person; nothing committed. Clone kept
     LEFT      LEFT FOR YOU: this repository's own calls; clone kept, log named
     FAILED    a step could not run or the deep check is red; clone kept
-  The session opens and merges each PUSHED pull request itself (the merge
-  needs GitHub tools this script does not have), and hands an ASK, LEFT or
-  FAILED repository to a subagent with a fresh context, so that repository's
-  instructions never enter the main session.
+The session opens and merges each PUSHED pull request itself (the merge
+needs GitHub tools this script does not have), and hands an ASK, LEFT or
+FAILED repository to a subagent with a fresh context, so that repository's
+instructions never enter the main session. A clone an earlier run kept is
+reused, never cloned over (practice: repair-cannot-discard-work).
 """
 import argparse
 import json
-import os
 import pathlib
 import shutil
 import subprocess
@@ -65,51 +57,27 @@ sys.path.insert(0, str(HERE))
 import precedent_branches as pb                                 # noqa: E402
 import precedent_identity                                       # noqa: E402
 import precedent_resolve                                        # noqa: E402
-import precedent_time                                           # noqa: E402
 
-LIST_NAME = 'repos_using_precedent.json'
 UPDATE = HERE / 'precedent_update.py'
 DONE, LEFT, FAILED = 0, 1, 2
 ASKS_MARK = 'DONE -- nothing left for this repo to decide. Ask the'
-
-
-def today():
-    return precedent_time.today()                # practice: timestamps-carry-offset
-
-
-def list_path(individual=None):
-    """-> the person's list file, or None when no individual source is
-    configured."""
-    root = pathlib.Path(individual) if individual else \
-        precedent_resolve.person_individual_path()
-    return root / LIST_NAME if root else None
-
-
-def load(path):
-    if path.is_file():
-        return json.loads(path.read_text(encoding='utf-8'))
-    return {'format_version': 1,
-            '_comment': ['The repositories this person uses Precedent in, '
-                         'read by BestPractice tools/precedent_update_all.py '
-                         '("Update All Vendors"). `repos` is updated in list '
-                         'order; `not_using` records repositories checked and '
-                         'found without a precedent.json, so discovery does '
-                         'not open them again. Written by the tool; edit by '
-                         'hand only to reorder or to drop an entry.'],
-            'repos': [], 'not_using': []}
-
-
-def save(path, data):
-    path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
 
 
 def norm(name):
     return name.strip().strip('/').lower()
 
 
-def known(data):
-    return {norm(e['repo']) for e in data['repos']} | \
-        {norm(e['repo']) for e in data['not_using']}
+def source_repo():
+    """-> 'owner/repo' of the BestPractice clone this tool runs from, or
+    None. Its own precedent.json would otherwise make it look like a
+    consumer, and the universal source is updated by its own changes."""
+    r = subprocess.run(['git', '-C', str(HERE.parent), 'remote', 'get-url',
+                        'origin'], capture_output=True, text=True)
+    url = r.stdout.strip() if r.returncode == 0 else ''
+    if not url:
+        return None
+    tail = url.rstrip('/').removesuffix('.git').split('github.com')[-1]
+    return norm(tail.lstrip(':/'))
 
 
 def git(*args, cwd=None, env=None, check=True):
@@ -168,77 +136,6 @@ def link_sources(clone_dir):
     return missing
 
 
-def cmd_list(data, _args):
-    if not data['repos']:
-        print('The list is empty. Run `probe` with the repositories '
-              'list_repos returns to fill it.')
-        return 0
-    for e in data['repos']:
-        last = e.get('last_run') or {}
-        tail = (f"{last.get('outcome')} {last.get('date')}"
-                + (f" PR #{last['pr']}" if last.get('pr') else '')) \
-            if last else 'never run'
-        print(f"{e['repo']:45} {e.get('kind', '?'):9} {tail}")
-    return 0
-
-
-def cmd_unknown(data, args):
-    seen = known(data)
-    new = [r for r in args.repos if norm(r) not in seen]
-    for r in new:
-        print(r)
-    print(f'{len(new)} of {len(args.repos)} not classified yet.',
-          file=sys.stderr)
-    return 0
-
-
-def cmd_probe(data, args):
-    work = pathlib.Path(args.workdir)
-    work.mkdir(parents=True, exist_ok=True)
-    seen = known(data)
-    for repo in args.repos:
-        if norm(repo) in seen:
-            print(f'KNOWN    {repo}')
-            continue
-        dest = work / ('probe-' + norm(repo).replace('/', '_'))
-        shutil.rmtree(dest, ignore_errors=True)      # this tool's own probe
-        try:
-            clone(repo, dest, checkout=False)
-        except RuntimeError as exc:
-            print(f'ERROR    {repo}: {exc} (private? attach it first)')
-            continue
-        try:
-            raw = git('show', 'HEAD:precedent.json', cwd=dest, check=False)
-            manifest = git('show', 'HEAD:tools/ENGINE_MANIFEST.json',
-                           cwd=dest, check=False)
-        finally:
-            shutil.rmtree(dest, ignore_errors=True)
-        if raw:
-            try:
-                kind = json.loads(manifest).get('kind') or 'consumer'
-            except ValueError:
-                kind = 'consumer'
-            data['repos'].append({'repo': norm(repo), 'kind': kind,
-                                  'added': today(), 'last_run': None})
-            print(f'ADDED    {repo} ({kind})')
-        else:
-            data['not_using'].append({'repo': norm(repo), 'checked': today()})
-            print(f'NOT USED {repo}')
-    return 0
-
-
-def cmd_skip(data, args):
-    seen = known(data)
-    for repo in args.repos:
-        if norm(repo) in seen:
-            print(f'KNOWN    {repo}')
-            continue
-        data['not_using'].append({'repo': norm(repo), 'checked': today(),
-                                  'why': args.why})
-        print(f'SKIPPED  {repo} ({args.why})')
-    return 0
-
-
 def _outcome(code, out, clone_dir):
     if code == DONE:
         if ASKS_MARK in out:
@@ -267,13 +164,12 @@ def _branch_name(clone_dir):
     return r.stdout.strip().splitlines()[-1]
 
 
-def run_one(entry, work, args):
-    """-> dict for the list's last_run, after printing one line."""
-    repo = entry['repo']
+def run_one(repo, work, args):
+    """-> the outcome word, after printing one line for `repo`."""
     dest = work / norm(repo).replace('/', '_')
     log = work / (dest.name + '.log')
     started = time.time()
-    result = {'date': today()}
+    result = {}
     try:
         if (dest / '.git').is_dir():
             # An earlier run left this clone (ASK, LEFT, FAILED), perhaps
@@ -282,6 +178,12 @@ def run_one(entry, work, args):
             git('fetch', '-q', 'origin', cwd=dest)
         else:
             clone(repo, dest)
+        if not (dest / 'precedent.json').is_file():
+            # Not a Precedent repository today: nothing to update, and
+            # nothing of the person's in the clone.
+            shutil.rmtree(dest, ignore_errors=True)
+            print(f'NOT USED {repo}  (no precedent.json)', flush=True)
+            return 'NOT USED'
         missing = link_sources(dest)
         if missing:
             raise RuntimeError(
@@ -317,7 +219,6 @@ def run_one(entry, work, args):
     except (RuntimeError, OSError) as exc:
         outcome = 'FAILED'
         log.write_text(f'{exc}\n', encoding='utf-8')
-    result['outcome'] = outcome
     secs = int(time.time() - started)
     if outcome in ('CURRENT', 'PUSHED'):
         shutil.rmtree(dest, ignore_errors=True)
@@ -327,92 +228,41 @@ def run_one(entry, work, args):
     extra = (f"  {result['branch']} -> {result['base']}  head {result['head']}"
              if outcome == 'PUSHED' else '')
     print(f'{outcome:8} {repo}{extra}{where}  ({secs}s)', flush=True)
-    return result
+    return outcome
 
-
-def cmd_run(data, args, path):
-    work = pathlib.Path(args.workdir)
-    work.mkdir(parents=True, exist_ok=True)
-    only = {norm(r) for r in args.only or []}
-    todo = [e for e in data['repos'] if not only or norm(e['repo']) in only]
-    missing = only - {norm(e['repo']) for e in todo}
-    if missing:
-        print(f"Not on the list: {', '.join(sorted(missing))}", file=sys.stderr)
-        return 2
-    total, began = len(todo), time.time()
-    counts = {}
-    for i, entry in enumerate(todo, 1):
-        print(f'[{i}/{total}] {entry["repo"]} ...', file=sys.stderr, flush=True)
-        entry['last_run'] = run_one(entry, work, args)
-        counts[entry['last_run']['outcome']] = \
-            counts.get(entry['last_run']['outcome'], 0) + 1
-        save(path, data)
-        done = time.time() - began
-        left = done / i * (total - i)
-        print(f'    {int(done)}s so far, about {int(left)}s left',
-              file=sys.stderr, flush=True)
-    print('\n' + ', '.join(f'{n} {k}' for k, n in sorted(counts.items())))
-    return 0 if set(counts) <= {'CURRENT', 'PUSHED', 'READY'} else 1
-
-
-def cmd_record(data, args):
-    for e in data['repos']:
-        if norm(e['repo']) == norm(args.repo):
-            e['last_run'] = dict(e.get('last_run') or {})
-            e['last_run'].update(outcome='MERGED', pr=args.merged,
-                                 merged=today())
-            print(f'{e["repo"]}: MERGED, PR #{args.merged}')
-            return 0
-    print(f'{args.repo} is not on the list', file=sys.stderr)
-    return 2
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
-    ap.add_argument('--individual', help='the individual source (default: '
-                    'the path in ~/.config/precedent/config.json)')
-    sub = ap.add_subparsers(dest='cmd')
-    sub.add_parser('list')
-    p = sub.add_parser('unknown')
-    p.add_argument('repos', nargs='+')
-    p = sub.add_parser('probe')
-    p.add_argument('repos', nargs='+')
-    p.add_argument('--workdir', required=True)
-    p = sub.add_parser('skip')
-    p.add_argument('repos', nargs='+')
-    p.add_argument('--why', required=True)
-    p = sub.add_parser('run')
-    p.add_argument('--workdir', required=True,
-                   help='where the clones go: the session scratchpad')
-    p.add_argument('--only', action='append', metavar='OWNER/REPO')
-    p.add_argument('--trailer', action='append', default=[],
-                   help='a line to end each commit message with, such as '
-                   'the session attribution; repeatable')
-    p.add_argument('--no-push', action='store_true',
-                   help='stop at READY, after the update, before committing')
-    p = sub.add_parser('record')
-    p.add_argument('repo')
-    p.add_argument('--merged', type=int, required=True, metavar='PR')
+    ap.add_argument('repos', nargs='+', metavar='OWNER/REPO',
+                    help='every repository to try, archived ones left out')
+    ap.add_argument('--workdir', required=True,
+                    help='where the clones go: the session scratchpad')
+    ap.add_argument('--trailer', action='append', default=[],
+                    help='a line to end each commit message with, such as '
+                    'the session attribution; repeatable')
+    ap.add_argument('--no-push', action='store_true',
+                    help='stop at READY, after the update, before committing')
     args = ap.parse_args(argv)
-    path = list_path(args.individual)
-    if path is None:
-        print('No individual source is configured '
-              '(~/.config/precedent/config.json), so there is no list to '
-              'read. Set one up first: documentation/PER_MACHINE_SETUP.md.',
-              file=sys.stderr)
-        return 2
-    data = load(path)
-    cmd = args.cmd or 'list'
-    if cmd == 'list':
-        return cmd_list(data, args)
-    if cmd == 'unknown':
-        return cmd_unknown(data, args)
-    if cmd == 'run':
-        return cmd_run(data, args, path)
-    code = {'probe': cmd_probe, 'skip': cmd_skip,
-            'record': cmd_record}[cmd](data, args)
-    save(path, data)
-    return code
+    work = pathlib.Path(args.workdir)
+    work.mkdir(parents=True, exist_ok=True)
+    own = source_repo()
+    total, began, counts = len(args.repos), time.time(), {}
+    for i, repo in enumerate(args.repos, 1):
+        print(f'[{i}/{total}] {repo} ...', file=sys.stderr, flush=True)
+        if own and norm(repo) == own:
+            print(f'SKIPPED  {repo}  (the universal source itself; it is '
+                  f'updated by its own changes)', flush=True)
+            outcome = 'SKIPPED'
+        else:
+            outcome = run_one(repo, work, args)
+        counts[outcome] = counts.get(outcome, 0) + 1
+        done = time.time() - began
+        print(f'    {int(done)}s so far, about {int(done / i * (total - i))}s '
+              f'left', file=sys.stderr, flush=True)
+    print('\n' + ', '.join(f'{n} {k}' for k, n in sorted(counts.items())))
+    fine = {'SKIPPED', 'NOT USED', 'CURRENT', 'PUSHED', 'READY'}
+    return 0 if set(counts) <= fine else 1
 
 
 if __name__ == '__main__':

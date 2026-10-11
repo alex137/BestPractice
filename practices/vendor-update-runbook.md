@@ -38,8 +38,8 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   none, and the BestPractice clone is found by its origin, wherever the
   attach tool put it; amended 2026-10-11, Morgan (decided) -- the phrase is
   best said as \"Update Vendors and merge\", and \"Update All Vendors\"
-  (practices/update-all-vendors.md) runs it for every repository on the
-  person's list"
+  (practices/update-all-vendors.md) runs it for every repository the
+  person uses Precedent in"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -60,7 +60,7 @@ until a run confirms it, a refusal is still handled the same way: say so in
 one line and ask for it by name -- "Merge PR #N into <landing branch>" --
 and never route around it
 ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)).
-**For every repository on the person's list at once, the phrase is
+**For every repository the person uses Precedent in at once, the phrase is
 [Update All Vendors](update-all-vendors.md).**
 
 **The sequence is one command, since 2026-09-27.** From the consuming repo,

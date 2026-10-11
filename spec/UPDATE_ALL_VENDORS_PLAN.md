@@ -7,14 +7,15 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "One phrase updates every repository a person uses Precedent in, from one session, without making any of them a session root: a list in the person's individual source, one tool that clones and updates each in turn, and a subagent only for a repository that needs a judgment call. Both update phrases are best said with the merge named, for Claude Code's auto mode."
+summary:       "One phrase updates every repository a person uses Precedent in, from one session, without making any of them a session root: the repositories found fresh each run, one tool that clones and updates each in turn, and a subagent only for a repository that needs a judgment call. Both update phrases are best said with the merge named, for Claude Code's auto mode."
 ---
 
 # Update All Vendors
 
 **Adopted 2026-10-11, Morgan.** The phrase and the "and merge" wording were his
 (strength: decided: "We can say update all vendors as the phrase"). The design
-below was the session's proposal (strength: assented: "Okay, let's do it"). The
+below was the session's proposal (strength: assented: "Okay, let's do it"),
+less the stored list it first had (see "No list"). The
 rule is [practices/update-all-vendors.md](../practices/update-all-vendors.md);
 the tool is [tools/precedent_update_all.py](../tools/precedent_update_all.py).
 
@@ -42,9 +43,12 @@ above none is needed.
 
 | Piece | Where | Why there |
 |---|---|---|
-| The list, `repos_using_precedent.json` | the person's individual source | each person's own repositories; every repository they use declares that source |
 | The tool, [precedent_update_all.py](../tools/precedent_update_all.py) | BestPractice `tools/` | the same for everyone; runs from the clone, like [precedent_update.py](../tools/precedent_update.py) |
 | The phrase, "Update All Vendors" | [practices/update-all-vendors.md](../practices/update-all-vendors.md) | universal, shown to code owners like the single phrase |
+
+**Which repositories:** every one the person can reach that is not archived,
+found fresh each run. The tool skips BestPractice itself and reports NOT USED
+for one with no `precedent.json`.
 
 **The run, per repository:** attach (push), clone into the scratchpad,
 link the shared sets it declares, run
@@ -59,6 +63,17 @@ repository (measured 2026-10-11: the attach result is long, and that is the
 largest per-repository cost now); one line of tool output per repository;
 and a subagent only where a judgment call is needed.
 
+## No list
+
+The first build kept `repos_using_precedent.json` in the person's individual
+source. Morgan asked, the same day, "Is it even worth it to have a list?" It
+was not. Updating a repository means attaching it with push either way, so
+the list saved only the check on the few that do not use Precedent, a few
+seconds and a page of attach output each. And it went stale: a repository
+that started or stopped using Precedent, or was archived, each needed code to
+notice. Found fresh, none of that can happen. The list went before it landed
+(strength: assented, "do what you think is best").
+
 ## Options weighed
 
 - **One session per repository, started by a tool.** Every repository's own
@@ -66,10 +81,9 @@ and a subagent only where a judgment call is needed.
   sessions' start-up, twenty to archive, and twenty merges for auto mode to
   refuse. Kept as the fallback for one repository that needs it.
 - **Discovery by code search across the account.** One call instead of a
-  probe per repository, but this environment allows a search with no
+  check per repository, but this environment allows a search with no
   repository argument only inside the session's scope, so it cannot see an
-  unattached private repository. The list makes discovery rare instead: a
-  repository is probed once and remembered either way.
+  unattached private repository.
 - **Remove each repository after use.** Not possible, and not needed.
 
 ## The auto-mode merge
@@ -98,6 +112,5 @@ in from beside the BestPractice clone.
 
 - Merging from the tool. Merges need GitHub's API, which the session has and
   a script run inside it does not.
-- A staleness roll-up across the list. The list now exists to read it from:
-  item 3 of
+- A staleness roll-up across the repositories: item 3 of
   [todo-2026-09-21-nothing-checks-a-consumer-against-upstream](../todo/todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md).

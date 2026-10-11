@@ -55,7 +55,7 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
   — `python3 ../BestPractice/tools/precedent_update.py --repo .` from the
   consuming repo; it carries the merge too. Best said "Update Vendors and
   merge"; **"Update All Vendors"** ([update-all-vendors](practices/update-all-vendors.md))
-  does every repo on your list without loading theirs.
+  does every repo you use it in without loading theirs.
 
 The three dispositions an open item can carry are
 [open-item-disposition](practices/open-item-disposition.md)'s; it reaches a
