@@ -214,7 +214,7 @@ and a real run over it.
 ## Progress
 
 <!--dated-list-->
-- **2026-10-11, built on `claude/amazing-lamport-l5eivc`.** Morgan said
+- **2026-10-11, built on `2026-10-11-update-vendors-stale-driver-tsgjt-4rv7p`.** Morgan said
   "Let's build" after a plain-words summary of the plan.
   [tools/precedent_update_driver.py](../tools/precedent_update_driver.py)
   holds both tables, the worktree run and the cleanup;
