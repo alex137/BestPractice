@@ -19,7 +19,8 @@ permissions already allow; it changes nothing but the path.
 For each branch `land_queue.py next` names, it:
 
 1. waits its turn for the lock Promote and --land take (the branch
-   precedent-promote-lock; a busy lock is waited out, up to ten minutes),
+   precedent-promote-lock, data-promote-lock on the ladder; a busy lock is
+   waited out, up to ten minutes),
    then marks it `landing`, fetches it, and merges the commit that was queued
    (never a later one) into the trunk with `--no-ff`; a conflict confined
    to the generated lists it may rebuild is rebuilt, any other fails;
