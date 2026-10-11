@@ -704,6 +704,27 @@ def parse_repo_policy(path):
     return owners, allowed
 
 
+def with_own_repo(policy, root):
+    """-> `policy` with this repository's own owner/name allowed: a
+    repository naming itself, in itself, discloses nothing (2026-10-10, a
+    private consumer refused a commit for writing its own name)."""
+    owners, allowed = policy
+    own = _remote_ref(root)
+    if not own:
+        return policy
+    return owners, {**allowed, f'{own[0]}/{own[1]}'.lower(): 'this repository itself'}
+
+
+def own_repo_private(policy, root):
+    """-> (owner/name, True) when this repository's owner is declared
+    private-by-default, (owner/name, False) when not, (None, None) when
+    its origin cannot be read."""
+    own = _remote_ref(root)
+    if not own:
+        return None, None
+    return f'{own[0]}/{own[1]}', own[0].lower() in (policy[0] or {})
+
+
 def parse_public_email_domains(path):
     """-> {domain: reason} the blocklist declares public. A line with no
     reason does not parse, so it declares nothing."""
@@ -834,12 +855,30 @@ _REMOTE_RE = re.compile(
     r'github\.com[:/]([A-Za-z0-9][\w-]*)/([A-Za-z][\w.-]*?)(?:\.git)?/?$')
 
 
+# A GIT HOOK POINTS GIT AT ITS OWN REPOSITORY (2026-10-10). Run from a
+# pre-push or pre-commit hook, git sets GIT_DIR and friends, and every
+# `git -C <other clone>` then answers about the repository being pushed:
+# each sibling's origin read as this repository's, and the blocklist
+# clone's HEAD reported as the commit being pushed. A call about ANOTHER
+# repository runs without them (the same list as
+# precedent_regenerate.HOOK_GIT_ENV, which hit this on 2026-10-04).
+_HOOK_GIT_ENV = ('GIT_DIR', 'GIT_INDEX_FILE', 'GIT_WORK_TREE', 'GIT_PREFIX',
+                 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY',
+                 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_QUARANTINE_PATH')
+
+
+def _foreign_env():
+    """-> os.environ without the variables a git hook sets."""
+    return {k: v for k, v in os.environ.items() if k not in _HOOK_GIT_ENV}
+
+
 def _remote_ref(repo_dir):
     """-> (owner, name) from a clone's origin URL, or None."""
     try:
         r = subprocess.run(['git', '-C', str(repo_dir), 'config', '--get',
                             'remote.origin.url'],
-                           capture_output=True, text=True, timeout=10)
+                           capture_output=True, text=True, timeout=10,
+                           env=_foreign_env())
     except (OSError, subprocess.SubprocessError):
         return None
     if r.returncode != 0:
@@ -1057,7 +1096,8 @@ def _stale_blocklist_clone_note():
         and wrongly -- the most-repeated bug in this project (AGENTS.md)."""
         try:
             r = subprocess.run(['git', '-C', str(path.parent), *args],
-                               capture_output=True, text=True, timeout=15)
+                               capture_output=True, text=True, timeout=15,
+                               env=_foreign_env())
         except (OSError, subprocess.SubprocessError):
             return 1, ''
         return r.returncode, r.stdout.strip()
@@ -1131,7 +1171,8 @@ def _try_refresh_private_blocklist_clone(timeout=20):
     def git(*args):
         try:
             r = subprocess.run(['git', '-C', str(root), *args],
-                               capture_output=True, text=True, timeout=timeout)
+                               capture_output=True, text=True, timeout=timeout,
+                               env=_foreign_env())
         except (OSError, subprocess.SubprocessError):
             return 1, ''
         return r.returncode, r.stdout.strip()
@@ -1662,7 +1703,7 @@ def main():
                      'indistinguishable from an ordinary comment, so the gate '
                      'would otherwise print OK while enforcing less than the '
                      'file says.')
-        _policy = parse_repo_policy(_bl_path)
+        _policy = with_own_repo(parse_repo_policy(_bl_path), ROOT)
     else:
         _policy = ({}, {})
     _vis, _why = declared_visibility(ROOT)
@@ -1715,7 +1756,7 @@ def main():
     if hits and not structural_only and _try_refresh_private_blocklist_clone():
         blocklist, source, configured = load_blocklist()
         if _bl_path is not None and _bl_path.is_file():
-            _policy = parse_repo_policy(_bl_path)
+            _policy = with_own_repo(parse_repo_policy(_bl_path), ROOT)
             _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
                                                 _policy[1])
                      if (_policy[0] and auto_cover_enabled(_bl_path)) else [])
@@ -1789,9 +1830,19 @@ def main():
     scope = {'tree': 'the tracked tree', 'staged': 'the staged changes',
              'range': f'the range {rev_range}'}[mode]
     if hits:
+        own, private = own_repo_private(_policy, ROOT)
+        if private:
+            where = (f"{own} is private (its owner is declared private by default), "
+                     f"so this push publishes nothing by itself; a private name in "
+                     f"it still travels wherever its content is copied or vendored.")
+        elif own:
+            where = (f"{own}'s owner is not declared private, so this push is "
+                     f"treated as a publication, which cannot be taken back.")
+        else:
+            where = ("This repository's origin could not be read, so the push is "
+                     "treated as a publication, which cannot be taken back.")
         print(f"\nleak gate FAIL: {len(hits)} hit(s) in {scope}. Nothing is pushed. "
-              f"Precedent is a branch of a PUBLIC repo -- a push is a publication, "
-              f"and it cannot be taken back.")
+              + where)
         note = _stale_blocklist_clone_note()
         if note:
             print("Before acting on these:\n" + note)
