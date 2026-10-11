@@ -829,6 +829,8 @@ def merge_refusal(root, bases, heads, user_config=None, head_sha=None):
         if main_copy_current(root, head_sha, _remote_tip(root, staging),
                              _remote_tip(root, MAIN)):
             return None
+    if MAIN in bases and head_sha and red_main_fix(root, head_sha):
+        return None
     if MAIN in bases and stale:
         return (f'{stale[0]} is a copy of {staging_branch(root)} that is out of '
                 f'date: {staging_branch(root)} has moved since it was made. '
@@ -840,6 +842,40 @@ def merge_refusal(root, bases, heads, user_config=None, head_sha=None):
             f'from {" or ".join(sorted(allowed))} here -- {PROMOTE_ONLY_SETTING} '
             f'is on in {where}. Retarget it at {lower}, merge it there, '
             f'and say Promote.')
+
+
+def main_test_failed(root):
+    """True only when main's own GitHub test has run on main's tip and
+    failed. No test installed, none on this tip, still running, or GitHub
+    cannot be asked: False, so the gate stays as strict as before."""
+    try:
+        mtip = _remote_tip(root, MAIN)
+        tests = (github_tests(root, mtip)
+                 if mtip and _gets_github_test(root, MAIN) else [])
+        if not tests:
+            return False
+        return github_test_state(root, mtip, tests)[0] == 'failed'
+    except Exception:                                       # noqa: BLE001
+        return False
+
+
+def red_main_fix(root, head_sha):
+    """promote-only's red-main exception: a pull request straight into main
+    is let through when main's own GitHub test has failed on its tip and the
+    pull request is built on that tip, so it repairs main as it stands. The
+    session brings the same fix into staging afterwards; until it does, a
+    landing into staging that lacks it is refused (main_work_missing).
+
+    Why (Morgan, 2026-10-11, strength: assented): main failed its test after
+    a Produce, the fix was refused straight into main, and went through
+    staging and a second Produce instead. Asked about the rule, he approved
+    letting a fix for a red main go straight there; every other move into
+    main still comes from staging."""
+    mtip = _remote_tip(root, MAIN)
+    if not mtip or _run(root, 'merge-base', '--is-ancestor', mtip,
+                        head_sha).returncode != 0:
+        return False
+    return main_test_failed(root)
 
 
 def tier_branches(root):
