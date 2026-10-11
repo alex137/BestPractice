@@ -700,6 +700,30 @@ def _seed_approvers_json(dest, approvers):
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
 
 
+def _missing_github_line(path):
+    """-> the --verify line for an identity.json with no "github": the
+    username GitHub says this session is signed in as, offered as the
+    suggestion, or how to find it when GitHub cannot be asked."""
+    login = ''
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_branch_name
+        login = precedent_branch_name.github_login_from_github()
+    except Exception:                                   # noqa: BLE001
+        login = ''
+    if login:
+        return (f'identity.json declares no "github" -- GitHub says this '
+                f'session is signed in as {login}: offer the person that as '
+                f'their username ("Is your GitHub username {login}?"), and on '
+                f'their yes run: python3 tools/precedent_branch_name.py '
+                f'--set-github {login} --repo {path}')
+    return ('identity.json declares no "github" -- find the username this '
+            'session is signed in as (GitHub\'s "who am I", get_me), offer it '
+            'to the person as the suggestion, and on their yes run: python3 '
+            'tools/precedent_branch_name.py --set-github <username> '
+            f'--repo {path}')
+
+
 def verify(level, path):
     """-> [str] the ways `path` falls short of what this level's skeleton and
     this tool's bootstrap produce: files it does not have, files that are
@@ -1209,6 +1233,13 @@ def _malformed(level, path):
                                'their replies should be and write their '
                                'answer in, in their own words; until then a '
                                'shared-level default may decide it for them')
+                # `github` the same way (2026-10-11): CODEOWNERS and the
+                # ladder's branch names read it, and git never knows it. Looked
+                # up first, so the person is offered their own username as
+                # the suggestion rather than asked cold (Morgan, 2026-10-11:
+                # "look it up first then give it to you as an option").
+                if not (data.get('github') or '').strip():
+                    out.append(_missing_github_line(path))
 
         f = path / 'config.json.sample'
         if f.is_file():

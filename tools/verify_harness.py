@@ -10627,34 +10627,56 @@ def check_push_refuses_a_hand_made_session_branch_name():
     cases = []
     tail = 'ab1cd'
     cases.append(('a name the tool builds passes',
-                  _bn.name_refusal(_bn.build(['some', 'work'], tail=tail)[0],
-                                   tail=tail) is None))
+                  _bn.name_refusal(_bn.build(['some', 'work'], tail=tail, user='')[0],
+                                   tail=tail, user='') is None))
+    cases.append(('...and with a username, which goes right after the date '
+                  '(Morgan, 2026-10-11)',
+                  _bn.build(['some', 'work'], date='2026-10-07', tail=tail,
+                            rand='x9y8z', user='octo')[0]
+                  == f'2026-10-07-octo-some-work-{tail}-x9y8z'
+                  and _bn.name_refusal(f'2026-10-07-octo-some-work-{tail}-x9y8z',
+                                       tail=tail, user='octo') is None))
+    cases.append(('where a username is declared, a name without it is refused',
+                  'username' in (_bn.name_refusal(
+                      f'2026-10-07-some-work-{tail}-x9y8z', tail=tail,
+                      user='octo') or '')
+                  or 'octo-' in (_bn.name_refusal(
+                      f'2026-10-07-some-work-{tail}-x9y8z', tail=tail,
+                      user='octo') or '')))
+    cases.append(('...and so is another person\'s',
+                  bool(_bn.name_refusal(f'2026-10-07-alice-some-work-{tail}-x9y8z',
+                                        tail=tail, user='octo'))))
     cases.append(('the tool\'s shape, session part then random part, passes',
                   _bn.name_refusal('2026-10-06-some-work-ab1cd-x9y8z',
-                                   tail=tail) is None))
+                                   tail=tail, user='') is None))
     cases.append(('the older shape that ends at the session part is refused '
                   '(Morgan, 2026-10-11)',
                   'five random characters' in (_bn.name_refusal(
-                      f'2026-10-06-some-work-{tail}', tail=tail) or '')))
+                      f'2026-10-06-some-work-{tail}', tail=tail, user='') or '')))
     cases.append(('a harness-given name passes',
-                  _bn.name_refusal('claude/peaceful-ritchie-3u31td', tail=tail) is None))
+                  _bn.name_refusal('claude/peaceful-ritchie-3u31td', tail=tail, user='') is None))
     cases.append(('a hand-typed date-and-topic name is refused',
-                  bool(_bn.name_refusal('2026-10-06-vdc-fixes', tail=tail))))
+                  bool(_bn.name_refusal('2026-10-06-vdc-fixes', tail=tail, user=''))))
     cases.append(('a name ending in another session\'s id is refused',
-                  bool(_bn.name_refusal('2026-10-06-some-work-zzzzz-x9y8z', tail=tail))))
+                  bool(_bn.name_refusal('2026-10-06-some-work-zzzzz-x9y8z', tail=tail, user=''))))
     cases.append(('the retired claude/ prefix is refused (Morgan, 2026-10-07)',
                   bool(_bn.name_refusal(f'claude/2026-10-06-some-work-{tail}-x9y8z',
-                                        tail=tail))))
+                                        tail=tail, user=''))))
     cases.append(('a name the tool builds has no prefix',
                   _bn.build(['some', 'work'], date='2026-10-07', tail=tail,
-                            rand='x9y8z')[0]
+                            rand='x9y8z', user='')[0]
                   == f'2026-10-07-some-work-{tail}-x9y8z'))
     cases.append(('a tier branch is not judged',
-                  _bn.name_refusal('pre-staging', tail=tail) is None))
+                  _bn.name_refusal('pre-staging', tail=tail, user='') is None))
     # The harness's own name is let through, and SAID (2026-10-11: a whole
     # build went up under claude/amazing-lamport-l5eivc with no word).
     cases.append(('a push to the harness-given name gets a note naming the tool',
                   'precedent_branch_name.py' in (_bn.harness_name_note(
+                      'claude/peaceful-ritchie-3u31td') or '')))
+    # ...and says that leaving it needs no permission, which the session's
+    # opening instructions otherwise demand (Morgan, 2026-10-11, decided).
+    cases.append(('the harness-name note grants the sister-branch permission',
+                  _bn.SISTER_BRANCH_PERMISSION in (_bn.harness_name_note(
                       'claude/peaceful-ritchie-3u31td') or '')))
     cases.append(('...and only that name: a tool-made name, a tier and a '
                   'hand-typed name get none',
@@ -10662,8 +10684,14 @@ def check_push_refuses_a_hand_made_session_branch_name():
                   and _bn.harness_name_note('staging') is None
                   and _bn.harness_name_note('2026-10-06-vdc-fixes') is None))
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-branchname-'))
+    # No user-level config, so no individual set: no declared username, and
+    # the ladder in force only because the fixture says so.
     env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
-               CLAUDE_CODE_REMOTE_SESSION_ID='cse_' + 'x' * 20 + tail)
+               CLAUDE_CODE_REMOTE_SESSION_ID='cse_' + 'x' * 20 + tail,
+               PRECEDENT_USER_CONFIG=os.devnull, PRECEDENT_ASSUME_LADDER='1')
+    env.pop('PRECEDENT_GITHUB_USER', None)
+    env.pop('PRECEDENT_COMMIT_EMAIL', None)
+    env.pop('PRECEDENT_NO_LADDERS', None)
     try:
         repo = fx / 'repo'
         shutil.copytree(ROOT / 'tools', repo / 'tools',
@@ -10672,9 +10700,10 @@ def check_push_refuses_a_hand_made_session_branch_name():
         sys.path.insert(0, str(ROOT / 'tools'))
         import precedent_push_check as _ppc
 
-        def refused(cmd):
+        def refused(cmd, extra=None):
             saved = dict(os.environ)
-            os.environ.update(env)
+            os.environ.clear()
+            os.environ.update(env, **(extra or {}))
             try:
                 return _ppc._branch_name_refusal(repo, ['--gate', '--push-command', cmd])
             finally:
@@ -10702,9 +10731,10 @@ def check_push_refuses_a_hand_made_session_branch_name():
         cases.append(('a branch origin already has is not judged again',
                       refused('origin HEAD:refs/heads/2026-10-06-vdc-fixes') is None))
 
-        def notes(cmd):
+        def notes(cmd, extra=None):
             saved = dict(os.environ)
-            os.environ.update(env)
+            os.environ.clear()
+            os.environ.update(env, **(extra or {}))
             try:
                 return _ppc._branch_name_notes(repo, ['--gate', '--push-command', cmd])
             finally:
@@ -10719,11 +10749,146 @@ def check_push_refuses_a_hand_made_session_branch_name():
         cases.append(('...and a push to a tool-made name is not',
                       notes(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}-x9y8z')
                       == []))
+        # The rule is the ladder's (Morgan, 2026-10-11): off it, the push
+        # check neither refuses a name nor notes the harness's.
+        off = {'PRECEDENT_NO_LADDERS': '1'}
+        cases.append(('off the ladder, a hand-named branch is not refused',
+                      refused('origin HEAD:refs/heads/2026-10-06-other-fixes', off)
+                      is None))
+        cases.append(('...and a push to the harness-given name is not noted',
+                      notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td',
+                            off) == []))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
     bad = [n for n, ok in cases if not ok]
     check(f'a push refuses a hand-made session branch name ({len(cases)} stated cases)',
           not bad, '; '.join(bad))
+
+
+def check_first_commit_on_the_harness_branch_is_noted():
+    """A session that commits on the branch the harness named when it opened
+    is told, once per branch, how to make its named one -- never refused.
+    2026-10-11: in a consumer a session took "Great" as its go-ahead, never
+    loaded act, and built, pushed and landed a feature on
+    claude/eager-volta-hfk5k3. Planted, through the real hook script: the
+    note's own words on a harness-named branch with a session ID on the
+    ladder; nothing the second time, on a tool-made branch, on main, with no
+    session ID, or off the ladder. Also: --set-github writes the username
+    the person agreed to into identity.json, and the hook is wired for both
+    kinds of repository."""
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branch_name as _bn
+    cases = []
+    tail = 'ab1cd'
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-commitnote-'))
+    base = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+                PRECEDENT_USER_CONFIG=os.devnull, PRECEDENT_ASSUME_LADDER='1',
+                CLAUDE_CODE_REMOTE_SESSION_ID='cse_' + 'x' * 20 + tail)
+    for k in ('PRECEDENT_NO_LADDERS', 'PRECEDENT_GITHUB_USER', 'CLAUDE_CODE_SESSION_ID'):
+        base.pop(k, None)
+    try:
+        repo = fx / 'repo'
+        _sh.copytree(ROOT / 'tools', repo / 'tools',
+                     ignore=_sh.ignore_patterns('__pycache__'))
+        subprocess.run(['git', 'init', '-q', '-b', 'claude/eager-volta-hfk5k3',
+                        str(repo)], env=base, check=True)
+
+        def hook(env, command='git commit -m "some work"'):
+            payload = json.dumps({'tool_name': 'Bash', 'cwd': str(repo),
+                                  'tool_input': {'command': command}})
+            r = subprocess.run(['bash', str(repo / 'tools' / 'branch-name-commit-note.sh')],
+                               input=payload, capture_output=True, text=True,
+                               env=dict(env, CLAUDE_PROJECT_DIR=str(repo)), timeout=60)
+            try:
+                return (json.loads(r.stdout)['hookSpecificOutput']
+                        ['additionalContext'] if r.stdout.strip() else '')
+            except (ValueError, KeyError, TypeError):
+                return f'unreadable: {r.stdout[:200]}'
+
+        def clear():
+            _sh.rmtree(repo / '.git' / getattr(_bn, 'COMMIT_NOTE_MARKS', 'x'),
+                       ignore_errors=True)
+
+        def switch(name):
+            subprocess.run(['git', '-C', str(repo), 'symbolic-ref', 'HEAD',
+                            f'refs/heads/{name}'], env=base, check=True)
+
+        first = hook(base)
+        cases.append(('the first commit on the harness\'s branch is noted, '
+                      'naming the tool and the branch',
+                      'precedent_branch_name.py' in first
+                      and 'claude/eager-volta-hfk5k3' in first
+                      and 'goes ahead' in first))
+        cases.append(('...once per branch: the second commit is not',
+                      hook(base) == ''))
+        clear()
+        cases.append(('a quoted mention of git commit is not a commit',
+                      hook(base, 'echo "git commit"') == ''))
+        cases.append(('off the ladder, nothing is said (Morgan, 2026-10-11)',
+                      hook(dict(base, PRECEDENT_NO_LADDERS='1')) == ''))
+        no_id = dict(base)
+        no_id.pop('CLAUDE_CODE_REMOTE_SESSION_ID')
+        cases.append(('with no session ID, nothing is said',
+                      hook(no_id) == ''))
+        cases.append(('the task-words harness shape is noted too',
+                      (switch('claude/branch-naming-enforcement-cjm44t')
+                       or 'precedent_branch_name.py' in hook(base))))
+        switch(f'2026-10-11-octo-some-work-{tail}-x9y8z')
+        cases.append(('a tool-made branch gets nothing', hook(base) == ''))
+        switch('main')
+        cases.append(('main gets nothing', hook(base) == ''))
+        switch('staging')
+        cases.append(('staging gets nothing', hook(base) == ''))
+
+        # --set-github: the username the person agreed to, into the
+        # identity.json of this repository (here an individual set).
+        (repo / 'identity.json').write_text(json.dumps(
+            {'name': 'A', 'email': 'a@example.com'}, indent=2) + '\n')
+        r = subprocess.run([sys.executable, str(repo / 'tools' / 'precedent_branch_name.py'),
+                            '--set-github', '@Octo', '--repo', str(repo)],
+                           capture_output=True, text=True, env=base, timeout=60)
+        written = json.loads((repo / 'identity.json').read_text())
+        cases.append(('--set-github writes the username, lowercased, and keeps '
+                      'the rest', r.returncode == 0 and written.get('github') == 'octo'
+                      and written.get('email') == 'a@example.com'))
+        r = subprocess.run([sys.executable, str(repo / 'tools' / 'precedent_branch_name.py'),
+                            '--set-github', 'not a name!', '--repo', str(repo)],
+                           capture_output=True, text=True, env=base, timeout=60)
+        cases.append(('...and refuses something that is not a username',
+                      r.returncode == 1
+                      and json.loads((repo / 'identity.json').read_text())
+                      .get('github') == 'octo'))
+        cases.append(('the declared username is what the tool reads back',
+                      getattr(_bn, 'github_user', lambda r: '')(repo) == 'octo'))
+        cases.append(('with none declared, the note says how to record it',
+                      '--set-github octo' in getattr(
+                          _bn, 'missing_user_note', lambda l: '')('octo')))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    wiring = json.loads((ROOT / 'tools' / 'hook_wiring.json').read_text(encoding='utf-8'))
+    for kind in ('consumer', 'source'):
+        cases.append((f'the hook is wired for a {kind}',
+                      any(e.get('script') == 'branch-name-commit-note.sh'
+                          and e.get('event') == 'PreToolUse'
+                          for e in wiring.get(kind) or [])))
+    # Promote's own branches come from build() too, so a username between
+    # the date and the slug must not hide them from Promote (2026-10-11).
+    import precedent_branches as _pbr
+    cases.append(('Promote still knows its copy with a username in the name',
+                  _pbr.is_main_copy(f'2026-10-11-octo-promote-to-main-{tail}-x9y8z')
+                  and _pbr._promote_made(
+                      f'2026-10-11-octo-promote-to-main-not-due-{tail}-x9y8z')
+                  == 'promote-to-main-not-due'
+                  and _pbr.is_main_copy(f'2026-10-11-promote-to-main-{tail}-x9y8z')
+                  and not _pbr.is_main_copy(f'2026-10-11-octo-other-work-{tail}-x9y8z')))
+    import precedent_vendor_engine as _pve
+    cases.append(('the hook ships with the engine',
+                  'branch-name-commit-note.sh' in _pve.HOOK_SCRIPT_FILES))
+    bad = [n for n, ok in cases if not ok]
+    check(f'the first commit on the harness\'s branch is noted, once '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_fix_sweep_copy_keeps_its_neighbours():
@@ -75837,6 +76002,7 @@ def main():
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
     check_push_refuses_a_hand_made_session_branch_name()
+    check_first_commit_on_the_harness_branch_is_noted()
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
     check_install_records_the_commit_its_catalogue_came_from()
