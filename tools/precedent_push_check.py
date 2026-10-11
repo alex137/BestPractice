@@ -88,7 +88,9 @@ decided). The record above lives in one checkout, and a person working in
 many windows has one checkout per window: a full run in one window was
 invisible to the Promote said in another, which ran the whole suite again
 on files it had already passed. So a recorded pass is also published to
-origin as a small receipt on the branch precedent-check-receipts --
+origin as a small receipt on the receipt branch (data-check-receipts in a
+repository on the ladder, precedent-check-receipts elsewhere; see
+precedent_data_branches.py) --
 receipts/<check list>/<tree>.json, naming the files by hash and carrying
 none of them, so it publishes no unpushed work. `--gate` fetches that
 branch when this checkout has no record of its own. The trade, said
@@ -142,8 +144,30 @@ LEDGER_WRITES_ENV = 'FACT_LEDGER_WRITTEN'
 # lets it push branches and nothing else, so a hidden ref namespace was
 # refused with a 403 (measured 2026-09-25). One small file per pass,
 # receipts/<check list>/<tree>.json, the newest RECEIPTS_KEPT of them.
+# Its name comes from precedent_data_branches.py since 2026-10-11:
+# data-check-receipts on the ladder, this old name everywhere else, and
+# this old name where that file is missing (a partial engine copy).
 RECEIPT_BRANCH = 'precedent-check-receipts'
 RECEIPT_REF = 'refs/precedent/receipts'
+
+
+def _receipt_branch(root, write=False):
+    """-> the branch the receipts live on here. `write` lets a ladder
+    repository's first write copy the old branch to its data- name."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import precedent_data_branches as pdb
+    except Exception:                                         # noqa: BLE001
+        return RECEIPT_BRANCH
+    finally:
+        sys.path.pop(0)
+    try:
+        if write:
+            return pdb.name_for_write(root, pdb.RECEIPTS, say=lambda m: print(
+                f'precedent_push_check: {m}'))
+        return pdb.name(root, pdb.RECEIPTS)[0]
+    except Exception:                                         # noqa: BLE001
+        return RECEIPT_BRANCH
 RECEIPTS_KEPT = 300
 EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 SHARED_ENV = {'GIT_AUTHOR_NAME': 'precedent_push_check',
@@ -896,10 +920,11 @@ def _git_env(root, args, timeout, env=None):
         return None
 
 
-def _fetch_receipts(root):
+def _fetch_receipts(root, branch=None):
     """-> the receipt branch's tip, fetched into a private ref, or None."""
+    branch = branch or _receipt_branch(root)
     f = _git_env(root, ['fetch', '-q', '--no-tags', 'origin',
-                        f'+refs/heads/{RECEIPT_BRANCH}:{RECEIPT_REF}'], 30)
+                        f'+refs/heads/{branch}:{RECEIPT_REF}'], 30)
     if f is None or f.returncode != 0:
         return None
     return git(root, 'rev-parse', '-q', '--verify', RECEIPT_REF) or None
@@ -937,8 +962,9 @@ def publish_pass(root, rec):
     env = dict(SHARED_ENV, GIT_INDEX_FILE=str(
         Path(index) if Path(index).is_absolute() else root / index))
     why = 'no attempt made'
+    branch = _receipt_branch(root, write=True)
     for _ in range(3):
-        tip = _fetch_receipts(root)
+        tip = _fetch_receipts(root, branch)
         _git_env(root, ['read-tree', tip or '--empty'], 10, env)
         order = (git(root, 'cat-file', '-p', f'{tip}:ORDER') if tip else '') or ''
         order = [l for l in order.splitlines() if l and l != path] + [path]
@@ -969,7 +995,7 @@ def publish_pass(root, rec):
             break
         # --no-verify: a pre-push hook here is this very check.
         p = _git_env(root, ['push', '-q', '--no-verify', 'origin',
-                            f'{c.stdout.strip()}:refs/heads/{RECEIPT_BRANCH}'], 60)
+                            f'{c.stdout.strip()}:refs/heads/{branch}'], 60)
         if p is not None and p.returncode == 0:
             _git_env(root, ['update-ref', RECEIPT_REF, c.stdout.strip()], 10)
             print('precedent_push_check: receipt shared with every checkout of '

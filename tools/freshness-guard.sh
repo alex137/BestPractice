@@ -455,7 +455,7 @@ _new_branch_cmd() {
   if [ -f "$ROOT/tools/precedent_branch_name.py" ]; then
     printf 'git switch --no-track -c "$(python3 tools/precedent_branch_name.py <a few words for the work>)" origin/%s' "$base"
   else
-    printf 'git switch --no-track -c <date>-<what-the-work-is>-<session-id> origin/%s' "$base"
+    printf 'git switch --no-track -c <date>-<what-the-work-is>-<session-id>-<random> origin/%s' "$base"
   fi
 }
 
