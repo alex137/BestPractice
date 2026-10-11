@@ -15152,9 +15152,10 @@ def check_update_vendors_runs_the_pinned_commits_own_update():
     precedent_sync_views.py; the update itself still ran from the clone's
     tip, 0840ae0, and passed that older sync an option it did not know:
     "unknown option '--allow-removal'". Here GitHub is stood in so the tip,
-    HEAD, is red and HEAD's first parent passed, and the consumer's engine
+    HEAD, is red, and so is every commit back to the newest one whose tools/
+    differs from this checkout's, which passed; the consumer's engine
     is a stand-in that records which checkout ran it: the clone ITSELF ran
-    it before the fix, a checkout at the first parent runs it now.
+    it before the fix, a checkout at that commit runs it now.
 
     Negative control, measured 2026-10-11 on this commit's parent: the
     engine is run from the clone at the tip, and no "pinned code" line."""
@@ -15170,12 +15171,17 @@ def check_update_vendors_runs_the_pinned_commits_own_update():
     def git(cwd, *args):
         return subprocess.run(['git', '-C', str(cwd), *args], env=env,
                               capture_output=True, text=True)
-    line = git(ROOT, 'rev-list', '--first-parent', '--max-count=2', 'HEAD').stdout.split()
-    if len(line) < 2:
-        return (True, 'not applicable: fewer than two first-parent commits here', '')
-    c0, c1 = line
-    if git(ROOT, 'diff', '--quiet', c1, '--', 'tools/').returncode != 1:
-        return (True, f'not applicable: tools/ here is {c1[:12]}\'s', '')
+    # The pinned commit is the newest on HEAD's first-parent line, within
+    # the window the update looks back over, whose tools/ is not this
+    # checkout's; every commit newer than it is red.
+    line = git(ROOT, 'rev-list', '--first-parent',
+               f'--max-count={pu.GREEN_WINDOW}', 'HEAD').stdout.split()
+    c0 = line[0] if line else None
+    c1 = next((sha for sha in line[1:] if git(
+        ROOT, 'diff', '--quiet', sha, '--', 'tools/').returncode == 1), None)
+    if not c1:
+        return (True, f'not applicable: no commit in the last {len(line)} on '
+                      f'this line has a tools/ other than this checkout\'s', '')
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-update-pinned-code-'))
     repo = tmp / 'consumer'
     (repo / 'tools').mkdir(parents=True)
@@ -15206,9 +15212,8 @@ def check_update_vendors_runs_the_pinned_commits_own_update():
             return 0, c0 + '\n'
         return saved[0](argv, cwd)
     pu.run = fetchless
-    pu.main_test_state = lambda sha, tests: {c0: ('failed', 'url'),
-                                             c1: ('passed', 'ok')}.get(
-                                                 sha, ('failed', 'not planted'))
+    pu.main_test_state = lambda sha, tests: (('passed', 'ok') if sha == c1
+                                             else ('failed', 'url'))
     pu.passed_trees = lambda: set()
     pu.HAND_OFF = True
     out = io.StringIO()
