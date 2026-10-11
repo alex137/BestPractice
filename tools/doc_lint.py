@@ -87,6 +87,8 @@ Run:  python3 tools/doc_lint.py             # changed-vs-default-branch, gate
                                              # as pre-existing -- touched_lines)
       python3 tools/doc_lint.py --all        # whole repo, report-only
       python3 tools/doc_lint.py --strict --all   # whole repo, warnings fail
+      python3 tools/doc_lint.py --strict --all --json   # the same, plus every
+                                                 # (class, file) count on one JSON line
       python3 tools/doc_lint.py --fix FILE   # rewrite ~ -> ≈ on struck lines
 (In a repo that vendors this the classic way, the path is
 process/upstream/tools/doc_lint.py.)
@@ -1643,7 +1645,7 @@ def main():
     # a commit gate, or a CI workflow.
     strict = '--strict' in flags
     unknown = flags - {'--fix', '--all', '--scope-changed', '--numbers-report',
-                       '--strict'}
+                       '--strict', '--json'}
     if unknown:
         # A silently ignored flag is worse than a rejected one: before this
         # check, `doc_lint.py --strict` ran the ordinary lint and exited 0,
@@ -1655,6 +1657,10 @@ def main():
         print("(run --help for the ones this tool takes; an option it does "
               "not know is refused rather than ignored, because an ignored "
               "flag reads as a check that ran)")
+        return 2
+    if '--json' in flags and not strict:
+        print("doc_lint FAIL: --json only shapes --strict's sweep summary; "
+              "pass --strict with it.")
         return 2
     if strict and not ('--all' in flags or args):
         print("doc_lint FAIL: --strict needs a scope -- pass --all, or name "
@@ -2005,6 +2011,22 @@ def main():
         for doc, _n in findability:
             per_file[doc] = per_file.get(doc, 0) + 1
         found += len(findability)
+        if '--json' in flags:
+            # Every finding's class and file, counted, on one line a tool
+            # can read: the very deep check's WARNINGS section judges each
+            # (class, file) group and needs all of them, not the worst 40
+            # the summary below prints (practice: very-deep-check).
+            by_class = {}
+            for name, group in classes:
+                for finding in group:
+                    head = finding.strip().split(':', 1)[0]
+                    row = by_class.setdefault(name, {})
+                    row[head] = row.get(head, 0) + 1
+            for doc, _n in findability:
+                row = by_class.setdefault('unfindable analysis', {})
+                row[doc] = row.get(doc, 0) + 1
+            print('doc_lint strict json: ' + json.dumps(
+                {'scanned': len(files), 'classes': by_class}, sort_keys=True))
         if not found:
             print(f"\ndoc_lint --strict OK: {len(files)} file(s), every class "
                   f"clean -- warnings included.")
