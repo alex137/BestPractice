@@ -21374,8 +21374,16 @@ def check_precedent_check_fires():
     """
     import shutil, tempfile, multiprocessing
 
+    # A FIXTURE'S OWN GIT RUNS NO GLOBAL HOOKS. A session's core.hooksPath
+    # reaches every throwaway repository here (the 2026-09-13 gotcha), and
+    # measured 2026-10-11 it was about 100 of this function's 487 seconds:
+    # each push to a fixture's bare remote ran the leak gate over the whole
+    # tree (about 13.6 s), each commit about 1 s. No case plants anything a
+    # hook judges -- every case is judged by precedent_check.py, which this
+    # does not touch -- and GitHub's runners have no global hooks at all.
     def git(cwd, *args, check_rc=True, env=None):
-        r = subprocess.run(['git', '-C', str(cwd), *args],
+        r = subprocess.run(['git', '-c', 'core.hooksPath=/dev/null',
+                            '-C', str(cwd), *args],
                            capture_output=True, text=True, env=env)
         if check_rc and r.returncode != 0:
             raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
@@ -21397,6 +21405,11 @@ def check_precedent_check_fires():
         # no origin has, and a silent one is exactly what it exists to catch.
         git(pristine, 'commit', '-qm',
             'baseline\n\nSession: none available (verify_harness fixture)')
+        # Packed once, so every copy below is 1,638 files instead of 3,198
+        # (half were loose objects): 0.34 s to copy instead of 0.50, and
+        # 0.03 s to delete instead of 0.07 (measured 2026-10-11).
+        git(pristine, 'repack', '-adq')
+        git(pristine, 'prune')
 
         def fresh(name):
             repo = tmp / name
@@ -21470,19 +21483,55 @@ def check_precedent_check_fires():
                 if k not in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
                              'PRECEDENT_COMMIT_TZ', 'PRECEDENT_LEAK_BLOCKLIST')}
         _env['PRECEDENT_USER_CONFIG'] = str(base / '.no-user-config.json')
-        _r = subprocess.run(
+        # Started here and read just before the closing assertions: a whole
+        # run takes about 30 s, and nothing between reads its result.
+        _baseline = subprocess.Popen(
             [sys.executable, str(base / 'tools' / 'precedent_check.py')],
-            capture_output=True, text=True, cwd=str(base), env=_env)
-        rc = _r.returncode
-        # On a failure, the failing checks' own findings go into the detail:
-        # a bare rc said only the slug of this case, and under --as-ci
-        # --isolated (UTC) finding that todo/TODO.md had drifted took a
-        # manual rebuild of the fixture (2026-09-30).
-        cases.append(('an unplanted copy of this tree passes every check', rc == 0,
-                      '' if rc == 0 else _failing_findings(_r.stdout + _r.stderr)))
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            cwd=str(base), env=_env)
 
         # --- one planted violation per enforced practice --------------------
-        planted = {}
+        # SEVERAL CASES IN FLIGHT (2026-10-11). case() starts its two
+        # processes and returns; the result is collected the first time
+        # anything reads planted[slug] (or `in`, .get, .items), and every
+        # case still pending is collected before the closing assertions.
+        # So a later assertion that reads a case back blocks until that
+        # case is done, without anyone listing which cases are read --
+        # sketch (a) of spec/VERIFY_HARNESS_PERFORMANCE.md's 2026-09-19
+        # follow-ups. Two at a time used about one core of four; the width
+        # stays bounded, because a fan-out with no bound ran a container out
+        # of memory once (gotcha-2026-09-18).
+        _pending = {}
+        _width = max(1, ((os.cpu_count() or 2) + 2) // 2)
+
+        class _Planted(dict):
+            def _settle(self, key):
+                slug = key[:-len('-clean')] if key.endswith('-clean') else key
+                for k in (key, slug):
+                    if k in _pending:
+                        _pending.pop(k)()
+
+            def settle_all(self):
+                while _pending:
+                    _pending.pop(next(iter(_pending)))()
+
+            def __getitem__(self, key):
+                self._settle(key)
+                return dict.__getitem__(self, key)
+
+            def __contains__(self, key):
+                self._settle(key)
+                return dict.__contains__(self, key)
+
+            def get(self, key, default=None):
+                self._settle(key)
+                return dict.get(self, key, default)
+
+            def items(self):
+                self.settle_all()
+                return dict.items(self)
+
+        planted = _Planted()
         declared = set()          # every slug case() was ASKED for
         ran, skipped = [], []     # and which of those actually executed
 
@@ -21573,19 +21622,31 @@ def check_precedent_check_fires():
                     setup(repo)
                 if plant:
                     plant(repo)
-                return run(repo, slug, *extra, env_extra=env_extra)
+                result = run(repo, slug, *extra, env_extra=env_extra)
+                # Deleted here, while it is one tree among a few: left for
+                # the closing rmtree, about 270 trees took 108 s to delete
+                # at once on one core (measured 2026-10-11).
+                shutil.rmtree(repo, ignore_errors=True)
+                return result
 
             def _clean_pipeline():
                 clean = fresh(slug + '-clean')
                 if setup:
                     setup(clean)
-                return run(clean, slug, *extra, env_extra=env_extra)
+                result = run(clean, slug, *extra, env_extra=env_extra)
+                shutil.rmtree(clean, ignore_errors=True)
+                return result
 
             q1, q2 = multiprocessing.Queue(), multiprocessing.Queue()
             p1 = multiprocessing.Process(target=_case_worker, args=(_planted_pipeline, q1))
             p2 = multiprocessing.Process(target=_case_worker, args=(_clean_pipeline, q2))
+            while len(_pending) >= _width:
+                _pending.pop(next(iter(_pending)))()
             p1.start()
             p2.start()
+            _pending[slug] = lambda: _collect(slug, advisory, q1, q2, p1, p2)
+
+        def _collect(slug, advisory, q1, q2, p1, p2):
             status1, value1 = q1.get()
             status2, value2 = q2.get()
             p1.join()
@@ -24916,6 +24977,16 @@ def check_precedent_check_fires():
         case('check_commit_author', _plant_commit_author, env_extra=_ID_ENV)
         case('check_commit_dates', _plant_buenos_aires_dates,
              setup=_setup_buenos_aires_dates, env_extra=_ID_ENV)
+
+        planted.settle_all()
+        _out, _ = _baseline.communicate()
+        rc = _baseline.returncode
+        # On a failure, the failing checks' own findings go into the detail:
+        # a bare rc said only the slug of this case, and under --as-ci
+        # --isolated (UTC) finding that todo/TODO.md had drifted took a
+        # manual rebuild of the fixture (2026-09-30).
+        cases.insert(0, ('an unplanted copy of this tree passes every check',
+                         rc == 0, '' if rc == 0 else _failing_findings(_out)))
 
         # --- and the registry must not contain an untested claim ------------
         import importlib.util

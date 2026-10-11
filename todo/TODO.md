@@ -144,6 +144,7 @@ as_of: 2026-10-11
 | [`todo-2026-10-06-freshness-notice-said-behind-for-current-clones`](todo-2026-10-06-freshness-notice-said-behind-for-current-clones.md) | A consumer session (2026-10-05/06) reported that its | 5d | wait | the next time a session-start notice calls a clone BEHIND that is current minute… |
 | [`todo-2026-10-07-an-engine-change-is-not-rehearsed-against-the-sets-checks`](todo-2026-10-07-an-engine-change-is-not-rehearsed-against-the-sets-checks.md) | Commit 1ef31386 turned the individual set's startup hook into a stub that | 4d | ask |  |
 | [`todo-2026-10-08-tell-morgan-what-others-did`](todo-2026-10-08-tell-morgan-what-others-did.md) | Morgan learned about changes Alex made to Precedent only after something | 3d | wait |  |
+| [`todo-2026-10-11-planted-cases-in-minutes`](todo-2026-10-11-planted-cases-in-minutes.md) | `check_precedent_check_fires` in | 0d | ask | a go-ahead: the 2026-10-11 ask was to measure and propose, not to build |
 
 ## Decisions (the Person's Call)
 
