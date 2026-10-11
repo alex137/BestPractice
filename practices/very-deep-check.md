@@ -291,8 +291,8 @@ pass is recorded, the session rewrites the checked repo's own
 `spec/VERY_DEEP_CHECK_LATEST_RUN.md`
 ([BestPractice's](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md))
 for this run: scope, a short version, then each pass in order with what it
-found, what was fixed and in which commit, what the person decided, and what
-is left and where it went. `opened:` is the run's date. It collapses the
+found, what was fixed and in which commit, the warnings judged (Pass 2's
+question 24), what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
 previous run to one row in the run record above, commits both, and
 links the account in the reply that reports the run. A run is not done
 until the account is there, and the deep check enforces it
