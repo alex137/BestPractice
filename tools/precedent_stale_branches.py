@@ -6,6 +6,7 @@ deleting it loses nothing.
     python3 tools/precedent_stale_branches.py --count         # one number
     python3 tools/precedent_stale_branches.py --fetch         # fetch --prune first
     python3 tools/precedent_stale_branches.py --html OUT.html # the page to publish
+    python3 tools/precedent_stale_branches.py --page-url      # the person's saved page
 
 A branch is STALE when its tip is already in `origin/main`, or when it carries
 no change `main` lacks (a Promote's fix branch or copy of staging whose merge commits
@@ -31,7 +32,18 @@ person's to delete (practice: never-delete-a-remote-branch). Each row's link
 is GitHub's branch list filtered to that one branch, where the trash icon
 deletes it (practice: branch-delete-links). The ladder set's
 `stale-branch-cleanup` practice puts the page in the closing Boildown.
+
+ONE PAGE, UPDATED IN PLACE (2026-10-11). The person keeps one pinned
+cleanup page rather than a new link from every session: its address is
+`branch_cleanup_page` in their identity.json (precedent_identity), and
+`--html` prints it, so the session republishes to that address. With none
+saved, it says to publish a new page and save the address there. The page
+says when it was built, in the person's own timezone, since between closes
+it shows the last one's list; and its ticks belong to that build, so a
+refreshed list starts unticked -- a branch still on it was not deleted.
+Morgan, 2026-10-11: "Let's do this" (strength: decided).
 """
+import datetime
 import html
 import json
 import pathlib
@@ -173,7 +185,39 @@ def link(owner, name, branch):
             + urllib.parse.quote(branch, safe=''))
 
 
-def render_html(groups):
+def _person():
+    """-> the declared identity of whoever this session works for, or {}."""
+    try:
+        import precedent_identity as pid
+        return pid.declared_identity(_ENGINE_DIR.parent)
+    except Exception:                                        # noqa: BLE001
+        return {}
+
+
+def saved_page(person=None):
+    """-> the address of the person's pinned cleanup page, or ''."""
+    return ((_person() if person is None else person)
+            .get('branch_cleanup_page') or '').strip()
+
+
+def built_line(now=None, tz=''):
+    """-> 'Refreshed 11 Oct 2026, 14:20 Buenos Aires time', in the person's
+    zone when it is declared and readable, else UTC."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    zone, label = datetime.timezone.utc, 'UTC'
+    if tz:
+        try:
+            from zoneinfo import ZoneInfo
+            zone = ZoneInfo(tz)
+            label = tz.rsplit('/', 1)[-1].replace('_', ' ') + ' time'
+        except Exception:                                    # noqa: BLE001
+            pass
+    local = now.astimezone(zone)
+    return f'Refreshed {local.day} {local:%b %Y, %H:%M} {label}'
+
+
+def render_html(groups, now=None, tz=''):
+    now = now or datetime.datetime.now(datetime.timezone.utc)
     total = sum(len(r) for *_x, r in groups)
     secs = []
     for owner, name, rows in groups:
@@ -187,7 +231,10 @@ def render_html(groups):
                     f'<span class="count">{len(rows)}</span></h2>'
                     f'<p class="owner">github.com/{html.escape(owner)}/{html.escape(name)}</p>'
                     f'<ul>{lis}</ul></section>')
-    return _PAGE.replace('{{TOTAL}}', str(total)).replace('{{SECTIONS}}', ''.join(secs))
+    return (_PAGE.replace('{{TOTAL}}', str(total))
+            .replace('{{BUILT}}', html.escape(built_line(now, tz)))
+            .replace('{{BUILD}}', now.strftime('%Y%m%dT%H%M%SZ'))
+            .replace('{{SECTIONS}}', ''.join(secs)))
 
 
 _PAGE = '''<title>Branch Cleanup</title>
@@ -202,6 +249,7 @@ body { background:var(--bg); color:var(--fg); font-family:var(--sans); font-size
 main { max-width:760px; margin:0 auto; padding-inline:16px; padding-block:28px 56px; display:grid; gap:28px; }
 h1 { font-size:1.6rem; font-weight:600; margin:0; text-wrap:balance; }
 .lede { color:var(--muted); margin:6px 0 0; max-width:62ch; }
+.built { font-family:var(--mono); font-size:.8rem; color:var(--muted); margin:4px 0 0; font-variant-numeric:tabular-nums; }
 .bar { position:sticky; top:env(safe-area-inset-top,0px); background:var(--bg); padding-block:10px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; flex-wrap:wrap; z-index:1; }
 .bar .progress { font-variant-numeric:tabular-nums; font-weight:500; }
 .bar button { font:inherit; font-size:.85rem; background:none; border:1px solid var(--line); color:var(--muted); border-radius:4px; padding:3px 10px; cursor:pointer; }
@@ -222,7 +270,8 @@ li + li { border-top:1px solid var(--line); }
 <main>
 <header>
 <h1>Branch cleanup</h1>
-<p class="lede">{{TOTAL}} branches, all already in <code>main</code> (a retired <code>pre-staging</code>: already in <code>staging</code>), so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, <code>pre-staging</code> while it is in use, and the engine's own branches. Ticks are remembered in this browser only.</p>
+<p class="built">{{BUILT}}</p>
+<p class="lede">{{TOTAL}} branches, all already in <code>main</code> (a retired <code>pre-staging</code>: already in <code>staging</code>), so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, <code>pre-staging</code> while it is in use, and the engine's own branches. Ticks are remembered in this browser only, until the list is next refreshed.</p>
 </header>
 <div class="bar"><span class="progress" id="progress">0 of {{TOTAL}} done</span><button type="button" id="clear">Clear ticks</button></div>
 {{SECTIONS}}
@@ -230,7 +279,8 @@ li + li { border-top:1px solid var(--line); }
 <script>
 (function(){
   var boxes=[].slice.call(document.querySelectorAll('input[data-k]'));
-  var KEY='branch-cleanup-done', done={};
+  var KEY='branch-cleanup-done:{{BUILD}}', done={};
+  try { for(var i=localStorage.length-1;i>=0;i--){ var k=localStorage.key(i); if(k&&k.indexOf('branch-cleanup-done')===0&&k!==KEY) localStorage.removeItem(k); } } catch(e) {}
   try { done=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; } catch(e) { done={}; }
   function save(){ try { localStorage.setItem(KEY, JSON.stringify(done)); } catch(e) {} }
   function render(){ var n=boxes.filter(function(b){return b.checked;}).length; document.getElementById('progress').textContent=n+' of '+boxes.length+' done'; }
@@ -244,6 +294,10 @@ li + li { border-top:1px solid var(--line); }
 
 
 def main(argv):
+    if '--page-url' in argv:
+        url = saved_page()
+        print(url or 'none saved: add "branch_cleanup_page" to your identity.json')
+        return 0 if url else 1
     groups, notes = collect(fetch='--fetch' in argv)
     total = sum(len(r) for *_x, r in groups)
     if '--count' in argv:
@@ -251,7 +305,9 @@ def main(argv):
         return 0
     if '--html' in argv:
         out = pathlib.Path(argv[argv.index('--html') + 1])
-        out.write_text(render_html(groups), encoding='utf-8')
+        person = _person()
+        out.write_text(render_html(groups, tz=person.get('timezone') or ''),
+                       encoding='utf-8')
         # Noted for the publish gate, which passes a page an engine
         # generator wrote, unedited, within the hour (artifact_publish_gate.py,
         # "ENGINE-REGISTERED GENERATORS"). Without it the page the
@@ -266,6 +322,11 @@ def main(argv):
         print(f'{total} stale branch(es) written to {out}'
               + ('' if noted else ' (not noted for the publish gate, which '
                  'will refuse it: artifact_publish_gate.py did not load)'))
+        url = saved_page(person)
+        print(f'Publish it to the saved page, in place: {url}' if url else
+              'No saved page yet: publish it as a new page, then save its '
+              'address as "branch_cleanup_page" in the identity.json of your '
+              'individual practice source, so the next close updates it.')
         return 0
     if '--json' in argv:
         print(json.dumps({'total': total, 'notes': notes, 'repos': [
