@@ -3144,6 +3144,29 @@ def stage_update(repo, before):
     return len(ours)
 
 
+def stage_late_output(repo, before):
+    """Stage what this run wrote after its `staged` step, and nothing that
+    was uncommitted when it started. -> the paths it staged.
+
+    WHY (2026-10-10, a consumer). The records step, added that day, moved a
+    record from process/retired_vocabulary.json into precedent.json after
+    every path had been staged; the update said DONE with both files
+    modified and unstaged, and a session committing what was staged would
+    have left the move behind. A step added after the staging step can
+    always do this, so the update stages late output once more, at the end,
+    rather than trusting each step to remember."""
+    r = subprocess.run(['git', '-C', str(repo), 'diff', '--name-only', '-z'],
+                       capture_output=True, text=True)
+    u = subprocess.run(['git', '-C', str(repo), 'ls-files', '--others',
+                        '--exclude-standard', '-z'], capture_output=True, text=True)
+    loose = {x for x in (r.stdout + u.stdout).split('\0') if x}
+    late = sorted((loose & dirty_paths(repo)) - set(before))
+    for i in range(0, len(late), 200):
+        subprocess.run(['git', '-C', str(repo), 'add', '-A', '--', *late[i:i + 200]],
+                       capture_output=True, text=True)
+    return late
+
+
 def regenerated_step(repo, rep):
     """Rebuild the generated files whose inputs this update staged -- the
     commit backstop's own rule (precedent_regenerate.py), run here so the
@@ -4776,6 +4799,11 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
                  + record_paths_hint(read))
 
     manifest_postcondition(repo, rep)
+    late = stage_late_output(repo, before)
+    if late:
+        rep.staged = sorted(set(rep.staged or ()) | set(late))
+        rep.step('staged, written later', f'{len(late)} path(s) a step after '
+                 f'the staging wrote, staged with the rest: ' + ', '.join(late))
     return closing_check(repo, rep, skip_check)
 
 
