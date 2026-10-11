@@ -1,5 +1,5 @@
 <!-- Template: insert this block near the top of the dependent repo's root
-     README (INSTALL.md §1). The agent-entry text is an HTML comment on
+     README (INSTALL.md §0). The agent-entry text is an HTML comment on
      purpose: invisible on the rendered page, but read by any assistant
      that opens the file's source. Only the Getting-Started line is
      visible to humans.

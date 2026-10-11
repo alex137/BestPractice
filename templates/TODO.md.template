@@ -1,6 +1,6 @@
 # Open items live under todo/, not in this file
 
-<!-- Template: instantiate per Precedent INSTALL.md §1 (practice `repo-is-memory`).
+<!-- Template: instantiate per Precedent INSTALL.md §0 (practice `repo-is-memory`).
      This file is deliberately tiny and stays that way — it is a pointer,
      not a working list. Create the `todo/` directory (it can start empty;
      nothing here needs pre-populating for a fresh install) and write new
