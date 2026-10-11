@@ -524,11 +524,12 @@ _CHANGE_EVENTS = {'push', 'pull_request', 'pull_request_target', 'merge_group'}
 _SETUP_STEP_RE = re.compile(r'^(?:python3?\s+-m\s+pip|pip3?|echo|set|cd|export|git\s+config|true)\b')
 
 
-def _workflow_commands(text):
-    """-> [(step name, command)] for every `run:` line in a workflow, a
-    block's lines one by one. Read line by line, not as YAML: nothing here
+def _workflow_steps(text):
+    """-> [(step name, command, condition)] for every `run:` line in a
+    workflow, a block's lines one by one; `condition` is the step's own
+    `if:`, '' when it has none. Read line by line, not as YAML: nothing here
     may need PyYAML, and a run step's shape is regular enough."""
-    out, name, block, indent = [], '', False, 0
+    out, name, cond, block, indent = [], '', '', False, 0
     for line in text.splitlines():
         stripped = line.strip()
         lead = len(line) - len(line.lstrip())
@@ -536,20 +537,54 @@ def _workflow_commands(text):
             if stripped and lead <= indent:
                 block = False
             elif stripped and not stripped.startswith('#'):
-                out.append((name, stripped))
+                out.append((name, stripped, cond))
                 continue
             else:
                 continue
+        if re.match(r'^\s*-\s+[\w-]+:', line):        # a new step begins
+            name, cond = '', ''
         m = re.match(r'^\s*-?\s*name:\s*(.+?)\s*$', line)
         if m:
             name = m.group(1).strip('"\'')
+        m = re.match(r'^\s*-?\s*if:\s*(.+?)\s*$', line)
+        if m:
+            cond = m.group(1)
         m = re.match(r'^(\s*)-?\s*run:\s*(.*?)\s*$', line)
         if m:
             if m.group(2) in ('|', '>', '|-', '>-'):
                 block, indent = True, len(m.group(1))
             elif m.group(2):
-                out.append((name, m.group(2)))
+                out.append((name, m.group(2), cond))
     return out
+
+
+def _workflow_commands(text):
+    """-> [(step name, command)] for every `run:` line (_workflow_steps)."""
+    return [(n, c) for n, c, _ in _workflow_steps(text)]
+
+
+# A STEP NO CHANGE CAN RUN IS NO TEST OF ONE (2026-10-10, a consumer's
+# product workflow). Its alarm drill files a todo item and opens an issue
+# only when the job has already failed, and only when started by hand with
+# an input set; the detector counted both as GitHub-only checks because
+# their names said "alerting test". A step whose `if:` runs it only after a
+# failure (failure() or cancelled(), and not always()), or only on a manual
+# input (inputs.X required, never negated or or-ed), is skipped.
+def _never_tests_a_change(cond):
+    c = (cond or '').replace(' ', '')
+    if not c:
+        return False
+    if re.search(r'\b(?:failure|cancelled)\(\)', c) and 'always()' not in c \
+            and not re.search(r'\bsuccess\(\)', c):
+        return True
+    return bool(re.search(r'(?<![!\w.])inputs\.\w+', c)) and '||' not in c
+
+
+def _unquoted(cmd):
+    """-> `cmd` with its quoted strings blanked: words a script prints or
+    stores are not what it runs (2026-10-10: "Commit state" matched on
+    'file the alerting test as a todo item', a string it appends)."""
+    return re.sub(r'"(?:[^"\\]|\\.)*"|\'[^\']*\'', ' ', cmd)
 
 
 def _workflow_events(text):
@@ -627,8 +662,10 @@ def approved_workflow_checks(root):
         events = _workflow_events(text)
         if events is not None and not events & _CHANGE_EVENTS:
             continue            # a button or a schedule: never a change's test
-        for step, cmd in _workflow_commands(text):
-            if not (_CHECK_LIKE_RE.search(step) or _CHECK_LIKE_RE.search(cmd)):
+        for step, cmd, cond in _workflow_steps(text):
+            if _never_tests_a_change(cond):
+                continue
+            if not (_CHECK_LIKE_RE.search(step) or _CHECK_LIKE_RE.search(_unquoted(cmd))):
                 continue
             argv = _local_argv(cmd)
             if argv:

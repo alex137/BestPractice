@@ -820,6 +820,9 @@ esac
 mkdir -p "$hooks_dir" 2>/dev/null || true
 target="$hooks_dir/pre-commit"
 marker="# precedent:commit-identity"
+# The version of the global hooks below (see _install_global_backstop):
+# the date their text last changed.
+GLOBAL_HOOKS_VERSION=20261010
 
 # Never clobber a pre-commit hook somebody else put here. Ours is
 # recognised by its marker; anything else is left alone, out loud.
@@ -1080,6 +1083,25 @@ _install_global_backstop() {
   fi
   mkdir -p "$dir" 2>/dev/null || return 0
 
+  # A NEWER ENGINE'S HOOKS ARE NEVER REPLACED BY AN OLDER ONE'S (2026-10-10).
+  # Every repository's session start writes this one directory, so the last
+  # to start wins: one with an older engine put the plain pass-through
+  # pre-push back, and the leak gate and the failed-tree refusal stopped
+  # running on every push from this machine. Each write records
+  # GLOBAL_HOOKS_VERSION; a writer whose number is lower leaves the
+  # directory alone and says so. An engine older than this stamp cannot
+  # read it, so until each repository takes Update Vendors it can still
+  # overwrite -- and the next newer one to start writes it back.
+  # Raise GLOBAL_HOOKS_VERSION (today's date) whenever a hook's text here
+  # changes.
+  local have
+  have="$(cat "$dir/.precedent-hooks-version" 2>/dev/null || echo 0)"
+  case "$have" in ''|*[!0-9]*) have=0 ;; esac
+  if [ "$have" -gt "$GLOBAL_HOOKS_VERSION" ]; then
+    echo "NOTE: commit-identity: the global hooks at $dir were written by a newer engine ($have, this one is $GLOBAL_HOOKS_VERSION) -- left as they are. Take Update Vendors here to match." >&2
+    return 0
+  fi
+
   for hook in pre-commit prepare-commit-msg; do
     cat > "$dir/$hook" <<GLOBALHOOK
 #!/bin/sh
@@ -1235,6 +1257,7 @@ PASSTHROUGH
   done
   _write_pre_push "$dir"
   _write_ci_cadence "$dir"
+  printf '%s\n' "$GLOBAL_HOOKS_VERSION" > "$dir/.precedent-hooks-version" 2>/dev/null || true
 
   if [ "$existing" != "$dir" ] && ! _global_config_writable; then
     echo "NOTE: commit-identity: GIT_CONFIG_GLOBAL is $GIT_CONFIG_GLOBAL, which is not a regular file, so core.hooksPath is not set globally (writing it would replace that file); the hooks are written to $dir." >&2
