@@ -424,9 +424,9 @@ Two constraints from the plan's phase-3 row governed every decision:
 | `## Rule` share of the catalogue | 44% | 40% | **28%** |
 | Practices with `## Rule` over 150 words | 16 | 20 | **7** |
 | Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
-| Words in `## Detail` | — | — | **4,347** |
+| Words in `## Detail` | — | — | **6,491** |
 
-Twenty of the fifty-two practices carry a Detail. The resident block — the
+Twenty-five of the fifty-two practices carry a Detail. The resident block — the
 text every session pays for, whatever it is doing — **halved**, which is the
 closest this catalogue has come to the plan's "nine tenths" claim and still
 short of it.
@@ -460,7 +460,12 @@ original practices carrying a Detail fell by one on 2026-10-02, when
 `merge-authorization-keyword` left the universal set for the set that
 provides the five-stage ladder ([LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md)),
 and rose by one on 2026-10-06, when `docs-are-current-state` gained a Detail
-showing how to declare `load_bearing_annotations`.
+showing how to declare `load_bearing_annotations`. It stood at 24 when
+`repo-is-memory` gained a Detail on 2026-10-11, saying why its new clause on
+work a session makes sits there and how it fits beside the archive check,
+which moved it to 25; the sentence above and the word count had stopped
+following the figure by then, and both are corrected to the script's count
+the same day.
 (The table cell and the
 sentence above it were carried forward from the 2026-09-10 value at the
 2026-09-11 move and are corrected here.) Only the two figures
