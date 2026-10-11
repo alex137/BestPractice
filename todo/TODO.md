@@ -118,7 +118,6 @@ as_of: 2026-10-11
 | [`todo-2026-09-14-team-sets-carry-no-engine-refresh-workflow`](todo-2026-09-14-team-sets-carry-no-engine-refresh-workflow.md) | The weekly engine-refresh cron is dead in all four practice sets. What survives it is the finding underneath: a set's ve | 27d | wait |  |
 | [`todo-2026-09-14-workflow-run-is-not-gated`](todo-2026-09-14-workflow-run-is-not-gated.md) | `CODEOWNERS` gates the merge of an edited workflow, not its first run. | 27d | wait | verifying the run behaviour itself against GitHub's own documentation, which a h… |
 | [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 25d | ask |  |
-| [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 25d | ask |  |
 | [`todo-2026-09-21-alex137-is-not-declared-private-by-default`](todo-2026-09-21-alex137-is-not-declared-private-by-default.md) | This public tree links a private repository, and the check whose whole job is preventing that never asked. | 20d | ask |  |
 | [`todo-2026-09-21-branch-delete-links-not-yet-vendored-to-consumers`](todo-2026-09-21-branch-delete-links-not-yet-vendored-to-consumers.md) | The branch-delete-link work landed in BestPractice's originals only. Every consuming repo still carries the pre-change c | 20d | ask |  |
 | [`todo-2026-09-21-commit-identity-reaches-some-sessions-and-not-others`](todo-2026-09-21-commit-identity-reaches-some-sessions-and-not-others.md) | `commit-identity.sh` reaches some sessions and not others, and the commits that landed say which. | 20d | wait |  |
@@ -137,7 +136,6 @@ as_of: 2026-10-11
 | [`todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally`](todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md) | `verify_harness (everything else)` has been failing on `precedent-beta-v01` itself, on one check, and every pull request | 19d | ask |  |
 | [`todo-2026-09-25-every-install-approves-its-workflows`](todo-2026-09-25-every-install-approves-its-workflows.md) | Every install still carries workflow files nobody has approved under ci-workflow-approved. | 16d | ask |  |
 | [`todo-2026-09-25-should-sets-run-the-reply-gate`](todo-2026-09-25-should-sets-run-the-reply-gate.md) | Should practice sets run the reply gate and the other consumer-only hooks? | 16d | ask |  |
-| [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 15d | ask |  |
 | [`todo-2026-09-29-planted-case-lives-beside-its-check`](todo-2026-09-29-planted-case-lives-beside-its-check.md) | Put each check's planted case beside the check, so there is no second file to forget. | 12d | wait | out of scope for the 2026-09-29 engine-fixes batch: it moves every planted case… |
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | 2026-10-11: the cut is done and the 4,400 ceiling is on. | 11d | ask | Morgan: whether the by-construction form of the ceiling is still wanted, which n… |
 | [`todo-2026-10-01-in-force-nowhere-names-its-set`](todo-2026-10-01-in-force-nowhere-names-its-set.md) | Make every IN FORCE NOWHERE line name the set the rule lives in. | 10d | ask | a practice-format change (a new frontmatter field) that every practice set's che… |
@@ -220,7 +218,4 @@ as_of: 2026-10-11
 
 ## Due Reminders
 
-| Item | What | Due since |
-|---|---|---|
-| [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 2026-09-19 |
-| [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2026-09-26 |
+(none due)

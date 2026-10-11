@@ -6566,6 +6566,62 @@ def _speculation_is_marked(ctx):
     return findings
 
 
+# The run's full account, owed once the four hand-worked passes are in the
+# ledger (Morgan, 2026-10-11, after that day's run left it out until asked).
+# Runs dated before the rule are not judged: a consumer with an older run and
+# no account would otherwise be refused for a debt nobody owed at the time.
+_VDC_LEDGER = 'record/very-deep-check-ledger.json'
+_VDC_WRITE_UP = 'spec/VERY_DEEP_CHECK_LATEST_RUN.md'
+_VDC_PASSES = {'1', '2', '3', '4'}
+_VDC_RULE_DATE = '2026-10-11'
+
+
+@check('very-deep-check', 'tree',
+       "once the last completed very deep check in "
+       "record/very-deep-check-ledger.json has all four passes recorded, "
+       "spec/VERY_DEEP_CHECK_LATEST_RUN.md exists and its `opened:` date is "
+       "that run's date or later -- the run's full account was written, not "
+       "left for the person to ask for",
+       "whether the account is any GOOD: a file with the right date and "
+       "nothing in it passes. It also cannot see a run whose passes were "
+       "never recorded with --record-pass, which is the other half of the "
+       "same practice, and it does not judge runs dated before "
+       "2026-10-11, when the account became mandatory.")
+def _very_deep_check_write_up(ctx):
+    ledger = ROOT / _VDC_LEDGER
+    if not ledger.is_file():
+        raise NotApplicable(f'no {_VDC_LEDGER}: no very deep check has run here')
+    try:
+        runs = json.loads(ledger.read_text(encoding='utf-8')).get('runs') or []
+    except ValueError as e:
+        return [Finding(_VDC_LEDGER, f'does not parse ({e})')]
+    done = [r for r in runs if r.get('completed', True)]
+    if not done:
+        return []
+    run = done[-1]
+    date = str(run.get('date') or '')
+    recorded = {str(p.get('pass')) for p in run.get('passes') or []}
+    if date < _VDC_RULE_DATE or not _VDC_PASSES <= recorded:
+        return []                             # run predates the rule, or still in progress
+    where = f"the run of {run.get('run_id') or date}"
+    path = ROOT / _VDC_WRITE_UP
+    if not path.is_file():
+        return [Finding(_VDC_WRITE_UP, (
+            f'{where} has all four passes recorded and no account was written '
+            f'-- write this file for it before the run is called done '
+            f'(practices/very-deep-check.md)'))]
+    m = re.search(r'^opened:\s*(\S+)', path.read_text(encoding='utf-8',
+                                                      errors='ignore'), re.M)
+    opened = m.group(1).strip('"\'') if m else ''
+    if opened < date:
+        return [Finding(_VDC_WRITE_UP, (
+            f'{where} has all four passes recorded, but this account is '
+            f'still for the run opened {opened or "(no opened: date)"} -- '
+            f'rewrite it for this run, with `opened: {date}`, before the run '
+            f'is called done (practices/very-deep-check.md)'))]
+    return []
+
+
 @check('vendored-engine-file-refs-resolve', 'tree',
        "every hardcoded `_ENGINE_DIR / '<name>'` or `ROOT / 'tools' / '<name>'` "
        "path inside a tools/*.py file names a file that actually exists under "
