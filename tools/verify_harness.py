@@ -69370,7 +69370,20 @@ def check_very_deep_check_walks_every_tier_pair():
         d = vdc.base_branch_drift(work, 'pre-staging', 'main') or {}
         subjects = [c['subject'] for c in d.get('commits') or []]
         e = vdc.endgame_merge(work, 'pre-staging', 'staging') or {}
+        # The same origin for a person who lands on staging: pre-staging is
+        # retired there, so no pair may name it (2026-10-11: a run told the
+        # person to sync 66 commits into a branch awaiting deletion).
+        import precedent_branches as _pb
+        _real_unused = _pb.pre_staging_unused
+        _pb.pre_staging_unused = lambda root, user_config=None: (True, None)
+        try:
+            retired_pairs = vdc.tier_pairs(work)
+        finally:
+            _pb.pre_staging_unused = _real_unused
         results = [
+            ('a retired pre-staging is in no pair; staging into main still is',
+             retired_pairs.get('drift') == [('staging', 'main')]
+             and retired_pairs.get('endgame') == [('staging', 'main')]),
             ('the drift pairs are staging and main into pre-staging, and main '
              'into staging',
              pairs.get('drift') == [('pre-staging', 'staging'),
@@ -69387,7 +69400,8 @@ def check_very_deep_check_walks_every_tier_pair():
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check walks every tier pair ({len(results)} '
               f'stated cases)', not failed,
-              '; '.join(failed) + f' -- pairs {pairs}, drift {subjects}, '
+              '; '.join(failed) + f' -- pairs {pairs}, retired '
+              f'{retired_pairs}, drift {subjects}, '
               f'endgame {e.get("status")} {e.get("note")}')
 
 

@@ -5725,7 +5725,9 @@ def tier_pairs(repo_dir, target=None):
 
     A pair is listed only when both branches exist on origin (a repo with no
     pre-staging has the old single pair and nothing else), never twice, and
-    never a branch against itself. `target` overrides the declared base, as
+    never a branch against itself. A pre-staging retired for this person
+    (precedent_branches.pre_staging_unused) is in no pair: it is a branch
+    awaiting deletion, not a tier. `target` overrides the declared base, as
     the --target flag always has."""
     repo_dir = pathlib.Path(repo_dir)
     default = _default_remote_branch(repo_dir)
@@ -5734,6 +5736,13 @@ def tier_pairs(repo_dir, target=None):
         import precedent_branches as _pb
         staging = _pb.staging_branch(repo_dir)
         pre = _pb.PRE_STAGING
+        # A pre-staging retired for this person (they land on staging) is
+        # no tier: nothing reaches it, so "staging carries what pre-staging
+        # never took" is true forever and calls for no sync. Listing it
+        # told the 2026-10-11 run to bring 66 commits down into a branch
+        # waiting to be deleted.
+        if _pb.pre_staging_unused(repo_dir)[0]:
+            pre = None
     except Exception:                                            # noqa: BLE001
         staging, pre = declared, 'pre-staging'
     main = default or 'main'
