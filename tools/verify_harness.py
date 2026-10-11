@@ -55371,9 +55371,17 @@ def check_install_and_update_name_the_code_owners():
         cases.append(('GitHub unable to say: the person running it, and why',
                       got5 == ['hank'] and 'person running' in how5 and '403' in how5,
                       f'{got5} {how5}'))
+        e = fresh('e')
+        subprocess.run(['git', '-C', str(e), 'remote', 'add', 'origin',
+                        'https://github.com/o/r.git'], capture_output=True)
+        got6, how6 = pve.seed_maintainers(e, today='2026-10-11', fallback=['ivy'])
+        cases.append(('GitHub unable to say and an administrator named at '
+                      'install: that administrator, not the person running it',
+                      got6 == ['ivy'] and 'administrator' in how6,
+                      f'{got6} {how6}'))
 
         for f, needle in (('precedent_update.py', 'maintainers_step(repo, rep)'),
-                          ('precedent_install.py', 'seed_maintainers(dest)')):
+                          ('precedent_install.py', 'seed_maintainers(\n            dest')):
             cases.append((f'{f} runs it',
                           needle in (ROOT / 'tools' / f).read_text(encoding='utf-8'), ''))
     finally:

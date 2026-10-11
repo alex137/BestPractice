@@ -761,6 +761,7 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     branch, how = _base_branch(dest, base_branch)
     owner, repo = _remote_owner_repo(dest)
     owner_repo = f'{owner}/{repo}' if owner else None
+    admin_named = admin
     admin = admin or owner
     ci_enabled, ci_note = _ci_preference(dest)
 
@@ -778,7 +779,8 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     # starting default, never rewritten once set.
     try:
         import precedent_vendor_engine as _pve
-        _owners, _how = _pve.seed_maintainers(dest)
+        _owners, _how = _pve.seed_maintainers(
+            dest, fallback=[admin_named.lstrip('@')] if admin_named else None)
     except Exception as e:                                    # noqa: BLE001
         _owners, _how = [], f'could not work it out ({e})'
     say(f'  code owners: ' + (f'named {", ".join("@" + o for o in _owners)} in '
