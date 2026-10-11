@@ -789,25 +789,31 @@ def previous_section(timeline, text, pattern):
     return None
 
 
-def _fenced_blocks(text):
+def _fenced_blocks(text, with_lead=False):
     """-> the text inside each ``` or ~~~ fenced block of `text`, in order.
-    An unclosed fence runs to the end, as Markdown renders it."""
-    blocks, cur, fence = [], None, None
+    An unclosed fence runs to the end, as Markdown renders it. With
+    `with_lead`, each is a (block, lead) pair, `lead` being the last
+    non-blank line of prose above the fence -- where a reply says what the
+    block is for ("Paste into: ...")."""
+    blocks, cur, fence, lead, leads = [], None, None, '', []
     for line in text.split('\n'):
         m = re.match(r'^\s{0,3}(`{3,}|~{3,})', line)
         if cur is None:
             if m:
                 cur, fence = [], m.group(1)
+                leads.append(lead)
+            elif line.strip():
+                lead = line.strip()
             continue
         if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) \
                 and not line.strip()[len(m.group(1)):].strip():
             blocks.append('\n'.join(cur))
-            cur = None
+            cur, lead = None, ''
             continue
         cur.append(line)
     if cur is not None:
         blocks.append('\n'.join(cur))
-    return blocks
+    return list(zip(blocks, leads)) if with_lead else blocks
 
 
 # A clause that narrates: it opens with a session, tool, check or the like
@@ -1571,6 +1577,12 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
         rule = r.get('require_prompt_block_header')
         if rule:
             is_prompt = rule.get('prompt_block_if_matches') or '(?!)'
+            # 2026-10-11: a block headed "From: <title> (<link>)" / "For: a
+            # new BestPractice session" matched none of the shapes above, so
+            # it was never judged at all. The reply's own "Paste into: <a
+            # session>" above a block says it is a prompt whatever the block
+            # opens with, so that counts too.
+            led_by = rule.get('prompt_block_if_preceded_by') or '(?!)'
             from_re = rule.get('from_line') or '(?!)'
             for_re = rule.get('for_line') or '(?!)'
             outside = re.sub(r'(?ms)^\s{0,3}(`{3,}|~{3,}).*?^\s{0,3}\1\s*$',
@@ -1589,15 +1601,21 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                             'message': f"[{r.get('_source', '?')}] {why}"
                             + (f" -- {rule.get('why')}" if rule.get('why') else '')
                             + '.' + tail})
-            for block in _fenced_blocks(text):
-                if not re.search(is_prompt, block, re.I | re.M):
+            for block, lead in _fenced_blocks(text, with_lead=True):
+                if not (re.search(is_prompt, block, re.I | re.M)
+                        or re.search(led_by, lead, re.I)):
                     continue
                 lines = [l.strip() for l in block.splitlines() if l.strip()]
                 first = lines[0] if lines else ''
                 second = lines[1] if len(lines) > 1 else ''
                 if not re.search(from_re, first, re.I):
+                    said = ("its first line names a sender but never says a "
+                            "session wrote it rather than a person. "
+                            if re.search(r'https://claude\.ai/code/session_\w+',
+                                         first) else '')
                     _refuse("a paste block written for another session does "
-                            "not open with the session sending it. Make its "
+                            "not open with the session sending it. "
+                            + said[:1].upper() + said[1:] + "Make its "
                             "first line: \"Sent automatically by the session "
                             "<this session's title> (<id>) -- <link>. Nobody "
                             "typed this.\"")
