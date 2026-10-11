@@ -823,5 +823,22 @@
     "staging into main fast, and GitHub's test runs after the merge. Anyone off",
     "the ladder lands on main, as before. Set 2026-10-09 (Morgan: \"Please update",
     "BP so it uses the new system\"); pre-staging was the landing branch until then."
+  ],
+  "_no_stale_counts_exempt_comment": "The writing set's no-stale-counts check reads a count of practices as a claim about practices/ today. These files are dated records, so their counts are history. Added by the 2026-10-11 very deep check, when the check flagged 60-odd such sentences here; the ones left in practices/ sit in ## Story sections, which the check should read as history itself.",
+  "no_stale_counts_exempt": [
+    {"path": "PRACTICES.md",
+     "reason": "the pre-fork catalogue, superseded and frozen at its 2026-08-31 conversion; its \"53 practices\" is the count it was frozen at, said as history in the same sentence"},
+    {"path": "decisions",
+     "reason": "dated decision records: a record of what was true on the date it was written; rewriting a count in it to today's figure would falsify the record"},
+    {"path": "record",
+     "reason": "the archive: a record of what was true on the date it was written; rewriting a count in it to today's figure would falsify the record"},
+    {"path": "spec",
+     "reason": "plans and briefs, each dated and kept as written: a record of what was true on the date it was written; rewriting a count in it to today's figure would falsify the record"},
+    {"path": "todo",
+     "reason": "open-item files, each dated and appended in place: a record of what was true on the date it was written; rewriting a count in it to today's figure would falsify the record"},
+    {"path": "gotchas",
+     "reason": "gotcha stories, each dated: a record of what was true on the date it was written; rewriting a count in it to today's figure would falsify the record"},
+    {"path": "evals",
+     "reason": "evaluation runs, each measured once: a record of what was true on the date it was written; rewriting a count in it to today's figure would falsify the record"}
   ]
 }
