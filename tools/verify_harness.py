@@ -35630,7 +35630,7 @@ def check_promote_picks_its_step():
         on_staging = commit_to('staging', 'two.txt', '2\n')
         commit_to('pre-staging', 'three.txt', '3\n')
         seen = set(all_copies())
-        rc, out = branches('--promote', '--to', 'main', '--work', on_staging)
+        rc, out = branches('--promote', '--to', 'main', '--full', '--work', on_staging)
         cases.append(('both steps waiting, and the step named: --to main wins',
                       rc == 3 and out.startswith(
                           'Now promoting from staging to main')))
@@ -61770,7 +61770,7 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
         git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
         before = git(work, 'rev-parse', 'HEAD').stdout.strip()
         main_before = tip('main')
-        rc, out = branches('--promote', '--to', 'main', '--work', 'session-work')
+        rc, out = branches('--promote', '--to', 'main', '--full', '--work', 'session-work')
         ready = [l for l in out.splitlines() if 'NOT MOVED' in l or 'READY FOR' in l]
         cases.append(('staging into main, main not yet moved: exit 3, not 0 '
                       f'(got {rc})', rc == 3))
@@ -61944,9 +61944,11 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
                       str(push_why('origin HEAD:staging'))[:200]))
         why = push_why('origin HEAD:main') or ''
         cases.append(('main still takes work only by promotion, and the refusal '
-                      'names --land and the fast move',
+                      'names --land and the move into main, which is the fast '
+                      'one with no flag',
                       'promote_only is on' in why and '--land' in why
-                      and '--fast' in why, why[:200]))
+                      and '--promote --to main`' in why
+                      and '--full' not in why, why[:200]))
         cases.append(('a push to staging takes the quick checks; main stays full',
                       pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'basic'
                       and pb.tier_for_branch(work, 'main', str(cfg))[0] == 'full'))
@@ -62155,12 +62157,33 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
         commit_on('staging', 'last', 'last.json', '{}\n')
         run('--land', 'last')
 
-        # --- the full move into main is unchanged ---
+        # --- the full move into main, only when asked for by name ---
         full_runs()
-        rc, out = run('--promote', '--to', 'main')
-        cases.append(('without --fast, the move into main runs the full suite, as '
+        rc, out = run('--promote', '--to', 'main', '--full')
+        cases.append(('with --full, the move into main runs the full suite, as '
                       'before', full_runs() >= 1 and 'full push check' in out,
                       f'exit {rc}: {out[-300:]}'))
+        # The fast move is the default (Morgan, 2026-10-11: "default to the
+        # fast route unless I explicitly agree to or request the slow
+        # route"): a bare --promote --to main asks for it, --full is the one
+        # way to the old route, and a flag meant for the fast move refuses
+        # beside --full rather than being dropped.
+        pa = pb.promote_args
+        cases += [
+            ('a bare --promote --to main is the fast move',
+             (pa(['--to', 'main']) or {}).get('fast') is True),
+            ('a bare --promote is the fast move if its step is main',
+             (pa([]) or {}).get('fast') is True),
+            ('--full asks for the old route', (pa(['--to', 'main', '--full'])
+                                              or {}).get('fast') is False),
+            ('--fast is still taken and changes nothing',
+             pa(['--fast']) == pa(['--to', 'main'])),
+            ('--full beside a fast-move flag is a usage error',
+             pa(['--to', 'main', '--full', '--despite-failed-tests']) is None
+             and pa(['--full', '--fast']) is None),
+            ('a fast-move flag on the move into staging is a usage error',
+             pa(['--to', 'staging', '--full']) is None
+             and pa(['--to', 'staging', '--no-full-after']) is None)]
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
@@ -62688,7 +62711,7 @@ def check_promote_ends_with_its_result_line():
                           'PROMOTE RESULT: staging <- pre-staging: NOTHING TO PROMOTE')
                       and one_result(out)))
 
-        rc, last, out = run(work, env, '--promote', '--to', 'main')
+        rc, last, out = run(work, env, '--promote', '--to', 'main', '--full')
         copy = next((l.split('pull request from ', 1)[1].split()[0]
                      for l in [last] if 'pull request from ' in l), '')
         cases.append((f'a Produce ready for its pull request ends READY FOR MAIN '
