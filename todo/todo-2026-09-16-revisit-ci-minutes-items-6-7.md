@@ -3,16 +3,16 @@ slug:              todo-2026-09-16-revisit-ci-minutes-items-6-7
 kind:              manual
 domain:            content
 severity:          notable
-status:            open
-disposition:       ask
-remind_on:         "2026-09-19"
+status:            done
+disposition:       wait
+remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Morgan"
+decision:          "Not doing items 6 and 7 for now: the CI minutes problem they were meant to address is solved."
+decision_strength: decided
+waiting_on:        null
 noted:             2026-09-16
-closed:            null
+closed:            2026-10-11
 ---
 ## What
 
@@ -33,3 +33,5 @@ self-hosted-runner pilot (and on which repos) and has checked the actual
 billing ceiling, or explicitly decides to defer either one further.
 
 ## Notes
+
+**Closed 2026-10-11 (done).** Morgan deferred both items: "we not do those for now and remove the to-do; we solved the problem." That meets this item's own condition (he explicitly decided to defer either one further); strength: decided.

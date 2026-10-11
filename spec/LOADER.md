@@ -204,7 +204,7 @@ a number in a sentence. That is `docs-track-models`, happening here.
 | Rules still over 150 words | 88 |
 | Carrying a `## Detail` | 138 |
 | Carrying a `## Story` | 180 |
-| Enforced by a check | 64 of 180 practices carry a `checked_by` |
+| Enforced by a check | 65 of 180 practices carry a `checked_by` |
 <!--/gen:catalogue-->
 
 Numbers by: catalogue_stats.py
