@@ -822,7 +822,7 @@ target="$hooks_dir/pre-commit"
 marker="# precedent:commit-identity"
 # The version of the global hooks below (see _install_global_backstop):
 # the date their text last changed.
-GLOBAL_HOOKS_VERSION=20261010
+GLOBAL_HOOKS_VERSION=20261011
 
 # Never clobber a pre-commit hook somebody else put here. Ours is
 # recognised by its marker; anything else is left alone, out loud.
@@ -1322,7 +1322,12 @@ if [ -n "\$_top" ] && [ -f "\$_gate" ] && command -v python3 >/dev/null 2>&1 \\
     for _sha in \$(printf '%s\\n' "\$_input" | awk 'NF == 4 { print \$2 }'); do
       [ "\$_sha" = "\$_zero" ] && continue
       git cat-file -e "\$_sha^{commit}" 2>/dev/null || continue
-      if ! _out="\$(cd "\$_top" && python3 "\$_gate" --range "\$_sha --not --remotes" 2>&1)"; then
+      # Without git's hook variables: a push from a worktree (every Booked
+      # and Promote composes in one) runs this with GIT_DIR set, and the gate
+      # then took tools/ for the repository's top, never read its
+      # precedent.json, and scanned a private repository as public
+      # (2026-10-11).
+      if ! _out="\$(cd "\$_top" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR python3 "\$_gate" --range "\$_sha --not --remotes" 2>&1)"; then
         printf '%s\\n' "\$_out" >&2
         _fail=1
       fi

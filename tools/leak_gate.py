@@ -153,9 +153,21 @@ import json, os, pathlib, re, subprocess, sys
 # the enclosing repository, which is right in both layouts without knowing
 # which one it is in. The literal parents[1] stays as the no-git fallback
 # only, matching doc_lint.py and practice_audit.py.
+#
+# AND WITHOUT A GIT HOOK'S VARIABLES (2026-10-11). A push from a worktree --
+# every Booked and Promote composes in one -- runs the pre-push hook with
+# GIT_DIR set, and with GIT_DIR set and no GIT_WORK_TREE, git takes the
+# directory it was asked from for the top. Asked from tools/, it answered
+# tools/: the gate found no precedent.json there, so it never saw that the
+# repository declares itself private, and refused two private repositories'
+# landings for naming their owner's other private repositories.
 _toplevel = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
                            cwd=pathlib.Path(__file__).resolve().parent,
-                           capture_output=True, text=True).stdout.strip()
+                           capture_output=True, text=True,
+                           env={k: v for k, v in os.environ.items()
+                                if k not in ('GIT_DIR', 'GIT_WORK_TREE',
+                                             'GIT_INDEX_FILE', 'GIT_PREFIX',
+                                             'GIT_COMMON_DIR')}).stdout.strip()
 ROOT = pathlib.Path(_toplevel) if _toplevel else pathlib.Path(__file__).resolve().parents[1]
 BLOCKLIST_ENV = 'PRECEDENT_LEAK_BLOCKLIST'
 

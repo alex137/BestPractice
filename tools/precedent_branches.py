@@ -1134,6 +1134,25 @@ def _push_check_tool(root):
     return None
 
 
+def refused_push(root, branch, built, proc):
+    """A push to origin's `branch` of commit `built` that git refused. ->
+    (moved, said): `moved` True only when origin's `branch` now has work
+    `built` does not contain -- a race, worth doing again -- and `said`, what
+    the push itself printed.
+
+    ONE PLACE FOR THIS, used by --land, the merge into pre-staging and
+    land_next.py (2026-10-11). Each used to explain any refusal as "the
+    branch moved": the lander was fixed on 2026-10-10 and --land was not,
+    so a leak-gate refusal on a branch that sat still was reported as a race
+    and the push's own words were cut to two hundred characters."""
+    _run(root, 'fetch', '-q', 'origin', branch)
+    tip = _remote_tip(root, branch)
+    moved = bool(tip) and _run(root, 'merge-base', '--is-ancestor', tip,
+                               built).returncode != 0
+    said = ((getattr(proc, 'stderr', '') or '') + (getattr(proc, 'stdout', '') or '')).strip()
+    return moved, said
+
+
 class _Worktree:
     """A throwaway detached worktree, removed on exit whatever happens."""
     def __init__(self, root, commit):
@@ -2353,7 +2372,13 @@ def sync_pre_staging(root, say=print, check=False):
             return False
         p = _run(wt, 'push', '-q', 'origin', f'HEAD:refs/heads/{PRE_STAGING}')
         if p.returncode != 0:
-            say(f'{PRE_STAGING} moved while this ran; run it again. ({p.stderr.strip()[:200]})')
+            moved, said = refused_push(root, PRE_STAGING, _git(wt, 'rev-parse', 'HEAD'), p)
+            if moved:
+                say(f'{PRE_STAGING} moved while this ran; run it again. ({said[:200]})')
+            else:
+                say(f'the push to {PRE_STAGING} was refused, and {PRE_STAGING} did '
+                    f'not move, so running it again would be refused the same '
+                    f'way. What the push said:\n{said[-1500:]}')
             return False
     say(f'merged {" and ".join(b for b, _ in ready)} into {PRE_STAGING}.')
     return True
@@ -2740,7 +2765,7 @@ def produce_waiting_hold(root, gh=None):
                if is_main_copy((p.get('head') or {}).get('ref'))]
     if not waiting:
         return None
-    return (f'NOT PROMOTED: {" and ".join(waiting)} into {MAIN} is still open, '
+    return (f'PROMOTE REFUSED: {" and ".join(waiting)} into {MAIN} is still open, '
             f'made from a copy of {staging_branch(root)}. Moving '
             f'{staging_branch(root)} now would leave that copy out of date and '
             f'the merge check would refuse it. Finish it first -- wait for its '
@@ -2774,7 +2799,7 @@ def retired_set_hold(root, env=None):
         print(f'promoting a retired set, because the person asked: {asked!r}',
               flush=True)
         return None
-    return ('NOT PROMOTED: this set says it is retired, and a retired set is '
+    return ('PROMOTE REFUSED: this set says it is retired, and a retired set is '
             'not promoted unless the person asks for that exact move as '
             'essential to retiring it gracefully (practice: '
             'retired-set-takes-only-its-retirement). If they have, run again '
@@ -2793,6 +2818,9 @@ def _verdict(text, move=None):
         _RESULT['move'] = move
 
 
+# A failure never carries its success word (2026-10-11: a script searching
+# "LANDED" read "NOT LANDED" as a landing): LAND REFUSED and PROMOTE REFUSED,
+# never NOT LANDED or NOT PROMOTED. The old prefix stays readable here.
 _REASON_PREFIXES = ('PROMOTE REFUSED: ', 'NOT PROMOTED: ', 'PROMOTE NOT FINISHED, ')
 
 
@@ -2814,11 +2842,11 @@ def promote_result_line(root, rc, to=None, last=''):
                 reason = reason[len(prefix):]
         reason = reason[:240] or 'see the lines above'
         if rc is None:
-            verdict = f'NOT PROMOTED: the run stopped on an error ({reason})'
+            verdict = f'PROMOTE REFUSED: the run stopped on an error ({reason})'
         elif rc == 0:
-            verdict = f'NOTHING PROMOTED: {reason}'
+            verdict = f'NOTHING TO PROMOTE: {reason}'
         else:
-            verdict = f'NOT PROMOTED: {reason}'
+            verdict = f'PROMOTE REFUSED: {reason}'
     return f'PROMOTE RESULT: {move}: {verdict}'
 
 
@@ -2905,7 +2933,7 @@ def _promote_run(root, say=print, to=None, work=None, fast=False,
             f'nothing. It carries what was on {PRE_STAGING} when it started; '
             f'anything pushed there since goes in the next Promote. Do not '
             f'Promote again while it runs.')
-        _verdict(f'NOT PROMOTED: another window is promoting or landing right now ({info}); '
+        _verdict(f'PROMOTE REFUSED: another window is promoting or landing right now ({info}); '
                  f'do not Promote again while it runs')
         return 0
     if state == 'none':
@@ -3950,7 +3978,7 @@ def _not_finished(root, say, sha, staging, what, todo):
     when the session pushes a fix to it."""
     fix = _fix_branch(root)
     reason = ' '.join((str(what).strip().splitlines() or [''])[0].split())[:240]
-    _verdict(f'NOT PROMOTED: {reason}', move=f'{staging} <- {PRE_STAGING}')
+    _verdict(f'PROMOTE REFUSED: {reason}', move=f'{staging} <- {PRE_STAGING}')
     b = _run(root, 'branch', fix, sha)
     if b.returncode != 0:
         say(f'PROMOTE NOT FINISHED, and neither {staging} nor {PRE_STAGING} '
@@ -3964,7 +3992,7 @@ def _not_finished(root, say, sha, staging, what, todo):
         f'with `git push -u origin {fix}`; then\n'
         f'  python3 tools/precedent_branches.py --promote --to staging --work {fix}\n'
         f'which takes the fix in first and moves both tiers together.')
-    _verdict(f'NOT PROMOTED: {reason} The composition is on the local branch '
+    _verdict(f'PROMOTE REFUSED: {reason} The composition is on the local branch '
              f'{fix} ({sha}); fix it there, push it, and Promote again with '
              f'--work {fix}', move=f'{staging} <- {PRE_STAGING}')
     return 1
@@ -4049,7 +4077,7 @@ def land(root, work=None, say=print):
     check, staging moved); 2 not this person's route, or no such work."""
     staging = staging_branch(root)
     label = work or (_git(root, 'symbolic-ref', '--short', '-q', 'HEAD') or 'HEAD')
-    verdict = ['NOT LANDED: see the lines above']
+    verdict = ['LAND REFUSED: see the lines above']
     try:
         rc, verdict[0] = _land(root, work, label, staging, say)
         return rc
@@ -4064,7 +4092,7 @@ def _land(root, work, label, staging, say):
         say(f'--land is the route for a person who lands work straight on '
             f'{staging} with {PROMOTE_ONLY_SETTING} on. Yours is {landing} '
             f'({lwhy}): land there as usual.')
-        return 2, f'NOT LANDED: your landing branch is {landing}'
+        return 2, f'LAND REFUSED: your landing branch is {landing}'
     if work:
         name = work[len('origin/'):] if work.startswith('origin/') else work
         _run(root, 'fetch', '-q', 'origin', name)
@@ -4073,13 +4101,13 @@ def _land(root, work, label, staging, say):
            or _git(root, 'rev-parse', '--verify', '--quiet', f'origin/{ref}^{{commit}}'))
     if not sha:
         say(f'{ref!r} is not a branch or commit this checkout can see.')
-        return 2, f'NOT LANDED: {ref} names no branch or commit here'
+        return 2, f'LAND REFUSED: {ref} names no branch or commit here'
     state, info = wait_for_landing_lock(root, f'landing {label} on {staging}', say)
     if state == 'busy':
-        say(f'NOT LANDED, and {staging} did not move: the landing lock was still '
+        say(f'LAND REFUSED, and {staging} did not move: the landing lock was still '
             f'held after {LOCK_WAIT_SECONDS // 60} minutes ({info}). Land again '
             f'once it is free.')
-        return 1, f'NOT LANDED: the landing lock stayed held ({info})'
+        return 1, f'LAND REFUSED: the landing lock stayed held ({info})'
     if state == 'none':
         say(f'NOTE: could not take the landing lock ({info}); going ahead '
             f'without it.')
@@ -4101,7 +4129,7 @@ def _land_composed(root, sha, label, staging, why, say):
     stip = _remote_tip(root, staging)
     if not stip:
         say(f'origin has no {staging} branch, so there is nowhere to land.')
-        return 1, f'NOT LANDED: origin has no {staging}'
+        return 1, f'LAND REFUSED: origin has no {staging}'
     above = _from_above(root, staging, stip)
     carried = _run(root, 'merge-base', '--is-ancestor', sha, stip).returncode == 0
     if carried and not above:
@@ -4120,13 +4148,13 @@ def _land_composed(root, sha, label, staging, why, say):
                                                   last, say)
         if conflict:
             clabel, csha, files = conflict
-            say(f'NOT LANDED, and {staging} did not move: {clabel} ({csha[:12]}) '
+            say(f'LAND REFUSED, and {staging} did not move: {clabel} ({csha[:12]}) '
                 f'does not merge cleanly into {" + ".join([staging] + merged)} -- '
                 f'the same lines of hand-written text changed on both sides'
                 + (f' ({", ".join(files)})' if files else '') + '. Merge '
                 f'origin/{staging} and origin/{MAIN} into {label}, resolve it '
                 f'there, push it, and land again.')
-            return 1, (f'NOT LANDED: {clabel} conflicts with '
+            return 1, (f'LAND REFUSED: {clabel} conflicts with '
                        f'{" + ".join([staging] + merged)}')
         new = _git(wt, 'rev-parse', 'HEAD')
         say(f'checking the composition -- {staging}'
@@ -4137,15 +4165,22 @@ def _land_composed(root, sha, label, staging, why, say):
         ok, out = _check(root, wt, BASIC, dest=staging, since=stip)
         took = time.monotonic() - t0
         if not ok:
-            say(f'NOT LANDED, and {staging} did not move: the quick checks '
+            say(f'LAND REFUSED, and {staging} did not move: the quick checks '
                 f'failed on the composition, after {took:.0f}s.\n\n{out}\n\n'
                 f'Fix it on {label} and land again.')
-            return 1, 'NOT LANDED: the quick checks failed on the composition'
+            return 1, 'LAND REFUSED: the quick checks failed on the composition'
         p = _run(wt, 'push', '-q', 'origin', f'{new}:refs/heads/{staging}')
     if p.returncode != 0:
-        say(f'{staging} moved while this ran, so nothing was pushed; land again. '
-            f'({p.stderr.strip()[:200]})')
-        return 1, f'NOT LANDED: {staging} moved while this ran; land again'
+        moved, said = refused_push(root, staging, new, p)
+        if moved:
+            say(f'{staging} moved while this ran, so nothing was pushed; land again. '
+                f'({said[:200]})')
+            return 1, f'LAND REFUSED: {staging} moved while this ran; land again'
+        say(f'LAND REFUSED, and {staging} did not move: the push was refused, so '
+            f'landing again would be refused the same way. What the push '
+            f'said:\n{said[-1500:]}')
+        first = next((ln for ln in said.splitlines() if ln.strip()), 'no reason given')
+        return 1, f'LAND REFUSED: the push to {staging} was refused: {first[:200]}'
     say(f'the quick checks passed, in {took:.0f}s.')
     if batch:
         shown, others = mark_other_work(root, batch, label)

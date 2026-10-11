@@ -1059,7 +1059,8 @@ def apply_on_its_own_branch(entry, base):
     sys.path.insert(0, str(HERE))
     try:
         import precedent_branch_name as _pbn
-        name, _notes = _pbn.build([*REFRESH_BRANCH_WORDS, tip[:8] or 'tip'])
+        name, _notes = _pbn.build([*REFRESH_BRANCH_WORDS, tip[:8] or 'tip'],
+                                  exists=lambda n: _pbn.local_branch(n, repo))
     except Exception:                                        # noqa: BLE001
         name = f'engine-refresh-{tip[:8] or "tip"}'
     finally:
