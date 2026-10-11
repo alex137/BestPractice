@@ -11,7 +11,9 @@ A branch is STALE when its tip is already in `origin/main`, or when it carries
 no change `main` lacks (a Promote's fix branch or copy of staging whose merge commits
 changed nothing). NEVER LISTED, whatever their state: `main`, `staging`,
 `pre-staging`, staging's old name `precedent-beta-v01`, and the engine's own
-branches (`precedent-check-receipts`, `precedent-promote-lock`) -- Morgan,
+branches (`precedent-check-receipts`, `precedent-promote-lock`) and any
+branch starting `data-`, the ladder's name for a live record
+(precedent_data_branches.py, 2026-10-11) -- Morgan,
 2026-10-05: "(And never pre-staging or staging)". ONE EXCEPTION, 2026-10-09:
 for a person who lands straight on staging, `pre-staging` is retired, and once
 it holds nothing staging lacks it is listed like any finished branch
@@ -43,6 +45,7 @@ sys.path.insert(0, str(_ENGINE_DIR))
 
 NEVER = {'main', 'master', 'staging', 'pre-staging', 'precedent-beta-v01',
          'precedent-check-receipts', 'precedent-promote-lock', 'HEAD'}
+DATA_PREFIX = 'data-'
 _GH = re.compile(r'github\.com[:/]+([^/]+)/([^/\s]+?)(?:\.git)?/*$')
 
 
@@ -129,7 +132,7 @@ def stale_in(repo, fetch=False):
             date = _git(repo, 'log', '-1', '--format=%cs', f'origin/{b}').stdout.strip()
             out.append((b, date))
             continue
-        if b in NEVER or b == 'origin':
+        if b in NEVER or b == 'origin' or b.startswith(DATA_PREFIX):
             continue
         ref = f'origin/{b}'
         if b not in merged:

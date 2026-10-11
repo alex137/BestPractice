@@ -1,16 +1,28 @@
 #!/usr/bin/env python3
-"""The name for a session's feature branch, built the same way every time -- `<date>-<slug>-<id>`, the id being the end of the session's ID, or random characters when there is none
+"""The name for a session's feature branch, built the same way every time -- `<date>-<slug>-<session>-<random>`, the session part being the end of the session's ID
 
 precedent_branch_name.py -- the name for a session's feature branch, built
 the same way every time.
 
-    2026-10-01-branch-naming-convention-awpkv
-    <date>-<slug>-<id>
+    2026-10-01-branch-naming-convention-awpkv-q7m2x
+    <date>-<slug>-<session>-<random>
 
-  date    the day the branch is made, in the person's zone (precedent_time)
-  slug    what the work is, from the words given, lowercased, at most six
-  id      the last five characters of the session's ID, lowercased, so the
-          branch leads back to the session that made it
+  date     the day the branch is made, in the person's zone (precedent_time)
+  slug     what the work is, from the words given, lowercased, at most six
+  session  the last five characters of the session's ID, lowercased, so the
+           branch leads back to the session that made it
+  random   five random characters, on every name, so two branches one
+           session makes on the same day with the same slug never clash
+
+EVERY NAME ENDS IN BOTH (Morgan, 2026-10-11, strength: decided: "we should
+update the structure, the formula from date slug session ID to date slug
+session ID, random characters"). Until then a name ended at the session
+part, and five random characters were added only when that name was
+already taken -- so a session's first Promote copy of the day was
+`...-promote-to-main-y1ktn` and every later one `...-promote-to-main-y1ktn-
+mijf2`, two shapes in use for the same kind of branch. Now there is one
+shape, and a name that is somehow taken anyway gets fresh random
+characters in the same place, never a third group.
 
 THE RULE (Morgan, 2026-10-01, strength: decided): a branch's name should say
 when it is from, what it is about, and which session made it. Until then a
@@ -23,14 +35,13 @@ is the one place the name is built, so it cannot drift.
 WHERE THE ID COMES FROM. Claude Code's cloud sessions carry it in
 CLAUDE_CODE_REMOTE_SESSION_ID, read by precedent_detect.this_session_id()
 (the same ID a commit's session trailer carries). Anywhere it is missing --
-a local run, another harness -- the id is five random characters instead,
-and the tool says so on stderr. The same happens when the name is already
-taken, on origin or by a local branch: one session making two branches on
-the same day with the same slug is the only realistic way that occurs.
-Local branches count too (2026-10-11): a rollout made an update branch,
-merged it, and the next day's run got the same name back from origin's
-silence -- and `git switch -c` refused it, because the merged branch was
-still there locally.
+a local run, another harness -- the session part is five random characters
+instead, and the tool says so on stderr. A name already taken, on origin
+or by a local branch, gets new random characters in the last part. Local
+branches count too (2026-10-11): a rollout made an update branch, merged
+it, and the next day's run got the same name back from origin's silence --
+and `git switch -c` refused it, because the merged branch was still there
+locally.
 
 NO PREFIX (Morgan, 2026-10-07, strength: decided: "many of your temp github
 [branches] you create start with 'claude/' - I think update the rule to
@@ -139,9 +150,13 @@ def taken(name, repo='.', remote='origin'):
     return on_origin(name, repo, remote)
 
 
-def build(words, date=None, prefix=None, tail=None, exists=None):
+MAX_DRAWS = 20
+
+
+def build(words, date=None, prefix=None, tail=None, exists=None, rand=None):
     """-> (name, notes). `exists(name)` answers True/False/None as taken()
-    does; None skips the check. `tail` None means read the session ID."""
+    does; None skips the check. `tail` None means read the session ID;
+    `rand` None means draw the last part at random (a test passes one)."""
     slug = slugify(words)
     if not slug:
         raise ValueError('no usable words for the slug -- give a few words '
@@ -152,20 +167,27 @@ def build(words, date=None, prefix=None, tail=None, exists=None):
     tail = session_id_tail() if tail is None else tail
     if not tail:
         tail = random_id()
-        notes.append(f'no session ID found, so the last part ({tail}) is '
+        notes.append(f'no session ID found, so the session part ({tail}) is '
                      f'random and leads to no session')
-    name = f'{prefix}{date}-{slug}-{tail}'
+    name = f'{prefix}{date}-{slug}-{tail}-{rand or random_id()}'
     if exists is not None:
         found = exists(name)
         if found is None:
             notes.append(f'could not ask origin whether {name} already exists '
                          f'(no local branch has it)')
-        while found:
-            extra = random_id()
-            notes.append(f'{name} is already taken (a local branch or origin has '
-                         f'it); added {extra}')
-            name = f'{prefix}{date}-{slug}-{tail}-{extra}'
+        for _ in range(MAX_DRAWS):
+            if not found:
+                break
+            taken_name = name
+            name = f'{prefix}{date}-{slug}-{tail}-{random_id()}'
+            notes.append(f'{taken_name} is already taken (a local branch or '
+                         f'origin has it); drew {name.rsplit("-", 1)[1]} instead')
             found = exists(name)
+        else:
+            if found:
+                raise ValueError(f'every name drawn for {date}-{slug}-{tail} was '
+                                 f'taken -- the existence check is answering '
+                                 f'"taken" for everything')
     return name, notes
 
 
@@ -189,12 +211,13 @@ def name_refusal(name, tail=None):
 
     Judged: names that open with a date, or sit under `claude/` or
     `session/`. Passed: a harness-given name (two words and an id with a
-    digit in it); a `<date>-<slug>-<id>` name whose id is this session's (or,
-    after a clash on origin, whose second-to-last part is, as build() writes
-    it). With no session ID to compare, any five-character last part passes:
-    build() is random then. A `claude/<date>-...` name is refused since
-    2026-10-07: build() no longer writes the prefix, so a name carrying it
-    was typed."""
+    digit in it); a `<date>-<slug>-<session>-<random>` name whose session
+    part is this session's and whose last part is five characters. With no
+    session ID to compare, any two five-character last parts pass: build()
+    is random then. Refused since 2026-10-11: the older shape that ended at
+    the session part, which build() no longer writes. A `claude/<date>-...`
+    name is refused since 2026-10-07: build() no longer writes the prefix,
+    so a name carrying it was typed."""
     if not _JUDGED_RE.match(name):
         return None
     m = _HARNESS_NAME_RE.fullmatch(name)
@@ -204,16 +227,14 @@ def name_refusal(name, tail=None):
     m = _TOOL_NAME_RE.fullmatch(name)
     if m:
         parts = m.group(1).split('-')
-        if tail:
-            if parts[-1] == tail or (len(parts) >= 3 and parts[-2] == tail
-                                     and len(parts[-1]) == ID_LEN):
-                return None
-        elif len(parts[-1]) == ID_LEN:
+        if len(parts) >= 3 and len(parts[-1]) == ID_LEN and (
+                parts[-2] == tail if tail else len(parts[-2]) == ID_LEN):
             return None
     return (f'{name} was not made by tools/precedent_branch_name.py: a session '
             f'branch is named <date>-<what it is>-<the last five '
-            f'characters of this session\'s ID>, so it leads back to the '
-            f'session. Rename it before pushing: git branch -m {name} '
+            f'characters of this session\'s ID>-<five random characters>, so '
+            f'it leads back to the session. Rename it before pushing: git '
+            f'branch -m {name} '
             f'"$(python3 tools/precedent_branch_name.py <a few words>)"')
 
 
