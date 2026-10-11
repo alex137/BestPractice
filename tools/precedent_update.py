@@ -121,6 +121,15 @@ sys.path.insert(0, str(HERE.parent))
 import precedent_vendor_engine as pve  # noqa: E402
 import precedent_branches as pb  # noqa: E402
 import precedent_local_edits as le  # noqa: E402
+try:
+    import precedent_upstream_review as ur  # noqa: E402
+except ImportError:     # an engine copy from before 2026-10-11
+    ur = None
+
+# Everything the steps' commands printed, for the upstream review at DONE
+# (the ladder set's upstream-review practice): a warning a step met and
+# passed over is read from here, not from the session's scrollback.
+OUTPUTS = []
 from precedent_clone_lock import held  # noqa: E402
 
 DONE, LEFT, FAILED = 0, 1, 2
@@ -2587,6 +2596,29 @@ class Report:
                   f"left. To take {branch}'s newest commit instead, run it "
                   f"with --move.")
 
+    def _upstream_review(self):
+        # What the update met, less what this branch's commits already
+        # record, with the lines for the commit that lands it. Only on the
+        # ladder and only for a code owner (ur.prepare answers None
+        # otherwise, and nothing is printed). A local edit still local or
+        # merged is an item: it is the fix that belongs upstream. Printed on
+        # DONE only -- a LEFT or FAILED update runs again.
+        if ur is None or self.pin_repo is None:
+            return
+        extra = [f'local edit {outcome}: {rel} -- {text}'
+                 for outcome, rel, text in self.edits
+                 if outcome in (le.STILL_LOCAL, le.MERGED)]
+        extra += [f'WARNING: {w}' for w in self.warnings]
+        try:
+            new, old = ur.prepare(self.pin_repo, 'update', '\n'.join(OUTPUTS), extra)
+        except Exception:                                      # noqa: BLE001
+            return
+        if new is None:
+            return
+        print()
+        for line in ur.report('update', new, old, 'commit'):
+            print(line)
+
     def close(self, failed=None):
         if self.pin_repo is not None and not failed and not self.left:
             clear_pin(self.pin_repo)   # DONE: the next update starts fresh
@@ -2659,6 +2691,7 @@ class Report:
             return LEFT
         for line in self.warnings:
             print(f"\nWARNING: {line}")
+        self._upstream_review()
         switch = feature_branch_line(self.pin_repo)
         if self.asks:
             print("\nDONE -- nothing left for this repo to decide. Ask the "
@@ -2679,6 +2712,7 @@ class Report:
 def run(argv, cwd):
     r = subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True,
                        env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
+    OUTPUTS.append(r.stdout + r.stderr)
     return r.returncode, r.stdout + r.stderr
 
 

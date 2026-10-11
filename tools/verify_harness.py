@@ -69589,6 +69589,73 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
               '; '.join(failed) + f' -- listed {listed}')
 
 
+def check_upstream_review_only_for_a_code_owner_on_the_ladder():
+    """The upstream review (practice: upstream-review, in the ladder set) is
+    shown only on the ladder and only to a code owner, and a stage that shows
+    it writes its Upstream-seen lines into the commit it lands.
+
+    WHY. Morgan, 2026-10-11: "let's rebuild it but only in ladders and also
+    only when the user is a code owner." Built 2026-09-30 on a branch that
+    never landed; rebuilt on today's ladder. Negative controls: off the
+    ladder, and for someone not a code owner, nothing is shown and the
+    landing commit is left untouched."""
+    import tempfile
+    import precedent_upstream_review as ur
+    import precedent_branches as pb
+    import precedent_ladder as pl
+    import precedent_audience as pa
+    selfcheck = subprocess.run([sys.executable, str(ROOT / 'tools' /
+                                'precedent_upstream_review.py'), '--self-check'],
+                               capture_output=True, text=True)
+    real = (pl.ladder_in_force, pa.is_code_owner)
+    out = 'ok\nWARN: one thing\nall passed\n'
+    results, again = {}, []
+
+    def head_msg(wt):
+        return subprocess.run(['git', '-C', str(wt), 'log', '-1', '--format=%B'],
+                              capture_output=True, text=True).stdout
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            wt = pathlib.Path(td)
+            fixture_git(wt, 'init', '-q', '-b', 'main')
+            fixture_git(wt, 'config', 'user.email', 'h@example.com')
+            fixture_git(wt, 'config', 'user.name', 'H')
+            fixture_git(wt, 'commit', '-q', '--allow-empty', '-m', 'base')
+            base = subprocess.run(['git', '-C', str(wt), 'rev-parse', 'HEAD'],
+                                  capture_output=True, text=True).stdout.strip()
+            fixture_git(wt, 'commit', '-q', '--allow-empty', '-m', 'Land x on staging')
+            for name, ladder, owner in (('off the ladder', False, (True, 'x')),
+                                        ('not a code owner', True, (False, 'no')),
+                                        ('a code owner on the ladder', True, (True, 'yes'))):
+                pl.ladder_in_force = lambda *a, _v=ladder, **k: _v
+                pa.is_code_owner = lambda *a, _v=owner, **k: _v
+                lines, written = pb._upstream_review(wt, wt, 'booked', out,
+                                                     f'{base}..HEAD')
+                results[name] = (lines, written, ur.TRAILER in head_msg(wt))
+            # The next stage reads the line back and skips it.
+            again, _w = pb._upstream_review(wt, None, 'produce', out, f'{base}..HEAD')
+    finally:
+        pl.ladder_in_force, pa.is_code_owner = real
+    owner_run = results.get('a code owner on the ladder', ([], False, False))
+    cases = [
+        ('the module checks itself', selfcheck.returncode == 0),
+        ('off the ladder: no review, no line in the commit',
+         results.get('off the ladder') == ([], False, False)),
+        ('not a code owner: no review, no line in the commit',
+         results.get('not a code owner') == ([], False, False)),
+        ('a code owner on the ladder: the review names the warning and its '
+         'line goes into the landing commit',
+         owner_run[1] and owner_run[2]
+         and any('WARN: one thing' in l for l in owner_run[0])),
+        ('the next stage skips what the commit already records',
+         any('0 item(s) to review' in l for l in again)),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the upstream review is only for a code owner on the ladder '
+          f'({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + f' -- {results} {again} {selfcheck.stdout[-200:]}')
+
+
 def check_very_deep_check_walks_every_tier_pair():
     """The drift scan and the merge rehearsal ask about every tier pair
     origin carries: staging and main INTO pre-staging, and each merge a
@@ -74142,6 +74209,7 @@ def main():
     check_base_branch_drift_ignores_carried_work()
     check_very_deep_check_never_offers_a_tier_branch_for_deletion()
     check_very_deep_check_walks_every_tier_pair()
+    check_upstream_review_only_for_a_code_owner_on_the_ladder()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
     check_branch_report_writes_delete_links_to_a_committable_file()
     check_branch_sweep_sees_work_landed_on_the_base_branch()

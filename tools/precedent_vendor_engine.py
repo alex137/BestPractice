@@ -610,6 +610,11 @@ ENGINE_FILES = [
     # set as much as a consumer, and the hooks call its --in-force exit code.
     # It imports precedent_resolve, which is in this list too.
     'precedent_ladder.py',
+    # The upstream review Booked, Debut, Produce and Update Vendors print for
+    # a code owner on the ladder (the ladder set's upstream-review practice,
+    # 2026-10-11). precedent_branches and precedent_update import it in
+    # every kind of repo; without it they simply print no review.
+    'precedent_upstream_review.py',
     # The one matcher for the ladder's own words (D7), which precedent_check's
     # ladder-words-stay-in-the-ladder-set imports in every practice set.
     'ladder_words.py',

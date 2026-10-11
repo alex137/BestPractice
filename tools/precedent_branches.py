@@ -1316,6 +1316,35 @@ def _sibling(name):
         sys.path.pop(0)
 
 
+def _upstream_review(root, wt, stage, out, batch_range):
+    """-> (lines, recorded): the upstream review for this stage (the ladder
+    set's upstream-review practice) -- what the check printed, less what
+    the batch's own commits already record as reviewed -- and whether its
+    Upstream-seen lines were written into the commit at `wt`'s HEAD. Only on
+    the ladder and only for a code owner: anyone else gets ([], False) and
+    sees nothing. `wt` is None where nothing is recorded (Produce: main
+    moves by a pull request). Never refuses a stage: on any error the review
+    is simply not shown."""
+    ur = _sibling('precedent_upstream_review')
+    if ur is None:
+        return [], False
+    try:
+        new, old = ur.prepare(root, stage, out, rev_range=batch_range)
+        if new is None:
+            return [], False
+        recording = None
+        if new and wt is not None:
+            msg = (_git(wt, 'log', '-1', '--format=%B') or '').rstrip()
+            msg += ('\n\n' if not ur.TRAILER in msg else '\n') \
+                + '\n'.join(ur.trailer_lines(new)) + '\n'
+            a = _run(wt, 'commit', '--amend', '--allow-empty', '-q', '--no-verify', '-m', msg,
+                     env=_merge_env(root))
+            recording = 'written' if a.returncode == 0 else None
+        return ur.report(stage, new, old, recording), recording == 'written'
+    except Exception:                                            # noqa: BLE001
+        return [], False
+
+
 def _receipt(root, sha):
     """-> the full-check receipt published for `sha`'s exact tree, or None.
     precedent_push_check.py publishes one on the receipt branch for every
@@ -3312,6 +3341,8 @@ def _promote_to_main(root, say=print, work=None, fast=False,
         t0 = time.monotonic()
         ok, out = _check(root, wt, FULL, dest=MAIN)
         took = time.monotonic() - t0
+    review = _upstream_review(root, None, 'produce', out, f'{mtip}..{stip}')[0] \
+        if ok else []
     if not ok:
         say(f'PROMOTE REFUSED: the full check failed on {staging} merged into '
             f'{MAIN}, so nothing was pushed. The batch was:\n  '
@@ -3369,6 +3400,8 @@ def _promote_to_main(root, say=print, work=None, fast=False,
              + ('' if none_runs else ' once its GitHub test says PASSED'
                 + ('' if due else ' (or NOT DUE)'))
              + f'; {MAIN} has not moved yet', move=f'{MAIN} <- {staging}')
+    for line in review:
+        say(line)
     return PROMOTE_MAIN_NOT_MOVED
 
 
@@ -3669,6 +3702,8 @@ def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False
         t0 = time.monotonic()
         ok, out = _check(root, wt, BASIC, dest=MAIN, since=mtip)
         took = time.monotonic() - t0
+    review = _upstream_review(root, None, 'produce', out, f'{mtip}..{stip}')[0] \
+        if ok else []
     if not ok:
         say(f'PROMOTE REFUSED: the quick checks failed on {staging} merged into '
             f'{MAIN}, so nothing was pushed.\n\n{out}\n\nFix it, land the fix on '
@@ -3733,6 +3768,8 @@ def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False
                 f'the GitHub test runs after the merge -- wait on it with '
                 f'--wait-main-test {copy}')
              + f'; {MAIN} has not moved yet', move=move)
+    for line in review:
+        say(line)
     return PROMOTE_MAIN_NOT_MOVED
 
 
@@ -3932,6 +3969,10 @@ def _promote_unlocked(root, say=print, work=None):
                 f'the full check failed on the composition, after {took:.0f}s.'
                 + (f'\n{where}' if where else '') + f'\n\n{out}'),
                 'fix what failed there, whoever\'s commit it came from')
+        review, written = _upstream_review(root, wt if new != stip else None,
+                                           'debut', out, f'{stip}..{ptip}')
+        if written:
+            new = _git(wt, 'rev-parse', 'HEAD')
         refs = ([f'{new}:refs/heads/{staging}'] if new != stip else []) + (
             [f'{new}:refs/heads/{PRE_STAGING}'] if new != ptip else [])
         if not refs:
@@ -3971,6 +4012,8 @@ def _promote_unlocked(root, say=print, work=None):
         say(f'PROMOTED nothing new: {staging} had changes {PRE_STAGING} lacked, '
             f'and they passed the full check.')
     say(f'{staging} and {PRE_STAGING} are both at {new[:12]} now.')
+    for line in review:
+        say(line)
     _mirror_legacy(root, staging, new, say)
     _verdict(f'PROMOTED at {new} ({staging} and {PRE_STAGING} are both there)',
              move=f'{staging} <- {PRE_STAGING}')
@@ -4207,6 +4250,13 @@ def _land_composed(root, sha, label, staging, why, say):
                 f'failed on the composition, after {took:.0f}s.\n\n{out}\n\n'
                 f'Fix it on {label} and land again.')
             return 1, 'LAND REFUSED: the quick checks failed on the composition'
+        # The landing commit carries the review's Upstream-seen lines, so
+        # Produce lists only what is new since (message only; the tree the
+        # checks passed is unchanged).
+        review, written = _upstream_review(root, wt if last else None, 'booked',
+                                           out, f'{stip}..{sha}')
+        if written:
+            new = _git(wt, 'rev-parse', 'HEAD')
         p = _run(wt, 'push', '-q', 'origin', f'{new}:refs/heads/{staging}')
     if p.returncode != 0:
         moved, said = refused_push(root, staging, new, p)
@@ -4232,6 +4282,8 @@ def _land_composed(root, sha, label, staging, why, say):
     say(f'{staging} is at {new[:12]} now. The full suite has not run on it: '
         f'`python3 tools/precedent_branches.py --run-tests` runs it, moving '
         f'nothing.')
+    for line in review:
+        say(line)
     return 0, f'LANDED at {new}'
 
 
