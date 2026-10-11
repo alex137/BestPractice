@@ -41884,8 +41884,12 @@ def check_tier_branches_are_never_a_pull_requests_source():
 
         git(work, 'push', '-q', 'origin', ':staging')
         r = ensure()
-        cases.append(('a deleted staging is rebuilt from the old name kept in step with it',
-                      tip('staging') == want, (r.stdout + r.stderr)[-300:]))
+        # Retired 2026-10-11 (todo-2026-09-26-retire-precedent-beta-v01): the
+        # old name is never a source any more, even when it is ahead.
+        cases.append(('a deleted staging is rebuilt from pre-staging, never from '
+                      'the retired old name',
+                      tip('staging') == tip('pre-staging') != want,
+                      (r.stdout + r.stderr)[-300:]))
         git(work, 'push', '-q', 'origin', ':staging', ':precedent-beta-v01')
         r = ensure()
         cases.append(('with no old name either, it is rebuilt from main',
