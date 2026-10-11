@@ -30,7 +30,7 @@
     "value falls back to origin/HEAD, which is the behaviour this",
     "exists to stop relying on.",
     "",
-    "Renamed from precedent-beta-v01 to staging on 2026-09-25 (spec/BRANCH_TIERS_PLAN.md; Morgan: \"we should always call the staging one staging including renaming that branch to staging in precedent\", strength: decided; Alex approving, relayed by Morgan). precedent-beta-v01 is kept, fast-forwarded to staging by every Promote, so an install still pinned to it updates onto the engine that names staging."
+    "Renamed from precedent-beta-v01 to staging on 2026-09-25 (spec/BRANCH_TIERS_PLAN.md; Morgan: \"we should always call the staging one staging including renaming that branch to staging in precedent\", strength: decided; Alex approving, relayed by Morgan). precedent-beta-v01 was kept in step with staging by every Promote until Morgan retired it on 2026-10-11; Update Vendors renames it in any install that still names it."
   ],
   "trunk": "main",
   "_trunk_comment": [
