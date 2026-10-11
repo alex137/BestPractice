@@ -7398,6 +7398,12 @@ def _vocabulary_reaches_the_consumer(ctx):
             'runs that clone\'s precedent_update.py against each repository '
             'on the list, for the same reason precedent_update.py is here '
             '(spec/UPDATE_ALL_VENDORS_PLAN.md)',
+        'precedent_update_driver.py':
+            'precedent_update.py\'s bootstrap, imported from the BestPractice '
+            'clone alongside it: it picks which commit\'s copy of the update '
+            'runs, which only means anything in a clone of the source '
+            '(todo-2026-10-11-update-vendors-runs-stale-driver-code); '
+            'precedent_local_edits.py imports it only when present',
     }
     NEVER_VENDORED = set(UPSTREAM_ONLY)
 

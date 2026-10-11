@@ -278,14 +278,24 @@ says so, both from the vendored tree under `process/upstream/`.
    already ahead of `main` is then left as it is until `main` catches up,
    never rolled back.
 
-   **The two vendored layers do not both need this, and knowing which is
-   which is the whole point of the step.** The ENGINE is read by blob out of
-   a freshly fetched commit (see the pin note below), so the clone's checkout
-   is irrelevant to it. The CATALOGUE is read from the clone's WORKING TREE —
+   **What reads a commit and what reads a working tree, which is the whole
+   point of the step.** Inside Update Vendors, everything is read by commit,
+   out of what the fetch brought: the ENGINE by blob (see the pin note
+   below), the vendored CATALOGUE by `checkin.py update --from-ref`, which
+   reads with `git archive`, and the code doing the update is never older
+   than that commit. Since 2026-10-11,
+   [tools/precedent_update_driver.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update_driver.py)
+   runs it from a temporary worktree of the newer commit when the clone's
+   own code is behind, and the report's `code:` line says which commit ran
+   ([todo-2026-10-11-update-vendors-runs-stale-driver-code](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-11-update-vendors-runs-stale-driver-code.md)).
+   **What still reads a WORKING TREE is the session, not the update:** the
+   practices in force each session are resolved live from the source
+   clones —
    [tools/precedent_materialize.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_materialize.py) has no
    fetch call in it at all — so for that half, whatever is checked out *is*
-   the input. Step 1 is not hygiene; it is the correctness argument for
-   step 2.
+   the input. That is why the clones are still brought current, and why a
+   clone made before 2026-10-11, which lacks the driver, needs one
+   `git pull` before its first update.
 
    **It is done, then checked — an instruction alone was proven not to
    work.** `precedent_refresh_sources.py --apply` now brings each clone to

@@ -45,3 +45,18 @@ closed:            null
   **Why it waits:** it touches every planted case in the harness and the
   fixture code they share, which is a batch of its own, not a rider on
   the engine fixes it came out of.
+
+## Notes
+
+- **2026-10-11: a GOOD sample drifts too, and colocation alone would not
+  catch it.** `a243d9c0` made `practice-file-shape` require `## Why`,
+  `## Story` and `## Install`. The check's planted case stayed green -- its
+  clean run reads the real tree, which already had the sections -- but the
+  standalone test `check_practice_file_shape_judges_one_file_at_a_time`
+  built its well-formed control by hand with `## Rule` only, so the control
+  read as malformed and staging went red. Moving each BAD plant beside its
+  check would not have helped: the drift was in a hand-written GOOD sample.
+  When this item is done, build each check's good control from a real
+  catalogue file rather than by hand, so it moves when the catalogue does.
+  The push-time half -- a changed check now runs its own harness tests --
+  is [spec/CHANGED_CHECK_RUNS_ITS_TESTS_PLAN.md](../spec/CHANGED_CHECK_RUNS_ITS_TESTS_PLAN.md).

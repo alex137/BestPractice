@@ -64,7 +64,11 @@ self-update problem the engine refresh works around with a second pass: the
 tool doing the update is always the current one. It also removes the trap
 that made today's fix awkward. [`checkin.py`](../tools/checkin.py) reaches a consumer through the
 vendored catalogue, so a fix to it never runs in the repos that need it most.
-Driven from the source clone, every step runs the current code.
+Driven from the source clone, every step runs the current code -- as long
+as the clone itself is current, which nothing checked until 2026-10-11:
+the update now runs a newer commit's copy of itself from a worktree when
+the clone's code is behind
+([todo-2026-10-11-update-vendors-runs-stale-driver-code](../todo/todo-2026-10-11-update-vendors-runs-stale-driver-code.md)).
 
 In order, with no questions in between:
 
