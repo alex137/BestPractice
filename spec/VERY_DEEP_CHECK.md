@@ -62,24 +62,24 @@ and `tools/precedent_review_page.py`.
 
 **The full account of this run, pass by pass: [VERY_DEEP_CHECK_LATEST_RUN.md](VERY_DEEP_CHECK_LATEST_RUN.md).**
 
-**2026-10-05, on the phrase.** All four passes, across BestPractice, the
-individual set and the writing and ladder sets; the two sets folded into
-universal that day were read only for their retirement. This session could
-push to BestPractice alone. It skipped the full harness and the passes at
-first, and did both after Morgan asked.
+**2026-10-11, on the phrase, scoped by Morgan to BestPractice and the sets it
+declares** ("In best practice only (not in all attached repos)"). All four
+passes, about 35 minutes, four agents in scratch directories. The full
+harness passed on `main` first.
 
 | Pass | Status | Date | Notes |
 |---|---|---|---|
-| 1 — adopter installs | done, gaps named | 2026-10-05 | Four routes rehearsed on `main`; no migration, no practice moves, no real consumer. Two fixed. Unfixed: [todo-2026-10-05-very-deep-check-pass-1-findings](../todo/todo-2026-10-05-very-deep-check-pass-1-findings.md) |
-| 2 — mechanisms | done, gaps named | 2026-10-05 | The tool's seven items reproduced; questions 1, 4-12, 16-19, 22, 23 not worked one by one. Three of the check's own sections fixed. Unfixed: [todo-2026-10-05-very-deep-check-pass-2-findings](../todo/todo-2026-10-05-very-deep-check-pass-2-findings.md) |
-| 3 — coherence read | done, gaps named | 2026-10-05 | Fold seam swept in every repo; universal swept, not read in full. BestPractice wording fixed. Unfixed: [todo-2026-10-05-very-deep-check-pass-3-findings](../todo/todo-2026-10-05-very-deep-check-pass-3-findings.md) |
-| 4 — catalogue, backlog, branches | done | 2026-10-05 | Every branch from full clones, 46 pairs judged, six items closed. Unfixed: [todo-2026-10-05-very-deep-check-pass-4-findings](../todo/todo-2026-10-05-very-deep-check-pass-4-findings.md) |
+| 1 — adopter installs | done, gaps named | 2026-10-11 | Five rehearsals: guided install, developer install, a week-old update, a migration, practice moves. Six fixed. Unfixed: [todo-2026-10-11-very-deep-check-findings](../todo/todo-2026-10-11-very-deep-check-findings.md) |
+| 2 — mechanisms | done, gaps named | 2026-10-11 | Five of the check's own sections fixed, two API budgets moved with measurements, one exemption tried and taken back. |
+| 3 — coherence read | done | 2026-10-11 | Install documents brought in line with the installer; four documents registered; two dead links; TODO.md read end to end. |
+| 4 — catalogue, backlog, branches | done | 2026-10-11 | Eight unlanded branches judged, 30 pairs judged and kept; Morgan's three branch calls and two workflow approvals answered the same day. |
 
 ## Runs so far
 
 | Run | Passes completed | What it changed |
 |---|---|---|
-| 2026-10-05 | 1, 2, 3, 4 | Described under "Current run" above until the next run replaces it. |
+| 2026-10-11 | 1, 2, 3, 4 | Described under "Current run" above until the next run replaces it. |
+| 2026-10-05 | 1, 2, 3, 4 | All four passes across BestPractice and three sets, on the phrase; it started with the tool alone and did the harness and passes after Morgan asked. Five mechanism fixes, wording across 18 practices and four pages. Findings: `todo-2026-10-05-very-deep-check-pass-{1,2,3,4}-findings`. |
 | 2026-09-28 | 1, 2, 3, 4 | All four passes across five repos plus the first real consumer; ten sub-agents; the first full sequential catalogue judgment (216 practices). Findings: `todo-2026-09-28-very-deep-check-pass-{1,2,3,4}-findings`. |
 | 2026-09-22 | mechanical only | A tool run with no passes recorded in the ledger and no row here until 2026-09-28; nothing in this file says what, if anything, it read. |
 | 2026-09-21 | 1 (partial), 2 (partial), 3, 4 | The full four passes, scope said up front, while two other sessions pushed to the integration branch. Pass 1: five fixtures, one silently destructive defect and a roadblock (no consumer attached). Pass 2: all 69 tools' read-only verbs; 8 of 20 questions not attempted. Pass 3: all five catalogues and 33 shipped templates. Pass 4: verdicts on 11 branches (their counts were inflated by the shallow-fetch defect found 2026-09-28). Fixed in place: a retired `Session Text` command AGENTS.md still advertised against the rule in force, stale `Go merge` triggers, a wrong gotcha count, a quick-index row to a redirect stub. Findings: `todo-2026-09-21-pass-{1,2,3,4}-*`. |
