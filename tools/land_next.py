@@ -447,13 +447,16 @@ def check_and_push(repo, push_check):
         # trunk sat still and a pre-push hook refused every push, its reason
         # thrown away). The trunk moved when origin's tip is no longer in
         # what this attempt built on.
-        git(repo, "fetch", "-q", "origin", TRUNK, check=False)
-        moved = git(repo, "merge-base", "--is-ancestor", f"origin/{TRUNK}", head,
-                    check=False).returncode != 0
+        # precedent_branches.refused_push is the one place that tells the
+        # two apart, for --land and this lander alike.
+        try:
+            import precedent_branches as pb
+            moved, said = pb.refused_push(pathlib.Path(repo), TRUNK, head, pushed)
+        except Exception:  # noqa: BLE001 -- an engine without it: say what the push said
+            moved, said = False, (pushed.stderr or pushed.stdout or "").strip()
         reset_to_origin(repo)
         if moved:
             return False, "rejected"
-        said = (pushed.stderr or pushed.stdout).strip()
         return False, (f"push refused, and {TRUNK} did not move, so trying again would "
                        f"be refused the same way. What the push said:\n{said[-1500:]}")
     git(repo, "fetch", "-q", "origin", TRUNK)

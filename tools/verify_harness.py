@@ -10389,7 +10389,7 @@ def check_debut_waits_for_an_open_produce_pull_request():
         why = _pb.produce_waiting_hold(repo, gh=gh) or ''
         cases.append(('an open to-main- pull request into main holds the move, '
                       'naming it and the remedy',
-                      '#913' in why and 'NOT PROMOTED' in why
+                      '#913' in why and 'PROMOTE REFUSED' in why
                       and '--wait-main-test' in why))
         cases.append(('...asking GitHub for open pull requests into main only',
                       any('state=open' in a and 'base=main' in a for a in gh.asked)))
@@ -10513,7 +10513,7 @@ def check_retired_set_takes_only_its_retirement():
         said = []
         rc = _pb.promote(retired, say=said.append)
         cases.append(('a Promote in a retired set is refused and moves nothing '
-                      f'(rc={rc})', rc == 1 and any('NOT PROMOTED' in l
+                      f'(rc={rc})', rc == 1 and any('PROMOTE REFUSED' in l
                                                      for l in said)))
         cases.append(('...naming the practice',
                       any('retired-set-takes-only-its-retirement' in l
@@ -29510,8 +29510,48 @@ def check_archived_set_question_names_the_attach_fix():
             cases.append(('another failure keeps its own words, with no attach advice',
                           len(notes) == 1 and 'curl exited 6' in notes[0]
                           and 'add_repo' not in notes[0], notes))
+            # 2026-10-11: a set on the deleted list was reported in one run
+            # as dropped AND as "could not be read (Moved Permanently) ...
+            # left declared". A deleted set is dropped without asking.
+            import precedent_resolve as _prm
+            saved_gone = _prm.deleted_sets
+            asked = []
+            _gbm.call = lambda path, **_k: (asked.append(path), (None, 'curl exited 6'))[1]
+            try:
+                _prm.deleted_sets = lambda *_a, **_k: {'a-set': 'deleted'}
+                a, notes = pve.archived_declared_sources(root)
+            finally:
+                _prm.deleted_sets = saved_gone
+            cases.append(('a set on the deleted list is not asked about at all',
+                          not asked and not notes and not a, (asked, notes)))
+            cases.append(('the proxy\'s refusal of a redirect is a proxy refusal',
+                          _gbm.is_proxy_refusal('Numeric-ID repository paths '
+                                                '(repositories/{id}/...) are not '
+                                                'supported through this proxy.'), ''))
         finally:
             _gbm.call = saved
+        # A renamed repository answers 301 with the new API address, and
+        # call() follows it once (2026-10-11).
+        class _R:
+            def __init__(self, out):
+                self.returncode, self.stdout, self.stderr = 0, out, ''
+        seen = []
+        def fake_run(argv, **_k):
+            seen.append(argv[-1])
+            if argv[-1].endswith('repos/example/old-name'):
+                return _R(json.dumps({'message': 'Moved Permanently',
+                                      'url': _gbm.API + 'repositories/42'}))
+            return _R(json.dumps({'full_name': 'example/new-name', 'archived': True}))
+        saved_run = _gbm.subprocess.run
+        _gbm.subprocess.run = fake_run
+        try:
+            data, err = _gbm.call('repos/example/old-name', auth=False, cache=False)
+        finally:
+            _gbm.subprocess.run = saved_run
+        cases.append(('a renamed repository\'s "Moved Permanently" is followed to '
+                      'the address GitHub names',
+                      err is None and isinstance(data, dict) and data.get('archived')
+                      and len(seen) == 2, (data, err, seen)))
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the archived-set question asks for no access it does not need '
           f'({len(cases)} stated cases)',
@@ -51704,6 +51744,13 @@ rc = ln.land_queue_run(work, vendor=False, gates=[], push_check=['true'], bestpr
                        store=store, sync_cmd=None)
 st = {{e['branch']: e for e in land_queue.entries(store)}}['feat/blocked']
 out['refused'] = dict(rc=rc, attempts=len(attempts), status=st['status'], detail=st.get('detail', ''))
+import precedent_branches as pb
+pb._check = lambda *a, **k: (True, 'stub check')
+g('fetch', '-q', 'origin')
+said = []
+rc, verdict = pb._land_composed(work, g('rev-parse', 'origin/feat/blocked').stdout.strip(),
+                                'feat/blocked', 'staging', 'the fixture', said.append)
+out['land'] = dict(rc=rc, verdict=verdict, said='\\n'.join(said))
 print(json.dumps(out))
 """, encoding='utf-8')
         p = subprocess.run([sys.executable, str(script)], capture_output=True,
@@ -51728,6 +51775,14 @@ print(json.dumps(out))
                       'refusal', 'did not move' in rf.get('detail', '')
                       and 'refused by the fixture hook' in rf.get('detail', ''),
                       rf.get('detail', '')[-300:]))
+        la = out.get('land') or {}
+        cases.append(('--land, refused the same way, says staging did not move and '
+                      'quotes the refusal (2026-10-11: it said "staging moved")',
+                      la.get('rc') == 1 and 'did not move' in la.get('said', '')
+                      and 'refused by the fixture hook' in la.get('said', '')
+                      and 'moved while this ran' not in la.get('verdict', '')
+                      and 'refused' in la.get('verdict', ''),
+                      str(la)[-500:] or why))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -51922,6 +51977,154 @@ def check_main_test_wait_does_not_ask_to_merge_what_is_merged():
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the main-test wait does not ask to merge what is merged ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_branch_name_counts_local_branches():
+    """A branch name a local branch already has is taken, as one origin has
+    is.
+
+    2026-10-11: a rollout merged its update branch, and the next run asked
+    for a name again. Origin had deleted nothing, the branch name was free
+    there only because the previous one had been pushed under another, and
+    the tool handed back the name a merged LOCAL branch still had -- so
+    `git switch -c` refused it and the rollout script stopped without a
+    word. The tool now asks the checkout's own branches too.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branch_name as pbn
+    finally:
+        sys.path.pop(0)
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                           capture_output=True, text=True)
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(tmp / 'o.git'))
+        g(tmp, 'clone', '-q', str(tmp / 'o.git'), str(tmp / 'w'))
+        w = tmp / 'w'
+        g(w, 'checkout', '-q', '-B', 'main')
+        (w / 'a').write_text('a'); g(w, 'add', '-A'); g(w, 'commit', '-qm', 'a')
+        g(w, 'push', '-q', 'origin', 'main')
+        first = '2026-10-11-update-vendors-abcde'
+        g(w, 'branch', first)
+        saved_env = dict(os.environ)
+        os.environ.update(env)
+        try:
+            name, notes = pbn.build(['update', 'vendors'], date='2026-10-11',
+                                    tail='abcde', exists=lambda n: pbn.taken(n, w))
+            check('a name only a local branch has is taken: the tool adds characters',
+                  name != first and name.startswith(first + '-'), f'{name} {notes}')
+            check('and says why', any('local branch' in n for n in notes), notes)
+            free, _ = pbn.build(['other', 'work'], date='2026-10-11', tail='abcde',
+                                exists=lambda n: pbn.taken(n, w))
+            check('CONTROL: a name nothing has is handed out as it is',
+                  free == '2026-10-11-other-work-abcde', free)
+        finally:
+            os.environ.clear(); os.environ.update(saved_env)
+
+
+def check_leak_gate_in_a_worktree_push_reads_its_own_repo():
+    """A push from a worktree stands the leak gate down in a private
+    repository, as a push from the clone itself does.
+
+    2026-10-11: Booked and Promote compose in a worktree and push from it,
+    and git runs the pre-push hook there with GIT_DIR set. The gate then
+    asked git for the repository's top from inside tools/, got tools/ back,
+    found no precedent.json, never saw that the repository declares itself
+    private, and refused two private repositories' landings for naming their
+    owner's other private repositories. The fixture uses the real gate and
+    the real hook commit-identity.sh writes.
+    """
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = {**_fixture_git_env(), 'HOME': str(tmp / 'home'),
+               'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        (tmp / 'home').mkdir()
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a],
+                                           capture_output=True, text=True, env=env)
+        hooks = tmp / 'hooks'
+        for vis in ('private', 'public'):
+            bare, work = tmp / f'{vis}.git', tmp / vis
+            g(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+            g(tmp, 'init', '-q', '-b', 'main', str(work))
+            (work / 'tools').mkdir()
+            for f in ('leak_gate.py', 'leak-blocklist.default.txt'):
+                shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+            (work / 'precedent.json').write_text(
+                json.dumps({'visibility': vis}), encoding='utf-8')
+            (work / '.gitignore').write_text('__pycache__/\n', encoding='utf-8')
+            (work / 'a.md').write_text('a\n', encoding='utf-8')
+            g(work, 'add', '-A'); g(work, 'commit', '-qm', 'base', '--no-verify')
+            g(work, 'remote', 'add', 'origin', f'file://{bare}')
+            g(work, 'push', '-q', '--no-verify', 'origin', 'main')
+            if not hooks.is_dir():
+                subprocess.run(['bash', str(ROOT / 'tools' / 'commit-identity.sh')],
+                               capture_output=True, text=True, timeout=120,
+                               env=dict(env, CLAUDE_PROJECT_DIR=str(work),
+                                        PRECEDENT_COMMIT_NAME='T',
+                                        PRECEDENT_COMMIT_EMAIL='t@example.com',
+                                        PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                                        PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                                        PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+            g(work, 'config', 'core.hooksPath', str(hooks))
+            wt = tmp / f'{vis}-wt'
+            g(work, 'worktree', 'add', '-q', '--detach', str(wt), 'main')
+            (wt / 'b.md').write_text('what the ' + 'fu' + 'ck\n', encoding='utf-8')
+            g(wt, 'add', '-A'); g(wt, 'commit', '-qm', 'a hit', '--no-verify')
+            p = g(wt, 'push', 'origin', 'HEAD:refs/heads/main')
+            cases.append((vis, p))
+        priv, pub = dict(cases)['private'], dict(cases)['public']
+        check('the fixture has the global pre-push hook commit-identity.sh writes',
+              (hooks / 'pre-push').is_file(), sorted(p.name for p in tmp.iterdir()))
+        check('THE DISCRIMINATING CASE: a push from a worktree of a private '
+              'repository stands the leak gate down instead of scanning it',
+              priv.returncode == 0, priv.stderr[-600:])
+        check('CONTROL: the same push in a public repository is still refused',
+              pub.returncode != 0 and 'leak gate' in pub.stderr.lower(),
+              pub.stderr[-400:])
+
+
+def check_a_failed_result_never_carries_its_success_word():
+    """A LAND RESULT or PROMOTE RESULT line that reports a failure never
+    contains LANDED or PROMOTED.
+
+    2026-10-11: a rollout script looked for "LANDED" in the land result to
+    decide it could go on, and "NOT LANDED" matched, so it promoted on top
+    of a landing that never happened. The failure verdicts are now LAND
+    REFUSED and PROMOTE REFUSED, and a run that did nothing says NOTHING TO
+    PROMOTE. The check builds every verdict the result line can end on from
+    the module's own text, and runs the result line for each exit status.
+    """
+    import re as _re
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    src = (ROOT / 'tools' / 'precedent_branches.py').read_text(encoding='utf-8')
+    code = '\n'.join(ln for ln in src.splitlines() if not ln.lstrip().startswith('#'))
+    verdicts = _re.findall(r"""(?:return \d, |_verdict\(|verdict = )f?['"]([A-Z][A-Z ]+[A-Z])\b""", code)
+    words = sorted(set(verdicts))
+    bad = [w for w in words if _re.search(r'\b(LANDED|PROMOTED)\b', w)
+           and w not in ('LANDED', 'PROMOTED')]
+    check('the verdicts the module can end a result line on were found',
+          {'LANDED', 'LAND REFUSED', 'PROMOTE REFUSED'} <= set(words), words)
+    check('THE DISCRIMINATING CASE: no failure verdict contains LANDED or PROMOTED',
+          not bad, bad)
+    lines = []
+    for rc in (None, 0, 1):
+        pb._RESULT.clear()
+        lines.append(pb.promote_result_line(ROOT, rc, last='a reason'))
+    pb._RESULT.clear()
+    check('the result line a Promote falls back on says PROMOTED only for a move',
+          not any(_re.search(r'\bPROMOTED\b', ln) for ln in lines), lines)
+
 
 def check_landed_check_names_the_tier_that_ran():
     """After a merge, the line says whether the base moved from the trees,
@@ -62439,11 +62642,11 @@ def check_promote_ends_with_its_result_line():
         git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
         before = tip('staging')
         rc, last, out = run(work, env, '--promote', '--to', 'staging')
-        cases.append((f'a refused Debut ends NOT PROMOTED, with a reason and '
+        cases.append((f'a refused Debut ends PROMOTE REFUSED, with a reason and '
                       f'the fix branch\'s full commit (rc={rc}, last: {last!r})',
                       rc == 1 and tip('staging') == before
                       and last.startswith(
-                          'PROMOTE RESULT: staging <- pre-staging: NOT PROMOTED: ')
+                          'PROMOTE RESULT: staging <- pre-staging: PROMOTE REFUSED: ')
                       and 'full check failed' in last
                       and bool(sha40.search(last)) and one_result(out)))
 
@@ -62478,7 +62681,7 @@ def check_promote_ends_with_its_result_line():
                       f'swallowed (last: {said[-1] if said else None!r})',
                       raised is not None and bool(said)
                       and said[-1].startswith('PROMOTE RESULT: main <- staging: '
-                                              'NOT PROMOTED: the run stopped on an error')))
+                                              'PROMOTE REFUSED: the run stopped on an error')))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -69347,7 +69550,7 @@ def check_branch_name_follows_the_convention():
             results.append(('a name already on origin gets five more characters',
                             re.fullmatch(re.escape(taken) + r'-[a-z0-9]{5}', name)
                             is not None
-                            and any('already on origin' in n for n in notes)))
+                            and any('already taken' in n and 'origin' in n for n in notes)))
             name, notes = pbn.build(['fresh'], date='2026-10-01', prefix='claude/',
                                     tail='awpkv', exists=exists)
             results.append(('a free name is left as it is (negative control)',
@@ -74258,6 +74461,9 @@ def main():
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
     check_main_test_wait_does_not_ask_to_merge_what_is_merged()
+    check_branch_name_counts_local_branches()
+    check_leak_gate_in_a_worktree_push_reads_its_own_repo()
+    check_a_failed_result_never_carries_its_success_word()
     check_a_replacing_rule_inherits_what_it_does_not_restate()
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
