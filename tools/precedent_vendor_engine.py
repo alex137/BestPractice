@@ -780,6 +780,10 @@ ENGINE_FILES = [
     # found 2026-10-11, the first very deep check run in a consumer. Its
     # one import, precedent_source_credentials, is in both lists.
     'precedent_boundary_check.py',
+    # Its WARNINGS section imports this (2026-10-11): every warning the
+    # routine checks print, matched against the repo's own
+    # tools/warning_exclusions.json, which a consumer starts without.
+    'warning_review.py',
     'parse_check.py',
     'precedent_bootstrap_source.py',
     # THE ONE CHECK THAT LOOKS OUTWARD (2026-09-21). Every other check in

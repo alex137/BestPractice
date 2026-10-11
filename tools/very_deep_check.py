@@ -193,6 +193,11 @@ Run:
       list, as markdown, and exit -- nothing else runs. The block
       tools/doc_sync.py embeds into spec/VERY_DEEP_CHECK.md, never
       truncated (practice: very-deep-check, computed-numbers-in-scripts).
+  python3 tools/very_deep_check.py --refresh-warnings
+      -- the WARNINGS section alone, after the session has fixed or
+      excluded what the run found: re-collects, prints the open groups
+      against this run's start and the previous run, and rewrites the
+      warnings block in the run's write-up. Nothing else runs.
   python3 tools/very_deep_check.py --record-pass '2=done,findings=3,tokens=120000,note=...'
       -- record a hand-worked pass's outcome against the most recent run in
       the ledger, and exit. `findings`, `tokens` and `note` are each
@@ -2680,8 +2685,10 @@ def _check_coverage(repo_dir, timeout=300):
         key = re.sub(r'\btools/checks/[A-Za-z0-9._-]+', 'tools/checks/<file>',
                      key)
         causes[key] = causes.get(key, 0) + 1
+    # The body travels with the summary so WARNINGS reads this repo's
+    # advisory findings off the same run instead of paying for another.
     return {'counts': counts, 'violated': violated, 'skipped': len(skipped),
-            'causes': causes}, ''
+            'causes': causes, 'body': body}, ''
 
 
 def _source_check_scripts(repo_root, sources, timeout=180):
@@ -8280,6 +8287,108 @@ def _update_spec_doc_block(repo_root, name, markdown):
     return False
 
 
+# --- WARNINGS (practice: very-deep-check, pass 2) -------------------------
+#
+# Every warning the routine checks print, judged: fixed, or excluded for good
+# or until a date, by the session, with a reason. tools/warning_review.py
+# collects and matches; this section prints the work list, records the open
+# count in the ledger so the next run can compare, and writes a summary into
+# the run's own write-up -- Morgan, 2026-10-11 (strength: decided): "this
+# warning information should be printed in the ... doc that details what
+# happened with this very deep check."
+WARNINGS_EMBED = 'warnings'
+LATEST_RUN_RELPATH = pathlib.Path('spec') / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+
+
+def _warnings_doc_path(repo_root):
+    """The run's long-form write-up where one exists (BestPractice keeps
+    it beside the run record), else the run record itself -- a consuming
+    repo has only the one."""
+    for rel in (LATEST_RUN_RELPATH, SPEC_DOC_RELPATH):
+        path = pathlib.Path(repo_root) / rel
+        if path.is_file():
+            return path
+    return None
+
+
+def _write_warnings_block(repo_root, markdown):
+    """Rewrite the warnings block in the run's write-up, appending a
+    `## Warnings` section that carries it when the write-up has none: the
+    session rewrites that file every run, and a block it dropped must come
+    back rather than silently stop being written. -> the path written, or
+    None."""
+    path = _warnings_doc_path(repo_root)
+    if path is None:
+        return None
+    text = path.read_text(encoding='utf-8')
+    pattern = _vdc_embed_re(WARNINGS_EMBED)
+    if pattern.search(text):
+        new_text = pattern.sub(lambda m: m.group(1) + markdown + m.group(2),
+                               text, count=1)
+    else:
+        new_text = (text.rstrip('\n') + '\n\n## Warnings\n\n'
+                    + '<!--vdc-embed:' + WARNINGS_EMBED + ': never hand-edit '
+                    '-- written by tools/very_deep_check.py\'s WARNINGS section; '
+                    'refresh with --refresh-warnings -->\n' + markdown
+                    + '\n<!--/vdc-embed:' + WARNINGS_EMBED + '-->\n')
+    if new_text != text:
+        path.write_text(new_text, encoding='utf-8')
+    return path
+
+
+def _warnings_open_history(repo_root):
+    """-> [(run date, open count)] for every recorded run that had a
+    WARNINGS section, oldest first."""
+    try:
+        data = json.loads(ledger_path_for(repo_root).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for run in data.get('runs', []):
+        for comp in run.get('components') or []:
+            if comp.get('name') == 'WARNINGS' and comp.get('findings') is not None:
+                out.append((run.get('date'), comp['findings']))
+    return out
+
+
+def warnings_section(repo_root, precedent_check_output=None, refresh=False,
+                     out=None):
+    """Print the WARNINGS section and write its block. -> (open count,
+    group count). `refresh` is the run after the session's decisions: the
+    latest ledger entry is then this run's own start, not the previous
+    run."""
+    out = out or sys.stdout
+    import warning_review as wr
+    groups, collected, notes = wr.collect(
+        repo_root, precedent_check_output=precedent_check_output)
+    entries, problems = wr.load_registry(repo_root)
+    result = wr.review(groups, entries, collected)
+    history = _warnings_open_history(repo_root)
+    start = None
+    if refresh and history and history[-1][0] == result['today']:
+        start = history.pop()[1]
+    previous = history[-1][1] if history else None
+    print(wr.render_text(result, problems, notes, previous=previous), file=out)
+    if start is not None:
+        print(f'Open when this run started: {start}.', file=out)
+    print('\n  The session judges every open group: fix it, or exclude it in '
+          f'{wr.REGISTRY_RELPATH}\n  -- permanent, or temporary with a revisit '
+          'date -- with a reason and "by": "agent".\n  Ask the person only '
+          'when unsure, when the call is ambiguous, or when they may see it\n'
+          '  differently. Then `--refresh-warnings` rewrites the write-up\'s '
+          'block.', file=out)
+    written = _write_warnings_block(
+        repo_root, wr.render_markdown(result, problems, notes,
+                                      previous=previous, start=start))
+    if written:
+        print(f'  Summary written to '
+              f'{written.relative_to(pathlib.Path(repo_root).resolve()) if written.is_absolute() else written}.',
+              file=out)
+    n_open = sum(r['count'] for r in result['rows']
+                 if r['status'] in ('open', 'lapsed'))
+    return n_open, len(result['rows'])
+
+
 def _write_branch_report(branch_scans, out_path, repo_root, held_back=(),
                          redact=frozenset()):
     """Write `branch_scans` (the same dict the console BRANCHES section
@@ -8502,7 +8611,7 @@ BOOLEAN_FLAGS = ('--json', '--allow-missing-sources', '--skip-branch-scan',
                  '--checklist', '--with-harness', '--skip-visibility',
                  '--skip-liveness', '--landable-only', '--skip-endgame-merge',
                  '--skip-base-drift', '--skip-session-sweep', '--allow-stale',
-                 '--freshen', '--help', '-h')
+                 '--freshen', '--refresh-warnings', '--help', '-h')
 
 
 def _unknown_args(argv):
@@ -8597,6 +8706,12 @@ def _main(box):
         return _record_read(record_read, repo)
     if record_pass is not None:
         return _record_pass(record_pass, ledger_path, repo)
+    if '--refresh-warnings' in args:
+        # After the session has fixed and excluded: the WARNINGS section
+        # alone, against the same ledger, rewriting the write-up's block.
+        warnings_section(pathlib.Path(repo or ROOT).resolve(), refresh=True)
+        return 0
+
     if '--emit' in args:
         # doc_sync's own contract (practice: computed-numbers-in-scripts):
         # print exactly the named block's content and exit -- no ledger, no
@@ -9485,6 +9600,7 @@ def _main(box):
           "repo in force\n")
     _cc_findings = 0
     _cc_measured = False
+    _cc_own_body = None
     for _name, _p in _orph_targets:
         if not pathlib.Path(_p).is_dir():
             continue
@@ -9493,9 +9609,16 @@ def _main(box):
             print(f"  {_name}: not measured -- {_note}")
             continue
         _cc_measured = True
+        if pathlib.Path(_p).resolve() == pathlib.Path(repo_root).resolve():
+            _cc_own_body = _sum['body']
         _c = _sum['counts']
+        # The advisory count was read and then dropped here until
+        # 2026-10-11: a warning-only check's findings reached no section.
+        # WARNINGS now judges this checkout's; the count says the other
+        # repos have some (practice: very-deep-check).
         print(f"  {_name}: {_c.get('passed', '?')} passed, "
               f"{_c.get('violated', '?')} violated, "
+              f"{_c.get('advisory', '?')} advisory, "
               f"{_c.get('skipped', '?')} SKIPPED")
         if _sum['violated']:
             _cc_findings += len(_sum['violated'])
@@ -10151,6 +10274,15 @@ def _main(box):
     print()
     if led:
         led.end(findings=_md_count)
+        led.start('WARNINGS')
+
+    print("WARNINGS -- every warning the routine checks print, fixed or "
+          "excluded with a reason\n")
+    _w_open, _w_groups = warnings_section(
+        repo_root, precedent_check_output=_cc_own_body)
+    print()
+    if led:
+        led.end(items=_w_groups, findings=_w_open)
         led.start('CROSS-REPO LINKS')
 
     print("CROSS-REPO LINKS -- do absolute github.com links into a repo "

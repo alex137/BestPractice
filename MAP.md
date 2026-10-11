@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 168 practice files (6 resident, 162 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 169 practice files (6 resident, 163 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -166,6 +166,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [todo-migrate-available-but-unused](practices/todo-migrate-available-but-unused.md) | on-demand | editing TODO.md, or just after a vendor refresh brings tools/todo_migrate.py into a repo for the first time |
 | [todo-reminder](practices/todo-reminder.md) | on-demand | a person says "Todo reminder", or asks to be reminded of something |
 | [two-check-levels](practices/two-check-levels.md) | on-demand | naming what "run the checks" means in a repo |
+| [update-all-vendors](practices/update-all-vendors.md) | on-demand | a message says "Update All Vendors", or asks to update every repository the person uses Precedent in |
 | [upstream-bug-stops-here](practices/upstream-bug-stops-here.md) | on-demand | about to change a file to fix a bug, in a repository that did not write that file |
 | [upstream-fix](practices/upstream-fix.md) | on-demand | fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption |
 | [variant-re-derives](practices/variant-re-derives.md) | on-demand | building a variant of an existing thing |
@@ -297,6 +298,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_sync_views.py](tools/precedent_sync_views.py) | One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together |
 | [tools/precedent_time.py](tools/precedent_time.py) | The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered |
 | [tools/precedent_update.py](tools/precedent_update.py) | Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md) |
+| [tools/precedent_update_all.py](tools/precedent_update_all.py) | Update All Vendors: run Update Vendors in every repository the person names, one after another, from one session, without loading any of those repositories' instructions; a repository with no precedent.json is reported and left alone (spec/UPDATE_ALL_VENDORS_PLAN.md) |
 | [tools/precedent_upstream_review.py](tools/precedent_upstream_review.py) | Upstream review: what a ladder step ran into, less what an earlier stage reviewed. |
 | [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py) | Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or shared set, and keeps it refreshable |
 | [tools/precedent_vocabulary.py](tools/precedent_vocabulary.py) | Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the "Vocabulary" command and emits the reader-facing table |
@@ -320,4 +322,5 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/upstream_fix.py](tools/upstream_fix.py) | Sets up the fix to a vendored file where it comes from -- names the source repository and the file's path there, and opens a branch in that source's clone off its landing branch; never edits the copy |
 | [tools/verify_harness.py](tools/verify_harness.py) | The verification harness — run before trusting any change here |
 | [tools/very_deep_check.py](tools/very_deep_check.py) | The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit |
+| [tools/warning_review.py](tools/warning_review.py) | Every warning the routine checks print, gathered, matched against the |
 

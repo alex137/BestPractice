@@ -70,6 +70,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | the origin artifact | [upstream-fix](practices/upstream-fix.md) |
 | Three Things | [three-things](practices/three-things.md) |
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
+| Update All Vendors | [update-all-vendors](practices/update-all-vendors.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
 | Vocabulary | [vocabulary](practices/vocabulary.md) |

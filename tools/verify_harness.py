@@ -8303,6 +8303,108 @@ def check_very_deep_check_boundary_audit_reads_the_setting():
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
+def check_very_deep_check_warnings_are_judged_not_just_counted():
+    """very_deep_check.py's WARNINGS section: every warning group is open,
+    excluded for good, excluded until a date, or past that date and open
+    again; an exclusion that matches nothing is stale; a malformed one is a
+    registry problem and is not applied; and the write-up gets a
+    `## Warnings` block that a second write replaces rather than repeats.
+
+    Added 2026-10-11 with the section (practice: very-deep-check, Pass 2
+    question 24). review() is pure and takes a fixed date, and the registry
+    and write-up live in a temporary repo the fixture builds
+    (practice: fixture-owns-its-state). Each case asserts the tool's own
+    words or status (practice: control-asserts-which-failure)."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import warning_review as wr
+    import very_deep_check as vdc
+
+    cases = []
+    lint_out = ('noise\ndoc_lint strict json: ' + json.dumps({'scanned': 3, 'classes': {
+        'unlinked file reference': {'INSTALL.md': 5, 'todo/a.md': 2, 'spec/x.md': 1}}}))
+    groups = wr.doc_lint_groups(lint_out)
+    cases.append(('doc_lint\'s --json line becomes one group per (class, file)',
+                  groups is not None and sorted((g['path'], g['count']) for g in groups)
+                  == [('INSTALL.md', 5), ('spec/x.md', 1), ('todo/a.md', 2)], repr(groups)))
+    cases.append(('a doc_lint with no --json line is reported unread, never as clean',
+                  wr.doc_lint_groups('doc_lint --strict FAIL: 3 finding(s)') is None, ''))
+    pc_out = ('ADVISORY   some-check — findings below do not fail this run\n'
+              '    practices/a.md: says a thing\n    practices/a.md: says another\n'
+              '  the rule:\n    rule text: not a finding\n'
+              'SKIPPED    other — not a warning\n')
+    pcg = wr.precedent_check_groups(pc_out)
+    cases.append(('an advisory check\'s findings group by check and file, and its rule text is not one',
+                  [(g['kind'], g['path'], g['count']) for g in pcg] == [('some-check', 'practices/a.md', 2)],
+                  repr(pcg)))
+    lg = wr.line_groups('build_views', 'WARNING', 'build_views WARNING: 3 over\nbuild_views WARNING: 4 over\nok\n',
+                        re.compile(r'\bWARNING:\s*(.+)'))
+    cases.append(('WARNING lines differing only in a number are one group',
+                  len(lg) == 1 and lg[0]['count'] == 2 and lg[0]['text'] == 'N over', repr(lg)))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vdc-warnings-'))
+    try:
+        (tmp / 'tools').mkdir()
+        (tmp / 'spec').mkdir()
+        (tmp / 'tools' / 'warning_exclusions.json').write_text(json.dumps({'exclusions': [
+            {'source': 'doc_lint', 'kind': 'unlinked file reference', 'path': 'todo/*',
+             'term': 'permanent', 'why': 'closed records are history', 'decided': '2026-10-11', 'by': 'agent'},
+            {'source': 'doc_lint', 'kind': 'unlinked file reference', 'path': 'spec/*',
+             'term': 'temporary', 'why': 'linking next run', 'revisit': '2026-10-01',
+             'decided': '2026-09-01', 'by': 'agent'},
+            {'source': 'doc_lint', 'kind': 'process residue', 'path': '*',
+             'term': 'permanent', 'why': 'gone now', 'decided': '2026-09-01', 'by': 'agent'},
+            {'source': 'doc_lint', 'kind': 'x', 'term': 'permanent', 'decided': '2026-10-11', 'by': 'agent'},
+            {'source': 'doc_lint', 'kind': 'y', 'term': 'permanent', 'why': 'w',
+             'decided': '2026-10-11', 'by': 'Morgan'},
+        ]}), encoding='utf-8')
+        entries, problems = wr.load_registry(tmp)
+        cases.append(('an exclusion with no reason is a registry problem and is not applied',
+                      any('exclusion 4 is missing why' in p for p in problems) and len(entries) == 3,
+                      repr(problems)))
+        cases.append(('a person\'s exclusion without its strength is a registry problem',
+                      any('exclusion 5' in p and 'decision-strength' in p for p in problems),
+                      repr(problems)))
+        result = wr.review(groups, entries, ['doc_lint'], today='2026-10-11')
+        status = {r['path']: r['status'] for r in result['rows']}
+        cases.append(('an unmatched group is open', status.get('INSTALL.md') == 'open', repr(status)))
+        cases.append(('a permanent exclusion holds', status.get('todo/a.md') == 'excluded, permanent', repr(status)))
+        cases.append(('a temporary exclusion past its revisit date is lapsed, open again',
+                      status.get('spec/x.md') == 'lapsed', repr(status)))
+        future = wr.review(groups, entries, ['doc_lint'], today='2026-09-15')
+        cases.append(('a temporary exclusion before its date holds',
+                      {r['path']: r['status'] for r in future['rows']}.get('spec/x.md') == 'excluded, temporary',
+                      repr(future['rows'])))
+        cases.append(('an exclusion matching nothing is stale',
+                      [e['kind'] for e in result['stale']] == ['process residue'], repr(result['stale'])))
+        unread = wr.review(groups, entries, [], today='2026-10-11')
+        cases.append(('a source that was not read proves no exclusion stale', not unread['stale'],
+                      repr(unread['stale'])))
+        text = wr.render_text(result, problems, [], previous=9)
+        cases.append(('the text names the open count against the previous run',
+                      'Open at the previous run: 9; now: 6.' in text, text))
+        md = wr.render_markdown(result, problems, [], previous=9, start=8)
+        cases.append(('the block names this run\'s decisions, with who made them',
+                      'Exclusions decided this run: 1.' in md and 'by the session -- closed records are history' in md,
+                      md))
+        doc = tmp / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+        doc.write_text('# Run\n\nBody.\n', encoding='utf-8')
+        vdc._write_warnings_block(tmp, 'FIRST')
+        vdc._write_warnings_block(tmp, 'SECOND')
+        body = doc.read_text(encoding='utf-8')
+        cases.append(('the write-up gets one ## Warnings block, replaced on the second write',
+                      body.count('## Warnings') == 1 and 'SECOND' in body and 'FIRST' not in body
+                      and body.startswith('# Run\n\nBody.\n'), body))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'very_deep_check.py\'s WARNINGS judges every group, not just counts them '
+          f'({len(cases)} stated cases: parsing, open, permanent, temporary, lapsed, '
+          f'stale, malformed, write-up block)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
 def check_build_views_summary_matches_what_it_wrote():
     """build_views.py's summary line reports the block it actually wrote.
 
@@ -55702,6 +55804,91 @@ def check_update_judges_retired_sets_after_the_catalogue():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_update_takes_a_removal_its_source_decommissioned():
+    """Update Vendors lets the view sync remove a practice the source
+    deleted on purpose -- recorded in process/decommissioned_paths.json at
+    the commit the update takes -- by name, and nothing else.
+
+    WHY. 2026-10-11: BestPractice deleted retired-set-takes-only-its-
+    retirement and recorded it there, and the first run of Update All
+    Vendors showed every consumer's update would now FAIL on it: the sync
+    refused the removal and offered only --allow-removals, a person's call
+    made repo by repo. The update now names the recorded practices to the
+    sync (--allow-removal SLUG); one it cannot match to the record is
+    still refused."""
+    cases = []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        refusal = ("refusing to WRITE: this sync would remove 1 practice(s) "
+                   "this repository's committed MANIFEST.json records, whose "
+                   "source is still declared -- {items}. Two causes, and the "
+                   "remedy differs")
+        gone = 'retired-set-takes-only-its-retirement'
+        at = '34cb52010423c3887caf502bba7b45553b1a4543'  # the deletion
+        cases.append(('a recorded decommission: named to the sync',
+                      pu.decommissioned_removals(refusal.format(
+                          items=f'{gone} (from precedent)'), at) == [gone]))
+        cases.append(('a practice the record does not list: refused',
+                      pu.decommissioned_removals(refusal.format(
+                          items='the-boildown (from precedent)'), at) == []))
+        cases.append(('one listed and one not: refused',
+                      pu.decommissioned_removals(refusal.format(
+                          items=f'{gone} (from precedent); the-boildown '
+                                f'(from precedent)'), at) == []))
+        cases.append(('from a set, not the universal source: refused',
+                      pu.decommissioned_removals(refusal.format(
+                          items=f'{gone} (from precedent-shared-writing)'),
+                          at) == []))
+        cases.append(('at a commit before the record says so: refused',
+                      pu.decommissioned_removals(refusal.format(
+                          items=f'{gone} (from precedent)'), at + '^') == []))
+        sync = (ROOT / 'tools' / 'precedent_sync_views.py').read_text(
+            encoding='utf-8')
+        cases.append(('the sync takes --allow-removal SLUG and lets only '
+                      'those slugs through',
+                      "'--allow-removal'}" in sync
+                      and "b[0] in set(allow_removal_of)" in sync))
+    finally:
+        sys.path.pop(0)
+    bad = [n for n, ok in cases if not ok]
+    check(f'Update Vendors takes a removal its source decommissioned '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_update_all_vendors_skips_its_own_source():
+    """precedent_update_all.py never updates the BestPractice repository it
+    runs from -- that repository has a precedent.json too -- and refuses to
+    run with no repositories named, rather than guessing a set."""
+    import tempfile
+    cases = []
+    tool = str(ROOT / 'tools' / 'precedent_update_all.py')
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update_all as pua
+        own = pua.source_repo()
+    finally:
+        sys.path.pop(0)
+    cases.append(('the tool reads its own source from the clone it runs in',
+                  own == 'alex137/bestpractice'))
+    with tempfile.TemporaryDirectory() as tmp:
+        if own:
+            r = subprocess.run([sys.executable, tool, '--workdir', tmp,
+                                '--no-push', own.upper()],
+                               capture_output=True, text=True)
+            cases.append(('its own source, in any case: SKIPPED, nothing '
+                          'cloned', r.returncode == 0
+                          and r.stdout.startswith('SKIPPED')
+                          and not any(pathlib.Path(tmp).iterdir())))
+        r = subprocess.run([sys.executable, tool, '--workdir', tmp],
+                           capture_output=True, text=True)
+        cases.append(('no repositories named: refused by argparse',
+                      r.returncode == 2 and 'OWNER/REPO' in r.stderr))
+    bad = [n for n, ok in cases if not ok]
+    check(f'Update All Vendors skips its own source '
+          f'({len(cases)} stated cases)', not bad and cases, '; '.join(bad))
+
+
 def check_promote_commits_carry_a_session_trailer():
     """A commit the Promote tool writes itself -- the rebuild of generated
     files during a composition -- carries a session trailer the trailer
@@ -74397,6 +74584,7 @@ def main():
     check_owned_paths_previews_the_boundary()
     check_boundary_check_never_passes_unread()
     check_very_deep_check_boundary_audit_reads_the_setting()
+    check_very_deep_check_warnings_are_judged_not_just_counted()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
@@ -74871,6 +75059,8 @@ def main():
     check_update_judges_retired_sets_after_the_catalogue()
     check_date_check_skips_commits_github_made()
     check_update_rerun_after_left_for_you_still_drops_a_deleted_set()
+    check_update_takes_a_removal_its_source_decommissioned()
+    check_update_all_vendors_skips_its_own_source()
     check_promote_commits_carry_a_session_trailer()
     check_merge_instructions_give_the_full_head()
     check_promote_marks_other_sessions_commits()
