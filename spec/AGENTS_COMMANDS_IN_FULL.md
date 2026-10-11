@@ -307,9 +307,10 @@ which runs after the merge, with `--wait-main-test COPY`, and fix a red
 `main` in the same sitting. If the last `--run-tests` failed on staging's
 current commit, the fast move lists the failures, exits 4 and prints the
 question to ask the person in their words; on a yes, run it again with
-`--despite-failed-tests`. Only `--full`, when the person asks for the slow
-route, runs the full local suite and waits on the GitHub test before the
-merge. A pull request merged through GitHub
+`--despite-failed-tests`. Only `--full --because '<their own words>'`,
+when the person asks for the long way or agrees to it, runs the full local
+suite and waits on the GitHub test before the merge; `--full` without their
+words is refused before anything runs. A pull request merged through GitHub
 gets the same check at its base branch's tier, from `merge-check-gate.sh`.
 `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and
 `0 violated`, never a passed/skipped count** — those grow as checks are
