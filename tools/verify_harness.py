@@ -25424,7 +25424,11 @@ def check_practice_file_shape_judges_one_file_at_a_time():
         return (f'---\nslug:        {slug}\ntier:        {tier}\n'
                 f'applies_to:  ["**"]\napplies_to_why: "planted"\n'
                 f'index_clause: "{clause}"\nchecked_by:  {checked_by}\n'
-                f'status:      active\n---\n## Rule\n{rule}\n{extra}')
+                f'status:      active\n---\n## Rule\n{rule}\n{extra}'
+                # Every practice carries these since 2026-10-11, when the
+                # check took over the mandatory-sections rule; without them
+                # the well-formed control reads as malformed.
+                f'\n## Why\nWhy.\n\n## Story\nStory.\n\n## Install\nInstall.\n')
 
     def judge(files):
         d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shape-'))
