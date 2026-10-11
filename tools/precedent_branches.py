@@ -222,8 +222,38 @@ REPO_LANDING_COMMENT = [
     'Change it here for this repository.',
 ]
 
+REPO_LANDING_STAGING_COMMENT = [
+    'Where Go update lands for anyone whose own identity.json names no',
+    'landing_branch -- a person\'s own setting always wins. staging: the',
+    'person who installed this has retired pre-staging (retire_pre_staging,',
+    'or landing_branch "staging", in their identity.json), so work lands on',
+    'staging and reaches main by a Produce. Change it here for this repository.',
+]
 
-def ensure_repo_landing(root, new_install=False):
+
+def repo_landing_default(root, user_config=None):
+    """-> (branch, comment) a new install, or a repository given its first
+    landing_branch, writes into precedent.json: staging for a person who has
+    retired pre-staging (retire_pre_staging, or their own landing_branch
+    "staging"), else REPO_LANDING_DEFAULT. Until 2026-10-11 it was always
+    pre-staging, so a repository Morgan installed after moving every other
+    one to staging started on the tier he had retired, and its first Update
+    Vendors had to move it back."""
+    # The person's own words, read raw: moves_repo_by_repo also asks for
+    # promote_only, which is off in a repository that has no tiers yet --
+    # and a new install is exactly that.
+    retired = False
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email') and RETIRE_SETTING in ident:
+            retired = ident[RETIRE_SETTING] is True
+            break
+    if retired or _declared_landing(root, user_config) == STAGING:
+        return STAGING, REPO_LANDING_STAGING_COMMENT
+    return REPO_LANDING_DEFAULT, REPO_LANDING_COMMENT
+
+
+def ensure_repo_landing(root, new_install=False, user_config=None):
     """Give precedent.json a `landing_branch` when it has none. -> True when
     it wrote one. Never changes a value that is there, and never creates the
     file: a repository without a precedent.json is not an install.
@@ -246,20 +276,21 @@ def ensure_repo_landing(root, new_install=False):
     # hand-kept file -- its order, its escapes, its comments' wrapping --
     # comes back byte for byte. A file that does not end in `}` is
     # rewritten whole instead, which is still valid, only noisier.
+    landing, comment = repo_landing_default(root, user_config)
     text = path.read_text(encoding='utf-8')
     body = text.rstrip()
-    added = (f',\n  "{LANDING_SETTING}": {json.dumps(REPO_LANDING_DEFAULT)},\n'
+    added = (f',\n  "{LANDING_SETTING}": {json.dumps(landing)},\n'
              f'  "_{LANDING_SETTING}_comment": [\n'
-             + ',\n'.join('    ' + json.dumps(line) for line in REPO_LANDING_COMMENT)
+             + ',\n'.join('    ' + json.dumps(line) for line in comment)
              + '\n  ]\n}\n')
     candidate = body[:-1].rstrip() + added if body.endswith('}') else None
     try:
         if candidate is None or json.loads(candidate).get(LANDING_SETTING) \
-                != REPO_LANDING_DEFAULT:
+                != landing:
             raise ValueError
     except ValueError:
-        data[LANDING_SETTING] = REPO_LANDING_DEFAULT
-        data['_' + LANDING_SETTING + '_comment'] = REPO_LANDING_COMMENT
+        data[LANDING_SETTING] = landing
+        data['_' + LANDING_SETTING + '_comment'] = comment
         candidate = json.dumps(data, indent=2) + '\n'
     path.write_text(candidate, encoding='utf-8')
     return True
@@ -967,6 +998,13 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
     # A person who lands on staging has no use for pre-staging, and making
     # it again would undo the deletion they were offered (pre_staging_retired).
     retired = pre_staging_unused(root)[0]
+    # A new install whose precedent.json already lands on staging
+    # (repo_landing_default) never had a use for pre-staging; making it would
+    # only hand the person a branch to delete. pre_staging_unused cannot say
+    # so yet: it asks for promote_only, which a repository with no tiers
+    # turns off.
+    if new_install and precedent_json(root).get(LANDING_SETTING) == STAGING:
+        retired = True
     if not retired and not _remote_tip(root, PRE_STAGING):
         missing.append(f'{PRE_STAGING} on origin')
     if not missing:

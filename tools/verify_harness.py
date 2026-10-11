@@ -34510,8 +34510,8 @@ def check_branch_tiers():
         # them"); a fresh install by that person is the asking.
         not_on_update = not pb.ensure_repo_landing(repo) and \
             'landing_branch' not in pb.precedent_json(repo)
-        wrote = pb.ensure_repo_landing(repo, new_install=True)
-        again = pb.ensure_repo_landing(repo, new_install=True)
+        wrote = pb.ensure_repo_landing(repo, new_install=True, user_config=str(cfg))
+        again = pb.ensure_repo_landing(repo, new_install=True, user_config=str(cfg))
         cases.append(('the repo default is written once, as pre-staging, at a fresh '
                       'install, never by an update into a repository without '
                       'tiers, and never over a value the repo already has',
@@ -34520,6 +34520,24 @@ def check_branch_tiers():
                       and pb.precedent_json(repo).get('base_branch') == 'main'))
         (repo / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'main'}), encoding='utf-8')
+        # A person who has retired pre-staging starts a new repository on
+        # staging, not on the tier they left (2026-10-11: a fresh install
+        # by Morgan wrote pre-staging and made it on origin).
+        default_before = pb.repo_landing_default(repo, str(cfg))[0]
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {**_json.loads(ident_before), 'retire_pre_staging': True,
+             'promote_only': True}), encoding='utf-8')
+        retired_default = pb.repo_landing_default(repo, str(cfg))[0]
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {**_json.loads(ident_before), 'landing_branch': 'staging'}),
+            encoding='utf-8')
+        declared_default = pb.repo_landing_default(repo, str(cfg))[0]
+        (indiv / 'identity.json').write_text(ident_before, encoding='utf-8')
+        cases.append(('a new repository lands on staging for a person who '
+                      'retired pre-staging, and on pre-staging otherwise',
+                      default_before == 'pre-staging'
+                      and retired_default == 'staging'
+                      and declared_default == 'staging'))
 
         def targets(args):
             return pb.push_targets(repo, args)
@@ -62214,6 +62232,57 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_install_by_a_staging_person_makes_no_pre_staging():
+    """A new install by a person who has retired pre-staging lands on
+    staging and makes no pre-staging on origin (2026-10-11).
+
+    WHY. The very deep check's install rehearsal, run as Morgan, got
+    landing_branch "pre-staging" written into precedent.json and a
+    pre-staging branch pushed to origin -- the tier he had retired from
+    every repository two days earlier. The next Update Vendors would then
+    have moved it back and offered the branch for deletion."""
+    import tempfile
+    import precedent_branches as pb
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        results = {}
+        for landing in ('staging', 'pre-staging'):
+            bare, repo = tmp / f'{landing}.git', tmp / f'{landing}-repo'
+            fixture_git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+            fixture_git(tmp, 'init', '-q', '-b', 'main', str(repo))
+            fixture_git(repo, 'config', 'user.email', 'h@example.com')
+            fixture_git(repo, 'config', 'user.name', 'H')
+            (repo / 'precedent.json').write_text(json.dumps(
+                {'base_branch': 'staging', 'landing_branch': landing}) + '\n')
+            fixture_git(repo, 'add', '-A')
+            fixture_git(repo, 'commit', '-qm', 'install')
+            fixture_git(repo, 'remote', 'add', 'origin', str(bare))
+            fixture_git(repo, 'push', '-q', 'origin', 'main')
+            real = (pb.ladder_in_force, pb.pre_staging_unused)
+            pb.ladder_in_force = lambda *a, **k: True
+            pb.pre_staging_unused = lambda *a, **k: (False, None)
+            try:
+                rc = pb.ensure_tiers(repo, apply=True, say=lambda *a: None,
+                                     new_install=True)
+            finally:
+                pb.ladder_in_force, pb.pre_staging_unused = real
+            heads = subprocess.run(['git', '-C', str(bare), 'branch',
+                                    '--format=%(refname:short)'],
+                                   capture_output=True, text=True).stdout.split()
+            results[landing] = (rc, sorted(heads))
+    cases = [
+        ('an install landing on staging gets staging and no pre-staging',
+         results['staging'] == (0, ['main', 'staging'])),
+        ('an install landing on pre-staging still gets both tiers',
+         results['pre-staging'][0] == 0
+         and 'pre-staging' in results['pre-staging'][1]),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'an install on staging makes no pre-staging ({len(cases)} stated '
+          f'cases)', not failed, '; '.join(failed) + f' -- {results}')
+
+
 def check_update_vendors_retires_pre_staging():
     """The upgrade off pre-staging, for a person who lands straight on
     staging (Morgan, 2026-10-09: "make sure we have a smooth upgrade process
@@ -74646,6 +74715,7 @@ def main():
     check_promote_into_main_exits_nonzero_until_main_moves()
     check_landing_on_staging_run_tests_and_fast_move_into_main()
     check_update_vendors_retires_pre_staging()
+    check_install_by_a_staging_person_makes_no_pre_staging()
     check_promote_ends_with_its_result_line()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()

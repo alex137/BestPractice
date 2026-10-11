@@ -17,7 +17,9 @@ instantiates every template section 0 names with the placeholders this
 tool can know filled in, runs the sync, lints the files it wrote, and then
 prints exactly what it could NOT decide: the placeholders left for a person
 or an assistant to adapt, and any wording that still names a layout this
-project does not have. It never commits, never pushes, never asks.
+project does not have. It never commits and never asks. It pushes in one
+case only: for a person on the ladder, it makes the branch tiers on an
+origin that already has main (_tiers; Morgan, 2026-09-27).
 
 WHY THIS EXISTS (practice: cite-the-incident). The 2026-09-14 very deep
 check rehearsed section 0 as written and found that a correct install took
@@ -249,9 +251,9 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
     # (spec/LADDER_OPT_IN_PLAN.md D3): for anyone else a repository has its
     # main branch, and its precedent.json says nothing about tiers.
     if precedent_branches.ladder_in_force(path.parent) is not False:
-        doc[precedent_branches.LANDING_SETTING] = precedent_branches.REPO_LANDING_DEFAULT
-        doc['_' + precedent_branches.LANDING_SETTING + '_comment'] = \
-            precedent_branches.REPO_LANDING_COMMENT
+        _landing, _comment = precedent_branches.repo_landing_default(path.parent)
+        doc[precedent_branches.LANDING_SETTING] = _landing
+        doc['_' + precedent_branches.LANDING_SETTING + '_comment'] = _comment
     if output_paths:
         doc['output_paths'] = output_paths
         doc['_output_paths_comment'] = [
