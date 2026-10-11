@@ -19,6 +19,9 @@ Run:  python3 tools/verify_harness.py
             then the tests that went not-applicable there, run here
       PRECEDENT_CHECK_ONLY=check_a,check_b python3 tools/verify_harness.py
                                                  # just the tests you name
+      python3 tools/verify_harness.py --for-change origin/staging [--dry-run]
+            just the tests a change since that ref reaches, within a
+            60-second budget (--budget N); the push check runs this
       A full run started by hand refuses until it is given the person's
       go-ahead: --because '<their words>'. It states what it costs first.
 Exit: 0 if every applicable check passes, 1 otherwise.
@@ -41,6 +44,13 @@ import frontmatter_yaml
 # the backstop's own refusals pop this back out of their fixture env, so the
 # coverage is not weakened by it.
 os.environ.setdefault('PRECEDENT_ALLOW_ANY_AUTHOR', '1')
+
+# EVERY UPDATE VENDORS RUN HERE TESTS THIS CHECKOUT'S CODE. Run from a clone
+# behind origin/main, precedent_update.py would otherwise run origin's
+# newest green commit from a worktree (precedent_update_driver.py) -- and a
+# case would quietly test that instead of the change in front of it. Set
+# once, for every subprocess; the one check of the driver itself clears it.
+os.environ.setdefault('PRECEDENT_UPDATE_RUN_IN_PLACE', '1')
 
 # THE SAME BUG, ON THE CLOCK INSTEAD OF THE AUTHOR, and it escaped the fix
 # above by one field. commit-identity.sh repoints `/etc/localtime` so a
@@ -10641,6 +10651,16 @@ def check_push_refuses_a_hand_made_session_branch_name():
                   == f'2026-10-07-some-work-{tail}-x9y8z'))
     cases.append(('a tier branch is not judged',
                   _bn.name_refusal('pre-staging', tail=tail) is None))
+    # The harness's own name is let through, and SAID (2026-10-11: a whole
+    # build went up under claude/amazing-lamport-l5eivc with no word).
+    cases.append(('a push to the harness-given name gets a note naming the tool',
+                  'precedent_branch_name.py' in (_bn.harness_name_note(
+                      'claude/peaceful-ritchie-3u31td') or '')))
+    cases.append(('...and only that name: a tool-made name, a tier and a '
+                  'hand-typed name get none',
+                  _bn.harness_name_note(f'2026-10-06-some-work-{tail}-x9y8z') is None
+                  and _bn.harness_name_note('staging') is None
+                  and _bn.harness_name_note('2026-10-06-vdc-fixes') is None))
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-branchname-'))
     env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
                CLAUDE_CODE_REMOTE_SESSION_ID='cse_' + 'x' * 20 + tail)
@@ -10681,6 +10701,24 @@ def check_push_refuses_a_hand_made_session_branch_name():
                        env=env, capture_output=True)
         cases.append(('a branch origin already has is not judged again',
                       refused('origin HEAD:refs/heads/2026-10-06-vdc-fixes') is None))
+
+        def notes(cmd):
+            saved = dict(os.environ)
+            os.environ.update(env)
+            try:
+                return _ppc._branch_name_notes(repo, ['--gate', '--push-command', cmd])
+            finally:
+                os.environ.clear()
+                os.environ.update(saved)
+        cases.append(('end to end: a push to the harness-given name is noted, '
+                      'not refused',
+                      refused('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
+                      is None
+                      and len(notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td'))
+                      == 1))
+        cases.append(('...and a push to a tool-made name is not',
+                      notes(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}-x9y8z')
+                      == []))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
     bad = [n for n, ok in cases if not ok]
@@ -13134,6 +13172,316 @@ def check_upstream_branch_declaration_is_followed():
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
+
+def check_update_runs_code_at_least_as_new_as_it_applies():
+    """Update Vendors runs code no older than the commit it applies
+    (tools/precedent_update_driver.py; the plan and every case below are
+    todo/todo-2026-10-11-update-vendors-runs-stale-driver-code.md's).
+
+    The fixture is the incident: a BestPractice clone one commit behind
+    origin/main, whose own update() is broken where the fetched commit's is
+    not. The run must use the fetched code, say which commit ran, and leave
+    the clone exactly as it was. Every case runs the FIXTURE's
+    tools/precedent_update.py, never this repo's: SOURCE is whatever tree
+    the script sits in, so running ROOT's copy would test nothing.
+
+    The commits, on main: BOOT (this change, from the working tree) ->
+    OLD (a break at the top of update()) -> NEW (the break replaced by a
+    probe), NEW carrying a passed marker. Off them: AHEAD on NEW, SIDE on
+    BOOT, LATE on NEW, with no marker.
+
+    Owns its state (practice: fixture-owns-its-state): HOME, the user
+    config and the global git config are the fixture's, and the harness-
+    wide opt-out is cleared for every case that tests the rule.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-driver-'))
+    cases = []
+    hooks_marker = tmp / 'global-hook-fired'
+    gcfg = tmp / 'gitconfig'
+    gcfg.write_text('', encoding='utf-8')
+    env = {**os.environ, 'HOME': str(tmp / 'home'),
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json'),
+           'GIT_CONFIG_GLOBAL': str(gcfg), 'GIT_CONFIG_NOSYSTEM': '1',
+           'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'}
+    env.pop('PRECEDENT_UPDATE_RUN_IN_PLACE', None)
+    env.pop('PRECEDENT_UPDATE_DRIVER', None)
+    (tmp / 'home').mkdir()
+
+    def sh(*argv, cwd, extra=None):
+        r = subprocess.run(list(argv), cwd=str(cwd), env={**env, **(extra or {})},
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    def git(cwd, *a):
+        rc, out = sh('git', *a, cwd=cwd)
+        if rc != 0:
+            raise FixtureSetupError(f"git {' '.join(a)} (in {cwd}): {out.strip()[-200:]}")
+        return out.strip()
+
+    def commit_edit(work, msg, old, new):
+        p = work / 'tools' / 'precedent_update.py'
+        s = p.read_text(encoding='utf-8')
+        if s.count(old) != 1:
+            raise FixtureSetupError(f'{msg}: anchor not found once in update()')
+        p.write_text(s.replace(old, new), encoding='utf-8')
+        git(work, 'commit', '-qam', msg)
+        return git(work, 'rev-parse', 'HEAD')
+
+    anchor = "    rep = Report()\n    rep.pin_repo = repo\n"
+    probe = ("    print('CHILD GUARD', subprocess.run([sys.executable, '-c', "
+             "'import os; print(os.environ.get(\"PRECEDENT_UPDATE_DRIVER\"))'], "
+             "capture_output=True, text=True).stdout.strip())\n")
+    try:
+        work = tmp / 'work'
+        git(tmp, 'clone', '-q', '--shared', str(ROOT), str(work))
+        git(work, 'checkout', '-q', '-B', 'main', _ref_including_worktree(ROOT))
+        boot = git(work, 'rev-parse', 'HEAD')
+        old = commit_edit(work, 'old', anchor,
+                          "    print('STALE DRIVER RAN'); return 2\n" + anchor)
+        new = commit_edit(work, 'new', "    print('STALE DRIVER RAN'); return 2\n",
+                          probe)
+        git(work, 'checkout', '-q', '-b', 'ahead')
+        ahead = commit_edit(work, 'ahead', probe, probe + "    pass\n")
+        git(work, 'checkout', '-q', '-b', 'side', boot)
+        side = commit_edit(work, 'side', anchor, "    pass\n" + anchor)
+        git(work, 'checkout', '-q', '-b', 'late', new)
+        late = commit_edit(work, 'late', probe, probe + "    pass  # late\n")
+        origin = tmp / 'origin.git'
+        git(tmp, 'clone', '-q', '--bare', str(work), str(origin))
+        git(origin, 'update-ref', 'refs/heads/main', new)
+        git(origin, 'update-ref', 'refs/heads/staging', new)
+        marker = f"refs/precedent/passed/{git(work, 'rev-parse', new + '^{tree}')}"
+        git(origin, 'update-ref', marker, new)
+
+        def clone(name, at):
+            c = tmp / name
+            git(tmp, 'clone', '-q', str(origin), str(c))
+            git(c, 'checkout', '-q', '-B', 'main', at)
+            git(c, 'branch', '-q', '-u', 'origin/main')
+            return c
+
+        def consumer(name, upstream=None):
+            r = tmp / name
+            r.mkdir()
+            git(r, 'init', '-q', '-b', 'main')
+            if upstream:
+                (r / 'precedent.json').write_text(json.dumps(
+                    {'upstream_branch': upstream}) + '\n', encoding='utf-8')
+            return r
+
+        def update(c, repo, *extra, only=False, more=None):
+            add = dict(more or {})
+            if only:
+                add['PRECEDENT_UPDATE_BOOTSTRAP_ONLY'] = '1'
+            return sh(sys.executable, str(c / 'tools' / 'precedent_update.py'),
+                      '--repo', str(repo), *extra, cwd=repo, extra=add)
+
+        def verdict(out):
+            return {l.split(': ', 2)[1]: l.split(': ', 2)[2]
+                    for l in out.splitlines()
+                    if l.startswith('precedent_update_driver: ') and l.count(': ') >= 2}
+
+        def state(c):
+            return (git(c, 'rev-parse', 'HEAD'), git(c, 'branch', '--show-current'),
+                    git(c, 'rev-parse', ':tools/precedent_update.py'),
+                    git(c, 'status', '--porcelain'), git(c, 'worktree', 'list'))
+
+        # ---- the incident, end to end ----
+        behind = clone('behind', old)
+        repo = consumer('consumer')
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        hook = hooks / 'post-checkout'
+        hook.write_text(f'#!/bin/sh\ntouch {hooks_marker}\n', encoding='utf-8')
+        hook.chmod(0o755)
+        own_marker = tmp / 'own-hook-fired'
+        own = behind / '.git' / 'hooks' / 'post-checkout'
+        own.write_text(f'#!/bin/sh\ntouch {own_marker}\n', encoding='utf-8')
+        own.chmod(0o755)
+        gcfg.write_text(f'[core]\n\thooksPath = {hooks}\n', encoding='utf-8')
+        # The hooks can fire: without the driver's empty hooks directory, a
+        # worktree add runs the global one (the negative control).
+        probe_tree = tmp / 'probe-tree'
+        sh('git', 'worktree', 'add', '-q', '--detach', str(probe_tree), new, cwd=behind)
+        hooks_can_fire = hooks_marker.exists()
+        sh('git', 'worktree', 'remove', '--force', str(probe_tree), cwd=behind)
+        hooks_marker.unlink(missing_ok=True)
+        cases.append(('the hook control fires without the driver (so the case can fail)',
+                      hooks_can_fire, ''))
+
+        # A git shim first on PATH logs every call during the run.
+        shim_dir, log = tmp / 'shim', tmp / 'git-calls.log'
+        shim_dir.mkdir()
+        real_git = shutil.which('git')
+        (shim_dir / 'git').write_text(
+            f'#!/bin/sh\nprintf "%s\\t%s\\n" "$PWD" "$*" >> {log}\n'
+            f'exec {real_git} "$@"\n', encoding='utf-8')
+        (shim_dir / 'git').chmod(0o755)
+        before = state(behind)
+        rc, out = update(behind, repo, more={'PATH': f"{shim_dir}:{env['PATH']}"})
+        after = state(behind)
+        drivers = behind / '.git' / 'precedent-update-drivers'
+        cases.append(("the clone's own broken update() never ran",
+                      'STALE DRIVER RAN' not in out, out[-300:]))
+        cases.append(('the run names the fetched commit as the code it ran',
+                      f"ran {new[:12]}'s code from a temporary checkout" in out
+                      and old[:12] in out, out[:300]))
+        cases.append(('the fetched code ran the update (its LEFT FOR YOU on a bare repo)',
+                      rc == 1 and 'no vendored loader engine' in out, f'rc={rc}'))
+        cases.append(('the loop guard does not reach what the driver run spawns',
+                      'CHILD GUARD None' in out, out[:300]))
+        cases.append(('no output line names the drivers directory',
+                      'precedent-update-drivers' not in out, ''))
+        cases.append(("the clone's HEAD, branch, index, status and worktree list "
+                      "are as they were", before == after, f'{before} != {after}'))
+        left = sorted(p.name for p in drivers.iterdir()) if drivers.is_dir() else []
+        cases.append(('the temporary checkout and its lock are gone',
+                      left == ['no-hooks'], str(left)))
+        cases.append(('no hook fired, global or the clone\'s own',
+                      not hooks_marker.exists() and not own_marker.exists(), ''))
+        calls = log.read_text(encoding='utf-8') if log.exists() else ''
+        sensitive = re.compile(r'(?:^|\s)(symbolic-ref|push|checkout|switch|'
+                               r'branch --show-current)(?:\s|$)')
+        bad_calls = [l for l in calls.splitlines()
+                     if sensitive.search(l.split('\t', 1)[-1])
+                     and (str(behind) in l)]
+        cases.append(('no HEAD-sensitive git call targets the clone or the worktree',
+                      bool(calls) and not bad_calls, '; '.join(bad_calls[:3])))
+        gcfg.write_text('', encoding='utf-8')
+
+        # ---- the two tables, row by row, through the bootstrap-only seam ----
+        def row(name, c, r, *extra, want, driver=None, data=None, warn=None, more=None):
+            rc, out = update(c, r, *extra, only=True, more=more)
+            v = verdict(out)
+            ok = (rc == 0 and v.get('row') == want
+                  and (driver is None or v.get('driver') == driver)
+                  and (data is None or v.get('data') == data)
+                  and (warn is None or (v.get('warning') != 'None') == warn))
+            cases.append((name, ok, f"{v} rc={rc} {out[-200:] if not v else ''}"))
+
+        row('behind: run the newest green commit from a worktree', behind, repo,
+            want='worktree', driver=new, data=new, warn=False)
+        same = clone('same', new)
+        row("same tools/ as the driver: in place", same, repo, want='same', driver=new)
+        ahead_c = clone('ahead-clone', ahead)
+        row('ahead of the driver (CI, a feature branch): in place', ahead_c, repo,
+            want='ahead', driver=new)
+        dirty = clone('dirty', old)
+        with open(dirty / 'tools' / 'build_views.py', 'a', encoding='utf-8') as f:
+            f.write('# edited\n')
+        row('a tracked change in tools/: in place, with a warning', dirty, repo,
+            want='dirty', warn=True)
+        untracked = clone('untracked', old)
+        (untracked / 'tools' / 'mine.py').write_text('', encoding='utf-8')
+        row('an untracked .py in tools/: in place, with a warning', untracked, repo,
+            want='dirty', warn=True)
+        notes = clone('notes', old)
+        (notes / 'tools' / 'notes.txt').write_text('', encoding='utf-8')
+        row('an untracked non-Python file in tools/ does not count', notes, repo,
+            want='worktree', driver=new)
+        row('the opt-out runs in place', behind, repo, want='opt-out',
+            more={'PRECEDENT_UPDATE_RUN_IN_PLACE': '1'})
+        row('--from-ref on a diverged test commit: its own code', behind, repo,
+            '--from-ref', side, want='worktree', driver=side, data=side)
+        row('--take-anyway of a newer unmarked commit: that commit\'s code', behind,
+            repo, '--take-anyway', late, want='worktree', driver=late, data=late)
+        staging = consumer('staging-follower', upstream='staging')
+        row('a staging follower takes the staging tip as G', behind, staging,
+            want='worktree', driver=new, data=new)
+        # A pin some weeks back: the data stays the pin, the code is G.
+        pinned = consumer('pinned')
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_update as _pu
+        import precedent_local_edits as _le
+        _pu.record_pin(pinned, boot, 'main')
+        row('a pin older than G: data is the pin, the driver is G', behind, pinned,
+            want='worktree', driver=new, data=boot)
+        row('--move drops the pin', behind, pinned, '--move', want='worktree',
+            driver=new, data=new)
+
+        # The bootstrap reads only: a stand-in commit at HEAD, a journal and
+        # a pin, all byte-identical across a bootstrap-only run.
+        (pinned / 'f.txt').write_text('x\n', encoding='utf-8')
+        git(pinned, 'add', 'f.txt')
+        git(pinned, 'commit', '-qm', 'base')
+        (pinned / 'f.txt').write_text('y\n', encoding='utf-8')
+        git(pinned, 'commit', '-qam', _pu.TEMP_COMMIT_MESSAGE + ' (left by a killed run)')
+        gitdir = pinned / '.git'
+        journal = gitdir / _le.JOURNAL_DIR
+        journal.mkdir()
+        (journal / 'journal.json').write_text('{"x": 1}\n', encoding='utf-8')
+
+        def snapshot():
+            files = sorted(str(p.relative_to(pinned)) + ':' +
+                           hashlib.sha256(p.read_bytes()).hexdigest()
+                           for p in pinned.rglob('*')
+                           if p.is_file() and '.git' not in p.relative_to(pinned).parts)
+            jfiles = sorted(p.name + ':' + p.read_text(encoding='utf-8')
+                            for p in journal.iterdir())
+            return (git(pinned, 'rev-parse', 'HEAD'),
+                    hashlib.sha256((gitdir / 'index').read_bytes()).hexdigest(),
+                    jfiles, (gitdir / _pu.STAGED_RECORD).read_text(encoding='utf-8'),
+                    git(pinned, 'status', '--porcelain'), files)
+        first = snapshot()
+        update(behind, pinned, only=True)
+        cases.append(('the bootstrap writes nothing into the consumer',
+                      snapshot() == first, ''))
+        cases.append(('precedent.json is never in the swap journal',
+                      _pu.vendored_layer_paths(pinned, ['precedent.json']) == [], ''))
+
+        # No green commit: in place, warned, never a guessed tip.
+        git(origin, 'update-ref', '-d', marker)
+        row('no passed marker in the window: in place, with a warning', behind, repo,
+            want='no-green', warn=True)
+        git(origin, 'update-ref', marker, new)
+
+        # Parallel runs: a live run's checkout survives another's cleanup, a
+        # dead run's is removed. The live holder is another PROCESS holding
+        # fcntl.flock (an in-process lockf would read as dead).
+        par = clone('parallel', old)
+        pdrivers = par / '.git' / 'precedent-update-drivers'
+        pdrivers.mkdir()
+        live, dead = pdrivers / '1-live-aaaaaa', pdrivers / '2-dead-bbbbbb'
+        for t in (live, dead):
+            git(par, 'worktree', 'add', '-q', '--detach', str(t), new)
+            (pdrivers / f'{t.name}.lock').write_text('', encoding='utf-8')
+        holder = subprocess.Popen(
+            [sys.executable, '-c',
+             'import fcntl, sys, time\n'
+             f'f = open({str(pdrivers / (live.name + ".lock"))!r}, "a+")\n'
+             'fcntl.flock(f, fcntl.LOCK_EX)\nprint("held", flush=True)\n'
+             'time.sleep(120)\n'], stdout=subprocess.PIPE, text=True)
+        try:
+            holder.stdout.readline()
+            update(par, repo)
+            cases.append(("a live run's checkout survives another run's cleanup",
+                          live.is_dir(), ''))
+            cases.append(("a dead run's checkout and lock are removed",
+                          not dead.exists() and not (pdrivers / f'{dead.name}.lock').exists(),
+                          str(sorted(p.name for p in pdrivers.iterdir()))))
+        finally:
+            holder.kill()
+            holder.wait()
+
+        # The fallback: no worktree can be made, so the clone's own code runs
+        # and says first that it may be older than what it applies.
+        fb = clone('fallback', boot)
+        (fb / '.git' / 'precedent-update-drivers').write_text('', encoding='utf-8')
+        rc, out = update(fb, repo)
+        summary = out.split('== Update Vendors ==', 1)[-1].lstrip('\n').splitlines()
+        cases.append(('a worktree that cannot be made: the warning comes first',
+                      bool(summary) and summary[0].startswith('  WARNING: could not set '
+                                                              'up a temporary checkout'),
+                      summary[:2]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
 
 def check_update_vendors_is_one_command():
     """tools/precedent_update.py runs Update Vendors end to end on a real
@@ -21051,8 +21399,16 @@ def check_precedent_check_fires():
     """
     import shutil, tempfile, multiprocessing
 
+    # A FIXTURE'S OWN GIT RUNS NO GLOBAL HOOKS. A session's core.hooksPath
+    # reaches every throwaway repository here (the 2026-09-13 gotcha), and
+    # measured 2026-10-11 it was about 100 of this function's 487 seconds:
+    # each push to a fixture's bare remote ran the leak gate over the whole
+    # tree (about 13.6 s), each commit about 1 s. No case plants anything a
+    # hook judges -- every case is judged by precedent_check.py, which this
+    # does not touch -- and GitHub's runners have no global hooks at all.
     def git(cwd, *args, check_rc=True, env=None):
-        r = subprocess.run(['git', '-C', str(cwd), *args],
+        r = subprocess.run(['git', '-c', 'core.hooksPath=/dev/null',
+                            '-C', str(cwd), *args],
                            capture_output=True, text=True, env=env)
         if check_rc and r.returncode != 0:
             raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
@@ -21074,6 +21430,11 @@ def check_precedent_check_fires():
         # no origin has, and a silent one is exactly what it exists to catch.
         git(pristine, 'commit', '-qm',
             'baseline\n\nSession: none available (verify_harness fixture)')
+        # Packed once, so every copy below is 1,638 files instead of 3,198
+        # (half were loose objects): 0.34 s to copy instead of 0.50, and
+        # 0.03 s to delete instead of 0.07 (measured 2026-10-11).
+        git(pristine, 'repack', '-adq')
+        git(pristine, 'prune')
 
         def fresh(name):
             repo = tmp / name
@@ -21147,19 +21508,55 @@ def check_precedent_check_fires():
                 if k not in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
                              'PRECEDENT_COMMIT_TZ', 'PRECEDENT_LEAK_BLOCKLIST')}
         _env['PRECEDENT_USER_CONFIG'] = str(base / '.no-user-config.json')
-        _r = subprocess.run(
+        # Started here and read just before the closing assertions: a whole
+        # run takes about 30 s, and nothing between reads its result.
+        _baseline = subprocess.Popen(
             [sys.executable, str(base / 'tools' / 'precedent_check.py')],
-            capture_output=True, text=True, cwd=str(base), env=_env)
-        rc = _r.returncode
-        # On a failure, the failing checks' own findings go into the detail:
-        # a bare rc said only the slug of this case, and under --as-ci
-        # --isolated (UTC) finding that todo/TODO.md had drifted took a
-        # manual rebuild of the fixture (2026-09-30).
-        cases.append(('an unplanted copy of this tree passes every check', rc == 0,
-                      '' if rc == 0 else _failing_findings(_r.stdout + _r.stderr)))
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            cwd=str(base), env=_env)
 
         # --- one planted violation per enforced practice --------------------
-        planted = {}
+        # SEVERAL CASES IN FLIGHT (2026-10-11). case() starts its two
+        # processes and returns; the result is collected the first time
+        # anything reads planted[slug] (or `in`, .get, .items), and every
+        # case still pending is collected before the closing assertions.
+        # So a later assertion that reads a case back blocks until that
+        # case is done, without anyone listing which cases are read --
+        # sketch (a) of spec/VERIFY_HARNESS_PERFORMANCE.md's 2026-09-19
+        # follow-ups. Two at a time used about one core of four; the width
+        # stays bounded, because a fan-out with no bound ran a container out
+        # of memory once (gotcha-2026-09-18).
+        _pending = {}
+        _width = max(1, ((os.cpu_count() or 2) + 2) // 2)
+
+        class _Planted(dict):
+            def _settle(self, key):
+                slug = key[:-len('-clean')] if key.endswith('-clean') else key
+                for k in (key, slug):
+                    if k in _pending:
+                        _pending.pop(k)()
+
+            def settle_all(self):
+                while _pending:
+                    _pending.pop(next(iter(_pending)))()
+
+            def __getitem__(self, key):
+                self._settle(key)
+                return dict.__getitem__(self, key)
+
+            def __contains__(self, key):
+                self._settle(key)
+                return dict.__contains__(self, key)
+
+            def get(self, key, default=None):
+                self._settle(key)
+                return dict.get(self, key, default)
+
+            def items(self):
+                self.settle_all()
+                return dict.items(self)
+
+        planted = _Planted()
         declared = set()          # every slug case() was ASKED for
         ran, skipped = [], []     # and which of those actually executed
 
@@ -21250,19 +21647,31 @@ def check_precedent_check_fires():
                     setup(repo)
                 if plant:
                     plant(repo)
-                return run(repo, slug, *extra, env_extra=env_extra)
+                result = run(repo, slug, *extra, env_extra=env_extra)
+                # Deleted here, while it is one tree among a few: left for
+                # the closing rmtree, about 270 trees took 108 s to delete
+                # at once on one core (measured 2026-10-11).
+                shutil.rmtree(repo, ignore_errors=True)
+                return result
 
             def _clean_pipeline():
                 clean = fresh(slug + '-clean')
                 if setup:
                     setup(clean)
-                return run(clean, slug, *extra, env_extra=env_extra)
+                result = run(clean, slug, *extra, env_extra=env_extra)
+                shutil.rmtree(clean, ignore_errors=True)
+                return result
 
             q1, q2 = multiprocessing.Queue(), multiprocessing.Queue()
             p1 = multiprocessing.Process(target=_case_worker, args=(_planted_pipeline, q1))
             p2 = multiprocessing.Process(target=_case_worker, args=(_clean_pipeline, q2))
+            while len(_pending) >= _width:
+                _pending.pop(next(iter(_pending)))()
             p1.start()
             p2.start()
+            _pending[slug] = lambda: _collect(slug, advisory, q1, q2, p1, p2)
+
+        def _collect(slug, advisory, q1, q2, p1, p2):
             status1, value1 = q1.get()
             status2, value2 = q2.get()
             p1.join()
@@ -24593,6 +25002,16 @@ def check_precedent_check_fires():
         case('check_commit_author', _plant_commit_author, env_extra=_ID_ENV)
         case('check_commit_dates', _plant_buenos_aires_dates,
              setup=_setup_buenos_aires_dates, env_extra=_ID_ENV)
+
+        planted.settle_all()
+        _out, _ = _baseline.communicate()
+        rc = _baseline.returncode
+        # On a failure, the failing checks' own findings go into the detail:
+        # a bare rc said only the slug of this case, and under --as-ci
+        # --isolated (UTC) finding that todo/TODO.md had drifted took a
+        # manual rebuild of the fixture (2026-09-30).
+        cases.insert(0, ('an unplanted copy of this tree passes every check',
+                         rc == 0, '' if rc == 0 else _failing_findings(_out)))
 
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
@@ -33402,10 +33821,12 @@ name the deleted file and are still reported.
           '; '.join(failed) + ('' if not failed else f' -- {out[-600:]}'))
 
 
-def _changed_files_fixture(tmp):
+def _changed_files_fixture(tmp, base_files=None):
     """-> (repo, run) for precedent_push_check.changed_files_check against a
     consumer-shaped repo at `tmp`, run in-process: the script's own main()
-    always judges the checkout it lives in, never the fixture."""
+    always judges the checkout it lives in, never the fixture.
+    `base_files` ({path: text}) are in the base commit, so not part of the
+    change."""
     import contextlib, io
     repo = tmp / 'repo'
     repo.mkdir(parents=True)
@@ -33418,6 +33839,9 @@ def _changed_files_fixture(tmp):
                               capture_output=True, text=True, env=env)
     git('init', '-q', '-b', 'main')
     (repo / 'README.md').write_text('fixture\n', encoding='utf-8')
+    for rel, text in (base_files or {}).items():
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text(text, encoding='utf-8')
     git('add', '-A'); git('commit', '-qm', 'base')
     since = git('rev-parse', 'HEAD').stdout.strip()
     spec = importlib.util.spec_from_file_location(
@@ -33569,6 +33993,605 @@ def check_changed_files_runs_one_copy_of_a_repo_local_test():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
           '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
+
+
+# ---------------------------------------------------------------------------
+# --for-change REF: THE HARNESS TESTS A CHANGE CAN REACH (2026-10-11,
+# spec/CHANGED_CHECK_RUNS_ITS_TESTS_PLAN.md). a243d9c0 made
+# practice-file-shape require four sections; the harness test that feeds it
+# a well-formed sample still had one, and staging went red. That test fails
+# in about two seconds, but a push to a working branch or to staging never
+# ran it: the changed-files step ran a check script's test_x.sh, never the
+# harness tests of a check inside precedent_check.py. This works out which
+# tests a change since REF reaches -- through precedent_check.py's checks
+# and the helpers, constants and imports they use, the tools/ modules they
+# import, the check scripts, and the harness's own tests and helpers -- and
+# runs what fits a time budget, naming the rest. precedent_push_check.py's
+# changed-files step calls it.
+import ast  # noqa: E402
+FOR_CHANGE_BUDGET_SECONDS = 60
+# The planted suite: one 13-minute test that cannot run one slug alone yet
+# (the 18 slugs _deep_assertion_slugs pins run together). A check whose only
+# harness coverage is its case there gets a note, not a run.
+_PLANTED_SUITE = 'check_precedent_check_fires'
+_PC_ALIASES_RE = re.compile(r'import precedent_check as (\w+)')
+_IMPORT_RE = re.compile(r'^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w., ]+?)(?:\s+as\s+\w+)?\s*$)',
+                        re.M)
+
+
+def _bound_names(stmt):
+    """-> the top-level names `stmt` binds: a def or class, an assignment's
+    targets, an import's names; an if/try/with block's own statements, never
+    the inside of a function it defines."""
+    names = set()
+    if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        names.add(stmt.name)
+    elif isinstance(stmt, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+        for t in (stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]):
+            names |= {n.id for n in ast.walk(t) if isinstance(n, ast.Name)}
+    elif isinstance(stmt, (ast.Import, ast.ImportFrom)):
+        names |= {(a.asname or a.name).split('.')[0] for a in stmt.names}
+    else:
+        for field in ('body', 'orelse', 'finalbody', 'handlers'):
+            for sub in getattr(stmt, field, None) or []:
+                names |= _bound_names(sub)
+    return names
+
+
+def _source_units(text):
+    """-> [unit] for each top-level statement of a Python source, or None
+    when it does not parse. A unit is a dict: `first`/`last` lines (a
+    decorated def starts at its first decorator), `names` it binds, `refs`
+    (every name it reads, plus every module it imports, at any depth),
+    `strings` (its string constants, its docstring left out), `attrs`
+    ((base, attr) pairs), `slug` (a @check's), `node`."""
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return None
+    units = []
+    for node in tree.body:
+        decorators = getattr(node, 'decorator_list', [])
+        first = min([node.lineno] + [d.lineno for d in decorators])
+        refs, strings, attrs = set(), set(), set()
+        doc = None
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) \
+                and node.body and isinstance(node.body[0], ast.Expr) \
+                and isinstance(node.body[0].value, ast.Constant):
+            doc = node.body[0].value
+        for n in ast.walk(node):
+            if isinstance(n, ast.Name):
+                refs.add(n.id)
+            elif isinstance(n, ast.Import):
+                refs |= {a.name.split('.')[0] for a in n.names}
+            elif isinstance(n, ast.ImportFrom) and n.module:
+                refs.add(n.module.split('.')[0])
+            elif isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name):
+                attrs.add((n.value.id, n.attr))
+            elif isinstance(n, ast.Constant) and isinstance(n.value, str) \
+                    and n is not doc:
+                strings.add(n.value)
+        slug = None
+        for d in decorators:
+            if isinstance(d, ast.Call) and isinstance(d.func, ast.Name) \
+                    and d.func.id == 'check' and d.args \
+                    and isinstance(d.args[0], ast.Constant):
+                slug = d.args[0].value
+        is_doc = isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+        units.append({'first': first, 'last': node.end_lineno,
+                      'names': _bound_names(node), 'refs': refs,
+                      'strings': strings, 'attrs': attrs, 'slug': slug,
+                      'node': node, 'is_doc': is_doc})
+    return units
+
+
+def _reach(units, seeds):
+    """-> {unit index: depth} for every unit that reads a name in `seeds`
+    ({name: depth}), at any remove: a unit is one deeper than the nearest
+    name it reads, and the names it binds take its depth -- so a check that
+    calls a changed helper is depth 1, and one that calls a helper of that
+    helper is depth 2."""
+    names, depth = dict(seeds), {}
+    grew = True
+    while grew:
+        grew = False
+        for i, u in enumerate(units):
+            near = [names[n] for n in u['refs'] if n in names]
+            if not near:
+                continue
+            d = min(near) + 1
+            if d < depth.get(i, float('inf')):
+                depth[i] = d
+                grew = True
+                for n in u['names']:
+                    if d < names.get(n, float('inf')):
+                        names[n] = d
+    return depth
+
+
+def _changed_new_lines(root, since, rel):
+    """-> the lines of HEAD's `rel` the change since `since` touched; a pure
+    deletion counts the lines either side of it. None when git cannot say."""
+    r = subprocess.run(['git', '-C', str(root), 'diff', '-U0', '--no-color',
+                        f'{since}...HEAD', '--', rel],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    lines = set()
+    for m in re.finditer(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@', r.stdout, re.M):
+        start = int(m.group(1))
+        count = int(m.group(2)) if m.group(2) is not None else 1
+        lines |= {start, start + 1} if count == 0 else set(range(start, start + count))
+    return lines
+
+
+def _units_at(units, lines):
+    """-> (the units `lines` fall in, the lines that fall in none)."""
+    hit, loose = [], set()
+    for ln in sorted(lines):
+        u = next((u for u in units if u['first'] <= ln <= u['last']), None)
+        if u is None:
+            loose.add(ln)
+        elif u not in hit:
+            hit.append(u)
+    return hit, loose
+
+
+def _importers(root, modules):
+    """-> {module: depth} for `modules` (depth 0) and every tools/ module that
+    imports one of them, at any remove (1 for a direct importer) -- read as
+    text, every import line, a lazy one inside a function included."""
+    graph = {}
+    for f in sorted((root / 'tools').glob('*.py')):
+        try:
+            text = f.read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+        imported = set()
+        for m in _IMPORT_RE.finditer(text):
+            if m.group(1):
+                imported.add(m.group(1).split('.')[0])
+            else:
+                imported |= {p.strip().split()[0].split('.')[0]
+                             for p in m.group(2).split(',') if p.strip()}
+        graph[f.stem] = imported
+    depth = {m: 0 for m in modules}
+    frontier, d = set(modules), 0
+    while frontier:
+        d += 1
+        frontier = {mod for mod, imported in graph.items()
+                    if mod not in depth and imported & frontier}
+        depth.update({mod: d for mod in frontier})
+    return depth
+
+
+def _span_text(lines):
+    """-> '12-14, 30' for a set of line numbers."""
+    out, run = [], []
+    for ln in sorted(lines):
+        if run and ln != run[-1] + 1:
+            out.append(run)
+            run = []
+        run.append(ln)
+    if run:
+        out.append(run)
+    return ', '.join(f'{r[0]}-{r[-1]}' if len(r) > 1 else str(r[0]) for r in out)
+
+
+def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS):
+    """-> {'run': [test], 'deferred': [test], 'slugs': [slug],
+    'planted_only': [slug], 'unmapped': [note], 'seconds': float} for the
+    change since `since` in the repository at `root`: which harness tests it
+    reaches, which of them fit `budget` seconds by their recorded times
+    (nearest the change first -- what it touched, then what calls that --
+    and the quickest first among equals), and what it could not reach.
+    Reads; runs nothing."""
+    root = pathlib.Path(root)
+    plan = {'run': [], 'deferred': [], 'slugs': [], 'planted_only': [],
+            'unmapped': [], 'seconds': 0.0}
+    r = subprocess.run(['git', '-C', str(root), 'diff', '--name-only',
+                        '--diff-filter=AMRD', f'{since}...HEAD'],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        plan['unmapped'].append(f'git could not diff {since}...HEAD -- '
+                                f'{(r.stderr or "").strip()[:200]}')
+        return plan
+    files = [l for l in r.stdout.splitlines() if l.strip()]
+    py = [f for f in files if f.endswith('.py')
+          and (f.startswith('tools/') or f.startswith('local/tools/'))]
+    if not py:
+        return plan
+    pc_rel, vh_rel = 'tools/precedent_check.py', 'tools/verify_harness.py'
+    vh_text = (root / vh_rel).read_text(encoding='utf-8', errors='replace') \
+        if (root / vh_rel).is_file() else ''
+    vh_units = _source_units(vh_text) if vh_text else []
+    if vh_units is None:
+        plan['unmapped'].append(f'{vh_rel} does not parse')
+        return plan
+    vh_defs = [u for u in vh_units if isinstance(u['node'], ast.FunctionDef)]
+    tests = {u['node'].name: u for u in vh_defs
+             if u['node'].name.startswith('check_')}
+    aliases = set(_PC_ALIASES_RE.findall(vh_text)) | {'precedent_check'}
+
+    # Each test's reach: its own body and every harness function it calls,
+    # at any depth -- a test that runs a check through a helper still
+    # tests it. Module-level tables are left out: a slug named only in a
+    # data table is not a test of it.
+    by_name = {u['node'].name: u for u in vh_defs}
+
+    def closure(name):
+        seen, todo = set(), [name]
+        while todo:
+            n = todo.pop()
+            if n in seen or n not in by_name:
+                continue
+            seen.add(n)
+            todo.extend(by_name[n]['refs'] & by_name.keys())
+        return [by_name[n] for n in seen]
+    reach = {t: closure(t) for t in tests}
+    strings = {t: set().union(*(u['strings'] for u in us)) for t, us in reach.items()}
+    attrs = {t: set().union(*(u['attrs'] for u in us)) for t, us in reach.items()}
+    refs = {t: set().union(*(u['refs'] for u in us)) for t, us in reach.items()}
+
+    rank = {}                       # test -> how far it sits from the change
+
+    def want(r, names):
+        for n in names:
+            if n in tests and r < rank.get(n, float('inf')):
+                rank[n] = r
+
+    # 1. precedent_check.py, and the tools/ modules its checks import.
+    pc_units = []
+    if (root / pc_rel).is_file():
+        pc_units = _source_units((root / pc_rel).read_text(
+            encoding='utf-8', errors='replace'))
+        if pc_units is None:
+            plan['unmapped'].append(f'{pc_rel} does not parse')
+            pc_units = []
+    touched_pc, seeds = [], {}
+    if pc_rel in py and pc_units:
+        lines = _changed_new_lines(root, since, pc_rel)
+        if lines is None:
+            plan['unmapped'].append(f'git could not say which lines of {pc_rel} changed')
+        else:
+            # Lines that fall between definitions are comments and blank
+            # lines: they reach nothing.
+            touched_pc, _loose = _units_at(pc_units, lines)
+            for u in touched_pc:
+                seeds.update({n: 0 for n in u['names']})
+                if not u['names'] and not u['slug'] and not u['is_doc']:
+                    plan['unmapped'].append(
+                        f'{pc_rel} lines {u["first"]}-{u["last"]} bind no '
+                        f'name a check reads')
+    modules = {pathlib.Path(f).stem for f in py if f.startswith('tools/')
+               and f.count('/') == 1 and f not in (pc_rel, vh_rel)}
+    if modules:
+        for mod, d in _importers(root, modules).items():
+            seeds[mod] = min(d, seeds.get(mod, d))
+    depth = {i: 0 for i, u in enumerate(pc_units) if u in touched_pc}
+    for i, d in _reach(pc_units, seeds).items():
+        depth[i] = min(d, depth.get(i, d))
+    order = sorted((d, i) for i, d in depth.items() if pc_units[i]['slug'])
+    for d, i in order:
+        u = pc_units[i]
+        if u['slug'] in plan['slugs']:
+            continue
+        plan['slugs'].append(u['slug'])
+        impl = u['node'].name
+        hits = [t for t in tests if t != _PLANTED_SUITE and (
+            u['slug'] in strings[t]
+            or any((a, impl) in attrs[t] for a in aliases))]
+        if hits:
+            want(d, hits)
+        else:
+            plan['planted_only'].append(u['slug'])
+    # A changed helper the harness calls directly (pc.main, pc._run, ...).
+    for u in touched_pc:
+        want(0, [t for t in tests if t != _PLANTED_SUITE and any(
+            (a, n) in attrs[t] for a in aliases for n in u['names'])])
+
+    # 2. A check script, by its file name in a test's code.
+    for f in py:
+        name = pathlib.Path(f).name
+        if not re.match(r'check_\w+\.py$', name):
+            continue
+        want(0, [t for t in tests if t != _PLANTED_SUITE and (
+            any(name in s for s in strings[t]) or name[:-3] in refs[t])])
+
+    # 3. The harness itself: a changed test runs; a changed helper runs the
+    # tests that reach it; a call added to main() runs what it calls.
+    if vh_rel in py:
+        lines = _changed_new_lines(root, since, vh_rel)
+        if lines is None:
+            plan['unmapped'].append(f'git could not say which lines of {vh_rel} changed')
+        else:
+            hit, _loose = _units_at(vh_units, lines)
+            for u in hit:
+                node = u['node']
+                if isinstance(node, ast.FunctionDef) and node.name == 'main':
+                    want(0, [c.func.id for c in ast.walk(node)
+                             if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+                             and c.func.id.startswith('check_')
+                             and c.lineno in lines])
+                elif isinstance(node, ast.FunctionDef) and node.name in tests:
+                    want(0, [node.name])
+                elif u['names']:
+                    want(1, [t for t in tests if refs[t] & u['names']])
+    times, default = _check_times(root / 'tools' / 'harness_check_times.json')
+    cost = lambda t: times.get(t, default if default is not None else 1.0)
+    total = 0.0
+    for t in sorted(rank, key=lambda t: (rank[t], cost(t), t)):
+        if total + cost(t) <= budget:
+            plan['run'].append(t)
+            total += cost(t)
+        else:
+            plan['deferred'].append(t)
+    plan['seconds'] = round(total, 1)
+    return plan
+
+
+def run_for_change(since, budget=FOR_CHANGE_BUDGET_SECONDS, dry_run=False,
+                   root=None):
+    """--for-change REF: say what the change reaches, run what fits the
+    budget in one filtered harness run, and name the rest with the command
+    that runs them. -> the run's exit code (0 when nothing ran). A note is
+    never a failure: only a test that runs and fails is."""
+    root = pathlib.Path(root or ROOT)
+    plan = for_change_plan(root, since, budget)
+    say = lambda s: print(f'for-change: {s}', flush=True)
+    if plan['slugs']:
+        say(f'the change reaches {len(plan["slugs"])} check(s): '
+            + ', '.join(plan['slugs']))
+    for note in plan['unmapped']:
+        say(f'could not map: {note} -- the full tier covers it: '
+            f"python3 tools/verify_harness.py --as-ci --because '<why>'")
+    if plan['planted_only']:
+        say(f'NOT RUN HERE: {len(plan["planted_only"])} check(s) are tested '
+            f'only by their planted case in {_PLANTED_SUITE}, which runs at the '
+            f'full tier (about 13 minutes, every case): '
+            + ', '.join(plan['planted_only']))
+    if plan['deferred']:
+        say(f'NOT RUN HERE: {len(plan["deferred"])} test(s) over the '
+            f'{budget:.0f}-second budget; the full tier runs them, or run them '
+            f'now: PRECEDENT_CHECK_ONLY={",".join(plan["deferred"])} '
+            f'python3 tools/verify_harness.py')
+    if not plan['run']:
+        say('no harness test to run for this change')
+        return 0
+    say(f'running {len(plan["run"])} test(s), about {plan["seconds"]:.0f} s by '
+        f'their recorded times: ' + ', '.join(plan['run']))
+    if dry_run:
+        return 0
+    r = subprocess.run([sys.executable, str(root / 'tools' / 'verify_harness.py')],
+                       cwd=root, capture_output=True, text=True,
+                       env=dict(os.environ, PRECEDENT_CHECK_ONLY=','.join(plan['run'])))
+    said = [l for l in r.stdout.splitlines()
+            if l.startswith(('PASS', 'FAIL', 'verify_harness'))]
+    for line in said:
+        print(line)
+    if r.returncode != 0 and not any(l.startswith('FAIL') for l in said):
+        # It stopped before a test could say FAIL: show why.
+        tail = [l for l in (r.stdout + r.stderr).splitlines()
+                if 'SKIP (filtered out' not in l and not re.match(r'\s+[\d.]+s\s', l)]
+        for line in tail[-5:]:
+            print(line)
+    return r.returncode
+
+
+def check_for_change_runs_the_tests_a_change_reaches():
+    """--for-change selects the harness tests a change can reach, and says
+    what it does not run. The failure it exists for: a243d9c0 changed
+    practice-file-shape, and the one test that would have caught it, two
+    seconds long, never ran before staging (2026-10-11).
+
+    One scratch repository, one change per case, read with for_change_plan:
+    a check's own body; a helper only another check uses; the decorator
+    every check uses; a tools/ module imported two levels down; a check
+    script; a harness test and a harness helper; a comment between
+    definitions (the control: nothing runs); a check covered only by its
+    planted case; and a test over the budget, which is named, not run.
+    """
+    import tempfile
+    name = '--for-change runs the harness tests a change reaches'
+    engine = (
+        'import os\n'
+        'CHECKS = {}\n'
+        'def check(slug, *a):\n'
+        '    def wrap(f):\n'
+        '        CHECKS[slug] = f\n'
+        '        return f\n'
+        '    return wrap\n'
+        '\n'
+        'def _shared(x):\n'
+        '    return x\n'
+        '\n'
+        '# a comment between definitions\n'
+        '\n'
+        "@check('zz-alpha', 'tree')\n"
+        'def _alpha(ctx):\n'
+        '    return []\n'
+        '\n'
+        "@check('zz-beta', 'tree')\n"
+        'def _beta(ctx):\n'
+        '    return _shared([])\n'
+        '\n'
+        "@check('zz-gamma', 'tree')\n"
+        'def _gamma(ctx):\n'
+        '    import zzsibling\n'
+        '    return zzsibling.f()\n'
+        '\n'
+        "@check('zz-lonely', 'tree')\n"
+        'def _lonely(ctx):\n'
+        '    return []\n')
+    harness = (
+        'import precedent_check as pc\n'
+        'def _helper():\n'
+        '    return 1\n'
+        'def check_alpha_direct():\n'
+        '    pc._alpha(None)\n'
+        'def check_alpha_by_slug():\n'
+        "    run('--only', 'zz-alpha')\n"
+        'def check_beta():\n'
+        '    pc._beta(None)\n'
+        'def check_gamma():\n'
+        '    _helper()\n'
+        "    run('--only', 'zz-gamma')\n"
+        'def check_script():\n'
+        "    run('tools/checks/check_zzscript.py')\n"
+        'def check_slow():\n'
+        "    run('--only', 'zz-beta')\n"
+        'def check_precedent_check_fires():\n'
+        "    case('zz-lonely', None)\n"
+        'def main():\n'
+        '    check_alpha_direct()\n'
+        '    check_alpha_by_slug()\n')
+    times = json.dumps({'default_seconds': 1.0,
+                        'seconds': {'check_slow': 500.0}})
+    base = {'tools/precedent_check.py': engine, 'tools/verify_harness.py': harness,
+            'tools/zzsibling.py': 'import zzdeeper\ndef f():\n    return []\n',
+            'tools/zzdeeper.py': 'X = 1\n',
+            'tools/checks/check_zzscript.py': 'print(1)\n',
+            'tools/harness_check_times.json': times}
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+    results = {}
+    edits = {
+        'alpha body': ('tools/precedent_check.py', '    return []\n\n@check(\'zz-beta\'',
+                       '    return [] + []\n\n@check(\'zz-beta\''),
+        'shared helper': ('tools/precedent_check.py', '    return x\n', '    return list(x)\n'),
+        'decorator': ('tools/precedent_check.py', '        CHECKS[slug] = f\n',
+                      '        CHECKS[str(slug)] = f\n'),
+        'deeper module': ('tools/zzdeeper.py', 'X = 1\n', 'X = 2\n'),
+        'check script': ('tools/checks/check_zzscript.py', 'print(1)\n', 'print(2)\n'),
+        'harness test': ('tools/verify_harness.py', "    pc._beta(None)\n",
+                         "    pc._beta(None)\n    pass\n"),
+        'harness helper': ('tools/verify_harness.py', '    return 1\n', '    return 2\n'),
+        'main call': ('tools/verify_harness.py', '    check_alpha_by_slug()\n',
+                      '    check_alpha_by_slug()\n    check_script()\n'),
+        'comment': ('tools/precedent_check.py', '# a comment between definitions\n',
+                    '# a comment, reworded, between definitions\n'),
+        'lonely': ('tools/precedent_check.py', "def _lonely(ctx):\n    return []\n",
+                   "def _lonely(ctx):\n    return [] + []\n"),
+    }
+    with tempfile.TemporaryDirectory() as td:
+        for label, (rel, old, new) in edits.items():
+            repo = pathlib.Path(td) / re.sub(r'\W', '-', label)
+            repo.mkdir()
+
+            def git(*a):
+                return subprocess.run(['git', '-C', str(repo), '-c',
+                                       'core.hooksPath=/dev/null', *a],
+                                      capture_output=True, text=True, env=env)
+            git('init', '-q', '-b', 'main')
+            for r_, text in base.items():
+                (repo / r_).parent.mkdir(parents=True, exist_ok=True)
+                (repo / r_).write_text(text, encoding='utf-8')
+            git('add', '-A'); git('commit', '-qm', 'base')
+            since = git('rev-parse', 'HEAD').stdout.strip()
+            text = (repo / rel).read_text(encoding='utf-8')
+            assert old in text, (label, old)
+            (repo / rel).write_text(text.replace(old, new, 1), encoding='utf-8')
+            git('commit', '-qam', label)
+            results[label] = for_change_plan(repo, since)
+    run = lambda k: set(results[k]['run'])
+    cases = [
+        ("a check's own body runs the tests that call it or name its slug",
+         run('alpha body') == {'check_alpha_direct', 'check_alpha_by_slug'}),
+        ('a helper one check uses runs that check\'s tests, the slow one named '
+         'over the budget, not run',
+         run('shared helper') == {'check_beta'}
+         and results['shared helper']['deferred'] == ['check_slow']),
+        ('the decorator every check uses reaches every check',
+         set(results['decorator']['slugs'])
+         == {'zz-alpha', 'zz-beta', 'zz-gamma', 'zz-lonely'}),
+        ('a module imported two levels down reaches the check that imports it',
+         results['deeper module']['slugs'] == ['zz-gamma']
+         and run('deeper module') == {'check_gamma'}),
+        ('a check script runs the test that names its file',
+         run('check script') == {'check_script'}),
+        ('a changed harness test runs itself', run('harness test') == {'check_beta'}),
+        ('a changed harness helper runs the tests that call it',
+         run('harness helper') == {'check_gamma'}),
+        ('a call added to main() runs the test it calls',
+         run('main call') == {'check_script'}),
+        ('control: a comment between definitions runs nothing and maps nothing',
+         not results['comment']['run'] and not results['comment']['slugs']
+         and not results['comment']['unmapped']),
+        ('a check tested only by its planted case is named, not run',
+         results['lonely']['planted_only'] == ['zz-lonely']
+         and not results['lonely']['run']),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else
+                              ' -- ' + json.dumps(results, default=str)[:1500]))
+
+
+def check_changed_files_runs_the_harness_tests_a_change_reaches():
+    """The changed-files step runs `verify_harness.py --for-change` where the
+    harness lives, and a check script's change runs every test that names
+    it, not only test_<its name>.sh.
+
+    The first half is the push side of check_for_change_runs_the_tests_a_
+    change_reaches: a fake harness that fails is a refusal naming the
+    failure, and one that only defers tests passes with its note shown
+    (2026-10-11, after a243d9c0). The second is the philosophy pair: two
+    scripts share test_philosophy_scoping.sh, and pairing by name ran no
+    test for either. The control: a change with no Python under tools/
+    never starts the harness.
+    """
+    import contextlib, io, tempfile
+    name = 'the changed-files check runs the harness tests a change reaches'
+    fake = ('import sys, pathlib\n'
+            "if '--for-change' in sys.argv:\n"
+            "    pathlib.Path('ran-for-change').write_text(' '.join(sys.argv[1:]))\n"
+            "    print('for-change: running 1 test(s), about 1 s: check_zz')\n"
+            "    print('for-change: NOT RUN HERE: 1 test(s) over the budget')\n"
+            "    if pathlib.Path('tools/fail').exists():\n"
+            "        print('FAIL: zz broke')\n"
+            "        sys.exit(1)\n")
+    pair_test = ('# check_zzpa.py and check_zzpb.py share this test\n'
+                 'touch "$(dirname "$0")/../../../../pair-test-ran"\nexit 0\n')
+    with tempfile.TemporaryDirectory() as td:
+        commit, run = _changed_files_fixture(pathlib.Path(td) / 'fails',
+                                             {'tools/verify_harness.py': fake})
+        commit({'tools/zzmod.py': 'X = 1\n', 'tools/fail': ''})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'passes',
+                                               {'tools/verify_harness.py': fake})
+        commit2({'tools/zzmod.py': 'X = 2\n'})
+        err2 = io.StringIO()
+        with contextlib.redirect_stderr(err2):
+            rc2, out2 = run2()
+        ran2 = (pathlib.Path(td) / 'passes' / 'repo' / 'ran-for-change').is_file()
+        commit3, run3 = _changed_files_fixture(pathlib.Path(td) / 'docs',
+                                               {'tools/verify_harness.py': fake})
+        commit3({'notes.md': 'words\n'})
+        rc3, out3 = run3()
+        ran3 = (pathlib.Path(td) / 'docs' / 'repo' / 'ran-for-change').is_file()
+        commit4, run4 = _changed_files_fixture(pathlib.Path(td) / 'pair', {
+            'local/tools/checks/check_zzpa.py': _FIXTURE_CHECK_HEAD,
+            'local/tools/checks/check_zzpb.py': _FIXTURE_CHECK_HEAD,
+            'local/tools/checks/tests/test_zzpair.sh': pair_test})
+        commit4({'local/tools/checks/check_zzpb.py': _FIXTURE_CHECK_HEAD + '# edit\n'})
+        rc4, out4 = run4()
+        ran4 = (pathlib.Path(td) / 'pair' / 'repo' / 'pair-test-ran').is_file()
+    cases = [
+        ('a failing harness test the change reaches refuses, naming it',
+         rc == 1 and 'a harness test this change reaches failed -- FAIL: zz broke'
+         in out),
+        ('a passing run passes, and its notes are shown on stderr, which '
+         'the gate streams even when the step passes',
+         rc2 == 0 and ran2 and 'for-change: NOT RUN HERE' in err2.getvalue()),
+        ('control: a change with no Python under tools/ never starts it',
+         rc3 == 0 and not ran3),
+        ('a check script runs the shared test that names it',
+         rc4 == 0 and ran4 and 'local/tools/checks/tests/test_zzpair.sh' in out4),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else
+                              f' -- {out[-400:]} / {out2[-300:]} / {out4[-300:]}'))
 
 
 def check_boildown_contradiction_spares_work_waiting_upstream():
@@ -34189,12 +35212,23 @@ def check_push_check_gate():
                                env=dict(env, CLAUDE_PROJECT_DIR=str(project)))
             return '"deny"' in p.stdout, p.stdout
 
-        denied, _ = gate('git push origin main')
+        denied, out_main = gate('git push origin main')
         record = work / '.git' / 'precedent-push-check.json'
         cases.append(('a clean tree passing every check is let through',
                       not denied))
         cases.append(('and the pass is recorded against the tree',
                       record.is_file()))
+        # A NOTE reaches the session as additionalContext, and the push still
+        # goes ahead: the harness-given branch name (2026-10-11).
+        _shutil.copy2(ROOT / 'tools' / 'precedent_branch_name.py',
+                      work / 'tools' / 'precedent_branch_name.py')
+        denied, out = gate('git push origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
+        cases.append(('a push to the harness-given branch name goes ahead, and '
+                      'the session is told to make its named branch',
+                      not denied and '"additionalContext"' in out
+                      and 'precedent_branch_name.py' in out))
+        cases.append(('a push with nothing to note hands the session nothing',
+                      '"additionalContext"' not in out_main))
 
         (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
         git(work, 'add', 'FAIL')
@@ -74856,6 +75890,8 @@ def main():
           'that moves with its inputs', *check_seed_cache_copies_what_a_seed_writes())
     check('Update Vendors runs as one command and stops only for the repo\'s own calls',
           *check_update_vendors_is_one_command())
+    check('Update Vendors runs code no older than the commit it applies, and never '
+          'moves the clone', *check_update_runs_code_at_least_as_new_as_it_applies())
     check('an update that deletes a vendored file upstream dropped ends DONE',
           *check_update_vendors_survives_an_upstream_deletion())
     check('Update Vendors resolves a committed local edit to an engine file by rule',
@@ -75469,6 +76505,8 @@ def main():
     check_changed_files_asks_a_new_check_for_its_test()
     check_changed_files_asks_a_new_check_for_its_planted_case()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
+    check_for_change_runs_the_tests_a_change_reaches()
+    check_changed_files_runs_the_harness_tests_a_change_reaches()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()
     check_leak_gate_reads_neighbour_blocklists()
@@ -75540,6 +76578,18 @@ if __name__ == '__main__':
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())
         sys.exit(0)
+    # --for-change REF runs only the tests a change since REF reaches, under
+    # a time budget (spec/CHANGED_CHECK_RUNS_ITS_TESTS_PLAN.md) -- never a
+    # full run, so it comes before the full-run refusal.
+    if '--for-change' in sys.argv[1:]:
+        _args = sys.argv[1:]
+        _i = _args.index('--for-change')
+        if _i + 1 >= len(_args):
+            sys.exit('verify_harness: --for-change needs a ref, e.g. --for-change origin/staging')
+        _budget = FOR_CHANGE_BUDGET_SECONDS
+        if '--budget' in _args and _args.index('--budget') + 1 < len(_args):
+            _budget = float(_args[_args.index('--budget') + 1])
+        sys.exit(run_for_change(_args[_i + 1], _budget, dry_run='--dry-run' in _args))
     # A full run by hand is proposed first (HARNESS_ASKED_ENV, above).
     refusal = _full_run_refusal(sys.argv[1:], os.environ)
     if refusal:

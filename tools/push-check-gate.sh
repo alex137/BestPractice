@@ -176,7 +176,15 @@ if printf '%s' "$out" | grep -q '^Traceback (most recent call last):'; then
 fi
 
 case "$rc" in
-    0) printf '%s\n' "$out" | tail -n 3 >&2; exit 0 ;;
+    0) printf '%s\n' "$out" | tail -n 3 >&2
+       # A NOTE is for the session, and stderr on a push let through never
+       # reaches it: additionalContext does, with no permission decision, so
+       # the push goes ahead as before (the harness-named branch, 2026-10-11).
+       notes="$(printf '%s\n' "$out" | grep '^precedent_push_check: NOTE -- ' || true)"
+       if [[ -n "$notes" ]]; then
+           printf '%s' "$notes" | jq -Rs '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: .}}'
+       fi
+       exit 0 ;;
     1|124) ;;
     2) echo "NOTE: push-check-gate: $out" >&2; exit 0 ;;
     *) echo "WARN: push-check-gate: precedent_push_check.py exited $rc, which is not a result it defines; failing open:" >&2
