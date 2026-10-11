@@ -7789,6 +7789,16 @@ def _record_pass(value, path=None, repo=None):
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     print(f"recorded: pass {name} = {status or '(no status)'} against the run "
           f"of {target.get('run_id')} in {path}.")
+    # The run's full account is owed the moment its last pass is in, and the
+    # deep check refuses a push without it (practice: very-deep-check;
+    # Morgan, 2026-10-11, after a run left it out until he asked).
+    if {'1', '2', '3', '4'} <= {str(p.get('pass')) for p in target['passes']}:
+        print(f"\n  OWED NOW: all four passes are recorded, so this run's full "
+              f"account is due. Rewrite spec/VERY_DEEP_CHECK_LATEST_RUN.md "
+              f"for it (opened: {target.get('date')}), collapse the previous "
+              f"run to one row in spec/VERY_DEEP_CHECK.md, commit both, and "
+              f"link the account in the reply. A push is refused until it is "
+              f"there (precedent_check.py --only very-deep-check).")
     return 0
 
 

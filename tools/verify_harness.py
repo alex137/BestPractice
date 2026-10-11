@@ -22282,6 +22282,43 @@ def check_precedent_check_fires():
                       'speculative but is not named that way fails, saying so',
                       _rcp == 1 and 'calls itself speculative' in _outp))
 
+        # very-deep-check -- the run's full account left out. The plant is
+        # the exact shape of 2026-10-11: all four passes recorded and the
+        # account still the previous run's (opened 2026-10-05).
+        _VDC_UP = 'spec/VERY_DEEP_CHECK_LATEST_RUN.md'
+
+        def _vdc_stale_account(t):
+            return re.sub(r'^opened:(\s*)\S+', r'opened:\g<1>2026-10-05',
+                          t, count=1, flags=re.M)
+        case('very-deep-check',
+             lambda repo: rewrite(repo, _VDC_UP, _vdc_stale_account))
+
+        # The other two states, by message and by silence
+        # (control-asserts-which-failure, checks-plant-their-state): no
+        # account at all is its own finding, and a run whose fourth pass is
+        # not recorded yet is still in progress, so a stale account is not
+        # owed and must not fail.
+        _vdc_gone = fresh('very-deep-check-no-account')
+        (_vdc_gone / _VDC_UP).unlink()
+        _rcg, _outg = run(_vdc_gone, 'very-deep-check')
+        cases.append(('very-deep-check: four passes recorded and no account '
+                      'file fails, saying no account was written',
+                      _rcg == 1 and 'no account was written' in _outg))
+
+        def _vdc_three_passes(t):
+            d = json.loads(t)
+            done = [r for r in d['runs'] if r.get('completed', True)]
+            done[-1]['passes'] = [p for p in done[-1].get('passes') or []
+                                  if str(p.get('pass')) != '4']
+            return json.dumps(d, indent=2) + '\n'
+        _vdc_mid = fresh('very-deep-check-mid-run')
+        rewrite(_vdc_mid, 'record/very-deep-check-ledger.json', _vdc_three_passes)
+        rewrite(_vdc_mid, _VDC_UP, _vdc_stale_account)
+        _rcm, _outm = run(_vdc_mid, 'very-deep-check')
+        cases.append(('very-deep-check: a run with pass 4 not yet recorded '
+                      'does not owe its account yet',
+                      _rcm == 0 and 'VIOLATION' not in _outm))
+
         # heading-outline -- a heading demoted two levels at once, so it has
         # no parent. documentation/INSTALL.md is the plant because it is a
         # short file whose only heading is its H1, so appending an h3 makes
@@ -25387,7 +25424,11 @@ def check_practice_file_shape_judges_one_file_at_a_time():
         return (f'---\nslug:        {slug}\ntier:        {tier}\n'
                 f'applies_to:  ["**"]\napplies_to_why: "planted"\n'
                 f'index_clause: "{clause}"\nchecked_by:  {checked_by}\n'
-                f'status:      active\n---\n## Rule\n{rule}\n{extra}')
+                f'status:      active\n---\n## Rule\n{rule}\n{extra}'
+                # Every practice carries these since 2026-10-11, when the
+                # check took over the mandatory-sections rule; without them
+                # the well-formed control reads as malformed.
+                f'\n## Why\nWhy.\n\n## Story\nStory.\n\n## Install\nInstall.\n')
 
     def judge(files):
         d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shape-'))
@@ -36177,14 +36218,14 @@ def check_promote_only_and_tier_branches():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
-def check_promote_keeps_the_old_name_in_step():
-    """precedent-beta-v01 was renamed staging on 2026-09-25, and the old name
-    is kept on origin while installs pinned to it catch up
-    (spec/BRANCH_TIERS_PLAN.md, step 10). Two things keep it safe: a Promote
-    moves the old name along with staging, and work a not-yet-moved session
-    pushes to the old name is merged into pre-staging, never lost."""
+def check_promote_leaves_the_retired_old_name_alone():
+    """precedent-beta-v01 was renamed staging on 2026-09-25 and kept in step
+    by every Promote until Morgan retired it on 2026-10-11
+    (todo-2026-09-26-retire-precedent-beta-v01). A Promote now leaves it
+    exactly where it is and says nothing about it, so the branch can be
+    deleted without the next Promote reaching for it."""
     import tempfile, json as _json, shutil as _shutil
-    name = 'Promote keeps precedent-beta-v01 in step with staging, and loses nothing pushed to it'
+    name = 'Promote leaves the retired precedent-beta-v01 where it is'
     if not (ROOT / 'tools' / 'precedent_branches.py').exists():
         not_applicable(name, 'tools/precedent_branches.py is absent')
         return
@@ -36237,18 +36278,13 @@ def check_promote_keeps_the_old_name_in_step():
             git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
 
         branches('--sync-pre-staging')
-        commit_to('precedent-beta-v01', 'old.txt', 'pushed under the old name')
-        rc, out = branches('--sync-pre-staging', '--check')
-        git(work, 'fetch', '-q', 'origin')
-        cases.append(('work pushed to the old name is merged into pre-staging',
-                      rc == 0 and git(work, 'merge-base', '--is-ancestor',
-                                      'origin/precedent-beta-v01',
-                                      'origin/pre-staging').returncode == 0))
+        old = tip('precedent-beta-v01')
         commit_to('pre-staging', 'new.txt', 'window work')
         rc, out = branches('--promote')
-        cases.append(('Promote moves staging, and the old name to the same commit',
-                      rc == 0 and tip('staging') == tip('precedent-beta-v01')
-                      and 'for installs still pinned to the old name' in out))
+        cases.append(('Promote moves staging and leaves the old name where it was',
+                      rc == 0 and tip('staging') != old
+                      and tip('precedent-beta-v01') == old
+                      and 'precedent-beta-v01' not in out))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -41853,8 +41889,12 @@ def check_tier_branches_are_never_a_pull_requests_source():
 
         git(work, 'push', '-q', 'origin', ':staging')
         r = ensure()
-        cases.append(('a deleted staging is rebuilt from the old name kept in step with it',
-                      tip('staging') == want, (r.stdout + r.stderr)[-300:]))
+        # Retired 2026-10-11 (todo-2026-09-26-retire-precedent-beta-v01): the
+        # old name is never a source any more, even when it is ahead.
+        cases.append(('a deleted staging is rebuilt from pre-staging, never from '
+                      'the retired old name',
+                      tip('staging') == tip('pre-staging') != want,
+                      (r.stdout + r.stderr)[-300:]))
         git(work, 'push', '-q', 'origin', ':staging', ':precedent-beta-v01')
         r = ensure()
         cases.append(('with no old name either, it is rebuilt from main',
@@ -75025,7 +75065,7 @@ def main():
     check_empty_commits_are_never_counted()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
-    check_promote_keeps_the_old_name_in_step()
+    check_promote_leaves_the_retired_old_name_alone()
     check_sync_copies_work_from_above_once_checked()
     check_promote_composes_main_and_moves_both_tiers()
     check_main_test_cadence()

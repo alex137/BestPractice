@@ -27,6 +27,13 @@ this document holds the run in progress, not an archive of every finding
 findings themselves live in the commits that fixed them and in
 [todo/](../todo/TODO.md)).
 
+**When the last pass is done, the run's full account is owed, unasked:**
+rewrite [VERY_DEEP_CHECK_LATEST_RUN.md](VERY_DEEP_CHECK_LATEST_RUN.md) for
+this run, with `opened:` set to its date, and link it in the reply. The deep
+check refuses a push once all four passes are in the ledger and the account
+is still an earlier run's
+([very-deep-check](../practices/very-deep-check.md)).
+
 ## Branches safe to delete right now
 
 **Mechanically proven safe** — every commit on each of these is already an
