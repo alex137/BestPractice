@@ -37353,6 +37353,31 @@ def check_promote_only_and_tier_branches():
                       'retarget at pre-staging', 'Retarget it at pre-staging' in why, why))
         cases.append(('on: pre-staging straight into main is refused (it skips '
                       'staging)', merge_refused(['main'], ['pre-staging']) is not None))
+        # promote-only's red-main exception (Morgan, 2026-10-11, assented):
+        # a fix built on main's tip goes straight in while main's own GitHub
+        # test is red; green, or not built on main, it is refused as before.
+        mtip = git(work, 'rev-parse', 'main').stdout.strip()
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'fix main')
+        fix_sha = git(work, 'rev-parse', 'HEAD').stdout.strip()
+        git(work, 'reset', '-q', '--hard', mtip)
+        git(work, 'fetch', '-q', 'origin')
+        saved_failed = pb.main_test_failed
+        try:
+            pb.main_test_failed = lambda _root: True
+            cases.append(('on: while main\'s test is red, a fix built on main '
+                          'goes straight into main',
+                          pb.merge_refusal(work, ['main'], ['claude/fix'],
+                                           str(cfg), head_sha=fix_sha) is None))
+            cases.append(('on: while main\'s test is red, a branch not built on '
+                          "main's tip is still refused",
+                          pb.merge_refusal(work, ['main'], ['claude/old'], str(cfg),
+                                           head_sha='0' * 40) is not None))
+            pb.main_test_failed = lambda _root: False
+            cases.append(('on: with main\'s test green, the same fix is refused',
+                          pb.merge_refusal(work, ['main'], ['claude/fix'],
+                                           str(cfg), head_sha=fix_sha) is not None))
+        finally:
+            pb.main_test_failed = saved_failed
         cases.append(('on: an ambiguous base (pre-staging and staging at one '
                       'commit) is not refused',
                       merge_refused(['pre-staging', 'staging'], ['claude/x']) is None))
