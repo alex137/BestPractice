@@ -5231,42 +5231,6 @@ def _run(cmd):
 EXAMPLE_SET = ROOT / 'documentation' / 'examples' / 'practice-set'
 
 
-MANDATORY_SECTIONS = ('rule', 'why', 'story', 'install')  # 'detail' is optional
-
-
-def check_practice_sections_present():
-    """Every REAL practice file carries all four mandatory sections
-    (## Detail is legitimately optional -- only some practices carry one).
-
-    WHY THIS EXISTS SEPARATELY FROM check_example_set's identical-looking
-    check. That check only ever ran against documentation/examples/practice-set/. For the
-    52 phase-1-converted practices, a missing section usually gets caught
-    anyway by the word-multiset content-preservation checks, because the
-    corrupted text is not what PRACTICES.md's frozen original said. But
-    those checks have nothing to compare against for a practice with no
-    `source_practice_number` -- exactly the plan's own stated path forward
-    (a new practice minted post-conversion, e.g. checkable-gets-checked).
-    A single accidental trailing space on a heading
-    (split_practices.py's section regex) used to silently merge that whole
-    section into the one before it, with no error anywhere in the harness,
-    for any practice minted this way. This closes that for the real
-    catalogue, not just the shipped example."""
-    ok = True
-    for f in sorted(PRACTICES_DIR.glob('*.md')):
-        try:
-            fm, sections = sp._read_practice_file(f)
-        except sp.PracticeFileError:
-            continue  # a parse failure is check_all_practices_parse's job
-        missing = [s for s in MANDATORY_SECTIONS if s not in sections]
-        if missing:
-            ok = False
-            print(f"  {f.name}: missing section(s) {', '.join(missing)} -- a "
-                  f"heading with trailing whitespace, or one silently merged "
-                  f"into the section before it, produces exactly this")
-    check('every practice file carries all mandatory sections (## Rule, '
-          '## Why, ## Story, ## Install -- ## Detail is optional)', ok)
-
-
 def check_doc_lint_fires():
     """doc_lint.py gates every push (AGENTS.md's "Two check levels") and had
     NEVER been given a direct unit test of its own internals -- this repo's
@@ -5649,8 +5613,9 @@ def check_doc_lint_strict_refuses_the_gate_scope():
 
 def check_practice_heading_parsing():
     """A DIRECT unit test of split_practices._parse_practice_text against
-    synthetic malformed headings, since check_practice_sections_present only
-    scans the real, currently-committed practices/*.md tree -- it can only
+    synthetic malformed headings, since precedent_check.py's
+    practice-file-shape only scans the real, currently-committed
+    practices/*.md tree -- it can only
     catch a malformed heading that happens to exist right now, never prove
     the parser handles one correctly in general.
 
@@ -5659,8 +5624,8 @@ def check_practice_heading_parsing():
     section into the one before it) must still parse correctly, and a
     heading with the wrong CASE ("## detail" for the one optional section)
     must fail LOUDLY rather than reproduce the identical silent merge one
-    character over -- which check_practice_sections_present cannot catch for
-    exactly this section, since MANDATORY_SECTIONS deliberately excludes
+    character over -- which practice-file-shape cannot catch for exactly
+    this section, since its mandatory sections deliberately exclude
     'detail' as legitimately optional."""
     def body(detail_heading):
         return (
@@ -74658,7 +74623,6 @@ def main():
     check_cross_source_resident_budget()
     check_doc_lint_fires()
     check_doc_lint_strict_refuses_the_gate_scope()
-    check_practice_sections_present()
     check_practice_heading_parsing()
     check_decision_records_not_inline()
     check_decision_records_not_inline_fires()
