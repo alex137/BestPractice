@@ -72,7 +72,10 @@ nothing to choose here — this page installs §0, always.
    - *Should the vendored GitHub Actions workflow be on or off?* **Default
      on, since 2026-09-25**: one light check that runs only on a pull
      request into `main` (about one billed minute per merge into `main`),
-     plus a leak gate that runs only in a public repository. For an AI
+     plus a leak gate that runs only in a public repository. In a private
+     repository the light check runs only on the pull request a Produce
+     opens (a branch named `to-main-…` or `…-promote-to-main-…`); any
+     other pull request shows it as skipped. For an AI
      Assistant with no terminal access (ChatGPT, or anything else with no
      local shell) it is the only place any check can run at all, so say
      so. Say the default out loud and let them override it. If they want
@@ -105,20 +108,29 @@ nothing to choose here — this page installs §0, always.
        --project-name "<the project's name>" \
        --about "<their first answer, one sentence>" \
        --visibility <private or public, read from the repository, never asked> \
+       --output-paths <the published folders from their first answer, comma-separated> \
        --admin <the administrator's GitHub handle>
    ```
 
+   Leave `--output-paths` out when they said "none yet". If they said yes
+   to a shared set (the writing set, say), clone it beside the project
+   first and add `--team <name>=../<name>` for each one: the name must be
+   the set's own `name` in its `precedent-source.json`
+   (`precedent-shared-writing` for the writing set), or the sync refuses
+   it as the wrong repository.
+
    It vendors the catalogue and the engine, writes `precedent.json`
    (declaring the repo-local `"local"` source along with the universal
-   one), instantiates `AGENTS.md`, `MAP.md`, `TODO.md`, `GLOSSARY.md`,
-   `GETTING_STARTED.md`, `local/practices/project-voice.md` and
+   one), instantiates `AGENTS.md`, `MAP.source.md`, `TODO.md`,
+   `GLOSSARY.source.md` (the sync generates `MAP.md` and `GLOSSARY.md`
+   from those two), `GETTING_STARTED.md`, `local/practices/project-voice.md` and
    `local/practices/project-visual-identity.md`, the README entry
    block, the Claude Code hooks, `tools/bootstrap.sh`, the Actions check
    and the pull-request template, runs the sync, lints what it wrote, and
    then prints **the placeholders it left** — each is a `<…>` in a file it
    names, to be filled with the project's own subject matter from their
    first answer where they asked for that now, else left as placeholders
-   (a `GLOSSARY.md` row can be deleted rather than invented). The project
+   (a `GLOSSARY.source.md` row can be deleted rather than invented). The project
    comes first ([lead-with-what-it-is](practices/lead-with-what-it-is.md)):
    the README opens with what the project *is*, and the entry block sits
    under that. Their second answer goes into the leak blocklist the
@@ -129,9 +141,10 @@ nothing to choose here — this page installs §0, always.
    never write the words into the project itself. In a private repository
    the leak gate stands down, so say the list only matters for what goes
    back upstream, or if the repository is ever made public.
-   If they answered yes to the third question, follow INSTALL.md §1 step 9
+   If they answered yes to the third question, follow INSTALL.md §0 step 3
    for what to actually do with a shared or individual repo (a shared source
-   goes in a new `precedent.json`; an individual source is never touched
+   goes in the `precedent.json` the installer wrote, through `--team`
+   above or added after; an individual source is never touched
    by this session at all — it's declared in that person's own user-level
    config, not this project). If they'd like one set up now instead,
    follow [spec/BOOTSTRAP_NEW_SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md) —
@@ -139,7 +152,7 @@ nothing to choose here — this page installs §0, always.
    can; otherwise hand them the exact command or click-path), running
    [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py),
    and wiring the result in exactly
-   as INSTALL.md §1 step 9 describes for an existing repo. This is real,
+   as INSTALL.md §0 step 3 describes for an existing repo. This is real,
    working tooling, not a promise: it hands them a starter file in the
    right format and the exact config to wire in, in the same sitting.
    `local/practices/project-voice.md` and
@@ -186,8 +199,12 @@ nothing to choose here — this page installs §0, always.
    can merge, ask "Shall I make this live?" and do it on their yes. If only they can merge, give them
    the pull-request link and tell them exactly what to press.
 6. **Verify the automatic checks, while Actions is on.** On the pull
-   request into `main`, confirm `light-check` appears and passes; in a
-   private repository nothing runs after the merge, by design. If the repository or organization has Actions disabled,
+   request into `main`, confirm `light-check` appears and passes. In a
+   private repository it runs only when the branch is named for a Produce
+   (`to-main-…`), so an install's pull request from any other branch shows
+   it as skipped: that is the design, not a fault, and the local checks in
+   step 3 are what this install was judged by. Nothing runs after the
+   merge in a private repository either. If the repository or organization has Actions disabled,
    give the administrator the exact clicks (repository **Settings →
    Actions**, or the **Actions** tab's enable button) and confirm the
    check appears afterward. Never leave this step silently unfinished —
@@ -293,7 +310,7 @@ it runs inside your ordinary work. The section references are to
 - **At install (§0).** They answer the five questions in step 2 — what
   the project is about, what private names or code words must never go
   public, and whether a team or personal practices repo exists or should be
-  set up now (§1 step 9; most projects have neither yet, and saying so is a
+  set up now (§0 step 3; most projects have neither yet, and saying so is a
   complete answer — but offer to set one up on the spot). Then they look at
   what you built and either approve it or ask for changes.
   `local/practices/project-voice.md` and

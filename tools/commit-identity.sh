@@ -485,6 +485,14 @@ _set_system_timezone() {
   fi
   cur="$(date +%z 2>/dev/null || true)"
   [ "$cur" = "$(TZ="$zone" date +%z 2>/dev/null || true)" ] && return 0
+  # The fallback exists to replace the container's +0000, nothing else. A
+  # clock already on a real zone was set by somebody -- often an earlier
+  # session's declared identity -- and a guess must not move it: on
+  # 2026-10-11 a test repository with no identity moved a machine set to
+  # Buenos Aires onto the fallback, mid-session, for every repo on it.
+  if [ "$zone_is_guess" -eq 1 ] && [ -n "$cur" ] && [ "$cur" != "+0000" ]; then
+    return 0
+  fi
   if ln -sf "$want" "$target" 2>/dev/null; then
     if [ "$zone_is_guess" -eq 1 ]; then
       echo "NOTE: commit-identity: the system timezone was $cur; set to $zone ($(TZ="$zone" date +%z)) -- the DECLARED FALLBACK, because no timezone was found for this person. Every commit and every generated date in this session now carries a real offset instead of the container's +0000, so records from different people can be ordered. Declare a timezone in your individual source's identity.json (or set PRECEDENT_COMMIT_TZ) and it becomes yours, and enforced." >&2

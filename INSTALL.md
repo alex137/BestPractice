@@ -152,7 +152,8 @@ not this section.
    not travel this way**: the harness adapters this repo's `precedent.json`
    declares are copied by the sync only from a source's `precedent.json`,
    and step 1 copies `practices/` alone — so a §0 install gets its hooks
-   from step 5's harness adapter, by hand, and the sync reports
+   from step 5's harness adapter, which the installer writes
+   (`.claude/settings.json` and every hook script it wires), and the sync reports
    `0 harness adapter(s)`; that is expected, not a failure. See "Keep the vendored engine current (consumer repos)" under §2
    for what that buys over a hand-copy, and how to refresh it later.
    **Nothing here is hand-copied any more.** `precedent_check.py` used to
@@ -228,13 +229,18 @@ not this section.
    `<!-- BEGIN GENERATED: precedent-loader -->` /
    `<!-- END GENERATED -->` markers exactly as the template has them,
    empty — step 6 fills them in.
-5. **Instantiate everything else §1 step 2 already covers**: `MAP.md`,
-   `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`,
-   `local/practices/project-voice.md`,
+5. **Instantiate everything else §1 step 2 already covers**:
+   `MAP.source.md` and `GLOSSARY.source.md` (from [templates/MAP.md.template](templates/MAP.md.template) and
+   [templates/GLOSSARY.md.template](templates/GLOSSARY.md.template); step 6 generates `MAP.md` and `GLOSSARY.md`
+   from them), `TODO.md`, `GETTING_STARTED.md`, the stale-checkout gotcha
+   under `gotchas/`, `local/practices/project-voice.md`,
    `local/practices/project-visual-identity.md`, the README
-   agent-entry block, the harness adapter(s),
-   `tools/bootstrap.sh`, the two workflows under `templates/github-actions/`
-   (`leak-gate.yml`, `light-check.yml`, unless a source declares
+   agent-entry block, `.gitignore` (merged into an existing one), the
+   harness adapter(s) (for Claude Code, `.claude/settings.json`, its hook
+   scripts and `CLAUDE.md`), `tools/bootstrap.sh`, the two workflows
+   rendered from `templates/github-actions/` (`leak-gate.yml.template` and
+   `light-check.yml.template`, written as `.github/workflows/leak-gate.yml`
+   and `light-check.yml`, unless a source declares
    `github_ci_workflows: disabled`), the PR template. **Skip**
    `process/manifest.json` and `process/scrub_blocklist.txt` — those are
    §1's own bookkeeping for a model this path doesn't use.
@@ -277,21 +283,28 @@ not this section.
    sync, regenerated on every run; commit them, never hand-edit them.
    The generated block's own header names `build_views.py` as the
    regeneration command; in a consuming repo the command is this one,
-   `precedent_sync_views.py --repo .`. A hand-templated `MAP.md` or
-   `GLOSSARY.md` (one without `build_views.py`'s `generated_by` header) is
-   the repository's own: neither tool writes or checks it. A generated one
-   is rebuilt by the sync, and a link elsewhere in the repository to a
-   practice the sync removed is repointed to its successor, or reported
-   when there is none.
+   `precedent_sync_views.py --repo .`. **The sync also generates
+   `MAP.md` and `GLOSSARY.md`** from step 5's `MAP.source.md` and
+   `GLOSSARY.source.md`, adding the sections built from the practice
+   catalogue and the engine; commit them too, and edit the source files,
+   never the views. On every later sync a link elsewhere in the repository
+   to a practice the sync removed is repointed to its successor, or
+   reported when there is none. A hand-written `MAP.md` or `GLOSSARY.md`
+   from an install older than 2026-10-03 moves into its source file at
+   that repository's next `Update Vendors` (the end of this section says
+   how).
 
 7. **Root-hygiene rule, adapted from §1**: nothing from Precedent lands
-   loose at the repo root except the instantiated files above and step 6's
-   `practices/` and `MANIFEST.json` — the vendored engine and universal
-   catalogue live under `tools/` and step 1's tracked path, not scattered
-   elsewhere.
+   loose at the repo root except step 2's `precedent.json`, step 4's
+   `AGENTS.md`, step 5's files and directories (`MAP.source.md`,
+   `GLOSSARY.source.md`, `TODO.md`, `GETTING_STARTED.md`, `CLAUDE.md`,
+   `.gitignore`, the README block, `gotchas/`, `local/`, `.claude/`,
+   `.github/`) and step 6's `practices/`, `MANIFEST.json`, `MAP.md` and
+   `GLOSSARY.md` — the vendored engine and universal catalogue live under
+   `tools/` and step 1's tracked path, not scattered elsewhere.
 8. Commit everything on a branch, same as §1 — and, as in §1 step 7, lint
    the instantiated files **by name** first
-   (`python3 tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md local/practices/project-visual-identity.md README.md`),
+   (`python3 tools/doc_lint.py AGENTS.md MAP.source.md TODO.md GLOSSARY.source.md GETTING_STARTED.md local/practices/project-voice.md local/practices/project-visual-identity.md README.md`),
    because the bare light check scopes itself to what changed against
    `origin/<base branch>` and a repo with no `origin` yet checks nothing.
    **Give the repo an `origin` before the first session works in it**: the
@@ -438,8 +451,9 @@ defects, all of them in this engine and none in the steps:
   mirrored tree is now exempt from the link check alone.
 
 What is still untested is the rest of [spec/PHASE6_BRIEF.md](https://github.com/alex137/BestPractice/blob/staging/spec/PHASE6_BRIEF.md)'s
-list, not the install itself. Two things this section deliberately does **not**
-cover, by design and not oversight:
+list, not the install itself. Two more things to know: how this section's
+map and glossary work, and one thing it deliberately does **not** cover, by
+design and not oversight:
 
 - **`MAP.md` and `GLOSSARY.md` are generated, never hand-written** (since
   2026-10-03, [the plan](https://github.com/alex137/BestPractice/blob/staging/spec/GENERATED_FILES_PLAN.md)).
@@ -1097,8 +1111,10 @@ appended to the baseline `.gitignore` instantiated above from
 ## 2. Take an Upstream Update
 
 *Knowing* an update exists is automated: the session-start bootstrap runs
-`checkin.py fresh` (one `ls-remote`, notice-only). *Taking* it is the
-deliberate procedure below.
+`python3 tools/precedent_engine_freshness.py --quiet` (one `ls-remote` per
+upstream, notice-only, naming every declared source that has fallen behind
+or could not be checked; a classic install without that tool runs
+`checkin.py fresh` instead). *Taking* it is the deliberate procedure below.
 
 **[Essentials only](#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later)
 governs an update exactly as it governs an install.** An update brings the

@@ -1,4 +1,4 @@
-# Baseline ignores — installed once at repo root (INSTALL.md §1).
+# Baseline ignores — installed once at repo root (INSTALL.md §0).
 # Covers ordinary tool/interpreter caches, not generated deliverables.
 # Add this repo's generated-deliverable globs below (practice `generated-artifact-provenance`) instead of
 # replacing this file — merge into an existing .gitignore if one is present.

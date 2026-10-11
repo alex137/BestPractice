@@ -2,7 +2,7 @@
 
 <!-- Template AND rendered sample: this file is readable as-is on GitHub
      (linked from the Precedent README as the sample members' page)
-     and is instantiated per INSTALL.md §1 as GETTING_STARTED.md at the
+     and is instantiated per INSTALL.md §0 as GETTING_STARTED.md at the
      dependent repo's root. When instantiating: replace the backticked
      `<placeholders>` with the project's real values and keep the
      section structure so upstream improvements propagate on updates

@@ -512,6 +512,15 @@ def discover(root=None):
     except (OSError, ValueError, AttributeError):
         pass
     slugs = {s for s in (_origin_slug(d) for d in dirs) if s}
+    # A clone of a DELETED set can still sit beside this checkout (a session
+    # attached it before it was deleted). Its workflows run nowhere, and
+    # asking GitHub about it spent a refused call per question on 2026-10-11.
+    try:
+        import precedent_resolve as _pr
+        gone = {n.lower() for n in _pr.deleted_sets()}
+    except Exception:                                            # noqa: BLE001
+        gone = set()
+    slugs = {s for s in slugs if s.split('/', 1)[-1].lower() not in gone}
     return sorted(slugs, key=str.lower)
 
 
