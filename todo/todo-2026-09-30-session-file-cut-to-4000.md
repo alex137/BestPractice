@@ -5,16 +5,29 @@ domain:            mechanism
 severity:          null
 status:            open
 disposition:       ask
-remind_on:         2026-09-30
-blocked_on:        "Morgan: leave it above target for now and brainstorm another approach to the cut (2026-09-30)"
+remind_on:         null
+blocked_on:        "Morgan: whether the by-construction form of the ceiling is still wanted, which needs allowances cut in the sources (2026-10-11)"
 batch:             null
 decision:          "target 4,000; hard ceiling 4,400; source occasion allowances universal 1,800, repo-maintenance 450, writing 150, working-style 150"
 decision_strength: decided
-waiting_on:        "a brainstorm with Morgan on how to cut the occasion index and the resident rules"
+waiting_on:        "Morgan's answer: keep the by-construction form as a goal, or drop it -- the session recommends dropping it"
 noted:             2026-09-30
 closed:            null
 ---
 ## What
+
+**2026-10-11: the cut is done and the 4,400 ceiling is on.** The file
+measured about 3,250 tokens (session_load_trend's charged count), under the
+4,000 target, without a dedicated cut: retiring the repo-maintenance and
+working-style sets, and the Reduction passes, got it there. On Morgan's "Go"
+the session set precedent-individual's measured `ceiling` for the file from
+5,200 to 4,400, with the 2026-09-29 words in its approval. **Left open: the
+by-construction form** (`hard_ceiling` plus `fixed_allowance`, checked by
+`session-file-allowances-fit`). The sources the file carries declare far more
+than 4,400 between them (universal 2,500 + 1,750, the ladder set 550 + 250,
+the writing set 550 and no resident cap), so it would need those allowances
+cut, set by set. The session's pick: drop that form, since the measured
+ceiling already refuses a file over 4,400.
 
 - <a id="session-file-cut-to-4000"></a>**Bring precedent-individual's
   session-start file under 4,000 tokens, then switch on the 4,400 hard

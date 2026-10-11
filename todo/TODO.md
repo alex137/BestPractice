@@ -139,7 +139,7 @@ as_of: 2026-10-11
 | [`todo-2026-09-25-should-sets-run-the-reply-gate`](todo-2026-09-25-should-sets-run-the-reply-gate.md) | Should practice sets run the reply gate and the other consumer-only hooks? | 16d | ask |  |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 15d | ask |  |
 | [`todo-2026-09-29-planted-case-lives-beside-its-check`](todo-2026-09-29-planted-case-lives-beside-its-check.md) | Put each check's planted case beside the check, so there is no second file to forget. | 12d | wait | out of scope for the 2026-09-29 engine-fixes batch: it moves every planted case… |
-| [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 11d | ask | Morgan: leave it above target for now and brainstorm another approach to the cut… |
+| [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | 2026-10-11: the cut is done and the 4,400 ceiling is on. | 11d | ask | Morgan: whether the by-construction form of the ceiling is still wanted, which n… |
 | [`todo-2026-10-01-in-force-nowhere-names-its-set`](todo-2026-10-01-in-force-nowhere-names-its-set.md) | Make every IN FORCE NOWHERE line name the set the rule lives in. | 10d | ask | a practice-format change (a new frontmatter field) that every practice set's che… |
 | [`todo-2026-10-04-two-small-engine-leftovers-from-the-produce`](todo-2026-10-04-two-small-engine-leftovers-from-the-produce.md) | Three small engine leftovers, found landing the 2026-10-04 Produce; none is wrong today. | 7d | wait |  |
 | [`todo-2026-10-05-decommission-left-three-dead-links`](todo-2026-10-05-decommission-left-three-dead-links.md) | Find out why the practice-set workflow template, retired on 2026-10-01, left three relative links to it. | 6d | ask | out of scope for the repo-maintenance fold that found it; the links themselves a… |
@@ -224,4 +224,3 @@ as_of: 2026-10-11
 |---|---|---|
 | [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 2026-09-19 |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2026-09-26 |
-| [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 2026-09-30 |
