@@ -135,10 +135,12 @@ CLI:
                                             suite on main here (full_check_after);
                                             --no-full-after when the person asked
                                             for a fast one. --fast is still taken.
-  precedent_branches.py --promote --to main --full
-                                            the old route, only when the person asks
-                                            for it: the full local suite, then
-                                            GitHub's test before the merge
+  precedent_branches.py --promote --to main --full --because '<their words>'
+                                            the long route, only when the person asks
+                                            for it or agrees to it, in their own
+                                            words (refused without --because): the
+                                            full local suite, then GitHub's test
+                                            before the merge
                                             4 (PROMOTE_ASKS) when --run-tests failed on
                                             staging's current commit: ask the person,
                                             and on a yes add --despite-failed-tests
@@ -4475,6 +4477,23 @@ def tier_for_push(root, args, user_config=None):
 
 
 FULL_FLAG = '--full'
+BECAUSE_FLAG = '--because'
+
+
+def full_route_refusal(kw):
+    """-> why `kw` (from promote_args) is refused, or None. The full route
+    into main is refused unless it carries the person's own words asking
+    for it or agreeing to it, in --because."""
+    if kw.get('fast', True):
+        return None
+    if (kw.get('because') or '').strip():
+        return None
+    return ('PROMOTE REFUSED: --full, the long way into main (the full local '
+            'suite before the merge, and GitHub\'s test waited on first), is '
+            'taken only when the person explicitly asks for it or agrees to it '
+            '(Morgan, 2026-10-11). Without that, run the move with no flag: '
+            'the quick checks, merge at once, and the tests after. If they '
+            'did ask, run again with --because \'<their own words>\'.')
 
 
 def promote_args(args):
@@ -4490,10 +4509,16 @@ def promote_args(args):
     day it took most of an hour for a two-file change. --full asks for the
     old route; --fast is still taken, and changes nothing. The flag only
     matters when the step is the move into main: a Promote into staging
-    is always fully checked."""
+    is always fully checked.
+
+    --full takes `--because '<the person's own words>'`, and without it is
+    refused by full_route_refusal: the long way is taken only when the
+    person agreed to it or asked for it, never on a session's own reading
+    (Morgan, 2026-10-11: "only do the long way when explicitly authorized
+    otherwise the short way with the tests after pushing it")."""
     rest, opts = list(args), {}
     while rest:
-        if len(rest) >= 2 and rest[0] in ('--to', '--work'):
+        if len(rest) >= 2 and rest[0] in ('--to', '--work', BECAUSE_FLAG):
             opts[rest[0][2:]] = rest[1]
             rest = rest[2:]
         elif rest[0] in ('--fast', FULL_FLAG, DESPITE_FLAG, NO_FULL_AFTER_FLAG):
@@ -4509,11 +4534,14 @@ def promote_args(args):
     if full and (opts.get('--fast') or opts.get(DESPITE_FLAG)
                  or opts.get(NO_FULL_AFTER_FLAG)):
         return None
+    if opts.get('because') is not None and not full:
+        return None
     if opts.get('to') == STAGING and (opts.get('--fast') or full
                                       or opts.get(DESPITE_FLAG)
                                       or opts.get(NO_FULL_AFTER_FLAG)):
         return None
     return {'to': opts.get('to'), 'work': opts.get('work'), 'fast': not full,
+            'because': opts.get('because'),
             'despite_failed_tests': bool(opts.get(DESPITE_FLAG)),
             'no_full_after': bool(opts.get(NO_FULL_AFTER_FLAG))}
 
@@ -4549,10 +4577,19 @@ def _main(argv):
         kw = promote_args(argv[1:])
         if kw is None:
             print('usage: precedent_branches.py --promote [--to staging|main] '
-                  '[--work BRANCH-OR-COMMIT] [--full | [--despite-failed-tests] '
-                  '[--no-full-after]]  (the move into main is the fast one '
-                  'unless --full)', file=sys.stderr)
+                  '[--work BRANCH-OR-COMMIT] [--full --because \'<their words>\' '
+                  '| [--despite-failed-tests] [--no-full-after]]  (the move into '
+                  'main is the fast one unless the person asks for --full)',
+                  file=sys.stderr)
             return 2
+        refused = full_route_refusal(kw)
+        if refused:
+            print(refused, file=sys.stderr)
+            return 2
+        because = kw.pop('because')
+        if because:
+            print(f'the full route into {MAIN}, because the person asked: '
+                  f'{because.strip()!r}', flush=True)
         return promote(root, **kw)
     if argv[:1] == ['--land'] and len(argv) <= 2:
         return land(root, argv[1] if len(argv) == 2 else None)
