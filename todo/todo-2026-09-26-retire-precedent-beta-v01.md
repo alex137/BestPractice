@@ -3,16 +3,16 @@ slug:              todo-2026-09-26-retire-precedent-beta-v01
 kind:              manual
 domain:            vendoring
 severity:          null
-status:            open
-disposition:       ask
-remind_on:         "2026-09-26"
+status:            done
+disposition:       wait
+remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Retired 2026-10-11: Promote no longer keeps the alias in step, and precedent.json no longer says it is kept. Deleting the branch on GitHub is Morgan's one click."
+decision_strength: decided
 waiting_on:        null
 noted:             2026-09-26
-closed:            null
+closed:            2026-10-11
 ---
 ## What
 
@@ -51,3 +51,17 @@ Then, in order:
 
 Deleting before step 1 lands makes the next Promote try to move a branch
 that is gone.
+
+**Closed 2026-10-11 (done).** Morgan: "finish the retirement now", after
+being shown that the branch still existed and Promote still carried the
+alias (strength: decided). The stated condition -- no install's refresh
+naming the old branch -- was not measured across installs; he chose to
+proceed without it. What was found first: the branch was last moved
+2026-10-09 and sat 207 commits behind `staging`, every commit on it already
+in `staging`, because the alias step had stopped firing once pre-staging
+retired. Steps 1 and 2 landed together (Promote's alias step, its rebuild
+and sync sources, and the `precedent.json` sentence); the old name stays
+recognized as a tier and protected from deletion offers, and
+`RETIRED_BRANCH_NAMES` still renames it in any install. Step 3 is
+Morgan's: delete it from the
+[branch list filtered to precedent-beta-v01](https://github.com/alex137/BestPractice/branches/all?query=precedent-beta-v01).

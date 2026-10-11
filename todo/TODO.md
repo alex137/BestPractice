@@ -136,7 +136,6 @@ as_of: 2026-10-11
 | [`todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally`](todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md) | `verify_harness (everything else)` has been failing on `precedent-beta-v01` itself, on one check, and every pull request | 19d | ask |  |
 | [`todo-2026-09-25-every-install-approves-its-workflows`](todo-2026-09-25-every-install-approves-its-workflows.md) | Every install still carries workflow files nobody has approved under ci-workflow-approved. | 16d | ask |  |
 | [`todo-2026-09-25-should-sets-run-the-reply-gate`](todo-2026-09-25-should-sets-run-the-reply-gate.md) | Should practice sets run the reply gate and the other consumer-only hooks? | 16d | ask |  |
-| [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 15d | ask |  |
 | [`todo-2026-09-29-planted-case-lives-beside-its-check`](todo-2026-09-29-planted-case-lives-beside-its-check.md) | Put each check's planted case beside the check, so there is no second file to forget. | 12d | wait | out of scope for the 2026-09-29 engine-fixes batch: it moves every planted case… |
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 11d | ask | Morgan: leave it above target for now and brainstorm another approach to the cut… |
 | [`todo-2026-10-01-in-force-nowhere-names-its-set`](todo-2026-10-01-in-force-nowhere-names-its-set.md) | Make every IN FORCE NOWHERE line name the set the rule lives in. | 10d | ask | a practice-format change (a new frontmatter field) that every practice set's che… |
@@ -222,5 +221,4 @@ as_of: 2026-10-11
 | Item | What | Due since |
 |---|---|---|
 | [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 2026-09-19 |
-| [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2026-09-26 |
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 2026-09-30 |

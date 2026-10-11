@@ -169,11 +169,10 @@ import time
 PRE_STAGING = 'pre-staging'
 STAGING = 'staging'
 # The staging branch's name until 2026-09-25, in the Precedent repositories.
-# Kept on origin, and fast-forwarded to staging by every Promote, so an
-# install still pinned to it takes one more update from it -- onto an
-# engine that names staging -- and then follows staging. Work pushed there
-# by a session that has not moved yet is merged into pre-staging by the
-# sync, never lost (spec/BRANCH_TIERS_PLAN.md, step 10).
+# Promote stopped keeping it in step on 2026-10-11, when Morgan retired it
+# (todo-2026-09-26-retire-precedent-beta-v01). The name is still recognized
+# as a tier and never offered for deletion, because an install may still
+# declare it as its base branch until its next Update Vendors renames it.
 LEGACY_STAGING = 'precedent-beta-v01'
 MAIN = 'main'
 BASIC = 'basic'
@@ -979,8 +978,7 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
     both exist (or were just made), 1 when something is missing and
     `apply` is off, or could not be made.
 
-    A missing staging is made from the old name kept in step with it, else
-    from pre-staging, else from main; a missing pre-staging is made from
+    A missing staging is made from pre-staging, else from main; a missing pre-staging is made from
     staging. A repository whose staging tier is main (base_branch "main", no
     staging_branch) gains a `staging` branch the same way, and its
     precedent.json gains `"staging_branch": "staging"` -- written here,
@@ -1024,24 +1022,21 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
             ' -- run `python3 tools/precedent_branches.py --ensure-tiers --apply`.')
         return 1
     if wants_staging_branch or not _remote_tip(root, staging):
-        # A staging branch that has gone missing is rebuilt from the old
-        # name kept in step with it, else from main. 2026-09-26:
+        # A staging branch that has gone missing is rebuilt from
+        # pre-staging, else from main. 2026-09-26:
         # staging was deleted right after a pull request FROM staging into
         # main was merged (cause not established), and this looked for staging
         # itself to rebuild it from, found nothing and gave up. Right after
         # such a merge, main contains staging exactly.
         #
-        # Then from pre-staging, and only then from main (Morgan,
+        # From pre-staging, and only then from main (Morgan,
         # 2026-09-27, strength: decided: "copying the latest from
         # pre-staging to staging or vice versa and if neither exist then
         # copying to both the latest from main"). What lands on staging this
         # way has not had staging's full check, and it gets it on the way to
         # main: a Promote into main runs the full check on anything it has
         # not seen pass.
-        if (not wants_staging_branch and staging != LEGACY_STAGING
-                and _remote_tip(root, LEGACY_STAGING)):
-            src = LEGACY_STAGING
-        elif _remote_tip(root, PRE_STAGING):
+        if _remote_tip(root, PRE_STAGING):
             src = PRE_STAGING
         else:
             src = MAIN
@@ -2377,11 +2372,6 @@ def sync_pre_staging(root, say=print, check=False):
         return True
     _run(root, 'fetch', '-q', 'origin', PRE_STAGING)
     sources = [(staging, stip)]
-    if staging != LEGACY_STAGING:
-        ltip = _remote_tip(root, LEGACY_STAGING)
-        if ltip:
-            _run(root, 'fetch', '-q', 'origin', LEGACY_STAGING)
-            sources.append((LEGACY_STAGING, ltip))
     if staging != MAIN:
         mtip = _remote_tip(root, MAIN)
         if mtip:
@@ -3812,12 +3802,11 @@ def _compose(root, wt, parts, staging, say):
 
 
 def _from_above(root, staging, stip):
-    """-> [(branch, tip, commits)] for main, and staging's old name while it
-    exists, wherever its tip brings `stip` (staging's tip) a file change: the
-    work that reached them directly, without climbing. Fetches each."""
+    """-> [(branch, tip, commits)] for main, wherever its tip brings `stip`
+    (staging's tip) a file change: the work that reached it directly,
+    without climbing. Fetches it."""
     above = []
-    for branch in ((MAIN,) if staging != MAIN else ()) + (
-            (LEGACY_STAGING,) if staging != LEGACY_STAGING else ()):
+    for branch in ((MAIN,) if staging != MAIN else ()):
         tip = _remote_tip(root, branch)
         if tip:
             _run(root, 'fetch', '-q', 'origin', branch)
@@ -3986,7 +3975,6 @@ def _promote_unlocked(root, say=print, work=None):
     say(f'{staging} and {PRE_STAGING} are both at {new[:12]} now.')
     for line in review:
         say(line)
-    _mirror_legacy(root, staging, new, say)
     _verdict(f'PROMOTED at {new} ({staging} and {PRE_STAGING} are both there)',
              move=f'{staging} <- {PRE_STAGING}')
     return 0
@@ -4088,28 +4076,6 @@ def _raced(root, say, staging, stip, ptip, new, p):
         return 1
     say(f'the push was refused, so nothing moved: {p.stderr.strip()[:300]}')
     return 1
-
-
-def _mirror_legacy(root, staging, new, say):
-    """Fast-forward the pre-rename name to what staging now holds, while it
-    exists. Never forced: the sync has already merged anything pushed there
-    into pre-staging, so a legacy tip that is not an ancestor means someone
-    pushed to it during this Promote, and it is said rather than overwritten."""
-    if staging == LEGACY_STAGING:
-        return
-    ltip = _remote_tip(root, LEGACY_STAGING)
-    if not ltip or ltip == new:
-        return
-    _run(root, 'fetch', '-q', 'origin', LEGACY_STAGING)
-    if _run(root, 'merge-base', '--is-ancestor', ltip, new).returncode != 0:
-        say(f'NOTE: {LEGACY_STAGING} has commits {staging} lacks, so it was not '
-            f'moved; the next Promote brings them in through {PRE_STAGING}.')
-        return
-    p = _run(root, 'push', '-q', 'origin', f'{new}:refs/heads/{LEGACY_STAGING}')
-    if p.returncode == 0:
-        say(f'also moved {LEGACY_STAGING} to it, for installs still pinned to the old name.')
-    else:
-        say(f'NOTE: could not move {LEGACY_STAGING}: {p.stderr.strip()[:200]}')
 
 
 # --land: WORK LANDS ON STAGING, RECONCILED WITH MAIN (2026-10-09). For a

@@ -318,7 +318,7 @@
   "check_promote_composes_main_and_moves_both_tiers": 26.8,
   "check_promote_ends_with_its_result_line": 3.4,
   "check_promote_into_main_exits_nonzero_until_main_moves": 2.5,
-  "check_promote_keeps_the_old_name_in_step": 2.4,
+  "check_promote_leaves_the_retired_old_name_alone": 2.4,
   "check_promote_marks_other_sessions_commits": 0.2,
   "check_promote_names_a_binary_conflict": 0.7,
   "check_promote_only_and_tier_branches": 0.9,

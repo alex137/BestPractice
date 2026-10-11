@@ -36213,14 +36213,14 @@ def check_promote_only_and_tier_branches():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
-def check_promote_keeps_the_old_name_in_step():
-    """precedent-beta-v01 was renamed staging on 2026-09-25, and the old name
-    is kept on origin while installs pinned to it catch up
-    (spec/BRANCH_TIERS_PLAN.md, step 10). Two things keep it safe: a Promote
-    moves the old name along with staging, and work a not-yet-moved session
-    pushes to the old name is merged into pre-staging, never lost."""
+def check_promote_leaves_the_retired_old_name_alone():
+    """precedent-beta-v01 was renamed staging on 2026-09-25 and kept in step
+    by every Promote until Morgan retired it on 2026-10-11
+    (todo-2026-09-26-retire-precedent-beta-v01). A Promote now leaves it
+    exactly where it is and says nothing about it, so the branch can be
+    deleted without the next Promote reaching for it."""
     import tempfile, json as _json, shutil as _shutil
-    name = 'Promote keeps precedent-beta-v01 in step with staging, and loses nothing pushed to it'
+    name = 'Promote leaves the retired precedent-beta-v01 where it is'
     if not (ROOT / 'tools' / 'precedent_branches.py').exists():
         not_applicable(name, 'tools/precedent_branches.py is absent')
         return
@@ -36273,18 +36273,13 @@ def check_promote_keeps_the_old_name_in_step():
             git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
 
         branches('--sync-pre-staging')
-        commit_to('precedent-beta-v01', 'old.txt', 'pushed under the old name')
-        rc, out = branches('--sync-pre-staging', '--check')
-        git(work, 'fetch', '-q', 'origin')
-        cases.append(('work pushed to the old name is merged into pre-staging',
-                      rc == 0 and git(work, 'merge-base', '--is-ancestor',
-                                      'origin/precedent-beta-v01',
-                                      'origin/pre-staging').returncode == 0))
+        old = tip('precedent-beta-v01')
         commit_to('pre-staging', 'new.txt', 'window work')
         rc, out = branches('--promote')
-        cases.append(('Promote moves staging, and the old name to the same commit',
-                      rc == 0 and tip('staging') == tip('precedent-beta-v01')
-                      and 'for installs still pinned to the old name' in out))
+        cases.append(('Promote moves staging and leaves the old name where it was',
+                      rc == 0 and tip('staging') != old
+                      and tip('precedent-beta-v01') == old
+                      and 'precedent-beta-v01' not in out))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -74731,7 +74726,7 @@ def main():
     check_empty_commits_are_never_counted()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
-    check_promote_keeps_the_old_name_in_step()
+    check_promote_leaves_the_retired_old_name_alone()
     check_sync_copies_work_from_above_once_checked()
     check_promote_composes_main_and_moves_both_tiers()
     check_main_test_cadence()
