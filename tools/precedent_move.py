@@ -985,9 +985,10 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         new_text, rehomed = _rehome_sibling_links(new_text, dest.parent)
         if to_level == 'universal' and 'install' not in sections:
             # Every universal practice carries ## Rule, ## Why, ## Story and
-            # ## Install, and the harness (check_practice_sections_present)
-            # fails a draft without the last while every fast check passes
-            # it -- found 2026-09-28, drafting one. The heading goes in here
+            # ## Install, and a draft without the last used to pass every
+            # fast check and fail only the harness -- found 2026-09-28,
+            # drafting one; precedent_check.py's practice-file-shape refuses
+            # it at the push since 2026-10-11. The heading goes in here
             # rather than a refusal: an empty section is legal, and what
             # belongs in it is the person's to write, which the disclosure
             # below says.
