@@ -3064,7 +3064,7 @@ def _drifted_from_above(root):
 # start with the timestamps then the slug then a few random characters? ...
 # let's do that"). The fix branch and the copy a pull request into main
 # comes from were named promote-fix-DATE and to-main-DATE, outside the
-# <date>-<slug>-<id> format every other temporary branch takes from
+# <date>-<slug>-<session>-<random> format every other temporary branch takes from
 # tools/precedent_branch_name.py, so they led back to no session. They are
 # named by that tool now. The old names are still RECOGNIZED -- a branch
 # already on origin, an engine copy elsewhere -- by the is_* functions below,
@@ -3114,9 +3114,11 @@ def _day_and_moment(root):
 
 
 def promote_branch_name(root, slug, taken):
-    """-> <date>-<slug>-<session ID's end> from precedent_branch_name.py
-    (random characters where there is no session ID, more where the name is
-    taken), or None when that tool cannot be loaded."""
+    """-> <date>-<slug>-<session ID's end>-<random> from
+    precedent_branch_name.py (random characters in the session part too
+    where there is no session ID), or None when that tool cannot be loaded.
+    Every copy carries the random part since 2026-10-11, so a session's
+    second Promote of the day no longer gets a longer name than its first."""
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
         import precedent_branch_name as pbn
@@ -3766,7 +3768,7 @@ FIX_PREFIX = 'promote-fix-'
 
 def _fix_branch(root):
     """A fresh fix-branch name, in the session-branch format: e.g.
-    2026-10-06-promote-fix-y1ktn (promote_branch_name says why).
+    2026-10-11-promote-fix-y1ktn-q7m2x (promote_branch_name says why).
     The old promote-fix-DATE only where the naming tool cannot be loaded."""
     def taken(name):
         return bool(_remote_tip(root, name)) or _run(
