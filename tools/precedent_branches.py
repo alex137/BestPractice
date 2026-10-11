@@ -121,18 +121,24 @@ CLI:
   precedent_branches.py --drift             what staging and main carry that pre-staging
                                             lacks, checked or not (the session-start note)
   precedent_branches.py --promote [--to staging|main] [--work BRANCH]
-                                            pre-staging into staging, or staging into
-                                            main, fully checked; says which first.
-                                            0 moved or nothing to move, 1 refused,
-                                            3 main not moved yet (its pull request
-                                            is still to open, test and merge)
-  precedent_branches.py --promote --to main --fast [--despite-failed-tests] [--no-full-after]
+                                            pre-staging into staging, fully checked,
+                                            or staging into main, the fast way (below);
+                                            says which first. 0 moved or nothing to
+                                            move, 1 refused, 3 main not moved yet
+                                            (its pull request is still to open and
+                                            merge)
+  precedent_branches.py --promote --to main [--despite-failed-tests] [--no-full-after]
                                             staging into main with the quick checks
-                                            only; GitHub's test runs after the merge,
+                                            only, the default (Morgan, 2026-10-11);
+                                            GitHub's test runs after the merge,
                                             or, when it is not due, the full local
                                             suite on main here (full_check_after);
                                             --no-full-after when the person asked
-                                            for a fast one
+                                            for a fast one. --fast is still taken.
+  precedent_branches.py --promote --to main --full
+                                            the old route, only when the person asks
+                                            for it: the full local suite, then
+                                            GitHub's test before the merge
                                             4 (PROMOTE_ASKS) when --run-tests failed on
                                             staging's current commit: ask the person,
                                             and on a yes add --despite-failed-tests
@@ -724,7 +730,7 @@ def direct_push_refusal(root, args, user_config=None):
                 f'only by promotion here -- {PROMOTE_ONLY_SETTING} is on in '
                 f'{where}. Your work lands on {staging} (`{LAND_COMMAND}`); '
                 f'then promote it into {MAIN}: '
-                f'`python3 tools/precedent_branches.py --promote --to {MAIN} --fast`.')
+                f'`python3 tools/precedent_branches.py --promote --to {MAIN}`.')
     return (f'{" and ".join(hit)} take{"s" if len(hit) == 1 else ""} work only '
             f'by promotion here -- {PROMOTE_ONLY_SETTING} is on in {where}. '
             f'Push to {PRE_STAGING} instead (`git push origin HEAD:{PRE_STAGING}`), '
@@ -3369,7 +3375,8 @@ def _promote_to_main(root, say=print, work=None, fast=False,
 
 
 # THE FAST MOVE INTO MAIN (2026-10-09, the approved plan that makes the
-# move into main fast for whoever asks for it). The full local suite is not run: it is --run-tests, asked
+# move into main fast for whoever asks for it; the default since
+# 2026-10-11, promote_args). The full local suite is not run: it is --run-tests, asked
 # for when wanted. This runs the quick checks on the change, builds the copy
 # for the pull request exactly as the full move does (main_copy_tip: staging
 # merged into main, so nothing that reached main directly is dropped), and
@@ -4467,6 +4474,50 @@ def tier_for_push(root, args, user_config=None):
     return BASIC, tiers[0][1]
 
 
+FULL_FLAG = '--full'
+
+
+def promote_args(args):
+    """-> the keyword arguments --promote's `args` ask promote() for, or None
+    for a usage error.
+
+    THE MOVE INTO MAIN IS THE FAST ONE UNLESS THE PERSON ASKS FOR THE FULL
+    ONE (Morgan, 2026-10-11, strength: decided: "I think we should default
+    to the fast route unless I explicitly agree to or request the slow
+    route"). The slow route had stayed the default after the fast one was
+    built, so a Produce run as the practice wrote it, with no flag, ran the
+    full suite before the merge and waited on GitHub's test as well; that
+    day it took most of an hour for a two-file change. --full asks for the
+    old route; --fast is still taken, and changes nothing. The flag only
+    matters when the step is the move into main: a Promote into staging
+    is always fully checked."""
+    rest, opts = list(args), {}
+    while rest:
+        if len(rest) >= 2 and rest[0] in ('--to', '--work'):
+            opts[rest[0][2:]] = rest[1]
+            rest = rest[2:]
+        elif rest[0] in ('--fast', FULL_FLAG, DESPITE_FLAG, NO_FULL_AFTER_FLAG):
+            opts[rest[0]] = True
+            rest = rest[1:]
+        else:
+            return None
+    full = bool(opts.get(FULL_FLAG))
+    if opts.get('--fast') and 'to' not in opts:
+        opts['to'] = MAIN
+    if opts.get('to', STAGING) not in (STAGING, MAIN):
+        return None
+    if full and (opts.get('--fast') or opts.get(DESPITE_FLAG)
+                 or opts.get(NO_FULL_AFTER_FLAG)):
+        return None
+    if opts.get('to') == STAGING and (opts.get('--fast') or full
+                                      or opts.get(DESPITE_FLAG)
+                                      or opts.get(NO_FULL_AFTER_FLAG)):
+        return None
+    return {'to': opts.get('to'), 'work': opts.get('work'), 'fast': not full,
+            'despite_failed_tests': bool(opts.get(DESPITE_FLAG)),
+            'no_full_after': bool(opts.get(NO_FULL_AFTER_FLAG))}
+
+
 def _main(argv):
     root = _git(pathlib.Path.cwd(), 'rev-parse', '--show-toplevel')
     if not root:
@@ -4495,30 +4546,14 @@ def _main(argv):
             print(line)
         return 0
     if argv[:1] == ['--promote']:
-        rest, opts = argv[1:], {}
-        while rest:
-            if len(rest) >= 2 and rest[0] in ('--to', '--work'):
-                opts[rest[0][2:]] = rest[1]
-                rest = rest[2:]
-            elif rest[0] in ('--fast', DESPITE_FLAG, NO_FULL_AFTER_FLAG):
-                opts[rest[0]] = True
-                rest = rest[1:]
-            else:
-                break
-        fast = bool(opts.get('--fast'))
-        if fast and 'to' not in opts:
-            opts['to'] = MAIN
-        if rest or opts.get('to', STAGING) not in (STAGING, MAIN) or (
-                fast and opts['to'] != MAIN) or (
-                (opts.get(DESPITE_FLAG) or opts.get(NO_FULL_AFTER_FLAG)) and not fast):
+        kw = promote_args(argv[1:])
+        if kw is None:
             print('usage: precedent_branches.py --promote [--to staging|main] '
-                  '[--work BRANCH-OR-COMMIT] [--fast [--despite-failed-tests] '
-                  '[--no-full-after]]'
-                  '  (--fast is the move into main)', file=sys.stderr)
+                  '[--work BRANCH-OR-COMMIT] [--full | [--despite-failed-tests] '
+                  '[--no-full-after]]  (the move into main is the fast one '
+                  'unless --full)', file=sys.stderr)
             return 2
-        return promote(root, to=opts.get('to'), work=opts.get('work'),
-                       fast=fast, despite_failed_tests=bool(opts.get(DESPITE_FLAG)),
-                       no_full_after=bool(opts.get(NO_FULL_AFTER_FLAG)))
+        return promote(root, **kw)
     if argv[:1] == ['--land'] and len(argv) <= 2:
         return land(root, argv[1] if len(argv) == 2 else None)
     if argv[:1] == ['--run-tests'] and len(argv) <= 2:
