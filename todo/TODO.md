@@ -222,7 +222,6 @@ as_of: 2026-10-11
 
 | Item | What | Due since |
 |---|---|---|
-| [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 2026-09-19 |
 | [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 2026-09-19 |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2026-09-26 |
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 2026-09-30 |
