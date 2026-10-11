@@ -51571,6 +51571,83 @@ print(json.dumps(out))
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_leak_gate_reads_other_clones_as_themselves_inside_a_hook():
+    """Inside a git hook the leak gate still reads every other clone as
+    itself, lets a repository name itself, and says where the push goes.
+
+    2026-10-10, a private consumer: a push wrote the repository's own name
+    into one of its files and the gate refused it as a "private repository
+    name"; it said "Precedent is a branch of a PUBLIC repo" of a private
+    one; and it gave the blocklist clone's HEAD as the commit being pushed.
+    A git hook sets GIT_DIR, and every `git -C <other clone>` then answered
+    about the repository being pushed. The fixture sets GIT_DIR as a hook
+    does: a sibling clone's private name must still be caught.
+    """
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        base = {**_fixture_git_env(), 'GIT_CONFIG_GLOBAL': str(tmp / 'gitconfig'),
+                'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        def g(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=base)
+        clones = tmp / 'clones'
+        def clone(name, files):
+            d = clones / name
+            d.mkdir(parents=True)
+            g(d, 'init', '-q', '-b', 'main')
+            g(d, 'remote', 'add', 'origin', f'https://github.com/acme/{name}.git')
+            for rel, text in files.items():
+                (d / rel).parent.mkdir(parents=True, exist_ok=True)
+                (d / rel).write_text(text, encoding='utf-8')
+            g(d, 'add', '-A'); g(d, 'commit', '-qm', f'{name} base')
+            return d
+        blk = clone('blocks', {'leak-blocklist.txt':
+            '# visibility-audit: private-owner acme -- every repo private\n'
+            '# visibility-audit: auto-cover-bare-names on -- names must not leak\n'
+            'zzfixturetermzz\n'})
+        (blk / 'note.txt').write_text('second\n', encoding='utf-8')
+        g(blk, 'add', '-A'); g(blk, 'commit', '-qm', 'second')
+        blk_head = g(blk, 'log', '-1', '--format=%h').stdout.strip()
+        clone('hiddenproj', {'a.txt': 'x\n'})
+        work = clone('ownrepo', {})
+        (work / 'tools').mkdir()
+        for f in ('leak_gate.py', 'leak-blocklist.default.txt'):
+            shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'tools')
+        start = g(work, 'rev-parse', 'HEAD').stdout.strip()
+        hook_env = dict(base, GIT_DIR=str(work / '.git'),
+                        PRECEDENT_LEAK_BLOCKLIST=str(blk / 'leak-blocklist.txt'))
+        def gate(rev):
+            return subprocess.run([sys.executable, 'tools/leak_gate.py', '--range',
+                                   f'{start}..{rev}'], cwd=str(work), env=hook_env,
+                                  capture_output=True, text=True, timeout=120)
+        (work / 'own.md').write_text('This is the ownrepo notes file.\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'own name')
+        r = gate('HEAD')
+        cases.append(('a repository writing its own name is not refused',
+                      r.returncode == 0, (r.stdout + r.stderr)[-500:]))
+        (work / 'other.md').write_text('See hiddenproj for the rest.\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'other name')
+        pushed = g(work, 'log', '-1', '--format=%h').stdout.strip()
+        r = gate('HEAD')
+        out = r.stdout + r.stderr
+        cases.append(('THE DISCRIMINATING CASE: inside a hook, a sibling private '
+                      'clone\'s name is still caught', r.returncode != 0
+                      and 'private repository name "hiddenproj"' in out, out[-600:]))
+        cases.append(('the failure says this repository is private, not that a '
+                      'push to it is a publication', 'acme/ownrepo is private' in out
+                      and 'PUBLIC' not in out, out[-400:]))
+        cases.append(('the blocklist clone\'s HEAD is its own, not the pushed commit',
+                      f'HEAD {blk_head}' in out and f'HEAD {pushed}' not in out,
+                      out[-400:]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the leak gate reads other clones as themselves inside a hook '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_landed_check_names_the_tier_that_ran():
     """After a merge, the line says whether the base moved from the trees,
     and names the check that actually ran.
@@ -73895,6 +73972,7 @@ def main():
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
+    check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
     check_landers_wait_their_turn_for_the_lock()
     check_a_failure_item_lists_the_index_it_creates()
