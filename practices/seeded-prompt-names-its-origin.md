@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "No locus, and for a sharper reason than most: what triggers it is a harness call, not a file. The obligation lands entirely inside an argument to create_session or create_trigger, and nothing about it is ever written to the tree -- so there is no path whose editing means 'you should have declared where this prompt came from'. Reached through the occasion index alone. Decided: 2026-09-12, when the practice landed."
-occasion:    "seeding or scheduling a prompt into another session"
+occasion:    "seeding or scheduling a prompt into another session, or handing a person paste-ready text to carry into one"
 gates:       []
 gates_why:   "No gate. The moment is the harness call, which is not one of merge, review, push or reply -- a session can seed a prompt in the middle of any of them, and pinning it to the reply gate would miss every spawn that happens mid-turn."
 index_clause: "line 1 names the session that sent it, line 2 the session it is for"
@@ -32,6 +32,11 @@ approved_by: "Morgan, 2026-09-12 -- asked for the behaviour in his own words aft
   Amended 2026-09-23 again, adding the sending-side gate: proposed by this
   session as a hook refusing an unlabelled prompt; Morgan: \"On your 3
   suggestions, I love them, let's do them.\" (strength: decided).
+  Amended 2026-10-11, this session's call on a relayed report: the
+  occasion names the paste-ready case, and the reply check recognizes a
+  block by any From or For line naming a session, or by a \"Paste into:\"
+  line naming one, and holds the From line to saying a session wrote it
+  (strength: assented -- the rule already asked for all of it).
   Amended 2026-10-10, adding the second line, after a session handed him a
   reply block that named its sender and not where it was going: \"Every
   prompt you give me should have BOTH at the top: the session sending it,
@@ -70,7 +75,8 @@ says the same outside the block, in one plain sentence (*"Paste this into
 because the person copies the block without reading it
 ([prompt-please](prompt-please.md)). The reply check refuses a paste block
 that lacks either line, or puts them anywhere but first
-(`prompt-block-names-both-ends` in `reply_check.json`).
+(`prompt-block-names-both-ends` in `reply_check.json`), and the From
+line has to say a session wrote it: a title and a link alone do not.
 
 **A prompt asserting what a person said carries this twice as hard.** *"Morgan
 has authorized X"* is a claim about a human being, made by software, and naming
@@ -291,3 +297,18 @@ repository it worked in, so no end-of-turn check ran at all. Morgan:
 it, and what session it is for."* So the For line moved here, beside the
 From line, required in every prompt, and the check reads both shapes of
 sender line.
+
+**2026-10-11: the check that never looked.** A session in a consuming
+repository, writing a prompt for a new session here, opened it with
+*"From: <its title> (<its link>)"* and *"For: a new BestPractice
+session"*: no words saying a session wrote it, and a For line that names
+no repository to root in. The reply check let it through without reading
+it, because it only judged a block that already looked like one of the
+shapes it knew -- a From line with a quoted title, or a For line saying
+"the session" or "a new session". This one said neither, so the check
+never knew it was a prompt. Separately, the occasion named only seeding
+and scheduling, so a session handing a person paste-ready text never saw
+this rule in its index. Now the occasion names that case, and the check
+counts a block as a prompt when any From or For line names a session, or
+when the reply's own "Paste into:" line above it names one. The From line
+also has to say a session wrote it, which the Rule had asked for all along.
