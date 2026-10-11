@@ -1640,6 +1640,33 @@ def _full_check_owed(root=None):
         return []
 
 
+def _consume_turn_start(root=None):
+    """A reply that passes has given its delete link for every branch that
+    landed; take those branches off the turn-start record, so each is asked
+    about once. A branch not landed yet stays. Never raises.
+
+    WHY (2026-10-10). The record is written at a turn's start by the
+    UserPromptSubmit hook. A session rooted above its repositories runs no
+    hook, so the one record, written that morning, was read as "this turn's
+    start" all day: every reply after was refused for owing a delete link to
+    a branch merged hours before. With hooks, each turn writes a fresh one
+    anyway; without them, an answered branch is now gone from it."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
+        done = {(r, b) for r, b, _ in _landed_this_turn(root)}
+        if not done:
+            return
+        f = _pg._turn_start_file(root)
+        recs = json.loads(f.read_text(encoding='utf-8')) if f and f.is_file() else []
+        keep = [x for x in recs if isinstance(x, dict)
+                and (x.get('repo'), x.get('branch')) not in done]
+        _pg.record_turn_start_unlanded(root, keep)
+    except Exception:                                         # noqa: BLE001
+        pass
+
+
 def _landed_this_turn(root=None):
     """-> [(repo, branch, base)] for each branch the reply gate recorded as
     not landed at this turn's start (precedent_gate.record_turn_start_unlanded)
@@ -1954,6 +1981,7 @@ def main():
     bad = [b for b in violations(text, reqs, timeline, wake, prompt)
            if not b.get('advisory')]
     if not bad:
+        _consume_turn_start()
         return 0
     # The reply that was just refused has ALREADY been shown to the person --
     # a Stop hook cannot un-show it. So the only correct repair is to emit the

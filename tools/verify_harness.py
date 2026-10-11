@@ -54779,6 +54779,17 @@ def check_landed_branch_gets_its_delete_link():
         r3 = replycheck('next.md', bare)
         cases.append(('the next turn, which began with it landed, asks nothing',
                       r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:200]}'))
+        # 2026-10-10: with no hook to write a fresh record each turn (a
+        # session rooted above its repositories), the record written before
+        # the landing stays on disk, and every later reply owed the link
+        # again. A passing reply that gave it takes the branch off.
+        pg.record_turn_start_unlanded(repo, recs)
+        r4 = replycheck('linked-again.md', linked)
+        r5 = replycheck('later.md', bare)
+        cases.append(('THE DISCRIMINATING CASE: with no fresh record, a link given once '
+                      'is not owed again in a later reply',
+                      r4.returncode == 0 and r5.returncode == 0,
+                      f'exit {r4.returncode}/{r5.returncode}: {r5.stderr[:200]}'))
         src = (ROOT / 'tools' / 'precedent_gate.py').read_text(encoding='utf-8')
         cases.append(('the reply gate writes the turn start',
                       'record_turn_start_unlanded(root, _records)' in src, ''))
