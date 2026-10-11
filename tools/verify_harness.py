@@ -51126,6 +51126,63 @@ def check_update_stages_what_a_late_step_writes():
     check(f'Update Vendors stages what a late step writes ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_global_hooks_are_never_downgraded():
+    """An engine never replaces the global hooks a newer engine wrote.
+
+    2026-10-10: every repository's session start rewrites the one global
+    hooks directory, so the last to start wins, and one with an older
+    engine put back the plain pre-push -- the leak gate and the failed-tree
+    refusal stopped running on every push. The writer now records
+    GLOBAL_HOOKS_VERSION and leaves a newer directory alone.
+    """
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        (tmp / 'home').mkdir()
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        work = tmp / 'work'
+        env = {**_fixture_git_env(), 'HOME': str(tmp / 'home'),
+               'GIT_CONFIG_GLOBAL': str(tmp / 'gitconfig')}
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)], env=env,
+                       capture_output=True)
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+
+        def install():
+            return subprocess.run(
+                ['bash', str(ROOT / 'tools' / 'commit-identity.sh')],
+                capture_output=True, text=True, timeout=120,
+                env=dict(env, CLAUDE_PROJECT_DIR=str(work),
+                         PRECEDENT_COMMIT_NAME='T', PRECEDENT_COMMIT_EMAIL='t@example.com',
+                         PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                         PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                         PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+        stamp = hooks / '.precedent-hooks-version'
+        (hooks / 'pre-push').write_text('#!/bin/sh\n# a newer engine wrote this\n')
+        stamp.write_text('29991231\n')
+        r = install()
+        cases.append(('THE DISCRIMINATING CASE: a newer engine\'s hooks are left as they are, '
+                      'and it says so', 'a newer engine wrote this' in (hooks / 'pre-push').read_text()
+                      and 'written by a newer engine' in r.stderr, r.stderr[-400:]))
+        (hooks / 'pre-push').write_text('#!/bin/sh\n# an older engine wrote this\n')
+        stamp.write_text('20200101\n')
+        install()
+        pp = (hooks / 'pre-push').read_text()
+        cases.append(('an older engine\'s hooks are replaced with this one\'s',
+                      'an older engine wrote this' not in pp and 'leak gate' in pp, pp[:200]))
+        cases.append(('the directory records this engine\'s version',
+                      stamp.read_text().strip().isdigit()
+                      and int(stamp.read_text()) > 20200101, stamp.read_text()))
+        stamp.unlink()
+        (hooks / 'pre-push').write_text('#!/bin/sh\n# no stamp at all\n')
+        install()
+        cases.append(('a directory with no stamp (an engine older than it) is rewritten',
+                      'no stamp at all' not in (hooks / 'pre-push').read_text(), ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the global hooks are never downgraded ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_one_list_declares_a_record():
     """precedent.json's record_paths is the one list of records: the
     retired-names scrub reads it too, and Update Vendors moves a flagged
@@ -74034,6 +74091,7 @@ def main():
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
     check_update_stages_what_a_late_step_writes()
+    check_global_hooks_are_never_downgraded()
     check_landers_wait_their_turn_for_the_lock()
     check_a_failure_item_lists_the_index_it_creates()
     check_global_pre_push_refuses_a_tree_the_check_failed()
