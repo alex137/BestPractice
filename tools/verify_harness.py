@@ -70443,6 +70443,21 @@ def check_session_sweep_reports_the_repo_half():
         (work / 'scratch.txt').write_text('never committed\n')
         dirty = vdc.recent_activity(work, 14) or {}
         wide = vdc.recent_activity(work, 500) or {}
+        # A file this run writes itself is not somebody's lost work when the
+        # run made it dirty (2026-10-11: the branch page the run had just
+        # written was reported as uncommitted work). One already dirty
+        # before the run still is.
+        (work / 'scratch.txt').unlink()
+        (work / 'record').mkdir(exist_ok=True)
+        (work / 'record' / 'stale_branches.md').write_text('old\n')
+        _git(work, 'add', '-A'); _git(work, 'commit', '-qm', 'page')
+        vdc._snapshot_dirty(work)
+        (work / 'record' / 'stale_branches.md').write_text('this run\n')
+        own = vdc.recent_activity(work, 14) or {}
+        (work / 'scratch.txt').write_text('never committed\n')
+        vdc._snapshot_dirty(work)
+        theirs = vdc.recent_activity(work, 14) or {}
+        vdc._DIRTY_AT_START.pop(str(work.resolve()), None)
 
         results = [
             ('a branch pushed inside the window is reported',
@@ -70460,6 +70475,10 @@ def check_session_sweep_reports_the_repo_half():
              dirty.get('dirty') == 1),
             ('and a clean tree is reported as clean, not as unknown',
              act.get('dirty') == 0),
+            ('a file this run wrote itself is not counted as lost work',
+             own.get('dirty') == 0),
+            ('work that was uncommitted before the run still is',
+             theirs.get('dirty') == 2),
         ]
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check reports the repo half of the session '

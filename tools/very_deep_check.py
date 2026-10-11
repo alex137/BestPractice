@@ -5429,6 +5429,59 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
             'path': str(repo_dir)}
 
 
+# Files a run of this tool writes into the checkout it reads, as paths
+# relative to its root. Each is somebody's uncommitted work only if it was
+# already uncommitted before the run started (_snapshot_dirty): on
+# 2026-10-11 the LIVE SESSIONS section reported the branch page this same
+# run had just written as "work that exists in no commit at all".
+RUN_OUTPUTS = ('record/stale_branches.md', 'record/very-deep-check-ledger.json',
+               'spec/VERY_DEEP_CHECK.md')
+
+_DIRTY_AT_START = {}
+
+
+def _porcelain_paths(repo_dir):
+    """-> the set of uncommitted paths (changed, staged or untracked), or
+    None. Read from `git status --porcelain -z`: two status letters, a
+    space, the path. _run_git strips its output, which takes the leading
+    space off the first record's status, so each record is split at the
+    space that ends its status rather than at a fixed column."""
+    rc, out, _ = _run_git(repo_dir, 'status', '--porcelain', '-z')
+    if rc != 0:
+        return None
+    paths, recs, i = set(), out.split('\0'), 0
+    while i < len(recs):
+        rec, i = recs[i], i + 1
+        if not rec.strip():
+            continue
+        head, path = (rec[:2], rec[3:]) if rec[0] == ' ' \
+            else rec.split(' ', 1) if ' ' in rec else (rec, '')
+        if path:
+            paths.add(path)
+        if 'R' in head or 'C' in head:
+            i += 1   # a rename's source path follows as its own record
+    return paths
+
+
+def _snapshot_dirty(repo_dir):
+    """Record what was uncommitted in `repo_dir` before this run wrote."""
+    _DIRTY_AT_START[str(pathlib.Path(repo_dir).resolve())] = \
+        _porcelain_paths(repo_dir)
+
+
+def _dirty_not_ours(repo_dir):
+    """-> how many uncommitted paths `repo_dir` holds, leaving out a
+    RUN_OUTPUTS file this run made dirty itself; None when git cannot say."""
+    now = _porcelain_paths(repo_dir)
+    if now is None:
+        return None
+    key = str(pathlib.Path(repo_dir).resolve())
+    if key in _DIRTY_AT_START and _DIRTY_AT_START[key] is not None:
+        ours = set(RUN_OUTPUTS) - _DIRTY_AT_START[key]
+        now = now - ours
+    return len(now)
+
+
 def recent_activity(repo_dir, days):
     """-> what landed in one repo inside the last `days`, as the repo half of
     the live-session sweep:
@@ -5512,8 +5565,7 @@ def recent_activity(repo_dir, days):
     out['branches'].sort(key=lambda r: (r['last'], r['name']), reverse=True)
     # Uncommitted and unpushed work in THIS checkout is the same failure one
     # step earlier, and it is the cheapest thing here to check.
-    rc, dirty, _ = _run_git(repo_dir, 'status', '--porcelain')
-    out['dirty'] = len([l for l in dirty.splitlines() if l.strip()]) if rc == 0 else None
+    out['dirty'] = _dirty_not_ours(repo_dir)
     return out
 
 
@@ -8360,6 +8412,10 @@ def _main(box):
         led = RunLedger(ledger_path, repo_root, sys.argv[1:])
         box['ledger'] = led
     _fresh = {}
+    # What was uncommitted BEFORE this run wrote anything: the live-session
+    # sweep counts uncommitted work, and this run writes files of its own
+    # into this checkout first (RUN_OUTPUTS).
+    _snapshot_dirty(repo_root)
     if led:
         led.start('FRESHNESS -- this checkout')
     _v = freshness(repo_root)
