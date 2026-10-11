@@ -106,10 +106,8 @@ the list went before it landed. The plan of record is
 [spec/UPDATE_ALL_VENDORS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/UPDATE_ALL_VENDORS_PLAN.md).
 
 ## Install
-Nothing to install in a consuming repository: the phrase runs
+Nothing to install in a consuming repository: the phrase is said in a
+session rooted in the BestPractice clone, and
 [tools/precedent_update_all.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update_all.py)
-from the BestPractice clone, the same way Update Vendors runs that clone's
-[precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py).
-The session needs only what any session has: a way to list the person's
-repositories and to attach one, and the BestPractice clone beside the work.
-Where the harness cannot list repositories, name them to the tool by hand.
+runs from there. Each repository it updates needs its own `precedent.json`;
+one without it is reported NOT USED and left alone.
