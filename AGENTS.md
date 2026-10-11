@@ -53,7 +53,9 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
   from `python3 tools/precedent_vocabulary.py`, never recall it.
 - **"Update Vendors"** ([vendor-update-runbook](practices/vendor-update-runbook.md))
   — `python3 ../BestPractice/tools/precedent_update.py --repo .` from the
-  consuming repo; it carries the merge too.
+  consuming repo; it carries the merge too. Best said "Update Vendors and
+  merge"; **"Update All Vendors"** ([update-all-vendors](practices/update-all-vendors.md))
+  does every repo you use it in without loading theirs.
 
 The three dispositions an open item can carry are
 [open-item-disposition](practices/open-item-disposition.md)'s; it reaches a
