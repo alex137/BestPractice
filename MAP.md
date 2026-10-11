@@ -319,4 +319,5 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/upstream_fix.py](tools/upstream_fix.py) | Sets up the fix to a vendored file where it comes from -- names the source repository and the file's path there, and opens a branch in that source's clone off its landing branch; never edits the copy |
 | [tools/verify_harness.py](tools/verify_harness.py) | The verification harness — run before trusting any change here |
 | [tools/very_deep_check.py](tools/very_deep_check.py) | The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit |
+| [tools/warning_review.py](tools/warning_review.py) | Every warning the routine checks print, gathered, matched against the |
 

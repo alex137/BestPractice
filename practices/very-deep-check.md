@@ -1266,6 +1266,47 @@ confidently.
     templates. Morgan kept them: the template is what a new repo is made
     from. A template beside the file made from it is now counted, not
     flagged.)*
+24. **Every warning the routine checks print, judged: fixed, or excluded
+    with a reason.** A warning is the finding nothing gates on, so nothing
+    reads it twice, and left alone they pile up until a new one is
+    invisible behind the old ones. The tool's `WARNINGS` section, built on
+    [tools/warning_review.py](https://github.com/alex137/BestPractice/blob/staging/tools/warning_review.py),
+    collects every one this checkout's checks print: the markdown linter's
+    warning classes, a warning-only check's findings, a tool's `WARNING:`
+    line, a session-check row it could not determine. It groups them by
+    kind and file, so a group is the unit judged: 2,000 unlinked references
+    in 360 files are 360 calls. It prints the open groups and how many were
+    open at the previous run.
+
+    **The session decides each group, not the person.** It fixes the group
+    now, or excludes it in
+    [tools/warning_exclusions.json](https://github.com/alex137/BestPractice/blob/staging/tools/warning_exclusions.json)
+    with a reason, either **permanent** (the warning is right that the
+    thing is there, and it should stay there) or **temporary** with a
+    revisit date (it should go, but not in this run). It records
+    `"by": "agent"`. **It asks the person only when it is genuinely unsure,
+    when the call is ambiguous, or when it suspects they would see it
+    differently**, and records the answer under their name with its
+    strength ([decision-strength](decision-strength.md)). A temporary
+    exclusion past its date shows as open again, and one that matches
+    nothing any more is reported stale and deleted. Nothing here is a gate.
+
+    **The result goes into the run's write-up.** The section writes a
+    `## Warnings` block into
+    [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md)
+    (or the run record, where a repo has only that), with the count by
+    source and kind, the exclusions decided this run, and the open count
+    against the previous run's. After deciding, run
+    `python3 tools/very_deep_check.py --refresh-warnings`, which rewrites
+    the block with the start-of-run count beside the new one. The ledger
+    records the open count, which is how the next run compares. *(Morgan,
+    2026-10-11: "I like reviewing warnings to see if we can get rid of them
+    or explicitly exclude them and so on to over time eliminate warnings",
+    and on who decides: asking about each one "will add a lot of time and
+    frustration to the very deep check", so the session uses its judgment
+    and asks only when in doubt. Before this, the markdown warnings were
+    the only ones any section showed; the advisory count was read and
+    dropped, and no section collected any other tool's warnings.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
@@ -2699,6 +2740,7 @@ it landed and still unreviewed.
 - **Extended 2026-10-06, Morgan (strength: decided)**, with the RETIRED SETS section: a declared set that says it is retired, or that GitHub reports archived, is reported with the command that drops it, and Update Vendors drops it on its own -- only when no active rule would be lost, and never on "Not Found". He chose that option ("C") from three put to him.
 - **Extended 2026-10-06, Morgan (strength: decided)**, so the review page is always published as an Artifact and never handed over as an HTML file, after a run sent it as an attached file: "That HTML doc - give me that info as an artifact - and update very deep check so that in the future, that is always an artifact, not a HTML file." Both tools that write or announce the page now say so in what they print.
 - **Extended 2026-10-11, Morgan (strength: decided)**, so the check runs whole in a consumer or a practice set, and hands its upstream findings upstream: "in the vendored in repo ... it should test all the unique code and also the best practice code that is vendored in", and "for every problem it finds, before it fixes it, it should ask itself, is this an upstream problem or not", the upstream ones compiled into one Prompt Please kept in the run record and given in the session, followed by "do you want me to implement band-aids until it's fixed upstream?". The tool's UPSTREAM section came with it. The first run in a consumer, the same day, found three sections that broke outside BestPractice (BOOTSTRAP DRIFT, GENERATED FILES, CONTRIBUTOR BOUNDARY), all fixed upstream in the same change.
+- **Extended 2026-10-11, Morgan (strength: decided)**, with Pass 2's question 24 and the WARNINGS section: every warning the routine checks print is collected and judged, fixed or excluded permanent or temporary with a reason, by the session, which asks only when in doubt -- "I like reviewing warnings to see if we can get rid of them or explicitly exclude them and so on to over time eliminate warnings", then, on the plan put to him, "the decision to make there is from you, the agent", and "this warning information should be printed in the ... doc that details what happened with this very deep check." CHECK COVERAGE prints each repo's advisory count, which it had read and dropped.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
