@@ -104,3 +104,13 @@ merge. The first version kept the list in his individual source; asked
 "Is it even worth it to have a list?", the session agreed it was not, and
 the list went before it landed. The plan of record is
 [spec/UPDATE_ALL_VENDORS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/UPDATE_ALL_VENDORS_PLAN.md).
+
+## Install
+Nothing to set up in the repositories it updates: each one only needs the
+`precedent.json` that Update Vendors already reads. The run is started from a
+BestPractice clone, so the session saying "Update All Vendors" needs one
+attached, and the ability to list and attach the person's repositories --
+`list_repos` and `add_repo` in Claude Code's cloud sessions. A harness
+without those lists the repositories by hand and passes them to
+[tools/precedent_update_all.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update_all.py)
+the same way.
