@@ -94,6 +94,15 @@ item holds the rest.
   [gotchas/INDEX.md](../gotchas/INDEX.md)). The same check refuses any
   change to the stub, so it cannot be corrected without an exemption.
 
+- **A fresh install opens with an advisory about upstream's own
+  catalogue** (`layered-practice-packs`: five universal practices,
+  `install` and `very-deep-check` among them, "reachable by no channel"),
+  telling the adopter to wire in what only this repo can fix. Either those
+  practices get a channel or the advisory stops reaching consumers.
+- **A guided install (SETUP.md) leaves a GitHub-only team with no check at
+  all in a private repository**: GitHub's light check runs only on a
+  Produce's `to-main-` branch, and a team with no terminal has no local
+  check. SETUP.md now says so; whether such a team should get one is open.
 - **An installer run into a project with a hand-written `MAP.md`** writes
   `MAP.source.md` from the template, and the sync then regenerates
   `MAP.md` from it, which may replace the project's own map. Not verified
