@@ -128,10 +128,11 @@ being checked by it.
 | `two-check-levels` | tree | the session instructions name both of the repo's two check levels -- the pair GLOSSARY.md defines against this practice, or "light check" / "deep check" where the glossary defines none -- and the glossary, when it names any, names two distinct levels |
 | `upstream-fix` | tree | every exemption-list entry in precedent.json that is new against the base branch carries a root_fix: what was fixed instead, or why the check cannot learn the case; and every engine file or engine hook this repo edited locally has an open todo/ item naming it that links the upstream pull request or issue, or saves a Prompt Please for it |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
+| `very-deep-check` | tree | once the last completed very deep check in record/very-deep-check-ledger.json has all four passes recorded, spec/VERY_DEEP_CHECK_LATEST_RUN.md exists and its `opened:` date is that run's date or later -- the run's full account was written, not left for the person to ask for |
 | `whats-new` | change | a changed What's New log has every entry in the shape: a heading "<Weekday> <date>: <slug>" whose weekday is the date's own, the fixed opening line word for word, every bullet opening with a bold key phrase, and no approver named |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-63 of 179 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+64 of 179 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

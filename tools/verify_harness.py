@@ -22208,6 +22208,43 @@ def check_precedent_check_fires():
                       'speculative but is not named that way fails, saying so',
                       _rcp == 1 and 'calls itself speculative' in _outp))
 
+        # very-deep-check -- the run's full account left out. The plant is
+        # the exact shape of 2026-10-11: all four passes recorded and the
+        # account still the previous run's (opened 2026-10-05).
+        _VDC_UP = 'spec/VERY_DEEP_CHECK_LATEST_RUN.md'
+
+        def _vdc_stale_account(t):
+            return re.sub(r'^opened:(\s*)\S+', r'opened:\g<1>2026-10-05',
+                          t, count=1, flags=re.M)
+        case('very-deep-check',
+             lambda repo: rewrite(repo, _VDC_UP, _vdc_stale_account))
+
+        # The other two states, by message and by silence
+        # (control-asserts-which-failure, checks-plant-their-state): no
+        # account at all is its own finding, and a run whose fourth pass is
+        # not recorded yet is still in progress, so a stale account is not
+        # owed and must not fail.
+        _vdc_gone = fresh('very-deep-check-no-account')
+        (_vdc_gone / _VDC_UP).unlink()
+        _rcg, _outg = run(_vdc_gone, 'very-deep-check')
+        cases.append(('very-deep-check: four passes recorded and no account '
+                      'file fails, saying no account was written',
+                      _rcg == 1 and 'no account was written' in _outg))
+
+        def _vdc_three_passes(t):
+            d = json.loads(t)
+            done = [r for r in d['runs'] if r.get('completed', True)]
+            done[-1]['passes'] = [p for p in done[-1].get('passes') or []
+                                  if str(p.get('pass')) != '4']
+            return json.dumps(d, indent=2) + '\n'
+        _vdc_mid = fresh('very-deep-check-mid-run')
+        rewrite(_vdc_mid, 'record/very-deep-check-ledger.json', _vdc_three_passes)
+        rewrite(_vdc_mid, _VDC_UP, _vdc_stale_account)
+        _rcm, _outm = run(_vdc_mid, 'very-deep-check')
+        cases.append(('very-deep-check: a run with pass 4 not yet recorded '
+                      'does not owe its account yet',
+                      _rcm == 0 and 'VIOLATION' not in _outm))
+
         # heading-outline -- a heading demoted two levels at once, so it has
         # no parent. documentation/INSTALL.md is the plant because it is a
         # short file whose only heading is its H1, so appending an h3 makes

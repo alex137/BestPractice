@@ -9,7 +9,7 @@ applies_to_why: "Not a place -- a whole-repo coherence review is invoked explici
 occasion:    "a person explicitly asks for a \"very deep check\" or a \"full practice audit\""
 gates:       []
 index_clause: "read every repo in force against itself, pass by pass; never routine"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     ["very deep check"]
 command:     {"Very deep check": "Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new."}
 status:      active
@@ -29,8 +29,9 @@ source in force, resolved exactly the way
 [tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) resolves them for
 ordinary loading — and points at the passes (`--checklist` prints them in
 full); reading and judging that scope is
-the session's work, and is nearly the whole cost of this check. Never wired
-into a commit, push, or merge gate — the mechanical audits and
+the session's work, and is nearly the whole cost of this check. The check
+itself is never wired into a commit, push, or merge gate (only its finished
+run's account is, below) — the mechanical audits and
 [routing-audit](routing-audit.md) already cover what can be checked cheaply
 and often; this covers what can only be judged, and is deliberately rare
 because the judging is expensive.
@@ -284,6 +285,22 @@ passes are done, what each turned up, what was fixed, what was deferred and
 where it went. A later session resumes at the next unfinished pass rather
 than starting over, and a pass is never quietly skipped — a pass deliberately
 not run is recorded as not run, with the reason.
+
+**Every run ends with its full account, written unasked.** When the last
+pass is recorded, the session rewrites the checked repo's own
+`spec/VERY_DEEP_CHECK_LATEST_RUN.md`
+([BestPractice's](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md))
+for this run: scope, a short version, then each pass in order with what it
+found, what was fixed and in which commit, what the person decided, and what
+is left and where it went. `opened:` is the run's date. It collapses the
+previous run to one row in the run record above, commits both, and
+links the account in the reply that reports the run. A run is not done
+until the account is there, and the deep check enforces it
+(`precedent_check.py --only very-deep-check`): once all four passes
+are recorded in the ledger, a push is refused while the account still
+describes an earlier run. Morgan, 2026-10-11 (strength: decided), after
+that day's run left it out until he asked for it: *"Let's update very deep
+check to make that document mandatory."*
 
 **Every run records what each of its parts returned and what each cost, and
 reads them against the runs before it.** This check grew a section at a time,
@@ -2699,6 +2716,7 @@ it landed and still unreviewed.
 - **Extended 2026-10-06, Morgan (strength: decided)**, with the RETIRED SETS section: a declared set that says it is retired, or that GitHub reports archived, is reported with the command that drops it, and Update Vendors drops it on its own -- only when no active rule would be lost, and never on "Not Found". He chose that option ("C") from three put to him.
 - **Extended 2026-10-06, Morgan (strength: decided)**, so the review page is always published as an Artifact and never handed over as an HTML file, after a run sent it as an attached file: "That HTML doc - give me that info as an artifact - and update very deep check so that in the future, that is always an artifact, not a HTML file." Both tools that write or announce the page now say so in what they print.
 - **Extended 2026-10-11, Morgan (strength: decided)**, so the check runs whole in a consumer or a practice set, and hands its upstream findings upstream: "in the vendored in repo ... it should test all the unique code and also the best practice code that is vendored in", and "for every problem it finds, before it fixes it, it should ask itself, is this an upstream problem or not", the upstream ones compiled into one Prompt Please kept in the run record and given in the session, followed by "do you want me to implement band-aids until it's fixed upstream?". The tool's UPSTREAM section came with it. The first run in a consumer, the same day, found three sections that broke outside BestPractice (BOOTSTRAP DRIFT, GENERATED FILES, CONTRIBUTOR BOUNDARY), all fixed upstream in the same change.
+- **Extended again 2026-10-11, Morgan (strength: decided)**, so the run's full account in [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md) is mandatory, and checked: "when I ran very deep check last night, it did not create the document that it always does detailing what happened. Until I asked it to. Let's update very deep check to make that document mandatory." Its check refuses a push once all four passes are recorded and the account is still an earlier run's; `--record-pass` says the account is owed when it records the fourth.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
