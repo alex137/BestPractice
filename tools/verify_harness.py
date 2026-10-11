@@ -8303,6 +8303,108 @@ def check_very_deep_check_boundary_audit_reads_the_setting():
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
+def check_very_deep_check_warnings_are_judged_not_just_counted():
+    """very_deep_check.py's WARNINGS section: every warning group is open,
+    excluded for good, excluded until a date, or past that date and open
+    again; an exclusion that matches nothing is stale; a malformed one is a
+    registry problem and is not applied; and the write-up gets a
+    `## Warnings` block that a second write replaces rather than repeats.
+
+    Added 2026-10-11 with the section (practice: very-deep-check, Pass 2
+    question 24). review() is pure and takes a fixed date, and the registry
+    and write-up live in a temporary repo the fixture builds
+    (practice: fixture-owns-its-state). Each case asserts the tool's own
+    words or status (practice: control-asserts-which-failure)."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import warning_review as wr
+    import very_deep_check as vdc
+
+    cases = []
+    lint_out = ('noise\ndoc_lint strict json: ' + json.dumps({'scanned': 3, 'classes': {
+        'unlinked file reference': {'INSTALL.md': 5, 'todo/a.md': 2, 'spec/x.md': 1}}}))
+    groups = wr.doc_lint_groups(lint_out)
+    cases.append(('doc_lint\'s --json line becomes one group per (class, file)',
+                  groups is not None and sorted((g['path'], g['count']) for g in groups)
+                  == [('INSTALL.md', 5), ('spec/x.md', 1), ('todo/a.md', 2)], repr(groups)))
+    cases.append(('a doc_lint with no --json line is reported unread, never as clean',
+                  wr.doc_lint_groups('doc_lint --strict FAIL: 3 finding(s)') is None, ''))
+    pc_out = ('ADVISORY   some-check — findings below do not fail this run\n'
+              '    practices/a.md: says a thing\n    practices/a.md: says another\n'
+              '  the rule:\n    rule text: not a finding\n'
+              'SKIPPED    other — not a warning\n')
+    pcg = wr.precedent_check_groups(pc_out)
+    cases.append(('an advisory check\'s findings group by check and file, and its rule text is not one',
+                  [(g['kind'], g['path'], g['count']) for g in pcg] == [('some-check', 'practices/a.md', 2)],
+                  repr(pcg)))
+    lg = wr.line_groups('build_views', 'WARNING', 'build_views WARNING: 3 over\nbuild_views WARNING: 4 over\nok\n',
+                        re.compile(r'\bWARNING:\s*(.+)'))
+    cases.append(('WARNING lines differing only in a number are one group',
+                  len(lg) == 1 and lg[0]['count'] == 2 and lg[0]['text'] == 'N over', repr(lg)))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vdc-warnings-'))
+    try:
+        (tmp / 'tools').mkdir()
+        (tmp / 'spec').mkdir()
+        (tmp / 'tools' / 'warning_exclusions.json').write_text(json.dumps({'exclusions': [
+            {'source': 'doc_lint', 'kind': 'unlinked file reference', 'path': 'todo/*',
+             'term': 'permanent', 'why': 'closed records are history', 'decided': '2026-10-11', 'by': 'agent'},
+            {'source': 'doc_lint', 'kind': 'unlinked file reference', 'path': 'spec/*',
+             'term': 'temporary', 'why': 'linking next run', 'revisit': '2026-10-01',
+             'decided': '2026-09-01', 'by': 'agent'},
+            {'source': 'doc_lint', 'kind': 'process residue', 'path': '*',
+             'term': 'permanent', 'why': 'gone now', 'decided': '2026-09-01', 'by': 'agent'},
+            {'source': 'doc_lint', 'kind': 'x', 'term': 'permanent', 'decided': '2026-10-11', 'by': 'agent'},
+            {'source': 'doc_lint', 'kind': 'y', 'term': 'permanent', 'why': 'w',
+             'decided': '2026-10-11', 'by': 'Morgan'},
+        ]}), encoding='utf-8')
+        entries, problems = wr.load_registry(tmp)
+        cases.append(('an exclusion with no reason is a registry problem and is not applied',
+                      any('exclusion 4 is missing why' in p for p in problems) and len(entries) == 3,
+                      repr(problems)))
+        cases.append(('a person\'s exclusion without its strength is a registry problem',
+                      any('exclusion 5' in p and 'decision-strength' in p for p in problems),
+                      repr(problems)))
+        result = wr.review(groups, entries, ['doc_lint'], today='2026-10-11')
+        status = {r['path']: r['status'] for r in result['rows']}
+        cases.append(('an unmatched group is open', status.get('INSTALL.md') == 'open', repr(status)))
+        cases.append(('a permanent exclusion holds', status.get('todo/a.md') == 'excluded, permanent', repr(status)))
+        cases.append(('a temporary exclusion past its revisit date is lapsed, open again',
+                      status.get('spec/x.md') == 'lapsed', repr(status)))
+        future = wr.review(groups, entries, ['doc_lint'], today='2026-09-15')
+        cases.append(('a temporary exclusion before its date holds',
+                      {r['path']: r['status'] for r in future['rows']}.get('spec/x.md') == 'excluded, temporary',
+                      repr(future['rows'])))
+        cases.append(('an exclusion matching nothing is stale',
+                      [e['kind'] for e in result['stale']] == ['process residue'], repr(result['stale'])))
+        unread = wr.review(groups, entries, [], today='2026-10-11')
+        cases.append(('a source that was not read proves no exclusion stale', not unread['stale'],
+                      repr(unread['stale'])))
+        text = wr.render_text(result, problems, [], previous=9)
+        cases.append(('the text names the open count against the previous run',
+                      'Open at the previous run: 9; now: 6.' in text, text))
+        md = wr.render_markdown(result, problems, [], previous=9, start=8)
+        cases.append(('the block names this run\'s decisions, with who made them',
+                      'Exclusions decided this run: 1.' in md and 'by the session -- closed records are history' in md,
+                      md))
+        doc = tmp / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+        doc.write_text('# Run\n\nBody.\n', encoding='utf-8')
+        vdc._write_warnings_block(tmp, 'FIRST')
+        vdc._write_warnings_block(tmp, 'SECOND')
+        body = doc.read_text(encoding='utf-8')
+        cases.append(('the write-up gets one ## Warnings block, replaced on the second write',
+                      body.count('## Warnings') == 1 and 'SECOND' in body and 'FIRST' not in body
+                      and body.startswith('# Run\n\nBody.\n'), body))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'very_deep_check.py\'s WARNINGS judges every group, not just counts them '
+          f'({len(cases)} stated cases: parsing, open, permanent, temporary, lapsed, '
+          f'stale, malformed, write-up block)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
 def check_build_views_summary_matches_what_it_wrote():
     """build_views.py's summary line reports the block it actually wrote.
 
@@ -74248,6 +74350,7 @@ def main():
     check_owned_paths_previews_the_boundary()
     check_boundary_check_never_passes_unread()
     check_very_deep_check_boundary_audit_reads_the_setting()
+    check_very_deep_check_warnings_are_judged_not_just_counted()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
