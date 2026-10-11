@@ -297,7 +297,9 @@ them the full suite is asked for, not paid on every landing:
 landing branch) runs the full local suite on the branch composed with
 `main`'s direct work, moves nothing, records pass or fail, and ends
 `RUN TESTS RESULT: ...` (exit 0 passed, 1 failed). The fast move into
-`main`, `python3 tools/precedent_branches.py --promote --to main --fast`,
+`main`, `python3 tools/precedent_branches.py --promote --to main`, is the
+default since 2026-10-11 (Morgan: "default to the fast route unless I
+explicitly agree to or request the slow route"; `--fast` is still taken). It
 runs the quick checks, builds the copy for the pull request into `main`,
 exits 3 (`main` not moved) and prints the copy's full head commit: merge
 that pull request at once at that head, then wait on the GitHub test,
@@ -305,9 +307,9 @@ which runs after the merge, with `--wait-main-test COPY`, and fix a red
 `main` in the same sitting. If the last `--run-tests` failed on staging's
 current commit, the fast move lists the failures, exits 4 and prints the
 question to ask the person in their words; on a yes, run it again with
-`--despite-failed-tests`. Without `--fast`, the move into `main` runs the
-full local suite and waits on the GitHub test before the merge, as
-before. A pull request merged through GitHub
+`--despite-failed-tests`. Only `--full`, when the person asks for the slow
+route, runs the full local suite and waits on the GitHub test before the
+merge. A pull request merged through GitHub
 gets the same check at its base branch's tier, from `merge-check-gate.sh`.
 `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and
 `0 violated`, never a passed/skipped count** — those grow as checks are
