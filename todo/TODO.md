@@ -216,7 +216,7 @@ as_of: 2026-10-11
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | Morgan |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. |  |
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | Alex's or Morgan's approval of the plan below, stage by stage |
-| [`todo-2026-10-11-update-vendors-runs-stale-driver-code`](todo-2026-10-11-update-vendors-runs-stale-driver-code.md) | Update Vendors runs whatever code sits in the BestPractice clone's working tree, and nothing checks that it is the code | Morgan: "Act" on the plan below |
+| [`todo-2026-10-11-update-vendors-runs-stale-driver-code`](todo-2026-10-11-update-vendors-runs-stale-driver-code.md) | Update Vendors runs whatever code sits in the BestPractice clone's working tree, and nothing checks that it is the code | a later commit to tools/ on main, and a real Update Vendors over it (Closes when, 2) |
 
 ## Due Reminders
 

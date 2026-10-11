@@ -8,9 +8,9 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Morgan: \"Act\" on the plan below"
+decision:          "Let's build"
+decision_strength: decided
+waiting_on:        "a later commit to tools/ on main, and a real Update Vendors over it (Closes when, 2)"
 noted:             2026-10-11
 closed:            null
 ---
@@ -210,3 +210,24 @@ Two conditions, the second of which cannot be met on the day it lands:
 
 After the first, this item waits (`wait`) on such a later commit to `tools/`
 and a real run over it.
+
+## Progress
+
+<!--dated-list-->
+- **2026-10-11, built on `claude/amazing-lamport-l5eivc`.** Morgan said
+  "Let's build" after a plain-words summary of the plan.
+  [tools/precedent_update_driver.py](../tools/precedent_update_driver.py)
+  holds both tables, the worktree run and the cleanup;
+  [tools/precedent_update.py](../tools/precedent_update.py)'s
+  `bootstrap()` runs it before `update()` writes anything, and its `CLONE`
+  names the real clone in every message;
+  [precedent_local_edits.py](../tools/precedent_local_edits.py)'s remedy
+  does the same. [verify_harness.py](../tools/verify_harness.py)'s
+  `check_update_runs_code_at_least_as_new_as_it_applies` carries every case
+  above, and fails on the code from before this change with `STALE DRIVER
+  RAN`, the incident's own symptom. The harness sets
+  `PRECEDENT_UPDATE_RUN_IN_PLACE` for every other case. The runbook's
+  step 1 now says what reads a commit and what reads a working tree: the
+  update reads by commit throughout, and only the session's live practice
+  sources read the clones' working trees.
+

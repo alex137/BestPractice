@@ -42,6 +42,13 @@ import frontmatter_yaml
 # coverage is not weakened by it.
 os.environ.setdefault('PRECEDENT_ALLOW_ANY_AUTHOR', '1')
 
+# EVERY UPDATE VENDORS RUN HERE TESTS THIS CHECKOUT'S CODE. Run from a clone
+# behind origin/main, precedent_update.py would otherwise run origin's
+# newest green commit from a worktree (precedent_update_driver.py) -- and a
+# case would quietly test that instead of the change in front of it. Set
+# once, for every subprocess; the one check of the driver itself clears it.
+os.environ.setdefault('PRECEDENT_UPDATE_RUN_IN_PLACE', '1')
+
 # THE SAME BUG, ON THE CLOCK INSTEAD OF THE AUTHOR, and it escaped the fix
 # above by one field. commit-identity.sh repoints `/etc/localtime` so a
 # session's commits carry the declared offset without a `TZ=` prefix. In a
@@ -13112,6 +13119,316 @@ def check_upstream_branch_declaration_is_followed():
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
+
+def check_update_runs_code_at_least_as_new_as_it_applies():
+    """Update Vendors runs code no older than the commit it applies
+    (tools/precedent_update_driver.py; the plan and every case below are
+    todo/todo-2026-10-11-update-vendors-runs-stale-driver-code.md's).
+
+    The fixture is the incident: a BestPractice clone one commit behind
+    origin/main, whose own update() is broken where the fetched commit's is
+    not. The run must use the fetched code, say which commit ran, and leave
+    the clone exactly as it was. Every case runs the FIXTURE's
+    tools/precedent_update.py, never this repo's: SOURCE is whatever tree
+    the script sits in, so running ROOT's copy would test nothing.
+
+    The commits, on main: BOOT (this change, from the working tree) ->
+    OLD (a break at the top of update()) -> NEW (the break replaced by a
+    probe), NEW carrying a passed marker. Off them: AHEAD on NEW, SIDE on
+    BOOT, LATE on NEW, with no marker.
+
+    Owns its state (practice: fixture-owns-its-state): HOME, the user
+    config and the global git config are the fixture's, and the harness-
+    wide opt-out is cleared for every case that tests the rule.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-driver-'))
+    cases = []
+    hooks_marker = tmp / 'global-hook-fired'
+    gcfg = tmp / 'gitconfig'
+    gcfg.write_text('', encoding='utf-8')
+    env = {**os.environ, 'HOME': str(tmp / 'home'),
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json'),
+           'GIT_CONFIG_GLOBAL': str(gcfg), 'GIT_CONFIG_NOSYSTEM': '1',
+           'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'}
+    env.pop('PRECEDENT_UPDATE_RUN_IN_PLACE', None)
+    env.pop('PRECEDENT_UPDATE_DRIVER', None)
+    (tmp / 'home').mkdir()
+
+    def sh(*argv, cwd, extra=None):
+        r = subprocess.run(list(argv), cwd=str(cwd), env={**env, **(extra or {})},
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    def git(cwd, *a):
+        rc, out = sh('git', *a, cwd=cwd)
+        if rc != 0:
+            raise FixtureSetupError(f"git {' '.join(a)} (in {cwd}): {out.strip()[-200:]}")
+        return out.strip()
+
+    def commit_edit(work, msg, old, new):
+        p = work / 'tools' / 'precedent_update.py'
+        s = p.read_text(encoding='utf-8')
+        if s.count(old) != 1:
+            raise FixtureSetupError(f'{msg}: anchor not found once in update()')
+        p.write_text(s.replace(old, new), encoding='utf-8')
+        git(work, 'commit', '-qam', msg)
+        return git(work, 'rev-parse', 'HEAD')
+
+    anchor = "    rep = Report()\n    rep.pin_repo = repo\n"
+    probe = ("    print('CHILD GUARD', subprocess.run([sys.executable, '-c', "
+             "'import os; print(os.environ.get(\"PRECEDENT_UPDATE_DRIVER\"))'], "
+             "capture_output=True, text=True).stdout.strip())\n")
+    try:
+        work = tmp / 'work'
+        git(tmp, 'clone', '-q', '--shared', str(ROOT), str(work))
+        git(work, 'checkout', '-q', '-B', 'main', _ref_including_worktree(ROOT))
+        boot = git(work, 'rev-parse', 'HEAD')
+        old = commit_edit(work, 'old', anchor,
+                          "    print('STALE DRIVER RAN'); return 2\n" + anchor)
+        new = commit_edit(work, 'new', "    print('STALE DRIVER RAN'); return 2\n",
+                          probe)
+        git(work, 'checkout', '-q', '-b', 'ahead')
+        ahead = commit_edit(work, 'ahead', probe, probe + "    pass\n")
+        git(work, 'checkout', '-q', '-b', 'side', boot)
+        side = commit_edit(work, 'side', anchor, "    pass\n" + anchor)
+        git(work, 'checkout', '-q', '-b', 'late', new)
+        late = commit_edit(work, 'late', probe, probe + "    pass  # late\n")
+        origin = tmp / 'origin.git'
+        git(tmp, 'clone', '-q', '--bare', str(work), str(origin))
+        git(origin, 'update-ref', 'refs/heads/main', new)
+        git(origin, 'update-ref', 'refs/heads/staging', new)
+        marker = f"refs/precedent/passed/{git(work, 'rev-parse', new + '^{tree}')}"
+        git(origin, 'update-ref', marker, new)
+
+        def clone(name, at):
+            c = tmp / name
+            git(tmp, 'clone', '-q', str(origin), str(c))
+            git(c, 'checkout', '-q', '-B', 'main', at)
+            git(c, 'branch', '-q', '-u', 'origin/main')
+            return c
+
+        def consumer(name, upstream=None):
+            r = tmp / name
+            r.mkdir()
+            git(r, 'init', '-q', '-b', 'main')
+            if upstream:
+                (r / 'precedent.json').write_text(json.dumps(
+                    {'upstream_branch': upstream}) + '\n', encoding='utf-8')
+            return r
+
+        def update(c, repo, *extra, only=False, more=None):
+            add = dict(more or {})
+            if only:
+                add['PRECEDENT_UPDATE_BOOTSTRAP_ONLY'] = '1'
+            return sh(sys.executable, str(c / 'tools' / 'precedent_update.py'),
+                      '--repo', str(repo), *extra, cwd=repo, extra=add)
+
+        def verdict(out):
+            return {l.split(': ', 2)[1]: l.split(': ', 2)[2]
+                    for l in out.splitlines()
+                    if l.startswith('precedent_update_driver: ') and l.count(': ') >= 2}
+
+        def state(c):
+            return (git(c, 'rev-parse', 'HEAD'), git(c, 'branch', '--show-current'),
+                    git(c, 'rev-parse', ':tools/precedent_update.py'),
+                    git(c, 'status', '--porcelain'), git(c, 'worktree', 'list'))
+
+        # ---- the incident, end to end ----
+        behind = clone('behind', old)
+        repo = consumer('consumer')
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        hook = hooks / 'post-checkout'
+        hook.write_text(f'#!/bin/sh\ntouch {hooks_marker}\n', encoding='utf-8')
+        hook.chmod(0o755)
+        own_marker = tmp / 'own-hook-fired'
+        own = behind / '.git' / 'hooks' / 'post-checkout'
+        own.write_text(f'#!/bin/sh\ntouch {own_marker}\n', encoding='utf-8')
+        own.chmod(0o755)
+        gcfg.write_text(f'[core]\n\thooksPath = {hooks}\n', encoding='utf-8')
+        # The hooks can fire: without the driver's empty hooks directory, a
+        # worktree add runs the global one (the negative control).
+        probe_tree = tmp / 'probe-tree'
+        sh('git', 'worktree', 'add', '-q', '--detach', str(probe_tree), new, cwd=behind)
+        hooks_can_fire = hooks_marker.exists()
+        sh('git', 'worktree', 'remove', '--force', str(probe_tree), cwd=behind)
+        hooks_marker.unlink(missing_ok=True)
+        cases.append(('the hook control fires without the driver (so the case can fail)',
+                      hooks_can_fire, ''))
+
+        # A git shim first on PATH logs every call during the run.
+        shim_dir, log = tmp / 'shim', tmp / 'git-calls.log'
+        shim_dir.mkdir()
+        real_git = shutil.which('git')
+        (shim_dir / 'git').write_text(
+            f'#!/bin/sh\nprintf "%s\\t%s\\n" "$PWD" "$*" >> {log}\n'
+            f'exec {real_git} "$@"\n', encoding='utf-8')
+        (shim_dir / 'git').chmod(0o755)
+        before = state(behind)
+        rc, out = update(behind, repo, more={'PATH': f"{shim_dir}:{env['PATH']}"})
+        after = state(behind)
+        drivers = behind / '.git' / 'precedent-update-drivers'
+        cases.append(("the clone's own broken update() never ran",
+                      'STALE DRIVER RAN' not in out, out[-300:]))
+        cases.append(('the run names the fetched commit as the code it ran',
+                      f"ran {new[:12]}'s code from a temporary checkout" in out
+                      and old[:12] in out, out[:300]))
+        cases.append(('the fetched code ran the update (its LEFT FOR YOU on a bare repo)',
+                      rc == 1 and 'no vendored loader engine' in out, f'rc={rc}'))
+        cases.append(('the loop guard does not reach what the driver run spawns',
+                      'CHILD GUARD None' in out, out[:300]))
+        cases.append(('no output line names the drivers directory',
+                      'precedent-update-drivers' not in out, ''))
+        cases.append(("the clone's HEAD, branch, index, status and worktree list "
+                      "are as they were", before == after, f'{before} != {after}'))
+        left = sorted(p.name for p in drivers.iterdir()) if drivers.is_dir() else []
+        cases.append(('the temporary checkout and its lock are gone',
+                      left == ['no-hooks'], str(left)))
+        cases.append(('no hook fired, global or the clone\'s own',
+                      not hooks_marker.exists() and not own_marker.exists(), ''))
+        calls = log.read_text(encoding='utf-8') if log.exists() else ''
+        sensitive = re.compile(r'(?:^|\s)(symbolic-ref|push|checkout|switch|'
+                               r'branch --show-current)(?:\s|$)')
+        bad_calls = [l for l in calls.splitlines()
+                     if sensitive.search(l.split('\t', 1)[-1])
+                     and (str(behind) in l)]
+        cases.append(('no HEAD-sensitive git call targets the clone or the worktree',
+                      bool(calls) and not bad_calls, '; '.join(bad_calls[:3])))
+        gcfg.write_text('', encoding='utf-8')
+
+        # ---- the two tables, row by row, through the bootstrap-only seam ----
+        def row(name, c, r, *extra, want, driver=None, data=None, warn=None, more=None):
+            rc, out = update(c, r, *extra, only=True, more=more)
+            v = verdict(out)
+            ok = (rc == 0 and v.get('row') == want
+                  and (driver is None or v.get('driver') == driver)
+                  and (data is None or v.get('data') == data)
+                  and (warn is None or (v.get('warning') != 'None') == warn))
+            cases.append((name, ok, f"{v} rc={rc} {out[-200:] if not v else ''}"))
+
+        row('behind: run the newest green commit from a worktree', behind, repo,
+            want='worktree', driver=new, data=new, warn=False)
+        same = clone('same', new)
+        row("same tools/ as the driver: in place", same, repo, want='same', driver=new)
+        ahead_c = clone('ahead-clone', ahead)
+        row('ahead of the driver (CI, a feature branch): in place', ahead_c, repo,
+            want='ahead', driver=new)
+        dirty = clone('dirty', old)
+        with open(dirty / 'tools' / 'build_views.py', 'a', encoding='utf-8') as f:
+            f.write('# edited\n')
+        row('a tracked change in tools/: in place, with a warning', dirty, repo,
+            want='dirty', warn=True)
+        untracked = clone('untracked', old)
+        (untracked / 'tools' / 'mine.py').write_text('', encoding='utf-8')
+        row('an untracked .py in tools/: in place, with a warning', untracked, repo,
+            want='dirty', warn=True)
+        notes = clone('notes', old)
+        (notes / 'tools' / 'notes.txt').write_text('', encoding='utf-8')
+        row('an untracked non-Python file in tools/ does not count', notes, repo,
+            want='worktree', driver=new)
+        row('the opt-out runs in place', behind, repo, want='opt-out',
+            more={'PRECEDENT_UPDATE_RUN_IN_PLACE': '1'})
+        row('--from-ref on a diverged test commit: its own code', behind, repo,
+            '--from-ref', side, want='worktree', driver=side, data=side)
+        row('--take-anyway of a newer unmarked commit: that commit\'s code', behind,
+            repo, '--take-anyway', late, want='worktree', driver=late, data=late)
+        staging = consumer('staging-follower', upstream='staging')
+        row('a staging follower takes the staging tip as G', behind, staging,
+            want='worktree', driver=new, data=new)
+        # A pin some weeks back: the data stays the pin, the code is G.
+        pinned = consumer('pinned')
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_update as _pu
+        import precedent_local_edits as _le
+        _pu.record_pin(pinned, boot, 'main')
+        row('a pin older than G: data is the pin, the driver is G', behind, pinned,
+            want='worktree', driver=new, data=boot)
+        row('--move drops the pin', behind, pinned, '--move', want='worktree',
+            driver=new, data=new)
+
+        # The bootstrap reads only: a stand-in commit at HEAD, a journal and
+        # a pin, all byte-identical across a bootstrap-only run.
+        (pinned / 'f.txt').write_text('x\n', encoding='utf-8')
+        git(pinned, 'add', 'f.txt')
+        git(pinned, 'commit', '-qm', 'base')
+        (pinned / 'f.txt').write_text('y\n', encoding='utf-8')
+        git(pinned, 'commit', '-qam', _pu.TEMP_COMMIT_MESSAGE + ' (left by a killed run)')
+        gitdir = pinned / '.git'
+        journal = gitdir / _le.JOURNAL_DIR
+        journal.mkdir()
+        (journal / 'journal.json').write_text('{"x": 1}\n', encoding='utf-8')
+
+        def snapshot():
+            files = sorted(str(p.relative_to(pinned)) + ':' +
+                           hashlib.sha256(p.read_bytes()).hexdigest()
+                           for p in pinned.rglob('*')
+                           if p.is_file() and '.git' not in p.relative_to(pinned).parts)
+            jfiles = sorted(p.name + ':' + p.read_text(encoding='utf-8')
+                            for p in journal.iterdir())
+            return (git(pinned, 'rev-parse', 'HEAD'),
+                    hashlib.sha256((gitdir / 'index').read_bytes()).hexdigest(),
+                    jfiles, (gitdir / _pu.STAGED_RECORD).read_text(encoding='utf-8'),
+                    git(pinned, 'status', '--porcelain'), files)
+        first = snapshot()
+        update(behind, pinned, only=True)
+        cases.append(('the bootstrap writes nothing into the consumer',
+                      snapshot() == first, ''))
+        cases.append(('precedent.json is never in the swap journal',
+                      _pu.vendored_layer_paths(pinned, ['precedent.json']) == [], ''))
+
+        # No green commit: in place, warned, never a guessed tip.
+        git(origin, 'update-ref', '-d', marker)
+        row('no passed marker in the window: in place, with a warning', behind, repo,
+            want='no-green', warn=True)
+        git(origin, 'update-ref', marker, new)
+
+        # Parallel runs: a live run's checkout survives another's cleanup, a
+        # dead run's is removed. The live holder is another PROCESS holding
+        # fcntl.flock (an in-process lockf would read as dead).
+        par = clone('parallel', old)
+        pdrivers = par / '.git' / 'precedent-update-drivers'
+        pdrivers.mkdir()
+        live, dead = pdrivers / '1-live-aaaaaa', pdrivers / '2-dead-bbbbbb'
+        for t in (live, dead):
+            git(par, 'worktree', 'add', '-q', '--detach', str(t), new)
+            (pdrivers / f'{t.name}.lock').write_text('', encoding='utf-8')
+        holder = subprocess.Popen(
+            [sys.executable, '-c',
+             'import fcntl, sys, time\n'
+             f'f = open({str(pdrivers / (live.name + ".lock"))!r}, "a+")\n'
+             'fcntl.flock(f, fcntl.LOCK_EX)\nprint("held", flush=True)\n'
+             'time.sleep(120)\n'], stdout=subprocess.PIPE, text=True)
+        try:
+            holder.stdout.readline()
+            update(par, repo)
+            cases.append(("a live run's checkout survives another run's cleanup",
+                          live.is_dir(), ''))
+            cases.append(("a dead run's checkout and lock are removed",
+                          not dead.exists() and not (pdrivers / f'{dead.name}.lock').exists(),
+                          str(sorted(p.name for p in pdrivers.iterdir()))))
+        finally:
+            holder.kill()
+            holder.wait()
+
+        # The fallback: no worktree can be made, so the clone's own code runs
+        # and says first that it may be older than what it applies.
+        fb = clone('fallback', boot)
+        (fb / '.git' / 'precedent-update-drivers').write_text('', encoding='utf-8')
+        rc, out = update(fb, repo)
+        summary = out.split('== Update Vendors ==', 1)[-1].lstrip('\n').splitlines()
+        cases.append(('a worktree that cannot be made: the warning comes first',
+                      bool(summary) and summary[0].startswith('  WARNING: could not set '
+                                                              'up a temporary checkout'),
+                      summary[:2]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
 
 def check_update_vendors_is_one_command():
     """tools/precedent_update.py runs Update Vendors end to end on a real
@@ -74834,6 +75151,8 @@ def main():
           'that moves with its inputs', *check_seed_cache_copies_what_a_seed_writes())
     check('Update Vendors runs as one command and stops only for the repo\'s own calls',
           *check_update_vendors_is_one_command())
+    check('Update Vendors runs code no older than the commit it applies, and never '
+          'moves the clone', *check_update_runs_code_at_least_as_new_as_it_applies())
     check('an update that deletes a vendored file upstream dropped ends DONE',
           *check_update_vendors_survives_an_upstream_deletion())
     check('Update Vendors resolves a committed local edit to an engine file by rule',
