@@ -254,6 +254,25 @@ def _settle(reqs, repo):
         if isinstance(rid, str) and rid:
             last[rid] = r
             first.setdefault(rid, i)
+    # `inherits` (2026-10-10): a replacing requirement that says
+    # "inherits": true keeps every key of the one it replaces that it does
+    # not set itself, and each require_in_fence_paired_with pair merges with
+    # the earlier pair at the same position. The ladder set's landing rule
+    # restated universal's exemptions word for word, and on 2026-10-10 one
+    # exemption had to be added to both; now the set states only what
+    # differs (its branches, the word it wants quoted). An engine older than
+    # this replaces outright and lacks the inherited exemptions: stricter,
+    # never looser.
+    for rid, r in list(last.items()):
+        earlier = next((x for x in reqs if x.get('id') == rid), None)
+        if r.get('inherits') is True and earlier is not None and earlier is not r:
+            merged = {**earlier, **r}
+            key = 'require_in_fence_paired_with'
+            if isinstance(earlier.get(key), list) and isinstance(r.get(key), list):
+                merged[key] = [
+                    {**(earlier[key][i] if i < len(earlier[key]) else {}), **pair}
+                    for i, pair in enumerate(r[key])]
+            last[rid] = merged
     kept = []
     for i, r in enumerate(reqs):
         rid = r.get('id')
@@ -935,6 +954,24 @@ def _negated_clauses(block, triggers, negator):
     return ''.join(out)
 
 
+def _quoted_output_blanked(block, before_re):
+    """-> `block` with every quoted span that `before_re` introduces blanked
+    to spaces: a message a tool printed, quoted as it printed it ("it still
+    prints "Merge the pull request into main""), is a quotation of output,
+    not an instruction to the receiving session.
+
+    WHY (2026-10-10): a root-issues prompt reporting that a tool's wait
+    ended by printing a merge instruction was refused as granting landing.
+    `before_re` is the rule's own data and must END the text just before the
+    opening quote -- printing words only. "Said" is deliberately not one: a
+    person's words quoted are the very thing this rule exists to check."""
+    out = list(block)
+    for m in re.finditer(r'["\u201c]([^"\u201d\n]{1,300})["\u201d]', block):
+        if re.search(f'(?:{before_re})\\s*$', block[:m.start()], re.I):
+            out[m.start():m.end()] = ' ' * (m.end() - m.start())
+    return ''.join(out)
+
+
 def _described_clauses(block, triggers, before_re):
     """-> `block` with every clause blanked in which each trigger match is
     the object of a preposition -- "fires on a pull request into main",
@@ -1375,6 +1412,7 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
             stop = pair.get('narration_exempt_if_block_matches')
             negator = pair.get('negation_exempt_if_clause_negates')
             describer = pair.get('description_exempt_if_clause_preceded_by')
+            quoter = pair.get('quoted_output_exempt_if_preceded_by')
             # NARRATION IS NEVER AN ORDER (2026-10-10, a consumer's root-
             # issues reply): "The update merged into staging as PR #47", in
             # a block's situation paragraph, was refused as granting landing
@@ -1389,11 +1427,11 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
             # instruction in the same block is its own clause, still judged.
             always = pair.get('narration_exempt') is True
             for block in _fenced_blocks(text):
-                judged = block
-                if stop and re.search(stop, block, re.I | re.M):
-                    judged = _narrated_clauses(block, triggers)
+                judged = _quoted_output_blanked(block, quoter) if quoter else block
+                if stop and re.search(stop, judged, re.I | re.M):
+                    judged = _narrated_clauses(judged, triggers)
                 elif always:
-                    judged = _narrated_clauses(block, triggers, events_only=True)
+                    judged = _narrated_clauses(judged, triggers, events_only=True)
                 if negator:
                     judged = _negated_clauses(judged, triggers, negator)
                 if describer:

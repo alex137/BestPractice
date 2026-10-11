@@ -27164,6 +27164,17 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'a condition: after every push to main':
             'The check runs after every push to main.',
     })
+    # Later on 2026-10-10: a message a tool printed, quoted, is output, not
+    # an order; a person's words quoted are still the rule's business.
+    clean.update({
+        'a tool message quoted as it printed it':
+            'After the merge, the wait still prints "Merge the pull request into main". '
+            'Say it passed instead.',
+    })
+    must_fire.update({
+        'an order beside a quoted tool message':
+            'The check prints "done". Then merge it into main.',
+    })
     must_fire.update({
         'an order whose object follows "Open a"':
             'Open a PR into main once the checks pass.',
@@ -51764,6 +51775,61 @@ def check_leak_gate_reads_other_clones_as_themselves_inside_a_hook():
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+
+def check_a_replacing_rule_inherits_what_it_does_not_restate():
+    """A reply rule that replaces an earlier one by id and says
+    "inherits": true keeps every key it does not set, pair by pair.
+
+    2026-10-10: the ladder set's landing rule restated universal's
+    exemptions word for word, and adding one meant editing both copies. The
+    set now states only its branches and the word it wants quoted; the
+    exemptions come from universal's copy.
+    """
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_reply_check as prc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    base = [r for r in json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+            if r.get('id') == 'prompt-please-landing-authority']
+    tier = {'id': 'prompt-please-landing-authority', 'inherits': True,
+            'require_in_fence_paired_with': [{
+                'if_matches': r"\b(?:(?:land|merg|promot|push)\w*|pull requests?|PRs?)\b"
+                              r"[^\n]{0,80}?\b(?:into|onto|on|to|against)\s+[`\"']?"
+                              r"(?:pre-staging|staging|main)\b",
+                'must_also_match': r"[\"\u201c']\s*Booked\b"}]}
+    settled = prc._settle(base + [tier], ROOT)
+    rule = [r for r in settled if r.get('id') == 'prompt-please-landing-authority']
+    pair = (rule[0].get('require_in_fence_paired_with') or [{}])[0] if rule else {}
+    cases.append(('one rule results, with the tier branches and the word it wants',
+                  len(rule) == 1 and 'pre-staging' in pair.get('if_matches', '')
+                  and 'Booked' in pair.get('must_also_match', ''), str(pair)[:200]))
+    cases.append(('THE DISCRIMINATING CASE: it inherits the exemptions it does not restate',
+                  all(k in pair for k in ('description_exempt_if_clause_preceded_by',
+                                          'quoted_output_exempt_if_preceded_by',
+                                          'narration_exempt')), str(sorted(pair))))
+
+    def fires(body):
+        text = 'Paste into: x.\n```\n' + body + '\n```\n'
+        return [v for v in prc.violations(text, rule) if v['kind'] == 'in_fence_paired']
+    cases.append(('so a described event on staging passes under the tier rule',
+                  not fires('The step fires on a pull request into staging.'), ''))
+    cases.append(('and a tool message quoted as it printed it passes too',
+                  not fires('After the merge, the wait still prints "Merge the pull '
+                            'request into staging". Say it passed.'), ''))
+    cases.append(('and an order to land on staging still needs the quoted word',
+                  bool(fires('Land it on staging.')), ''))
+    plain = dict(tier, inherits=False)
+    alone = [r for r in prc._settle(base + [plain], ROOT)
+             if r.get('id') == 'prompt-please-landing-authority']
+    cases.append(('without "inherits", a replacing rule stands alone, as before',
+                  'description_exempt_if_clause_preceded_by'
+                  not in alone[0]['require_in_fence_paired_with'][0], ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a replacing rule inherits what it does not restate ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_landed_check_names_the_tier_that_ran():
     """After a merge, the line says whether the base moved from the trees,
     and names the check that actually ran.
@@ -74098,6 +74164,7 @@ def main():
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
+    check_a_replacing_rule_inherits_what_it_does_not_restate()
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
