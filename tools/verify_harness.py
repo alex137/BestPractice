@@ -10632,20 +10632,26 @@ def check_push_refuses_a_hand_made_session_branch_name():
     cases.append(('a name the tool builds passes',
                   _bn.name_refusal(_bn.build(['some', 'work'], tail=tail)[0],
                                    tail=tail) is None))
-    cases.append(('the tool\'s clash form passes',
+    cases.append(('the tool\'s shape, session part then random part, passes',
                   _bn.name_refusal('2026-10-06-some-work-ab1cd-x9y8z',
                                    tail=tail) is None))
+    cases.append(('the older shape that ends at the session part is refused '
+                  '(Morgan, 2026-10-11)',
+                  'five random characters' in (_bn.name_refusal(
+                      f'2026-10-06-some-work-{tail}', tail=tail) or '')))
     cases.append(('a harness-given name passes',
                   _bn.name_refusal('claude/peaceful-ritchie-3u31td', tail=tail) is None))
     cases.append(('a hand-typed date-and-topic name is refused',
                   bool(_bn.name_refusal('2026-10-06-vdc-fixes', tail=tail))))
     cases.append(('a name ending in another session\'s id is refused',
-                  bool(_bn.name_refusal('2026-10-06-some-work-zzzzz', tail=tail))))
+                  bool(_bn.name_refusal('2026-10-06-some-work-zzzzz-x9y8z', tail=tail))))
     cases.append(('the retired claude/ prefix is refused (Morgan, 2026-10-07)',
-                  bool(_bn.name_refusal(f'claude/2026-10-06-some-work-{tail}', tail=tail))))
+                  bool(_bn.name_refusal(f'claude/2026-10-06-some-work-{tail}-x9y8z',
+                                        tail=tail))))
     cases.append(('a name the tool builds has no prefix',
-                  _bn.build(['some', 'work'], date='2026-10-07', tail=tail)[0]
-                  == f'2026-10-07-some-work-{tail}'))
+                  _bn.build(['some', 'work'], date='2026-10-07', tail=tail,
+                            rand='x9y8z')[0]
+                  == f'2026-10-07-some-work-{tail}-x9y8z'))
     cases.append(('a tier branch is not judged',
                   _bn.name_refusal('pre-staging', tail=tail) is None))
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-branchname-'))
@@ -10673,7 +10679,8 @@ def check_push_refuses_a_hand_made_session_branch_name():
                       'precedent_branch_name.py' in (refused(
                           'origin HEAD:refs/heads/2026-10-06-vdc-fixes') or '')))
         cases.append(('end to end: a tool-made name is let through',
-                      refused(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}') is None))
+                      refused(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}-x9y8z')
+                      is None))
         subprocess.run(['git', '-C', str(repo), 'update-ref',
                         'refs/remotes/origin/2026-10-06-vdc-fixes',
                         subprocess.run(['git', '-C', str(repo), 'hash-object', '-t',
@@ -52237,20 +52244,24 @@ def check_branch_name_counts_local_branches():
         g(w, 'checkout', '-q', '-B', 'main')
         (w / 'a').write_text('a'); g(w, 'add', '-A'); g(w, 'commit', '-qm', 'a')
         g(w, 'push', '-q', 'origin', 'main')
-        first = '2026-10-11-update-vendors-abcde'
+        first = '2026-10-11-update-vendors-abcde-q7m2x'
         g(w, 'branch', first)
         saved_env = dict(os.environ)
         os.environ.update(env)
         try:
             name, notes = pbn.build(['update', 'vendors'], date='2026-10-11',
-                                    tail='abcde', exists=lambda n: pbn.taken(n, w))
-            check('a name only a local branch has is taken: the tool adds characters',
-                  name != first and name.startswith(first + '-'), f'{name} {notes}')
+                                    tail='abcde', rand='q7m2x',
+                                    exists=lambda n: pbn.taken(n, w))
+            check('a name only a local branch has is taken: the tool draws new '
+                  'random characters in the same place, never a third part',
+                  name != first and re.fullmatch(
+                      r'2026-10-11-update-vendors-abcde-[a-z0-9]{5}', name)
+                  is not None, f'{name} {notes}')
             check('and says why', any('local branch' in n for n in notes), notes)
             free, _ = pbn.build(['other', 'work'], date='2026-10-11', tail='abcde',
-                                exists=lambda n: pbn.taken(n, w))
+                                rand='q7m2x', exists=lambda n: pbn.taken(n, w))
             check('CONTROL: a name nothing has is handed out as it is',
-                  free == '2026-10-11-other-work-abcde', free)
+                  free == '2026-10-11-other-work-abcde-q7m2x', free)
         finally:
             os.environ.clear(); os.environ.update(saved_env)
 
@@ -54845,6 +54856,130 @@ def _fixture_git_env():
                 GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
 
+def check_data_branches_are_named_for_the_ladder():
+    """The engine's long-lived data branches are `data-<what>` in a ladder
+    repository and keep their old names everywhere else, and a ladder
+    repository's first write copies the old branch to the new name, leaving
+    the old one where it was (precedent_data_branches.py).
+
+    WHY. Morgan, 2026-10-11 (strength: decided): "'data-' for permanent
+    branches is great and approved (maybe we also rename existing ones?) BUT
+    maybe this should be in 'ladder' only, because Alex might not want this
+    and we don't want to touch his." The controls are the non-ladder cases:
+    nothing there ever gains a data- branch. Once a repository has moved,
+    everyone in it follows, so receipts and the lock stay shared. And while
+    a window on an older engine holds the old lock, a Promote here waits."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_data_branches as pdb
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    env = _fixture_git_env()
+    cases = []
+    saved_env = dict(os.environ)
+    os.environ.update(env)
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a],
+                                               capture_output=True, text=True)
+
+            def fresh(tag, with_old=True):
+                origin, work = td / f'{tag}.git', td / tag
+                g(td, 'init', '-q', '--bare', '-b', 'main', str(origin))
+                g(td, 'init', '-q', '-b', 'main', str(work))
+                g(work, 'remote', 'add', 'origin', str(origin))
+                (work / 'f').write_text('x')
+                g(work, 'add', '-A'); g(work, 'commit', '-qm', 'base')
+                g(work, 'push', '-q', 'origin', 'main')
+                if with_old:
+                    g(work, 'push', '-q', 'origin',
+                      'main:refs/heads/precedent-check-receipts')
+                return origin, work
+
+            def heads(origin):
+                return set(g(origin, 'for-each-ref', '--format=%(refname:short)',
+                             'refs/heads').stdout.split())
+
+            o, w = fresh('plain')
+            read = pdb.name(w, pdb.RECEIPTS, ladder=False)[0]
+            write = pdb.name_for_write(w, pdb.RECEIPTS, ladder=False)
+            cases.append(('CONTROL: not on the ladder, the old name is read and '
+                          'written, and no data- branch appears',
+                          read == write == 'precedent-check-receipts'
+                          and 'data-check-receipts' not in heads(o),
+                          f'{read} {write} {heads(o)}'))
+            o, w = fresh('plain-empty', with_old=False)
+            cases.append(('CONTROL: not on the ladder with nothing there yet, '
+                          'the old name',
+                          pdb.name_for_write(w, pdb.RECEIPTS, ladder=False)
+                          == 'precedent-check-receipts', ''))
+
+            o, w = fresh('ladder')
+            old_tip = g(o, 'rev-parse', 'precedent-check-receipts').stdout.strip()
+            read = pdb.name(w, pdb.RECEIPTS, ladder=True)[0]
+            said = []
+            write = pdb.name_for_write(w, pdb.RECEIPTS, ladder=True, say=said.append)
+            new_tip = g(o, 'rev-parse', 'data-check-receipts').stdout.strip()
+            cases.append(('a ladder repository not moved yet reads the old branch',
+                          read == 'precedent-check-receipts', read))
+            cases.append(('its first write makes data- at the old tip and says so; '
+                          'the old branch stays where it was',
+                          write == 'data-check-receipts' and new_tip == old_tip
+                          and g(o, 'rev-parse', 'precedent-check-receipts')
+                          .stdout.strip() == old_tip
+                          and any('left as it is' in m for m in said),
+                          f'{write} {new_tip[:8]} {old_tip[:8]} {said}'))
+            cases.append(('once moved, everyone there follows, on the ladder or not',
+                          pdb.name(w, pdb.RECEIPTS, ladder=False)[0]
+                          == pdb.name_for_write(w, pdb.RECEIPTS, ladder=False)
+                          == 'data-check-receipts', ''))
+            o, w = fresh('ladder-empty', with_old=False)
+            cases.append(('a ladder repository with nothing there yet starts on data-',
+                          pdb.name_for_write(w, pdb.RECEIPTS, ladder=True)
+                          == 'data-check-receipts', ''))
+            cases.append(('every data- branch, and the old names, are records',
+                          pdb.is_data_branch('data-leases')
+                          and pdb.is_data_branch('precedent-promote-lock')
+                          and not pdb.is_data_branch('2026-10-11-data-fix-abcde-q7m2x')
+                          and 'data-promote-lock' in pdb.every_name(), ''))
+
+            # The lock: this repository is on data-promote-lock; a window on an
+            # older engine holds the old name. A Promote here must wait.
+            o, w = fresh('lock', with_old=False)
+            g(w, 'push', '-q', 'origin', 'main:refs/heads/data-promote-lock')
+            held = g(w, 'commit-tree', '4b825dc642cb6eb9a060e54bf8d69288fbee4904',
+                     '-m', 'held by an older window [skip ci]').stdout.strip()
+            g(w, 'push', '-q', 'origin', f'{held}:refs/heads/precedent-promote-lock')
+            pdb._CACHE.clear()
+            state, info = pb._lock_claim(w, say=lambda m: None)
+            cases.append(('a fresh hold on the old lock name makes a Promote here wait',
+                          state == 'busy' and 'older window' in info, f'{state} {info}'))
+            free = g(w, 'commit-tree', '4b825dc642cb6eb9a060e54bf8d69288fbee4904',
+                     '-p', held, '-m', 'free [skip ci]').stdout.strip()
+            g(w, 'push', '-q', 'origin', f'{free}:refs/heads/precedent-promote-lock')
+            state, info = pb._lock_claim(w, say=lambda m: None)
+            claimed = g(o, 'log', '-1', '--format=%s', 'data-promote-lock').stdout
+            cases.append(('CONTROL: once the old name is free, the claim is taken on '
+                          'data-promote-lock, not the old name',
+                          state == 'held' and claimed.startswith('held by')
+                          and g(o, 'log', '-1', '--format=%s',
+                                'precedent-promote-lock').stdout.startswith('free'),
+                          f'{state} {info} {claimed}'))
+            pb._lock_release(w, info, say=lambda m: None)
+            cases.append(('...and released there',
+                          g(o, 'log', '-1', '--format=%s', 'data-promote-lock')
+                          .stdout.startswith('free'), ''))
+    finally:
+        os.environ.clear(); os.environ.update(saved_env)
+        pdb._CACHE.clear()
+    failed = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'data branches are named for the ladder ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 def check_promote_branches_are_named_like_session_branches():
     """A Promote's fix branch and its copy of staging are named
     <date>-<slug>-<session ID's end>, like every temporary branch --
@@ -54882,15 +55017,16 @@ def check_promote_branches_are_named_like_session_branches():
             run('git', 'fetch', '-q', 'origin', cwd=repo)
             day, _m = pb._day_and_moment(repo)
             fix = pb._fix_branch(repo)
-            check('a Promote\'s fix branch is named <date>-promote-fix-<id>, '
+            check('a Promote\'s fix branch is named <date>-promote-fix-<id>-<random>, '
                   'which the naming rule accepts',
-                  fix == f'{day}-promote-fix-abcde'
+                  re.fullmatch(f'{day}-promote-fix-abcde-[a-z0-9]{{5}}', fix)
                   and pbn.name_refusal(fix) is None and pb.is_fix_branch(fix), fix)
             have_tests = bool(pb.github_tests(repo, pb._remote_tip(repo, pb.staging_branch(repo))))
             copy, not_due = pb._to_main_copy(repo), pb._to_main_copy(repo, due=False)
             check('its copies of staging too, where the GitHub test knows the new names',
-                  copy == f'{day}-promote-to-main-abcde'
-                  and not_due == f'{day}-promote-to-main-not-due-abcde'
+                  re.fullmatch(f'{day}-promote-to-main-abcde-[a-z0-9]{{5}}', copy)
+                  and re.fullmatch(f'{day}-promote-to-main-not-due-abcde-[a-z0-9]{{5}}',
+                                   not_due)
                   and pb.is_main_copy(copy) and pb.is_not_due_copy(not_due),
                   f'{copy} {not_due} tests={have_tests}')
             wf.write_text(tpl.replace(pb.COPY_NAME_MARKER, '-x-'), encoding='utf-8')
@@ -54913,8 +55049,9 @@ def check_promote_branches_are_named_like_session_branches():
             run('git', 'fetch', '-q', 'origin', cwd=repo)
             plain = pb._to_main_copy(repo)
             check('where the GitHub test names no copy at all, a copy is named '
-                  '<date>-promote-to-main-<id>',
-                  plain == f'{day}-promote-to-main-abcde', plain)
+                  '<date>-promote-to-main-<id>-<random>',
+                  re.fullmatch(f'{day}-promote-to-main-abcde-[a-z0-9]{{5}}', plain)
+                  is not None, plain)
     finally:
         for k, v in saved.items():
             if v is None:
@@ -56326,7 +56463,7 @@ def check_update_done_names_the_branch_to_commit_on():
                           _pu.SWITCH_COMMAND in (_pu.feature_branch_line(repo) or ''),
                           ''))
             subprocess.run(g + ['switch', '-q', '-c',
-                                '2026-10-09-some-work-abcde'], check=True)
+                                '2026-10-09-some-work-abcde-q7m2x'], check=True)
             cases.append(('on a session branch it prints nothing',
                           _pu.feature_branch_line(repo) is None, ''))
         name = subprocess.run([sys.executable, str(ROOT / 'tools' /
@@ -70015,14 +70152,15 @@ def check_base_branch_drift_ignores_carried_work():
 
 
 def check_branch_name_follows_the_convention():
-    """A session's feature branch is `<prefix><date>-<slug>-<id>`, the id
-    being the end of the session's ID (practice: act).
+    """A session's feature branch is `<prefix><date>-<slug>-<session>-<random>`,
+    the session part being the end of the session's ID (practice: act), and
+    the random part on every name (Morgan, 2026-10-11).
 
     The controlling case is the session ID: given the harness's
     `cse_<id>`, the name ends in that ID's last five characters, lowercased,
     so the branch leads back to its session. The rest are the fallbacks the
     rule promises -- no ID means random characters and a note saying so, a
-    name already on origin gets five more and a note, an origin that cannot
+    name already on origin draws new random ones and a note, an origin that cannot
     be asked is said rather than read as "not there" -- and the refusal of a
     slug with no words in it, asserted by its own message."""
     import tempfile
@@ -70035,25 +70173,33 @@ def check_branch_name_follows_the_convention():
     try:
         os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01SQeHb3tgRrvXtsoviaWpkv'
         os.environ['CLAUDECODE'] = '1'
-        name, notes = pbn.build(['Feature', 'branch naming!'], date='2026-10-01')
+        name, notes = pbn.build(['Feature', 'branch naming!'], date='2026-10-01',
+                                rand='q7m2x')
         os.environ.pop('CLAUDECODE')
-        results.append(('the session ID ends the name, lowercased, with no prefix '
-                        'even under Claude Code',
-                        name == '2026-10-01-feature-branch-naming-awpkv'
+        results.append(('the session ID\'s end, lowercased, then the random part, '
+                        'with no prefix even under Claude Code',
+                        name == '2026-10-01-feature-branch-naming-awpkv-q7m2x'
                         and not notes))
+        a, _ = pbn.build(['x'], date='2026-10-01')
+        b, _ = pbn.build(['x'], date='2026-10-01')
+        results.append(('every name gets random characters after the session part, '
+                        'so two the same day differ without a clash',
+                        re.fullmatch(r'2026-10-01-x-awpkv-[a-z0-9]{5}', a) is not None
+                        and a != b))
 
         os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID')
         a, notes_a = pbn.build(['x'], date='2026-10-01')
         b, _ = pbn.build(['x'], date='2026-10-01')
-        results.append(('no session ID: five random lowercase characters, said',
-                        re.fullmatch(r'2026-10-01-x-[a-z0-9]{5}', a)
+        results.append(('no session ID: random lowercase characters in the session '
+                        'part too, said',
+                        re.fullmatch(r'2026-10-01-x-[a-z0-9]{5}-[a-z0-9]{5}', a)
                         is not None and a != b
                         and any('no session ID found' in n for n in notes_a)))
 
         name, _ = pbn.build(['One two', 'three-four', 'five six SEVEN'],
-                            date='2026-10-01', prefix='', tail='abcde')
+                            date='2026-10-01', prefix='', tail='abcde', rand='q7m2x')
         results.append(('the slug keeps six words, lowercase',
-                        name == '2026-10-01-one-two-three-four-five-six-abcde'))
+                        name == '2026-10-01-one-two-three-four-five-six-abcde-q7m2x'))
 
         try:
             pbn.build(['!!', '--'], tail='abcde')
@@ -70070,29 +70216,32 @@ def check_branch_name_follows_the_convention():
             _git(up, 'config', 'user.name', 'Harness')
             (up / 'f.txt').write_text('base\n')
             _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
-            taken = 'claude/2026-10-01-feature-branch-naming-awpkv'
+            taken = 'claude/2026-10-01-feature-branch-naming-awpkv-q7m2x'
             _git(up, 'branch', taken)
             clone = tmp / 'clone'
             subprocess.run(['git', 'clone', '-q', f'file://{up}', str(clone)],
                            capture_output=True, text=True)
             exists = lambda n: pbn.on_origin(n, clone)
             name, notes = pbn.build(['feature branch naming'], date='2026-10-01',
-                                    prefix='claude/', tail='awpkv', exists=exists)
-            results.append(('a name already on origin gets five more characters',
-                            re.fullmatch(re.escape(taken) + r'-[a-z0-9]{5}', name)
-                            is not None
+                                    prefix='claude/', tail='awpkv', rand='q7m2x',
+                                    exists=exists)
+            results.append(('a name already on origin draws new random characters '
+                            'in the same place',
+                            name != taken and re.fullmatch(
+                                r'claude/2026-10-01-feature-branch-naming-awpkv-'
+                                r'[a-z0-9]{5}', name) is not None
                             and any('already taken' in n and 'origin' in n for n in notes)))
             name, notes = pbn.build(['fresh'], date='2026-10-01', prefix='claude/',
-                                    tail='awpkv', exists=exists)
+                                    tail='awpkv', rand='q7m2x', exists=exists)
             results.append(('a free name is left as it is (negative control)',
-                            name == 'claude/2026-10-01-fresh-awpkv' and not notes))
+                            name == 'claude/2026-10-01-fresh-awpkv-q7m2x' and not notes))
 
             _git(clone, 'remote', 'set-url', 'origin', str(tmp / 'nowhere'))
             name, notes = pbn.build(['fresh'], date='2026-10-01', prefix='claude/',
-                                    tail='awpkv',
+                                    tail='awpkv', rand='q7m2x',
                                     exists=lambda n: pbn.on_origin(n, clone))
             results.append(('an origin that cannot be asked is said, not read as free',
-                            name == 'claude/2026-10-01-fresh-awpkv'
+                            name == 'claude/2026-10-01-fresh-awpkv-q7m2x'
                             and any('could not ask origin' in n for n in notes)))
     finally:
         for k, v in saved.items():
@@ -74940,6 +75089,7 @@ def main():
     check_update_asks_before_changing_hooks()
     check_update_question_names_new_gates()
     check_promote_branches_are_named_like_session_branches()
+    check_data_branches_are_named_for_the_ladder()
     check_landed_branch_gets_its_delete_link()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
