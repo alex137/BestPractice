@@ -158,7 +158,7 @@ ANCHORS = [
     # showing how to declare load_bearing_annotations.
     # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     24, 24, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     25, 25, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as
