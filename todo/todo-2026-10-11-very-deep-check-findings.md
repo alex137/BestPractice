@@ -94,6 +94,11 @@ item holds the rest.
   [gotchas/INDEX.md](../gotchas/INDEX.md)). The same check refuses any
   change to the stub, so it cannot be corrected without an exemption.
 
+- **An installer run into a project with a hand-written `MAP.md`** writes
+  `MAP.source.md` from the template, and the sync then regenerates
+  `MAP.md` from it, which may replace the project's own map. Not verified
+  in this run.
+
 ## Notes
 
 2026-10-11: opened by the very deep check that found them.

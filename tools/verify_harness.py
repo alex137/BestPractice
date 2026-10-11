@@ -67010,6 +67010,36 @@ def check_heading_anchor_keeps_combining_marks():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_vocabulary_scan_skips_code_owner_commands():
+    """The very deep check's list of spoken commands leaves out a command
+    marked for code owners only, as the vocabulary page itself does.
+
+    WHY. precedent_vocabulary.py keeps code-owner commands out of every
+    committed page (Morgan, 2026-10-05), and DAILY_HABITS.md is generated
+    from it. The scan that checks the page used its own list and reported
+    "Deep check", "Very deep check", "Full practice audit" and "Update
+    Vendors" missing on every run, and a session told to fix that would have
+    broken the generated page (2026-10-11)."""
+    import tempfile
+    import very_deep_check as vdc
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td) / 'practices'
+        d.mkdir()
+        for slug, extra in (('everyone', ''),
+                            ('owners-only', 'visible_to: code-owners\n')):
+            (d / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\nstatus: active\n{extra}'
+                f'command: ["Say {slug}"]\n---\n## Rule\n\nx\n',
+                encoding='utf-8')
+        got = vdc._spoken_commands(td)
+    phrases = [p for p, _s in got]
+    cases = [('a command for everyone is listed', 'Say everyone' in phrases),
+             ('a code-owner command is not', 'Say owners-only' not in phrases)]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the vocabulary scan skips code-owner commands ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed) + f' -- {got}')
+
+
 def check_spoken_commands_lead_the_session_start():
     """With five sets attached, a session opened above them got every repo's
     start-up output joined and cut, and the ladder's stage words came after
@@ -74304,6 +74334,7 @@ def main():
           *check_heading_anchor_keeps_combining_marks())
     check('spoken commands lead the session-start output, from every repo, before any cut',
           *check_spoken_commands_lead_the_session_start())
+    check_vocabulary_scan_skips_code_owner_commands()
     check('Update Vendors: gotchas/ seeded, generated files rebuilt, filled placeholders '
           'carried, allow rules once, live citations quiet, pip errors kept',
           *check_update_vendors_onegplanning_findings())

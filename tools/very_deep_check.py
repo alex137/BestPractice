@@ -3160,6 +3160,16 @@ def _spoken_commands(repo_dir):
             fm = sp.parse_frontmatter_fields(text.split('---', 2)[1], decode=True)
             if (fm.get('status') or 'active').strip() != 'active':
                 continue
+            # A command for code owners only is left out of every committed
+            # page by precedent_vocabulary.py (Morgan, 2026-10-05), so it is
+            # never "missing" from DAILY_HABITS.md. Until 2026-10-11 this scan
+            # reported four of them as missing on every run.
+            try:
+                import precedent_audience as _pa
+                if _pa.for_code_owners(fm):
+                    continue
+            except ImportError:
+                pass
             raw = fm.get('command')
             if not raw or raw == 'null':
                 continue

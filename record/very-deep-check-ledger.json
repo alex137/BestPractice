@@ -6578,7 +6578,24 @@
           "status": "findings"
         }
       ],
-      "passes": [],
+      "passes": [
+        {
+          "pass": "2",
+          "status": "done",
+          "recorded": "2026-10-11T07:50:53-03:00",
+          "findings": 7,
+          "tokens": null,
+          "note": "mechanisms: retired pre-staging listed as a tier pair; run counted its own outputs as lost work; fleet audit asked about deleted sets; visibility audit read owner/name. and api /repos/ as repos; two budgets moved with measurements; guessed timezone moved a set clock; full harness --all green on main (0 failed)"
+        },
+        {
+          "pass": "4",
+          "status": "done",
+          "recorded": "2026-10-11T07:50:53-03:00",
+          "findings": 11,
+          "tokens": null,
+          "note": "8 unlanded branches judged (5 recommended for deletion on the review page; 3 put to Morgan); 30 overlap pairs judged, all kept; expiring practice condition half met (no repo declares the two retired sets); 4 reminders past due"
+        }
+      ],
       "completed": true
     }
   ]
