@@ -6594,6 +6594,22 @@
           "findings": 11,
           "tokens": null,
           "note": "8 unlanded branches judged (5 recommended for deletion on the review page; 3 put to Morgan); 30 overlap pairs judged, all kept; expiring practice condition half met (no repo declares the two retired sets); 4 reminders past due"
+        },
+        {
+          "pass": "1",
+          "status": "done",
+          "recorded": "2026-10-11T07:54:41-03:00",
+          "findings": 45,
+          "tokens": null,
+          "note": "five fresh-eyes rehearsals in scratch (guided install, developer install, update from a week-old commit, migration, practice moves); fixed: install landing on retired pre-staging, no catalogue sync record, --admin ignored, guessed timezone moving a set clock, leak gate missing a set's own visibility, migration guide naming a deleted set, install docs; the rest in todo-2026-10-11-very-deep-check-findings"
+        },
+        {
+          "pass": "3",
+          "status": "done",
+          "recorded": "2026-10-11T07:54:41-03:00",
+          "findings": 9,
+          "tokens": null,
+          "note": "install docs made to match the installer; deep check named one way; four docs registered; two dead links; vocabulary scan stopped flagging code-owner commands; root TODO.md stub stale and frozen"
         }
       ],
       "completed": true
