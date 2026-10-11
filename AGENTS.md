@@ -97,7 +97,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~642 of 1750 token budget, 6 of 144 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 144 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) Answer the easy questions first**, in the same message; the long run
 never gates the answer. **(2) A task longer than a few minutes is proposed,
@@ -136,6 +136,16 @@ true sentence beats a specific false one, every time.**
 **repo-is-memory.** Everything a future session needs — orientation, open items,
 decisions, lessons — lives in committed files. A session's chat thread is
 disposable; if knowledge exists only in a thread, it is already lost.
+
+**So does the work itself.** A draft, a summary, generated output, a script
+or a result a session was asked to make goes on its feature branch and is
+pushed in the turn it is made; a scratch folder holds intermediate steps,
+never finished work waiting to be filed. When it cannot get there -- a check
+refuses, access is missing -- the reply's first line says it is in no
+repository yet, where it is, and asks how to get it in; never a bare
+"held". Secrets and raw private source material (a message's original
+words, an unedited transcript) stay out, because git history keeps them;
+the reply names anything left out on purpose, and why.
 
 **verify-postcondition.** After any state-changing operation, check **the state you wanted**,
 not that the command reported success. Name the postcondition before you run
