@@ -238,6 +238,27 @@ def name_refusal(name, tail=None):
             f'"$(python3 tools/precedent_branch_name.py <a few words>)"')
 
 
+
+def harness_name_note(name):
+    """-> what to say about a push to the branch the harness named when the
+    session opened, or None for any other name.
+
+    Never a refusal: a session that kept that name must still be able to
+    push its work (name_refusal lets it through for that reason). But act's
+    Rule has the session make its own named branch, and a session that
+    forgot was told nothing: on 2026-10-11 a whole build went up under
+    claude/amazing-lamport-l5eivc, and Morgan asked why. So every push to
+    one says so, once per push, in words the push gate hands the session."""
+    m = _HARNESS_NAME_RE.fullmatch(name)
+    if not (m and any(c.isdigit() for c in m.group(1))):
+        return None
+    return (f'{name} is the name the harness gave this session when it '
+            f'opened, before the task was known. act\'s Rule: make the '
+            f'session\'s named branch and work there -- git switch -c '
+            f'"$(python3 tools/precedent_branch_name.py <a few words>)" -- '
+            f'then push that. This push goes ahead.')
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('words', nargs='+', help='a few words saying what the work is')

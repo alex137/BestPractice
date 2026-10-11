@@ -10626,6 +10626,16 @@ def check_push_refuses_a_hand_made_session_branch_name():
                   == f'2026-10-07-some-work-{tail}-x9y8z'))
     cases.append(('a tier branch is not judged',
                   _bn.name_refusal('pre-staging', tail=tail) is None))
+    # The harness's own name is let through, and SAID (2026-10-11: a whole
+    # build went up under claude/amazing-lamport-l5eivc with no word).
+    cases.append(('a push to the harness-given name gets a note naming the tool',
+                  'precedent_branch_name.py' in (_bn.harness_name_note(
+                      'claude/peaceful-ritchie-3u31td') or '')))
+    cases.append(('...and only that name: a tool-made name, a tier and a '
+                  'hand-typed name get none',
+                  _bn.harness_name_note(f'2026-10-06-some-work-{tail}-x9y8z') is None
+                  and _bn.harness_name_note('staging') is None
+                  and _bn.harness_name_note('2026-10-06-vdc-fixes') is None))
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-branchname-'))
     env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
                CLAUDE_CODE_REMOTE_SESSION_ID='cse_' + 'x' * 20 + tail)
@@ -10666,6 +10676,24 @@ def check_push_refuses_a_hand_made_session_branch_name():
                        env=env, capture_output=True)
         cases.append(('a branch origin already has is not judged again',
                       refused('origin HEAD:refs/heads/2026-10-06-vdc-fixes') is None))
+
+        def notes(cmd):
+            saved = dict(os.environ)
+            os.environ.update(env)
+            try:
+                return _ppc._branch_name_notes(repo, ['--gate', '--push-command', cmd])
+            finally:
+                os.environ.clear()
+                os.environ.update(saved)
+        cases.append(('end to end: a push to the harness-given name is noted, '
+                      'not refused',
+                      refused('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
+                      is None
+                      and len(notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td'))
+                      == 1))
+        cases.append(('...and a push to a tool-made name is not',
+                      notes(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}-x9y8z')
+                      == []))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
     bad = [n for n, ok in cases if not ok]
@@ -34484,12 +34512,23 @@ def check_push_check_gate():
                                env=dict(env, CLAUDE_PROJECT_DIR=str(project)))
             return '"deny"' in p.stdout, p.stdout
 
-        denied, _ = gate('git push origin main')
+        denied, out_main = gate('git push origin main')
         record = work / '.git' / 'precedent-push-check.json'
         cases.append(('a clean tree passing every check is let through',
                       not denied))
         cases.append(('and the pass is recorded against the tree',
                       record.is_file()))
+        # A NOTE reaches the session as additionalContext, and the push still
+        # goes ahead: the harness-given branch name (2026-10-11).
+        _shutil.copy2(ROOT / 'tools' / 'precedent_branch_name.py',
+                      work / 'tools' / 'precedent_branch_name.py')
+        denied, out = gate('git push origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
+        cases.append(('a push to the harness-given branch name goes ahead, and '
+                      'the session is told to make its named branch',
+                      not denied and '"additionalContext"' in out
+                      and 'precedent_branch_name.py' in out))
+        cases.append(('a push with nothing to note hands the session nothing',
+                      '"additionalContext"' not in out_main))
 
         (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
         git(work, 'add', 'FAIL')

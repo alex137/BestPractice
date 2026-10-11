@@ -1038,6 +1038,33 @@ def _branch_name_refusal(root, argv):
     return None
 
 
+
+def _branch_name_notes(root, argv):
+    """-> what to say about the branch names a push targets, never a
+    refusal: today, a push to the branch the harness named when the session
+    opened (precedent_branch_name.harness_name_note). Every push is judged,
+    not only the one that creates the branch, since that is where a session
+    that forgot act's naming keeps pushing. push-check-gate.sh hands each
+    NOTE line to the session; an engine copy without the note says nothing."""
+    if '--push-command' not in argv:
+        return []
+    i = argv.index('--push-command')
+    cmd = argv[i + 1] if i + 1 < len(argv) else ''
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_branches
+        import precedent_branch_name
+    except ImportError:
+        return []
+    finally:
+        sys.path.pop(0)
+    note = getattr(precedent_branch_name, 'harness_name_note', None)
+    if note is None:
+        return []
+    return [n for n in (note(name) for name in
+                        precedent_branches.push_targets(root, cmd) or []) if n]
+
+
 def _promote_only_refusal(root, argv):
     """-> why the named push is refused before any check runs, or None.
     Only a person who turned promote_only on is ever refused here
@@ -2069,6 +2096,8 @@ def main(argv):
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1
+    for note in _branch_name_notes(root, argv):
+        print(f'precedent_push_check: NOTE -- {note}', flush=True)
     if '--tier' in argv:
         i = argv.index('--tier')
         value = argv[i + 1] if i + 1 < len(argv) else ''
