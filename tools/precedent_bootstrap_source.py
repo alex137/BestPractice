@@ -1209,6 +1209,16 @@ def _malformed(level, path):
                                'their replies should be and write their '
                                'answer in, in their own words; until then a '
                                'shared-level default may decide it for them')
+                # `github` the same way (2026-10-11): CODEOWNERS and the
+                # ladder's branch names read it, and git never knows it. The
+                # session can look it up (GitHub's "who am I") and offer it.
+                if not (data.get('github') or '').strip():
+                    out.append('identity.json declares no "github" -- look up '
+                               'the username this session is signed in as '
+                               '(GitHub\'s "who am I"), confirm it with the '
+                               'person, and write it in: python3 '
+                               'tools/precedent_branch_name.py --set-github '
+                               '<username> --repo <this set>')
 
         f = path / 'config.json.sample'
         if f.is_file():
