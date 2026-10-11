@@ -51830,6 +51830,62 @@ def check_a_replacing_rule_inherits_what_it_does_not_restate():
     check(f'a replacing rule inherits what it does not restate ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_main_test_wait_does_not_ask_to_merge_what_is_merged():
+    """After a fast move, --wait-main-test does not ask for a merge main
+    already carries.
+
+    2026-10-10: a fast move merges first and waits on GitHub's test after,
+    and twice the passed wait ended "Merge the pull request into main" over
+    a pull request merged half an hour before. The wait now looks at
+    origin's main first.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    saved = (pb.github_tests, pb.github_test_state)
+    try:
+        pb.github_tests = lambda root, sha: [('.github/workflows/t.yml', None)]
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            env = _fixture_git_env()
+            g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                               capture_output=True, text=True)
+            g(tmp, 'init', '-q', '--bare', '-b', 'main', str(tmp / 'o.git'))
+            g(tmp, 'clone', '-q', str(tmp / 'o.git'), str(tmp / 'w'))
+            w = tmp / 'w'
+            g(w, 'checkout', '-q', '-B', 'main')
+            (w / 'a').write_text('a'); g(w, 'add', '-A'); g(w, 'commit', '-qm', 'a')
+            g(w, 'push', '-q', 'origin', 'main')
+            merged = g(w, 'rev-parse', 'HEAD').stdout.strip()
+            g(w, 'checkout', '-q', '-b', 'copy')
+            (w / 'b').write_text('b'); g(w, 'add', '-A'); g(w, 'commit', '-qm', 'b')
+            g(w, 'push', '-q', 'origin', 'copy')
+            open_ = g(w, 'rev-parse', 'HEAD').stdout.strip()
+            for state, rc_want in (('passed', 0), ('failure', 1)):
+                pb.github_test_state = lambda *a, s=state, **k: (s, 'fixture run')
+                said = []
+                rc = pb.wait_for_main_test(w, merged, said.append)
+                cases.append((f'{state}, already on main: no merge is asked for',
+                              rc == rc_want and 'already carries it' in said[-1]
+                              and 'Merge the pull request' not in said[-1]
+                              and 'Do not merge' not in said[-1], said[-1]))
+                said = []
+                rc = pb.wait_for_main_test(w, open_, said.append)
+                cases.append((f'{state}, not on main yet: as before',
+                              rc == rc_want and ('Merge the pull request' in said[-1]
+                                                 if state == 'passed'
+                                                 else 'Do not merge' in said[-1]),
+                              said[-1]))
+    finally:
+        pb.github_tests, pb.github_test_state = saved
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the main-test wait does not ask to merge what is merged ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_landed_check_names_the_tier_that_ran():
     """After a merge, the line says whether the base moved from the trees,
     and names the check that actually ran.
@@ -74164,6 +74220,7 @@ def main():
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
+    check_main_test_wait_does_not_ask_to_merge_what_is_merged()
     check_a_replacing_rule_inherits_what_it_does_not_restate()
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
