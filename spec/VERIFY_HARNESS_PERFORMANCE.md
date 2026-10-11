@@ -522,6 +522,80 @@ missing from [tools/harness_check_times.json](../tools/harness_check_times.json)
 so `--as-ci` deals them as 0.23 seconds each; that file is regenerated
 only by a full `--as-ci --record-times` run.
 
+## 2026-10-11: where `check_precedent_check_fires`'s eight minutes go
+
+[tools/harness_check_times.json](../tools/harness_check_times.json) recorded
+this check at 777.5 seconds (2026-10-09, `--as-ci`, 4 cores), and the ask
+came in as *"It's absurd this test takes 13 minutes."* Measured here by running the function
+alone on a quiet 4-core cloud container, every planted case forced on
+(`PRECEDENT_HARNESS_ALL=1`), with every `copytree`, `git` call and
+[`precedent_check.py`](../tools/precedent_check.py) subprocess timed, and the parent process's stack
+sampled every 0.2 seconds. The `--as-ci` figure was not re-measured; alone,
+the check took **487 seconds**, and all 331 stated cases passed in every run
+below.
+
+**Where the 487 seconds went:**
+
+| bucket | seconds | what it is |
+|---|---|---|
+| fixture `git` under the session's global hooks | about 100 of wall (178 summed) | `core.hooksPath` reaches every throwaway repository ([gotcha](../gotchas/gotcha-2026-09-13-the-commit-backstop-is-global-core-hookspath-so-it-reaches-t.md)): 7 pushes at about 13.6 s each (the pre-push leak gate reads the whole fixture), 67 commits at about 1 s. GitHub's runners install no global hooks, so this bucket is local only. |
+| deleting the scratch directory at the end | 108 | the `finally: shutil.rmtree(tmp)`: about 270 trees, deleted at once on one core. Deleted at once they cost 0.16 to 0.4 s a tree; deleted one by one, as each finishes, 0.03 to 0.07 s. |
+| the 114 planted case pairs | about 115 | two processes at a time on four cores. A median pair takes 0.85 s; the slow ones are the four that push to a bare remote (about 14 s each, all of it the hooks above). |
+| the parent's own fixtures, one after another | about 120 | the baseline bare run (27 s), the error-isolation `--full-sweep` (31 s), the `hooks-*` fixtures at 4 to 5 s each, and about 40 other bespoke fixtures outside `case()`. |
+
+The first row is the difference between the run with the hooks and the
+same run without them; the other three come from the sampled run without
+them (360 s). So the rows overlap a little and do not add up to 487.
+
+With the hooks switched off for fixture `git` only, the same run took 387
+seconds, and the machine averaged about one busy core of four (261 s user
+plus 120 s system over 360 s of wall clock).
+
+**What a fixture costs.** A copy of the baseline repository is 3,198 files,
+half of them loose git objects: 0.50 s to copy, 0.07 s to delete. After `git
+repack -ad && git prune` once on the baseline it is 1,638 files: 0.34 s and
+0.03 s. A `precedent_check.py --only` run costs 0.27 s at its fastest and
+0.39 s at the median, and a whole sweep about 30 s.
+
+**A prototype, in a scratch copy, measured at 216 seconds** with the same 331
+cases passing. It does four things:
+
+1. fixture `git` runs with `-c core.hooksPath=/dev/null`;
+2. the baseline repository is repacked once, after its commit;
+3. each case's worker deletes its own fixture when its run finishes;
+4. `case()` returns at once, with up to three cases (six processes) in
+   flight; `planted` resolves a pending case when something reads it, and
+   the baseline bare run goes in the background, collected before the
+   closing assertions. This is sketch (a) of the 2026-09-19 follow-ups
+   below.
+
+What is still serial after that: the error-isolation sweep (31 s) and the
+bespoke fixtures, about 40 s of them in the `hooks-*` family alone.
+
+**One slug alone**, timed as a standalone pipeline (build the baseline,
+then one planted and one clean copy side by side, hooks off): 2.4 s for
+`cite-the-incident`, 3.7 s for `retired-words`, 7.0 s for
+`hooks-on-disk-are-reachable`, not counting that slug's bespoke fixtures.
+
+**Ideas weighed and set aside:**
+
+- *A minimal fixture per check.* After the repack a copy costs a third of a
+  second, so a minimal fixture saves little. Every check would also need a
+  declared list of what it reads, and lists like that have drifted before.
+- *One sweep for every clean half.* A clean pair is under a second at the
+  median. Parsing one sweep's output per slug would tie the harness to the
+  output format and save little.
+- *Checks in-process.* [`precedent_check.py`](../tools/precedent_check.py) binds its repository root at
+  import, and running each check in its own process is the isolation the
+  test exists to have. The process start (0.27 s) is not where the time
+  goes.
+- *Deleting the test.* Nothing else watches every check fire on a planted
+  violation; the docstring's account of claims that never fired still
+  holds.
+
+The fix proposed from this is
+[todo-2026-10-11-planted-cases-in-minutes](../todo/todo-2026-10-11-planted-cases-in-minutes.md).
+
 ## Open follow-ups
 
 - **The cross-session copytree-under-threads discrepancy** (no measurable
@@ -536,6 +610,7 @@ only by a full `--as-ci --record-times` run.
   change**, matching the standard this record's 2026-09-16 section set,
   would firm up the 59.6s/78.7s/102.56s picture above into something as
   solid as the noise floor it's being compared against.
+- **Cross-case parallelization** -- prototyped 2026-10-11 as sketch (a), measured above; the bullet below is the 2026-09-19 analysis.
 - **Cross-case parallelization (running many of the 63 cases concurrently,
   not just the two halves of one case)** was analyzed but not attempted:
   the function isn't structured as a flat list of independent work (`case()`
