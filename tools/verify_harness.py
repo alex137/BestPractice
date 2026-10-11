@@ -55667,6 +55667,91 @@ def check_update_judges_retired_sets_after_the_catalogue():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_update_takes_a_removal_its_source_decommissioned():
+    """Update Vendors lets the view sync remove a practice the source
+    deleted on purpose -- recorded in process/decommissioned_paths.json at
+    the commit the update takes -- by name, and nothing else.
+
+    WHY. 2026-10-11: BestPractice deleted retired-set-takes-only-its-
+    retirement and recorded it there, and the first run of Update All
+    Vendors showed every consumer's update would now FAIL on it: the sync
+    refused the removal and offered only --allow-removals, a person's call
+    made repo by repo. The update now names the recorded practices to the
+    sync (--allow-removal SLUG); one it cannot match to the record is
+    still refused."""
+    cases = []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        refusal = ("refusing to WRITE: this sync would remove 1 practice(s) "
+                   "this repository's committed MANIFEST.json records, whose "
+                   "source is still declared -- {items}. Two causes, and the "
+                   "remedy differs")
+        gone = 'retired-set-takes-only-its-retirement'
+        at = '34cb52010423c3887caf502bba7b45553b1a4543'  # the deletion
+        cases.append(('a recorded decommission: named to the sync',
+                      pu.decommissioned_removals(refusal.format(
+                          items=f'{gone} (from precedent)'), at) == [gone]))
+        cases.append(('a practice the record does not list: refused',
+                      pu.decommissioned_removals(refusal.format(
+                          items='the-boildown (from precedent)'), at) == []))
+        cases.append(('one listed and one not: refused',
+                      pu.decommissioned_removals(refusal.format(
+                          items=f'{gone} (from precedent); the-boildown '
+                                f'(from precedent)'), at) == []))
+        cases.append(('from a set, not the universal source: refused',
+                      pu.decommissioned_removals(refusal.format(
+                          items=f'{gone} (from precedent-shared-writing)'),
+                          at) == []))
+        cases.append(('at a commit before the record says so: refused',
+                      pu.decommissioned_removals(refusal.format(
+                          items=f'{gone} (from precedent)'), at + '^') == []))
+        sync = (ROOT / 'tools' / 'precedent_sync_views.py').read_text(
+            encoding='utf-8')
+        cases.append(('the sync takes --allow-removal SLUG and lets only '
+                      'those slugs through',
+                      "'--allow-removal'}" in sync
+                      and "b[0] in set(allow_removal_of)" in sync))
+    finally:
+        sys.path.pop(0)
+    bad = [n for n, ok in cases if not ok]
+    check(f'Update Vendors takes a removal its source decommissioned '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_update_all_vendors_skips_its_own_source():
+    """precedent_update_all.py never updates the BestPractice repository it
+    runs from -- that repository has a precedent.json too -- and refuses to
+    run with no repositories named, rather than guessing a set."""
+    import tempfile
+    cases = []
+    tool = str(ROOT / 'tools' / 'precedent_update_all.py')
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update_all as pua
+        own = pua.source_repo()
+    finally:
+        sys.path.pop(0)
+    cases.append(('the tool reads its own source from the clone it runs in',
+                  own == 'alex137/bestpractice'))
+    with tempfile.TemporaryDirectory() as tmp:
+        if own:
+            r = subprocess.run([sys.executable, tool, '--workdir', tmp,
+                                '--no-push', own.upper()],
+                               capture_output=True, text=True)
+            cases.append(('its own source, in any case: SKIPPED, nothing '
+                          'cloned', r.returncode == 0
+                          and r.stdout.startswith('SKIPPED')
+                          and not any(pathlib.Path(tmp).iterdir())))
+        r = subprocess.run([sys.executable, tool, '--workdir', tmp],
+                           capture_output=True, text=True)
+        cases.append(('no repositories named: refused by argparse',
+                      r.returncode == 2 and 'OWNER/REPO' in r.stderr))
+    bad = [n for n, ok in cases if not ok]
+    check(f'Update All Vendors skips its own source '
+          f'({len(cases)} stated cases)', not bad and cases, '; '.join(bad))
+
+
 def check_promote_commits_carry_a_session_trailer():
     """A commit the Promote tool writes itself -- the rebuild of generated
     files during a composition -- carries a session trailer the trailer
@@ -74824,6 +74909,8 @@ def main():
     check_update_judges_retired_sets_after_the_catalogue()
     check_date_check_skips_commits_github_made()
     check_update_rerun_after_left_for_you_still_drops_a_deleted_set()
+    check_update_takes_a_removal_its_source_decommissioned()
+    check_update_all_vendors_skips_its_own_source()
     check_promote_commits_carry_a_session_trailer()
     check_merge_instructions_give_the_full_head()
     check_promote_marks_other_sessions_commits()
