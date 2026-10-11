@@ -104,3 +104,12 @@ merge. The first version kept the list in his individual source; asked
 "Is it even worth it to have a list?", the session agreed it was not, and
 the list went before it landed. The plan of record is
 [spec/UPDATE_ALL_VENDORS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/UPDATE_ALL_VENDORS_PLAN.md).
+
+## Install
+Nothing to install in a consuming repository: the phrase runs
+[tools/precedent_update_all.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update_all.py)
+from the BestPractice clone, the same way Update Vendors runs that clone's
+[precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py).
+The session needs only what any session has: a way to list the person's
+repositories and to attach one, and the BestPractice clone beside the work.
+Where the harness cannot list repositories, name them to the tool by hand.
