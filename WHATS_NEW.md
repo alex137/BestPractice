@@ -1,9 +1,18 @@
 ---
-checked_through: 2026-10-09
+checked_through: 2026-10-10
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Saturday 2026-10-10: leak-gate-on-every-push
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Every push is now checked for private names before it leaves your machine**, on every branch and every commit it carries, not just the final state, so a slip that a later commit tidied up can no longer go out anyway (the global pre-push hook runs tools/leak_gate.py over each unpublished commit, messages included; GitHub's leak-gate.yml now runs on main only, to save billed minutes).
+- **Every prompt handed to a new session now says who sent it and who it is for** in its first two lines, and the reply check refuses one that doesn't (seeded-prompt-names-its-origin; the check is prompt-block-names-both-ends).
+- **Update Vendors got a round of fixes from rolling it out to four repositories**: parallel runs now wait their turn instead of clashing, and eight smaller findings from three projects' runs were fixed (tools/precedent_clone_lock.py; landers also take the landing lock now).
+- **A new page for people explains how you hear what's happening**: inside the conversation you already have open, never by newsletter or a timed ping, with how reminders and failure issues really work (documentation/STAYING_INFORMED.md).
 
 ## Friday 2026-10-09: land-on-staging-move-fast-to-main
 

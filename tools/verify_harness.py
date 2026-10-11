@@ -56805,6 +56805,61 @@ def check_publish_gate_passes_the_branch_cleanup_page():
           not bad, '; '.join(bad))
 
 
+def check_branch_cleanup_page_is_one_page_updated_in_place():
+    """The branch-cleanup page says when it was built, in the person's zone;
+    its ticks belong to that build; and the person's saved page address is
+    read from their identity.json and printed for the session to publish to.
+
+    WHY. 2026-10-11, Morgan: one pinned cleanup page that every closing
+    session updates, instead of a new link per session. Between closes the
+    page shows the last list, so it must say how old that is; and a refreshed
+    list must start unticked, or a branch ticked but never deleted would
+    hide. Planted: a declared zone names its city; an unreadable one falls
+    back to UTC; two builds carry two tick keys; an identity.json with the
+    address yields it, one without yields nothing."""
+    import datetime
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as _sb
+    import precedent_identity as _pid
+    cases = []
+    at = datetime.datetime(2026, 10, 11, 18, 5, tzinfo=datetime.timezone.utc)
+    line = _sb.built_line(at, 'America/Argentina/Buenos_Aires')
+    cases.append(('a declared zone names its city', line ==
+                  'Refreshed 11 Oct 2026, 15:05 Buenos Aires time', line))
+    line = _sb.built_line(at, 'Not/A_Zone')
+    cases.append(('CONTROL: an unreadable zone falls back to UTC',
+                  line == 'Refreshed 11 Oct 2026, 18:05 UTC', line))
+    groups = [('o', 'r', [('old-branch', '2026-10-01')])]
+    one = _sb.render_html(groups, now=at)
+    two = _sb.render_html(groups, now=at + datetime.timedelta(hours=1))
+    cases.append(('the page carries its refreshed line',
+                  'Refreshed 11 Oct 2026, 18:05 UTC' in one, ''))
+    cases.append(('two builds keep their ticks apart',
+                  "branch-cleanup-done:20261011T180500Z" in one
+                  and "branch-cleanup-done:20261011T190500Z" in two, ''))
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        ident = {'name': 'P', 'email': 'p@example.com',
+                 'branch_cleanup_page': 'https://claude.ai/code/artifact/x'}
+        (td / 'identity.json').write_text(json.dumps(ident), encoding='utf-8')
+        saved = os.environ.pop('PRECEDENT_COMMIT_EMAIL', None)
+        try:
+            got = _sb.saved_page(_pid.declared_identity(td, user_config=td / 'none'))
+            cases.append(('the saved address is read from identity.json',
+                          got == ident['branch_cleanup_page'], got))
+            del ident['branch_cleanup_page']
+            (td / 'identity.json').write_text(json.dumps(ident), encoding='utf-8')
+            got = _sb.saved_page(_pid.declared_identity(td, user_config=td / 'none'))
+            cases.append(('CONTROL: no address saved, none given', got == '', got))
+        finally:
+            if saved is not None:
+                os.environ['PRECEDENT_COMMIT_EMAIL'] = saved
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the branch-cleanup page is one page updated in place ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_update_seeds_an_upstream_budget_for_a_vendored_tool():
     """Update Vendors writes upstream's run budget, and its note, for a
     vendored engine tool this repo does not budget, and asks only when the
@@ -75214,6 +75269,7 @@ def main():
     check_gates_promise_no_override()
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
+    check_branch_cleanup_page_is_one_page_updated_in_place()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
     check_citations_skip_a_generated_block()
