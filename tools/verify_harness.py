@@ -27164,6 +27164,17 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'a condition: after every push to main':
             'The check runs after every push to main.',
     })
+    # Later on 2026-10-10: a message a tool printed, quoted, is output, not
+    # an order; a person's words quoted are still the rule's business.
+    clean.update({
+        'a tool message quoted as it printed it':
+            'After the merge, the wait still prints "Merge the pull request into main". '
+            'Say it passed instead.',
+    })
+    must_fire.update({
+        'an order beside a quoted tool message':
+            'The check prints "done". Then merge it into main.',
+    })
     must_fire.update({
         'an order whose object follows "Open a"':
             'Open a PR into main once the checks pass.',
@@ -50776,6 +50787,43 @@ def check_push_check_runs_approved_workflow_steps():
         cases.append(('a check reading GitHub\'s environment is named, never run',
                       ('on-change.yml', 'Test with the run') in named
                       and not any(a[0] == 'tools/test_run.py' for a in argvs), (argvs, named)))
+        # 2026-10-10, later: a product's alarm drill. Its steps ran only
+        # after a failure and only from the button with an input set, and
+        # one appended the words "alerting test" to a list; all three were
+        # named as GitHub-only checks.
+        (wf / 'drill.yml').write_text(
+            'on:\n  push:\n  workflow_dispatch:\n    inputs:\n      drill:\n        type: boolean\n'
+            'jobs:\n  s:\n    steps:\n'
+            '      - name: File the alerting test as a todo item\n'
+            '        if: ${{ (failure() || cancelled()) && inputs.drill }}\n'
+            '        run: python3 tools/todo.py file "$RUN_URL"\n'
+            '      - name: Report the alerting test\n'
+            '        if: ${{ inputs.drill }}\n'
+            '        run: gh issue create --title x\n'
+            '      - name: Commit state\n'
+            '        run: |\n'
+            '          parts+=("file the alerting test as a todo item")\n'
+            '          git commit -m "state"\n'
+            '      - name: Run the tests even after a failure\n'
+            '        if: ${{ always() }}\n'
+            '        run: make test\n', encoding='utf-8')
+        approved = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        approved['github_ci_approved']['.github/workflows/drill.yml'] = {
+            'sha256': 'x', 'approved_by': 'p'}
+        (repo / 'precedent.json').write_text(json.dumps(approved), encoding='utf-8')
+        _c, unrun = ppc.approved_workflow_checks(repo)
+        drill = [st for w, st, _c in unrun if w.endswith('drill.yml')]
+        cases.append(('THE DISCRIMINATING CASE: steps that run only after a failure or '
+                      'only on a manual input are not checks',
+                      'File the alerting test as a todo item' not in drill
+                      and 'Report the alerting test' not in drill, drill))
+        cases.append(('words inside a quoted string are not what a step runs',
+                      'Commit state' not in drill, drill))
+        cases.append(('a test step run "always()" is still named',
+                      'Run the tests even after a failure' in drill, drill))
+        (wf / 'drill.yml').unlink()
+        del approved['github_ci_approved']['.github/workflows/drill.yml']
+        (repo / 'precedent.json').write_text(json.dumps(approved), encoding='utf-8')
         import precedent_update as _pu
 
         class _Rep:
@@ -51066,6 +51114,122 @@ def check_writing_checks_leave_a_declared_record_as_filed():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
+
+def check_update_stages_what_a_late_step_writes():
+    """Update Vendors stages what a step after its staging step wrote.
+
+    2026-10-10, a consumer taking the update: the records step moved a
+    record from process/retired_vocabulary.json into precedent.json after
+    everything had been staged, so the update said DONE with both files
+    modified and unstaged. The update now stages late output at the end,
+    and still leaves alone what was uncommitted before it ran.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        env = _fixture_git_env()
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                      text=True, env=env)
+        g('init', '-q', '-b', 'main')
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'MIGRATION.md').write_text('We moved off OldPack.\n')
+        vpath = repo / 'process' / 'retired_vocabulary.json'
+        vpath.write_text(json.dumps({'terms': ['OldPack'],
+                                     'exempt_files': ['process/MIGRATION.md']}, indent=2) + '\n')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': []}, indent=2) + '\n')
+        (repo / 'notes.md').write_text('mine\n')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        (repo / 'notes.md').write_text('mine, unfinished\n')
+        before = pu.dirty_paths(repo)
+        (repo / 'engine.txt').write_text('written by the update\n')
+        pu.stage_update(repo, before)
+        moved = pu.adopt_listed_records(repo, {'process/MIGRATION.md'})
+        unstaged = set(g('diff', '--name-only').stdout.split())
+        cases.append(('the fixture: the records step leaves both files unstaged, as reported',
+                      moved == ['process/MIGRATION.md']
+                      and {'precedent.json', 'process/retired_vocabulary.json'} <= unstaged,
+                      str(unstaged)))
+        late = pu.stage_late_output(repo, before)
+        unstaged = set(g('diff', '--name-only').stdout.split())
+        cached = set(g('diff', '--cached', '--name-only').stdout.split())
+        cases.append(('THE DISCRIMINATING CASE: the late writes are staged',
+                      {'precedent.json', 'process/retired_vocabulary.json'} <= cached
+                      and sorted(late) == ['precedent.json', 'process/retired_vocabulary.json'],
+                      f'late={late} cached={cached}'))
+        cases.append(('the person\'s own unstaged edit is left as it was',
+                      unstaged == {'notes.md'} and 'notes.md' not in cached, str(unstaged)))
+        src = pathlib.Path(pu.__file__).read_text(encoding='utf-8')
+        cases.append(('the update calls it after its last writing step, before the check',
+                      src.index('late = stage_late_output(repo, before)')
+                      > src.index('adopted = adopt_listed_records(')
+                      and src.index('late = stage_late_output(repo, before)')
+                      < src.index('return closing_check(repo, rep, skip_check)'), ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors stages what a late step writes ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_global_hooks_are_never_downgraded():
+    """An engine never replaces the global hooks a newer engine wrote.
+
+    2026-10-10: every repository's session start rewrites the one global
+    hooks directory, so the last to start wins, and one with an older
+    engine put back the plain pre-push -- the leak gate and the failed-tree
+    refusal stopped running on every push. The writer now records
+    GLOBAL_HOOKS_VERSION and leaves a newer directory alone.
+    """
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        (tmp / 'home').mkdir()
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        work = tmp / 'work'
+        env = {**_fixture_git_env(), 'HOME': str(tmp / 'home'),
+               'GIT_CONFIG_GLOBAL': str(tmp / 'gitconfig')}
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)], env=env,
+                       capture_output=True)
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+
+        def install():
+            return subprocess.run(
+                ['bash', str(ROOT / 'tools' / 'commit-identity.sh')],
+                capture_output=True, text=True, timeout=120,
+                env=dict(env, CLAUDE_PROJECT_DIR=str(work),
+                         PRECEDENT_COMMIT_NAME='T', PRECEDENT_COMMIT_EMAIL='t@example.com',
+                         PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                         PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                         PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+        stamp = hooks / '.precedent-hooks-version'
+        (hooks / 'pre-push').write_text('#!/bin/sh\n# a newer engine wrote this\n')
+        stamp.write_text('29991231\n')
+        r = install()
+        cases.append(('THE DISCRIMINATING CASE: a newer engine\'s hooks are left as they are, '
+                      'and it says so', 'a newer engine wrote this' in (hooks / 'pre-push').read_text()
+                      and 'written by a newer engine' in r.stderr, r.stderr[-400:]))
+        (hooks / 'pre-push').write_text('#!/bin/sh\n# an older engine wrote this\n')
+        stamp.write_text('20200101\n')
+        install()
+        pp = (hooks / 'pre-push').read_text()
+        cases.append(('an older engine\'s hooks are replaced with this one\'s',
+                      'an older engine wrote this' not in pp and 'leak gate' in pp, pp[:200]))
+        cases.append(('the directory records this engine\'s version',
+                      stamp.read_text().strip().isdigit()
+                      and int(stamp.read_text()) > 20200101, stamp.read_text()))
+        stamp.unlink()
+        (hooks / 'pre-push').write_text('#!/bin/sh\n# no stamp at all\n')
+        install()
+        cases.append(('a directory with no stamp (an engine older than it) is rewritten',
+                      'no stamp at all' not in (hooks / 'pre-push').read_text(), ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the global hooks are never downgraded ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
 def check_one_list_declares_a_record():
     """precedent.json's record_paths is the one list of records: the
@@ -51646,6 +51810,117 @@ def check_leak_gate_reads_other_clones_as_themselves_inside_a_hook():
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the leak gate reads other clones as themselves inside a hook '
           f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+
+def check_a_replacing_rule_inherits_what_it_does_not_restate():
+    """A reply rule that replaces an earlier one by id and says
+    "inherits": true keeps every key it does not set, pair by pair.
+
+    2026-10-10: the ladder set's landing rule restated universal's
+    exemptions word for word, and adding one meant editing both copies. The
+    set now states only its branches and the word it wants quoted; the
+    exemptions come from universal's copy.
+    """
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_reply_check as prc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    base = [r for r in json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+            if r.get('id') == 'prompt-please-landing-authority']
+    tier = {'id': 'prompt-please-landing-authority', 'inherits': True,
+            'require_in_fence_paired_with': [{
+                'if_matches': r"\b(?:(?:land|merg|promot|push)\w*|pull requests?|PRs?)\b"
+                              r"[^\n]{0,80}?\b(?:into|onto|on|to|against)\s+[`\"']?"
+                              r"(?:pre-staging|staging|main)\b",
+                'must_also_match': r"[\"\u201c']\s*Booked\b"}]}
+    settled = prc._settle(base + [tier], ROOT)
+    rule = [r for r in settled if r.get('id') == 'prompt-please-landing-authority']
+    pair = (rule[0].get('require_in_fence_paired_with') or [{}])[0] if rule else {}
+    cases.append(('one rule results, with the tier branches and the word it wants',
+                  len(rule) == 1 and 'pre-staging' in pair.get('if_matches', '')
+                  and 'Booked' in pair.get('must_also_match', ''), str(pair)[:200]))
+    cases.append(('THE DISCRIMINATING CASE: it inherits the exemptions it does not restate',
+                  all(k in pair for k in ('description_exempt_if_clause_preceded_by',
+                                          'quoted_output_exempt_if_preceded_by',
+                                          'narration_exempt')), str(sorted(pair))))
+
+    def fires(body):
+        text = 'Paste into: x.\n```\n' + body + '\n```\n'
+        return [v for v in prc.violations(text, rule) if v['kind'] == 'in_fence_paired']
+    cases.append(('so a described event on staging passes under the tier rule',
+                  not fires('The step fires on a pull request into staging.'), ''))
+    cases.append(('and a tool message quoted as it printed it passes too',
+                  not fires('After the merge, the wait still prints "Merge the pull '
+                            'request into staging". Say it passed.'), ''))
+    cases.append(('and an order to land on staging still needs the quoted word',
+                  bool(fires('Land it on staging.')), ''))
+    plain = dict(tier, inherits=False)
+    alone = [r for r in prc._settle(base + [plain], ROOT)
+             if r.get('id') == 'prompt-please-landing-authority']
+    cases.append(('without "inherits", a replacing rule stands alone, as before',
+                  'description_exempt_if_clause_preceded_by'
+                  not in alone[0]['require_in_fence_paired_with'][0], ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a replacing rule inherits what it does not restate ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_main_test_wait_does_not_ask_to_merge_what_is_merged():
+    """After a fast move, --wait-main-test does not ask for a merge main
+    already carries.
+
+    2026-10-10: a fast move merges first and waits on GitHub's test after,
+    and twice the passed wait ended "Merge the pull request into main" over
+    a pull request merged half an hour before. The wait now looks at
+    origin's main first.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    saved = (pb.github_tests, pb.github_test_state)
+    try:
+        pb.github_tests = lambda root, sha: [('.github/workflows/t.yml', None)]
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            env = _fixture_git_env()
+            g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                               capture_output=True, text=True)
+            g(tmp, 'init', '-q', '--bare', '-b', 'main', str(tmp / 'o.git'))
+            g(tmp, 'clone', '-q', str(tmp / 'o.git'), str(tmp / 'w'))
+            w = tmp / 'w'
+            g(w, 'checkout', '-q', '-B', 'main')
+            (w / 'a').write_text('a'); g(w, 'add', '-A'); g(w, 'commit', '-qm', 'a')
+            g(w, 'push', '-q', 'origin', 'main')
+            merged = g(w, 'rev-parse', 'HEAD').stdout.strip()
+            g(w, 'checkout', '-q', '-b', 'copy')
+            (w / 'b').write_text('b'); g(w, 'add', '-A'); g(w, 'commit', '-qm', 'b')
+            g(w, 'push', '-q', 'origin', 'copy')
+            open_ = g(w, 'rev-parse', 'HEAD').stdout.strip()
+            for state, rc_want in (('passed', 0), ('failure', 1)):
+                pb.github_test_state = lambda *a, s=state, **k: (s, 'fixture run')
+                said = []
+                rc = pb.wait_for_main_test(w, merged, said.append)
+                cases.append((f'{state}, already on main: no merge is asked for',
+                              rc == rc_want and 'already carries it' in said[-1]
+                              and 'Merge the pull request' not in said[-1]
+                              and 'Do not merge' not in said[-1], said[-1]))
+                said = []
+                rc = pb.wait_for_main_test(w, open_, said.append)
+                cases.append((f'{state}, not on main yet: as before',
+                              rc == rc_want and ('Merge the pull request' in said[-1]
+                                                 if state == 'passed'
+                                                 else 'Do not merge' in said[-1]),
+                              said[-1]))
+    finally:
+        pb.github_tests, pb.github_test_state = saved
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the main-test wait does not ask to merge what is merged ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
 def check_landed_check_names_the_tier_that_ran():
@@ -54663,6 +54938,17 @@ def check_landed_branch_gets_its_delete_link():
         r3 = replycheck('next.md', bare)
         cases.append(('the next turn, which began with it landed, asks nothing',
                       r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:200]}'))
+        # 2026-10-10: with no hook to write a fresh record each turn (a
+        # session rooted above its repositories), the record written before
+        # the landing stays on disk, and every later reply owed the link
+        # again. A passing reply that gave it takes the branch off.
+        pg.record_turn_start_unlanded(repo, recs)
+        r4 = replycheck('linked-again.md', linked)
+        r5 = replycheck('later.md', bare)
+        cases.append(('THE DISCRIMINATING CASE: with no fresh record, a link given once '
+                      'is not owed again in a later reply',
+                      r4.returncode == 0 and r5.returncode == 0,
+                      f'exit {r4.returncode}/{r5.returncode}: {r5.stderr[:200]}'))
         src = (ROOT / 'tools' / 'precedent_gate.py').read_text(encoding='utf-8')
         cases.append(('the reply gate writes the turn start',
                       'record_turn_start_unlanded(root, _records)' in src, ''))
@@ -73971,9 +74257,13 @@ def main():
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
+    check_main_test_wait_does_not_ask_to_merge_what_is_merged()
+    check_a_replacing_rule_inherits_what_it_does_not_restate()
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
+    check_update_stages_what_a_late_step_writes()
+    check_global_hooks_are_never_downgraded()
     check_landers_wait_their_turn_for_the_lock()
     check_a_failure_item_lists_the_index_it_creates()
     check_global_pre_push_refuses_a_tree_the_check_failed()
