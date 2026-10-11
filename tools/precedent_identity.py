@@ -31,7 +31,8 @@ repo the engine reaches. precedent_resolve.py re-exports both names, so a
 consumer that already imports them from there keeps working.
 
 Public interface:
-  declared_identity(repo, user_config=None) -> {name, email, timezone, source}
+  declared_identity(repo, user_config=None) -> {name, email, timezone, github,
+                                                  branch_cleanup_page, source}
   relayed_authorization(repo, user_config=None) -> {value, accepted, who, source}
   ci_preference(repo, user_config=None)      -> {value, enabled, who, source}
   NoDeclaredIdentity                          raised when nobody is declared
@@ -124,6 +125,10 @@ def declared_identity(repo, user_config=None):
                 # The person's GitHub username, which is what a CODEOWNERS
                 # file names (precedent_audience.py, 2026-10-05).
                 'github': ident.get('github') or '',
+                # The address of the person's one pinned branch-cleanup
+                # page, which every closing session updates in place
+                # (precedent_stale_branches.py, 2026-10-11).
+                'branch_cleanup_page': ident.get('branch_cleanup_page') or '',
                 'source': where}
 
     repo_root = pathlib.Path(repo).resolve()
@@ -159,6 +164,9 @@ def declared_identity(repo, user_config=None):
                 'timezone': (os.environ.get('PRECEDENT_COMMIT_TZ')
                              or (own or {}).get('timezone')
                              or (indiv or {}).get('timezone') or ''),
+                'branch_cleanup_page': ((own or {}).get('branch_cleanup_page')
+                                        or (indiv or {}).get('branch_cleanup_page')
+                                        or ''),
                 'source': 'PRECEDENT_COMMIT_* environment'}
     if own:
         return own
