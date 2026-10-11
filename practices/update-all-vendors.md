@@ -106,11 +106,8 @@ the list went before it landed. The plan of record is
 [spec/UPDATE_ALL_VENDORS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/UPDATE_ALL_VENDORS_PLAN.md).
 
 ## Install
-Nothing to set up in the repositories it updates: each one only needs the
-`precedent.json` that Update Vendors already reads. The run is started from a
-BestPractice clone, so the session saying "Update All Vendors" needs one
-attached, and the ability to list and attach the person's repositories --
-`list_repos` and `add_repo` in Claude Code's cloud sessions. A harness
-without those lists the repositories by hand and passes them to
+Nothing to install in a consuming repository: the phrase is said in a
+session rooted in the BestPractice clone, and
 [tools/precedent_update_all.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update_all.py)
-the same way.
+runs from there. Each repository it updates needs its own `precedent.json`;
+one without it is reported NOT USED and left alone.

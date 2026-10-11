@@ -9870,6 +9870,9 @@ def _pending_approval_outlives_its_merge(ctx):
     return out
 
 
+_MANDATORY_SECTIONS = ('rule', 'why', 'story', 'install')   # 'detail' is optional
+
+
 @check('practice-file-shape', 'tree',
        'each practice file in the engine\'s own catalogue is well-formed on '
        'its own: its slug is its filename and no other file has it; a '
@@ -9877,7 +9880,8 @@ def _pending_approval_outlives_its_merge(ctx):
        'number and every [slug](slug.md) link names a real practice; it '
        'links no GitHub repository but this one; its ## Rule is non-empty '
        'and does not end on a lead-in; and an on-demand practice has a '
-       'written, complete index_clause within the length limit',
+       'written, complete index_clause within the length limit; and it '
+       'carries ## Rule, ## Why, ## Story and ## Install',
        'whether the Rule is good, or the index line apt -- only the shape a '
        'script can see. A source set or consumer is not held to it here: '
        'their practices link other sources\' slugs by URL, and a consumer\'s '
@@ -9949,6 +9953,17 @@ def _practice_file_shape(ctx):
                                            f'reader of a shipped practice has no '
                                            f'reason to be able to open -- name it '
                                            f'instead of linking it'))
+        # The four mandatory sections (## Detail is optional). Moved here from
+        # the test suite on 2026-10-11, the same move as the checks above:
+        # a new practice without ## Install passed every push check and
+        # turned main's GitHub test red, found by Update All Vendors' own
+        # Produce.
+        missing = [s for s in _MANDATORY_SECTIONS if s not in sections]
+        if missing:
+            out.append(Finding(rel(f), 'missing section(s) '
+                               + ', '.join(f'## {s.title()}' for s in missing)
+                               + ' -- or a heading with trailing whitespace, '
+                               'silently merged into the section before it'))
         rule = (sections.get('rule') or '').strip()
         if not rule:
             out.append(Finding(rel(f), 'empty ## Rule -- a practice with nothing '

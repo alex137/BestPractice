@@ -305,7 +305,6 @@
   "check_practice_heading_parsing": 0.0,
   "check_practice_links_travel_skips_a_consumers_repo_local_practices": 2.1,
   "check_practice_refs_sorts_live_from_history": 0.3,
-  "check_practice_sections_present": 0.1,
   "check_practice_set_workflows_converge": 0.5,
   "check_practice_ships_its_files": 5.1,
   "check_precedent_check_degrades_in_a_source_set": 4.9,
