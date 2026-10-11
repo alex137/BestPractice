@@ -4312,10 +4312,22 @@ def archived_declared_sources(dest_root):
         cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return archived, notes
+    # A set on the deleted list is dropped without asking (drop_retired_
+    # sources reads the list itself). Asking anyway reported the same set,
+    # in one run, as dropped and as "could not be read ... left declared"
+    # (2026-10-11: a retired set renamed on archiving, which the proxy would
+    # not follow).
+    try:
+        import precedent_resolve as _pr
+        gone = set(_pr.deleted_sets(root))
+    except Exception:                                           # noqa: BLE001
+        gone = set()
     for s in cfg.get('sources') or []:
         if not isinstance(s, dict) or _declared_level(s) not in ('shared', 'individual'):
             continue
         name = str(s.get('name') or '')
+        if name in gone:
+            continue
         clone = root / pathlib.Path(str(s.get('path') or '')).expanduser()
         url = _rev_text(clone, 'remote', 'get-url', 'origin')
         m = _GH_SLUG_RE.search(url or '')

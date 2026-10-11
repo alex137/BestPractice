@@ -159,7 +159,10 @@ def _record_limits(headers, path):
 # proxy", on every Update Vendors run, for public repositories too). That
 # is a fact about where the tool runs, not about the repository, and
 # nothing the person can act on; callers say it once, plainly.
-PROXY_REFUSAL_RE = re.compile(r'not permitted through this proxy', re.I)
+# Both of the session proxy's refusals: a path it will not let through,
+# and the numeric-ID address GitHub redirects a renamed repository to
+# ("are not supported through this proxy", 2026-10-11).
+PROXY_REFUSAL_RE = re.compile(r'(?:not permitted|not supported) through this proxy', re.I)
 
 
 # The session proxy's answer when a repository is not attached to this
@@ -186,7 +189,7 @@ def is_proxy_refusal(text):
     return bool(text) and bool(PROXY_REFUSAL_RE.search(str(text)))
 
 
-def call(path, timeout=TIMEOUT, auth=True, cache=True):
+def call(path, timeout=TIMEOUT, auth=True, cache=True, _hops=0):
     """-> (parsed_json, error). Never raises: the caller reports, it does not crash.
 
     CACHED BY DEFAULT. Read-only GETs about repository metadata do not change
@@ -259,6 +262,19 @@ def call(path, timeout=TIMEOUT, auth=True, cache=True):
     except ValueError:
         _SPEND['errors'] += 1
         return None, f'not JSON: {r.stdout.strip()[:120]}'
+    # A RENAMED REPOSITORY answers 301 with {"message": "Moved Permanently",
+    # "url": <its new API address>}, and curl does not follow it (2026-10-11:
+    # a retired set renamed on archiving was reported in the same run as
+    # both dropped and "could not be read (Moved Permanently)"). Followed
+    # once, to the address GitHub names, and only within the API.
+    if (isinstance(parsed, dict) and _hops < 2
+            and str(parsed.get('message') or '').lower() == 'moved permanently'
+            and str(parsed.get('url') or '').startswith(API)):
+        result = call(parsed['url'][len(API):], timeout=timeout, auth=auth,
+                      cache=cache, _hops=_hops + 1)
+        if cache:
+            _CACHE[key] = result
+        return result
     result = (parsed, None)
     if cache:
         _CACHE[key] = result
