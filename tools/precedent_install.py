@@ -183,6 +183,21 @@ def _vendor_catalogue(dest):
     if (ROOT / 'precedent-source.json').is_file():
         shutil.copy2(ROOT / 'precedent-source.json',
                      dest / UNIVERSAL_PATH / 'precedent-source.json')
+    # The same sync record Update Vendors writes, naming the commit this copy
+    # came from -- only when that is true, i.e. this clone's practices/ is
+    # exactly its HEAD. Without it a fresh install's every session start said
+    # "freshness: NOT VERIFIED" and that the 180 practices just copied were
+    # "absent this session" (2026-10-11 install rehearsal).
+    head = _run(['git', 'rev-parse', 'HEAD'], ROOT)
+    dirty = _run(['git', 'status', '--porcelain', '--', 'practices',
+                  'precedent-source.json'], ROOT)
+    if head.returncode == 0 and dirty.returncode == 0 and not dirty.stdout.strip():
+        (dest / UNIVERSAL_PATH / 'CATALOGUE_SYNC.json').write_text(json.dumps({
+            'source_commit': head.stdout.strip(),
+            'written_by': 'tools/precedent_install.py (install)',
+            'why': 'the upstream commit practices/ here was copied from; '
+                   'the first Update Vendors judges local edits against it'},
+            indent=2) + '\n', encoding='utf-8')
     return sum(1 for _ in target.glob('*.md'))
 
 

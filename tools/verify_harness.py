@@ -10094,6 +10094,39 @@ def check_consumer_engine_carries_what_its_checks_import():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_install_records_the_commit_its_catalogue_came_from():
+    """A fresh install writes CATALOGUE_SYNC.json naming the commit its
+    practice catalogue was copied from, exactly when that is true.
+
+    WHY. Only Update Vendors wrote it. A fresh install had none, so every
+    session start said "freshness: NOT VERIFIED", the freshness tool said
+    the catalogue's practices were "absent this session" while 180 sat on
+    disk, and the first update judged local edits against no commit at all
+    (very deep check, 2026-10-11, pass 1)."""
+    import tempfile as _tf
+    import precedent_install as _pi
+    head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                          capture_output=True, text=True).stdout.strip()
+    dirty = subprocess.run(['git', '-C', str(ROOT), 'status', '--porcelain',
+                            '--', 'practices', 'precedent-source.json'],
+                           capture_output=True, text=True).stdout.strip()
+    with _tf.TemporaryDirectory() as td:
+        dest = pathlib.Path(td)
+        n = _pi._vendor_catalogue(dest)
+        rec = dest / _pi.UNIVERSAL_PATH / 'CATALOGUE_SYNC.json'
+        got = json.loads(rec.read_text()) if rec.is_file() else None
+    if dirty:
+        cases = [('a catalogue copied from uncommitted practices records no '
+                  'commit it did not come from', got is None)]
+    else:
+        cases = [('the copy is there', n > 0),
+                 ('its record names the commit it was copied from',
+                  (got or {}).get('source_commit') == head)]
+    failed = [c for c, ok in cases if not ok]
+    check(f'an install records where its catalogue came from ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed) + f' -- {got}')
+
+
 def check_install_names_the_other_assistants_adapters():
     """The installer wires the Claude Code adapter only, and a Codex or
     Gemini CLI adopter was never told to add theirs: SETUP.md asked which
@@ -74106,6 +74139,7 @@ def main():
     check_push_refuses_a_hand_made_session_branch_name()
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
+    check_install_records_the_commit_its_catalogue_came_from()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
     check_retired_set_takes_only_its_retirement()
