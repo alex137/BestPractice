@@ -13,6 +13,12 @@
       "date": "2026-09-28",
       "by": "",
       "note": "Read whole 2026-09-28; stale present-tense claims at L63 L177 L333 L467 fixed; phase-4 history sound"
+    },
+    {
+      "path": "TODO.md",
+      "date": "2026-10-11",
+      "by": "",
+      "note": "read whole 2026-10-11; two claims are stale (refused \"by CI\": it is the deep check; AGENTS.md gotcha index \"hand-kept"
     }
   ]
 }
