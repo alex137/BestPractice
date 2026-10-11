@@ -1045,6 +1045,12 @@ design and not oversight:
      drops from enforced to guessed and wrong-offset commits reach the
      remote before anyone notices. An Internet Assigned Numbers Authority (IANA) zone name
      (`America/New_York`), never a bare offset.
+     **The `github` username is looked up, then offered:** `--verify` asks
+     GitHub who the session is signed in as and names it, so the person is
+     asked "Is your GitHub username `<login>`?" rather than asked cold;
+     on their yes, `python3 tools/precedent_branch_name.py --set-github
+     <login> --repo <the set>` writes it in. CODEOWNERS and, on the ladder,
+     every branch name read it (2026-10-11).
 
      Then confirm it by effect rather than by reading the config back:
      `env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT`

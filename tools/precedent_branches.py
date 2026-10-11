@@ -3109,8 +3109,11 @@ def _drifted_from_above(root):
 FIX_SLUG = 'promote-fix'
 COPY_SLUG = 'promote-to-main'
 NOT_DUE_SLUG = 'promote-to-main-not-due'
+# The person's GitHub username may sit between the date and the slug
+# (Morgan, 2026-10-11: <date>-<username>-<slug>-<session>-<random>).
 _PROMOTE_MADE_RE = re.compile(
-    r'(?:^|/)\d{4}-\d\d-\d\d-(promote-fix|promote-to-main(?:-not-due)?)'
+    r'(?:^|/)\d{4}-\d\d-\d\d-(?:[a-z0-9][a-z0-9-]*?-)?'
+    r'(promote-fix|promote-to-main(?:-not-due)?)'
     r'-[a-z0-9]{5}(?:-[a-z0-9]{5})?$')
 # What a GitHub workflow that skips a not-due copy by its NEW name contains;
 # a workflow without it knows only the old names, so the copy keeps one.
