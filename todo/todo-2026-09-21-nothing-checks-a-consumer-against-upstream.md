@@ -116,6 +116,16 @@ needs cross-repo read access this repository deliberately does not have.
 Nobody has decided whether it belongs here at all. That decision is what
 this item now waits on.
 
+2026-10-11: **the two inputs it lacked now exist.** "Update All Vendors"
+([update-all-vendors](../practices/update-all-vendors.md)) keeps
+`repos_using_precedent.json` in the person's individual source: every
+repository they use Precedent in, with each one's last update outcome,
+written by [tools/precedent_update_all.py](../tools/precedent_update_all.py).
+And the cross-repo reach is the same attach-without-registering that run
+uses. A roll-up could read the list and each repository's
+`tools/ENGINE_MANIFEST.json` `source_commit`. Not built, so the item stays
+open on its own condition.
+
 2026-09-23: **2 now covers every declared source, not only the engine.**
 Alex asked for the general form ("patent-system won't be our last") after a
 consumer that declared a second shared set turned out to have no freshness

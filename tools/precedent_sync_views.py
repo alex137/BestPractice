@@ -312,7 +312,7 @@ def _declared_practice_hooks(repo, practices):
 
 def sync(repo, user_config=None, check=False, allow_missing=False,
          allow_removals=False, skip_unresolved=False, for_branch=None,
-         allow_rollback=False):
+         allow_rollback=False, allow_removal_of=()):
     """-> what _sync returns. Reads each live source (a set's clone beside
     this repository) the way precedent_source_pins.py says: --check at the
     commit this repository's MANIFEST.json records syncing it at, so the
@@ -345,7 +345,8 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
             return _sync(repo, at, user_config, check=False,
                          allow_missing=allow_missing,
                          allow_removals=allow_removals,
-                         skip_unresolved=skip_unresolved)
+                         skip_unresolved=skip_unresolved,
+                         allow_removal_of=allow_removal_of)
     branch = for_branch or _current_branch(repo)
     rung = [RungRefusal(r) for r in
             psp.rung_refusals(repo, sources, for_branch, pinned)] \
@@ -364,7 +365,8 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
         out = _sync(repo, at, user_config, check=True,
                     allow_missing=allow_missing,
                     allow_removals=allow_removals,
-                    skip_unresolved=skip_unresolved)
+                    skip_unresolved=skip_unresolved,
+                    allow_removal_of=allow_removal_of)
     return (*out[:6], list(out[6]) + rung)
 
 
@@ -382,7 +384,7 @@ def _current_branch(repo):
 
 
 def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
-          allow_removals=False, skip_unresolved=False):
+          allow_removals=False, skip_unresolved=False, allow_removal_of=()):
     """-> (written, checks_written, adapters_written, rstats,
     agents_md_path, changed: bool, tree_drift: [str]).  tree_drift is always
     empty unless check=True.
@@ -661,6 +663,21 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
                             for (s, src), n in sorted(waiting.items()))
                 + f". {why}. Do NOT pass --allow-removals: the rules are not "
                 "gone, and it would delete them.")
+        # NAMED REMOVALS (2026-10-11). Update Vendors passes
+        # --allow-removal SLUG for each practice its source records as
+        # decommissioned (process/decommissioned_paths.json at the commit it
+        # takes): a deletion made on purpose upstream, which every consumer
+        # otherwise had to wave through by hand with --allow-removals -- a
+        # flag that also lets a renamed source's practices go. Only the
+        # slugs named are let through; anything else still refuses.
+        named = [b for b in _lost['blocking'] if b[0] in set(allow_removal_of)]
+        if named:
+            _lost['blocking'] = [b for b in _lost['blocking'] if b not in named]
+            print("precedent_sync_views: removing "
+                  f"{len(named)} practice(s) their source decommissioned, "
+                  "named by --allow-removal: "
+                  + '; '.join(f"{s} (from {src})" for s, src in sorted(named)),
+                  file=sys.stderr)
         if _lost['blocking'] and not (allow_removals or allow_missing):
             raise pm.MaterializeError(
                 "refusing to WRITE: this sync would remove "
@@ -1306,7 +1323,8 @@ def main():
                                          '--allow-removals', '--skip-unresolved',
                                          '--allow-rollback', '--rung-only')]
     repo, user_config, for_branch = None, None, None
-    known = {'--repo', '--user-config', '--for-branch'}
+    allow_removal_of = []
+    known = {'--repo', '--user-config', '--for-branch', '--allow-removal'}
     i = 0
     while i < len(args):
         tok = args[i]
@@ -1319,6 +1337,8 @@ def main():
             repo = args[i + 1]
         elif tok == '--for-branch':
             for_branch = args[i + 1]
+        elif tok == '--allow-removal':
+            allow_removal_of.append(args[i + 1])
         else:
             user_config = args[i + 1]
         i += 2
@@ -1363,7 +1383,8 @@ def main():
          changed, tree_drift) = sync(
             repo, user_config, check=check, allow_missing=allow_missing,
             allow_removals=allow_removals, skip_unresolved=skip_unresolved,
-            for_branch=for_branch, allow_rollback=allow_rollback)
+            for_branch=for_branch, allow_rollback=allow_rollback,
+            allow_removal_of=allow_removal_of)
     except NotVerifiable as e:
         print(f"precedent_sync_views --check NOT VERIFIABLE: {e}, so whether "
               f"the generated views are current was not checked. Re-run where "

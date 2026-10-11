@@ -90,6 +90,12 @@ and the same fix applies.
 
 ## Fix
 
+**Before it happens: say the merge in the request.** "Update Vendors and
+merge", or "Update All Vendors and merge them", names the merge in the
+person's own words, which is what the classifier's rule asks for. Both
+phrases recommend that wording since 2026-10-11; nobody has yet seen it
+clear the merge, so the steps below still apply when it does not.
+
 **After a merge that went through:** report the merge tool's own result
 (`merged: true`, the merge commit's SHA) as that turn's postcondition and
 run nothing else. Confirm the branch's content with a fetch at the start of

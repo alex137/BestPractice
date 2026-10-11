@@ -11,7 +11,7 @@ gates_why:   "An update lands as a merge, and the merge is the last moment the s
 index_clause: "source clone first, both layers move separately, then merge"
 checked_by:  null
 defines:     ["Update Vendors"]
-command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from, stopping only for the decisions that are yours to make, and publish the result -- the merge is part of the phrase."}
+command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from, stopping only for the decisions that are yours to make, and publish the result -- the merge is part of the phrase. Say it as \"Update Vendors and merge\": Claude Code's auto mode lets a merge through only when your own words name it."}
 status:      active
 in_force_at: null
 visible_to:  code-owners
@@ -36,7 +36,10 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   preference towards using the upstream wording\"; amended 2026-10-08,
   Morgan (decided) -- the merge takes the full 40-character head commit or
   none, and the BestPractice clone is found by its origin, wherever the
-  attach tool put it"
+  attach tool put it; amended 2026-10-11, Morgan (decided) -- the phrase is
+  best said as \"Update Vendors and merge\", and \"Update All Vendors\"
+  (practices/update-all-vendors.md) runs it for every repository on the
+  person's list"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -50,9 +53,15 @@ part of the phrase rather than a separate grant.
 **Claude Code's auto mode may still refuse that merge** ("Merge Without
 Review"): the phrase names an update, and its safety check clears a merge
 only on words that name the merge. That is not this repository's rules.
-Say so in one line and ask for it by name -- "Merge PR #N into
-<landing branch>" -- and never route around it
+**So the phrase is best said as "Update Vendors and merge"**, which names
+the merge in the person's own words before it happens. As of 2026-10-11
+that is expected from the check's own rule and not yet seen working, so
+until a run confirms it, a refusal is still handled the same way: say so in
+one line and ask for it by name -- "Merge PR #N into <landing branch>" --
+and never route around it
 ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)).
+**For every repository on the person's list at once, the phrase is
+[Update All Vendors](update-all-vendors.md).**
 
 **The sequence is one command, since 2026-09-27.** From the consuming repo,
 run the BestPractice clone's own copy -- never a vendored one:
