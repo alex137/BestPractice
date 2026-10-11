@@ -623,11 +623,15 @@ check later; the field does not pretend to be that check.
 and look at. *"when the migration settles down"* is not, and will still be
 sitting there in a year.
 
-**A worked example:** [retired-set-takes-only-its-retirement](../practices/retired-set-takes-only-its-retirement.md)
-holds while two practice sets are being retired, and expires *"when no
+**A worked example, carried to its end:** `retired-set-takes-only-its-retirement`
+held while two practice sets were being retired, and expired *"when no
 repository declares [them], and both are archived on GitHub"* -- two things
-anyone can look up. Its Detail names what to delete when that comes true.
-Morgan, 2026-10-06: *"This is a good example of temporary rules."*
+anyone can look up. Its Detail named what to delete when that came true.
+Morgan, 2026-10-06: *"This is a good example of temporary rules."* The very
+deep check printed the condition each run; on 2026-10-11 both halves held,
+Morgan said *"Go remove it"*, and the rule, its two guards and its test were
+deleted in one change, recorded in
+[process/decommissioned_paths.json](../process/decommissioned_paths.json).
 
 `in_force_at:` is the field that did not exist before version 4, and its
 absence is the defect the other two rows exist to fix. `supersedes:` points
