@@ -10673,6 +10673,11 @@ def check_push_refuses_a_hand_made_session_branch_name():
     cases.append(('a push to the harness-given name gets a note naming the tool',
                   'precedent_branch_name.py' in (_bn.harness_name_note(
                       'claude/peaceful-ritchie-3u31td') or '')))
+    # ...and says that leaving it needs no permission, which the session's
+    # opening instructions otherwise demand (Morgan, 2026-10-11, decided).
+    cases.append(('the harness-name note grants the sister-branch permission',
+                  _bn.SISTER_BRANCH_PERMISSION in (_bn.harness_name_note(
+                      'claude/peaceful-ritchie-3u31td') or '')))
     cases.append(('...and only that name: a tool-made name, a tier and a '
                   'hand-typed name get none',
                   _bn.harness_name_note(f'2026-10-06-some-work-{tail}-x9y8z') is None
