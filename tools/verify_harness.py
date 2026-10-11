@@ -33574,6 +33574,18 @@ def check_commit_identity_prevents_the_wrong_offset():
                       == f'/usr/share/zoneinfo/{_declared_fallback_tz()}'))
         cases.append(('and names it a fallback rather than this person\'s zone',
                       'DECLARED FALLBACK' in r2.stderr))
+        # 2b. ...but only over the container's UTC. A clock already on a
+        # real zone was set by someone, and a guess leaves it alone
+        # (2026-10-11: a scratch repo with no identity moved a machine on
+        # Buenos Aires to the fallback).
+        home = str(tmp / 'h2b'); os.makedirs(home)
+        lt2b = str(tmp / 'lt2b')
+        subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                       timeout=120,
+                       env=dict(_env(home, lt2b, now='Asia/Tokyo'),
+                                CLAUDE_PROJECT_DIR=str(guessed)))
+        cases.append(('a guess never moves a clock already on a real zone',
+                      not os.path.lexists(lt2b)))
         # The line that must NOT move: applied is not enforced. A hook run
         # that resolved no zone leaves the pre-commit backstop with no
         # offset to refuse on.

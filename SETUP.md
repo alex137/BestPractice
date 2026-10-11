@@ -72,7 +72,10 @@ nothing to choose here — this page installs §0, always.
    - *Should the vendored GitHub Actions workflow be on or off?* **Default
      on, since 2026-09-25**: one light check that runs only on a pull
      request into `main` (about one billed minute per merge into `main`),
-     plus a leak gate that runs only in a public repository. For an AI
+     plus a leak gate that runs only in a public repository. In a private
+     repository the light check runs only on the pull request a Produce
+     opens (a branch named `to-main-…` or `…-promote-to-main-…`); any
+     other pull request shows it as skipped. For an AI
      Assistant with no terminal access (ChatGPT, or anything else with no
      local shell) it is the only place any check can run at all, so say
      so. Say the default out loud and let them override it. If they want
@@ -186,8 +189,12 @@ nothing to choose here — this page installs §0, always.
    can merge, ask "Shall I make this live?" and do it on their yes. If only they can merge, give them
    the pull-request link and tell them exactly what to press.
 6. **Verify the automatic checks, while Actions is on.** On the pull
-   request into `main`, confirm `light-check` appears and passes; in a
-   private repository nothing runs after the merge, by design. If the repository or organization has Actions disabled,
+   request into `main`, confirm `light-check` appears and passes. In a
+   private repository it runs only when the branch is named for a Produce
+   (`to-main-…`), so an install's pull request from any other branch shows
+   it as skipped: that is the design, not a fault, and the local checks in
+   step 3 are what this install was judged by. Nothing runs after the
+   merge in a private repository either. If the repository or organization has Actions disabled,
    give the administrator the exact clicks (repository **Settings →
    Actions**, or the **Actions** tab's enable button) and confirm the
    check appears afterward. Never leave this step silently unfinished —
