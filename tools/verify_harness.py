@@ -51474,6 +51474,103 @@ def check_global_pre_push_refuses_a_tree_the_check_failed():
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
+def check_lander_lands_where_booked_does_and_says_why_a_push_failed():
+    """The queue lander lands on the landing branch, stops on a refused push
+    with its reason, and takes no vendor step under --no-vendor.
+
+    2026-10-10, a consumer whose precedent.json says "landing_branch":
+    "staging" and has no lander block: land_next.py landed a docs branch on
+    main, because it read only base_branch. Its three attempts each said
+    "master moved" while the trunk sat still -- a pre-push hook refused
+    every push and its reason was thrown away. And with --no-vendor it still
+    took the vendor step once the branch landed. The fixture is a scratch
+    origin with main and staging, and a lander from this engine.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-lander-trunk-'))
+    cases = []
+    try:
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, os, pathlib, subprocess, sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                  PRECEDENT_USER_CONFIG={str(tmp / 'no-config.json')!r},
+                  GIT_CONFIG_GLOBAL={str(tmp / 'gitconfig')!r})
+pathlib.Path({str(tmp / 'gitconfig')!r}).write_text('')
+import land_next as ln, land_queue
+td = pathlib.Path({str(tmp)!r})
+ln.report_failure = lambda *a: ''
+ln.retry_pause = lambda attempt: None
+origin, work = td / 'o.git', td / 'w'
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g = lambda *a: ln.git(work, *a)
+g('checkout', '-q', '-B', 'main')
+(work / 'precedent.json').write_text('{{"landing_branch": "staging"}}\\n')
+g('add', '-A'); g('commit', '-qm', 'base'); g('push', '-q', 'origin', 'main')
+g('push', '-q', 'origin', 'main:staging')
+out = {{'trunk': ln.lander_config(work)['trunk']}}
+ln.TRUNK = out['trunk']
+def queue(b, f):
+    g('checkout', '-q', '-B', b, 'origin/staging'); (work / f).write_text(f)
+    g('add', '-A'); g('commit', '-qm', b); g('push', '-q', 'origin', b)
+    g('checkout', '-q', '--detach', 'origin/staging')
+    land_queue.request(store, b, repo=work)
+store = land_queue._store(work)
+vend = td / 'vend.py'
+vend.write_text("import pathlib; pathlib.Path({str(tmp / 'vendored')!r}).write_text('1'); print('VENDORS: updated')\\n")
+queue('feat/docs', 'docs.md')
+rc = ln.land_queue_run(work, vendor=False, gates=[], push_check=['true'], bestpractice=None,
+                       store=store, sync_cmd=None, vendor_cmd=['python3', str(vend)])
+g('fetch', '-q', 'origin', 'main', 'staging')
+out['landed'] = dict(rc=rc, on_staging='docs.md' in g('ls-tree', '--name-only', 'origin/staging').stdout,
+                     on_main='docs.md' in g('ls-tree', '--name-only', 'origin/main').stdout,
+                     vendored=(td / 'vendored').exists())
+hook = origin / 'hooks' / 'pre-receive'
+hook.write_text('#!/bin/sh\\nwhile read o n r; do [ "$r" = refs/heads/staging ] || continue; '
+                'echo "refused by the fixture hook: private name found" >&2; exit 1; done\\nexit 0\\n')
+hook.chmod(0o755)
+queue('feat/blocked', 'blocked.md')
+attempts = []
+real = ln.check_and_push
+ln.check_and_push = lambda repo, pc: (attempts.append(1), real(repo, pc))[1]
+rc = ln.land_queue_run(work, vendor=False, gates=[], push_check=['true'], bestpractice=None,
+                       store=store, sync_cmd=None)
+st = {{e['branch']: e for e in land_queue.entries(store)}}['feat/blocked']
+out['refused'] = dict(rc=rc, attempts=len(attempts), status=st['status'], detail=st.get('detail', ''))
+print(json.dumps(out))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=300)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-600:]
+        ld, rf = out.get('landed') or {}, out.get('refused') or {}
+        cases.append(('THE DISCRIMINATING CASE: landing_branch "staging" with no lander '
+                      'block makes the trunk staging', out.get('trunk') == 'staging',
+                      str(out.get('trunk')) if out else (p.stdout + p.stderr)[-1500:]))
+        cases.append(('...and the branch lands on staging, not main',
+                      ld.get('rc') == 0 and ld.get('on_staging') and not ld.get('on_main'),
+                      str(ld) or why))
+        cases.append(('--no-vendor takes no vendor step, even after a landing',
+                      ld and not ld.get('vendored'), str(ld)))
+        cases.append(('a push the remote refuses, with the trunk still, is tried once',
+                      rf.get('attempts') == 1 and rf.get('status') == 'failed', str(rf) or why))
+        cases.append(('...and the failure says the trunk did not move and quotes the '
+                      'refusal', 'did not move' in rf.get('detail', '')
+                      and 'refused by the fixture hook' in rf.get('detail', ''),
+                      rf.get('detail', '')[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the lander lands where Booked does and says why a push failed '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_landed_check_names_the_tier_that_ran():
     """After a merge, the line says whether the base moved from the trees,
     and names the check that actually ran.
@@ -73797,6 +73894,7 @@ def main():
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
     check_landed_check_names_the_tier_that_ran()
+    check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_one_list_declares_a_record()
     check_landers_wait_their_turn_for_the_lock()
     check_a_failure_item_lists_the_index_it_creates()
