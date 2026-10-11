@@ -51067,6 +51067,65 @@ def check_writing_checks_leave_a_declared_record_as_filed():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_update_stages_what_a_late_step_writes():
+    """Update Vendors stages what a step after its staging step wrote.
+
+    2026-10-10, a consumer taking the update: the records step moved a
+    record from process/retired_vocabulary.json into precedent.json after
+    everything had been staged, so the update said DONE with both files
+    modified and unstaged. The update now stages late output at the end,
+    and still leaves alone what was uncommitted before it ran.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        env = _fixture_git_env()
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                      text=True, env=env)
+        g('init', '-q', '-b', 'main')
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'MIGRATION.md').write_text('We moved off OldPack.\n')
+        vpath = repo / 'process' / 'retired_vocabulary.json'
+        vpath.write_text(json.dumps({'terms': ['OldPack'],
+                                     'exempt_files': ['process/MIGRATION.md']}, indent=2) + '\n')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': []}, indent=2) + '\n')
+        (repo / 'notes.md').write_text('mine\n')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        (repo / 'notes.md').write_text('mine, unfinished\n')
+        before = pu.dirty_paths(repo)
+        (repo / 'engine.txt').write_text('written by the update\n')
+        pu.stage_update(repo, before)
+        moved = pu.adopt_listed_records(repo, {'process/MIGRATION.md'})
+        unstaged = set(g('diff', '--name-only').stdout.split())
+        cases.append(('the fixture: the records step leaves both files unstaged, as reported',
+                      moved == ['process/MIGRATION.md']
+                      and {'precedent.json', 'process/retired_vocabulary.json'} <= unstaged,
+                      str(unstaged)))
+        late = pu.stage_late_output(repo, before)
+        unstaged = set(g('diff', '--name-only').stdout.split())
+        cached = set(g('diff', '--cached', '--name-only').stdout.split())
+        cases.append(('THE DISCRIMINATING CASE: the late writes are staged',
+                      {'precedent.json', 'process/retired_vocabulary.json'} <= cached
+                      and sorted(late) == ['precedent.json', 'process/retired_vocabulary.json'],
+                      f'late={late} cached={cached}'))
+        cases.append(('the person\'s own unstaged edit is left as it was',
+                      unstaged == {'notes.md'} and 'notes.md' not in cached, str(unstaged)))
+        src = pathlib.Path(pu.__file__).read_text(encoding='utf-8')
+        cases.append(('the update calls it after its last writing step, before the check',
+                      src.index('late = stage_late_output(repo, before)')
+                      > src.index('adopted = adopt_listed_records(')
+                      and src.index('late = stage_late_output(repo, before)')
+                      < src.index('return closing_check(repo, rep, skip_check)'), ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors stages what a late step writes ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_one_list_declares_a_record():
     """precedent.json's record_paths is the one list of records: the
     retired-names scrub reads it too, and Update Vendors moves a flagged
@@ -73974,6 +74033,7 @@ def main():
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
+    check_update_stages_what_a_late_step_writes()
     check_landers_wait_their_turn_for_the_lock()
     check_a_failure_item_lists_the_index_it_creates()
     check_global_pre_push_refuses_a_tree_the_check_failed()
