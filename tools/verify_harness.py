@@ -15142,6 +15142,113 @@ def check_update_vendors_takes_only_a_main_that_passed():
     return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_runs_the_pinned_commits_own_update():
+    """An update that takes a commit behind the clone's tip runs that
+    commit's own precedent_update.py, so the update and every tool it
+    vendors and drives come from one commit.
+
+    2026-10-11, a consuming repository: main's newest commits had no passed
+    test, so the update took an older one, 33f77a7, and vendored its
+    precedent_sync_views.py; the update itself still ran from the clone's
+    tip, 0840ae0, and passed that older sync an option it did not know:
+    "unknown option '--allow-removal'". Here GitHub is stood in so the tip,
+    HEAD, is red, and so is every commit back to the newest one whose tools/
+    differs from this checkout's, which passed; the consumer's engine
+    is a stand-in that records which checkout ran it: the clone ITSELF ran
+    it before the fix, a checkout at that commit runs it now.
+
+    Negative control, measured 2026-10-11 on this commit's parent: the
+    engine is run from the clone at the tip, and no "pinned code" line."""
+    import contextlib
+    import io
+    import tempfile
+    pu, pve, _pr = _update_tools()
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+    # The pinned commit is the newest on HEAD's first-parent line, within
+    # the window the update looks back over, whose tools/ is not this
+    # checkout's; every commit newer than it is red.
+    line = git(ROOT, 'rev-list', '--first-parent',
+               f'--max-count={pu.GREEN_WINDOW}', 'HEAD').stdout.split()
+    c0 = line[0] if line else None
+    c1 = next((sha for sha in line[1:] if git(
+        ROOT, 'diff', '--quiet', sha, '--', 'tools/').returncode == 1), None)
+    if not c1:
+        return (True, f'not applicable: no commit in the last {len(line)} on '
+                      f'this line has a tools/ other than this checkout\'s', '')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-update-pinned-code-'))
+    repo = tmp / 'consumer'
+    (repo / 'tools').mkdir(parents=True)
+    (repo / 'tools' / pve.MANIFEST_NAME).write_text(json.dumps({
+        'source_commit': c1, 'kind': 'consumer', 'files': []}), encoding='utf-8')
+    record = tmp / 'engine-ran.json'
+    # Records the checkout the update handed it (argv: refresh SOURCE ...)
+    # and the commit that checkout was at, then stops the run: what
+    # happens after the engine is not this case's business.
+    (repo / 'tools' / 'precedent_vendor_engine.py').write_text(
+        'import json, subprocess, sys\n'
+        'a = sys.argv[1:]\n'
+        'head = subprocess.run(["git", "-C", a[1], "rev-parse", "HEAD"],\n'
+        '                      capture_output=True, text=True).stdout.strip()\n'
+        f'open({str(record)!r}, "w").write(json.dumps({{"argv": a, "head": head}}))\n'
+        'print("stand-in engine: stopping here")\n'
+        'sys.exit(1)\n', encoding='utf-8')
+    git(tmp, 'init', '-q', '-b', 'main', str(repo))
+    git(repo, 'add', '-A')
+    git(repo, 'commit', '-qm', 'installed\n\nSession: none available (fixture)')
+    saved = (pu.run, pu.main_test_state, pu.passed_trees, pu.HAND_OFF)
+
+    def fetchless(argv, cwd):
+        if argv[:1] == ['git'] and 'fetch' in argv:
+            return 0, ''
+        if argv[:1] == ['git'] and 'rev-parse' in argv \
+                and argv[-1] == f'origin/{pve.SOURCE_BRANCH}':
+            return 0, c0 + '\n'
+        return saved[0](argv, cwd)
+    pu.run = fetchless
+    pu.main_test_state = lambda sha, tests: (('passed', 'ok') if sha == c1
+                                             else ('failed', 'url'))
+    pu.passed_trees = lambda: set()
+    pu.HAND_OFF = True
+    out = io.StringIO()
+    rc = None
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            rc = pu.update(repo, skip_check=True)
+    finally:
+        pu.run, pu.main_test_state, pu.passed_trees, pu.HAND_OFF = saved
+    text = out.getvalue()
+    ran = json.loads(record.read_text()) if record.is_file() else {}
+    argv = ran.get('argv') or []
+    where = argv[1] if len(argv) > 1 else ''
+    held = pu.held_pin(repo) or {}
+    worktrees = git(ROOT, 'worktree', 'list', '--porcelain').stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    cases = [
+        ('the update says the pinned commit\'s own update runs it',
+         f'pinned code: the clone\'s tools/ is not main @ {c1[:12]}\'s' in text,
+         text[-800:]),
+        ('the engine is run by a checkout at the pinned commit, not by the clone',
+         ran.get('head') == c1 and where
+         and pathlib.Path(where).resolve() != ROOT.resolve(), ran),
+        ('and is handed that commit',
+         '--from-ref' in argv and argv[argv.index('--from-ref') + 1] == c1, argv),
+        ('the run\'s outcome is that update\'s, and the pin holds for the rerun',
+         rc not in (None, 0) and held.get('commit') == c1, (rc, held)),
+        ('the temporary checkout is gone afterwards',
+         bool(where) and where not in worktrees
+         and not pathlib.Path(where).exists(), where),
+    ]
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def _workflow_step_block(text, name):
     """-> the lines of the step named `name` in a workflow's text, or []."""
     lines = text.splitlines()
@@ -18528,6 +18635,11 @@ def _update_tools():
         import precedent_resolve as pr
     finally:
         sys.path.pop(0)
+    # These cases test this file's own steps in-process, the engine stood
+    # in; a hand-off to the pinned commit's update would test that commit's
+    # code instead. check_update_vendors_runs_the_pinned_commits_own_update
+    # turns it back on.
+    pu.HAND_OFF = False
     return pu, pve, pr
 
 
@@ -74647,6 +74759,9 @@ def main():
     check('Update Vendors takes the newest main whose GitHub test passed, and says '
           'when that is not the newest',
           *check_update_vendors_takes_only_a_main_that_passed())
+    check('an update that takes a commit behind the clone\'s tip runs that '
+          'commit\'s own update, so it and the tools it drives match',
+          *check_update_vendors_runs_the_pinned_commits_own_update())
     check('a failed test on main opens a GitHub issue, from one step that runs only '
           'then', *check_main_test_failure_opens_an_issue())
     check('a passed test on main leaves a git marker any clone can read',
