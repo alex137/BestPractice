@@ -34102,7 +34102,7 @@ def check_changed_files_runs_the_harness_tests_a_change_reaches():
     test for either. The control: a change with no Python under tools/
     never starts the harness.
     """
-    import tempfile
+    import contextlib, io, tempfile
     name = 'the changed-files check runs the harness tests a change reaches'
     fake = ('import sys, pathlib\n'
             "if '--for-change' in sys.argv:\n"
@@ -34122,7 +34122,9 @@ def check_changed_files_runs_the_harness_tests_a_change_reaches():
         commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'passes',
                                                {'tools/verify_harness.py': fake})
         commit2({'tools/zzmod.py': 'X = 2\n'})
-        rc2, out2 = run2()
+        err2 = io.StringIO()
+        with contextlib.redirect_stderr(err2):
+            rc2, out2 = run2()
         ran2 = (pathlib.Path(td) / 'passes' / 'repo' / 'ran-for-change').is_file()
         commit3, run3 = _changed_files_fixture(pathlib.Path(td) / 'docs',
                                                {'tools/verify_harness.py': fake})
@@ -34140,8 +34142,9 @@ def check_changed_files_runs_the_harness_tests_a_change_reaches():
         ('a failing harness test the change reaches refuses, naming it',
          rc == 1 and 'a harness test this change reaches failed -- FAIL: zz broke'
          in out),
-        ('a passing run passes, and its notes are shown',
-         rc2 == 0 and ran2 and 'for-change: NOT RUN HERE' in out2),
+        ('a passing run passes, and its notes are shown on stderr, which '
+         'the gate streams even when the step passes',
+         rc2 == 0 and ran2 and 'for-change: NOT RUN HERE' in err2.getvalue()),
         ('control: a change with no Python under tools/ never starts it',
          rc3 == 0 and not ran3),
         ('a check script runs the shared test that names it',

@@ -1388,9 +1388,11 @@ def changed_files_check(root, since):
             r = subprocess.run([sys.executable, 'tools/verify_harness.py',
                                 '--for-change', since], cwd=root,
                                capture_output=True, text=True, timeout=600)
+            # On stderr: the gate streams it, and drops a passing step's
+            # stdout -- a note about tests not run here must be seen.
             for line in r.stdout.splitlines():
                 if line.startswith('for-change:'):
-                    print(f'  {line}')
+                    print(line[:500], file=sys.stderr, flush=True)
             if r.returncode != 0:
                 said = [l for l in r.stdout.splitlines() if l.startswith('FAIL')]
                 said = said or (r.stdout + r.stderr).strip().splitlines()[-1:]
