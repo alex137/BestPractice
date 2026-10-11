@@ -25,8 +25,12 @@ CLAUDE_CODE_REMOTE_SESSION_ID, read by precedent_detect.this_session_id()
 (the same ID a commit's session trailer carries). Anywhere it is missing --
 a local run, another harness -- the id is five random characters instead,
 and the tool says so on stderr. The same happens when the name is already
-on origin: one session making two branches on the same day with the same
-slug is the only realistic way that occurs.
+taken, on origin or by a local branch: one session making two branches on
+the same day with the same slug is the only realistic way that occurs.
+Local branches count too (2026-10-11): a rollout made an update branch,
+merged it, and the next day's run got the same name back from origin's
+silence -- and `git switch -c` refused it, because the merged branch was
+still there locally.
 
 NO PREFIX (Morgan, 2026-10-07, strength: decided: "many of your temp github
 [branches] you create start with 'claude/' - I think update the rule to
@@ -40,7 +44,7 @@ one, for a harness that does restrict pushes.
 Run:
   python3 tools/precedent_branch_name.py branch naming convention
   git switch -c "$(python3 tools/precedent_branch_name.py branch naming convention)"
-  python3 tools/precedent_branch_name.py --no-check some words   # skip asking origin
+  python3 tools/precedent_branch_name.py --no-check some words   # skip asking origin and local branches
 
 Exit status: 0 a name was printed (any note is on stderr); 2 no usable slug.
 """
@@ -115,8 +119,28 @@ def on_origin(name, repo='.', remote='origin'):
     return False if r.returncode == 2 else None
 
 
+def local_branch(name, repo='.'):
+    """-> True when this checkout already has a local branch called `name`."""
+    try:
+        r = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--verify', '-q',
+                            f'refs/heads/{name}'], capture_output=True, text=True,
+                           timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return r.returncode == 0
+
+
+def taken(name, repo='.', remote='origin'):
+    """-> True a local branch or the remote already has `name`, False
+    neither does, None the remote could not be asked and nothing local has
+    it. Every caller that names a branch asks this, never on_origin alone."""
+    if local_branch(name, repo):
+        return True
+    return on_origin(name, repo, remote)
+
+
 def build(words, date=None, prefix=None, tail=None, exists=None):
-    """-> (name, notes). `exists(name)` answers True/False/None as on_origin
+    """-> (name, notes). `exists(name)` answers True/False/None as taken()
     does; None skips the check. `tail` None means read the session ID."""
     slug = slugify(words)
     if not slug:
@@ -134,10 +158,12 @@ def build(words, date=None, prefix=None, tail=None, exists=None):
     if exists is not None:
         found = exists(name)
         if found is None:
-            notes.append(f'could not ask origin whether {name} already exists')
+            notes.append(f'could not ask origin whether {name} already exists '
+                         f'(no local branch has it)')
         while found:
             extra = random_id()
-            notes.append(f'{name} is already on origin; added {extra}')
+            notes.append(f'{name} is already taken (a local branch or origin has '
+                         f'it); added {extra}')
             name = f'{prefix}{date}-{slug}-{tail}-{extra}'
             found = exists(name)
     return name, notes
@@ -198,7 +224,7 @@ def main(argv=None):
     ap.add_argument('--repo', default='.', help='checkout whose origin is asked')
     ap.add_argument('--no-check', action='store_true', help='do not ask origin')
     args = ap.parse_args(argv)
-    exists = None if args.no_check else (lambda n: on_origin(n, args.repo))
+    exists = None if args.no_check else (lambda n: taken(n, args.repo))
     try:
         name, notes = build(args.words, prefix=args.prefix, exists=exists)
     except ValueError as e:
