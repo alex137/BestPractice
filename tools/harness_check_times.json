@@ -385,7 +385,6 @@
   "check_resident_subset": 0.0,
   "check_retired_branch_name_does_not_ship": 0.0,
   "check_retired_practices_leave_the_views": 0.1,
-  "check_retired_set_takes_only_its_retirement": 0.7,
   "check_retired_sets_are_dropped_only_when_nothing_is_lost": 0.1,
   "check_retired_words_are_found_and_history_is_left": 0.0,
   "check_retirement_record_is_not_a_stranded_link": 11.3,

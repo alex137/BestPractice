@@ -38,16 +38,17 @@ the `share/` spec branch is to be deleted.
 
 - **The two retired sets can finish retiring.** No repository declares
   `precedent-shared-repo-maintenance` or `precedent-shared-working-style`
-  any more; once both are archived on GitHub,
-  [retired-set-takes-only-its-retirement](../practices/retired-set-takes-only-its-retirement.md)
-  has met its stated end.
+  any more; once both are archived on GitHub, the temporary rule
+  `retired-set-takes-only-its-retirement` has met its stated end.
+  *Answered 2026-10-11: both were already archived; the rule was removed
+  ("Go remove it").*
 
 ### Found, not fixed here
 
 - **The writing set's `no-stale-counts` check reads a dated count as a
   claim about today.** Run against this repo it flags about 70 sentences,
   nearly all in dated records (`decisions/`, `todo/`, `gotchas/`,
-  `record/`, `evals/`, the frozen `PRACTICES.md`) and `## Story` sections.
+  `record/`, `evals/`, the frozen [PRACTICES.md](../PRACTICES.md)) and `## Story` sections.
   The run tried declaring those directories exempt and took it back: the
   push check rightly refused an exemption with no root fix, and `spec/`
   mixes live documents with dated ones. The fix is the check's, in the
@@ -58,10 +59,13 @@ the `share/` spec branch is to be deleted.
   `.claude/hooks/precedent-individual-bootstrap.sh`**; the generator now
   writes a 29-line stub (BOOTSTRAP DRIFT). Their Update Vendors runs on
   2026-10-11 did not replace it. The individual set's
-  `precedent-universal-catalogue.sh` and `CLAUDE.md` differ the same way.
+  `precedent-universal-catalogue.sh` and its Claude Code pointer file differ
+  the same way.
 - **An update of a never-edited install stops LEFT FOR YOU** on template
-  wording the adopter never touched (`MAP.source.md`, `GLOSSARY.source.md`,
-  `local/practices/project-voice.md`), and misses other drift of the same
+  wording the adopter never touched (the map and glossary sources from
+  [MAP.md.template](../templates/MAP.md.template) and
+  [GLOSSARY.md.template](../templates/GLOSSARY.md.template), and the project
+  voice from [project-voice.md.template](../templates/local-practices/project-voice.md.template)), and misses other drift of the same
   kind (pass 1, update rehearsal). An unmodified instance should take the
   new template itself.
 - **The README's promise that the assistant notices "always / never / from
@@ -83,7 +87,7 @@ the `share/` spec branch is to be deleted.
   names** (REPOSITORY VISIBILITY recommendations). Adding them belongs in
   the individual set's blocklist, never in this public tree.
 
-- **The root `TODO.md` redirect stub states two things that stopped being
+- **The root [TODO.md](../TODO.md) redirect stub states two things that stopped being
   true**: that CI refuses a change to it (the deep check does), and that
   AGENTS.md's gotcha index is hand-kept and links into
   `record/GOTCHAS.md#gN` (AGENTS.md points at the generated
@@ -107,7 +111,7 @@ the `share/` spec branch is to be deleted.
   `process/upstream/tools/`, which the first update deletes; step 5's
   decommission refuses until step 6 has run; step 8's list of what a clean
   run needs misses `session-trailer`, the classic GETTING_STARTED.md and an
-  unregistered `todo/TODO.md`, and its `todo_migrate` turns the recurring
+  unregistered [todo/TODO.md](TODO.md), and its `todo_migrate` turns the recurring
   check-in into an item doc_lint fails; `--ensure-tiers --apply` prints
   nothing when the ladder is off. One HIGH item, declaring a deleted set,
   was fixed in this run.
@@ -126,10 +130,10 @@ the `share/` spec branch is to be deleted.
   folder**: with `CLAUDE_CODE_REMOTE` set, the resolver's self-heal clones
   the real individual set into whatever `$HOME` is in force, scratch or
   not.
-- **An installer run into a project with a hand-written `MAP.md`** writes
-  `MAP.source.md` from the template, and the sync then regenerates
-  `MAP.md` from it, which may replace the project's own map. Not verified
-  in this run.
+- **An installer run into a project with a hand-written repository map**
+  writes the map's source file from the template, and the sync then
+  regenerates the map from it, which may replace the project's own. Not
+  verified in this run.
 
 ## Notes
 
