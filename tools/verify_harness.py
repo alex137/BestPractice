@@ -4233,6 +4233,39 @@ def check_freshness_covers_every_declared_source():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_visibility_audit_reads_repo_names_out_of_prose():
+    """The visibility audit's reference finder takes the name a sentence
+    means, once (practice: very-deep-check).
+
+    WHY. On 2026-10-11 it read "see owner/name." as a repository called
+    "name." beside "name", and api.github.com/repos/OWNER/NAME as a
+    repository "OWNER" of an owner called "repos" -- sixteen extra names in
+    this tree, each one a GitHub call over the run's declared budget."""
+    import very_deep_check as vdc
+    text = ('see https://github.com/acme/widget. then '
+            'https://api.github.com/repos/acme/toolkit/actions, '
+            '*https://www.github.com/acme/star.* and "acme/quoted." '
+            'and https://github.com/acme/plain')
+    urls = set(vdc._URL_REF_RE.findall(text))
+    bare = set(vdc._bare_ref_re({'acme'}).findall(text))
+    cases = [
+        ('a sentence-ending period is not part of the name',
+         ('acme', 'widget') in urls and ('acme', 'widget.') not in urls),
+        ('an API path names the repository after /repos/',
+         ('acme', 'toolkit') in urls
+         and not any(o == 'repos' for o, _ in urls)),
+        ('a period before closing punctuation ends the name too',
+         ('acme', 'star') in urls),
+        ('a plain URL still reads as before', ('acme', 'plain') in urls),
+        ('bare prose under a known owner drops its period as well',
+         ('acme', 'quoted') in bare and ('acme', 'quoted.') not in bare),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the visibility audit reads repository names out of prose '
+          f'({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + f' -- urls {sorted(urls)}, bare {sorted(bare)}')
+
+
 def check_visibility_audit_reads_the_blocklist_as_patterns():
     """The stale-entry half of very_deep_check's visibility audit, repaired.
 
@@ -49122,6 +49155,43 @@ def check_session_start_warns_of_unapproved_workflow():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_ci_fleet_audit_skips_deleted_sets():
+    """The fleet audit never asks GitHub about a deleted practice set
+    (practice: ci-workflow-approved).
+
+    WHY. discover() takes every clone beside this checkout, and a session
+    that attached a set before it was deleted still has the clone. On
+    2026-10-11 the audit asked about two deleted sets, got the proxy's
+    refusal for every question, listed both as NOT REACHED, and ran over
+    its declared API budget."""
+    import tempfile
+    import ci_fleet_audit as cfa
+    import precedent_resolve as pr
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        for name in ('BestPractice', 'live-set', 'gone-set'):
+            d = tmp / name
+            d.mkdir()
+            fixture_git(d, 'init', '-q')
+            fixture_git(d, 'remote', 'add', 'origin',
+                        f'https://github.com/acme/{name}.git')
+        real = pr.deleted_sets
+        pr.deleted_sets = lambda *a, **k: {'gone-set': {}}
+        try:
+            found = cfa.discover(tmp / 'BestPractice')
+        finally:
+            pr.deleted_sets = real
+    cases = [
+        ('a live clone beside the checkout is audited',
+         'acme/live-set' in found),
+        ('a deleted set\'s clone is not', 'acme/gone-set' not in found),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the fleet audit skips deleted sets ({len(cases)} stated cases)',
+          not failed, '; '.join(failed) + f' -- found {found}')
+
+
 def check_ci_fleet_audit_reads_github_not_the_clone():
     """practice: ci-workflow-approved, 2026-09-26. The push-time check sees
     only a session's own pushes; tools/ci_fleet_audit.py asks GitHub, so it
@@ -74387,6 +74457,7 @@ def main():
     check_ci_workflow_approved_pins_approval_to_content()
     check_ledger_accepts_a_row_added_with_its_change()
     check_ci_fleet_audit_reads_github_not_the_clone()
+    check_ci_fleet_audit_skips_deleted_sets()
     check_session_start_warns_of_unapproved_workflow()
     check_workflow_write_gate_refuses_api_writes()
     check_very_deep_check_workflow_liveness_scan()
@@ -74615,6 +74686,7 @@ def main():
     check_leak_gate_refresh_declines_a_dirty_clone()
     check_freshness_covers_every_declared_source()
     check_visibility_audit_reads_the_blocklist_as_patterns()
+    check_visibility_audit_reads_repo_names_out_of_prose()
     check('the individual set has one tree on disk, whichever of the '
           'bootstrap and the attach tool cloned it first',
           *check_individual_set_has_one_tree_whichever_route_cloned_it())

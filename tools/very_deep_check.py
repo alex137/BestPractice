@@ -6008,8 +6008,14 @@ def enumerate_scope(repo=None, user_config=None):
 _OWNER = r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})'
 # Only a github.com URL proves an `owner/name` IS a repository reference.
 # Those URLs are then what tells us which owners to look for in bare prose.
-_URL_REF_RE = re.compile(r'github\.com/(' + _OWNER + r')/([A-Za-z][\w.-]*?)'
-                         r'(?=[\s)\]"\'`,;:]|\.git\b|/|$)')
+# A sentence-ending period is not part of the name ("see owner/name."), and
+# api.github.com/repos/OWNER/NAME names OWNER/NAME, never a repo "OWNER" of
+# an owner called "repos": both read as extra repositories until 2026-10-11,
+# and each one cost the visibility audit a GitHub call.
+_REF_END = r'(?=[\s)\]"\'`,;:]|\.git\b|\.(?:[\s)\]"\'`*_,;:]|$)|/|$)'
+_URL_REF_RE = re.compile(r'(?:api\.github\.com/repos|(?<![\w.-])(?:www\.)?'
+                         r'github\.com)/('
+                         + _OWNER + r')/([A-Za-z][\w.-]*?)' + _REF_END)
 
 # A first attempt matched any `x/y` and produced 389 candidates from this
 # tree -- fractions, ratios, CSS line-heights, "10/10", "287/290". Anchoring
@@ -6022,7 +6028,7 @@ def _bare_ref_re(owners):
         return None
     alt = '|'.join(re.escape(o) for o in sorted(owners))
     return re.compile(r'(?<![\w./-])(' + alt + r')/([A-Za-z][\w.-]*?)'
-                      r'(?=[\s)\]"\'`,;:]|\.git\b|/|$)')
+                      + _REF_END)
 
 
 _NOT_A_REPO_NAME = re.compile(
