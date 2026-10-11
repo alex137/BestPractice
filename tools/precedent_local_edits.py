@@ -100,6 +100,11 @@ HERE = pathlib.Path(__file__).resolve()
 SOURCE = HERE.parents[1]
 sys.path.insert(0, str(HERE.parent))
 import precedent_time  # noqa: E402
+try:
+    from precedent_update_driver import display_root as _display_root  # noqa: E402
+except ImportError:     # a consumer's engine copy, never run from a driver worktree
+    def _display_root(source):
+        return source
 
 ENGINE, CATALOGUE, SECTION0 = 'engine', 'catalogue', 'section0'
 # Written by the refresh from upstream text it transforms, so a local edit
@@ -507,13 +512,15 @@ def merge3(ours, base, theirs):
 
 def _this_tool(repo):
     # Beside the repo it is "../BestPractice"; anywhere else, the full path
-    # reads better than a climb through every parent.
+    # reads better than a climb through every parent. Never a driver
+    # worktree's path: it is deleted before anyone runs this command.
+    source = _display_root(SOURCE)
     try:
-        where = os.path.relpath(SOURCE, repo)
+        where = os.path.relpath(source, repo)
     except ValueError:
-        where = str(SOURCE)
+        where = str(source)
     if where.startswith('../..'):
-        where = str(SOURCE)
+        where = str(source)
     return f'python3 {where}/tools/precedent_local_edits.py'
 
 

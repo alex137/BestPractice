@@ -23,6 +23,13 @@ WHY FROM THE SOURCE CLONE. A consumer's vendored checkin.py lives inside
 the catalogue it updates, so a fix to it reaches a repo only after that repo
 needed it. Run from the source clone, every step is the current code: the
 engine refresh, the catalogue update (checkin.py --repo), the pin repoint.
+That holds only while the clone itself is current, and until 2026-10-11
+nothing checked it: the fetch moves origin's refs, never the code running.
+So bootstrap() runs first, before anything writes, and when the clone's
+code is older than the commit this run applies, it runs that commit's copy
+of this file from a temporary worktree instead, leaving the clone as it was
+(precedent_update_driver.py; todo-2026-10-11-update-vendors-runs-stale-
+driver-code). The report's `code:` line says which commit's code ran.
 
 THE STEPS, with no question in between:
   0. a journal an earlier run left when it was killed mid-swap is
@@ -131,6 +138,13 @@ except ImportError:     # an engine copy from before 2026-10-11
 # passed over is read from here, not from the session's scrollback.
 OUTPUTS = []
 from precedent_clone_lock import held  # noqa: E402
+import precedent_update_driver as drv  # noqa: E402
+
+# The clone to NAME in anything a person reads. The same as SOURCE, except
+# in a run started from a driver worktree, which is deleted when the run
+# ends (precedent_update_driver.display_root): git reads use SOURCE, words
+# use CLONE.
+CLONE = drv.display_root(SOURCE)
 
 DONE, LEFT, FAILED = 0, 1, 2
 
@@ -2528,7 +2542,7 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
         arc = subprocess.run(['git', '-C', str(SOURCE), 'archive', '--format=tar',
                               rev, 'practices'], capture_output=True)
         if arc.returncode != 0 or not arc.stdout:
-            return (f'could not read practices/ at {rev[:12]} in {SOURCE}: '
+            return (f'could not read practices/ at {rev[:12]} in {CLONE}: '
                     f'{arc.stderr.decode(errors="replace").strip()[:200]}')
         with tempfile.TemporaryDirectory() as td:
             with tarfile.open(fileobj=io.BytesIO(arc.stdout)) as tf:
@@ -2638,6 +2652,7 @@ class Report:
         self.earlier = set() # of `before`, what an earlier run staged, unchanged
         self.retired = []    # retire_pre_staging_step's block, every outcome
         self.commit_note = None  # a --take-anyway: said in the commit message
+        self.code_warning = None  # the code this run ran may be older than its data
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -2781,6 +2796,10 @@ class Report:
         if self.loud:
             self._banner()
         print("\n== Update Vendors ==")
+        if self.code_warning:
+            # First, in every outcome: a stop read without it is the
+            # misdiagnosis the driver bootstrap exists to prevent.
+            print(f"  WARNING: {self.code_warning}")
         for name, outcome in self.steps:
             print(f"  {name}: {outcome}")
         self._local_edits()
@@ -3577,7 +3596,7 @@ def take_pin(repo, follow, move=False):
            SOURCE)[0] != 0:
         clear_pin(repo)
         return None, (f'the commit an earlier run was pinned to, {commit[:12]}, is '
-                      f'not in {SOURCE}, so it starts from the tip')
+                      f'not in {CLONE}, so it starts from the tip')
     if tip and tip != commit:
         return commit, (f'pinned: the commit this update started from. {follow} '
                         f'has moved on to {tip[:12]}; --move takes it, or the '
@@ -4310,7 +4329,7 @@ def source_commit(follow, tip, take=None):
                        f'{take}^{{commit}}'], SOURCE)
         sha = sha.strip()
         if rc != 0 or not sha:
-            out['failed'] = f'{TAKE_FLAG} {take}: no such commit in {SOURCE}'
+            out['failed'] = f'{TAKE_FLAG} {take}: no such commit in {CLONE}'
             return out
         if tip and run(['git', '-C', str(SOURCE), 'merge-base', '--is-ancestor',
                         sha, tip], SOURCE)[0] != 0:
@@ -4412,9 +4431,15 @@ def source_commit(follow, tip, take=None):
     return out
 
 
-def update(repo, skip_check=False, ref=None, move=False, take=None):
+def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     rep = Report()
     rep.pin_repo = repo
+    if code:
+        # Which commit's code this run is, first (bootstrap).
+        rep.step('code', code['line'])
+        if code.get('warning'):
+            rep.code_warning = code['warning']
+            print(f"precedent_update: WARNING: {code['warning']}", flush=True)
     elsewhere = source_is_its_own_clone()
     if elsewhere:
         return rep.close(f"this copy of precedent_update.py sits in {SOURCE}, "
@@ -4492,7 +4517,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
             rc, out = 1, str(e)
         if rc != 0:
             return rep.close(f"could not fetch origin/{follow} in "
-                             f"{SOURCE}:\n{tail(out, repo=repo)}")
+                             f"{CLONE}:\n{tail(out, repo=repo)}")
     # An unfinished update keeps the commit it started from (held_pin); an
     # explicit --from-ref neither reads nor moves it, and --take-anyway
     # moves it to the commit the person named.
@@ -5378,7 +5403,7 @@ def main(argv=None):
                          'the newest whose GitHub test passed)')
     a = ap.parse_args(argv)
     repo = pathlib.Path(a.repo).resolve()
-    if repo == SOURCE:
+    if repo in (SOURCE, CLONE):
         print("precedent_update FAIL: --repo is this BestPractice clone itself. "
               "Run it from the consuming repo: python3 <this clone>/tools/"
               "precedent_update.py --repo . -- the clone is whichever "
@@ -5392,8 +5417,69 @@ def main(argv=None):
         print(f"precedent_update FAIL: {TAKE_FLAG} and --from-ref both say which "
               "commit to take; pass one.")
         return FAILED
+    code = bootstrap(repo, a, sys.argv[1:] if argv is None else list(argv))
+    if isinstance(code, int):
+        return code
     return update(repo, skip_check=a.skip_check, ref=a.from_ref, move=a.move,
-                  take=a.take)
+                  take=a.take, code=code)
+
+
+def bootstrap(repo, a, argv):
+    """-> the exit code of the run started from a driver worktree, or the
+    {'line', 'warning'} to run in place with: precedent_update_driver's two
+    tables, before anything here writes into `repo` (undo_leftover_standin,
+    the journal replay and the put-back steps all do). It reads only:
+    held_pin, never take_pin."""
+    if os.environ.get(drv.GUARD_ENV):
+        return {'line': drv.child_line(SOURCE), 'warning': None}
+    only = os.environ.get(drv.ONLY_ENV)
+    rc, head = run(['git', '-C', str(SOURCE), 'rev-parse', 'HEAD'], SOURCE)
+    head = head.strip()[:12] if rc == 0 and head.strip() else 'an unknown commit'
+    if os.environ.get(drv.OPT_OUT_ENV) and not only:
+        # No fetch: nothing it could find would change the answer.
+        return {'line': f"ran this clone's own code, {CLONE} @ {head}, as "
+                        f"{drv.OPT_OUT_ENV} asks", 'warning': None}
+    follow = pve.followed_branch(repo)
+    try:
+        with held(SOURCE):
+            rc, out = run(['git', '-C', str(SOURCE), 'fetch', 'origin',
+                           pve.tracking_refspec(follow)], SOURCE)
+    except TimeoutError as e:
+        rc, out = 1, str(e)
+    if rc != 0:
+        v = {'row': 'no-fetch', 'in_place': True,
+             'line': f"ran this clone's own code, {CLONE} @ {head}",
+             'warning': (f"could not fetch origin/{follow} "
+                         f"({out.strip().splitlines()[-1] if out.strip() else 'no output'}), "
+                         f"so could not tell whether this clone's code is "
+                         f"current")}
+    else:
+        markers = None
+        if follow == 'main':
+            try:
+                markers = pb.passed_markers(SOURCE)
+            except (OSError, subprocess.SubprocessError):
+                markers = None
+        v = drv.decide(SOURCE, repo, follow, markers=markers, window=GREEN_WINDOW,
+                       ref=a.from_ref, take=a.take, move=a.move,
+                       pin=held_pin(repo))
+    if only:
+        for key in ('row', 'in_place', 'g', 'data', 'driver', 'head', 'line',
+                    'warning'):
+            print(f"precedent_update_driver: {key}: {v.get(key)}")
+        return DONE
+    if v['in_place']:
+        return v
+    rc, why = drv.run_from_worktree(SOURCE, v['driver'], argv, held)
+    if rc is not None:
+        return rc
+    drv_short = v['driver'][:12]
+    return {'line': f"ran this clone's own code, {CLONE} @ {head}",
+            'warning': (f"could not set up a temporary checkout of {drv_short} "
+                        f"({why}), so this ran the clone's own code at {head}, "
+                        f"which is older than {drv_short}. If it stops on what "
+                        f"looks like a BestPractice bug, pull the clone first: "
+                        f"git -C {CLONE} pull --ff-only")}
 
 
 if __name__ == '__main__':
