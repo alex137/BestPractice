@@ -17,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-28"
-approved_by: "Morgan, 2026-09-28; amended by S. Alexander Jacobson, 2026-10-06, in his words: \"Yes. Opening a pr counts as asking.\" (strength: decided)"
+approved_by: "Morgan, 2026-09-28; amended by S. Alexander Jacobson, 2026-10-06, in his words: \"Yes. Opening a pr counts as asking.\" (strength: decided); landed on Morgan's word, 2026-10-11: \"On Alex's fix: approved.\""
 strength:    decided
 ---
 ## Rule
