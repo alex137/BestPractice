@@ -37,7 +37,7 @@ local/practices/project-visual-identity.md's sections (an install
 does the essentials and stops -- INSTALL.md, "Essentials only").
 It does not wire a shared or individual source beyond what --team declares;
 the shared/individual question is a conversation with the administrator
-(INSTALL.md section 1 step 9). It does not commit: a person reviews the tree
+(INSTALL.md section 0 step 3). It does not commit: a person reviews the tree
 first. And it does not run the freshness guard or any session hook -- those
 run in the project's own sessions from then on.
 
@@ -851,11 +851,14 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
             f'template defect, so fix it upstream in templates/:')
         for u in unlinked:
             say(f'    {u}')
-    say('  then: review the tree, commit on a branch, and give the repository an `origin` '
-        'before the first session works in it (the freshness guard refuses the first '
-        'write while it cannot reach one).')
+    if _run(['git', 'remote', 'get-url', 'origin'], dest).returncode == 0:
+        say('  then: review the tree and commit it on a branch.')
+    else:
+        say('  then: review the tree, commit on a branch, and give the repository an '
+            '`origin` before the first session works in it (the freshness guard '
+            'refuses the first write while it cannot reach one).')
     say('  still a conversation, not a step: does the team or the person have a '
-        'practices repo to wire in? (INSTALL.md §1 step 9)')
+        'practices repo to wire in? (INSTALL.md section 0 step 3)')
     say(f'  {OTHER_ASSISTANTS_NOTE}')
     return lint_ok
 
