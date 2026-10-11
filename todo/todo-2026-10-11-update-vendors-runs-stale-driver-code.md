@@ -59,28 +59,41 @@ plan's step 1 tool would not have caught this either:
 
 ## Plan
 
-Worked out with a review session over four rounds on 2026-10-11 (staging @
-5f0589fe).
+Worked out with a review session over five rounds on 2026-10-11 (staging @
+5f0589fe); round five reviewed this item as a spec.
 
 1. **A read-only bootstrap runs first**, before anything that writes. It
    reads `followed_branch(repo)` (precedent.json), fetches under
    `held(SOURCE)`, reads `held_pin(repo)` without moving it (never
-   `take_pin`), takes `--from-ref` / `--take-anyway` from argv, and finds the
-   newest commit on the followed branch whose tree carries a passed marker
-   (`pb.passed_markers`, one `ls-remote`, no API budget). It stays small and
+   `take_pin`), takes `--from-ref` / `--take-anyway` from argv, applies the
+   two tables below, and re-execs or runs in place. It stays small and
    rarely touched: it is the one piece that still runs from whatever the
-   clone holds.
-2. **The driver commit, by ancestry.** Driver = the newest green commit on
-   the followed branch (for a staging follower, the staging tip, as
-   `source_commit` already takes it). If the data commit descends from it,
-   or is diverged from it (a `--from-ref` test commit), driver = data. The
-   driver is never older than the data.
-3. **Re-exec only when the clone is provably older:** the clone's `tools/`
-   differs from `<driver>:tools` AND HEAD is not a descendant of the driver.
-   Identical or ahead runs in place and says so; a dirty `tools/` runs in
-   place with a warning. An opt-out flag runs the working-tree code for
-   someone testing their own changes, and the report always names which
-   commit's code ran.
+   clone holds. `PRECEDENT_UPDATE_BOOTSTRAP_ONLY=1` makes it print its
+   verdict (G, data, driver, the row that decided where to run) and exit 0,
+   the seam the harness tests the tables through.
+2. **Driver choice**, in order:
+   - a. **G, the newest green commit.** Following `main`: the newest
+     first-parent commit within `GREEN_WINDOW` whose tree is in
+     `pb.passed_markers` (one `ls-remote`, no API budget). Following
+     `staging`: `origin/staging`, which has no markers, as `source_commit`
+     already takes it.
+   - b. **No G.** Markers unreadable (`None`), or none within the window:
+     run in place with item 8's warning. Never guess a tip.
+   - c. **Data** = the `--from-ref` commit, else the `--take-anyway` commit,
+     else the held pin, else G on a fresh run.
+   - d. **Driver by ancestry.** Data is G or descends from G: driver = data
+     (a `--take-anyway` of a newer commit whose test failed therefore runs
+     that commit's code, and the report says so). Data is an ancestor of G
+     (the pin case): driver = G. Diverged: driver = data.
+3. **Where to run**, first match wins:
+   1. the opt-out flag is set: in place;
+   2. `tools/` is dirty (tracked changes, or untracked `*.py`, from
+      `git status --porcelain -- tools`): in place, with a warning;
+   3. `git rev-parse HEAD:tools` equals `<driver>:tools`: in place;
+   4. HEAD descends from the driver: in place, saying so;
+   5. otherwise: re-exec from the driver.
+
+   The report always names which commit's code ran, and why.
 4. **The re-exec runs from a detached worktree**, not a copied directory:
    tools find their repository from their own path
    ([checkin.py](../tools/checkin.py) 122-125,
@@ -90,28 +103,45 @@ Worked out with a review session over four rounds on 2026-10-11 (staging @
    [build_views.py](../tools/build_views.py) 69-70), and in a real
    checkout each comes out right with no environment variable.
    `git -c core.hooksPath=<empty dir> worktree add --detach <dir> <driver>`:
-   the empty directory keeps the global post-checkout pass-through from
-   running the clone's own hook.
-5. **Where the worktrees live and how they're cleaned up:** under
+   the empty directory, made by the tool under the worktree parent, keeps
+   the global post-checkout pass-through from running the clone's own hook.
+5. **Messages name the real clone, never the worktree.** The worktree is
+   deleted when the run ends, so a path into it is dead by the time anyone
+   reads it. The re-exec'd run derives the real clone from `git rev-parse
+   --path-format=absolute --git-common-dir` (its parent directory): derived,
+   not passed, so item 7 still holds. Every message and remedy uses it, and
+   only git reads use the worktree. Known users today: precedent_update.py's
+   five `{SOURCE}` messages (2531, 3580, 4313, 4420, 4495) and
+   `precedent_local_edits._this_tool`, whose LEFT FOR YOU remedy is a
+   command the person runs after the run ends.
+6. **Where the worktrees live and how they're cleaned up:** under
    `<common git dir>/precedent-update-drivers/`, beside the clone lock, named
-   `<pid>-<commit12>-<random>`. Each run holds an exclusive `fcntl.flock` on
-   its own `<name>.lock` for its whole life. At start, under `held(SOURCE)`,
-   a leftover whose lock can be taken (`LOCK_EX|LOCK_NB`) belongs to a dead
+   `<pid>-<commit12>-<random>`. Each run holds an exclusive `fcntl.flock`
+   (not `lockf`, whose locks are per process, so a holder in the same process reads as dead) on its own
+   `<name>.lock` for its whole life. At start, under `held(SOURCE)`, a
+   leftover whose lock can be taken (`LOCK_EX|LOCK_NB`) belongs to a dead
    run: `worktree remove --force` it, then `worktree prune`. A busy one is
    left alone. A run removes its own worktree in a `finally`. Where `fcntl`
    is missing (Windows), only its own is removed.
-6. **Nothing decided crosses the exec** except a loop-guard environment
+7. **Nothing decided crosses the exec** except a loop-guard environment
    variable holding the driver commit; with it set, the update never
-   re-execs again. The new driver re-runs `source_commit`, `take_pin` and the
-   rest itself; the cost is a second fetch and a second test lookup.
-7. **Fallback:** if the worktree cannot be made, warn at the top of the
+   re-execs again. The re-exec'd run reads it and then removes it from
+   `os.environ` before spawning anything, so a deep check that runs harness
+   cases of its own does not inherit it. The new driver re-runs
+   `source_commit`, `take_pin` and the rest itself; the cost is a second
+   fetch and a second test lookup.
+8. **Fallback:** if the worktree cannot be made, warn at the top of the
    report and again first on any stop that this run's code may be older than
    what it applies.
-8. **The runbook:** step 1 of
+9. **The runbook:** step 1 of
    [practices/vendor-update-runbook.md](../practices/vendor-update-runbook.md)
-   still says the catalogue is read from the clone's working tree through
-   `precedent_materialize`; the update now hands `checkin.py --from-ref`.
-   Correct that passage, and say what this change does.
+   says the catalogue is read from the clone's working tree through
+   `precedent_materialize`. Two catalogues are in play: [checkin.py](../tools/checkin.py) reads
+   the vendored one by `git archive` (lines 726, 1210, 1568), while
+   [precedent_materialize.py](../tools/precedent_materialize.py) reads the
+   practice-set clones' working trees for the catalogue in force each
+   session. Check which one the passage means, fix only the half that is
+   wrong, and say what this change does.
 
 **One cost nothing can remove:** a clone made before this lands has no
 bootstrap, so its first update after this lands needs one manual
@@ -121,27 +151,62 @@ tells a person. The pull request says so plainly.
 
 ## Harness cases ([tools/verify_harness.py](../tools/verify_harness.py))
 
-- A clone behind origin carrying a deliberately broken old driver: the run
-  uses the fetched code, finishes, and names the commit it ran.
-- A pin some weeks back, run under the newest driver.
-- A current clone and an ahead clone (CI's case) run in place. The existing
-  harness cases set the opt-out explicitly, so none depends on the rule.
-- A parallel run's live worktree survives another run's cleanup; a dead
-  run's leftover is removed.
-- `worktree add` fires no hook.
-- A crash journal left mid-swap, plus a precedent.json declaring
-  `upstream_branch: staging`: the bootstrap follows staging and the replay
-  still restores the edits; `vendored_layer_paths(repo, ['precedent.json'])
-  == []`, so a future `engine_paths` cannot put precedent.json in the
-  journal silently.
-- The bootstrap is read-only: with a stand-in commit at HEAD and a journal
-  present, HEAD, the index, the journal directory and the pin file are
-  byte-identical before the exec.
-- No HEAD-sensitive git call runs with SOURCE as its directory
-  (`symbolic-ref`, `branch --show-current`, `push`).
+The existing cases set the opt-out explicitly, so none depends on the rule.
+**Every re-exec case clears it** and asserts the re-exec happened, by the
+report line naming the driver commit.
+
+- **Behind clone, broken old driver.** The fixture's old commit already
+  carries the bootstrap; the break sits after it, in `update()`. The case
+  runs `<fixture>/tools/precedent_update.py`, never this repo's copy
+  (`HERE.parents[1]` makes SOURCE whatever tree the script sits in). It
+  asserts the reported driver commit is not the fixture's HEAD, that the
+  break did not fire, and that no output line contains the drivers
+  directory's path.
+- **The clone never moves.** After a re-exec run, the clone's HEAD, branch,
+  index, `git status --porcelain` and `git worktree list` are what they were
+  before.
+- **A pin some weeks back.** The fixture origin carries a passed-marker ref
+  for the newer commit (without one, rule 2b runs in place and the case
+  passes vacuously). Asserts driver = G and data = the pin, both by hash.
+- **CI's case.** A current clone and an ahead clone run in place.
+- **The tables, row by row**, through `PRECEDENT_UPDATE_BOOTSTRAP_ONLY=1`:
+  every lettered rule of item 2 and every numbered rule of item 3, including
+  a dirty `tools/` and an untracked `*.py`.
+- **Parallel cleanup.** A live holder, a separate process holding
+  `fcntl.flock`, keeps its worktree through another run's cleanup. A dead
+  leftover (worktree plus lock file, no holder) is removed.
+- **No hook fires.** A `GIT_CONFIG_GLOBAL` whose `core.hooksPath` holds an
+  executable post-checkout that touches a marker file, plus one in the
+  fixture's `.git/hooks`; neither marker exists afterwards. Without that
+  setup the case cannot fail on a CI runner, which has no global hooks path.
+- **The journal and precedent.json.** A crash journal left mid-swap, plus a
+  precedent.json declaring `upstream_branch: staging`: the bootstrap follows
+  staging and the replay still restores the edits.
+  `vendored_layer_paths(repo, ['precedent.json']) == []`, so a future
+  `engine_paths` cannot put precedent.json in the journal silently.
+- **The bootstrap is read-only.** Through the bootstrap-only seam, with a
+  stand-in commit at HEAD and a journal present: the consumer's HEAD, index,
+  journal directory, pin file, `git status --porcelain` and working-tree
+  hashes are identical before and after.
+- **No HEAD-sensitive call.** A `git` shim first on `PATH` logs the
+  directory, `-C` and the arguments during the behind-clone case; no
+  `symbolic-ref`, `branch --show-current`, `push`, `checkout` or `switch`
+  targets the clone or the worktree.
+- **The loop guard does not leak.** A child the re-exec'd run spawns does
+  not see the loop-guard variable.
+- **Fallback.** With the drivers directory not writable, the warning is the
+  report's first line.
 
 ## Closes when
 
-The re-exec, its tests and the runbook correction have landed on `main`,
-and an update run from a clone that is behind runs the fetched code and
-says which commit ran.
+Two conditions, the second of which cannot be met on the day it lands:
+
+1. the bootstrap, the re-exec, these cases and the runbook correction have
+   landed on `main`; and
+2. a real Update Vendors, run from a clone at or after the landing commit
+   that is behind `origin/main` by at least one later commit touching
+   `tools/`, runs the fetched code, names that commit, and leaves the
+   clone's branch, HEAD, index and status as they were.
+
+After the first, this item waits (`wait`) on such a later commit to `tools/`
+and a real run over it.
