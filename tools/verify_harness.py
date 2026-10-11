@@ -35630,9 +35630,13 @@ def check_promote_picks_its_step():
         on_staging = commit_to('staging', 'two.txt', '2\n')
         commit_to('pre-staging', 'three.txt', '3\n')
         seen = set(all_copies())
-        rc, out = branches('--promote', '--to', 'main', '--full', '--work', on_staging)
+        rc, out = branches('--promote', '--to', 'main', '--full', '--because', 'test the long way', '--work', on_staging)
+        # The long way's first line names the person's words; the step comes
+        # next.
         cases.append(('both steps waiting, and the step named: --to main wins',
-                      rc == 3 and out.startswith(
+                      rc == 3 and out.startswith('the full route into main, '
+                                                 'because the person asked')
+                      and out.splitlines()[1].startswith(
                           'Now promoting from staging to main')))
         merge_copy = next(iter(set(all_copies()) - seen), '')
         parents = git(work, 'rev-list', '--parents', '-n', '1',
@@ -61770,7 +61774,7 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
         git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
         before = git(work, 'rev-parse', 'HEAD').stdout.strip()
         main_before = tip('main')
-        rc, out = branches('--promote', '--to', 'main', '--full', '--work', 'session-work')
+        rc, out = branches('--promote', '--to', 'main', '--full', '--because', 'test the long way', '--work', 'session-work')
         ready = [l for l in out.splitlines() if 'NOT MOVED' in l or 'READY FOR' in l]
         cases.append(('staging into main, main not yet moved: exit 3, not 0 '
                       f'(got {rc})', rc == 3))
@@ -62158,10 +62162,25 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
         run('--land', 'last')
 
         # --- the full move into main, only when asked for by name ---
+        # The long way is taken only on the person's own words (Morgan,
+        # 2026-10-11: "only do the long way when explicitly authorized"):
+        # --full alone is refused before anything runs or is pushed.
         full_runs()
         rc, out = run('--promote', '--to', 'main', '--full')
-        cases.append(('with --full, the move into main runs the full suite, as '
-                      'before', full_runs() >= 1 and 'full push check' in out,
+        cases.append(('--full without the person\'s words is refused, and '
+                      'nothing runs', rc == 2 and 'PROMOTE REFUSED' in out
+                      and '--because' in out and full_runs() == 0,
+                      f'exit {rc}: {out[-300:]}'))
+        rc, out = run('--promote', '--to', 'main', '--full', '--because', '  ')
+        cases.append(('...and blank words are no words', rc == 2
+                      and 'PROMOTE REFUSED' in out and full_runs() == 0,
+                      f'exit {rc}: {out[-300:]}'))
+        rc, out = run('--promote', '--to', 'main', '--full', '--because',
+                      'Produce the long way')
+        cases.append(('with --full and their words, the move into main runs '
+                      'the full suite, and says whose words',
+                      full_runs() >= 1 and 'full push check' in out
+                      and "because the person asked: 'Produce the long way'" in out,
                       f'exit {rc}: {out[-300:]}'))
         # The fast move is the default (Morgan, 2026-10-11: "default to the
         # fast route unless I explicitly agree to or request the slow
@@ -62181,6 +62200,13 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
             ('--full beside a fast-move flag is a usage error',
              pa(['--to', 'main', '--full', '--despite-failed-tests']) is None
              and pa(['--full', '--fast']) is None),
+            ('--because without --full is a usage error',
+             pa(['--to', 'main', '--because', 'x']) is None),
+            ('the refusal: --full with no words is refused, with words passes',
+             bool(pb.full_route_refusal(pa(['--to', 'main', '--full'])))
+             and pb.full_route_refusal(pa(['--to', 'main', '--full',
+                                           '--because', 'yes, the long way'])) is None
+             and pb.full_route_refusal(pa(['--to', 'main'])) is None),
             ('a fast-move flag on the move into staging is a usage error',
              pa(['--to', 'staging', '--full']) is None
              and pa(['--to', 'staging', '--no-full-after']) is None)]
@@ -62711,7 +62737,7 @@ def check_promote_ends_with_its_result_line():
                           'PROMOTE RESULT: staging <- pre-staging: NOTHING TO PROMOTE')
                       and one_result(out)))
 
-        rc, last, out = run(work, env, '--promote', '--to', 'main', '--full')
+        rc, last, out = run(work, env, '--promote', '--to', 'main', '--full', '--because', 'test the long way')
         copy = next((l.split('pull request from ', 1)[1].split()[0]
                      for l in [last] if 'pull request from ' in l), '')
         cases.append((f'a Produce ready for its pull request ends READY FOR MAIN '
