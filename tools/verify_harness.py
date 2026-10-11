@@ -50787,6 +50787,43 @@ def check_push_check_runs_approved_workflow_steps():
         cases.append(('a check reading GitHub\'s environment is named, never run',
                       ('on-change.yml', 'Test with the run') in named
                       and not any(a[0] == 'tools/test_run.py' for a in argvs), (argvs, named)))
+        # 2026-10-10, later: a product's alarm drill. Its steps ran only
+        # after a failure and only from the button with an input set, and
+        # one appended the words "alerting test" to a list; all three were
+        # named as GitHub-only checks.
+        (wf / 'drill.yml').write_text(
+            'on:\n  push:\n  workflow_dispatch:\n    inputs:\n      drill:\n        type: boolean\n'
+            'jobs:\n  s:\n    steps:\n'
+            '      - name: File the alerting test as a todo item\n'
+            '        if: ${{ (failure() || cancelled()) && inputs.drill }}\n'
+            '        run: python3 tools/todo.py file "$RUN_URL"\n'
+            '      - name: Report the alerting test\n'
+            '        if: ${{ inputs.drill }}\n'
+            '        run: gh issue create --title x\n'
+            '      - name: Commit state\n'
+            '        run: |\n'
+            '          parts+=("file the alerting test as a todo item")\n'
+            '          git commit -m "state"\n'
+            '      - name: Run the tests even after a failure\n'
+            '        if: ${{ always() }}\n'
+            '        run: make test\n', encoding='utf-8')
+        approved = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        approved['github_ci_approved']['.github/workflows/drill.yml'] = {
+            'sha256': 'x', 'approved_by': 'p'}
+        (repo / 'precedent.json').write_text(json.dumps(approved), encoding='utf-8')
+        _c, unrun = ppc.approved_workflow_checks(repo)
+        drill = [st for w, st, _c in unrun if w.endswith('drill.yml')]
+        cases.append(('THE DISCRIMINATING CASE: steps that run only after a failure or '
+                      'only on a manual input are not checks',
+                      'File the alerting test as a todo item' not in drill
+                      and 'Report the alerting test' not in drill, drill))
+        cases.append(('words inside a quoted string are not what a step runs',
+                      'Commit state' not in drill, drill))
+        cases.append(('a test step run "always()" is still named',
+                      'Run the tests even after a failure' in drill, drill))
+        (wf / 'drill.yml').unlink()
+        del approved['github_ci_approved']['.github/workflows/drill.yml']
+        (repo / 'precedent.json').write_text(json.dumps(approved), encoding='utf-8')
         import precedent_update as _pu
 
         class _Rep:
