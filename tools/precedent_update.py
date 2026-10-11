@@ -874,6 +874,43 @@ def removals_this_update_caused(out, dropped):
     return []
 
 
+_STILL_DECLARED_REFUSAL = re.compile(
+    r"whose source is still declared -- (.*?)\. Two causes", re.S)
+
+
+def decommissioned_removals(out, rev):
+    """-> the practices the view sync refused to remove whose source is
+    still declared, when every one is a universal practice the source
+    recorded as decommissioned (process/decommissioned_paths.json) at `rev`,
+    the commit this update takes; [] otherwise.
+
+    WHY (2026-10-11). BestPractice deleted a temporary rule whose time was
+    up and recorded the deletion there, as decommission-deletes-files says.
+    Every consumer's next update then FAILED on it: the sync refuses to drop
+    a practice its committed MANIFEST.json records unless the source marks
+    it retired, and the remedy it names, --allow-removals, is a person's
+    call made repo by repo. The record already says the deletion was meant,
+    so the update reads it and names those practices, and only those, to
+    the sync (--allow-removal SLUG). Found by Update All Vendors' first run."""
+    m = _STILL_DECLARED_REFUSAL.search(out or '')
+    if not m or not rev:
+        return []
+    pairs = re.findall(r'(\S+) \(from ([^)]+)\)', m.group(1))
+    if not pairs or any(src != 'precedent' for _s, src in pairs):
+        return []
+    r = subprocess.run(['git', '-C', str(SOURCE), 'show',
+                        f'{rev}:process/decommissioned_paths.json'],
+                       capture_output=True, text=True)
+    try:
+        gone = {e.get('path') for e in
+                json.loads(r.stdout).get('decommissioned') or []
+                if isinstance(e, dict)} if r.returncode == 0 else set()
+    except ValueError:
+        gone = set()
+    slugs = [s for s, _src in pairs]
+    return slugs if all(f'practices/{s}.md' in gone for s in slugs) else []
+
+
 def approved_workflows_step(repo, rep):
     """Say which steps of the repo's own approved workflows the push check
     runs here, and name each one only GitHub runs (2026-10-10: a consumer's
@@ -4703,6 +4740,15 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
             rep.step('retired set', f'removed {len(caused)} practice(s) the '
                      f'dropped set(s) held, each in force elsewhere or '
                      f'retired: {", ".join(sorted(caused))}')
+        gone = decommissioned_removals(out, head.strip() if head_ok else None) \
+            if rc else []
+        if gone:
+            rc, out = run([sys.executable, str(sync), '--repo', str(repo)]
+                          + [a for s in gone for a in ('--allow-removal', s)],
+                          repo)
+            rep.step('decommissioned', f'removed {len(gone)} practice(s) the '
+                     f'source deleted on purpose and recorded in '
+                     f'process/decommissioned_paths.json: {", ".join(gone)}')
         in_force_nowhere_step(repo, rep, out)
         removed_links_step(rep, out)
         if rc != 0:

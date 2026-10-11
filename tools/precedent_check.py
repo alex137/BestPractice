@@ -7393,6 +7393,11 @@ def _vocabulary_reaches_the_consumer(ctx):
             'precedent_update.py does and for the same reason, and '
             'precedent_update.py imports it from there '
             '(spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)',
+        'precedent_update_all.py':
+            'Update All Vendors runs the BestPractice clone\'s copy, which '
+            'runs that clone\'s precedent_update.py against each repository '
+            'on the list, for the same reason precedent_update.py is here '
+            '(spec/UPDATE_ALL_VENDORS_PLAN.md)',
     }
     NEVER_VENDORED = set(UPSTREAM_ONLY)
 
