@@ -26,20 +26,16 @@ item holds the rest.
 
 ### Calls for Morgan
 
-- **Two workflows on `main` have no approval on record.**
-  `.github/workflows/leak-gate.yml` reads "approved by nobody" and
-  `deep-check.yml` "edited since it was approved"
-  ([ci-workflow-approved](../practices/ci-workflow-approved.md)). Only
-  Morgan's own yes approves them.
-- **Two unlanded branches have waited since the 2026-10-05 run.**
-  `claude/upstream-bug-fix-review-ltbiy8` (an approved `upstream-review`
-  practice and tool, nothing equivalent on `main`) and
-  `claude/file-sharing-service-spec-0m9c7p` (the only copy of a `share/`
-  spec, untouched since July). Each needs land or close.
-- **`claude/2026-10-06-upstream-pr-is-the-ask-19akh` carries a decided
-  rule change that never landed**: `upstream-bug-stops-here` says opening
-  the fix upstream as a pull request is the stop, closing the item that
-  asked. Recommended: land it.
+Settled 2026-10-11, in his words: "Both yml are fine and approved. On
+Alex's fix: approved. On my idea of writing up a prompt in the boildown
+session with the errors and warnings given - yes let's rebuild it but only
+in ladders and also only when the user is a code owner. And on the July
+one: close it". Both workflows are pinned in `github_ci_approved`; Alex's
+`upstream-bug-stops-here` amendment landed; `upstream-review` was rebuilt
+(the ladder set's practice, the engine's
+[precedent_upstream_review.py](../tools/precedent_upstream_review.py));
+the `share/` spec branch is to be deleted.
+
 - **The two retired sets can finish retiring.** No repository declares
   `precedent-shared-repo-maintenance` or `precedent-shared-working-style`
   any more; once both are archived on GitHub,
