@@ -1167,7 +1167,10 @@ CHANGED_PRACTICE_CHECK = ('changed_practice',
 #   - a changed JSON file parses;
 #   - a changed check (tools/checks/check_x.py), or its test, has that
 #     test (tools/checks/tests/test_x.sh) run -- once, the materialized
-#     copy where there is one;
+#     copy where there is one -- and every other test there that names it;
+#   - where the harness lives, a changed Python file under tools/ runs the
+#     harness tests the change reaches, within a minute, naming the rest
+#     (verify_harness.py --for-change);
 #   - a new check has that test, and defines SOURCE_ROOT;
 #   - in BestPractice, a change to the check registry or the harness leaves
 #     every registered check with a planted case (a text read, no harness
@@ -1312,6 +1315,22 @@ def changed_files_check(root, since):
             test = materialized
         if test not in tests and (root / test).is_file():
             tests.append(test)
+        # A TEST THAT NAMES THE CHECK RUNS TOO (2026-10-11). Two scripts can
+        # share one test -- the philosophy pair shares
+        # test_philosophy_scoping.sh -- and pairing by file name alone ran
+        # no test for either. A check's test must name it (check_deep_check.py),
+        # so reading the tests for that name finds every one, with no map
+        # to keep.
+        if m.group(2):
+            for other in sorted((root / f'{base}tools/checks/tests').glob('test_*.sh')):
+                if f'check_{name}.py' not in other.read_text(encoding='utf-8',
+                                                             errors='replace'):
+                    continue
+                found = f'{base}tools/checks/tests/{other.name}'
+                if base and (root / f'tools/checks/tests/{other.name}').is_file():
+                    found = f'tools/checks/tests/{other.name}'
+                if found not in tests:
+                    tests.append(found)
         # A NEW CHECK SHIPS WITH ITS TEST. check_deep_check.py (the deep-check
         # practice) refuses a check with no tests/test_x.sh, or one that does
         # not define SOURCE_ROOT -- but it judges the whole tree, so the
@@ -1380,6 +1399,35 @@ def changed_files_check(root, since):
             problems.append('GitHub\'s test and --as-ci no longer run one '
                             'split: ' + (' | '.join(said) or 'the sync checks '
                                          'failed')[:600])
+    # A CHANGED CHECK RUNS ITS OWN HARNESS TESTS (2026-10-11). a243d9c0
+    # made practice-file-shape stricter; the harness test that feeds it a
+    # good sample still had the old shape, and staging went red, because
+    # nothing here ran a precedent_check.py check's harness tests. The
+    # harness works out which tests a change reaches -- a check, what it
+    # uses, a tools/ module it imports, a check script, a harness test --
+    # and runs what fits a minute, naming the rest
+    # (spec/CHANGED_CHECK_RUNS_ITS_TESTS_PLAN.md). Only where the harness
+    # lives: a consuming repo carries this line and never runs it.
+    if (root / 'tools' / 'verify_harness.py').is_file() and any(
+            rel.endswith('.py') and rel.startswith(('tools/', 'local/tools/'))
+            for rel in files):
+        try:
+            r = subprocess.run([sys.executable, 'tools/verify_harness.py',
+                                '--for-change', since], cwd=root,
+                               capture_output=True, text=True, timeout=600)
+            # On stderr: the gate streams it, and drops a passing step's
+            # stdout -- a note about tests not run here must be seen.
+            for line in r.stdout.splitlines():
+                if line.startswith('for-change:'):
+                    print(line[:500], file=sys.stderr, flush=True)
+            if r.returncode != 0:
+                said = [l for l in r.stdout.splitlines() if l.startswith('FAIL')]
+                said = said or (r.stdout + r.stderr).strip().splitlines()[-1:]
+                problems.append('a harness test this change reaches failed -- '
+                                + ' | '.join(said)[:800])
+        except subprocess.TimeoutExpired:
+            problems.append('the harness tests this change reaches did not '
+                            'finish within 10 minutes')
     for test in tests:
         try:
             r = subprocess.run(['bash', test], cwd=root, capture_output=True,

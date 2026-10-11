@@ -19,6 +19,9 @@ Run:  python3 tools/verify_harness.py
             then the tests that went not-applicable there, run here
       PRECEDENT_CHECK_ONLY=check_a,check_b python3 tools/verify_harness.py
                                                  # just the tests you name
+      python3 tools/verify_harness.py --for-change origin/staging [--dry-run]
+            just the tests a change since that ref reaches, within a
+            60-second budget (--budget N); the push check runs this
       A full run started by hand refuses until it is given the person's
       go-ahead: --because '<their words>'. It states what it costs first.
 Exit: 0 if every applicable check passes, 1 otherwise.
@@ -33818,10 +33821,12 @@ name the deleted file and are still reported.
           '; '.join(failed) + ('' if not failed else f' -- {out[-600:]}'))
 
 
-def _changed_files_fixture(tmp):
+def _changed_files_fixture(tmp, base_files=None):
     """-> (repo, run) for precedent_push_check.changed_files_check against a
     consumer-shaped repo at `tmp`, run in-process: the script's own main()
-    always judges the checkout it lives in, never the fixture."""
+    always judges the checkout it lives in, never the fixture.
+    `base_files` ({path: text}) are in the base commit, so not part of the
+    change."""
     import contextlib, io
     repo = tmp / 'repo'
     repo.mkdir(parents=True)
@@ -33834,6 +33839,9 @@ def _changed_files_fixture(tmp):
                               capture_output=True, text=True, env=env)
     git('init', '-q', '-b', 'main')
     (repo / 'README.md').write_text('fixture\n', encoding='utf-8')
+    for rel, text in (base_files or {}).items():
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text(text, encoding='utf-8')
     git('add', '-A'); git('commit', '-qm', 'base')
     since = git('rev-parse', 'HEAD').stdout.strip()
     spec = importlib.util.spec_from_file_location(
@@ -33985,6 +33993,605 @@ def check_changed_files_runs_one_copy_of_a_repo_local_test():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
           '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
+
+
+# ---------------------------------------------------------------------------
+# --for-change REF: THE HARNESS TESTS A CHANGE CAN REACH (2026-10-11,
+# spec/CHANGED_CHECK_RUNS_ITS_TESTS_PLAN.md). a243d9c0 made
+# practice-file-shape require four sections; the harness test that feeds it
+# a well-formed sample still had one, and staging went red. That test fails
+# in about two seconds, but a push to a working branch or to staging never
+# ran it: the changed-files step ran a check script's test_x.sh, never the
+# harness tests of a check inside precedent_check.py. This works out which
+# tests a change since REF reaches -- through precedent_check.py's checks
+# and the helpers, constants and imports they use, the tools/ modules they
+# import, the check scripts, and the harness's own tests and helpers -- and
+# runs what fits a time budget, naming the rest. precedent_push_check.py's
+# changed-files step calls it.
+import ast  # noqa: E402
+FOR_CHANGE_BUDGET_SECONDS = 60
+# The planted suite: one 13-minute test that cannot run one slug alone yet
+# (the 18 slugs _deep_assertion_slugs pins run together). A check whose only
+# harness coverage is its case there gets a note, not a run.
+_PLANTED_SUITE = 'check_precedent_check_fires'
+_PC_ALIASES_RE = re.compile(r'import precedent_check as (\w+)')
+_IMPORT_RE = re.compile(r'^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w., ]+?)(?:\s+as\s+\w+)?\s*$)',
+                        re.M)
+
+
+def _bound_names(stmt):
+    """-> the top-level names `stmt` binds: a def or class, an assignment's
+    targets, an import's names; an if/try/with block's own statements, never
+    the inside of a function it defines."""
+    names = set()
+    if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        names.add(stmt.name)
+    elif isinstance(stmt, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+        for t in (stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]):
+            names |= {n.id for n in ast.walk(t) if isinstance(n, ast.Name)}
+    elif isinstance(stmt, (ast.Import, ast.ImportFrom)):
+        names |= {(a.asname or a.name).split('.')[0] for a in stmt.names}
+    else:
+        for field in ('body', 'orelse', 'finalbody', 'handlers'):
+            for sub in getattr(stmt, field, None) or []:
+                names |= _bound_names(sub)
+    return names
+
+
+def _source_units(text):
+    """-> [unit] for each top-level statement of a Python source, or None
+    when it does not parse. A unit is a dict: `first`/`last` lines (a
+    decorated def starts at its first decorator), `names` it binds, `refs`
+    (every name it reads, plus every module it imports, at any depth),
+    `strings` (its string constants, its docstring left out), `attrs`
+    ((base, attr) pairs), `slug` (a @check's), `node`."""
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return None
+    units = []
+    for node in tree.body:
+        decorators = getattr(node, 'decorator_list', [])
+        first = min([node.lineno] + [d.lineno for d in decorators])
+        refs, strings, attrs = set(), set(), set()
+        doc = None
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) \
+                and node.body and isinstance(node.body[0], ast.Expr) \
+                and isinstance(node.body[0].value, ast.Constant):
+            doc = node.body[0].value
+        for n in ast.walk(node):
+            if isinstance(n, ast.Name):
+                refs.add(n.id)
+            elif isinstance(n, ast.Import):
+                refs |= {a.name.split('.')[0] for a in n.names}
+            elif isinstance(n, ast.ImportFrom) and n.module:
+                refs.add(n.module.split('.')[0])
+            elif isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name):
+                attrs.add((n.value.id, n.attr))
+            elif isinstance(n, ast.Constant) and isinstance(n.value, str) \
+                    and n is not doc:
+                strings.add(n.value)
+        slug = None
+        for d in decorators:
+            if isinstance(d, ast.Call) and isinstance(d.func, ast.Name) \
+                    and d.func.id == 'check' and d.args \
+                    and isinstance(d.args[0], ast.Constant):
+                slug = d.args[0].value
+        is_doc = isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+        units.append({'first': first, 'last': node.end_lineno,
+                      'names': _bound_names(node), 'refs': refs,
+                      'strings': strings, 'attrs': attrs, 'slug': slug,
+                      'node': node, 'is_doc': is_doc})
+    return units
+
+
+def _reach(units, seeds):
+    """-> {unit index: depth} for every unit that reads a name in `seeds`
+    ({name: depth}), at any remove: a unit is one deeper than the nearest
+    name it reads, and the names it binds take its depth -- so a check that
+    calls a changed helper is depth 1, and one that calls a helper of that
+    helper is depth 2."""
+    names, depth = dict(seeds), {}
+    grew = True
+    while grew:
+        grew = False
+        for i, u in enumerate(units):
+            near = [names[n] for n in u['refs'] if n in names]
+            if not near:
+                continue
+            d = min(near) + 1
+            if d < depth.get(i, float('inf')):
+                depth[i] = d
+                grew = True
+                for n in u['names']:
+                    if d < names.get(n, float('inf')):
+                        names[n] = d
+    return depth
+
+
+def _changed_new_lines(root, since, rel):
+    """-> the lines of HEAD's `rel` the change since `since` touched; a pure
+    deletion counts the lines either side of it. None when git cannot say."""
+    r = subprocess.run(['git', '-C', str(root), 'diff', '-U0', '--no-color',
+                        f'{since}...HEAD', '--', rel],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    lines = set()
+    for m in re.finditer(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@', r.stdout, re.M):
+        start = int(m.group(1))
+        count = int(m.group(2)) if m.group(2) is not None else 1
+        lines |= {start, start + 1} if count == 0 else set(range(start, start + count))
+    return lines
+
+
+def _units_at(units, lines):
+    """-> (the units `lines` fall in, the lines that fall in none)."""
+    hit, loose = [], set()
+    for ln in sorted(lines):
+        u = next((u for u in units if u['first'] <= ln <= u['last']), None)
+        if u is None:
+            loose.add(ln)
+        elif u not in hit:
+            hit.append(u)
+    return hit, loose
+
+
+def _importers(root, modules):
+    """-> {module: depth} for `modules` (depth 0) and every tools/ module that
+    imports one of them, at any remove (1 for a direct importer) -- read as
+    text, every import line, a lazy one inside a function included."""
+    graph = {}
+    for f in sorted((root / 'tools').glob('*.py')):
+        try:
+            text = f.read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+        imported = set()
+        for m in _IMPORT_RE.finditer(text):
+            if m.group(1):
+                imported.add(m.group(1).split('.')[0])
+            else:
+                imported |= {p.strip().split()[0].split('.')[0]
+                             for p in m.group(2).split(',') if p.strip()}
+        graph[f.stem] = imported
+    depth = {m: 0 for m in modules}
+    frontier, d = set(modules), 0
+    while frontier:
+        d += 1
+        frontier = {mod for mod, imported in graph.items()
+                    if mod not in depth and imported & frontier}
+        depth.update({mod: d for mod in frontier})
+    return depth
+
+
+def _span_text(lines):
+    """-> '12-14, 30' for a set of line numbers."""
+    out, run = [], []
+    for ln in sorted(lines):
+        if run and ln != run[-1] + 1:
+            out.append(run)
+            run = []
+        run.append(ln)
+    if run:
+        out.append(run)
+    return ', '.join(f'{r[0]}-{r[-1]}' if len(r) > 1 else str(r[0]) for r in out)
+
+
+def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS):
+    """-> {'run': [test], 'deferred': [test], 'slugs': [slug],
+    'planted_only': [slug], 'unmapped': [note], 'seconds': float} for the
+    change since `since` in the repository at `root`: which harness tests it
+    reaches, which of them fit `budget` seconds by their recorded times
+    (nearest the change first -- what it touched, then what calls that --
+    and the quickest first among equals), and what it could not reach.
+    Reads; runs nothing."""
+    root = pathlib.Path(root)
+    plan = {'run': [], 'deferred': [], 'slugs': [], 'planted_only': [],
+            'unmapped': [], 'seconds': 0.0}
+    r = subprocess.run(['git', '-C', str(root), 'diff', '--name-only',
+                        '--diff-filter=AMRD', f'{since}...HEAD'],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        plan['unmapped'].append(f'git could not diff {since}...HEAD -- '
+                                f'{(r.stderr or "").strip()[:200]}')
+        return plan
+    files = [l for l in r.stdout.splitlines() if l.strip()]
+    py = [f for f in files if f.endswith('.py')
+          and (f.startswith('tools/') or f.startswith('local/tools/'))]
+    if not py:
+        return plan
+    pc_rel, vh_rel = 'tools/precedent_check.py', 'tools/verify_harness.py'
+    vh_text = (root / vh_rel).read_text(encoding='utf-8', errors='replace') \
+        if (root / vh_rel).is_file() else ''
+    vh_units = _source_units(vh_text) if vh_text else []
+    if vh_units is None:
+        plan['unmapped'].append(f'{vh_rel} does not parse')
+        return plan
+    vh_defs = [u for u in vh_units if isinstance(u['node'], ast.FunctionDef)]
+    tests = {u['node'].name: u for u in vh_defs
+             if u['node'].name.startswith('check_')}
+    aliases = set(_PC_ALIASES_RE.findall(vh_text)) | {'precedent_check'}
+
+    # Each test's reach: its own body and every harness function it calls,
+    # at any depth -- a test that runs a check through a helper still
+    # tests it. Module-level tables are left out: a slug named only in a
+    # data table is not a test of it.
+    by_name = {u['node'].name: u for u in vh_defs}
+
+    def closure(name):
+        seen, todo = set(), [name]
+        while todo:
+            n = todo.pop()
+            if n in seen or n not in by_name:
+                continue
+            seen.add(n)
+            todo.extend(by_name[n]['refs'] & by_name.keys())
+        return [by_name[n] for n in seen]
+    reach = {t: closure(t) for t in tests}
+    strings = {t: set().union(*(u['strings'] for u in us)) for t, us in reach.items()}
+    attrs = {t: set().union(*(u['attrs'] for u in us)) for t, us in reach.items()}
+    refs = {t: set().union(*(u['refs'] for u in us)) for t, us in reach.items()}
+
+    rank = {}                       # test -> how far it sits from the change
+
+    def want(r, names):
+        for n in names:
+            if n in tests and r < rank.get(n, float('inf')):
+                rank[n] = r
+
+    # 1. precedent_check.py, and the tools/ modules its checks import.
+    pc_units = []
+    if (root / pc_rel).is_file():
+        pc_units = _source_units((root / pc_rel).read_text(
+            encoding='utf-8', errors='replace'))
+        if pc_units is None:
+            plan['unmapped'].append(f'{pc_rel} does not parse')
+            pc_units = []
+    touched_pc, seeds = [], {}
+    if pc_rel in py and pc_units:
+        lines = _changed_new_lines(root, since, pc_rel)
+        if lines is None:
+            plan['unmapped'].append(f'git could not say which lines of {pc_rel} changed')
+        else:
+            # Lines that fall between definitions are comments and blank
+            # lines: they reach nothing.
+            touched_pc, _loose = _units_at(pc_units, lines)
+            for u in touched_pc:
+                seeds.update({n: 0 for n in u['names']})
+                if not u['names'] and not u['slug'] and not u['is_doc']:
+                    plan['unmapped'].append(
+                        f'{pc_rel} lines {u["first"]}-{u["last"]} bind no '
+                        f'name a check reads')
+    modules = {pathlib.Path(f).stem for f in py if f.startswith('tools/')
+               and f.count('/') == 1 and f not in (pc_rel, vh_rel)}
+    if modules:
+        for mod, d in _importers(root, modules).items():
+            seeds[mod] = min(d, seeds.get(mod, d))
+    depth = {i: 0 for i, u in enumerate(pc_units) if u in touched_pc}
+    for i, d in _reach(pc_units, seeds).items():
+        depth[i] = min(d, depth.get(i, d))
+    order = sorted((d, i) for i, d in depth.items() if pc_units[i]['slug'])
+    for d, i in order:
+        u = pc_units[i]
+        if u['slug'] in plan['slugs']:
+            continue
+        plan['slugs'].append(u['slug'])
+        impl = u['node'].name
+        hits = [t for t in tests if t != _PLANTED_SUITE and (
+            u['slug'] in strings[t]
+            or any((a, impl) in attrs[t] for a in aliases))]
+        if hits:
+            want(d, hits)
+        else:
+            plan['planted_only'].append(u['slug'])
+    # A changed helper the harness calls directly (pc.main, pc._run, ...).
+    for u in touched_pc:
+        want(0, [t for t in tests if t != _PLANTED_SUITE and any(
+            (a, n) in attrs[t] for a in aliases for n in u['names'])])
+
+    # 2. A check script, by its file name in a test's code.
+    for f in py:
+        name = pathlib.Path(f).name
+        if not re.match(r'check_\w+\.py$', name):
+            continue
+        want(0, [t for t in tests if t != _PLANTED_SUITE and (
+            any(name in s for s in strings[t]) or name[:-3] in refs[t])])
+
+    # 3. The harness itself: a changed test runs; a changed helper runs the
+    # tests that reach it; a call added to main() runs what it calls.
+    if vh_rel in py:
+        lines = _changed_new_lines(root, since, vh_rel)
+        if lines is None:
+            plan['unmapped'].append(f'git could not say which lines of {vh_rel} changed')
+        else:
+            hit, _loose = _units_at(vh_units, lines)
+            for u in hit:
+                node = u['node']
+                if isinstance(node, ast.FunctionDef) and node.name == 'main':
+                    want(0, [c.func.id for c in ast.walk(node)
+                             if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+                             and c.func.id.startswith('check_')
+                             and c.lineno in lines])
+                elif isinstance(node, ast.FunctionDef) and node.name in tests:
+                    want(0, [node.name])
+                elif u['names']:
+                    want(1, [t for t in tests if refs[t] & u['names']])
+    times, default = _check_times(root / 'tools' / 'harness_check_times.json')
+    cost = lambda t: times.get(t, default if default is not None else 1.0)
+    total = 0.0
+    for t in sorted(rank, key=lambda t: (rank[t], cost(t), t)):
+        if total + cost(t) <= budget:
+            plan['run'].append(t)
+            total += cost(t)
+        else:
+            plan['deferred'].append(t)
+    plan['seconds'] = round(total, 1)
+    return plan
+
+
+def run_for_change(since, budget=FOR_CHANGE_BUDGET_SECONDS, dry_run=False,
+                   root=None):
+    """--for-change REF: say what the change reaches, run what fits the
+    budget in one filtered harness run, and name the rest with the command
+    that runs them. -> the run's exit code (0 when nothing ran). A note is
+    never a failure: only a test that runs and fails is."""
+    root = pathlib.Path(root or ROOT)
+    plan = for_change_plan(root, since, budget)
+    say = lambda s: print(f'for-change: {s}', flush=True)
+    if plan['slugs']:
+        say(f'the change reaches {len(plan["slugs"])} check(s): '
+            + ', '.join(plan['slugs']))
+    for note in plan['unmapped']:
+        say(f'could not map: {note} -- the full tier covers it: '
+            f"python3 tools/verify_harness.py --as-ci --because '<why>'")
+    if plan['planted_only']:
+        say(f'NOT RUN HERE: {len(plan["planted_only"])} check(s) are tested '
+            f'only by their planted case in {_PLANTED_SUITE}, which runs at the '
+            f'full tier (about 13 minutes, every case): '
+            + ', '.join(plan['planted_only']))
+    if plan['deferred']:
+        say(f'NOT RUN HERE: {len(plan["deferred"])} test(s) over the '
+            f'{budget:.0f}-second budget; the full tier runs them, or run them '
+            f'now: PRECEDENT_CHECK_ONLY={",".join(plan["deferred"])} '
+            f'python3 tools/verify_harness.py')
+    if not plan['run']:
+        say('no harness test to run for this change')
+        return 0
+    say(f'running {len(plan["run"])} test(s), about {plan["seconds"]:.0f} s by '
+        f'their recorded times: ' + ', '.join(plan['run']))
+    if dry_run:
+        return 0
+    r = subprocess.run([sys.executable, str(root / 'tools' / 'verify_harness.py')],
+                       cwd=root, capture_output=True, text=True,
+                       env=dict(os.environ, PRECEDENT_CHECK_ONLY=','.join(plan['run'])))
+    said = [l for l in r.stdout.splitlines()
+            if l.startswith(('PASS', 'FAIL', 'verify_harness'))]
+    for line in said:
+        print(line)
+    if r.returncode != 0 and not any(l.startswith('FAIL') for l in said):
+        # It stopped before a test could say FAIL: show why.
+        tail = [l for l in (r.stdout + r.stderr).splitlines()
+                if 'SKIP (filtered out' not in l and not re.match(r'\s+[\d.]+s\s', l)]
+        for line in tail[-5:]:
+            print(line)
+    return r.returncode
+
+
+def check_for_change_runs_the_tests_a_change_reaches():
+    """--for-change selects the harness tests a change can reach, and says
+    what it does not run. The failure it exists for: a243d9c0 changed
+    practice-file-shape, and the one test that would have caught it, two
+    seconds long, never ran before staging (2026-10-11).
+
+    One scratch repository, one change per case, read with for_change_plan:
+    a check's own body; a helper only another check uses; the decorator
+    every check uses; a tools/ module imported two levels down; a check
+    script; a harness test and a harness helper; a comment between
+    definitions (the control: nothing runs); a check covered only by its
+    planted case; and a test over the budget, which is named, not run.
+    """
+    import tempfile
+    name = '--for-change runs the harness tests a change reaches'
+    engine = (
+        'import os\n'
+        'CHECKS = {}\n'
+        'def check(slug, *a):\n'
+        '    def wrap(f):\n'
+        '        CHECKS[slug] = f\n'
+        '        return f\n'
+        '    return wrap\n'
+        '\n'
+        'def _shared(x):\n'
+        '    return x\n'
+        '\n'
+        '# a comment between definitions\n'
+        '\n'
+        "@check('zz-alpha', 'tree')\n"
+        'def _alpha(ctx):\n'
+        '    return []\n'
+        '\n'
+        "@check('zz-beta', 'tree')\n"
+        'def _beta(ctx):\n'
+        '    return _shared([])\n'
+        '\n'
+        "@check('zz-gamma', 'tree')\n"
+        'def _gamma(ctx):\n'
+        '    import zzsibling\n'
+        '    return zzsibling.f()\n'
+        '\n'
+        "@check('zz-lonely', 'tree')\n"
+        'def _lonely(ctx):\n'
+        '    return []\n')
+    harness = (
+        'import precedent_check as pc\n'
+        'def _helper():\n'
+        '    return 1\n'
+        'def check_alpha_direct():\n'
+        '    pc._alpha(None)\n'
+        'def check_alpha_by_slug():\n'
+        "    run('--only', 'zz-alpha')\n"
+        'def check_beta():\n'
+        '    pc._beta(None)\n'
+        'def check_gamma():\n'
+        '    _helper()\n'
+        "    run('--only', 'zz-gamma')\n"
+        'def check_script():\n'
+        "    run('tools/checks/check_zzscript.py')\n"
+        'def check_slow():\n'
+        "    run('--only', 'zz-beta')\n"
+        'def check_precedent_check_fires():\n'
+        "    case('zz-lonely', None)\n"
+        'def main():\n'
+        '    check_alpha_direct()\n'
+        '    check_alpha_by_slug()\n')
+    times = json.dumps({'default_seconds': 1.0,
+                        'seconds': {'check_slow': 500.0}})
+    base = {'tools/precedent_check.py': engine, 'tools/verify_harness.py': harness,
+            'tools/zzsibling.py': 'import zzdeeper\ndef f():\n    return []\n',
+            'tools/zzdeeper.py': 'X = 1\n',
+            'tools/checks/check_zzscript.py': 'print(1)\n',
+            'tools/harness_check_times.json': times}
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+    results = {}
+    edits = {
+        'alpha body': ('tools/precedent_check.py', '    return []\n\n@check(\'zz-beta\'',
+                       '    return [] + []\n\n@check(\'zz-beta\''),
+        'shared helper': ('tools/precedent_check.py', '    return x\n', '    return list(x)\n'),
+        'decorator': ('tools/precedent_check.py', '        CHECKS[slug] = f\n',
+                      '        CHECKS[str(slug)] = f\n'),
+        'deeper module': ('tools/zzdeeper.py', 'X = 1\n', 'X = 2\n'),
+        'check script': ('tools/checks/check_zzscript.py', 'print(1)\n', 'print(2)\n'),
+        'harness test': ('tools/verify_harness.py', "    pc._beta(None)\n",
+                         "    pc._beta(None)\n    pass\n"),
+        'harness helper': ('tools/verify_harness.py', '    return 1\n', '    return 2\n'),
+        'main call': ('tools/verify_harness.py', '    check_alpha_by_slug()\n',
+                      '    check_alpha_by_slug()\n    check_script()\n'),
+        'comment': ('tools/precedent_check.py', '# a comment between definitions\n',
+                    '# a comment, reworded, between definitions\n'),
+        'lonely': ('tools/precedent_check.py', "def _lonely(ctx):\n    return []\n",
+                   "def _lonely(ctx):\n    return [] + []\n"),
+    }
+    with tempfile.TemporaryDirectory() as td:
+        for label, (rel, old, new) in edits.items():
+            repo = pathlib.Path(td) / re.sub(r'\W', '-', label)
+            repo.mkdir()
+
+            def git(*a):
+                return subprocess.run(['git', '-C', str(repo), '-c',
+                                       'core.hooksPath=/dev/null', *a],
+                                      capture_output=True, text=True, env=env)
+            git('init', '-q', '-b', 'main')
+            for r_, text in base.items():
+                (repo / r_).parent.mkdir(parents=True, exist_ok=True)
+                (repo / r_).write_text(text, encoding='utf-8')
+            git('add', '-A'); git('commit', '-qm', 'base')
+            since = git('rev-parse', 'HEAD').stdout.strip()
+            text = (repo / rel).read_text(encoding='utf-8')
+            assert old in text, (label, old)
+            (repo / rel).write_text(text.replace(old, new, 1), encoding='utf-8')
+            git('commit', '-qam', label)
+            results[label] = for_change_plan(repo, since)
+    run = lambda k: set(results[k]['run'])
+    cases = [
+        ("a check's own body runs the tests that call it or name its slug",
+         run('alpha body') == {'check_alpha_direct', 'check_alpha_by_slug'}),
+        ('a helper one check uses runs that check\'s tests, the slow one named '
+         'over the budget, not run',
+         run('shared helper') == {'check_beta'}
+         and results['shared helper']['deferred'] == ['check_slow']),
+        ('the decorator every check uses reaches every check',
+         set(results['decorator']['slugs'])
+         == {'zz-alpha', 'zz-beta', 'zz-gamma', 'zz-lonely'}),
+        ('a module imported two levels down reaches the check that imports it',
+         results['deeper module']['slugs'] == ['zz-gamma']
+         and run('deeper module') == {'check_gamma'}),
+        ('a check script runs the test that names its file',
+         run('check script') == {'check_script'}),
+        ('a changed harness test runs itself', run('harness test') == {'check_beta'}),
+        ('a changed harness helper runs the tests that call it',
+         run('harness helper') == {'check_gamma'}),
+        ('a call added to main() runs the test it calls',
+         run('main call') == {'check_script'}),
+        ('control: a comment between definitions runs nothing and maps nothing',
+         not results['comment']['run'] and not results['comment']['slugs']
+         and not results['comment']['unmapped']),
+        ('a check tested only by its planted case is named, not run',
+         results['lonely']['planted_only'] == ['zz-lonely']
+         and not results['lonely']['run']),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else
+                              ' -- ' + json.dumps(results, default=str)[:1500]))
+
+
+def check_changed_files_runs_the_harness_tests_a_change_reaches():
+    """The changed-files step runs `verify_harness.py --for-change` where the
+    harness lives, and a check script's change runs every test that names
+    it, not only test_<its name>.sh.
+
+    The first half is the push side of check_for_change_runs_the_tests_a_
+    change_reaches: a fake harness that fails is a refusal naming the
+    failure, and one that only defers tests passes with its note shown
+    (2026-10-11, after a243d9c0). The second is the philosophy pair: two
+    scripts share test_philosophy_scoping.sh, and pairing by name ran no
+    test for either. The control: a change with no Python under tools/
+    never starts the harness.
+    """
+    import contextlib, io, tempfile
+    name = 'the changed-files check runs the harness tests a change reaches'
+    fake = ('import sys, pathlib\n'
+            "if '--for-change' in sys.argv:\n"
+            "    pathlib.Path('ran-for-change').write_text(' '.join(sys.argv[1:]))\n"
+            "    print('for-change: running 1 test(s), about 1 s: check_zz')\n"
+            "    print('for-change: NOT RUN HERE: 1 test(s) over the budget')\n"
+            "    if pathlib.Path('tools/fail').exists():\n"
+            "        print('FAIL: zz broke')\n"
+            "        sys.exit(1)\n")
+    pair_test = ('# check_zzpa.py and check_zzpb.py share this test\n'
+                 'touch "$(dirname "$0")/../../../../pair-test-ran"\nexit 0\n')
+    with tempfile.TemporaryDirectory() as td:
+        commit, run = _changed_files_fixture(pathlib.Path(td) / 'fails',
+                                             {'tools/verify_harness.py': fake})
+        commit({'tools/zzmod.py': 'X = 1\n', 'tools/fail': ''})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'passes',
+                                               {'tools/verify_harness.py': fake})
+        commit2({'tools/zzmod.py': 'X = 2\n'})
+        err2 = io.StringIO()
+        with contextlib.redirect_stderr(err2):
+            rc2, out2 = run2()
+        ran2 = (pathlib.Path(td) / 'passes' / 'repo' / 'ran-for-change').is_file()
+        commit3, run3 = _changed_files_fixture(pathlib.Path(td) / 'docs',
+                                               {'tools/verify_harness.py': fake})
+        commit3({'notes.md': 'words\n'})
+        rc3, out3 = run3()
+        ran3 = (pathlib.Path(td) / 'docs' / 'repo' / 'ran-for-change').is_file()
+        commit4, run4 = _changed_files_fixture(pathlib.Path(td) / 'pair', {
+            'local/tools/checks/check_zzpa.py': _FIXTURE_CHECK_HEAD,
+            'local/tools/checks/check_zzpb.py': _FIXTURE_CHECK_HEAD,
+            'local/tools/checks/tests/test_zzpair.sh': pair_test})
+        commit4({'local/tools/checks/check_zzpb.py': _FIXTURE_CHECK_HEAD + '# edit\n'})
+        rc4, out4 = run4()
+        ran4 = (pathlib.Path(td) / 'pair' / 'repo' / 'pair-test-ran').is_file()
+    cases = [
+        ('a failing harness test the change reaches refuses, naming it',
+         rc == 1 and 'a harness test this change reaches failed -- FAIL: zz broke'
+         in out),
+        ('a passing run passes, and its notes are shown on stderr, which '
+         'the gate streams even when the step passes',
+         rc2 == 0 and ran2 and 'for-change: NOT RUN HERE' in err2.getvalue()),
+        ('control: a change with no Python under tools/ never starts it',
+         rc3 == 0 and not ran3),
+        ('a check script runs the shared test that names it',
+         rc4 == 0 and ran4 and 'local/tools/checks/tests/test_zzpair.sh' in out4),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else
+                              f' -- {out[-400:]} / {out2[-300:]} / {out4[-300:]}'))
 
 
 def check_boildown_contradiction_spares_work_waiting_upstream():
@@ -75898,6 +76505,8 @@ def main():
     check_changed_files_asks_a_new_check_for_its_test()
     check_changed_files_asks_a_new_check_for_its_planted_case()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
+    check_for_change_runs_the_tests_a_change_reaches()
+    check_changed_files_runs_the_harness_tests_a_change_reaches()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()
     check_leak_gate_reads_neighbour_blocklists()
@@ -75969,6 +76578,18 @@ if __name__ == '__main__':
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())
         sys.exit(0)
+    # --for-change REF runs only the tests a change since REF reaches, under
+    # a time budget (spec/CHANGED_CHECK_RUNS_ITS_TESTS_PLAN.md) -- never a
+    # full run, so it comes before the full-run refusal.
+    if '--for-change' in sys.argv[1:]:
+        _args = sys.argv[1:]
+        _i = _args.index('--for-change')
+        if _i + 1 >= len(_args):
+            sys.exit('verify_harness: --for-change needs a ref, e.g. --for-change origin/staging')
+        _budget = FOR_CHANGE_BUDGET_SECONDS
+        if '--budget' in _args and _args.index('--budget') + 1 < len(_args):
+            _budget = float(_args[_args.index('--budget') + 1])
+        sys.exit(run_for_change(_args[_i + 1], _budget, dry_run='--dry-run' in _args))
     # A full run by hand is proposed first (HARNESS_ASKED_ENV, above).
     refusal = _full_run_refusal(sys.argv[1:], os.environ)
     if refusal:
