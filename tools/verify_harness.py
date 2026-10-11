@@ -70770,6 +70770,10 @@ def check_session_sweep_reports_the_repo_half():
         # written was reported as uncommitted work). One already dirty
         # before the run still is.
         (work / 'scratch.txt').unlink()
+        # The fixture owns its identity: the full check runs with no global
+        # git config, where a commit with none is refused.
+        _git(work, 'config', 'user.email', 'harness@example.com')
+        _git(work, 'config', 'user.name', 'Harness')
         (work / 'record').mkdir(exist_ok=True)
         (work / 'record' / 'stale_branches.md').write_text('old\n')
         _git(work, 'add', '-A'); _git(work, 'commit', '-qm', 'page')
