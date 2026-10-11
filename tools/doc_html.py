@@ -1600,6 +1600,11 @@ def _add_heading_ids(body):
 
 _H2_RE = re.compile(r'<h2 id="([^"]+)">(.*?)</h2>', re.S)
 CONTENTS_MIN_SECTIONS = 3
+# A document that must read as one page, with no contents list and no
+# back-links, says so in its source: an author asked a short page's list
+# be dropped, and a later redraft that added sections brought it back
+# (2026-10-11).
+NO_CONTENTS_MARK = "<!--no-contents-->"
 
 
 def _wire_contents(body):
@@ -1609,7 +1614,9 @@ def _wire_contents(body):
     reads the same on a plain renderer), only the back-links are added;
     otherwise a contents list of the H2 headings is generated after the
     title. Documents with fewer than CONTENTS_MIN_SECTIONS sections get
-    nothing."""
+    nothing, and so does a document whose source carries NO_CONTENTS_MARK."""
+    if NO_CONTENTS_MARK in body:
+        return body
     heads = _H2_RE.findall(body)
     if len(heads) < CONTENTS_MIN_SECTIONS:
         return body

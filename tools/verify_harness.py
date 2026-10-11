@@ -3064,6 +3064,28 @@ def check_rename_links_spares_a_url_into_another_repository():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_render_contents_can_be_switched_off():
+    """A document with three sections gets a contents list and back-links;
+    the same document carrying doc_html.NO_CONTENTS_MARK gets neither
+    (2026-10-11: a short page whose author had asked for no contents list
+    got one back when a redraft added sections)."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_html as dh
+    finally:
+        sys.path.pop(0)
+    name = 'the contents list is generated, and a document can switch it off'
+    body = ('<h1>T</h1>\n' + ''.join(f'<h2 id="s{i}">S{i}</h2>\n<p>x</p>\n' for i in range(3)))
+    on = dh._wire_contents(body)
+    off = dh._wire_contents(dh.NO_CONTENTS_MARK + '\n' + body)
+    cases = [('three sections get a contents list', 'nav class="contents"' in on),
+             ('three sections get back-links', 'contents-back' in on),
+             ('the mark switches the list off', 'nav class="contents"' not in off),
+             ('the mark switches the back-links off', 'contents-back' not in off)]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_untracked_renders_use_source_fingerprints():
     """A host that stops committing its renders (doc_html RENDERS_TRACKED =
     False) cannot judge a page by the render's own hash: a render carries
@@ -75610,6 +75632,7 @@ def main():
     check_rename_links_spares_a_path_moved_into_gitignore()
     check_rename_links_spares_a_url_into_another_repository()
     check_clean_tree_judges_the_branch()
+    check_render_contents_can_be_switched_off()
     check_untracked_renders_use_source_fingerprints()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_bootstrap_new_branch_compared_to_landing_branch()
