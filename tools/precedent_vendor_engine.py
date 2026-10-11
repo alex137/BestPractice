@@ -774,6 +774,12 @@ ENGINE_FILES = [
     # workflow on every branch, asked of GitHub (practice:
     # ci-workflow-approved).
     'ci_fleet_audit.py',
+    # Its CONTRIBUTOR BOUNDARY section imports this beside build_codeowners
+    # (already vendored). Missing, the section printed "not checked: No
+    # module named 'precedent_boundary_check'" in every consumer and set --
+    # found 2026-10-11, the first very deep check run in a consumer. Its
+    # one import, precedent_source_credentials, is in both lists.
+    'precedent_boundary_check.py',
     'parse_check.py',
     'precedent_bootstrap_source.py',
     # THE ONE CHECK THAT LOOKS OUTWARD (2026-09-21). Every other check in

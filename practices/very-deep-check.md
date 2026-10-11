@@ -41,6 +41,21 @@ the engine is vendored into. A finding is as likely to be in the seam
 between two of them as inside any one, which is the reason they are read
 together rather than one at a time.
 
+**Run in a repo that has an upstream -- a consumer, or a practice set --
+the check tests everything there, and asks of every finding, before fixing
+it, whether it belongs upstream.** Everything means that repo's own code,
+built and tested, *and* the vendored engine, run on that tree, because a
+vendored file can pass upstream and still break here. A repo has an upstream
+when something in it is vendored from another repository; BestPractice
+vendors nothing, so it has none and fixes everything where it is found. The
+findings that belong upstream are collected into one
+[prompt-please](prompt-please.md) block, written into that repo's run record
+under `## Upstream findings` and given in the reply. Then the person is asked
+whether to put band-aids in place here until the upstream fix lands, and
+the session does what they say. The tool's `UPSTREAM` section prints the
+upstream, the scope and the steps; Detail has the full procedure (Morgan,
+2026-10-11, strength: decided).
+
 **Every repo in force is also probed for whether THIS session can land work
 in it, and every finding is grouped by the answer.** That is a different
 question from the liveness gate below, which asks whether the *repository*
@@ -262,7 +277,9 @@ before was always the person's own bound, stated up front, never the
 session's quiet default.
 
 **This is more than one session's work, and is meant to be split.** Keep the
-run's state in [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md): which
+run's state in the checked repo's own `spec/VERY_DEEP_CHECK.md`
+([BestPractice's](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md); the
+tool writes a starting one in a repo with an upstream that has none): which
 passes are done, what each turned up, what was fixed, what was deferred and
 where it went. A later session resumes at the next unfinished pass rather
 than starting over, and a pass is never quietly skipped — a pass deliberately
@@ -419,7 +436,8 @@ cannot tell a drift this run introduced from one that was there before. So:
    fix here it may overwrite, and what it is mid-way through reads here as
    half-done work — so it is worth knowing before the passes rather than
    during them. The rest of the reading is pass 4's.
-6. **Ask for a real consumer repository, before starting pass 1.** Pass 1's
+6. **Ask for a real consumer repository, before starting pass 1** -- unless
+   the run is in one, which is then the consumer pass 1 needs. Pass 1's
    highest-yield item needs one attached, and attaching is the person's act,
    not the session's — so the ask goes here, at the top, where an unanswered
    question still leaves time to work around it. Asked at the end it is not
@@ -444,6 +462,59 @@ cannot tell a drift this run introduced from one that was there before. So:
 
 The same rule holds inside a pass: where a mechanical check covers part of a
 bullet, run it first and read only what it cannot see.
+
+### Run in a repo with an upstream
+**A consumer or a practice set is checked whole, and its upstream findings
+are handed upstream, not patched over.** The tool's `UPSTREAM` section says
+whether the repo has an upstream (anything vendored from another repository,
+per `precedent_engine_freshness.vendored_entries()`), names it, counts what
+the repo owns against what it carries, and makes sure the run record has an
+`## Upstream findings` section. With no upstream, as in BestPractice, it says
+so and nothing below applies.
+
+**Scope is everything, in both halves:**
+
+- **This repo's own code.** Find how it is built and tested -- the check levels
+  its instructions file names, a package manifest, a Makefile, a test
+  directory, its workflows -- and run all of it. Pass 2 reads its tools and
+  scripts the way it reads the engine's; pass 3 reads its documents; pass 1
+  rehearses its own setup from its README and an `Update Vendors` to
+  current.
+- **The vendored engine, on this tree.** Every gate the tree runs
+  ([precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py), `doc_lint.py --strict`,
+  [leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py), the materialized check tests under `tools/checks/tests/`), plus pass 2's
+  questions asked of the vendored tools as they behave here. The engine's
+  own unit harness ([verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)) is not vendored and runs upstream;
+  what only this tree can show is a vendored file that works there and
+  breaks here.
+
+**Before fixing each finding, decide: upstream, or here?**
+
+- A vendored file is upstream, always. `python3 tools/upstream_fix.py
+  --no-branch PATH` says where it comes from. Never edit the copy: the next
+  `Update Vendors` overwrites it.
+- A rule a shared or individual set owns is fixed in that set.
+- Anything else is upstream when every repo built from the same engine or
+  template would hit it too -- an installer gap, a template line, a missing
+  practice. Otherwise it belongs to this repo and is fixed here, in the same
+  pass, as usual.
+
+**The upstream findings go out together, in one place, twice.** Write one
+[prompt-please](prompt-please.md) block for a new session rooted in the
+upstream repository or repositories, carrying every upstream finding with
+its evidence from this run. Put it under `## Upstream findings` in this
+repo's `spec/VERY_DEEP_CHECK.md`, where it stays on the record, and give
+the same block in the reply. A finding goes into the block before any
+local change is made for it.
+
+**Then ask about band-aids, and follow the answer.** With the block, ask the
+person: *"Do you want band-aids here until these are fixed upstream?"* --
+all, none, or some by name. Record the answer under the same heading
+([decision-strength](decision-strength.md)). A band-aid lives in this repo's
+own files, never in a vendored copy. It says it is a band-aid, names the
+upstream fix that retires it, and gets an open item under `todo/` to
+remove it when that fix arrives by `Update Vendors`
+([upstream-fix](upstream-fix.md)).
 
 ### Pass 1 — Can a new adopter get to a working install, and an existing one stay in one?
 The highest-cost failures are here, because they strand someone outside this
@@ -2627,6 +2698,7 @@ it landed and still unreviewed.
 
 - **Extended 2026-10-06, Morgan (strength: decided)**, with the RETIRED SETS section: a declared set that says it is retired, or that GitHub reports archived, is reported with the command that drops it, and Update Vendors drops it on its own -- only when no active rule would be lost, and never on "Not Found". He chose that option ("C") from three put to him.
 - **Extended 2026-10-06, Morgan (strength: decided)**, so the review page is always published as an Artifact and never handed over as an HTML file, after a run sent it as an attached file: "That HTML doc - give me that info as an artifact - and update very deep check so that in the future, that is always an artifact, not a HTML file." Both tools that write or announce the page now say so in what they print.
+- **Extended 2026-10-11, Morgan (strength: decided)**, so the check runs whole in a consumer or a practice set, and hands its upstream findings upstream: "in the vendored in repo ... it should test all the unique code and also the best practice code that is vendored in", and "for every problem it finds, before it fixes it, it should ask itself, is this an upstream problem or not", the upstream ones compiled into one Prompt Please kept in the run record and given in the session, followed by "do you want me to implement band-aids until it's fixed upstream?". The tool's UPSTREAM section came with it. The first run in a consumer, the same day, found three sections that broke outside BestPractice (BOOTSTRAP DRIFT, GENERATED FILES, CONTRIBUTOR BOUNDARY), all fixed upstream in the same change.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
