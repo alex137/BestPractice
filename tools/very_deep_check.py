@@ -5047,6 +5047,16 @@ def _bootstrap_drift(sources, collect=None):
     prints nothing when no source resolved reads exactly like a section
     that compared everything and found it clean
     (practice: fail-gracefully)."""
+    # The generator reads templates/, which is never vendored: in a consumer
+    # or a set it cannot run, and three FINDINGs saying so read as drift in
+    # every set (seen 2026-10-11, the first run in a consumer). The sets are
+    # compared against the generator by the run in the engine's own repo,
+    # which reads every set in force.
+    if not (pathlib.Path(bootstrap_source.ROOT) / 'templates' / 'harness').is_dir():
+        return ['skip: the generator\'s templates live only in the engine\'s '
+                'own repository, so the sets are compared against it by the '
+                'very deep check run there -- not compared here, which is '
+                'not the same as clean.']
     out, seen = [], False
     for s in sources:
         level, path = pr.declared_level(s), s.get('path')
@@ -6447,6 +6457,19 @@ def unlisted_generated_candidates(repo_root):
         return []
     rc, out, _e = _run_git(repo_root, 'ls-files')
     tracked = set(out.split()) if rc == 0 else set()
+    # A vendored copy is generated or hand-kept in its upstream, and judged
+    # there; listing it here would be a second registry for someone else's
+    # file (seen 2026-10-11: a consumer's process/upstream/GLOSSARY.md).
+    vendored = set()
+    try:
+        import precedent_engine_freshness as _pef
+        _ents = _pef.vendored_entries(repo_root)
+        _vfiles = {e['local'] for e in _ents if not e['local'].endswith('/')}
+        _vtrees = tuple(e['local'] for e in _ents if e['local'].endswith('/'))
+        vendored = {t for t in tracked
+                    if t in _vfiles or (_vtrees and t.startswith(_vtrees))}
+    except Exception:                                   # noqa: BLE001
+        pass
     found = {}
     for path, reason in judged.items():
         if path not in tracked:
@@ -6464,9 +6487,10 @@ def unlisted_generated_candidates(repo_root):
         pass
     skip = re.compile(r'(practices/|todo/todo-|gotchas/gotcha-|evals/|templates/)')
     for path, why in _tool_written_paths(repo_root, tracked).items():
-        if path not in listed and path not in judged and not skip.match(path):
+        if path not in listed and path not in judged and not skip.match(path) \
+                and path not in vendored:
             found.setdefault(path, why)
-    for path in sorted(tracked):
+    for path in sorted(tracked - vendored):
         if not path.endswith('.md') or path in listed or path in judged \
                 or skip.match(path):
             continue
@@ -8035,13 +8059,208 @@ def _vdc_embed_re(name):
                        r'(\n<!--/vdc-embed:' + n + r'-->)', re.S)
 
 
+# The heading a run's upstream Prompt Please block sits under, in the run
+# record of a repo that has an upstream (practice: very-deep-check, "Run in a
+# repo with an upstream").
+UPSTREAM_FINDINGS_HEADING = '## Upstream findings'
+
+# The run record a repo with an upstream starts from. It is written here
+# rather than shipped under templates/ because templates/ is never vendored:
+# the copy of this tool in a consumer is the only thing that can write it.
+_RECORD_SKELETON = """---
+title:         Very deep check -- run record
+kind:          record
+status:        live
+opened:        {today}
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       "The run record of the very deep check in this repo: what each pass found, what was fixed here, and what belongs upstream."
+---
+# Very deep check -- run record
+
+The state of the current very deep check in this repository (practice:
+very-deep-check, carried in the vendored catalogue). A later session resumes
+at the first pass below that is not marked done.
+
+## Current run
+
+| Pass | Status | Date | Notes |
+|---|---|---|---|
+| 1 -- installs and updates | not started | | |
+| 2 -- mechanisms | not started | | |
+| 3 -- coherence read | not started | | |
+| 4 -- catalogue, backlog, branches | not started | | |
+
+{heading}
+
+Every finding of this run that is better fixed upstream, as one paste-ready
+prompt for a session rooted in the upstream repository, and what the person
+said about band-aids here until it lands. Filled in by the session during the
+run.
+
+(none yet)
+
+## Runs so far
+
+| Run | Passes completed | What it changed |
+|---|---|---|
+"""
+
+
+def upstream_scope(repo_root, sources=()):
+    """-> {'upstreams', 'vendored', 'own', 'sets', 'record'} for the
+    checked repo: what it carries from somewhere else, what it owns, and
+    where its run record lives.
+
+    A repo HAS an upstream exactly when something in it is vendored from
+    another repository -- precedent_engine_freshness.vendored_entries(), the
+    same answer upstream_fix.py and doc_lint.py read. BestPractice vendors
+    nothing, so it has none and every finding is fixed where it is found; a
+    consumer or a practice set carries the engine and has one. Asking the
+    tree rather than the repository's name is deliberate: the day something
+    is vendored INTO BestPractice, it gets an upstream here with no change
+    (Morgan, 2026-10-11).
+
+    `sources` are the run's resolved sources (enumerate_scope's). `sets`
+    are the shared and individual ones that live outside
+    this checkout: a rule they own is fixed in them, not here, though
+    nothing of theirs is copied in. `own` counts this repo's tracked files
+    by top-level directory, vendored ones excluded -- the half a very deep
+    check in a consumer must also test, and which no section above reads."""
+    root = pathlib.Path(repo_root).resolve()
+    try:
+        import precedent_engine_freshness as pef
+        entries = pef.vendored_entries(root)
+    except Exception:                                             # noqa: BLE001
+        entries = []
+    files = {e['local'] for e in entries if not e['local'].endswith('/')}
+    trees = tuple(e['local'] for e in entries if e['local'].endswith('/'))
+    upstreams = {}
+    for e in entries:
+        key = e.get('repo') or '(source not recorded)'
+        u = upstreams.setdefault(key, {'repo': key, 'files': 0, 'trees': [],
+                                       'clone': e.get('clone')})
+        if e['local'].endswith('/'):
+            u['trees'].append(e['local'])
+        else:
+            u['files'] += 1
+    rc, out, _e = _run_git(root, 'ls-files')
+    own = {}
+    vendored_count = 0
+    for path in (out.split('\n') if rc == 0 else []):
+        if not path:
+            continue
+        if path in files or path.startswith(trees):
+            vendored_count += 1
+            continue
+        top = path.split('/', 1)[0] + '/' if '/' in path else '(root files)'
+        own[top] = own.get(top, 0) + 1
+    sets = []
+    for s in sources or ():
+        if not s.get('path') or pr.declared_level(s) not in FATAL_MISSING_LEVELS:
+            continue
+        p = pathlib.Path(s['path']).resolve()
+        if not p.is_relative_to(root):
+            sets.append({'name': s.get('name'), 'level': s.get('level'),
+                         'path': str(p)})
+    return {'upstreams': list(upstreams.values()), 'vendored': vendored_count,
+            'own': own, 'sets': sets, 'record': str(root / SPEC_DOC_RELPATH)}
+
+
+def ensure_upstream_record(repo_root):
+    """Give a repo with an upstream a run record holding the
+    UPSTREAM_FINDINGS_HEADING section, so the run's upstream prompt has
+    somewhere to be kept (practice: repo-is-memory). -> 'created',
+    'section added', or None when the record already had it. Writes
+    nothing in a repo with no upstream."""
+    path = pathlib.Path(repo_root) / SPEC_DOC_RELPATH
+    if not path.is_file():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(_RECORD_SKELETON.format(
+            today=precedent_time.today(),
+            heading=UPSTREAM_FINDINGS_HEADING), encoding='utf-8')
+        return 'created'
+    text = path.read_text(encoding='utf-8')
+    if re.search(r'^' + re.escape(UPSTREAM_FINDINGS_HEADING) + r'\s*$',
+                 text, re.M):
+        return None
+    path.write_text(text.rstrip('\n') + '\n\n' + UPSTREAM_FINDINGS_HEADING
+                    + '\n\n(none yet)\n', encoding='utf-8')
+    return 'section added'
+
+
+def _print_upstream_section(repo_root, sources=(), out=None):
+    """The UPSTREAM section: -> findings count (always 0; it hands the
+    session a procedure, not a verdict) or None when there is no upstream."""
+    out = out if out is not None else sys.stdout
+    u = upstream_scope(repo_root, sources)
+    print("UPSTREAM -- what this repo owns, what it carries, and where a "
+          "finding here is fixed\n", file=out)
+    if not u['upstreams']:
+        print("  none -- nothing here is vendored from another repository, "
+              "so this is the\n  primary repo: every finding is fixed here, "
+              "and no upstream prompt is owed.", file=out)
+        if u['sets']:
+            print("  (A rule owned by an attached set is still fixed in that "
+                  "set; ACCESS above\n  says whether this session can land "
+                  "it there.)", file=out)
+        print(file=out)
+        return None
+    for up in u['upstreams']:
+        trees = (', trees ' + ', '.join(up['trees'])) if up['trees'] else ''
+        clone = (f" -- clone at {up['clone']}"
+                 if up['clone'] and pathlib.Path(up['clone']).is_dir()
+                 else ' -- no clone beside this one')
+        print(f"  UPSTREAM  {up['repo']}: {up['files']} vendored file(s)"
+              f"{trees}{clone}", file=out)
+    for s in u['sets']:
+        print(f"  RULES     {s['level']} set {s['name']!r} ({s['path']}): a "
+              f"rule it owns is fixed there", file=out)
+    own = ', '.join(f'{k} {v}' for k, v in sorted(u['own'].items()))
+    print(f"\n  SCOPE IS EVERYTHING: {u['vendored']} vendored file(s) and "
+          f"this repo's own\n  {sum(u['own'].values())} tracked file(s) "
+          f"({own}).\n  Test both: this repo's own build and tests, and the "
+          f"vendored engine run on THIS\n  tree -- a vendored file that "
+          f"passes upstream can still break here.", file=out)
+    made = ensure_upstream_record(repo_root)
+    rel = SPEC_DOC_RELPATH.as_posix()
+    if made == 'created':
+        print(f"\n  RUN RECORD: created {rel} -- commit it with the run's "
+              f"fixes.", file=out)
+    elif made:
+        print(f"\n  RUN RECORD: added '{UPSTREAM_FINDINGS_HEADING}' to "
+              f"{rel}.", file=out)
+    else:
+        print(f"\n  RUN RECORD: {rel}", file=out)
+    print(f"""
+  BEFORE FIXING EACH FINDING, ask: is this better fixed upstream, or here?
+    - a vendored file (python3 tools/upstream_fix.py --no-branch PATH says
+      which) is upstream, always: never edit the copy;
+    - a rule a set owns is fixed in that set;
+    - anything else is upstream when every repo built from the same engine or
+      template would hit it too (an installer gap, a template line, a missing
+      practice); otherwise it is this repo's, and is fixed here.
+  Then, for the upstream ones together:
+    1. one Prompt Please block for a session rooted in the upstream repo(s),
+       written under '{UPSTREAM_FINDINGS_HEADING}' in {rel} AND given in the
+       reply;
+    2. ask the person: band-aids here until upstream lands? Follow the answer
+       and record it under the same heading. A band-aid lives in this repo's
+       own files, never in a vendored copy, says it is a band-aid and what
+       upstream fix retires it.
+""", file=out)
+    return 0
+
+
 def _update_spec_doc_block(repo_root, name, markdown):
     """Rewrite the `<!--vdc-embed:<name>:...-->` block in THIS repo's own
     spec/VERY_DEEP_CHECK.md, in place -- never in a checked repo other than
-    this one, since that document and this practice both live only here.
-    A silent no-op when the file or the named block is absent (a checked
-    repo that vendors this engine has neither, and a run against it must
-    not fail over a document it does not own)."""
+    this one. A silent no-op when the file or the named block is absent: a
+    repo that vendors this engine has its own run record (written by
+    ensure_upstream_record), with no embed blocks in it, and a run against
+    it must not fail over a block it does not carry."""
     path = pathlib.Path(repo_root) / SPEC_DOC_RELPATH
     if not path.is_file():
         return False
@@ -8893,6 +9112,17 @@ def _main(box):
         led.end(items=c['practice_count']
                 + sum(s['practice_count'] for s in data['sources']))
 
+    # UPSTREAM (practice: very-deep-check, "Run in a repo with an
+    # upstream"; Morgan, 2026-10-11): in a consumer or a practice set the
+    # scope is everything -- its own code and the vendored engine -- and
+    # every finding is asked whether it belongs upstream before it is fixed.
+    if led:
+        led.start('UPSTREAM -- owned versus vendored, where a finding is fixed',
+                  kind='read')
+    _print_upstream_section(repo_root, data['sources'])
+    if led:
+        led.end()
+
     # PRACTICE CATALOGUE (practice: very-deep-check, added 2026-09-23 at
     # Morgan's request): every in-force practice's slug and one-sentence
     # `_index_clause`, one section per source in force, so a very deep
@@ -9092,7 +9322,10 @@ def _main(box):
               "skeleton files a set owns.")
     print()
     if led:
-        led.end(findings=len(_bd))
+        _bd_found = [m for m in _bd if m.startswith('FINDING')]
+        led.end(findings=len(_bd_found) if _bd_found or
+                not any(m.startswith('skip') or m.startswith('no shared')
+                        for m in _bd) else None)
         led.start('CONVERGENT DRIFT')
 
     # The fourth direction, and the only one that compares the sets against
