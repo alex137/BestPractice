@@ -1027,6 +1027,11 @@ def _branch_name_refusal(root, argv):
     judge = getattr(precedent_branch_name, 'name_refusal', None)
     if judge is None:
         return None
+    # The naming rule is the ladder's: off it, nothing is judged (Morgan,
+    # 2026-10-11: "in force for people who use ladders, not everyone else").
+    if not getattr(precedent_branch_name, 'conventions_in_force',
+                   lambda r: True)(root):
+        return None
     for name in precedent_branches.push_targets(root, cmd) or []:
         if subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', '-q',
                            f'refs/remotes/origin/{name}'],
@@ -1060,6 +1065,9 @@ def _branch_name_notes(root, argv):
         sys.path.pop(0)
     note = getattr(precedent_branch_name, 'harness_name_note', None)
     if note is None:
+        return []
+    if not getattr(precedent_branch_name, 'conventions_in_force',
+                   lambda r: True)(root):
         return []
     return [n for n in (note(name) for name in
                         precedent_branches.push_targets(root, cmd) or []) if n]
