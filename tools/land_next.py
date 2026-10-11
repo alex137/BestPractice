@@ -75,12 +75,35 @@ BESTPRACTICE = ROOT.parent / "BestPractice"
 BESTPRACTICE_URL = "https://github.com/alex137/BestPractice"
 
 
+def _landing_branch(root, pj):
+    """-> the branch a Booked lands on here: precedent_branches.landing_branch,
+    the one definition --land and --landing read.
+
+    WHY (2026-10-10). This read only precedent.json's base_branch, else
+    main. A consumer whose precedent.json says "landing_branch": "staging",
+    with no lander block, had a docs branch queued and landed straight onto
+    main, past staging -- promote-only broken by the tool meant to keep it.
+    Every consumer but one carrying this lander was in that shape. An engine
+    too old to carry the function falls back to the setting itself."""
+    main = pj.get("base_branch") or "main"
+    try:
+        import precedent_branches as pb
+        branch = pb.landing_branch(pathlib.Path(root))[0]
+    except Exception:  # noqa: BLE001
+        branch = pj.get("landing_branch") or "main"
+    # The resolver's "main" is the role, the trunk; a repository whose trunk
+    # is called something else names it in base_branch.
+    return main if branch == "main" else branch
+
+
 def lander_config(root):
     """The repository's own part of the lander: precedent.json's "lander"
     block. Everything else here is the same in every repository.
 
-      trunk          the branch it lands on (default: precedent.json's
-                     base_branch, else main)
+      trunk          the branch it lands on (default: the landing branch
+                     tools/precedent_branches.py --landing names -- the
+                     person's, then precedent.json's -- read by its own
+                     function, landing_branch, so the two can never differ)
       gates          [[name, command...], ...] run on each merge before the
                      push check -- the repository's own audits
       shared_caches  gitignored cache directories a landing worktree links
@@ -97,7 +120,7 @@ def lander_config(root):
         pj = {}
     cfg = pj.get("lander") or {}
     return {
-        "trunk": cfg.get("trunk") or pj.get("base_branch") or "main",
+        "trunk": cfg.get("trunk") or _landing_branch(root, pj),
         "gates": tuple((g[0], list(g[1:])) for g in cfg.get("gates", [])),
         "shared_caches": tuple(cfg.get("shared_caches", [".cache"])),
         "ledgers": tuple(cfg.get("ledgers", [])),
@@ -386,7 +409,7 @@ def _update_vendors(repo, push_check, vendor_cmd):
             return True, f"{line} landed in {detail}", detail
         if detail != "rejected":
             return False, f"{line} -- not landed: {detail}", ""
-        log("push rejected, master moved; taking the vendor step again")
+        log(f"push rejected, {TRUNK} moved; taking the vendor step again")
         if attempt < PUSH_TRIES:
             retry_pause(attempt)
     return False, f"vendor update: push rejected {PUSH_TRIES} times", ""
@@ -417,9 +440,22 @@ def check_and_push(repo, push_check):
         return False, "push check kept changing the ledgers after three runs"
     log("push check passed")
     head = git(repo, "rev-parse", "HEAD").stdout.strip()
-    if git(repo, "push", "-q", "origin", f"HEAD:refs/heads/{TRUNK}", check=False).returncode != 0:
+    pushed = git(repo, "push", "-q", "origin", f"HEAD:refs/heads/{TRUNK}", check=False)
+    if pushed.returncode != 0:
+        # Only a trunk that MOVED is a race worth starting over for
+        # (2026-10-10: three attempts each said "master moved" while the
+        # trunk sat still and a pre-push hook refused every push, its reason
+        # thrown away). The trunk moved when origin's tip is no longer in
+        # what this attempt built on.
+        git(repo, "fetch", "-q", "origin", TRUNK, check=False)
+        moved = git(repo, "merge-base", "--is-ancestor", f"origin/{TRUNK}", head,
+                    check=False).returncode != 0
         reset_to_origin(repo)
-        return False, "rejected"
+        if moved:
+            return False, "rejected"
+        said = (pushed.stderr or pushed.stdout).strip()
+        return False, (f"push refused, and {TRUNK} did not move, so trying again would "
+                       f"be refused the same way. What the push said:\n{said[-1500:]}")
     git(repo, "fetch", "-q", "origin", TRUNK)
     if git(repo, "merge-base", "--is-ancestor", head, f"origin/{TRUNK}", check=False).returncode != 0:
         reset_to_origin(repo)
@@ -508,10 +544,10 @@ def _land_attempts(repo, branch, commit, gates, push_check, vendor_cmd, sync_cmd
             return True, f"{detail} {vendors}"
         if detail != "rejected":
             return False, detail
-        log(f"{branch}: push rejected, master moved; starting over on the new master")
+        log(f"{branch}: push rejected, {TRUNK} moved; starting over on the new {TRUNK}")
         if attempt < PUSH_TRIES:
             retry_pause(attempt)
-    return False, f"push rejected {PUSH_TRIES} times; master kept moving"
+    return False, f"push rejected {PUSH_TRIES} times; {TRUNK} kept moving"
 
 
 def land_queue_run(repo=ROOT, once=False, vendor=False, gates=GATES, push_check=PUSH_CHECK,
@@ -565,7 +601,9 @@ def _land_queue_run(repo, once, vendor, gates, push_check, bestpractice, store, 
         if once:
             break
     vendor_ok = True
-    take = vendor or any(landed for _, landed, _ in results)
+    # --no-vendor means no vendor step at all (2026-10-10: it was taken
+    # anyway once a branch landed, and printed "VENDORS: updated").
+    take = vendor
     if take and not vendor_cmd:
         print(f"VENDORS: NOT TAKEN -- the BestPractice clone is not on a clean, current "
               f"{followed_branch(repo)} (see the log above)")
@@ -727,6 +765,13 @@ def self_check():
         ok &= cfg["rebuilt"] == {"todo/TODO.md": ["python3", "b.py"]}
         (td / "precedent.json").write_text('{"lander": {"trunk": "trunk"}}\n')
         ok &= lander_config(td)["trunk"] == "trunk"
+        # The landing branch decides, as --land reads it (2026-10-10: a
+        # repo landing on staging, with no lander block, landed on main).
+        (td / "precedent.json").write_text('{"landing_branch": "staging"}\n')
+        ok &= lander_config(td)["trunk"] == "staging"
+        (td / "precedent.json").write_text('{"landing_branch": "staging", "base_branch": "main",'
+                                           ' "lander": {"trunk": "elsewhere"}}\n')
+        ok &= lander_config(td)["trunk"] == "elsewhere"
         (td / "precedent.json").unlink()
         ok &= lander_config(td) == {"trunk": "main", "gates": (), "shared_caches": (".cache",),
                                     "ledgers": (), "rebuilt": {}}
