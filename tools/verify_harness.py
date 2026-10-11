@@ -27467,7 +27467,12 @@ def check_reply_check_wants_a_prompt_block_to_name_both_ends():
     itself and not its destination. The check before this one recognized a
     sender only as `From "..." (link)`, so it never fired. Judged against
     the shipped rule, so loosening either the engine or reply_check.json
-    fails here."""
+    fails here.
+
+    2026-10-11, a consuming repository: a block opening "From: <title>
+    (<link>)" / "For: a new BestPractice session" matched none of the shapes
+    that mark a block as a prompt, so it was never judged; and its From line
+    never said a session wrote it. Both are cases below."""
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_reply_check as rc
     rule = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
@@ -27496,8 +27501,32 @@ def check_reply_check_wants_a_prompt_block_to_name_both_ends():
          refused(reply(old_shape, '', 'Done and on main.'))),
         ('a block with both lines, the For line naming the sender, passes',
          not refused(reply(origin, for_sender, 'Done and on main.'))),
-        ('the old From shape still counts as the first line',
-         not refused(reply(old_shape, for_sender, 'Done.'))),
+        ("the old From shape, which never says a session wrote it, no longer "
+         "counts as the first line (2026-10-11)",
+         refused(reply(old_shape, for_sender, 'Done.'))),
+        ('"From: the session ..." with its link counts as the first line',
+         not refused(reply(f'From: the session "BP: me" -- {me}.', for_sender,
+                           'Done.'))),
+        ("THE 2026-10-11 CASE: 'From: <title> (<link>)' and 'For: a new "
+         "BestPractice session' -- never recognized as a prompt, so never judged",
+         refused(reply(f'From: Pesty: Update Vendors to BP 0840ae0 ({me})',
+                       'For: a new BestPractice session', 'SITUATION ...',
+                       outside='Here it is.'), p='Prompt Please')),
+        ('...and with a full From line, that For line is still refused',
+         refused(reply(origin, 'For: a new BestPractice session', 'Do it.',
+                       outside='Here it is.'), p='Prompt Please')),
+        ('a block with no header at all, under "Paste into: a new session '
+         'rooted in ...", is judged and refused',
+         refused(reply('SITUATION: the update failed.', 'Fix it.',
+                       outside='**Paste into:** a new session rooted in '
+                               'alex137/BestPractice.'), p='Prompt Please')),
+        ('a command block under "Paste into: your terminal" is not judged',
+         not refused(reply('git status', outside='Paste into: your terminal.'),
+                     p='Prompt Please')),
+        ('an email draft opening "From: alice@example.com" is not judged',
+         not refused(reply('From: alice@example.com', 'To: bob@example.com',
+                           'Hi Bob,', outside='Paste into: your mail app.'),
+                     p='Prompt Please')),
         ('the For line must be the SECOND line, not further down',
          refused(reply(origin, 'Seed root: x/y.', for_sender))),
         ('the From line must be the FIRST line',

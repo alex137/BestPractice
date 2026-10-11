@@ -247,7 +247,7 @@ When reading what a message asks for, or writing one that a session or a check w
   read-for-intent — the words, the context and the conversation; never the keyword alone
 When renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system:
   rename-updates-links — repoint every link and use of a retired name in the same commit or migration
-When seeding or scheduling a prompt into another session:
+When seeding or scheduling a prompt into another session, or handing a person paste-ready text to carry into one:
   seeded-prompt-names-its-origin — line 1 names the session that sent it, line 2 the session it is for
 When setting up a project a session works in, or a session reporting that its checkout is behind:
   fresh-before-write — verify and fast-forward the checkout before the first write, never after
