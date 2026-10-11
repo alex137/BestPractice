@@ -234,13 +234,14 @@ def missing_user_note(login=''):
     """-> what to say when no username is declared; `login` is what GitHub
     answered, when it was asked."""
     if login:
-        found = (f'GitHub says this session is signed in as {login}. Offer to '
-                 f'record it, and once the person agrees: python3 '
+        found = (f'GitHub says this session is signed in as {login}. Offer '
+                 f'it as the suggestion ("Is your GitHub username {login}?"), '
+                 f'and on their yes: python3 '
                  f'tools/precedent_branch_name.py --set-github {login} '
                  f'(then commit and push identity.json where it lives)')
     else:
-        found = ('Find it with GitHub\'s "who am I" (get_me), offer to record '
-                 'it, and once the person agrees: python3 '
+        found = ('Find it with GitHub\'s "who am I" (get_me), offer it as '
+                 'the suggestion, and on their yes: python3 '
                  'tools/precedent_branch_name.py --set-github <username>')
     return (f'no GitHub username is declared, so this name leaves it out. '
             f'{found}.')
