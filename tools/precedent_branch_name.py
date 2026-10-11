@@ -424,7 +424,21 @@ def harness_name_note(name):
             f'opened, before the task was known. act\'s Rule: make the '
             f'session\'s named branch and work there -- git switch -c '
             f'"$(python3 tools/precedent_branch_name.py <a few words>)" -- '
-            f'then push that. This push goes ahead.')
+            f'then push that. {SISTER_BRANCH_PERMISSION} This push goes '
+            f'ahead.')
+
+
+# Said by both notes below. A session's opening instructions name the
+# harness branch and forbid pushing to another without the person's explicit
+# permission; a note that said "switch" and stayed silent on that lost to it.
+# On 2026-10-11 a session saw the commit note, kept the harness branch for
+# exactly that reason, and Morgan asked why (strength: decided): "it's okay
+# to move to sister branches like renaming without my permission (you need
+# my permission only for the ladder upgrades like to staging or to main)".
+SISTER_BRANCH_PERMISSION = (
+    'This is the permission your opening instructions ask for: moving to a '
+    'sister branch, renaming included, never needs the person to approve it; '
+    'only a step up the ladder, into staging or main, does.')
 
 
 COMMIT_NOTE_MARKS = 'precedent-branch-name-noted'
@@ -473,8 +487,8 @@ def commit_note(repo='.', branch=None):
             f'the ladder a session works on its own named branch (act): '
             f'git switch -c "$(python3 tools/precedent_branch_name.py <a few '
             f'words>)" -- run it now, and every commit made so far comes '
-            f'with it. This commit goes ahead; this note is said once per '
-            f'branch.')
+            f'with it. {SISTER_BRANCH_PERMISSION} This commit goes ahead; '
+            f'this note is said once per branch.')
 
 
 def main(argv=None):
