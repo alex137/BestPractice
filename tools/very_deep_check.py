@@ -1118,14 +1118,18 @@ def _github_slug(repo_dir):
 # lacks. Staging and main stay here for everyone.
 NEVER_DELETE_BRANCHES = frozenset({
     'main', 'master', 'staging', 'pre-staging', 'precedent-beta-v01',
-    'precedent-promote-lock', 'precedent-check-receipts'})
+    'precedent-promote-lock', 'precedent-check-receipts',
+    'data-promote-lock', 'data-check-receipts'})
 
 # Branches that hold machinery, never work: Promote's lock (claims and
 # releases) and the push check's receipts (precedent_push_check.RECEIPT_BRANCH,
 # an orphan history). No branch's work can land on either, and neither has a
 # merge base to measure -- so "deepen and re-check", which this check used to
 # print for the receipts branch in every repo, could never resolve it.
-INFRA_BRANCHES = ('precedent-promote-lock', 'precedent-check-receipts')
+# Both names of each since 2026-10-11 (precedent_data_branches.py): data-
+# on the ladder, the old name elsewhere.
+INFRA_BRANCHES = ('precedent-promote-lock', 'precedent-check-receipts',
+                  'data-promote-lock', 'data-check-receipts')
 
 
 _NEVER_DELETABLE_CACHE = {}

@@ -68,6 +68,9 @@ DEFAULT_OUT = pathlib.Path('.precedent') / 'very-deep-check-review.html'
 # (practice: branch-delete-links, "Never a tier branch").
 KEEP = {'HEAD', 'main', 'staging', 'pre-staging', 'precedent-beta-v01',
         'precedent-promote-lock', 'precedent-check-receipts'}
+# Any data- branch is a live record, never finished work (2026-10-11,
+# precedent_data_branches.py).
+DATA_PREFIX = 'data-'
 BASES = ('main', 'staging', 'pre-staging')
 LEVEL_ORDER = {'universal': 0, 'repo-local': 1, 'individual': 2, 'shared': 3}
 LEVEL_LABEL = {'universal': 'Universal', 'repo-local': 'This repo only',
@@ -106,7 +109,8 @@ def landed_branches(repo, fetch=False):
     out = []
     for ref in refs.splitlines() if rc == 0 else []:
         name = ref[len('origin/'):]
-        if not ref.startswith('origin/') or name in KEEP:
+        if not ref.startswith('origin/') or name in KEEP \
+                or name.startswith(DATA_PREFIX):
             continue
         unlanded = None
         for b in bases:

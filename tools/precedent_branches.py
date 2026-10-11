@@ -2526,6 +2526,11 @@ def drift_report(root, gh=None):
 # wasted check run, never a commit: the later window's plain push to staging
 # is refused. Morgan: "Let's update that again to 15 minutes ... this should
 # be more than enough" (strength: decided).
+# The lock's name comes from precedent_data_branches.py since 2026-10-11
+# (Morgan: "'data-' for permanent branches is great and approved ... only
+# for ones done by people using the ladder", strength: decided):
+# data-promote-lock in a repository on the ladder, this old name elsewhere
+# and wherever that file is missing.
 LOCK_BRANCH = 'precedent-promote-lock'
 LOCK_STALE_SECONDS = 15 * 60
 _EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
@@ -2539,16 +2544,59 @@ def _lock_holder_name():
             or f'{socket.gethostname()} pid {os.getpid()}')
 
 
-def _lock_state(root):
+def _lock_branch(root, write=False, say=None):
+    """-> the lock's branch here (precedent_data_branches). `write` lets a
+    ladder repository's first claim copy the old branch to its data- name."""
+    try:
+        here = str(pathlib.Path(__file__).resolve().parent)
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        import precedent_data_branches as pdb
+    except Exception:                                       # noqa: BLE001
+        return LOCK_BRANCH
+    try:
+        if write:
+            return pdb.name_for_write(root, pdb.LOCK, say=say)
+        return pdb.name(root, pdb.LOCK)[0]
+    except Exception:                                       # noqa: BLE001
+        return LOCK_BRANCH
+
+
+def _lock_state(root, branch=None):
     """-> (tip, subject, committed_at) of the lock branch on origin, or
     (None, None, None) when it does not exist yet."""
-    tip = _remote_tip(root, LOCK_BRANCH)
+    branch = branch or _lock_branch(root)
+    tip = _remote_tip(root, branch)
     if not tip:
         return None, None, None
-    _run(root, 'fetch', '-q', 'origin', LOCK_BRANCH)
+    _run(root, 'fetch', '-q', 'origin', branch)
     subject = _git(root, 'log', '-1', '--format=%s', tip) or ''
     stamp = _git(root, 'log', '-1', '--format=%ct', tip) or '0'
     return tip, subject, int(stamp) if stamp.isdigit() else 0
+
+
+def _fresh_hold(state):
+    """-> 'held by X, N min ago' for a lock state holding a claim younger
+    than LOCK_STALE_SECONDS, else None."""
+    tip, subject, at = state
+    if not tip or not (subject or '').startswith('held by') or not at:
+        return None
+    age = time.time() - at
+    if age >= LOCK_STALE_SECONDS:
+        return None
+    return f'{subject.replace(" [skip ci]", "")}, {int(age // 60)} min ago'
+
+
+def _old_name_hold(root, branch):
+    """-> a fresh hold on the lock's old name, while this repository's lock
+    is its data- name: a window on an older engine still claims the old
+    branch, and the two must not run side by side. None otherwise."""
+    if branch == LOCK_BRANCH:
+        return None
+    try:
+        return _fresh_hold(_lock_state(root, LOCK_BRANCH))
+    except Exception:                                         # noqa: BLE001
+        return None
 
 
 def promote_in_progress(root):
@@ -2564,18 +2612,13 @@ def promote_in_progress(root):
     LOCK_STALE_SECONDS is not a Promote running -- the next one takes it
     over -- so it does not count."""
     try:
-        tip, subject, at = _lock_state(root)
+        branch = _lock_branch(root)
+        return _fresh_hold(_lock_state(root, branch)) or _old_name_hold(root, branch)
     except Exception:                                         # noqa: BLE001
         return None
-    if not tip or not (subject or '').startswith('held by') or not at:
-        return None
-    age = time.time() - at
-    if age >= LOCK_STALE_SECONDS:
-        return None
-    return f'{subject.replace(" [skip ci]", "")}, {int(age // 60)} min ago'
 
 
-def _lock_push(root, parent, subject, body):
+def _lock_push(root, parent, subject, body, branch=None):
     """Commit `subject` on top of `parent` and push it to the lock branch.
     -> (ok, commit, stderr). Never forced."""
     args = ['commit-tree', _EMPTY_TREE, '-m', f'{subject} [skip ci]', '-m', body]
@@ -2585,7 +2628,8 @@ def _lock_push(root, parent, subject, body):
     commit = made.stdout.strip()
     if made.returncode != 0 or not commit:
         return False, None, made.stderr.strip()
-    p = _run(root, 'push', '-q', 'origin', f'{commit}:refs/heads/{LOCK_BRANCH}')
+    branch = branch or _lock_branch(root)
+    p = _run(root, 'push', '-q', 'origin', f'{commit}:refs/heads/{branch}')
     return p.returncode == 0, commit, p.stderr.strip()
 
 
@@ -2595,22 +2639,23 @@ def _lock_claim(root, say, what=None):
     used at all, and the Promote goes ahead without it, as before. `what`
     names a holder other than a Promote -- the merge gate's landing check
     (hold_for_landing) -- in the claim's subject."""
-    tip, subject, at = _lock_state(root)
-    age = time.time() - at if at else None
-    if tip and subject.startswith('held by') and age is not None \
-            and age < LOCK_STALE_SECONDS:
-        return 'busy', f'{subject.replace(" [skip ci]", "")}, {int(age // 60)} min ago'
+    branch = _lock_branch(root, write=True, say=say)
+    tip, subject, at = _lock_state(root, branch)
+    busy = _fresh_hold((tip, subject, at)) or _old_name_hold(root, branch)
+    if busy:
+        return 'busy', busy
     stale = ' (taking over a claim older than %d min)' % (LOCK_STALE_SECONDS // 60) \
         if tip and subject.startswith('held by') else ''
     ok, commit, err = _lock_push(
         root, tip, f'held by {_lock_holder_name()}' + (f' ({what})' if what else ''),
         f'{"A Promote" if not what else what[0].upper() + what[1:]} is running. '
         'tools/precedent_branches.py releases this when it ends; a claim older '
-        f'than {LOCK_STALE_SECONDS // 60} minutes may be taken over.{stale}')
+        f'than {LOCK_STALE_SECONDS // 60} minutes may be taken over.{stale}',
+        branch)
     if ok:
         return 'held', commit
     if any(w in err for w in ('non-fast-forward', 'fetch first', 'rejected')):
-        tip, subject, at = _lock_state(root)
+        tip, subject, at = _lock_state(root, branch)
         who = subject.replace(' [skip ci]', '') if subject else 'another window'
         return 'busy', f'{who}, just now'
     return 'none', err[:200] or 'the lock commit could not be made'
@@ -2618,11 +2663,13 @@ def _lock_claim(root, say, what=None):
 
 def _lock_release(root, held, say):
     try:
-        ok, _commit, err = _lock_push(root, held, 'free', 'No Promote is running.')
+        branch = _lock_branch(root)
+        ok, _commit, err = _lock_push(root, held, 'free', 'No Promote is running.',
+                                      branch)
     except CommitRefused as exc:
-        ok, err = False, str(exc)
+        branch, ok, err = _lock_branch(root), False, str(exc)
     if not ok:
-        say(f'NOTE: could not release {LOCK_BRANCH} ({err[:160]}); it frees '
+        say(f'NOTE: could not release {branch} ({err[:160]}); it frees '
             f'itself after {LOCK_STALE_SECONDS // 60} minutes.')
 
 

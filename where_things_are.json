@@ -258,6 +258,10 @@
       "go_to": "[tools/precedent_branch_name.py](tools/precedent_branch_name.py)"
     },
     {
+      "looking_for": "**Naming a long-lived data branch** — the push check's receipts and Promote's lock are `data-check-receipts` and `data-promote-lock` in a repository on the ladder, and keep their old `precedent-` names everywhere else",
+      "go_to": "[tools/precedent_data_branches.py](tools/precedent_data_branches.py) — `python3 tools/precedent_data_branches.py` says which name each one has here, and why"
+    },
+    {
       "looking_for": "**What the words people use about Precedent mean** — practice, universal / individual / shared set, full set, repo-local, in force, feature branch",
       "go_to": "[documentation/OUR_LANGUAGE.md](documentation/OUR_LANGUAGE.md), rendered from [tools/our_language.json](tools/our_language.json) by [tools/our_language.py](tools/our_language.py) — edit the words there, never on the page; every term the project defines is in [GLOSSARY.md](GLOSSARY.md)"
     },

@@ -54718,6 +54718,130 @@ def _fixture_git_env():
                 GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
 
+def check_data_branches_are_named_for_the_ladder():
+    """The engine's long-lived data branches are `data-<what>` in a ladder
+    repository and keep their old names everywhere else, and a ladder
+    repository's first write copies the old branch to the new name, leaving
+    the old one where it was (precedent_data_branches.py).
+
+    WHY. Morgan, 2026-10-11 (strength: decided): "'data-' for permanent
+    branches is great and approved (maybe we also rename existing ones?) BUT
+    maybe this should be in 'ladder' only, because Alex might not want this
+    and we don't want to touch his." The controls are the non-ladder cases:
+    nothing there ever gains a data- branch. Once a repository has moved,
+    everyone in it follows, so receipts and the lock stay shared. And while
+    a window on an older engine holds the old lock, a Promote here waits."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_data_branches as pdb
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    env = _fixture_git_env()
+    cases = []
+    saved_env = dict(os.environ)
+    os.environ.update(env)
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a],
+                                               capture_output=True, text=True)
+
+            def fresh(tag, with_old=True):
+                origin, work = td / f'{tag}.git', td / tag
+                g(td, 'init', '-q', '--bare', '-b', 'main', str(origin))
+                g(td, 'init', '-q', '-b', 'main', str(work))
+                g(work, 'remote', 'add', 'origin', str(origin))
+                (work / 'f').write_text('x')
+                g(work, 'add', '-A'); g(work, 'commit', '-qm', 'base')
+                g(work, 'push', '-q', 'origin', 'main')
+                if with_old:
+                    g(work, 'push', '-q', 'origin',
+                      'main:refs/heads/precedent-check-receipts')
+                return origin, work
+
+            def heads(origin):
+                return set(g(origin, 'for-each-ref', '--format=%(refname:short)',
+                             'refs/heads').stdout.split())
+
+            o, w = fresh('plain')
+            read = pdb.name(w, pdb.RECEIPTS, ladder=False)[0]
+            write = pdb.name_for_write(w, pdb.RECEIPTS, ladder=False)
+            cases.append(('CONTROL: not on the ladder, the old name is read and '
+                          'written, and no data- branch appears',
+                          read == write == 'precedent-check-receipts'
+                          and 'data-check-receipts' not in heads(o),
+                          f'{read} {write} {heads(o)}'))
+            o, w = fresh('plain-empty', with_old=False)
+            cases.append(('CONTROL: not on the ladder with nothing there yet, '
+                          'the old name',
+                          pdb.name_for_write(w, pdb.RECEIPTS, ladder=False)
+                          == 'precedent-check-receipts', ''))
+
+            o, w = fresh('ladder')
+            old_tip = g(o, 'rev-parse', 'precedent-check-receipts').stdout.strip()
+            read = pdb.name(w, pdb.RECEIPTS, ladder=True)[0]
+            said = []
+            write = pdb.name_for_write(w, pdb.RECEIPTS, ladder=True, say=said.append)
+            new_tip = g(o, 'rev-parse', 'data-check-receipts').stdout.strip()
+            cases.append(('a ladder repository not moved yet reads the old branch',
+                          read == 'precedent-check-receipts', read))
+            cases.append(('its first write makes data- at the old tip and says so; '
+                          'the old branch stays where it was',
+                          write == 'data-check-receipts' and new_tip == old_tip
+                          and g(o, 'rev-parse', 'precedent-check-receipts')
+                          .stdout.strip() == old_tip
+                          and any('left as it is' in m for m in said),
+                          f'{write} {new_tip[:8]} {old_tip[:8]} {said}'))
+            cases.append(('once moved, everyone there follows, on the ladder or not',
+                          pdb.name(w, pdb.RECEIPTS, ladder=False)[0]
+                          == pdb.name_for_write(w, pdb.RECEIPTS, ladder=False)
+                          == 'data-check-receipts', ''))
+            o, w = fresh('ladder-empty', with_old=False)
+            cases.append(('a ladder repository with nothing there yet starts on data-',
+                          pdb.name_for_write(w, pdb.RECEIPTS, ladder=True)
+                          == 'data-check-receipts', ''))
+            cases.append(('every data- branch, and the old names, are records',
+                          pdb.is_data_branch('data-leases')
+                          and pdb.is_data_branch('precedent-promote-lock')
+                          and not pdb.is_data_branch('2026-10-11-data-fix-abcde-q7m2x')
+                          and 'data-promote-lock' in pdb.every_name(), ''))
+
+            # The lock: this repository is on data-promote-lock; a window on an
+            # older engine holds the old name. A Promote here must wait.
+            o, w = fresh('lock', with_old=False)
+            g(w, 'push', '-q', 'origin', 'main:refs/heads/data-promote-lock')
+            held = g(w, 'commit-tree', '4b825dc642cb6eb9a060e54bf8d69288fbee4904',
+                     '-m', 'held by an older window [skip ci]').stdout.strip()
+            g(w, 'push', '-q', 'origin', f'{held}:refs/heads/precedent-promote-lock')
+            pdb._CACHE.clear()
+            state, info = pb._lock_claim(w, say=lambda m: None)
+            cases.append(('a fresh hold on the old lock name makes a Promote here wait',
+                          state == 'busy' and 'older window' in info, f'{state} {info}'))
+            free = g(w, 'commit-tree', '4b825dc642cb6eb9a060e54bf8d69288fbee4904',
+                     '-p', held, '-m', 'free [skip ci]').stdout.strip()
+            g(w, 'push', '-q', 'origin', f'{free}:refs/heads/precedent-promote-lock')
+            state, info = pb._lock_claim(w, say=lambda m: None)
+            claimed = g(o, 'log', '-1', '--format=%s', 'data-promote-lock').stdout
+            cases.append(('CONTROL: once the old name is free, the claim is taken on '
+                          'data-promote-lock, not the old name',
+                          state == 'held' and claimed.startswith('held by')
+                          and g(o, 'log', '-1', '--format=%s',
+                                'precedent-promote-lock').stdout.startswith('free'),
+                          f'{state} {info} {claimed}'))
+            pb._lock_release(w, info, say=lambda m: None)
+            cases.append(('...and released there',
+                          g(o, 'log', '-1', '--format=%s', 'data-promote-lock')
+                          .stdout.startswith('free'), ''))
+    finally:
+        os.environ.clear(); os.environ.update(saved_env)
+        pdb._CACHE.clear()
+    failed = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'data branches are named for the ladder ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 def check_promote_branches_are_named_like_session_branches():
     """A Promote's fix branch and its copy of staging are named
     <date>-<slug>-<session ID's end>, like every temporary branch --
@@ -74741,6 +74865,7 @@ def main():
     check_update_asks_before_changing_hooks()
     check_update_question_names_new_gates()
     check_promote_branches_are_named_like_session_branches()
+    check_data_branches_are_named_for_the_ladder()
     check_landed_branch_gets_its_delete_link()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
