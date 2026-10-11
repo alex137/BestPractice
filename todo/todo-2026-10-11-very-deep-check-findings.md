@@ -103,6 +103,33 @@ item holds the rest.
   all in a private repository**: GitHub's light check runs only on a
   Produce's `to-main-` branch, and a team with no terminal has no local
   check. SETUP.md now says so; whether such a team should get one is open.
+- **The migration guide (spec/MIGRATING_EXISTING_INSTALLS.md) has fallen
+  behind the tools** (pass 1 migration rehearsal): step 0 says to ask the
+  person which sets to declare, where INSTALL.md says never to; step 1's
+  `rm -rf` is now done by the tool, and it never says when to run
+  `checkin.py record`, so step 7 reports the old commit; it names
+  `process/upstream/tools/`, which the first update deletes; step 5's
+  decommission refuses until step 6 has run; step 8's list of what a clean
+  run needs misses `session-trailer`, the classic GETTING_STARTED.md and an
+  unregistered `todo/TODO.md`, and its `todo_migrate` turns the recurring
+  check-in into an item doc_lint fails; `--ensure-tiers --apply` prints
+  nothing when the ladder is off. One HIGH item, declaring a deleted set,
+  was fixed in this run.
+- **Moving a practice (spec/MOVING_PRACTICES.md) has six gaps** (pass 1
+  move rehearsal): mentions in consumer repos are fixed only with a knob
+  the help calls a test setting; universal is matched by its folder name,
+  not its declared name, so "(precedent)" mentions are not fixed; the
+  universal draft fails `routing-reason` and later
+  `pending-approval-outlives-its-merge`; the universal copy's Story names
+  the destination set in plain text, which could be private; a
+  copy-and-delete is named once by the sync and by no check after; and the
+  page still points at `precedent-beta-v01`, a retired practice, and the
+  old `team` level. A new set's skeleton README also links files the
+  procedure deletes.
+- **A bootstrap in a cloud session reaches the network outside its
+  folder**: with `CLAUDE_CODE_REMOTE` set, the resolver's self-heal clones
+  the real individual set into whatever `$HOME` is in force, scratch or
+  not.
 - **An installer run into a project with a hand-written `MAP.md`** writes
   `MAP.source.md` from the template, and the sync then regenerates
   `MAP.md` from it, which may replace the project's own map. Not verified

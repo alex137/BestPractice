@@ -4266,6 +4266,39 @@ def check_visibility_audit_reads_repo_names_out_of_prose():
           '; '.join(failed) + f' -- urls {sorted(urls)}, bare {sorted(bare)}')
 
 
+def check_leak_gate_reads_a_sets_own_visibility():
+    """The leak gate takes a practice set's visibility from its
+    precedent-source.json when precedent.json does not declare one.
+
+    WHY. A freshly bootstrapped private individual set writes `visibility`
+    only into precedent-source.json, whose own comment says the gate reads
+    it there. The gate read precedent.json alone, took the set as public,
+    and refused every push of it for holding its own blocklist (very deep
+    check, 2026-10-11, pass 1)."""
+    import tempfile
+    import leak_gate as lg
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'precedent-source.json').write_text(
+            json.dumps({'visibility': 'private'}), encoding='utf-8')
+        only_source = lg.declared_visibility(root)[0]
+        (root / 'precedent.json').write_text(json.dumps({'sources': []}),
+                                             encoding='utf-8')
+        undeclared_config = lg.declared_visibility(root)[0]
+        (root / 'precedent.json').write_text(json.dumps({'visibility': 'public'}),
+                                             encoding='utf-8')
+        config_wins = lg.declared_visibility(root)[0]
+    cases = [('a set with only precedent-source.json is private',
+              only_source == 'private'),
+             ('a precedent.json that says nothing defers to it',
+              undeclared_config == 'private'),
+             ('a precedent.json that says something still wins',
+              config_wins == 'public')]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the leak gate reads a set\'s own visibility ({len(cases)} stated '
+          f'cases)', not failed, '; '.join(failed))
+
+
 def check_visibility_audit_reads_the_blocklist_as_patterns():
     """The stale-entry half of very_deep_check's visibility audit, repaired.
 
@@ -74841,6 +74874,7 @@ def main():
     check_leak_gate_refresh_declines_a_dirty_clone()
     check_freshness_covers_every_declared_source()
     check_visibility_audit_reads_the_blocklist_as_patterns()
+    check_leak_gate_reads_a_sets_own_visibility()
     check_visibility_audit_reads_repo_names_out_of_prose()
     check('the individual set has one tree on disk, whichever of the '
           'bootstrap and the attach tool cloned it first',
