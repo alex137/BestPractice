@@ -34,10 +34,7 @@ THE STEPS, with no question in between:
      commit on the person's word), and the
      commit this run takes is recorded: until a run reports DONE, a rerun
      takes that same commit, so an update worked over several rounds does
-     not chase a moving branch (--move takes the newest commit instead);
-     when the clone's tools/ is not that commit's, that commit's own copy
-     of this file runs the rest from a temporary worktree, so the update
-     and every tool it drives come from one commit (hand_off_to_pinned)
+     not chase a moving branch (--move takes the newest commit instead)
   2. the engine refresh (the consumer's own copy, which replaces itself and
      runs a second pass), with each committed local edit to an engine file
      resolved around it by precedent_local_edits.py -- kept, or replaced
@@ -113,7 +110,6 @@ import json
 import os
 import pathlib
 import re
-import shutil
 import signal
 import subprocess
 import sys
@@ -913,6 +909,99 @@ def decommissioned_removals(out, rev):
         gone = set()
     slugs = [s for s, _src in pairs]
     return slugs if all(f'practices/{s}.md' in gone for s in slugs) else []
+
+
+def vendored_accepts(tool, option):
+    """Does the vendored `tool` take `option`? Read from its own text: an
+    update can take a commit older than the clone it runs from, and the
+    tools it vendors then come from that commit, so an option this file
+    knows can be one the repo's copy has never heard of."""
+    try:
+        text = pathlib.Path(tool).read_text(encoding='utf-8')
+    except OSError:
+        return False
+    return re.search(r"(['\"])" + re.escape(option) + r"\1", text) is not None
+
+
+def _manifest_pairs(text):
+    """-> {(slug, source)} a practice MANIFEST.json's text records, or None."""
+    try:
+        recs = json.loads(text).get('practices') or []
+    except (ValueError, AttributeError):
+        return None
+    return {(e.get('slug'), e.get('source')) for e in recs
+            if isinstance(e, dict) and e.get('slug')}
+
+
+def removed_beyond(repo, gone, dropped):
+    """After a view sync run with --allow-removals: -> the (slug, source)
+    pairs it removed that the flag may have waved through besides `gone`,
+    or None when that cannot be read.
+
+    Committed MANIFEST.json against the one the sync just wrote. A removed
+    practice whose source still records practices was not one of the
+    refusals --allow-removals waives: every refusal about a source still
+    declared was listed in full, and decommissioned_removals took the run
+    only when all were in `gone`. One whose source records nothing any more
+    may be a source DROPPED or RENAMED, which that run never showed (the
+    sync stops on the first refusal); it passes only from a set this update
+    dropped itself, as removals_this_update_caused does."""
+    r = subprocess.run(['git', '-C', str(repo), 'show', 'HEAD:MANIFEST.json'],
+                       capture_output=True, text=True)
+    before = _manifest_pairs(r.stdout) if r.returncode == 0 else None
+    try:
+        after = _manifest_pairs((repo / 'MANIFEST.json').read_text(encoding='utf-8'))
+    except OSError:
+        after = None
+    if before is None or after is None:
+        return None
+    kept = {s for s, _src in after}
+    sources = {src for _s, src in after}
+    return sorted((s, src) for s, src in before
+                  if s not in kept and s not in set(gone)
+                  and src not in sources and src not in set(dropped))
+
+
+def take_decommissioned(repo, sync, gone, dropped, rep):
+    """Run the view sync again, letting through only the practices in
+    `gone`, which the source decommissioned on purpose. -> (rc, out).
+
+    WHY THE FALLBACK (2026-10-11, two consuming repositories). An update
+    pinned to 33f77a7, older than the clone it ran from, vendored that
+    commit's sync, and the run then passed it --allow-removal, which that
+    sync rejected as an unknown option. A sync too old for --allow-removal
+    gets --allow-removals instead, and then what it removed is checked
+    against `gone` (removed_beyond); anything else is reported, never
+    silently taken."""
+    named = vendored_accepts(sync, '--allow-removal')
+    rc, out = run([sys.executable, str(sync), '--repo', str(repo)]
+                  + ([a for s in gone for a in ('--allow-removal', s)] if named
+                     else ['--allow-removals']), repo)
+    if rc != 0:
+        rep.step('decommissioned', f'the view sync failed when told to remove '
+                 f'{", ".join(gone)}, which the source deleted on purpose')
+        return rc, out
+    beyond = [] if named else removed_beyond(repo, gone, dropped)
+    if beyond is None or beyond:
+        what = ('it could not be checked: MANIFEST.json could not be read '
+                'before or after' if beyond is None else
+                'it also removed ' + '; '.join(f'{s} (from {src})'
+                                              for s, src in beyond))
+        rep.step('decommissioned', 'refused: this repo\'s view sync is too old '
+                 'for --allow-removal, so it ran with --allow-removals, and '
+                 + what)
+        return 1, (out + f"\nprecedent_update: the view sync was told to remove "
+                   f"only {', '.join(gone)}, and {what}. Nothing is committed: "
+                   f"restore anything wrongly removed from HEAD (git checkout "
+                   f"HEAD -- MANIFEST.json and each practice's file), then "
+                   f"decide those removals yourself.")
+    rep.step('decommissioned', f'removed {len(gone)} practice(s) the source '
+             f'deleted on purpose and recorded in process/decommissioned_'
+             f'paths.json: {", ".join(gone)}'
+             + ('' if named else ' (this repo\'s view sync predates '
+                '--allow-removal, so it ran with --allow-removals, and removed '
+                'nothing else)'))
+    return rc, out
 
 
 def approved_workflows_step(repo, rep):
@@ -3503,77 +3592,6 @@ def clear_pin(repo):
         _write_record(repo, data)
 
 
-# Off only for the harness's in-process cases, which test this file's own
-# steps and stand the engine in; every real run hands off when it must.
-HAND_OFF = True
-
-
-def pinned_code_differs(commit):
-    """Does the tools/ this file runs from differ from `commit`'s, counting
-    uncommitted edits? `git diff` exits 1 on a difference; anything else
-    (0, or a commit the clone cannot read) is no hand-off."""
-    r = subprocess.run(['git', '-C', str(SOURCE), 'diff', '--quiet', commit,
-                        '--', 'tools/'], capture_output=True)
-    return r.returncode == 1
-
-
-def hand_off_to_pinned(repo, commit, follow, skip_check=False, note=None):
-    """Run `commit`'s own precedent_update.py on `repo`, from a temporary
-    worktree of the clone, and return its exit code.
-
-    WHY (2026-10-11, a consuming repository). Main's newest commits had no
-    passed test, so the update took an older one, 33f77a7, and the engine
-    it vendored, precedent_sync_views.py included, came from there. This
-    file still ran from the clone's tip, 0840ae0, and handed that sync an
-    option the tip had added and 33f77a7 had never heard of: "unknown option
-    '--allow-removal'". checkin.py ran from the tip the same way. Taking an
-    older commit because the newer one's test had not passed meant nothing
-    while the code driving the update was that untested newer commit. So
-    whenever the clone's tools/ is not the commit taken, that commit's own
-    update runs the rest, and every tool it drives comes from that one
-    commit. It runs with --from-ref, so it never hands off again; the pin
-    this run recorded stays until a run ends DONE."""
-    print(f"precedent_update: pinned code: the clone's tools/ is not "
-          f"{follow} @ {commit[:12]}'s, so that commit's own "
-          f"precedent_update.py runs the update from here, with the tools "
-          f"it vendors", flush=True)
-    import tempfile
-    subprocess.run(['git', '-C', str(SOURCE), 'worktree', 'prune'],
-                   capture_output=True)
-    where = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-pinned-'))
-    add = subprocess.run(['git', '-C', str(SOURCE), 'worktree', 'add', '--detach',
-                          str(where), commit], capture_output=True, text=True)
-    try:
-        if add.returncode != 0:
-            print(f"\nFAILED: could not check out {commit[:12]} to run its own "
-                  f"update:\n{tail(add.stdout + add.stderr)}")
-            return FAILED
-        argv = [sys.executable, str(where / 'tools' / 'precedent_update.py'),
-                '--repo', str(repo), '--from-ref', commit]
-        if skip_check:
-            argv.append('--skip-check')
-        child = subprocess.Popen(argv, cwd=str(repo), stdout=subprocess.PIPE,
-                                 stderr=subprocess.STDOUT, text=True,
-                                 env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
-        for line in child.stdout:
-            sys.stdout.write(line)
-            sys.stdout.flush()
-        rc = child.wait()
-    finally:
-        subprocess.run(['git', '-C', str(SOURCE), 'worktree', 'remove', '--force',
-                        str(where)], capture_output=True)
-        shutil.rmtree(where, ignore_errors=True)
-    if rc == DONE:
-        clear_pin(repo)
-    else:
-        print(f"\nPINNED: a rerun takes {follow} @ {commit[:12]} again, and runs "
-              f"that commit's own update again, until a run reports DONE. To "
-              f"take {follow}'s newest commit instead, run it with --move.")
-    if note:
-        print(f"\nCOMMIT MESSAGE: say this in it, in these words: {note}")
-    return rc
-
-
 def record_dropped_sets(repo, names):
     """Write down, in the run-to-run record, the sets this run dropped from
     precedent.json, so a rerun after LEFT FOR YOU still counts them as the
@@ -4523,9 +4541,6 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
     if ref is None and head_ok:
         record_pin(repo, head.strip(), follow, note=rep.commit_note)
         rep.pin = (repo, head.strip(), follow)
-        if HAND_OFF and pinned_code_differs(head.strip()):
-            return hand_off_to_pinned(repo, head.strip(), follow, skip_check,
-                                      note=rep.commit_note)
     # What the catalogue is mirrored from: the commit read just above, the
     # one the engine is handed too -- never a second read of the branch by
     # checkin.py update's own fetch, which a pinned rerun would undo.
@@ -4821,12 +4836,9 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
         gone = decommissioned_removals(out, head.strip() if head_ok else None) \
             if rc else []
         if gone:
-            rc, out = run([sys.executable, str(sync), '--repo', str(repo)]
-                          + [a for s in gone for a in ('--allow-removal', s)],
-                          repo)
-            rep.step('decommissioned', f'removed {len(gone)} practice(s) the '
-                     f'source deleted on purpose and recorded in '
-                     f'process/decommissioned_paths.json: {", ".join(gone)}')
+            rc, out = take_decommissioned(
+                repo, sync, gone, sets_this_update_dropped(repo, dropped_sets),
+                rep)
         in_force_nowhere_step(repo, rep, out)
         removed_links_step(rep, out)
         if rc != 0:
