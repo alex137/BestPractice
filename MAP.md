@@ -142,7 +142,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [scrub-gate](practices/scrub-gate.md) | on-demand | committing anything that touches the vendored/public tree |
 | [search-by-purpose](practices/search-by-purpose.md) | on-demand | starting work the repository or another session may already cover |
 | [section-order-by-frequency](practices/section-order-by-frequency.md) | on-demand | ordering sections in a document |
-| [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md) | on-demand | seeding or scheduling a prompt into another session |
+| [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md) | on-demand | seeding or scheduling a prompt into another session, or handing a person paste-ready text to carry into one |
 | [session-bootstrap](practices/session-bootstrap.md) | on-demand | setting up a new repo's session start |
 | [session-load-budget](practices/session-load-budget.md) | on-demand | adding to a file every session loads, or asking what a session pays before it starts work |
 | [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating, renaming or retagging a session |
