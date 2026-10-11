@@ -1011,7 +1011,22 @@ def declared_visibility(root):
     hits, assuming private costs a permanent publication.
     """
     cfg = root / 'precedent.json'
+    # A practice set declares its visibility in precedent-source.json, the
+    # file its own skeleton writes and documents ("the gate recognises a
+    # private set by this file's visibility"). Read only precedent.json, a
+    # freshly bootstrapped private individual set read as undeclared, so the
+    # gate refused every push of it for holding its own blocklist (very deep
+    # check, 2026-10-11). precedent.json still wins where both say something.
+    src = root / 'precedent-source.json'
+    src_v = None
+    try:
+        src_v = (json.loads(src.read_text(encoding='utf-8')).get('visibility')
+                 or '').strip().lower() if src.is_file() else None
+    except (OSError, ValueError, AttributeError):
+        src_v = None
     if not cfg.exists():
+        if src_v in ('public', 'private'):
+            return src_v, f'precedent-source.json declares visibility: {src_v}'
         return None, 'no precedent.json'
     try:
         data = json.loads(cfg.read_text(encoding='utf-8'))
@@ -1020,6 +1035,8 @@ def declared_visibility(root):
     v = (data.get('visibility') or '').strip().lower()
     if v in ('public', 'private'):
         return v, f'precedent.json declares visibility: {v}'
+    if src_v in ('public', 'private'):
+        return src_v, f'precedent-source.json declares visibility: {src_v}'
     return None, 'precedent.json declares no visibility'
 
 

@@ -67,9 +67,15 @@ deliverables and indexes which documents back each part of each one.
 
 - **Light check** — `python3 tools/doc_lint.py` on the markdown you touched.
   Fast, run before every commit without thinking about it. Gates a commit.
-- **Deep check** — the full suite: `python3 tools/precedent_check.py`,
-  `python3 tools/precedent_sync_views.py --repo . --check`, and `<your own audits>`.
-  Gates a push and a merge. `bash tools/checks/tests/run_all.sh` runs the
+- **Deep check** — `python3 tools/precedent_push_check.py`, run bare, plus
+  `<your own audits>`. It is what the push hook runs, at the tier the
+  branch gets: a quick basic tier for a working branch, and for `staging`
+  and `main` the full list — the practice sweep, the drift check of the
+  generated views, the leak gate, the Markdown lint and
+  `bash tools/checks/tests/run_all.sh` (`--list` says what runs). Gates a
+  push and a merge.
+  For the practice sweep alone, `python3 tools/precedent_check.py
+  --full-sweep`; the bare command runs only a slice. `run_all.sh` runs the
   tests materialized from this repo's sources and names each failing test's
   source: a failing one is that source's bug, fixed and reported there —
   never noted here as pre-existing.
@@ -87,7 +93,7 @@ concluding it is new, grep for it —
 `session-bootstrap`) so it applies itself. The bullets below are standing
 instructions for this repo, not gotchas.
 
-<!-- INSTALL.md §0 step 3 / §1 step 9: if the administrator answered yes to a
+<!-- INSTALL.md §0 step 3: if the administrator answered yes to a
      team and/or individual practice source, add the bullet below (drop
      whichever half doesn't apply) BEFORE the bootstrap-script bullet above,
      not after — the access grant has to happen before anything tries to

@@ -17,7 +17,9 @@ instantiates every template section 0 names with the placeholders this
 tool can know filled in, runs the sync, lints the files it wrote, and then
 prints exactly what it could NOT decide: the placeholders left for a person
 or an assistant to adapt, and any wording that still names a layout this
-project does not have. It never commits, never pushes, never asks.
+project does not have. It never commits and never asks. It pushes in one
+case only: for a person on the ladder, it makes the branch tiers on an
+origin that already has main (_tiers; Morgan, 2026-09-27).
 
 WHY THIS EXISTS (practice: cite-the-incident). The 2026-09-14 very deep
 check rehearsed section 0 as written and found that a correct install took
@@ -35,7 +37,7 @@ local/practices/project-visual-identity.md's sections (an install
 does the essentials and stops -- INSTALL.md, "Essentials only").
 It does not wire a shared or individual source beyond what --team declares;
 the shared/individual question is a conversation with the administrator
-(INSTALL.md section 1 step 9). It does not commit: a person reviews the tree
+(INSTALL.md section 0 step 3). It does not commit: a person reviews the tree
 first. And it does not run the freshness guard or any session hook -- those
 run in the project's own sessions from then on.
 
@@ -181,6 +183,21 @@ def _vendor_catalogue(dest):
     if (ROOT / 'precedent-source.json').is_file():
         shutil.copy2(ROOT / 'precedent-source.json',
                      dest / UNIVERSAL_PATH / 'precedent-source.json')
+    # The same sync record Update Vendors writes, naming the commit this copy
+    # came from -- only when that is true, i.e. this clone's practices/ is
+    # exactly its HEAD. Without it a fresh install's every session start said
+    # "freshness: NOT VERIFIED" and that the 180 practices just copied were
+    # "absent this session" (2026-10-11 install rehearsal).
+    head = _run(['git', 'rev-parse', 'HEAD'], ROOT)
+    dirty = _run(['git', 'status', '--porcelain', '--', 'practices',
+                  'precedent-source.json'], ROOT)
+    if head.returncode == 0 and dirty.returncode == 0 and not dirty.stdout.strip():
+        (dest / UNIVERSAL_PATH / 'CATALOGUE_SYNC.json').write_text(json.dumps({
+            'source_commit': head.stdout.strip(),
+            'written_by': 'tools/precedent_install.py (install)',
+            'why': 'the upstream commit practices/ here was copied from; '
+                   'the first Update Vendors judges local edits against it'},
+            indent=2) + '\n', encoding='utf-8')
     return sum(1 for _ in target.glob('*.md'))
 
 
@@ -249,9 +266,9 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
     # (spec/LADDER_OPT_IN_PLAN.md D3): for anyone else a repository has its
     # main branch, and its precedent.json says nothing about tiers.
     if precedent_branches.ladder_in_force(path.parent) is not False:
-        doc[precedent_branches.LANDING_SETTING] = precedent_branches.REPO_LANDING_DEFAULT
-        doc['_' + precedent_branches.LANDING_SETTING + '_comment'] = \
-            precedent_branches.REPO_LANDING_COMMENT
+        _landing, _comment = precedent_branches.repo_landing_default(path.parent)
+        doc[precedent_branches.LANDING_SETTING] = _landing
+        doc['_' + precedent_branches.LANDING_SETTING + '_comment'] = _comment
     if output_paths:
         doc['output_paths'] = output_paths
         doc['_output_paths_comment'] = [
@@ -744,6 +761,7 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     branch, how = _base_branch(dest, base_branch)
     owner, repo = _remote_owner_repo(dest)
     owner_repo = f'{owner}/{repo}' if owner else None
+    admin_named = admin
     admin = admin or owner
     ci_enabled, ci_note = _ci_preference(dest)
 
@@ -761,7 +779,8 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     # starting default, never rewritten once set.
     try:
         import precedent_vendor_engine as _pve
-        _owners, _how = _pve.seed_maintainers(dest)
+        _owners, _how = _pve.seed_maintainers(
+            dest, fallback=[admin_named.lstrip('@')] if admin_named else None)
     except Exception as e:                                    # noqa: BLE001
         _owners, _how = [], f'could not work it out ({e})'
     say(f'  code owners: ' + (f'named {", ".join("@" + o for o in _owners)} in '
@@ -832,11 +851,14 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
             f'template defect, so fix it upstream in templates/:')
         for u in unlinked:
             say(f'    {u}')
-    say('  then: review the tree, commit on a branch, and give the repository an `origin` '
-        'before the first session works in it (the freshness guard refuses the first '
-        'write while it cannot reach one).')
+    if _run(['git', 'remote', 'get-url', 'origin'], dest).returncode == 0:
+        say('  then: review the tree and commit it on a branch.')
+    else:
+        say('  then: review the tree, commit on a branch, and give the repository an '
+            '`origin` before the first session works in it (the freshness guard '
+            'refuses the first write while it cannot reach one).')
     say('  still a conversation, not a step: does the team or the person have a '
-        'practices repo to wire in? (INSTALL.md §1 step 9)')
+        'practices repo to wire in? (INSTALL.md section 0 step 3)')
     say(f'  {OTHER_ASSISTANTS_NOTE}')
     return lint_ok
 

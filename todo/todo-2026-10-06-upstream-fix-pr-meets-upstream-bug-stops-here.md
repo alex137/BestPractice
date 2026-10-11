@@ -3,16 +3,16 @@ slug:              todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here
 kind:              manual
 domain:            practice
 severity:          null
-status:            open
-disposition:       ask
+status:            done
+disposition:       null
 remind_on:         null
-blocked_on:        "a decision by Morgan (owner of upstream-bug-stops-here) and Alex (who approved the todo-is-a-handoff change) on which of the two wordings governs"
+blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "S. Alexander Jacobson, 2026-10-06: \"Yes. Opening a pr counts as asking.\""
+decision_strength: decided
 waiting_on:        null
 noted:             2026-10-06
-closed:            null
+closed:            2026-10-06
 ---
 ## What
 
@@ -35,3 +35,7 @@ stop first. One of the two should say how it relates to the other.
 My pick: amend upstream-bug-stops-here so "stop and ask" covers the local
 edit and the landing, and opening the upstream pull request in the same turn
 counts as showing the person; the pull request is reviewed before it lands.
+
+## Notes
+
+2026-10-06: closed. Decided as the pick above: upstream-bug-stops-here now says the local copy is never patched, the fix opens upstream as a pull request in the same turn, and that pull request is the ask; a Prompt Please remains for an owner that cannot be reached.

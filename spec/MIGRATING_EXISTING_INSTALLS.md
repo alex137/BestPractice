@@ -207,8 +207,10 @@ widening what sessions may run
      Declare what
      [INSTALL.md's "Which shared sets does this repo declare?" table](../INSTALL.md#1-install-into-a-dependent-repo)
      gives for this kind of repo — ordinarily that team's set plus
-     `precedent-shared-writing` and `precedent-shared-working-style`, each
-     a `level: "shared"` entry pointing at its sibling clone. Then **read
+     `precedent-shared-writing`, each a `level: "shared"` entry pointing at
+     its sibling clone. Never a set on
+     [tools/deleted_sets.json](../tools/deleted_sets.json)'s list
+     (`precedent-shared-working-style` is one, since 2026-10-08). Then **read
      the sync's output in step 8, not just its exit code**: every
      `IN FORCE NOWHERE` line is a rule this migration just lost. A
      by-the-book migration that declared only the team's set lost six that

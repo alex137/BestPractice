@@ -136,7 +136,7 @@ honest "this session is the right one" answer.
 
 The phrase is Morgan's, proposed 2026-09-13: *"Maybe the phrase is just
 'Chief of Staff'."* It would join
-[go-update](https://github.com/alex137/BestPractice/blob/staging/practices/go-update.md),
+[go-update](https://github.com/themorgan/precedent-shared-ladder/blob/main/practices/go-update.md),
 [park-it](https://github.com/alex137/BestPractice/blob/staging/practices/park-it.md),
 [three-things](https://github.com/alex137/BestPractice/blob/staging/practices/three-things.md),
 [plain-words](https://github.com/alex137/BestPractice/blob/staging/practices/plain-words.md),
