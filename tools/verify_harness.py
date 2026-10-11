@@ -25499,7 +25499,13 @@ def check_practice_file_shape_judges_one_file_at_a_time():
         return (f'---\nslug:        {slug}\ntier:        {tier}\n'
                 f'applies_to:  ["**"]\napplies_to_why: "planted"\n'
                 f'index_clause: "{clause}"\nchecked_by:  {checked_by}\n'
-                f'status:      active\n---\n## Rule\n{rule}\n{extra}')
+                f'status:      active\n---\n## Rule\n{rule}\n{extra}'
+                f'{sections}')
+
+    # Every practice carries ## Why, ## Story and ## Install as well as its
+    # Rule (practice-file-shape since 2026-10-11); a fixture without them
+    # reads as malformed, and the clean control stops being clean.
+    sections = '\n## Why\nplanted.\n\n## Story\nplanted.\n\n## Install\nplanted.\n'
 
     def judge(files):
         d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shape-'))
@@ -25518,6 +25524,9 @@ def check_practice_file_shape_judges_one_file_at_a_time():
     clean = {'practices/ok.md': practice('ok')}
     cases = [('a well-formed practice is quiet', judge(clean) == '', judge(clean))]
     planted = [
+        ('a practice with no ## Install',
+         {'practices/a.md': practice('a').replace('\n## Install\nplanted.\n', '\n')},
+         'missing section(s) ## Install'),
         ('slug not the filename', {'practices/a.md': practice('b')}, "is not the filename 'a'"),
         ('checked_by names a missing script',
          {'practices/a.md': practice('a', checked_by='tools/gone.py')}, "'tools/gone.py', which does not exist"),
