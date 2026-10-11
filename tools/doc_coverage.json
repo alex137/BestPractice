@@ -170,6 +170,36 @@
         ".claude/hooks"
       ],
       "why": "It is the git/GitHub glossary and the eight-ideas explainer this project's own workflow rests on, with the machinery files (workflows, hooks, templates) as worked examples. It goes stale when a cited example is renamed or a workflow's trigger shape changes."
+    },
+    "documentation/ONE_SENTENCE.md": {
+      "describes": [
+        "README.md",
+        "documentation/WHY_PRECEDENT.md"
+      ],
+      "why": "It collects one-line attempts at saying what Precedent is. It goes stale when the project's own account of itself changes -- the README's opening or the pitch page -- and a line here no longer matches it."
+    },
+    "documentation/OUR_LANGUAGE.md": {
+      "describes": [
+        "tools/our_language.json",
+        "tools/our_language.py"
+      ],
+      "why": "It is the reader's list of the words used about Precedent and the words retired from use. Both tables are generated from tools/our_language.json; the prose around them goes stale when a word is added, redefined or retired there."
+    },
+    "documentation/README.md": {
+      "describes": [
+        "documentation/examples/practice-set"
+      ],
+      "why": "It is the index of the pages in documentation/, one line each. A renamed page breaks its link, which the Markdown lint reports; a new page, or one whose subject changed, is what to read it against. The example practice set is the one thing it lists that is not a page."
+    },
+    "documentation/STAYING_INFORMED.md": {
+      "describes": [
+        "practices/whats-new.md",
+        "practices/automation-issues.md",
+        "practices/todo-reminder.md",
+        "practices/open-item-disposition.md",
+        "tools/precedent_engine_freshness.py"
+      ],
+      "why": "It tells a reader how they hear what changed: the daily log, an issue opened by a stuck job, the session-start notice that a source has moved, and reminders and to-do items that wait for the next conversation. A change to any of those mechanisms is what dates it."
     }
   },
   "must_mention": {

@@ -3160,6 +3160,16 @@ def _spoken_commands(repo_dir):
             fm = sp.parse_frontmatter_fields(text.split('---', 2)[1], decode=True)
             if (fm.get('status') or 'active').strip() != 'active':
                 continue
+            # A command for code owners only is left out of every committed
+            # page by precedent_vocabulary.py (Morgan, 2026-10-05), so it is
+            # never "missing" from DAILY_HABITS.md. Until 2026-10-11 this scan
+            # reported four of them as missing on every run.
+            try:
+                import precedent_audience as _pa
+                if _pa.for_code_owners(fm):
+                    continue
+            except ImportError:
+                pass
             raw = fm.get('command')
             if not raw or raw == 'null':
                 continue
@@ -5429,6 +5439,59 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
             'path': str(repo_dir)}
 
 
+# Files a run of this tool writes into the checkout it reads, as paths
+# relative to its root. Each is somebody's uncommitted work only if it was
+# already uncommitted before the run started (_snapshot_dirty): on
+# 2026-10-11 the LIVE SESSIONS section reported the branch page this same
+# run had just written as "work that exists in no commit at all".
+RUN_OUTPUTS = ('record/stale_branches.md', 'record/very-deep-check-ledger.json',
+               'spec/VERY_DEEP_CHECK.md')
+
+_DIRTY_AT_START = {}
+
+
+def _porcelain_paths(repo_dir):
+    """-> the set of uncommitted paths (changed, staged or untracked), or
+    None. Read from `git status --porcelain -z`: two status letters, a
+    space, the path. _run_git strips its output, which takes the leading
+    space off the first record's status, so each record is split at the
+    space that ends its status rather than at a fixed column."""
+    rc, out, _ = _run_git(repo_dir, 'status', '--porcelain', '-z')
+    if rc != 0:
+        return None
+    paths, recs, i = set(), out.split('\0'), 0
+    while i < len(recs):
+        rec, i = recs[i], i + 1
+        if not rec.strip():
+            continue
+        head, path = (rec[:2], rec[3:]) if rec[0] == ' ' \
+            else rec.split(' ', 1) if ' ' in rec else (rec, '')
+        if path:
+            paths.add(path)
+        if 'R' in head or 'C' in head:
+            i += 1   # a rename's source path follows as its own record
+    return paths
+
+
+def _snapshot_dirty(repo_dir):
+    """Record what was uncommitted in `repo_dir` before this run wrote."""
+    _DIRTY_AT_START[str(pathlib.Path(repo_dir).resolve())] = \
+        _porcelain_paths(repo_dir)
+
+
+def _dirty_not_ours(repo_dir):
+    """-> how many uncommitted paths `repo_dir` holds, leaving out a
+    RUN_OUTPUTS file this run made dirty itself; None when git cannot say."""
+    now = _porcelain_paths(repo_dir)
+    if now is None:
+        return None
+    key = str(pathlib.Path(repo_dir).resolve())
+    if key in _DIRTY_AT_START and _DIRTY_AT_START[key] is not None:
+        ours = set(RUN_OUTPUTS) - _DIRTY_AT_START[key]
+        now = now - ours
+    return len(now)
+
+
 def recent_activity(repo_dir, days):
     """-> what landed in one repo inside the last `days`, as the repo half of
     the live-session sweep:
@@ -5512,8 +5575,7 @@ def recent_activity(repo_dir, days):
     out['branches'].sort(key=lambda r: (r['last'], r['name']), reverse=True)
     # Uncommitted and unpushed work in THIS checkout is the same failure one
     # step earlier, and it is the cheapest thing here to check.
-    rc, dirty, _ = _run_git(repo_dir, 'status', '--porcelain')
-    out['dirty'] = len([l for l in dirty.splitlines() if l.strip()]) if rc == 0 else None
+    out['dirty'] = _dirty_not_ours(repo_dir)
     return out
 
 
@@ -5725,7 +5787,9 @@ def tier_pairs(repo_dir, target=None):
 
     A pair is listed only when both branches exist on origin (a repo with no
     pre-staging has the old single pair and nothing else), never twice, and
-    never a branch against itself. `target` overrides the declared base, as
+    never a branch against itself. A pre-staging retired for this person
+    (precedent_branches.pre_staging_unused) is in no pair: it is a branch
+    awaiting deletion, not a tier. `target` overrides the declared base, as
     the --target flag always has."""
     repo_dir = pathlib.Path(repo_dir)
     default = _default_remote_branch(repo_dir)
@@ -5734,6 +5798,13 @@ def tier_pairs(repo_dir, target=None):
         import precedent_branches as _pb
         staging = _pb.staging_branch(repo_dir)
         pre = _pb.PRE_STAGING
+        # A pre-staging retired for this person (they land on staging) is
+        # no tier: nothing reaches it, so "staging carries what pre-staging
+        # never took" is true forever and calls for no sync. Listing it
+        # told the 2026-10-11 run to bring 66 commits down into a branch
+        # waiting to be deleted.
+        if _pb.pre_staging_unused(repo_dir)[0]:
+            pre = None
     except Exception:                                            # noqa: BLE001
         staging, pre = declared, 'pre-staging'
     main = default or 'main'
@@ -5947,8 +6018,14 @@ def enumerate_scope(repo=None, user_config=None):
 _OWNER = r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})'
 # Only a github.com URL proves an `owner/name` IS a repository reference.
 # Those URLs are then what tells us which owners to look for in bare prose.
-_URL_REF_RE = re.compile(r'github\.com/(' + _OWNER + r')/([A-Za-z][\w.-]*?)'
-                         r'(?=[\s)\]"\'`,;:]|\.git\b|/|$)')
+# A sentence-ending period is not part of the name ("see owner/name."), and
+# api.github.com/repos/OWNER/NAME names OWNER/NAME, never a repo "OWNER" of
+# an owner called "repos": both read as extra repositories until 2026-10-11,
+# and each one cost the visibility audit a GitHub call.
+_REF_END = r'(?=[\s)\]"\'`,;:]|\.git\b|\.(?:[\s)\]"\'`*_,;:]|$)|/|$)'
+_URL_REF_RE = re.compile(r'(?:api\.github\.com/repos|(?<![\w.-])(?:www\.)?'
+                         r'github\.com)/('
+                         + _OWNER + r')/([A-Za-z][\w.-]*?)' + _REF_END)
 
 # A first attempt matched any `x/y` and produced 389 candidates from this
 # tree -- fractions, ratios, CSS line-heights, "10/10", "287/290". Anchoring
@@ -5961,7 +6038,7 @@ def _bare_ref_re(owners):
         return None
     alt = '|'.join(re.escape(o) for o in sorted(owners))
     return re.compile(r'(?<![\w./-])(' + alt + r')/([A-Za-z][\w.-]*?)'
-                      r'(?=[\s)\]"\'`,;:]|\.git\b|/|$)')
+                      + _REF_END)
 
 
 _NOT_A_REPO_NAME = re.compile(
@@ -8351,6 +8428,10 @@ def _main(box):
         led = RunLedger(ledger_path, repo_root, sys.argv[1:])
         box['ledger'] = led
     _fresh = {}
+    # What was uncommitted BEFORE this run wrote anything: the live-session
+    # sweep counts uncommitted work, and this run writes files of its own
+    # into this checkout first (RUN_OUTPUTS).
+    _snapshot_dirty(repo_root)
     if led:
         led.start('FRESHNESS -- this checkout')
     _v = freshness(repo_root)

@@ -4403,7 +4403,7 @@ def _edit_access_logins(dest_root):
         (None, 'GitHub lists nobody with edit access')
 
 
-def seed_maintainers(dest_root, logins=None, today=None):
+def seed_maintainers(dest_root, logins=None, today=None, fallback=None):
     """Name this repository's code owners in precedent.json's `maintainers`
     when it names none yet: the people who can edit it on GitHub right now,
     or, when GitHub cannot say, the person running this. -> (written, how):
@@ -4442,6 +4442,11 @@ def seed_maintainers(dest_root, logins=None, today=None):
     how = 'everyone GitHub lists with edit access'
     if logins is None:
         logins, why = _edit_access_logins(root)
+        if not logins and fallback:
+            # The administrator the installer was told about (--admin)
+            # outranks a guess at whoever happens to be running it
+            # (2026-10-11: --admin was taken and then ignored here).
+            logins, how = list(fallback), f'the administrator named at install ({why})'
         if not logins:
             try:
                 import precedent_audience as _pa

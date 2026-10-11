@@ -4233,6 +4233,39 @@ def check_freshness_covers_every_declared_source():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_visibility_audit_reads_repo_names_out_of_prose():
+    """The visibility audit's reference finder takes the name a sentence
+    means, once (practice: very-deep-check).
+
+    WHY. On 2026-10-11 it read "see owner/name." as a repository called
+    "name." beside "name", and api.github.com/repos/OWNER/NAME as a
+    repository "OWNER" of an owner called "repos" -- sixteen extra names in
+    this tree, each one a GitHub call over the run's declared budget."""
+    import very_deep_check as vdc
+    text = ('see https://github.com/acme/widget. then '
+            'https://api.github.com/repos/acme/toolkit/actions, '
+            '*https://www.github.com/acme/star.* and "acme/quoted." '
+            'and https://github.com/acme/plain')
+    urls = set(vdc._URL_REF_RE.findall(text))
+    bare = set(vdc._bare_ref_re({'acme'}).findall(text))
+    cases = [
+        ('a sentence-ending period is not part of the name',
+         ('acme', 'widget') in urls and ('acme', 'widget.') not in urls),
+        ('an API path names the repository after /repos/',
+         ('acme', 'toolkit') in urls
+         and not any(o == 'repos' for o, _ in urls)),
+        ('a period before closing punctuation ends the name too',
+         ('acme', 'star') in urls),
+        ('a plain URL still reads as before', ('acme', 'plain') in urls),
+        ('bare prose under a known owner drops its period as well',
+         ('acme', 'quoted') in bare and ('acme', 'quoted.') not in bare),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the visibility audit reads repository names out of prose '
+          f'({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + f' -- urls {sorted(urls)}, bare {sorted(bare)}')
+
+
 def check_visibility_audit_reads_the_blocklist_as_patterns():
     """The stale-entry half of very_deep_check's visibility audit, repaired.
 
@@ -10059,6 +10092,39 @@ def check_consumer_engine_carries_what_its_checks_import():
     bad = [n for n, ok in cases if not ok]
     check(f'a consumer\'s engine carries every module its checks import '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_install_records_the_commit_its_catalogue_came_from():
+    """A fresh install writes CATALOGUE_SYNC.json naming the commit its
+    practice catalogue was copied from, exactly when that is true.
+
+    WHY. Only Update Vendors wrote it. A fresh install had none, so every
+    session start said "freshness: NOT VERIFIED", the freshness tool said
+    the catalogue's practices were "absent this session" while 180 sat on
+    disk, and the first update judged local edits against no commit at all
+    (very deep check, 2026-10-11, pass 1)."""
+    import tempfile as _tf
+    import precedent_install as _pi
+    head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                          capture_output=True, text=True).stdout.strip()
+    dirty = subprocess.run(['git', '-C', str(ROOT), 'status', '--porcelain',
+                            '--', 'practices', 'precedent-source.json'],
+                           capture_output=True, text=True).stdout.strip()
+    with _tf.TemporaryDirectory() as td:
+        dest = pathlib.Path(td)
+        n = _pi._vendor_catalogue(dest)
+        rec = dest / _pi.UNIVERSAL_PATH / 'CATALOGUE_SYNC.json'
+        got = json.loads(rec.read_text()) if rec.is_file() else None
+    if dirty:
+        cases = [('a catalogue copied from uncommitted practices records no '
+                  'commit it did not come from', got is None)]
+    else:
+        cases = [('the copy is there', n > 0),
+                 ('its record names the commit it was copied from',
+                  (got or {}).get('source_commit') == head)]
+    failed = [c for c, ok in cases if not ok]
+    check(f'an install records where its catalogue came from ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed) + f' -- {got}')
 
 
 def check_install_names_the_other_assistants_adapters():
@@ -33541,6 +33607,18 @@ def check_commit_identity_prevents_the_wrong_offset():
                       == f'/usr/share/zoneinfo/{_declared_fallback_tz()}'))
         cases.append(('and names it a fallback rather than this person\'s zone',
                       'DECLARED FALLBACK' in r2.stderr))
+        # 2b. ...but only over the container's UTC. A clock already on a
+        # real zone was set by someone, and a guess leaves it alone
+        # (2026-10-11: a scratch repo with no identity moved a machine on
+        # Buenos Aires to the fallback).
+        home = str(tmp / 'h2b'); os.makedirs(home)
+        lt2b = str(tmp / 'lt2b')
+        subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                       timeout=120,
+                       env=dict(_env(home, lt2b, now='Asia/Tokyo'),
+                                CLAUDE_PROJECT_DIR=str(guessed)))
+        cases.append(('a guess never moves a clock already on a real zone',
+                      not os.path.lexists(lt2b)))
         # The line that must NOT move: applied is not enforced. A hook run
         # that resolved no zone leaves the pre-commit backstop with no
         # offset to refuse on.
@@ -34477,8 +34555,8 @@ def check_branch_tiers():
         # them"); a fresh install by that person is the asking.
         not_on_update = not pb.ensure_repo_landing(repo) and \
             'landing_branch' not in pb.precedent_json(repo)
-        wrote = pb.ensure_repo_landing(repo, new_install=True)
-        again = pb.ensure_repo_landing(repo, new_install=True)
+        wrote = pb.ensure_repo_landing(repo, new_install=True, user_config=str(cfg))
+        again = pb.ensure_repo_landing(repo, new_install=True, user_config=str(cfg))
         cases.append(('the repo default is written once, as pre-staging, at a fresh '
                       'install, never by an update into a repository without '
                       'tiers, and never over a value the repo already has',
@@ -34487,6 +34565,24 @@ def check_branch_tiers():
                       and pb.precedent_json(repo).get('base_branch') == 'main'))
         (repo / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'main'}), encoding='utf-8')
+        # A person who has retired pre-staging starts a new repository on
+        # staging, not on the tier they left (2026-10-11: a fresh install
+        # by Morgan wrote pre-staging and made it on origin).
+        default_before = pb.repo_landing_default(repo, str(cfg))[0]
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {**_json.loads(ident_before), 'retire_pre_staging': True,
+             'promote_only': True}), encoding='utf-8')
+        retired_default = pb.repo_landing_default(repo, str(cfg))[0]
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {**_json.loads(ident_before), 'landing_branch': 'staging'}),
+            encoding='utf-8')
+        declared_default = pb.repo_landing_default(repo, str(cfg))[0]
+        (indiv / 'identity.json').write_text(ident_before, encoding='utf-8')
+        cases.append(('a new repository lands on staging for a person who '
+                      'retired pre-staging, and on pre-staging otherwise',
+                      default_before == 'pre-staging'
+                      and retired_default == 'staging'
+                      and declared_default == 'staging'))
 
         def targets(args):
             return pb.push_targets(repo, args)
@@ -49122,6 +49218,43 @@ def check_session_start_warns_of_unapproved_workflow():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_ci_fleet_audit_skips_deleted_sets():
+    """The fleet audit never asks GitHub about a deleted practice set
+    (practice: ci-workflow-approved).
+
+    WHY. discover() takes every clone beside this checkout, and a session
+    that attached a set before it was deleted still has the clone. On
+    2026-10-11 the audit asked about two deleted sets, got the proxy's
+    refusal for every question, listed both as NOT REACHED, and ran over
+    its declared API budget."""
+    import tempfile
+    import ci_fleet_audit as cfa
+    import precedent_resolve as pr
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        for name in ('BestPractice', 'live-set', 'gone-set'):
+            d = tmp / name
+            d.mkdir()
+            fixture_git(d, 'init', '-q')
+            fixture_git(d, 'remote', 'add', 'origin',
+                        f'https://github.com/acme/{name}.git')
+        real = pr.deleted_sets
+        pr.deleted_sets = lambda *a, **k: {'gone-set': {}}
+        try:
+            found = cfa.discover(tmp / 'BestPractice')
+        finally:
+            pr.deleted_sets = real
+    cases = [
+        ('a live clone beside the checkout is audited',
+         'acme/live-set' in found),
+        ('a deleted set\'s clone is not', 'acme/gone-set' not in found),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the fleet audit skips deleted sets ({len(cases)} stated cases)',
+          not failed, '; '.join(failed) + f' -- found {found}')
+
+
 def check_ci_fleet_audit_reads_github_not_the_clone():
     """practice: ci-workflow-approved, 2026-09-26. The push-time check sees
     only a session's own pushes; tools/ci_fleet_audit.py asks GitHub, so it
@@ -55238,9 +55371,17 @@ def check_install_and_update_name_the_code_owners():
         cases.append(('GitHub unable to say: the person running it, and why',
                       got5 == ['hank'] and 'person running' in how5 and '403' in how5,
                       f'{got5} {how5}'))
+        e = fresh('e')
+        subprocess.run(['git', '-C', str(e), 'remote', 'add', 'origin',
+                        'https://github.com/o/r.git'], capture_output=True)
+        got6, how6 = pve.seed_maintainers(e, today='2026-10-11', fallback=['ivy'])
+        cases.append(('GitHub unable to say and an administrator named at '
+                      'install: that administrator, not the person running it',
+                      got6 == ['ivy'] and 'administrator' in how6,
+                      f'{got6} {how6}'))
 
         for f, needle in (('precedent_update.py', 'maintainers_step(repo, rep)'),
-                          ('precedent_install.py', 'seed_maintainers(dest)')):
+                          ('precedent_install.py', 'seed_maintainers(\n            dest')):
             cases.append((f'{f} runs it',
                           needle in (ROOT / 'tools' / f).read_text(encoding='utf-8'), ''))
     finally:
@@ -62144,6 +62285,57 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_install_by_a_staging_person_makes_no_pre_staging():
+    """A new install by a person who has retired pre-staging lands on
+    staging and makes no pre-staging on origin (2026-10-11).
+
+    WHY. The very deep check's install rehearsal, run as Morgan, got
+    landing_branch "pre-staging" written into precedent.json and a
+    pre-staging branch pushed to origin -- the tier he had retired from
+    every repository two days earlier. The next Update Vendors would then
+    have moved it back and offered the branch for deletion."""
+    import tempfile
+    import precedent_branches as pb
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        results = {}
+        for landing in ('staging', 'pre-staging'):
+            bare, repo = tmp / f'{landing}.git', tmp / f'{landing}-repo'
+            fixture_git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+            fixture_git(tmp, 'init', '-q', '-b', 'main', str(repo))
+            fixture_git(repo, 'config', 'user.email', 'h@example.com')
+            fixture_git(repo, 'config', 'user.name', 'H')
+            (repo / 'precedent.json').write_text(json.dumps(
+                {'base_branch': 'staging', 'landing_branch': landing}) + '\n')
+            fixture_git(repo, 'add', '-A')
+            fixture_git(repo, 'commit', '-qm', 'install')
+            fixture_git(repo, 'remote', 'add', 'origin', str(bare))
+            fixture_git(repo, 'push', '-q', 'origin', 'main')
+            real = (pb.ladder_in_force, pb.pre_staging_unused)
+            pb.ladder_in_force = lambda *a, **k: True
+            pb.pre_staging_unused = lambda *a, **k: (False, None)
+            try:
+                rc = pb.ensure_tiers(repo, apply=True, say=lambda *a: None,
+                                     new_install=True)
+            finally:
+                pb.ladder_in_force, pb.pre_staging_unused = real
+            heads = subprocess.run(['git', '-C', str(bare), 'branch',
+                                    '--format=%(refname:short)'],
+                                   capture_output=True, text=True).stdout.split()
+            results[landing] = (rc, sorted(heads))
+    cases = [
+        ('an install landing on staging gets staging and no pre-staging',
+         results['staging'] == (0, ['main', 'staging'])),
+        ('an install landing on pre-staging still gets both tiers',
+         results['pre-staging'][0] == 0
+         and 'pre-staging' in results['pre-staging'][1]),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'an install on staging makes no pre-staging ({len(cases)} stated '
+          f'cases)', not failed, '; '.join(failed) + f' -- {results}')
+
+
 def check_update_vendors_retires_pre_staging():
     """The upgrade off pre-staging, for a person who lands straight on
     staging (Morgan, 2026-10-09: "make sure we have a smooth upgrade process
@@ -66818,6 +67010,36 @@ def check_heading_anchor_keeps_combining_marks():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_vocabulary_scan_skips_code_owner_commands():
+    """The very deep check's list of spoken commands leaves out a command
+    marked for code owners only, as the vocabulary page itself does.
+
+    WHY. precedent_vocabulary.py keeps code-owner commands out of every
+    committed page (Morgan, 2026-10-05), and DAILY_HABITS.md is generated
+    from it. The scan that checks the page used its own list and reported
+    "Deep check", "Very deep check", "Full practice audit" and "Update
+    Vendors" missing on every run, and a session told to fix that would have
+    broken the generated page (2026-10-11)."""
+    import tempfile
+    import very_deep_check as vdc
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td) / 'practices'
+        d.mkdir()
+        for slug, extra in (('everyone', ''),
+                            ('owners-only', 'visible_to: code-owners\n')):
+            (d / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\nstatus: active\n{extra}'
+                f'command: ["Say {slug}"]\n---\n## Rule\n\nx\n',
+                encoding='utf-8')
+        got = vdc._spoken_commands(td)
+    phrases = [p for p, _s in got]
+    cases = [('a command for everyone is listed', 'Say everyone' in phrases),
+             ('a code-owner command is not', 'Say owners-only' not in phrases)]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the vocabulary scan skips code-owner commands ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed) + f' -- {got}')
+
+
 def check_spoken_commands_lead_the_session_start():
     """With five sets attached, a session opened above them got every repo's
     start-up output joined and cut, and the ladder's stage words came after
@@ -69370,7 +69592,20 @@ def check_very_deep_check_walks_every_tier_pair():
         d = vdc.base_branch_drift(work, 'pre-staging', 'main') or {}
         subjects = [c['subject'] for c in d.get('commits') or []]
         e = vdc.endgame_merge(work, 'pre-staging', 'staging') or {}
+        # The same origin for a person who lands on staging: pre-staging is
+        # retired there, so no pair may name it (2026-10-11: a run told the
+        # person to sync 66 commits into a branch awaiting deletion).
+        import precedent_branches as _pb
+        _real_unused = _pb.pre_staging_unused
+        _pb.pre_staging_unused = lambda root, user_config=None: (True, None)
+        try:
+            retired_pairs = vdc.tier_pairs(work)
+        finally:
+            _pb.pre_staging_unused = _real_unused
         results = [
+            ('a retired pre-staging is in no pair; staging into main still is',
+             retired_pairs.get('drift') == [('staging', 'main')]
+             and retired_pairs.get('endgame') == [('staging', 'main')]),
             ('the drift pairs are staging and main into pre-staging, and main '
              'into staging',
              pairs.get('drift') == [('pre-staging', 'staging'),
@@ -69387,7 +69622,8 @@ def check_very_deep_check_walks_every_tier_pair():
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check walks every tier pair ({len(results)} '
               f'stated cases)', not failed,
-              '; '.join(failed) + f' -- pairs {pairs}, drift {subjects}, '
+              '; '.join(failed) + f' -- pairs {pairs}, retired '
+              f'{retired_pairs}, drift {subjects}, '
               f'endgame {e.get("status")} {e.get("note")}')
 
 
@@ -70429,6 +70665,21 @@ def check_session_sweep_reports_the_repo_half():
         (work / 'scratch.txt').write_text('never committed\n')
         dirty = vdc.recent_activity(work, 14) or {}
         wide = vdc.recent_activity(work, 500) or {}
+        # A file this run writes itself is not somebody's lost work when the
+        # run made it dirty (2026-10-11: the branch page the run had just
+        # written was reported as uncommitted work). One already dirty
+        # before the run still is.
+        (work / 'scratch.txt').unlink()
+        (work / 'record').mkdir(exist_ok=True)
+        (work / 'record' / 'stale_branches.md').write_text('old\n')
+        _git(work, 'add', '-A'); _git(work, 'commit', '-qm', 'page')
+        vdc._snapshot_dirty(work)
+        (work / 'record' / 'stale_branches.md').write_text('this run\n')
+        own = vdc.recent_activity(work, 14) or {}
+        (work / 'scratch.txt').write_text('never committed\n')
+        vdc._snapshot_dirty(work)
+        theirs = vdc.recent_activity(work, 14) or {}
+        vdc._DIRTY_AT_START.pop(str(work.resolve()), None)
 
         results = [
             ('a branch pushed inside the window is reported',
@@ -70446,6 +70697,10 @@ def check_session_sweep_reports_the_repo_half():
              dirty.get('dirty') == 1),
             ('and a clean tree is reported as clean, not as unknown',
              act.get('dirty') == 0),
+            ('a file this run wrote itself is not counted as lost work',
+             own.get('dirty') == 0),
+            ('work that was uncommitted before the run still is',
+             theirs.get('dirty') == 2),
         ]
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check reports the repo half of the session '
@@ -73922,6 +74177,7 @@ def main():
     check_push_refuses_a_hand_made_session_branch_name()
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
+    check_install_records_the_commit_its_catalogue_came_from()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
     check_retired_set_takes_only_its_retirement()
@@ -74078,6 +74334,7 @@ def main():
           *check_heading_anchor_keeps_combining_marks())
     check('spoken commands lead the session-start output, from every repo, before any cut',
           *check_spoken_commands_lead_the_session_start())
+    check_vocabulary_scan_skips_code_owner_commands()
     check('Update Vendors: gotchas/ seeded, generated files rebuilt, filled placeholders '
           'carried, allow rules once, live citations quiet, pip errors kept',
           *check_update_vendors_onegplanning_findings())
@@ -74354,6 +74611,7 @@ def main():
     check_ci_workflow_approved_pins_approval_to_content()
     check_ledger_accepts_a_row_added_with_its_change()
     check_ci_fleet_audit_reads_github_not_the_clone()
+    check_ci_fleet_audit_skips_deleted_sets()
     check_session_start_warns_of_unapproved_workflow()
     check_workflow_write_gate_refuses_api_writes()
     check_very_deep_check_workflow_liveness_scan()
@@ -74542,6 +74800,7 @@ def main():
     check_promote_into_main_exits_nonzero_until_main_moves()
     check_landing_on_staging_run_tests_and_fast_move_into_main()
     check_update_vendors_retires_pre_staging()
+    check_install_by_a_staging_person_makes_no_pre_staging()
     check_promote_ends_with_its_result_line()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
@@ -74582,6 +74841,7 @@ def main():
     check_leak_gate_refresh_declines_a_dirty_clone()
     check_freshness_covers_every_declared_source()
     check_visibility_audit_reads_the_blocklist_as_patterns()
+    check_visibility_audit_reads_repo_names_out_of_prose()
     check('the individual set has one tree on disk, whichever of the '
           'bootstrap and the attach tool cloned it first',
           *check_individual_set_has_one_tree_whichever_route_cloned_it())
