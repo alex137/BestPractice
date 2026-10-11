@@ -13977,6 +13977,81 @@ def check_update_vendors_resolves_local_edits():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_rebaselines_what_it_asked_about_and_reviews_no_git_output():
+    """Two Update Vendors faults found on one consumer, 2026-10-11.
+
+    1. A file the update asked the person to edit (LEFT FOR YOU) and they
+       edited as asked is part of the update: the rerun re-records its
+       classic-manifest baseline, where before it took the edit for a local
+       change and the basic check failed it as DRIFT.
+    2. What git prints is never read as a warning: the upstream review read
+       `git show` of the engine source and listed lines of code as items.
+
+    Negative control, measured 2026-10-11 against staging at 982b077: the
+    module has no asked_paths, earlier_asked or _is_git, and git output was
+    appended to OUTPUTS, so every case fails."""
+    import tempfile, json as _json, hashlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    need = ('asked_paths', 'record_asked', 'earlier_asked', '_is_git')
+    if not all(hasattr(pu, n) for n in need):
+        return False, 'precedent_update lacks ' + ', '.join(n for n in need if not hasattr(pu, n))
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t',
+                                       '-c', 'user.email=t@example.invalid', *a],
+                                      capture_output=True, text=True)
+        g('init', '-q')
+        (repo / 'AGENTS.md').write_text('# old\n', encoding='utf-8')
+        (repo / 'local').mkdir()
+        (repo / 'local' / 'v.md').write_text('x\n', encoding='utf-8')
+        (repo / 'process').mkdir()
+        old = hashlib.sha256(b'# old\n').hexdigest()
+        (repo / 'process' / 'manifest.json').write_text(_json.dumps({
+            'upstream': {'vendored_at': 'process/upstream'},
+            'entries': [{'practice': 'instructions-file', 'local_path': 'AGENTS.md',
+                         'upstream_path': 'templates/AGENTS.md.template',
+                         'granularity': 'file', 'status': 'synced',
+                         'local_sha256': old}]}), encoding='utf-8')
+        g('add', '-A'); g('commit', '-q', '-m', 'base')
+        left = [('AGENTS.md "### Two check levels"', 'replace the section'),
+                ('local/v.md:142', 'template wording dropped'),
+                ('retired set: x', 'no file'),
+                ('missing.md:3', 'a file that is not there')]
+        got = pu.asked_paths(left, repo)
+        cases.append(('the asked files are read from the LEFT items, and only '
+                      f'files that exist (got {got})', got == ['AGENTS.md', 'local/v.md']))
+        pu.record_asked(repo, got)
+        cases.append(('the next run reads them back',
+                      pu.earlier_asked(repo) == {'AGENTS.md', 'local/v.md'}))
+        (repo / 'AGENTS.md').write_text('# edited as asked\n', encoding='utf-8')
+        done = pu.rebaseline_vendored_entries(repo, pu.earlier_asked(repo))
+        rec = _json.loads((repo / 'process' / 'manifest.json').read_text())['entries'][0]
+        cases.append(('an asked file edited as asked is re-baselined',
+                      done == ['AGENTS.md'] and rec['local_sha256']
+                      == hashlib.sha256(b'# edited as asked\n').hexdigest()))
+        pu.record_asked(repo, [])
+        cases.append(('a run that asks nothing clears the list',
+                      pu.earlier_asked(repo) == set()))
+        (repo / 'AGENTS.md').write_text('# a local change\n', encoding='utf-8')
+        cases.append(('...and then an edit is a local change again, left as DRIFT',
+                      pu.rebaseline_vendored_entries(repo, pu.earlier_asked(repo)) == []))
+        pu.OUTPUTS.clear()
+        pu.run(['git', '-C', str(repo), 'show', 'HEAD:AGENTS.md'], repo)
+        cases.append(('git output is not read by the upstream review',
+                      pu.OUTPUTS == []))
+        pu.run([sys.executable, '-c', 'print("WARN: a real warning")'], repo)
+        cases.append(('a tool step\'s output still is',
+                      len(pu.OUTPUTS) == 1 and 'WARN: a real warning' in pu.OUTPUTS[0]))
+        pu.OUTPUTS.clear()
+    failed = [n for n, ok in cases if not ok]
+    return not failed, '; '.join(failed) or f'{len(cases)} stated cases'
+
+
 def check_update_rerun_after_failed_takes_its_own_output():
     """A rerun of Update Vendors after a FAILED one recognises what the
     failed run staged as its own output, puts it back and writes it again,
@@ -74236,6 +74311,8 @@ def main():
           *check_update_vendors_resolves_local_edits())
     check('a rerun after a FAILED Update Vendors takes the staged output as its own',
           *check_update_rerun_after_failed_takes_its_own_output())
+    check('Update Vendors re-baselines a file it asked about, and its review reads no git output',
+          *check_update_rebaselines_what_it_asked_about_and_reviews_no_git_output())
     check('a rerun of Update Vendors counts its own staged output apart from yours',
           *check_update_rerun_counts_its_own_staged_output_apart())
     check('Update Vendors reports every blocker before it starts the slow check',

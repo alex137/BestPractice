@@ -2646,6 +2646,8 @@ class Report:
             # work (earlier_runs_output).
             record_kept_output(self.repo or self.pin_repo,
                                set(self.staged) | self.earlier)
+            record_asked(self.repo or self.pin_repo,
+                         asked_paths(self.left, self.repo or self.pin_repo))
         if self.loud:
             self._banner()
         print("\n== Update Vendors ==")
@@ -2712,8 +2714,19 @@ class Report:
 def run(argv, cwd):
     r = subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True,
                        env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
-    OUTPUTS.append(r.stdout + r.stderr)
+    if not _is_git(argv):
+        OUTPUTS.append(r.stdout + r.stderr)
     return r.returncode, r.stdout + r.stderr
+
+
+def _is_git(argv):
+    """Is `argv` a git command? What git prints is data -- a file's
+    content, a hash, a log -- never a message from a step, so the upstream
+    review never reads it. 2026-10-11: `git show HEAD:tools/
+    precedent_branches.py` put the whole engine source into the review, and
+    a consumer's Update Vendors listed 22 lines of it ("say(f'could not
+    create ...')") as warnings to judge, out of 29."""
+    return bool(argv) and pathlib.Path(str(argv[0])).name in ('git', 'git.exe')
 
 
 # A red check's verdict lines: a check's FAILED, a VIOLATION and the
@@ -3304,6 +3317,43 @@ def record_kept_output(repo, paths):
     else:
         data.pop('staged', None)
     _write_record(repo, data)
+
+
+def asked_paths(left, repo):
+    """-> the repo files a LEFT FOR YOU list names, each item's leading
+    path (`AGENTS.md "### Two check levels"`, `local/x.md:142`), kept only
+    where the file exists."""
+    out = set()
+    for what, _why in left or ():
+        m = re.match(r'([\w.][\w./-]*?)(?=:\d|\s"|\s|$)', str(what))
+        if m and (repo / m.group(1)).is_file():
+            out.add(m.group(1))
+    return sorted(out)
+
+
+def record_asked(repo, paths):
+    """Write down the files a LEFT FOR YOU run asked the person to edit,
+    under the record's `asked` key; a run that asks nothing clears it."""
+    data = _read_record(repo)
+    if paths:
+        data['asked'] = sorted(paths)
+    else:
+        data.pop('asked', None)
+    _write_record(repo, data)
+
+
+def earlier_asked(repo):
+    """-> the files the last run of this update asked the person to edit.
+
+    WHY (2026-10-11, a consuming repository). The first run stopped LEFT FOR
+    YOU on two AGENTS.md sections and some template wording; the person
+    edited them as asked, and the rerun took those edits for a local change
+    of theirs -- AGENTS.md had an unstaged change on top, so it was neither
+    this run's output nor the earlier run's -- left the classic manifest's
+    old hash, and the basic check failed it as DRIFT. An edit that answers
+    the update's own question is part of the update, so its file's baseline
+    is re-recorded with the rest (rebaseline_vendored_entries)."""
+    return set(_read_record(repo).get('asked') or ())
 
 
 def earlier_runs_output(repo, before, failed_paths=None):
@@ -4692,7 +4742,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None):
 
     # After the views, because the view sync writes harness adapters too.
     rebased = rebaseline_vendored_entries(
-        repo, this_updates_output(repo, before, rep.earlier))
+        repo, this_updates_output(repo, before, rep.earlier)
+        | earlier_asked(repo))
     if rebased:
         rep.step('manifest baselines', 're-recorded for files this update '
                  'rewrote, to upstream or from a template: ' + ', '.join(rebased))
