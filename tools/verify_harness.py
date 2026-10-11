@@ -10511,143 +10511,6 @@ def check_debut_waits_for_an_open_produce_pull_request():
           not failed, '; '.join(failed))
 
 
-def check_retired_set_takes_only_its_retirement():
-    """A push to a set whose precedent-source.json says it is retired is
-    refused when it changes anything that does not retire it (Morgan,
-    2026-10-06: "you should not make edits to them unless the edits relate
-    to their deprecation or graceful deprecation"). Planted on a fixture
-    set: README, a rule moved to `status: deduplicated`, a deletion and the
-    todo index pass; a rule edited while still active and an edited check
-    script are refused; the person's own words in PRECEDENT_RETIRED_SET_EDIT
-    let one through; the same edit in a set that is not retired passes;
-    commits origin already has are not judged. A Promote in a retired set
-    is refused too (Morgan, 2026-10-06: "not edit nor promote nor touch"),
-    with the same way through."""
-    import tempfile as _tf
-    sys.path.insert(0, str(ROOT / 'tools'))
-    try:
-        import precedent_push_check as _ppc
-    finally:
-        sys.path.pop(0)
-    cases = []
-    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-retired-set-'))
-    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
-    ident = ['-c', 'user.name=F', '-c', 'user.email=f@example.com']
-
-    def git(repo, *args):
-        return subprocess.run(['git', '-C', str(repo), *args], env=env,
-                              capture_output=True, text=True)
-
-    def build(retired):
-        repo = fx / ('retired' if retired else 'live')
-        (repo / 'practices').mkdir(parents=True)
-        (repo / 'tools' / 'checks').mkdir(parents=True)
-        src = {'name': 'precedent-shared-x'}
-        if retired:
-            src['retired'] = {'date': '2026-10-06', 'folded_into': ['universal']}
-        (repo / 'precedent-source.json').write_text(json.dumps(src), encoding='utf-8')
-        (repo / 'README.md').write_text('# x\n', encoding='utf-8')
-        (repo / 'practices' / 'a-rule.md').write_text(
-            '---\nslug: a-rule\nstatus: active\n---\n## Rule\nOld.\n', encoding='utf-8')
-        (repo / 'tools' / 'checks' / 'check_a.py').write_text('x = 1\n', encoding='utf-8')
-        git(repo, 'init', '-q')
-        git(repo, 'add', '-A')
-        git(repo, *ident, 'commit', '-qm', 'baseline')
-        git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
-        return repo
-
-    def attempt(repo, edit, override=''):
-        git(repo, 'reset', '-q', '--hard', 'refs/remotes/origin/main')
-        edit(repo)
-        git(repo, 'add', '-A')
-        git(repo, *ident, 'commit', '-qm', 'an edit')
-        e = {'PRECEDENT_RETIRED_SET_EDIT': override} if override else {}
-        return _ppc._retired_set_refusal(repo, env=e)
-
-    def w(rel, text):
-        def write(r):
-            (r / rel).parent.mkdir(parents=True, exist_ok=True)
-            (r / rel).write_text(text, encoding='utf-8')
-        return write
-
-    try:
-        retired, live = build(True), build(False)
-        cases.append(('nothing pushed yet: no refusal',
-                      _ppc._retired_set_refusal(retired, env={}) is None))
-        cases.append(('the README saying it is retired passes',
-                      attempt(retired, w('README.md', '# x\n\nRetired.\n')) is None))
-        cases.append(('a rule moved to status: deduplicated passes',
-                      attempt(retired, w('practices/a-rule.md',
-                              '---\nslug: a-rule\nstatus: deduplicated\n---\n')) is None))
-        cases.append(('deleting a check script passes',
-                      attempt(retired, lambda r: (r / 'tools' / 'checks'
-                                                  / 'check_a.py').unlink()) is None))
-        cases.append(('the todo index passes',
-                      attempt(retired, w('todo/TODO.md', '# todo\n')) is None))
-        why = attempt(retired, w('practices/a-rule.md',
-                      '---\nslug: a-rule\nstatus: active\n---\n## Rule\nNew.\n'))
-        cases.append(('a rule edited while still active is refused',
-                      bool(why) and 'practices/a-rule.md' in why))
-        cases.append(('...and the refusal says where the change belongs',
-                      'where the rule lives now' in (why or '')))
-        cases.append(('an edited check script is refused',
-                      bool(attempt(retired, w('tools/checks/check_a.py', 'x = 2\n')))))
-        cases.append(('the person\'s own words let one through',
-                      attempt(retired, w('tools/checks/check_a.py', 'x = 3\n'),
-                              override='Morgan: fix check_a') is None))
-        cases.append(('the same edit in a set that is not retired passes',
-                      attempt(live, w('tools/checks/check_a.py', 'x = 2\n')) is None))
-        git(retired, 'reset', '-q', '--hard', 'refs/remotes/origin/main')
-        w('tools/checks/check_a.py', 'x = 4\n')(retired)
-        git(retired, 'add', '-A')
-        git(retired, *ident, 'commit', '-qm', 'already on origin')
-        git(retired, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
-        cases.append(('an edit origin already has is not judged again',
-                      _ppc._retired_set_refusal(retired, env={}) is None))
-        sys.path.insert(0, str(ROOT / 'tools'))
-        try:
-            import precedent_branches as _pb
-        finally:
-            sys.path.pop(0)
-        said = []
-        rc = _pb.promote(retired, say=said.append)
-        cases.append(('a Promote in a retired set is refused and moves nothing '
-                      f'(rc={rc})', rc == 1 and any('PROMOTE REFUSED' in l
-                                                     for l in said)))
-        cases.append(('...naming the practice',
-                      any('retired-set-takes-only-its-retirement' in l
-                          for l in said)))
-        cases.append(('the person\'s own words let a Promote through',
-                      _pb.retired_set_hold(retired, env={
-                          'PRECEDENT_RETIRED_SET_EDIT': 'Morgan: promote it'})
-                      is None))
-        cases.append(('a set that is not retired is not held',
-                      _pb.retired_set_hold(live, env={}) is None))
-        # The retirement Booked on pre-staging only, the clone on main: still
-        # retired to both guards (2026-10-06: both real sets were exactly so).
-        base = git(live, 'rev-parse', 'HEAD').stdout.strip()
-        w('precedent-source.json', json.dumps({
-            'name': 'precedent-shared-x',
-            'retired': {'date': '2026-10-06', 'folded_into': ['universal']}}))(live)
-        git(live, 'add', '-A')
-        git(live, *ident, 'commit', '-qm', 'retire it, on pre-staging')
-        git(live, 'update-ref', 'refs/remotes/origin/pre-staging', 'HEAD')
-        git(live, 'reset', '-q', '--hard', base)
-        cases.append(('a retirement only on origin/pre-staging still holds a '
-                      'Promote from a clone on main',
-                      bool(_pb.retired_set_hold(live, env={}))))
-        w('tools/checks/check_a.py', 'x = 9\n')(live)
-        git(live, 'add', '-A')
-        git(live, *ident, 'commit', '-qm', 'an edit on main')
-        cases.append(('...and refuses a push that edits it',
-                      bool(_ppc._retired_set_refusal(live, env={}))))
-    finally:
-        shutil.rmtree(fx, ignore_errors=True)
-    failed = [n for n, ok in cases if not ok]
-    check(f'a retired set takes only its retirement ({len(cases)} stated cases)',
-          not failed, '; '.join(failed))
-
-
 def check_push_refuses_a_hand_made_session_branch_name():
     """A push that creates a session branch whose name
     tools/precedent_branch_name.py did not make is refused, naming the
@@ -35239,21 +35102,6 @@ def check_promote_pre_staging():
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
-        # A retired set is not promoted unless the person asks (Morgan,
-        # 2026-10-06: "not edit nor promote nor touch"), so it gets no
-        # reminder inviting one; the reminder comes back once it is not.
-        marker = work / 'precedent-source.json'
-        marker.write_text(_json.dumps({'retired': {'date': '2026-10-06'}}),
-                          encoding='utf-8')
-        try:
-            pg, got = unlanded()
-        finally:
-            marker.unlink()
-        cases.append(("a set that says it is retired gets no Promote reminder",
-                      not any('a Promote can move them' in l for l in got)))
-        pg, got = unlanded()
-        cases.append(("...and the reminder is back once it does not",
-                      any('a Promote can move them' in l for l in got)))
         # Only the flow this session worked on (Morgan, 2026-09-29): with a
         # session id set and no commit in the batch carrying it, the batch
         # is another session's and gets no line.
@@ -74285,7 +74133,6 @@ def main():
     check_install_records_the_commit_its_catalogue_came_from()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
-    check_retired_set_takes_only_its_retirement()
     check_debut_waits_for_an_open_produce_pull_request()
     check_bare_all_runs_across_the_cores()
     check_full_run_asks_first()

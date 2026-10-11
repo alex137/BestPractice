@@ -3,7 +3,7 @@ slug:              todo-2026-10-05-finish-folding-the-working-style-set-away
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        "the five universal drafts landing on main, then Update Vendors in every repository that declares precedent-shared-working-style, so no consumer sees those rules in force nowhere"
@@ -12,7 +12,7 @@ decision:          "fold precedent-shared-working-style away: default-register a
 decision_strength: decided
 waiting_on:        null
 noted:             2026-10-05
-closed:            null
+closed:            2026-10-11
 ---
 ## What
 
@@ -34,9 +34,9 @@ should not make edits to them unless the edits relate to their deprecation
 or graceful deprecation. Please don't forget this."* A finding in the set is
 fixed where the rule lives now, or recorded here and left. The push check
 refuses any other edit to a set whose `precedent-source.json` says it is
-retired ([retired-set-takes-only-its-retirement](../practices/retired-set-takes-only-its-retirement.md)).
-The rule is temporary: it goes once both sets are gone, and its `expires:`
-says when.
+retired (`retired-set-takes-only-its-retirement`, a temporary rule,
+decommissioned 2026-10-11 once both sets were archived and no repository
+declared either).
 
 ## Proposed
 
@@ -67,3 +67,8 @@ the set's own `precedent-source.json`. Update Vendors then drops the set
 from every repository that declares it, on that repository's next update,
 and the very deep check reports any still declaring it -- in both cases
 only once every active rule it held is in force elsewhere.
+
+2026-10-11: closed on its condition. No repository declares the set, and
+Morgan archived it on GitHub (renamed with a TO-DEPRECATE- prefix). The
+temporary rule that guarded it went the same day, at his word: "Go remove
+it".

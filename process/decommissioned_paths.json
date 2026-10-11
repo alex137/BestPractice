@@ -150,6 +150,11 @@
       "path": "tools/others_did_watermark.json",
       "reason": "The others-did report counts from the person's own last commit since 2026-10-10 (Morgan: \"Go with option 1\") and stores no mark; this file held the mark before 2026-10-08 and was read only to carry old marks over",
       "decommissioned_at": "2026-10-10"
+    },
+    {
+      "path": "practices/retired-set-takes-only-its-retirement.md",
+      "reason": "A temporary rule whose expires: condition came true on 2026-10-11: no repository declares precedent-shared-repo-maintenance or precedent-shared-working-style, and both are archived on GitHub. Morgan, 2026-10-11: \"Go remove it\". Its two guards (the push check refusal and the promote hold), the gate reminder suppression, retirement_on_any_tier and its harness test went in the same change.",
+      "decommissioned_at": "2026-10-11"
     }
   ],
   "exempt_files": [
