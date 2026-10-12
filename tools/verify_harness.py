@@ -646,10 +646,15 @@ def _install_check_filter():
     """
     only = os.environ.get('PRECEDENT_CHECK_ONLY')
     skip = os.environ.get('PRECEDENT_CHECK_SKIP')
-    if not only and not skip:
+    # PRECEDENT_CHECK_SELECT: the checks a change reaches
+    # (tools/harness_reach.py), set by a scoped --as-ci run. Anything else
+    # is not run, and says why.
+    select = os.environ.get('PRECEDENT_CHECK_SELECT')
+    if not only and not skip and select is None:
         return
     only_set = set(only.split(',')) if only else None
     skip_set = set(skip.split(',')) if skip else set()
+    select_set = set(select.split(',')) - {''} if select is not None else None
     names = sorted(n for n, v in list(globals().items())
                     if n.startswith('check_') and callable(v))
     for name in names:
@@ -659,6 +664,43 @@ def _install_check_filter():
                       file=sys.stderr)
                 return (_CHECK_FILTERED_OUT, '', '')
             globals()[name] = _skipped
+        elif select_set is not None and name not in select_set:
+            def _unreached(*a, _name=name, **kw):
+                print(f"  SKIP (not reached by this change): {_name}",
+                      file=sys.stderr)
+                return (_CHECK_FILTERED_OUT, '', '')
+            globals()[name] = _unreached
+
+
+def _install_reach_recording():
+    """HARNESS_REACH_RECORD set (tools/harness_reach.py record): keep what
+    each check that runs here reaches -- the ledger a change-scoped run
+    selects from. A check the filter replaced records nothing."""
+    out = os.environ.get('HARNESS_REACH_RECORD')
+    if not out:
+        return
+    spec = importlib.util.spec_from_file_location(
+        '_harness_reach_hook', ROOT / 'tools' / 'harness_reach_hook.py')
+    hook = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hook)
+    hook.start_parent(str(ROOT), out)
+    names = sorted(n for n, v in list(globals().items())
+                   if n.startswith('check_') and callable(v))
+
+    def _wrap(name, fn):
+        def wrapper(*args, **kwargs):
+            hook.begin(name)
+            ran = True
+            try:
+                out = fn(*args, **kwargs)
+                ran = not (isinstance(out, tuple) and out and out[0] is _CHECK_FILTERED_OUT)
+                return out
+            finally:
+                hook.end(name, ran)
+        return wrapper
+
+    for name in names:
+        globals()[name] = _wrap(name, globals()[name])
 
 
 def _install_retrying_tempdir_cleanup():
@@ -12740,6 +12782,37 @@ def check_bare_all_runs_across_the_cores():
           not failed, '; '.join(failed))
 
 
+def _as_ci_scope(every_case):
+    """-> (the checks to run, or None for every one; a line saying which;
+    the harness_reach module, or None when it would not load).
+
+    SCOPED TO THE CHANGE (Alex, 2026-10-12: "Can we have BestPractice
+    checks limit themselves to checking changes that were actually
+    made?"): only the checks the change reaches since the ledger a full
+    run recorded (tools/harness_reach.py says how, and what it cannot
+    see). The whole suite when asked (--all, PRECEDENT_HARNESS_FULL=1),
+    when this run is the one recording the ledger, or when no ledger can
+    be used -- harness_reach decides and says which."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            '_harness_reach', ROOT / 'tools' / 'harness_reach.py')
+        hr = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(hr)
+    except Exception as e:                    # noqa: BLE001
+        return None, f'the whole suite: harness_reach would not load ({e})', None
+    if every_case:
+        return None, 'the whole suite: --all', hr
+    if os.environ.get('HARNESS_REACH_RECORD'):
+        return None, 'the whole suite: this run records the ledger', hr
+    names = sorted(n for n, v in globals().items()
+                   if n.startswith('check_') and callable(v))
+    try:
+        selected, account = hr.plan(names)
+    except Exception as e:                    # noqa: BLE001
+        return None, f'the whole suite: the change scope could not be worked out ({e})', hr
+    return selected, account, hr
+
+
 def run_as_ci(every_case=False, record_times=False):
     """-> exit status. Run this suite the way CI runs it, side by side.
 
@@ -12778,18 +12851,42 @@ def run_as_ci(every_case=False, record_times=False):
     except ValueError:
         jobs = 0
     jobs = jobs or AS_CI_JOBS
-    runs = _as_ci_runs(jobs)
+    selected, account, hr = _as_ci_scope(every_case)
+    print(f'--as-ci: {account}', flush=True)
+    # A whole-suite run asked to record (PRECEDENT_HARNESS_RECORD_FULL=1:
+    # GitHub on main, or harness_reach.py record) keeps what each check
+    # reaches -- the ledger the next scoped run selects from. Recording
+    # needs sys.monitoring (Python 3.12) to stay cheap.
+    record_dir = None
+    if (selected is None and hr is not None and not os.environ.get('HARNESS_REACH_RECORD')
+            and os.environ.get('PRECEDENT_HARNESS_RECORD_FULL') == '1'):
+        if sys.version_info >= (3, 12):
+            record_dir = pathlib.Path(tempfile.mkdtemp(prefix='harness-reach-'))
+            print('--as-ci: recording what each check reaches', flush=True)
+        else:
+            print('--as-ci: not recording what each check reaches -- that '
+                  'needs Python 3.12', flush=True)
+    runs = _as_ci_runs(jobs, names=sorted(selected) if selected is not None else None)
+    if selected is not None:
+        # A shard that runs only named checks, none of them reached, has
+        # nothing to do.
+        runs = [(label, e) for label, e in runs
+                if 'PRECEDENT_CHECK_ONLY' not in e
+                or set(e['PRECEDENT_CHECK_ONLY'].split(',')) & selected] or runs[:1]
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-as-ci-'))
     started = []
     t0 = time.monotonic()
     for i, (label, env_extra) in enumerate(runs):
-        env = dict(os.environ)
+        env = dict(os.environ) if record_dir is None else hr.record_env(record_dir)
         # Each shard gets a clean slate of BOTH variables, so a session that
         # already has one exported does not silently skew a shard.
         env.pop('PRECEDENT_CHECK_ONLY', None)
         env.pop('PRECEDENT_CHECK_SKIP', None)
         env.pop('PRECEDENT_HARNESS_ALL', None)
+        env.pop('PRECEDENT_CHECK_SELECT', None)
         env.update(env_extra)
+        if selected is not None:
+            env['PRECEDENT_CHECK_SELECT'] = ','.join(sorted(selected))
         if every_case:
             env['PRECEDENT_HARNESS_ALL'] = '1'
         if record_times:
@@ -12844,6 +12941,25 @@ def run_as_ci(every_case=False, record_times=False):
             except (OSError, ValueError, AttributeError, TypeError):
                 pass
     shutil.rmtree(tmp, ignore_errors=True)
+    if record_dir is not None:
+        # The tree, not the commit: a pull request's run tests a merge
+        # commit main never has, but main's commit after the merge holds
+        # the same tree, so a later run can diff against it.
+        head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD^{tree}'],
+                              capture_output=True, text=True).stdout.strip()
+        ledger = hr.merge(record_dir, head)
+        # A failing check may have stopped before it reached everything it
+        # would: such a ledger is kept for a look, and never published.
+        ledger['green'] = not failed
+        hr.LOCAL_LEDGER.parent.mkdir(exist_ok=True)
+        hr.LOCAL_LEDGER.write_text(json.dumps(ledger, sort_keys=True), encoding='utf-8')
+        unseen = sum(1 for v in ledger['checks'].values() if v.get('o'))
+        print(f'--as-ci: what {len(ledger["checks"])} checks reach written to '
+              f'{hr.LOCAL_LEDGER.relative_to(ROOT)} ({unseen} always run: '
+              f'their reach is not fully seen)'
+              + ('' if not failed else ' -- from a run that failed, so it is '
+                 'never published'))
+        shutil.rmtree(record_dir, ignore_errors=True)
     wall = time.monotonic() - t0
     if recorded:
         _write_check_times(recorded, f'{time.strftime("%Y-%m-%d")}, '
@@ -13135,7 +13251,7 @@ def check_isolated_run_matches_the_runner():
 
 _SPLIT_VARS = ('PRECEDENT_CHECK_ONLY', 'PRECEDENT_CHECK_SKIP',
                'PRECEDENT_HARNESS_ALL', 'PRECEDENT_AS_CI_JOBS',
-               'PRECEDENT_HARNESS_PART')
+               'PRECEDENT_HARNESS_PART', 'PRECEDENT_CHECK_SELECT')
 
 
 def _workflow_harness_drift(body):
@@ -13156,6 +13272,174 @@ def _workflow_harness_drift(body):
             problems.append(f'sets {var} itself, a split --as-ci does not make')
     return problems
 
+
+def check_harness_reach_selects_what_a_change_reaches():
+    """A scoped run picks exactly the checks a change can reach
+    (tools/harness_reach.py), and the recorder sees what a child reads.
+
+    WHY (2026-10-12). GitHub ran all 677 checks, twice, for a change to
+    three engine files that about 83 of them exercise; Alex asked for
+    checks limited to the changes actually made. A scoped run is only as
+    good as its selection: one that quietly picks too few looks exactly
+    like a green suite. So every rule the selection rests on is planted
+    here, the ones that must pick a check and the ones that must not."""
+    import tempfile
+    spec = importlib.util.spec_from_file_location(
+        '_harness_reach_t', ROOT / 'tools' / 'harness_reach.py')
+    hr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hr)
+    cases = []
+    base_src = ('X = 1\n\ndef f():\n    return 1\n\ndef g():\n    return 2\n\n'
+                'def outer():\n    def inner():\n        return 3\n    return inner\n')
+    cases.append(('a comment or a blank line reaches no code unit',
+                  hr.changed_units(base_src, base_src.replace('def g', '# note\n\ndef g'))
+                  == set()))
+    cases.append(('a changed body reaches only its own def',
+                  hr.changed_units(base_src, base_src.replace('return 1', 'return 9'))
+                  == {'f'}))
+    cases.append(('a changed constant reaches the module\'s top level',
+                  hr.changed_units(base_src, base_src.replace('X = 1', 'X = 2'))
+                  == {'<module>'}))
+    cases.append(('a new def is a unit of its own and leaves the top level alone',
+                  hr.changed_units(base_src, base_src + '\ndef h():\n    return 5\n')
+                  == {'h'}))
+    cases.append(('a changed nested def reaches it and the def around it',
+                  hr.changed_units(base_src, base_src.replace('return 3', 'return 4'))
+                  == {'outer', 'outer.inner'}))
+    cases.append(('a file that does not parse reaches everything in it',
+                  hr.changed_units(base_src, 'def (') is None))
+    cases.append(('code objects map to their def',
+                  [hr.unit_of(q) for q in ('a.<locals>.<lambda>', '<module>',
+                                           'C.m', 'a.<locals>.b.<locals>.<genexpr>',
+                                           '<lambda>')]
+                  == ['a', '<module>', 'C.m', 'a.b', '<module>']))
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'r'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'practices').mkdir()
+
+        def git(*a):
+            subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                           check=True, env={**os.environ, 'GIT_AUTHOR_NAME': 't',
+                                            'GIT_AUTHOR_EMAIL': 't@t', 'GIT_COMMITTER_NAME': 't',
+                                            'GIT_COMMITTER_EMAIL': 't@t'})
+        (repo / 'tools' / 'm.py').write_text(base_src, encoding='utf-8')
+        (repo / 'data.json').write_text('{}\n', encoding='utf-8')
+        (repo / 'practices' / 'a.md').write_text('a\n', encoding='utf-8')
+        git('init', '-q')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'base')
+        base = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True).stdout.strip()
+        ledger = {'version': hr.VERSION, 'commit': base, 'checks': {
+            'check_runs_f': {'c': {'tools/m.py': ['f']}},
+            'check_runs_g': {'c': {'tools/m.py': ['g']}},
+            'check_reads_data': {'f': ['data.json']},
+            'check_lists_practices': {'d': ['practices']},
+            'check_tests_a_path': {'x': ['missing.txt']},
+            'check_unseen': {'o': ['git run against the repository itself']},
+        }}
+        names = set(ledger['checks']) | {'check_new'}
+
+        def picked():
+            sel, _why, full = hr.select(ledger, base, None, names, root=repo)
+            return full or sorted(sel)
+        always = ['check_new', 'check_unseen']
+        cases.append(('no change: only the new check and the unseen one run',
+                      picked() == always, picked()))
+        (repo / 'tools' / 'm.py').write_text(base_src.replace('return 1', 'return 9'),
+                                             encoding='utf-8')
+        cases.append(('THE DISCRIMINATING CASE: a changed def picks the check that '
+                      'ran it and not the one that ran its neighbour',
+                      picked() == sorted(always + ['check_runs_f']), picked()))
+        (repo / 'tools' / 'm.py').write_text(base_src.replace('def g', '# c\ndef g'),
+                                             encoding='utf-8')
+        cases.append(('a comment-only change picks nothing more',
+                      picked() == always, picked()))
+        (repo / 'tools' / 'm.py').write_text(base_src.replace('X = 1', 'X = 2'),
+                                             encoding='utf-8')
+        cases.append(('a changed top level picks every check that ran the file',
+                      picked() == sorted(always + ['check_runs_f', 'check_runs_g']),
+                      picked()))
+        (repo / 'tools' / 'm.py').write_text(base_src, encoding='utf-8')
+        (repo / 'data.json').write_text('{"a": 1}\n', encoding='utf-8')
+        cases.append(('a changed data file picks the check that read it',
+                      picked() == sorted(always + ['check_reads_data']), picked()))
+        (repo / 'data.json').write_text('{}\n', encoding='utf-8')
+        (repo / 'practices' / 'b.md').write_text('b\n', encoding='utf-8')
+        cases.append(('a new file picks the check that listed its directory',
+                      picked() == sorted(always + ['check_lists_practices']), picked()))
+        (repo / 'practices' / 'b.md').unlink()
+        (repo / 'missing.txt').write_text('now here\n', encoding='utf-8')
+        cases.append(('a file appearing where a check tested for it picks that check',
+                      picked() == sorted(always + ['check_tests_a_path']), picked()))
+        (repo / 'missing.txt').unlink()
+        (repo / 'tools' / 'harness_reach.py').write_text('# changed\n', encoding='utf-8')
+        cases.append(('a change to the selection machinery runs the whole suite',
+                      isinstance(picked(), str) and 'machinery' in picked(), picked()))
+        (repo / 'tools' / 'harness_reach.py').unlink()
+        cases.append(('a ledger from another format runs the whole suite',
+                      hr.select({'version': -1}, base, None, names, root=repo)[2]
+                      == 'no usable ledger'))
+
+        # The recorder, end to end, in a child: the code it ran and the
+        # file it read, against the check named in its environment.
+        (repo / 'tools' / 'reader.py').write_text(
+            'import json, pathlib\n\ndef read():\n'
+            '    return json.loads((pathlib.Path(__file__).parents[1] / "data.json").read_text())\n',
+            encoding='utf-8')
+        out = pathlib.Path(td) / 'rec'
+        out.mkdir()
+        env = hr.record_env(out)
+        env['HARNESS_REACH_ROOT'] = str(repo)
+        env['HARNESS_REACH_CHECK'] = 'check_planted'
+        subprocess.run([sys.executable, '-c',
+                        'import sys; sys.path.insert(0, sys.argv[1]); '
+                        'import reader; reader.read()', str(repo / 'tools')],
+                       env=env, capture_output=True, text=True, timeout=120)
+        rec = hr.merge(out, base)['checks'].get('check_planted', {})
+        cases.append(('a child\'s run code is recorded against its check, by def',
+                      'read' in rec.get('c', {}).get('tools/reader.py', ()), rec))
+        cases.append(('...and the file it read',
+                      'data.json' in rec.get('f', ()), rec))
+        cases.append(('...and nothing it could not see', not rec.get('o'), rec))
+        # A copy is not a read; reading the copy is a read of the original.
+        for label, code, want in (
+                ('a file only copied out of the repository is not read',
+                 'import shutil, sys; shutil.copy(sys.argv[1] + "/data.json", sys.argv[2] + "/c.json")',
+                 False),
+                ('...and reading the copy reads the original',
+                 'import shutil, sys; shutil.copy(sys.argv[1] + "/data.json", sys.argv[2] + "/c.json"); '
+                 'open(sys.argv[2] + "/c.json").read()', True)):
+            outc = pathlib.Path(td) / f'recc{int(want)}'
+            outc.mkdir()
+            scratch = pathlib.Path(td) / f'scratch{int(want)}'
+            scratch.mkdir()
+            env = hr.record_env(outc)
+            env['HARNESS_REACH_ROOT'] = str(repo)
+            env['HARNESS_REACH_CHECK'] = 'check_planted'
+            subprocess.run([sys.executable, '-c', code, str(repo), str(scratch)],
+                           env=env, capture_output=True, text=True, timeout=120)
+            rec = hr.merge(outc, base)['checks'].get('check_planted', {})
+            cases.append((label, ('data.json' in rec.get('f', ())) == want, rec))
+        out2 = pathlib.Path(td) / 'rec2'
+        out2.mkdir()
+        env = hr.record_env(out2)
+        env['HARNESS_REACH_ROOT'] = str(repo)
+        env['HARNESS_REACH_CHECK'] = 'check_planted'
+        subprocess.run([sys.executable, '-c',
+                        'import subprocess, sys; subprocess.run(["git", "-C", sys.argv[1], '
+                        '"log", "-1"], capture_output=True)', str(repo)],
+                       env=env, capture_output=True, text=True, timeout=120)
+        rec = hr.merge(out2, base)['checks'].get('check_planted', {})
+        cases.append(('git run against the repository itself is recorded as unseen, '
+                      'so that check always runs', any('git' in o for o in rec.get('o', ())),
+                      rec))
+    bad = [f'{c[0]}{": " + repr(c[2])[:300] if len(c) > 2 else ""}'
+           for c in cases if not c[1]]
+    check(f'a scoped run picks the checks a change reaches ({len(cases)} stated cases)',
+          not bad, '; '.join(bad)[:3000])
 
 def check_as_ci_shards_match_the_workflow():
     """GitHub's deep-check workflow runs the suite through `--as-ci` and
@@ -18680,22 +18964,29 @@ def check_push_to_main_skips_what_already_passed():
             '  */actions/runs/*) echo 42 ;;\n'
             '  */actions/workflows/42/runs*)\n'
             '    sha=$(printf %s "$2" | sed \'s/.*head_sha=\\([0-9a-f]*\\).*/\\1/\')\n'
-            '    if grep -qx "$sha" "$FAKE_GH_PASSED"; then echo 1; else echo 0; fi ;;\n'
+            '    case "$2" in\n'
+            '      *status=success*)\n'
+            '        if grep -qx "$sha" "$FAKE_GH_PASSED"; then echo 1; else echo 0; fi ;;\n'
+            '      *) if grep -qx "$sha" "$FAKE_GH_RUNNING" 2>/dev/null; then echo 1; else echo 0; fi ;;\n'
+            '    esac ;;\n'
             '  *) exit 1 ;;\n'
             'esac\n', encoding='utf-8')
         os.chmod(fake / 'gh', 0o755)
         script = tmp / 'step.sh'
         script.write_text(s_tpl, encoding='utf-8')
 
-        def decide(sha, passed_shas, fail=False):
+        running = tmp / 'running.txt'
+
+        def decide(sha, passed_shas, fail=False, running_shas=()):
             passed.write_text(''.join(s + '\n' for s in passed_shas), encoding='utf-8')
+            running.write_text(''.join(s + '\n' for s in running_shas), encoding='utf-8')
             out, summ = tmp / 'out', tmp / 'summary'
             out.write_text('')
             summ.write_text('')
             e = dict(env, PATH=f'{fake}:{env.get("PATH", "")}', GITHUB_SHA=sha,
                      GITHUB_REPOSITORY='o/r', GITHUB_RUN_ID='7',
                      GITHUB_OUTPUT=str(out), GITHUB_STEP_SUMMARY=str(summ),
-                     FAKE_GH_PASSED=str(passed))
+                     FAKE_GH_PASSED=str(passed), FAKE_GH_RUNNING=str(running))
             if fail:
                 e['FAKE_GH_FAIL'] = '1'
             r = subprocess.run(['bash', str(script)], cwd=str(repo), env=e,
@@ -18722,6 +19013,20 @@ def check_push_to_main_skips_what_already_passed():
         rc, out, _ = decide(c4, [m3])
         cases.append(('a direct push of new files, its parent passed: runs',
                       'skip=false' in out, out))
+        # 2026-10-12: a direct-route merge lands while its pull request's
+        # own run of the same files is still going; main waits on that
+        # run's verdict instead of starting a second one beside it.
+        rc, out, summ = decide(m1, [], running_shas=[h1])
+        cases.append(('THE DISCRIMINATING CASE: merged while the head\'s own run of the '
+                      'same files is still going: defers to it, and says so',
+                      'skip=true' in out and 'deferred=true' in out
+                      and 'being tested' in summ, out + summ))
+        rc, out, _ = decide(m1, [h1])
+        cases.append(('...a head that already passed is not a deferral, so a '
+                      'failure issue may close', 'deferred=false' in out, out))
+        rc, out, _ = decide(m2, [], running_shas=[h2])
+        cases.append(('main moved under the pull request, its run still going: runs '
+                      '(that run tests other files)', 'skip=false' in out, out))
     except RuntimeError as e:
         cases.append(('the fixture builds', False, str(e)[-400:]))
     finally:
@@ -76828,6 +77133,7 @@ def check_filtered_check_does_not_break_the_unpack_family():
 def main():
     _install_retrying_tempdir_cleanup()
     _install_check_filter()
+    _install_reach_recording()
     _install_fixture_error_guard()
     _install_check_timing()
     _print_checkout_banner()
@@ -77186,6 +77492,7 @@ def main():
     check('a stale source clone is made current, and a skip is never a success',
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
+    check_harness_reach_selects_what_a_change_reaches()
     check_isolated_run_matches_the_runner()
     check_isolated_copy_carries_uncommitted_changes()
     check("a suggested link keeps a dotfile path's leading dot",
