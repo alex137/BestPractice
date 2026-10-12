@@ -29,10 +29,7 @@ approved_by: "Morgan, 2026-09-18 -- dictated in full, including the reading
   its own eight commits and left six unpushed in a source clone: \"only say
   you can archive this when nothing in the container that we want to keep
   will be lost and I have pushed or merged everything we need to\". strength:
-  decided. Amended 2026-10-12, Alex, adding condition 4 -- nothing from the
-  conversation lives only in the chat -- with the-boildown: \"the boildown
-  should tell the user what work is not yet in a document and suggest places
-  to put it\". Authorized: \"yes, add it upstream\". strength: decided."
+  decided."
 strength:    decided
 ---
 ## Rule
@@ -45,7 +42,7 @@ and act on what it finds.** The bare word does not skip the check: the
 old immediate-action reading of a standalone `"Archive"` is retired, and
 both spellings resolve to this one rule.
 
-**The check is [the-boildown](the-boildown.md)'s own four archive
+**The check is [the-boildown](the-boildown.md)'s own three archive
 conditions, run on demand instead of waited for at the natural end of a
 reply:**
 
@@ -57,17 +54,8 @@ reply:**
    it, so stop each one with nothing left to do, or wait for it.
 2. Nothing is left to do directly in this session.
 3. No Routine is bound to this session (`list_triggers`).
-4. Nothing from the conversation lives only in the chat. Re-read the
-   whole conversation, the summary of any compacted part included, and
-   check every idea, decision, finding and open question against the
-   committed files. Anything not in a document is listed, each with a
-   suggested home and an offer to put it there, along with any
-   restructuring of this session's own documents that would make them
-   clearer or give that material a home, including a recorded
-   decision whose substance belongs in the document it shapes --
-   the-boildown's condition 4.
 
-**All four hold, and there is nothing else worth flagging** (no open
+**All three hold, and there is nothing else worth flagging** (no open
 recommendation, no other live session on the same subject, nothing the
 assistant is itself waiting on) -- **archive it**: resolve the session,
 check `list_triggers`, call `archive_session`, and say plainly that it's
