@@ -1480,6 +1480,32 @@ def changed_files_check(root, since):
                 f'count practices were not regenerated -- run `python3 '
                 f'tools/doc_sync.py --write` and commit what it rewrites. '
                 + ' | '.join(stale)[:400])
+    # THE COUNTS PROSE QUOTES FOLLOW A CHANGED PRACTICE (2026-10-11). A
+    # sentence in spec/PRACTICE_FORMAT.md or spec/PRACTICE_ENGINE_PLAN.md
+    # restates a figure tools/catalogue_stats.py computes from the practice
+    # files (its ANCHORS), and only the full tier ran that comparison. So
+    # repo-is-memory gaining a Detail moved "practices with a Detail" from
+    # 24 to 25, every quick check passed, and the fast Produce turned main
+    # red (issue #1088). The figure has moved about ten times since
+    # 2026-09-01, each time an original practice gained a Detail. Under
+    # half a second.
+    stats = root / 'tools' / 'catalogue_stats.py'
+    anchored = practice or [f for f in files if f in (
+        'tools/catalogue_stats.py', 'spec/PRACTICE_FORMAT.md',
+        'spec/PRACTICE_ENGINE_PLAN.md')]
+    if anchored and stats.is_file():
+        r = subprocess.run([sys.executable, str(stats)], cwd=root,
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            fails = [l.strip()[len('FAIL'):].strip()
+                     for l in (r.stdout + r.stderr).splitlines()
+                     if l.strip().startswith('FAIL')][:3]
+            problems.append(
+                f'{anchored[0]}{" and others" if len(anchored) > 1 else ""} '
+                f'changed, and a figure the prose quotes no longer matches '
+                f'what tools/catalogue_stats.py computes -- update the '
+                f'sentence and the anchor in catalogue_stats.py together. '
+                + ' | '.join(fails)[:500])
     for line in problems:
         print(f'  {line}')
     if tests:

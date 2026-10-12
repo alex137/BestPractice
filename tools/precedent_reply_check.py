@@ -1076,6 +1076,9 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'unless_reply_declares_loss',
     # conditions and metadata
     'id', 'requires',            # see _settle (2026-10-02)
+    'inherits',                  # see _settle (2026-10-10); missing here
+                                 # until 2026-10-11, so every turn was told
+                                 # a rule this engine enforces was not
     'require_when_context_grew_tokens',
     'advisory',
     'practice',
@@ -1868,6 +1871,11 @@ def _unsafe_checkout_names():
         return []
     names = []
     for entry in payload.get('unsafe') or []:
+        # A scratch folder carries its own name (scratch:<session>), since
+        # every harness one is called scratchpad.
+        if entry.get('name'):
+            names.append(str(entry['name']))
+            continue
         repo = str(entry.get('repo') or '').rstrip('/')
         if repo:
             names.append(pathlib.PurePath(repo).name)
