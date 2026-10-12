@@ -7891,7 +7891,15 @@ def _light_link_exempt_dirs():
 
 
 def _light_broken_links(root, rel, text):
-    base = (root / rel).parent
+    # A piece of an index kept as a directory keeps the view's links word for
+    # word, so they resolve from the view's folder; doc_lint.index_entry_base
+    # is the one place that knows both split layouts (a downstream repo's
+    # push check, 2026-10-12, flagged every link in a split glossary's rows).
+    try:
+        import doc_lint as _dl
+        base = _dl.index_entry_base(root / rel) or (root / rel).parent
+    except Exception:                               # practice: fail-gracefully
+        base = (root / rel).parent
     fence, out = None, []
     for lineno, line in enumerate(text.splitlines(), start=1):
         m = _LIGHT_FENCE_RE.match(line)
