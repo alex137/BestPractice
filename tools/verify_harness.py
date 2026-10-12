@@ -47548,6 +47548,87 @@ def check_vendor_engine_hook_drift_respects_adapters():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_hook_notes_are_said_when_they_change():
+    """The notes about hooks this engine leaves unvendored -- one a source's
+    adapters keep, ones this repo does not wire -- are printed by a refresh
+    when that state changes, not on every refresh; `status` names them.
+
+    WHY. A consuming repository's Update Vendors, 2026-10-12: those notes
+    are states, never tasks, and came out on every refresh, so every
+    update's upstream review listed eight items with nothing to do.
+    Planted: a consumer wiring two hooks, one of them kept by an adapter.
+    The first write says both notes; a second with the same state says
+    neither; the adapter claim dropped, the change is said; status lists
+    what the record holds."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    src = ROOT / pve.HOOK_SOURCE_DIR
+    with tempfile.TemporaryDirectory() as td:
+        dest = pathlib.Path(td)
+        (dest / 'tools').mkdir()
+        (dest / '.claude' / 'hooks').mkdir(parents=True)
+        mpath = dest / 'tools' / pve.MANIFEST_NAME
+        mpath.write_text(json.dumps({'kind': 'consumer', 'files': []}), encoding='utf-8')
+        (dest / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
+            'SessionStart': [{'hooks': [
+                {'type': 'command', 'command': f'$CLAUDE_PROJECT_DIR/.claude/hooks/{n}'}
+                for n in ('freshness-guard.sh', 'stop-git-check.sh')]}]}}),
+            encoding='utf-8')
+        claim = json.dumps({'generated_by': 'tools/precedent_materialize.py',
+                            'adapters': [{'path': '.claude/hooks/freshness-guard.sh',
+                                          'source': 'precedent-individual'}]})
+        (dest / 'MANIFEST.json').write_text(claim, encoding='utf-8')
+
+        def write(previous):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+                pve._write_hook_files(dest, src, previous=previous)
+            return err.getvalue()
+
+        def manifest():
+            return json.loads(mpath.read_text(encoding='utf-8'))
+        out = write(None)
+        cases.append(('the first refresh says the adapter-kept hook and the '
+                      'unwired ones', 'is not vendored by this engine' in out
+                      and 'are not wired in this repo' in out, out[-600:]))
+        rec = manifest().get(pve.HOOKS_NOT_VENDORED_KEY) or {}
+        cases.append(('...and records what it said',
+                      rec.get('adapters') == {'freshness-guard.sh': 'precedent-individual'}
+                      and bool(rec.get('not_wired')), str(rec)))
+        out = write(manifest())
+        cases.append(('the next refresh, nothing changed, says neither',
+                      'is not vendored by this engine' not in out
+                      and 'are not wired in this repo' not in out, out[-600:]))
+        (dest / 'MANIFEST.json').unlink()
+        out = write(manifest())
+        cases.append(('a change -- the adapter claim gone -- is said',
+                      'are not wired in this repo' in out
+                      and not (manifest().get(pve.HOOKS_NOT_VENDORED_KEY) or {}).get('adapters'),
+                      out[-600:]))
+        (dest / 'MANIFEST.json').write_text(claim, encoding='utf-8')
+        write(manifest())
+        saved_root = pve.ROOT
+        try:
+            pve.ROOT = dest
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    pve.status(ROOT)
+                except SystemExit:
+                    pass
+        finally:
+            pve.ROOT = saved_root
+        st = buf.getvalue()
+        cases.append(('status names what the record holds, adapters included',
+                      'leaves unvendored' in st
+                      and "kept by 'precedent-individual'" in st, st[-800:]))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the unvendored-hook notes are said when they change ({len(cases)} '
+          f'stated cases)', not bad, '; '.join(bad))
+
+
 def check_vendor_engine_refresh_converges_with_adapter_owned_hooks():
     """Two refreshes in a row at one commit: the second is a no-op, even
     when a declared source's adapters own some of the hooks this repo wires.
@@ -77819,6 +77900,7 @@ def main():
     check_vendor_engine_consumer_case()
     check_vendor_engine_hook_drift_respects_adapters()
     check_vendor_engine_refresh_converges_with_adapter_owned_hooks()
+    check_hook_notes_are_said_when_they_change()
     check_vendor_engine_wires_a_new_hook_into_an_installed_repo()
     check_vendor_engine_refreshes_ci_workflow_files()
     check_template_history_includes_a_version_made_in_a_merge()
