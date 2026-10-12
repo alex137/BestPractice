@@ -7256,6 +7256,148 @@ def check_split_file_round_trips():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
+def check_split_and_join_take_edits_made_where_they_belong():
+    """Three faults a downstream repo hit on 2026-10-12, the day --split-file
+    and --join shipped. (1) Rewording an existing entry file and joining was
+    refused as a hand edit to the view, because the guard compared the view
+    with the directory as it is now: the source's recent history now counts
+    as source, so the old wording passes -- MAP.md's rebuild through
+    build_views.py included -- while a line really typed into the view is
+    still refused. (2) A row naming
+    plan_v1.md was filed as ...-plan-v1.md, a name no-version-suffix then
+    refuses. (3) A heading with no blank line above it was called a change
+    of words, so --normalize-blank-lines was never offered."""
+    import tempfile
+    import precedent_migrate_views as mv
+    name = 'split and join take edits made in the directory, and only those'
+    cases = []
+    tool = ROOT / 'tools' / 'precedent_migrate_views.py'
+
+    def run(repo, *args):
+        return subprocess.run([sys.executable, str(tool), '--repo', str(repo), *args],
+                              capture_output=True, text=True)
+
+    def git(repo, *args):
+        return subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t', '-c',
+                               'user.email=t@t', *args], capture_output=True, text=True)
+    text = ('# Index\n\nThe old intro wording.\n\n| Doc | What |\n|---|---|\n'
+            '| [plan_v1.md](docs/plan_v1.md) | the plan |\n| [budget-rev3.xlsx](b.xlsx) | money |\n'
+            '| alpha | a |\n')
+    with tempfile.TemporaryDirectory() as td:
+        for committed in (False, True):
+            repo = pathlib.Path(td) / f'r{int(committed)}'
+            repo.mkdir()
+            git(repo, 'init', '-q')
+            (repo / 'tools').mkdir()
+            (repo / 'tools' / 'generated_files.json').write_text('{"files": []}\n',
+                                                                 encoding='utf-8')
+            (repo / 'INDEX.md').write_text(text, encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'one file')
+            r = run(repo, '--split-file', 'INDEX.md')
+            if committed:
+                git(repo, 'add', '-A')
+                git(repo, 'commit', '-qm', 'split')
+            head = next((repo / 'INDEX').rglob('_head.md'))
+            head.write_text(head.read_text(encoding='utf-8').replace(
+                'The old intro wording.', 'The new intro wording.'), encoding='utf-8')
+            if committed:
+                git(repo, 'commit', '-qam', 'reword')
+            r = run(repo, '--join', 'INDEX', '--out', 'INDEX.md')
+            view = (repo / 'INDEX.md').read_text(encoding='utf-8')
+            how = 'committed' if committed else 'not yet committed'
+            cases.append((f'rewording an entry file ({how}) rebuilds the view',
+                          r.returncode == 0 and 'The new intro wording.' in view
+                          and 'old intro' not in view, r.stdout[-300:]))
+        # A real hand edit on top of a directory edit: refused, naming the
+        # typed line and not the directory's old text.
+        head.write_text(head.read_text(encoding='utf-8').replace(
+            'The new intro wording.', 'A third wording.'), encoding='utf-8')
+        (repo / 'INDEX.md').write_text(view.replace('| alpha | a |', '| alpha | typed by hand |'),
+                                       encoding='utf-8')
+        r = run(repo, '--join', 'INDEX', '--out', 'INDEX.md')
+        cases.append(('a line typed into the view is still refused, and named',
+                      r.returncode == 1 and 'typed by hand' in r.stdout
+                      and 'new intro wording' not in r.stdout
+                      and 'typed by hand' in (repo / 'INDEX.md').read_text(encoding='utf-8'),
+                      r.stdout[-300:]))
+        # Old wording git never saw cannot be told from a typed line: the
+        # refusal names it and says --force is safe for it.
+        fresh = pathlib.Path(td) / 'fresh'
+        fresh.mkdir()
+        git(fresh, 'init', '-q')
+        (fresh / 'INDEX.md').write_text(text, encoding='utf-8')
+        run(fresh, '--split-file', 'INDEX.md')
+        fhead = next((fresh / 'INDEX').rglob('_head.md'))
+        fhead.write_text(fhead.read_text(encoding='utf-8').replace('old intro', 'new intro'),
+                         encoding='utf-8')
+        r = run(fresh, '--join', 'INDEX', '--out', 'INDEX.md')
+        cases.append(('old wording never committed is named, with --force said to be safe',
+                      r.returncode == 1 and 'old intro' in r.stdout
+                      and '--force is safe' in r.stdout, r.stdout[-400:]))
+        names = sorted(p.name for p in (repo / 'INDEX').rglob('*.md'))
+        cases.append(('a row naming plan_v1.md gets no version suffix in its file name',
+                      not any(re.search(r'-(?:v\d+|rev\d+)(?:-[a-z]+)?\.md$', n) for n in names)
+                      and any(n.endswith('-plan.md') for n in names)
+                      and any(n.endswith('-budget.md') for n in names), ', '.join(names)))
+        # (3) a heading straight under a paragraph line.
+        tight = '# T\n\nSome prose.\n### Next\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n'
+        (repo / 'TIGHT.md').write_text(tight, encoding='utf-8')
+        r = run(repo, '--split-file', 'TIGHT.md')
+        offered = r.returncode == 1 and '--normalize-blank-lines' in r.stdout
+        r = run(repo, '--split-file', 'TIGHT.md', '--normalize-blank-lines')
+        cases.append(('a heading with no blank line above it is a blank-line '
+                      'difference --normalize-blank-lines accepts',
+                      offered and r.returncode == 0 and (repo / 'TIGHT').is_dir(),
+                      r.stdout[-300:]))
+        cases.append(('a real change of words is still not the same words',
+                      not mv._same_words('Some prose.\n\n### Next', 'Some prose.\n\n### Other')
+                      and mv._same_words('Some prose.\n### Next', 'Some prose.\n\n### Next'),
+                      ''))
+        # MAP.md through build_views.py: a committed reword of a MAP.source/
+        # row rebuilds the map; a row typed into MAP.md is still refused.
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     ["Fixture Term"]\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-12"\n'
+            'approved_by: "Fixture, 2026-10-12"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        (repo / 'MAP.source' / '0010-layout').mkdir(parents=True)
+        (repo / 'MAP.source' / '0010-layout' / '_head.md').write_text(
+            '## Layout\n\n| Path | What |\n|---|---|\n', encoding='utf-8')
+        row = repo / 'MAP.source' / '0010-layout' / '0010-a.md'
+        row.write_text('| `a/` | the first wording |\n', encoding='utf-8')
+        (repo / 'MAP.source' / '0010-layout' / '0020-b.md').write_text(
+            '| `b/` | bee |\n', encoding='utf-8')
+        bvs = lambda: subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                                      '--repo', str(repo), '--views-only'],
+                                     capture_output=True, text=True)
+        git(repo, 'init', '-q')
+        bvs()
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'map')
+        row.write_text('| `a/` | the second wording |\n', encoding='utf-8')
+        git(repo, 'commit', '-qam', 'reword a row')
+        r = bvs()
+        cases.append(('a committed reword of a MAP.source/ row rebuilds MAP.md',
+                      r.returncode == 0 and 'second wording' in
+                      (repo / 'MAP.md').read_text(encoding='utf-8'), (r.stdout + r.stderr)[-300:]))
+        m = (repo / 'MAP.md').read_text(encoding='utf-8')
+        (repo / 'MAP.md').write_text(m.replace('| `b/` | bee |', '| `b/` | bee, typed here |'),
+                                     encoding='utf-8')
+        r = bvs()
+        cases.append(('a row typed into MAP.md is still refused',
+                      r.returncode == 1 and 'typed here' in r.stderr, (r.stdout + r.stderr)[-300:]))
+    failed = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n} -- {d}' for n, d in failed))
+
+
+
 def check_migrate_views_keeps_every_word():
     """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
     into MAP.source.md and GLOSSARY.source.md and generates both from then
@@ -76417,6 +76559,7 @@ def main():
     check_no_duplication_refuses_a_sets_copy_of_a_universal_rule()
     check_source_directory_splits_and_assembles()
     check_split_file_round_trips()
+    check_split_and_join_take_edits_made_where_they_belong()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()
