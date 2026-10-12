@@ -9089,8 +9089,37 @@ def _declared_base_branch(root):
     except Exception:
         return None
 
+def _landing_ref():
+    """-> origin/<the branch this person's work lands on>, when
+    precedent_branches.py sits beside this file and that branch is on
+    origin, else None."""
+    try:
+        import importlib.util as _u
+        spec = _u.spec_from_file_location(
+            '_pc_precedent_branches', pathlib.Path(__file__).resolve().parent / 'precedent_branches.py')
+        pb = _u.module_from_spec(spec)
+        spec.loader.exec_module(pb)
+        landing, _why = pb.landing_branch(ROOT)
+    except Exception:
+        return None
+    if landing and _git('rev-parse', '--verify', '--quiet',
+                        f'origin/{landing}').returncode == 0:
+        return f'origin/{landing}'
+    return None
+
+
 def _published_default_branch():
-    """origin's default branch ref, or None when there is no usable one."""
+    """The branch a change is measured against: where this person's work
+    lands, then the declared base branch, then origin's default.
+
+    WHERE THE WORK LANDS COMES FIRST (2026-10-12). A session on the direct
+    route lands on main while precedent.json still declares staging, days
+    behind it; a push check judged a branch against staging and blamed it
+    for a rename already on main. A change is what it adds to the branch
+    it will land on (checks-read-only-the-work)."""
+    landing = _landing_ref()
+    if landing:
+        return landing
     declared = _declared_base_branch(ROOT)
     if declared and _git('rev-parse', '--verify', '--quiet',
                          f'origin/{declared}').returncode == 0:

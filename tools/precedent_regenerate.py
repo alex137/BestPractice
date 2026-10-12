@@ -9,6 +9,10 @@ their sources change).
     python3 tools/precedent_regenerate.py --staged   what the commit backstop runs
     python3 tools/precedent_regenerate.py --all      rebuild every listed file now
 
+It also re-renders the pages tools/doc_html.py lists (its own registry,
+never repeated in the list below) whose source or the renderer itself is
+staged, as it refreshes doc_sync.py's generated blocks from their own list.
+
 Reads the repository's list of generated files, tools/generated_files.json.
 An entry is rebuilt when a staged path matches one of its inputs: its
 `inputs` globs when it names them, else its `edit_instead` glob, plus the
@@ -280,6 +284,71 @@ def refresh_blocks(root, staged, say=print):
     return staged_now
 
 
+# A render's own list is doc_html.py's DOCS (a consumer's: its
+# tools/doc_html_host.json), exactly as doc_sync.py's PAIRS is the generated
+# blocks' -- so a page is registered once, where it is rendered, and never
+# again here. A repository whose renderer lists nothing (every consumer that
+# has not declared a host file) gets nothing from this.
+RENDERER = 'tools/doc_html.py'
+RENDER_INPUTS = (RENDERER, 'tools/doc_html_host.json')
+
+
+def _renders(root):
+    """-> [(source .md, render .html)] doc_html.py renders here, from its own
+    --list; [] where there is no renderer or it lists nothing."""
+    root = pathlib.Path(root)
+    if not (root / RENDERER).is_file():
+        return []
+    r = subprocess.run([sys.executable, RENDERER, '--list'], cwd=str(root),
+                       capture_output=True, text=True, env=_tool_env())
+    out = []
+    for line in r.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[1] == '->' and parts[0].endswith('.md') \
+                and parts[2].endswith('.html'):
+            out.append((parts[0], parts[2]))
+    return out
+
+
+def refresh_renders(root, staged, say=print, everything=False, stage=True):
+    """Re-render each page whose source, or the renderer itself, is staged,
+    and stage it. A render nothing rebuilt went stale on main whenever the
+    renderer's template changed, and failed the next unrelated merge (three
+    hand rebuilds of spec/PREFORK_AUDIT.html by 2026-10-12). A render with
+    unstaged changes of its own is rebuilt but not staged, and said.
+    -> the renders staged."""
+    root = pathlib.Path(root)
+    pages = _renders(root)
+    if not pages:
+        return []
+    renderer_changed = everything or any(p in RENDER_INPUTS for p in staged)
+    due_pages = [(src, html) for src, html in pages
+                 if renderer_changed or src in staged]
+    if not due_pages:
+        return []
+    dirty = set(_git(root, 'diff', '--name-only').stdout.split())
+    staged_now = []
+    for src, html in due_pages:
+        r = subprocess.run([sys.executable, RENDERER, src], cwd=str(root),
+                           capture_output=True, text=True, env=_tool_env())
+        if r.returncode != 0:
+            say(f'precedent_regenerate: re-rendering {src} failed, so {html} was '
+                f'left as it was: {(r.stderr or r.stdout).strip()[-200:]}')
+            continue
+        if not stage:
+            continue
+        if html in dirty:
+            say(f'precedent_regenerate: re-rendered {html}, but it also has changes '
+                f'of yours that are not staged, so it was NOT added to this commit. '
+                f'Stage it yourself once you have looked: git add {html}')
+            continue
+        _git(root, 'add', '--', html)
+        staged_now.append(html)
+    if staged_now:
+        say(f'precedent_regenerate: re-rendered and staged {", ".join(staged_now)}.')
+    return staged_now
+
+
 def main(argv):
     if argv[:1] in (['--help'], ['-h']):
         print(__doc__.strip())
@@ -294,12 +363,17 @@ def main(argv):
     if argv[0] == '--all':
         regenerate(top, [e for e in entries if e.get('check') and e.get('regenerate')],
                    stage=False)
+        refresh_renders(top, [], everything=True, stage=False)
         return 0
     staged = [l for l in _git(top, 'diff', '--cached', '--name-only').stdout.splitlines() if l]
     todo = due(entries, staged)
     if todo:
         regenerate(top, todo, say=lambda m: print(m, file=sys.stderr))
     refresh_blocks(top, staged, say=lambda m: print(m, file=sys.stderr))
+    # Renders last: a block refresh above may have rewritten a page's source.
+    refresh_renders(top, staged + [p for p in _git(top, 'diff', '--cached', '--name-only')
+                                   .stdout.splitlines() if p not in staged],
+                    say=lambda m: print(m, file=sys.stderr))
     return 0
 
 

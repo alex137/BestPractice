@@ -31,6 +31,12 @@ is not an attached sibling (see below). The clone-URL capitalization half is
 never automated: nothing local knows the canonical spelling, so that stays a
 manual `git remote set-url`.
 
+**The archive check's container scan falls for it too** (2026-10-12):
+[tools/precedent_container_safe.py](https://github.com/alex137/BestPractice/blob/main/tools/precedent_container_safe.py) listed a pushed branch in an attached
+clone as "commit(s) on no remote" and so refused "You can archive this
+session", until the refspec repair above ran. `git ls-remote` showed the
+branch on the server the whole time.
+
 ## Fix
 
 (migration could not isolate a distinct Fix paragraph -- read ## Story.)

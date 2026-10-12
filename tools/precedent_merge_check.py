@@ -328,8 +328,10 @@ def revert_landing(root, base, sha, number, pb=None):
          f'what landed failed its full check',
          '-m', 'precedent_merge_check.py --landed put the base back to the '
                'tree it had just before the merge. Nothing is lost: the pull '
-               'request\'s branch still has the work. Merge the base into it, '
-               'fix what the check found, and merge it again.'],
+               'request\'s branch still has the work, but merging the base '
+               'into it now brings this revert in too and quietly takes the '
+               'work back out. Merge the base in, then revert this commit on '
+               'the branch, fix what the check found, and merge it again.'],
         capture_output=True, text=True, env=env)
     commit = made.stdout.strip()
     if made.returncode != 0 or not commit:
@@ -479,14 +481,23 @@ def landed(argv, pb, search):
     if said is not None:
         print(said[1])
         return said[0]
-    tail = '\n'.join(out.rstrip().splitlines()[-TAIL_LINES:])
+    # The finding first: a long run's last lines can be all SKIPs, and the
+    # failure that caused the revert scrolled off the tail (2026-10-12).
+    lines = out.rstrip().splitlines()
+    found = [ln for ln in lines if re.search(r'\bFAIL|\bfailed\b|\bviolated\b', ln)
+             and not re.search(r'\b0 (failed|violated)\b', ln)]
+    tail = '\n'.join(found[-TAIL_LINES:] or lines[-TAIL_LINES:])
     done, what = revert_landing(root, base, sha, number, pb)
+    rev = (re.findall(r'\(([0-9a-f]{7,40})\)', what) or ['<the revert commit>'])[-1]
     moved = (f'{base} MOVED while pull request #{number} merged, and what '
              f'landed ({sha[:12]})' if same is False else
              f'what pull request #{number} landed on {base} ({sha[:12]})')
     print(f'precedent_merge_check: {moved} FAILED its {tier} check. '
           + (f'Reverted: {what}. The pull request\'s branch still has the '
-             f'work: merge {base} into it, fix the finding, and merge again.'
+             f'work, but {base} now carries the revert, so merging {base} into '
+             f'the branch brings the revert in and quietly removes the work. '
+             f'Merge {base} in, then undo the revert on the branch '
+             f'(git revert {rev}), fix the finding, and merge again.'
              if done else f'{what}. Fix it on {base} now.')
           + f'\n{tail}')
     return 1
