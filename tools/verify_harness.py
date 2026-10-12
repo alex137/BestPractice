@@ -20606,6 +20606,16 @@ def check_reply_check_names_what_it_cannot_evaluate():
     cases.append(('a fully-known requirement raises no unknown-predicate record',
                   not [x for x in known if x['kind'] == 'unknown_predicate'],
                   str(known)))
+    # `inherits` is handled by _settle; until 2026-10-11 it was missing from
+    # the known keys, and every turn printed "NOT ENFORCED HERE" for the
+    # ladder set's rule that uses it, naming a refresh that changed nothing.
+    inherited = prc.violations(text, [{'practice': 'p', '_source': 'u',
+                                       'id': 'x', 'inherits': True,
+                                       'require_heading_matching': 'boildown'}])
+    cases.append(('a requirement that inherits raises no unknown-predicate '
+                  'record', not [x for x in inherited
+                                 if x['kind'] == 'unknown_predicate'],
+                  str(inherited)))
     commented = prc.violations(text, [{'practice': 'p', '_source': 'u',
                                        'require_heading_matching': 'boildown',
                                        '_comment': 'a note to a human'}])
@@ -29342,6 +29352,74 @@ def check_container_check_lists_commands_still_running():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_archive_check_sees_work_left_in_a_scratch_folder():
+    """A file left in a scratch folder makes the container unsafe to lose,
+    the same as an uncommitted file in a checkout; a folder holding only a
+    page published on purpose does not; and the folder is given up by its
+    own name with the existing **Checkout disposition:** line.
+
+    2026-10-11: a session built 189 summaries in its scratch folder, had
+    the filing refused, and moved on. The checkout scan could not see them,
+    so the archive line would have passed and the work gone with the
+    container. Morgan: "EVERYTHING MUST GO INTO A REPO." """
+    import json as _json, re as _re, tempfile
+    import precedent_container_safe as pcs
+    scanner = ROOT / 'tools' / 'precedent_container_safe.py'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        sess = pathlib.Path(td) / 'abcd1234-5678-session' / 'scratchpad'
+        sess.mkdir(parents=True)
+
+        def scan():
+            return subprocess.run(
+                [sys.executable, str(scanner), '--only', str(ROOT),
+                 '--scratch', str(sess), '--json', '--no-processes'],
+                capture_output=True, text=True)
+
+        def unsafe_names(r):
+            try:
+                return [e.get('name') for e in
+                        _json.loads(r.stdout or '{}').get('unsafe') or []]
+            except ValueError:
+                return ['unreadable: ' + r.stdout[:200]]
+
+        r = scan()
+        cases.append(('an empty scratch folder is safe',
+                      'scratch:abcd1234' not in unsafe_names(r), r.stdout[:300]))
+        (sess / pcs._BRANCH_PAGE).write_text('<p>published</p>', encoding='utf-8')
+        r = scan()
+        cases.append(('a folder holding only the branch page, published on '
+                      'purpose, is safe',
+                      'scratch:abcd1234' not in unsafe_names(r), r.stdout[:300]))
+        (sess / 'out').mkdir()
+        (sess / 'out' / 'summaries.txt').write_text('189 lines\n', encoding='utf-8')
+        r = scan()
+        cases.append(('a file left there makes the container unsafe, under the '
+                      "folder's own name", r.returncode == 1
+                      and 'scratch:abcd1234' in unsafe_names(r), r.stdout[:300]))
+        cases.append(('the report lists the file',
+                      'out/summaries.txt' in r.stdout, r.stdout[:300]))
+        r2 = subprocess.run([sys.executable, str(scanner), '--only', str(ROOT),
+                             '--no-processes'], capture_output=True, text=True)
+        cases.append(('with --only and no --scratch, no scratch folder is read',
+                      'scratch:' not in r2.stdout, r2.stdout[:300]))
+    rules = _json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+    marker = next((x['unless_reply_declares_loss']['marker']
+                   for x in (rules if isinstance(rules, list)
+                             else rules.get('requirements') or [])
+                   if isinstance(x, dict)
+                   and (x.get('unless_reply_declares_loss') or {}).get('marker')), None)
+    line = ('**Checkout disposition:** scratch:abcd1234 -- discard (a draft '
+            'already filed in the repo)')
+    cases.append(('the existing disposition line gives a scratch folder up by '
+                  'that name', bool(marker) and bool(_re.search(
+                      marker.replace('{name}', _re.escape('scratch:abcd1234')),
+                      line, _re.I)), str(marker)))
+    failed = [c for c in cases if not c[1]]
+    return (not failed, f'{len(cases)} stated cases',
+            '; '.join(f'{c[0]}: {c[2]}' for c in failed))
+
+
 def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
     """`require_container_safe_if_says` refuses a reply that tells the person
     they can archive while this container holds work that exists nowhere else.
@@ -34068,6 +34146,49 @@ def check_changed_files_asks_a_new_check_for_its_test():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
           '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
+
+
+def check_changed_files_compares_quoted_counts_when_a_practice_changes():
+    """A practice change whose quoted count no longer matches what
+    tools/catalogue_stats.py computes is refused at push time, not first
+    found by main's GitHub test after a fast Produce.
+
+    2026-10-11: repo-is-memory gained a Detail, which moved a count
+    spec/PRACTICE_FORMAT.md quotes from 24 to 25; every quick check passed
+    and main went red (issue #1088). A stub catalogue_stats.py stands in
+    for the real one: failing, then passing, then a change that touches no
+    practice, which never runs it."""
+    import tempfile
+    name = ('the changed-files check compares quoted counts when a practice '
+            'changes')
+    failing = ('import sys\nprint("  FAIL  [anchor] spec/PRACTICE_FORMAT.md: '
+               'recites 24..24, this script derives 25..25")\nsys.exit(1)\n')
+    passing = 'import sys\nsys.exit(0)\n'
+    with tempfile.TemporaryDirectory() as td:
+        commit, run = _changed_files_fixture(
+            pathlib.Path(td) / 'red', {'tools/catalogue_stats.py': failing})
+        commit({'practices/zz-rule.md': '## Rule\nA rule.\n'})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(
+            pathlib.Path(td) / 'green', {'tools/catalogue_stats.py': passing})
+        commit2({'practices/zz-rule.md': '## Rule\nA rule.\n'})
+        rc2, out2 = run2()
+        commit3, run3 = _changed_files_fixture(
+            pathlib.Path(td) / 'other', {'tools/catalogue_stats.py': failing})
+        commit3({'notes/zz.md': 'not a practice\n'})
+        rc3, out3 = run3()
+    cases = [
+        ('a changed practice whose quoted count is stale is refused', rc == 1),
+        ('the refusal names the stale figure and what to update',
+         'recites 24..24' in out and 'catalogue_stats.py' in out),
+        ('control: the same change with the counts in step passes', rc2 == 0),
+        ('a change that touches no practice and no quoting doc does not run '
+         'the comparison', rc3 == 0),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else
+                               f' -- {out[-500:]} / {out2[-300:]} / {out3[-300:]}'))
 
 
 def check_changed_files_asks_a_new_check_for_its_planted_case():
@@ -76225,6 +76346,8 @@ def main():
           *check_a_consumer_may_declare_a_ci_workflow_its_own())
     check('the reply check names every predicate it cannot evaluate',
           *check_reply_check_names_what_it_cannot_evaluate())
+    check('the archive check sees work left in a scratch folder',
+          *check_archive_check_sees_work_left_in_a_scratch_folder())
     check('the session check adopts a detached start the branch carries',
           *check_session_check_adopts_a_detached_start())
     check('the session check reports a source cloned twice on one disk',
@@ -76695,6 +76818,7 @@ def main():
     check_shipped_hooks_pass_rename_links_without_the_mirror()
     check_changed_files_asks_a_new_check_for_its_test()
     check_changed_files_asks_a_new_check_for_its_planted_case()
+    check_changed_files_compares_quoted_counts_when_a_practice_changes()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_for_change_runs_the_tests_a_change_reaches()
     check_changed_files_runs_the_harness_tests_a_change_reaches()

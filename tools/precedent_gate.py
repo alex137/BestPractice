@@ -1304,7 +1304,7 @@ def main():
                       f"can be deleted (the page counts them, after a fetch). "
                       f"Build the page with `python3 tools/"
                       f"precedent_stale_branches.py --fetch --html "
-                      f"<scratchpad>/branch-cleanup.html`, publish it as an "
+                      f"<scratchpad>/{_sb.PAGE_FILENAME}`, publish it as an "
                       f"artifact, and link it in one Boildown line. In any "
                       f"other reply, say nothing about it (practice: "
                       f"stale-branch-cleanup).")
