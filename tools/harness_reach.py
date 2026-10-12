@@ -91,7 +91,8 @@ if _os.environ.get("HARNESS_REACH_CHECK") and _os.environ.get("HARNESS_REACH_REC
 import sys as _sys
 _here = _os.path.dirname(_os.path.abspath(__file__))
 for _d in _sys.path:
-    if _d and _os.path.abspath(_d) != _here and _os.path.isfile(_os.path.join(_d, "sitecustomize.py")):
+    if _d and _os.path.abspath(_d) != _here and _os.path.isfile(_os.path.join(_d, "sitecustomize.py")) \
+            and "HARNESS_REACH" not in open(_os.path.join(_d, "sitecustomize.py")).read():
         try:
             exec(compile(open(_os.path.join(_d, "sitecustomize.py")).read(),
                          _os.path.join(_d, "sitecustomize.py"), "exec"), {"__name__": "sitecustomize"})
@@ -106,7 +107,7 @@ def _git(*args, cwd=ROOT):
 
 
 # -- recording ---------------------------------------------------------------
-def record_env(out_dir, env=None):
+def record_env(out_dir, env=None, root=ROOT):
     """-> the environment a recorded harness run gets: the hook's
     sitecustomize first on PYTHONPATH, and where the records go."""
     env = dict(os.environ if env is None else env)
@@ -115,7 +116,7 @@ def record_env(out_dir, env=None):
     (site / 'sitecustomize.py').write_text(SITECUSTOMIZE, encoding='utf-8')
     env['PYTHONPATH'] = str(site) + (os.pathsep + env['PYTHONPATH'] if env.get('PYTHONPATH') else '')
     env['HARNESS_REACH_RECORD'] = str(out_dir)
-    env['HARNESS_REACH_ROOT'] = str(ROOT)
+    env['HARNESS_REACH_ROOT'] = str(root)
     env['HARNESS_REACH_HOOK'] = str(ROOT / 'tools' / 'harness_reach_hook.py')
     env['HARNESS_REACH_SITE'] = str(site)
     env.pop('HARNESS_REACH_CHECK', None)
@@ -161,10 +162,18 @@ def merge(out_dir, commit):
                 rec.setdefault(kind, []).append(rest)
         into(dst, rec)
     # A check that ran a module's code inherits what the module's import
-    # reached, and so on through the imports that import reached.
+    # reached, and one that ran a cached reader (harness_reach_hook's
+    # CACHED_READERS, kept as 'file::name') what its first run reached; and
+    # so on through what those reached.
+    def keys(code):
+        out = set()
+        for f, q in code:
+            out.add(f)
+            out.add(f'{f}::{q}')
+        return out
     for name, rec in checks.items():
         done = set()
-        todo = {f for f, _q in rec.get('c', ())}
+        todo = keys(rec.get('c', ()))
         while todo:
             m = todo.pop()
             if m in done:
@@ -173,7 +182,7 @@ def merge(out_dir, commit):
             imp = imports.get(m)
             if imp:
                 into(rec, {k: list(v) for k, v in imp.items()})
-                todo |= {f for f, _q in imp.get('c', ())} - done
+                todo |= keys(imp.get('c', ())) - done
     out = {}
     for name, rec in sorted(checks.items()):
         code = {}
