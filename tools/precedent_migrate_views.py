@@ -23,7 +23,9 @@ repository that uses Precedent keeps everything it wrote).
         PATH without .md (docs/INDEX.md -> docs/INDEX/), one file per
         heading and per table row. Refused unless the directory rebuilds
         PATH byte for byte; --normalize-blank-lines accepts a file whose
-        only difference is runs of blank lines. The view is registered in
+        only difference is blank lines (two or more between blocks, or none
+        above a heading). A row's file name drops a version token its first
+        cell ends with (plan_v1.md -> ...-plan.md). The view is registered in
         tools/generated_files.json where the repository keeps one.
     python3 tools/precedent_migrate_views.py --repo DIR --join SRC --out PATH [--check] [--force]
         rebuild PATH from the directory SRC -- what a consuming repository's
@@ -31,6 +33,8 @@ repository that uses Precedent keeps everything it wrote).
         of date and changes nothing. A line typed into PATH by hand that no
         entry file holds is never overwritten silently: the join refuses and
         names it, and --force overrides once it has been moved into SRC.
+        The old wording of an entry reworded in SRC is not such a line: what
+        SRC's recent commits held counts as SRC.
 
 For each of MAP.md and GLOSSARY.md that is hand-written -- it carries no
 `generated_by: tools/build_views.py` label -- and has no source file yet,
@@ -224,10 +228,27 @@ _FENCE = _re.compile(r'^\s*(```|~~~)')
 _TABLE_SEP = _re.compile(r'^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$')
 
 
+# A version token at the end of a slug, with any file-extension word after
+# it: a row naming plan_v1.md was filed as ...-plan-v1-md.md, a name the
+# repository's own no-version-suffix check then refuses (a downstream repo,
+# 2026-10-12). The tokens are that check's version tokens (v1, version2,
+# rev3); its state words (final, draft, ...) are ordinary English and stay.
+_EXT_WORDS = ('md|markdown|txt|html?|pdf|docx?|xlsx?|xlsm|csv|tsv|pptx?|json|ya?ml|py|'
+              'sh|js|ts|png|jpe?g|svg')
+_VERSION_TAIL = _re.compile(rf'-(?:v\d+|version\d*|rev\d+)(?:-(?:{_EXT_WORDS}))?$')
+
+
+def _drop_version_tail(text):
+    while _VERSION_TAIL.search(text):
+        text = _VERSION_TAIL.sub('', text)
+    return text
+
+
 def _slug(text, fallback):
     text = _re.sub(r'\]\([^)]*\)', ']', text)          # drop link targets
     text = _re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
-    return (text[:48].rstrip('-')) or fallback
+    text = _drop_version_tail('-' + text)[:49].rstrip('-')
+    return _drop_version_tail(text).lstrip('-') or fallback
 
 
 def _chunks(text):
@@ -316,7 +337,13 @@ def split_entries(text):
 
 
 def _same_words(a, b):
-    norm = lambda t: _re.sub(r'\n{3,}', '\n\n', t.strip('\n'))
+    """True when `a` and `b` differ at most in blank lines. The assembly puts
+    one blank line between blocks, so a source with two or more there, or
+    none -- a heading straight under a paragraph line (a downstream repo,
+    2026-10-12) -- reassembles with the same words in different blank lines,
+    which --normalize-blank-lines accepts; any other change is a change of
+    words."""
+    norm = lambda t: [l for l in t.split('\n') if l.strip()]
     return norm(a) == norm(b)
 
 
@@ -444,13 +471,17 @@ def join(repo, src, out, check=False, force=False, say=print):
         say(f'{out_rel} is out of date with {src_rel}/ -- run '
             f'{join_entry(repo, src_rel, out_rel)["regenerate"]}')
         return 1
-    lost = bv.hand_edits_against(repo, view_body(old) if old else None, new,
-                                 sorted(d.rglob('*.md')), skip=_LABEL_ONLY) if old else []
+    # Old wording of an entry reworded in the directory is no hand edit: the
+    # directory's recent history counts as source (build_views.HISTORY_COMMITS).
+    lost = bv.hand_edits_against(repo, view_body(old), new, sorted(d.rglob('*.md')),
+                                 skip=_LABEL_ONLY, history=[d], view=view) if old else []
     if lost and not force:
         say(f'precedent_migrate_views: REFUSED -- {out_rel} has lines no file in '
             f'{src_rel}/ holds, typed into the view by hand. Move each into its own '
             f'entry file in {src_rel}/ (then this rebuild keeps it), or pass --force '
-            f'to drop them:\n  ' + '\n  '.join(lost[:20]))
+            f'to drop them:\n  ' + '\n  '.join(lost[:20])
+            + f'\nA line named that is old wording you changed in {src_rel}/ before '
+              f'it was ever committed is not a hand edit: --force is safe for it.')
         return 1
     view.parent.mkdir(parents=True, exist_ok=True)
     view.write_text(new, encoding='utf-8')

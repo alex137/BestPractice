@@ -2721,8 +2721,14 @@ GLOSSARY_SOURCE = 'GLOSSARY.source.md'
 # --split-file X.md` keeps X/ as the source and X.md as the view, and
 # `--join X --out X.md` rebuilds it with assemble_source_dir() below.
 SOURCE_DIR_SUFFIX = '.source'
-SECTION_HEAD = '_head.md'
-SECTION_TAIL = '_tail.md'
+# Declared as *_NAME constants so precedent_check.py's filename-separator
+# reads them as names the engine fixes, not a repository's own choice: their
+# underscore beside the rows' hyphens was counted as a mixed directory in
+# every split section (a downstream repo's push check, 2026-10-12).
+SECTION_HEAD_NAME = '_head.md'
+SECTION_TAIL_NAME = '_tail.md'
+SECTION_HEAD = SECTION_HEAD_NAME
+SECTION_TAIL = SECTION_TAIL_NAME
 
 
 def source_dir_name(name):
@@ -2773,19 +2779,72 @@ def hand_edits(root, path, old_text, new_text, src_name):
         return []
     own = own_source_path(root, src_name)
     files = [] if own is None else [own] if own.is_file() else sorted(own.rglob('*.md'))
-    return hand_edits_against(root, old_text, new_text, files)
+    return hand_edits_against(root, old_text, new_text, files,
+                              history=[own] if own is not None else [], view=path)
 
 
-def hand_edits_against(root, old_text, new_text, files, skip=_GENERATED_ROW):
+# HOW LONG A SOURCE REMEMBERS. Rewording an EXISTING entry leaves its old
+# wording in the view until the rebuild, and that line is in no source as it
+# is now: the guard used to call it typed by hand, so only additions got
+# through (a downstream repo, 2026-10-12, rewording an intro paragraph). A
+# line some committed version of the source held was written in the source,
+# so the source's recent history counts as the source -- every line its last
+# HISTORY_COMMITS commits added or removed -- and so does a view committed
+# with no generated label, which was the source itself before a split made
+# it a view. A hash of the built body kept in the view's label was the other
+# way to tell; it was not taken because that one line changes on every
+# rebuild, so two branches that add rows to different places in a view
+# would always conflict on it, the collision the directory split exists to
+# remove.
+HISTORY_COMMITS = 200
+
+
+def _committed_source_lines(root, history, view):
+    """-> text every line of which some committed version of the source held:
+    what the last HISTORY_COMMITS commits touching `history` added or
+    removed, plus `view` as committed at HEAD when it carries no generated
+    label (the hand-written file a split turned into a view)."""
+    out = []
+    rels = []
+    for p in history or []:
+        try:
+            rels.append(pathlib.Path(p).resolve().relative_to(root.resolve()).as_posix())
+        except ValueError:
+            pass
+    if rels:
+        r = subprocess.run(['git', '-C', str(root), 'log', '--format=', '-p', '--no-color',
+                            '--no-ext-diff', '-n', str(HISTORY_COMMITS), '--', *rels],
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            out += [l[1:] for l in r.stdout.splitlines()
+                    if l[:1] in '+-' and l[:4] not in ('+++ ', '--- ')]
+    if view is not None:
+        try:
+            rel = pathlib.Path(view).resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            rel = None
+        r = subprocess.run(['git', '-C', str(root), 'show', f'HEAD:{rel}'],
+                           capture_output=True, text=True) if rel else None
+        if r is not None and r.returncode == 0 and not re.match(
+                r'\A---\n(?:.*\n)*?generated_by:', r.stdout):
+            out.append(r.stdout)
+    return '\n'.join(out)
+
+
+def hand_edits_against(root, old_text, new_text, files, skip=_GENERATED_ROW,
+                       history=(), view=None):
     """-> the lines of `old_text` a rebuild to `new_text` would drop that
-    none of the source `files` holds, on disk or as committed at HEAD.
-    hand_edits() for MAP.md and GLOSSARY.md, and
-    precedent_migrate_views.py --join for any index kept as a directory.
-    `skip` matches lines never counted: by default the rows MAP.md builds
-    from practices/ and tools/, and the label."""
+    none of the source `files` holds, on disk or as committed at HEAD, and
+    that no recent commit to the sources in `history` added or removed
+    (HISTORY_COMMITS): lines typed into the view by hand. hand_edits() for
+    MAP.md and GLOSSARY.md, and precedent_migrate_views.py --join for any
+    index kept as a directory. `view` is the view's path, whose committed
+    copy counts as source while it is still hand-written. `skip` matches
+    lines never counted: by default the rows MAP.md builds from practices/
+    and tools/, and the label."""
     root = pathlib.Path(root)
     keep = set(new_text.splitlines())
-    sources = []
+    sources = [_committed_source_lines(root, history, view)]
     if files:
         for f in files:
             try:
@@ -3304,7 +3363,10 @@ def main():
                 if len(lines) > 10:
                     print(f"    ... and {len(lines) - 10} more", file=sys.stderr)
             print("Move each line into the source named, then run this "
-                  "again; or rerun with --force to discard them.", file=sys.stderr)
+                  "again; or rerun with --force to discard them. A line named "
+                  "that is old wording you changed in the source before it was "
+                  "ever committed is not a hand edit: --force is safe for it.",
+                  file=sys.stderr)
             return 1
     for path, new_text in targets:
         path.write_text(new_text, encoding='utf-8')

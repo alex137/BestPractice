@@ -1688,6 +1688,11 @@ def check_unrendered(files):
         rel = str(f).replace("\\", "/")
         if rel in registered or is_record_doc(rel) or _is_vendored(rel):
             continue
+        # A piece of an index kept as a directory is a fragment of the view
+        # it joins into, which is the document a render belongs to; asked of
+        # its _head.md, the gate refused a split map (2026-10-12).
+        if index_entry_base(ROOT / rel) is not None:
+            continue
         cols = widest_table(rel)
         if cols < RENDER_MIN_COLUMNS:
             continue
