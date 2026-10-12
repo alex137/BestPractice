@@ -58754,6 +58754,70 @@ def check_engine_unpacks_tars_in_one_place():
           not bad, '; '.join(bad))
 
 
+def check_stale_branches_skip_a_reverted_merge():
+    """A branch whose pull-request merge main reverted is never offered for
+    deletion; once merged again, it is.
+
+    WHY. 2026-10-12: a pull request was merged and reverted within the hour,
+    and the revert told its author to fix the work on the branch and merge
+    again. Its tip was in main, so the cleanup page offered the branch for
+    deletion. Planted: main merges `feat` as #5, then `Revert pull request
+    #5` -- not listed; a git-style revert naming the merge commit -- not
+    listed; merged again as #6 -- listed. CONTROL: a merged branch nobody
+    reverted is listed throughout."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as sb
+    cases = []
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        origin, work = td / 'origin.git', td / 'work'
+
+        def g(*a, cwd=None):
+            return subprocess.run(['git', '-C', str(cwd or work), *a], env=env,
+                                  capture_output=True, text=True)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', 'clone', '-q', str(origin), str(work)],
+                       capture_output=True, env=env)
+        (work / 'a.txt').write_text('a\n'); g('add', '-A'); g('commit', '-qm', 'a')
+        g('push', '-q', 'origin', 'HEAD:main')
+        for name in ('feat', 'other'):
+            g('checkout', '-q', '-b', name, 'main')
+            (work / f'{name}.txt').write_text(name); g('add', '-A')
+            g('commit', '-qm', name); g('push', '-q', 'origin', name)
+        g('checkout', '-q', 'main')
+        g('merge', '-q', '--no-ff', 'other', '-m', 'Merge pull request #4 from o/other')
+        g('merge', '-q', '--no-ff', 'feat', '-m', 'Merge pull request #5 from o/feat')
+        merge5 = g('rev-parse', 'HEAD').stdout.strip()
+        g('revert', '--no-edit', '-m', '1', 'HEAD')
+        g('commit', '-q', '--amend', '-m', 'Revert pull request #5: it failed its check')
+        g('push', '-q', 'origin', 'HEAD:main'); g('fetch', '-q', 'origin')
+
+        def listed():
+            return [b for b, _d in (sb.stale_in(work) or [])]
+        cases.append(('a merge main reverted by "Revert pull request #N" is not '
+                      'offered', 'feat' not in listed(), listed()))
+        cases.append(('CONTROL: a merged branch nobody reverted is offered',
+                      'other' in listed(), listed()))
+        g('reset', '-q', '--hard', merge5)
+        g('revert', '--no-edit', '-m', '1', 'HEAD')
+        g('push', '-q', '-f', 'origin', 'HEAD:main'); g('fetch', '-q', 'origin')
+        cases.append(('...nor one reverted by git\'s "This reverts commit <merge>"',
+                      'feat' not in listed(), listed()))
+        g('checkout', '-q', 'feat'); g('merge', '-q', 'origin/main', '-m', 'take main')
+        (work / 'feat.txt').write_text('feat, fixed'); g('add', '-A')
+        g('commit', '-qm', 'fix')
+        g('push', '-q', 'origin', 'feat'); g('checkout', '-q', 'main')
+        g('merge', '-q', '--no-ff', 'feat', '-m', 'Merge pull request #6 from o/feat')
+        g('push', '-q', 'origin', 'HEAD:main'); g('fetch', '-q', 'origin')
+        cases.append(('merged again, it is offered', 'feat' in listed(), listed()))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the cleanup page never offers a branch whose merge was reverted '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_branch_cleanup_page_merges_the_saved_page():
     """Refreshing the saved branch-cleanup page keeps the rows of every
     repository this session did not check, and replaces those it did.
@@ -77442,6 +77506,7 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_branch_cleanup_page_is_one_page_updated_in_place()
     check_branch_cleanup_page_merges_the_saved_page()
+    check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()

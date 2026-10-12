@@ -148,8 +148,46 @@ def _retired_pre_staging(repo):
         return False
 
 
+_MERGED_PR = re.compile(r'^Merge pull request #(\d+) from [^/\s]+/(\S+)')
+_REVERTED_PR = re.compile(r'^Revert (?:pull request #(\d+)|"Merge pull request #(\d+))')
+_REVERTS_SHA = re.compile(r'This reverts commit ([0-9a-f]{7,40})')
+
+
+def reverted_branches(repo, depth=500):
+    """-> {branch} whose latest pull-request merge into origin/main was
+    reverted there afterwards, by `Revert pull request #N` (what
+    precedent_merge_check.py --landed writes), GitHub's `Revert "Merge pull
+    request #N ..."`, or git's "This reverts commit <merge>".
+
+    WHY (2026-10-12): the page offered `claude/archive-capture-check` for
+    deletion. Its pull request was merged and reverted the same hour, so
+    its tip is in main while its work is not -- and the revert tells its
+    author to fix the work on that branch and merge again."""
+    out = _git(repo, 'log', 'origin/main', '--first-parent', f'-{depth}',
+               '--format=%H%x00%s%x00%b%x1e').stdout
+    latest_merge, reverted_pr, reverted_sha = {}, {}, {}
+    for i, rec in enumerate(r for r in out.split('\x1e') if r.strip()):
+        sha, subject, body = (rec.strip('\n').split('\x00') + ['', ''])[:3]
+        m = _MERGED_PR.match(subject)
+        if m and m.group(2) not in latest_merge:
+            latest_merge[m.group(2)] = (i, m.group(1), sha)
+        r = _REVERTED_PR.match(subject)
+        if r:
+            reverted_pr.setdefault(r.group(1) or r.group(2), i)
+        for s in _REVERTS_SHA.findall(body):
+            reverted_sha.setdefault(s, i)
+    gone = set()
+    for branch, (i, pr, sha) in latest_merge.items():
+        # Newest first: a revert at a smaller index came after the merge.
+        if reverted_pr.get(pr, i) < i or any(
+                sha.startswith(s) and j < i for s, j in reverted_sha.items()):
+            gone.add(branch)
+    return gone
+
+
 def stale_in(repo, fetch=False):
-    """-> [(branch, last_commit_date)] for `repo`, or None with no origin/main."""
+    """-> [(branch, last_commit_date)] for `repo`, or None with no origin/main.
+    A branch whose merge main reverted is never listed (reverted_branches)."""
     if fetch:
         _git(repo, 'fetch', '-q', '--prune', 'origin')
     if _git(repo, 'rev-parse', '--verify', '--quiet', 'origin/main').returncode:
@@ -162,7 +200,10 @@ def stale_in(repo, fetch=False):
                    '--format=%(refname:short)').stdout.splitlines()}
     out = []
     retired = 'pre-staging' in names and _retired_pre_staging(repo)
+    reverted = reverted_branches(repo)
     for b in sorted(set(names)):
+        if b in reverted:
+            continue
         if b == 'pre-staging' and retired:
             # Measured against staging, where its work went, not main.
             date = _git(repo, 'log', '-1', '--format=%cs', f'origin/{b}').stdout.strip()
