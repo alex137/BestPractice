@@ -58933,6 +58933,23 @@ def check_update_done_names_the_branch_to_commit_on():
                                 '2026-10-09-some-work-abcde-q7m2x'], check=True)
             cases.append(('on a session branch it prints nothing',
                           _pu.feature_branch_line(repo) is None, ''))
+            # 2026-10-12, a consumer: an update landed under the harness's
+            # own name, the first-commit note read as outweighed. On the
+            # ladder DONE says the rename; off it, nothing.
+            subprocess.run(g + ['switch', '-q', '-c', 'claude/sleepy-shannon-1nilys'],
+                           check=True)
+            saved_cif = _pbn.conventions_in_force
+            try:
+                _pbn.conventions_in_force = lambda *_a, **_k: True
+                line = _pu.feature_branch_line(repo) or ''
+                cases.append(('on the harness\'s own name, on the ladder, DONE '
+                              'prints the switch command', _pu.SWITCH_COMMAND in line
+                              and 'claude/sleepy-shannon-1nilys' in line, line))
+                _pbn.conventions_in_force = lambda *_a, **_k: False
+                cases.append(('...and off the ladder, nothing',
+                              _pu.feature_branch_line(repo) is None, ''))
+            finally:
+                _pbn.conventions_in_force = saved_cif
         name = subprocess.run([sys.executable, str(ROOT / 'tools' /
                                                    'precedent_branch_name.py'),
                                '--no-check', 'update-vendors'],

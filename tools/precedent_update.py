@@ -2704,7 +2704,8 @@ SWITCH_COMMAND = ('git switch --no-track -c '
 def feature_branch_line(repo):
     """-> the line DONE prints when `repo`'s checkout is on a tier branch
     (precedent_branches.tier_branches, its landing branch, or its declared
-    base), or None on any other branch or when it cannot be read."""
+    base), or, for a person on the ladder, on the harness's own branch name;
+    None on any other branch or when it cannot be read."""
     if repo is None:
         return None
     try:
@@ -2723,11 +2724,28 @@ def feature_branch_line(repo):
             name = None
         if name:
             tiers.add(name)
-    if cur not in tiers:
-        return None
-    return (f"This checkout is on {cur}, a tier branch. Before committing, move "
-            f"the staged update onto a branch of its own (it carries the staged "
-            f"diff as it is): {SWITCH_COMMAND}")
+    if cur in tiers:
+        return (f"This checkout is on {cur}, a tier branch. Before committing, move "
+                f"the staged update onto a branch of its own (it carries the staged "
+                f"diff as it is): {SWITCH_COMMAND}")
+    # THE HARNESS'S OWN NAME, on the ladder (2026-10-12, a consuming
+    # repository: a session updated on claude/sleepy-shannon-1nilys and
+    # landed it under that name, having read the first-commit note as
+    # outweighed by the harness's "never push to another branch"). The act
+    # practice is that permission; DONE says the command in the same breath
+    # as the commit. Off the ladder the name is the person's business
+    # (precedent_branch_name.conventions_in_force), so nothing is said.
+    try:
+        import precedent_branch_name as bn
+        if bn.is_harness_name(cur) and bn.conventions_in_force(repo):
+            return (f"This checkout is on {cur}, the name Claude Code gave the "
+                    f"session before the task was known. Before committing, "
+                    f"move the staged update onto a branch named for it (the "
+                    f"act practice is the permission to rename; it carries the "
+                    f"staged diff as it is): {SWITCH_COMMAND}")
+    except Exception:                                    # noqa: BLE001
+        pass
+    return None
 
 
 class Report:
