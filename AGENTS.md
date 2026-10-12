@@ -97,7 +97,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 144 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 145 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) Answer the easy questions first**, in the same message; the long run
 never gates the answer. **(2) A task longer than a few minutes is proposed,
@@ -233,6 +233,8 @@ When computing, quoting or tabulating figures:
   scripts-assert-properties — a script a document cites asserts its own properties and cited anchors
   tabular-shared-renderer — a sortable multi-column table ships from the one shared renderer
   verify-decomposition — check the parts, not the total; never assert an impossibility
+When creating or adding to a file many threads append entries to (an index, digest, registry or log), or when such a file conflicts in a merge:
+  shared-index-is-a-directory — one file per entry in a directory; generate the view; a view conflict is rebuilt
 When creating, renaming or retagging a session:
   session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
   session-tags — tag at creation: subject, repo, role, wants; never retrofitted
@@ -285,6 +287,7 @@ When writing, running or reviewing a gate, audit, cache or heavy solve:
   slow-steps-report-and-cache — over a minute: print elapsed and remaining; cache a heavy solve to disk
 When writing, triaging or doing work on an open item:
   item-closes-on-its-condition — record findings in the item; close only on its condition
+When writing, triaging or doing work on an open item, or writing an open, unsettled or next-step list or an unchecked box in any document or reply:
   todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason; else just do it
 
 (More on-demand practices are not listed here: one whose applies_to names real paths, or which declares a gate, is reached by those channels instead -- `precedent_paths.py FILE` and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot be reached that way and is always listed above. `precedent_show.py --index-omitted` names the omitted ones.)

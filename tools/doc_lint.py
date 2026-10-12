@@ -56,6 +56,16 @@ behavior that GitHub silently neutered):
      check (frontmatter_yaml.py) so a fix lands once. Skipped with a notice
      where PyYAML isn't installed, same as check 1 when cmark-gfm is absent.
 
+  8. OPEN ITEM THAT SAYS NOTHING BLOCKS IT (error) (practice:
+     todo-is-a-handoff). An unchecked box, a list item under an open-list
+     heading ("What Is Not Yet Settled", "Open questions", "Next steps"), or
+     an open todo/ item file, added by this change with no stated reason a
+     session cannot clear itself: `(needs: decision -- who decides)`,
+     purchase, access (refused), test, external, pr (linked), or
+     `(out of scope: why)`. Line-scoped like checks 1 and 4; the heading
+     vocabulary and reasons are OPEN_* settings a host shim may change, and
+     `<!--checklist-->` marks a form's boxes as not open work.
+
 SCOPE: by default, only files CHANGED vs the default branch (the convention is
 "fix the parts you touch"; this also avoids editing frozen documents, where a
 `~`→`≈` change would be content drift). Pass explicit files, or --all to scan
@@ -434,6 +444,36 @@ def document_anchors(path):
     return out
 
 
+def index_entry_base(p):
+    """-> the directory an index entry file's links are written against, or
+    None when `p` is no such entry.
+
+    An index kept as a directory (practice: shared-index-is-a-directory)
+    holds one file per heading and per table row, one or two levels below
+    the view they are joined into, and each keeps its text word for word --
+    so its links are relative to the VIEW, not to the entry's own folder.
+    Read from the entry's folder, every row of a split index would report
+    'no such file'. The directory is X/ beside a view X.md that
+    precedent_migrate_views.py --join writes, or MAP.source/ and
+    GLOSSARY.source/, which build_views.py joins into MAP.md and GLOSSARY.md
+    beside them."""
+    p = pathlib.Path(p)
+    for a in (p.parent, p.parent.parent):
+        if a == a.parent:
+            break
+        if a.name.endswith('.source'):
+            return a.parent
+        view = a.parent / (a.name + '.md')
+        try:
+            head = view.read_text(encoding='utf-8', errors='ignore')[:600]
+        except OSError:
+            continue
+        if re.search(r'^generated_by:\s*["\']?tools/precedent_migrate_views\.py',
+                     head, re.M):
+            return a.parent
+    return None
+
+
 def check_broken_links(path):
     """[(lineno, target, why)] links in `path` that land nowhere.
 
@@ -485,6 +525,7 @@ def check_broken_links(path):
     # source root -- every other link in a mirror is still reported.
     anchors_only = _source_relative(rel).startswith(ANCHOR_CHECKED_EXEMPT_DIRS)
     p = ROOT / path
+    base = index_entry_base(p)
     out, incode = [], False
     for i, line in enumerate(p.read_text(encoding='utf-8', errors='ignore').splitlines(), 1):
         if line.lstrip().startswith(('```', '~~~')):
@@ -497,7 +538,9 @@ def check_broken_links(path):
             if target.startswith(('http://', 'https://', 'mailto:')):
                 continue
             bare, _, frag = target.partition('#')
-            dest = p if not bare else (p.parent / bare)
+            if base is not None and not bare:
+                continue    # an anchor in the view, which the view's own check reads
+            dest = p if not bare else ((base or p.parent) / bare)
             if bare and not dest.exists():
                 if not anchors_only:
                     out.append((i, target, 'no such file'))
@@ -1200,6 +1243,207 @@ def check_upstream_item(path, root=None):
             f"paste-ready block in a fence")
 
 
+# An open item nobody said was blocked (practice: todo-is-a-handoff,
+# 2026-10-12). In a downstream engineering repo a session wrote a spec whose
+# "What Is Not Yet Settled" list and an unchecked box queued checks a few web
+# searches would have finished -- the edition of a standard, a material's
+# strength, a clearance. The rule already said "if this session could finish
+# it, do it", but nothing made a session notice that an unsettled list in a
+# deliverable, or a `- [ ]`, IS an open item. When the person said "do the
+# checks", the searches turned up two facts that killed the design, in
+# minutes. So every open item a change adds has to say what it waits on.
+#
+# The vocabulary below is the engine's default; a consumer's host shim may
+# set any of these OPEN_* names to its own (practice: engine-plus-host-shims).
+#
+# A heading (level two or deeper; a level-one heading is a title) that
+# STARTS with one of these -- after an optional "What is", "The" or "Still"
+# -- opens an open list: the list items under it, down to the next heading
+# of the same or a higher level, are open items. Anchored at the start
+# because measured against this repo, a loose match took practice titles
+# like "A TODO is a handoff" for lists of open work.
+OPEN_LIST_HEADINGS = [
+    r'open (?:questions?|items?|issues?|points?|work)',
+    r'not yet', r'unsettled', r'unresolved', r'outstanding', r'pending',
+    r'to ?-?do', r'todos?', r'next steps?', r'follow[ -]?ups?',
+    r'still to (?:do|check|decide|settle)', r'remaining work',
+]
+# The reasons that make an item a handoff rather than a deferral: the word
+# a writer puts first, and the words that read as the same thing. A fix in
+# another repository is not one, and neither is access the session can ask
+# for -- the practice's own Rule; so `access` means access asked for and
+# refused, or that no request can get.
+OPEN_ITEM_REASONS = {
+    'decision': ['decision', 'approval', 'sign-off', 'signoff', 'choice'],
+    'purchase': ['purchase', 'money', 'budget', 'funding', 'spend', 'order'],
+    'access': ['access'],
+    'test': ['test', 'physical test', 'measurement', 'measure', 'prototype',
+             'hardware', 'lab'],
+    'external': ['external', 'reply', 'response', 'third party', 'party'],
+    'pr': ['pr', 'pull request'],
+    'out-of-scope': ['out of scope', 'out-of-scope'],
+}
+# The directory a repo keeps one file per open item in; None for none.
+OPEN_ITEM_DIR = 'todo'
+# The `batch` of items an unattended job files (tools/open_failures.py): the
+# job could not do the work, which is the handoff the rule asks for.
+OPEN_ITEM_JOB_BATCHES = ('failures',)
+# Marks boxes that are a form or a runbook's steps, not open work: on an
+# item's line it exempts that item, on a line of its own the document.
+OPEN_ITEM_EXEMPT = '<!--checklist-->'
+# Trees whose boxes are forms for someone else to fill: issue and pull
+# request templates, and the templates a consumer installs.
+OPEN_ITEM_SKIP_PREFIXES = ('.github/', 'templates/')
+
+_OPEN_MARKER_RE = re.compile(
+    r'\b(needs|blocked[ _-]on|waiting[ _-]on|out[ _-]of[ _-]scope)[ \t]*:[ \t]*(.*)',
+    re.I | re.S)
+_BOX_RE = re.compile(r'^\s*(?:[-*+]|\d{1,9}[.)])\s+\[ \]\s+(?P<text>\S.*)$')
+_DONE_BOX_RE = re.compile(r'^\s*(?:[-*+]|\d{1,9}[.)])\s+\[[xX]\]')
+_LIST_RE = re.compile(r'^ {0,3}(?:[-*+]|\d{1,9}[.)])\s+(?P<text>\S.*)$')
+_ANY_LIST_RE = re.compile(r'^\s*(?:[-*+]|\d{1,9}[.)])\s')
+_ATX_RE = re.compile(r'^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$')
+_PR_LINK_RE = re.compile(r'github\.com/[\w.-]+/[\w.-]+/(?:pull|issues)/\d+')
+OPEN_ITEM_HOWTO = (
+    'could this session do it now? If yes, do it and take the line out; if '
+    'not, write what it needs at the end of the item, as `(needs: decision '
+    '-- who decides)`, or purchase, access (refused), test, external (who), '
+    'pr (the link), out of scope (why). A fix in another repository, or '
+    'access you can request, is not a reason')
+
+
+def _heading_opens_list(text):
+    words = '|'.join(OPEN_LIST_HEADINGS)
+    return bool(re.match(r'[*_\s]*(?:\d+[.)]\s*)?(?:what(?:\'s|\s+is|\s+are|'
+                         r'\s+remains?)?\s+|the\s+|still\s+)?(?:' + words
+                         + r')(?![\w-])', text, re.I))
+
+
+def open_item_reason(item):
+    """-> None when `item` (the item's text, continuation lines joined)
+    names what blocks it in a form a check can read, else why not."""
+    m = _OPEN_MARKER_RE.search(item)
+    if not m:
+        return 'names nothing it waits on'
+    if re.match(r'out[ _-]of[ _-]scope', m.group(1), re.I):
+        cat, rest = 'out-of-scope', m.group(2)
+    else:
+        reason = re.sub(r'^(?:an?|the)\s+', '', m.group(2).strip(), flags=re.I)
+        cat = rest = None
+        for name, words in OPEN_ITEM_REASONS.items():
+            for w in sorted(words, key=len, reverse=True):
+                hit = re.match(re.escape(w) + r'(?![\w-])', reason, re.I)
+                if hit:
+                    cat, rest = name, reason[hit.end():]
+                    break
+            if cat:
+                break
+        if cat is None:
+            said = re.split(r'[)\n]', m.group(2).strip())[0][:60]
+            return f'"{said}" is not a reason this session cannot do it'
+    if cat == 'pr':
+        return None if _PR_LINK_RE.search(item) else 'names a pull request and links none'
+    detail = re.sub(r'[\s)\].:;,—–-]+', ' ', rest).strip()
+    if len(re.findall(r'\w', detail)) < 3:
+        return f'says {cat} but not whose or which'
+    return None
+
+
+def check_open_items(path, root=None):
+    """-> [(lineno, why)] for each open item in `path` that does not say
+    what blocks it (practice: todo-is-a-handoff).
+
+    An open item is an unchecked box (`- [ ]`), a top-level list item under
+    a heading OPEN_LIST_HEADINGS matches ("What Is Not Yet Settled", "Open
+    questions", "Next steps"), or, in OPEN_ITEM_DIR, an item file whose
+    status is open. A list item passes when its text carries `needs:`,
+    `blocked on:` or `waiting on:` followed by one of OPEN_ITEM_REASONS and
+    a few words naming whose or which (a `pr` reason needs the link
+    instead), or `out of scope:` and why. An item file passes when its
+    `blocked_on` or `waiting_on` says something, or it is a decision, or its
+    disposition is `ask` or `parked` -- the person's to raise or drop -- or
+    it links the pull request or issue it waits on (upstream_handoff), or an
+    unattended job filed it (OPEN_ITEM_JOB_BATCHES). Its
+    body is the item's own working, so boxes there are not scanned.
+
+    Line-attributed, so the commit gate fails only the items a change adds
+    or rewrites (touched_lines); a moved item is not new. Skipped: fences
+    and indented code, generated blocks, a generated file (`generated_by`
+    in its frontmatter), a received practice file, and anything marked
+    OPEN_ITEM_EXEMPT."""
+    root = pathlib.Path(root or ROOT)
+    rel = str(path).replace('\\', '/')
+    try:
+        text = (root / path).read_text(encoding='utf-8', errors='ignore')
+    except OSError:
+        return []
+    lines = text.split('\n')
+    fm = re.match(r'---\n(.*?)\n---\n', text, re.S)
+    head = fm.group(1) if fm else ''
+    if (re.search(r'^generated_by:', head, re.M) or rel in _received()
+            or rel.startswith(OPEN_ITEM_SKIP_PREFIXES)):
+        return []
+    p = pathlib.PurePosixPath(rel)
+    if (OPEN_ITEM_DIR and str(p.parent) == OPEN_ITEM_DIR
+            and p.name.startswith('todo-') and p.suffix == '.md'):
+        def field(name):
+            m = re.search(r'^' + name + r':[ \t]*(.*)$', head, re.M)
+            v = (m.group(1) if m else '').strip().strip('"\'')
+            return '' if v.lower() in ('', 'null', 'none', '~') else v
+        if ((field('status') or 'open') != 'open' or field('blocked_on')
+                or field('waiting_on') or field('kind') == 'decision'
+                or field('disposition') in ('ask', 'parked')
+                or field('batch') in OPEN_ITEM_JOB_BATCHES
+                or upstream_handoff(text)):
+            return []
+        at = next((i for i, l in enumerate(lines, 1)
+                   if re.match(r'(?:blocked_on|status):', l)), 1)
+        return [(at, 'an open item that states no blocked_on or waiting_on -- '
+                     + OPEN_ITEM_HOWTO)]
+    if any(l.strip() == OPEN_ITEM_EXEMPT for l in lines):
+        return []
+    skip = [a or b for a, b in zip(generated_blocks.mask(lines),
+                                   generated_blocks.code_mask(lines))]
+    if fm:
+        for k in range(fm.group(0).count('\n')):
+            skip[k] = True
+    out, open_level = [], None
+    i, n = 0, len(lines)
+    while i < n:
+        line = lines[i]
+        if skip[i]:
+            i += 1
+            continue
+        h = _ATX_RE.match(line)
+        if h:
+            level = len(h.group(1))
+            if level > 1 and _heading_opens_list(h.group(2)):
+                open_level = level
+            elif open_level is not None and level <= open_level:
+                open_level = None
+            i += 1
+            continue
+        box = _BOX_RE.match(line)
+        listed = _LIST_RE.match(line) if open_level is not None else None
+        if (box or listed) and not _DONE_BOX_RE.match(line):
+            item, j = [line], i + 1
+            while (j < n and lines[j].strip() and not skip[j]
+                   and not _ANY_LIST_RE.match(lines[j]) and not _ATX_RE.match(lines[j])):
+                item.append(lines[j])
+                j += 1
+            body = ' '.join(s.strip() for s in item)
+            words = (box or listed).group('text')
+            if OPEN_ITEM_EXEMPT not in body and not words.lstrip('*_').startswith('~~'):
+                why = open_item_reason(body)
+                if why:
+                    out.append((i + 1, f'"{line.strip()[:60]}" {why} -- '
+                                       f'{OPEN_ITEM_HOWTO}'))
+            i = j
+            continue
+        i += 1
+    return out
+
+
 _RECEIVED = []
 
 
@@ -1443,6 +1687,11 @@ def check_unrendered(files):
     for f in files:
         rel = str(f).replace("\\", "/")
         if rel in registered or is_record_doc(rel) or _is_vendored(rel):
+            continue
+        # A piece of an index kept as a directory is a fragment of the view
+        # it joins into, which is the document a render belongs to; asked of
+        # its _head.md, the gate refused a split map (2026-10-12).
+        if index_entry_base(ROOT / rel) is not None:
             continue
         cols = widest_table(rel)
         if cols < RENDER_MIN_COLUMNS:
@@ -1721,7 +1970,7 @@ def main():
     strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
     unsourced_lines, residue_lines, broken_link_lines = [], [], []
     skip_lines, frontmatter_lines, index_lines = [], [], []
-    upstream_lines = []
+    upstream_lines, open_lines = [], []
     for f in files:
         if not (ROOT / f).exists():
             continue
@@ -1736,6 +1985,8 @@ def main():
             upstream_lines.append(f"  {f}: {up_err}")
         for i, why in check_residue(f):
             residue_lines.append(f"  {f}:{i}: {why}")
+        for i, why in check_open_items(f):
+            open_lines.append(f"  {f}:{i}: {why}")
         for i, target, why in check_broken_links(f):
             broken_link_lines.append(f"  {f}:{i}: -> {target}  ({why})")
         for i, frm, to, txt in scan_heading_skips(f):
@@ -1818,10 +2069,20 @@ def main():
               "you can request):")
         print('\n'.join(upstream_lines[:40]))
 
+    if open_lines:
+        print(f"\nOPEN ITEM THAT SAYS NOTHING BLOCKS IT — {len(open_lines)} "
+              f"item(s) ({'FAIL' if gate else 'backlog report'}; an open, "
+              "unsettled or next-step item, or an unchecked box, is a handoff "
+              "only when it names what it waits on -- practice: "
+              "todo-is-a-handoff):")
+        print('\n'.join(open_lines[:40]))
+        if len(open_lines) > 40:
+            print(f"  … and {len(open_lines) - 40} more")
+
     if (not strike_lines and not unlinked_lines and not unglossed_lines
             and not target_lines and not unsourced_lines and not broken_link_lines
             and not skip_lines and not frontmatter_lines and not index_lines
-            and not upstream_lines):
+            and not upstream_lines and not open_lines):
         print(f"doc_lint OK: {len(files)} file(s) checked — no accidental strikethrough, "
               f"no broken relative links, no unlinked references, no unglossed "
               f"acronyms, no target= anchors, no skipped heading levels, no "
@@ -1936,6 +2197,10 @@ def main():
         if kind == 'broken':
             m = re.search(r': -> (\S+) ', finding)
             return bool(m) and m.group(1) in removed
+        if kind == 'open':
+            # The same item, moved or with its neighbors edited: not new.
+            m = re.search(r':\d+: "(.*?)" ', finding)
+            return bool(m) and m.group(1) in removed
         return False
 
     def this_change(finding, kind):
@@ -1960,7 +2225,7 @@ def main():
     pre_existing = []
     for kind, group in (('strike', strike_lines), ('unsourced', unsourced_lines),
                         ('residue', residue_lines), ('broken', broken_link_lines),
-                        ('skip', skip_lines)):
+                        ('skip', skip_lines), ('open', open_lines)):
         mine = [x for x in group if this_change(x, kind)]
         pre_existing.extend(x for x in group if not this_change(x, kind))
         ours, theirs = _split_vendored(mine)
@@ -1995,6 +2260,7 @@ def main():
                    ('invalid frontmatter', frontmatter_lines),
                    ('index line over the limit', index_lines),
                    ('open item waiting on an upstream fix', upstream_lines),
+                   ('open item naming no blocker', open_lines),
                    ('skipped heading level', skip_lines),
                    ('process residue', residue_lines),
                    ('unsourced quantity', unsourced_lines),

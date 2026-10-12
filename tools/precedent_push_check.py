@@ -418,6 +418,14 @@ PUSH_CHECKS = {
         ('views_sync', ['{engine}/precedent_sync_views.py', '--repo', '.',
                         '--check', '--skip-unresolved'],
          'nothing -- a stale view surfaced only at the full check'),
+        # Whether MAP.md and GLOSSARY.md still match their own sources
+        # (2026-10-12): a session typed a row into a consumer's MAP.md
+        # instead of MAP.source.md, every push of the branch passed, and the
+        # next Update Vendors regenerated the map and erased the row without
+        # a word. BASIC_CHECKS already named build_views for a practice set;
+        # a consumer's views have their own sources too. Two seconds.
+        ('build_views', ['{engine}/build_views.py', '--repo', '.', '--views-only', '--check'],
+         'nothing -- a hand-edited view surfaced only when a rebuild erased it'),
         # The repo's OWN light check, where it has one: what its
         # light-check.yml ran on GitHub, run here instead of there.
         ('light_check', ['tools/light_check.py'],

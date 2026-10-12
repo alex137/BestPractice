@@ -2716,10 +2716,19 @@ GLOSSARY_SOURCE = 'GLOSSARY.source.md'
 # can go between two others. `precedent_migrate_views.py --split` turns a
 # one-file source into a directory, refusing any section it cannot split
 # without changing a word. A repository may have the file or the directory,
-# never both.
+# never both. The same layout serves ANY index many branches add rows to
+# (practice: shared-index-is-a-directory): `precedent_migrate_views.py
+# --split-file X.md` keeps X/ as the source and X.md as the view, and
+# `--join X --out X.md` rebuilds it with assemble_source_dir() below.
 SOURCE_DIR_SUFFIX = '.source'
-SECTION_HEAD = '_head.md'
-SECTION_TAIL = '_tail.md'
+# Declared as *_NAME constants so precedent_check.py's filename-separator
+# reads them as names the engine fixes, not a repository's own choice: their
+# underscore beside the rows' hyphens was counted as a mixed directory in
+# every split section (a downstream repo's push check, 2026-10-12).
+SECTION_HEAD_NAME = '_head.md'
+SECTION_TAIL_NAME = '_tail.md'
+SECTION_HEAD = SECTION_HEAD_NAME
+SECTION_TAIL = SECTION_TAIL_NAME
 
 
 def source_dir_name(name):
@@ -2748,6 +2757,115 @@ def has_own_source(root, name):
     """True when a repository has its own source for `name`, as a file or a
     directory -- what every 'is this view generated here?' test asks."""
     return own_source_path(root, name) is not None
+
+
+# A LINE ONLY A PERSON COULD HAVE WRITTEN. A view with its own source is
+# rebuilt from that source, so a line the rebuild drops is either a line the
+# source no longer has (a real edit, made where it belongs) or a line typed
+# into the view by hand, which the rebuild would erase without a word. Found
+# 2026-10-12: a session added a row to a consumer's MAP.md instead of its
+# MAP.source.md, and the next Update Vendors regenerated the map and lost
+# the row silently; it surfaced only because the session went looking.
+# The practice and tool index rows come from practices/ and tools/, not
+# from the source file, so they are never counted as hand edits.
+_GENERATED_ROW = re.compile(r'\((?:\.\./)*(?:practices|tools)/|practice files \(|^(?:generated_by|edit_instead|note):')
+
+
+def hand_edits(root, path, old_text, new_text, src_name):
+    """-> the lines of `old_text` a rebuild to `new_text` would drop that no
+    version of the view's source holds, neither the file on disk nor the
+    one committed at HEAD: lines typed into the generated view by hand."""
+    if old_text is None:
+        return []
+    own = own_source_path(root, src_name)
+    files = [] if own is None else [own] if own.is_file() else sorted(own.rglob('*.md'))
+    return hand_edits_against(root, old_text, new_text, files,
+                              history=[own] if own is not None else [], view=path)
+
+
+# HOW LONG A SOURCE REMEMBERS. Rewording an EXISTING entry leaves its old
+# wording in the view until the rebuild, and that line is in no source as it
+# is now: the guard used to call it typed by hand, so only additions got
+# through (a downstream repo, 2026-10-12, rewording an intro paragraph). A
+# line some committed version of the source held was written in the source,
+# so the source's recent history counts as the source -- every line its last
+# HISTORY_COMMITS commits added or removed -- and so does a view committed
+# with no generated label, which was the source itself before a split made
+# it a view. A hash of the built body kept in the view's label was the other
+# way to tell; it was not taken because that one line changes on every
+# rebuild, so two branches that add rows to different places in a view
+# would always conflict on it, the collision the directory split exists to
+# remove.
+HISTORY_COMMITS = 200
+
+
+def _committed_source_lines(root, history, view):
+    """-> text every line of which some committed version of the source held:
+    what the last HISTORY_COMMITS commits touching `history` added or
+    removed, plus `view` as committed at HEAD when it carries no generated
+    label (the hand-written file a split turned into a view)."""
+    out = []
+    rels = []
+    for p in history or []:
+        try:
+            rels.append(pathlib.Path(p).resolve().relative_to(root.resolve()).as_posix())
+        except ValueError:
+            pass
+    if rels:
+        r = subprocess.run(['git', '-C', str(root), 'log', '--format=', '-p', '--no-color',
+                            '--no-ext-diff', '-n', str(HISTORY_COMMITS), '--', *rels],
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            out += [l[1:] for l in r.stdout.splitlines()
+                    if l[:1] in '+-' and l[:4] not in ('+++ ', '--- ')]
+    if view is not None:
+        try:
+            rel = pathlib.Path(view).resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            rel = None
+        r = subprocess.run(['git', '-C', str(root), 'show', f'HEAD:{rel}'],
+                           capture_output=True, text=True) if rel else None
+        if r is not None and r.returncode == 0 and not re.match(
+                r'\A---\n(?:.*\n)*?generated_by:', r.stdout):
+            out.append(r.stdout)
+    return '\n'.join(out)
+
+
+def hand_edits_against(root, old_text, new_text, files, skip=_GENERATED_ROW,
+                       history=(), view=None):
+    """-> the lines of `old_text` a rebuild to `new_text` would drop that
+    none of the source `files` holds, on disk or as committed at HEAD, and
+    that no recent commit to the sources in `history` added or removed
+    (HISTORY_COMMITS): lines typed into the view by hand. hand_edits() for
+    MAP.md and GLOSSARY.md, and precedent_migrate_views.py --join for any
+    index kept as a directory. `view` is the view's path, whose committed
+    copy counts as source while it is still hand-written. `skip` matches
+    lines never counted: by default the rows MAP.md builds from practices/
+    and tools/, and the label."""
+    root = pathlib.Path(root)
+    keep = set(new_text.splitlines())
+    sources = [_committed_source_lines(root, history, view)]
+    if files:
+        for f in files:
+            try:
+                sources.append(f.read_text(encoding='utf-8'))
+            except OSError:
+                pass
+            rel = f.relative_to(root).as_posix()
+            r = subprocess.run(['git', '-C', str(root), 'show', f'HEAD:{rel}'],
+                               capture_output=True, text=True)
+            if r.returncode == 0:
+                sources.append(r.stdout)
+    blob = '\n'.join(sources)
+    out = []
+    for line in old_text.splitlines():
+        s = line.strip()
+        if not s or line in keep or skip.search(s):
+            continue
+        if s in blob:
+            continue
+        out.append(line)
+    return out
 
 
 def own_source_label(root, name):
@@ -3070,7 +3188,10 @@ def main():
     # sec.1 step 2) used to get a bare FileNotFoundError from deep inside
     # the renderer, which reads as the generator being broken rather than
     # as one install step not done.
-    if not agents_md.is_file():
+    # --views-only never reads or writes AGENTS.md, so it does not need one:
+    # a consumer's push runs it in repositories that have no loader yet
+    # (2026-10-12).
+    if not agents_md.is_file() and '--views-only' not in argv:
         sys.exit(f"build_views FAIL: {agents_md} does not exist. Instantiate "
                  f"it from templates/AGENTS.md.loader.template (or "
                  f"templates/AGENTS.md.template on the classic layout), "
@@ -3143,9 +3264,12 @@ def main():
     # reaches the session only through the untracked file, so the standing
     # instruction has to point at it.
     _cap, _cap_why = occasion_cap(root)
-    new_agents, (block_tokens, n_resident, n_total) = render_agents_md(
-        block_practices, agents_md, source_levels=levels,
-        defers_sources=defers_any_source(root), occasion_budget=_cap)
+    if views_only and not agents_md.is_file():
+        new_agents = None
+    else:
+        new_agents, (block_tokens, n_resident, n_total) = render_agents_md(
+            block_practices, agents_md, source_levels=levels,
+            defers_sources=defers_any_source(root), occasion_budget=_cap)
     _own = own_occasion_allowance(root)
     if _own is not None:
         share = occasion_share(practices)
@@ -3166,7 +3290,7 @@ def main():
               "index and this source's occasion share are within their caps")
         return 0
     where = _where_source(root)
-    if where is not None:
+    if where is not None and new_agents is not None:
         new_agents = splice_quick_index(new_agents, where)
     targets = [] if views_only else [(agents_md, new_agents)]
     if where is not None and not agents_only:
@@ -3217,12 +3341,43 @@ def main():
               f"all byte-identical to a fresh regeneration")
         return 0
 
+    if '--force' not in argv:
+        lost = {}
+        for path, new_text in targets:
+            if path.name not in ('MAP.md', 'GLOSSARY.md'):
+                continue
+            src = MAP_SOURCE if path.name == 'MAP.md' else GLOSSARY_SOURCE
+            if not has_own_source(root, src):
+                continue
+            old_text = path.read_text(encoding='utf-8') if path.exists() else None
+            dropped = hand_edits(root, path, old_text, new_text, src)
+            if dropped:
+                lost[path.name] = (own_source_label(root, src), dropped)
+        if lost:
+            for name, (src, lines) in lost.items():
+                print(f"build_views FAIL: regenerating {name} would erase "
+                      f"{len(lines)} line(s) typed into it by hand, which no "
+                      f"version of {src} holds:", file=sys.stderr)
+                for line in lines[:10]:
+                    print(f"    {line[:200]}", file=sys.stderr)
+                if len(lines) > 10:
+                    print(f"    ... and {len(lines) - 10} more", file=sys.stderr)
+            print("Move each line into the source named, then run this "
+                  "again; or rerun with --force to discard them. A line named "
+                  "that is old wording you changed in the source before it was "
+                  "ever committed is not a hand edit: --force is safe for it.",
+                  file=sys.stderr)
+            return 1
     for path, new_text in targets:
         path.write_text(new_text, encoding='utf-8')
     wrote = ', '.join(p.name for p, _t in targets)
     # These three figures come from the block that was just written, not
     # from a second build -- see render_agents_md's docstring for the
     # mismatch that made this the only safe shape.
+    if new_agents is None:
+        print(f"build_views OK: wrote {wrote or 'nothing'} (no AGENTS.md here, "
+              f"so no loader block)")
+        return 0
     print(f"build_views OK: wrote {wrote} (loader block regenerated, resident "
           f"{n_resident}/{n_total} practices, ~{block_tokens} tokens)")
     return 0

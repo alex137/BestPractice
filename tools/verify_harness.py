@@ -3067,6 +3067,39 @@ def check_rename_links_spares_a_url_into_another_repository():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_views_refuse_to_drop_hand_edits():
+    """A line typed into a generated MAP.md that no version of MAP.source.md
+    holds is a hand edit, and the rebuild names it rather than erasing it; a
+    line the source itself dropped, and a practice or tool index row, are not
+    (2026-10-12: a row typed into a consumer's MAP.md was erased by the next
+    Update Vendors without a word)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    name = 'a rebuild names the lines typed into a generated view by hand'
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    try:
+        (tmp / 'MAP.source.md').write_text('| A | the row the source keeps |\n')
+        old = ('| A | the row the source keeps |\n| B | a row typed into MAP.md by hand |\n'
+               '| [some-practice](practices/some-practice.md) | on-demand | x |\n')
+        new = '| A | the row the source keeps |\n'
+        got = bv.hand_edits(tmp, tmp / 'MAP.md', old, new, 'MAP.source.md')
+        cases = [('the hand-typed row is named', got == ['| B | a row typed into MAP.md by hand |']),
+                 ('a practice index row is not', all('practices/' not in g for g in got)),
+                 ('nothing is named when the rebuild keeps every line',
+                  bv.hand_edits(tmp, tmp / 'MAP.md', new, new, 'MAP.source.md') == []),
+                 ('a line the source still holds is not',
+                  bv.hand_edits(tmp, tmp / 'MAP.md', old.replace('| B | a row typed into MAP.md by hand |\n', ''),
+                                '', 'MAP.source.md') == [])]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_render_contents_can_be_switched_off():
     """A document with three sections gets a contents list and back-links;
     the same document carrying doc_html.NO_CONTENTS_MARK gets neither
@@ -7126,6 +7159,315 @@ def check_source_directory_splits_and_assembles():
                       and 'Intro line.' in after and '`c/`' in after))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+def check_split_file_round_trips():
+    """Any Markdown index of headings and pipe tables can be kept as a
+    directory, one file per row, and joined back into the file people read
+    (practice: shared-index-is-a-directory; Alex, 2026-10-12, "yes do the
+    directory split"). What can go wrong is loss: a split that does not
+    rebuild the file byte for byte, a row added between two others that
+    lands elsewhere, a join that silently drops a row typed into the view,
+    a split of a file that is already generated, a view the generated-files
+    list does not name, and row links the light check reads against the
+    wrong folder."""
+    import tempfile
+    import precedent_migrate_views as mv
+    import doc_lint
+    name = 'any index splits into a directory and joins back byte for byte'
+    cases = []
+    tool = ROOT / 'tools' / 'precedent_migrate_views.py'
+    text = ('# Where things are\n\nIntro, with a [link](docs/a.md).\n\n'
+            '| Looking for | Go to |\n|---|---|\n| alpha | [a](docs/a.md) |\n'
+            '| beta | b |\n| gamma | c |\n\nAfter the table.\n\n'
+            '## Codes\n\n| Code | Means |\n|---|---|\n| AB | one |\n| CD | two |\n')
+
+    def run(repo, *args):
+        return subprocess.run([sys.executable, str(tool), '--repo', str(repo), *args],
+                              capture_output=True, text=True)
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / 'generated_files.json').write_text('{"files": []}\n',
+                                                             encoding='utf-8')
+        (repo / 'docs').mkdir()
+        (repo / 'docs' / 'a.md').write_text('# A\n', encoding='utf-8')
+        (repo / 'INDEX.md').write_text(text, encoding='utf-8')
+        r = run(repo, '--split-file', 'INDEX.md', '--check')
+        cases.append(('--check says what it would do and changes nothing',
+                      r.returncode == 0 and 'would split' in r.stdout
+                      and not (repo / 'INDEX').exists()))
+        r = run(repo, '--split-file', 'INDEX.md')
+        view = (repo / 'INDEX.md').read_text(encoding='utf-8')
+        cases.append(('--split-file moves the text into INDEX/ and keeps INDEX.md '
+                      'as a labelled view whose body is the original, byte for byte',
+                      r.returncode == 0 and (repo / 'INDEX').is_dir()
+                      and 'generated_by: tools/precedent_migrate_views.py' in view
+                      and mv.view_body(view) == text))
+        rows = sorted(str(p.relative_to(repo / 'INDEX'))
+                      for p in (repo / 'INDEX').rglob('*.md'))
+        cases.append(('each table row is its own file',
+                      sum(1 for x in rows if '/' in x and not x.endswith(
+                          ('_head.md', '_tail.md'))) == 5))
+        entry = [e for e in json.loads((repo / 'tools' / 'generated_files.json')
+                                       .read_text(encoding='utf-8'))['files']
+                 if e.get('path') == 'INDEX.md']
+        cases.append(('the view is listed with the join as its check',
+                      len(entry) == 1 and '--join' in entry[0]['check']
+                      and entry[0]['check'][-1] == '--check'))
+        cases.append(('--join --check finds the view current',
+                      run(repo, '--join', 'INDEX', '--out', 'INDEX.md', '--check')
+                      .returncode == 0))
+        sec = sorted(p for p in (repo / 'INDEX').iterdir() if p.is_dir())[0]
+        first = sorted(x.name for x in sec.iterdir() if x.name[0].isdigit())
+        (sec / '0015-new.md').write_text('| alpha-two | new |\n', encoding='utf-8')
+        stale = run(repo, '--join', 'INDEX', '--out', 'INDEX.md', '--check')
+        cases.append(('a new row file makes --check fail and name the view',
+                      stale.returncode == 1 and 'INDEX.md' in stale.stdout))
+        r = run(repo, '--join', 'INDEX', '--out', 'INDEX.md')
+        out = (repo / 'INDEX.md').read_text(encoding='utf-8')
+        cases.append(('a row added as 0015- lands between 0010- and 0020-',
+                      r.returncode == 0 and first[:2] == ['0010-alpha.md', '0020-beta.md']
+                      and out.index('| alpha |') < out.index('alpha-two')
+                      < out.index('| beta |')))
+        (repo / 'INDEX.md').write_text(out + '| typed | by hand |\n', encoding='utf-8')
+        r = run(repo, '--join', 'INDEX', '--out', 'INDEX.md')
+        cases.append(('a row typed into the view is never dropped silently',
+                      r.returncode == 1 and 'typed | by hand' in r.stdout
+                      and 'typed | by hand' in (repo / 'INDEX.md').read_text(
+                          encoding='utf-8')))
+        row = sec / '0010-alpha.md'
+        cases.append(('a row link is read against the view, not the row folder',
+                      doc_lint.index_entry_base(row) == repo
+                      and doc_lint.check_broken_links(row) == []))
+        (repo / 'COPY.md').write_text(out, encoding='utf-8')
+        r = run(repo, '--split-file', 'COPY.md')
+        cases.append(('a generated view is never split again',
+                      r.returncode == 1 and 'generated already' in r.stdout
+                      and not (repo / 'COPY').exists()))
+        (repo / 'GAPS.md').write_text(text.replace('\n\n## Codes', '\n\n\n## Codes'),
+                                      encoding='utf-8')
+        r = run(repo, '--split-file', 'GAPS.md')
+        refused = r.returncode == 1 and not (repo / 'GAPS').exists()
+        r = run(repo, '--split-file', 'GAPS.md', '--normalize-blank-lines')
+        cases.append(('a file differing only in blank lines needs '
+                      '--normalize-blank-lines',
+                      refused and r.returncode == 0 and (repo / 'GAPS').is_dir()))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+def check_split_and_join_take_edits_made_where_they_belong():
+    """Three faults a downstream repo hit on 2026-10-12, the day --split-file
+    and --join shipped. (1) Rewording an existing entry file and joining was
+    refused as a hand edit to the view, because the guard compared the view
+    with the directory as it is now: the source's recent history now counts
+    as source, so the old wording passes -- MAP.md's rebuild through
+    build_views.py included -- while a line really typed into the view is
+    still refused. (2) A row naming
+    plan_v1.md was filed as ...-plan-v1.md, a name no-version-suffix then
+    refuses. (3) A heading with no blank line above it was called a change
+    of words, so --normalize-blank-lines was never offered."""
+    import tempfile
+    import precedent_migrate_views as mv
+    name = 'split and join take edits made in the directory, and only those'
+    cases = []
+    tool = ROOT / 'tools' / 'precedent_migrate_views.py'
+
+    def run(repo, *args):
+        return subprocess.run([sys.executable, str(tool), '--repo', str(repo), *args],
+                              capture_output=True, text=True)
+
+    def git(repo, *args):
+        return subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t', '-c',
+                               'user.email=t@t', *args], capture_output=True, text=True)
+    text = ('# Index\n\nThe old intro wording.\n\n| Doc | What |\n|---|---|\n'
+            '| [plan_v1.md](docs/plan_v1.md) | the plan |\n| [budget-rev3.xlsx](b.xlsx) | money |\n'
+            '| alpha | a |\n')
+    with tempfile.TemporaryDirectory() as td:
+        for committed in (False, True):
+            repo = pathlib.Path(td) / f'r{int(committed)}'
+            repo.mkdir()
+            git(repo, 'init', '-q')
+            (repo / 'tools').mkdir()
+            (repo / 'tools' / 'generated_files.json').write_text('{"files": []}\n',
+                                                                 encoding='utf-8')
+            (repo / 'INDEX.md').write_text(text, encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'one file')
+            r = run(repo, '--split-file', 'INDEX.md')
+            if committed:
+                git(repo, 'add', '-A')
+                git(repo, 'commit', '-qm', 'split')
+            head = next((repo / 'INDEX').rglob('_head.md'))
+            head.write_text(head.read_text(encoding='utf-8').replace(
+                'The old intro wording.', 'The new intro wording.'), encoding='utf-8')
+            if committed:
+                git(repo, 'commit', '-qam', 'reword')
+            r = run(repo, '--join', 'INDEX', '--out', 'INDEX.md')
+            view = (repo / 'INDEX.md').read_text(encoding='utf-8')
+            how = 'committed' if committed else 'not yet committed'
+            cases.append((f'rewording an entry file ({how}) rebuilds the view',
+                          r.returncode == 0 and 'The new intro wording.' in view
+                          and 'old intro' not in view, r.stdout[-300:]))
+        # A real hand edit on top of a directory edit: refused, naming the
+        # typed line and not the directory's old text.
+        head.write_text(head.read_text(encoding='utf-8').replace(
+            'The new intro wording.', 'A third wording.'), encoding='utf-8')
+        (repo / 'INDEX.md').write_text(view.replace('| alpha | a |', '| alpha | typed by hand |'),
+                                       encoding='utf-8')
+        r = run(repo, '--join', 'INDEX', '--out', 'INDEX.md')
+        cases.append(('a line typed into the view is still refused, and named',
+                      r.returncode == 1 and 'typed by hand' in r.stdout
+                      and 'new intro wording' not in r.stdout
+                      and 'typed by hand' in (repo / 'INDEX.md').read_text(encoding='utf-8'),
+                      r.stdout[-300:]))
+        # Old wording git never saw cannot be told from a typed line: the
+        # refusal names it and says --force is safe for it.
+        fresh = pathlib.Path(td) / 'fresh'
+        fresh.mkdir()
+        git(fresh, 'init', '-q')
+        (fresh / 'INDEX.md').write_text(text, encoding='utf-8')
+        run(fresh, '--split-file', 'INDEX.md')
+        fhead = next((fresh / 'INDEX').rglob('_head.md'))
+        fhead.write_text(fhead.read_text(encoding='utf-8').replace('old intro', 'new intro'),
+                         encoding='utf-8')
+        r = run(fresh, '--join', 'INDEX', '--out', 'INDEX.md')
+        cases.append(('old wording never committed is named, with --force said to be safe',
+                      r.returncode == 1 and 'old intro' in r.stdout
+                      and '--force is safe' in r.stdout, r.stdout[-400:]))
+        names = sorted(p.name for p in (repo / 'INDEX').rglob('*.md'))
+        cases.append(('a row naming plan_v1.md gets no version suffix in its file name',
+                      not any(re.search(r'-(?:v\d+|rev\d+)(?:-[a-z]+)?\.md$', n) for n in names)
+                      and any(n.endswith('-plan.md') for n in names)
+                      and any(n.endswith('-budget.md') for n in names), ', '.join(names)))
+        # (3) a heading straight under a paragraph line.
+        tight = '# T\n\nSome prose.\n### Next\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n'
+        (repo / 'TIGHT.md').write_text(tight, encoding='utf-8')
+        r = run(repo, '--split-file', 'TIGHT.md')
+        offered = r.returncode == 1 and '--normalize-blank-lines' in r.stdout
+        r = run(repo, '--split-file', 'TIGHT.md', '--normalize-blank-lines')
+        cases.append(('a heading with no blank line above it is a blank-line '
+                      'difference --normalize-blank-lines accepts',
+                      offered and r.returncode == 0 and (repo / 'TIGHT').is_dir(),
+                      r.stdout[-300:]))
+        cases.append(('a real change of words is still not the same words',
+                      not mv._same_words('Some prose.\n\n### Next', 'Some prose.\n\n### Other')
+                      and mv._same_words('Some prose.\n### Next', 'Some prose.\n\n### Next'),
+                      ''))
+        # MAP.md through build_views.py: a committed reword of a MAP.source/
+        # row rebuilds the map; a row typed into MAP.md is still refused.
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     ["Fixture Term"]\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-12"\n'
+            'approved_by: "Fixture, 2026-10-12"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        (repo / 'MAP.source' / '0010-layout').mkdir(parents=True)
+        (repo / 'MAP.source' / '0010-layout' / '_head.md').write_text(
+            '## Layout\n\n| Path | What |\n|---|---|\n', encoding='utf-8')
+        row = repo / 'MAP.source' / '0010-layout' / '0010-a.md'
+        row.write_text('| `a/` | the first wording |\n', encoding='utf-8')
+        (repo / 'MAP.source' / '0010-layout' / '0020-b.md').write_text(
+            '| `b/` | bee |\n', encoding='utf-8')
+        bvs = lambda: subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                                      '--repo', str(repo), '--views-only'],
+                                     capture_output=True, text=True)
+        git(repo, 'init', '-q')
+        bvs()
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'map')
+        row.write_text('| `a/` | the second wording |\n', encoding='utf-8')
+        git(repo, 'commit', '-qam', 'reword a row')
+        r = bvs()
+        cases.append(('a committed reword of a MAP.source/ row rebuilds MAP.md',
+                      r.returncode == 0 and 'second wording' in
+                      (repo / 'MAP.md').read_text(encoding='utf-8'), (r.stdout + r.stderr)[-300:]))
+        m = (repo / 'MAP.md').read_text(encoding='utf-8')
+        (repo / 'MAP.md').write_text(m.replace('| `b/` | bee |', '| `b/` | bee, typed here |'),
+                                     encoding='utf-8')
+        r = bvs()
+        cases.append(('a row typed into MAP.md is still refused',
+                      r.returncode == 1 and 'typed here' in r.stderr, (r.stdout + r.stderr)[-300:]))
+    failed = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n} -- {d}' for n, d in failed))
+
+
+
+def check_split_directories_pass_the_repos_own_checks():
+    """The pieces of an index kept as a directory -- MAP.source/ and
+    GLOSSARY.source/ from --split, X/ beside X.md from --split-file -- are
+    fragments of one document, and three checks read them as documents of
+    their own (a downstream repo's push check, 2026-10-12): filename-separator
+    counted _head.md's underscore against the rows' hyphens, the light
+    check's link scan read a row's links from the row's own folder instead
+    of the view's, and doc_lint's render gate asked _head.md for a sortable
+    render of its own."""
+    import tempfile, types
+    import precedent_check as pc
+    import doc_lint as dl
+    tool = ROOT / 'tools' / 'precedent_migrate_views.py'
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='split-checks-'))
+    saved = pc.ROOT, dl.ROOT, dl.RENDER_REGISTRY
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        (tmp / 'docs').mkdir()
+        (tmp / 'docs' / 'a.md').write_text('# A\n', encoding='utf-8')
+        sec = tmp / 'MAP.source' / '0020-layout'
+        sec.mkdir(parents=True)
+        (tmp / 'MAP.source' / '0010-intro.md').write_text(
+            '# Map\n\nSee [a](docs/a.md).\n', encoding='utf-8')
+        (sec / '_head.md').write_text('## Layout\n\n| Path | What | Who | When |\n'
+                                      '|---|---|---|---|\n', encoding='utf-8')
+        (sec / '0010-a-doc.md').write_text('| [a](docs/a.md) | x | y | z |\n',
+                                           encoding='utf-8')
+        (sec / '0020-b-doc.md').write_text('| b | x | y | z |\n', encoding='utf-8')
+        (sec / '_tail.md').write_text('After, see [a](docs/a.md).\n', encoding='utf-8')
+        (tmp / 'INDEX.md').write_text(
+            '# Index\n\nIntro, see [a](docs/a.md).\n\n| Doc | What | Who | When |\n'
+            '|---|---|---|---|\n| [a](docs/a.md) | x | y | z |\n| beta-doc | x | y | z |\n'
+            '| gamma-doc | x | y | z |\n\nAfter, [a](docs/a.md).\n', encoding='utf-8')
+        r = subprocess.run([sys.executable, str(tool), '--repo', str(tmp), '--split-file',
+                            'INDEX.md'], capture_output=True, text=True)
+        cases.append(('fixture: INDEX.md splits', r.returncode == 0, r.stdout[-300:]))
+        subprocess.run(['git', 'add', '-A'], cwd=str(tmp), capture_output=True, check=True)
+        pc.ROOT = dl.ROOT = tmp
+        got = [f.detail for f in pc._filename_separator(types.SimpleNamespace(root=tmp))]
+        cases.append(('a split directory passes filename-separator', got == [], got))
+        got = [f'{f.file()}: {f.detail}' for f in pc._light_check(types.SimpleNamespace(root=tmp))]
+        cases.append(('a link in a --split row, head or tail resolves against the view '
+                      '(light check)', not any('MAP.source/' in g for g in got), got))
+        cases.append(('a link in a --split-file row, head or tail resolves against the '
+                      'view (light check)', not any('INDEX/' in g for g in got), got))
+        pieces = sorted(str(p.relative_to(tmp)) for d in ('MAP.source', 'INDEX')
+                        for p in (tmp / d).rglob('*.md'))
+        broken = [(p, x) for p in pieces for x in dl.check_broken_links(p)]
+        cases.append(('...and doc_lint reads the same links the same way', broken == [],
+                      broken))
+        dl.RENDER_REGISTRY = lambda: []
+        got = dl.check_unrendered(pieces)
+        cases.append(('no piece of a split directory is asked for a sortable render '
+                      'of its own', got == [], got))
+        (tmp / 'wide.md').write_text('| a | b | c | d |\n|---|---|---|---|\n| 1 | 2 | 3 | 4 |\n',
+                                     encoding='utf-8')
+        got = dl.check_unrendered(['wide.md'])
+        cases.append(('CONTROL: a document with the same table still is',
+                      [g[0] for g in got] == ['wide.md'], got))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pc.ROOT, dl.ROOT, dl.RENDER_REGISTRY = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a split index directory passes the checks its view does '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {str(d)[:300]}' for n, d in bad))
+
 
 def check_migrate_views_keeps_every_word():
     """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
@@ -17278,7 +17620,11 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
     import tempfile, shutil
     name = 'doc_lint refuses an open item waiting on an upstream fix'
     env = _fixture_git_env()
+    # `disposition: ask` keeps the stated-reason arm beside this one
+    # (check_lint_refuses_an_open_item_that_names_no_blocker) out of these
+    # cases: they are about the upstream arm only.
     head = ('---\nslug: {slug}\nkind: manual\nstatus: {status}\n'
+            'disposition: ask\n'
             'blocked_on: {blocked}\nnoted: 2026-10-06\n---\n## What\n\n{body}\n')
     items = {
         'vendored-path': ('open', 'null', 'The check in tools/doc_lint.py '
@@ -17358,6 +17704,126 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
             quiet = r.returncode == 0 and 'UPSTREAM FIX' not in r.stdout
             cases.append((f'{slug}: {"fires" if fires else "passes"}',
                           fired if fires else quiet))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_lint_refuses_an_open_item_that_names_no_blocker():
+    """Every open item a change adds says what it waits on (practice:
+    todo-is-a-handoff, 2026-10-12: a downstream spec's "What Is Not Yet
+    Settled" list and an unchecked box queued checks a few searches would
+    have done, and two of them killed the design once done). doc_lint
+    refuses an unchecked box, or a list item under an open-list heading,
+    with no `(needs: ...)` naming a reason the session cannot clear itself,
+    and an open item file with nothing in blocked_on or waiting_on. It
+    leaves alone a stated reason, a checked or struck item, a fence, a list
+    under any other heading, the checklist marker, and -- in the commit
+    gate's scope -- an old item on a line the change did not touch."""
+    import tempfile, shutil
+    name = 'doc_lint refuses an open item that names no blocker'
+    env = _fixture_git_env()
+    docs = {
+        'bare-box': ('- [ ] Check the lifting standard\n', True),
+        'box-with-decision': ('- [ ] Pick the rotor (needs: decision -- the '
+                              'owner, between two quotes)\n', False),
+        'box-with-test': ('- [ ] Spar strength (needs: test, a coupon pull '
+                          'on the real layup)\n', False),
+        'box-another-repo': ('- [ ] Fix the parser (needs: a fix in another '
+                             'repository)\n', True),
+        'box-decision-no-who': ('- [ ] Pick one (needs: decision)\n', True),
+        'box-pr-no-link': ('- [ ] Land the engine fix (needs: pr)\n', True),
+        'box-pr-linked': ('- [ ] Land the engine fix (needs: pr '
+                          'https://github.com/example/Engine/pull/7)\n', False),
+        'box-out-of-scope': ('- [ ] Wind-tunnel the fairing (out of scope: a '
+                             'week of tunnel time this session has no part '
+                             'in)\n', False),
+        'box-waiting-external': ('- [ ] Price the cells (waiting on: external '
+                                 '-- the supplier\'s quote)\n', False),
+        'reason-on-continuation': ('- [ ] Check the clearance against the\n'
+                                   '  drawing (needs: access, refused by the '
+                                   'drawing vault)\n', False),
+        'checked-box': ('- [x] Check the lifting standard\n', False),
+        'fenced-box': ('```\n- [ ] Check the lifting standard\n```\n', False),
+        'unsettled-list': ('## What Is Not Yet Settled\n\n'
+                           '- The current edition of the standard\n', True),
+        'open-questions-numbered': ('## Open questions\n\n'
+                                    '1. Which alloy?\n', True),
+        'unsettled-list-with-reasons': (
+            '## Still to settle\n\n- The yield strength (needs: test -- a '
+            'coupon from the mill lot)\n', False),
+        'list-under-other-heading': ('## Design\n\n- The current edition '
+                                     'of the standard\n', False),
+        'open-list-ends-at-next-heading': (
+            '## Next steps\n\n- Ship it (needs: decision -- the owner)\n\n'
+            '## Design\n\n- A plain point\n', False),
+        'title-is-not-a-list': ('# A TODO is a handoff\n\n- A plain point\n',
+                                False),
+        'struck-item': ('## Open items\n\n- ~~Check the standard~~ done\n',
+                        False),
+        'item-marker': ('- [ ] Sign the form <!--checklist-->\n', False),
+        'document-marker': ('<!--checklist-->\n\n- [ ] Sign the form\n',
+                            False),
+    }
+    items = {
+        'no-reason': ('open', 'null', 'null', 'manual', True),
+        'blocked': ('open', '"the owner, on the budget"', 'null', 'manual', False),
+        'waiting': ('open', 'null', '"the supplier\'s quote"', 'manual', False),
+        'a-decision': ('open', 'null', 'null', 'decision', False),
+        'closed': ('done', 'null', 'null', 'manual', False),
+        'links-its-pr': ('open', 'null', 'null', 'manual', False),
+    }
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py',
+                  'precedent_engine_freshness.py', 'precedent_resolve.py',
+                  'title_case.py'):
+            shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
+        (repo / 'docs').mkdir()
+        for slug, (body, _fires) in docs.items():
+            (repo / 'docs' / f'{slug}.md').write_text(body)
+        (repo / 'todo').mkdir()
+        for slug, (status, blocked, waiting, kind, _f) in items.items():
+            (repo / 'todo' / f'todo-2026-10-12-{slug}.md').write_text(
+                f'---\nslug: {slug}\nkind: {kind}\nstatus: {status}\n'
+                f'blocked_on: {blocked}\nwaiting_on: {waiting}\n'
+                f'noted: 2026-10-12\n---\n## What\n\n- [ ] A step\n'
+                + ('\nWaits on https://github.com/example/Engine/pull/9.\n'
+                   if slug == 'links-its-pr' else ''))
+
+        def lint(*args):
+            return subprocess.run([sys.executable, 'tools/doc_lint.py', *args],
+                                  cwd=repo, capture_output=True, text=True,
+                                  env=env)
+        runs = [(f'docs/{s}.md', f) for s, (_b, f) in docs.items()]
+        runs += [(f'todo/todo-2026-10-12-{s}.md', v[-1]) for s, v in items.items()]
+        for rel, fires in runs:
+            r = lint(rel)
+            fired = (r.returncode == 1 and 'SAYS NOTHING BLOCKS IT' in r.stdout
+                     and 'could this session do it now?' in r.stdout)
+            quiet = r.returncode == 0 and 'SAYS NOTHING BLOCKS IT' not in r.stdout
+            cases.append((f'{rel}: {"fires" if fires else "passes"}',
+                          fired if fires else quiet))
+        # The commit gate's scope: an old item is backlog, a new one fails.
+        def git(*a):
+            subprocess.run(['git', *a], cwd=repo, env=env, capture_output=True)
+        shutil.rmtree(repo / 'todo')
+        spec = repo / 'docs' / 'spec.md'
+        spec.write_text('# Spec\n\n## What Is Not Yet Settled\n\n'
+                        '- An old question\n')
+        git('add', '-A')
+        git('commit', '-qm', 'base')
+        git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        spec.write_text(spec.read_text() + '\nA new paragraph.\n')
+        r = lint()
+        cases.append(('an old item, on a line the change did not touch, is '
+                      'backlog', r.returncode == 0 and 'An old question' in r.stdout))
+        spec.write_text(spec.read_text() + '\n- [ ] A new check\n')
+        r = lint()
+        cases.append(('a new unchecked box in the same change fails the gate',
+                      r.returncode == 1 and 'A new check' in r.stdout))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -22980,6 +23446,29 @@ def check_precedent_check_fires():
                 '["practices/*.md", "tools/routing_audit.py"',
                 '["tools/routing_audit.py"', 1))
         case('layered-practice-packs', _plant_unreachable, advisory=True)
+        # practice: shared-index-is-a-directory -- a change adding a row to a
+        # 25-row table typed by hand is told the file can be a directory. The
+        # setup commits the table to both trees, so only the planted one
+        # carries a change; advisory, so it reports and never fails.
+        def _setup_long_index(repo):
+            (repo / 'docs').mkdir(exist_ok=True)
+            (repo / 'docs' / 'zz-index.md').write_text(
+                '# Index\n\n| Name | Where |\n|---|---|\n'
+                + ''.join(f'| row {i} | here |\n' for i in range(25)),
+                encoding='utf-8')
+            git(repo, 'add', '-f', 'docs/zz-index.md')
+            git(repo, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com',
+                'commit', '-qm', 'a long hand-typed index')
+
+        def _plant_long_index(repo):
+            rewrite(repo, 'docs/zz-index.md', lambda t: t + '| row new | there |\n')
+        case('shared-index-is-a-directory', _plant_long_index,
+             setup=_setup_long_index, advisory=True)
+        if 'shared-index-is-a-directory' in planted:
+            cases.append(('shared-index-is-a-directory: the finding gives the '
+                          'command that splits the file',
+                          '--split-file docs/zz-index.md'
+                          in planted['shared-index-is-a-directory'][1]))
         if 'layered-practice-packs' in planted:
             _lpp = planted['layered-practice-packs'][1]
             cases.append(('layered-practice-packs: a practice routed only by '
@@ -76140,6 +76629,9 @@ def main():
     check_sync_says_which_copy_of_a_claimed_check_runs()
     check_no_duplication_refuses_a_sets_copy_of_a_universal_rule()
     check_source_directory_splits_and_assembles()
+    check_split_file_round_trips()
+    check_split_and_join_take_edits_made_where_they_belong()
+    check_split_directories_pass_the_repos_own_checks()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()
@@ -76483,6 +76975,7 @@ def main():
     check_lint_flags_a_table_with_no_render()
     check_lint_runs_the_hosts_shim()
     check_lint_refuses_an_open_item_waiting_on_an_upstream_fix()
+    check_lint_refuses_an_open_item_that_names_no_blocker()
     check_upstream_fix_sets_up_the_fix_in_the_source()
     check_code_owner_practice_stays_out_of_the_index()
     check_adds_to_names_a_rule_in_force()
@@ -76560,6 +77053,7 @@ def main():
     check_rename_links_spares_a_path_moved_into_gitignore()
     check_rename_links_spares_a_url_into_another_repository()
     check_clean_tree_judges_the_branch()
+    check_views_refuse_to_drop_hand_edits()
     check_render_contents_can_be_switched_off()
     check_untracked_renders_use_source_fingerprints()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
