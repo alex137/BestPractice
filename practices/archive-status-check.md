@@ -63,7 +63,9 @@ reply:**
    committed files. Anything not in a document is listed, each with a
    suggested home and an offer to put it there, along with any
    restructuring of this session's own documents that would make them
-   clearer or give that material a home -- the-boildown's condition 4.
+   clearer or give that material a home, including a recorded
+   decision whose substance belongs in the document it shapes --
+   the-boildown's condition 4.
 
 **All four hold, and there is nothing else worth flagging** (no open
 recommendation, no other live session on the same subject, nothing the
