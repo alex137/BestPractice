@@ -47661,16 +47661,27 @@ def check_vendor_engine_refreshes_agents_md_sections():
                       and f'MISSING: AGENTS.md has no "{key}" section' in out
                       and f'  - AGENTS.md "{key}": the template has this section' in out,
                       out[-900:]))
-        cases.append(('...recorded as absent, so the next refresh says it in '
-                      'one line and leaves it off the list',
+        cases.append(('...recorded as absent, so the next refresh leaves it '
+                      'unsaid and off the list',
                       key in recorded_of(d) and recorded_of(d)[key] is None,
                       json.dumps(recorded_of(d))[:400]))
         rc, out = run_refresh(d)
-        cases.append(('...which it does: a NOTE, no MISSING, no list entry, '
+        # A consuming repository's Update Vendors, 2026-10-12: the NOTE that
+        # used to stand here came back on every update after the person had
+        # been told once.
+        cases.append(('...which it does: nothing about the section at all, '
                       'and the file still untouched',
                       rc == 0 and agents(d) == lacking and 'MISSING:' not in out
-                      and f'still has no "{key}" section' in out
+                      and f'"{key}" section' not in out
                       and f'AGENTS.md "{key}"' not in out, out[-900:]))
+        r = subprocess.run(
+            [sys.executable, str(d / 'tools' / 'precedent_vendor_engine.py'),
+             'status', str(ROOT)], capture_output=True, text=True, cwd=str(d))
+        st = r.stdout + r.stderr
+        cases.append(('...while status, which is asked, still names it as '
+                      'left out on purpose',
+                      f'AGENTS.md has no "{key}" section' in st
+                      and 'recorded as left out on purpose' in st, st[-900:]))
 
         # -- E, CONTROL: edited but carrying the new bullet too --
         complete = repo_old.replace(old_sec, cur_sec + '\n- Ours.')
@@ -48120,7 +48131,8 @@ def check_absent_agents_md_section_is_asked_across_self_refresh():
     must list the section; the case under test differs only in an upstream
     commit that changes the vendoring tool, and asserts the second pass
     really ran. The follow-up asserts the fix is not a mute removed: once
-    asked, the next refresh remembers the answer and stays quiet."""
+    asked, the next refresh remembers the answer and stays quiet -- since
+    2026-10-12 entirely, where it used to print one NOTE line."""
     fx = _KeptDivergenceFixture('precedent-absent-section-')
     pve = fx.pve
     cases = []
@@ -48174,9 +48186,10 @@ def check_absent_agents_md_section_is_asked_across_self_refresh():
                       key in recorded and recorded[key] is None, recorded))
 
         rc, out = refresh(repo, moved_tool)
-        cases.append(('once asked, the next refresh remembers it: one NOTE line, '
+        cases.append(('once asked, the next refresh remembers it: unsaid, and '
                       'not on Left for you',
-                      rc == 0 and 'left out, as at the last refresh' in out
+                      rc == 0 and 'MISSING:' not in out
+                      and f'"{key}" section' not in out
                       and listed not in left(out), out[-2000:]))
     finally:
         fx.close()
