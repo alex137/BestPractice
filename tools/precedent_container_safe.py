@@ -147,6 +147,12 @@ except Exception:                                           # noqa: BLE001
     _BRANCH_PAGE = 'branch-cleanup.html'
 # Files a tool writes into the scratch folder only to publish them at once.
 PUBLISHED_ON_PURPOSE = frozenset({_BRANCH_PAGE})
+# Folders that only ever hold copies of something already published: the
+# Artifact tool's read saves a page, or a file of one, under
+# <scratchpad>/artifact-files/<artifact id>/ by default. Found the night the
+# scratch scan shipped (2026-10-12): the first session to read a live page
+# before republishing it was told its container was unsafe over that copy.
+PUBLISHED_COPY_DIRS = frozenset({'artifact-files'})
 
 
 def scratch_dirs():
@@ -186,8 +192,10 @@ def scan_scratch(d):
     d = pathlib.Path(d)
     files = []
     for f in sorted(d.rglob('*')):
-        if f.is_file() and f.name not in PUBLISHED_ON_PURPOSE:
-            files.append(str(f.relative_to(d)))
+        rel = f.relative_to(d)
+        if (f.is_file() and f.name not in PUBLISHED_ON_PURPOSE
+                and rel.parts[0] not in PUBLISHED_COPY_DIRS):
+            files.append(str(rel))
     if not files:
         return None
     return {'repo': str(d), 'name': scratch_name(d), 'branch': 'scratch folder',
