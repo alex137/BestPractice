@@ -29391,6 +29391,13 @@ def check_archive_check_sees_work_left_in_a_scratch_folder():
         cases.append(('a folder holding only the branch page, published on '
                       'purpose, is safe',
                       'scratch:abcd1234' not in unsafe_names(r), r.stdout[:300]))
+        copy = sess / 'artifact-files' / 'some-artifact-id'
+        copy.mkdir(parents=True)
+        (copy / 'index.html').write_text('<p>a live page, read</p>', encoding='utf-8')
+        r = scan()
+        cases.append(("a copy the Artifact tool saved of a published page is "
+                      "safe", 'scratch:abcd1234' not in unsafe_names(r),
+                      r.stdout[:300]))
         (sess / 'out').mkdir()
         (sess / 'out' / 'summaries.txt').write_text('189 lines\n', encoding='utf-8')
         r = scan()
