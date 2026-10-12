@@ -26,11 +26,14 @@ What it records, for paths inside the repository only:
      (its history is not a file), a Python child started without this
      hook, or a child that died before it wrote its record.
 
-A file shutil copies out of the repository is not a read: code run
-from the copy is recorded as the original's code, a Python read of the
-copy as a read of the original, and a copy handed to (or sitting where
-it runs) a program that is not Python or git as read. Clones of the
-repository (git clone, git worktree add) are the repository.
+A file copied out of the repository is not a read -- by shutil, or by
+code that reads a file and writes one the same size outside the
+repository: code run from the copy is recorded as the original's code,
+a Python read of the copy as a read of the original, in any process of
+the same check, and a copy handed to (or sitting where it runs) a
+program that is not Python or git as read. Clones of the repository
+(git clone, git worktree add) are the repository. The recorder never
+opens a file the work did not.
 
 A module's import can build state a LATER check uses without running
 that code again (a registry read from disk at import time). So whatever
@@ -71,7 +74,8 @@ _FLAGS_WITHOUT_SITE = ('-I', '-E', '-S', '-s')
 
 
 def _new():
-    return {'c': set(), 'f': set(), 'd': set(), 'x': set(), 'o': set()}
+    # f counts reads, so a read that turns out to be a copy can be taken back
+    return {'c': set(), 'f': {}, 'd': set(), 'x': set(), 'o': set()}
 
 
 def _rel(path, cwd=None):
@@ -134,6 +138,53 @@ def _alias(path):
     os.environ['HARNESS_REACH_ALIASES'] = os.pathsep.join(_ALIASES)
 
 
+def _same_size(a, b):
+    """Sizes, never contents: the recorder opens no file the work did not
+    open, or a check that watches its own process's reads (fact_ledger's)
+    sees reads that are not its work's (2026-10-12)."""
+    try:
+        return _ORIG_STAT(a).st_size == _ORIG_STAT(b).st_size
+    except OSError:
+        return False
+
+
+_STDLIB = os.path.dirname(os.__file__)
+_ORIG_STAT = os.stat
+_LAST_READ = {}                  # the code that read a repository file -> that file
+_PENDING = []                    # (where, rel) a read may have been copied to
+
+
+def _reader_key():
+    """-> the first frame that is not this hook or the standard library:
+    the code that asked for the open."""
+    f = sys._getframe(2)
+    while f is not None and (f.f_code.co_filename in _ME or
+                             f.f_code.co_filename.startswith(_STDLIB) or
+                             f.f_code.co_filename.startswith('<frozen ')):
+        f = f.f_back
+    return None if f is None else (id(f), f.f_code)
+
+
+def _settle_copies():
+    """A read followed, in the same code, by writing a file outside the
+    repository the same size is a copy: the read is taken back, and the
+    written file stands for the original from then on, in every process
+    of the check."""
+    while _PENDING:
+        where, rel = _PENDING.pop()
+        if _same_size(where, PREFIX + rel):
+            _take_back_read(rel)
+            _remember_copy(where, rel)
+
+
+def _remember_copy(where, rel):
+    real = os.path.normpath(os.path.abspath(where))
+    _COPIES[real] = rel
+    _rel_cache.pop(where, None)
+    _rel_cache.pop(real, None)
+    _note_copy(real, rel)
+
+
 def _copy_destination():
     """-> where shutil is copying the file being opened, when it is."""
     f = sys._getframe(2)
@@ -161,6 +212,55 @@ def _note_copy(dst, rel):
         _state['busy'] = was
 
 
+def _copies_dir(check):
+    """Point this process's copy list at `check`'s directory, and load
+    what the check's other processes have copied so far."""
+    d = os.path.join(OUT, 'copies', check)
+    was = _state['busy']
+    _state['busy'] = True
+    try:
+        os.makedirs(d, exist_ok=True)
+        for name in os.listdir(d):
+            _load_copies(os.path.join(d, name))
+    except OSError:
+        pass
+    finally:
+        _state['busy'] = was
+    _state['copies_file'] = os.path.join(d, f'{os.getpid()}.tsv')
+    _state['copies_dir'] = d
+    try:
+        _state['copies_seen'] = _ORIG_STAT(d).st_mtime_ns
+    except OSError:
+        _state['copies_seen'] = None
+
+
+def _reload_copies():
+    """-> True when other processes of this check copied something since
+    this one last looked, now loaded. One stat of the check's copy
+    directory when nothing changed."""
+    d = _state.get('copies_dir')
+    if not d:
+        return False
+    try:
+        m = _ORIG_STAT(d).st_mtime_ns
+    except OSError:
+        return False
+    if m == _state.get('copies_seen'):
+        return False
+    _state['copies_seen'] = m
+    was = _state['busy']
+    _state['busy'] = True
+    try:
+        for name in os.listdir(d):
+            _load_copies(os.path.join(d, name))
+    except OSError:
+        pass
+    finally:
+        _state['busy'] = was
+    _rel_cache.clear()
+    return True
+
+
 def _load_copies(path):
     try:
         with open(path) as f:
@@ -172,12 +272,25 @@ def _load_copies(path):
         pass
 
 
+# Functions that compute once and keep the result for later callers: what
+# their first run reads is kept against them, like a module's import, and
+# every check that calls them inherits it -- a later caller gets the kept
+# result without reading anything. Each must run its own body on every
+# call (a hand-written cache, not lru_cache), or later callers are not
+# seen calling it.
+CACHED_READERS = {('tools/precedent_check.py', '_engine_fixed_filenames')}
+
+
 def _importing_module():
-    """-> the repository module whose top level is running, innermost
-    first, or None (verify_harness.py's own top level is the run)."""
+    """-> the repository module whose top level is running, or the cached
+    reader running (as 'file::name'), innermost first, or None
+    (verify_harness.py's own top level is the run)."""
     f = sys._getframe(2)
     while f is not None:
         co = f.f_code
+        fn = co.co_filename
+        if fn.startswith(PREFIX) and (fn[len(PREFIX):], co.co_name) in CACHED_READERS:
+            return f'{fn[len(PREFIX):]}::{co.co_name}'
         if co.co_name == '<module>':
             fn = co.co_filename
             if fn.startswith(PREFIX) and fn != _HARNESS and fn not in _ME:
@@ -216,9 +329,20 @@ def _add(kind, item):
     _state['busy'] = True
     try:
         for b in _buckets():
-            b[kind].add(item)
+            if kind == 'f':
+                b['f'][item] = b['f'].get(item, 0) + 1
+            else:
+                b[kind].add(item)
     finally:
         _state['busy'] = False
+
+
+def _take_back_read(rel):
+    """A read of `rel` was a copy after all: one read fewer."""
+    for b in _buckets():
+        n = b['f'].get(rel, 0)
+        if n > 0:
+            b['f'][rel] = n - 1
 
 
 # -- code ---------------------------------------------------------------
@@ -230,12 +354,14 @@ def _code_unit(code):
         rel = fn[len(PREFIX):]
         if any(s in '/' + rel for s in _SKIP):
             return None
-    elif _ALIASES:
+    else:
+        # A clone's file, or a copy any process of this check made: the
+        # original's code.
         rel = _rel(fn)
+        if not rel and not fn.startswith(_STDLIB) and _reload_copies():
+            rel = _rel(fn)
         if not rel:
             return None
-    else:
-        return None
     return rel, getattr(code, 'co_qualname', code.co_name)
 
 
@@ -355,11 +481,14 @@ def _popen(exe, argv, cwd, env):
             _add('o', f'{prog} given a path inside the repository')
             return
     # A program that is not Python reads what it likes: every copy it is
-    # given, or that sits where it runs, counts as read.
+    # given, or that sits where it runs, counts as read -- except Python
+    # source, which only Python runs, and a Python child is recorded itself
+    # (counting it made every copied tool a read whenever a hook script ran
+    # in a fixture, 2026-10-12).
     norm_wd = _norm(wd)
     given = {_norm(os.path.join(wd, a)) for a in args[1:] if a}
     for dst, rel in list(_COPIES.items()):
-        if dst.startswith(norm_wd + os.sep) or dst in given:
+        if dst in given or (dst.startswith(norm_wd + os.sep) and not rel.endswith('.py')):
             _add('f', rel)
 
 
@@ -373,33 +502,59 @@ def _audit(event, args):
         if event == 'open':
             if not args or args[0] is None:
                 return
+            if _PENDING:
+                _settle_copies()
             mode = args[1] if len(args) > 1 else 'r'
             flags = args[2] if len(args) > 2 else 0
             if isinstance(mode, str):
-                if any(c in mode for c in 'wax') and '+' not in mode:
-                    return
-            elif isinstance(flags, int) and (flags & 3) == 1:
+                writing = any(c in mode for c in 'wax') and '+' not in mode
+            else:
+                writing = isinstance(flags, int) and (flags & 3) == 1
+            if writing:
+                # The code that just read a repository file writing outside
+                # the repository may be copying it: settled when the bytes
+                # can be compared.
+                key = _reader_key()
+                rel = _LAST_READ.pop(key, None) if key else None
+                if rel and _rel(args[0]) is None:
+                    _PENDING.append((os.fsdecode(os.fspath(args[0])), rel))
                 return
+            try:
+                where = os.path.normpath(os.path.abspath(os.fsdecode(os.fspath(args[0]))))
+            except Exception:
+                return
+            copied = where in _COPIES
             rel = _rel(args[0])
-            # A relative name opened against a directory handle (rmtree,
-            # os.walk's fd variants) carries no directory in the event, so
-            # it resolved against the working directory: keep only what is
-            # really a file there.
-            if not rel or not os.path.isfile(PREFIX + rel):
-                return
+            if rel is not None and not copied:
+                # A relative name opened against a directory handle (rmtree,
+                # os.walk's fd variants) carries no directory in the event, so
+                # it resolved against the working directory: keep only what
+                # is really a file there.
+                if not rel or not os.path.isfile(PREFIX + rel):
+                    return
+                direct = True
+            elif rel:
+                direct = False
+            else:
+                # Outside the repository: a copy another process of this
+                # check made since this one last looked is that file.
+                if not _reload_copies() or where not in _COPIES:
+                    return
+                rel = _COPIES[where]
+                direct = False
             if rel.endswith('.py') and _from_import_system():
                 return
             # A copy is not a read: what runs or is read from the copy is,
             # and is recorded as the original when it happens.
-            dst = _copy_destination()
+            dst = _copy_destination() if direct else None
             if dst is not None:
-                real = os.path.normpath(os.path.abspath(dst))
-                _COPIES[real] = rel
-                _rel_cache.pop(dst, None)
-                _rel_cache.pop(real, None)
-                _note_copy(real, rel)
+                _remember_copy(dst, rel)
                 return
             _add('f', rel)
+            if direct:
+                key = _reader_key()
+                if key:
+                    _LAST_READ[key] = rel
         elif event in ('os.listdir', 'os.scandir'):
             rel = _rel(args[0] if args and args[0] is not None else '.')
             if rel is not None:
@@ -436,17 +591,11 @@ def _common(root):
     global ROOT, PREFIX, _HARNESS
     _ALIASES.extend(a for a in os.environ.get('HARNESS_REACH_ALIASES', '').split(os.pathsep) if a)
     _BASES.extend(_ALIASES)
-    # The copies the processes above this one made: one file each, read
-    # at start. This process adds its own file, holding only what it
-    # copies itself, for the children it starts (writing the whole list
-    # again in every child filled a disk, 2026-10-12).
-    inherited = [f for f in os.environ.get('HARNESS_REACH_COPIES_FILES', '').split(os.pathsep) if f]
-    for f in inherited:
-        _load_copies(f)
-    own = os.path.join(os.environ.get('HARNESS_REACH_RECORD', OUT or '.'),
-                       f'copies-{os.getpid()}.tsv')
-    _state['copies_file'] = own
-    os.environ['HARNESS_REACH_COPIES_FILES'] = os.pathsep.join(inherited + [own])
+    # Copies are shared by every process of one check: one directory per
+    # check, one file per process holding only what it copied (writing
+    # the whole list again in every child filled a disk, 2026-10-12).
+    if _state['mode'] == 'child':
+        _copies_dir(_CHILD_CHECK)
     ROOT = os.path.realpath(root)
     PREFIX = ROOT + os.sep
     _BASES[:] = [ROOT] + ([os.path.normpath(os.path.abspath(root))]
@@ -456,19 +605,28 @@ def _common(root):
     _ME.update({here, os.path.join(os.path.dirname(here), 'harness_reach.py')})
     _install_code_watch()
     sys.addaudithook(_audit)
+    global _ORIG_STAT
+    _ORIG_STAT = os.stat
     os.stat = _watch_stat(os.stat)
     os.lstat = _watch_stat(os.lstat)
 
 
 def _plain(rec):
-    return {k: sorted(map(list, v)) if k == 'c' else sorted(v)
-            for k, v in rec.items() if v}
+    out = {}
+    for k, v in rec.items():
+        if k == 'f':
+            v = [r for r, n in v.items() if n > 0]
+        if v:
+            out[k] = sorted(map(list, v)) if k == 'c' else sorted(v)
+    return out
 
 
 # -- a harness process ----------------------------------------------------
 def start_parent(root, out_dir):
     """Record every check this process runs, into out_dir."""
     global OUT
+    if _state['mode'] is not None:
+        return
     OUT = out_dir
     _state['mode'] = 'parent'
     _common(root)
@@ -483,10 +641,9 @@ def begin(name):
     _ALIASES.clear()
     os.environ.pop('HARNESS_REACH_ALIASES', None)
     _rel_cache.clear()
-    try:
-        open(_state['copies_file'], 'w').close()
-    except (OSError, KeyError):
-        pass
+    _LAST_READ.clear()
+    del _PENDING[:]
+    _copies_dir(name)
     _state['check'] = name
     os.environ['HARNESS_REACH_CHECK'] = name
     _checks.setdefault(name, _new())
@@ -494,6 +651,8 @@ def begin(name):
 
 
 def end(name, ran=True):
+    if _PENDING:
+        _settle_copies()
     _state['check'] = None
     os.environ.pop('HARNESS_REACH_CHECK', None)
     if not ran:
@@ -519,6 +678,8 @@ _CHILD_CHECK = None
 def start_child():
     """Record this whole process against HARNESS_REACH_CHECK."""
     global OUT, _CHILD_CHECK, _CHILD_START
+    if _state['mode'] is not None:
+        return                   # already recording this process
     OUT = os.environ['HARNESS_REACH_RECORD']
     _CHILD_CHECK = os.environ['HARNESS_REACH_CHECK']
     _state['mode'] = 'child'
@@ -534,11 +695,15 @@ def start_child():
 
 def _save_child():
     try:
+        if _PENDING:
+            _settle_copies()
         rec = _checks.get(_CHILD_CHECK) or _new()
         # Tab-separated, not JSON: a child that never imports json would
         # otherwise pay for it at every start (2026-10-12).
         with open(_CHILD_START[:-len('.start')] + '.tsv', 'w') as f:
             for kind, items in rec.items():
+                if kind == 'f':
+                    items = [r for r, n in items.items() if n > 0]
                 for item in items:
                     f.write(kind + '\t' + ('\t'.join(item) if kind == 'c' else item) + '\n')
             f.write('#done\n')
