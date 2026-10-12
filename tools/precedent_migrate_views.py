@@ -145,8 +145,12 @@ def migrate(repo, restore_from=None, say=print):
         if made:
             for s in made:
                 (repo / s).write_text('', encoding='utf-8')
+            # These views were already generated with no source to compare
+            # against, so nothing in them can be told apart as typed by hand:
+            # --force, as a fresh install's first build.
             r = subprocess.run([sys.executable, str(HERE / 'build_views.py'), '--repo',
-                                str(repo), '--views-only'], capture_output=True, text=True)
+                                str(repo), '--views-only', '--force'],
+                               capture_output=True, text=True)
             if r.returncode != 0:
                 for s in made:
                     (repo / s).unlink(missing_ok=True)
@@ -165,8 +169,10 @@ def migrate(repo, restore_from=None, say=print):
     before = {v: (repo / v).read_bytes() if (repo / v).is_file() else None for v, _ in VIEWS}
     for _view, source, text in todo:
         (repo / source).write_text(text, encoding='utf-8')
+    # Restoring from a named commit replaces the view by the person's
+    # choice, so its current lines are not hand edits to protect: --force.
     r = subprocess.run([sys.executable, str(HERE / 'build_views.py'), '--repo', str(repo),
-                        '--views-only'],
+                        '--views-only', *(['--force'] if restore_from else [])],
                        capture_output=True, text=True)
     lost = []
     for view, source, text in todo:
