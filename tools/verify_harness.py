@@ -6697,6 +6697,43 @@ def check_commit_rebuilds_generated_files():
                       rc == 0 and 'Hand text.\n' == git('show', 'HEAD:BLOCKS.md').stdout.split('\n', 1)[1]
                       and 'blocks in BLOCKS.md' in out and 'NOT added' in out))
         git('checkout', '-q', '--', 'BLOCKS.md')
+        # 4c. A page tools/doc_html.py renders is re-rendered when its source
+        # or the renderer is in the commit, from the renderer's own --list,
+        # with no entry in generated_files.json (2026-10-12: a render nothing
+        # rebuilt went stale on main and failed unrelated merges).
+        (work / 'tools' / 'doc_html.py').write_text(
+            'import pathlib, sys\n'
+            'if "--list" in sys.argv:\n'
+            '    print("  PAGE.md  ->  PAGE.html  (Page)")\n'
+            'else:\n'
+            '    pathlib.Path("RENDERED").write_text("x")\n'
+            '    src = pathlib.Path(sys.argv[1])\n'
+            '    src.with_suffix(".html").write_text("<p>" + src.read_text() + "</p>v1")\n',
+            encoding='utf-8')
+        (work / 'PAGE.md').write_text('one\n', encoding='utf-8')
+        (work / 'PAGE.html').write_text('stale', encoding='utf-8')
+        (work / '.gitignore').write_text('RAN\nSNAP_RAN\nRENDERED\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'a rendered page')
+        (work / 'PAGE.md').write_text('two\n', encoding='utf-8')
+        git('add', 'PAGE.md')
+        rc, out = commit('the page source changes')
+        cases.append(('a page whose source is in the commit is re-rendered into it',
+                      rc == 0 and git('show', 'HEAD:PAGE.html').stdout == '<p>two\n</p>v1'
+                      and 're-rendered and staged PAGE.html' in out))
+        (work / 'RENDERED').unlink()
+        (work / 'notes2.txt').write_text('n\n', encoding='utf-8')
+        git('add', 'notes2.txt')
+        rc, out = commit('nothing the page reads')
+        cases.append(('a commit touching neither the page nor the renderer renders '
+                      'nothing', rc == 0 and not (work / 'RENDERED').exists()))
+        text_r = (work / 'tools' / 'doc_html.py').read_text(encoding='utf-8')
+        (work / 'tools' / 'doc_html.py').write_text(text_r.replace('</p>v1', '</p>v2'),
+                                                    encoding='utf-8')
+        git('add', 'tools/doc_html.py')
+        rc, out = commit('the renderer changes')
+        cases.append(('a change to the renderer re-renders every page it lists',
+                      rc == 0 and git('show', 'HEAD:PAGE.html').stdout == '<p>two\n</p>v2'))
         # 5. A generator that fails never blocks the commit.
         (work / 'tools' / 'gen.py').write_text('raise SystemExit(3)\n', encoding='utf-8')
         (work / 'src' / 'e.txt').write_text('e\n', encoding='utf-8')
