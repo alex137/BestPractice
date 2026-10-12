@@ -48150,16 +48150,27 @@ def check_vendor_engine_refreshes_agents_md_sections():
                       and f'MISSING: AGENTS.md has no "{key}" section' in out
                       and f'  - AGENTS.md "{key}": the template has this section' in out,
                       out[-900:]))
-        cases.append(('...recorded as absent, so the next refresh says it in '
-                      'one line and leaves it off the list',
+        cases.append(('...recorded as absent, so the next refresh leaves it '
+                      'unsaid and off the list',
                       key in recorded_of(d) and recorded_of(d)[key] is None,
                       json.dumps(recorded_of(d))[:400]))
         rc, out = run_refresh(d)
-        cases.append(('...which it does: a NOTE, no MISSING, no list entry, '
+        # A consuming repository's Update Vendors, 2026-10-12: the NOTE that
+        # used to stand here came back on every update after the person had
+        # been told once.
+        cases.append(('...which it does: nothing about the section at all, '
                       'and the file still untouched',
                       rc == 0 and agents(d) == lacking and 'MISSING:' not in out
-                      and f'still has no "{key}" section' in out
+                      and f'"{key}" section' not in out
                       and f'AGENTS.md "{key}"' not in out, out[-900:]))
+        r = subprocess.run(
+            [sys.executable, str(d / 'tools' / 'precedent_vendor_engine.py'),
+             'status', str(ROOT)], capture_output=True, text=True, cwd=str(d))
+        st = r.stdout + r.stderr
+        cases.append(('...while status, which is asked, still names it as '
+                      'left out on purpose',
+                      f'AGENTS.md has no "{key}" section' in st
+                      and 'recorded as left out on purpose' in st, st[-900:]))
 
         # -- E, CONTROL: edited but carrying the new bullet too --
         complete = repo_old.replace(old_sec, cur_sec + '\n- Ours.')
@@ -48609,7 +48620,8 @@ def check_absent_agents_md_section_is_asked_across_self_refresh():
     must list the section; the case under test differs only in an upstream
     commit that changes the vendoring tool, and asserts the second pass
     really ran. The follow-up asserts the fix is not a mute removed: once
-    asked, the next refresh remembers the answer and stays quiet."""
+    asked, the next refresh remembers the answer and stays quiet -- since
+    2026-10-12 entirely, where it used to print one NOTE line."""
     fx = _KeptDivergenceFixture('precedent-absent-section-')
     pve = fx.pve
     cases = []
@@ -48663,9 +48675,10 @@ def check_absent_agents_md_section_is_asked_across_self_refresh():
                       key in recorded and recorded[key] is None, recorded))
 
         rc, out = refresh(repo, moved_tool)
-        cases.append(('once asked, the next refresh remembers it: one NOTE line, '
+        cases.append(('once asked, the next refresh remembers it: unsaid, and '
                       'not on Left for you',
-                      rc == 0 and 'left out, as at the last refresh' in out
+                      rc == 0 and 'MISSING:' not in out
+                      and f'"{key}" section' not in out
                       and listed not in left(out), out[-2000:]))
     finally:
         fx.close()
@@ -58639,12 +58652,16 @@ def check_publish_gate_passes_the_branch_cleanup_page():
     import precedent_stale_branches as _sb
     import artifact_publish_gate as _apg
     saved = os.environ.get('PRECEDENT_GENERATED_PAGES')
-    real_collect = _sb.collect
+    real_collect, real_person = _sb.collect, _sb._person
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
         os.environ['PRECEDENT_GENERATED_PAGES'] = str(td / 'ledger.json')
         try:
-            _sb.collect = lambda fetch=False: ([('o', 'r', [('old-branch', '2026-10-01')])], [])
+            _sb.collect = lambda fetch=False, seen=None: (
+                [('o', 'r', [('old-branch', '2026-10-01')])], [])
+            # No saved page: one would make --html wait for --merge
+            # (practice: fixture-owns-its-state).
+            _sb._person = lambda: {}
             page = td / 'branch-cleanup.html'
             with open(os.devnull, 'w') as quiet:
                 saved_out, sys.stdout = sys.stdout, quiet
@@ -58658,7 +58675,7 @@ def check_publish_gate_passes_the_branch_cleanup_page():
             cases.append(('the same page edited by hand is refused',
                           bool(_apg.check([str(page)], [], td))))
         finally:
-            _sb.collect = real_collect
+            _sb.collect, _sb._person = real_collect, real_person
             if saved is None:
                 os.environ.pop('PRECEDENT_GENERATED_PAGES', None)
             else:
@@ -58666,6 +58683,165 @@ def check_publish_gate_passes_the_branch_cleanup_page():
     bad = [n for n, ok in cases if not ok]
     check(f'the publish gate passes the branch-cleanup page ({len(cases)} stated cases)',
           not bad, '; '.join(bad))
+
+
+def check_engine_unpacks_tars_in_one_place():
+    """Every tar the engine unpacks goes through checkin.extract_archive,
+    which passes the 'data' filter; it unpacks a real git archive with
+    Python's tar warnings made errors.
+
+    WHY. A consuming repository's Update Vendors, 2026-10-12: three
+    unfiltered extractall calls in checkin.py printed Python 3.12's
+    DeprecationWarning, while precedent_update.py carried its own two
+    copies of the guard. One helper means a new call site has nothing to
+    remember. Planted: the scan finds an extractall written outside the
+    helper; CONTROL: the tools as they stand have none."""
+    import ast
+    import tempfile
+    import warnings
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import checkin as _ck
+    cases = []
+
+    def outside_helper(src):
+        tree = ast.parse(src)
+        helper = [range(n.lineno, n.end_lineno + 1) for n in ast.walk(tree)
+                  if isinstance(n, ast.FunctionDef) and n.name == 'extract_archive']
+        return [n.lineno for n in ast.walk(tree)
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                and n.func.attr == 'extractall'
+                and not any(n.lineno in r for r in helper)]
+
+    planted = 'import tarfile\ndef f(t, d):\n    tarfile.open(t).extractall(d)\n'
+    cases.append(('the scan finds an extractall outside the helper',
+                  outside_helper(planted) == [3], ''))
+    stray = []
+    for py in sorted((ROOT / 'tools').glob('*.py')):
+        if py.name == 'verify_harness.py':
+            continue
+        try:
+            hits = outside_helper(py.read_text(encoding='utf-8'))
+        except SyntaxError:
+            continue
+        stray += [f'{py.name}:{n}' for n in hits]
+    cases.append(('CONTROL: no tool unpacks a tar outside the helper',
+                  not stray, ', '.join(stray)))
+    tar = subprocess.run(['git', '-C', str(ROOT), 'archive', 'HEAD', 'README.md'],
+                         capture_output=True).stdout
+    with tempfile.TemporaryDirectory() as td, warnings.catch_warnings():
+        warnings.simplefilter('error', DeprecationWarning)
+        try:
+            _ck.extract_archive(tar, td)
+            ok, why = (pathlib.Path(td) / 'README.md').is_file(), ''
+        except DeprecationWarning as e:
+            ok, why = False, str(e)
+    cases.append(('the helper unpacks a git archive without a warning', ok, why))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the engine unpacks tars in one place, filtered ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_branch_cleanup_page_merges_the_saved_page():
+    """Refreshing the saved branch-cleanup page keeps the rows of every
+    repository this session did not check, and replaces those it did.
+
+    WHY. A consuming repository's Update Vendors, 2026-10-12: the tool only
+    sees the clones on disk, so a session with fewer repositories open than
+    the last one published over the page and wiped the rows the wider
+    session listed. Planted: a saved page listing repositories A and B; a run
+    that checked only A (now with nothing to delete) and C. A's rows go, C's
+    arrive, B's stay under their last-checked date; the merged page reads
+    back for the next merge; a page built before the JSON block is read
+    from its sections; with a saved page and no --merge nothing is written;
+    --replace writes this run's list alone."""
+    import contextlib
+    import datetime
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as _sb
+    cases = []
+    then = datetime.datetime(2026, 10, 11, 10, 0, tzinfo=datetime.timezone.utc)
+    now = then + datetime.timedelta(days=1)
+    old = _sb.render_html([('o', 'A', [('a-done', '2026-10-01')]),
+                           ('o', 'B', [('b-done', '2026-10-02'),
+                                       ('b-<odd>', '2026-10-03')])], now=then)
+    previous = _sb.read_page(old)
+    cases.append(('a page reads back its own list',
+                  [(r['repo'], [b for b, _d in r['branches']]) for r in previous]
+                  == [('A', ['a-done']), ('B', ['b-done', 'b-<odd>'])], previous))
+    carried = _sb.carried_over(previous, [('o', 'a'), ('o', 'C')])
+    cases.append(('a repository this run checked is replaced, case aside; one it '
+                  'did not check is carried with its date',
+                  [(o, n, [b for b, _d in r], c[:10]) for o, n, r, c in carried]
+                  == [('o', 'B', ['b-done', 'b-<odd>'], '2026-10-11')], carried))
+    page = _sb.render_html([('o', 'C', [('c-done', '2026-10-04')])], now=now,
+                           carried=carried)
+    got = {r['repo']: r for r in _sb.read_page(page)}
+    cases.append(('the merged page lists C fresh and B kept, A gone',
+                  sorted(got) == ['B', 'C']
+                  and got['C']['checked'].startswith('2026-10-12')
+                  and got['B']['checked'].startswith('2026-10-11'), got))
+    cases.append(('...says the kept rows are as last checked, and counts both',
+                  'as listed when last checked, 11 Oct 2026, 10:00 UTC' in page
+                  and '3 branches' in page, ''))
+    legacy = _sb._DATA.sub('', old)
+    cases.append(('a page built before the JSON block is read from its sections',
+                  [(r['repo'], [b for b, _d in r['branches']], r['checked'][:16])
+                   for r in _sb.read_page(legacy)]
+                  == [('A', ['a-done'], '2026-10-11T10:00'),
+                      ('B', ['b-done', 'b-<odd>'], '2026-10-11T10:00')],
+                  _sb.read_page(legacy)))
+    real_collect, real_person = _sb.collect, _sb._person
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        saved_ledger = os.environ.get('PRECEDENT_GENERATED_PAGES')
+        os.environ['PRECEDENT_GENERATED_PAGES'] = str(td / 'ledger.json')
+        (td / 'saved.html').write_text(old, encoding='utf-8')
+        out = td / 'out.html'
+
+        def collect(fetch=False, seen=None):
+            if seen is not None:
+                seen.extend([('o', 'A'), ('o', 'C')])
+            return [('o', 'C', [('c-done', '2026-10-04')])], []
+
+        def run(*args):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = _sb.main(['--html', str(out), *args])
+            return rc, buf.getvalue()
+        try:
+            _sb.collect = collect
+            _sb._person = lambda: {'branch_cleanup_page': 'https://claude.ai/artifact/x'}
+            rc, said = run()
+            cases.append(('with a saved page and no --merge, nothing is written',
+                          rc == 2 and not out.exists()
+                          and 'Nothing written: the saved page' in said, said))
+            rc, said = run('--merge', str(td / 'saved.html'))
+            got = sorted(r['repo'] for r in _sb.read_page(out.read_text(encoding='utf-8')))
+            cases.append(('--merge writes C fresh and keeps B',
+                          rc == 0 and got == ['B', 'C']
+                          and '2 kept from the saved page for 1 repositor' in said,
+                          f'{got} {said}'))
+            (td / 'junk.html').write_text('<p>not a cleanup page</p>', encoding='utf-8')
+            out.unlink()
+            rc, said = run('--merge', str(td / 'junk.html'))
+            cases.append(('a file holding no list is refused, never merged as empty',
+                          rc == 2 and not out.exists()
+                          and 'holds no branch list' in said, said))
+            rc, said = run('--replace')
+            got = sorted(r['repo'] for r in _sb.read_page(out.read_text(encoding='utf-8')))
+            cases.append(('CONTROL: --replace writes this run\'s list alone',
+                          rc == 0 and got == ['C'], f'{got} {said}'))
+        finally:
+            _sb.collect, _sb._person = real_collect, real_person
+            if saved_ledger is None:
+                os.environ.pop('PRECEDENT_GENERATED_PAGES', None)
+            else:
+                os.environ['PRECEDENT_GENERATED_PAGES'] = saved_ledger
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'refreshing the branch-cleanup page merges the saved one ({len(cases)} '
+          f'stated cases)', not bad, '; '.join(bad))
 
 
 def check_branch_cleanup_page_is_one_page_updated_in_place():
@@ -77144,6 +77320,8 @@ def main():
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
     check_branch_cleanup_page_is_one_page_updated_in_place()
+    check_branch_cleanup_page_merges_the_saved_page()
+    check_engine_unpacks_tars_in_one_place()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
     check_citations_skip_a_generated_block()

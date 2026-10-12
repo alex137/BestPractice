@@ -2448,9 +2448,7 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
     repo has synced before: the catalogue's local edits are judged against
     its own committed record, or, where it has none yet, against every
     version upstream ever had at each path."""
-    import io
     import shutil
-    import tarfile
     import tempfile
     rel = universal_catalogue_path(repo)
     target = repo / rel / 'practices' if rel else None
@@ -2545,11 +2543,8 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
             return (f'could not read practices/ at {rev[:12]} in {CLONE}: '
                     f'{arc.stderr.decode(errors="replace").strip()[:200]}')
         with tempfile.TemporaryDirectory() as td:
-            with tarfile.open(fileobj=io.BytesIO(arc.stdout)) as tf:
-                try:
-                    tf.extractall(td, filter='data')
-                except TypeError:   # a Python older than 3.11.4 has no filter
-                    tf.extractall(td)
+            import checkin
+            checkin.extract_archive(arc.stdout, td)
             shutil.rmtree(target)
             shutil.copytree(pathlib.Path(td) / 'practices', target)
         (repo / rel / CATALOGUE_SYNC_NAME).write_text(json.dumps({
@@ -5102,13 +5097,7 @@ def catalogue_copy_postcondition(repo, rep, put_back=()):
             rep.leave(tree, f'could not read {commit[:12]}, the commit '
                       f'process/manifest.json records, to confirm the copy is it')
             return []
-        import io
-        import tarfile
-        with tarfile.open(fileobj=io.BytesIO(tar.stdout)) as tf:
-            try:
-                tf.extractall(td, filter='data')
-            except TypeError:   # a Python older than 3.11.4 has no filter
-                tf.extractall(td)
+        ck.extract_archive(tar.stdout, td)
         src = pathlib.Path(td)
         theirs = ck._files(src)
         ours = {p.relative_to(ck.UPSTREAM) for p in ck.UPSTREAM.rglob('*')

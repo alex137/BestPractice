@@ -6339,7 +6339,8 @@ def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
     return True
 
 
-def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
+def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
+                      name_absent=False):
     """Print what refresh (or status) found in AGENTS.md's template
     sections, and put what needs a person on the Left-for-you list. Every
     run, the early exit included, for the reason
@@ -6350,7 +6351,15 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
     than 2026-09-28, recorded sections as absent and handed nothing over --
     this pass cannot tell which of them that pass recorded a moment ago, and
     asking once more about a section left out on purpose costs a re-run,
-    where staying quiet about one nobody was asked about costs the section."""
+    where staying quiet about one nobody was asked about costs the section.
+
+    `name_absent`: still name a section recorded as left out, in one NOTE.
+    Set by `status`, which is asked what the file lacks; refresh leaves it
+    unsaid. The person was told once, as MISSING on the Left-for-you list,
+    and the record is what that told them; repeating it on every update
+    after is noise a session relays (a consuming repository's Update
+    Vendors, 2026-10-12: "Once a consumer has recorded the section as left
+    out, stop printing it")."""
     if not plan:
         return
     subs = _agents_md_subs(dest_root)
@@ -6378,16 +6387,19 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
         if action == 'missing':
             print(f"MISSING: {AGENTS_MD} has no \"{key}\" section; upstream's "
                   f"{src_rel}:{line_no} has one. Not written in: where it goes "
-                  f"in this file is a judgment. The next refresh says this in "
-                  f"one line.")
+                  f"in this file is a judgment. It is recorded as left out, so "
+                  f"the next refresh does not raise it again; `status` still "
+                  f"names it.")
             _left(f'{AGENTS_MD} "{key}"', f'the template has this section and '
                   f'this file does not -- copy it in from {src_rel}:{line_no} '
                   f'if it applies here, or leave it out on purpose '
                   f'(vendor-update-runbook step 10(d))')
             continue
         if action == 'absent':
-            print(f"  NOTE: {AGENTS_MD} still has no \"{key}\" section "
-                  f"({src_rel}:{line_no}) -- left out, as at the last refresh.")
+            if name_absent:
+                print(f"  NOTE: {AGENTS_MD} has no \"{key}\" section "
+                      f"({src_rel}:{line_no}) -- recorded as left out on "
+                      f"purpose, so refresh does not raise it.")
             continue
         if action != 'diverged':
             continue
@@ -7128,7 +7140,7 @@ def _status_template_instances(clone, commit, kind, manifest):
             if action in ('refresh', 'adopt'):
                 print(f"  NOTE: {AGENTS_MD} \"{key}\" is unedited and behind "
                       f"the template -- `refresh` brings it up to date.")
-        _report_agents_md(ROOT, tmp, agents_plan)
+        _report_agents_md(ROOT, tmp, agents_plan, name_absent=True)
         _report_retired_branch_names(ROOT)
         _LEFT_FOR_YOU.clear()   # status only reports; the list is refresh's
     finally:
