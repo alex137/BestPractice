@@ -2426,8 +2426,8 @@ def upstream_changes_block(repo, old, new):
     in a consuming repository took in Alex's new rules without a word about
     them; the person asked the same day whether he had missed them. The
     update is when upstream's changes reach a repository, so its report
-    says the few that matter, the morning report's way (practice:
-    others-did, in the ladder set, which is what turns both on)."""
+    says the few that matter, the morning report's way (the others-did
+    practice, in the ladder set, which is what turns both on)."""
     import precedent_others_did as od
     if od.off_ladder(repo):
         return ''
