@@ -6,6 +6,8 @@ deleting it loses nothing.
     python3 tools/precedent_stale_branches.py --count         # one number
     python3 tools/precedent_stale_branches.py --fetch         # fetch --prune first
     python3 tools/precedent_stale_branches.py --html OUT.html # the page to publish
+    python3 tools/precedent_stale_branches.py --html OUT.html --merge SAVED.html
+    python3 tools/precedent_stale_branches.py --html OUT.html --replace
     python3 tools/precedent_stale_branches.py --page-url      # the person's saved page
 
 A branch is STALE when its tip is already in `origin/main`, or when it carries
@@ -42,6 +44,21 @@ says when it was built, in the person's own timezone, since between closes
 it shows the last one's list; and its ticks belong to that build, so a
 refreshed list starts unticked -- a branch still on it was not deleted.
 Morgan, 2026-10-11: "Let's do this" (strength: decided).
+
+THE SAVED PAGE IS MERGED, NEVER OVERWRITTEN (2026-10-12). This tool sees
+only the clones on this machine, so a session with fewer repositories open
+than the last one would wipe the rows that one listed. With a saved page,
+`--html` writes nothing until it is handed that page as it stands --
+`--merge FILE` (in Claude Code, the file the Artifact tool's read saves
+with path index.html) -- or told
+`--replace`, for a saved page that is gone or cannot be read. Merged, a
+repository this run checked gets its fresh rows, or none if nothing in it
+is deletable any more; one it did not check keeps the rows last listed,
+under the date they were checked, since a branch there may have gone since.
+The page carries its list as JSON for the next merge to read; a page built
+before that is read from its sections. Reported by a consuming repository's
+Update Vendors, 2026-10-12: "a session with fewer repos wipes the entries a
+wider session listed. Merge them".
 """
 import datetime
 import html
@@ -165,8 +182,10 @@ def stale_in(repo, fetch=False):
     return out
 
 
-def collect(fetch=False):
-    """-> ([(owner, name, [(branch, date)])], [notes])."""
+def collect(fetch=False, seen=None):
+    """-> ([(owner, name, [(branch, date)])], [notes]). `seen`, a list, gets
+    (owner, name) of every repository whose branches were read, the ones
+    with nothing to delete included: what a merge replaces."""
     try:
         import precedent_audience as pa
     except ImportError:
@@ -182,6 +201,8 @@ def collect(fetch=False):
         if rows is None:
             notes.append(f'{name}: no origin/main to compare against')
             continue
+        if seen is not None:
+            seen.append((owner, name))
         if rows:
             groups.append((owner, name, rows))
     return groups, notes
@@ -223,21 +244,94 @@ def built_line(now=None, tz=''):
     return f'Refreshed {local.day} {local:%b %Y, %H:%M} {label}'
 
 
-def render_html(groups, now=None, tz=''):
+def _key(owner, name):
+    return (owner.casefold(), name.casefold())
+
+
+_DATA = re.compile(r'<script type="application/json" id="branch-data">(.*?)</script>',
+                   re.S)
+_SECTION = re.compile(r'<section class="repo">.*?<p class="owner">github\.com/'
+                      r'([^/<]+)/([^<]+)</p>.*?<ul>(.*?)</ul></section>', re.S)
+_ROW = re.compile(r'<a href="[^"]*"[^>]*>([^<]*)</a><span class="date">([^<]*)</span>')
+_STAMP = re.compile(r'branch-cleanup-done:(\d{8}T\d{6}Z)')
+
+
+def read_page(text):
+    """-> [{'owner', 'repo', 'checked', 'branches': [[branch, date]]}] from a
+    page this tool built: its JSON block, or, on a page built before it
+    carried one, its sections, all dated by the page's build stamp. [] for
+    anything else."""
+    m = _DATA.search(text)
+    if m:
+        try:
+            repos = json.loads(m.group(1)).get('repos') or []
+            return [r for r in repos if r.get('owner') and r.get('repo')]
+        except (ValueError, AttributeError):
+            return []
+    stamp = _STAMP.search(text)
+    checked = ''
+    if stamp:
+        checked = (datetime.datetime.strptime(stamp.group(1), '%Y%m%dT%H%M%SZ')
+                   .replace(tzinfo=datetime.timezone.utc).isoformat())
+    return [{'owner': html.unescape(o), 'repo': html.unescape(n), 'checked': checked,
+             'branches': [[html.unescape(b), d] for b, d in _ROW.findall(body)]}
+            for o, n, body in _SECTION.findall(text)]
+
+
+def carried_over(previous, seen):
+    """-> [(owner, name, rows, checked)]: the saved page's repositories this
+    run did not check, with the rows it last listed for them. A repository
+    this run checked is never carried: its fresh rows, or their absence,
+    replace the old ones."""
+    checked_now = {_key(o, n) for o, n in seen}
+    out = []
+    for r in previous:
+        rows = [(b, d) for b, d in r.get('branches') or []]
+        if rows and _key(r['owner'], r['repo']) not in checked_now:
+            out.append((r['owner'], r['repo'], rows, r.get('checked') or ''))
+    return out
+
+
+def _section(owner, name, rows, note=''):
+    lis = '\n'.join(
+        f'<li><label class="row"><input type="checkbox" '
+        f'id="{html.escape(name + "/" + b)}" data-k="{html.escape(name + "/" + b)}">'
+        f'<a href="{link(owner, name, b)}" target="_blank" rel="noopener">'
+        f'{html.escape(b)}</a><span class="date">{html.escape(d)}</span></label></li>'
+        for b, d in rows)
+    return (f'<section class="repo"><h2>{html.escape(name)} '
+            f'<span class="count">{len(rows)}</span></h2>'
+            f'<p class="owner">github.com/{html.escape(owner)}/{html.escape(name)}</p>'
+            + (f'<p class="carried">{html.escape(note)}</p>' if note else '')
+            + f'<ul>{lis}</ul></section>')
+
+
+def render_html(groups, now=None, tz='', carried=()):
+    """`carried`: [(owner, name, rows, checked)] kept from the saved page for
+    repositories this run did not check (carried_over), shown after the
+    fresh ones under the date they were last checked."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
-    total = sum(len(r) for *_x, r in groups)
-    secs = []
-    for owner, name, rows in groups:
-        lis = '\n'.join(
-            f'<li><label class="row"><input type="checkbox" '
-            f'id="{html.escape(name + "/" + b)}" data-k="{html.escape(name + "/" + b)}">'
-            f'<a href="{link(owner, name, b)}" target="_blank" rel="noopener">'
-            f'{html.escape(b)}</a><span class="date">{d}</span></label></li>'
-            for b, d in rows)
-        secs.append(f'<section class="repo"><h2>{html.escape(name)} '
-                    f'<span class="count">{len(rows)}</span></h2>'
-                    f'<p class="owner">github.com/{html.escape(owner)}/{html.escape(name)}</p>'
-                    f'<ul>{lis}</ul></section>')
+    total = sum(len(r) for *_x, r in groups) + sum(len(c[2]) for c in carried)
+    secs = [_section(owner, name, rows) for owner, name, rows in groups]
+    for owner, name, rows, checked in carried:
+        try:
+            when = ', ' + built_line(datetime.datetime.fromisoformat(checked),
+                                     tz)[len('Refreshed '):]
+        except (TypeError, ValueError):
+            when = ''
+        secs.append(_section(owner, name, rows,
+                             f'Not open in the session that refreshed this page: '
+                             f'as listed when last checked{when}. A branch here '
+                             f'may already be gone.'))
+    data = {'built': now.isoformat(), 'repos': [
+        {'owner': o, 'repo': n, 'checked': now.isoformat(),
+         'branches': [[b, d] for b, d in rows]} for o, n, rows in groups] + [
+        {'owner': o, 'repo': n, 'checked': c, 'branches': [[b, d] for b, d in rows]}
+        for o, n, rows, c in carried]}
+    # The list the next merge reads (read_page); '<' escaped so no branch
+    # name can close the script element.
+    secs.append('<script type="application/json" id="branch-data">'
+                + json.dumps(data).replace('<', '\\u003c') + '</script>')
     return (_PAGE.replace('{{TOTAL}}', str(total))
             .replace('{{BUILT}}', html.escape(built_line(now, tz)))
             .replace('{{BUILD}}', now.strftime('%Y%m%dT%H%M%SZ'))
@@ -265,6 +359,7 @@ h1 { font-size:1.6rem; font-weight:600; margin:0; text-wrap:balance; }
 .count, .owner { font-family:var(--mono); color:var(--muted); }
 .count { font-size:.8rem; font-weight:400; }
 .owner { font-size:.78rem; margin:2px 0 10px; }
+.carried { font-size:.85rem; color:var(--muted); margin:-4px 0 10px; max-width:62ch; }
 ul { list-style:none; margin:0; padding:0; background:var(--surface); border:1px solid var(--line); border-radius:6px; }
 li + li { border-top:1px solid var(--line); }
 .row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px 12px; cursor:pointer; }
@@ -305,7 +400,8 @@ def main(argv):
         url = saved_page()
         print(url or 'none saved: add "branch_cleanup_page" to your identity.json')
         return 0 if url else 1
-    groups, notes = collect(fetch='--fetch' in argv)
+    seen = []
+    groups, notes = collect(fetch='--fetch' in argv, seen=seen)
     total = sum(len(r) for *_x, r in groups)
     if '--count' in argv:
         print(total)
@@ -313,8 +409,33 @@ def main(argv):
     if '--html' in argv:
         out = pathlib.Path(argv[argv.index('--html') + 1])
         person = _person()
-        out.write_text(render_html(groups, tz=person.get('timezone') or ''),
-                       encoding='utf-8')
+        url = saved_page(person)
+        carried = []
+        if '--merge' in argv:
+            prev = pathlib.Path(argv[argv.index('--merge') + 1])
+            try:
+                previous = read_page(prev.read_text(encoding='utf-8'))
+            except OSError as e:
+                print(f'Cannot read {prev}: {e}. Nothing written.')
+                return 2
+            if not previous and '--replace' not in argv:
+                print(f'{prev} holds no branch list this tool can read, so '
+                      f'merging it would keep nothing. Nothing written: pass '
+                      f'the page the saved address holds, or --replace if '
+                      f'replacing it is meant.')
+                return 2
+            carried = carried_over(previous, seen)
+        elif url and '--replace' not in argv:
+            print(f'Nothing written: the saved page ({url}) may list '
+                  f'repositories this session cannot see, and publishing over '
+                  f'it would drop them. Save the page as it stands to a file '
+                  f'(in Claude Code: the Artifact tool\'s read of that url '
+                  f'with path index.html), then run this again adding '
+                  f'--merge <that file>. Only if it is gone or unreadable, '
+                  f'add --replace instead.')
+            return 2
+        out.write_text(render_html(groups, tz=person.get('timezone') or '',
+                                   carried=carried), encoding='utf-8')
         # Noted for the publish gate, which passes a page an engine
         # generator wrote, unedited, within the hour (artifact_publish_gate.py,
         # "ENGINE-REGISTERED GENERATORS"). Without it the page the
@@ -326,10 +447,13 @@ def main(argv):
                 out, 'precedent_stale_branches.py')
         except Exception:                                   # noqa: BLE001
             noted = False
+        kept = sum(len(c[2]) for c in carried)
         print(f'{total} stale branch(es) written to {out}'
+              + (f', and {kept} kept from the saved page for '
+                 f'{len(carried)} repositor(ies) this session did not check'
+                 if carried else '')
               + ('' if noted else ' (not noted for the publish gate, which '
                  'will refuse it: artifact_publish_gate.py did not load)'))
-        url = saved_page(person)
         print(f'Publish it to the saved page, in place: {url}' if url else
               'No saved page yet: publish it as a new page, then save its '
               'address as "branch_cleanup_page" in the identity.json of your '

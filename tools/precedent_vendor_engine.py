@@ -4284,6 +4284,10 @@ _GH_SLUG_RE = re.compile(r'github\.com[:/]([A-Za-z0-9][\w-]*)/([\w.-]+?)(?:\.git
 # What archived_declared_sources notes for a set this environment's proxy
 # would not let it ask about; retired_sources_step folds these into one line.
 PROXY_NOTE = 'not asked -- this environment\'s network proxy refuses GitHub\'s API'
+# What it notes for a set this session has no GitHub API access to. Both
+# are said by the drop-retired command, which is asked; Update Vendors says
+# neither (precedent_update.retired_sources_step).
+NO_ACCESS_NOTE = 'this session has no GitHub API access to it'
 
 
 def archived_declared_sources(dest_root):
@@ -4351,7 +4355,7 @@ def archived_declared_sources(dest_root):
             # note is one quiet line, the reason kept short.
             if getattr(_gb, 'attach_remedy', lambda *_a: '')(
                     msg, f'{m.group(1)}/{m.group(2)}'):
-                msg = 'this session has no GitHub API access to it'
+                msg = NO_ACCESS_NOTE
             notes.append(f'{name}: whether it is archived could not be read '
                          f'here ({msg[:120]}); left declared -- a set that says '
                          f'it is retired is still dropped')
@@ -5538,6 +5542,35 @@ def _report_dead_after_exit(rel, local):
     return True
 
 
+_HTML_COMMENT_RE = re.compile(r'<!--.*?-->', re.S)
+
+
+def template_text_at(clone, rev, path, pinned_sha, limit=200):
+    """-> the text `path` had in `clone` at the version whose sha256 (of its
+    UTF-8 text) is `pinned_sha`, searched newest first through the history
+    of `rev` (at most `limit` versions), or None when none hashes to it.
+    How a kept_template_divergences pin, which records only a hash, gets
+    back the template text its decision was made on."""
+    if not clone or not rev or not pinned_sha:
+        return None
+    for sha in _rev_text(clone, 'log', f'-{limit}', '--format=%H', rev,
+                         '--', path).split():
+        try:
+            r = subprocess.run(['git', '-C', str(clone), 'show', f'{sha}:{path}'],
+                               capture_output=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if r.returncode == 0 and hashlib.sha256(r.stdout).hexdigest() == pinned_sha:
+            return r.stdout.decode('utf-8', errors='replace')
+    return None
+
+
+def without_comments(text):
+    """`text` as a reader of the rendered Markdown sees it: HTML comments
+    out, whitespace collapsed."""
+    return ' '.join(_HTML_COMMENT_RE.sub(' ', text).split())
+
+
 def _report_diverged_template_instances(dest_root, templates_dir, plan):
     """Print, for every diverged instance, which template blocks it lacks,
     and put it on the Left-for-you list when it lacks any. Every run, the
@@ -6339,7 +6372,8 @@ def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
     return True
 
 
-def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
+def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
+                      name_absent=False):
     """Print what refresh (or status) found in AGENTS.md's template
     sections, and put what needs a person on the Left-for-you list. Every
     run, the early exit included, for the reason
@@ -6350,7 +6384,15 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
     than 2026-09-28, recorded sections as absent and handed nothing over --
     this pass cannot tell which of them that pass recorded a moment ago, and
     asking once more about a section left out on purpose costs a re-run,
-    where staying quiet about one nobody was asked about costs the section."""
+    where staying quiet about one nobody was asked about costs the section.
+
+    `name_absent`: still name a section recorded as left out, in one NOTE.
+    Set by `status`, which is asked what the file lacks; refresh leaves it
+    unsaid. The person was told once, as MISSING on the Left-for-you list,
+    and the record is what that told them; repeating it on every update
+    after is noise a session relays (a consuming repository's Update
+    Vendors, 2026-10-12: "Once a consumer has recorded the section as left
+    out, stop printing it")."""
     if not plan:
         return
     subs = _agents_md_subs(dest_root)
@@ -6378,16 +6420,19 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
         if action == 'missing':
             print(f"MISSING: {AGENTS_MD} has no \"{key}\" section; upstream's "
                   f"{src_rel}:{line_no} has one. Not written in: where it goes "
-                  f"in this file is a judgment. The next refresh says this in "
-                  f"one line.")
+                  f"in this file is a judgment. It is recorded as left out, so "
+                  f"the next refresh does not raise it again; `status` still "
+                  f"names it.")
             _left(f'{AGENTS_MD} "{key}"', f'the template has this section and '
                   f'this file does not -- copy it in from {src_rel}:{line_no} '
                   f'if it applies here, or leave it out on purpose '
                   f'(vendor-update-runbook step 10(d))')
             continue
         if action == 'absent':
-            print(f"  NOTE: {AGENTS_MD} still has no \"{key}\" section "
-                  f"({src_rel}:{line_no}) -- left out, as at the last refresh.")
+            if name_absent:
+                print(f"  NOTE: {AGENTS_MD} has no \"{key}\" section "
+                      f"({src_rel}:{line_no}) -- recorded as left out on "
+                      f"purpose, so refresh does not raise it.")
             continue
         if action != 'diverged':
             continue
@@ -7128,7 +7173,7 @@ def _status_template_instances(clone, commit, kind, manifest):
             if action in ('refresh', 'adopt'):
                 print(f"  NOTE: {AGENTS_MD} \"{key}\" is unedited and behind "
                       f"the template -- `refresh` brings it up to date.")
-        _report_agents_md(ROOT, tmp, agents_plan)
+        _report_agents_md(ROOT, tmp, agents_plan, name_absent=True)
         _report_retired_branch_names(ROOT)
         _LEFT_FOR_YOU.clear()   # status only reports; the list is refresh's
     finally:

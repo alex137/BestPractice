@@ -664,14 +664,17 @@ def retired_sources_step(repo, rep):
                          f'individual set to drop it there')
     for where, text, why in prose_about_dropped_sets(repo, names):
         rep.leave(where, f'{why}: "{text}" -- reword it or remove it')
-    proxied = [n for n in notes if n.endswith(getattr(pve, 'PROXY_NOTE', '\0'))]
-    notes = [n for n in notes if n not in proxied]
-    if proxied:
-        # Every run in a hosted session, for every set: one plain line, not
-        # a warning (2026-10-07, from a consuming repository's two updates).
-        rep.step('retired set', 'archive status not checked here (this '
-                 'environment\'s proxy refuses GitHub\'s API); a set that '
-                 'marks itself retired is still found')
+    # NOTHING SAID WHERE NOTHING CAN BE DONE (2026-10-12, a consuming
+    # repository's Update Vendors): a set this session has no GitHub API
+    # access to, or one the environment's proxy will not ask about, was a
+    # line on every run, and no one can act on it. Whether a set is archived
+    # is a bonus -- a set that marks itself retired is dropped all the same
+    # -- so those two are left unsaid here; `precedent_vendor_engine.py
+    # drop-retired`, which is asked, still says them. Any other failure is
+    # still reported: it may be one worth looking at.
+    quiet = tuple(m for m in (getattr(pve, 'PROXY_NOTE', None),
+                              getattr(pve, 'NO_ACCESS_NOTE', None)) if m)
+    notes = [n for n in notes if not any(m in n for m in quiet)]
     if notes:
         rep.step('retired set', f'{len(notes)} declared set(s) could not be '
                  f'asked on GitHub whether they are archived, so they stay '
@@ -2265,9 +2268,30 @@ def dropped_template_lines_step(repo, rep, rev):
     A file precedent.json's kept_template_divergences records as kept on
     purpose, against the current template's text, is said once and not
     listed -- the same declaration the engine honours for tools/bootstrap.sh,
-    so a repo that keeps an old line deliberately can still finish."""
+    so a repo that keeps an old line deliberately can still finish.
+
+    A PIN MOVES BY ITSELF ACROSS A COMMENT-ONLY CHANGE (2026-10-12, a
+    consuming repository's Update Vendors): a kept GETTING_STARTED.md was
+    asked about again because templates/GETTING_STARTED.md's only change
+    was inside an HTML comment, which no reader of the file sees. When the
+    pinned text can be found in the template's history and differs from
+    today's only in comments, the pin is moved and said once; otherwise the
+    question shows what changed, so it is answered on the change."""
     for rel, tmpl, sha, hits in dropped_template_lines(repo, rev):
         verdict, reason = pve._kept_divergence(repo, rel, sha)
+        old = None
+        if verdict == 'stale':
+            pinned = (pve.kept_template_divergences(repo).get(rel) or {}).get(
+                'template_sha256', '')
+            old = pve.template_text_at(SOURCE, rev, tmpl, pinned)
+            current = _source_text(rev, tmpl)
+            if (old is not None and current is not None
+                    and pve.without_comments(old) == pve.without_comments(current)
+                    and pve._repin_after_formatting(repo, rel, sha, None)):
+                rep.step('kept pin updated', f'{rel} is kept on purpose '
+                         f'("{reason}"), and {tmpl} changed only inside HTML '
+                         f'comments since, so the pin now records today\'s text')
+                continue
         if verdict == 'kept':
             rep.step('kept on purpose', f'{rel} keeps wording {tmpl} dropped, '
                      f'as precedent.json records -- "{reason}"')
@@ -2286,8 +2310,15 @@ def dropped_template_lines_step(repo, rep, rev):
                 f'{pve.KEPT_DIVERGENCES_KEY} with a reason and template_sha256 '
                 f'{sha}']
         if verdict == 'stale':
-            note.insert(0, f'recorded as kept ("{reason}"), but {tmpl} has '
-                        f'changed since -- read it again')
+            change = (pve._template_change(old, _source_text(rev, tmpl) or '')
+                      if old is not None else [])
+            shown = ['  ' + (l if len(l) <= 160 else l[:157] + '...')
+                     for l in change[:20]]
+            if len(change) > 20:
+                shown.append(f'  ... and {len(change) - 20} more line(s)')
+            note[:0] = [f'recorded as kept ("{reason}"), but {tmpl} has changed '
+                        f'since -- ' + ('what changed:' if shown else
+                                        'read it again')] + shown
         elif verdict == 'unreasoned':
             note.insert(0, 'recorded as kept with no reason, so not honoured')
         rep.details.setdefault(first, []).extend(note)
@@ -2302,7 +2333,8 @@ def budget_note_key(tool):
 def seed_engine_budgets(repo, rev, last_synced=None):
     """Write into this repo's tools/github_api_budgets.json the run budget,
     and its note, of every vendored engine tool upstream budgets and this
-    repo does not. -> (seeded [(tool, calls)], asks [(tool, ours, theirs)]).
+    repo does not. -> (seeded [(tool, calls)], asks [(tool, ours, theirs)],
+    followed [(tool, was, now)]).
 
     2026-10-07, a consuming repository: upstream added a budget for the
     vendored precedent_vendor_engine.py, and the update stopped to leave it
@@ -2312,7 +2344,14 @@ def seed_engine_budgets(repo, rev, last_synced=None):
     starting figure. Only where this repo already has a DIFFERENT figure, and
     upstream's own moved since the last sync, is there a call to make: keep
     the repo's own, or take upstream's new one. A repo with no registry
-    declares nothing, and still gets nothing."""
+    declares nothing, and still gets nothing.
+
+    A THREE-WAY READ (2026-10-12, a consuming repository's Update Vendors):
+    a figure equal to upstream's at the last sync is upstream's old figure,
+    never this repo's choice, so when upstream moves it the repo follows,
+    its note too while the note is upstream's old one, and nothing is
+    asked. The update had asked about 400 and 120, upstream's own figures
+    before it raised them."""
     path = repo / 'tools' / 'github_api_budgets.json'
     try:
         own = json.loads(path.read_text(encoding='utf-8'))
@@ -2320,9 +2359,9 @@ def seed_engine_budgets(repo, rev, last_synced=None):
                                   .read_text(encoding='utf-8')).get('files') or ())
         up = json.loads(_source_text(rev, 'tools/github_api_budgets.json') or '')
     except (OSError, ValueError, TypeError):
-        return [], []
+        return [], [], []
     if not isinstance(own, dict) or not isinstance(up, dict):
-        return [], []
+        return [], [], []
     try:
         before = json.loads(_source_text(last_synced, 'tools/github_api_budgets.json')
                             or '') if last_synced else {}
@@ -2331,7 +2370,7 @@ def seed_engine_budgets(repo, rev, last_synced=None):
     up_b = up.get('run_budgets') or {}
     was_b = (before.get('run_budgets') or {}) if isinstance(before, dict) else {}
     have = own.setdefault('run_budgets', {})
-    seeded, asks = [], []
+    seeded, asks, followed = [], [], []
     for tool, calls in sorted(up_b.items()):
         if tool.startswith('_') or tool not in vendored:
             continue
@@ -2342,11 +2381,18 @@ def seed_engine_budgets(repo, rev, last_synced=None):
                 have[budget_note_key(tool)] = note
             seeded.append((tool, calls))
         elif have[tool] != calls and was_b.get(tool) != calls:
-            asks.append((tool, have[tool], calls))
-    if seeded:
+            if tool in was_b and have[tool] == was_b[tool]:
+                note = budget_note_key(tool)
+                if note in up_b and have.get(note) in (None, was_b.get(note)):
+                    have[note] = up_b[note]
+                followed.append((tool, have[tool], calls))
+                have[tool] = calls
+            else:
+                asks.append((tool, have[tool], calls))
+    if seeded or followed:
         path.write_text(json.dumps(own, indent=2, ensure_ascii=False) + '\n',
                         encoding='utf-8')
-    return seeded, asks
+    return seeded, asks, followed
 
 
 def universal_catalogue_path(repo):
@@ -2448,9 +2494,7 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
     repo has synced before: the catalogue's local edits are judged against
     its own committed record, or, where it has none yet, against every
     version upstream ever had at each path."""
-    import io
     import shutil
-    import tarfile
     import tempfile
     rel = universal_catalogue_path(repo)
     target = repo / rel / 'practices' if rel else None
@@ -2545,11 +2589,8 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
             return (f'could not read practices/ at {rev[:12]} in {CLONE}: '
                     f'{arc.stderr.decode(errors="replace").strip()[:200]}')
         with tempfile.TemporaryDirectory() as td:
-            with tarfile.open(fileobj=io.BytesIO(arc.stdout)) as tf:
-                try:
-                    tf.extractall(td, filter='data')
-                except TypeError:   # a Python older than 3.11.4 has no filter
-                    tf.extractall(td)
+            import checkin
+            checkin.extract_archive(arc.stdout, td)
             shutil.rmtree(target)
             shutil.copytree(pathlib.Path(td) / 'practices', target)
         (repo / rel / CATALOGUE_SYNC_NAME).write_text(json.dumps({
@@ -4643,12 +4684,18 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                          f"own engine copy vendored from another ref. Run this "
                          f"again with --from-ref {tip[:12]} to take "
                          f"{follow}'s engine, then review the diff")
-    seeded, asks = seed_engine_budgets(repo, tip, last_synced)
+    seeded, asks, followed = seed_engine_budgets(repo, tip, last_synced)
     if seeded:
         rep.step('API budgets', 'tools/github_api_budgets.json now budgets '
                  + ', '.join(f'{t} at {n} call(s) a run' for t, n in seeded)
                  + ' -- upstream\'s figure and note for a tool upstream ships; '
                  'change it there if this repo needs its own')
+    if followed:
+        rep.step('API budgets', 'tools/github_api_budgets.json follows '
+                 'upstream for ' + ', '.join(f'{t} ({was} -> {now} call(s) a run)'
+                                             for t, was, now in followed)
+                 + ' -- this repo carried upstream\'s previous figure, not '
+                 'one of its own')
     for tool, ours, theirs in asks:
         rep.leave(f'tools/github_api_budgets.json: {tool}',
                   f'upstream now budgets the vendored tools/{tool} at {theirs} '
@@ -5102,13 +5149,7 @@ def catalogue_copy_postcondition(repo, rep, put_back=()):
             rep.leave(tree, f'could not read {commit[:12]}, the commit '
                       f'process/manifest.json records, to confirm the copy is it')
             return []
-        import io
-        import tarfile
-        with tarfile.open(fileobj=io.BytesIO(tar.stdout)) as tf:
-            try:
-                tf.extractall(td, filter='data')
-            except TypeError:   # a Python older than 3.11.4 has no filter
-                tf.extractall(td)
+        ck.extract_archive(tar.stdout, td)
         src = pathlib.Path(td)
         theirs = ck._files(src)
         ours = {p.relative_to(ck.UPSTREAM) for p in ck.UPSTREAM.rglob('*')

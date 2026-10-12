@@ -679,6 +679,22 @@ def not_vendored_share(base=None):
     return excluded, total, excluded_bytes
 
 
+def extract_archive(data, into):
+    """Unpack the bytes of a `git archive` tar into `into`, with the 'data'
+    filter where this Python has one. THE ONE PLACE the engine unpacks a tar:
+    Python 3.12+ warns on every unfiltered extractall, and 3.14 changes its
+    default, so each call site wrapping its own try/except is how three of
+    them here were left unfiltered (a consuming repository's Update Vendors,
+    2026-10-12, printed the DeprecationWarning). A git archive holds no
+    links out of the tree or device files, so the filter refuses nothing a
+    real archive carries."""
+    with tarfile.open(fileobj=io.BytesIO(data)) as tf:
+        try:
+            tf.extractall(into, filter='data')
+        except TypeError:   # a Python older than 3.11.4 has no filter
+            tf.extractall(into)
+
+
 def _files(base):
     # Skip interpreter droppings alongside .git: running the vendored audits
     # leaves __pycache__/ behind (ignored by git on both sides via the
@@ -728,7 +744,7 @@ def local_changes(clone, recorded):
     if tar.returncode != 0:
         return None
     with tempfile.TemporaryDirectory() as td:
-        tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(td)
+        extract_archive(tar.stdout, td)
         base = pathlib.Path(td)
         ours, theirs = _files(UPSTREAM), _files(base)
         # A file upstream has and this copy lacks is a local deletion only if
@@ -1213,7 +1229,7 @@ def _tree_at(clone, ref, into):
         sys.exit(f"checkin FAIL: cannot read {ref!r} in {clone} "
                  f"({tar.stderr.decode('utf-8', 'replace').strip()}). Fetch it "
                  f"there first -- this tool will not check the clone out.")
-    tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(into)
+    extract_archive(tar.stdout, into)
     return pathlib.Path(into)
 
 
@@ -1568,7 +1584,7 @@ def _drop_what_the_copy_no_longer_carries(clone, src):
             tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
                                  capture_output=True)
             if tar.returncode == 0:
-                tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(td)
+                extract_archive(tar.stdout, td)
                 base = pathlib.Path(td)
         for p in stale:
             rel = p.relative_to(UPSTREAM)
