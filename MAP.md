@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 169 practice files (6 resident, 163 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 170 practice files (6 resident, 164 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -149,6 +149,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [session-tags](practices/session-tags.md) | on-demand | creating, renaming or retagging a session |
 | [session-title-names-the-difference](practices/session-title-names-the-difference.md) | on-demand | creating, renaming or retagging a session |
 | [session-trailer](practices/session-trailer.md) | on-demand | committing anything |
+| [shared-index-is-a-directory](practices/shared-index-is-a-directory.md) | on-demand | creating or adding to a file many threads append entries to (an index, digest, registry or log), or when such a file conflicts in a merge |
 | [shared-result-cache](practices/shared-result-cache.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [small-calls](practices/small-calls.md) | on-demand | a judgment call is needed to keep work moving |
@@ -273,7 +274,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_merge_check.py](tools/precedent_merge_check.py) | The push check on the merge GitHub would make, at its base branch's tier -- `merge-check-gate.sh` runs it before a pull request is merged through GitHub, a push no push gate sees, and again on the merge commit after it, reverting a merge that fails because the base moved in between |
 | [tools/precedent_merge_vendors.py](tools/precedent_merge_vendors.py) | At a merge: when the vendored engine or catalogue is behind, runs Update Vendors from the BestPractice clone and commits the result on its own, or takes it all back and says why; never blocks the merge |
 | [tools/precedent_migrate_status.py](tools/precedent_migrate_status.py) | Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor |
-| [tools/precedent_migrate_views.py](tools/precedent_migrate_views.py) | Moves a repository's hand-written MAP.md and GLOSSARY.md into their source files, word for word, and generates both from then on |
+| [tools/precedent_migrate_views.py](tools/precedent_migrate_views.py) | Moves a hand-written MAP.md and GLOSSARY.md into their sources, and splits any index many threads add rows to into a directory of one file per row, joined back into the file people read |
 | [tools/precedent_move.py](tools/precedent_move.py) | Moves an existing practice between levels in the one safe order: lands it at the destination with its text and approval carried, then deduplicates the source copy and regenerates both sets' views; refuses the unsafe states by name |
 | [tools/precedent_others_did.py](tools/precedent_others_did.py) | Once a day, from the first session after 07:00 in the person's own timezone, says what OTHER people landed in this repository since that person's own last commit here -- every commit on its shared branches that is not theirs -- and hands the session a block to open its first reply with; nothing is stored on origin, only a note in the container so one session does not say it twice |
 | [tools/precedent_owned_paths.py](tools/precedent_owned_paths.py) | Before a pull request: which changed files will wait for a code owner's review, and the plain-words sentence to say to the contributor about it |

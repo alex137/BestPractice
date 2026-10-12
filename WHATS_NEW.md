@@ -1,9 +1,17 @@
 ---
-checked_through: 2026-10-10
+checked_through: 2026-10-11
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Sunday 2026-10-11: update-all-vendors
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **One session can now update every repository you use Precedent in**, and the merge for each is named up front so the safety check lets it through; the list of repositories is found fresh each run rather than stored (the new practice update-all-vendors, plan in spec/UPDATE_ALL_VENDORS_PLAN.md).
+- **Update Vendors runs the code of the commit it applies**, not whatever older copy the clone happened to hold, which had let a stale updater apply a newer catalogue wrongly (precedent_update.py runs the pinned commit's own update; open item todo-2026-10-11-update-vendors-runs-stale-driver-code).
+- **A changed check now runs its own tests when you push, and the slowest test got much faster** (the planted-case test went from about 487 seconds to about 3.5 minutes by running several cases at once; plan in spec/CHANGED_CHECK_RUNS_ITS_TESTS_PLAN.md).
 
 ## Saturday 2026-10-10: leak-gate-on-every-push
 

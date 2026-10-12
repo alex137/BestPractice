@@ -56,12 +56,10 @@ any thread that adds a document adds its row there.
 
 **Where several sessions work at once, keep the source as a directory**
 (Alex, 2026-10-04: *"should we modify map.md to be a directory so we don't
-have so many collisions when multiple threads are running?"*).
+have so many collisions when multiple threads are running?"*):
 `python3 tools/precedent_migrate_views.py --repo . --split` turns
-`MAP.source.md` into `MAP.source/`, with one file per heading and one per row
-of each section's main table, and checks that it reassembles word for word.
-After that, a thread adds a row by adding a file, numbered between its
-neighbours (`0015-` goes between `0010-` and `0020-`). Two threads adding
-rows then add two files and never conflict. `GLOSSARY.source.md` splits the
-same way. The generated `MAP.md` can still conflict when such branches
-merge: take either side and rebuild it, because the directory is the truth.
+`MAP.source.md` and `GLOSSARY.source.md` into `MAP.source/` and
+`GLOSSARY.source/`. That is one case of
+[shared-index-is-a-directory](shared-index-is-a-directory.md), which says
+how entries are numbered, how any other index splits the same way, and how
+a conflict in the generated view is resolved.
