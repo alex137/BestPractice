@@ -2750,6 +2750,51 @@ def has_own_source(root, name):
     return own_source_path(root, name) is not None
 
 
+# A LINE ONLY A PERSON COULD HAVE WRITTEN. A view with its own source is
+# rebuilt from that source, so a line the rebuild drops is either a line the
+# source no longer has (a real edit, made where it belongs) or a line typed
+# into the view by hand, which the rebuild would erase without a word. Found
+# 2026-10-12: a session added a row to a consumer's MAP.md instead of its
+# MAP.source.md, and the next Update Vendors regenerated the map and lost
+# the row silently; it surfaced only because the session went looking.
+# The practice and tool index rows come from practices/ and tools/, not
+# from the source file, so they are never counted as hand edits.
+_GENERATED_ROW = re.compile(r'\((?:\.\./)*(?:practices|tools)/|practice files \(|^(?:generated_by|edit_instead|note):')
+
+
+def hand_edits(root, path, old_text, new_text, src_name):
+    """-> the lines of `old_text` a rebuild to `new_text` would drop that no
+    version of the view's source holds, neither the file on disk nor the
+    one committed at HEAD: lines typed into the generated view by hand."""
+    if old_text is None:
+        return []
+    keep = set(new_text.splitlines())
+    sources = []
+    own = own_source_path(root, src_name)
+    if own is not None:
+        files = [own] if own.is_file() else sorted(own.rglob('*.md'))
+        for f in files:
+            try:
+                sources.append(f.read_text(encoding='utf-8'))
+            except OSError:
+                pass
+            rel = f.relative_to(root).as_posix()
+            r = subprocess.run(['git', '-C', str(root), 'show', f'HEAD:{rel}'],
+                               capture_output=True, text=True)
+            if r.returncode == 0:
+                sources.append(r.stdout)
+    blob = '\n'.join(sources)
+    out = []
+    for line in old_text.splitlines():
+        s = line.strip()
+        if not s or line in keep or _GENERATED_ROW.search(s):
+            continue
+        if s in blob:
+            continue
+        out.append(line)
+    return out
+
+
 def own_source_label(root, name):
     """-> how the generated label names the source: the file, or the
     directory with a trailing slash."""
@@ -3217,6 +3262,30 @@ def main():
               f"all byte-identical to a fresh regeneration")
         return 0
 
+    if '--force' not in argv:
+        lost = {}
+        for path, new_text in targets:
+            if path.name not in ('MAP.md', 'GLOSSARY.md'):
+                continue
+            src = MAP_SOURCE if path.name == 'MAP.md' else GLOSSARY_SOURCE
+            if not has_own_source(root, src):
+                continue
+            old_text = path.read_text(encoding='utf-8') if path.exists() else None
+            dropped = hand_edits(root, path, old_text, new_text, src)
+            if dropped:
+                lost[path.name] = (own_source_label(root, src), dropped)
+        if lost:
+            for name, (src, lines) in lost.items():
+                print(f"build_views FAIL: regenerating {name} would erase "
+                      f"{len(lines)} line(s) typed into it by hand, which no "
+                      f"version of {src} holds:", file=sys.stderr)
+                for line in lines[:10]:
+                    print(f"    {line[:200]}", file=sys.stderr)
+                if len(lines) > 10:
+                    print(f"    ... and {len(lines) - 10} more", file=sys.stderr)
+            print("Move each line into the source named, then run this "
+                  "again; or rerun with --force to discard them.", file=sys.stderr)
+            return 1
     for path, new_text in targets:
         path.write_text(new_text, encoding='utf-8')
     wrote = ', '.join(p.name for p, _t in targets)

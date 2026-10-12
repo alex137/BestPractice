@@ -3067,6 +3067,39 @@ def check_rename_links_spares_a_url_into_another_repository():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_views_refuse_to_drop_hand_edits():
+    """A line typed into a generated MAP.md that no version of MAP.source.md
+    holds is a hand edit, and the rebuild names it rather than erasing it; a
+    line the source itself dropped, and a practice or tool index row, are not
+    (2026-10-12: a row typed into a consumer's MAP.md was erased by the next
+    Update Vendors without a word)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    name = 'a rebuild names the lines typed into a generated view by hand'
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    try:
+        (tmp / 'MAP.source.md').write_text('| A | the row the source keeps |\n')
+        old = ('| A | the row the source keeps |\n| B | a row typed into MAP.md by hand |\n'
+               '| [some-practice](practices/some-practice.md) | on-demand | x |\n')
+        new = '| A | the row the source keeps |\n'
+        got = bv.hand_edits(tmp, tmp / 'MAP.md', old, new, 'MAP.source.md')
+        cases = [('the hand-typed row is named', got == ['| B | a row typed into MAP.md by hand |']),
+                 ('a practice index row is not', all('practices/' not in g for g in got)),
+                 ('nothing is named when the rebuild keeps every line',
+                  bv.hand_edits(tmp, tmp / 'MAP.md', new, new, 'MAP.source.md') == []),
+                 ('a line the source still holds is not',
+                  bv.hand_edits(tmp, tmp / 'MAP.md', old.replace('| B | a row typed into MAP.md by hand |\n', ''),
+                                '', 'MAP.source.md') == [])]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_render_contents_can_be_switched_off():
     """A document with three sections gets a contents list and back-links;
     the same document carrying doc_html.NO_CONTENTS_MARK gets neither
@@ -76560,6 +76593,7 @@ def main():
     check_rename_links_spares_a_path_moved_into_gitignore()
     check_rename_links_spares_a_url_into_another_repository()
     check_clean_tree_judges_the_branch()
+    check_views_refuse_to_drop_hand_edits()
     check_render_contents_can_be_switched_off()
     check_untracked_renders_use_source_fingerprints()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
