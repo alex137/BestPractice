@@ -2234,6 +2234,14 @@ def main(argv):
             mark = 'basic' if name in BASIC_CHECKS else 'full '
             print(f'  {name:16} [{mark}] {shown_interpreter(a)} {" ".join(a[1:])}')
             print(f'  {"":16}         replaces {replaces}')
+        wf_text = ''.join(w.read_text(encoding='utf-8', errors='replace')
+                          for w in sorted((root / '.github' / 'workflows').glob('*.y*ml')))
+        here = {c: w for c, w in GITHUB_ONLY_STEPS.items() if c in wf_text}
+        if here:
+            print('Run only on GitHub, never before a push (they change something; '
+                  'they check nothing):')
+            for cmd, why in here.items():
+                print(f'  {cmd} -- {why}')
         return 0
 
     refused = _rung_refusal(root, kind, _destination(root, argv))
@@ -2502,6 +2510,15 @@ VALUE_OPTIONS = ('--tier', '--changed-since', '--push-command', '--because',
                  '--destination')
 OPTIONAL_VALUE_OPTIONS = ('--changed-files-check',)
 FLAG_OPTIONS = ('--gate', '--list', '--help', '-h')
+
+# Workflow steps here that run a tool but test nothing, so a push never
+# runs them: named in --list, so every tool a workflow runs is accounted
+# for (check_push_check_runs_what_ci_ran).
+GITHUB_ONLY_STEPS = {
+    'python3 tools/harness_reach.py publish':
+        'stores the ledger of what each check reaches that a green whole-suite '
+        'run on GitHub recorded (2026-10-12)',
+}
 
 
 def unknown_arguments(argv):

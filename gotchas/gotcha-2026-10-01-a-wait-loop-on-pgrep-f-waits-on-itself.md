@@ -27,6 +27,12 @@ waiter's own command line contained the text it was searching for. So
 was still running. The same session had already killed its own shell once
 the same way, with `pkill -f` on the same pattern.
 
+**2026-10-12, again.** A session stopping a stale recorded harness run with
+`pkill -f "harness_reach.py record"` killed its own shell twice, the second
+time taking an edit in the same command down with it; the edit silently
+never landed. It found this file only afterwards. Stopping by process ID
+from a `ps` listing worked at once.
+
 ## Fix
 
 **Don't write a wait loop.** Run the long command itself in the background:

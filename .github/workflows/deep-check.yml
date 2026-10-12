@@ -198,10 +198,28 @@ jobs:
                 tested=$x
                 break
               fi
+              # MERGED WHILE ITS PULL REQUEST'S TEST WAS STILL GOING
+              # (2026-10-12): a direct-route merge lands the moment the pull
+              # request opens, and this job used to start a second run of
+              # the same files beside the first. That run's verdict is
+              # main's: it files the main-test-failed issue on a failure and
+              # marks these files passed on a success, by their tree.
+              n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$wf/runs?head_sha=$x&per_page=10" \
+                --jq "[.workflow_runs[] | select(.status != \"completed\" and .id != $GITHUB_RUN_ID)] | length" 2>/dev/null) || n=0
+              if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
+                skip=true
+                tested="$x, whose own run is still going and decides"
+                break
+              fi
             done
           fi
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
-          if [ "$skip" = true ]; then
+          deferred=false
+          [ "$skip" = true ] && [ "${tested#*still going}" != "$tested" ] && deferred=true
+          echo "deferred=$deferred" >> "$GITHUB_OUTPUT"
+          if [ "$deferred" = true ]; then
+            msg="Skipped: these exact files are already being tested on $tested."
+          elif [ "$skip" = true ]; then
             msg="Skipped: these exact files already passed this check on $tested."
           else
             msg="Running: no earlier passing run of this check on these exact files."
@@ -214,7 +232,7 @@ jobs:
       # main-test-failed issue from here instead (tools/close_main_test_issue.sh;
       # the step in the deep-check job says why).
       - name: Close the issue when these files already passed
-        if: steps.already.outputs.skip == 'true'
+        if: steps.already.outputs.skip == 'true' && steps.already.outputs.deferred != 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -295,8 +313,27 @@ jobs:
       # Every planted case, no rotation: CI_SHARDS gives the heavy shard
       # PRECEDENT_HARNESS_ALL=1. This run is the one nobody is watching and
       # the last gate before main, so rotation buys nothing it needs.
+      # Scoped to the change (tools/harness_reach.py) unless started by
+      # hand. A whole-suite run on main -- by hand, or because the change
+      # reached most of the suite -- records the ledger of what each check
+      # reaches, so a ledger that has grown stale refreshes itself.
       - name: Run the verification harness, side by side
+        env:
+          PRECEDENT_HARNESS_FULL: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+          PRECEDENT_HARNESS_RECORD_FULL: ${{ ((github.event_name == 'pull_request' && github.base_ref == 'main') || (github.event_name != 'pull_request' && github.ref == 'refs/heads/main')) && '1' || '' }}
         run: python3 tools/verify_harness.py --as-ci
+
+      # A whole-suite run into or on main that passed leaves the ledger the
+      # scoped runs select from -- a pull request's too, since main's own
+      # run of the same files is then skipped. Only a green run: a failing
+      # check may have stopped before it reached everything it would.
+      - name: Publish the reach ledger
+        if: >-
+          success() && hashFiles('.precedent/harness_reach.json') != '' && (
+          (github.event_name == 'pull_request' && github.base_ref == 'main') ||
+          (github.event_name != 'pull_request' && github.ref == 'refs/heads/main'))
+        continue-on-error: true
+        run: python3 tools/harness_reach.py publish
 
       # MAIN'S TEST PASSED: CLOSE THE ISSUE THAT SAID IT FAILED (2026-10-10).
       # The step at the end of this job opens a main-test-failed issue when
