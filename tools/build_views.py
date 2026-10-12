@@ -3115,7 +3115,10 @@ def main():
     # sec.1 step 2) used to get a bare FileNotFoundError from deep inside
     # the renderer, which reads as the generator being broken rather than
     # as one install step not done.
-    if not agents_md.is_file():
+    # --views-only never reads or writes AGENTS.md, so it does not need one:
+    # a consumer's push runs it in repositories that have no loader yet
+    # (2026-10-12).
+    if not agents_md.is_file() and '--views-only' not in argv:
         sys.exit(f"build_views FAIL: {agents_md} does not exist. Instantiate "
                  f"it from templates/AGENTS.md.loader.template (or "
                  f"templates/AGENTS.md.template on the classic layout), "
@@ -3188,9 +3191,12 @@ def main():
     # reaches the session only through the untracked file, so the standing
     # instruction has to point at it.
     _cap, _cap_why = occasion_cap(root)
-    new_agents, (block_tokens, n_resident, n_total) = render_agents_md(
-        block_practices, agents_md, source_levels=levels,
-        defers_sources=defers_any_source(root), occasion_budget=_cap)
+    if views_only and not agents_md.is_file():
+        new_agents = None
+    else:
+        new_agents, (block_tokens, n_resident, n_total) = render_agents_md(
+            block_practices, agents_md, source_levels=levels,
+            defers_sources=defers_any_source(root), occasion_budget=_cap)
     _own = own_occasion_allowance(root)
     if _own is not None:
         share = occasion_share(practices)
@@ -3211,7 +3217,7 @@ def main():
               "index and this source's occasion share are within their caps")
         return 0
     where = _where_source(root)
-    if where is not None:
+    if where is not None and new_agents is not None:
         new_agents = splice_quick_index(new_agents, where)
     targets = [] if views_only else [(agents_md, new_agents)]
     if where is not None and not agents_only:
@@ -3292,6 +3298,10 @@ def main():
     # These three figures come from the block that was just written, not
     # from a second build -- see render_agents_md's docstring for the
     # mismatch that made this the only safe shape.
+    if new_agents is None:
+        print(f"build_views OK: wrote {wrote or 'nothing'} (no AGENTS.md here, "
+              f"so no loader block)")
+        return 0
     print(f"build_views OK: wrote {wrote} (loader block regenerated, resident "
           f"{n_resident}/{n_total} practices, ~{block_tokens} tokens)")
     return 0
