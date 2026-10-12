@@ -189,6 +189,16 @@ def _link_base():
         url = url.replace(":", "/", 1).replace("git@", "https://", 1)
     if url.endswith(".git"):
         url = url[:-4]
+    # GitHub reads owner and repository without regard to case, but a clone's
+    # origin keeps whatever spelling it was cloned with: an attached clone's
+    # is lowercased, a hand clone's is not. Taken as is, the same source
+    # rendered differently on two machines, and each one's rebuild made the
+    # other's "render is current" check fail (spec/PREFORK_AUDIT.html flipped
+    # between alex137/BestPractice and alex137/bestpractice on 2026-10-12).
+    # One spelling everywhere: lowercase, which every clone can produce.
+    if "github.com/" in url:
+        head, _, path = url.partition("github.com/")
+        url = f"{head}github.com/{path.lower()}"
     return f"{url}/blob/{_default_branch()}/" if url else ""
 
 

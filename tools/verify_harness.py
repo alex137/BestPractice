@@ -6739,6 +6739,43 @@ def check_commit_rebuilds_generated_files():
                       rc == 0 and 'Hand text.\n' == git('show', 'HEAD:BLOCKS.md').stdout.split('\n', 1)[1]
                       and 'blocks in BLOCKS.md' in out and 'NOT added' in out))
         git('checkout', '-q', '--', 'BLOCKS.md')
+        # 4c. A page tools/doc_html.py renders is re-rendered when its source
+        # or the renderer is in the commit, from the renderer's own --list,
+        # with no entry in generated_files.json (2026-10-12: a render nothing
+        # rebuilt went stale on main and failed unrelated merges).
+        (work / 'tools' / 'doc_html.py').write_text(
+            'import pathlib, sys\n'
+            'if "--list" in sys.argv:\n'
+            '    print("  PAGE.md  ->  PAGE.html  (Page)")\n'
+            'else:\n'
+            '    pathlib.Path("RENDERED").write_text("x")\n'
+            '    src = pathlib.Path(sys.argv[1])\n'
+            '    src.with_suffix(".html").write_text("<p>" + src.read_text() + "</p>v1")\n',
+            encoding='utf-8')
+        (work / 'PAGE.md').write_text('one\n', encoding='utf-8')
+        (work / 'PAGE.html').write_text('stale', encoding='utf-8')
+        (work / '.gitignore').write_text('RAN\nSNAP_RAN\nRENDERED\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'a rendered page')
+        (work / 'PAGE.md').write_text('two\n', encoding='utf-8')
+        git('add', 'PAGE.md')
+        rc, out = commit('the page source changes')
+        cases.append(('a page whose source is in the commit is re-rendered into it',
+                      rc == 0 and git('show', 'HEAD:PAGE.html').stdout == '<p>two\n</p>v1'
+                      and 're-rendered and staged PAGE.html' in out))
+        (work / 'RENDERED').unlink()
+        (work / 'notes2.txt').write_text('n\n', encoding='utf-8')
+        git('add', 'notes2.txt')
+        rc, out = commit('nothing the page reads')
+        cases.append(('a commit touching neither the page nor the renderer renders '
+                      'nothing', rc == 0 and not (work / 'RENDERED').exists()))
+        text_r = (work / 'tools' / 'doc_html.py').read_text(encoding='utf-8')
+        (work / 'tools' / 'doc_html.py').write_text(text_r.replace('</p>v1', '</p>v2'),
+                                                    encoding='utf-8')
+        git('add', 'tools/doc_html.py')
+        rc, out = commit('the renderer changes')
+        cases.append(('a change to the renderer re-renders every page it lists',
+                      rc == 0 and git('show', 'HEAD:PAGE.html').stdout == '<p>two\n</p>v2'))
         # 5. A generator that fails never blocks the commit.
         (work / 'tools' / 'gen.py').write_text('raise SystemExit(3)\n', encoding='utf-8')
         (work / 'src' / 'e.txt').write_text('e\n', encoding='utf-8')
@@ -15659,6 +15696,15 @@ def check_merge_takes_the_vendor_update():
                       rc == 0 and 'VENDORS: updated, in commit' in out
                       and parent == head and f.read_bytes() == up and clean(repo)
                       and msg.startswith('Update Vendors at merge'),
+                      out[-1500:]))
+        # The same update again: it finishes with nothing to stage. It is
+        # current, not refused (2026-10-12: git refused the empty commit and
+        # the step printed "NOT TAKEN ... commit was refused").
+        head = fx.git(repo, 'rev-parse', 'HEAD')
+        rc, out = merge_vendors(repo, '--from-ref', ref)
+        cases.append(('an update with nothing to change says current, not refused',
+                      rc == 0 and 'VENDORS: current' in out and 'NOT TAKEN' not in out
+                      and fx.git(repo, 'rev-parse', 'HEAD') == head and clean(repo),
                       out[-1500:]))
 
         # --- LEFT: everything taken back -------------------------------------
@@ -59104,6 +59150,70 @@ def check_engine_unpacks_tars_in_one_place():
           not bad, '; '.join(bad))
 
 
+def check_stale_branches_skip_a_reverted_merge():
+    """A branch whose pull-request merge main reverted is never offered for
+    deletion; once merged again, it is.
+
+    WHY. 2026-10-12: a pull request was merged and reverted within the hour,
+    and the revert told its author to fix the work on the branch and merge
+    again. Its tip was in main, so the cleanup page offered the branch for
+    deletion. Planted: main merges `feat` as #5, then `Revert pull request
+    #5` -- not listed; a git-style revert naming the merge commit -- not
+    listed; merged again as #6 -- listed. CONTROL: a merged branch nobody
+    reverted is listed throughout."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as sb
+    cases = []
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        origin, work = td / 'origin.git', td / 'work'
+
+        def g(*a, cwd=None):
+            return subprocess.run(['git', '-C', str(cwd or work), *a], env=env,
+                                  capture_output=True, text=True)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', 'clone', '-q', str(origin), str(work)],
+                       capture_output=True, env=env)
+        (work / 'a.txt').write_text('a\n'); g('add', '-A'); g('commit', '-qm', 'a')
+        g('push', '-q', 'origin', 'HEAD:main')
+        for name in ('feat', 'other'):
+            g('checkout', '-q', '-b', name, 'main')
+            (work / f'{name}.txt').write_text(name); g('add', '-A')
+            g('commit', '-qm', name); g('push', '-q', 'origin', name)
+        g('checkout', '-q', 'main')
+        g('merge', '-q', '--no-ff', 'other', '-m', 'Merge pull request #4 from o/other')
+        g('merge', '-q', '--no-ff', 'feat', '-m', 'Merge pull request #5 from o/feat')
+        merge5 = g('rev-parse', 'HEAD').stdout.strip()
+        g('revert', '--no-edit', '-m', '1', 'HEAD')
+        g('commit', '-q', '--amend', '-m', 'Revert pull request #5: it failed its check')
+        g('push', '-q', 'origin', 'HEAD:main'); g('fetch', '-q', 'origin')
+
+        def listed():
+            return [b for b, _d in (sb.stale_in(work) or [])]
+        cases.append(('a merge main reverted by "Revert pull request #N" is not '
+                      'offered', 'feat' not in listed(), listed()))
+        cases.append(('CONTROL: a merged branch nobody reverted is offered',
+                      'other' in listed(), listed()))
+        g('reset', '-q', '--hard', merge5)
+        g('revert', '--no-edit', '-m', '1', 'HEAD')
+        g('push', '-q', '-f', 'origin', 'HEAD:main'); g('fetch', '-q', 'origin')
+        cases.append(('...nor one reverted by git\'s "This reverts commit <merge>"',
+                      'feat' not in listed(), listed()))
+        g('checkout', '-q', 'feat'); g('merge', '-q', 'origin/main', '-m', 'take main')
+        (work / 'feat.txt').write_text('feat, fixed'); g('add', '-A')
+        g('commit', '-qm', 'fix')
+        g('push', '-q', 'origin', 'feat'); g('checkout', '-q', 'main')
+        g('merge', '-q', '--no-ff', 'feat', '-m', 'Merge pull request #6 from o/feat')
+        g('push', '-q', 'origin', 'HEAD:main'); g('fetch', '-q', 'origin')
+        cases.append(('merged again, it is offered', 'feat' in listed(), listed()))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the cleanup page never offers a branch whose merge was reverted '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_branch_cleanup_page_merges_the_saved_page():
     """Refreshing the saved branch-cleanup page keeps the rows of every
     repository this session did not check, and replaces those it did.
@@ -67862,6 +67972,78 @@ def check_update_vendors_dropped_wording_reads_placeholders_filled():
     check(f'Update Vendors reads a template\'s placeholders as filled in '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_vendors_names_what_others_changed_upstream():
+    """Update Vendors' report carries what OTHER people changed upstream in
+    what the update brings in, for the session to open its report with.
+
+    WHY. Morgan, 2026-10-12 ("Yes, build it"): an Update Vendors in a
+    consuming repository took in a colleague's new rules without a word
+    about them, since the morning report covers only the repository a
+    session works in. Planted: upstream gains a colleague's commit and one
+    of the person's own between the two vendored commits -- only the
+    colleague's is listed, with the instruction; no range, nothing; a
+    person off the ladder, nothing; a commit the clone lacks, said plainly.
+    CONTROL: the morning report's own block still reads as it did."""
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    import precedent_others_did as od
+    import precedent_identity as pi
+    cases = []
+    saved = (pu.SOURCE, pi.declared_identity, od.off_ladder)
+    with tempfile.TemporaryDirectory() as td:
+        src = pathlib.Path(td) / 'source'
+        src.mkdir()
+
+        def commit(name, email, msg):
+            env = dict(_fixture_git_env(), GIT_AUTHOR_NAME=name, GIT_AUTHOR_EMAIL=email,
+                       GIT_COMMITTER_NAME=name, GIT_COMMITTER_EMAIL=email)
+            (src / 'f.txt').write_text(msg, encoding='utf-8')
+            subprocess.run(['git', '-C', str(src), 'add', '-A'], env=env,
+                           capture_output=True)
+            subprocess.run(['git', '-C', str(src), 'commit', '-qm', msg], env=env,
+                           capture_output=True)
+            return subprocess.run(['git', '-C', str(src), 'rev-parse', 'HEAD'],
+                                  capture_output=True, text=True).stdout.strip()
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(src)], capture_output=True)
+        old = commit('Me', 'me@example.com', 'where this repo last synced')
+        commit('Colleague', 'them@example.com', 'Refuse an item that names no blocker')
+        new = commit('Me', 'me@example.com', 'my own change')
+        try:
+            pu.SOURCE = src
+            pi.declared_identity = lambda *_a, **_k: {'name': 'Me', 'email': 'me@example.com'}
+            od.off_ladder = lambda *_a, **_k: False
+            block = pu.upstream_changes_block(pathlib.Path(td), old, new)
+            cases.append(('a colleague\'s upstream commit is listed, with the '
+                          'instruction to open the report with it',
+                          'WHAT OTHERS CHANGED UPSTREAM' in block
+                          and 'Colleague -- 1 commit(s)' in block
+                          and 'Refuse an item that names no blocker' in block
+                          and 'OPEN YOUR REPORT OF THIS UPDATE' in block, block))
+            cases.append(('...and the person\'s own is not',
+                          'my own change' not in block, block))
+            cases.append(('nothing new upstream, nothing said',
+                          pu.upstream_changes_block(pathlib.Path(td), new, new) == '', ''))
+            got = pu.upstream_changes_block(pathlib.Path(td), '0' * 40, new)
+            cases.append(('a commit the clone lacks is said plainly',
+                          got.startswith('WHAT OTHERS CHANGED UPSTREAM: could not be read'),
+                          got))
+            od.off_ladder = lambda *_a, **_k: True
+            cases.append(('a person off the ladder gets nothing',
+                          pu.upstream_changes_block(pathlib.Path(td), old, new) == '', ''))
+        finally:
+            pu.SOURCE, pi.declared_identity, od.off_ladder = saved
+    morning = od._block('o/r', 'since then', [('a' * 40, 'Colleague', 'x')], [])
+    cases.append(('CONTROL: the morning block still opens the first reply and '
+                  'lists by person',
+                  morning.startswith('WHAT OTHERS DID IN o/r since then')
+                  and 'OPEN YOUR FIRST REPLY' in morning
+                  and '\n\nThe commits, to choose from' in morning
+                  and 'Colleague -- 1 commit(s):\n  aaaaaaaaa  x' in morning, morning))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors names what others changed upstream ({len(cases)} '
+          f'stated cases)', not bad, '; '.join(bad))
 
 
 def check_kept_pin_moves_across_a_comment_only_template_change():
@@ -77794,6 +77976,7 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_branch_cleanup_page_is_one_page_updated_in_place()
     check_branch_cleanup_page_merges_the_saved_page()
+    check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
@@ -77911,6 +78094,7 @@ def main():
     check_update_vendors_reports_dropped_template_wording()
     check_update_vendors_dropped_wording_reads_a_views_source()
     check_kept_pin_moves_across_a_comment_only_template_change()
+    check_update_vendors_names_what_others_changed_upstream()
     check_update_done_names_the_check_it_ran()
     check_update_merge_lines_carry_the_full_head()
     check_update_on_stubs_stages_nothing_under_claude()
