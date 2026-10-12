@@ -15368,6 +15368,15 @@ def check_merge_takes_the_vendor_update():
                       and parent == head and f.read_bytes() == up and clean(repo)
                       and msg.startswith('Update Vendors at merge'),
                       out[-1500:]))
+        # The same update again: it finishes with nothing to stage. It is
+        # current, not refused (2026-10-12: git refused the empty commit and
+        # the step printed "NOT TAKEN ... commit was refused").
+        head = fx.git(repo, 'rev-parse', 'HEAD')
+        rc, out = merge_vendors(repo, '--from-ref', ref)
+        cases.append(('an update with nothing to change says current, not refused',
+                      rc == 0 and 'VENDORS: current' in out and 'NOT TAKEN' not in out
+                      and fx.git(repo, 'rev-parse', 'HEAD') == head and clean(repo),
+                      out[-1500:]))
 
         # --- LEFT: everything taken back -------------------------------------
         repo = fx.consumer('left')     # bare AGENTS.md: the first run asks
