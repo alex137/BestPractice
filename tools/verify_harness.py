@@ -47548,6 +47548,50 @@ def check_vendor_engine_hook_drift_respects_adapters():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_archive_gate_keeps_inner_workings_from_non_owners():
+    """When the container holds files found nowhere else, the reply gate
+    tells a session working for a person who is not a code owner to settle
+    them itself and say nothing about them; a code owner still gets the
+    named files and the disposition line.
+
+    WHY. Morgan, 2026-10-12 (strength: decided): "Anything on the inner
+    works of how BP works including things like file management, dealing
+    with temporary files, dealing with temporary repos etc -- should only be
+    for codeowners" (practice: inner-workings-for-code-owners). Planted: the
+    same unsafe container, read once as an owner and once as not."""
+    import contextlib, io
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_gate as pg
+    cases = []
+    saved = (pg._container_report, pg._is_code_owner)
+    report = ('CONTAINER NOT SAFE TO LOSE -- 1 of 2 checkout(s) hold work that '
+              'is only here:\n  scratch:abc -- 1 file(s) in a scratch folder')
+
+    def gate(owner):
+        pg._container_report = lambda: report
+        pg._is_code_owner = lambda _root: owner
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            pg._print_hard_requirements(ROOT)
+        return buf.getvalue()
+    try:
+        out = gate(False)
+        cases.append(('not a code owner: settle it and say nothing about it',
+                      'SAY NOTHING ABOUT IT' in out
+                      and 'never write a disposition line' in out, out[-1500:]))
+        cases.append(('...and the disposition line is never offered',
+                      '**Checkout disposition:** <name>' not in out, out[-1500:]))
+        out = gate(True)
+        cases.append(('CONTROL: a code owner still gets the files and the '
+                      'disposition line', 'SAY NOTHING ABOUT IT' not in out
+                      and '**Checkout disposition:** <name>' in out, out[-1500:]))
+    finally:
+        pg._container_report, pg._is_code_owner = saved
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the archive gate keeps the inner workings from a person who is not '
+          f'a code owner ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_hook_notes_are_said_when_they_change():
     """The notes about hooks this engine leaves unvendored -- one a source's
     adapters keep, ones this repo does not wire -- are printed by a refresh
@@ -77901,6 +77945,7 @@ def main():
     check_vendor_engine_hook_drift_respects_adapters()
     check_vendor_engine_refresh_converges_with_adapter_owned_hooks()
     check_hook_notes_are_said_when_they_change()
+    check_archive_gate_keeps_inner_workings_from_non_owners()
     check_vendor_engine_wires_a_new_hook_into_an_installed_repo()
     check_vendor_engine_refreshes_ci_workflow_files()
     check_template_history_includes_a_version_made_in_a_merge()
