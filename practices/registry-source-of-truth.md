@@ -51,7 +51,7 @@ proposed listing every render in the generated-files registry and labelling
 each one, which would have spread into every consuming repository. The
 renderer already listed its pages, and the same rebuild step already read
 another tool's own list for the generated blocks inside documents; the
-registry's own notes said so. The fix that landed reads the renderer's list.
+registry's own notes said so. The fix that landed reads the renderer's list. (A second cause surfaced while it was checked: two clones spelled the repository's address differently, so each machine's render differed from the other's.)
 Asked why the better way was missed: the design started from the registry
 the rebuild reads and asked how to fit the page into it, never whether
 that step already handled a kind with a list of its own.

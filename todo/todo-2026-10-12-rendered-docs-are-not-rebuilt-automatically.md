@@ -73,3 +73,12 @@ whose renderer lists nothing (one with no host file) sees no change.
 [tools/generated_files.json](../tools/generated_files.json)'s notes now
 state the rule for the next generated kind: the backstop reads the
 tool's own list and never asks for a second one.
+
+2026-10-12, later: that was half the cause. The full check then failed on
+the same page with the backstop in place: two clones spell the
+repository's address differently (an attached clone's origin is
+lowercased), the renderer built its links from the origin as spelled, and
+each machine's rebuild made the other's check fail. That explains the
+hand rebuilds that kept flipping (132b3fd5, then d7829a6b).
+[tools/doc_html.py](../tools/doc_html.py) now lowercases the GitHub part
+of its link base, so every machine renders the same page.
