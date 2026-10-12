@@ -382,6 +382,14 @@ def run(repo, source=None, check_only=False, always=False, extra=()):
               f'yes, run this again with {HARNESS_GO_AHEAD}="<their words>".')
         refresh_views(repo)
         return 0
+    if r.returncode == DONE and not _git(repo, 'diff', '--cached', '--name-only').stdout.strip():
+        # Nothing staged: the vendors were current after all (the behind
+        # check can be too cautious, and --always skips it). A commit here
+        # is refused as empty, which read as "NOT TAKEN ... commit was
+        # refused" for a repository with nothing to take (2026-10-12).
+        print('VENDORS: current -- Update Vendors ran and found nothing to '
+              'change, so there is nothing to commit.')
+        return 0
     if r.returncode == DONE:
         sha, err = commit_update(repo, clone, out)
         if sha:
