@@ -2395,6 +2395,63 @@ def seed_engine_budgets(repo, rev, last_synced=None):
     return seeded, asks, followed
 
 
+def upstream_by_others(repo, old, new):
+    """-> (others, unsure) for the commits upstream gained between `old`,
+    the commit this repository last vendored from, and `new`, the one it
+    takes now, made by anyone but the person running the update; None when
+    it cannot be read (no identity, or a commit the source clone lacks).
+    The same sorting the morning report uses (precedent_others_did.classify):
+    a commit signed only by Claude counts as its session's owner's."""
+    import precedent_identity as pi
+    import precedent_others_did as od
+    if not old or not new or old == new:
+        return [], []
+    try:
+        me = pi.declared_identity(repo)
+    except Exception:                                             # noqa: BLE001
+        return None
+    code, out = od.git(SOURCE, 'log', '--no-merges', od.LOG_FORMAT, f'{old}..{new}')
+    if code != 0:
+        return None
+    return od.classify(SOURCE, od._records(out), me.get('email'), {'new': new})
+
+
+def upstream_changes_block(repo, old, new):
+    """-> the block Update Vendors' report carries about what OTHER people
+    changed upstream in what this update brings in, or '' when there is
+    nothing to say or the person is off the ladder.
+
+    WHY (Morgan, 2026-10-12: "Yes, build it"). The morning report says what
+    others landed in the repository a session works in, so an Update Vendors
+    in a consuming repository took in Alex's new rules without a word about
+    them; the person asked the same day whether he had missed them. The
+    update is when upstream's changes reach a repository, so its report
+    says the few that matter, the morning report's way (practice:
+    others-did, in the ladder set, which is what turns both on)."""
+    import precedent_others_did as od
+    if od.off_ladder(repo):
+        return ''
+    found = upstream_by_others(repo, old, new)
+    if found is None:
+        return (f'WHAT OTHERS CHANGED UPSTREAM: could not be read here '
+                f'({str(old)[:12]}..{str(new)[:12]} in {SOURCE.name}).\n')
+    others, unsure = found
+    if not others and not unsure:
+        return ''
+    return ('\n'.join([
+        f'WHAT OTHERS CHANGED UPSTREAM in what this update brings in '
+        f'({str(old)[:12]}..{str(new)[:12]}) -- {len(others) + len(unsure)} '
+        f'commit(s) by people other than you.',
+        '',
+        'OPEN YOUR REPORT OF THIS UPDATE WITH THE THREE OR FOUR THAT MATTER '
+        "MOST, never the whole list: What's New style, each opening with its "
+        'key phrase in bold, saying who did it and what it changes for this '
+        'repository and its sessions. A change to a rule or to how sessions '
+        'behave always makes the cut (the others-did practice, in the ladder '
+        'set; Morgan, 2026-10-12).',
+        '']) + '\n' + od.commit_listing(others, unsure))
+
+
 def universal_catalogue_path(repo):
     """-> the repo-relative path of the universal source this repository
     vendors inside itself (a section 0 install), or None: no precedent.json,
@@ -2679,6 +2736,7 @@ class Report:
         self.left = []    # (what, why)
         self.loud = []    # workflows left alone -- printed first and last
         self.details = {} # what -> lines printed under its Left-for-you item
+        self.upstream_changes = ''  # upstream_changes_block, printed on close
         self.asks = []    # (what, question) -- for the person, not this repo
         self.edits = []   # (outcome, rel, text) -- precedent_local_edits.resolve()
         self.merges = {}  # rel -> (merged, upstream's) -- judged again at step 5
@@ -2846,6 +2904,8 @@ class Report:
         self._local_edits()
         self._questions()
         self._retired_block()
+        if self.upstream_changes and not failed:
+            print('\n' + self.upstream_changes.rstrip())
         if failed:
             # What the update left for the person is printed on a failure
             # too. 2026-09-28: a consumer's refresh named its bootstrap.sh as
@@ -4684,6 +4744,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                          f"own engine copy vendored from another ref. Run this "
                          f"again with --from-ref {tip[:12]} to take "
                          f"{follow}'s engine, then review the diff")
+    rep.upstream_changes = upstream_changes_block(repo, last_synced, tip)
     seeded, asks, followed = seed_engine_budgets(repo, tip, last_synced)
     if seeded:
         rep.step('API budgets', 'tools/github_api_budgets.json now budgets '
