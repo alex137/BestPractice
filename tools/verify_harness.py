@@ -23233,6 +23233,29 @@ def check_precedent_check_fires():
                 '["practices/*.md", "tools/routing_audit.py"',
                 '["tools/routing_audit.py"', 1))
         case('layered-practice-packs', _plant_unreachable, advisory=True)
+        # practice: shared-index-is-a-directory -- a change adding a row to a
+        # 25-row table typed by hand is told the file can be a directory. The
+        # setup commits the table to both trees, so only the planted one
+        # carries a change; advisory, so it reports and never fails.
+        def _setup_long_index(repo):
+            (repo / 'docs').mkdir(exist_ok=True)
+            (repo / 'docs' / 'zz-index.md').write_text(
+                '# Index\n\n| Name | Where |\n|---|---|\n'
+                + ''.join(f'| row {i} | here |\n' for i in range(25)),
+                encoding='utf-8')
+            git(repo, 'add', '-f', 'docs/zz-index.md')
+            git(repo, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com',
+                'commit', '-qm', 'a long hand-typed index')
+
+        def _plant_long_index(repo):
+            rewrite(repo, 'docs/zz-index.md', lambda t: t + '| row new | there |\n')
+        case('shared-index-is-a-directory', _plant_long_index,
+             setup=_setup_long_index, advisory=True)
+        if 'shared-index-is-a-directory' in planted:
+            cases.append(('shared-index-is-a-directory: the finding gives the '
+                          'command that splits the file',
+                          '--split-file docs/zz-index.md'
+                          in planted['shared-index-is-a-directory'][1]))
         if 'layered-practice-packs' in planted:
             _lpp = planted['layered-practice-packs'][1]
             cases.append(('layered-practice-packs: a practice routed only by '
