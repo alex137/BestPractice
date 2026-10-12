@@ -4284,6 +4284,10 @@ _GH_SLUG_RE = re.compile(r'github\.com[:/]([A-Za-z0-9][\w-]*)/([\w.-]+?)(?:\.git
 # What archived_declared_sources notes for a set this environment's proxy
 # would not let it ask about; retired_sources_step folds these into one line.
 PROXY_NOTE = 'not asked -- this environment\'s network proxy refuses GitHub\'s API'
+# What it notes for a set this session has no GitHub API access to. Both
+# are said by the drop-retired command, which is asked; Update Vendors says
+# neither (precedent_update.retired_sources_step).
+NO_ACCESS_NOTE = 'this session has no GitHub API access to it'
 
 
 def archived_declared_sources(dest_root):
@@ -4351,7 +4355,7 @@ def archived_declared_sources(dest_root):
             # note is one quiet line, the reason kept short.
             if getattr(_gb, 'attach_remedy', lambda *_a: '')(
                     msg, f'{m.group(1)}/{m.group(2)}'):
-                msg = 'this session has no GitHub API access to it'
+                msg = NO_ACCESS_NOTE
             notes.append(f'{name}: whether it is archived could not be read '
                          f'here ({msg[:120]}); left declared -- a set that says '
                          f'it is retired is still dropped')
@@ -5536,6 +5540,35 @@ def _report_dead_after_exit(rel, local):
                f'never run -- move them into {BOOTSTRAP_LOCAL} '
                f'(vendor-update-runbook step 10(d))')
     return True
+
+
+_HTML_COMMENT_RE = re.compile(r'<!--.*?-->', re.S)
+
+
+def template_text_at(clone, rev, path, pinned_sha, limit=200):
+    """-> the text `path` had in `clone` at the version whose sha256 (of its
+    UTF-8 text) is `pinned_sha`, searched newest first through the history
+    of `rev` (at most `limit` versions), or None when none hashes to it.
+    How a kept_template_divergences pin, which records only a hash, gets
+    back the template text its decision was made on."""
+    if not clone or not rev or not pinned_sha:
+        return None
+    for sha in _rev_text(clone, 'log', f'-{limit}', '--format=%H', rev,
+                         '--', path).split():
+        try:
+            r = subprocess.run(['git', '-C', str(clone), 'show', f'{sha}:{path}'],
+                               capture_output=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if r.returncode == 0 and hashlib.sha256(r.stdout).hexdigest() == pinned_sha:
+            return r.stdout.decode('utf-8', errors='replace')
+    return None
+
+
+def without_comments(text):
+    """`text` as a reader of the rendered Markdown sees it: HTML comments
+    out, whitespace collapsed."""
+    return ' '.join(_HTML_COMMENT_RE.sub(' ', text).split())
 
 
 def _report_diverged_template_instances(dest_root, templates_dir, plan):

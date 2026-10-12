@@ -9926,8 +9926,8 @@ def check_dropped_set_and_proxy_and_template_refs():
                   not _gb.is_proxy_refusal('Not Found')))
     real = _pve.archived_declared_sources
     try:
-        _pve.archived_declared_sources = lambda _r: (
-            set(), [f'a: {_pve.PROXY_NOTE}', f'b: {_pve.PROXY_NOTE}'])
+        notes = [f'a: {_pve.PROXY_NOTE}', f'b: {_pve.PROXY_NOTE}']
+        _pve.archived_declared_sources = lambda _r: (set(), list(notes))
 
         class Rep:
             def __init__(self):
@@ -9943,10 +9943,23 @@ def check_dropped_set_and_proxy_and_template_refs():
             (pathlib.Path(tmp) / 'precedent.json').write_text(
                 '{"sources": []}', encoding='utf-8')
             _pu.retired_sources_step(pathlib.Path(tmp), rep)
-        cases.append(('two proxied sets make one short line, not a count of '
-                      'sets that could not be asked',
-                      len(rep.steps) == 1 and 'proxy' in rep.steps[0]
-                      and 'could not be asked' not in rep.steps[0]))
+            # Changed 2026-10-12, a consuming repository's Update Vendors: a
+            # line on every run about something no one can act on is said by
+            # drop-retired, which is asked, and not by Update Vendors.
+            cases.append(('proxied sets say nothing on Update Vendors',
+                          rep.steps == [] and rep.left == []))
+            notes[:] = [f'a: whether it is archived could not be read here '
+                        f'({_pve.NO_ACCESS_NOTE}); left declared']
+            rep = Rep()
+            _pu.retired_sources_step(pathlib.Path(tmp), rep)
+            cases.append(('...nor does a set this session has no API access to',
+                          rep.steps == [] and rep.left == []))
+            notes[:] = ['a: whether it is archived could not be read here '
+                        '(curl exited 6); left declared']
+            rep = Rep()
+            _pu.retired_sources_step(pathlib.Path(tmp), rep)
+            cases.append(('CONTROL: any other failure is still said, in one line',
+                          len(rep.steps) == 1 and 'curl exited 6' in rep.steps[0]))
     finally:
         _pve.archived_declared_sources = real
     cases.append(('Not Found still never drops a set',
@@ -58910,8 +58923,11 @@ def check_update_seeds_an_upstream_budget_for_a_vendored_tool():
     session copied the 12 and its note in by hand -- nothing to decide,
     repeated in every consumer. Planted: a missing budget is seeded with its
     note; a tool not vendored here is not; the repo's own different figure
-    is a question only once upstream's figure moved; a repo with no registry
-    gets nothing written."""
+    is a question only once upstream's figure moved; a figure that is
+    upstream's previous one follows upstream's move, its note with it,
+    without a question (2026-10-12: a consumer was asked about 400 and 120,
+    upstream's own old figures); a repo with no registry gets nothing
+    written."""
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_update as pu
@@ -58928,21 +58944,24 @@ def check_update_seeds_an_upstream_budget_for_a_vendored_tool():
         g('init', '-q', '-b', 'main')
         budgets = lambda rb: json.dumps({'run_budgets': rb}, indent=2) + '\n'
         (src / 'tools' / 'github_api_budgets.json').write_text(
-            budgets({'kept.py': 3}), encoding='utf-8')
+            budgets({'kept.py': 3, 'follow.py': 400, '_follow_note': 'old'}),
+            encoding='utf-8')
         g('add', '-A'); g('commit', '-qm', 'before')
         before = g('rev-parse', 'HEAD')
         (src / 'tools' / 'github_api_budgets.json').write_text(budgets({
             'new_tool.py': 12, '_new_tool_note': 'one GET per set',
-            'kept.py': 5, 'not_here.py': 4}), encoding='utf-8')
+            'kept.py': 5, 'not_here.py': 4, 'follow.py': 600,
+            '_follow_note': 'new'}), encoding='utf-8')
         g('commit', '-qam', 'after')
         after = g('rev-parse', 'HEAD')
         (repo / 'tools' / pve_manifest_name()).write_text(json.dumps(
-            {'files': ['new_tool.py', 'kept.py']}), encoding='utf-8')
+            {'files': ['new_tool.py', 'kept.py', 'follow.py']}), encoding='utf-8')
         reg = repo / 'tools' / 'github_api_budgets.json'
-        reg.write_text(budgets({'kept.py': 2}), encoding='utf-8')
+        reg.write_text(budgets({'kept.py': 2, 'follow.py': 400,
+                                '_follow_note': 'old'}), encoding='utf-8')
         try:
             pu.SOURCE = src
-            seeded, asks = pu.seed_engine_budgets(repo, after, before)
+            seeded, asks, followed = pu.seed_engine_budgets(repo, after, before)
             got = json.loads(reg.read_text(encoding='utf-8'))['run_budgets']
             cases.append(('a missing budget is seeded with upstream\'s figure',
                           seeded == [('new_tool.py', 12)] and got.get('new_tool.py') == 12))
@@ -58951,11 +58970,15 @@ def check_update_seeds_an_upstream_budget_for_a_vendored_tool():
             cases.append(('the repo\'s own figure stays', got.get('kept.py') == 2))
             cases.append(('a different figure is asked once upstream\'s moved',
                           asks == [('kept.py', 2, 5)]))
-            _s, asks2 = pu.seed_engine_budgets(repo, after, after)
+            cases.append(('upstream\'s previous figure follows its move, unasked',
+                          followed == [('follow.py', 400, 600)]
+                          and got.get('follow.py') == 600))
+            cases.append(('...its note with it', got.get('_follow_note') == 'new'))
+            _s, asks2, _f = pu.seed_engine_budgets(repo, after, after)
             cases.append(('...and not again when upstream\'s did not move', asks2 == []))
             reg.unlink()
             cases.append(('a repo with no registry gets nothing written',
-                          pu.seed_engine_budgets(repo, after, before) == ([], [])
+                          pu.seed_engine_budgets(repo, after, before) == ([], [], [])
                           and not reg.exists()))
         finally:
             pu.SOURCE = saved_source
@@ -67487,6 +67510,104 @@ def check_update_vendors_dropped_wording_reads_placeholders_filled():
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'Update Vendors reads a template\'s placeholders as filled in '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_kept_pin_moves_across_a_comment_only_template_change():
+    """A file kept on purpose against its template is not asked about again
+    when the template's only change since the pin is inside an HTML
+    comment; a change a reader sees is still asked, with the change shown.
+
+    WHY. A consuming repository's Update Vendors, 2026-10-12: a kept
+    GETTING_STARTED.md was left for the person again because the template's
+    only change was in a comment ("INSTALL.md section 1" to "section 0").
+    Planted: a consumer keeping a line the template dropped, pinned to v2;
+    v3 changes only a comment (the pin moves, unasked); v3b changes a
+    visible line (asked, and the question shows the line)."""
+    import contextlib, hashlib, io, tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-kept-comment-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+
+    cases = []
+    saved_source = pu.SOURCE
+    try:
+        src = tmp / 'source'
+        (src / 'templates').mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        tmpl = src / 'templates' / 'TODO.md.template'
+
+        def commit(text, msg):
+            tmpl.write_text(text, encoding='utf-8')
+            git(src, 'add', '-A')
+            git(src, 'commit', '-qm', msg)
+            return git(src, 'rev-parse', 'HEAD').stdout.strip()
+        commit('<!-- see INSTALL.md section 1 -->\n# Open items\n\n'
+               'Keep this list short and current.\n', 'v1')
+        v2_text = ('<!-- see INSTALL.md section 1 -->\n# Open items\n\n'
+                   'One file per item under todo/.\n')
+        v2 = commit(v2_text, 'v2')
+        v3 = commit(v2_text.replace('section 1', 'section 0'), 'v3')
+        git(src, 'checkout', '-q', '-b', 'visible', v2)
+        v3b = commit(v2_text.replace('One file per item', 'One file for each item'),
+                     'v3b')
+        pu.SOURCE = src
+
+        def consumer(name):
+            repo = tmp / name
+            repo.mkdir()
+            (repo / 'TODO.md').write_text('# Open items\n\nKeep this list short '
+                                         'and current.\n', encoding='utf-8')
+            (repo / 'precedent.json').write_text(json.dumps({
+                pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                    'reason': 'our list stays in one file',
+                    'template_sha256': hashlib.sha256(v2_text.encode()).hexdigest()}}}),
+                encoding='utf-8')
+            return repo
+
+        def run(repo, rev):
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                pu.dropped_template_lines_step(repo, rep, rev)
+            return rep
+
+        repo = consumer('comment-only')
+        rep = run(repo, v3)
+        pin = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))[
+            pve.KEPT_DIVERGENCES_KEY]['TODO.md']['template_sha256']
+        want = hashlib.sha256(v2_text.replace('section 1', 'section 0')
+                              .encode()).hexdigest()
+        cases.append(('a comment-only change moves the pin, unasked',
+                      not rep.left and pin == want
+                      and any('changed only inside HTML comments' in str(s)
+                              for s in rep.steps), f'{rep.left} {rep.steps}'))
+        rep = run(repo, v3)
+        cases.append(('...and the next update says it is kept, nothing more',
+                      not rep.left and any('kept on purpose' in str(s)
+                                           for s in rep.steps), str(rep.steps)))
+
+        repo = consumer('visible')
+        rep = run(repo, v3b)
+        shown = '\n'.join(l for v in rep.details.values() for l in v)
+        cases.append(('CONTROL: a change a reader sees is still asked, and the '
+                      'question shows the changed line',
+                      bool(rep.left) and 'what changed:' in shown
+                      and '+One file for each item under todo/.' in shown, shown))
+    except (OSError, ValueError, KeyError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pu.SOURCE = saved_source
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a kept pin moves across a comment-only template change '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
 
@@ -77437,6 +77558,7 @@ def main():
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
     check_update_vendors_dropped_wording_reads_a_views_source()
+    check_kept_pin_moves_across_a_comment_only_template_change()
     check_update_done_names_the_check_it_ran()
     check_update_merge_lines_carry_the_full_head()
     check_update_on_stubs_stages_nothing_under_claude()
