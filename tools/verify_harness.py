@@ -13391,8 +13391,7 @@ def check_harness_reach_selects_what_a_change_reaches():
             encoding='utf-8')
         out = pathlib.Path(td) / 'rec'
         out.mkdir()
-        env = hr.record_env(out)
-        env['HARNESS_REACH_ROOT'] = str(repo)
+        env = hr.record_env(out, root=repo)
         env['HARNESS_REACH_CHECK'] = 'check_planted'
         subprocess.run([sys.executable, '-c',
                         'import sys; sys.path.insert(0, sys.argv[1]); '
@@ -13416,17 +13415,49 @@ def check_harness_reach_selects_what_a_change_reaches():
             outc.mkdir()
             scratch = pathlib.Path(td) / f'scratch{int(want)}'
             scratch.mkdir()
-            env = hr.record_env(outc)
-            env['HARNESS_REACH_ROOT'] = str(repo)
+            env = hr.record_env(outc, root=repo)
             env['HARNESS_REACH_CHECK'] = 'check_planted'
             subprocess.run([sys.executable, '-c', code, str(repo), str(scratch)],
                            env=env, capture_output=True, text=True, timeout=120)
             rec = hr.merge(outc, base)['checks'].get('check_planted', {})
             cases.append((label, ('data.json' in rec.get('f', ())) == want, rec))
+        # A copy made by reading and writing the bytes, as the engine's own
+        # vendoring does, is no read either -- and a copy another process
+        # made is known by its bytes. Big enough that identical bytes mean
+        # something (harness_reach_hook._SMALLEST).
+        big = '{"k": "' + 'x' * 200 + '"}\n'
+        (repo / 'big.json').write_text(big, encoding='utf-8')
+        (repo / 'tools' / 'run_me.py').write_text(
+            'def go():\n    return ' + repr('y' * 200) + '\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'big')
+        copy_rw = ('import pathlib, sys; r, s = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]); '
+                   '(s / "b.json").write_bytes((r / "big.json").read_bytes()); '
+                   '(s / "run_me.py").write_bytes((r / "tools" / "run_me.py").read_bytes())')
+        for label, codes, want_f, want_c in (
+                ('a file copied by reading and writing its bytes is not read', [copy_rw], False, False),
+                ('...a changed copy is still a read of the original',
+                 ['import pathlib, sys; r, s = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]); '
+                  '(s / "b.json").write_text((r / "big.json").read_text() + "more")'], True, False),
+                ('...and a copy one process made, read and run by another, is the original',
+                 [copy_rw, 'import sys; sys.path.insert(0, sys.argv[2]); '
+                  'open(sys.argv[2] + "/b.json").read(); import run_me; run_me.go()'], True, True)):
+            outc = pathlib.Path(td) / f'recrw{len(cases)}'
+            outc.mkdir()
+            scratch = pathlib.Path(td) / f'scratchrw{len(cases)}'
+            scratch.mkdir()
+            env = hr.record_env(outc, root=repo)
+            env['HARNESS_REACH_CHECK'] = 'check_planted'
+            for code in codes:
+                subprocess.run([sys.executable, '-c', code, str(repo), str(scratch)],
+                               env=env, capture_output=True, text=True, timeout=120)
+            rec = hr.merge(outc, base)['checks'].get('check_planted', {})
+            got_f = 'big.json' in rec.get('f', ())
+            got_c = 'go' in rec.get('c', {}).get('tools/run_me.py', ())
+            cases.append((label, got_f == want_f and got_c == want_c, rec))
         out2 = pathlib.Path(td) / 'rec2'
         out2.mkdir()
-        env = hr.record_env(out2)
-        env['HARNESS_REACH_ROOT'] = str(repo)
+        env = hr.record_env(out2, root=repo)
         env['HARNESS_REACH_CHECK'] = 'check_planted'
         subprocess.run([sys.executable, '-c',
                         'import subprocess, sys; subprocess.run(["git", "-C", sys.argv[1], '

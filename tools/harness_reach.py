@@ -91,7 +91,8 @@ if _os.environ.get("HARNESS_REACH_CHECK") and _os.environ.get("HARNESS_REACH_REC
 import sys as _sys
 _here = _os.path.dirname(_os.path.abspath(__file__))
 for _d in _sys.path:
-    if _d and _os.path.abspath(_d) != _here and _os.path.isfile(_os.path.join(_d, "sitecustomize.py")):
+    if _d and _os.path.abspath(_d) != _here and _os.path.isfile(_os.path.join(_d, "sitecustomize.py")) \
+            and "HARNESS_REACH" not in open(_os.path.join(_d, "sitecustomize.py")).read():
         try:
             exec(compile(open(_os.path.join(_d, "sitecustomize.py")).read(),
                          _os.path.join(_d, "sitecustomize.py"), "exec"), {"__name__": "sitecustomize"})
@@ -106,7 +107,7 @@ def _git(*args, cwd=ROOT):
 
 
 # -- recording ---------------------------------------------------------------
-def record_env(out_dir, env=None):
+def record_env(out_dir, env=None, root=ROOT):
     """-> the environment a recorded harness run gets: the hook's
     sitecustomize first on PYTHONPATH, and where the records go."""
     env = dict(os.environ if env is None else env)
@@ -115,7 +116,7 @@ def record_env(out_dir, env=None):
     (site / 'sitecustomize.py').write_text(SITECUSTOMIZE, encoding='utf-8')
     env['PYTHONPATH'] = str(site) + (os.pathsep + env['PYTHONPATH'] if env.get('PYTHONPATH') else '')
     env['HARNESS_REACH_RECORD'] = str(out_dir)
-    env['HARNESS_REACH_ROOT'] = str(ROOT)
+    env['HARNESS_REACH_ROOT'] = str(root)
     env['HARNESS_REACH_HOOK'] = str(ROOT / 'tools' / 'harness_reach_hook.py')
     env['HARNESS_REACH_SITE'] = str(site)
     env.pop('HARNESS_REACH_CHECK', None)
