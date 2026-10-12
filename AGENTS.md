@@ -97,7 +97,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 144 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 145 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) Answer the easy questions first**, in the same message; the long run
 never gates the answer. **(2) A task longer than a few minutes is proposed,
@@ -233,6 +233,8 @@ When computing, quoting or tabulating figures:
   scripts-assert-properties — a script a document cites asserts its own properties and cited anchors
   tabular-shared-renderer — a sortable multi-column table ships from the one shared renderer
   verify-decomposition — check the parts, not the total; never assert an impossibility
+When creating or adding to a file many threads append entries to (an index, digest, registry or log), or when such a file conflicts in a merge:
+  shared-index-is-a-directory — one file per entry in a directory; generate the view; a view conflict is rebuilt
 When creating, renaming or retagging a session:
   session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
   session-tags — tag at creation: subject, repo, role, wants; never retrofitted

@@ -2716,7 +2716,10 @@ GLOSSARY_SOURCE = 'GLOSSARY.source.md'
 # can go between two others. `precedent_migrate_views.py --split` turns a
 # one-file source into a directory, refusing any section it cannot split
 # without changing a word. A repository may have the file or the directory,
-# never both.
+# never both. The same layout serves ANY index many branches add rows to
+# (practice: shared-index-is-a-directory): `precedent_migrate_views.py
+# --split-file X.md` keeps X/ as the source and X.md as the view, and
+# `--join X --out X.md` rebuilds it with assemble_source_dir() below.
 SOURCE_DIR_SUFFIX = '.source'
 SECTION_HEAD = '_head.md'
 SECTION_TAIL = '_tail.md'
@@ -2768,11 +2771,22 @@ def hand_edits(root, path, old_text, new_text, src_name):
     one committed at HEAD: lines typed into the generated view by hand."""
     if old_text is None:
         return []
+    own = own_source_path(root, src_name)
+    files = [] if own is None else [own] if own.is_file() else sorted(own.rglob('*.md'))
+    return hand_edits_against(root, old_text, new_text, files)
+
+
+def hand_edits_against(root, old_text, new_text, files, skip=_GENERATED_ROW):
+    """-> the lines of `old_text` a rebuild to `new_text` would drop that
+    none of the source `files` holds, on disk or as committed at HEAD.
+    hand_edits() for MAP.md and GLOSSARY.md, and
+    precedent_migrate_views.py --join for any index kept as a directory.
+    `skip` matches lines never counted: by default the rows MAP.md builds
+    from practices/ and tools/, and the label."""
+    root = pathlib.Path(root)
     keep = set(new_text.splitlines())
     sources = []
-    own = own_source_path(root, src_name)
-    if own is not None:
-        files = [own] if own.is_file() else sorted(own.rglob('*.md'))
+    if files:
         for f in files:
             try:
                 sources.append(f.read_text(encoding='utf-8'))
@@ -2787,7 +2801,7 @@ def hand_edits(root, path, old_text, new_text, src_name):
     out = []
     for line in old_text.splitlines():
         s = line.strip()
-        if not s or line in keep or _GENERATED_ROW.search(s):
+        if not s or line in keep or skip.search(s):
             continue
         if s in blob:
             continue
