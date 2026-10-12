@@ -7160,6 +7160,102 @@ def check_source_directory_splits_and_assembles():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
+def check_split_file_round_trips():
+    """Any Markdown index of headings and pipe tables can be kept as a
+    directory, one file per row, and joined back into the file people read
+    (practice: shared-index-is-a-directory; Alex, 2026-10-12, "yes do the
+    directory split"). What can go wrong is loss: a split that does not
+    rebuild the file byte for byte, a row added between two others that
+    lands elsewhere, a join that silently drops a row typed into the view,
+    a split of a file that is already generated, a view the generated-files
+    list does not name, and row links the light check reads against the
+    wrong folder."""
+    import tempfile
+    import precedent_migrate_views as mv
+    import doc_lint
+    name = 'any index splits into a directory and joins back byte for byte'
+    cases = []
+    tool = ROOT / 'tools' / 'precedent_migrate_views.py'
+    text = ('# Where things are\n\nIntro, with a [link](docs/a.md).\n\n'
+            '| Looking for | Go to |\n|---|---|\n| alpha | [a](docs/a.md) |\n'
+            '| beta | b |\n| gamma | c |\n\nAfter the table.\n\n'
+            '## Codes\n\n| Code | Means |\n|---|---|\n| AB | one |\n| CD | two |\n')
+
+    def run(repo, *args):
+        return subprocess.run([sys.executable, str(tool), '--repo', str(repo), *args],
+                              capture_output=True, text=True)
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / 'generated_files.json').write_text('{"files": []}\n',
+                                                             encoding='utf-8')
+        (repo / 'docs').mkdir()
+        (repo / 'docs' / 'a.md').write_text('# A\n', encoding='utf-8')
+        (repo / 'INDEX.md').write_text(text, encoding='utf-8')
+        r = run(repo, '--split-file', 'INDEX.md', '--check')
+        cases.append(('--check says what it would do and changes nothing',
+                      r.returncode == 0 and 'would split' in r.stdout
+                      and not (repo / 'INDEX').exists()))
+        r = run(repo, '--split-file', 'INDEX.md')
+        view = (repo / 'INDEX.md').read_text(encoding='utf-8')
+        cases.append(('--split-file moves the text into INDEX/ and keeps INDEX.md '
+                      'as a labelled view whose body is the original, byte for byte',
+                      r.returncode == 0 and (repo / 'INDEX').is_dir()
+                      and 'generated_by: tools/precedent_migrate_views.py' in view
+                      and mv.view_body(view) == text))
+        rows = sorted(str(p.relative_to(repo / 'INDEX'))
+                      for p in (repo / 'INDEX').rglob('*.md'))
+        cases.append(('each table row is its own file',
+                      sum(1 for x in rows if '/' in x and not x.endswith(
+                          ('_head.md', '_tail.md'))) == 5))
+        entry = [e for e in json.loads((repo / 'tools' / 'generated_files.json')
+                                       .read_text(encoding='utf-8'))['files']
+                 if e.get('path') == 'INDEX.md']
+        cases.append(('the view is listed with the join as its check',
+                      len(entry) == 1 and '--join' in entry[0]['check']
+                      and entry[0]['check'][-1] == '--check'))
+        cases.append(('--join --check finds the view current',
+                      run(repo, '--join', 'INDEX', '--out', 'INDEX.md', '--check')
+                      .returncode == 0))
+        sec = sorted(p for p in (repo / 'INDEX').iterdir() if p.is_dir())[0]
+        first = sorted(x.name for x in sec.iterdir() if x.name[0].isdigit())
+        (sec / '0015-new.md').write_text('| alpha-two | new |\n', encoding='utf-8')
+        stale = run(repo, '--join', 'INDEX', '--out', 'INDEX.md', '--check')
+        cases.append(('a new row file makes --check fail and name the view',
+                      stale.returncode == 1 and 'INDEX.md' in stale.stdout))
+        r = run(repo, '--join', 'INDEX', '--out', 'INDEX.md')
+        out = (repo / 'INDEX.md').read_text(encoding='utf-8')
+        cases.append(('a row added as 0015- lands between 0010- and 0020-',
+                      r.returncode == 0 and first[:2] == ['0010-alpha.md', '0020-beta.md']
+                      and out.index('| alpha |') < out.index('alpha-two')
+                      < out.index('| beta |')))
+        (repo / 'INDEX.md').write_text(out + '| typed | by hand |\n', encoding='utf-8')
+        r = run(repo, '--join', 'INDEX', '--out', 'INDEX.md')
+        cases.append(('a row typed into the view is never dropped silently',
+                      r.returncode == 1 and 'typed | by hand' in r.stdout
+                      and 'typed | by hand' in (repo / 'INDEX.md').read_text(
+                          encoding='utf-8')))
+        row = sec / '0010-alpha.md'
+        cases.append(('a row link is read against the view, not the row folder',
+                      doc_lint.index_entry_base(row) == repo
+                      and doc_lint.check_broken_links(row) == []))
+        (repo / 'COPY.md').write_text(out, encoding='utf-8')
+        r = run(repo, '--split-file', 'COPY.md')
+        cases.append(('a generated view is never split again',
+                      r.returncode == 1 and 'generated already' in r.stdout
+                      and not (repo / 'COPY').exists()))
+        (repo / 'GAPS.md').write_text(text.replace('\n\n## Codes', '\n\n\n## Codes'),
+                                      encoding='utf-8')
+        r = run(repo, '--split-file', 'GAPS.md')
+        refused = r.returncode == 1 and not (repo / 'GAPS').exists()
+        r = run(repo, '--split-file', 'GAPS.md', '--normalize-blank-lines')
+        cases.append(('a file differing only in blank lines needs '
+                      '--normalize-blank-lines',
+                      refused and r.returncode == 0 and (repo / 'GAPS').is_dir()))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
 def check_migrate_views_keeps_every_word():
     """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
     into MAP.source.md and GLOSSARY.source.md and generates both from then
@@ -76297,6 +76393,7 @@ def main():
     check_sync_says_which_copy_of_a_claimed_check_runs()
     check_no_duplication_refuses_a_sets_copy_of_a_universal_rule()
     check_source_directory_splits_and_assembles()
+    check_split_file_round_trips()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()

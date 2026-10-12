@@ -120,6 +120,7 @@ being checked by it.
 | `search-by-purpose` | change | a document carrying generated numbers is reachable from an index a reader actually consults |
 | `session-bootstrap` | tree | if the session instructions name a setup command, a session-start hook must run it |
 | `session-load-budget` | tree | every file a session loads before it works is declared in tools/session_load_budgets.json and is under its declared ceiling, a repo that declares ceilings also declares headroom_floor_pct so the early-warning notice is not silently off, and a change does not add text the practice catalogue already holds |
+| `shared-index-is-a-directory` | change | a change that adds rows to a hand-written Markdown table already 20 rows long is told the file can be kept as a directory, one file per row, so concurrent threads stop conflicting on it, and is given the command that splits it |
 | `source-naming` | tree | every precedent.json in the tree names each source by a name its level allows -- `precedent` and `local` for universal and repo-local, a slug for a shared or individual set -- and every declared source on disk that carries a precedent-source.json answers to the name and level declared for it |
 | `speculation-is-marked` | tree | a speculative document under spec/ or record/ carries all four of its markers or none of them: the SPECULATIVE_ filename prefix requires a matching title, `kind: proposal`, a drafted/abandoned status and a warning block directly under the heading -- and, in the other direction, a document whose title or opening paragraph calls itself speculative must carry the prefix |
 | `technical-describes-people` | tree | no tracked path labels a FILE or DIRECTORY with a skill level; 'technical' and 'non-technical' describe people |
@@ -132,7 +133,7 @@ being checked by it.
 | `whats-new` | change | a changed What's New log has every entry in the shape: a heading "<Weekday> <date>: <slug>" whose weekday is the date's own, the fixed opening line word for word, every bullet opening with a bold key phrase, and no approver named |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-64 of 180 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+65 of 181 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
