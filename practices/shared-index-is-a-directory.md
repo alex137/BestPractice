@@ -96,8 +96,8 @@ the split was generalized to any Markdown index the same day.
 
 ## Install
 Nothing to install: the split and the join ship with the engine
-([tools/precedent_migrate_views.py](../tools/precedent_migrate_views.py)). The `shared-index-is-a-directory`
-check in [tools/precedent_check.py](../tools/precedent_check.py) names, as an advisory, a hand-written
+(`tools/precedent_migrate_views.py`). The `shared-index-is-a-directory`
+check in `tools/precedent_check.py` names, as an advisory, a hand-written
 Markdown file whose tables hold many rows and that has not been split; it
 never stops work, because whether a long table really grows by many hands
 is a judgment only the repository's people can make.
