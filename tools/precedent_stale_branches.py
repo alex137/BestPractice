@@ -52,6 +52,13 @@ import subprocess
 import sys
 import urllib.parse
 
+# The file name the closing Boildown is told to write the page to, inside
+# the session's scratch folder. Named once: the reply gate's instruction
+# reads it, and so does precedent_container_safe.py, which skips this file
+# when it looks for work left in a scratch folder -- the page is published
+# as an artifact the moment it is built, so it is never work at risk.
+PAGE_FILENAME = 'branch-cleanup.html'
+
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(_ENGINE_DIR))
 

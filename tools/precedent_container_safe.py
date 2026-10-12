@@ -126,6 +126,76 @@ def checkouts():
     return out
 
 
+# WORK LEFT IN A SCRATCH FOLDER (2026-10-11). A session's scratch folder is
+# outside every repository, so the checkout scan above never sees it. On
+# 2026-10-11 a session in a consuming repo built 189 summaries there, had the
+# filing step refused, and moved on; had it closed then, the archive line
+# would have passed and the summaries gone with the container. Morgan:
+# "EVERYTHING MUST GO INTO A REPO." repo-is-memory says finished work never
+# waits there; this makes the closing line unable to pass over it. Measured
+# the same day: six scratch folders in one container, one file between
+# them, and that one a page already published -- so in practice it costs a
+# session nothing.
+#
+# Where: the harness's scratch folders (one per session, under
+# /tmp/claude-<uid>/<project>/<session>/scratchpad), plus any folder a
+# repository names in its precedent.json `scratch_dirs`.
+SCRATCH_GLOB = '/tmp/claude-*/*/*/scratchpad'
+try:
+    from precedent_stale_branches import PAGE_FILENAME as _BRANCH_PAGE
+except Exception:                                           # noqa: BLE001
+    _BRANCH_PAGE = 'branch-cleanup.html'
+# Files a tool writes into the scratch folder only to publish them at once.
+PUBLISHED_ON_PURPOSE = frozenset({_BRANCH_PAGE})
+
+
+def scratch_dirs():
+    """-> every scratch folder in this container, resolved and de-duplicated."""
+    import glob
+    cands = [pathlib.Path(p) for p in glob.glob(SCRATCH_GLOB)]
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+        for raw in cfg.get('scratch_dirs') or []:
+            p = pathlib.Path(str(raw)).expanduser()
+            cands.append(p if p.is_absolute() else ROOT / p)
+    except (OSError, ValueError, AttributeError):
+        pass
+    out = []
+    for p in cands:
+        try:
+            p = p.resolve()
+        except (OSError, RuntimeError):
+            continue
+        if p.is_dir() and p not in out:
+            out.append(p)
+    return sorted(out)
+
+
+def scratch_name(d):
+    """-> the name a reply gives a scratch folder up by: `scratch:` and the
+    first eight characters of the folder it sits in (the session's ID for
+    the harness's own), because every harness folder is called scratchpad."""
+    d = pathlib.Path(d)
+    owner = d.parent.name if d.name == 'scratchpad' else d.name
+    return f'scratch:{owner[:8]}'
+
+
+def scan_scratch(d):
+    """-> an entry shaped like scan_one's, or None when the folder holds
+    nothing but files published on purpose."""
+    d = pathlib.Path(d)
+    files = []
+    for f in sorted(d.rglob('*')):
+        if f.is_file() and f.name not in PUBLISHED_ON_PURPOSE:
+            files.append(str(f.relative_to(d)))
+    if not files:
+        return None
+    return {'repo': str(d), 'name': scratch_name(d), 'branch': 'scratch folder',
+            'unsafe': [f'{len(files)} file(s) in a scratch folder, in no '
+                       f'repository'],
+            'detail': {'untracked': files[:20]}}
+
+
 def _engine_dirt(repo):
     """Paths in this checkout that are the refresh tool's own output. Empty
     for anything that is not a vendored source clone."""
@@ -280,6 +350,10 @@ def main(argv=None):
                     help='scan exactly these checkouts instead of discovering '
                          'them -- what a test plants a known container with, '
                          'and what a person uses to ask about one directory')
+    ap.add_argument('--scratch', nargs='+', metavar='DIR', default=None,
+                    help='check exactly these scratch folders instead of '
+                         'discovering them (with --only and no --scratch, '
+                         'none is checked)')
     ap.add_argument('--json', action='store_true',
                     help='machine-readable finding on stdout')
     ap.add_argument('--no-processes', action='store_true',
@@ -299,7 +373,12 @@ def main(argv=None):
     else:
         targets = checkouts()
     found = [scan_one(r) for r in targets]
-    bad = [f for f in found if f['unsafe']]
+    if args.scratch:
+        scratch = [pathlib.Path(x).expanduser().resolve() for x in args.scratch]
+    else:
+        scratch = [] if args.only else scratch_dirs()
+    leftovers = [e for e in (scan_scratch(d) for d in scratch if d.is_dir()) if e]
+    bad = [f for f in found if f['unsafe']] + leftovers
     # Only when discovering: --only is a question about named checkouts,
     # and a planted test container must not depend on what else is running.
     running = [] if (args.only or args.no_processes) else still_running()
@@ -319,12 +398,17 @@ def main(argv=None):
         if not bad:
             print(f'container safe: {len(found)} checkout(s), '
                   f'nothing uncommitted and nothing off a remote'
+                  + (f', {len(scratch)} scratch folder(s) empty'
+                     if scratch else '')
                   + ('' if not running else ' (but see STILL RUNNING above)'))
         else:
-            print(f'CONTAINER NOT SAFE TO LOSE -- {len(bad)} of {len(found)} '
-                  f'checkout(s) hold work that is only here:')
+            print(f'CONTAINER NOT SAFE TO LOSE -- {len(bad)} of '
+                  f'{len(found) + len(scratch)} checkout(s) and scratch '
+                  f'folder(s) hold work that is only here:')
             for f in bad:
-                print(f"  {label(f['repo'])} ({f['branch']}): "
+                where = (f"{f['name']} -- {f['repo']}" if f.get('name')
+                         else label(f['repo']))
+                print(f"  {where} ({f['branch']}): "
                       f"{', '.join(f['unsafe'])}")
                 for k in ('uncommitted', 'untracked'):
                     if f['detail'].get(k):
@@ -333,7 +417,9 @@ def main(argv=None):
                 for line in f['detail'].get('unpushed_head', [])[:3]:
                     print(f'      {line}')
             print('\nPush or merge it, or say plainly that it is meant to be '
-                  'lost, before telling anyone the session can be archived.')
+                  'lost, before telling anyone the session can be archived.'
+                  + (' A scratch folder\'s files go into a repository, or the '
+                     'folder is given up by the name shown.' if leftovers else ''))
     return 1 if (bad or running) else 0
 
 
