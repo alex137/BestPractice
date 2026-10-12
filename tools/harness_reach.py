@@ -391,6 +391,10 @@ def plan(names, head=None, fetch=True):
     ledger = load_ledger(fetch=fetch)
     if ledger is None:
         return None, 'the whole suite: no ledger of what each check reaches yet'
+    if ledger.get('green') is False:
+        # A failing check may have stopped before it reached everything it
+        # would: its record can be short, and a short record picks too few.
+        return None, 'the whole suite: the only ledger here is from a run that failed'
     sel, reasons, full = select(ledger, ledger['commit'], head, names)
     if full:
         return None, f'the whole suite: {full}'
