@@ -3602,6 +3602,70 @@ def _orientation_map(ctx):
     return out
 
 
+# An index this many rows long, still growing by a change, is the file the
+# practice is about. Twenty is where a table stops being a list one person
+# keeps and starts being one every thread appends to; it is advisory, so a
+# wrong guess costs a line of output and nothing else.
+SHARED_INDEX_ROWS = 20
+_GENERATED_SPANS = re.compile(
+    r'<!--\s*gen:([\w.-]+)\s*-->.*?<!--\s*/gen:\1\s*-->'
+    r'|<!--\s*BEGIN GENERATED.*?END GENERATED[^>]*-->', re.S)
+
+
+@check('shared-index-is-a-directory', 'change',
+       'a change that adds rows to a hand-written Markdown table already '
+       f'{SHARED_INDEX_ROWS} rows long is told the file can be kept as a '
+       'directory, one file per row, so concurrent threads stop conflicting '
+       'on it, and is given the command that splits it',
+       'whether the table really grows by many hands -- a long frozen table '
+       'gets the same note the first time a change adds to it -- and any '
+       'index that is not a Markdown pipe table (a JSON registry, a list). '
+       'It reads only the files this change touches, never their history.',
+       advisory=True,
+       advisory_term={'term': 'permanent',
+                      'why': 'whether a long table is one many threads append '
+                             'to is a judgment about how the repository is '
+                             'worked, which only its people can make'})
+def _shared_index_is_a_directory(ctx):
+    # WHY (Alex, 2026-10-12: "yes do the directory split"): a downstream
+    # branch failed to land twice on conflicts in two hand-edited tables
+    # every thread adds a row to, while the split that would have prevented
+    # it covered only MAP and GLOSSARY. Change scope, so it says so at the
+    # moment a row is added -- the moment a person can still choose.
+    try:
+        import precedent_migrate_views as mv
+    except Exception as e:                                    # noqa: BLE001
+        raise NotApplicable(f'tools/precedent_migrate_views.py did not import ({e})')
+    out = []
+    for rel in ctx.changed_matching(r'\.md$'):
+        if rel.startswith(_vendored_trees()) or rel.startswith(('templates/', 'evals/')):
+            continue
+        now = ctx.read(rel)
+        if now.startswith('---\n') and re.search(
+                r'^generated_by:', now[4:].split('\n---\n', 1)[0], re.M):
+            continue
+        was = ctx.read_base(rel)
+        if was is None:
+            continue
+
+        def rows(text):
+            # A table a script writes between markers is generated, not
+            # typed: doc_sync's <!--gen:NAME--> blocks, a BEGIN GENERATED part.
+            text = _GENERATED_SPANS.sub('', text)
+            t = mv._largest_table(text.split('\n'))
+            return 0 if t is None else t[2] - t[1]
+        before, after = rows(was), rows(now)
+        if before >= SHARED_INDEX_ROWS and after > before:
+            out.append(Finding(rel, f'this change adds {after - before} row(s) to a '
+                                    f'{before}-row table typed by hand. If many '
+                                    f'threads add rows here, keep it as a directory '
+                                    f'so they stop conflicting: python3 '
+                                    f'tools/precedent_migrate_views.py --repo . '
+                                    f'--split-file {rel} (practice: '
+                                    f'shared-index-is-a-directory)'))
+    return out
+
+
 QUICK_INDEX_HEADER_RE = re.compile(
     r'^\|[^|\n]*\b(looking for|want to find|where things are|need)\b[^|\n]*\|',
     re.I | re.M)

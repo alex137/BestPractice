@@ -444,6 +444,36 @@ def document_anchors(path):
     return out
 
 
+def index_entry_base(p):
+    """-> the directory an index entry file's links are written against, or
+    None when `p` is no such entry.
+
+    An index kept as a directory (practice: shared-index-is-a-directory)
+    holds one file per heading and per table row, one or two levels below
+    the view they are joined into, and each keeps its text word for word --
+    so its links are relative to the VIEW, not to the entry's own folder.
+    Read from the entry's folder, every row of a split index would report
+    'no such file'. The directory is X/ beside a view X.md that
+    precedent_migrate_views.py --join writes, or MAP.source/ and
+    GLOSSARY.source/, which build_views.py joins into MAP.md and GLOSSARY.md
+    beside them."""
+    p = pathlib.Path(p)
+    for a in (p.parent, p.parent.parent):
+        if a == a.parent:
+            break
+        if a.name.endswith('.source'):
+            return a.parent
+        view = a.parent / (a.name + '.md')
+        try:
+            head = view.read_text(encoding='utf-8', errors='ignore')[:600]
+        except OSError:
+            continue
+        if re.search(r'^generated_by:\s*["\']?tools/precedent_migrate_views\.py',
+                     head, re.M):
+            return a.parent
+    return None
+
+
 def check_broken_links(path):
     """[(lineno, target, why)] links in `path` that land nowhere.
 
@@ -495,6 +525,7 @@ def check_broken_links(path):
     # source root -- every other link in a mirror is still reported.
     anchors_only = _source_relative(rel).startswith(ANCHOR_CHECKED_EXEMPT_DIRS)
     p = ROOT / path
+    base = index_entry_base(p)
     out, incode = [], False
     for i, line in enumerate(p.read_text(encoding='utf-8', errors='ignore').splitlines(), 1):
         if line.lstrip().startswith(('```', '~~~')):
@@ -507,7 +538,9 @@ def check_broken_links(path):
             if target.startswith(('http://', 'https://', 'mailto:')):
                 continue
             bare, _, frag = target.partition('#')
-            dest = p if not bare else (p.parent / bare)
+            if base is not None and not bare:
+                continue    # an anchor in the view, which the view's own check reads
+            dest = p if not bare else ((base or p.parent) / bare)
             if bare and not dest.exists():
                 if not anchors_only:
                     out.append((i, target, 'no such file'))

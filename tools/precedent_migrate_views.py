@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Moves a repository's hand-written MAP.md and GLOSSARY.md into their source files, word for word, and generates both from then on
+"""Moves a hand-written MAP.md and GLOSSARY.md into their sources, and splits any index many threads add rows to into a directory of one file per row, joined back into the file people read
 
 precedent_migrate_views.py -- the one-time migration of
 spec/GENERATED_FILES_PLAN.md step 5 (Morgan, 2026-10-03: MAP.md and
@@ -16,6 +16,21 @@ repository that uses Precedent keeps everything it wrote).
         MAP.source/ / GLOSSARY.source/, one file per heading and one per
         table row, so two branches adding rows never touch the same file
         (build_views.py, THE SOURCE AS A DIRECTORY)
+    python3 tools/precedent_migrate_views.py --repo DIR --split-file PATH [--check]
+        the same split for ANY Markdown index made of headings and pipe
+        tables (practice: shared-index-is-a-directory): PATH stays where it
+        is as the generated view, and its text moves into the directory
+        PATH without .md (docs/INDEX.md -> docs/INDEX/), one file per
+        heading and per table row. Refused unless the directory rebuilds
+        PATH byte for byte; --normalize-blank-lines accepts a file whose
+        only difference is runs of blank lines. The view is registered in
+        tools/generated_files.json where the repository keeps one.
+    python3 tools/precedent_migrate_views.py --repo DIR --join SRC --out PATH [--check] [--force]
+        rebuild PATH from the directory SRC -- what a consuming repository's
+        build and its commit backstop run; --check exits 1 when PATH is out
+        of date and changes nothing. A line typed into PATH by hand that no
+        entry file holds is never overwritten silently: the join refuses and
+        names it, and --force overrides once it has been moved into SRC.
 
 For each of MAP.md and GLOSSARY.md that is hand-written -- it carries no
 `generated_by: tools/build_views.py` label -- and has no source file yet,
@@ -352,6 +367,171 @@ def split(repo, check=False, say=print):
     return 0
 
 
+# ---- --split-file / --join: any index kept as a directory ---------------
+# Practice: shared-index-is-a-directory (Alex, 2026-10-12: "yes do the
+# directory split"). The 2026-10-04 split above covered MAP and GLOSSARY
+# only, and a downstream branch then failed to land twice on conflicts in two
+# other hand-edited tables every thread adds a row to. One mechanism, one
+# tool: the split is split_entries() above and the join is
+# build_views.assemble_source_dir(), the same code MAP.source/ goes through.
+JOIN_TOOL = 'tools/precedent_migrate_views.py'
+_LABEL_ONLY = _re.compile(r'^(?:generated_by|edit_instead|note):')
+
+
+def index_dir_for(path):
+    """'docs/INDEX.md' -> 'docs/INDEX' (the directory an index splits into)."""
+    path = pathlib.Path(path)
+    return path.with_suffix('') if path.suffix == '.md' else path.with_name(path.name + '.d')
+
+
+def _rel(repo, p):
+    p = pathlib.Path(p)
+    p = p if p.is_absolute() else pathlib.Path(repo) / p
+    return p.resolve().relative_to(pathlib.Path(repo).resolve()).as_posix()
+
+
+def join_label(repo, src_rel, out_rel):
+    eng = _engine_rel(repo)
+    return bv.generated_label(JOIN_TOOL, f'{src_rel}/',
+                              f'python3 {eng}/precedent_migrate_views.py --repo . '
+                              f'--join {src_rel} --out {out_rel}')
+
+
+def join_text(repo, src_rel, out_rel):
+    """-> the whole view: the label, a blank line, then the directory's text
+    exactly as assemble_source_dir() puts it together, ending in one newline."""
+    body = bv.assemble_source_dir(pathlib.Path(repo) / src_rel)
+    return '\n'.join(join_label(repo, src_rel, out_rel)) + '\n\n' + body + '\n'
+
+
+def view_body(text):
+    """-> a joined view's text without its label (the original file's
+    text, for a view this tool wrote)."""
+    if text.startswith('---\n') and '\n---\n' in text[4:]:
+        head, rest = text[4:].split('\n---\n', 1)
+        if _re.search(r'^generated_by:', head, _re.M):
+            return rest[1:] if rest.startswith('\n') else rest
+    return text
+
+
+def join_entry(repo, src_rel, out_rel):
+    """-> the tools/generated_files.json entry for a joined view."""
+    eng = _engine_rel(repo)
+    tool = f'{eng}/precedent_migrate_views.py'
+    args = ['--repo', '.', '--join', src_rel, '--out', out_rel]
+    return {'path': out_rel, 'generated_by': JOIN_TOOL,
+            'edit_instead': f'{src_rel}/*', 'inputs': [f'{src_rel}/*'],
+            'regenerate': f'python3 {tool} ' + ' '.join(args),
+            'check': [tool, *args, '--check']}
+
+
+def join(repo, src, out, check=False, force=False, say=print):
+    """Rebuild `out` from the directory `src`. -> 0 current or written,
+    1 out of date (--check) or refused, 2 usage."""
+    repo = pathlib.Path(repo).resolve()
+    src_rel, out_rel = _rel(repo, src), _rel(repo, out)
+    d, view = repo / src_rel, repo / out_rel
+    if not d.is_dir():
+        say(f'precedent_migrate_views: {src_rel}/ is not a directory.')
+        return 2
+    new = join_text(repo, src_rel, out_rel)
+    old = view.read_text(encoding='utf-8') if view.is_file() else None
+    if old == new:
+        if check:
+            say(f'{out_rel} is current with {src_rel}/')
+        return 0
+    if check:
+        say(f'{out_rel} is out of date with {src_rel}/ -- run '
+            f'{join_entry(repo, src_rel, out_rel)["regenerate"]}')
+        return 1
+    lost = bv.hand_edits_against(repo, view_body(old) if old else None, new,
+                                 sorted(d.rglob('*.md')), skip=_LABEL_ONLY) if old else []
+    if lost and not force:
+        say(f'precedent_migrate_views: REFUSED -- {out_rel} has lines no file in '
+            f'{src_rel}/ holds, typed into the view by hand. Move each into its own '
+            f'entry file in {src_rel}/ (then this rebuild keeps it), or pass --force '
+            f'to drop them:\n  ' + '\n  '.join(lost[:20]))
+        return 1
+    view.parent.mkdir(parents=True, exist_ok=True)
+    view.write_text(new, encoding='utf-8')
+    return 0
+
+
+def split_file(repo, path, check=False, normalize=False, say=print):
+    """Turn the index `path` into a directory beside it, keeping `path` as
+    the view generated from it. -> 0 done, 1 refused (nothing changed)."""
+    import shutil, tempfile
+    repo = pathlib.Path(repo).resolve()
+    rel = _rel(repo, path)
+    f = repo / rel
+    d = index_dir_for(f)
+    src_rel = d.relative_to(repo).as_posix()
+    if not f.is_file() or f.suffix != '.md':
+        say(f'precedent_migrate_views: {rel} is not a Markdown file here.')
+        return 1
+    if d.exists():
+        say(f'precedent_migrate_views: {src_rel}/ already exists; nothing changed.')
+        return 1
+    text = f.read_text(encoding='utf-8')
+    if text.startswith('---\n'):
+        say(f'precedent_migrate_views: REFUSED -- {rel} opens with frontmatter'
+            + (' and is generated already: split its source, not the view.'
+               if _re.search(r'^generated_by:', text.split('\n---\n', 1)[0], _re.M)
+               else ', which the view\'s own label would collide with; move it '
+                    'into the text and try again.'))
+        return 1
+    entries = split_entries(text)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='split-', dir=f.parent))
+    try:
+        for erel, content in entries.items():
+            (tmp / erel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / erel).write_text(content, encoding='utf-8')
+        body = bv.assemble_source_dir(tmp) + '\n'
+        if body != text:
+            if not _same_words(body, text):
+                say(f'precedent_migrate_views: REFUSED -- {rel} would not reassemble '
+                    f'word for word from a directory; nothing changed.')
+                return 1
+            if not normalize:
+                say(f'precedent_migrate_views: REFUSED -- {rel} reassembles with the '
+                    f'same words but different blank lines (the view keeps one blank '
+                    f'line between blocks and one newline at the end). Pass '
+                    f'--normalize-blank-lines to accept that; nothing changed.')
+                return 1
+        rows = sum(1 for e in entries if '/' in e
+                   and not e.endswith((bv.SECTION_HEAD, bv.SECTION_TAIL)))
+        if check:
+            say(f'would split {rel} into {src_rel}/ ({len(entries)} files, {rows} '
+                f'table rows) and generate {rel} from it')
+            return 0
+        tmp.rename(d)
+        tmp = None
+    finally:
+        if tmp is not None:
+            shutil.rmtree(tmp, ignore_errors=True)
+    if join(repo, src_rel, rel, force=True, say=say) != 0 or \
+            view_body(f.read_text(encoding='utf-8')) != body:
+        shutil.rmtree(d, ignore_errors=True)
+        f.write_text(text, encoding='utf-8')
+        say(f'precedent_migrate_views: REFUSED -- the rebuilt {rel} did not match; '
+            f'everything was put back as it was.')
+        return 1
+    import precedent_regenerate as rg
+    added = rg.register(repo, [join_entry(repo, src_rel, rel)])
+    say(f'precedent_migrate_views: {rel} -> {src_rel}/, {len(entries)} files '
+        f'({rows} table rows); {rel} is now generated from it'
+        + (', and listed in tools/generated_files.json' if added else '') + '. '
+        f'Add an entry as a new file between two others (0015- goes between 0010- '
+        f'and 0020-), then run: {join_entry(repo, src_rel, rel)["regenerate"]}')
+    return 0
+
+
+def _arg(argv, flag):
+    if flag in argv and argv.index(flag) + 1 < len(argv):
+        return argv[argv.index(flag) + 1]
+    return None
+
+
 def main(argv):
     if '--help' in argv or '-h' in argv:
         print(__doc__.strip())
@@ -362,6 +542,19 @@ def main(argv):
     repo = pathlib.Path(argv[argv.index('--repo') + 1]).resolve()
     restore = (argv[argv.index('--restore-map-from') + 1]
                if '--restore-map-from' in argv else None)
+    if '--split-file' in argv:
+        path = _arg(argv, '--split-file')
+        if not path:
+            print(__doc__.strip(), file=sys.stderr)
+            return 2
+        return split_file(repo, path, check='--check' in argv,
+                          normalize='--normalize-blank-lines' in argv)
+    if '--join' in argv:
+        src, out = _arg(argv, '--join'), _arg(argv, '--out')
+        if not (src and out):
+            print(__doc__.strip(), file=sys.stderr)
+            return 2
+        return join(repo, src, out, check='--check' in argv, force='--force' in argv)
     if '--split' in argv:
         return split(repo, check='--check' in argv)
     if '--check' in argv:
