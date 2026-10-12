@@ -67929,6 +67929,78 @@ def check_update_vendors_dropped_wording_reads_placeholders_filled():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_names_what_others_changed_upstream():
+    """Update Vendors' report carries what OTHER people changed upstream in
+    what the update brings in, for the session to open its report with.
+
+    WHY. Morgan, 2026-10-12 ("Yes, build it"): an Update Vendors in a
+    consuming repository took in a colleague's new rules without a word
+    about them, since the morning report covers only the repository a
+    session works in. Planted: upstream gains a colleague's commit and one
+    of the person's own between the two vendored commits -- only the
+    colleague's is listed, with the instruction; no range, nothing; a
+    person off the ladder, nothing; a commit the clone lacks, said plainly.
+    CONTROL: the morning report's own block still reads as it did."""
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    import precedent_others_did as od
+    import precedent_identity as pi
+    cases = []
+    saved = (pu.SOURCE, pi.declared_identity, od.off_ladder)
+    with tempfile.TemporaryDirectory() as td:
+        src = pathlib.Path(td) / 'source'
+        src.mkdir()
+
+        def commit(name, email, msg):
+            env = dict(_fixture_git_env(), GIT_AUTHOR_NAME=name, GIT_AUTHOR_EMAIL=email,
+                       GIT_COMMITTER_NAME=name, GIT_COMMITTER_EMAIL=email)
+            (src / 'f.txt').write_text(msg, encoding='utf-8')
+            subprocess.run(['git', '-C', str(src), 'add', '-A'], env=env,
+                           capture_output=True)
+            subprocess.run(['git', '-C', str(src), 'commit', '-qm', msg], env=env,
+                           capture_output=True)
+            return subprocess.run(['git', '-C', str(src), 'rev-parse', 'HEAD'],
+                                  capture_output=True, text=True).stdout.strip()
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(src)], capture_output=True)
+        old = commit('Me', 'me@example.com', 'where this repo last synced')
+        commit('Colleague', 'them@example.com', 'Refuse an item that names no blocker')
+        new = commit('Me', 'me@example.com', 'my own change')
+        try:
+            pu.SOURCE = src
+            pi.declared_identity = lambda *_a, **_k: {'name': 'Me', 'email': 'me@example.com'}
+            od.off_ladder = lambda *_a, **_k: False
+            block = pu.upstream_changes_block(pathlib.Path(td), old, new)
+            cases.append(('a colleague\'s upstream commit is listed, with the '
+                          'instruction to open the report with it',
+                          'WHAT OTHERS CHANGED UPSTREAM' in block
+                          and 'Colleague -- 1 commit(s)' in block
+                          and 'Refuse an item that names no blocker' in block
+                          and 'OPEN YOUR REPORT OF THIS UPDATE' in block, block))
+            cases.append(('...and the person\'s own is not',
+                          'my own change' not in block, block))
+            cases.append(('nothing new upstream, nothing said',
+                          pu.upstream_changes_block(pathlib.Path(td), new, new) == '', ''))
+            got = pu.upstream_changes_block(pathlib.Path(td), '0' * 40, new)
+            cases.append(('a commit the clone lacks is said plainly',
+                          got.startswith('WHAT OTHERS CHANGED UPSTREAM: could not be read'),
+                          got))
+            od.off_ladder = lambda *_a, **_k: True
+            cases.append(('a person off the ladder gets nothing',
+                          pu.upstream_changes_block(pathlib.Path(td), old, new) == '', ''))
+        finally:
+            pu.SOURCE, pi.declared_identity, od.off_ladder = saved
+    morning = od._block('o/r', 'since then', [('a' * 40, 'Colleague', 'x')], [])
+    cases.append(('CONTROL: the morning block still opens the first reply and '
+                  'lists by person',
+                  morning.startswith('WHAT OTHERS DID IN o/r since then')
+                  and 'OPEN YOUR FIRST REPLY' in morning
+                  and '\n\nThe commits, to choose from' in morning
+                  and 'Colleague -- 1 commit(s):\n  aaaaaaaaa  x' in morning, morning))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors names what others changed upstream ({len(cases)} '
+          f'stated cases)', not bad, '; '.join(bad))
+
+
 def check_kept_pin_moves_across_a_comment_only_template_change():
     """A file kept on purpose against its template is not asked about again
     when the template's only change since the pin is inside an HTML
@@ -77977,6 +78049,7 @@ def main():
     check_update_vendors_reports_dropped_template_wording()
     check_update_vendors_dropped_wording_reads_a_views_source()
     check_kept_pin_moves_across_a_comment_only_template_change()
+    check_update_vendors_names_what_others_changed_upstream()
     check_update_done_names_the_check_it_ran()
     check_update_merge_lines_carry_the_full_head()
     check_update_on_stubs_stages_nothing_under_claude()
