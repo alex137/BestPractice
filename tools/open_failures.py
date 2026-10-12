@@ -143,6 +143,15 @@ def close_item(path, because, today=None):
     return True
 
 
+def close_landing_failures(repo, branch, because, today=None):
+    """Close every open `Landing failed: <branch>` item in `repo`. Landing the
+    branch is the condition each one names, so the landing closes them; a
+    report left open after that only sends the next session after a fixed
+    problem. -> the closed paths."""
+    title = f"Landing failed: {branch}"
+    return [p for p, t in open_items(repo) if t == title and close_item(p, because, today)]
+
+
 def open_items(repo=ROOT):
     """-> [(path, title)] for every open failure item."""
     out = []
@@ -232,6 +241,12 @@ def self_check():
         ok &= len(open_items(td)) == 1 and alerting_tests(td) == [(t, "Alerting test ran")]
         ok &= close_item(t, "the alert arrived", "2026-10-09") and not alerting_tests(td)
         ok &= not close_item(t, "again", "2026-10-09")
+        a = write_item(td, "Landing failed: feat/y", "boom", "It lands.", "2026-10-12")
+        b = write_item(td, "Landing failed: feat/y", "again", "It lands.", "2026-10-12")
+        o = write_item(td, "Landing failed: feat/y-other", "boom", "It lands.", "2026-10-12")
+        ok &= sorted(close_landing_failures(td, "feat/y", "`feat/y` landed", "2026-10-12")) == sorted([a, b])
+        ok &= [t for _, t in open_items(td)] == ["Landing failed: feat/x", "Landing failed: feat/y-other"]
+        ok &= close_landing_failures(td, "feat/y", "again", "2026-10-12") == [] and o.exists()
     print(f"open_failures self-check: {'OK' if ok else 'FAILED'}")
     return 0 if ok else 1
 

@@ -515,6 +515,23 @@ def land_one(repo, store, rec, gates, push_check, vendor_cmd, sync_cmd=SYNC_VIEW
         return _land_attempts(repo, branch, commit, gates, push_check, vendor_cmd, sync_cmd)
 
 
+def close_own_failures(repo, branch):
+    """Close the open `Landing failed: <branch>` items on the trunk, in a
+    commit the landing pushes: landing the branch is what each one says
+    closes it, and nothing else ever did, so a fixed branch left its old
+    reports open to send the next session after a solved problem.
+    -> how many it closed."""
+    closed = open_failures.close_landing_failures(repo, branch, f"`{branch}` landed")
+    if not closed:
+        return 0
+    if (pathlib.Path(repo) / "tools" / "build_todo_index.py").exists():
+        run(repo, ["python3", "tools/build_todo_index.py"])
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m",
+        f"Close {len(closed)} landing-failure item(s): {branch} landed{TRAILER}")
+    return len(closed)
+
+
 def _land_attempts(repo, branch, commit, gates, push_check, vendor_cmd, sync_cmd):
     for attempt in range(1, PUSH_TRIES + 1):
         log(f"{branch}: merging {commit[:12]} (attempt {attempt})")
@@ -527,6 +544,9 @@ def _land_attempts(repo, branch, commit, gates, push_check, vendor_cmd, sync_cmd
             reset_to_origin(repo)
             return False, ("merge conflict needing judgment in: " + ", ".join(files)) if files \
                 else f"merge failed: {(m.stderr or m.stdout).strip()[-300:]}"
+        n = close_own_failures(repo, branch)
+        if n:
+            log(f"{branch}: closed {n} landing-failure item(s) this landing settles")
         for name, cmd in gates:
             ok, out = run(repo, cmd)
             if not ok:
@@ -674,13 +694,18 @@ def self_check():
         rc = land_queue_run(work, gates=stub, push_check=["true"], bestpractice=None, store=store, sync_cmd=None)
         ok &= rc == 2 and [e["status"] for e in land_queue.entries(store)] == ["queued"] * 3
         (work / "stray.txt").unlink()
+        stale = open_failures.write_item(work, "Landing failed: feat/good", "boom",
+                                         "It lands.", "2026-10-12")
+        g("add", "-A"); g("commit", "-qm", "old report"); g("push", "-q", "origin", "master")
         rc = land_queue_run(work, gates=stub, push_check=["true"], bestpractice=None, store=store, sync_cmd=None)
         status = {e["branch"]: e["status"] for e in land_queue.entries(store)}
         ok &= rc == 1 and status == {"feat/good": "landed", "feat/red": "failed",
                                      "feat/conflict": "failed"}
         g("fetch", "-q", "origin", "master")
         files = set(g("ls-tree", "--name-only", "origin/master").stdout.split())
-        ok &= files == {"shared.txt", "gate.py", "good.txt"}
+        ok &= files == {"shared.txt", "gate.py", "good.txt", "todo"}
+        landed_item = g("show", f"origin/master:todo/{stale.name}").stdout
+        ok &= "status:            done" in landed_item and "`feat/good` landed" in landed_item
         ok &= not g("status", "--porcelain").stdout.strip()
         ok &= "lander" in land_queue.beats(store)
         ok &= land_queue_run(work, gates=stub, push_check=["true"], bestpractice=None,
