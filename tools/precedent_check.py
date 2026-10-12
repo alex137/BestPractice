@@ -2517,17 +2517,33 @@ _FIXED_NAME_RE = re.compile(
     re.M)
 
 
+_ENGINE_FIXED = None
+
+
 def _engine_fixed_filenames():
-    names = set()
-    for f in sorted(pathlib.Path(__file__).resolve().parent.glob('*.py')):
-        try:
-            names.update(_FIXED_NAME_RE.findall(f.read_text(encoding='utf-8')))
-        except OSError:
-            continue
-    return frozenset(names)
+    """-> every fixed filename the engine's tools name. Read on first use,
+    not when this module loads (2026-10-12): it reads every tool's text, so
+    loading it made everything that imports this module depend on every
+    tool's text, and a change-scoped harness run picked a check for any
+    tool change at all. Cached by hand rather than by lru_cache, so its body
+    runs on every call and tools/harness_reach_hook.py sees which checks
+    use it (its CACHED_READERS)."""
+    global _ENGINE_FIXED
+    if _ENGINE_FIXED is None:
+        names = set()
+        for f in sorted(pathlib.Path(__file__).resolve().parent.glob('*.py')):
+            try:
+                names.update(_FIXED_NAME_RE.findall(f.read_text(encoding='utf-8')))
+            except OSError:
+                continue
+        _ENGINE_FIXED = frozenset(names)
+    return _ENGINE_FIXED
 
 
-ENGINE_FIXED_FILENAMES = _engine_fixed_filenames()
+def __getattr__(name):
+    if name == 'ENGINE_FIXED_FILENAMES':
+        return _engine_fixed_filenames()
+    raise AttributeError(name)
 
 
 def _engine_shipped_paths(root=None):
@@ -2637,7 +2653,7 @@ def _filename_separator(ctx):
         # the same reason precedent.json's exemption exists -- so it never
         # sets or breaks a directory's convention (practice: source-naming:
         # the source manifest's name is the same in every repository).
-        if path.name in ENGINE_FIXED_FILENAMES or f in shipped:
+        if path.name in _engine_fixed_filenames() or f in shipped:
             continue
         # The FIRST dot ends the stem: `a_b.md.template` is named after
         # `a_b.md`, so its separator was inherited from that name, not

@@ -162,10 +162,18 @@ def merge(out_dir, commit):
                 rec.setdefault(kind, []).append(rest)
         into(dst, rec)
     # A check that ran a module's code inherits what the module's import
-    # reached, and so on through the imports that import reached.
+    # reached, and one that ran a cached reader (harness_reach_hook's
+    # CACHED_READERS, kept as 'file::name') what its first run reached; and
+    # so on through what those reached.
+    def keys(code):
+        out = set()
+        for f, q in code:
+            out.add(f)
+            out.add(f'{f}::{q}')
+        return out
     for name, rec in checks.items():
         done = set()
-        todo = {f for f, _q in rec.get('c', ())}
+        todo = keys(rec.get('c', ()))
         while todo:
             m = todo.pop()
             if m in done:
@@ -174,7 +182,7 @@ def merge(out_dir, commit):
             imp = imports.get(m)
             if imp:
                 into(rec, {k: list(v) for k, v in imp.items()})
-                todo |= {f for f, _q in imp.get('c', ())} - done
+                todo |= keys(imp.get('c', ())) - done
     out = {}
     for name, rec in sorted(checks.items()):
         code = {}

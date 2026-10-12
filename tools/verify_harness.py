@@ -13455,6 +13455,20 @@ def check_harness_reach_selects_what_a_change_reaches():
             got_f = 'big.json' in rec.get('f', ())
             got_c = 'go' in rec.get('c', {}).get('tools/run_me.py', ())
             cases.append((label, got_f == want_f and got_c == want_c, rec))
+        # A cached reader's first run is kept against it, and a later check
+        # that calls it inherits what that run read.
+        outk = pathlib.Path(td) / 'reck'
+        outk.mkdir()
+        (outk / 'parent-1.json').write_text(json.dumps({
+            'checks': {'check_first': {'c': [['tools/m.py', 'f']], 'f': ['data.json']},
+                       'check_later': {'c': [['tools/m.py', 'f']]},
+                       'check_other': {'c': [['tools/m.py', 'g']]}},
+            'imports': {'tools/m.py::f': {'f': ['data.json']}}}), encoding='utf-8')
+        merged = hr.merge(outk, base)['checks']
+        cases.append(('a later caller of a cached reader inherits what its first run read, '
+                      'and a check that never called it does not',
+                      'data.json' in merged['check_later'].get('f', ())
+                      and 'data.json' not in merged['check_other'].get('f', ()), merged))
         out2 = pathlib.Path(td) / 'rec2'
         out2.mkdir()
         env = hr.record_env(out2, root=repo)

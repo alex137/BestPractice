@@ -272,12 +272,25 @@ def _load_copies(path):
         pass
 
 
+# Functions that compute once and keep the result for later callers: what
+# their first run reads is kept against them, like a module's import, and
+# every check that calls them inherits it -- a later caller gets the kept
+# result without reading anything. Each must run its own body on every
+# call (a hand-written cache, not lru_cache), or later callers are not
+# seen calling it.
+CACHED_READERS = {('tools/precedent_check.py', '_engine_fixed_filenames')}
+
+
 def _importing_module():
-    """-> the repository module whose top level is running, innermost
-    first, or None (verify_harness.py's own top level is the run)."""
+    """-> the repository module whose top level is running, or the cached
+    reader running (as 'file::name'), innermost first, or None
+    (verify_harness.py's own top level is the run)."""
     f = sys._getframe(2)
     while f is not None:
         co = f.f_code
+        fn = co.co_filename
+        if fn.startswith(PREFIX) and (fn[len(PREFIX):], co.co_name) in CACHED_READERS:
+            return f'{fn[len(PREFIX):]}::{co.co_name}'
         if co.co_name == '<module>':
             fn = co.co_filename
             if fn.startswith(PREFIX) and fn != _HARNESS and fn not in _ME:
