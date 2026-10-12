@@ -47,9 +47,13 @@ still covers a finding meant for another session; this covers the work a
 session was asked for. "Was asked to make" is deliberate: a conversation
 that has not authorized work yet writes nothing, and this clause does not
 make it. The archive line's container check in [the-boildown](the-boildown.md)
-still decides whether a session may be archived -- but that check scans git
-checkouts only, so a file sitting in a scratch folder passes it. This clause
-is the only thing that catches that case.
+still decides whether a session may be archived, and since 2026-10-11 it
+reads every scratch folder as well as every git checkout: a file left in
+one holds the archive line until it is filed in a repository or given up
+by name (`**Checkout disposition:** scratch:<session> -- discard
+(reason)`). That check only runs at the close; this clause is what covers
+the hours before it, when the work is sitting there and the person cannot
+tell where it is.
 
 **The exception is narrow on purpose.** It covers secrets and the raw words
 of private sources, which are very hard to remove once in git history. A
