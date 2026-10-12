@@ -7398,6 +7398,77 @@ def check_split_and_join_take_edits_made_where_they_belong():
 
 
 
+def check_split_directories_pass_the_repos_own_checks():
+    """The pieces of an index kept as a directory -- MAP.source/ and
+    GLOSSARY.source/ from --split, X/ beside X.md from --split-file -- are
+    fragments of one document, and three checks read them as documents of
+    their own (a downstream repo's push check, 2026-10-12): filename-separator
+    counted _head.md's underscore against the rows' hyphens, the light
+    check's link scan read a row's links from the row's own folder instead
+    of the view's, and doc_lint's render gate asked _head.md for a sortable
+    render of its own."""
+    import tempfile, types
+    import precedent_check as pc
+    import doc_lint as dl
+    tool = ROOT / 'tools' / 'precedent_migrate_views.py'
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='split-checks-'))
+    saved = pc.ROOT, dl.ROOT, dl.RENDER_REGISTRY
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        (tmp / 'docs').mkdir()
+        (tmp / 'docs' / 'a.md').write_text('# A\n', encoding='utf-8')
+        sec = tmp / 'MAP.source' / '0020-layout'
+        sec.mkdir(parents=True)
+        (tmp / 'MAP.source' / '0010-intro.md').write_text(
+            '# Map\n\nSee [a](docs/a.md).\n', encoding='utf-8')
+        (sec / '_head.md').write_text('## Layout\n\n| Path | What | Who | When |\n'
+                                      '|---|---|---|---|\n', encoding='utf-8')
+        (sec / '0010-a-doc.md').write_text('| [a](docs/a.md) | x | y | z |\n',
+                                           encoding='utf-8')
+        (sec / '0020-b-doc.md').write_text('| b | x | y | z |\n', encoding='utf-8')
+        (sec / '_tail.md').write_text('After, see [a](docs/a.md).\n', encoding='utf-8')
+        (tmp / 'INDEX.md').write_text(
+            '# Index\n\nIntro, see [a](docs/a.md).\n\n| Doc | What | Who | When |\n'
+            '|---|---|---|---|\n| [a](docs/a.md) | x | y | z |\n| beta-doc | x | y | z |\n'
+            '| gamma-doc | x | y | z |\n\nAfter, [a](docs/a.md).\n', encoding='utf-8')
+        r = subprocess.run([sys.executable, str(tool), '--repo', str(tmp), '--split-file',
+                            'INDEX.md'], capture_output=True, text=True)
+        cases.append(('fixture: INDEX.md splits', r.returncode == 0, r.stdout[-300:]))
+        subprocess.run(['git', 'add', '-A'], cwd=str(tmp), capture_output=True, check=True)
+        pc.ROOT = dl.ROOT = tmp
+        got = [f.detail for f in pc._filename_separator(types.SimpleNamespace(root=tmp))]
+        cases.append(('a split directory passes filename-separator', got == [], got))
+        got = [f'{f.file()}: {f.detail}' for f in pc._light_check(types.SimpleNamespace(root=tmp))]
+        cases.append(('a link in a --split row, head or tail resolves against the view '
+                      '(light check)', not any('MAP.source/' in g for g in got), got))
+        cases.append(('a link in a --split-file row, head or tail resolves against the '
+                      'view (light check)', not any('INDEX/' in g for g in got), got))
+        pieces = sorted(str(p.relative_to(tmp)) for d in ('MAP.source', 'INDEX')
+                        for p in (tmp / d).rglob('*.md'))
+        broken = [(p, x) for p in pieces for x in dl.check_broken_links(p)]
+        cases.append(('...and doc_lint reads the same links the same way', broken == [],
+                      broken))
+        dl.RENDER_REGISTRY = lambda: []
+        got = dl.check_unrendered(pieces)
+        cases.append(('no piece of a split directory is asked for a sortable render '
+                      'of its own', got == [], got))
+        (tmp / 'wide.md').write_text('| a | b | c | d |\n|---|---|---|---|\n| 1 | 2 | 3 | 4 |\n',
+                                     encoding='utf-8')
+        got = dl.check_unrendered(['wide.md'])
+        cases.append(('CONTROL: a document with the same table still is',
+                      [g[0] for g in got] == ['wide.md'], got))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pc.ROOT, dl.ROOT, dl.RENDER_REGISTRY = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a split index directory passes the checks its view does '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {str(d)[:300]}' for n, d in bad))
+
+
 def check_migrate_views_keeps_every_word():
     """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
     into MAP.source.md and GLOSSARY.source.md and generates both from then
@@ -76560,6 +76631,7 @@ def main():
     check_source_directory_splits_and_assembles()
     check_split_file_round_trips()
     check_split_and_join_take_edits_made_where_they_belong()
+    check_split_directories_pass_the_repos_own_checks()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()

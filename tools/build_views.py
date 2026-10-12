@@ -2721,8 +2721,14 @@ GLOSSARY_SOURCE = 'GLOSSARY.source.md'
 # --split-file X.md` keeps X/ as the source and X.md as the view, and
 # `--join X --out X.md` rebuilds it with assemble_source_dir() below.
 SOURCE_DIR_SUFFIX = '.source'
-SECTION_HEAD = '_head.md'
-SECTION_TAIL = '_tail.md'
+# Declared as *_NAME constants so precedent_check.py's filename-separator
+# reads them as names the engine fixes, not a repository's own choice: their
+# underscore beside the rows' hyphens was counted as a mixed directory in
+# every split section (a downstream repo's push check, 2026-10-12).
+SECTION_HEAD_NAME = '_head.md'
+SECTION_TAIL_NAME = '_tail.md'
+SECTION_HEAD = SECTION_HEAD_NAME
+SECTION_TAIL = SECTION_TAIL_NAME
 
 
 def source_dir_name(name):
