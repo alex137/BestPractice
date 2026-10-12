@@ -285,6 +285,7 @@ When writing, running or reviewing a gate, audit, cache or heavy solve:
   slow-steps-report-and-cache — over a minute: print elapsed and remaining; cache a heavy solve to disk
 When writing, triaging or doing work on an open item:
   item-closes-on-its-condition — record findings in the item; close only on its condition
+When writing, triaging or doing work on an open item, or writing an open, unsettled or next-step list or an unchecked box in any document or reply:
   todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason; else just do it
 
 (More on-demand practices are not listed here: one whose applies_to names real paths, or which declares a gate, is reached by those channels instead -- `precedent_paths.py FILE` and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot be reached that way and is always listed above. `precedent_show.py --index-omitted` names the omitted ones.)

@@ -17311,7 +17311,11 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
     import tempfile, shutil
     name = 'doc_lint refuses an open item waiting on an upstream fix'
     env = _fixture_git_env()
+    # `disposition: ask` keeps the stated-reason arm beside this one
+    # (check_lint_refuses_an_open_item_that_names_no_blocker) out of these
+    # cases: they are about the upstream arm only.
     head = ('---\nslug: {slug}\nkind: manual\nstatus: {status}\n'
+            'disposition: ask\n'
             'blocked_on: {blocked}\nnoted: 2026-10-06\n---\n## What\n\n{body}\n')
     items = {
         'vendored-path': ('open', 'null', 'The check in tools/doc_lint.py '
@@ -17391,6 +17395,126 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
             quiet = r.returncode == 0 and 'UPSTREAM FIX' not in r.stdout
             cases.append((f'{slug}: {"fires" if fires else "passes"}',
                           fired if fires else quiet))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_lint_refuses_an_open_item_that_names_no_blocker():
+    """Every open item a change adds says what it waits on (practice:
+    todo-is-a-handoff, 2026-10-12: a downstream spec's "What Is Not Yet
+    Settled" list and an unchecked box queued checks a few searches would
+    have done, and two of them killed the design once done). doc_lint
+    refuses an unchecked box, or a list item under an open-list heading,
+    with no `(needs: ...)` naming a reason the session cannot clear itself,
+    and an open item file with nothing in blocked_on or waiting_on. It
+    leaves alone a stated reason, a checked or struck item, a fence, a list
+    under any other heading, the checklist marker, and -- in the commit
+    gate's scope -- an old item on a line the change did not touch."""
+    import tempfile, shutil
+    name = 'doc_lint refuses an open item that names no blocker'
+    env = _fixture_git_env()
+    docs = {
+        'bare-box': ('- [ ] Check the lifting standard\n', True),
+        'box-with-decision': ('- [ ] Pick the rotor (needs: decision -- the '
+                              'owner, between two quotes)\n', False),
+        'box-with-test': ('- [ ] Spar strength (needs: test, a coupon pull '
+                          'on the real layup)\n', False),
+        'box-another-repo': ('- [ ] Fix the parser (needs: a fix in another '
+                             'repository)\n', True),
+        'box-decision-no-who': ('- [ ] Pick one (needs: decision)\n', True),
+        'box-pr-no-link': ('- [ ] Land the engine fix (needs: pr)\n', True),
+        'box-pr-linked': ('- [ ] Land the engine fix (needs: pr '
+                          'https://github.com/example/Engine/pull/7)\n', False),
+        'box-out-of-scope': ('- [ ] Wind-tunnel the fairing (out of scope: a '
+                             'week of tunnel time this session has no part '
+                             'in)\n', False),
+        'box-waiting-external': ('- [ ] Price the cells (waiting on: external '
+                                 '-- the supplier\'s quote)\n', False),
+        'reason-on-continuation': ('- [ ] Check the clearance against the\n'
+                                   '  drawing (needs: access, refused by the '
+                                   'drawing vault)\n', False),
+        'checked-box': ('- [x] Check the lifting standard\n', False),
+        'fenced-box': ('```\n- [ ] Check the lifting standard\n```\n', False),
+        'unsettled-list': ('## What Is Not Yet Settled\n\n'
+                           '- The current edition of the standard\n', True),
+        'open-questions-numbered': ('## Open questions\n\n'
+                                    '1. Which alloy?\n', True),
+        'unsettled-list-with-reasons': (
+            '## Still to settle\n\n- The yield strength (needs: test -- a '
+            'coupon from the mill lot)\n', False),
+        'list-under-other-heading': ('## Design\n\n- The current edition '
+                                     'of the standard\n', False),
+        'open-list-ends-at-next-heading': (
+            '## Next steps\n\n- Ship it (needs: decision -- the owner)\n\n'
+            '## Design\n\n- A plain point\n', False),
+        'title-is-not-a-list': ('# A TODO is a handoff\n\n- A plain point\n',
+                                False),
+        'struck-item': ('## Open items\n\n- ~~Check the standard~~ done\n',
+                        False),
+        'item-marker': ('- [ ] Sign the form <!--checklist-->\n', False),
+        'document-marker': ('<!--checklist-->\n\n- [ ] Sign the form\n',
+                            False),
+    }
+    items = {
+        'no-reason': ('open', 'null', 'null', 'manual', True),
+        'blocked': ('open', '"the owner, on the budget"', 'null', 'manual', False),
+        'waiting': ('open', 'null', '"the supplier\'s quote"', 'manual', False),
+        'a-decision': ('open', 'null', 'null', 'decision', False),
+        'closed': ('done', 'null', 'null', 'manual', False),
+        'links-its-pr': ('open', 'null', 'null', 'manual', False),
+    }
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py',
+                  'precedent_engine_freshness.py', 'precedent_resolve.py',
+                  'title_case.py'):
+            shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
+        (repo / 'docs').mkdir()
+        for slug, (body, _fires) in docs.items():
+            (repo / 'docs' / f'{slug}.md').write_text(body)
+        (repo / 'todo').mkdir()
+        for slug, (status, blocked, waiting, kind, _f) in items.items():
+            (repo / 'todo' / f'todo-2026-10-12-{slug}.md').write_text(
+                f'---\nslug: {slug}\nkind: {kind}\nstatus: {status}\n'
+                f'blocked_on: {blocked}\nwaiting_on: {waiting}\n'
+                f'noted: 2026-10-12\n---\n## What\n\n- [ ] A step\n'
+                + ('\nWaits on https://github.com/example/Engine/pull/9.\n'
+                   if slug == 'links-its-pr' else ''))
+
+        def lint(*args):
+            return subprocess.run([sys.executable, 'tools/doc_lint.py', *args],
+                                  cwd=repo, capture_output=True, text=True,
+                                  env=env)
+        runs = [(f'docs/{s}.md', f) for s, (_b, f) in docs.items()]
+        runs += [(f'todo/todo-2026-10-12-{s}.md', v[-1]) for s, v in items.items()]
+        for rel, fires in runs:
+            r = lint(rel)
+            fired = (r.returncode == 1 and 'SAYS NOTHING BLOCKS IT' in r.stdout
+                     and 'could this session do it now?' in r.stdout)
+            quiet = r.returncode == 0 and 'SAYS NOTHING BLOCKS IT' not in r.stdout
+            cases.append((f'{rel}: {"fires" if fires else "passes"}',
+                          fired if fires else quiet))
+        # The commit gate's scope: an old item is backlog, a new one fails.
+        def git(*a):
+            subprocess.run(['git', *a], cwd=repo, env=env, capture_output=True)
+        shutil.rmtree(repo / 'todo')
+        spec = repo / 'docs' / 'spec.md'
+        spec.write_text('# Spec\n\n## What Is Not Yet Settled\n\n'
+                        '- An old question\n')
+        git('add', '-A')
+        git('commit', '-qm', 'base')
+        git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        spec.write_text(spec.read_text() + '\nA new paragraph.\n')
+        r = lint()
+        cases.append(('an old item, on a line the change did not touch, is '
+                      'backlog', r.returncode == 0 and 'An old question' in r.stdout))
+        spec.write_text(spec.read_text() + '\n- [ ] A new check\n')
+        r = lint()
+        cases.append(('a new unchecked box in the same change fails the gate',
+                      r.returncode == 1 and 'A new check' in r.stdout))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -76516,6 +76640,7 @@ def main():
     check_lint_flags_a_table_with_no_render()
     check_lint_runs_the_hosts_shim()
     check_lint_refuses_an_open_item_waiting_on_an_upstream_fix()
+    check_lint_refuses_an_open_item_that_names_no_blocker()
     check_upstream_fix_sets_up_the_fix_in_the_source()
     check_code_owner_practice_stays_out_of_the_index()
     check_adds_to_names_a_rule_in_force()
