@@ -72,14 +72,21 @@ VERSION = 1
 SITECUSTOMIZE = r'''
 import os as _os
 if _os.environ.get("HARNESS_REACH_CHECK") and _os.environ.get("HARNESS_REACH_RECORD"):
+    # An ordinary import from its own directory, put on the path for this
+    # one import only: importlib.util costs every child five milliseconds.
+    import sys as _sys0
+    _d = _os.path.dirname(_os.environ["HARNESS_REACH_HOOK"])
+    _sys0.path.insert(0, _d)
     try:
-        import importlib.util as _u
-        _s = _u.spec_from_file_location("_harness_reach_hook", _os.environ["HARNESS_REACH_HOOK"])
-        _m = _u.module_from_spec(_s)
-        _s.loader.exec_module(_m)
+        import harness_reach_hook as _m
         _m.start_child()
     except Exception:
         pass
+    finally:
+        try:
+            _sys0.path.remove(_d)
+        except ValueError:
+            pass
 # chain to the sitecustomize this one shadows, if there is one
 import sys as _sys
 _here = _os.path.dirname(_os.path.abspath(__file__))
@@ -135,13 +142,24 @@ def merge(out_dir, commit):
             into(imports.setdefault(m, {}), rec)
     for start in sorted(out_dir.glob('child-*.start')):
         name = start.read_text(encoding='utf-8')
-        rec_file = start.with_suffix('.json')
         dst = checks.setdefault(name, {})
         try:
-            into(dst, json.loads(rec_file.read_text(encoding='utf-8'))['record'])
-        except (OSError, ValueError, KeyError):
+            lines = start.with_suffix('.tsv').read_text(encoding='utf-8').splitlines()
+        except OSError:
+            lines = []
+        if '#done' not in lines:
             dst.setdefault('o', set()).add('a Python child ended before it wrote '
                                            'what it reached')
+            continue
+        rec = {}
+        for ln in lines:
+            kind, _t, rest = ln.partition('\t')
+            if kind == 'c':
+                f, _t, q = rest.partition('\t')
+                rec.setdefault('c', []).append((f, q))
+            elif kind in ('f', 'd', 'x', 'o'):
+                rec.setdefault(kind, []).append(rest)
+        into(dst, rec)
     # A check that ran a module's code inherits what the module's import
     # reached, and so on through the imports that import reached.
     for name, rec in checks.items():

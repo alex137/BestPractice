@@ -41,7 +41,6 @@ module's code inherits it when the ledger is built.
 Kept out: .git/, __pycache__/, and this file and harness_reach.py.
 """
 import atexit
-import json
 import os
 import sys
 
@@ -155,7 +154,7 @@ def _note_copy(dst, rel):
     _state['busy'] = True
     try:
         with open(_state['copies_file'], 'a') as f:
-            f.write(json.dumps([dst, rel]) + '\n')
+            f.write(f'{dst}\t{rel}\n')
     except Exception:
         pass
     finally:
@@ -166,11 +165,9 @@ def _load_copies(path):
     try:
         with open(path) as f:
             for line in f:
-                try:
-                    dst, rel = json.loads(line)
+                dst, _t, rel = line.rstrip('\n').partition('\t')
+                if rel:
                     _COPIES[dst] = rel
-                except Exception:
-                    continue
     except OSError:
         pass
 
@@ -447,7 +444,7 @@ def _common(root):
     for f in inherited:
         _load_copies(f)
     own = os.path.join(os.environ.get('HARNESS_REACH_RECORD', OUT or '.'),
-                       f'copies-{os.getpid()}.jsonl')
+                       f'copies-{os.getpid()}.tsv')
     _state['copies_file'] = own
     os.environ['HARNESS_REACH_COPIES_FILES'] = os.pathsep.join(inherited + [own])
     ROOT = os.path.realpath(root)
@@ -507,6 +504,7 @@ def _save_parent():
     try:
         data = {'checks': {n: _plain(r) for n, r in _checks.items()},
                 'imports': {m: _plain(r) for m, r in _imports.items()}}
+        import json
         with open(os.path.join(OUT, f'parent-{os.getpid()}.json'), 'w') as f:
             json.dump(data, f)
     except Exception as e:
@@ -537,7 +535,12 @@ def start_child():
 def _save_child():
     try:
         rec = _checks.get(_CHILD_CHECK) or _new()
-        with open(_CHILD_START[:-len('.start')] + '.json', 'w') as f:
-            json.dump({'check': _CHILD_CHECK, 'record': _plain(rec)}, f)
+        # Tab-separated, not JSON: a child that never imports json would
+        # otherwise pay for it at every start (2026-10-12).
+        with open(_CHILD_START[:-len('.start')] + '.tsv', 'w') as f:
+            for kind, items in rec.items():
+                for item in items:
+                    f.write(kind + '\t' + ('\t'.join(item) if kind == 'c' else item) + '\n')
+            f.write('#done\n')
     except Exception:
         pass
