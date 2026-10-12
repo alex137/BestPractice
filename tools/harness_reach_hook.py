@@ -481,11 +481,14 @@ def _popen(exe, argv, cwd, env):
             _add('o', f'{prog} given a path inside the repository')
             return
     # A program that is not Python reads what it likes: every copy it is
-    # given, or that sits where it runs, counts as read.
+    # given, or that sits where it runs, counts as read -- except Python
+    # source, which only Python runs, and a Python child is recorded itself
+    # (counting it made every copied tool a read whenever a hook script ran
+    # in a fixture, 2026-10-12).
     norm_wd = _norm(wd)
     given = {_norm(os.path.join(wd, a)) for a in args[1:] if a}
     for dst, rel in list(_COPIES.items()):
-        if dst.startswith(norm_wd + os.sep) or dst in given:
+        if dst in given or (dst.startswith(norm_wd + os.sep) and not rel.endswith('.py')):
             _add('f', rel)
 
 
