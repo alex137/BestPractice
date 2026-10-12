@@ -796,8 +796,17 @@ def self_check():
         ok &= lander_config(td)["trunk"] == "trunk"
         # The landing branch decides, as --land reads it (2026-10-10: a
         # repo landing on staging, with no lander block, landed on main).
+        # Whether "staging" is honoured depends on the ladder being in force
+        # for whoever runs this (precedent_branches.landing_branch), so the
+        # check is that the lander agrees with that one definition, not a
+        # fixed branch name that holds on one machine and fails on another.
         (td / "precedent.json").write_text('{"landing_branch": "staging"}\n')
-        ok &= lander_config(td)["trunk"] == "staging"
+        try:
+            import precedent_branches as pb
+            want = pb.landing_branch(td)[0]
+        except Exception:  # noqa: BLE001
+            want = "staging"
+        ok &= lander_config(td)["trunk"] == want
         (td / "precedent.json").write_text('{"landing_branch": "staging", "base_branch": "main",'
                                            ' "lander": {"trunk": "elsewhere"}}\n')
         ok &= lander_config(td)["trunk"] == "elsewhere"
