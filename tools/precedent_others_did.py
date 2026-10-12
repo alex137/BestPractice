@@ -356,22 +356,27 @@ def _landed_since(repo, heads, mine, when):
 
 def _block(repo_name, since_text, others, unsure):
     """The text the reply gate hands the session on its first prompt."""
-    lines = [f'WHAT OTHERS DID IN {repo_name} {since_text} '
-             f'-- {len(others) + len(unsure)} commit(s) by people other than you.',
-             '',
-             'OPEN YOUR FIRST REPLY WITH THE THREE OR FOUR MOST IMPORTANT THINGS '
-             'HERE, NEVER THE WHOLE LIST, before answering the question: three '
-             "or four bullets in What's New style, each opening with its key phrase "
-             'in bold, saying who did it and what it changes for the person. '
-             'Pick by what changes for them; a change to a rule or to how '
-             'sessions behave always makes the cut. Leave the rest out: the '
-             'person can ask for more. Then answer. Say it once; it is not '
-             'repeated in later replies (the others-did practice, in the ladder '
-             'set; Morgan, 2026-10-10: "It should not list EVERYTHING, just the '
-             'three or four most important things").',
-             '',
-             'The commits, to choose from -- not to copy into the reply:',
-             '']
+    return '\n'.join([
+        f'WHAT OTHERS DID IN {repo_name} {since_text} '
+        f'-- {len(others) + len(unsure)} commit(s) by people other than you.',
+        '',
+        'OPEN YOUR FIRST REPLY WITH THE THREE OR FOUR MOST IMPORTANT THINGS '
+        'HERE, NEVER THE WHOLE LIST, before answering the question: three '
+        "or four bullets in What's New style, each opening with its key phrase "
+        'in bold, saying who did it and what it changes for the person. '
+        'Pick by what changes for them; a change to a rule or to how '
+        'sessions behave always makes the cut. Leave the rest out: the '
+        'person can ask for more. Then answer. Say it once; it is not '
+        'repeated in later replies (the others-did practice, in the ladder '
+        'set; Morgan, 2026-10-10: "It should not list EVERYTHING, just the '
+        'three or four most important things").',
+        '']) + '\n' + commit_listing(others, unsure)
+
+
+def commit_listing(others, unsure):
+    """The commits by person, to choose from: the part of the report the
+    morning block and Update Vendors' upstream block share."""
+    lines = ['The commits, to choose from -- not to copy into the reply:', '']
     by_who = {}
     for sha, who, subject in others:
         by_who.setdefault(who, []).append((sha, subject))
