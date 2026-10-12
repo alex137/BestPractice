@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 applies_to:  ["TODO.md", "todo/todo-*.md"]
 applies_to_why: "The distinguishing condition is writing or triaging an entry in the TODO file itself — the only place the practice's rule is ever violated. Widened 2026-09-18 to the per-item todo/ format's own files, once a repo has migrated to it. Decided: post-phase-4, converting Alex's practice 53."
-occasion:    "writing, triaging or doing work on an open item"
-gates:       ["merge"]
-gates_why:   "The periodic sweep that enforces the stated-reason requirement on the backlog naturally happens at merge time, the same as capture-gate."
+occasion:    "writing, triaging or doing work on an open item, or writing an open, unsettled or next-step list or an unchecked box in any document or reply"
+gates:       ["merge", "reply"]
+gates_why:   "The periodic sweep that enforces the stated-reason requirement on the backlog naturally happens at merge time, the same as capture-gate. The reply gate carries it because a reply is where an unsettled list often lands, and no check reads the lists in a reply (2026-10-12)."
 index_clause: "queue only for a stated blocked-on/out-of-scope reason; else just do it"
 index_required: true
 checked_by:  null
@@ -20,7 +20,9 @@ added:       null
 approved_by: "BestPractice (pre-fork). The upstream-fix paragraph and its
   commit-time check: S. Alexander Jacobson, 2026-10-06, \"Then let's figure
   out how to make sure fixes are made at commit time.\" and, on the plan,
-  \"Merge first and then do that fix\""
+  \"Merge first and then do that fix\". The stated-reason check on every
+  open list and unchecked box: S. Alexander Jacobson, 2026-10-12, \"yes
+  open the PR\""
 strength:    decided
 source_practice_number: 53
 ---
@@ -29,6 +31,11 @@ Before writing an open item, ask: *could this session finish it
 now?* If yes, do the work — the inclination to queue an agent-doable item is
 the signal to do it, not to file it. An item may be queued only for a stated
 reason.
+
+**An open item is anything left undone that you write down**: an unchecked
+box, or a "not yet settled", "open questions" or "next steps" list in a
+spec, a document or a reply, as much as a file under `todo/`. Each one names
+what blocks it, as in `(needs: decision -- who decides)`, or gets done now.
 
 **A fix that belongs in another repository is never a `blocked_on` reason**
 — a vendored file's source, a practice set, an upstream engine — **and
@@ -74,6 +81,18 @@ work *across a genuine boundary* (to a human decision, to hardware, to a
 session with the right scope), not to spare the current session effort.
 
 ## Story
+**The unsettled list, 2026-10-12.** In a downstream engineering repository a
+session wrote a spec ending in a "What Is Not Yet Settled" list and a todo
+checkbox: a lifting-standard rule, a material's strength, a clearance, the
+current edition of a standard. Every one was a few web searches. This rule
+already forbade queuing them, but it never loaded: its occasion was an open
+item, and the session did not read a list inside a deliverable, or a
+checkbox, as one. When the person said "do the checks", the searches found
+two facts that killed the design, in minutes. The rule existed; nothing
+enforced it. So the occasion now names those lists, and the light check
+refuses one that says nothing about what blocks it. S. Alexander Jacobson,
+on the pull request: *"yes open the PR"*. Strength: decided.
+
 **The upstream-fix paragraph, 2026-10-06.** In one consumer four open items
 sat for one to two weeks, each reading like "blocked on push access to X"
 or "needs a change in the engine", and each an hour's fix the session that
@@ -115,12 +134,19 @@ upstream is where the person sees the fix before it lands. `checked_by`
 stays null, because the rest of the rule is a judgment and a practice with
 a `checked_by` is not loaded.
 
-Not yet attempted mechanically: a check that scans `TODO.md` entries for a
-stated `blocked-on`/`out-of-scope` reason is a plausible candidate
-(`checkable-gets-checked` applies), left `checked_by: null` here rather than
-wired in without testing, since this file is a straight conversion of
-Alex's addition to `main` (merged after this branch's fork point — see
-[CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/staging/spec/CHANGES_TO_TELL_ALEX.md); this file's own
-`source_practice_number` above records its original BestPractice number)
-and not new authorship going through the creation pipeline's own review. Revisit when phase 5's
-enforcement work reaches the backlog.
+**Every open item a change adds must say what blocks it**, checked by the
+same light check (2026-10-12). It reads an unchecked box anywhere, a
+top-level list item under a heading that starts like "Open questions",
+"What Is Not Yet Settled", "Pending", "To do" or "Next steps", and a new
+open `todo/todo-*.md`. A list item passes when it ends with `(needs: REASON
+-- whose or which)`, or `blocked on:` or `waiting on:` the same way, where
+REASON is decision, purchase, access (asked for and refused), test,
+external, or pr (with the link); or with `(out of scope: why)`. An item file
+passes with anything in `blocked_on` or `waiting_on`, as a decision, with
+disposition `ask` or `parked`, linking the pull request it waits on, or
+filed by an unattended job. It is line-scoped, so an old list fails only
+when a change rewrites an item in it. `<!--checklist-->` on an item, or on a
+line of its own, marks a form's boxes as steps rather than open work, and
+`.github/` and `templates/` hold forms throughout. The heading words and the
+reasons are settings a consumer's host shim may change. A reply's lists are
+not parsed: the `reply` gate prints this rule instead.
