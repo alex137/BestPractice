@@ -18,7 +18,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-12"
-approved_by: "Morgan, 2026-10-12: \"Any TECHNICAL suggestions on how BP works must only be shown to users who are CODEOWNERS\", then \"Anything on the inner works of how BP works including things like file management, dealing with temporary files, dealing with temporary repos etc -- should only be for codeowners. We must assume that non-codeowners are very low tech people.\""
+approved_by: "Morgan, 2026-10-12 (BP is BestPractice (BP)): \"Any TECHNICAL suggestions on how BP works must only be shown to users who are CODEOWNERS\", then \"Anything on the inner works of how BP works including things like file management, dealing with temporary files, dealing with temporary repos etc -- should only be for codeowners. We must assume that non-codeowners are very low tech people.\""
 strength:    decided
 ---
 ## Rule
