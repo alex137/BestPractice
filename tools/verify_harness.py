@@ -11487,6 +11487,15 @@ def check_session_practices_load_without_publishing():
                       'did not resolve' not in _deferred_only
                       and ('resolved' in _deferred_only
                            or 'precedent deferred to it' in _deferred_only)))
+        # 2026-10-13, from a consuming repository: a bare "every source ...
+        # resolved" beside an ACCESS list showing some as HANDOFF read as
+        # a contradiction. The line says resolved means readable, and
+        # names the list that answers whether a push will land.
+        cases.append(('the resolved line says it means resolved for reading, '
+                      'and points at the ACCESS list for pushing',
+                      'resolved for reading' in _deferred_only
+                      and 'ACCESS list' in _deferred_only
+                      and 'HANDOFF' in _deferred_only))
 
         # WHAT THE FILE SAYS ABOUT THE REPO IT IS IN HAS TO BE TRUE. The
         # header explains why the file is untracked, and until 2026-09-14
@@ -18356,6 +18365,68 @@ def check_lint_refuses_an_open_item_that_names_no_blocker():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_content_paths_skip_session_work_checks():
+    """A file under precedent.json's `content_paths` -- the person's own
+    to-do list or notes -- is skipped by the checks about session work: the
+    open-item check (practice: todo-is-a-handoff) and the unglossed-acronym
+    warning (practice: acronyms-glossary). The same lines anywhere else
+    still fire, and a content file still gets the link check.
+
+    WHY. Reported by a consuming repository, 2026-10-13: a personal to-do
+    repository's own list was refused line by line, every `- [ ]` asked for
+    a `(needs: ...)`, though the boxes are the person's list and no session
+    left them behind. Planted: one declared folder and one declared file,
+    each holding a bare box and an unglossed acronym; the same text in an
+    undeclared file is the control."""
+    import tempfile, shutil
+    env = _fixture_git_env()
+    body = ('# Mine\n\nThe QZXV plan.\n\n- [ ] Buy the paint\n')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        # The whole engine's modules: precedent_resolve, the one reader of
+        # content_paths, imports several of its siblings, and a fixture
+        # missing one would declare nothing and test nothing.
+        for f in (ROOT / 'tools').glob('*.py'):
+            shutil.copy(f, repo / 'tools' / f.name)
+        (repo / 'GLOSSARY.md').write_text('# Glossary\n\n- **API** -- a fixture term\n')
+        (repo / 'precedent.json').write_text(json.dumps({'content_paths': [
+            {'path': 'lists/', 'reason': 'my own to-do lists'}, 'NOTES.md']}))
+        for rel in ('lists/home.md', 'NOTES.md', 'docs/spec.md'):
+            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / rel).write_text(body)
+        (repo / 'lists' / 'linked.md').write_text(
+            '# Linked\n\nSee [the plan](missing-plan.md).\n')
+
+        def lint(rel):
+            return subprocess.run([sys.executable, 'tools/doc_lint.py', rel],
+                                  cwd=repo, capture_output=True, text=True,
+                                  env=env)
+        for rel in ('lists/home.md', 'NOTES.md'):
+            r = lint(rel)
+            cases.append((f'{rel} (declared content): a bare box passes',
+                          r.returncode == 0
+                          and 'SAYS NOTHING BLOCKS IT' not in r.stdout, f'rc={r.returncode} {r.stdout} {r.stderr}'))
+            cases.append((f'{rel} (declared content): an unglossed acronym is '
+                          'not reported', 'UNGLOSSED ACRONYMS' not in r.stdout
+                          and 'QZXV' not in r.stdout, r.stdout))
+        r = lint('docs/spec.md')
+        cases.append(('CONTROL: the same box outside content_paths still fails',
+                      r.returncode == 1 and 'SAYS NOTHING BLOCKS IT' in r.stdout
+                      and 'Buy the paint' in r.stdout, r.stdout))
+        cases.append(('CONTROL: the same acronym outside content_paths is still '
+                      'reported', 'UNGLOSSED ACRONYMS' in r.stdout
+                      and 'docs/spec.md:3: QZXV' in r.stdout, r.stdout))
+        r = lint('lists/linked.md')
+        cases.append(('a content file still gets the broken-link check',
+                      r.returncode == 1 and 'missing-plan.md' in r.stdout, r.stdout))
+    bad = [f'{n}: {d[:900]}' for n, ok, d in cases if not ok]
+    check(f'content_paths skip the session-work checks and nothing else '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def _addition_fixture_practice(slug, *, tier='on-demand', status='active',
                                to='null', adds='', extra='', gates='[]',
                                rule='Do the thing.', occasion='doing the fixture'):
@@ -24851,6 +24922,24 @@ def check_precedent_check_fires():
                       'base tree, does NOT fail -- a migration moved it, '
                       'the change did not introduce it',
                       _rc_mig == 0 and 'VIOLATION' not in _out_mig))
+
+        # ...and the same new acronym in a file the repository declares as
+        # the person's own material (precedent.json `content_paths`,
+        # 2026-10-13) is theirs to leave: the gate skips it. The case
+        # above that plants it with no declaration is the control.
+        _cnt = fresh('acronyms-glossary-content-path')
+        _cfg_path = _cnt / 'precedent.json'
+        _cfg = json.loads(_cfg_path.read_text(encoding='utf-8'))
+        _cfg.setdefault('content_paths', []).append('TODO.md')
+        _cfg_path.write_text(json.dumps(_cfg, indent=2) + '\n', encoding='utf-8')
+        git(_cnt, 'add', '-A')
+        git(_cnt, 'commit', '-qm', 'declare TODO.md as content')
+        rewrite(_cnt, 'TODO.md', lambda t: t + '\nSee the new ZQX report.\n')
+        _rc_cnt, _out_cnt = run(_cnt, 'acronyms-glossary')
+        cases.append(('acronyms-glossary: a new unglossed acronym in a file '
+                      'under content_paths does NOT fail -- the person\'s own '
+                      'material, not session work',
+                      _rc_cnt == 0 and 'ZQX' not in _out_cnt))
 
         # ci-commits-carry-identity -- a workflow that commits as the bot.
         # The fixture is the real shape: the two `git config` lines and the
@@ -78706,6 +78795,7 @@ def main():
     check_lint_runs_the_hosts_shim()
     check_lint_refuses_an_open_item_waiting_on_an_upstream_fix()
     check_lint_refuses_an_open_item_that_names_no_blocker()
+    check_content_paths_skip_session_work_checks()
     check_upstream_fix_sets_up_the_fix_in_the_source()
     check_code_owner_practice_stays_out_of_the_index()
     check_adds_to_names_a_rule_in_force()

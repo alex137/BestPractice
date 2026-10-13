@@ -304,7 +304,18 @@ def render(extra, levels, notes, repo=None):
         # ONE LINE, not a section. The deferral notes' reasons are the
         # intro's; what the reader still needs is that these sources
         # RESOLVED, as against the heading above for the ones that did not.
-        head += ['Every source this repository declares resolved.', '']
+        #
+        # "Resolved" means READABLE: its practices could be loaded. Whether
+        # this session can push to that repository is the ACCESS list
+        # precedent_access_check.py prints at session start, where HANDOFF
+        # marks one readable here but not pushable -- which, beside a bare
+        # "resolved", read as a contradiction (reported by a consuming
+        # repository, 2026-10-13). So the line names what it means and
+        # points at the list that answers the other question.
+        head += ['Every source this repository declares resolved for reading, '
+                 'so its practices are below. Whether this session can also '
+                 'push to each one is the ACCESS list printed at session '
+                 'start: HANDOFF there means readable here, not pushable.', '']
     # build_loader_block returns (text, resident_tokens, resident_count) --
     # the same renderer AGENTS.md uses, so this block cannot drift from it.
     #

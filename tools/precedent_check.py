@@ -8674,7 +8674,11 @@ def _acronyms_glossary(ctx):
             'shouted English word from an initialism, so every ALL-CAPS '
             'token would be reported -- add prose, or gloss terms by hand, '
             'until tools/doc_lint.py corpus_is_decisive() is true')
-    files = [f for f in _md_in_scope(ctx) if f not in dl.ACRONYM_SKIP_FILES]
+    # The person's own material (precedent.json `content_paths`: a personal
+    # to-do list, notes) is not session work, so its shorthand is theirs
+    # to leave unglossed -- the same skip doc_lint's warning makes.
+    files = [f for f in _md_in_scope(ctx) if f not in dl.ACRONYM_SKIP_FILES
+             and not (hasattr(dl, 'is_content') and dl.is_content(f, ROOT))]
     if not files:
         raise NotApplicable('no changed markdown file is in scope')
     out = []

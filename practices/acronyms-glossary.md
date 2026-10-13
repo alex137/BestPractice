@@ -87,6 +87,9 @@ defined inline on the line (`long form (TOKEN)`) and a stoplist of common
 words/units — and warns, the same "convention → loud check" shape as its
 link/strikethrough checks. Warning-only and auto-disabled when the repo has no
 `GLOSSARY.md`, so it never blocks a repo that hasn't adopted the practice.
+A file under `precedent.json`'s `content_paths` -- the person's own to-do
+list, notes or manuscript -- is skipped, by the warning and by the
+`acronyms-glossary` gate alike: its shorthand is theirs to leave (2026-10-13).
 
 In a repository that uses Precedent, `GLOSSARY.md` is generated too: the
 repository's own names live in its `GLOSSARY.source.md`, and a new term is

@@ -64,7 +64,9 @@ behavior that GitHub silently neutered):
      purchase, access (refused), test, external, pr (linked), or
      `(out of scope: why)`. Line-scoped like checks 1 and 4; the heading
      vocabulary and reasons are OPEN_* settings a host shim may change, and
-     `<!--checklist-->` marks a form's boxes as not open work.
+     `<!--checklist-->` marks a form's boxes as not open work. A file under
+     precedent.json's `content_paths` (the person's own to-do list, notes
+     or manuscript) is skipped, here and by the acronym scan of check 3.
 
 SCOPE: by default, only files CHANGED vs the default branch (the convention is
 "fix the parts you touch"; this also avoids editing frozen documents, where a
@@ -214,6 +216,31 @@ def drop_records(files):
     return [f for f in files
             if not any(f == r or (r.endswith('/') and f.startswith(r))
                        for r in records)]
+
+
+_CONTENT_PATHS = {}
+
+
+def is_content(path, root=None):
+    """True when `path` is under one of the repository's declared
+    `content_paths` (precedent.json, read by precedent_resolve, its one
+    reader): the person's own material -- a personal to-do list, notes, a
+    manuscript -- which the checks about session work skip. Here that is
+    the open-item check (practice: todo-is-a-handoff) and the
+    unglossed-acronym scan (practice: acronyms-glossary); the link,
+    strikethrough and process-residue checks still read it, since those are
+    about what a reader sees. An engine with no resolver declares nothing:
+    fewer exemptions, never more."""
+    root = pathlib.Path(root or ROOT).resolve()
+    if root not in _CONTENT_PATHS:
+        try:
+            import precedent_resolve as _pr
+            _CONTENT_PATHS[root] = (list(_pr.declared_content_paths(root)),
+                                    _pr.in_declared_paths)
+        except (ImportError, AttributeError):
+            _CONTENT_PATHS[root] = ([], None)
+    declared, match = _CONTENT_PATHS[root]
+    return bool(declared) and match(path, declared)
 
 # ---- acronym check (check 3) ----
 ACRONYM_RE = re.compile(r'\b([A-Z]{2}[A-Z0-9]{0,4})\b')   # 2-6 chars, ≥2 leading letters
@@ -1387,8 +1414,10 @@ def check_open_items(path, root=None):
     Line-attributed, so the commit gate fails only the items a change adds
     or rewrites (touched_lines); a moved item is not new. Skipped: fences
     and indented code, generated blocks, a generated file (`generated_by`
-    in its frontmatter), a received practice file, and anything marked
-    OPEN_ITEM_EXEMPT."""
+    in its frontmatter), a received practice file, a file under the
+    repository's declared `content_paths` (is_content: the person's own
+    to-do list or notes, whose boxes are theirs, not a session's queue),
+    and anything marked OPEN_ITEM_EXEMPT."""
     root = pathlib.Path(root or ROOT)
     rel = str(path).replace('\\', '/')
     try:
@@ -1399,7 +1428,8 @@ def check_open_items(path, root=None):
     fm = re.match(r'---\n(.*?)\n---\n', text, re.S)
     head = fm.group(1) if fm else ''
     if (re.search(r'^generated_by:', head, re.M) or rel in _received()
-            or rel.startswith(OPEN_ITEM_SKIP_PREFIXES)):
+            or rel.startswith(OPEN_ITEM_SKIP_PREFIXES)
+            or is_content(rel, root)):
         return []
     p = pathlib.PurePosixPath(rel)
     if (OPEN_ITEM_DIR and str(p.parent) == OPEN_ITEM_DIR
@@ -1479,7 +1509,8 @@ def check_file(path, fix=False, known=None):
     # suppresses the detector suppresses the controls that prove it works
     # (three of verify_harness.py's stated cases build tiny fixture repos
     # whose corpora are small by construction). The gate carries it.
-    if known is not None and path not in ACRONYM_SKIP_FILES:
+    if (known is not None and path not in ACRONYM_SKIP_FILES
+            and not is_content(path)):
         # One detector, shared with precedent_check.py's acronyms-glossary
         # gate — see scan_unglossed's docstring for the drift this closed.
         unglossed = scan_unglossed(
