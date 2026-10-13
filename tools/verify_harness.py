@@ -14352,11 +14352,15 @@ def check_update_runs_code_at_least_as_new_as_it_applies():
             holder.wait()
 
         # The fallback: no worktree can be made, so the clone's own code runs
-        # and says first that it may be older than what it applies.
+        # and says first that it may be older than what it applies -- after
+        # only the line saying who the report is for, which frames it all
+        # (inner-workings-for-code-owners).
         fb = clone('fallback', boot)
         (fb / '.git' / 'precedent-update-drivers').write_text('', encoding='utf-8')
         rc, out = update(fb, repo)
-        summary = out.split('== Update Vendors ==', 1)[-1].lstrip('\n').splitlines()
+        summary = [ln for ln in out.split('== Update Vendors ==', 1)[-1]
+                   .lstrip('\n').splitlines()
+                   if not ln.startswith('  FOR YOU, NOT THE PERSON:')]
         cases.append(('a worktree that cannot be made: the warning comes first',
                       bool(summary) and summary[0].startswith('  WARNING: could not set '
                                                               'up a temporary checkout'),
