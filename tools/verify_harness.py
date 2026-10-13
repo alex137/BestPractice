@@ -29801,6 +29801,22 @@ def check_code_owners_only_practices_reach_only_code_owners():
                       listed))
         cases.append(('CONTROL: a branch with work main lacks is not listed',
                       'claude/open' not in listed, listed))
+        # An engine branch's old name, once its data- copy holds all of it,
+        # is listed: nothing reads it (2026-10-13).
+        g('push', '-q', 'origin', 'origin/precedent-promote-lock:refs/heads/data-promote-lock')
+        g('fetch', '-q', 'origin')
+        listed = [b_ for b_, _d in (sb.stale_in(work) or [])]
+        cases.append(('an old engine branch its data- copy holds is listed',
+                      'precedent-promote-lock' in listed
+                      and 'data-promote-lock' not in listed, listed))
+        g('checkout', '-q', '-b', 'held', 'origin/precedent-promote-lock')
+        g('commit', '-q', '--allow-empty', '-m', 'held by an older engine')
+        g('push', '-q', '-f', 'origin', 'HEAD:precedent-promote-lock')
+        g('fetch', '-q', 'origin')
+        listed = [b_ for b_, _d in (sb.stale_in(work) or [])]
+        cases.append(('CONTROL: an old engine branch with a claim its data- copy '
+                      'lacks is not listed', 'precedent-promote-lock' not in listed,
+                      listed))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad_cases = [(n, d) for n, ok, d in cases if not ok]
@@ -60390,7 +60406,11 @@ def check_practice_refs_sorts_live_from_history():
         lineage.write_text(
             lineage.read_text(encoding='utf-8')
             + '\n## Detail\nThe old `go-merge` said the same.\n'
-              'Renamed from `go-merge` on 2026-09-26.\n'
+              '\nRenamed from `go-merge` on 2026-09-26.\n'
+              '\nA wrapped paragraph names `go-merge`\n'
+              'and only its next line says it was retired.\n'
+              '\n- a list item naming `go-merge` alone\n'
+              '- beside one that says retired\n'
               '\n## Story\n[go-merge](go-merge.md) is where it began.\n',
             encoding='utf-8')
         (ind / 'README.md').write_text(
@@ -60399,6 +60419,9 @@ def check_practice_refs_sorts_live_from_history():
         (ind / 'spec').mkdir()
         (ind / 'spec' / 'plan.md').write_text(
             'Planned against [go-merge](../practices/go-merge.md).\n',
+            encoding='utf-8')
+        (ind / 'WHATS_NEW.md').write_text(
+            '## 2026-09-20\n- Commands read intent (`go-merge` among them).\n',
             encoding='utf-8')
         env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
                    GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
@@ -60431,6 +60454,17 @@ def check_practice_refs_sorts_live_from_history():
                       str(rows)))
         cases.append(('a line narrating the rename is history',
                       tag('practices/lineage.md', 'Renamed from') == 'history', str(rows)))
+        # The lineage word read across the paragraph, not the line
+        # (2026-10-13): prose wraps, and the word lands on the next line.
+        cases.append(('a paragraph whose next line narrates the retirement is history',
+                      tag('practices/lineage.md', 'A wrapped paragraph') == 'history',
+                      str(rows)))
+        cases.append(('CONTROL: a list item is its own paragraph, so its '
+                      'neighbour\'s lineage word does not reach it',
+                      tag('practices/lineage.md', 'list item naming') == 'live',
+                      str(rows)))
+        cases.append(('a dated WHATS_NEW.md entry is a record, so history',
+                      tag('WHATS_NEW.md', 'read intent') == 'history', str(rows)))
         cases.append(('a link inside ## Story is history',
                       tag('practices/lineage.md', 'where it began') == 'history', str(rows)))
         cases.append(('a plan under spec/ is a record, so history',

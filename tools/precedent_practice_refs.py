@@ -26,9 +26,10 @@ three things that need the answer ask it rather than keeping copies:
 A citation is LIVE unless it is plainly history: frontmatter lineage fields,
 a Story/History-style section, a record directory (decisions/, gotchas/,
 closed items), a file declared a record (`kind: record` in its frontmatter,
-or precedent.json's `record_paths`), a withdrawn practice's own stub, or a line that itself narrates
-the change ("renamed", "retired", "superseded", or naming the successor
-beside it). History is the record of what used to be true and is left alone.
+or precedent.json's `record_paths`), a dated log (WHATS_NEW.md, a LEDGER.md),
+a withdrawn practice's own stub, or a paragraph that itself narrates the
+change ("renamed", "retired", "superseded", or naming the successor beside
+it). History is the record of what used to be true and is left alone.
 
 Usage:
   precedent_practice_refs.py SLUG [SLUG ...]      every citation of these
@@ -69,10 +70,14 @@ HISTORY_HEADING = re.compile(
 # Directories and files that are records by nature: a decision, a gotcha's
 # story, an open or closed item, a plan or audit under spec/, a retirement
 # map. Their citations describe what was true when they were written, and a
-# plan that names a practice since renamed is still an accurate plan.
+# plan that names a practice since renamed is still an accurate plan. A dated
+# log is one too: WHATS_NEW.md is the whats-new practice's digest, one entry
+# per day, and a transfer LEDGER.md is one row per past change; both were read
+# as live and sent an Update Vendors to "fix" an accurate entry (2026-10-13).
 HISTORY_PATH = re.compile(
     r'(^|/)(decisions|gotchas|records?|checkins?|writeups?|spec|todo)/|'
-    r'(^|/)todo/CLOSED\.md$|CHANGELOG|RETIREMENT|_FINDINGS', re.I)
+    r'(^|/)todo/CLOSED\.md$|CHANGELOG|RETIREMENT|_FINDINGS|'
+    r'(^|/)(WHATS_NEW|LEDGER)\.md$', re.I)
 
 # A line narrating the change itself is lineage, not a live citation.
 LINEAGE_WORDS = re.compile(
@@ -179,6 +184,43 @@ def _is_generated(lines):
     return any(GENERATED_MARK.search(l) for l in lines[:6])
 
 
+_BLOCK_START = re.compile(r'^\s*(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|\||```|~~~)')
+
+
+def _paragraphs(lines):
+    """-> for each line, the text of the Markdown paragraph it sits in.
+
+    The lineage test reads the paragraph, not the line: prose wraps, and the
+    word that makes a citation history ("retired", the successor's name)
+    lands on the next line as often as on its own. Read line by line, an
+    accurate history paragraph was reported as a live citation, in this repo
+    and in an individual set, on one Update Vendors (2026-10-13:
+    "the three inactive ones are `archive-command`, / `brief-it` and
+    `session-text`, each `status: deduplicated`"). A paragraph ends at a
+    blank line, and a heading, a list item, a table row or a fence starts a
+    new one, so the reading never reaches past the block the citation is in.
+    """
+    out, block = [], []
+
+    def flush():
+        text = ' '.join(block)
+        out.extend([text] * len(block))
+        block.clear()
+
+    for line in lines:
+        if not line.strip():
+            flush()
+            out.append(line)
+            continue
+        if block and _BLOCK_START.match(line):
+            flush()
+        block.append(line)
+        if line.lstrip().startswith(('|', '#', '```', '~~~')):
+            flush()
+    flush()
+    return out
+
+
 def scan_file(path, rel, slugs, successors=None, stub_slug=None,
               file_is_history=False):
     """-> [(lineno, slug, form, kind, section, line)] for citations of
@@ -201,6 +243,7 @@ def scan_file(path, rel, slugs, successors=None, stub_slug=None,
     hist_level = None                   # heading depth of an open history section
     fence = False
     section = ''
+    para = _paragraphs(lines) if rel.endswith('.md') else lines
     for i, line in enumerate(lines, 1):
         if in_fm and i > 1 and line.strip() == '---':
             in_fm = False
@@ -232,9 +275,10 @@ def scan_file(path, rel, slugs, successors=None, stub_slug=None,
                            # a practice naming its OWN predecessor is lineage
                            # by definition, whatever section it sits in
                            or (succ is not None and succ == own_slug)
-                           or bool(LINEAGE_WORDS.search(line))
+                           or bool(LINEAGE_WORDS.search(para[i - 1]))
                            or (succ is not None and succ != s and
-                               re.search(r'\b' + re.escape(succ) + r'\b', line)))
+                               re.search(r'\b' + re.escape(succ) + r'\b',
+                                         para[i - 1])))
                 out.append((i, s, form, 'history' if history else 'live',
                             section, line.strip()))
     return out
