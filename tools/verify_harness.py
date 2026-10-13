@@ -40381,6 +40381,44 @@ def check_sync_copies_work_from_above_once_checked():
             got = [p for p, _ in pb.github_tests(two, 'HEAD')]
             cases.append(('CONTROL: once the diff touches one of its paths, it is '
                           'required', '.github/workflows/docs.yml' in got))
+
+            # Merged first, waited after (2026-10-13): once main carries the
+            # Produce's copy, the copy's own diff against the main it merged
+            # onto still decides, never an empty diff from main's new tip.
+            git(two, 'fetch', '-q', 'origin')
+            here = git(two, 'rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+            head = git(two, 'rev-parse', 'HEAD').stdout.strip()
+            main_was = git(two, 'rev-parse', 'origin/main').stdout.strip()
+            with_wf = git(two, 'rev-parse', 'HEAD~1').stdout.strip()   # the two workflows
+            def merged_copy(fname):
+                git(two, 'push', '-q', '-f', 'origin', f'{with_wf}:refs/heads/main')
+                git(two, 'checkout', '-q', '-B', 'w-side', with_wf)
+                (two / fname).parent.mkdir(parents=True, exist_ok=True)
+                (two / fname).write_text('side\n', encoding='utf-8')
+                git(two, 'add', '-A')
+                git(two, 'commit', '-q', '-m', f'side touches {fname}')
+                git(two, 'checkout', '-q', '-B', 'w-copy', with_wf)
+                git(two, 'merge', '-q', '--no-ff', '-m', 'copy: side into main', 'w-side')
+                copy = git(two, 'rev-parse', 'HEAD').stdout.strip()
+                git(two, 'push', '-q', '-f', 'origin', 'HEAD:refs/heads/main')
+                return copy
+            try:
+                copy = merged_copy('tools/other.py')
+                got = [p for p, _ in pb.github_tests(two, copy)]
+                cases.append(('with main already carrying the copy, a workflow whose '
+                              'paths: the copy\'s own diff misses is still not required',
+                              '.github/workflows/docs.yml' not in got
+                              and '.github/workflows/lint.yml' in got))
+                copy = merged_copy('docs/page.md')
+                got = [p for p, _ in pb.github_tests(two, copy)]
+                cases.append(('CONTROL: ...and one the copy\'s diff reaches is still '
+                              'required, though main\'s tip now holds it',
+                              '.github/workflows/docs.yml' in got))
+            finally:
+                git(two, 'push', '-q', '-f', 'origin', f'{main_was}:refs/heads/main')
+                git(two, 'fetch', '-q', 'origin')
+                git(two, 'checkout', '-q', *(['--detach', head] if here == 'HEAD'
+                                             else ['-B', here, head]))
             git(two, 'reset', '-q', '--hard', 'HEAD~2')
             said = []
             saved = dict(os.environ)
