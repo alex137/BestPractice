@@ -498,7 +498,11 @@ STAND_DOWNS = {'leak_gate': ('NOT APPLICABLE', 'stood down -- it inspected '
                # and none resolves here (build_views.individual_not_verifiable).
                'views_sync': ('NOT VERIFIABLE', 'not verified -- the views '
                               'carry practices from an individual set this '
-                              'machine cannot reach')}
+                              'machine cannot reach'),
+               # practice_audit.EMPTY_BLOCKLIST (2026-10-13).
+               'scrub_gate': ('BLOCKLIST IS EMPTY', 'not verified -- the '
+                              'blocklist has no patterns, so nothing was '
+                              'checked')}
 
 
 def git(root, *args):

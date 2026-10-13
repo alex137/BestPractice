@@ -4579,21 +4579,34 @@ def _rev_text(repo_dir, *args):
     return r.stdout.strip() if r.returncode == 0 else ''
 
 
-def repin_kept_section(clone, item, confirmed, dest_root=None):
+def repin_kept_section(clone, item, confirmed, dest_root=None, reason=None):
     """Re-record one kept AGENTS.md section against today's template text,
-    with who confirmed it and when. -> (ok, message).
+    with who confirmed it, when, and why it still differs. -> (ok, message).
 
     WHY A COMMAND (2026-10-07). The only way to say "still kept" was to
     paste two SHA-256 values into precedent.json by hand, and a session's
     own safety checks rightly read that as editing an audit record: a
     consuming repository's update stalled on it. This computes both pins
     the way refresh does, from the template the engine was vendored from,
-    and records the person's words beside them."""
+    and records the person's words beside them.
+
+    WHY --reason IS REQUIRED (2026-10-13, a consuming repository's Update
+    Vendors). A re-pin follows a fresh decision about the section -- the
+    person took upstream's wording for most of it -- and the reason written
+    before that decision stayed on the entry, describing a section that no
+    longer existed in that form; the session rewrote it by hand. The reason
+    is part of the decision, so it is given with it."""
     dest_root = dest_root or ROOT
     confirmed = (confirmed or '').strip()
     if not confirmed:
         return False, ('--confirmed needs the person\'s own words: a kept '
                        'section is their decision')
+    reason = (reason or '').strip()
+    if not reason:
+        return False, ('--reason needs why this repository\'s section still '
+                       'differs from the template, as of this decision: the '
+                       'reason recorded before it may describe text that is '
+                       'gone')
     key = item[len(AGENTS_MD) + 1:] if item.startswith(AGENTS_MD + ' ') else item
     item = f'{AGENTS_MD} {key}'
     path = dest_root / 'precedent.json'
@@ -4604,8 +4617,8 @@ def repin_kept_section(clone, item, confirmed, dest_root=None):
         return False, (f'{item} is not in precedent.json\'s '
                        f'{KEPT_DIVERGENCES_KEY}: record it there with a '
                        f'reason first, then re-pin it')
-    if not isinstance(entry, dict) or not str(entry.get('reason') or '').strip():
-        return False, f'{item} has no reason recorded: give it one first'
+    if not isinstance(entry, dict):
+        return False, f'{item} is not a kept entry precedent.json can re-pin'
     manifest = _load_manifest(dest_root / 'tools')
     kind = manifest.get('kind', DEFAULT_KIND)
     commit = (_rev(clone, manifest.get('source_commit') or '')
@@ -4633,7 +4646,8 @@ def repin_kept_section(clone, item, confirmed, dest_root=None):
         today = precedent_time.today()
     except Exception:                                           # noqa: BLE001
         today = None
-    entry.update({'template_sha256': _sha_text(section),
+    entry.update({'reason': reason,
+                  'template_sha256': _sha_text(section),
                   'carried_sha256': _carried_sha(section, lacks),
                   'confirmed': confirmed})
     if today:
@@ -4646,16 +4660,21 @@ def repin_kept_section(clone, item, confirmed, dest_root=None):
 
 
 def _cli_repin_kept(args):
-    """`repin-kept CLONE "AGENTS.md SECTION" --confirmed "WORDS"`."""
-    words = None
-    if '--confirmed' in args:
-        i = args.index('--confirmed')
-        words = args[i + 1] if i + 1 < len(args) else ''
-        args = args[:i] + args[i + 2:]
+    """`repin-kept CLONE "AGENTS.md SECTION" --confirmed "WORDS" --reason
+    "WHY"`."""
+    opts = {}
+    for flag in ('--confirmed', '--reason'):
+        if flag in args:
+            i = args.index(flag)
+            opts[flag] = args[i + 1] if i + 1 < len(args) else ''
+            args = args[:i] + args[i + 2:]
     if len(args) != 2:
         sys.exit('usage: precedent_vendor_engine.py repin-kept CLONE '
-                 '"AGENTS.md SECTION" --confirmed "the person\'s words"')
-    ok, msg = repin_kept_section(_clone_or_die(args[0]), args[1], words)
+                 '"AGENTS.md SECTION" --confirmed "the person\'s words" '
+                 '--reason "why the section still differs"')
+    ok, msg = repin_kept_section(_clone_or_die(args[0]), args[1],
+                                 opts.get('--confirmed'),
+                                 reason=opts.get('--reason'))
     print(msg)
     return 0 if ok else 1
 
@@ -6087,14 +6106,35 @@ def _sentences(text):
     return out
 
 
+# A placeholder joined on by ", plus", "and", "or" or a comma is an
+# addition the repo may not have: "run bare, plus `<your own audits>`". A
+# repo with none to add drops the placeholder and its joining words, and
+# until 2026-10-13 that read as a section diverging from the template -- a
+# kept entry every consumer without audits of its own needed, and every
+# later upstream edit to the section brought back to the person (a
+# consuming repository's Update Vendors).
+_DROPPABLE_JOIN_RE = re.compile(r'(?:,? (?:plus|and|or)|,) $')
+
+
 def _wildcard(text):
     """A regex for `text` in which each remaining template placeholder
-    matches whatever a repo filled it in with -- or None when the text
-    carries too few words of its own to be lacked (_MIN_LITERAL_WORDS)."""
+    matches whatever a repo filled it in with, or nothing at all, joining
+    words included, where it is joined on as an addition
+    (_DROPPABLE_JOIN_RE) -- or None when the text carries too few words of
+    its own to be lacked (_MIN_LITERAL_WORDS)."""
     pieces = _MD_WRAPPED_PLACEHOLDER_RE.split(text)
     if len(re.findall(r'[A-Za-z]{2,}', ' '.join(pieces))) < _MIN_LITERAL_WORDS:
         return None
-    return re.compile('.+?'.join(re.escape(p) for p in pieces))
+    out = re.escape(pieces[0])
+    for before, after in zip(pieces, pieces[1:]):
+        join = _DROPPABLE_JOIN_RE.search(before)
+        if join:
+            out = out[:len(out) - len(re.escape(join.group(0)))]
+            out += f'(?:{re.escape(join.group(0))}.+?)?'
+        else:
+            out += '.+?'
+        out += re.escape(after)
+    return re.compile(out)
 
 
 def missing_markdown_blocks(local_section, template_section):
@@ -6317,7 +6357,8 @@ _CLONE_ARG = '../BestPractice'
 
 def _repin_command(item):
     return (f'python3 tools/precedent_vendor_engine.py repin-kept {_CLONE_ARG} '
-            f'"{item}" --confirmed "<the person\'s words>"')
+            f'"{item}" --confirmed "<the person\'s words>" '
+            f'--reason "<why this section still differs>"')
 
 
 def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
@@ -6518,6 +6559,15 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
               f"{', '.join(repr(k) for k in complete)} carr"
               f"{'ies' if len(complete) == 1 else 'y'} local edits and every "
               f"block of the template's version -- left as they are.")
+        # A kept entry for a section that lacks nothing decides nothing, and
+        # its reason goes on describing a difference that is gone.
+        kept = kept_template_divergences(dest_root)
+        for key in complete:
+            if f'{AGENTS_MD} {key}' in kept:
+                print(f"  NOTE: precedent.json's {KEPT_DIVERGENCES_KEY} entry "
+                      f"for {AGENTS_MD} {key} is no longer needed: the "
+                      f"section carries every block of the template's. "
+                      f"Remove it.")
 
 
 def _refresh_agents_md(dest_root, templates_dir, manifest, plan):

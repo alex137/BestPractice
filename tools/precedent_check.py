@@ -10729,7 +10729,12 @@ def _scrub_gate(ctx):
         raise NotApplicable(out.strip().splitlines()[-1])
     if 'scrub' in out and 'skipped' in out:
         raise NotApplicable('practice_audit skipped the scrub: no blocklist')
-    return [Finding('', l.strip()) for l in out.splitlines() if 'SCRUB:' in l]
+    found = [Finding('', l.strip()) for l in out.splitlines() if 'SCRUB:' in l]
+    # practice_audit.EMPTY_BLOCKLIST: nothing was checked, which is not a pass.
+    empty = [l.strip() for l in out.splitlines() if 'BLOCKLIST IS EMPTY' in l]
+    if empty and not found:
+        raise NotApplicable(empty[0])
+    return found
 
 
 @check('practice-export-loop', 'tree',

@@ -790,9 +790,11 @@ says so, both from the vendored tree under `process/upstream/`.
     different and important, keep it, copy in the rest of upstream's
     change, and once the person says it is still kept,
     `python3 tools/precedent_vendor_engine.py repin-kept
-    ../BestPractice "AGENTS.md <heading>" --confirmed "<their words>"`
-    re-pins it and records their words and the date; never paste the hashes
-    by hand. An entry with no reason is
+    ../BestPractice "AGENTS.md <heading>" --confirmed "<their words>"
+    --reason "<why it still differs>"` re-pins it and records their words,
+    the date and the reason, which replaces the one from before this
+    decision (since 2026-10-13: a re-pin kept a reason describing text that
+    was gone); never paste the hashes by hand. An entry with no reason is
     not honoured. A `diverged` entry in `process/manifest.json`
     does not do this — that manifest tracks the vendored catalogue, and
     nothing that reads it looks at these files.
