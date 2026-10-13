@@ -115,6 +115,15 @@ on:
   # your recommendation"). The pull request into main came back the same
   # day and pushes to main on 2026-09-27; the rest stays paused.
   workflow_dispatch:
+  # ONCE A DAY, THE WHOLE SUITE (Alex, 2026-10-12: "yes on daily run").
+  # A pull request and a push to main run only the checks the change
+  # reaches (tools/harness_reach.py). This run checks everything, catches
+  # what a scoped run cannot see -- a check whose verdict hangs on the
+  # clock, or on state another check left -- and records a fresh ledger of
+  # what each check reaches. 07:17 UTC is the small hours in New York;
+  # about 15 minutes of runner time a day.
+  schedule:
+    - cron: '17 7 * * *'
 
 permissions:
   contents: read
@@ -313,13 +322,13 @@ jobs:
       # Every planted case, no rotation: CI_SHARDS gives the heavy shard
       # PRECEDENT_HARNESS_ALL=1. This run is the one nobody is watching and
       # the last gate before main, so rotation buys nothing it needs.
-      # Scoped to the change (tools/harness_reach.py) unless started by
-      # hand. A whole-suite run on main -- by hand, or because the change
-      # reached most of the suite -- records the ledger of what each check
-      # reaches, so a ledger that has grown stale refreshes itself.
+      # Scoped to the change (tools/harness_reach.py) unless this is the
+      # daily run or one started by hand. A whole-suite run into or on main
+      # -- daily, by hand, or because the change reached most of the suite
+      # -- records the ledger of what each check reaches.
       - name: Run the verification harness, side by side
         env:
-          PRECEDENT_HARNESS_FULL: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+          PRECEDENT_HARNESS_FULL: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1' || '' }}
           PRECEDENT_HARNESS_RECORD_FULL: ${{ ((github.event_name == 'pull_request' && github.base_ref == 'main') || (github.event_name != 'pull_request' && github.ref == 'refs/heads/main')) && '1' || '' }}
         run: python3 tools/verify_harness.py --as-ci
 
