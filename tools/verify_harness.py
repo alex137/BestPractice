@@ -11491,11 +11491,19 @@ def check_session_practices_load_without_publishing():
         # resolved" beside an ACCESS list showing some as HANDOFF read as
         # a contradiction. The line says resolved means readable, and
         # names the list that answers whether a push will land.
+        # Where no source adds anything here (an isolated copy, whose
+        # fixture set does not resolve beside it), render() takes its
+        # "Nothing to add" path and claims nothing resolved: then there is
+        # no line to judge, only no bare claim.
+        _claims = 'declares resolved' in _deferred_only
         cases.append(('the resolved line says it means resolved for reading, '
-                      'and points at the ACCESS list for pushing',
-                      'resolved for reading' in _deferred_only
-                      and 'ACCESS list' in _deferred_only
-                      and 'HANDOFF' in _deferred_only))
+                      'and points at the ACCESS list for pushing; no bare '
+                      '"resolved" claim is ever printed',
+                      ('resolved for reading' in _deferred_only
+                       and 'ACCESS list' in _deferred_only
+                       and 'HANDOFF' in _deferred_only)
+                      if (_extra or _claims) else
+                      'Nothing to add' in _deferred_only))
 
         # WHAT THE FILE SAYS ABOUT THE REPO IT IS IN HAS TO BE TRUE. The
         # header explains why the file is untracked, and until 2026-09-14
