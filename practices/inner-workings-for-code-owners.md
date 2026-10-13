@@ -72,6 +72,13 @@ The list you gave is great and should only be for code owners"):
   check, a file, a branch, a clone or a folder;
 - Update Vendors' report opens, for a person who is not a code owner, by
   saying none of it reaches them, and what to tell them instead.
+- a wait ([answer-first-ask-before-long-work](answer-first-ask-before-long-work.md)
+  part 3) is said as its outcome -- "I'm double-checking the change; I'll
+  tell you when it's done, or say stop" -- never as a background run, a
+  test or CI schedule, a branch, or a job to kill. Added 2026-10-13, after
+  a code owner, told about a full suite running on `main` until GitHub's
+  weekly test was due, asked whether a person who is not one would be told
+  the same; nothing in the gate's list said otherwise.
 
 The ladder's own lines (stage words, branch names in The Boildown) reach only
 a person on the ladder.
