@@ -75,7 +75,10 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      until somebody decides again: adopt it, or keep declining and record
      the new hash with --redecide NAME. --update-baseline never does that for
      you, because re-baselining a decline unread is the failure this check
-     exists for. Incident, 2026-09-24: a consumer declined upstream's
+     exists for. A decline whose reason is a fact about this repository
+     can name it instead (`declined_while`, --redecide NAME --while
+     CONDITION): a changed tool then re-asks only when the condition stops
+     holding; a changed practice still re-asks every time. Incident, 2026-09-24: a consumer declined upstream's
      merge-keyword practice as a "duplicate" of a personal rule; upstream
      then replaced it with a broader one, two later syncs carried the
      decline forward unread, and a session refused a command the rule in
@@ -108,6 +111,9 @@ Run:  python3 tools/practice_audit.py                    # gate (all manifests)
                                                     # (what tools/bootstrap.sh prints at session start)
       python3 tools/practice_audit.py --redecide NAME    # after re-deciding a decline:
                                                     # record the upstream file's current hash
+      python3 tools/practice_audit.py --redecide NAME --while renders-no-html
+                                                    # ...declined while a condition holds: a
+                                                    # changed tool re-asks only when it stops
 """
 import hashlib, json, pathlib, re, subprocess, sys
 
@@ -245,6 +251,60 @@ def _successors(tree, slug):
     return out
 
 
+# A DECLINE CAN HOLD WHILE A CONDITION DOES (2026-10-13, a consuming
+# repository). A decline whose reason is about this repository, not about
+# the rule -- "we render no HTML" against tools/doc_html.py -- was asked
+# again on every upstream edit to that tool: seven re-decisions with the
+# same reason. An entry may name one of the conditions below in
+# `declined_while` (--redecide NAME --while CONDITION records it); while it
+# holds, an upstream change to a non-practice file does not re-ask, and the
+# moment it stops holding the decline is asked again, changed file or not.
+# A decline of a practice's own text still re-asks on every change to it:
+# that is the rule itself moving, which no fact about this repository
+# answers (practice: current-rule-governs). Only named conditions: a
+# condition is code that can be checked, never a sentence to trust.
+def _renders_no_html(repo, tree):
+    """-> (holds, evidence): no tracked .html page of this repository's own
+    (the vendored tree aside) and no render list in tools/doc_html_host.json."""
+    r = subprocess.run(['git', '-C', str(repo), 'ls-files', '--', '*.html', '*.htm'],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None, 'git ls-files failed here'
+    try:
+        under = str(pathlib.Path(tree).resolve().relative_to(pathlib.Path(repo).resolve()))
+    except ValueError:
+        under = None
+    pages = [f for f in r.stdout.splitlines()
+             if not (under and (f == under or f.startswith(under + '/')))]
+    if pages:
+        return False, f'it now tracks {pages[0]}' + (
+            f' and {len(pages) - 1} more page(s)' if len(pages) > 1 else '')
+    host = pathlib.Path(repo) / 'tools' / 'doc_html_host.json'
+    try:
+        cfg = json.loads(host.read_text(encoding='utf-8')) if host.is_file() else {}
+    except ValueError:
+        return None, 'tools/doc_html_host.json is not valid JSON'
+    if isinstance(cfg, dict) and (cfg.get('docs') or cfg.get('shim')):
+        return False, 'tools/doc_html_host.json now lists pages to render'
+    return True, ''
+
+
+DECLINE_CONDITIONS = {
+    'renders-no-html': ('this repository renders no HTML pages', _renders_no_html),
+}
+
+
+def decline_condition(repo, tree, name):
+    """-> (holds, sentence): whether named condition `name` holds in `repo`,
+    True/False, or None when it is unknown or cannot be read, with what was
+    found."""
+    known = DECLINE_CONDITIONS.get(name)
+    if known is None:
+        return None, (f'its declined_while names {name!r}, which is not a condition '
+                      f'this tool knows ({", ".join(sorted(DECLINE_CONDITIONS))})')
+    return known[1](repo, tree)
+
+
 def stale_declines(manifest_path):
     """-> [(entry_name, sentence)] for every "declined" entry whose decision
     no longer covers the upstream file (practice: current-rule-governs).
@@ -275,6 +335,24 @@ def stale_declines(manifest_path):
                               f'(renamed, merged or removed upstream) -- find what carries '
                               f'that rule now and decide again'))
             continue
+        cond = e.get('declined_while')
+        if cond:
+            holds, found = decline_condition(repo, tree, cond)
+            if holds is False:
+                out.append((name, f'declined {rel} while '
+                                  f'{DECLINE_CONDITIONS[cond][0]}, and that no longer '
+                                  f'holds: {found}. Read the current rule, adopt it or '
+                                  f'decide again, then --redecide '
+                                  f'{e.get("practice", "?")} (with --while only if '
+                                  f'a condition still answers it)'))
+                continue
+            if holds is None:
+                out.append((name, f'declined {rel}, but {found}. Fix the entry, or '
+                                  f'decide again and --redecide '
+                                  f'{e.get("practice", "?")}'))
+                continue
+            if not rel.startswith('practices/'):
+                continue
         recorded = e.get('declined_upstream_sha256')
         if not recorded:
             out.append((name, f'declined {rel} with no declined_upstream_sha256, so '
@@ -299,14 +377,27 @@ def stale_declines(manifest_path):
                           + (f' ({"; ".join(now)})' if now else '')
                           + '. The decline covers the old text only: read the current '
                           f'rule, adopt it or decide again, then --redecide '
-                          f'{e.get("practice", "?")} and update notes with the new reason'))
+                          f'{e.get("practice", "?")} and update notes with the new reason'
+                          + ('' if rel.startswith('practices/') else
+                             '; if the reason is a fact about this repository '
+                             'that a check can answer, add --while '
+                             + ' or --while '.join(sorted(DECLINE_CONDITIONS))
+                             + ', and a change to this file stops asking')))
     return out
 
 
-def redecide(manifest_paths, practice):
+def redecide(manifest_paths, practice, condition=None):
     """Record the current upstream hash on one declined entry. The person
     re-deciding is expected to have updated `notes` in the same change;
-    this only stops the check firing on a decision somebody actually made."""
+    this only stops the check firing on a decision somebody actually made.
+    With `condition`, one of DECLINE_CONDITIONS, it is recorded as the
+    entry's declined_while, refused unless it holds now; without, any
+    declined_while the entry had is removed, since the new decision was
+    made without it."""
+    if condition is not None and condition not in DECLINE_CONDITIONS:
+        print(f"practice_audit --redecide: --while {condition!r} is not a condition "
+              f"this tool knows ({', '.join(sorted(DECLINE_CONDITIONS))}).")
+        return 1
     hits = 0
     for mp in manifest_paths:
         manifest = json.loads(mp.read_text(encoding='utf-8'))
@@ -320,12 +411,25 @@ def redecide(manifest_paths, practice):
                       f"{e.get('upstream_path')!r} is not in the vendored tree; point "
                       f"the entry at what carries the rule now first.")
                 return 1
+            if condition is not None:
+                holds, found = decline_condition(repo, tree, condition)
+                if not holds:
+                    print(f"practice_audit --redecide: --while {condition} does not "
+                          f"hold here ({found or 'it could not be read'}), so it cannot "
+                          f"answer this decline. Nothing written.")
+                    return 1
+                e['declined_while'] = condition
+            else:
+                e.pop('declined_while', None)
             e['declined_upstream_sha256'] = current
             mp.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
                           encoding='utf-8')
             print(f"practice_audit --redecide: recorded the current hash of "
-                  f"{e['upstream_path']} on {practice}. Make sure notes says why it "
-                  f"is still declined against THIS version.")
+                  f"{e['upstream_path']} on {practice}"
+                  + (f", declined while {DECLINE_CONDITIONS[condition][0]}"
+                     if condition else '')
+                  + ". Make sure notes says why it is still declined against "
+                    "THIS version.")
             hits += 1
     if not hits:
         print(f"practice_audit --redecide: no entry with practice {practice!r} and "
@@ -768,7 +872,14 @@ if __name__ == '__main__':
         if i + 1 >= len(args):
             sys.exit('practice_audit: --redecide needs the entry\'s practice name')
         paths = [ROOT / only] if only else sorted((ROOT / 'process').glob('manifest*.json'))
-        sys.exit(redecide(paths, args[i + 1]))
+        cond = None
+        if '--while' in args:
+            j = args.index('--while')
+            if j + 1 >= len(args):
+                sys.exit('practice_audit: --while needs a condition: '
+                         + ', '.join(sorted(DECLINE_CONDITIONS)))
+            cond = args[j + 1]
+        sys.exit(redecide(paths, args[i + 1], cond))
     entries = None
     if '--entry' in args:
         entries = [args[i + 1] for i, a in enumerate(args) if a == '--entry' and i + 1 < len(args)]
