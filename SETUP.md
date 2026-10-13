@@ -30,11 +30,13 @@ nothing to choose here — this page installs §0, always.
    - *What is this project about?* (one or two sentences) — and: fill in
      `MAP.md`'s deliverables and `AGENTS.md`'s quick index now, or leave
      placeholders? (Default: placeholders, filled in a later conversation.)
-     In the same question, say what you will use for the three things the
+     In the same question, say what you will use for the four things the
      installer needs and let them correct it: the project's name (from the
      repository's name), the administrator's GitHub handle (the account
-     running this), and which folders hold what the project publishes
-     (from the tree; "none yet" is fine).
+     running this), which folders hold what the project publishes
+     (from the tree; "none yet" is fine), and which hold their own
+     material, like a personal to-do list or notes, that the checks should
+     leave alone (from the tree; "none" is fine).
    - *Are there private names or code words that must never appear in
      anything public?* Explain why in one sentence: parts of the practice
      layer can flow back to a public repository, and this list is the
@@ -109,10 +111,12 @@ nothing to choose here — this page installs §0, always.
        --about "<their first answer, one sentence>" \
        --visibility <private or public, read from the repository, never asked> \
        --output-paths <the published folders from their first answer, comma-separated> \
+       --content-paths <their own material from their first answer, comma-separated> \
        --admin <the administrator's GitHub handle>
    ```
 
-   Leave `--output-paths` out when they said "none yet". If they said yes
+   Leave `--output-paths` out when they said "none yet", and
+   `--content-paths` when they said "none". If they said yes
    to a shared set (the writing set, say), clone it beside the project
    first and add `--team <name>=../<name>` for each one: the name must be
    the set's own `name` in its `precedent-source.json`

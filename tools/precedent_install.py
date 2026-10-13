@@ -8,8 +8,12 @@ Run from a clone of Precedent (this repository), pointed at the project:
   python3 tools/precedent_install.py <project path> --project-name "Recipe Book" \\
       [--about "one sentence, used only if the project has no README yet"] \\
       [--base-branch main] [--visibility private|public] \\
-      [--output-paths docs,site] [--admin github-handle] \\
-      [--team NAME=PATH ...] [--force]
+      [--output-paths docs,site] [--content-paths notes/,TODO.md] \\
+      [--admin github-handle] [--team NAME=PATH ...] [--force]
+
+--content-paths names the person's own material kept in the project (a
+personal to-do list, notes, a manuscript): precedent.json `content_paths`,
+which the checks about session work skip. A path ending in "/" is a folder.
 
 It performs INSTALL.md section 0 -- the loader install -- mechanically: it
 vendors the practice catalogue and the engine, writes precedent.json,
@@ -232,7 +236,8 @@ def _seed_engine(dest):
     return _tool_lines(r, 'SEEDED', drop=('NOTE: precedent_vendor_engine:',))
 
 
-def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, force):
+def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, force,
+                          content_paths=None):
     path = dest / 'precedent.json'
     if path.exists() and not force:
         raise InstallRefused(f'{path} already exists -- this project looks '
@@ -275,6 +280,15 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
             'The paths this project PUBLISHES; everything else is the project',
             'managing itself. Read by tools/title_case.py and the deliverable',
             'checks. Without it every heading in the tree reads as published.',
+        ]
+    if content_paths:
+        doc['content_paths'] = content_paths
+        doc['_content_paths_comment'] = [
+            'The person\'s own material kept here -- a personal to-do list,',
+            'notes, a manuscript. The checks about session work skip it: an',
+            'unchecked box with no (needs: ...) and an unglossed acronym are',
+            'theirs to leave. Read by tools/precedent_resolve.py; a "/" ending',
+            'covers a directory.',
         ]
     path.write_text(json.dumps(doc, indent=2) + '\n', encoding='utf-8')
     return path
@@ -737,7 +751,8 @@ def _tiers(dest):
 
 
 def install(dest, project, about=None, base_branch=None, visibility='private',
-            output_paths=None, admin=None, teams=(), force=False, quiet=False):
+            output_paths=None, admin=None, teams=(), force=False, quiet=False,
+            content_paths=None):
     dest = pathlib.Path(dest).resolve()
     say = (lambda *a: None) if quiet else print
     rc, top, _ = _git(dest, 'rev-parse', '--show-toplevel')
@@ -773,7 +788,8 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     say(f'  vendored {n} practice(s) to {UNIVERSAL_PATH}/practices/')
     for line in _seed_engine(dest):
         say(f'  {line}')
-    _write_precedent_json(dest, branch, visibility, output_paths, teams, force)
+    _write_precedent_json(dest, branch, visibility, output_paths, teams, force,
+                          content_paths=content_paths)
     say('  wrote precedent.json')
     # Its code owners, from who can edit it now (Morgan, 2026-10-06): a
     # starting default, never rewritten once set.
@@ -870,7 +886,8 @@ def main(argv=None):
         return 0
     dest = argv[0]
     opts = {'--project-name': None, '--about': None, '--base-branch': None,
-            '--visibility': 'private', '--output-paths': None, '--admin': None}
+            '--visibility': 'private', '--output-paths': None, '--admin': None,
+            '--content-paths': None}
     teams, force = [], False
     i = 1
     while i < len(argv):
@@ -899,11 +916,12 @@ def main(argv=None):
         print('precedent_install FAIL: --visibility is public or private', file=sys.stderr)
         return 1
     paths = [p.strip() for p in (opts['--output-paths'] or '').split(',') if p.strip()]
+    content = [p.strip() for p in (opts['--content-paths'] or '').split(',') if p.strip()]
     try:
         ok = install(dest, opts['--project-name'], about=opts['--about'],
                      base_branch=opts['--base-branch'], visibility=opts['--visibility'],
                      output_paths=paths or None, admin=opts['--admin'],
-                     teams=teams, force=force)
+                     teams=teams, force=force, content_paths=content or None)
     except InstallRefused as e:
         print(f'precedent_install FAIL: {e}', file=sys.stderr)
         return 1

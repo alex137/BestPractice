@@ -695,6 +695,41 @@ def _remote_is_empty(root, remote):
     return r.returncode == 0 and not r.stdout.strip()
 
 
+def content_only(root, sha):
+    """promote-only's content exception: True when every file `sha` changes,
+    from where it parted from main's tip, is under precedent.json's
+    `content_paths` -- the person's own material, such as a personal to-do
+    list. Such a change goes straight into main, and staging takes it from
+    there the usual way (main_work_missing; --land brings main's direct
+    work in first). Anything else in the change, precedent.json included,
+    and it is refused as before.
+
+    Why (Morgan, 2026-10-13, strength: decided, relayed by a personal to-do
+    repository's session): "since the "Add" is just PURE CONTENT, it
+    shouldn't need to go through staging ... I just want to update lists
+    quickly and easily." Nothing declared, nothing read, or nothing changed:
+    False, so the gate stays as strict as before."""
+    try:
+        here = str(pathlib.Path(__file__).resolve().parent)
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        import precedent_resolve as _pr
+        declared = _pr.declared_content_paths(root)
+        inside = _pr.in_declared_paths
+    except Exception:                                       # noqa: BLE001
+        return False
+    if not declared or not sha:
+        return False
+    base = _remote_tip(root, MAIN) or _git(root, 'rev-parse', '--verify', '-q', MAIN)
+    if not base:
+        return False
+    if _run(root, 'cat-file', '-e', f'{base}^{{commit}}').returncode != 0:
+        _run(root, 'fetch', '-q', 'origin', MAIN)
+    r = _run(root, 'diff', '--name-only', f'{base}...{sha}')
+    changed = [l for l in r.stdout.splitlines() if l.strip()] if r.returncode == 0 else []
+    return bool(changed) and all(inside(f, declared) for f in changed)
+
+
 def direct_push_refusal(root, args, user_config=None):
     """-> None, or why a `git push <args>` is refused: promote_only is on
     and the push writes straight to staging or main. A push whose
@@ -724,6 +759,8 @@ def direct_push_refusal(root, args, user_config=None):
                     f'it brings {MAIN}\'s work in first, the same way a Promote '
                     f'into {staging} always has, runs the quick checks and pushes.')
         hit = [b for b in hit if b != staging]
+    if MAIN in hit and content_only(root, _pushed_commit(root, args, MAIN)):
+        hit = [b for b in hit if b != MAIN]
     if not hit:
         return None
     if landable:
@@ -830,6 +867,8 @@ def merge_refusal(root, bases, heads, user_config=None, head_sha=None):
                              _remote_tip(root, MAIN)):
             return None
     if MAIN in bases and head_sha and red_main_fix(root, head_sha):
+        return None
+    if MAIN in bases and head_sha and content_only(root, head_sha):
         return None
     if MAIN in bases and stale:
         return (f'{stale[0]} is a copy of {staging_branch(root)} that is out of '
