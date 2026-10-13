@@ -920,6 +920,22 @@ Before this field, such a file travelled by "copy it in by hand", which is
 how `create-word-doc`'s test went red in a consumer on 2026-09-26: the test
 copies `tools/create_word_doc.py`, and nothing had delivered it.
 
+**A set the repository does not track** (one a person brings through their
+individual set's `brings` list, or one a public repository declares but
+defers to `.precedent/SESSION_PRACTICES.md`) is not materialized, so the
+sync above never sees its practices. Since 2026-10-13 its `ships:` files are
+delivered at session start instead, by
+[tools/precedent_session_practices.py](../tools/precedent_session_practices.py)
+through `precedent_materialize.deliver_session_ships`: to the same path, so
+the Rule and the hook find them, but kept out of the repository by the
+clone's own `info/exclude` and recorded in the untracked
+`.precedent/session_ships.json`. Tracked content never depends on who ran
+the sync. It never takes a path the repository tracks, one the tracked sync
+delivered, one `declined_ships` names, or a copy it did not write or that
+was edited since; a copy no practice ships any more is removed while
+unchanged. When the repository later declares the set, the tracked delivery
+takes the path over and drops it from `info/exclude`.
+
 **What an entry may not be** (`build_views.ship_path_problem`, the one
 definition every tool asks): absolute, above the repository (`..`), a glob,
 under `practices/` or `tools/checks/` (they travel already), a file every
@@ -962,9 +978,14 @@ hooks:       [{"event": "PreToolUse", "matcher": "SendUserFile", "run": "tools/d
 Absent, `null` and `[]` all mean "nothing".
 
 **What it does.** [tools/precedent_sync_views.py](../tools/precedent_sync_views.py)
-adds each declared hook to the consuming repository's `.claude/settings.json`
-as `python3 $CLAUDE_PROJECT_DIR/<run> <args>`, added only, never changing an
-entry already there, and `--check` reports one that is missing. Any command
+lists each declared hook in the consuming repository's
+`process/practice_hooks.json` (since 2026-10-07; in `.claude/settings.json`
+before that) as `python3 $CLAUDE_PROJECT_DIR/<run> <args>`, which
+[tools/precedent_hooks.py](../tools/precedent_hooks.py) runs, and `--check`
+reports one that is missing. A set the repository does not track has its
+hooks listed in the untracked `.precedent/practice_hooks.json` at session
+start instead, beside its untracked `ships:` files (above), and the same
+runner runs them. Any command
 at that event that already names the same script counts as wired. A
 repository with no `.claude/settings.json` gets nothing, and the sync never
 creates the file. Before this field, a practice that shipped a hook's

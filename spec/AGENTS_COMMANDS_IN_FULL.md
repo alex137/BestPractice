@@ -123,9 +123,12 @@ used to read on turn one.
   counter-proposal, and asking for any reply as its own paste-back block
   signed with that session's name and link, plus one ordinary unfenced sentence outside the block saying
   where to paste it. **Never call a session-creating or session-messaging
-  tool for this, and never wake a live session either** — both have come
-  back rejected often enough that the mechanism is retired outright, and a
-  paste block needs nothing from any one provider's tool surface. The check
+  tool for this on your own, and never wake a live session** — both have
+  come back rejected often enough, and a paste block needs nothing from any
+  one provider's tool surface. **When he asks in his own words for the
+  session to be opened, open it** with the same prompt, tags and title at
+  creation, the other repositories named at the top with their access, and
+  the link plus the paste fallback in the reply (2026-10-13). The check
   runs whether or not he says the phrase, and an honest "this session is the
   right one" answers it. **The block carries a merge authorization only when
   he gave one for this handoff** — absent that it says `DO NOT MERGE — STOP

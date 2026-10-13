@@ -1129,6 +1129,261 @@ def _prior_ship_hashes(out_dir):
             if isinstance(s, dict) and isinstance(s.get('path'), str)}
 
 
+# --------------------------------------------------------------------------
+# Shipped files of a set this repository does not track
+# --------------------------------------------------------------------------
+#
+# practice: practice-carries-its-files -- a set the PERSON brings (their
+# individual set's `brings` list), or one this repository declares but its
+# tracked tree leaves out (a public repository's private set, a practice
+# set's declared sets), reaches a session through the untracked
+# .precedent/SESSION_PRACTICES.md and never through the sync above. Its
+# `ships:` files and `hooks:` therefore never arrived either.
+#
+# THE INCIDENT (2026-10-13). A consuming repository got the writing set only
+# through the person's individual set: create-word-doc told every session to
+# run `python3 tools/create_word_doc.py`, and dated-download-names' hook ran
+# tools/dated_name.py, and neither file was there. BestPractice declares the
+# same set, and as the universal source itself never materializes, so the
+# same two files were missing here too.
+#
+# WHY NOT THE TRACKED DELIVERY. A brought set comes through one person's
+# user-level config, so delivering its files into the tracked tree would
+# make a repository's tracked content depend on who ran the sync -- the
+# exact line build_views.sources_for_tracked_block and
+# precedent_sync_views._sync draw for practice text (spec/LADDER_OPT_IN_PLAN.md
+# D6). So the file goes to the path the practice names, where its Rule and
+# its hook expect it, and stays OUT of git: listed in this clone's own
+# .git/info/exclude (never the tracked .gitignore), recorded in
+# .precedent/session_ships.json, refreshed at every session start by
+# precedent_session_practices.py. Its hook goes to .precedent/practice_hooks.json,
+# which precedent_hooks.py runs beside process/practice_hooks.json.
+#
+# NEVER TAKES A FILE THAT IS NOT ITS OWN (practice: repair-cannot-discard-work):
+# a path git tracks, one the tracked sync delivered (MANIFEST.json `ships`),
+# one precedent.json declines, and an untracked file this never wrote, or
+# wrote and somebody since edited, are each left exactly as they are. A file
+# it wrote that no practice ships any more is removed only while unchanged.
+SESSION_SHIPS_RECORD = pr.bv.SESSION_SHIPS_RECORD
+SESSION_HOOKS_FILE = '.precedent/practice_hooks.json'
+_EXCLUDE_BEGIN = ('# BEGIN precedent session ships -- files a practice set '
+                  'this repository does not track ships; written by '
+                  'precedent_materialize.deliver_session_ships, never by hand')
+_EXCLUDE_END = '# END precedent session ships'
+
+
+def _git(repo, *args):
+    return subprocess.run(['git', '-C', str(repo), *args],
+                          capture_output=True, text=True)
+
+
+def _git_tracks(repo, rel):
+    return _git(repo, 'ls-files', '--error-unmatch', '--', rel).returncode == 0
+
+
+def _exclude_file(repo):
+    """-> this clone's info/exclude, or None outside a git work tree. Asked
+    of git, so a linked worktree gets the common one every worktree reads."""
+    r = _git(repo, 'rev-parse', '--git-path', 'info/exclude')
+    if r.returncode != 0 or not r.stdout.strip():
+        return None
+    p = pathlib.Path(r.stdout.strip())
+    return p if p.is_absolute() else pathlib.Path(repo) / p
+
+
+def _set_excluded(repo, paths):
+    """Make the precedent block of info/exclude list exactly `paths`."""
+    ex = _exclude_file(repo)
+    if ex is None:
+        return
+    try:
+        old = ex.read_text(encoding='utf-8') if ex.is_file() else ''
+    except OSError:
+        return
+    keep, inside = [], False
+    for line in old.splitlines():
+        if line == _EXCLUDE_BEGIN:
+            inside = True
+            continue
+        if inside:
+            if line == _EXCLUDE_END:
+                inside = False
+            continue
+        keep.append(line)
+    if paths:
+        keep += [_EXCLUDE_BEGIN, *(f'/{p}' for p in sorted(paths)), _EXCLUDE_END]
+    new = '\n'.join(keep) + ('\n' if keep else '')
+    if new != old:
+        try:
+            ex.parent.mkdir(parents=True, exist_ok=True)
+            ex.write_text(new, encoding='utf-8')
+        except OSError:
+            pass
+
+
+def _session_ship_record(repo):
+    try:
+        data = json.loads((pathlib.Path(repo) / SESSION_SHIPS_RECORD)
+                          .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    files = data.get('files') if isinstance(data, dict) else None
+    return {k: v for k, v in (files or {}).items()
+            if isinstance(k, str) and isinstance(v, dict)}
+
+
+def _write_session_ship_record(repo, files):
+    path = pathlib.Path(repo) / SESSION_SHIPS_RECORD
+    if not files and not path.is_file():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        '_comment': 'Untracked, per clone: the files a practice set this '
+                    'repository does not track ships, delivered by '
+                    'tools/precedent_materialize.py (deliver_session_ships) '
+                    'and kept out of git by .git/info/exclude.',
+        'files': {k: files[k] for k in sorted(files)}}, indent=2) + '\n',
+        encoding='utf-8')
+
+
+def release_session_ships(repo, paths):
+    """The tracked sync now delivers `paths`: they stop being this clone's
+    untracked copies, so git sees them and they get committed."""
+    rec = _session_ship_record(repo)
+    if not any(p in rec for p in paths):
+        return
+    for p in paths:
+        rec.pop(p, None)
+    _write_session_ship_record(repo, rec)
+    _set_excluded(repo, set(rec))
+
+
+def deliver_session_ships(repo, practices, dry_run=False):
+    """Deliver the `ships:` files and wire the `hooks:` of `practices` -- the
+    [(fm, practice_file)] a session carries from sources this repository
+    does not track -- without touching the tracked tree. See the section
+    comment above. -> {'delivered', 'removed', 'left', 'hooks', 'notes'},
+    each a list of strings. Never raises for a practice's own declaration:
+    this runs from a session-start hook, where an exception takes the
+    session with it (practice: fail-gracefully)."""
+    repo = pathlib.Path(repo).resolve()
+    out = {'delivered': [], 'removed': [], 'left': [], 'hooks': [], 'notes': []}
+    def _ships(fm):
+        try:
+            return pr.bv.ships_paths(fm)
+        except ValueError:
+            return ['?']
+    if not any(_ships(fm) for fm, _f in practices) \
+            and not (repo / SESSION_SHIPS_RECORD).is_file():
+        return out                 # nothing to deliver and nothing delivered
+    if _exclude_file(repo) is None:
+        out['notes'].append(f'{repo} is not a git work tree, so the files a '
+                            f'set it does not track ships were not delivered')
+        return out
+    try:
+        declined = _declined_ships(repo)
+    except MaterializeError as e:
+        out['notes'].append(str(e))
+        declined = {}
+    tracked_ships = set(_prior_ship_hashes(repo))
+    prior = _session_ship_record(repo)
+    files, owner, hook_rows = {}, {}, []
+    for fm, pfile in practices:
+        pfile = pathlib.Path(pfile)
+        slug = pr.bv._json_str(fm.get('slug', '')) or pfile.stem
+        if pr.bv._is_engine_dev_scoped(fm):
+            continue
+        try:
+            paths = pr.bv.ships_paths(fm)
+            hooks = pr.bv.practice_hooks(fm)
+        except ValueError as e:
+            out['notes'].append(f'{slug}: {e} -- nothing of it delivered')
+            continue
+        root = pfile.resolve().parent.parent
+        mine = set()
+        for rel in paths:
+            why = pr.bv.ship_path_problem(rel)
+            if why:
+                out['notes'].append(f'{slug}: `ships:` entry {rel!r} {why}')
+                continue
+            dest_rel = pathlib.PurePosixPath(rel).as_posix()
+            src, dest = root / rel, repo / dest_rel
+            if dest_rel in declined or dest_rel in tracked_ships:
+                continue
+            if dest_rel in owner and owner[dest_rel] != str(root):
+                out['notes'].append(f'{dest_rel} is shipped by two sets; the '
+                                    f'first one read is kept')
+                continue
+            if not src.is_file():
+                out['notes'].append(f'{dest_rel} ({slug}) is not in its set at '
+                                    f'{root} -- a stale clone; not delivered')
+                continue
+            if src.resolve() == dest.resolve() or _git_tracks(repo, dest_rel):
+                continue           # the repository's own file
+            owner[dest_rel] = str(root)
+            data = src.read_bytes()
+            want = hashlib.sha256(data).hexdigest()[:16]
+            if dest.is_file():
+                have = hashlib.sha256(dest.read_bytes()).hexdigest()[:16]
+                ours = (prior.get(dest_rel) or {}).get('sha256_16') == have
+                if have != want and not ours:
+                    out['left'].append(dest_rel)
+                    continue
+            if not dest.is_file() or dest.read_bytes() != data:
+                out['delivered'].append(dest_rel)
+                if not dry_run:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(data)
+                    os.chmod(dest, 0o755 if os.access(src, os.X_OK) else 0o644)
+            files[dest_rel] = {'sha256_16': want, 'practice': slug,
+                               'set': root.name}
+            mine.add(dest_rel)
+        for h in hooks:
+            if h['run'] in mine:
+                hook_rows.append((h['event'], h['matcher'], pr.bv.hook_command(h)))
+    for dest_rel, row in sorted(prior.items()):
+        if dest_rel in files or dest_rel in tracked_ships:
+            continue
+        dest = repo / dest_rel
+        if not dest.is_file() or _git_tracks(repo, dest_rel):
+            continue
+        if hashlib.sha256(dest.read_bytes()).hexdigest()[:16] == row.get('sha256_16'):
+            out['removed'].append(dest_rel)
+            if not dry_run:
+                dest.unlink()
+        else:
+            out['left'].append(dest_rel)
+    if not dry_run:
+        _write_session_ship_record(repo, files)
+        _set_excluded(repo, set(files))
+    out['hooks'] = _write_session_hooks(repo, hook_rows, dry_run=dry_run)
+    return out
+
+
+def _write_session_hooks(repo, rows, dry_run=False):
+    """.precedent/practice_hooks.json, in process/practice_hooks.json's shape,
+    less any hook .claude/settings.json or that tracked file already runs.
+    -> the commands it lists. A repository with no .claude/settings.json runs
+    no Claude Code hooks, so it gets none, as add_practice_hooks does."""
+    import precedent_vendor_engine as pve
+    todo = pve._practice_hooks_to_register(repo, rows) or []
+    tracked = {c for _e, _m, c in pve._registered_practice_hooks(repo)}
+    todo = [t for t in todo if t[2] not in tracked]
+    path = pathlib.Path(repo) / SESSION_HOOKS_FILE
+    if not dry_run and (todo or path.is_file()):
+        text = json.dumps({
+            '_comment': 'Untracked, per clone: hooks the practices of a set '
+                        'this repository does not track declare. Written by '
+                        'tools/precedent_materialize.py at session start; '
+                        'run by tools/precedent_hooks.py.',
+            'hooks': [{'event': e, 'matcher': m, 'command': c}
+                      for e, m, c in todo]}, indent=2) + '\n'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.is_file() or path.read_text(encoding='utf-8') != text:
+            path.write_text(text, encoding='utf-8')
+    return [c for _e, _m, c in todo]
+
+
 # The permanent hook stub (templates/harness/claude-code/hooks/, since
 # 2026-10-07) runs tools/<its own name> and does nothing when that script is
 # missing. A source's adapters started shipping it on 2026-10-08, so a sync
@@ -1400,6 +1655,11 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
         ships_written.append({'path': dest_rel, 'source': source_name,
                               'practice': slug, 'sha256_16': want,
                               'executable': executable})
+    if ships_written and not dry_run:
+        # A file this clone had as an untracked session copy (a set the
+        # person brought, now declared here) is the tracked tree's from now
+        # on: out of info/exclude, so it is committed with the sync.
+        release_session_ships(out_dir, [s['path'] for s in ships_written])
     stale_ships = sorted(set(prior_ships) - {s['path'] for s in ships_written}
                          - {d['path'] for d in declined_rows})
     if stale_ships and not dry_run:
