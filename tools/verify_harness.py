@@ -38920,6 +38920,54 @@ def check_promote_only_and_tier_branches():
                                            str(cfg), head_sha=fix_sha) is not None))
         finally:
             pb.main_test_failed = saved_failed
+        # promote-only's content exception (Morgan, 2026-10-13, decided): a
+        # change touching only declared content_paths goes straight into
+        # main; anything else beside it, precedent.json included, does not.
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import precedent_resolve  # noqa: F401 -- content_only reads it
+        finally:
+            sys.path.pop(0)
+        base_tip = git(work, 'rev-parse', 'main').stdout.strip()
+        (work / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'pre-staging',
+             'content_paths': ['content/']}), encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'declare content')
+        git(work, 'push', '-q', 'origin', 'HEAD:main')
+        decl_tip = git(work, 'rev-parse', 'HEAD').stdout.strip()
+
+        def change(*files):
+            git(work, 'reset', '-q', '--hard', decl_tip)
+            for f in files:
+                (work / f).parent.mkdir(parents=True, exist_ok=True)
+                (work / f).write_text('- [ ] buy milk\n', encoding='utf-8')
+            git(work, 'add', '-A')
+            git(work, 'commit', '-q', '-m', 'add')
+            return git(work, 'rev-parse', 'HEAD').stdout.strip()
+        try:
+            sha = change('content/list.md')
+            cases.append(('on: a change only to content_paths is pushed straight '
+                          'to main', push_refused('origin HEAD:main') is None))
+            cases.append(('on: ...and its pull request into main is merged',
+                          pb.merge_refusal(work, ['main'], ['claude/add'],
+                                           str(cfg), head_sha=sha) is None))
+            sha = change('content/list.md', 'notes.md')
+            cases.append(('on: a file outside content_paths beside it is refused',
+                          push_refused('origin HEAD:main') is not None
+                          and pb.merge_refusal(work, ['main'], ['claude/add'],
+                                               str(cfg), head_sha=sha) is not None))
+            git(work, 'reset', '-q', '--hard', decl_tip)
+            (work / 'precedent.json').write_text(_json.dumps(
+                {'base_branch': 'main', 'landing_branch': 'pre-staging',
+                 'content_paths': ['content/', 'notes.md']}), encoding='utf-8')
+            git(work, 'commit', '-q', '-am', 'widen content')
+            cases.append(('on: widening content_paths in the same change is refused',
+                          push_refused('origin HEAD:main') is not None))
+        finally:
+            git(work, 'push', '-q', '-f', 'origin', f'{base_tip}:refs/heads/main')
+            git(work, 'reset', '-q', '--hard', base_tip)
+            git(work, 'fetch', '-q', 'origin')
         cases.append(('on: an ambiguous base (pre-staging and staging at one '
                       'commit) is not refused',
                       merge_refused(['pre-staging', 'staging'], ['claude/x']) is None))
