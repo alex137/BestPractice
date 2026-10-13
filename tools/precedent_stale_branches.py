@@ -88,6 +88,16 @@ ahead.", strength: decided): the page cannot write to a repository, and a
 tick only has to last until a session that can check that repository
 comes by. A tick made between a session's read of the page and its
 republish is lost, and that branch shows once more.
+
+THE PAGE CARRIES ITS FORMAT (2026-10-13). The JSON block records
+`format`, the PAGE_FORMAT of the engine that built the page. Handed to
+`--merge`, a saved page whose format is newer than this tool's own was
+built by a newer engine, whose fields this one may not read, so merging it
+could drop what the page holds: the tool refuses, writes nothing, and says
+the engine here is older than the page and Update Vendors fixes it. A page
+with no `format` predates the field and counts as format 0, accepted.
+Reported by a consuming repository, 2026-10-13, after a vendored engine
+older than the page's merged it.
 """
 import datetime
 import html
@@ -104,6 +114,11 @@ import urllib.parse
 # when it looks for work left in a scratch folder -- the page is published
 # as an artifact the moment it is built, so it is never work at risk.
 PAGE_FILENAME = 'branch-cleanup.html'
+
+# The version of the page's JSON block (`format` in branch-data). Raise it
+# whenever the block gains a field an older engine would drop or misread:
+# an older engine handed a newer page refuses to merge it (page_format).
+PAGE_FORMAT = 1
 
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(_ENGINE_DIR))
@@ -364,6 +379,21 @@ def read_done(text):
     return {str(k): str(v) for k, v in done.items()} if isinstance(done, dict) else {}
 
 
+def page_format(text):
+    """-> the `format` a saved page's JSON block records: 0 for a page
+    without one (built before the field existed, or with no JSON block at
+    all), None when the block cannot be read or the value is not a whole
+    number."""
+    m = _DATA.search(text)
+    if not m:
+        return 0
+    try:
+        fmt = json.loads(m.group(1)).get('format', 0)
+    except (ValueError, AttributeError):
+        return None
+    return fmt if isinstance(fmt, int) and not isinstance(fmt, bool) else None
+
+
 def read_page(text):
     """-> [{'owner', 'repo', 'checked', 'branches': [[branch, date]]}] from a
     page this tool built: its JSON block, or, on a page built before it
@@ -434,7 +464,7 @@ def render_html(groups, now=None, tz='', carried=()):
                              f'Not open in the session that refreshed this page: '
                              f'as listed when last checked{when}. A branch here '
                              f'may already be gone.'))
-    data = {'built': now.isoformat(), 'done': {}, 'repos': [
+    data = {'format': PAGE_FORMAT, 'built': now.isoformat(), 'done': {}, 'repos': [
         {'owner': o, 'repo': n, 'checked': now.isoformat(),
          'branches': [[b, d] for b, d in rows]} for o, n, rows in groups] + [
         {'owner': o, 'repo': n, 'checked': c, 'branches': [[b, d] for b, d in rows]}
@@ -556,6 +586,15 @@ def main(argv):
                 previous, done = read_page(prev_text), read_done(prev_text)
             except OSError as e:
                 print(f'Cannot read {prev}: {e}. Nothing written.')
+                return 2
+            fmt = page_format(prev_text)
+            if fmt is not None and fmt > PAGE_FORMAT:
+                print(f'{prev} was built by a newer engine (page format '
+                      f'{fmt}; this engine writes format {PAGE_FORMAT}). The '
+                      f'engine here is older than the page, and merging could '
+                      f'drop what the page holds. Nothing written. Update '
+                      f'Vendors in this repository brings the engine up to '
+                      f'date; then run this again.')
                 return 2
             if not previous and '--replace' not in argv:
                 print(f'{prev} holds no branch list this tool can read, so '

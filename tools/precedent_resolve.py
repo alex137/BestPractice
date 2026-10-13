@@ -1494,13 +1494,45 @@ def declared_record_paths(repo):
     READER of that list: precedent_check's link and lineage checks and
     precedent_practice_refs' citation scan all ask here. Never raises; a
     missing or unreadable precedent.json declares nothing."""
+    return _declared_path_list(repo, 'record_paths')
+
+
+def declared_content_paths(repo):
+    """-> precedent.json's `content_paths` entries, as path strings; an
+    entry ending in "/" covers a directory. Content is the person's own
+    material -- a personal to-do list, notes, a manuscript -- kept in the
+    repository but not written by a session's work, so the engine's checks
+    about session work skip it: doc_lint's open-item check (practice:
+    todo-is-a-handoff) and its unglossed-acronym scan, warning and gate
+    alike (practice: acronyms-glossary). Checks about a document an outside
+    reader sees (links, process residue) still read it. Entries take the
+    record_paths shape: a string, or {"path", "reason"}. THE ONE READER of
+    that list; never raises, and a missing or unreadable precedent.json
+    declares nothing. Reported by a consuming repository, 2026-10-13: a
+    personal to-do list's own `- [ ]` lines were refused as unexplained
+    open items."""
+    return _declared_path_list(repo, 'content_paths')
+
+
+def in_declared_paths(path, declared):
+    """True when the repository-relative `path` is one of `declared`, or
+    sits under one ending in "/" -- the one matching rule record_paths and
+    content_paths share."""
+    rel = str(path).replace('\\', '/')
+    if rel.startswith('./'):
+        rel = rel[2:]
+    return any(rel == d or (d.endswith('/') and rel.startswith(d))
+               for d in declared)
+
+
+def _declared_path_list(repo, key):
     try:
         cfg = json.loads((pathlib.Path(repo) / 'precedent.json')
                          .read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return []
     out = []
-    for e in (cfg.get('record_paths') if isinstance(cfg, dict) else None) or []:
+    for e in (cfg.get(key) if isinstance(cfg, dict) else None) or []:
         path = e.get('path') if isinstance(e, dict) else e
         if isinstance(path, str) and path.strip():
             out.append(path.strip())
