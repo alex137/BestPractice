@@ -2263,28 +2263,36 @@ def _hand_kept_files(repo, rel):
     return [target]
 
 
+_COPY_VERBATIM = re.compile(r'\bcopy verbatim\b', re.IGNORECASE)
+
+
 def _still_an_old_template(repo, rel, tmpl, rev):
     """Write the current `tmpl` (at `rev`) over install-once file `rel` when
-    `rel` is, byte for byte, a version `tmpl` had in the source's history:
-    the repository never made it its own, so there is nothing of its to
-    lose, and the older text stays in the source's history. -> whether it
-    was written. A file with any edit of its own, or one that is a view built
-    from a source file, is never touched: the lines are left for the person
-    as before (practice: repair-cannot-discard-work).
+    the template says it is copied verbatim and `rel`, at the path the
+    template installs to, is byte for byte a version `tmpl` had in the
+    source's history: the repository never made it its own, so there is
+    nothing of its to lose, and the older text stays in the source's
+    history. -> whether it was written. A file with any edit of its own, a
+    template meant to be adapted (TODO.md, MAP.md, GETTING_STARTED.md: a copy
+    left as installed there is still read and reported), and a view's source
+    file are never touched: the lines are left for the person as before
+    (practice: repair-cannot-discard-work).
 
     2026-10-13, a consuming repository: its pull request template matched
     the old template exactly, the template's only change was one comment
     line, and the update still left it for a person to copy in by hand."""
     import hashlib
     target = pathlib.Path(repo) / rel
-    if _hand_kept_files(repo, rel) != [target]:
+    if (rel, tmpl) not in INSTALL_ONCE_TEMPLATES or _hand_kept_files(repo, rel) != [target]:
         return False
     current = _source_text(rev, tmpl)
+    if current is None or not _COPY_VERBATIM.search(current):
+        return False
     try:
         data = target.read_bytes()
     except OSError:
         return False
-    if current is None or data == current.encode('utf-8'):
+    if data == current.encode('utf-8'):
         return False
     if pve.template_text_at(SOURCE, rev, tmpl,
                             hashlib.sha256(data).hexdigest()) is None:
