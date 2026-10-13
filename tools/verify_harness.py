@@ -59950,6 +59950,35 @@ def check_branch_cleanup_page_merges_the_saved_page():
                           "claude.use('artifact')" in merged
                           and 'page.publish(' in merged
                           and '"artifact": {}' in said, said))
+            # 2026-10-13: the page carries its format; an engine older
+            # than the page refuses to merge it rather than drop fields it
+            # cannot read, and a page from before the field is accepted.
+            cases.append(('a page records the format of the engine that built it',
+                          _sb.page_format(old) == _sb.PAGE_FORMAT >= 1,
+                          _sb.page_format(old)))
+            newer = _sb._DATA.sub(
+                lambda m: m.group(0).replace(
+                    f'"format": {_sb.PAGE_FORMAT}',
+                    f'"format": {_sb.PAGE_FORMAT + 1}'), old)
+            (td / 'newer.html').write_text(newer, encoding='utf-8')
+            out.unlink()
+            rc, said = run('--merge', str(td / 'newer.html'))
+            cases.append(('a page built by a newer engine is refused, nothing '
+                          'written, and Update Vendors is named',
+                          rc == 2 and not out.exists()
+                          and 'built by a newer engine' in said
+                          and 'Update Vendors' in said, said))
+            unformatted = _sb._DATA.sub(
+                lambda m: m.group(0).replace(f'"format": {_sb.PAGE_FORMAT}, ', ''), old)
+            (td / 'unformatted.html').write_text(unformatted, encoding='utf-8')
+            rc, said = run('--merge', str(td / 'unformatted.html'))
+            got = sorted(r['repo'] for r in _sb.read_page(out.read_text(encoding='utf-8')))
+            cases.append(('CONTROL: a page with no format field counts as format '
+                          '0 and merges',
+                          _sb.page_format(unformatted) == 0 and rc == 0
+                          and got == ['B', 'C']
+                          and 'built by a newer engine' not in said,
+                          f'{got} {said}'))
         finally:
             _sb.collect, _sb._person = real_collect, real_person
             if saved_ledger is None:
