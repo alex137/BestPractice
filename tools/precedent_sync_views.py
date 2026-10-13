@@ -1454,6 +1454,17 @@ def main():
         print(f"precedent_sync_views: {line}", file=sys.stderr)
     for line in standing_findings_of_arrivals(repo, rules_before):
         print(f"precedent_sync_views: {line}", file=sys.stderr)
+    # The sets this sync leaves out of the tracked tree (one the person
+    # brings, above all) get their `ships:` files and hooks too, untracked,
+    # so a sync leaves this clone as ready as a session start would
+    # (practice: practice-carries-its-files).
+    try:
+        import precedent_session_practices as _psp
+        _psp.deliver_ships(repo, _psp.collect(repo)[0])
+    except Exception as e:                          # practice: fail-gracefully
+        print(f"precedent_sync_views: the files a set this repository does not "
+              f"track ships were not delivered ({type(e).__name__}: {e}); the "
+              f"next session start does it", file=sys.stderr)
     print(f"precedent_sync_views OK: materialized {len(written)} practice(s), "
           f"{len(checks_written)} check script(s)/test(s) and "
           f"{len(adapters_written)} harness adapter(s), wrote "

@@ -33274,6 +33274,9 @@ def check_brought_set_ships_reach_the_session_untracked():
         (consumer / '.claude' / 'settings.json').write_text(
             '{"hooks": {}}\n', encoding='utf-8')
         (consumer / '.gitignore').write_text('.precedent/\n', encoding='utf-8')
+        (consumer / 'AGENTS.md').write_text(
+            '# Fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
 
         def config(extra=None):
             d = {'visibility': 'private', 'sources': [
@@ -33320,6 +33323,16 @@ def check_brought_set_ships_reach_the_session_untracked():
                       repr(hooks_for('SendUserFile'))))
         cases.append(('3. ...and stays quiet for any other tool',
                       command not in hooks_for('Bash')))
+        delivered.unlink()
+        r = subprocess.run([sys.executable,
+                            str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                            '--repo', str(consumer)],
+                           capture_output=True, text=True, env=genv)
+        cases.append(('3. a sync delivers it too, as a session start would',
+                      r.returncode == 0 and delivered.is_file(),
+                      (r.stdout + r.stderr)[-400:]))
+        git('add', '-A')
+        git('commit', '-qm', 'synced')
         rc, out = session_start()
         cases.append(('4. a second session start is quiet: nothing to deliver',
                       rc == 0 and 'delivered' not in out, out[-300:]))

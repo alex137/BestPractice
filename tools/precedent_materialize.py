@@ -1268,8 +1268,17 @@ def deliver_session_ships(repo, practices, dry_run=False):
     session with it (practice: fail-gracefully)."""
     repo = pathlib.Path(repo).resolve()
     out = {'delivered': [], 'removed': [], 'left': [], 'hooks': [], 'notes': []}
+    def _ships(fm):
+        try:
+            return pr.bv.ships_paths(fm)
+        except ValueError:
+            return ['?']
+    if not any(_ships(fm) for fm, _f in practices) \
+            and not (repo / SESSION_SHIPS_RECORD).is_file():
+        return out                 # nothing to deliver and nothing delivered
     if _exclude_file(repo) is None:
-        out['notes'].append(f'{repo} is not a git work tree; nothing delivered')
+        out['notes'].append(f'{repo} is not a git work tree, so the files a '
+                            f'set it does not track ships were not delivered')
         return out
     try:
         declined = _declined_ships(repo)
