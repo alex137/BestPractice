@@ -4519,6 +4519,86 @@ def _declared_hooks_exist(ctx):
     return found
 
 
+@check('fresh-before-write', 'tree',
+       'the freshness guard is wired in this repo\'s .claude/settings.json: a '
+       'SessionStart entry and a PreToolUse entry whose matcher takes Bash, '
+       'each passing its mode and an explicit base branch, the SessionStart '
+       'one not async',
+       'what the guard DOES (verify_harness.py tests that at its source, '
+       'tools/freshness-guard.sh, in every case the practice names); a repo '
+       'with no .claude/settings.json, or one that declines the guard in '
+       'precedent.json\'s declined_adapters; and whether the base branch it '
+       'names is the right one',
+       selects_on=('.claude/**', 'precedent.json'))
+def _fresh_before_write(ctx):
+    """Both halves of the freshness guard, wired the way the Rule says.
+
+    WHY HERE (2026-10-13, Morgan: "Let's do #1"). The individual set kept
+    its own check for this after the rule moved to universal, so the rule
+    in force was checked nowhere -- and that copy predated the hook stubs,
+    could not find the guard any more, and failed every repository it was
+    pointed at. How the guard behaves is tested once, at its source, by
+    verify_harness.py; what can still go wrong in one repository is its
+    wiring, and that is all this reads. A refresh wires a missing entry on
+    its own (precedent_vendor_engine.py's HOOK_WIRING), so a finding here is
+    an entry somebody edited, between refreshes."""
+    settings = ROOT / '.claude' / 'settings.json'
+    if not settings.is_file():
+        raise NotApplicable('no .claude/settings.json here, so nothing to wire')
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = {}
+    if any(isinstance(e, dict) and pathlib.PurePosixPath(
+            str(e.get('path', ''))).name == 'freshness-guard.sh'
+           for e in (cfg.get('declined_adapters') or [])):
+        raise NotApplicable('precedent.json declines freshness-guard.sh')
+    try:
+        hooks = json.loads(settings.read_text(encoding='utf-8')).get('hooks') or {}
+    except (OSError, ValueError) as e:
+        return [Finding('.claude/settings.json', f'does not parse: {e}')]
+
+    def entries(event):
+        for entry in hooks.get(event) or []:
+            for hook in (entry.get('hooks') or []):
+                cmd = hook.get('command', '')
+                if 'freshness-guard.sh' in cmd:
+                    yield entry, hook, cmd.split()
+
+    found = []
+    for event, mode in (('SessionStart', 'session-start'),
+                        ('PreToolUse', 'pre-write')):
+        got = [(e, h, argv) for e, h, argv in entries(event)
+               if mode in argv]
+        if not got:
+            found.append(Finding(
+                '.claude/settings.json',
+                f'no {event} entry runs freshness-guard.sh {mode} -- that '
+                f'half of the guard is off. The next Update Vendors wires it; '
+                f'to keep it off, decline it in precedent.json\'s '
+                f'declined_adapters with the reason'))
+            continue
+        for entry, hook, argv in got:
+            after = argv[argv.index(mode) + 1:]
+            if not after:
+                found.append(Finding(
+                    '.claude/settings.json',
+                    f'the {event} entry passes no base branch after `{mode}` '
+                    f'-- the Rule says it is explicit, never detected'))
+            if event == 'SessionStart' and hook.get('async') is True:
+                found.append(Finding(
+                    '.claude/settings.json',
+                    'the SessionStart entry is async, so the session can '
+                    'read the checkout before the guard has fetched'))
+            if event == 'PreToolUse' and 'Bash' not in (entry.get('matcher') or ''):
+                found.append(Finding(
+                    '.claude/settings.json',
+                    f'the PreToolUse matcher {entry.get("matcher")!r} leaves '
+                    f'out Bash -- a session editing through cat or sed in '
+                    f'Bash would never meet the guard'))
+    return found
+
+
 # This repo dogfoods its own Claude Code template: these hooks under
 # .claude/hooks/ carry no BestPractice-specific content, so the installed
 # copy is meant to BE templates/harness/claude-code/hooks/<name>, verbatim.

@@ -52,11 +52,14 @@ switching off: the gate stops printing its routine survey in the ordinary
 run and keeps printing it where the deep review asks for it. Trading the
 noise for a blind spot is the one version of this that is not worth having.
 
-**Whether the survey is quiet is a per-person setting, and this rule does not
-decide it.** In this engine the blocklist itself carries the directive, so a
-person who *wants* those notes on every run leaves them on and is not in
-violation of anything. What the rule governs is what a session does with
-whatever the gate printed.
+**The survey is quiet by default, and a person can turn it on.** Since
+2026-10-13 the gate prints it on an ordinary run only when the blocklist says
+`# visibility-audit: stem-notes on -- <reason>`; a person who wants those
+notes on every run says so there and is not in violation of anything. Before
+that the default was on and every blocklist had to opt out, and two of three
+practice sets had not -- so their owners were shown the notes on every push,
+which is what this rule exists to end. What the rule governs is what a
+session does with whatever the gate printed.
 
 **The risk the notes were about is better covered by a refusal than by a
 question.** Where the machinery can turn a latent gap into a hard hit — a
@@ -125,16 +128,16 @@ mechanism already supports.
 Nothing to configure for the rule itself, and the occasion index entry is
 generated, so every session reads it.
 
-**Turning the routine survey off is separate and optional**, per the Detail
-above: it is a directive in the blocklist, belonging to whoever owns that
-list. A person who wants the notes on every run changes nothing.
+**Turning the routine survey on is separate and optional**, per the Detail
+above: `stem-notes on` in the blocklist, belonging to whoever owns that list.
+A blocklist that says nothing is quiet. `stem-notes off`, the old opt-out,
+still parses and changes nothing.
 
-**No mechanical check, and one was attempted.** The rule proper is about what
+**No mechanical check, and none is needed now.** The rule proper is about what
 a session *says*, and no check can read a reply that was never written. The
-mechanism half **is** mechanically checkable — whether a blocklist still
-declares the quiet directive, which is worth checking because a directive that
-looks like a comment is the first thing a tidy-up of a long file deletes — but
-**a universal check cannot require it**, since leaving the survey on is a
-legitimate choice this rule deliberately does not make for anyone. A per-set
-check of that kind is the right home for it, keyed to that set's own blocklist,
-and is not something this level can hold.
+mechanism half used to need one: while the survey was on by default, a set
+kept a per-set check that its blocklist still declared the opt-out, since a
+directive that looks like a comment is the first thing a tidy-up of a long
+file deletes. With the default off (2026-10-13) there is no line to lose, the
+per-set check was removed, and the gate's default is tested where it lives, in
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py).

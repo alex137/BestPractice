@@ -86,11 +86,12 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   a missing stem is latent risk, not a hit, and the content scan already
   covers what this tree says today. It is silent with no owner declared,
   which is also what keeps a private name out of a public CI log.
-  `# visibility-audit: stem-notes off -- why` in the blocklist silences it
-  on ordinary runs for the person whose file that is; --survey prints it
-  regardless, and very_deep_check.py's visibility pass asks for it there, so
-  the recommendation arrives inside a review somebody asked for rather than
-  beside every push. A HIT is never silenceable by any of this.
+  Ordinary runs do not print it (since 2026-10-13; before, each blocklist
+  had to say `stem-notes off` to stop it). `# visibility-audit: stem-notes
+  on -- why` prints it on every run for the person whose file that is;
+  --survey prints it regardless, and very_deep_check.py's visibility pass
+  asks for it there, so the recommendation arrives inside a review somebody
+  asked for rather than beside every push. A HIT is never silenceable by any of this.
 
   AND THE OTHER ANSWER TO THE SAME GAP, which refuses instead of reporting:
   `# visibility-audit: auto-cover-bare-names on -- why` makes every clone on
@@ -763,26 +764,30 @@ def _address_is_public(address, public_domains):
 
 
 def stem_notes_enabled(path):
-    """-> True unless the blocklist says `stem-notes off`.
+    """-> True only if the blocklist says `stem-notes on`.
 
-    Default ON: a person who has never heard of this directive keeps the
-    behaviour they had. Off is a thing you say on purpose, in your own file,
-    with a reason -- and it silences ONLY the routine notes, never a hit."""
+    Default OFF since 2026-10-13 (Morgan: "Let's do #1"). The routine notes
+    are what leak-gate-is-background says a session never brings to the
+    person, and with the default on, every blocklist had to carry an opt-out
+    line or its owner was shown them on every push -- two of three practice
+    sets did not carry it. --survey still prints them, which is how the very
+    deep check raises them, in a review somebody asked for. Silencing them
+    never silences a hit (practice: leak-gate-is-background)."""
     try:
         text = path.read_text(encoding='utf-8')
     except (OSError, AttributeError):
-        return True
+        return False
     for line in text.splitlines():
         m = STEM_NOTES_RE.match(line.strip())
         if m:
             return m.group(1).lower() == 'on'
-    return True
+    return False
 
 
 def auto_cover_enabled(path):
     """-> True only if the blocklist says `auto-cover-bare-names on`.
 
-    Default OFF, the opposite of stem_notes_enabled: this one can fail a push
+    Default OFF, like stem_notes_enabled, and for a stronger reason: this one can fail a push
     that passed yesterday, so it is never switched on under anybody without
     them writing the line."""
     try:
@@ -1831,14 +1836,14 @@ def main():
         # The other half of the same question. The allowlist above is on, so
         # every `owner/name` mention is covered -- these are the repositories
         # whose BARE name nothing covers, which is the form that actually
-        # leaked. Reported every run, because the moment to add a stem is
-        # while the repository is in front of you.
-        # ROUTINE NOTES ARE OPT-OUT-ABLE, HITS ARE NOT. `stem-notes off` in
-        # the blocklist silences the survey on ordinary runs; --survey asks
-        # for it by name, which is how very_deep_check.py's visibility pass
-        # gets it. Nothing here touches whether a real hit fails the push.
+        # leaked.
+        # ROUTINE NOTES ARE OPT-IN, HITS ARE NOT (2026-10-13; opt-out
+        # before). Ordinary runs stay quiet unless the blocklist says
+        # `stem-notes on`; --survey asks for the survey by name, which is how
+        # very_deep_check.py's visibility pass gets it. Nothing here touches
+        # whether a real hit fails the push.
         _survey = '--survey' in args
-        _notes_on = _survey or _bl_path is None or stem_notes_enabled(_bl_path)
+        _notes_on = _survey or (_bl_path is not None and stem_notes_enabled(_bl_path))
         _gaps = (uncovered_repo_stems(local_clone_refs(ROOT), _policy[0],
                                       _policy[1], blocklist)
                  if _notes_on else [])
