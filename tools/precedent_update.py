@@ -2459,10 +2459,11 @@ def set_pins(repo):
     """-> {name: (clone path, commit)} for every shared or individual set
     this repository's MANIFEST.json records syncing at a commit
     (precedent_source_pins): what a views sync took from each set."""
+    import precedent_resolve as pr
     import precedent_source_pins as psp
     out = {}
     for e in psp._manifest(repo).get('sources') or []:
-        if (not isinstance(e, dict) or e.get('level') == 'universal'
+        if (not isinstance(e, dict) or pr.declared_level(e) == 'universal'
                 or not e.get('name') or not e.get('commit') or not e.get('path')):
             continue
         path = pathlib.Path(str(e['path'])).expanduser()
