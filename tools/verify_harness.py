@@ -57524,7 +57524,7 @@ def check_data_branches_are_named_for_the_ladder():
                           write == 'data-check-receipts' and new_tip == old_tip
                           and g(o, 'rev-parse', 'precedent-check-receipts')
                           .stdout.strip() == old_tip
-                          and any('left as it is' in m for m in said),
+                          and any('left for you to delete' in m for m in said),
                           f'{write} {new_tip[:8]} {old_tip[:8]} {said}'))
             cases.append(('once moved, everyone there follows, on the ladder or not',
                           pdb.name(w, pdb.RECEIPTS, ladder=False)[0]
