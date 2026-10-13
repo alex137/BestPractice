@@ -1899,7 +1899,9 @@ def check_leak_gate_notes_an_uncovered_private_repo():
                 capture_output=True, text=True, cwd=str(repo), env=env)
             return r.returncode, r.stdout + r.stderr
 
-        rc, out = gate_output(declared)
+        # The survey's content, read where it is printed now: --survey
+        # (ordinary runs are quiet by default since 2026-10-13).
+        rc, out = gate_output(declared, '--survey')
         cases = [
             ('the note names the uncovered repository',
              'fixtureacct/Kestrelwood' in out),
@@ -1920,14 +1922,15 @@ def check_leak_gate_notes_an_uncovered_private_repo():
         # An allow line is somebody stating the name may appear. Demanding a
         # stem for it would refuse the exposure they just accepted.
         _rc, out_allowed = gate_output(
-            declared + '# visibility-audit: allow fixtureacct/Kestrelwood -- fixture\n')
+            declared + '# visibility-audit: allow fixtureacct/Kestrelwood -- fixture\n',
+            '--survey')
         cases.append(('an `allow` line for the repo silences the note',
                       'Kestrelwood' not in out_allowed))
 
         # And with no owner declared at all the survey must not run: it would
         # otherwise print private repository names into a CI log, which for a
         # public repo is a build log anyone can read.
-        _rc, out_inert = gate_output('\\bquillon[\\w-]*\n')
+        _rc, out_inert = gate_output('\\bquillon[\\w-]*\n', '--survey')
         cases.append(('no private-owner declaration means no survey at all, so '
                       'no name reaches a public build log',
                       'Kestrelwood' not in out_inert
@@ -1952,8 +1955,13 @@ def check_leak_gate_notes_an_uncovered_private_repo():
              and 'does not parse' not in out_off),
             ('--survey prints the note anyway, which is how the very deep '
              'check still reaches it', 'Kestrelwood' in out_survey),
-            ('`stem-notes on` keeps the note, so the default is unchanged '
-             'for anybody who has not opted out', 'Kestrelwood' in out_on),
+            ('`stem-notes on` prints the note on an ordinary run',
+             'Kestrelwood' in out_on),
+            # Default OFF since 2026-10-13: a blocklist that says nothing
+            # is quiet, so no set has to carry an opt-out line to keep its
+            # owner from being shown routine notes on every push.
+            ('a blocklist that says nothing is quiet by default',
+             'Kestrelwood' not in gate_output(declared)[1]),
             ('silencing the note does not silence a HIT: the gate still '
              'exits 0 here only because there is nothing to catch',
              _rc_off == 0 and _rc_surv == 0),
@@ -24428,6 +24436,23 @@ def check_precedent_check_fires():
                       in planted['access-probe-is-wired'][1]
                       and 'python3 tools/precedent_access_check.py .'
                       in planted['access-probe-is-wired'][1]))
+
+        # fresh-before-write -- the guard's pre-write half no longer meets
+        # Bash, the realistic edit (a matcher trimmed to the file tools),
+        # which leaves a session editing through cat or sed unguarded.
+        def _plant_fresh_guard_matcher(repo):
+            f = repo / '.claude' / 'settings.json'
+            d = json.loads(f.read_text(encoding='utf-8'))
+            for entry in d.get('hooks', {}).get('PreToolUse', []):
+                if any('freshness-guard.sh' in h.get('command', '')
+                       for h in entry.get('hooks', [])):
+                    entry['matcher'] = 'Edit|Write|NotebookEdit'
+            f.write_text(json.dumps(d, indent=2) + '\n', encoding='utf-8')
+
+        case('fresh-before-write', _plant_fresh_guard_matcher)
+        cases.append(('fresh-before-write: the planted violation says the '
+                      'pre-write matcher leaves out Bash',
+                      'leaves out Bash' in planted['fresh-before-write'][1]))
 
         case('declared-hooks-exist', _plant_declared_hook)
         cases.append(('declared-hooks-exist: the planted violation names the '
