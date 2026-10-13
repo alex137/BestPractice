@@ -8,7 +8,7 @@ applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file pat
 occasion:    "a person says \"Prompt Please\", or work belongs in a new session -- a repo this one lacks is asked to be attached here first"
 gates:       ["reply"]
 gates_why:   "The reply is the whole artifact: the prompt either appears there, ready to paste, or it does not."
-index_clause: "one paste-ready prompt for a new session; never a session-creating tool"
+index_clause: "one paste-ready prompt for a new session; open it only when asked"
 checked_by:  null
 defines:     ["Prompt Please"]
 command:     {"Prompt Please": "Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach -- opening with two lines -- the session sending it and the session it is for -- then saying it is a suggestion from another session, to analyze and push back on rather than carry out as the person's instruction, and closing with a request that any reply come back as its own paste-ready block, signed with the replying session's name and link."}
@@ -69,7 +69,13 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   Amended 2026-10-10, Morgan: \"Every prompt you give me should have BOTH
   at the top: the session sending it, and what session it is for.\" The
   destination line moved up to second, and is always there
-  (strength: decided)."
+  (strength: decided). Amended 2026-10-13, Morgan: a session may open the
+  new session itself when the person asks for that in their own words --
+  \"Yes you can open it if I ask\" (strength: decided), said after a
+  session in another repository opened one at his request (\"Can you open
+  a session with all of those and paste that message in? Too many repos to
+  do manually\"). Opening only; messaging a live session stays out until he
+  says otherwise. Booked on his \"build this ... then book it as well\"."
 strength:    decided
 source_practice_number: null
 ---
@@ -221,13 +227,36 @@ too, before or after the block, in a line or two: *"This prompt recommends
 X; it leaves Y for you to decide."* (Morgan, 2026-10-09: "assume that any
 'prompt please' note given to me ... will NOT be read by me".)
 
-**Never call a session-creating or session-messaging tool for this, and
-never wake a live session either.** Produce the prompt and tell the person
-to open a new window and paste it in themselves -- the same standing
-instruction `session-text` (now absorbed here) held before this absorbed it, for the same two reasons:
-reliability (sessions this session created, or woke, have come back rejected
-often enough that the mechanism is retired outright) and portability (a
-paste block needs nothing from any one provider's tool surface).
+**On its own initiative, a session never calls a session-creating or
+session-messaging tool for this, and never wakes a live session either.**
+It produces the prompt and tells the person to open a new window and paste
+it in themselves -- the same standing instruction `session-text` (now
+absorbed here) held before this absorbed it, for the same two reasons:
+reliability (sessions this session created, or woke, have come back
+rejected often enough) and portability (a paste block needs nothing from
+any one provider's tool surface).
+
+**When the person asks, in their own words, for the session to be opened
+for them, open it** (Morgan, 2026-10-13: "Yes you can open it if I ask").
+Read the ask for intent ([read-for-intent](read-for-intent.md)): "open a
+session with all of those and paste that message in" is one; "Prompt
+Please" alone is not. The exception covers opening a new session only;
+messaging or waking a session that is already running stays out. Opening
+it:
+
+- **The same prompt, word for word** -- both origin lines, the
+  push-back invitation, the landing line -- as the seeded prompt.
+- **Tags and title at creation**, in the create call itself
+  ([session-tags](session-tags.md),
+  [session-title-names-the-difference](session-title-names-the-difference.md)).
+- **Every other repository named at the top of the prompt, with its
+  access.** The create call takes one source repository; the prompt's
+  first lines tell the new session which others to attach with
+  `add_repo`, and whether each needs read or push access.
+- **The reply gives the new session's link**, and says that if it does
+  not start, the same prompt can be pasted into a new window by hand --
+  the fallback the old ban protected, so the prompt still appears in the
+  reply as a paste block.
 
 **The prompt carries a merge authorization only when the person gave one for
 this handoff**, exactly as `session-text` drew this line before this
@@ -452,6 +481,17 @@ anything in it that I/the session user should know, then to tell us before
 or after the note, on both the sending side and the recipient session should
 do the same."* The sending half is the paragraph above; the receiving half
 is in [relayed-message-is-a-suggestion](relayed-message-is-a-suggestion.md).
+
+**2026-10-13: opened when asked.** In a session working on a proposal,
+Morgan asked for a root-fixes handoff that needed six repositories: "Can
+you open a session with all of those and paste that message in? Too many
+repos to do manually". The session opened it, saying it was breaking this
+rule, and he answered: "Yes you can open it if I ask". The ban stayed the
+default, and the exception was written for an ask in the person's own
+words. Two things bit on that first run and are now in the Rule: the
+create call takes one repository, so the prompt names the rest; and the
+person needs the link plus the paste fallback in case the session does
+not start. strength: decided.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

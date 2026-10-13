@@ -5600,6 +5600,25 @@ def check_doc_lint_fires():
                       not dl.looks_like_roman_numeral('ZQX')
                       and dl.looks_like_roman_numeral('II')))
 
+        # 2026-10-13: "Please do XYZ" and "don't touch department QRST" in a
+        # consuming repo's proposal were reported as unglossed acronyms, and
+        # the repo glossed them as "not an abbreviation" to get past it.
+        (tmp / 'placeholder.md').write_text(
+            "Please do XYZ, and leave department QRST alone; TBD.\n",
+            encoding='utf-8')
+        _s, _u, ph_flagged, *_ = dl.check_file(
+            'placeholder.md', fix=False, known=set(dl.ACRONYM_STOP) - {'TBD'})
+        ph = {tok for _i, tok in ph_flagged}
+        cases.append(('placeholder letters in alphabet order (XYZ, QRST) are '
+                      'not reported as unglossed acronyms, while a real one '
+                      '(TBD) beside them still is',
+                      'XYZ' not in ph and 'QRST' not in ph and 'TBD' in ph))
+        cases.append(('the placeholder check is a grammar, not a stoplist -- '
+                      'LMN reads as one, ZQX and TBD do not',
+                      dl.looks_like_placeholder('LMN')
+                      and not dl.looks_like_placeholder('ZQX')
+                      and not dl.looks_like_placeholder('TBD')))
+
         # --- broken relative links (check 7) -------------------------------
         # 96 links in this repo resolved to nothing before this check
         # existed; the largest group was practices/*.md written with
@@ -33173,6 +33192,217 @@ def check_practice_ships_its_files():
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'a practice\'s `ships:` files travel, are held at the source, and '
           f'a home-only dependency fails at home ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_brought_set_ships_reach_the_session_untracked():
+    """practice: practice-carries-its-files -- a set the person brings ships
+    its files and its hook too, without touching the tracked tree.
+
+    THE INCIDENT (2026-10-13): a consuming repository got the writing set
+    only through the person's individual set (`brings`). The sync delivers a
+    declared set's `ships:` and `hooks:`; a brought set is deferred to the
+    untracked session file, so create-word-doc told every session to run a
+    tools/create_word_doc.py that was not there, and dated-download-names'
+    hook had no tools/dated_name.py to run.
+
+    Planted end to end, both worlds (practice: checks-plant-their-state):
+    a git consumer that declares only a universal set, a person whose
+    individual set brings a set that ships tools/helper.py with a
+    PreToolUse hook, and precedent_session_practices.py run as a session
+    start runs it. Each case states which outcome it asserts (practice:
+    control-asserts-which-failure)."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+        import precedent_hooks as ph
+        import precedent_check as pc
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-brought-ships-'))
+    cases = []
+
+    def practice(root, slug, ships=None, hooks=None):
+        p = root / 'practices' / f'{slug}.md'
+        p.parent.mkdir(parents=True, exist_ok=True)
+        extra = (f'ships: {json.dumps(ships)}\n' if ships is not None else '')
+        extra += (f'hooks: {json.dumps(hooks)}\n' if hooks is not None else '')
+        p.write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+            f'severity: default\napplies_to: ["**"]\noccasion: "x"\n'
+            f'gates: []\nindex_clause: "x"\nchecked_by: null\n'
+            f'{extra}defines: []\nstatus: active\nsupersedes: []\n'
+            f'overrides: null\nadded: 2026-10-13\n'
+            f'approved_by: "harness, 2026-10-13"\n---\n## Rule\nx\n\n'
+            f'## Why\nx\n', encoding='utf-8')
+
+    genv = {k: v for k, v in os.environ.items()
+            if k != 'CLAUDE_CODE_REMOTE' and not k.startswith('PRECEDENT_')}
+    genv.update(HOME=str(tmp / 'home'), GIT_AUTHOR_NAME='T',
+                GIT_AUTHOR_EMAIL='t@example.com', GIT_COMMITTER_NAME='T',
+                GIT_COMMITTER_EMAIL='t@example.com',
+                GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), GIT_CONFIG_NOSYSTEM='1',
+                PRECEDENT_USER_CONFIG=str(tmp / 'user-config.json'))
+
+    def git(*args):
+        return subprocess.run(['git', '-C', str(consumer), *args],
+                              capture_output=True, text=True, env=genv)
+
+    def session_start():
+        r = subprocess.run([sys.executable,
+                            str(ROOT / 'tools' / 'precedent_session_practices.py'),
+                            '--repo', str(consumer), '--quiet'],
+                           capture_output=True, text=True, env=genv)
+        return r.returncode, r.stdout + r.stderr
+
+    def status():
+        return git('status', '--porcelain', '--untracked-files=all').stdout
+
+    def hooks_for(tool):
+        return [label for label, _a, _t in
+                ph.entries_for('PreToolUse', tool, root=consumer, engine={})]
+
+    hook = [{'event': 'PreToolUse', 'matcher': 'SendUserFile',
+             'run': 'tools/helper.py', 'args': ['--hook']}]
+    command = 'python3 $CLAUDE_PROJECT_DIR/tools/helper.py --hook'
+    try:
+        (tmp / 'home').mkdir()
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        uni, ind, brought = tmp / 'universal', tmp / 'mine', tmp / 'brought-set'
+        consumer = tmp / 'consumer'
+        practice(uni, 'uni-fixture')
+        practice(ind, 'mine-fixture')
+        (ind / 'precedent-source.json').write_text(json.dumps({
+            'name': 'mine', 'level': 'individual', 'brings': [
+                {'name': 'brought-set',
+                 'repo_url': 'https://github.com/example/brought-set'}]}),
+            encoding='utf-8')
+        practice(brought, 'helper-fixture', ships=['tools/helper.py'], hooks=hook)
+        (brought / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'brought-set', 'level': 'shared'}), encoding='utf-8')
+        (brought / 'tools').mkdir()
+        src = brought / 'tools' / 'helper.py'
+        src.write_text('print("v1")\n', encoding='utf-8')
+        os.chmod(src, 0o755)
+        (tmp / 'user-config.json').write_text(json.dumps({
+            'format_version': 1,
+            'individual': {'name': 'mine', 'path': str(ind)}}), encoding='utf-8')
+        (consumer / '.claude').mkdir(parents=True)
+        (consumer / '.claude' / 'settings.json').write_text(
+            '{"hooks": {}}\n', encoding='utf-8')
+        (consumer / '.gitignore').write_text('.precedent/\n', encoding='utf-8')
+        (consumer / 'AGENTS.md').write_text(
+            '# Fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+
+        def config(extra=None):
+            d = {'visibility': 'private', 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': str(uni)}]}
+            d.update(extra or {})
+            (consumer / 'precedent.json').write_text(json.dumps(d),
+                                                     encoding='utf-8')
+        config()
+        git('init', '-q')
+        git('add', '-A')
+        git('commit', '-qm', 'base')
+        delivered = consumer / 'tools' / 'helper.py'
+
+        # Control: before the change, the brought set's file never arrived.
+        cases.append(('control: nothing is delivered before a session starts',
+                      not delivered.exists()))
+        rc, out = session_start()
+        cases.append(('1. a session start delivers the brought set\'s file to '
+                      'the path its practice names, executable',
+                      rc == 0 and delivered.is_file()
+                      and os.access(delivered, os.X_OK), out[-400:]))
+        cases.append(('2. ...and the tracked tree does not change: git sees '
+                      'nothing new', status() == '', status()))
+        excl = pathlib.Path(git('rev-parse', '--git-path', 'info/exclude')
+                            .stdout.strip())
+        excl = excl if excl.is_absolute() else consumer / excl
+        cases.append(('2. ...because this clone\'s own info/exclude lists it, '
+                      'not the tracked .gitignore',
+                      excl.is_file() and '/tools/helper.py'
+                      in excl.read_text(encoding='utf-8')
+                      and 'helper' not in (consumer / '.gitignore')
+                      .read_text(encoding='utf-8')))
+        (consumer / 'tools' / 'own.py').write_text('print(0)\n', encoding='utf-8')
+        cases.append(('2. ...and what describes or judges the repository\'s '
+                      'tools/ (MAP.md, the code checks) leaves it out, and '
+                      'keeps the repository\'s own script',
+                      [p.name for p in pc._tools_py(consumer / 'tools')]
+                      == ['own.py']
+                      and bv.session_shipped(consumer) == {'tools/helper.py'}))
+        (consumer / 'tools' / 'own.py').unlink()
+        cases.append(('3. its hook is listed untracked and the hook runner '
+                      'runs it for the tool it names',
+                      command in hooks_for('SendUserFile'),
+                      repr(hooks_for('SendUserFile'))))
+        cases.append(('3. ...and stays quiet for any other tool',
+                      command not in hooks_for('Bash')))
+        delivered.unlink()
+        r = subprocess.run([sys.executable,
+                            str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                            '--repo', str(consumer)],
+                           capture_output=True, text=True, env=genv)
+        cases.append(('3. a sync delivers it too, as a session start would',
+                      r.returncode == 0 and delivered.is_file(),
+                      (r.stdout + r.stderr)[-400:]))
+        git('add', '-A')
+        git('commit', '-qm', 'synced')
+        rc, out = session_start()
+        cases.append(('4. a second session start is quiet: nothing to deliver',
+                      rc == 0 and 'delivered' not in out, out[-300:]))
+        src.write_text('print("v2")\n', encoding='utf-8')
+        session_start()
+        cases.append(('5. a change in the set reaches the next session',
+                      'v2' in delivered.read_text(encoding='utf-8')))
+        delivered.write_text('print("mine")\n', encoding='utf-8')
+        rc, out = session_start()
+        cases.append(('6. a copy edited since is left as it is, and named',
+                      'mine' in delivered.read_text(encoding='utf-8')
+                      and 'left as they are' in out and 'tools/helper.py' in out,
+                      out[-300:]))
+        delivered.unlink()
+        session_start()
+        config({'declined_ships': {'tools/helper.py': 'we never use it'}})
+        rc, out = session_start()
+        cases.append(('7. a file the repository declines is not delivered, and '
+                      'the unchanged copy goes with its hook',
+                      not delivered.exists()
+                      and command not in hooks_for('SendUserFile'), out[-300:]))
+        config()
+        session_start()
+        practice(brought, 'helper-fixture', ships=[])
+        rc, out = session_start()
+        cases.append(('8. a file no practice ships any more is removed while '
+                      'unchanged, and leaves info/exclude',
+                      not delivered.exists() and 'removed tools/helper.py' in out
+                      and '/tools/helper.py' not in excl.read_text(encoding='utf-8'),
+                      out[-300:]))
+        practice(brought, 'helper-fixture', ships=['tools/helper.py'], hooks=hook)
+        session_start()
+        pm.release_session_ships(consumer, ['tools/helper.py'])
+        cases.append(('9. once the tracked sync ships the same file it is '
+                      'released: git sees it, to commit with the sync',
+                      '?? tools/helper.py' in status(), status()))
+        git('add', '-A')
+        git('commit', '-qm', 'the repository keeps its own helper')
+        delivered.write_text('print("tracked")\n', encoding='utf-8')
+        git('commit', '-qam', 'its own version')
+        rc, out = session_start()
+        cases.append(('10. a file git tracks is never overwritten or removed',
+                      'tracked' in delivered.read_text(encoding='utf-8')
+                      and status() == '', status()))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a brought set\'s `ships:` files and hooks reach the session, '
+          f'untracked ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
@@ -78422,6 +78652,7 @@ def main():
     check_materialize_carries_harness_adapters()
     check_sync_keeps_a_hook_whose_stub_has_no_script()
     check_practice_ships_its_files()
+    check_brought_set_ships_reach_the_session_untracked()
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
     check_sync_refuses_to_lose_a_recorded_practice()

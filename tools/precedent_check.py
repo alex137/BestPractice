@@ -2517,6 +2517,22 @@ _FIXED_NAME_RE = re.compile(
     re.M)
 
 
+def _tools_py(tools_dir):
+    """-> tools_dir's *.py files, sorted, less the ones a set this repository
+    does not track delivered there untracked (build_views.session_shipped):
+    they exist in one clone and not in a fresh one or CI, so a check that
+    judged them would give a verdict that depends on who ran it (practice:
+    checks-read-only-the-work)."""
+    tools_dir = pathlib.Path(tools_dir)
+    try:
+        import build_views as _bv
+        received = _bv.session_shipped(tools_dir.parent)
+    except Exception:                               # practice: fail-gracefully
+        received = set()
+    return sorted(p for p in tools_dir.glob('*.py')
+                  if f'tools/{p.name}' not in received)
+
+
 _ENGINE_FIXED = None
 
 
@@ -2531,7 +2547,7 @@ def _engine_fixed_filenames():
     global _ENGINE_FIXED
     if _ENGINE_FIXED is None:
         names = set()
-        for f in sorted(pathlib.Path(__file__).resolve().parent.glob('*.py')):
+        for f in _tools_py(pathlib.Path(__file__).resolve().parent):
             try:
                 names.update(_FIXED_NAME_RE.findall(f.read_text(encoding='utf-8')))
             except OSError:
@@ -6802,7 +6818,7 @@ def _very_deep_check_write_up(ctx):
 def _vendored_engine_file_refs_resolve(ctx):
     tools_dir = ROOT / 'tools'
     findings = []
-    for p in sorted(tools_dir.glob('*.py')):
+    for p in _tools_py(tools_dir):
         text = p.read_text(encoding='utf-8', errors='ignore')
         for m in _ENGINE_REF_RE.finditer(text):
             name = m.group(1) or m.group(2)
@@ -6839,7 +6855,7 @@ def _vendored_import_refs_resolve(ctx):
     import precedent_vendor_engine as pve
 
     tools_dir = ROOT / 'tools'
-    local_modules = {p.stem for p in tools_dir.glob('*.py')}
+    local_modules = {p.stem for p in _tools_py(tools_dir)}
     findings = []
     for kind, file_list in sorted(pve.KINDS.items()):
         vendored = {n[:-3] for n in file_list if n.endswith('.py')}
@@ -8278,7 +8294,7 @@ def _declared_base_branch_is_read(ctx):
     tests clean again: that is precisely how this reached six copies.
     """
     findings = []
-    for path in sorted((ROOT / 'tools').glob('*.py')):
+    for path in _tools_py(ROOT / 'tools'):
         if path.name in _BASE_BRANCH_INFERENCE_OK:
             continue
         text = path.read_text(encoding='utf-8', errors='ignore')
@@ -11020,7 +11036,7 @@ def _code_cites_practice(ctx):
             vendored = set()
 
     out = []
-    for f in sorted((ROOT / 'tools').glob('*.py')):
+    for f in _tools_py(ROOT / 'tools'):
         if f.name in CODE_CITE_SKIP_FILES or f.name in vendored:
             continue
         text = f.read_text(encoding='utf-8', errors='ignore')
