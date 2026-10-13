@@ -240,7 +240,9 @@ def run(repo_root='.', out=sys.stderr):
         print(f'  => {len(handoff)} repo(s) need a handoff. Work destined for '
               f'one of them cannot be pushed from here, however it is written: '
               f'settle who lands it BEFORE doing the work '
-              f'(practice: prompt-please).', file=out)
+              f'(practice: prompt-please). A practice source listed HANDOFF '
+              f'still resolved for reading, so its practices are in force '
+              f'here; only pushing to it is out of reach.', file=out)
     if unknown or unchecked:
         print(f'  => {len(unknown) + len(unchecked)} repo(s) unanswered. That '
               f'is NOT the same as refused -- probe one by hand before '
