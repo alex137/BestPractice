@@ -1363,7 +1363,9 @@ def main():
                       f"page it asks for that page as it stands, `--merge "
                       f"FILE`, so rows from repositories this session cannot "
                       f"see are kept -- publish it as an "
-                      f"artifact, and link it in one Boildown line. In any "
+                      f"artifact the way its last line says (the page saves "
+                      f"the person's ticks into itself), and link it in one "
+                      f"Boildown line. In any "
                       f"other reply, say nothing about it (practice: "
                       f"stale-branch-cleanup).")
         # COMMITTED, BUT NOT WHERE WORK LANDS. Printed with the hard
