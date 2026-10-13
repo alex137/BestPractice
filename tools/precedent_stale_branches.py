@@ -21,7 +21,15 @@ branch starting `data-`, the ladder's name for a live record
 for a person who lands straight on staging, `pre-staging` is retired, and once
 it holds nothing staging lacks it is listed like any finished branch
 (precedent_branches.never_offered; Morgan: "telling he can delete
-pre-staging"). Staging and main are never listed, for anyone.
+pre-staging"). Staging and main are never listed, for anyone. A SECOND
+EXCEPTION, 2026-10-13: an engine branch's old name is listed once its `data-`
+copy is on origin and holds the old branch's whole history. The engine then
+reads only the `data-` one, and the old name is checked for nothing but a
+fresh claim by a window on an older engine, which would push the branch back
+anyway -- so deleting it loses nothing (precedent_data_branches.py).
+Reported from an Update Vendors that moved three repositories onto
+`data-promote-lock`: each kept `precedent-promote-lock`, and nothing said
+whether it was dead or how to remove it.
 
 WHICH REPOSITORIES: every git checkout precedent_container_safe.py finds
 (this repo, its siblings, the home directory's clones, declared sources),
@@ -185,6 +193,21 @@ def reverted_branches(repo, depth=500):
     return gone
 
 
+def _moved_data_branches(repo, names):
+    """-> {old name} of each engine data branch whose `data-` copy is on
+    origin and contains the old branch's tip: nothing reads the old one, and
+    deleting it loses nothing. Empty when the names cannot be read."""
+    try:
+        import precedent_data_branches as pdb
+        pairs = {pdb.legacy_name(w): pdb.new_name(w) for w in pdb.LEGACY}
+    except Exception:                                        # noqa: BLE001
+        return set()
+    return {old for old, new in pairs.items()
+            if old in names and new in names
+            and _git(repo, 'merge-base', '--is-ancestor',
+                     f'origin/{old}', f'origin/{new}').returncode == 0}
+
+
 def stale_in(repo, fetch=False):
     """-> [(branch, last_commit_date)] for `repo`, or None with no origin/main.
     A branch whose merge main reverted is never listed (reverted_branches)."""
@@ -201,8 +224,13 @@ def stale_in(repo, fetch=False):
     out = []
     retired = 'pre-staging' in names and _retired_pre_staging(repo)
     reverted = reverted_branches(repo)
+    moved = _moved_data_branches(repo, names)
     for b in sorted(set(names)):
         if b in reverted:
+            continue
+        if b in moved:
+            date = _git(repo, 'log', '-1', '--format=%cs', f'origin/{b}').stdout.strip()
+            out.append((b, date))
             continue
         if b == 'pre-staging' and retired:
             # Measured against staging, where its work went, not main.

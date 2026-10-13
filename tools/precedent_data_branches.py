@@ -32,7 +32,9 @@ HOW A NAME IS CHOSEN, for one repository, in this order:
      branch is there, the first write copies it: `data-<what>` is pushed at
      the old branch's tip, history and all, and the old branch is left
      exactly where it was (practice: never-delete-a-remote-branch). That is
-     the rename of the existing ones Morgan asked about.
+     the rename of the existing ones Morgan asked about. Nothing reads the
+     old branch after that, so the copy says so with the link that deletes
+     it, and the branch-cleanup page lists it (2026-10-13).
   3. anything else: the old name. A repository without the ladder never
      gains a `data-` branch from here.
 
@@ -168,13 +170,33 @@ def name_for_write(root, what, ladder=None, tip=remote_tip, say=None):
     _CACHE.pop((str(pathlib.Path(root).resolve()), what), None)
     if ok:
         if say:
-            say(f'{new} made from {old} (at {old_tip[:12]}); {old} is left '
-                f'as it is.')
+            url = _delete_link(root, old)
+            say(f'{new} made from {old} (at {old_tip[:12]}). Nothing reads '
+                f'{old} now -- {new} holds its whole history -- so it can be '
+                f'deleted; it is left for you to delete'
+                + (f': {url}' if url else '')
+                + ' (the branch-cleanup page lists it too).')
         return new
     if say:
         say(f'NOTE: could not make {new} from {old} ({err[:160]}); '
             f'writing {old} as before.')
     return old
+
+
+def _delete_link(root, branch):
+    """-> GitHub's branch list filtered to `branch`, where its trash icon
+    deletes it, or '' when origin is not on GitHub. The engine never deletes
+    a remote branch itself (practice: never-delete-a-remote-branch); the
+    link is how the person does (practice: branch-delete-links)."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_stale_branches as sb
+        slug = sb._slug(root)
+        return sb.link(*slug, branch) if slug else ''
+    except Exception:                                         # noqa: BLE001
+        return ''
+    finally:
+        sys.path.pop(0)
 
 
 def copy_branch(root, old, old_tip, new):
