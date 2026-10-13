@@ -68198,39 +68198,62 @@ def check_update_vendors_reports_dropped_template_wording():
             cases.append(('...and listed again once the template has changed since',
                           len(rep.left) == 3, str(rep.left)))
 
-            # A file that is, byte for byte, the older template was never made
-            # the repository's own: it takes the current template, and says so.
+            # A file that is, byte for byte, an older version of a template
+            # it is told to copy verbatim was never made the repository's own:
+            # it takes the current template, and says so. One meant to be
+            # adapted (this TODO.md) is still only reported.
             (repo / 'precedent.json').unlink()
             v1 = git(src, 'show', f'{rev}~1:templates/TODO.md.template').stdout
             (repo / 'TODO.md').write_text(v1, encoding='utf-8')
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
                 step(repo, rep, rev)
-            cases.append(('a file that is word for word an older template takes '
-                          'the current one, said once and not left for you',
-                          not rep.left and any(n == 'refreshed' for n, _o in rep.steps)
-                          and (repo / 'TODO.md').read_bytes() == tmpl.read_bytes(),
+            cases.append(('an adaptable template left exactly as installed is still '
+                          'reported, never written',
+                          rep.left and (repo / 'TODO.md').read_text(encoding='utf-8') == v1,
                           f'{rep.left} {rep.steps}'))
-            (repo / 'TODO.md').write_text(v1 + 'One line of our own.\n', encoding='utf-8')
+            (repo / 'TODO.md').unlink()
+            prt = src / 'templates' / 'pull_request_template.md.template'
+            pr_v1 = ('<!-- Copy verbatim, per INSTALL.md section 1. -->\n'
+                     '## What changed\n')
+            prt.write_text(pr_v1, encoding='utf-8')
+            git(src, 'add', '-A')
+            git(src, 'commit', '-qm', 'pr v1')
+            prt.write_text('<!-- Copy verbatim, per INSTALL.md section 0. -->\n'
+                           '## What changed\n', encoding='utf-8')
+            git(src, 'add', '-A')
+            git(src, 'commit', '-qm', 'pr v2')
+            rev2 = git(src, 'rev-parse', 'HEAD').stdout.strip()
+            pr = repo / '.github' / 'pull_request_template.md'
+            pr.parent.mkdir()
+            pr.write_text(pr_v1, encoding='utf-8')
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
-                step(repo, rep, rev)
+                step(repo, rep, rev2)
+            cases.append(('a copy-verbatim template that is word for word an older '
+                          'version takes the current one, said once, not left for you',
+                          not rep.left and any(n == 'refreshed' for n, _o in rep.steps)
+                          and pr.read_bytes() == prt.read_bytes(),
+                          f'{rep.left} {rep.steps}'))
+            pr.write_text(pr_v1 + 'One line of our own.\n', encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev2)
             cases.append(('...but one edit of its own and it is only reported, '
                           'never written',
-                          rep.left and (repo / 'TODO.md').read_text(encoding='utf-8')
-                          == v1 + 'One line of our own.\n', str(rep.left)))
-            (repo / 'TODO.md').write_text(v1, encoding='utf-8')
+                          rep.left and pr.read_text(encoding='utf-8')
+                          == pr_v1 + 'One line of our own.\n', str(rep.left)))
+            pr.write_text(pr_v1, encoding='utf-8')
             (repo / 'precedent.json').write_text(json.dumps({
-                pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                pve.KEPT_DIVERGENCES_KEY: {'.github/pull_request_template.md': {
                     'reason': 'kept on purpose', 'template_sha256': '0' * 64}}}),
                 encoding='utf-8')
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
-                step(repo, rep, rev)
+                step(repo, rep, rev2)
             cases.append(('...and a file recorded as kept is never written, even '
                           'when it is an older template word for word',
-                          (repo / 'TODO.md').read_text(encoding='utf-8') == v1,
-                          str(rep.steps)))
+                          pr.read_text(encoding='utf-8') == pr_v1, str(rep.steps)))
             cases.append(('Update Vendors runs the step',
                           'dropped_template_lines_step(' in inspect.getsource(pu.update),
                           ''))
@@ -77966,6 +77989,7 @@ def main():
     check_update_vendors_resolves_a_catalogue_edit()
     check('a decline re-decided between two Update Vendors runs stays decided',
           *check_update_vendors_redecided_decline_sticks())
+    check_decline_while_a_condition_holds()
     check('a declined catalogue file\'s copy is upstream\'s text, so one re-decision holds',
           *check_update_vendors_declined_catalogue_copy_is_upstreams())
     check('an update reruns against the source commit it started from until DONE',
