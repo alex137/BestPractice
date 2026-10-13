@@ -89,6 +89,7 @@ being checked by it.
 | `engine-plus-host-shims` | tree | no file outside the vendored tree duplicates a run of lines from inside it — that is a fork, not a shim |
 | `environment-gotchas` | tree | the session instructions point at a gotcha catalogue and every live entry in it carries what failed, not only the fix — reading gotchas/*.md directly where a repo has migrated to that shape (and then refusing an index of it -- two or more list or table lines each linking one trap -- in AGENTS.md or CLAUDE.md), or following the link into the record on the pre-migration shape |
 | `filename-separator` | tree | files of the same kind in one directory use one word separator, never both - and _ |
+| `fresh-before-write` | tree | the freshness guard is wired in this repo's .claude/settings.json: a SessionStart entry and a PreToolUse entry whose matcher takes Bash, each passing its mode and an explicit base branch, the SessionStart one not async |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
 | `generated-edit-goes-upstream` | tree | every `do not hand-edit` header also names a Source -- where the file's content actually comes from -- and every path an unqualified `Source:` names exists here. A `Source (in <place>):` names somewhere this repo is not, so its paths are reported COULD NOT VERIFY rather than resolved |
 | `github-api-budget` | tree | every tool that builds a GitHub API URL is routed through tools/github_budget.py or declared in tools/github_api_budgets.json with a reason, the registry declares a core floor and a budget per tool that still exists, and nothing has quietly gone back to reading /rate_limit |
@@ -133,7 +134,7 @@ being checked by it.
 | `whats-new` | change | a changed What's New log has every entry in the shape: a heading "<Weekday> <date>: <slug>" whose weekday is the date's own, the fixed opening line word for word, every bullet opening with a bold key phrase, and no approver named |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-65 of 182 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+66 of 182 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

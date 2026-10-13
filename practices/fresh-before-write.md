@@ -8,7 +8,7 @@ applies_to_why: "The occasion is setting up a project or a session finding its c
 occasion:    "setting up a project a session works in, or a session reporting that its checkout is behind"
 gates:       []
 index_clause: "verify and fast-forward the checkout before the first write, never after"
-checked_by:  null
+checked_by:  tools/precedent_check.py
 defines:     []
 status:      active
 in_force_at: null
