@@ -5600,6 +5600,25 @@ def check_doc_lint_fires():
                       not dl.looks_like_roman_numeral('ZQX')
                       and dl.looks_like_roman_numeral('II')))
 
+        # 2026-10-13: "Please do XYZ" and "don't touch department QRST" in a
+        # consuming repo's proposal were reported as unglossed acronyms, and
+        # the repo glossed them as "not an abbreviation" to get past it.
+        (tmp / 'placeholder.md').write_text(
+            "Please do XYZ, and leave department QRST alone; TBD.\n",
+            encoding='utf-8')
+        _s, _u, ph_flagged, *_ = dl.check_file(
+            'placeholder.md', fix=False, known=set(dl.ACRONYM_STOP) - {'TBD'})
+        ph = {tok for _i, tok in ph_flagged}
+        cases.append(('placeholder letters in alphabet order (XYZ, QRST) are '
+                      'not reported as unglossed acronyms, while a real one '
+                      '(TBD) beside them still is',
+                      'XYZ' not in ph and 'QRST' not in ph and 'TBD' in ph))
+        cases.append(('the placeholder check is a grammar, not a stoplist -- '
+                      'LMN reads as one, ZQX and TBD do not',
+                      dl.looks_like_placeholder('LMN')
+                      and not dl.looks_like_placeholder('ZQX')
+                      and not dl.looks_like_placeholder('TBD')))
+
         # --- broken relative links (check 7) -------------------------------
         # 96 links in this repo resolved to nothing before this check
         # existed; the largest group was practices/*.md written with

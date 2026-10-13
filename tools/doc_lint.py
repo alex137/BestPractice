@@ -687,6 +687,20 @@ def looks_like_roman_numeral(tok):
     return bool(m) and m.group(0) != ''
 
 
+def looks_like_placeholder(tok):
+    """True when `tok` is three or more letters running in alphabet order
+    (XYZ, ABC, QRST, WXYZ) -- the letters a writer reaches for to stand in
+    for "some task" or "some department", never an initialism anybody
+    could gloss. A grammar, not a stoplist: the next run nobody listed
+    (LMN) is caught too, and a real acronym (TBD, ZQX) never reads as one.
+
+    Found 2026-10-13: a proposal saying "Please do XYZ" and "don't touch
+    department QRST" failed the acronym check in a consuming repo, which
+    papered over it with two GLOSSARY rows saying "not an abbreviation"."""
+    return len(tok) >= 3 and all(
+        ord(b) - ord(a) == 1 for a, b in zip(tok, tok[1:]))
+
+
 # A code span, or one that wraps onto the next line or two: markdown lets an
 # inline code span run across a soft line break inside a paragraph, and a
 # document wrapped at 72 columns does it whenever a long command lands at
@@ -791,6 +805,10 @@ def scan_unglossed(text, known, path=None):
                 # "Part II" -- numbering notation, not an acronym. See
                 # looks_like_roman_numeral()'s own comment for why this is
                 # a grammar check and not a list of numerals.
+                continue
+            if looks_like_placeholder(tok):
+                # "Please do XYZ" -- placeholder letters, not an acronym.
+                # See looks_like_placeholder() for why this is a grammar.
                 continue
             if FILENAME_STEM_RE.match(clean, m.end()):
                 # An ALL-CAPS filename stem is a file reference, not an
