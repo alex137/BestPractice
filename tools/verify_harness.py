@@ -59694,6 +59694,32 @@ def check_branch_cleanup_page_merges_the_saved_page():
             got = sorted(r['repo'] for r in _sb.read_page(out.read_text(encoding='utf-8')))
             cases.append(('CONTROL: --replace writes this run\'s list alone',
                           rc == 0 and got == ['C'], f'{got} {said}'))
+            # 2026-10-13: the page saves the person's ticks into itself;
+            # a ticked row of a repository this run did not check is left
+            # off, and a tick never hides a row this run checked fresh.
+            ticked = _sb._DATA.sub(
+                lambda m: m.group(0).replace(
+                    '"done": {}', '"done": {"B/b-done": "2026-10-12T09:00:00Z", '
+                    '"C/c-done": "2026-10-12T09:00:00Z"}'), old)
+            (td / 'ticked.html').write_text(ticked, encoding='utf-8')
+            rc, said = run('--merge', str(td / 'ticked.html'))
+            merged = out.read_text(encoding='utf-8')
+            got = {r['repo']: [b for b, _d in r['branches']]
+                   for r in _sb.read_page(merged)}
+            cases.append(('a branch the person ticked on the page is left off '
+                          'a repository this run did not check',
+                          rc == 0 and got.get('B') == ['b-<odd>']
+                          and '1 left off because the person ticked' in said,
+                          f'{got} {said}'))
+            cases.append(('CONTROL: a tick never hides a row this run checked',
+                          got.get('C') == ['c-done'], got))
+            cases.append(('a new build starts with no ticks of its own',
+                          _sb.read_done(merged) == {}, _sb.read_done(merged)))
+            cases.append(('the page saves its own ticks, and the session is '
+                          'told to publish it so it can',
+                          "claude.use('artifact')" in merged
+                          and 'page.publish(' in merged
+                          and '"artifact": {}' in said, said))
         finally:
             _sb.collect, _sb._person = real_collect, real_person
             if saved_ledger is None:

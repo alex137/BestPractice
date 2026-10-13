@@ -67,6 +67,27 @@ The page carries its list as JSON for the next merge to read; a page built
 before that is read from its sections. Reported by a consuming repository's
 Update Vendors, 2026-10-12: "a session with fewer repos wipes the entries a
 wider session listed. Merge them".
+
+THE PAGE SAVES ITS OWN TICKS (2026-10-13). A carried row is one no session
+since could check, so a branch the person deleted stayed on the page until a
+session that could open that repository came by -- and their ticks lived in
+one browser's storage, keyed to the build, so the next refresh minutes later
+showed the same list again, unticked. Morgan: "the branch cleanup doc
+usually has links that I have already cleaned up within the last hour".
+Now a tick (or a click on a row's link, which ticks it) is written into the
+page's own JSON, as `done`, and the page saves itself as a new version
+through the artifact capability -- published with capabilities
+{"artifact": {}}. The next `--merge` reads `done` and leaves a ticked branch
+off every CARRIED repository; a repository this run checked is listed fresh
+as before, so a stray tick never hides a branch that is still there. Each
+build starts `done` empty: what it recorded has been applied. Where the
+page cannot save itself (a viewer who cannot edit, a view with no
+capability), ticks fall back to this browser's storage, as before. Morgan
+chose the page over precedent-individual, 2026-10-13 ("Ahhhh great. Go
+ahead.", strength: decided): the page cannot write to a repository, and a
+tick only has to last until a session that can check that repository
+comes by. A tick made between a session's read of the page and its
+republish is lost, and that branch shows once more.
 """
 import datetime
 import html
@@ -325,6 +346,24 @@ _ROW = re.compile(r'<a href="[^"]*"[^>]*>([^<]*)</a><span class="date">([^<]*)</
 _STAMP = re.compile(r'branch-cleanup-done:(\d{8}T\d{6}Z)')
 
 
+def done_key(name, branch):
+    """-> the key a row's tick is saved under: the page's own `data-k`."""
+    return f'{name}/{branch}'
+
+
+def read_done(text):
+    """-> {done_key: when ticked} the page saved for itself, {} when it
+    carries none (a page built before 2026-10-13, or one never ticked)."""
+    m = _DATA.search(text)
+    if not m:
+        return {}
+    try:
+        done = json.loads(m.group(1)).get('done') or {}
+    except (ValueError, AttributeError):
+        return {}
+    return {str(k): str(v) for k, v in done.items()} if isinstance(done, dict) else {}
+
+
 def read_page(text):
     """-> [{'owner', 'repo', 'checked', 'branches': [[branch, date]]}] from a
     page this tool built: its JSON block, or, on a page built before it
@@ -347,15 +386,18 @@ def read_page(text):
             for o, n, body in _SECTION.findall(text)]
 
 
-def carried_over(previous, seen):
+def carried_over(previous, seen, done=None):
     """-> [(owner, name, rows, checked)]: the saved page's repositories this
-    run did not check, with the rows it last listed for them. A repository
-    this run checked is never carried: its fresh rows, or their absence,
-    replace the old ones."""
+    run did not check, with the rows it last listed for them, less any the
+    person ticked on the page (`done`, read_done). A repository this run
+    checked is never carried: its fresh rows, or their absence, replace the
+    old ones."""
     checked_now = {_key(o, n) for o, n in seen}
+    done = done or {}
     out = []
     for r in previous:
-        rows = [(b, d) for b, d in r.get('branches') or []]
+        rows = [(b, d) for b, d in r.get('branches') or []
+                if done_key(r['repo'], b) not in done]
         if rows and _key(r['owner'], r['repo']) not in checked_now:
             out.append((r['owner'], r['repo'], rows, r.get('checked') or ''))
     return out
@@ -392,7 +434,7 @@ def render_html(groups, now=None, tz='', carried=()):
                              f'Not open in the session that refreshed this page: '
                              f'as listed when last checked{when}. A branch here '
                              f'may already be gone.'))
-    data = {'built': now.isoformat(), 'repos': [
+    data = {'built': now.isoformat(), 'done': {}, 'repos': [
         {'owner': o, 'repo': n, 'checked': now.isoformat(),
          'branches': [[b, d] for b, d in rows]} for o, n, rows in groups] + [
         {'owner': o, 'repo': n, 'checked': c, 'branches': [[b, d] for b, d in rows]}
@@ -442,23 +484,50 @@ li + li { border-top:1px solid var(--line); }
 <header>
 <h1>Branch cleanup</h1>
 <p class="built">{{BUILT}}</p>
-<p class="lede">{{TOTAL}} branches, all already in <code>main</code> (a retired <code>pre-staging</code>: already in <code>staging</code>), so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, <code>pre-staging</code> while it is in use, and the engine's own branches. Ticks are remembered in this browser only, until the list is next refreshed.</p>
+<p class="lede">{{TOTAL}} branches, all already in <code>main</code> (a retired <code>pre-staging</code>: already in <code>staging</code>), so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, <code>pre-staging</code> while it is in use, and the engine's own branches. Ticking a branch, or opening its link, saves the tick into this page, so the next refresh leaves it off a repository it cannot check.</p>
 </header>
 <div class="bar"><span class="progress" id="progress">0 of {{TOTAL}} done</span><button type="button" id="clear">Clear ticks</button></div>
 {{SECTIONS}}
 </main>
 <script>
 (function(){
+  // Captured before anything below changes the page: the document this
+  // page republishes is this, with its saved ticks rewritten.
+  var BODY=document.body.innerHTML;
+  var HEAD='<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>';
+  var DATA_RE=/(<script type="application\\/json" id="branch-data">)[\\s\\S]*?(<\\/script>)/;
+  var data={}; try { data=JSON.parse(document.getElementById('branch-data').textContent)||{}; } catch(e) { data={}; }
   var boxes=[].slice.call(document.querySelectorAll('input[data-k]'));
-  var KEY='branch-cleanup-done:{{BUILD}}', done={};
+  var KEY='branch-cleanup-done:{{BUILD}}', done={}, saved=data.done||{}, page=null, timer=null, dirty=false;
   try { for(var i=localStorage.length-1;i>=0;i--){ var k=localStorage.key(i); if(k&&k.indexOf('branch-cleanup-done')===0&&k!==KEY) localStorage.removeItem(k); } } catch(e) {}
   try { done=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; } catch(e) { done={}; }
-  function save(){ try { localStorage.setItem(KEY, JSON.stringify(done)); } catch(e) {} }
+  Object.keys(saved).forEach(function(k){ done[k]=saved[k]; });
+  function document_with(d){
+    var copy=JSON.parse(JSON.stringify(data)); copy.done=d;
+    var json=JSON.stringify(copy).replace(/</g,'\\\\u003c');
+    return HEAD+BODY.replace(DATA_RE,function(_m,a,b){ return a+json+b; })+'</body></html>';
+  }
+  function publish(){
+    if(timer){ clearTimeout(timer); timer=null; }
+    if(!page||!dirty) return;
+    dirty=false;
+    page.publish(document_with(done)).catch(function(){});
+  }
+  function save(){
+    try { localStorage.setItem(KEY, JSON.stringify(done)); } catch(e) {}
+    dirty=true;
+    if(timer) clearTimeout(timer);
+    timer=setTimeout(publish, 5000);
+  }
+  function mark(b, on){ if(on) done[b.dataset.k]=new Date().toISOString(); else delete done[b.dataset.k]; save(); render(); }
   function render(){ var n=boxes.filter(function(b){return b.checked;}).length; document.getElementById('progress').textContent=n+' of '+boxes.length+' done'; }
-  boxes.forEach(function(b){ b.checked=!!done[b.dataset.k]; b.addEventListener('change',function(){ if(b.checked) done[b.dataset.k]=1; else delete done[b.dataset.k]; save(); render(); }); });
-  document.querySelectorAll('.row a').forEach(function(a){ a.addEventListener('click',function(){ var b=a.parentNode.querySelector('input'); if(!b.checked){ b.checked=true; done[b.dataset.k]=1; save(); render(); } }); });
+  boxes.forEach(function(b){ b.checked=!!done[b.dataset.k]; b.addEventListener('change',function(){ mark(b, b.checked); }); });
+  document.querySelectorAll('.row a').forEach(function(a){ a.addEventListener('click',function(){ var b=a.parentNode.querySelector('input'); if(!b.checked){ b.checked=true; mark(b, true); } }); });
   document.getElementById('clear').addEventListener('click',function(){ done={}; boxes.forEach(function(b){b.checked=false;}); save(); render(); });
+  // Opening a branch's link leaves this page for GitHub: save then.
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') publish(); });
   render();
+  try { if(window.claude&&window.claude.use) window.claude.use('artifact').then(function(a){ page=a; if(dirty) save(); }).catch(function(){}); } catch(e) {}
 })();
 </script>
 '''
@@ -479,11 +548,12 @@ def main(argv):
         out = pathlib.Path(argv[argv.index('--html') + 1])
         person = _person()
         url = saved_page(person)
-        carried = []
+        carried, ticked = [], 0
         if '--merge' in argv:
             prev = pathlib.Path(argv[argv.index('--merge') + 1])
             try:
-                previous = read_page(prev.read_text(encoding='utf-8'))
+                prev_text = prev.read_text(encoding='utf-8')
+                previous, done = read_page(prev_text), read_done(prev_text)
             except OSError as e:
                 print(f'Cannot read {prev}: {e}. Nothing written.')
                 return 2
@@ -493,7 +563,11 @@ def main(argv):
                       f'the page the saved address holds, or --replace if '
                       f'replacing it is meant.')
                 return 2
-            carried = carried_over(previous, seen)
+            carried = carried_over(previous, seen, done)
+            ticked = (sum(len(r.get('branches') or []) for r in previous
+                          if (r['owner'], r['repo']) in
+                          {(o, n) for o, n, *_x in carried_over(previous, seen)})
+                      - sum(len(c[2]) for c in carried))
         elif url and '--replace' not in argv:
             print(f'Nothing written: the saved page ({url}) may list '
                   f'repositories this session cannot see, and publishing over '
@@ -521,10 +595,15 @@ def main(argv):
               + (f', and {kept} kept from the saved page for '
                  f'{len(carried)} repositor(ies) this session did not check'
                  if carried else '')
+              + (f'; {ticked} left off because the person ticked them on the '
+                 f'page' if ticked else '')
               + ('' if noted else ' (not noted for the publish gate, which '
                  'will refuse it: artifact_publish_gate.py did not load)'))
-        print(f'Publish it to the saved page, in place: {url}' if url else
-              'No saved page yet: publish it as a new page, then save its '
+        print(f'Publish it to the saved page, in place: {url}, with '
+              f'capabilities {{"artifact": {{}}}} so the page can save its own '
+              f'ticks' if url else
+              'No saved page yet: publish it as a new page with capabilities '
+              '{"artifact": {}}, so it can save its own ticks, then save its '
               'address as "branch_cleanup_page" in the identity.json of your '
               'individual practice source, so the next close updates it.')
         return 0
