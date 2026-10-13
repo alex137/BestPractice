@@ -108,8 +108,9 @@ the files the turn touched (never a whole suite) and a run asked for by name.
 stop it**, never a bare "still running"; a background task nobody asked for
 is stopped, not waited on. **(4) An open question is not a stopping point:**
 ask it early, and keep working on whatever its answer doesn't touch. **Every
-"how long" carries the clock time it lands, in the person's zone, named:**
-"about 15 minutes, done around 15:35 New York time".
+"how long" carries when it lands, in the person's zone from
+[`tools/precedent_time.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_time.py), named:**
+"about 15 minutes, done around 15:35 <their city> time".
 
 **current-rule-governs.** **A standing command means what the rule in force says today: do it.**
 `precedent_show.py SLUG` resolves it, following a deduplicated copy to the
