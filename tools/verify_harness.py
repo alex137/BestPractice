@@ -30450,6 +30450,41 @@ def check_archive_check_sees_work_left_in_a_scratch_folder():
         cases.append(("a copy the Artifact tool saved of a published page is "
                       "safe", 'scratch:abcd1234' not in unsafe_names(r),
                       r.stdout[:300]))
+        # A commit-message draft, once committed, is not work only here
+        # (2026-10-13: msg.txt refused an archive line after its commit
+        # had been pushed and merged). The commit carries a line the
+        # ci-cadence hook adds; a draft with a line the commit lacks is
+        # still unsafe.
+        repo = pathlib.Path(td) / 'repo'
+        repo.mkdir()
+        _g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                       capture_output=True, text=True)
+        _g('init', '-q')
+        draft = ('Bump the engine to 6023cd4\n\nWhy: the vendored copy was '
+                 'behind.\n\nCo-Authored-By: someone <x@example.com>\n')
+        (sess / 'msg.txt').write_text(draft, encoding='utf-8')
+        landed = draft.replace('\n\nWhy', '\n\n[skip ci] -- working branch '
+                               '(github_ci_on_branches)\n\nWhy')
+        _g('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit',
+           '-q', '--allow-empty', '-m', landed)
+
+        def scan_repo():
+            return subprocess.run(
+                [sys.executable, str(scanner), '--only', str(repo),
+                 '--scratch', str(sess), '--json', '--no-processes'],
+                capture_output=True, text=True)
+
+        r = scan_repo()
+        cases.append(('a commit-message draft already committed is safe, '
+                      'past the line a commit-msg hook added',
+                      'scratch:abcd1234' not in unsafe_names(r), r.stdout[:300]))
+        (sess / 'msg.txt').write_text(draft + 'A line never committed.\n',
+                                      encoding='utf-8')
+        r = scan_repo()
+        cases.append(('a draft holding a line the commit lacks is unsafe',
+                      'scratch:abcd1234' in unsafe_names(r)
+                      and 'msg.txt' in r.stdout, r.stdout[:300]))
+        (sess / 'msg.txt').unlink()
         (sess / 'out').mkdir()
         (sess / 'out' / 'summaries.txt').write_text('189 lines\n', encoding='utf-8')
         r = scan()

@@ -46,6 +46,11 @@ example. Until 2026-10-13 this Rule's example named New York, and a
 session working for someone in Buenos Aires gave its times in New York's
 for two days, reading the clock by hand in the example's zone.
 
+**Part 3 to a person who is not a code owner** is the outcome in everyday
+words, never the mechanism: what is being checked and that they can say
+stop, in no word they would have to look up
+([inner-workings-for-code-owners](inner-workings-for-code-owners.md)).
+
 **What part 1 means by an easy question:** one answered from what is already
 known, without waiting on a run. **What part 2 means by a long task:** a
 cold solve, a search family, a re-solve cascade, a whole-tree gate. Both

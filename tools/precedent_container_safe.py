@@ -186,15 +186,79 @@ def scratch_name(d):
     return f'scratch:{owner[:8]}'
 
 
-def scan_scratch(d):
+# A file whose text is already a commit's message: a session writes its
+# message to a scratch file and runs `git commit -F` on it. Found
+# 2026-10-13, in an Update Vendors run whose commit had landed, been pushed
+# and merged, and whose archive line was still refused over msg.txt.
+# Matched against the newest commits on HEAD and every remote-tracking ref
+# of the checkouts scanned -- a commit only on HEAD is the checkout scan's
+# to report -- and only for a file small enough to be a message.
+COMMIT_MSG_WINDOW = 400
+COMMIT_MSG_MAX_BYTES = 64 * 1024
+# The markers precedent-ci-cadence's commit-msg hook adds, as
+# tools/commit-identity.sh writes them; stripped from both sides.
+_SKIP_MARK = re.compile(r'\[(?:skip ci|ci skip|no ci|skip actions|actions skip)\]',
+                        re.I)
+
+
+def _msg_lines(text):
+    """-> a message's non-blank lines, trailing space and CI skip markers
+    stripped: what git's own cleanup and the cadence hook leave alone."""
+    out = []
+    for line in text.splitlines():
+        line = _SKIP_MARK.sub('', line).rstrip()
+        if line.strip():
+            out.append(line)
+    return out
+
+
+def commit_messages(repos):
+    """-> the message lines of the newest commits on HEAD and every
+    remote-tracking ref of `repos`, as a list of line lists."""
+    msgs = []
+    for repo in repos:
+        ok, out = _git(repo, 'log', f'-n{COMMIT_MSG_WINDOW}', '--format=%B%x00',
+                       'HEAD', '--remotes')
+        if ok:
+            msgs.extend(m for m in (_msg_lines(b) for b in out.split('\0')) if m)
+    return msgs
+
+
+def is_commit_message(path, msgs):
+    """True when every line of the file at `path` is in one commit's message,
+    in order, starting with its subject. Lines the commit has and the file
+    lacks are what a hook added; nothing in the file is lost."""
+    try:
+        if path.stat().st_size > COMMIT_MSG_MAX_BYTES:
+            return False
+        want = _msg_lines(path.read_text(encoding='utf-8'))
+    except (OSError, UnicodeDecodeError):
+        return False
+    if not want:
+        return False
+    for have in msgs:
+        if have[0] != want[0]:
+            continue
+        it = iter(have)
+        if all(line in it for line in want):
+            return True
+    return False
+
+
+def scan_scratch(d, repos=()):
     """-> an entry shaped like scan_one's, or None when the folder holds
-    nothing but files published on purpose."""
+    nothing but files published on purpose, or commit messages already in
+    one of `repos`."""
     d = pathlib.Path(d)
-    files = []
+    files, msgs = [], None
     for f in sorted(d.rglob('*')):
         rel = f.relative_to(d)
         if (f.is_file() and f.name not in PUBLISHED_ON_PURPOSE
                 and rel.parts[0] not in PUBLISHED_COPY_DIRS):
+            if msgs is None:
+                msgs = commit_messages(repos)
+            if is_commit_message(f, msgs):
+                continue
             files.append(str(rel))
     if not files:
         return None
@@ -385,7 +449,8 @@ def main(argv=None):
         scratch = [pathlib.Path(x).expanduser().resolve() for x in args.scratch]
     else:
         scratch = [] if args.only else scratch_dirs()
-    leftovers = [e for e in (scan_scratch(d) for d in scratch if d.is_dir()) if e]
+    leftovers = [e for e in (scan_scratch(d, targets) for d in scratch
+                                  if d.is_dir()) if e]
     bad = [f for f in found if f['unsafe']] + leftovers
     # Only when discovering: --only is a question about named checkouts,
     # and a planted test container must not depend on what else is running.
