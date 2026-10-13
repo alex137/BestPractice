@@ -10,7 +10,7 @@
      placeholders with this project's real content; keep the section
      structure and the generated-block markers exactly as they appear below. -->
 
-**Orientation: read `MAP.md` first** — the repository map. It covers the key
+**Orientation: read [MAP.md](MAP.md) first** — the repository map. It covers the key
 deliverables and indexes which documents back each part of each one.
 
 <!-- BEGIN GENERATED: precedent-loader -->
@@ -26,9 +26,9 @@ deliverables and indexes which documents back each part of each one.
 
 | Looking for… | Go to |
 |---|---|
-| Canonical names for this project's terms — use these names, don't invent new ones | `GLOSSARY.md` |
+| Canonical names for this project's terms — use these names, don't invent new ones | [GLOSSARY.md](GLOSSARY.md) |
 | The document(s) this project is producing | `<path>` |
-| Open items: analyses, verifications, decisions | `TODO.md` |
+| Open items: analyses, verifications, decisions | [TODO.md](TODO.md) |
 | Which practice sources are in force, and where each is vendored or resolved from | `precedent.json` |
 
 ## Document workflow
@@ -58,7 +58,7 @@ instructions for this repo, not gotchas.
   setup); in other harnesses, run it yourself unless your adapter wires it — Precedent's
   [templates/harness/](https://github.com/alex137/BestPractice/tree/main/templates/harness)
   says which can.
-- **Keep `AGENTS.md`'s generated block current.** Before relying on it,
+- **Keep [AGENTS.md](AGENTS.md)'s generated block current.** Before relying on it,
   run `python3 tools/precedent_sync_views.py --repo . --check` — it exits non-zero
   if any declared source (`precedent.json`) has moved since the block was
   last regenerated. Re-run without `--check` to refresh it, review the
@@ -129,8 +129,8 @@ owners**. `CODEOWNERS` is generated from [`precedent.json`](precedent.json)'s
 `maintainers` and `owned_paths` by `python3 tools/build_codeowners.py` —
 never hand-edit it — and names the maintainer against `/.github/`,
 `/.claude/`, `/tools/`, `/precedent/`, `/practices/`, `/local/`,
-`/precedent.json`, `/AGENTS.md` and `/CLAUDE.md`. Everything else is content,
-and content is the contributor's — `MAP.md` and `GLOSSARY.md` included, on
+[precedent.json](precedent.json), [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md) at the root. Everything else is content,
+and content is the contributor's — [MAP.md](MAP.md) and [GLOSSARY.md](GLOSSARY.md) included, on
 purpose: a thread that adds a document adds its row to the map, and that must
 not make every document wait for the maintainer.
 
@@ -250,6 +250,6 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   vendored. Which sets those are is read off `precedent.json` rather than
   named here, so retiring or adding one is a single edit to that file.
 - `python3 tools/precedent_sync_views.py --repo . --check` is this repo's own drift
-  gate — run it before trusting `AGENTS.md`'s generated block, and after
+  gate — run it before trusting [AGENTS.md](AGENTS.md)'s generated block, and after
   `precedent.json` or a vendored copy changes.
 - Export gate = merge runbook step 0b, above.

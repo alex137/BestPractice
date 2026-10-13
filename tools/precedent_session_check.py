@@ -1362,6 +1362,8 @@ def remind(offline=True, prefix='precedent'):
             lines.append(f'      {first}')
     lines.append('  full report: python3 tools/precedent_session_check.py '
                  '(--apply repairs most, unless a row names its own remedy)')
+    lines.append('  for you to repair, not to relay: a person who is not a code '
+                 'owner hears nothing of it (practice: inner-workings-for-code-owners)')
     return '\n'.join(lines)
 
 

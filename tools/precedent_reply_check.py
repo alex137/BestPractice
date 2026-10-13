@@ -2070,6 +2070,12 @@ def main():
     # mid-conversation are repaired by withdrawing them, never by adding an
     # archive line that is not true.
     _repairs = [b['repair'] for b in bad if b.get('repair')]
+    # Whatever the correction is, it never explains this check to a person
+    # who is not a code owner (Morgan, 2026-10-12, strength: decided).
+    print('Whoever the person is: if they are not one of this repository\'s '
+          'code owners, correct the reply without naming this check, a file, a '
+          'branch, a clone or a folder to them (practice: inner-workings-for-code-owners).',
+          file=sys.stderr)
     if any(b['kind'] == 'quiet' for b in bad):
         # The repair is one short line, never nothing: the reply is already
         # on screen, and an empty turn makes the harness ask for "visible
