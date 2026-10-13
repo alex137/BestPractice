@@ -36,6 +36,7 @@ or leaves it unsaid. When a check would have the session explain a
 mechanism, it settles the matter itself instead, or says the outcome in one
 plain sentence.
 
+## Detail
 **Who is a code owner** is what
 [tools/precedent_audience.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_audience.py) answers. **In
 doubt, the person is treated as not one**, as that tool already does.
@@ -43,7 +44,6 @@ doubt, the person is treated as not one**, as that tool already does.
 **Code owners get the full picture**, as before. Hiding changes what a person
 is told, never what is enforced: every check still runs.
 
-## Detail
 **What this replaces.** Since 2026-10-05 a practice about running the
 repository could be marked `visible_to: code-owners`
 ([spec/PRACTICE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md)), which hides the
@@ -56,8 +56,25 @@ either. This rule is about what is said.
 reply gate tells a session that holds files found nowhere else to tidy
 them itself for a person who is not a code owner, and never to show them the
 technical line a code owner gets for it
-([tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_gate.py)). Every other check and
-tool that speaks to the person is to be brought in line the same way.
+([tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_gate.py)).
+
+**Then everything else that spoke through a session**, the next day
+(Morgan: "Nothing technical should ever be said to a non technical person.
+The list you gave is great and should only be for code owners"):
+
+- the reply gate opens every turn, for a person who is not a code owner,
+  with the plain-words instruction, naming each kind of message below;
+- the "Files touched" list
+  ([reply-links-files](reply-links-files.md)) is for code owners only;
+- the session-setup warning printed at the start of a turn says it is for
+  the session to repair, never to relay;
+- the stop hook's refusal says to correct the reply without naming the
+  check, a file, a branch, a clone or a folder;
+- Update Vendors' report opens, for a person who is not a code owner, by
+  saying none of it reaches them, and what to tell them instead.
+
+The ladder's own lines (stage words, branch names in The Boildown) reach only
+a person on the ladder.
 
 ## Why
 A person who is not a code owner came to get their own work done. Hearing

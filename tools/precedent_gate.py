@@ -812,6 +812,11 @@ def _print_hard_requirements(root):
         return
     if not reqs and not notes:
         return
+    if not _is_code_owner(root):
+        # Morgan, 2026-10-12 (strength: decided): "Nothing technical should
+        # ever be said to a non technical person." Printed first, every
+        # turn, so it governs how everything below reaches the reply.
+        print(NOT_A_CODE_OWNER)
     print("\n## Hard requirements — the stop hook REFUSES the turn without "
           "these\n")
     for r in reqs:
@@ -963,6 +968,20 @@ def _print_hard_requirements(root):
                   f"<bestpractice-clone>")
     for n in notes:
         print(f"- NOTE: {n}")
+
+
+NOT_A_CODE_OWNER = (
+    "\n## The person is NOT one of this repository's code owners\n\n"
+    "Assume they are not technical at all (practice: "
+    "inner-workings-for-code-owners). Everything this gate prints is for you. "
+    "To them, say what happened to THEIR work in everyday words -- saved, "
+    "shared, waiting, or a question for them -- and nothing technical: no "
+    "\"Files touched\" list and no file paths, branch names, commit hashes, "
+    "clones, scratch folders or temporary files; no session-setup warnings; "
+    "no check, hook or gate names and no reason a reply was refused; no "
+    "\"Paste into\" or setup instructions; no Update Vendors items. Settle "
+    "what you can yourself; what needs a code owner, say in one plain "
+    "sentence that someone who looks after the project will need to.\n")
 
 
 def _is_code_owner(root):
