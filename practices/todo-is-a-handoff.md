@@ -150,3 +150,10 @@ line of its own, marks a form's boxes as steps rather than open work, and
 `.github/` and `templates/` hold forms throughout. The heading words and the
 reasons are settings a consumer's host shim may change. A reply's lists are
 not parsed: the `reply` gate prints this rule instead.
+
+**The person's own material is not a session's queue.** A file under
+`precedent.json`'s `content_paths` -- a personal to-do list, notes, a
+manuscript -- is skipped (2026-10-13): its boxes are the person's own list,
+not open items a session left behind, and asking each one for a `needs:`
+would refuse their list on its own lines. Declare it as `record_paths` is
+declared, a string or `{"path", "reason"}`, with a "/" ending for a folder.

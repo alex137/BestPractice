@@ -332,7 +332,13 @@ def _session_branch_row(stamp, git):
             f'done SINCE the move is on the wrong branch')
 
 
-SOURCES_RESOLVED_ROW = 'every private practice source this repo declares resolved'
+# "Resolved" is READ access: the practices loaded. Push access is a separate
+# question, which precedent_access_check.py's ACCESS list answers at session
+# start (HANDOFF: readable, not pushable); named here so the two do not read
+# as a contradiction (reported by a consuming repository, 2026-10-13).
+SOURCES_RESOLVED_ROW = ('every private practice source this repo declares '
+                        'resolved for reading (whether this session can push '
+                        'to each is the ACCESS list)')
 
 
 def sources_resolved_row(verdict, message, unresolved=()):

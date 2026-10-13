@@ -109,7 +109,8 @@ updates from `main`, `SOURCE_BRANCH` in
 python3 tools/precedent_install.py <project path> --project-name "<name>" \
     [--about "<one sentence, for a README that does not exist yet>"] \
     [--visibility private|public] [--base-branch main] \
-    [--output-paths docs,site] [--admin <github handle>] [--team NAME=PATH]
+    [--output-paths docs,site] [--content-paths notes/,TODO.md] \
+    [--admin <github handle>] [--team NAME=PATH]
 ```
 
 [tools/precedent_install.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_install.py) does steps 1, 2,
@@ -217,6 +218,22 @@ not this section.
    vendored or mirrored subtree sitting *inside* an output directory —
    headings "fixed" there would be correct until the next sync and then
    silently revert.
+
+   **`content_paths`** names the person's own material kept in the repo:
+   a personal to-do list, notes, a manuscript. The checks about session
+   work skip it, since it is not a session's to tidy: the light check's
+   open-item rule ([todo-is-a-handoff](practices/todo-is-a-handoff.md)),
+   which otherwise refuses every `- [ ]` with no `(needs: ...)`, and the
+   unglossed-acronym warning and gate
+   ([acronyms-glossary](practices/acronyms-glossary.md)). Links,
+   strikethrough and process residue are still checked there. Same shape
+   as `record_paths`: a path string or `{"path", "reason"}`, and a "/"
+   ending covers a folder.
+
+   ```json
+   "content_paths": [{"path": "lists/", "reason": "my own to-do lists"}]
+   ```
+
 3. **Ask the shared/individual-source question** exactly as §1 step 9
    describes, and wire the individual source's own bootstrap pattern the
    same way if the person has one — this step doesn't change between the
@@ -234,7 +251,8 @@ not this section.
    [templates/GLOSSARY.md.template](templates/GLOSSARY.md.template); step 6 generates `MAP.md` and `GLOSSARY.md`
    from them), `TODO.md`, `GETTING_STARTED.md`, the stale-checkout gotcha
    under `gotchas/`, `local/practices/project-voice.md`,
-   `local/practices/project-visual-identity.md`, the README
+   `local/practices/project-visual-identity.md` (both as skeletons, filled
+   in a later conversation), the README
    agent-entry block, `.gitignore` (merged into an existing one), the
    harness adapter(s) (for Claude Code, `.claude/settings.json`, its hook
    scripts and `CLAUDE.md`), `tools/bootstrap.sh`, the two workflows
