@@ -129,6 +129,11 @@ and `precedent_show.py`, `precedent_paths.py` and the gates leave it out for
 everyone else. **Hiding changes what a session is told, never what is
 enforced**: a check behind a hidden practice still runs on every push.
 Morgan, 2026-10-05 (strength: decided).
+**What a session says follows the same line** (Morgan, 2026-10-12, strength:
+decided): anything about how Precedent works inside -- its files, temporary
+files, temporary clones, checks -- is said to code owners only, and anyone
+else is assumed not to be technical at all
+([inner-workings-for-code-owners](../practices/inner-workings-for-code-owners.md)).
 **A code-owner practice needs a route of its own**: the session file that
 carries it is charged to the consuming repository's session-load ceiling, so
 it gets an `applies_to` naming real paths, a `gates:` moment or a
