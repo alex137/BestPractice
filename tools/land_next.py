@@ -240,6 +240,65 @@ def followed_branch(repo):
         return "main"
 
 
+def shared_clones(root):
+    """The practice sets precedent.json reaches through a clone beside the
+    repository (a source path outside it): -> [(name, path)]."""
+    import json
+    try:
+        pj = json.loads((root / "precedent.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for s in pj.get("sources", []):
+        rel = s.get("path") if isinstance(s, dict) else None
+        if not isinstance(rel, str):
+            continue
+        path = (root / rel).resolve()
+        try:
+            path.relative_to(root.resolve())
+            continue  # vendored inside the repository: Update Vendors' business
+        except ValueError:
+            pass
+        if (path / ".git").exists():
+            out.append((s.get("name") or rel, path))
+    return out
+
+
+def refresh_shared_clones(root):
+    """Fast-forward each shared-set clone beside the repository to its
+    remote before anything is checked. A long-running session's clone falls
+    behind a set that another session already synced onto the trunk; the
+    views check then regenerates from the stale clone, calls the trunk's
+    views hand-edited, and refuses every landing (found 2026-10-13: a day of
+    a standing session's landings refused this way). Fast-forward only, and
+    only a clean clone on the branch it follows: a clone with local changes
+    or on another branch is someone's work and is left alone, with a note.
+    -> [(name, outcome)]."""
+    done = []
+    for name, path in shared_clones(root):
+        if git(path, "status", "--porcelain", check=False).stdout.strip():
+            log(f"shared set {name}: clone has local changes; left as it is")
+            done.append((name, "dirty"))
+            continue
+        on = git(path, "branch", "--show-current", check=False).stdout.strip()
+        if not on:
+            log(f"shared set {name}: clone is on a detached HEAD; left as it is")
+            done.append((name, "detached"))
+            continue
+        before = git(path, "rev-parse", "HEAD", check=False).stdout.strip()
+        r = git(path, "pull", "-q", "--ff-only", "origin", on, check=False)
+        if r.returncode != 0:
+            log(f"shared set {name}: could not fast-forward {on}; left as it is: "
+                f"{(r.stderr or '').strip()[-200:]}")
+            done.append((name, "not fast-forwarded"))
+            continue
+        after = git(path, "rev-parse", "HEAD", check=False).stdout.strip()
+        if after != before:
+            log(f"shared set {name}: fast-forwarded {on} {before[:10]} -> {after[:10]}")
+        done.append((name, "current" if after == before else "fast-forwarded"))
+    return done
+
+
 def prepare(repo, bestpractice, detached=False):
     """Master up to date and clean, or Refused. -> True when the BestPractice
     clone is on an up-to-date copy of the branch this repo follows
@@ -259,6 +318,7 @@ def prepare(repo, bestpractice, detached=False):
         git(repo, "merge", "-q", "--ff-only", f"origin/{TRUNK}")
     if git(repo, "rev-parse", "--is-shallow-repository").stdout.strip() == "true":
         git(repo, "fetch", "-q", "--unshallow", "origin")
+    refresh_shared_clones(ROOT)
     if bestpractice is None:
         return False
     if not (bestpractice / ".git").exists():
@@ -813,6 +873,35 @@ def self_check():
         (td / "precedent.json").unlink()
         ok &= lander_config(td) == {"trunk": "main", "gates": (), "shared_caches": (".cache",),
                                     "ledgers": (), "rebuilt": {}}
+    # A shared-set clone beside the repository is fast-forwarded before a
+    # landing; one with local changes is left alone (2026-10-13).
+    with tempfile.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        def sh(*a, cwd=d):
+            subprocess.run(list(a), cwd=str(cwd), capture_output=True, check=True)
+        sh("git", "init", "-q", "--bare", "-b", "main", "set.git")
+        sh("git", "clone", "-q", "set.git", "seed")
+        for c in ("git config user.email t@t", "git config user.name t"):
+            sh(*c.split(), cwd=d / "seed")
+        (d / "seed" / "a.md").write_text("one\n")
+        sh("git", "add", "-A", cwd=d / "seed")
+        sh("git", "commit", "-qm", "one", cwd=d / "seed")
+        sh("git", "push", "-q", "origin", "HEAD:main", cwd=d / "seed")
+        sh("git", "clone", "-q", "set.git", "precedent-set")
+        (d / "seed" / "a.md").write_text("two\n")
+        sh("git", "commit", "-qam", "two", cwd=d / "seed")
+        sh("git", "push", "-q", "origin", "HEAD:main", cwd=d / "seed")
+        (d / "repo").mkdir()
+        (d / "repo" / "precedent.json").write_text(
+            '{"sources": [{"name": "set", "path": "../precedent-set"},'
+            ' {"name": "inside", "path": "process/upstream"}]}\n')
+        ok &= [n for n, _ in shared_clones(d / "repo")] == ["set"]
+        ok &= refresh_shared_clones(d / "repo") == [("set", "fast-forwarded")]
+        ok &= (d / "precedent-set" / "a.md").read_text() == "two\n"
+        ok &= refresh_shared_clones(d / "repo") == [("set", "current")]
+        (d / "precedent-set" / "a.md").write_text("mine\n")
+        ok &= refresh_shared_clones(d / "repo") == [("set", "dirty")]
+        ok &= (d / "precedent-set" / "a.md").read_text() == "mine\n"
     print("land_next self-check:", "OK" if ok else "FAILED")
     return 0 if ok else 1
 
