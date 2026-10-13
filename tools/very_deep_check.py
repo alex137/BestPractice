@@ -10505,7 +10505,7 @@ def _main(box):
         # The offline half: names nothing has typed YET. These are
         # recommendations for the person, not findings against the tree --
         # this is the one place they are raised (practice: very-deep-check;
-        # leak_gate.py's own copy is silenced by `stem-notes off`).
+        # leak_gate.py prints its own copy only on `--survey` or `stem-notes on`).
         _recs = leak_stem_recommendations(repo_root, _bl)
         for r in _recs:
             print(f'  RECOMMENDATION: {r}')
