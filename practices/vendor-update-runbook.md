@@ -83,9 +83,9 @@ first, so the deep check judges what the commit will hold. **DONE** (exit
 0): nothing is left, so commit and go on to steps 11 and 12. **When the
 checkout is on `main` or on the branch your work lands on**, DONE prints the command that moves the staged update onto
 a session branch first, `git switch --no-track -c "$(python3
-tools/precedent_branch_name.py update-vendors)"`: the push check refuses a
-branch that tool did not name, and `git switch -c` carries the staged diff
-as it is. The update prints it rather than switching itself, because it
+tools/precedent_branch_name.py update-vendors)"`: for a person on the
+ladder the push check refuses a branch that tool did not name (anyone else
+may use any name), and `git switch -c` carries the staged diff as it is. The update prints it rather than switching itself, because it
 reads the current branch at several steps (2026-10-09). **LEFT FOR YOU** (exit 1): the calls
 that belong to this repo, each named with its file and its question -- work
 them under the conflicted-file review below, then run it again. The rerun
