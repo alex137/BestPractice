@@ -1467,10 +1467,32 @@ def _path_filter_runs(paths, ignore, changed):
 
 def _changed_into_main(root, sha):
     """-> the paths a pull request of `sha` into main changes (from where
-    they parted), or None when that cannot be read."""
+    they parted), or None when that cannot be read.
+
+    A Produce merges first and waits after (2026-10-13), and both broke the
+    old reading, which compared `sha` with main as it is now. Right after
+    the merge main's new tip is not in this clone yet, so the diff failed,
+    and every path-filtered workflow was required: a consumer's wait said
+    "never ran on it ... fix main now" of a prompt check its change never
+    touched. Once fetched, main carries `sha`, the diff from where they
+    parted is empty, and a workflow that did run dropped out. So: fetch
+    main's tip when it is missing, and when main already carries `sha`, read
+    the pull request's diff against the main it was merged onto -- `sha`'s
+    first parent, which the Produce's copy (staging merged with main) has.
+    A commit main carries that is no merge says nothing about where the
+    pull request began: None, and the workflow is required, as before."""
     base = _remote_tip(root, MAIN) or _git(root, 'rev-parse', '--verify', '-q', MAIN)
     if not base:
         return None
+    if _run(root, 'cat-file', '-e', f'{base}^{{commit}}').returncode != 0:
+        _run(root, 'fetch', '-q', 'origin', MAIN)
+        if _run(root, 'cat-file', '-e', f'{base}^{{commit}}').returncode != 0:
+            return None
+    if _run(root, 'merge-base', '--is-ancestor', sha, base).returncode == 0:
+        parents = (_git(root, 'rev-list', '--parents', '-n', '1', sha) or '').split()[1:]
+        if len(parents) < 2:
+            return None
+        base = parents[0]
     r = _run(root, 'diff', '--name-only', f'{base}...{sha}')
     if r.returncode != 0:
         return None
