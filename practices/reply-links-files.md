@@ -21,13 +21,13 @@ approved_by: "BestPractice (pre-fork); the owner/repo/branch preface, Morgan, 20
 source_practice_number: 12
 ---
 ## Rule
-A session's reply that created, modified or deleted files ends with a
+A session's reply to a code owner that created, modified or deleted files ends with a
 "Files touched" list: each entry links the file on the working branch *and*
 its post-merge location, with a one-line description. The reader must be able
 to open the work from the chat, not merely learn it exists. **A deleted file
 is listed too** — its path, why it went, and a link to the commit that
 removed it. It is the one entry with nothing to open on the branch, which is
-exactly why a reader will not find it on their own.
+why a reader will not find it on their own.
 
 **The list opens with where the files are: `Files touched in
 owner/repo/branch:`** -- for example *Files touched in
@@ -36,6 +36,13 @@ touched more than one repository or branch gives each its own preface and
 its own list, so every entry sits under the place it lives.
 
 ## Detail
+**Never to anyone else.** To a person who is not one of the repository's
+code owners, a reply carries no "Files touched" list and no file paths at
+all: it says in everyday words what happened to their work (Morgan,
+2026-10-12, strength: decided: "Nothing technical should ever be said to a
+non technical person";
+[inner-workings-for-code-owners](inner-workings-for-code-owners.md)).
+
 **A deletion is linked at the commit that made it**, not on the branch: a
 branch link to a path that no longer exists is a 404, and the reader wants
 the diff anyway — the removing commit shows what went, in full, and keeps

@@ -74,6 +74,12 @@ _WARNING = re.compile(
     r'|\bcould not\b|\bcannot\b.*\bskipp', re.IGNORECASE)
 # A line this review printed itself is never an item of the next one.
 _OWN = re.compile(r'^\s*(?:' + re.escape(TRAILER) + r'|UPSTREAM REVIEW\b|- \[[0-9a-f]{10}\])')
+# A line reporting a decision already recorded and still holding is not an
+# item, whatever words its recorded reason happens to contain (2026-10-12, a
+# consuming repository's Update Vendors: "KEPT ON PURPOSE: AGENTS.md ## Git /
+# workflow ..." was listed for judgment, though precedent.json records it and
+# the same run said it is not listed again until upstream changes that text).
+_SETTLED = re.compile(r'^\s*(?:KEPT ON PURPOSE:|PIN (?:UPDATED|NARROWED):|kept on purpose:|kept pin updated:)')
 _TMP_PATH = re.compile(r'(?:/tmp|/var/folders|/private/var)/\S*')
 _HOME_PATH = re.compile(r'(?:/home/[^/\s]+|/root|/Users/[^/\s]+)/')
 _HEX = re.compile(r'\b[0-9a-f]{7,40}\b')
@@ -96,7 +102,8 @@ def extract(text):
     out, seen = [], set()
     for raw in (text or '').splitlines():
         line = raw.strip()
-        if not line or _OWN.search(line) or not _WARNING.search(line):
+        if (not line or _OWN.search(line) or _SETTLED.search(line)
+                or not _WARNING.search(line)):
             continue
         fp = fingerprint(line)
         if fp not in seen:
@@ -248,6 +255,9 @@ def self_check():
         bad.append('the same warning with other numbers and temp paths fingerprinted twice')
     if fingerprint('NOTE: could not release lock') == fingerprint('NOTE: could not take lock'):
         bad.append('two different warnings shared a fingerprint')
+    if extract('KEPT ON PURPOSE: AGENTS.md "## Git" -- "the old one could not '
+               'say it". Not listed again until upstream changes that text.'):
+        bad.append('a recorded kept divergence was listed as an item')
     got = extract('ok\nWARN: one\nall passed\nWARN: one\n'
                   'Upstream-seen: 0123456789 WARN: old\nsome DeprecationWarning here\n')
     if [t for _, t in got] != ['WARN: one', 'some DeprecationWarning here']:

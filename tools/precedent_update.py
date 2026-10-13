@@ -2395,31 +2395,95 @@ def seed_engine_budgets(repo, rev, last_synced=None):
     return seeded, asks, followed
 
 
-def upstream_by_others(repo, old, new):
-    """-> (others, unsure) for the commits upstream gained between `old`,
-    the commit this repository last vendored from, and `new`, the one it
+def range_readable(clone, old, new):
+    """-> (True, '') when `clone` holds `old` as an ancestor of `new`, after
+    fetching more history if it has to; else (False, why and the fix).
+
+    WHY (2026-10-12, a consuming repository's Update Vendors): cloud sessions
+    clone BestPractice with --depth 1, so the commit the repository last
+    vendored was not in the clone, `git log old..new` failed, and the report
+    said "could not be read here" over 110 commits, most of them a
+    colleague's. A shallow clone is deepened in steps, then unshallowed, then
+    asked for the commit itself; only then does this give up."""
+    def git(*args, timeout=300):
+        try:
+            return subprocess.run(['git', '-C', str(clone), *args], capture_output=True,
+                                  text=True, timeout=timeout).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+    def holds():
+        return (git('cat-file', '-e', f'{old}^{{commit}}')
+                and git('merge-base', '--is-ancestor', old, new))
+    if holds():
+        return True, ''
+    for step in (['fetch', '-q', '--deepen=300', 'origin'],
+                 ['fetch', '-q', '--deepen=3000', 'origin'],
+                 ['fetch', '-q', '--unshallow', 'origin'],
+                 ['fetch', '-q', 'origin', old]):
+        git(*step, timeout=600)
+        if holds():
+            return True, ''
+    return False, (f'{pathlib.Path(clone).name} does not hold {str(old)[:12]} as '
+                   f'an ancestor of {str(new)[:12]}, even after fetching more '
+                   f'history; `git -C {clone} fetch --unshallow origin` and a '
+                   f'second run read it')
+
+
+def upstream_by_others(repo, old, new, clone=None):
+    """-> (others, unsure) for the commits a source gained between `old`,
+    the commit this repository last took from it, and `new`, the one it
     takes now, made by anyone but the person running the update; None when
-    it cannot be read (no identity, or a commit the source clone lacks).
+    it cannot be read (no identity, or a commit the clone lacks). `clone`
+    is the source's checkout, BestPractice's (SOURCE) when not given.
     The same sorting the morning report uses (precedent_others_did.classify):
     a commit signed only by Claude counts as its session's owner's."""
     import precedent_identity as pi
     import precedent_others_did as od
+    clone = clone or SOURCE
     if not old or not new or old == new:
         return [], []
     try:
         me = pi.declared_identity(repo)
     except Exception:                                             # noqa: BLE001
         return None
-    code, out = od.git(SOURCE, 'log', '--no-merges', od.LOG_FORMAT, f'{old}..{new}')
+    if not range_readable(clone, old, new)[0]:
+        return None
+    code, out = od.git(clone, 'log', '--no-merges', od.LOG_FORMAT, f'{old}..{new}')
     if code != 0:
         return None
-    return od.classify(SOURCE, od._records(out), me.get('email'), {'new': new})
+    return od.classify(clone, od._records(out), me.get('email'), {'new': new})
 
 
-def upstream_changes_block(repo, old, new):
+def set_pins(repo):
+    """-> {name: (clone path, commit)} for every shared or individual set
+    this repository's MANIFEST.json records syncing at a commit
+    (precedent_source_pins): what a views sync took from each set."""
+    import precedent_source_pins as psp
+    out = {}
+    for e in psp._manifest(repo).get('sources') or []:
+        if (not isinstance(e, dict) or e.get('level') == 'universal'
+                or not e.get('name') or not e.get('commit') or not e.get('path')):
+            continue
+        path = pathlib.Path(str(e['path'])).expanduser()
+        out[e['name']] = ((path if path.is_absolute() else repo / path).resolve(),
+                          e['commit'])
+    return out
+
+
+def sets_moved(before, after):
+    """-> [(name, clone, old, new)] for each set whose recorded commit this
+    update moved."""
+    return [(name, after[name][0], before[name][1], after[name][1])
+            for name in sorted(after)
+            if name in before and before[name][1] != after[name][1]]
+
+
+def upstream_changes_block(repo, old, new, sets=()):
     """-> the block Update Vendors' report carries about what OTHER people
-    changed upstream in what this update brings in, or '' when there is
-    nothing to say or the person is off the ladder.
+    changed upstream in what this update brings in -- BestPractice's range
+    `old`..`new`, and each practice set in `sets` [(name, clone, old, new)]
+    -- or '' when there is nothing to say or the person is off the ladder.
 
     WHY (Morgan, 2026-10-12: "Yes, build it"). The morning report says what
     others landed in the repository a session works in, so an Update Vendors
@@ -2427,21 +2491,31 @@ def upstream_changes_block(repo, old, new):
     them; the person asked the same day whether he had missed them. The
     update is when upstream's changes reach a repository, so its report
     says the few that matter, the morning report's way (the others-did
-    practice, in the ladder set, which is what turns both on)."""
+    practice, in the ladder set, which is what turns both on). The shared
+    and individual sets came the same evening (Morgan: "yes extend it"):
+    their changes reach a repository by the same update."""
     import precedent_others_did as od
     if od.off_ladder(repo):
         return ''
-    found = upstream_by_others(repo, old, new)
-    if found is None:
-        return (f'WHAT OTHERS CHANGED UPSTREAM: could not be read here '
-                f'({str(old)[:12]}..{str(new)[:12]} in {SOURCE.name}).\n')
-    others, unsure = found
-    if not others and not unsure:
-        return ''
-    return ('\n'.join([
-        f'WHAT OTHERS CHANGED UPSTREAM in what this update brings in '
-        f'({str(old)[:12]}..{str(new)[:12]}) -- {len(others) + len(unsure)} '
-        f'commit(s) by people other than you.',
+    sections, unread, total = [], [], 0
+    for name, clone, a, b in [(SOURCE.name, SOURCE, old, new), *sets]:
+        found = upstream_by_others(repo, a, b, clone)
+        if found is None:
+            why = range_readable(clone, a, b)[1] if a and b else ''
+            unread.append(f'{name} ({str(a)[:12]}..{str(b)[:12]})'
+                          + (f' -- {why}' if why else ''))
+            continue
+        others, unsure = found
+        if others or unsure:
+            total += len(others) + len(unsure)
+            sections.append(f'{name} ({str(a)[:12]}..{str(b)[:12]}):\n'
+                            + od.commit_listing(others, unsure))
+    note = (f'could not be read here: {", ".join(unread)}.\n' if unread else '')
+    if not sections:
+        return f'WHAT OTHERS CHANGED UPSTREAM: {note}' if note else ''
+    return '\n'.join([
+        f'WHAT OTHERS CHANGED UPSTREAM in what this update brings in -- '
+        f'{total} commit(s) by people other than you.',
         '',
         'OPEN YOUR REPORT OF THIS UPDATE WITH THE THREE OR FOUR THAT MATTER '
         "MOST, never the whole list: What's New style, each opening with its "
@@ -2449,7 +2523,7 @@ def upstream_changes_block(repo, old, new):
         'repository and its sessions. A change to a rule or to how sessions '
         'behave always makes the cut (the others-did practice, in the ladder '
         'set; Morgan, 2026-10-12).',
-        '']) + '\n' + od.commit_listing(others, unsure))
+        '']) + '\n' + '\n'.join(sections) + note
 
 
 def universal_catalogue_path(repo):
@@ -2748,6 +2822,18 @@ def feature_branch_line(repo):
     return None
 
 
+def _person_is_code_owner(repo):
+    """True when the person running the update is one of `repo`'s code
+    owners; False in doubt (precedent_audience)."""
+    if repo is None:
+        return True
+    try:
+        import precedent_audience
+        return bool(precedent_audience.is_code_owner(repo)[0])
+    except Exception:                                             # noqa: BLE001
+        return False
+
+
 class Report:
     def __init__(self):
         self.steps = []   # (name, one-line outcome)
@@ -2913,6 +2999,13 @@ class Report:
         if self.loud:
             self._banner()
         print("\n== Update Vendors ==")
+        if not _person_is_code_owner(self.repo or self.pin_repo):
+            print("  FOR YOU, NOT THE PERSON: they are not one of this "
+                  "repository's code owners, so none of this report reaches "
+                  "them. Settle what you can; tell them only, in everyday "
+                  "words, whether their project is up to date and whether "
+                  "someone who looks after it needs to step in "
+                  "(practice: inner-workings-for-code-owners).")
         if self.code_warning:
             # First, in every outcome: a stop read without it is the
             # misdiagnosis the driver bootstrap exists to prevent.
@@ -4949,6 +5042,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # four of Morgan's sets stopped on exactly that, one new MAP.md row
     # each, fixed by hand. A set has no precedent_sync_views.py anyway --
     # so it gets the full build, the same one its check compares against.
+    sets_before = set_pins(repo)
     brought_sets_step(rep, repo=repo)
     sync = repo / 'tools' / 'precedent_sync_views.py'
     build = repo / 'tools' / 'build_views.py'
@@ -5176,6 +5270,9 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
         rep.staged = sorted(set(rep.staged or ()) | set(late))
         rep.step('staged, written later', f'{len(late)} path(s) a step after '
                  f'the staging wrote, staged with the rest: ' + ', '.join(late))
+    moved = sets_moved(sets_before, set_pins(repo))
+    if moved:
+        rep.upstream_changes = upstream_changes_block(repo, last_synced, tip, moved)
     return closing_check(repo, rep, skip_check)
 
 

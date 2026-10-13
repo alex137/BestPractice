@@ -47603,8 +47603,10 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
     works of how BP works including things like file management, dealing
     with temporary files, dealing with temporary repos etc -- should only be
     for codeowners" (practice: inner-workings-for-code-owners). Planted: the
-    same unsafe container, read once as an owner and once as not."""
-    import contextlib, io
+    same unsafe container, read once as an owner and once as not; then the
+    setup warning, a refusal, Update Vendors' report and the Files touched
+    rule, each of which spoke to everyone."""
+    import contextlib, inspect, io
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_gate as pg
     cases = []
@@ -47626,12 +47628,67 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
                       and 'never write a disposition line' in out, out[-1500:]))
         cases.append(('...and the disposition line is never offered',
                       '**Checkout disposition:** <name>' not in out, out[-1500:]))
+        cases.append(('...and every turn opens with the plain-words instruction, '
+                      'which names each technical kind of message',
+                      "NOT one of this repository's code owners" in out
+                      and all(k in out for k in ('Files touched', 'branch names',
+                                                 'session-setup warnings',
+                                                 'Paste into', 'Update Vendors',
+                                                 'reason a reply was refused')),
+                      out[:1500]))
         out = gate(True)
         cases.append(('CONTROL: a code owner still gets the files and the '
                       'disposition line', 'SAY NOTHING ABOUT IT' not in out
                       and '**Checkout disposition:** <name>' in out, out[-1500:]))
+        cases.append(('...and no plain-words instruction',
+                      "NOT one of this repository's code owners" not in out, ''))
     finally:
         pg._container_report, pg._is_code_owner = saved
+    # 2026-10-12, Morgan: "Nothing technical should ever be said to a non
+    # technical person." The other places that speak through a session.
+    import precedent_session_check as psc
+    import precedent_update as pu
+    saved_fg = psc.failing_guarantees
+    try:
+        psc.failing_guarantees = lambda **_k: [('a guarantee', 'its detail. More.')]
+        line = psc.summary('precedent gate') if hasattr(psc, 'summary') else ''
+    finally:
+        psc.failing_guarantees = saved_fg
+    src = inspect.getsource(psc)
+    cases.append(('the setup warning says it is never relayed to a non-owner',
+                  'hears nothing of it' in src, line[-300:]))
+    rc_src = (ROOT / 'tools' / 'precedent_reply_check.py').read_text(encoding='utf-8')
+    cases.append(('a refusal says to correct without naming the check to a non-owner',
+                  'without naming this check' in rc_src, ''))
+    rep = pu.Report()
+    rep.pin_repo = ROOT
+    saved_owner = pu._person_is_code_owner
+    try:
+        pu._person_is_code_owner = lambda _r: False
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                rep.close()
+            except Exception:                                   # noqa: BLE001
+                pass
+        cases.append(('Update Vendors\' report, for a non-owner, opens by saying '
+                      'none of it reaches them', 'FOR YOU, NOT THE PERSON'
+                      in buf.getvalue(), buf.getvalue()[:600]))
+        pu._person_is_code_owner = lambda _r: True
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                rep.close()
+            except Exception:                                   # noqa: BLE001
+                pass
+        cases.append(('CONTROL: for a code owner it does not',
+                      'FOR YOU, NOT THE PERSON' not in buf.getvalue(), ''))
+    finally:
+        pu._person_is_code_owner = saved_owner
+    links = (ROOT / 'practices' / 'reply-links-files.md').read_text(encoding='utf-8')
+    cases.append(('the Files touched rule is for code owners only',
+                  "reply to a code owner that created" in links
+                  and '**Never to anyone else.**' in links, ''))
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'the archive gate keeps the inner workings from a person who is not '
           f'a code owner ({len(cases)} stated cases)', not bad, '; '.join(bad))
@@ -68171,6 +68228,59 @@ def check_update_vendors_names_what_others_changed_upstream():
             cases.append(('a commit the clone lacks is said plainly',
                           got.startswith('WHAT OTHERS CHANGED UPSTREAM: could not be read'),
                           got))
+            # The shared sets, the same evening (Morgan: "yes extend it").
+            setc = pathlib.Path(td) / 'a-set'
+            setc.mkdir()
+            env0 = _fixture_git_env()
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(setc)],
+                           capture_output=True, env=env0)
+
+            def set_commit(name, email, msg):
+                env = dict(env0, GIT_AUTHOR_NAME=name, GIT_AUTHOR_EMAIL=email,
+                           GIT_COMMITTER_NAME=name, GIT_COMMITTER_EMAIL=email)
+                (setc / 'p.md').write_text(msg, encoding='utf-8')
+                subprocess.run(['git', '-C', str(setc), 'add', '-A'], env=env,
+                               capture_output=True)
+                subprocess.run(['git', '-C', str(setc), 'commit', '-qm', msg],
+                               env=env, capture_output=True)
+                return subprocess.run(['git', '-C', str(setc), 'rev-parse', 'HEAD'],
+                                      capture_output=True, text=True).stdout.strip()
+            s_old = set_commit('Me', 'me@example.com', 'set as last synced')
+            s_new = set_commit('Colleague', 'them@example.com', 'A set rule changed')
+            block = pu.upstream_changes_block(pathlib.Path(td), new, new,
+                                              [('a-set', setc, s_old, s_new)])
+            cases.append(('a colleague\'s change to a shared set is listed under '
+                          'the set, with the instruction',
+                          'a-set (' in block and 'A set rule changed' in block
+                          and 'OPEN YOUR REPORT OF THIS UPDATE' in block, block))
+            repo2 = pathlib.Path(td) / 'consumer'
+            repo2.mkdir()
+
+            def manifest(commit):
+                (repo2 / 'MANIFEST.json').write_text(json.dumps({'sources': [
+                    {'level': 'universal', 'name': 'precedent', 'path': '../source'},
+                    {'level': 'shared', 'name': 'a-set', 'path': '../a-set',
+                     'commit': commit}]}), encoding='utf-8')
+            manifest(s_old)
+            before = pu.set_pins(repo2)
+            manifest(s_new)
+            moved = pu.sets_moved(before, pu.set_pins(repo2))
+            cases.append(('the sync\'s recorded commits say which set moved, and '
+                          'from where to where (universal left to its own range)',
+                          moved == [('a-set', setc.resolve(), s_old, s_new)], moved))
+            # 2026-10-12, a consuming repository: cloud sessions clone with
+            # --depth 1, the last-vendored commit was missing, and the block
+            # said "could not be read" over 110 commits.
+            shallow = pathlib.Path(td) / 'shallow'
+            subprocess.run(['git', 'clone', '-q', '--depth', '1',
+                            f'file://{src}', str(shallow)], capture_output=True,
+                           env=_fixture_git_env())
+            lacks = subprocess.run(['git', '-C', str(shallow), 'cat-file', '-e',
+                                    f'{old}^{{commit}}'], capture_output=True).returncode
+            got = pu.upstream_by_others(pathlib.Path(td), old, new, shallow)
+            cases.append(('a depth-1 clone lacking the old commit is deepened and '
+                          'read', lacks != 0 and got is not None
+                          and any(w == 'Colleague' for _s, w, _t in got[0]), got))
             od.off_ladder = lambda *_a, **_k: True
             cases.append(('a person off the ladder gets nothing',
                           pu.upstream_changes_block(pathlib.Path(td), old, new) == '', ''))
