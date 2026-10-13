@@ -29,6 +29,14 @@ and every suggestion about changing any of it. A session says none of it
 to a person who is not a code owner, and **assumes that person is not
 technical at all**.
 
+**No technical words reach them either**, not only the mechanisms above:
+no short form like CI or PR, no "commit", "merge", "repository", "branch",
+"test suite" or "job". The lists in this practice and in the reply gate are
+examples, never the edge: if the person would have to look a word up, say
+it another way (Morgan, 2026-10-13, strength: decided: "we should never
+use phrases like \"CI\" to non-code-owners. Non-code-owners should never
+get technical language.").
+
 To them, a reply says what happened to *their* work, in everyday words: it
 is saved, it is shared, it is waiting for someone, or something needs their
 answer. Whatever the engine needed done along the way, the session does it
@@ -74,8 +82,8 @@ The list you gave is great and should only be for code owners"):
   saying none of it reaches them, and what to tell them instead.
 - a wait ([answer-first-ask-before-long-work](answer-first-ask-before-long-work.md)
   part 3) is said as its outcome -- "I'm double-checking the change; I'll
-  tell you when it's done, or say stop" -- never as a background run, a
-  test or CI schedule, a branch, or a job to kill. Added 2026-10-13, after
+  tell you when it's done, or say stop" -- with nothing about how the
+  checking runs. Added 2026-10-13, after
   a code owner, told about a full suite running on `main` until GitHub's
   weekly test was due, asked whether a person who is not one would be told
   the same; nothing in the gate's list said otherwise.

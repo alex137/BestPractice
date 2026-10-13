@@ -48,7 +48,7 @@ for two days, reading the clock by hand in the example's zone.
 
 **Part 3 to a person who is not a code owner** is the outcome in everyday
 words, never the mechanism: what is being checked and that they can say
-stop, with no background run, schedule, branch or job name
+stop, in no word they would have to look up
 ([inner-workings-for-code-owners](inner-workings-for-code-owners.md)).
 
 **What part 1 means by an easy question:** one answered from what is already

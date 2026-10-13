@@ -979,10 +979,12 @@ NOT_A_CODE_OWNER = (
     "\"Files touched\" list and no file paths, branch names, commit hashes, "
     "clones, scratch folders or temporary files; no session-setup warnings; "
     "no check, hook or gate names and no reason a reply was refused; no "
-    "\"Paste into\" or setup instructions; no Update Vendors items. A wait "
-    "is its outcome in everyday words (\"I'm double-checking the change; "
-    "I'll tell you when it's done, or say stop\"), never a background run, "
-    "a test or CI schedule, a branch or stopping a job. Settle "
+    "\"Paste into\" or setup instructions; no Update Vendors items. That "
+    "list is examples, not the edge: no technical word at all, short forms "
+    "like CI or PR included -- if they would have to look it up, say it "
+    "another way. A wait is its outcome in everyday words (\"I'm "
+    "double-checking the change; I'll tell you when it's done, or say "
+    "stop\"). Settle "
     "what you can yourself; what needs a code owner, say in one plain "
     "sentence that someone who looks after the project will need to.\n")
 
