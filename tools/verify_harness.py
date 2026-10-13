@@ -47603,8 +47603,10 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
     works of how BP works including things like file management, dealing
     with temporary files, dealing with temporary repos etc -- should only be
     for codeowners" (practice: inner-workings-for-code-owners). Planted: the
-    same unsafe container, read once as an owner and once as not."""
-    import contextlib, io
+    same unsafe container, read once as an owner and once as not; then the
+    setup warning, a refusal, Update Vendors' report and the Files touched
+    rule, each of which spoke to everyone."""
+    import contextlib, inspect, io
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_gate as pg
     cases = []
@@ -47626,12 +47628,67 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
                       and 'never write a disposition line' in out, out[-1500:]))
         cases.append(('...and the disposition line is never offered',
                       '**Checkout disposition:** <name>' not in out, out[-1500:]))
+        cases.append(('...and every turn opens with the plain-words instruction, '
+                      'which names each technical kind of message',
+                      "NOT one of this repository's code owners" in out
+                      and all(k in out for k in ('Files touched', 'branch names',
+                                                 'session-setup warnings',
+                                                 'Paste into', 'Update Vendors',
+                                                 'reason a reply was refused')),
+                      out[:1500]))
         out = gate(True)
         cases.append(('CONTROL: a code owner still gets the files and the '
                       'disposition line', 'SAY NOTHING ABOUT IT' not in out
                       and '**Checkout disposition:** <name>' in out, out[-1500:]))
+        cases.append(('...and no plain-words instruction',
+                      "NOT one of this repository's code owners" not in out, ''))
     finally:
         pg._container_report, pg._is_code_owner = saved
+    # 2026-10-12, Morgan: "Nothing technical should ever be said to a non
+    # technical person." The other places that speak through a session.
+    import precedent_session_check as psc
+    import precedent_update as pu
+    saved_fg = psc.failing_guarantees
+    try:
+        psc.failing_guarantees = lambda **_k: [('a guarantee', 'its detail. More.')]
+        line = psc.summary('precedent gate') if hasattr(psc, 'summary') else ''
+    finally:
+        psc.failing_guarantees = saved_fg
+    src = inspect.getsource(psc)
+    cases.append(('the setup warning says it is never relayed to a non-owner',
+                  'hears nothing of it' in src, line[-300:]))
+    rc_src = (ROOT / 'tools' / 'precedent_reply_check.py').read_text(encoding='utf-8')
+    cases.append(('a refusal says to correct without naming the check to a non-owner',
+                  'without naming this check' in rc_src, ''))
+    rep = pu.Report()
+    rep.pin_repo = ROOT
+    saved_owner = pu._person_is_code_owner
+    try:
+        pu._person_is_code_owner = lambda _r: False
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                rep.close()
+            except Exception:                                   # noqa: BLE001
+                pass
+        cases.append(('Update Vendors\' report, for a non-owner, opens by saying '
+                      'none of it reaches them', 'FOR YOU, NOT THE PERSON'
+                      in buf.getvalue(), buf.getvalue()[:600]))
+        pu._person_is_code_owner = lambda _r: True
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                rep.close()
+            except Exception:                                   # noqa: BLE001
+                pass
+        cases.append(('CONTROL: for a code owner it does not',
+                      'FOR YOU, NOT THE PERSON' not in buf.getvalue(), ''))
+    finally:
+        pu._person_is_code_owner = saved_owner
+    links = (ROOT / 'practices' / 'reply-links-files.md').read_text(encoding='utf-8')
+    cases.append(('the Files touched rule is for code owners only',
+                  "reply to a code owner that created" in links
+                  and '**Never to anyone else.**' in links, ''))
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'the archive gate keeps the inner workings from a person who is not '
           f'a code owner ({len(cases)} stated cases)', not bad, '; '.join(bad))
@@ -68211,6 +68268,19 @@ def check_update_vendors_names_what_others_changed_upstream():
             cases.append(('the sync\'s recorded commits say which set moved, and '
                           'from where to where (universal left to its own range)',
                           moved == [('a-set', setc.resolve(), s_old, s_new)], moved))
+            # 2026-10-12, a consuming repository: cloud sessions clone with
+            # --depth 1, the last-vendored commit was missing, and the block
+            # said "could not be read" over 110 commits.
+            shallow = pathlib.Path(td) / 'shallow'
+            subprocess.run(['git', 'clone', '-q', '--depth', '1',
+                            f'file://{src}', str(shallow)], capture_output=True,
+                           env=_fixture_git_env())
+            lacks = subprocess.run(['git', '-C', str(shallow), 'cat-file', '-e',
+                                    f'{old}^{{commit}}'], capture_output=True).returncode
+            got = pu.upstream_by_others(pathlib.Path(td), old, new, shallow)
+            cases.append(('a depth-1 clone lacking the old commit is deepened and '
+                          'read', lacks != 0 and got is not None
+                          and any(w == 'Colleague' for _s, w, _t in got[0]), got))
             od.off_ladder = lambda *_a, **_k: True
             cases.append(('a person off the ladder gets nothing',
                           pu.upstream_changes_block(pathlib.Path(td), old, new) == '', ''))

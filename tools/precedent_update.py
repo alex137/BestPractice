@@ -2395,6 +2395,41 @@ def seed_engine_budgets(repo, rev, last_synced=None):
     return seeded, asks, followed
 
 
+def range_readable(clone, old, new):
+    """-> (True, '') when `clone` holds `old` as an ancestor of `new`, after
+    fetching more history if it has to; else (False, why and the fix).
+
+    WHY (2026-10-12, a consuming repository's Update Vendors): cloud sessions
+    clone BestPractice with --depth 1, so the commit the repository last
+    vendored was not in the clone, `git log old..new` failed, and the report
+    said "could not be read here" over 110 commits, most of them a
+    colleague's. A shallow clone is deepened in steps, then unshallowed, then
+    asked for the commit itself; only then does this give up."""
+    def git(*args, timeout=300):
+        try:
+            return subprocess.run(['git', '-C', str(clone), *args], capture_output=True,
+                                  text=True, timeout=timeout).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+    def holds():
+        return (git('cat-file', '-e', f'{old}^{{commit}}')
+                and git('merge-base', '--is-ancestor', old, new))
+    if holds():
+        return True, ''
+    for step in (['fetch', '-q', '--deepen=300', 'origin'],
+                 ['fetch', '-q', '--deepen=3000', 'origin'],
+                 ['fetch', '-q', '--unshallow', 'origin'],
+                 ['fetch', '-q', 'origin', old]):
+        git(*step, timeout=600)
+        if holds():
+            return True, ''
+    return False, (f'{pathlib.Path(clone).name} does not hold {str(old)[:12]} as '
+                   f'an ancestor of {str(new)[:12]}, even after fetching more '
+                   f'history; `git -C {clone} fetch --unshallow origin` and a '
+                   f'second run read it')
+
+
 def upstream_by_others(repo, old, new, clone=None):
     """-> (others, unsure) for the commits a source gained between `old`,
     the commit this repository last took from it, and `new`, the one it
@@ -2411,6 +2446,8 @@ def upstream_by_others(repo, old, new, clone=None):
     try:
         me = pi.declared_identity(repo)
     except Exception:                                             # noqa: BLE001
+        return None
+    if not range_readable(clone, old, new)[0]:
         return None
     code, out = od.git(clone, 'log', '--no-merges', od.LOG_FORMAT, f'{old}..{new}')
     if code != 0:
@@ -2464,7 +2501,9 @@ def upstream_changes_block(repo, old, new, sets=()):
     for name, clone, a, b in [(SOURCE.name, SOURCE, old, new), *sets]:
         found = upstream_by_others(repo, a, b, clone)
         if found is None:
-            unread.append(f'{name} ({str(a)[:12]}..{str(b)[:12]})')
+            why = range_readable(clone, a, b)[1] if a and b else ''
+            unread.append(f'{name} ({str(a)[:12]}..{str(b)[:12]})'
+                          + (f' -- {why}' if why else ''))
             continue
         others, unsure = found
         if others or unsure:
@@ -2783,6 +2822,18 @@ def feature_branch_line(repo):
     return None
 
 
+def _person_is_code_owner(repo):
+    """True when the person running the update is one of `repo`'s code
+    owners; False in doubt (precedent_audience)."""
+    if repo is None:
+        return True
+    try:
+        import precedent_audience
+        return bool(precedent_audience.is_code_owner(repo)[0])
+    except Exception:                                             # noqa: BLE001
+        return False
+
+
 class Report:
     def __init__(self):
         self.steps = []   # (name, one-line outcome)
@@ -2948,6 +2999,13 @@ class Report:
         if self.loud:
             self._banner()
         print("\n== Update Vendors ==")
+        if not _person_is_code_owner(self.repo or self.pin_repo):
+            print("  FOR YOU, NOT THE PERSON: they are not one of this "
+                  "repository's code owners, so none of this report reaches "
+                  "them. Settle what you can; tell them only, in everyday "
+                  "words, whether their project is up to date and whether "
+                  "someone who looks after it needs to step in "
+                  "(practice: inner-workings-for-code-owners).")
         if self.code_warning:
             # First, in every outcome: a stop read without it is the
             # misdiagnosis the driver bootstrap exists to prevent.
