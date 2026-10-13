@@ -15836,6 +15836,115 @@ def check_update_vendors_resolves_a_catalogue_edit():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_decline_while_a_condition_holds():
+    """A decline that names a condition about this repository
+    (`declined_while`) is not asked again when the declined tool changes
+    upstream, only when the condition stops holding; a declined practice is
+    asked again on every change all the same.
+
+    2026-10-13, a consuming repository: its decline of tools/doc_html.py
+    ("this repo renders no HTML") came back as "a decline to decide again"
+    on every upstream edit to that tool, seven times with the same reason."""
+    import contextlib, hashlib, io, tempfile
+    import practice_audit as pa
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-decline-while-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    git = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                    capture_output=True, text=True)
+    sha = lambda b: hashlib.sha256(b).hexdigest()
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        tree = repo / 'process' / 'upstream'
+        (tree / 'tools').mkdir(parents=True)
+        (tree / 'practices').mkdir()
+        tool, rule = tree / 'tools' / 'doc_html.py', tree / 'practices' / 'tables.md'
+        tool.write_text('# renders pages\n', encoding='utf-8')
+        rule.write_text('## Rule\nOne table renderer.\n', encoding='utf-8')
+        mp = repo / 'process' / 'manifest.json'
+
+        def manifest(**extra):
+            mp.write_text(json.dumps({'upstream': {'vendored_at': 'process/upstream'},
+                                      'entries': [
+                dict({'practice': 'table-renderer', 'upstream_path': 'tools/doc_html.py',
+                      'status': 'declined', 'notes': 'we render no HTML',
+                      'declined_upstream_sha256': sha(tool.read_bytes())}, **extra),
+                dict({'practice': 'tables', 'upstream_path': 'practices/tables.md',
+                      'status': 'declined', 'notes': 'we render no HTML',
+                      'declined_upstream_sha256': sha(rule.read_bytes())}, **extra)]}),
+                encoding='utf-8')
+        git('init', '-q')
+        manifest(declined_while='renders-no-html')
+        git('add', '-A')
+        git('commit', '-qm', 'declines')
+        listed = lambda: {n.split(':', 1)[1]: why for n, why in pa.stale_declines(mp)}
+
+        cases.append(('nothing changed: nothing is asked', not listed(), str(listed())))
+        tool.write_text('# renders pages, faster\n', encoding='utf-8')
+        rule.write_text('## Rule\nOne table renderer, everywhere.\n', encoding='utf-8')
+        now = listed()
+        cases.append(('the declined tool changed upstream while the repository still '
+                      'renders no HTML: not asked again',
+                      'table-renderer' not in now, str(now)))
+        cases.append(('the declined practice changed: asked again, condition or not',
+                      'tables' in now and 'changed upstream' in now['tables'], str(now)))
+        (tree / 'page.html').write_text('<p>vendored</p>', encoding='utf-8')
+        git('add', '-A')
+        cases.append(('a page inside the vendored tree is not this repository rendering one',
+                      'table-renderer' not in listed(), str(listed())))
+        (repo / 'report.html').write_text('<p>ours</p>', encoding='utf-8')
+        git('add', 'report.html')
+        now = listed()
+        cases.append(('a tracked page of its own: asked again, saying what it found',
+                      'no longer holds' in now.get('table-renderer', '')
+                      and 'report.html' in now.get('table-renderer', ''), str(now)))
+        git('rm', '-q', '--cached', 'report.html')
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / 'doc_html_host.json').write_text(
+            json.dumps({'docs': [['a.md', 'A']]}), encoding='utf-8')
+        cases.append(('a render list in tools/doc_html_host.json: asked again',
+                      'doc_html_host.json' in listed().get('table-renderer', ''),
+                      str(listed())))
+        (repo / 'tools' / 'doc_html_host.json').unlink()
+        manifest(declined_while='renders-nothing-at-all')
+        cases.append(('a condition the tool does not know is asked about, never trusted',
+                      'not a condition' in listed().get('table-renderer', ''),
+                      str(listed())))
+
+        manifest()
+        tool.write_text('# renders pages, faster still\n', encoding='utf-8')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = pa.redecide([mp], 'table-renderer', 'renders-no-html')
+        entry = json.loads(mp.read_text(encoding='utf-8'))['entries'][0]
+        cases.append(('--redecide NAME --while records the condition with the hash',
+                      rc == 0 and entry.get('declined_while') == 'renders-no-html'
+                      and entry['declined_upstream_sha256'] == sha(tool.read_bytes()),
+                      out.getvalue()))
+        (repo / 'report.html').write_text('<p>ours</p>', encoding='utf-8')
+        git('add', 'report.html')
+        manifest()
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = pa.redecide([mp], 'table-renderer', 'renders-no-html')
+        cases.append(('...refused, writing nothing, when the condition does not hold',
+                      rc == 1 and 'declined_while' not in json.loads(
+                          mp.read_text(encoding='utf-8'))['entries'][0], ''))
+        manifest(declined_while='renders-no-html')
+        with contextlib.redirect_stdout(io.StringIO()):
+            pa.redecide([mp], 'table-renderer')
+        cases.append(('a --redecide without --while drops a condition the new '
+                      'decision was not made on',
+                      'declined_while' not in json.loads(
+                          mp.read_text(encoding='utf-8'))['entries'][0], ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a decline holds while its condition does ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_redecided_decline_sticks():
     """A decline re-decided between two Update Vendors runs stays decided,
     and the update and the consumer's own audit judge it against the same
@@ -68088,6 +68197,40 @@ def check_update_vendors_reports_dropped_template_wording():
                 step(repo, rep, rev)
             cases.append(('...and listed again once the template has changed since',
                           len(rep.left) == 3, str(rep.left)))
+
+            # A file that is, byte for byte, the older template was never made
+            # the repository's own: it takes the current template, and says so.
+            (repo / 'precedent.json').unlink()
+            v1 = git(src, 'show', f'{rev}~1:templates/TODO.md.template').stdout
+            (repo / 'TODO.md').write_text(v1, encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            cases.append(('a file that is word for word an older template takes '
+                          'the current one, said once and not left for you',
+                          not rep.left and any(n == 'refreshed' for n, _o in rep.steps)
+                          and (repo / 'TODO.md').read_bytes() == tmpl.read_bytes(),
+                          f'{rep.left} {rep.steps}'))
+            (repo / 'TODO.md').write_text(v1 + 'One line of our own.\n', encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            cases.append(('...but one edit of its own and it is only reported, '
+                          'never written',
+                          rep.left and (repo / 'TODO.md').read_text(encoding='utf-8')
+                          == v1 + 'One line of our own.\n', str(rep.left)))
+            (repo / 'TODO.md').write_text(v1, encoding='utf-8')
+            (repo / 'precedent.json').write_text(json.dumps({
+                pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                    'reason': 'kept on purpose', 'template_sha256': '0' * 64}}}),
+                encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            cases.append(('...and a file recorded as kept is never written, even '
+                          'when it is an older template word for word',
+                          (repo / 'TODO.md').read_text(encoding='utf-8') == v1,
+                          str(rep.steps)))
             cases.append(('Update Vendors runs the step',
                           'dropped_template_lines_step(' in inspect.getsource(pu.update),
                           ''))
