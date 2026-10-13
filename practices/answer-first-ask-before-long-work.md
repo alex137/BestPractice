@@ -27,8 +27,9 @@ the files the turn touched (never a whole suite) and a run asked for by name.
 stop it**, never a bare "still running"; a background task nobody asked for
 is stopped, not waited on. **(4) An open question is not a stopping point:**
 ask it early, and keep working on whatever its answer doesn't touch. **Every
-"how long" carries the clock time it lands, in the person's zone, named:**
-"about 15 minutes, done around 15:35 New York time".
+"how long" carries when it lands, in the person's zone from
+[`tools/precedent_time.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_time.py), named:**
+"about 15 minutes, done around 15:35 <their city> time".
 
 ## Detail
 **Why a clock time, and whose.** A duration says nothing once the reader
@@ -39,6 +40,11 @@ carry; never the container's unless it is theirs, and always written out,
 since the person, a colleague and the machine are often in three. S.
 Alexander Jacobson, 2026-10-07 (strength: decided): "let's also make a
 practice of reporting a future time not just a duration estimate".
+**The clock comes from [tools/precedent_time.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_time.py)**, which reads the zone
+from the person's identity.json; never recalled, and never the zone of an
+example. Until 2026-10-13 this Rule's example named New York, and a
+session working for someone in Buenos Aires gave its times in New York's
+for two days, reading the clock by hand in the example's zone.
 
 **What part 1 means by an easy question:** one answered from what is already
 known, without waiting on a run. **What part 2 means by a long task:** a
