@@ -883,6 +883,29 @@ def ships_paths(fm):
     return value
 
 
+# Where precedent_materialize.deliver_session_ships records the `ships:` files
+# it delivered UNTRACKED -- a set the person brings, or one this repository
+# defers to .precedent/SESSION_PRACTICES.md. They sit in tools/ beside the
+# repository's own scripts, and they are not the repository's: they exist on
+# one machine and not in a fresh clone or in CI. So anything that globs
+# tools/ to describe or judge this repository leaves them out
+# (session_shipped), or MAP.md and a check's verdict would depend on who ran
+# them (practice: checks-read-only-the-work).
+SESSION_SHIPS_RECORD = '.precedent/session_ships.json'
+
+
+def session_shipped(root):
+    """-> {'tools/x.py', ...}: the untracked files this clone received from a
+    set it does not track, or set() when there are none."""
+    try:
+        data = json.loads((pathlib.Path(root) / SESSION_SHIPS_RECORD)
+                          .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return set()
+    files = data.get('files') if isinstance(data, dict) else None
+    return {k for k in (files or {}) if isinstance(k, str)}
+
+
 def _engine_tool_paths():
     """{'tools/<name>'} for every file the vendoring engine installs, of
     either kind -- asked of precedent_vendor_engine.py, the one place that
@@ -2981,7 +3004,9 @@ def render_map_md(practices, withdrawn=(), root=None):
         "|---|---|",
     ]
     engine_scope = _engine_scope_files()
-    engine_names = sorted(p.name for p in _ENGINE_DIR.glob('*.py'))
+    received = session_shipped(_ENGINE_DIR.parent)
+    engine_names = sorted(p.name for p in _ENGINE_DIR.glob('*.py')
+                          if f'tools/{p.name}' not in received)
     if engine_scope is not None:
         engine_names = [n for n in engine_names if n in engine_scope]
     for name in engine_names:

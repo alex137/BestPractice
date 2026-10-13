@@ -41,8 +41,9 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
   to your own proposal is `assented`
   ([decision-strength](practices/decision-strength.md)).
 - **"Prompt Please"** ([prompt-please](practices/prompt-please.md)) — one
-  paste-ready block for a new session, never a session-creating tool; no
-  merge authorization unless he gave one for this handoff.
+  paste-ready block for a new session, opened with a tool only when he asks
+  for that in his own words; no merge authorization unless he gave one for
+  this handoff.
 - **"Root issues"** / **"Root fixes"** ([root-issues](practices/root-issues.md))
   — every bug, warning, fix or band-aid from this session that also belongs
   in Precedent, a precedent-* repo, a template or a related repo, in one
@@ -183,7 +184,7 @@ When a person says "Drop it" about an open item or a question:
 When a person says "My options", or asks to see a decision's options:
   my-options — every real option, plainer, costs said flatly, your pick and why
 When a person says "Prompt Please", or work belongs in a new session -- a repo this one lacks is asked to be attached here first:
-  prompt-please — one paste-ready prompt for a new session; never a session-creating tool
+  prompt-please — one paste-ready prompt for a new session; open it only when asked
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target:
   reduction-pass — work the menu in order; move, never delete; report what moved
 When a person says "Root issues" or "Root fixes", or asks what this session found or fixed that should go back upstream:

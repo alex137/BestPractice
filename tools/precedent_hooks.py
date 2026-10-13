@@ -22,6 +22,9 @@ outside .claude/, which change with no question asked:
                               per kind of repository, vendored with the engine
   process/practice_hooks.json what declared practices' `hooks:` fields ask
                               for, written by precedent_sync_views.py
+  .precedent/practice_hooks.json  the same, for a set this repository does
+                              not track (one the person brings): untracked,
+                              written at session start (2026-10-13)
 
 The hooks wired straight into settings.json before that date stay there;
 nothing here runs them twice.
@@ -56,6 +59,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 ENGINE_WIRING = HERE / 'hook_wiring.json'
 PRACTICE_WIRING = ROOT / 'process' / 'practice_hooks.json'
+SESSION_WIRING = ('.precedent', 'practice_hooks.json')
 DEFAULT_TIMEOUT = 60
 CONTEXT_FROM_STDOUT = ('SessionStart', 'UserPromptSubmit')
 
@@ -95,10 +99,14 @@ def base_branch(root=ROOT):
     return b.strip() if isinstance(b, str) and b.strip() else 'main'
 
 
-def entries_for(event, tool_name, root=ROOT, engine=None, practice=None):
+def entries_for(event, tool_name, root=ROOT, engine=None, practice=None,
+                session=None):
     """-> [(label, argv, timeout)] the hooks to run for this event and tool."""
     engine = _load(root / 'tools' / 'hook_wiring.json') if engine is None else engine
     practice = _load(root / 'process' / 'practice_hooks.json') if practice is None else practice
+    # practice: practice-carries-its-files -- a set the person brings ships
+    # its hook's script untracked, and lists the hook here, untracked too.
+    session = _load(root.joinpath(*SESSION_WIRING)) if session is None else session
     kind = repo_kind(root)
     skip = declined(root)
     out = []
@@ -106,8 +114,10 @@ def entries_for(event, tool_name, root=ROOT, engine=None, practice=None):
     if isinstance(engine, dict) and kind:
         rows += [dict(r, _engine=True) for r in (engine.get(kind) or [])
                  if isinstance(r, dict)]
-    if isinstance(practice, dict):
-        rows += [r for r in (practice.get('hooks') or []) if isinstance(r, dict)]
+    for listed in (practice, session):
+        if isinstance(listed, dict):
+            rows += [r for r in (listed.get('hooks') or []) if isinstance(r, dict)]
+    seen = set()
     for r in rows:
         if r.get('event') != event:
             continue
@@ -123,8 +133,9 @@ def entries_for(event, tool_name, root=ROOT, engine=None, practice=None):
             out.append((script, ['bash', str(root / 'tools' / script), *args], timeout))
         else:
             command = str(r.get('command') or '')
-            if not command:
+            if not command or command in seen:
                 continue
+            seen.add(command)
             out.append((command, ['bash', '-c', command], timeout))
     return out
 

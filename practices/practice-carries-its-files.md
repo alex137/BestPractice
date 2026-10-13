@@ -34,6 +34,15 @@ it in `MANIFEST.json`, and reports drift from it. **"Copy it in by hand" is
 not an install step any more** — a practice that says it has a dependency
 nothing declares.
 
+**A set the repository does not track gets them too, untracked.** A set a
+person brings through their individual set, or one a public repository
+declares but leaves out of its tracked tree, reaches the session through
+`.precedent/SESSION_PRACTICES.md`; at session start its `ships:` files land
+at the same paths, kept out of git by the clone's own `.git/info/exclude`,
+and its `hooks:` go to the untracked `.precedent/practice_hooks.json`. So
+`python3 tools/create_word_doc.py` works wherever the practice is in force,
+and the tracked tree never depends on who ran the sync.
+
 **A practice moves with everything it owns, in one commit:** the practice
 file, its `checked_by` script, that script's test, and every `ships:` file.
 [`tools/precedent_move.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_move.py)
@@ -85,6 +94,17 @@ and is skipped (usually a stale clone). A decline naming nothing any
 practice ships warns as stale. A file this tree received and no practice
 ships any more is reported and left in place, never deleted.
 
+**The untracked delivery, for a set the repository does not track**
+([`precedent_session_practices.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_practices.py)
+at session start, through `precedent_materialize.deliver_session_ships`)
+never takes a file that is not its own: a path git tracks, one the tracked
+sync delivered, one `declined_ships` names, and an untracked file it did
+not write or that was edited since are left as they are. Its record is
+`.precedent/session_ships.json`. A copy no practice ships any more is
+removed while unchanged. When the repository later declares the set, the
+sync's tracked copy takes the path over and leaves `.git/info/exclude`, so
+it is committed with the sync.
+
 ## Why
 Nothing declared a practice's own files, so nothing could deliver them,
 and nothing could notice one left behind. A checked_by claim has nothing
@@ -103,6 +123,16 @@ to fix a test that belongs to another source. Morgan asked for the root fix
 rather than a patch to that one test: declare the dependency, deliver it,
 catch a practice that moves without it at the source, and run shipped
 tests without the source's own `tools/` so the class fails at home first.
+
+2026-10-13: a consuming repository got the writing set only because Morgan's
+individual set brings it. The sync delivers a declared set's files, and a
+brought set is deferred to the untracked session file, so that repository
+had neither `tools/create_word_doc.py`, which `create-word-doc` tells every
+session to run, nor the `tools/dated_name.py` that `dated-download-names`'
+hook runs. BestPractice declares the same set, but as the universal source
+it never materializes, so it was missing both too. Delivering into the
+tracked tree would have made a repository's tracked files depend on who ran
+the sync, so the files arrive untracked at session start instead.
 
 ## Install
 Nothing to install beyond the engine. A practice set adds `ships:` to each
