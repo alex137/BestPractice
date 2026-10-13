@@ -68171,6 +68171,46 @@ def check_update_vendors_names_what_others_changed_upstream():
             cases.append(('a commit the clone lacks is said plainly',
                           got.startswith('WHAT OTHERS CHANGED UPSTREAM: could not be read'),
                           got))
+            # The shared sets, the same evening (Morgan: "yes extend it").
+            setc = pathlib.Path(td) / 'a-set'
+            setc.mkdir()
+            env0 = _fixture_git_env()
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(setc)],
+                           capture_output=True, env=env0)
+
+            def set_commit(name, email, msg):
+                env = dict(env0, GIT_AUTHOR_NAME=name, GIT_AUTHOR_EMAIL=email,
+                           GIT_COMMITTER_NAME=name, GIT_COMMITTER_EMAIL=email)
+                (setc / 'p.md').write_text(msg, encoding='utf-8')
+                subprocess.run(['git', '-C', str(setc), 'add', '-A'], env=env,
+                               capture_output=True)
+                subprocess.run(['git', '-C', str(setc), 'commit', '-qm', msg],
+                               env=env, capture_output=True)
+                return subprocess.run(['git', '-C', str(setc), 'rev-parse', 'HEAD'],
+                                      capture_output=True, text=True).stdout.strip()
+            s_old = set_commit('Me', 'me@example.com', 'set as last synced')
+            s_new = set_commit('Colleague', 'them@example.com', 'A set rule changed')
+            block = pu.upstream_changes_block(pathlib.Path(td), new, new,
+                                              [('a-set', setc, s_old, s_new)])
+            cases.append(('a colleague\'s change to a shared set is listed under '
+                          'the set, with the instruction',
+                          'a-set (' in block and 'A set rule changed' in block
+                          and 'OPEN YOUR REPORT OF THIS UPDATE' in block, block))
+            repo2 = pathlib.Path(td) / 'consumer'
+            repo2.mkdir()
+
+            def manifest(commit):
+                (repo2 / 'MANIFEST.json').write_text(json.dumps({'sources': [
+                    {'level': 'universal', 'name': 'precedent', 'path': '../source'},
+                    {'level': 'shared', 'name': 'a-set', 'path': '../a-set',
+                     'commit': commit}]}), encoding='utf-8')
+            manifest(s_old)
+            before = pu.set_pins(repo2)
+            manifest(s_new)
+            moved = pu.sets_moved(before, pu.set_pins(repo2))
+            cases.append(('the sync\'s recorded commits say which set moved, and '
+                          'from where to where (universal left to its own range)',
+                          moved == [('a-set', setc.resolve(), s_old, s_new)], moved))
             od.off_ladder = lambda *_a, **_k: True
             cases.append(('a person off the ladder gets nothing',
                           pu.upstream_changes_block(pathlib.Path(td), old, new) == '', ''))
