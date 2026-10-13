@@ -1,9 +1,18 @@
 ---
-checked_through: 2026-10-11
+checked_through: 2026-10-12
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Monday 2026-10-12: inner-workings-for-code-owners
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **People who are not code owners no longer hear how Precedent works inside**: no scratch folders, clones or temporary files, and the session tidies those itself before saying a session can be archived (the new practice inner-workings-for-code-owners; the reply gate's archive check asks precedent_audience who is a code owner).
+- **Update Vendors now names what other people changed upstream** since the repository last updated, so a colleague's new rules no longer arrive without a word (precedent_update.py's report lists those commits per person, sorted the morning report's way).
+- **GitHub's test runs only the checks a change actually reaches**, with the whole suite once a day, about 15 minutes, to catch what a scoped run cannot see (tools/harness_reach.py, from a ledger of what each check reads).
+- **Before a session says it can be archived, it checks that nothing from the conversation lives only in the chat**, and offers a home for anything that does (archive condition 4 in the-boildown and archive-status-check).
 
 ## Sunday 2026-10-11: update-all-vendors
 
