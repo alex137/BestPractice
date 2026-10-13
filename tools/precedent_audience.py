@@ -29,6 +29,14 @@ identity all answer "not a code owner", with the reason, so the session can
 say once why the rules are hidden (Morgan, 2026-10-05: hide them, and say
 why). The checks behind a hidden practice still run on every push: hiding
 changes what a session is TOLD, never what the repository enforces.
+
+NOT ONLY PRACTICES: WHAT IS SAID (Morgan, 2026-10-12, strength: decided:
+"Anything on the inner works of how BP works including things like file
+management, dealing with temporary files, dealing with temporary repos etc
+-- should only be for codeowners. We must assume that non-codeowners are
+very low tech people."). A check or tool that would have a session explain
+a mechanism asks is_code_owner first (practice:
+inner-workings-for-code-owners).
 """
 import os
 import pathlib

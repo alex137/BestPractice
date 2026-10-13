@@ -2130,6 +2130,24 @@ def _previous_manifest(dest_root, loaded):
     return merged
 
 
+# The hooks this engine leaves unvendored, and why, as the last refresh said
+# them, in ENGINE_MANIFEST.json: a refresh says them again only when they
+# change, and `status` names them whenever it is asked.
+HOOKS_NOT_VENDORED_KEY = 'hooks_not_vendored'
+
+
+def _record_hooks_not_vendored(manifest_path, state):
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return
+    if manifest.get(HOOKS_NOT_VENDORED_KEY) == state:
+        return
+    manifest[HOOKS_NOT_VENDORED_KEY] = state
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+
+
 def _write_hook_files(dest_root, hooks_src_dir, previous=None):
     """Copy every hook script in `hooks_src_dir` into
     <dest_root>/.claude/hooks/, and record them in the SAME
@@ -2171,6 +2189,19 @@ def _write_hook_files(dest_root, hooks_src_dir, previous=None):
     # two copies of it. See _wired_hook_names_anywhere.
     elsewhere = sorted(set(skipped) & _wired_hook_names_anywhere(dest_root))
     skipped = [n for n in skipped if n not in set(elsewhere)]
+    # SAID ONCE, WHEN IT CHANGES (2026-10-12, a consuming repository's
+    # Update Vendors): the three notes below are states, never tasks, and
+    # were printed on every refresh, so every update's upstream review
+    # listed eight items with nothing to do. The last refresh's state is in
+    # the manifest; while it holds, they are left unsaid. `status` names them.
+    state = {'elsewhere': elsewhere, 'not_wired': list(skipped),
+             'adapters': {n: claimed[f'{HOOK_DEST_DIR}/{n}']
+                          for n in sorted(adapter_owned & wired)}}
+    said = previous.get(HOOKS_NOT_VENDORED_KEY) if isinstance(previous, dict) else None
+    if said == state:
+        elsewhere, skipped, quiet_adapters = [], [], True
+    else:
+        quiet_adapters = False
     if elsewhere:
         print(f"NOTE: precedent_vendor_engine: {len(elsewhere)} hook "
               f"script(s) BestPractice also ships ({', '.join(elsewhere)}) "
@@ -2195,7 +2226,7 @@ def _write_hook_files(dest_root, hooks_src_dir, previous=None):
               f"in precedent.json. A hook THIS repo's kind gets is wired and "
               f"delivered by the refresh on its own (HOOK_WIRING).",
               file=sys.stderr)
-    for n in sorted(adapter_owned & wired):
+    for n in ([] if quiet_adapters else sorted(adapter_owned & wired)):
         source_name = claimed[f'{HOOK_DEST_DIR}/{n}']
         print(f"NOTE: precedent_vendor_engine: {n} is not vendored by this "
               f"engine -- {source_name!r}'s own adapters mechanism owns "
@@ -2206,6 +2237,8 @@ def _write_hook_files(dest_root, hooks_src_dir, previous=None):
     manifest_path = dest_root / 'tools' / MANIFEST_NAME
     _remove_dropped_hook_files(dest_root, manifest_path, available,
                                hooks_src_dir, previous=previous)
+    if available:
+        _record_hooks_not_vendored(manifest_path, state)
     if not names:
         # Nothing wired here to write -- but a drop sweep may still have had
         # something to do, so this return comes AFTER it, not before. When
@@ -7073,6 +7106,19 @@ def status(clone):
               f"{claimed[f'{HOOK_DEST_DIR}/{name}']!r}'s own adapters "
               f"mechanism, not this engine -- expected divergence, not a "
               f"hand-edit; `refresh` will stop vendoring and tracking it.")
+    left = manifest.get(HOOKS_NOT_VENDORED_KEY) or {}
+    if isinstance(left, dict) and any(left.values()):
+        # What a refresh says only when it changes, said whenever asked.
+        print("  hooks this engine leaves unvendored, as the last refresh "
+              "found them (nothing to do):")
+        if left.get('elsewhere'):
+            print(f"    wired from a path of this repo's own: "
+                  f"{', '.join(left['elsewhere'])}")
+        if left.get('not_wired'):
+            print(f"    not wired here (another kind's, no kind's, or declined): "
+                  f"{', '.join(left['not_wired'])}")
+        for n, src in sorted((left.get('adapters') or {}).items()):
+            print(f"    {HOOK_DEST_DIR}/{n}: kept by {src!r}'s own adapters")
     if 'hook_files' not in manifest:
         print(f"  NOTE: this manifest has no hook_files recorded yet -- vendored before hook "
               f"scripts were tracked. `refresh` will pick them up on the next run.")
