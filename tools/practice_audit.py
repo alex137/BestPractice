@@ -172,6 +172,11 @@ def load_blocklist(path):
             print(f"WARN: blocklist line {i} is not a valid regex ({e}): {line}")
     return (pats, tuple(exempt)), 'ok'
 
+# The marker an empty blocklist prints; precedent_check.py's scrub-gate and
+# precedent_push_check.py read it to report "not verified", never "passed".
+EMPTY_BLOCKLIST = 'BLOCKLIST IS EMPTY'
+
+
 def scrub(tree, blocklist_path, fails, label):
     loaded, reason = load_blocklist(blocklist_path)
     pats, exempt = loaded if loaded else (None, ())
@@ -188,6 +193,17 @@ def scrub(tree, blocklist_path, fails, label):
         return
     if pats is None:
         print(f"scrub [{label}]: skipped — pack opted out (scrub_blocklist: null).")
+        return
+    # An empty list checks nothing, and "clean against 0 pattern(s)" read as
+    # a pass everywhere it surfaced -- the push check's summary and a pull
+    # request's "Scrub gate run" box (2026-10-13, a consumer whose blocklist
+    # is comments only, on purpose). Not a failure: having no private words
+    # yet is a state the repo chose. Not a pass either.
+    if not pats:
+        print(f"scrub [{label}]: {EMPTY_BLOCKLIST} — "
+              f"{blocklist_path.relative_to(ROOT)} has no patterns, so nothing "
+              f"was checked. Add this repo's private words to it when it has "
+              f"some.")
         return
     hits = 0
     for path in sorted(tree.rglob('*')):

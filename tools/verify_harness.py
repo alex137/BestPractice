@@ -60020,14 +60020,81 @@ def check_kept_section_repins_a_change_that_misses_the_kept_lines():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_empty_blocklist_is_not_a_pass():
+    """A scrub against a blocklist with no patterns checked nothing, and
+    says so everywhere it surfaces: practice_audit.py prints
+    EMPTY_BLOCKLIST rather than "clean against 0 blocklist pattern(s)",
+    precedent_check.py's scrub-gate reports it SKIPPED rather than passed,
+    and the push check's line says "not verified" (2026-10-13, a consumer
+    whose blocklist is comments only, on purpose: "1 passed, 0 violated",
+    and its pull request's "Scrub gate run" box read as real verification).
+    A blocklist with a pattern still scrubs, and a hit still fails."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import practice_audit as pa
+    import precedent_check as pc
+    import precedent_push_check as ppc
+    cases = []
+    saved = pa.ROOT
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        tree = td / 'vendor'
+        tree.mkdir()
+        (tree / 'a.md').write_text('a line naming Zorblat\n', encoding='utf-8')
+        bl = td / 'blocklist.txt'
+
+        def scrub(text):
+            bl.write_text(text, encoding='utf-8')
+            fails, out = [], io.StringIO()
+            with contextlib.redirect_stdout(out):
+                pa.scrub(tree, bl, fails, 'test')
+            return fails, out.getvalue()
+        try:
+            pa.ROOT = td
+            fails, out = scrub('# nothing private yet\n\n')
+            cases.append(('comments only: says nothing was checked, never "OK"',
+                          not fails and pa.EMPTY_BLOCKLIST in out
+                          and 'scrub OK' not in out, out))
+            fails, out = scrub('# words\nNothingHere\n')
+            cases.append(('a pattern and a clean tree: scrub OK',
+                          not fails and 'scrub OK' in out
+                          and pa.EMPTY_BLOCKLIST not in out, out))
+            fails, out = scrub('Zorblat\n')
+            cases.append(('a pattern that hits: a SCRUB failure', len(fails) == 1, str(fails)))
+        finally:
+            pa.ROOT = saved
+    real_run = pc._run
+    try:
+        pc._run = lambda *a: (0, f'scrub [vendor]: {pa.EMPTY_BLOCKLIST} -- nothing was checked\n')
+        try:
+            pc._scrub_gate(None)
+            cases.append(('scrub-gate on an empty blocklist is not a pass', False, 'returned'))
+        except pc.NotApplicable as e:
+            cases.append(('scrub-gate on an empty blocklist is not a pass',
+                          pa.EMPTY_BLOCKLIST in str(e), str(e)))
+        pc._run = lambda *a: (1, 'FAIL: SCRUB: a.md:1 matches /x/\n')
+        cases.append(('...and a hit is still a finding',
+                      len(pc._scrub_gate(None)) == 1, ''))
+    finally:
+        pc._run = real_run
+    marker = ppc.STAND_DOWNS.get('scrub_gate', (None, None))[0]
+    cases.append(('the push check reads the same marker as "not verified"',
+                  marker == pa.EMPTY_BLOCKLIST, str(marker)))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d[:200]}' for n, d in bad))
+
+
 def check_repin_kept_records_the_persons_words():
     """`precedent_vendor_engine.py repin-kept` re-pins one kept AGENTS.md
     section against today's template and records who confirmed it and
     when -- the command the stale-kept call names, in place of two
     SHA-256 values pasted into precedent.json by hand, which a session's
     own safety checks refused as editing an audit record (2026-10-07). It
-    refuses without the person's words and for a section not recorded as
-    kept."""
+    refuses without the person's words, without a reason given with the
+    decision, and for a section not recorded as kept; the reason it is given
+    replaces the one recorded before (2026-10-13: a consumer's re-pin kept a
+    reason describing a section that no longer existed in that form)."""
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_vendor_engine as pve
@@ -60055,11 +60122,20 @@ def check_repin_kept_records_the_persons_words():
             pve._read_agents_md_sources = fake_read
             pve._rev = lambda repo, ref: 'a' * 40
             pve._load_manifest = lambda d: {'kind': 'consumer', 'source_commit': 'a' * 40}
-            ok, msg = pve.repin_kept_section(td, 'AGENTS.md ## Session start', '', dest_root=dest)
+            ok, msg = pve.repin_kept_section(td, 'AGENTS.md ## Session start', '',
+                                             dest_root=dest, reason='still ours')
             cases.append(('refuses without the person\'s words', not ok, msg))
-            ok, msg = pve.repin_kept_section(td, 'AGENTS.md ## Nowhere', 'yes', dest_root=dest)
-            cases.append(('refuses a section not recorded as kept', not ok, msg))
+            before = (dest / 'precedent.json').read_text(encoding='utf-8')
             ok, msg = pve.repin_kept_section(td, item, 'Morgan: still kept', dest_root=dest)
+            cases.append(('refuses without a reason, writing nothing',
+                          not ok and '--reason' in msg
+                          and (dest / 'precedent.json').read_text(encoding='utf-8') == before,
+                          msg))
+            ok, msg = pve.repin_kept_section(td, 'AGENTS.md ## Nowhere', 'yes',
+                                             dest_root=dest, reason='x')
+            cases.append(('refuses a section not recorded as kept', not ok, msg))
+            ok, msg = pve.repin_kept_section(td, item, 'Morgan: still kept', dest_root=dest,
+                                             reason='Our own line stays: it names our hook')
             entry = json.loads((dest / 'precedent.json').read_text(
                 encoding='utf-8'))[pve.KEPT_DIVERGENCES_KEY][item]
             want = pve._sha_text(pve._instantiate(
@@ -60067,9 +60143,13 @@ def check_repin_kept_records_the_persons_words():
                 pve._agents_md_subs(dest)))
             cases.append(('re-pins to today\'s template text',
                           ok and entry['template_sha256'] == want, f'{msg} {entry}'))
-            cases.append(('...and records the person\'s words and the reason stays',
+            cases.append(('...and records the person\'s words and the new reason, '
+                          'not the one from before the decision',
                           entry.get('confirmed') == 'Morgan: still kept'
-                          and entry.get('reason') == 'ours', str(entry)))
+                          and entry.get('reason') == 'Our own line stays: it names our hook',
+                          str(entry)))
+            cases.append(('the command a stale kept section names carries --reason',
+                          '--reason' in pve._repin_command(item), pve._repin_command(item)))
         finally:
             for n, f in saved.items():
                 setattr(pve, n, f)
@@ -70827,6 +70907,22 @@ def check_update_vendors_onegplanning_findings():
                       pve.missing_markdown_blocks(local, tmpl) == []))
         cases.append(('3. ...and a sentence really dropped is still reported',
                       pve.missing_markdown_blocks('## X\n\nnothing here at all\n', tmpl) != []))
+        # 2026-10-13, a consumer's Update Vendors: a repo with no audits of
+        # its own drops the placeholder and the words joining it on.
+        plus = ('## X\n\n- **Deep check** -- `push_check.py`, run bare, plus '
+                '`<your own audits>`. It is what the push hook runs.\n')
+        cases.append(('3. a placeholder dropped with its ", plus" is carried',
+                      pve.missing_markdown_blocks(
+                          '## X\n\n- **Deep check** -- `push_check.py`, run bare. '
+                          'It is what the push hook runs.\n', plus) == []))
+        cases.append(('3. ...and with its ", and"',
+                      pve.missing_markdown_blocks(
+                          '## X\n\n- **Deep check** -- the full suite. '
+                          'Gates a push and a merge.\n', tmpl) == []))
+        cases.append(('3. ...but rewording the words around it is still reported',
+                      pve.missing_markdown_blocks(
+                          '## X\n\n- **Deep check** -- `push_check.py`, run bare, then '
+                          'nothing. It is what the push hook runs.\n', plus) != []))
 
         dedupe = getattr(pu, '_without_duplicate_permissions', None)
         doubled = json.dumps({'permissions': {'allow': [
@@ -78411,6 +78507,8 @@ def main():
     check('a kept section re-pins by itself when upstream\'s change misses what it kept',
           *check_kept_section_repins_a_change_that_misses_the_kept_lines())
     check_repin_kept_records_the_persons_words()
+    check('an empty blocklist is reported as nothing checked, never a pass',
+          *check_empty_blocklist_is_not_a_pass())
     check_hook_changes_never_touch_dot_claude()
     check_sync_names_a_field_its_engine_does_not_know()
     check_practice_change_propagates_refuses()
