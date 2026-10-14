@@ -1,9 +1,18 @@
 ---
-checked_through: 2026-10-12
+checked_through: 2026-10-13
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Tuesday 2026-10-13: branch-page-remembers-ticks
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **The branch-cleanup page now remembers which branches you ticked**, so a branch you just deleted no longer comes back with the next session's refresh (the page saves the ticks into its own data as a new version; 47 of 55 rows that day were stale copies).
+- **Nobody who is not a code owner hears a technical word at all**, short forms like CI or PR included, not just the examples a list once named (inner-workings-for-code-owners and the reply gate's notice).
+- **Files and hooks from a shared set you bring yourself now arrive in the session**, where before only its rules did, so tools like the Word-document builder were missing (precedent_session_practices.py delivers each set's `ships:` files, kept out of git).
+- **Update Vendors names what other people changed in the shared sets too**, not only in BestPractice (precedent_source_pins reads each set's recorded commit before and after the sync).
 
 ## Monday 2026-10-12: inner-workings-for-code-owners
 
