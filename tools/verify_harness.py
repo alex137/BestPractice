@@ -60758,8 +60758,12 @@ def check_leak_gate_reads_the_written_private_repo_list():
     sys.path.insert(0, str(ROOT / 'tools'))
     import leak_gate as lg
     cases = []
-    with tempfile.TemporaryDirectory() as td:
-        td = pathlib.Path(td)
+    with tempfile.TemporaryDirectory() as top:
+        # One level down, so the siblings local_clone_refs surveys are this
+        # fixture's own and never the machine's /tmp (2026-10-14: GitHub's
+        # runner holds an unreadable directory there).
+        td = pathlib.Path(top) / 'repo'
+        td.mkdir()
         bl = td / 'leak-blocklist.txt'
         bl.write_text('# visibility-audit: private-owner someone -- theirs\n',
                       encoding='utf-8')
@@ -60780,8 +60784,27 @@ def check_leak_gate_reads_the_written_private_repo_list():
                       any('secret-garden' in str(h) for h in hits), hits))
         cases.append(('a listed repository under an owner nobody declared private is not',
                       [n for _p, n in pats] == ['secret-garden'], pats))
-        cases.append(('a clone on disk that the list lacks is named for adding',
+        cases.append(('no clone on disk, so nothing is named for adding',
                       lg.unlisted_private_clones(td, bl, owners, allowed) == [], ''))
+        # Simulated, since a chmod does not stop root: the sibling's `.git`
+        # answers PermissionError, as /tmp/snap-private-tmp/.git did.
+        locked = pathlib.Path(top) / 'locked'
+        locked.mkdir()
+        real_exists = pathlib.Path.exists
+
+        def exists(self, *a, **k):
+            if self == locked / '.git':
+                raise PermissionError(13, 'Permission denied', str(self))
+            return real_exists(self, *a, **k)
+        pathlib.Path.exists = exists
+        try:
+            refs_ok = isinstance(lg.local_clone_refs(td), set)
+        except OSError as e:
+            refs_ok = e
+        finally:
+            pathlib.Path.exists = real_exists
+        cases.append(('an unreadable sibling is skipped, never a crash', refs_ok is True,
+                      refs_ok))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the leak gate reads the written private-repository list ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
