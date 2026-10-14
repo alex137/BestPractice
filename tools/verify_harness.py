@@ -50751,6 +50751,24 @@ def check_staging_tier_is_never_main_where_origin_has_staging():
     check(f'the staging tier is never main where origin has staging '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
+def check_workflows_use_actions_that_run_on_node_24():
+    """GitHub warned "Node.js 20 is deprecated" for actions/checkout@v4 and
+    actions/setup-python@v5 (2026-10-14), in this repo's workflows and in
+    the templates consumers receive. Each moved to the first release that
+    runs on Node 24 (checkout v5, setup-python v6; Morgan, 2026-10-14:
+    "Yes on fix 6"). No workflow or template here names an older one."""
+    floor = {'actions/checkout': 5, 'actions/setup-python': 6}
+    files = sorted((ROOT / '.github' / 'workflows').glob('*.yml')) + \
+        sorted((ROOT / 'templates' / 'github-actions').glob('*.template'))
+    old = []
+    for f in files:
+        for n, line in enumerate(f.read_text(encoding='utf-8').splitlines(), 1):
+            m = re.search(r'uses:\s*(actions/(?:checkout|setup-python))@v(\d+)', line)
+            if m and int(m.group(2)) < floor[m.group(1)]:
+                old.append(f'{f.relative_to(ROOT)}:{n} {m.group(1)}@v{m.group(2)}')
+    check(f'workflows and templates use actions that run on Node 24 '
+          f'({len(files)} files)', files and not old, '; '.join(old))
+
 def check_refresh_sources_leaves_the_base_branch_clean():
     """The session-start refresh commits on a dated local branch of its own
     and returns the set to its base branch with nothing uncommitted
@@ -79604,6 +79622,7 @@ def main():
     check_refresh_sources_never_fetches_the_branch_a_clone_sits_on()
     check_leak_gate_reads_a_declared_visibility_before_the_owner_default()
     check_staging_tier_is_never_main_where_origin_has_staging()
+    check_workflows_use_actions_that_run_on_node_24()
     check_refresh_sources_leaves_the_base_branch_clean()
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
