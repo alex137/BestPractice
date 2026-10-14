@@ -50473,6 +50473,79 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_refresh_sources_never_fetches_the_branch_a_clone_sits_on():
+    """THE BUG (2026-10-14). A session that attaches a set gets the clone
+    on the session's own branch, which origin has never had. For a set
+    declaring no base_branch, the branch to bring it current on fell back
+    to the branch it sat on, so session start printed "FAIL current: could
+    not fetch origin/claude/..." and NOT APPLIED for precedent-shared-ladder
+    while the two sets declaring main were brought current. Since then the
+    target is the declared branch, else the bootstrap's pin, never the
+    current one. Real git, hermetic: a bare origin with no HEAD symref in
+    the clone, the clone on a local-only branch, origin one commit ahead.
+
+    A. the branch it is brought current on is main, not the one it sits on;
+    B. make_current on it fetches main and fast-forwards, and the clone is
+       NOT switched off its branch (todo-2026-10-07-one-sets-update-moves-
+       another-sets-working-branch);
+    C. CONTROL: with a commit of its own there, it is refused, unchanged;
+    D. a declared base_branch still wins."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-starter-branch-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def g(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), '-c', 'core.hooksPath=/dev/null', *a],
+                              capture_output=True, text=True, env=env).stdout.strip()
+    cases = []
+    try:
+        seed, origin = tmp / 'seed', tmp / 'origin.git'
+        seed.mkdir()
+        g(seed, 'init', '-q', '-b', 'main')
+        (seed / 'precedent.json').write_text('{}\n', encoding='utf-8')
+        g(seed, 'add', '-A'); g(seed, 'commit', '-qm', 'one')
+        subprocess.run(['git', 'clone', '-q', '--bare', str(seed), str(origin)],
+                       capture_output=True)
+
+        def starter(name):
+            c = tmp / name
+            subprocess.run(['git', 'clone', '-q', str(origin), str(c)], capture_output=True)
+            g(c, 'remote', 'set-head', 'origin', '-d')
+            g(c, 'checkout', '-q', '-b', 'claude/starter-abc12')
+            return c
+        clone, own = starter('clone'), starter('own')
+        (own / 'mine.md').write_text('mine\n', encoding='utf-8')
+        g(own, 'add', '-A'); g(own, 'commit', '-qm', 'mine')
+        own_head = g(own, 'rev-parse', 'HEAD')
+        (seed / 'p.md').write_text('two\n', encoding='utf-8')
+        g(seed, 'add', '-A'); g(seed, 'commit', '-qm', 'two')
+        g(seed, 'push', '-q', str(origin), 'main')
+
+        want = prs._pinned_branch(clone)
+        cases.append(('A. brought current on main, not the branch it sits on',
+                      want == 'main', want))
+        ok, note = prs.make_current(clone, want)
+        cases.append(('B. fetched main and fast-forwarded, still on its own branch',
+                      ok and g(clone, 'rev-parse', 'HEAD') == g(seed, 'rev-parse', 'HEAD')
+                      and g(clone, 'rev-parse', '--abbrev-ref', 'HEAD')
+                      == 'claude/starter-abc12', note))
+        ok_o, note_o = prs.make_current(own, prs._pinned_branch(own))
+        cases.append(('C. CONTROL: a commit of its own is refused, unchanged',
+                      not ok_o and g(own, 'rev-parse', 'HEAD') == own_head
+                      and 'local commit' in note_o, note_o))
+        (clone / 'precedent.json').write_text('{"base_branch": "trunk"}\n',
+                                              encoding='utf-8')
+        cases.append(('D. a declared base_branch still wins',
+                      prs._pinned_branch(clone) == 'trunk', prs._pinned_branch(clone)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'refresh never fetches the branch a source clone sits on '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
 def check_refresh_sources_leaves_the_base_branch_clean():
     """The session-start refresh commits on a dated local branch of its own
     and returns the set to its base branch with nothing uncommitted
@@ -79323,6 +79396,7 @@ def main():
     check_refresh_sources_leaves_an_attached_consumer_alone()
     check_refresh_sources_path_names_the_whole_target()
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
+    check_refresh_sources_never_fetches_the_branch_a_clone_sits_on()
     check_refresh_sources_leaves_the_base_branch_clean()
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
