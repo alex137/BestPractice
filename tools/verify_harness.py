@@ -50658,6 +50658,65 @@ def check_leak_gate_reads_a_declared_visibility_before_the_owner_default():
     check(f'the leak gate reads a declared visibility before the owner default '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
+def check_staging_tier_is_never_main_where_origin_has_staging():
+    """THE BUG (2026-10-14, precedent-shared-ladder). A repository declaring
+    base_branch "main" and landing_branch "staging", with no staging_branch,
+    took main as its staging tier: staging_branch() fell back to
+    base_branch. --landing printed "main" above its own reason line naming
+    staging, --land refused, and --promote looked for the retired
+    pre-staging. Since then main is not the staging tier where the repo
+    lands on staging and origin has that branch.
+
+    A. base main, landing staging, origin has staging: the tier is staging,
+       and --landing's answer agrees with its reason;
+    B. CONTROL: the same repo whose origin has no staging branch still
+       promotes into main (a staging branch it does not have is never named);
+    C. CONTROL: base main with no landing_branch stays main."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='staging-tier-'))
+    nocfg = str(tmp / 'no-config.json')
+    cases = []
+
+    def g(*a):
+        return subprocess.run(['git', *a], capture_output=True, text=True, env=env)
+    try:
+        seed = tmp / 'seed'
+        g('init', '-q', '-b', 'main', str(seed))
+        g('-C', str(seed), 'commit', '-q', '--allow-empty', '-m', 'x')
+        bare_with, bare_without = tmp / 'with.git', tmp / 'without.git'
+        g('clone', '-q', '--bare', str(seed), str(bare_without))
+        g('-C', str(seed), 'branch', 'staging')
+        g('clone', '-q', '--bare', str(seed), str(bare_with))
+
+        def clone(bare, name, cfg):
+            c = tmp / name
+            g('clone', '-q', str(bare), str(c))
+            (c / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+            return c
+        both = {'base_branch': 'main', 'landing_branch': 'staging'}
+        a = clone(bare_with, 'a', both)
+        land_a = pb.landing_branch(a, nocfg)
+        cases.append(('A. origin has staging: the tier is staging, and --landing '
+                      'agrees with its reason',
+                      pb.staging_branch(a) == 'staging'
+                      and (land_a[0] == 'staging' or 'staging' not in land_a[1]),
+                      f'{pb.staging_branch(a)} {land_a}'))
+        b = clone(bare_without, 'b', both)
+        cases.append(('B. CONTROL: no staging on origin still promotes into main',
+                      pb.staging_branch(b) == 'main', pb.staging_branch(b)))
+        c = clone(bare_with, 'c', {'base_branch': 'main'})
+        cases.append(('C. CONTROL: no landing_branch stays main',
+                      pb.staging_branch(c) == 'main', pb.staging_branch(c)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'the staging tier is never main where origin has staging '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
 def check_refresh_sources_leaves_the_base_branch_clean():
     """The session-start refresh commits on a dated local branch of its own
     and returns the set to its base branch with nothing uncommitted
@@ -79510,6 +79569,7 @@ def main():
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
     check_refresh_sources_never_fetches_the_branch_a_clone_sits_on()
     check_leak_gate_reads_a_declared_visibility_before_the_owner_default()
+    check_staging_tier_is_never_main_where_origin_has_staging()
     check_refresh_sources_leaves_the_base_branch_clean()
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
