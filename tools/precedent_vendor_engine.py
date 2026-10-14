@@ -1715,6 +1715,96 @@ def _apply_hook_wiring(dest_root, kind, hooks_src_dir):
           f"reason; a later refresh then leaves it alone.")
     return added
 
+# THE READ-ONLY ALLOW RULES A REFRESH ADDS (2026-10-14, a consuming
+# repository's Update Vendors). Its .claude/settings.json allowed none of the
+# engine's read-only tools, because a refresh wired hooks into a consumer but
+# never merged permissions: a session's `precedent_show.py` read then went to
+# auto mode's classifier, which refused it beside an unrelated denied call,
+# and Claude Code put a "3 consecutive actions were blocked" dialog on the
+# person's phone for a read. The rules themselves are the settings template's
+# (SETTINGS_TEMPLATE), read from the commit being vendored, so there is one
+# list; this names which of its tools only read and so are safe to add
+# without a person choosing each. Morgan, 2026-10-14 (strength: decided):
+# "let session start add the read-only Precedent tools to the allow list".
+# A repo that does not want one lists it in precedent.json's
+# `declined_allow_rules`; a later refresh then leaves it out.
+SETTINGS_TEMPLATE = 'templates/harness/claude-code/settings.json'
+READ_ONLY_ALLOW_TOOLS = ('precedent_show.py', 'precedent_paths.py',
+                         'precedent_gate.py', 'precedent_check.py',
+                         'precedent_session_check.py', 'doc_lint.py',
+                         'routing_audit.py', 'practice_audit.py')
+DECLINED_ALLOW_KEY = 'declined_allow_rules'
+_ALLOW_RULE_RE = re.compile(r'^Bash\(python3 tools/([\w.-]+)( \*)?\)$')
+
+
+def is_read_only_allow_rule(rule):
+    """True for `Bash(python3 tools/X)` or `Bash(python3 tools/X *)` where X
+    is one of READ_ONLY_ALLOW_TOOLS."""
+    m = _ALLOW_RULE_RE.match(rule) if isinstance(rule, str) else None
+    return bool(m) and m.group(1) in READ_ONLY_ALLOW_TOOLS
+
+
+def read_only_allow_rules(template_text):
+    """-> the settings template's allow rules for a read-only engine tool,
+    in the template's order. [] for text that does not parse."""
+    try:
+        rules = (json.loads(template_text).get('permissions') or {}).get('allow') or []
+    except (ValueError, AttributeError, TypeError):
+        return []
+    return [r for r in rules if is_read_only_allow_rule(r)]
+
+
+def _template_settings_text(clone, commit):
+    try:
+        r = subprocess.run(['git', '-C', str(clone), 'show',
+                            f'{commit}:{SETTINGS_TEMPLATE}'],
+                           capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return ''
+    return r.stdout if r.returncode == 0 else ''
+
+
+def _apply_read_only_allow(dest_root, rules):
+    """ADD each of `rules` (read_only_allow_rules) this repo's
+    .claude/settings.json does not already allow or deny, for a tool its
+    tools/ holds, unless precedent.json declines it. -> [added]. Add-only,
+    like _apply_hook_wiring: nothing already in the file is edited, moved or
+    removed. No settings file, or one that does not parse: nothing."""
+    dest_root = pathlib.Path(dest_root)
+    settings_path = dest_root / '.claude' / 'settings.json'
+    if not rules or not settings_path.is_file():
+        return []
+    try:
+        data = json.loads(settings_path.read_text(encoding='utf-8'),
+                          object_pairs_hook=collections.OrderedDict)
+        cfg = json.loads((dest_root / 'precedent.json').read_text(encoding='utf-8')) \
+            if (dest_root / 'precedent.json').is_file() else {}
+    except (OSError, ValueError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    declined = set(cfg.get(DECLINED_ALLOW_KEY) or []) if isinstance(cfg, dict) else set()
+    perms = data.get('permissions')
+    if perms is not None and not isinstance(perms, dict):
+        return []
+    have = set((perms or {}).get('allow') or []) | set((perms or {}).get('deny') or [])
+    add = [r for r in rules if r not in have and r not in declined
+           and (dest_root / 'tools' / _ALLOW_RULE_RE.match(r).group(1)).is_file()]
+    if not add:
+        return []
+    allow = data.setdefault('permissions', collections.OrderedDict()).setdefault('allow', [])
+    allow.extend(add)
+    settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    print(f"precedent_vendor_engine refresh: allowed {len(add)} read-only "
+          f"Precedent tool rule(s) in .claude/settings.json, from "
+          f"{SETTINGS_TEMPLATE} -- added only, nothing already there was "
+          f"changed: {', '.join(add)}. They only read, so a session no longer "
+          f"waits on auto mode's check for them. To keep one out, list it in "
+          f"precedent.json's {DECLINED_ALLOW_KEY}.")
+    return add
+
+
 def settings_change_is_wiring_only(before_text, after_text):
     """True when AFTER is BEFORE plus nothing but entries _apply_hook_wiring
     writes. -> bool, never raises.
@@ -1748,8 +1838,19 @@ def settings_change_is_wiring_only(before_text, after_text):
         return False
     if before == after:
         return False
-    if ({k: v for k, v in before.items() if k != 'hooks'}
-            != {k: v for k, v in after.items() if k != 'hooks'}):
+    if ({k: v for k, v in before.items() if k not in ('hooks', 'permissions')}
+            != {k: v for k, v in after.items() if k not in ('hooks', 'permissions')}):
+        return False
+    # The read-only allow rules _apply_read_only_allow appends are refresh
+    # output too (2026-10-14); any other permissions change is a person's.
+    bp, ap = before.get('permissions') or {}, after.get('permissions') or {}
+    if not isinstance(bp, dict) or not isinstance(ap, dict):
+        return False
+    if ({k: v for k, v in bp.items() if k != 'allow'}
+            != {k: v for k, v in ap.items() if k != 'allow'}):
+        return False
+    ba, aa = bp.get('allow') or [], ap.get('allow') or []
+    if aa[:len(ba)] != ba or not all(is_read_only_allow_rule(r) for r in aa[len(ba):]):
         return False
     bh, ah = before.get('hooks') or {}, after.get('hooks') or {}
     if not isinstance(bh, dict) or not isinstance(ah, dict):
@@ -4575,7 +4676,18 @@ def _rev_text(repo_dir, *args):
     return r.stdout.strip() if r.returncode == 0 else ''
 
 
-def repin_kept_section(clone, item, confirmed, dest_root=None, reason=None):
+# What a kept entry records as its decision when the session re-pinned it
+# under the standing rule rather than on the person's answer to a close call
+# (repin_kept_section's by_rule; vendor-update-runbook, "Upstream's version
+# is the default").
+STANDING_KEEP_RULE = ('standing rule, Morgan 2026-10-14 (decided): "the '
+                      'default action you take is to always take the upstream '
+                      'version and keep only what is unique or necessary or '
+                      'essential for this repo"')
+
+
+def repin_kept_section(clone, item, confirmed, dest_root=None, reason=None,
+                       by_rule=False):
     """Re-record one kept AGENTS.md section against today's template text,
     with who confirmed it, when, and why it still differs. -> (ok, message).
 
@@ -4591,12 +4703,36 @@ def repin_kept_section(clone, item, confirmed, dest_root=None, reason=None):
     person took upstream's wording for most of it -- and the reason written
     before that decision stayed on the entry, describing a section that no
     longer existed in that form; the session rewrote it by hand. The reason
-    is part of the decision, so it is given with it."""
+    is part of the decision, so it is given with it.
+
+    WHY --by-rule (2026-10-14, a consuming repository's Update Vendors).
+    Every local difference in the section was the repository's own -- its
+    audit scripts in the template's `<your own audits>` placeholder, its
+    own light-check tool, a link to its own runbook step -- and the update
+    still could not finish without asking the person, because this command
+    took only their words. Morgan, the same day (strength: decided): "the
+    default action you take is to always take the upstream version and keep
+    only what is unique or necessary or essential for this repo", "not just
+    for these but the general principle", and "Let repin-kept re-pin
+    repo-specific differences without asking me". So a session that judges
+    a difference repository-specific re-pins it itself, and the entry
+    records the rule instead of words nobody was asked for. --confirmed
+    stays for the close call the person was asked about. Exactly one."""
     dest_root = dest_root or ROOT
     confirmed = (confirmed or '').strip()
+    if by_rule and confirmed:
+        return False, ('--by-rule and --confirmed are two different '
+                       'decisions -- the session\'s own call under the '
+                       'standing rule, or the person\'s answer to a close '
+                       'call: give one')
+    if by_rule:
+        confirmed = STANDING_KEEP_RULE
     if not confirmed:
-        return False, ('--confirmed needs the person\'s own words: a kept '
-                       'section is their decision')
+        return False, ('a kept section needs who decided it: --by-rule when '
+                       'the difference is plainly this repository\'s own (its '
+                       'names in a placeholder, links to its own files, a rule '
+                       'it keeps on purpose), or --confirmed "<the person\'s '
+                       'words>" for a close call you asked them about')
     reason = (reason or '').strip()
     if not reason:
         return False, ('--reason needs why this repository\'s section still '
@@ -4646,18 +4782,27 @@ def repin_kept_section(clone, item, confirmed, dest_root=None, reason=None):
                   'template_sha256': _sha_text(section),
                   'carried_sha256': _carried_sha(section, lacks),
                   'confirmed': confirmed})
+    if by_rule:
+        entry['decided_by'] = 'rule'
+    else:
+        entry.pop('decided_by', None)
     if today:
         entry['confirmed_on'] = str(today)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                     encoding='utf-8')
+    said = ('by the standing rule (upstream is the default; this '
+            'repository keeps only what is its own)' if by_rule
+            else f'confirmed: "{confirmed}"')
     return True, (f'PIN UPDATED: {item} re-pinned to the template at '
-                  f'{commit[:12]}, confirmed: "{confirmed}"'
+                  f'{commit[:12]}, {said}'
                   + (f' ({today})' if today else ''))
 
 
 def _cli_repin_kept(args):
-    """`repin-kept CLONE "AGENTS.md SECTION" --confirmed "WORDS" --reason
-    "WHY"`."""
+    """`repin-kept CLONE "AGENTS.md SECTION" (--by-rule | --confirmed
+    "WORDS") --reason "WHY"`."""
+    by_rule = '--by-rule' in args
+    args = [a for a in args if a != '--by-rule']
     opts = {}
     for flag in ('--confirmed', '--reason'):
         if flag in args:
@@ -4666,11 +4811,11 @@ def _cli_repin_kept(args):
             args = args[:i] + args[i + 2:]
     if len(args) != 2:
         sys.exit('usage: precedent_vendor_engine.py repin-kept CLONE '
-                 '"AGENTS.md SECTION" --confirmed "the person\'s words" '
-                 '--reason "why the section still differs"')
+                 '"AGENTS.md SECTION" (--by-rule | --confirmed "the '
+                 'person\'s words") --reason "why the section still differs"')
     ok, msg = repin_kept_section(_clone_or_die(args[0]), args[1],
                                  opts.get('--confirmed'),
-                                 reason=opts.get('--reason'))
+                                 reason=opts.get('--reason'), by_rule=by_rule)
     print(msg)
     return 0 if ok else 1
 
@@ -6353,8 +6498,7 @@ _CLONE_ARG = '../BestPractice'
 
 def _repin_command(item):
     return (f'python3 tools/precedent_vendor_engine.py repin-kept {_CLONE_ARG} '
-            f'"{item}" --confirmed "<the person\'s words>" '
-            f'--reason "<why this section still differs>"')
+            f'"{item}" --by-rule --reason "<why this section still differs>"')
 
 
 def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
@@ -6430,15 +6574,21 @@ def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
     print(f"    the default is upstream's wording: replace this section with "
           f"{what} and remove its {KEPT_DIVERGENCES_KEY} entry. Keep this "
           f"repository's wording only where it does something different and "
-          f"important -- then copy in the rest of upstream's change, say why, "
-          f"and with the person's yes re-pin it: {_repin_command(item)}")
+          f"important -- this repository's own names in a placeholder, links "
+          f"to its own files, a rule it keeps on purpose, a fix upstream does "
+          f"not have yet -- then copy in the rest of upstream's change and re-pin it "
+          f"yourself, saying why: {_repin_command(item)}. Only a real close "
+          f"call -- local substance that is neither upstream's nor plainly "
+          f"this repository's -- goes to the person, with your pick, and is "
+          f"re-pinned with --confirmed \"<their words>\" in place of --by-rule.")
     _left(f'{AGENTS_MD} "{key}"', f'kept on purpose, and upstream changed '
           f'{what} where this repository words it differently (listed above) '
           f'-- the default is upstream\'s: replace the section with it and '
           f'remove the {KEPT_DIVERGENCES_KEY} entry. Keep yours only where it '
-          f'does something different and important (ask the person when it is '
-          f'a close call); then copy in the rest of upstream\'s change and, '
-          f'with the person\'s yes, re-pin it: {_repin_command(item)}')
+          f'is this repository\'s own (its names, its files, a rule it keeps '
+          f'on purpose); then copy in the rest of upstream\'s change and '
+          f're-pin it yourself: {_repin_command(item)}. Ask the person only on '
+          f'a real close call, and re-pin with --confirmed "<their words>"')
     return True
 
 
@@ -8181,6 +8331,10 @@ def refresh(clone, force=False, ref=None):
             written.append(ROOT / '.claude' / 'settings.json')
         written += _write_hook_files(ROOT, engine_dir / 'hooks',
                                      previous=before)
+        if _apply_read_only_allow(ROOT, read_only_allow_rules(
+                _template_settings_text(clone, new_commit))):
+            if ROOT / '.claude' / 'settings.json' not in written:
+                written.append(ROOT / '.claude' / 'settings.json')
         # Before the next session start, when a hook just wired may write a
         # per-machine file this line keeps out of history.
         if _merge_gitignore(ROOT, gitignore_tmpl):

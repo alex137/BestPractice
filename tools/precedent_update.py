@@ -1163,7 +1163,18 @@ def repoint_renamed_engine_paths(repo):
     generated view, a finished document, a Story section), a generated
     block, a sentence saying the thing moved or is gone, and a line that
     already names the new path. Vendored and engine files are never
-    touched: their own source rewrites them."""
+    touched: their own source rewrites them.
+
+    A LINK IS NOT HISTORY (2026-10-14, a consumer's Update Vendors). A
+    closed todo item linked `../tools/checks/check_buenos_aires_dates.py`.
+    This left the item alone as history, the link check then failed the
+    update on the dead link, and the session repointed it by hand. Two gaps:
+    a history file was skipped whole, and a relative link (`../tools/...`)
+    never matched the repo-root path at all. So a Markdown link's TARGET is
+    repointed wherever it resolves to a moved path -- history and Story
+    sections included, since a link has to resolve whatever it records --
+    and its visible text, like every other mention there, stays as
+    written."""
     import generated_blocks
     import precedent_check as pc
     moves = {o: n for o, n in ENGINE_PATH_MOVES.items()
@@ -1195,18 +1206,25 @@ def repoint_renamed_engine_paths(repo):
             text = f.read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             continue
-        if not any(o in text for o in moves) or pc._is_history(rel, text):
+        if not any(o in text for o in moves):
             continue
+        history = pc._is_history(rel, text)
         lines = text.split('\n')
         gen = generated_blocks.mask(lines) if rel.endswith('.md') else [False] * len(lines)
         story = pc._story_mask(lines) if rel.endswith('.md') else [False] * len(lines)
         n = 0
         for i, line in enumerate(lines):
-            if gen[i] or story[i]:
+            if gen[i]:
                 continue
-            new_line = line
+            new_line = (_repoint_link_targets(line, rel, moves)
+                        if rel.endswith('.md') else line)
+            if history or story[i]:
+                if new_line != line:
+                    lines[i] = new_line
+                    n += 1
+                continue
             for o, nw in moves.items():
-                if not pats[o].search(new_line) or nw in new_line \
+                if not pats[o].search(new_line) or nw in line \
                         or pc._sentences_saying_gone(lines, i, o):
                     continue
                 new_line = pats[o].sub(nw, new_line)
@@ -1217,6 +1235,28 @@ def repoint_renamed_engine_paths(repo):
             f.write_text('\n'.join(lines), encoding='utf-8')
             done.append((rel, n))
     return done
+
+
+_MD_LINK_TARGET_RE = re.compile(r'(\]\()([^)\s#]+)(#[^)\s]*)?(\))')
+
+
+def _repoint_link_targets(line, rel, moves):
+    """`line` with each Markdown link target that resolves, from `rel`'s
+    directory, to an old path in `moves` rewritten to the new path relative
+    to the same directory. Only the target; the link text is not touched."""
+    base = os.path.dirname(rel)
+
+    def sub(m):
+        target = m.group(2)
+        if '://' in target or target.startswith(('/', 'mailto:')):
+            return m.group(0)
+        resolved = os.path.normpath(os.path.join(base, target))
+        if resolved not in moves:
+            return m.group(0)
+        new = os.path.relpath(moves[resolved], base or '.')
+        return m.group(1) + new + (m.group(3) or '') + m.group(4)
+    return _MD_LINK_TARGET_RE.sub(sub, line)
+
 
 MIRRORED_TOOL_RE = re.compile(r'(?<![\w./-])process/upstream/tools/([\w.-]+)')
 
@@ -3431,6 +3471,18 @@ def _settings_cases(was, now):
             cases.append(f'settings.json gains an entry for {name(a[2])} ({a[0]})')
     for r in sorted(removed):
         cases.append(f'settings.json drops its entry for {name(r[2])} ({r[0]})')
+    # The read-only tool rules a refresh adds (2026-10-14,
+    # pve._apply_read_only_allow): said by name, so the yes is to what it is.
+    try:
+        allow = lambda t: ((json.loads(t) if t else {}).get('permissions') or {}).get('allow') or []
+        more = [r for r in allow(now) if r not in allow(was)]
+    except (ValueError, AttributeError, TypeError):
+        more = []
+    if more:
+        ro = all(pve.is_read_only_allow_rule(r) for r in more)
+        cases.append(f'settings.json allows {len(more)} more '
+                     + ('read-only Precedent tool ' if ro else '')
+                     + f'command(s): {", ".join(more)}')
     if not cases and (was or '') != (now or ''):
         cases.append('settings.json changes outside its hook entries')
     return cases

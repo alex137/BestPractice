@@ -105,6 +105,14 @@ p.write_text(json.dumps(d, indent=2))
 PY
 ```
 
+**The runner also adds the read-only Precedent tools to the allow list**
+there (since 2026-10-14): `precedent_show.py`, `precedent_check.py` and the
+others the settings template lists as only reading. A session above several
+repositories reads none of their own permission rules, so without this
+every such read waits on auto mode's check
+([gotcha-2026-10-14](../gotchas/gotcha-2026-10-14-auto-mode-refusal-cascades-into-a-phone-dialog-over-a-read.md)).
+Nothing else is added, and nothing already in the file changes.
+
 **First added to a real environment on 2026-09-28, not yet confirmed in a
 session started after it.** The runner itself was run by hand in a real
 session opened in `/home/user` and ran all 25 hooks across six repositories;
