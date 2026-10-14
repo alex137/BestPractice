@@ -963,7 +963,14 @@ def local_clone_refs(root):
         pass
     refs = set()
     for d in candidates:
-        if not (d / '.git').exists():
+        # A sibling this process may not read is not a clone it can name
+        # (2026-10-14: GitHub's runner keeps an unreadable directory in
+        # /tmp, and `.exists()` raised PermissionError there instead of
+        # answering False, so the gate crashed rather than skipping it).
+        try:
+            if not (d / '.git').exists():
+                continue
+        except OSError:
             continue
         ref = _remote_ref(d)
         if ref:
