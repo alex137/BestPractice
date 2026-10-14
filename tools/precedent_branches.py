@@ -306,9 +306,27 @@ def staging_branch(root):
             and explicit.strip() != PRE_STAGING:
         return explicit.strip()
     declared = base_branch(root)
+    if declared == MAIN and precedent_json(root).get(LANDING_SETTING) == STAGING \
+            and _origin_has(root, STAGING):
+        # Main is never the staging tier of a repository that lands on a
+        # staging branch origin has (2026-10-14): precedent-shared-ladder
+        # declared base_branch main and landing_branch staging, and
+        # --landing printed "main" above its own reason line naming
+        # staging; --land then refused and --promote looked for pre-staging.
+        return STAGING
     if declared and declared != PRE_STAGING:
         return declared
     return STAGING
+
+
+def _origin_has(root, branch):
+    """True when this clone has origin's `branch` as a remote-tracking ref."""
+    try:
+        return subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', '-q',
+                               f'refs/remotes/origin/{branch}'],
+                              capture_output=True, text=True).returncode == 0
+    except OSError:
+        return False
 
 
 def full_branches(root):
