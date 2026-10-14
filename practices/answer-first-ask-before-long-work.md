@@ -1,12 +1,12 @@
 ---
 slug:        answer-first-ask-before-long-work
-title:       Answer the easy questions first; propose a long task before starting it; an open question never pauses the work
+title:       Give the person what they can have now first; propose a long task before starting it; an open question never pauses the work
 tier:        resident
 severity:    default
 applies_to:  ["**"]
-occasion:    "a turn that could start a computation, search or build lasting longer than a few minutes"
+occasion:    "a turn that could start a computation, search or build lasting longer than a few minutes, or that has an answer or a deliverable ready before its slower work is done"
 gates:       []
-index_clause: "easy answers first; a long run is proposed with its cost -- never just started"
+index_clause: "answers and deliverables go out the moment they exist; a long run is proposed with its cost -- never just started"
 checked_by:  null
 defines:     ["long task"]
 status:      active
@@ -14,20 +14,20 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
-approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-working-style; merged in PR #879 on 2026-10-05; part 2's exception narrowed to the quick checks by Morgan F, 2026-10-07; the clock-time sentence added by S. Alexander Jacobson, 2026-10-07; tightened back under 150 words, Morgan F, 2026-10-07"
+approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-working-style; merged in PR #879 on 2026-10-05; part 2's exception narrowed to the quick checks by Morgan F, 2026-10-07; the clock-time sentence added by S. Alexander Jacobson, 2026-10-07; tightened back under 150 words, Morgan F, 2026-10-07; part 1 widened from easy answers to anything the person can have now, documents and files included, Morgan F, 2026-10-14 (\"I like your change - please implement it\")"
 strength:    decided
 ---
 ## Rule
-**(1) Answer the easy questions first**, in the same message; the long run
-never gates the answer. **(2) A task longer than a few minutes is proposed,
+**(1) What the person can have now goes to them now** (an answer, a
+document, a figure), before landing, testing or any slower work; only what
+it needs comes first. **(2) A task longer than a few minutes is proposed,
 not started:** what it is, how long by the tool's own cost line, what it
-blocks and doesn't, then the go-ahead, except a commit's quick checks on
-the files the turn touched (never a whole suite) and a run asked for by name.
-**(3) Idle on a wait, say what it is for, what it will change, and how to
-stop it**, never a bare "still running"; a background task nobody asked for
-is stopped, not waited on. **(4) An open question is not a stopping point:**
-ask it early, and keep working on whatever its answer doesn't touch. **Every
-"how long" carries when it lands, in the person's zone from
+blocks and doesn't, then the go-ahead, except a commit's quick checks on the
+files it touched (never a whole suite) and a run asked for by name. **(3) A
+wait says what it is for, what it changes and how to stop it**; a background
+task nobody asked for is stopped, not waited on. **(4) An open question never
+pauses the work:** ask it early; do whatever its answer doesn't touch.
+**Every "how long" carries when it lands, in the person's zone from
 [`tools/precedent_time.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_time.py), named:**
 "about 15 minutes, done around 15:35 <their city> time".
 
@@ -51,8 +51,21 @@ words, never the mechanism: what is being checked and that they can say
 stop, in no word they would have to look up
 ([inner-workings-for-code-owners](inner-workings-for-code-owners.md)).
 
-**What part 1 means by an easy question:** one answered from what is already
-known, without waiting on a run. **What part 2 means by a long task:** a
+**What part 1 means by "can have now":** it exists and is usable, even if
+it is not committed, pushed or landed yet. An answer from what is already
+known, without waiting on a run, is one; so is a document, a file, a figure
+or a result the session has just made. Send it then -- attached, linked or
+quoted -- and do the landing, pushing and checks after, in the same turn
+where they fit: [repo-is-memory](repo-is-memory.md) still wants the work
+pushed in the turn it is made, and sending it first does not change that.
+**Only work the deliverable itself depends on goes first**: a document whose
+numbers come from a run waits for the run; a document that only needs to be
+committed does not wait for the commit. **Sent early and then changed** by
+the later work (a check that forced an edit, a merge that brought in someone
+else's change), it is sent again, with one line saying what changed.
+
+**Part 3's wait is never a bare "still running"**; that phrase was in the
+Rule until 2026-10-14 and moved here when part 1 widened. **What part 2 means by a long task:** a
 cold solve, a search family, a re-solve cascade, a whole-tree gate. Both
 were in the Rule until 2026-09-21 (see `## Story`).
 
@@ -149,6 +162,29 @@ afternoon took the Rule to 171 words, and with it this resident rule pushed
 a session file one consumer had capped at 4,000 tokens past its target. Tightened
 in a reduction pass, all four parts and the clause kept, nothing moved out
 (Morgan F, "take all the reduction proposals", strength: decided).
+
+**2026-10-14, part (1) widened from questions to deliverables.** A
+session in a downstream repository was asked to cut a section from a
+proposal, hand over the Word version, and land the change (Booked, then
+Produce). It built the Word file early, then spent about ten minutes
+landing on staging, promoting to main and merging the pull request, and
+only sent the file after all of that. Nothing about the landing had to
+happen first. The Rule then said "answer the easy questions first", and
+the session read it literally: a file is not a question. Morgan F,
+2026-10-14 (strength: decided): *"whenever I ask for a document or
+information, that you always give it to me BEFORE doing the hard work --
+assuming that you are able to (excluding situations where you need to do
+the hard work before you can give me the information or document) ...
+Information I can receive quickly, I always want first, before you other,
+background, less urgent work."* Widened here rather than written as a new
+practice: the purpose is the one part (1) already had, and two rules for
+"what the person can have now comes first" would drift apart. To stay
+under 150 words, part (3)'s "never a bare 'still running'" moved into
+`## Detail` and parts (3) and (4) were reworded shorter; nothing else was
+dropped. The Boildown, Booked, Produce and Prompt Please rules were read
+for an ordering that holds a deliverable back to the final reply; none
+has one. Approved in his words: *"I like your change - please implement
+it"*.
 
 ## Install
 Adopt the rule in the working-conventions file and name the cost-line

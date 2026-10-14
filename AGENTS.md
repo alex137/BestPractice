@@ -100,16 +100,16 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 ## Resident block (~794 of 1750 token budget, 6 of 146 practices (6 universal))
 
-**answer-first-ask-before-long-work.** **(1) Answer the easy questions first**, in the same message; the long run
-never gates the answer. **(2) A task longer than a few minutes is proposed,
+**answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
+document, a figure), before landing, testing or any slower work; only what
+it needs comes first. **(2) A task longer than a few minutes is proposed,
 not started:** what it is, how long by the tool's own cost line, what it
-blocks and doesn't, then the go-ahead, except a commit's quick checks on
-the files the turn touched (never a whole suite) and a run asked for by name.
-**(3) Idle on a wait, say what it is for, what it will change, and how to
-stop it**, never a bare "still running"; a background task nobody asked for
-is stopped, not waited on. **(4) An open question is not a stopping point:**
-ask it early, and keep working on whatever its answer doesn't touch. **Every
-"how long" carries when it lands, in the person's zone from
+blocks and doesn't, then the go-ahead, except a commit's quick checks on the
+files it touched (never a whole suite) and a run asked for by name. **(3) A
+wait says what it is for, what it changes and how to stop it**; a background
+task nobody asked for is stopped, not waited on. **(4) An open question never
+pauses the work:** ask it early; do whatever its answer doesn't touch.
+**Every "how long" carries when it lands, in the person's zone from
 [`tools/precedent_time.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_time.py), named:**
 "about 15 minutes, done around 15:35 <their city> time".
 

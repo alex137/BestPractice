@@ -1143,11 +1143,15 @@ MOVED_ENGINE_FILES = ('AGENTS.md', 'CLAUDE.md', '.claude/settings.json')
 
 # Engine paths that moved, old -> new: every consumer that named an old one
 # fails its next push on rename-updates-links unless the update repoints it
-# (repoint_renamed_engine_paths). Add a row whenever an engine or
-# materialized check path moves.
+# (repoint_renamed_engine_paths). Git sees most moves itself
+# (engine_path_moves); a row here is only for one it cannot see between a
+# consumer's two commits.
 # 2026-10-10: the commit checks became engine files (49b31179); a
 # consumer's second Update Vendors run failed on four live mentions of the
-# old paths that the first run never listed.
+# old paths that the first run never listed. Both rows stay: a consumer
+# had these checks materialized from a practice set, from before BestPractice
+# carried them (9d16b6ae), so its own range can start where git has no
+# old file to see renamed.
 ENGINE_PATH_MOVES = {
     'tools/checks/check_commit_author.py': 'tools/check_commit_author.py',
     'tools/checks/check_buenos_aires_dates.py': 'tools/check_commit_dates.py',
@@ -1155,7 +1159,36 @@ ENGINE_PATH_MOVES = {
 TEXT_SUFFIXES = ('.md', '.json', '.sh', '.py', '.yml', '.yaml', '.txt', '.toml')
 
 
-def repoint_renamed_engine_paths(repo):
+def engine_path_moves(source, old, new):
+    """-> ({old path: new path}, note): every rename git sees under tools/
+    -- the engine and the materialized checks a consumer receives -- between
+    the source commits an update goes from and to, with ENGINE_PATH_MOVES
+    over them. The note is None, or says why git could not be asked.
+
+    A HAND-KEPT MAP MISSES A RENAME NOBODY ADDED A ROW FOR (2026-10-14): the
+    next push of every consumer naming the old path then failed on
+    rename-updates-links. Renames that never reached a consumer cost
+    nothing: repoint_renamed_engine_paths acts only where the old path is
+    gone and the new one is there."""
+    moves, note = {}, None
+    if not old or not new:
+        note = 'no earlier engine commit recorded, so only the hand-kept moves apply'
+    elif old != new:
+        r = subprocess.run(['git', '-C', str(source), 'diff', '-M', '--name-status',
+                            '--diff-filter=R', old, new, '--', 'tools/'],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            note = (f'git could not diff {old[:12]}..{new[:12]} in {source}, so '
+                    f'only the hand-kept moves apply')
+        for ln in (r.stdout.splitlines() if r.returncode == 0 else []):
+            parts = ln.split('\t')
+            if len(parts) == 3 and parts[0].startswith('R'):
+                moves[parts[1]] = parts[2]
+    moves.update(ENGINE_PATH_MOVES)
+    return moves, note
+
+
+def repoint_renamed_engine_paths(repo, moves=None):
     """-> [(rel, n)]: rewrite each live mention of an ENGINE_PATH_MOVES old
     path to its new one, in the repo's own tracked text, where the old path
     is gone and the new one is there. Left as written, exactly as
@@ -1177,7 +1210,7 @@ def repoint_renamed_engine_paths(repo):
     written."""
     import generated_blocks
     import precedent_check as pc
-    moves = {o: n for o, n in ENGINE_PATH_MOVES.items()
+    moves = {o: n for o, n in (ENGINE_PATH_MOVES if moves is None else moves).items()
              if not (repo / o).exists() and (repo / n).exists()}
     if not moves:
         return []
@@ -5240,13 +5273,17 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # process/upstream/tools/... `|| true` in that commit, and the
     # session-start step silently did nothing (a consumer rehearsal,
     # 2026-10-03).
-    renamed = repoint_renamed_engine_paths(repo)
+    path_moves, moves_note = engine_path_moves(SOURCE, last_synced, tip)
+    if moves_note:
+        rep.step('engine moves', moves_note)
+    renamed = repoint_renamed_engine_paths(repo, path_moves)
     if renamed:
         rep.step('repointed', 'engine paths that moved now name their new '
                  'place: ' + ', '.join(
                      f'{rel} ({n} line{"s" if n != 1 else ""})'
                      for rel, n in renamed) + ' -- '
-                 + '; '.join(f'{o} -> {n}' for o, n in ENGINE_PATH_MOVES.items()))
+                 + '; '.join(f'{o} -> {n}' for o, n in path_moves.items()
+                             if not (repo / o).exists() and (repo / n).exists()))
     moved, stranded = repoint_moved_engine_mentions(repo)
     for rel, n, path in stranded:
         rep.leave(f'{rel}:{n}', f'calls {path}, which is gone, and tools/ has '
