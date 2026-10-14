@@ -28,6 +28,8 @@
       "Bash(python3 tools/precedent_gate.py *)",
       "Bash(python3 tools/precedent_check.py)",
       "Bash(python3 tools/precedent_check.py *)",
+      "Bash(python3 tools/precedent_session_check.py)",
+      "Bash(python3 tools/precedent_session_check.py *)",
       "Bash(python3 tools/precedent_sync_views.py)",
       "Bash(python3 tools/precedent_sync_views.py *)",
       "Bash(python3 tools/routing_audit.py)",

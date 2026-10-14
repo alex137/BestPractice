@@ -75,7 +75,10 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   session in another repository opened one at his request (\"Can you open
   a session with all of those and paste that message in? Too many repos to
   do manually\"). Opening only; messaging a live session stays out until he
-  says otherwise. Booked on his \"build this ... then book it as well\"."
+  says otherwise. Booked on his \"build this ... then book it as well\"; amended
+  2026-10-14, Morgan (decided) -- a later prompt supersedes the earlier ones
+  and carries everything, because \"I will only do one message to another
+  session\"."
 strength:    decided
 source_practice_number: null
 ---
@@ -226,6 +229,16 @@ a risk it names, a call it makes or leaves for them -- is said in the reply
 too, before or after the block, in a line or two: *"This prompt recommends
 X; it leaves Y for you to decide."* (Morgan, 2026-10-09: "assume that any
 'prompt please' note given to me ... will NOT be read by me".)
+
+**A later prompt replaces the earlier ones, so it carries everything.** The
+person sends one message to the receiving session. A prompt written later in
+the conversation for the same handoff supersedes every earlier one and
+stands alone: everything the earlier ones carried, plus what the person said
+since (their new words, quoted and dated) and what this session found since,
+in one block. Never a delta that assumes an earlier block was pasted too
+(Morgan, 2026-10-14, strength: decided: "when you write up your suggestions
+in a prompt, please include what you just gave me in that prompt, because I
+will only do one message to another session").
 
 **On its own initiative, a session never calls a session-creating or
 session-messaging tool for this, and never wakes a live session either.**

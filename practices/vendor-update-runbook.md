@@ -39,7 +39,11 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   attach tool put it; amended 2026-10-11, Morgan (decided) -- the phrase is
   best said as \"Update Vendors and merge\", and \"Update All Vendors\"
   (practices/update-all-vendors.md) runs it for every repository the
-  person uses Precedent in"
+  person uses Precedent in; amended 2026-10-14, Morgan (decided) -- upstream's
+  version is the default in every layer and every kind of conflict, applied
+  without asking: \"keep only what is unique or necessary or essential for
+  this repo\", and \"Let repin-kept re-pin repo-specific differences without
+  asking me\""
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -143,15 +147,25 @@ other. What the phrase removes is the second question, not the gate. So a
 failing check is reported, with what failed, and nothing is published -- that
 is the sequence working, not a refusal needing permission to stand.
 
-**Upstream's version is the default.** When upstream has its own version
-of something this repository changed -- a quick fix to a received file, a
-section of a template-made file kept in this repository's own words -- take
-upstream's and drop the local one. **Keep the local one only where it does
-something different and important**: a fix upstream still lacks, a rule
-this repository keeps on purpose. Then keep it, say why, and record it
-(below). **When it is a close call, ask the person**, with your pick. A
-local quick fix ends here: it was always meant to last until upstream had
-its own ([upstream-fix](upstream-fix.md) point 7).
+**Upstream's version is the default, and the session applies it without
+asking** (Morgan, 2026-10-14, strength: decided: "the default action you
+take is to always take the upstream version and keep only what is unique
+or necessary or essential for this repo" -- "And not just for these but the
+general principle"). **It covers every vendored layer** -- the catalogue,
+the engine, the shared and individual sets, the templates, anything else an
+update syncs -- **and every kind of conflict an update meets**: a kept
+template section, a committed local edit to a received file, a drift
+report, a merge conflict, a hand-written rule in `AGENTS.md` or `CLAUDE.md`
+that an updated practice touches. Take upstream's version and drop the
+local one. **Carry over only what is this repository's own**: its own names
+written into a `<placeholder>`, links to its own files, a rule it keeps on
+purpose, a fix upstream does not have yet. Keep that, say why, and record
+it (below), re-pinning a kept section yourself (`repin-kept --by-rule`,
+below). A local duplicate of what upstream says, even in other words, is
+dropped. **Ask the person only on a real close call** -- local substance
+that is neither upstream's nor plainly this repository's -- with your
+pick. A local quick fix ends here: it was always meant to last until
+upstream had its own ([upstream-fix](upstream-fix.md) point 7).
 
 **Every conflicted file is reviewed, never overwritten on sight.** An
 update meets this repo's own changes in many places: a refusal to overwrite
@@ -163,11 +177,13 @@ version do anything upstream's does not, and does that matter?**
 - **It says what upstream now says, or the same in other words**: take
   upstream's. The local copy is a duplicate, and a duplicate is the copy
   that goes stale.
-- **It does something different and important**: keep that part, carry
-  upstream's change in around it rather than choosing one side wholesale,
-  and record why where this repo's tools will see it next time (below).
-- **Neither is clear**: ask the person whether the difference is
-  deliberate. If not, take upstream's; the rule in force wins.
+- **It is this repository's own** (the carry-over list above): keep that
+  part, carry upstream's change in around it rather than choosing one side
+  wholesale, and record why where this repo's tools will see it next time
+  (below). No question to the person.
+- **Neither is clear**: that is the close call. Ask the person whether the
+  difference is deliberate, with your pick. If not, take upstream's; the
+  rule in force wins.
 
 **A committed local edit to a received file is reviewed by the command
 itself** (since 2026-09-29,
@@ -790,13 +806,16 @@ says so, both from the vendored tree under `process/upstream/`.
     rewritten, so that change is not copied in either. Otherwise upstream's
     change reaches what the section words its own way, and **the default is
     upstream's section** (the rule above): replace the section with it and
-    remove the entry. Where this repository's wording does something
-    different and important, keep it, copy in the rest of upstream's
-    change, and once the person says it is still kept,
+    remove the entry. Where this repository's wording is its own (the
+    carry-over list above), keep that, copy in the rest of upstream's
+    change, and re-pin it yourself:
     `python3 tools/precedent_vendor_engine.py repin-kept
-    ../BestPractice "AGENTS.md <heading>" --confirmed "<their words>"
-    --reason "<why it still differs>"` re-pins it and records their words,
-    the date and the reason, which replaces the one from before this
+    ../BestPractice "AGENTS.md <heading>" --by-rule
+    --reason "<why it still differs>"` records the standing rule, the date
+    and the reason (since 2026-10-14, Morgan: "Let repin-kept re-pin
+    repo-specific differences without asking me"). Only after a close call
+    the person answered does `--confirmed "<their words>"` take the place
+    of `--by-rule`, recording their words. The reason replaces the one from before this
     decision (since 2026-10-13: a re-pin kept a reason describing text that
     was gone); never paste the hashes by hand. An entry with no reason is
     not honoured. A `diverged` entry in `process/manifest.json`

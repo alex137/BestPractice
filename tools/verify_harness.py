@@ -31504,6 +31504,14 @@ def check_update_repoints_engine_paths_that_moved():
                                              f'Run `{old}` on the range.\n'),
             'todo/todo-2026-10-01-closed.md': ('---\nstatus: done\n---\n'
                                                f'Ran `{old}`.\n'),
+            # 2026-10-14, a consumer's Update Vendors: a closed item's
+            # relative link to the old path failed the link check.
+            'todo/todo-2026-10-02-closed-link.md': (
+                '---\nstatus: done\n---\n'
+                f'Flagged by [check_commit_author.py](../{old}#top).\n'),
+            'todo/todo-2026-10-02-open-link.md': (
+                '---\nstatus: open\n---\n'
+                f'See [the check](../{old}).\n'),
             'NOTES.md': (f'The check was renamed from {old}.\n\n'
                          f'Both: {old} became {new}.\n\n'
                          f'## Story\n\nIt lived at {old}.\n'),
@@ -31521,11 +31529,21 @@ def check_update_repoints_engine_paths_that_moved():
                       and old not in read('todo/todo-2026-10-01-open.md'), done))
         cases.append(('a closed todo item is history, left as written',
                       old in read('todo/todo-2026-10-01-closed.md'), ''))
+        cases.append(('a closed item\'s relative link has its target repointed, '
+                      'its link text and anchor kept',
+                      read('todo/todo-2026-10-02-closed-link.md').endswith(
+                          f'[check_commit_author.py](../{new}#top).\n'),
+                      read('todo/todo-2026-10-02-closed-link.md')))
+        cases.append(('an open item\'s ../ relative link is repointed too',
+                      f'(../{new})' in read('todo/todo-2026-10-02-open-link.md'),
+                      read('todo/todo-2026-10-02-open-link.md')))
         cases.append(('a sentence saying it was renamed, a line already naming the '
                       'new path, and a Story section are left as written',
                       read('NOTES.md') == files['NOTES.md'], read('NOTES.md')))
         cases.append(('it reports what it changed, file by file',
-                      set(done) == {'precedent.json', 'todo/todo-2026-10-01-open.md'},
+                      set(done) == {'precedent.json', 'todo/todo-2026-10-01-open.md',
+                                    'todo/todo-2026-10-02-closed-link.md',
+                                    'todo/todo-2026-10-02-open-link.md'},
                       done))
         cases.append(('a second run changes nothing',
                       pu.repoint_renamed_engine_paths(repo) == [], ''))
@@ -46520,6 +46538,60 @@ def check_bootstrap_writes_what_real_sets_converged_on():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_session_hooks_allow_read_only_tools_at_user_level():
+    """A session opened above several repositories reads none of their
+    permission rules (Claude Code's settings docs), so the runner adds the
+    read-only Precedent tool rules to user-level settings, add-only
+    (2026-10-14). THE DISCRIMINATING CASE: a write-capable rule a repository
+    allows (git push) never reaches user level, and what the user file
+    already holds -- its hooks, its own allow and deny rules -- is kept."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_run_session_hooks as rsh
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td) / 'home'
+        repo = root / 'consumer'
+        (repo / '.git').mkdir(parents=True)
+        (repo / '.claude').mkdir()
+        (repo / '.claude' / 'settings.json').write_text(json.dumps({'permissions': {
+            'allow': ['Bash(git push -u origin *)',
+                      'Bash(python3 tools/doc_lint.py *)']}}), encoding='utf-8')
+        user = pathlib.Path(td) / 'user-settings.json'
+        mine = {'hooks': {'SessionStart': [{'hooks': [{'type': 'command',
+                                                       'command': 'true'}]}]},
+                'permissions': {'allow': ['Bash(ls)'],
+                                'deny': ['Bash(python3 tools/precedent_gate.py *)']}}
+        user.write_text(json.dumps(mine), encoding='utf-8')
+        rsh.run(root, log=pathlib.Path(td) / 'log', say=lambda m: None,
+                user_settings=user)
+        got = json.loads(user.read_text(encoding='utf-8'))
+        allow = got['permissions']['allow']
+        cases.append(('THE DISCRIMINATING CASE: no write-capable rule reaches user level',
+                      not any('push' in r for r in allow), allow))
+        cases.append(('the read-only rules arrive, from the repository and the template',
+                      'Bash(python3 tools/doc_lint.py *)' in allow
+                      and 'Bash(python3 tools/precedent_show.py *)' in allow, allow))
+        cases.append(('what the user file held is kept, and a denied rule is not added',
+                      got['hooks'] == mine['hooks'] and allow[0] == 'Bash(ls)'
+                      and got['permissions']['deny'] == mine['permissions']['deny']
+                      and 'Bash(python3 tools/precedent_gate.py *)' not in allow, got))
+        before = user.read_text(encoding='utf-8')
+        rsh.run(root, log=pathlib.Path(td) / 'log', say=lambda m: None,
+                user_settings=user)
+        cases.append(('a second session start changes nothing',
+                      user.read_text(encoding='utf-8') == before, ''))
+        user.write_text('{oops', encoding='utf-8')
+        rsh.run(root, log=pathlib.Path(td) / 'log', say=lambda m: None,
+                user_settings=user)
+        cases.append(('a user file that does not parse is left as it was',
+                      user.read_text(encoding='utf-8') == '{oops', ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'session start allows read-only Precedent tools at user level '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
 def check_session_hooks_run_for_a_session_opened_above_the_repos():
     """tools/precedent_run_session_hooks.py runs each repository's own
     SessionStart hooks when a session is opened in the directory ABOVE them
@@ -57057,6 +57129,15 @@ def check_refresh_wired_settings_is_not_lost_work():
                   not shape(before, with_hooks(
                       new_groups=[{'matcher': 'x', 'hooks': [wf]}],
                       perms={'allow': ['Bash(*)']})), ''))
+    cases.append(('read-only Precedent tool allow rules the refresh appends are '
+                  'refresh output (2026-10-14)',
+                  shape(before, with_hooks(new_groups=[{'matcher': 'x', 'hooks': [wf]}],
+                                           perms={'allow': [
+                                               'Bash(git status)',
+                                               'Bash(python3 tools/precedent_show.py *)']}))
+                  and shape(json.dumps(dict(base, permissions={'allow': ['Bash(ls)']})),
+                            json.dumps(dict(base, permissions={'allow': [
+                                'Bash(ls)', 'Bash(python3 tools/doc_lint.py)']}))), ''))
     cases.append(('a hook HOOK_WIRING does not list is NOT',
                   not shape(before, with_hooks(extra_pre=[
                       {'type': 'command', 'command': cmd + 'my-own-hook.sh'}])), ''))
@@ -60485,10 +60566,14 @@ def check_kept_section_reports_upstreams_change_not_its_lacks():
         # 2026-10-08, Morgan (decided): upstream's wording is the default, and
         # this repository's is kept only where it does something different
         # and important -- so a change that reaches the kept lines says so.
+        # 2026-10-14, Morgan (decided): keep only what is this repository's
+        # own, and re-pin that without asking him; he hears only a close call.
         cases.append(('...and says the default is upstream\'s section, keeping this '
-                      'repository\'s only where it does something different and '
-                      'important', "the default is upstream's" in left[0][1]
-                      and 'different and important' in left[0][1]
+                      'repository\'s only where it is its own, re-pinned by the '
+                      'session and asked only on a close call',
+                      "the default is upstream's" in left[0][1]
+                      and "this repository\'s own" in left[0][1]
+                      and '--by-rule' in left[0][1] and 'close call' in left[0][1]
                       and 'remove the kept_template_divergences entry' in left[0][1]
                       and "the default is upstream's wording" in out))
         sys.path.insert(0, str(ROOT / 'tools'))
@@ -60662,6 +60747,106 @@ def check_empty_blocklist_is_not_a_pass():
             '; '.join(f'{n}: {d[:200]}' for n, d in bad))
 
 
+def check_leak_gate_reads_the_written_private_repo_list():
+    """The leak gate refuses a private repository's bare name from the
+    person's written list (private-repos.txt beside their blocklist), not
+    only from clones on this disk (2026-10-14: a session with no clone of a
+    private consumer wrote its name into a public engine docstring on
+    2026-10-06). THE DISCRIMINATING CASE is a listed repository with no
+    clone anywhere on disk."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as lg
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        bl = td / 'leak-blocklist.txt'
+        bl.write_text('# visibility-audit: private-owner someone -- theirs\n',
+                      encoding='utf-8')
+        cases.append(('no list file, no listed repositories',
+                      lg.listed_private_refs(bl) == set(), ''))
+        (td / lg.PRIVATE_REPOS_NAME).write_text(
+            '# a comment\nsomeone/secret-garden  # trailing comment\n'
+            'not a ref line\nother/elsewhere\n', encoding='utf-8')
+        refs = lg.listed_private_refs(bl)
+        cases.append(('owner/name lines are read, comments and prose skipped',
+                      refs == {('someone', 'secret-garden'), ('other', 'elsewhere')},
+                      refs))
+        owners, allowed = lg.parse_repo_policy(bl)
+        pats = lg.auto_private_name_patterns(refs, owners, allowed)
+        hits = lg.scan([('NOTES.md', 'NOTES.md', 'a session in secret-garden read it\n')],
+                       [], (owners, allowed), pats)
+        cases.append(('THE DISCRIMINATING CASE: a listed name with no clone is refused',
+                      any('secret-garden' in str(h) for h in hits), hits))
+        cases.append(('a listed repository under an owner nobody declared private is not',
+                      [n for _p, n in pats] == ['secret-garden'], pats))
+        cases.append(('a clone on disk that the list lacks is named for adding',
+                      lg.unlisted_private_clones(td, bl, owners, allowed) == [], ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the leak gate reads the written private-repository list ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
+def check_refresh_adds_read_only_allow_rules():
+    """The refresh adds the settings template's read-only Precedent tool
+    rules to a consumer's .claude/settings.json, add-only (2026-10-14: a
+    consumer allowed none of them, and auto mode woke the person over a
+    precedent_show.py read). The DISCRIMINATING CASE is that a write-capable
+    template rule (git push, checkin.py) is never added, nor a rule for a
+    tool this repo's tools/ lacks, nor one precedent.json declines."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    tpl = (ROOT / pve.SETTINGS_TEMPLATE).read_text(encoding='utf-8')
+    rules = pve.read_only_allow_rules(tpl)
+    cases.append(('THE DISCRIMINATING CASE: only read-only tools are taken from the template',
+                  rules and all(pve.is_read_only_allow_rule(r) for r in rules)
+                  and not any('push' in r or 'checkin' in r or 'commit' in r for r in rules)
+                  and 'Bash(python3 tools/precedent_show.py *)' in rules, rules))
+    cases.append(('every read-only tool the engine names has a template rule',
+                  {pve._ALLOW_RULE_RE.match(r).group(1) for r in rules}
+                  == set(pve.READ_ONLY_ALLOW_TOOLS), rules))
+    with tempfile.TemporaryDirectory() as td:
+        dest = pathlib.Path(td)
+        (dest / '.claude').mkdir()
+        (dest / 'tools').mkdir()
+        for t in pve.READ_ONLY_ALLOW_TOOLS:
+            if t != 'routing_audit.py':
+                (dest / 'tools' / t).write_text('', encoding='utf-8')
+        sp = dest / '.claude' / 'settings.json'
+        own = {'permissions': {'allow': ['Bash(make test)',
+                                         'Bash(python3 tools/doc_lint.py)'],
+                               'deny': ['Bash(python3 tools/precedent_check.py *)']},
+               'hooks': {}}
+        sp.write_text(json.dumps(own), encoding='utf-8')
+        (dest / 'precedent.json').write_text(json.dumps(
+            {pve.DECLINED_ALLOW_KEY: ['Bash(python3 tools/precedent_gate.py)']}),
+            encoding='utf-8')
+        before = sp.read_text(encoding='utf-8')
+        added = pve._apply_read_only_allow(dest, rules)
+        after = json.loads(sp.read_text(encoding='utf-8'))
+        allow = after['permissions']['allow']
+        cases.append(('what was there stays first and unchanged',
+                      allow[:2] == own['permissions']['allow']
+                      and after['permissions']['deny'] == own['permissions']['deny'], allow))
+        cases.append(('a rule already allowed, denied, declined, or for a tool not '
+                      'in tools/ is not added',
+                      allow.count('Bash(python3 tools/doc_lint.py)') == 1
+                      and 'Bash(python3 tools/precedent_check.py *)' not in allow
+                      and 'Bash(python3 tools/precedent_gate.py)' not in allow
+                      and 'Bash(python3 tools/precedent_gate.py *)' in allow
+                      and not any('routing_audit' in r for r in allow), allow))
+        cases.append(('the change reads as refresh output, not a person\'s edit',
+                      pve.settings_change_is_wiring_only(before, sp.read_text(encoding='utf-8')),
+                      ''))
+        cases.append(('a second run adds nothing', pve._apply_read_only_allow(dest, rules) == [],
+                      ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the refresh adds read-only Precedent tool allow rules ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
 def check_repin_kept_records_the_persons_words():
     """`precedent_vendor_engine.py repin-kept` re-pins one kept AGENTS.md
     section against today's template and records who confirmed it and
@@ -60727,11 +60912,36 @@ def check_repin_kept_records_the_persons_words():
                           str(entry)))
             cases.append(('the command a stale kept section names carries --reason',
                           '--reason' in pve._repin_command(item), pve._repin_command(item)))
+            # 2026-10-14, Morgan (decided): "Let repin-kept re-pin
+            # repo-specific differences without asking me".
+            ok, msg = pve.repin_kept_section(td, item, '', dest_root=dest,
+                                             reason='our audits fill the placeholder',
+                                             by_rule=True)
+            entry = json.loads((dest / 'precedent.json').read_text(
+                encoding='utf-8'))[pve.KEPT_DIVERGENCES_KEY][item]
+            cases.append(('--by-rule re-pins without the person\'s words, recording '
+                          'the standing rule and decided_by: rule',
+                          ok and entry.get('decided_by') == 'rule'
+                          and entry.get('confirmed') == pve.STANDING_KEEP_RULE
+                          and 'standing rule' in msg, f'{msg} {entry}'))
+            ok, msg = pve.repin_kept_section(td, item, 'Morgan: yes', dest_root=dest,
+                                             reason='x', by_rule=True)
+            cases.append(('--by-rule and --confirmed together are refused', not ok, msg))
+            ok, msg = pve.repin_kept_section(td, item, 'Morgan: still kept', dest_root=dest,
+                                             reason='close call, asked')
+            entry = json.loads((dest / 'precedent.json').read_text(
+                encoding='utf-8'))[pve.KEPT_DIVERGENCES_KEY][item]
+            cases.append(('the person\'s words after a rule re-pin drop decided_by',
+                          ok and 'decided_by' not in entry, str(entry)))
+            cases.append(('the command a stale kept section names is --by-rule',
+                          '--by-rule' in pve._repin_command(item)
+                          and '--confirmed' not in pve._repin_command(item),
+                          pve._repin_command(item)))
         finally:
             for n, f in saved.items():
                 setattr(pve, n, f)
     bad = [(n, d) for n, ok, d in cases if not ok]
-    check(f'repin-kept re-pins a kept section with the person\'s words '
+    check(f'repin-kept re-pins a kept section by the standing rule or the person\'s words '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} -- {d[:200]}' for n, d in bad))
 
@@ -79087,6 +79297,9 @@ def main():
     check('a kept section re-pins by itself when upstream\'s change misses what it kept',
           *check_kept_section_repins_a_change_that_misses_the_kept_lines())
     check_repin_kept_records_the_persons_words()
+    check_refresh_adds_read_only_allow_rules()
+    check_leak_gate_reads_the_written_private_repo_list()
+    check_session_hooks_allow_read_only_tools_at_user_level()
     check('an empty blocklist is reported as nothing checked, never a pass',
           *check_empty_blocklist_is_not_a_pass())
     check_hook_changes_never_touch_dot_claude()

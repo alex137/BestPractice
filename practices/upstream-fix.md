@@ -113,9 +113,9 @@ the one it already made, or the one it is about to make.
    `precedent_check.py --only upstream-fix` refuses an edited engine file
    with neither that item nor one linking the upstream pull request.
    **The quick fix ends when upstream has its own**: from then on
-   upstream's version replaces it, unless it does something different and
-   important ([vendor-update-runbook](vendor-update-runbook.md), "Upstream's
-   version is the default").
+   upstream's version replaces it, keeping only what is this repository's
+   own, without asking ([vendor-update-runbook](vendor-update-runbook.md),
+   "Upstream's version is the default").
 
    **A check never skips a vendored file silently.** What it finds there is
    upstream's to fix and never fails this repo, and it is still reported,

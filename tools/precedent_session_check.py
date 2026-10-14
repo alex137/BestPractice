@@ -936,6 +936,7 @@ def checks(offline=False):
     # (spec/LADDER_OPT_IN_PLAN.md D8).
     out.extend(_brought_sets_rows())
     out.append(_landing_row())
+    out.append(_private_repos_listed_row())
     out.extend(_session_load_rows())
     # 14. A declared set that has retired itself.
     out.extend(_retired_sources_rows())
@@ -1032,6 +1033,32 @@ def _brought_sets_rows():
                                        for b in missing)
              + '. Its rules are absent from this session, and nothing else '
              'says so. Fetch it: python3 tools/precedent_source_bootstrap.py')]
+
+
+def _private_repos_listed_row():
+    """Every private clone on this disk is on the person's written list of
+    private repositories, so the leak gate refuses its name in sessions
+    that do not hold it too (leak_gate.listed_private_refs, 2026-10-14)."""
+    name = 'every private repository cloned here is on your private-repos list'
+    try:
+        import leak_gate as lg
+        bl = lg.resolve_blocklist_path()[0]
+        if bl is None or not pathlib.Path(bl).is_file():
+            return (name, None, 'no private blocklist resolved here, so there '
+                                'is no list to check against')
+        owners, allowed = lg.parse_repo_policy(pathlib.Path(bl))
+        if not owners:
+            return (name, True, 'no private-by-default owner is declared')
+        missing = lg.unlisted_private_clones(ROOT, pathlib.Path(bl), owners, allowed)
+    except Exception as e:                                   # noqa: BLE001
+        return (name, None, f'could not be worked out: {e}')
+    where = pathlib.Path(bl).parent / lg.PRIVATE_REPOS_NAME
+    if not missing:
+        return (name, True, str(where))
+    return (name, False, f'{len(missing)} cloned here but not listed, so a '
+                         f'session without the clone would let the name '
+                         f'through: add {", ".join(missing)} to {where} '
+                         f'and commit it there')
 
 
 def _landing_row():
