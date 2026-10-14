@@ -57,8 +57,12 @@ only on words that name the merge. That is not this repository's rules.
 the merge in the person's own words before it happens. As of 2026-10-11
 that is expected from the check's own rule and not yet seen working, so
 until a run confirms it, a refusal is still handled the same way: say so in
-one line and ask for it by name -- "Merge PR #N into <landing branch>" --
-and never route around it
+one line and ask for it by name, and never route around it. **The words fit
+the route:** on the `--land` route, which opens no pull request, ask for the
+landing with the branch named -- "Land `<branch>` on <landing branch>" (a
+consumer, 2026-10-13: the `--land` was refused, "Merge PR #N" had nothing
+to name, and the person's own word for the step cleared it); "Merge PR #N
+into <landing branch>" only when there is a pull request
 ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)).
 **For every repository the person uses Precedent in at once, the phrase is
 [Update All Vendors](update-all-vendors.md).**
@@ -924,7 +928,9 @@ says so, both from the vendored tree under `process/upstream/`.
     refused under the same reason until the person speaks again (three
     consumers, 2026-10-04 to 2026-10-08). End the turn with one line that
     auto mode stopped it, not this repository's rules, and the words that
-    name the step and its branch: "Merge PR #N into <landing branch>".
+    name the step and its branch: "Land `<branch>` on <landing
+    branch>" on the `--land` route, which has no pull request, or "Merge
+    PR #N into <landing branch>" when there is one.
     **Give the merge tool the full 40-character head commit, or none.**
     Read it with `git rev-parse HEAD` right after the push, or
     `git ls-remote origin refs/heads/<branch>`, never a short form: GitHub

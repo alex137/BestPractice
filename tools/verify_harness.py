@@ -48305,8 +48305,9 @@ def check_hook_notes_are_said_when_they_change():
     are states, never tasks, and came out on every refresh, so every
     update's upstream review listed eight items with nothing to do.
     Planted: a consumer wiring two hooks, one of them kept by an adapter.
-    The first write says both notes; a second with the same state says
-    neither; the adapter claim dropped, the change is said; status lists
+    The first write says the unwired note and never the adapter one (a
+    consumer, 2026-10-13: six adapter notes on a first update, none a
+    task); a second with the same state says neither; the adapter claim dropped, the change is said; status lists
     what the record holds."""
     import contextlib, io, tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
@@ -48338,8 +48339,9 @@ def check_hook_notes_are_said_when_they_change():
         def manifest():
             return json.loads(mpath.read_text(encoding='utf-8'))
         out = write(None)
-        cases.append(('the first refresh says the adapter-kept hook and the '
-                      'unwired ones', 'is not vendored by this engine' in out
+        cases.append(('the first refresh says the unwired ones and never the '
+                      'adapter-kept hook', 'is not vendored by this engine' not in out
+                      and "adapters mechanism owns" not in out
                       and 'are not wired in this repo' in out, out[-600:]))
         rec = manifest().get(pve.HOOKS_NOT_VENDORED_KEY) or {}
         cases.append(('...and records what it said',
