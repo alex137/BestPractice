@@ -31552,6 +31552,72 @@ def check_update_repoints_engine_paths_that_moved():
           not bad, '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_derives_engine_moves_from_git():
+    """THE GAP (2026-10-14). ENGINE_PATH_MOVES was a hand-kept map: an
+    engine rename without a row repointed nothing, and every consumer naming
+    the old path failed its next push on rename-updates-links. Since then
+    the moves are the renames git sees under tools/ between the source
+    commits an update goes from and to, with the table over them for what
+    git cannot see.
+
+    A source repository renames tools/zz_old.py to tools/zz_new.py and
+    docs/a.md to docs/b.md between two commits. Cases:
+    A. the tools/ rename is a move, with the table's rows still there;
+    B. CONTROL: a rename outside tools/ is not;
+    C. a consumer naming the old path has it repointed with those moves,
+       and not with the table alone (the gap);
+    D. an earlier commit git cannot read leaves the table, and says so."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    env = _fixture_git_env()
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        src, repo = pathlib.Path(td) / 'src', pathlib.Path(td) / 'consumer'
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                  capture_output=True, text=True).stdout.strip()
+        for r in (src, repo):
+            r.mkdir()
+            git(r, 'init', '-q')
+        (src / 'tools').mkdir()
+        (src / 'docs').mkdir()
+        body = ''.join(f'line {i}\n' for i in range(40))
+        (src / 'tools' / 'zz_old.py').write_text(body, encoding='utf-8')
+        (src / 'docs' / 'a.md').write_text(body, encoding='utf-8')
+        git(src, 'add', '-A'); git(src, 'commit', '-qm', 'one')
+        c1 = git(src, 'rev-parse', 'HEAD')
+        git(src, 'mv', 'tools/zz_old.py', 'tools/zz_new.py')
+        git(src, 'mv', 'docs/a.md', 'docs/b.md')
+        git(src, 'commit', '-qm', 'two')
+        c2 = git(src, 'rev-parse', 'HEAD')
+        moves, note = pu.engine_path_moves(src, c1, c2)
+        cases.append(('A. a tools/ rename is a move, the table kept',
+                      moves.get('tools/zz_old.py') == 'tools/zz_new.py' and note is None
+                      and all(moves.get(o) == n for o, n in pu.ENGINE_PATH_MOVES.items()),
+                      moves))
+        cases.append(('B. CONTROL: a rename outside tools/ is not',
+                      'docs/a.md' not in moves, moves))
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / 'zz_new.py').write_text(body, encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('Run `tools/zz_old.py` first.\n', encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'x')
+        table_only = pu.repoint_renamed_engine_paths(repo)
+        derived = dict(pu.repoint_renamed_engine_paths(repo, moves))
+        text = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+        cases.append(('C. the consumer is repointed with git\'s moves, not the table alone',
+                      table_only == [] and derived == {'AGENTS.md': 1}
+                      and 'tools/zz_new.py' in text and 'zz_old' not in text,
+                      f'{table_only} {derived} {text!r}'))
+        moves_d, note_d = pu.engine_path_moves(src, '0' * 40, c2)
+        cases.append(('D. an unreadable earlier commit leaves the table, and says so',
+                      moves_d == pu.ENGINE_PATH_MOVES and note_d
+                      and 'hand-kept' in note_d, f'{moves_d} {note_d}'))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors derives engine moves from git ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
 def check_archived_set_question_names_the_attach_fix():
     """When GitHub refuses to say whether a declared set is archived because
     the session has no API access to it, the note is one quiet line that
@@ -79613,6 +79679,7 @@ def main():
     check_global_pre_push_runs_the_leak_gate()
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
+    check_update_derives_engine_moves_from_git()
     check_landed_check_names_the_tier_that_ran()
     check_main_test_wait_does_not_ask_to_merge_what_is_merged()
     check_branch_name_counts_local_branches()
