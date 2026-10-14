@@ -2170,7 +2170,7 @@ def _at_head(sha):
     """', at head commit <all 40 characters>' -- the merge instruction's
     expected head. A merge through GitHub's API takes the head it expects in
     full (expectedHeadSha), and the twelve-character form printed everywhere
-    else here is refused there; a session in nomen-omen read the short one
+    else here is refused there; a session in a consuming repository read the short one
     back and had to look the rest up (2026-10-06); a session elsewhere passed
     seven characters, the merge failed, and auto mode then refused even its
     reads (2026-10-08), so the line says so outright. Pinning the head also

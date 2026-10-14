@@ -47,7 +47,7 @@ read-only Precedent tool rules to a consumer's `.claude/settings.json`,
 add-only (`precedent_vendor_engine._apply_read_only_allow`; a repo keeps one
 out with `declined_allow_rules` in `precedent.json`). For a session above
 several repositories, which reads none of them,
-[`precedent_run_session_hooks.py`](../tools/precedent_run_session_hooks.py) adds the same rules to user-level
+[`precedent_run_session_hooks.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_run_session_hooks.py) adds the same rules to user-level
 settings, which every session reads and reloads while it runs.
 
 **And in the session**
