@@ -56783,7 +56783,6 @@ def check_tools_answer_help_without_writing():
     clobber the repo while finding out.
     """
     import hashlib, shutil, tempfile
-    tools = sorted((ROOT / 'tools').glob('*.py'))
     tracked = subprocess.run(['git', 'ls-files'], cwd=str(ROOT),
                              capture_output=True, text=True)
     if tracked.returncode != 0 or not tracked.stdout.strip():
@@ -56793,6 +56792,14 @@ def check_tools_answer_help_without_writing():
         return
 
     files = [f for f in tracked.stdout.splitlines() if f]
+    # Only tracked tools: the copy below holds only tracked files, and a
+    # tool a session-start hook drops into tools/ untracked (a shared set's
+    # adapter, kept out by .git/info/exclude) ran there without its
+    # neighbours and exited 2 (2026-10-14: three such tools failed this in a
+    # session, while GitHub, which has none of them, passed).
+    tools = sorted(ROOT / f for f in files
+                   if f.startswith('tools/') and f.count('/') == 1
+                   and f.endswith('.py'))
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='help-sweep-'))
     try:
         for rel in files:
