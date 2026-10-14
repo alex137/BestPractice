@@ -1168,9 +1168,9 @@ def _cap_warning_last(tier=None):
         print(f'{head} Allowed onto this branch; the full check refuses it, '
               f'so bring it under first (a Reduction pass). Tell the person.')
     else:
-        print(f'{head} Allowed onto pre-staging; the Debut into staging '
-              f'refuses it, so bring it under first (a Reduction pass). Tell '
-              f'the person.')
+        print(f'{head} Allowed onto your landing branch; the full check '
+              f'(Debut, or Produce into main) refuses it, so bring it under '
+              f'first (a Reduction pass). Tell the person.')
 
 
 CHANGED_PRACTICE_CHECK = ('changed_practice',

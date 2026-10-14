@@ -221,42 +221,24 @@ def precedent_json(root):
 # its own (Morgan, 2026-09-27, strength: decided). It sits BELOW the person
 # (landing_branch() reads identity.json first), so it is a default, never an
 # override of somebody's own choice.
-REPO_LANDING_DEFAULT = PRE_STAGING
+#
+# PRE-STAGING RETIRED FOR EVERYONE (Morgan, 2026-10-14, strength: decided:
+# "Only me, go ahead and plan it. Retire pre-staging."; plan of record
+# spec/PRE_STAGING_RETIREMENT_PLAN.md). The default is staging, and a
+# pre-staging value anywhere reads as staging (_retired_tier).
+REPO_LANDING_DEFAULT = STAGING
 REPO_LANDING_COMMENT = [
     'Where Go update lands for anyone whose own identity.json names no',
-    'landing_branch -- a person\'s own setting always wins. pre-staging is',
-    'the tiered route: work reaches staging and main only by a Promote.',
+    'landing_branch -- a person\'s own setting always wins. staging: work',
+    'lands there with the quick checks and reaches main by a Produce.',
     'Change it here for this repository.',
 ]
 
-REPO_LANDING_STAGING_COMMENT = [
-    'Where Go update lands for anyone whose own identity.json names no',
-    'landing_branch -- a person\'s own setting always wins. staging: the',
-    'person who installed this has retired pre-staging (retire_pre_staging,',
-    'or landing_branch "staging", in their identity.json), so work lands on',
-    'staging and reaches main by a Produce. Change it here for this repository.',
-]
-
-
 def repo_landing_default(root, user_config=None):
     """-> (branch, comment) a new install, or a repository given its first
-    landing_branch, writes into precedent.json: staging for a person who has
-    retired pre-staging (retire_pre_staging, or their own landing_branch
-    "staging"), else REPO_LANDING_DEFAULT. Until 2026-10-11 it was always
-    pre-staging, so a repository Morgan installed after moving every other
-    one to staging started on the tier he had retired, and its first Update
-    Vendors had to move it back."""
-    # The person's own words, read raw: moves_repo_by_repo also asks for
-    # promote_only, which is off in a repository that has no tiers yet --
-    # and a new install is exactly that.
-    retired = False
-    for path in _identity_files(root, user_config):
-        ident = _read_json(path)
-        if ident and ident.get('email') and RETIRE_SETTING in ident:
-            retired = ident[RETIRE_SETTING] is True
-            break
-    if retired or _declared_landing(root, user_config) == STAGING:
-        return STAGING, REPO_LANDING_STAGING_COMMENT
+    landing_branch, writes into precedent.json: REPO_LANDING_DEFAULT,
+    staging. Until 2026-10-11 it was pre-staging for everyone; until
+    2026-10-14, for anyone who had not retired pre-staging themselves."""
     return REPO_LANDING_DEFAULT, REPO_LANDING_COMMENT
 
 
@@ -460,7 +442,8 @@ def landing_branch(root, user_config=None):
        never edited: a person off the ladder has no tiers, and a ladder user
        never creates them in a repository that did not ask for them.
     3. On the ladder, in a repository with tiers: the person, then the
-       repository, then pre-staging.
+       repository, then staging. A pre-staging value reads as staging:
+       that tier is retired for everyone since 2026-10-14 (_retired_tier).
 
     With no tools/precedent_ladder.py beside this file, the order from before
     the ladder became opt-in: the person, the repository, DEFAULT_LANDING."""
@@ -477,7 +460,7 @@ def landing_branch(root, user_config=None):
                               f'is none of "pre-staging", "staging" or "main" -- '
                               f'landing on staging, as before the tiers')
     if tier == PRE_STAGING:
-        return PRE_STAGING, why
+        return staging_branch(root), why + _retired_tier(PRE_STAGING)
     if tier == MAIN:
         # Straight to main is a person's choice to make (Morgan, 2026-09-25:
         # "they have to be able to set it to \"main\" if they want"). It
@@ -487,6 +470,15 @@ def landing_branch(root, user_config=None):
         # decides whether a session may push there.
         return MAIN, why
     return staging_branch(root), why
+
+
+def _retired_tier(value):
+    """-> the clause a `why` carries when `value` names the retired tier:
+    pre-staging reads as staging since 2026-10-14 (REPO_LANDING_DEFAULT)."""
+    if value != PRE_STAGING:
+        return ''
+    return (f', which is retired: work lands on {STAGING} instead (Update '
+            f'Vendors moves this repository off {PRE_STAGING})')
 
 
 def _landing_by_ladder(root, ladder, user_config=None):
@@ -505,17 +497,19 @@ def _landing_by_ladder(root, ladder, user_config=None):
         return MAIN, f'{LANDING_SETTING} is "main" in {where}'
     if person in (PRE_STAGING, STAGING):
         if tiers:
-            return (PRE_STAGING if person == PRE_STAGING else staging_branch(root),
-                    f'{LANDING_SETTING} is "{person}" in {where}')
+            return staging_branch(root), (f'{LANDING_SETTING} is "{person}" in '
+                                          f'{where}{_retired_tier(person)}')
         return MAIN, (f'{LANDING_SETTING} is "{person}" in {where}, a branch '
                       f'this repository does not use for you, so work lands '
                       f'on {MAIN}')
     if tiers:
-        if repo == STAGING:
-            return staging_branch(root), (f'{LANDING_SETTING} is "staging" in '
-                                          f"this repo's precedent.json")
-        return PRE_STAGING, (f'{LANDING_SETTING} is "pre-staging" in this '
-                             f"repo's precedent.json")
+        if repo in (PRE_STAGING, STAGING):
+            return staging_branch(root), (f'{LANDING_SETTING} is "{repo}" in '
+                                          f"this repo's precedent.json"
+                                          f'{_retired_tier(repo)}')
+        return staging_branch(root), (f'{LANDING_SETTING} is not set in this '
+                                      f"repo's precedent.json; the default "
+                                      f'is {STAGING}')
     return MAIN, f'work lands on {MAIN} here'
 
 
@@ -949,64 +943,34 @@ def tier_branches(root):
 # identity.json saying "staging" (and promote_only on, lands_on_staging),
 # and a repository whose precedent.json still makes pre-staging the landing
 # branch for others keeps it: it is theirs.
+#
+# FOR EVERYONE, SINCE 2026-10-14. The only person on the ladder retired it
+# for everyone (Morgan: "Only me, go ahead and plan it. Retire
+# pre-staging."; spec/PRE_STAGING_RETIREMENT_PLAN.md), so nobody's work is
+# left there for the guard above to protect: pre_staging_unused holds for
+# anyone on the ladder, and the paragraphs above are its history.
 RETIRED_WAITING = 'waiting'
 RETIRED_MERGED = 'merged'
 
 
-def _declared_landing(root, user_config=None):
-    """-> the landing_branch the person's own identity.json declares, or
-    None when none does (a default is not a declaration)."""
-    for path in _identity_files(root, user_config):
-        ident = _read_json(path)
-        if ident and ident.get('email') and LANDING_SETTING in ident:
-            return ident[LANDING_SETTING]
-    return None
-
-
-# A person moving off pre-staging one repository at a time (Morgan,
-# 2026-10-09: "I want to fully complete one repo at a time"). Their own
-# landing_branch stays unset, so each repository's precedent.json decides,
-# and an old engine reads that the same way; Update Vendors' second pass
-# in a repository switches its precedent.json to staging
-# (precedent_update.retire_pre_staging_step).
-RETIRE_SETTING = 'retire_pre_staging'
-
-
-def moves_repo_by_repo(root, user_config=None):
-    """-> True when the person's own identity.json says retire_pre_staging
-    is true and promote_only is on."""
-    for path in _identity_files(root, user_config):
-        ident = _read_json(path)
-        if ident and ident.get('email') and RETIRE_SETTING in ident:
-            return ident[RETIRE_SETTING] is True \
-                and promote_only(root, user_config)[0]
-    return False
-
-
 def pre_staging_unused(root, user_config=None):
-    """-> (unused, waits): unused is True when pre-staging is retired for
-    this person -- their identity.json declares landing_branch "staging",
-    they land straight there (lands_on_staging), and this repository's
-    precedent.json does not make pre-staging the landing branch for others.
-    `waits` is the reason, when only that last condition holds it back;
-    None otherwise.
+    """-> (unused, waits): unused is True when pre-staging is retired here.
+    Since 2026-10-14 it is retired for everyone on the ladder (Morgan:
+    "Retire pre-staging."; spec/PRE_STAGING_RETIREMENT_PLAN.md), so this is
+    True for a person on the ladder -- unless this repository's
+    precedent.json still names pre-staging, when `waits` says so and Update
+    Vendors switches it (precedent_update.retire_pre_staging_step). Off the
+    ladder nobody ever landed on pre-staging: (False, None).
 
-    A person moving repository by repository (moves_repo_by_repo) declares
-    no landing_branch: for them it is unused once this repository's
-    precedent.json says staging, and waits while it says pre-staging."""
-    declared = _declared_landing(root, user_config) == STAGING
-    if not declared and not moves_repo_by_repo(root, user_config):
-        return False, None
-    if declared and not lands_on_staging(root, user_config)[0]:
+    Until 2026-10-14 it took the person's own choice (landing_branch
+    "staging", or retire_pre_staging), since somebody else might still land
+    there; the only person on the ladder retired it for everyone."""
+    if not ladder_in_force(root, user_config):
         return False, None
     if precedent_json(root).get(LANDING_SETTING) == PRE_STAGING:
-        return False, (f'precedent.json still makes {PRE_STAGING} the landing '
-                       f'branch for anyone here who has not chosen one, so it '
-                       f'is still in use; set "{LANDING_SETTING}": '
-                       f'"{STAGING}" there if nobody else lands on '
-                       f'{PRE_STAGING}, then run this again')
-    if not lands_on_staging(root, user_config)[0]:
-        return False, None
+        return False, (f'precedent.json still names {PRE_STAGING} as the '
+                       f'landing branch; it is retired, and work already '
+                       f'lands on {STAGING}. Update Vendors switches it')
     return True, None
 
 
@@ -1049,17 +1013,17 @@ def never_offered(root, user_config=None):
 
 
 def ensure_tiers(root, apply=False, say=print, new_install=False):
-    """Make origin carry pre-staging and a real staging branch. -> 0 when
-    both exist (or were just made), 1 when something is missing and
+    """Make origin carry a real staging branch (pre-staging too until
+    2026-10-14, when it was retired for everyone and stopped being made).
+    -> 0 when it exists (or was just made), 1 when something is missing and
     `apply` is off, or could not be made.
 
-    A missing staging is made from pre-staging, else from main; a missing pre-staging is made from
-    staging. A repository whose staging tier is main (base_branch "main", no
+    A missing staging is made from a leftover pre-staging, else from main.
+    A repository whose staging tier is main (base_branch "main", no
     staging_branch) gains a `staging` branch the same way, and its
     precedent.json gains `"staging_branch": "staging"` -- written here,
     committed by the session running the migration. base_branch itself is
-    left alone (see STAGING_KEY). Then pre-staging is made from staging by
-    sync_pre_staging, the same way first use makes it everywhere else."""
+    left alone (see STAGING_KEY)."""
     root = pathlib.Path(root)
     # Only a person on the ladder makes tiers (spec/LADDER_OPT_IN_PLAN.md D3):
     # for anyone else a repository has its main branch and nothing to make,
@@ -1076,21 +1040,11 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
                        f'{MAIN} here)')
     elif not _remote_tip(root, staging):
         missing.append(f'{staging} on origin')
-    # A person who lands on staging has no use for pre-staging, and making
-    # it again would undo the deletion they were offered (pre_staging_retired).
-    retired = pre_staging_unused(root)[0]
-    # A new install whose precedent.json already lands on staging
-    # (repo_landing_default) never had a use for pre-staging; making it would
-    # only hand the person a branch to delete. pre_staging_unused cannot say
-    # so yet: it asks for promote_only, which a repository with no tiers
-    # turns off.
-    if new_install and precedent_json(root).get(LANDING_SETTING) == STAGING:
-        retired = True
-    if not retired and not _remote_tip(root, PRE_STAGING):
-        missing.append(f'{PRE_STAGING} on origin')
+    # Pre-staging is retired for everyone since 2026-10-14
+    # (spec/PRE_STAGING_RETIREMENT_PLAN.md): nothing makes it, and making it
+    # again would undo the deletion Update Vendors offers.
     if not missing:
-        say(f'tiers: {staging} -> {MAIN}, both present.' if retired else
-            f'tiers: {PRE_STAGING} -> {staging} -> {MAIN}, all present.')
+        say(f'tiers: {staging} -> {MAIN}, both present.')
         return 0
     if not apply:
         say('tiers: missing ' + '; '.join(missing) +
@@ -1134,12 +1088,7 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
                             encoding='utf-8')
             say(f'wrote "{STAGING_KEY}": "{STAGING}" into precedent.json -- commit '
                 f'it; {MAIN} now takes work from {STAGING} by pull request.')
-    if retired:
-        say(f'tiers: {staging_branch(root)} -> {MAIN}.')
-        return 0
-    if not sync_pre_staging(root, say):
-        return 1
-    say(f'tiers: {PRE_STAGING} -> {staging_branch(root)} -> {MAIN}.')
+    say(f'tiers: {staging_branch(root)} -> {MAIN}.')
     return 0
 
 

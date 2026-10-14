@@ -145,6 +145,7 @@ as_of: 2026-10-14
 | [`todo-2026-10-07-an-engine-change-is-not-rehearsed-against-the-sets-checks`](todo-2026-10-07-an-engine-change-is-not-rehearsed-against-the-sets-checks.md) | Commit 1ef31386 turned the individual set's startup hook into a stub that | 7d | ask |  |
 | [`todo-2026-10-08-tell-morgan-what-others-did`](todo-2026-10-08-tell-morgan-what-others-did.md) | Morgan learned about changes Alex made to Precedent only after something | 6d | wait |  |
 | [`todo-2026-10-11-planted-cases-in-minutes`](todo-2026-10-11-planted-cases-in-minutes.md) | `check_precedent_check_fires` in | 3d | ask | a go-ahead: the 2026-10-11 ask was to measure and propose, not to build |
+| [`todo-2026-10-14-delete-pre-staging-code`](todo-2026-10-14-delete-pre-staging-code.md) | Delete the engine code that only served the pre-staging tier, and its | 0d | wait | every repository Morgan uses Precedent in has run Update Vendors with the engine… |
 
 ## Decisions (the Person's Call)
 
