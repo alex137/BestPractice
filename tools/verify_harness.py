@@ -50546,6 +50546,52 @@ def check_refresh_sources_never_fetches_the_branch_a_clone_sits_on():
     check(f'refresh never fetches the branch a source clone sits on '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
+def check_leak_gate_reads_a_declared_visibility_before_the_owner_default():
+    """THE BUG (2026-10-14). The leak gate's failure line in
+    precedent-shared-writing, whose precedent.json declares it public, read
+    "is private (its owner is declared private by default), so this push
+    publishes nothing by itself": own_repo_private read only the owner
+    policy. A session reading that line can take a real leak in a public
+    tree as harmless. Since then the repository's own declaration comes
+    first and the owner default only when it declares nothing.
+
+    A. a repo declaring public under a private-by-default owner is public,
+       and says why;
+    B. CONTROL: the same repo declaring nothing takes the owner default;
+    C. a repo declaring private under an owner not declared private is
+       private."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as lg
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='leak-visibility-'))
+    policy = ({'privowner': 'test'}, {})
+    cases = []
+    try:
+        def repo(name, owner, visibility):
+            r = tmp / name
+            r.mkdir()
+            subprocess.run(['git', 'init', '-q', str(r)], capture_output=True)
+            subprocess.run(['git', '-C', str(r), 'remote', 'add', 'origin',
+                            f'https://github.com/{owner}/{name}.git'],
+                           capture_output=True)
+            cfg = {} if visibility is None else {'visibility': visibility}
+            (r / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+            return r
+        a = lg.own_repo_private(policy, repo('pub', 'privowner', 'public'))
+        cases.append(('A. declared public under a private-by-default owner is public',
+                      a[0] == 'privowner/pub' and a[1] is False and 'public' in a[2], a))
+        b = lg.own_repo_private(policy, repo('undeclared', 'privowner', None))
+        cases.append(('B. CONTROL: declaring nothing takes the owner default',
+                      b[1] is True and 'owner' in b[2], b))
+        c = lg.own_repo_private(policy, repo('priv', 'openowner', 'private'))
+        cases.append(('C. declared private under an open owner is private',
+                      c[1] is True and 'private' in c[2], c))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'the leak gate reads a declared visibility before the owner default '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
 def check_refresh_sources_leaves_the_base_branch_clean():
     """The session-start refresh commits on a dated local branch of its own
     and returns the set to its base branch with nothing uncommitted
@@ -79397,6 +79443,7 @@ def main():
     check_refresh_sources_path_names_the_whole_target()
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
     check_refresh_sources_never_fetches_the_branch_a_clone_sits_on()
+    check_leak_gate_reads_a_declared_visibility_before_the_owner_default()
     check_refresh_sources_leaves_the_base_branch_clean()
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()

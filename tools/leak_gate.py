@@ -729,13 +729,25 @@ def with_own_repo(policy, root):
 
 
 def own_repo_private(policy, root):
-    """-> (owner/name, True) when this repository's owner is declared
-    private-by-default, (owner/name, False) when not, (None, None) when
-    its origin cannot be read."""
+    """-> (owner/name, private, why) for this repository: what its own
+    precedent.json declares first, its owner's private-by-default policy
+    only when it declares nothing. (None, None, None) when neither says and
+    its origin cannot be read.
+
+    The declaration first (2026-10-14): precedent-shared-writing declares
+    itself public, its owner is private by default, and its failure line
+    read "is private ..., so this push publishes nothing by itself" -- a
+    line that lets a session take a real leak in a public tree as harmless."""
     own = _remote_ref(root)
+    name = f'{own[0]}/{own[1]}' if own else None
+    declared, said = declared_visibility(pathlib.Path(root))
+    if declared in ('public', 'private'):
+        return name or 'this repository', declared == 'private', said
     if not own:
-        return None, None
-    return f'{own[0]}/{own[1]}', own[0].lower() in (policy[0] or {})
+        return None, None, None
+    private = own[0].lower() in (policy[0] or {})
+    return name, private, ('its owner is declared private by default' if private
+                           else "its owner is not declared private")
 
 
 def parse_public_email_domains(path):
@@ -1919,14 +1931,14 @@ def main():
     scope = {'tree': 'the tracked tree', 'staged': 'the staged changes',
              'range': f'the range {rev_range}'}[mode]
     if hits:
-        own, private = own_repo_private(_policy, ROOT)
+        own, private, why = own_repo_private(_policy, ROOT)
         if private:
-            where = (f"{own} is private (its owner is declared private by default), "
+            where = (f"{own} is private ({why}), "
                      f"so this push publishes nothing by itself; a private name in "
                      f"it still travels wherever its content is copied or vendored.")
         elif own:
-            where = (f"{own}'s owner is not declared private, so this push is "
-                     f"treated as a publication, which cannot be taken back.")
+            where = (f"{own} is treated as public ({why}), so this push is "
+                     f"a publication, which cannot be taken back.")
         else:
             where = ("This repository's origin could not be read, so the push is "
                      "treated as a publication, which cannot be taken back.")
