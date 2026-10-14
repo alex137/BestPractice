@@ -1,3 +1,14 @@
+---
+title:         Pre-staging retired for everyone
+kind:          proposal
+status:        accepted
+opened:        2026-10-14
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       "The only person on the ladder retired pre-staging for everyone. Nothing lands on it or makes it any more, a leftover setting reads as staging, and every repository still carrying it moves off it at its next Update Vendors. The ladder becomes two tiers: Booked lands on staging, Debut runs the full tests there, Produce moves staging into main. Deleting the pre-staging code waits until every repository has moved."
+---
 # Pre-staging retired for everyone
 
 **Decided:** Morgan, 2026-10-14 (strength: decided): *"Only me, go ahead

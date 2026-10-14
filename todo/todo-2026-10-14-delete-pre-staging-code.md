@@ -19,7 +19,9 @@ closed:            null
 Delete the engine code that only served the pre-staging tier, and its
 tests: `--sync-pre-staging`, Promote's pre-staging-into-staging path, the
 `retire_pre_staging` setting, `retire_pre_staging_step` in
-[tools/precedent_update.py](../tools/precedent_update.py) and what only it uses, and the harness checks
+[tools/precedent_update.py](../tools/precedent_update.py) and what only it uses, the pre-staging
+branch in [templates/bootstrap.sh](../templates/bootstrap.sh)'s base-branch choice, the
+`retire_pre_staging` key in Morgan's identity.json, and the harness checks
 for all of these (practice: decommission-deletes-files).
 
 ## Why it waits

@@ -716,7 +716,8 @@ def _unlinked_outside_generated(dest, lint_out):
 
 
 def _tiers(dest):
-    """Give the new repository pre-staging and staging on origin when it can
+    """Give the new repository staging on origin when it can (pre-staging
+    too until 2026-10-14, when it was retired for everyone)
     (Morgan, 2026-09-27: these branches are essential to the process, so a
     missing one is made, never only reported). A repository installed before
     it has an origin, or before origin has its main, gets them from its first
@@ -747,7 +748,7 @@ def _tiers(dest):
         # the ladder, so this repository has its main branch and no more.
         return ''
     return 'branch tiers: ' + ('; '.join(made) if made
-                               else 'pre-staging, staging and main all present')
+                               else 'staging and main both present')
 
 
 def install(dest, project, about=None, base_branch=None, visibility='private',
