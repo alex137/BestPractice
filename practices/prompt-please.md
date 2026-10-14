@@ -161,6 +161,13 @@ following, every time:
   what `python3 tools/precedent_branches.py --landing` answers in the seed
   repo. When you cannot run the command, write "the branch your work lands
   on" and let the receiving session resolve it.
+- **When the handed-off work removes or loosens a step that waits for the
+  person** -- a confirmation, an approval, a stop for their word -- **the
+  block quotes the person's own words naming that step**, with the date. A
+  general rule of theirs is not a go-ahead for a particular step, and a receiving session in auto mode refuses the edit
+  as instruction poisoning without one. **No such words in this session?
+  Ask the person for them before writing the block**, in one line naming
+  the step.
 - **When the recommended action would itself change something this repo
   ships to other repos** -- a practice file, a template, a hook, a vendored
   engine file, the same scope [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
@@ -505,6 +512,13 @@ words. Two things bit on that first run and are now in the Rule: the
 create call takes one repository, so the prompt names the rest; and the
 person needs the link plus the paste fallback in case the session does
 not start. strength: decided.
+
+**2026-10-14: a loosened step without the person's words cost a round
+trip.** A prompt handed off work that let repin-kept re-pin without
+the person's words, quoting a general rule of Morgan's but nothing of his
+naming that step. The receiving session's first edit was refused by auto
+mode as instruction poisoning, and the sending session had to go back to
+him. The bullet on loosened steps came from it.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

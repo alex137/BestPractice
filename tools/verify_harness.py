@@ -31552,6 +31552,72 @@ def check_update_repoints_engine_paths_that_moved():
           not bad, '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_derives_engine_moves_from_git():
+    """THE GAP (2026-10-14). ENGINE_PATH_MOVES was a hand-kept map: an
+    engine rename without a row repointed nothing, and every consumer naming
+    the old path failed its next push on rename-updates-links. Since then
+    the moves are the renames git sees under tools/ between the source
+    commits an update goes from and to, with the table over them for what
+    git cannot see.
+
+    A source repository renames tools/zz_old.py to tools/zz_new.py and
+    docs/a.md to docs/b.md between two commits. Cases:
+    A. the tools/ rename is a move, with the table's rows still there;
+    B. CONTROL: a rename outside tools/ is not;
+    C. a consumer naming the old path has it repointed with those moves,
+       and not with the table alone (the gap);
+    D. an earlier commit git cannot read leaves the table, and says so."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    env = _fixture_git_env()
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        src, repo = pathlib.Path(td) / 'src', pathlib.Path(td) / 'consumer'
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                  capture_output=True, text=True).stdout.strip()
+        for r in (src, repo):
+            r.mkdir()
+            git(r, 'init', '-q')
+        (src / 'tools').mkdir()
+        (src / 'docs').mkdir()
+        body = ''.join(f'line {i}\n' for i in range(40))
+        (src / 'tools' / 'zz_old.py').write_text(body, encoding='utf-8')
+        (src / 'docs' / 'a.md').write_text(body, encoding='utf-8')
+        git(src, 'add', '-A'); git(src, 'commit', '-qm', 'one')
+        c1 = git(src, 'rev-parse', 'HEAD')
+        git(src, 'mv', 'tools/zz_old.py', 'tools/zz_new.py')
+        git(src, 'mv', 'docs/a.md', 'docs/b.md')
+        git(src, 'commit', '-qm', 'two')
+        c2 = git(src, 'rev-parse', 'HEAD')
+        moves, note = pu.engine_path_moves(src, c1, c2)
+        cases.append(('A. a tools/ rename is a move, the table kept',
+                      moves.get('tools/zz_old.py') == 'tools/zz_new.py' and note is None
+                      and all(moves.get(o) == n for o, n in pu.ENGINE_PATH_MOVES.items()),
+                      moves))
+        cases.append(('B. CONTROL: a rename outside tools/ is not',
+                      'docs/a.md' not in moves, moves))
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / 'zz_new.py').write_text(body, encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('Run `tools/zz_old.py` first.\n', encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'x')
+        table_only = pu.repoint_renamed_engine_paths(repo)
+        derived = dict(pu.repoint_renamed_engine_paths(repo, moves))
+        text = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+        cases.append(('C. the consumer is repointed with git\'s moves, not the table alone',
+                      table_only == [] and derived == {'AGENTS.md': 1}
+                      and 'tools/zz_new.py' in text and 'zz_old' not in text,
+                      f'{table_only} {derived} {text!r}'))
+        moves_d, note_d = pu.engine_path_moves(src, '0' * 40, c2)
+        cases.append(('D. an unreadable earlier commit leaves the table, and says so',
+                      moves_d == pu.ENGINE_PATH_MOVES and note_d
+                      and 'hand-kept' in note_d, f'{moves_d} {note_d}'))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors derives engine moves from git ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
 def check_archived_set_question_names_the_attach_fix():
     """When GitHub refuses to say whether a declared set is archived because
     the session has no API access to it, the note is one quiet line that
@@ -35912,13 +35978,15 @@ def _span_text(lines):
     return ', '.join(f'{r[0]}-{r[-1]}' if len(r) > 1 else str(r[0]) for r in out)
 
 
-def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS):
+def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS, ledger=None):
     """-> {'run': [test], 'deferred': [test], 'slugs': [slug],
     'planted_only': [slug], 'unmapped': [note], 'seconds': float} for the
     change since `since` in the repository at `root`: which harness tests it
     reaches, which of them fit `budget` seconds by their recorded times
     (nearest the change first -- what it touched, then what calls that --
     and the quickest first among equals), and what it could not reach.
+    `ledger` is harness_reach's record of what each test ran; None reads
+    this repository's own, and only when `root` is this repository.
     Reads; runs nothing."""
     root = pathlib.Path(root)
     plan = {'run': [], 'deferred': [], 'slugs': [], 'planted_only': [],
@@ -36051,6 +36119,33 @@ def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS):
                     want(0, [node.name])
                 elif u['names']:
                     want(1, [t for t in tests if refs[t] & u['names']])
+
+    # 4. What GitHub's scoped run picks: harness_reach's ledger of what each
+    # test actually ran. A test that runs the change in a child process
+    # names none of its functions, so 1-3 never see it: main went red on
+    # check_vendor_engine_wires_a_new_hook_into_an_installed_repo
+    # (2026-10-14, run 38570778970) after this plan, even at --budget 1500,
+    # left it out. Reached through what it read or ran: one remove from the
+    # change. Picked only because its reach was never fully seen, or because
+    # it is newer than the ledger: two.
+    if ledger is None and root.resolve() == ROOT.resolve():
+        import harness_reach
+        ledger = harness_reach.load_ledger(fetch=True)
+    if ledger and ledger.get('green') is not False:
+        import harness_reach
+        mb = subprocess.run(['git', '-C', str(root), 'merge-base', since, 'HEAD'],
+                            capture_output=True, text=True).stdout.strip()
+        seen = dict(ledger, checks={n: {k: v for k, v in r.items() if k != 'o'}
+                                    for n, r in ledger.get('checks', {}).items()})
+        names = [t for t in tests if t != _PLANTED_SUITE]
+        near, _r, full = harness_reach.select(seen, mb or since, 'HEAD', names, root)
+        if full:
+            plan['unmapped'].append(f'the reach ledger: {full} -- GitHub\'s '
+                                    f'run on main runs the whole suite')
+        else:
+            rec = ledger.get('checks', {})
+            want(1, sorted(near))
+            want(2, [t for t in names if t not in rec or rec[t].get('o')])
     times, default = _check_times(root / 'tools' / 'harness_check_times.json')
     cost = lambda t: times.get(t, default if default is not None else 1.0)
     total = 0.0
@@ -36260,6 +36355,93 @@ def check_for_change_runs_the_tests_a_change_reaches():
           '; '.join(failed) + ('' if not failed else
                               ' -- ' + json.dumps(results, default=str)[:1500]))
 
+
+def check_for_change_adds_what_the_reach_ledger_picks():
+    """THE BUG (2026-10-14, main red, run 38570778970). for_change_plan
+    picked tests by the functions they name; GitHub's scoped run picks by
+    harness_reach's ledger of what each test ran.
+    check_vendor_engine_wires_a_new_hook_into_an_installed_repo runs the
+    refresh in a child process and names none of its functions, so the
+    local plan never picked it, even at --budget 1500, and main went red.
+    Since then the plan adds the ledger's picks under the same budget.
+
+    One scratch repository, tools/zzmod.py's f() changed. Cases:
+    A. without a ledger, the child-process test is not picked (the bug);
+    B. with one, the test the ledger saw run f() is picked, one remove out;
+    C. a test whose reach the ledger never fully saw is picked too, ranked
+       after B's, so a tight budget names it rather than running it;
+    D. CONTROL: a test the ledger saw run only another function is not;
+    E. CONTROL: a ledger from a failing run adds nothing;
+    F. a change to the recording machinery adds nothing and says GitHub's
+       run will run the whole suite."""
+    import tempfile
+    import harness_reach
+    name = '--for-change adds the tests the reach ledger picks'
+    harness = ('import subprocess\n'
+               'def check_child():\n'
+               "    subprocess.run(['python3', 'runner.py'])\n"
+               'def check_blind():\n'
+               "    subprocess.run(['git', 'status'])\n"
+               'def check_other():\n'
+               "    subprocess.run(['python3', 'other.py'])\n")
+    times = json.dumps({'default_seconds': 1.0,
+                        'seconds': {'check_child': 5.0, 'check_blind': 20.0}})
+    base = {'tools/verify_harness.py': harness,
+            'tools/zzmod.py': 'def f():\n    return 1\n\ndef g():\n    return 1\n',
+            'tools/harness_check_times.json': times}
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'repo'
+        repo.mkdir()
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), '-c',
+                                   'core.hooksPath=/dev/null', *a],
+                                  capture_output=True, text=True, env=env)
+        git('init', '-q', '-b', 'main')
+        for r_, text in base.items():
+            (repo / r_).parent.mkdir(parents=True, exist_ok=True)
+            (repo / r_).write_text(text, encoding='utf-8')
+        git('add', '-A'); git('commit', '-qm', 'base')
+        since = git('rev-parse', 'HEAD').stdout.strip()
+        ledger = {'version': harness_reach.VERSION, 'commit': since, 'green': True,
+                  'checks': {
+                      'check_child': {'c': {'tools/zzmod.py': ['f']}},
+                      'check_blind': {'o': ['git status run against the repository itself']},
+                      'check_other': {'c': {'tools/zzmod.py': ['g']}}}}
+        (repo / 'tools' / 'zzmod.py').write_text(
+            'def f():\n    return 2\n\ndef g():\n    return 1\n', encoding='utf-8')
+        git('commit', '-qam', 'change f')
+        bare = for_change_plan(repo, since, budget=60, ledger={})
+        wide = for_change_plan(repo, since, budget=60, ledger=ledger)
+        tight = for_change_plan(repo, since, budget=10, ledger=ledger)
+        red = for_change_plan(repo, since, budget=60, ledger=dict(ledger, green=False))
+        (repo / 'tools' / 'harness_reach.py').write_text('# machinery\n', encoding='utf-8')
+        git('add', '-A'); git('commit', '-qm', 'machinery')
+        mach = for_change_plan(repo, since, budget=60, ledger=ledger)
+    cases = [
+        ('A. without a ledger the child-process test is not picked',
+         'check_child' not in bare['run'] + bare['deferred']),
+        ('B. with one, the test the ledger saw run f() runs',
+         'check_child' in wide['run']),
+        ('C. a test whose reach was never fully seen is picked, after B\'s: '
+         'a tight budget runs B and names C',
+         'check_blind' in wide['run'] and tight['run'] == ['check_child']
+         and tight['deferred'] == ['check_blind']),
+        ('D. CONTROL: a test that ran only g() is not picked',
+         'check_other' not in wide['run'] + wide['deferred']),
+        ('E. CONTROL: a ledger from a failing run adds nothing',
+         not red['run'] and not red['deferred']),
+        ('F. a machinery change adds nothing and says the whole suite runs',
+         'check_child' not in mach['run'] + mach['deferred']
+         and any('whole suite' in n for n in mach['unmapped'])),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else ' -- ' + json.dumps(
+              {'bare': bare, 'wide': wide, 'tight': tight, 'red': red,
+               'mach': mach}, default=str)[:1500]))
 
 def check_changed_files_runs_the_harness_tests_a_change_reaches():
     """The changed-files step runs `verify_harness.py --for-change` where the
@@ -50356,6 +50538,125 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
+
+def check_refresh_sources_never_fetches_the_branch_a_clone_sits_on():
+    """THE BUG (2026-10-14). A session that attaches a set gets the clone
+    on the session's own branch, which origin has never had. For a set
+    declaring no base_branch, the branch to bring it current on fell back
+    to the branch it sat on, so session start printed "FAIL current: could
+    not fetch origin/claude/..." and NOT APPLIED for precedent-shared-ladder
+    while the two sets declaring main were brought current. Since then the
+    target is the declared branch, else the bootstrap's pin, never the
+    current one. Real git, hermetic: a bare origin with no HEAD symref in
+    the clone, the clone on a local-only branch, origin one commit ahead.
+
+    A. the branch it is brought current on is main, not the one it sits on;
+    B. make_current on it fetches main and fast-forwards, and the clone is
+       NOT switched off its branch (todo-2026-10-07-one-sets-update-moves-
+       another-sets-working-branch);
+    C. CONTROL: with a commit of its own there, it is refused, unchanged;
+    D. a declared base_branch still wins."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-starter-branch-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def g(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), '-c', 'core.hooksPath=/dev/null', *a],
+                              capture_output=True, text=True, env=env).stdout.strip()
+    cases = []
+    try:
+        seed, origin = tmp / 'seed', tmp / 'origin.git'
+        seed.mkdir()
+        g(seed, 'init', '-q', '-b', 'main')
+        (seed / 'precedent.json').write_text('{}\n', encoding='utf-8')
+        g(seed, 'add', '-A'); g(seed, 'commit', '-qm', 'one')
+        subprocess.run(['git', 'clone', '-q', '--bare', str(seed), str(origin)],
+                       capture_output=True)
+
+        def starter(name):
+            c = tmp / name
+            subprocess.run(['git', 'clone', '-q', str(origin), str(c)], capture_output=True)
+            g(c, 'remote', 'set-head', 'origin', '-d')
+            g(c, 'checkout', '-q', '-b', 'claude/starter-abc12')
+            return c
+        clone, own = starter('clone'), starter('own')
+        (own / 'mine.md').write_text('mine\n', encoding='utf-8')
+        g(own, 'add', '-A'); g(own, 'commit', '-qm', 'mine')
+        own_head = g(own, 'rev-parse', 'HEAD')
+        (seed / 'p.md').write_text('two\n', encoding='utf-8')
+        g(seed, 'add', '-A'); g(seed, 'commit', '-qm', 'two')
+        g(seed, 'push', '-q', str(origin), 'main')
+
+        want = prs._pinned_branch(clone)
+        cases.append(('A. brought current on main, not the branch it sits on',
+                      want == 'main', want))
+        ok, note = prs.make_current(clone, want)
+        cases.append(('B. fetched main and fast-forwarded, still on its own branch',
+                      ok and g(clone, 'rev-parse', 'HEAD') == g(seed, 'rev-parse', 'HEAD')
+                      and g(clone, 'rev-parse', '--abbrev-ref', 'HEAD')
+                      == 'claude/starter-abc12', note))
+        ok_o, note_o = prs.make_current(own, prs._pinned_branch(own))
+        cases.append(('C. CONTROL: a commit of its own is refused, unchanged',
+                      not ok_o and g(own, 'rev-parse', 'HEAD') == own_head
+                      and 'local commit' in note_o, note_o))
+        (clone / 'precedent.json').write_text('{"base_branch": "trunk"}\n',
+                                              encoding='utf-8')
+        cases.append(('D. a declared base_branch still wins',
+                      prs._pinned_branch(clone) == 'trunk', prs._pinned_branch(clone)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'refresh never fetches the branch a source clone sits on '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+def check_leak_gate_reads_a_declared_visibility_before_the_owner_default():
+    """THE BUG (2026-10-14). The leak gate's failure line in
+    precedent-shared-writing, whose precedent.json declares it public, read
+    "is private (its owner is declared private by default), so this push
+    publishes nothing by itself": own_repo_private read only the owner
+    policy. A session reading that line can take a real leak in a public
+    tree as harmless. Since then the repository's own declaration comes
+    first and the owner default only when it declares nothing.
+
+    A. a repo declaring public under a private-by-default owner is public,
+       and says why;
+    B. CONTROL: the same repo declaring nothing takes the owner default;
+    C. a repo declaring private under an owner not declared private is
+       private."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as lg
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='leak-visibility-'))
+    policy = ({'privowner': 'test'}, {})
+    cases = []
+    try:
+        def repo(name, owner, visibility):
+            r = tmp / name
+            r.mkdir()
+            subprocess.run(['git', 'init', '-q', str(r)], capture_output=True)
+            subprocess.run(['git', '-C', str(r), 'remote', 'add', 'origin',
+                            f'https://github.com/{owner}/{name}.git'],
+                           capture_output=True)
+            cfg = {} if visibility is None else {'visibility': visibility}
+            (r / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+            return r
+        a = lg.own_repo_private(policy, repo('pub', 'privowner', 'public'))
+        cases.append(('A. declared public under a private-by-default owner is public',
+                      a[0] == 'privowner/pub' and a[1] is False and 'public' in a[2], a))
+        b = lg.own_repo_private(policy, repo('undeclared', 'privowner', None))
+        cases.append(('B. CONTROL: declaring nothing takes the owner default',
+                      b[1] is True and 'owner' in b[2], b))
+        c = lg.own_repo_private(policy, repo('priv', 'openowner', 'private'))
+        cases.append(('C. declared private under an open owner is private',
+                      c[1] is True and 'private' in c[2], c))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'the leak gate reads a declared visibility before the owner default '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 def check_refresh_sources_leaves_the_base_branch_clean():
     """The session-start refresh commits on a dated local branch of its own
@@ -79207,6 +79508,8 @@ def main():
     check_refresh_sources_leaves_an_attached_consumer_alone()
     check_refresh_sources_path_names_the_whole_target()
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
+    check_refresh_sources_never_fetches_the_branch_a_clone_sits_on()
+    check_leak_gate_reads_a_declared_visibility_before_the_owner_default()
     check_refresh_sources_leaves_the_base_branch_clean()
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
@@ -79376,6 +79679,7 @@ def main():
     check_global_pre_push_runs_the_leak_gate()
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
+    check_update_derives_engine_moves_from_git()
     check_landed_check_names_the_tier_that_ran()
     check_main_test_wait_does_not_ask_to_merge_what_is_merged()
     check_branch_name_counts_local_branches()
@@ -79497,6 +79801,7 @@ def main():
     check_changed_files_compares_quoted_counts_when_a_practice_changes()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_for_change_runs_the_tests_a_change_reaches()
+    check_for_change_adds_what_the_reach_ledger_picks()
     check_changed_files_runs_the_harness_tests_a_change_reaches()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()

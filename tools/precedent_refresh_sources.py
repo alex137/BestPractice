@@ -694,6 +694,17 @@ def _declared_base_branch(root):
         return None
 
 
+def _pinned_branch(repo):
+    """The branch a source clone is brought current on: what its own
+    precedent.json declares, else the bootstrap's pin. Never the branch the
+    clone happens to be on -- _default_branch's last fallback, which made
+    make_current fetch a session's own branch from an origin that has never
+    had it (2026-10-14)."""
+    if _srcboot is not None:
+        return _srcboot.expected_branch(repo)
+    return _declared_base_branch(repo) or 'main'
+
+
 def _default_branch(repo):
     """The base branch freshness-guard.sh gets wired to compare against.
 
@@ -1270,9 +1281,7 @@ def main(argv):
             b = e.get('branch')
             if b and b[0] != b[1]:
                 continue
-            want = _declared_base_branch(e['repo']) or _default_branch(e['repo'])
-            if not want:
-                continue
+            want = _pinned_branch(e['repo'])
             # Engine output a refresh left uncommitted is not a person's
             # work: make_current discards it and fast-forwards, and the
             # refresh below writes it again over the new tree. Only a
@@ -1416,7 +1425,7 @@ def main(argv):
         # older catalogue in force. Morgan, 2026-09-21 (strength: decided):
         # "would this force it to clone the most updated version first
         # thing? I think that's what we need."
-        want = _declared_base_branch(e['repo']) or _default_branch(e['repo'])
+        want = _pinned_branch(e['repo'])
         if want:
             ok_cur, note = make_current(e['repo'], want)
             print(f"  {'ok ' if ok_cur else 'FAIL'} current: {note}")
