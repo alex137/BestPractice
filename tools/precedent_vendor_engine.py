@@ -2199,9 +2199,7 @@ def _write_hook_files(dest_root, hooks_src_dir, previous=None):
                           for n in sorted(adapter_owned & wired)}}
     said = previous.get(HOOKS_NOT_VENDORED_KEY) if isinstance(previous, dict) else None
     if said == state:
-        elsewhere, skipped, quiet_adapters = [], [], True
-    else:
-        quiet_adapters = False
+        elsewhere, skipped = [], []
     if elsewhere:
         print(f"NOTE: precedent_vendor_engine: {len(elsewhere)} hook "
               f"script(s) BestPractice also ships ({', '.join(elsewhere)}) "
@@ -2226,13 +2224,11 @@ def _write_hook_files(dest_root, hooks_src_dir, previous=None):
               f"in precedent.json. A hook THIS repo's kind gets is wired and "
               f"delivered by the refresh on its own (HOOK_WIRING).",
               file=sys.stderr)
-    for n in ([] if quiet_adapters else sorted(adapter_owned & wired)):
-        source_name = claimed[f'{HOOK_DEST_DIR}/{n}']
-        print(f"NOTE: precedent_vendor_engine: {n} is not vendored by this "
-              f"engine -- {source_name!r}'s own adapters mechanism owns "
-              f"{HOOK_DEST_DIR}/{n} in this repo (see precedent_materialize.py's "
-              f"MANIFEST.json). That copy is maintained independently; this "
-              f"engine's own bundled {n} is not applied here.", file=sys.stderr)
+    # A hook a declared source's adapters keep is never said on a refresh,
+    # not even once (2026-10-13, a consumer's first update on this engine:
+    # six such notes became six upstream-review items and Upstream-seen
+    # trailers, with nothing anyone could do). That source maintains the
+    # file; `status` names it from the record above.
     dest_hooks = dest_root / HOOK_DEST_DIR
     manifest_path = dest_root / 'tools' / MANIFEST_NAME
     _remove_dropped_hook_files(dest_root, manifest_path, available,

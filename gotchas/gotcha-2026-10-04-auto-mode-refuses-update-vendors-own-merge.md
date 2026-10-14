@@ -84,6 +84,12 @@ the tool gave it; the fetch that confirms the branch waits for the next
 turn, or for the next stage's own tool, and the reply says which
 ([vendor-update-runbook](../practices/vendor-update-runbook.md) step 12).
 
+**2026-10-13, a consumer on the `--land` route.** After Update Vendors,
+`precedent_branches.py --land <branch>` was refused as `[Merge Without
+Review]`. There was no pull request, so "Merge PR #N" had nothing to name;
+the person said "booked", and the same command went through. The ask
+names the landing and the branch on that route.
+
 It is the merge-shaped twin of
 [the refusal of a bare Promote into main](gotcha-2026-09-30-auto-mode-refuses-a-bare-promote-into-main-as-a-production.md),
 and the same fix applies.
@@ -103,8 +109,12 @@ the next turn, or let the next stage's tool confirm it, and say which.
 
 **After a refused or failed merge:** stop at once, run nothing else, and end the turn
 asking for the merge by name: one line that Claude Code's own safety check
-stopped it, not the repository's rules, and the words that name it, "Merge
-PR #N into <landing branch>". A check, a read or a count run first is
+stopped it, not the repository's rules, and the words that name it. On the
+`--land` route there is no pull request, so ask for the landing with the
+branch named, "Land `<branch>` on <landing branch>" (on the ladder, its
+stage word with the branch: "Booked: land `<branch>` on <landing
+branch>"); "Merge PR #N
+into <landing branch>" fits only the pull-request route. A check, a read or a count run first is
 refused under the same reason and only delays the ask. Never route around
 it: no other merge route, no handoff to another session, no settings edit
 of the session's own.
