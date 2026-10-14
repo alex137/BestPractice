@@ -35912,13 +35912,15 @@ def _span_text(lines):
     return ', '.join(f'{r[0]}-{r[-1]}' if len(r) > 1 else str(r[0]) for r in out)
 
 
-def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS):
+def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS, ledger=None):
     """-> {'run': [test], 'deferred': [test], 'slugs': [slug],
     'planted_only': [slug], 'unmapped': [note], 'seconds': float} for the
     change since `since` in the repository at `root`: which harness tests it
     reaches, which of them fit `budget` seconds by their recorded times
     (nearest the change first -- what it touched, then what calls that --
     and the quickest first among equals), and what it could not reach.
+    `ledger` is harness_reach's record of what each test ran; None reads
+    this repository's own, and only when `root` is this repository.
     Reads; runs nothing."""
     root = pathlib.Path(root)
     plan = {'run': [], 'deferred': [], 'slugs': [], 'planted_only': [],
@@ -36051,6 +36053,33 @@ def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS):
                     want(0, [node.name])
                 elif u['names']:
                     want(1, [t for t in tests if refs[t] & u['names']])
+
+    # 4. What GitHub's scoped run picks: harness_reach's ledger of what each
+    # test actually ran. A test that runs the change in a child process
+    # names none of its functions, so 1-3 never see it: main went red on
+    # check_vendor_engine_wires_a_new_hook_into_an_installed_repo
+    # (2026-10-14, run 38570778970) after this plan, even at --budget 1500,
+    # left it out. Reached through what it read or ran: one remove from the
+    # change. Picked only because its reach was never fully seen, or because
+    # it is newer than the ledger: two.
+    if ledger is None and root.resolve() == ROOT.resolve():
+        import harness_reach
+        ledger = harness_reach.load_ledger(fetch=True)
+    if ledger and ledger.get('green') is not False:
+        import harness_reach
+        mb = subprocess.run(['git', '-C', str(root), 'merge-base', since, 'HEAD'],
+                            capture_output=True, text=True).stdout.strip()
+        seen = dict(ledger, checks={n: {k: v for k, v in r.items() if k != 'o'}
+                                    for n, r in ledger.get('checks', {}).items()})
+        names = [t for t in tests if t != _PLANTED_SUITE]
+        near, _r, full = harness_reach.select(seen, mb or since, 'HEAD', names, root)
+        if full:
+            plan['unmapped'].append(f'the reach ledger: {full} -- GitHub\'s '
+                                    f'run on main runs the whole suite')
+        else:
+            rec = ledger.get('checks', {})
+            want(1, sorted(near))
+            want(2, [t for t in names if t not in rec or rec[t].get('o')])
     times, default = _check_times(root / 'tools' / 'harness_check_times.json')
     cost = lambda t: times.get(t, default if default is not None else 1.0)
     total = 0.0
@@ -36260,6 +36289,93 @@ def check_for_change_runs_the_tests_a_change_reaches():
           '; '.join(failed) + ('' if not failed else
                               ' -- ' + json.dumps(results, default=str)[:1500]))
 
+
+def check_for_change_adds_what_the_reach_ledger_picks():
+    """THE BUG (2026-10-14, main red, run 38570778970). for_change_plan
+    picked tests by the functions they name; GitHub's scoped run picks by
+    harness_reach's ledger of what each test ran.
+    check_vendor_engine_wires_a_new_hook_into_an_installed_repo runs the
+    refresh in a child process and names none of its functions, so the
+    local plan never picked it, even at --budget 1500, and main went red.
+    Since then the plan adds the ledger's picks under the same budget.
+
+    One scratch repository, tools/zzmod.py's f() changed. Cases:
+    A. without a ledger, the child-process test is not picked (the bug);
+    B. with one, the test the ledger saw run f() is picked, one remove out;
+    C. a test whose reach the ledger never fully saw is picked too, ranked
+       after B's, so a tight budget names it rather than running it;
+    D. CONTROL: a test the ledger saw run only another function is not;
+    E. CONTROL: a ledger from a failing run adds nothing;
+    F. a change to the recording machinery adds nothing and says GitHub's
+       run will run the whole suite."""
+    import tempfile
+    import harness_reach
+    name = '--for-change adds the tests the reach ledger picks'
+    harness = ('import subprocess\n'
+               'def check_child():\n'
+               "    subprocess.run(['python3', 'runner.py'])\n"
+               'def check_blind():\n'
+               "    subprocess.run(['git', 'status'])\n"
+               'def check_other():\n'
+               "    subprocess.run(['python3', 'other.py'])\n")
+    times = json.dumps({'default_seconds': 1.0,
+                        'seconds': {'check_child': 5.0, 'check_blind': 20.0}})
+    base = {'tools/verify_harness.py': harness,
+            'tools/zzmod.py': 'def f():\n    return 1\n\ndef g():\n    return 1\n',
+            'tools/harness_check_times.json': times}
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'repo'
+        repo.mkdir()
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), '-c',
+                                   'core.hooksPath=/dev/null', *a],
+                                  capture_output=True, text=True, env=env)
+        git('init', '-q', '-b', 'main')
+        for r_, text in base.items():
+            (repo / r_).parent.mkdir(parents=True, exist_ok=True)
+            (repo / r_).write_text(text, encoding='utf-8')
+        git('add', '-A'); git('commit', '-qm', 'base')
+        since = git('rev-parse', 'HEAD').stdout.strip()
+        ledger = {'version': harness_reach.VERSION, 'commit': since, 'green': True,
+                  'checks': {
+                      'check_child': {'c': {'tools/zzmod.py': ['f']}},
+                      'check_blind': {'o': ['git status run against the repository itself']},
+                      'check_other': {'c': {'tools/zzmod.py': ['g']}}}}
+        (repo / 'tools' / 'zzmod.py').write_text(
+            'def f():\n    return 2\n\ndef g():\n    return 1\n', encoding='utf-8')
+        git('commit', '-qam', 'change f')
+        bare = for_change_plan(repo, since, budget=60, ledger={})
+        wide = for_change_plan(repo, since, budget=60, ledger=ledger)
+        tight = for_change_plan(repo, since, budget=10, ledger=ledger)
+        red = for_change_plan(repo, since, budget=60, ledger=dict(ledger, green=False))
+        (repo / 'tools' / 'harness_reach.py').write_text('# machinery\n', encoding='utf-8')
+        git('add', '-A'); git('commit', '-qm', 'machinery')
+        mach = for_change_plan(repo, since, budget=60, ledger=ledger)
+    cases = [
+        ('A. without a ledger the child-process test is not picked',
+         'check_child' not in bare['run'] + bare['deferred']),
+        ('B. with one, the test the ledger saw run f() runs',
+         'check_child' in wide['run']),
+        ('C. a test whose reach was never fully seen is picked, after B\'s: '
+         'a tight budget runs B and names C',
+         'check_blind' in wide['run'] and tight['run'] == ['check_child']
+         and tight['deferred'] == ['check_blind']),
+        ('D. CONTROL: a test that ran only g() is not picked',
+         'check_other' not in wide['run'] + wide['deferred']),
+        ('E. CONTROL: a ledger from a failing run adds nothing',
+         not red['run'] and not red['deferred']),
+        ('F. a machinery change adds nothing and says the whole suite runs',
+         'check_child' not in mach['run'] + mach['deferred']
+         and any('whole suite' in n for n in mach['unmapped'])),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else ' -- ' + json.dumps(
+              {'bare': bare, 'wide': wide, 'tight': tight, 'red': red,
+               'mach': mach}, default=str)[:1500]))
 
 def check_changed_files_runs_the_harness_tests_a_change_reaches():
     """The changed-files step runs `verify_harness.py --for-change` where the
@@ -79497,6 +79613,7 @@ def main():
     check_changed_files_compares_quoted_counts_when_a_practice_changes()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_for_change_runs_the_tests_a_change_reaches()
+    check_for_change_adds_what_the_reach_ledger_picks()
     check_changed_files_runs_the_harness_tests_a_change_reaches()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()
