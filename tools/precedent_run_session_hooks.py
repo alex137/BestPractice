@@ -27,8 +27,23 @@ for `~`) is not a repository's hooks, so the runner still runs there.
 Never fails the session: every error is reported on stderr and the exit is
 always 0. A hook's own output goes to a log (it would otherwise be injected
 into the session's context once per repository); stderr gets one line per
-repository. Nothing here writes anything but that log -- each repository's
-hooks do their own work, exactly as they would natively.
+repository. Each repository's hooks do their own work, exactly as they would
+natively; this writes only that log and the allow rules below.
+
+THE READ-ONLY ALLOW RULES (2026-10-14). Claude Code's settings docs: a
+cloud session with several repositories "reads only the `enabledPlugins`
+and `extraKnownMarketplaces` keys from each repository's
+`.claude/settings.json`, not permission rules, hooks, `env`, or other
+keys". So the allow rules a repository carries for Precedent's read-only
+tools never reach exactly the session this runner serves, and a
+`precedent_show.py` read went to auto mode's classifier: refused beside an
+unrelated denied call, it put a "3 consecutive actions were blocked" dialog
+on the person's phone. User-level settings are read in every session and
+reloaded while it runs, so the runner adds those rules there, add-only:
+the read-only ones the repositories' own settings allow and the settings
+template has (precedent_vendor_engine.is_read_only_allow_rule), nothing
+else. Morgan, 2026-10-14 (strength: decided): "let session start add the
+read-only Precedent tools to the allow list".
 
     python3 tools/precedent_run_session_hooks.py [ROOT]
 
@@ -127,7 +142,60 @@ def repos_under(root):
     return found
 
 
-def run(root, log=None, say=None):
+def read_only_rules(root, repos):
+    """-> the read-only Precedent tool allow rules the repositories under
+    `root` declare or the settings template beside this file has, each
+    once, in the order found. [] when the engine module is not here."""
+    here = pathlib.Path(__file__).resolve().parent
+    sys.path.insert(0, str(here))
+    try:
+        import precedent_vendor_engine as pve
+    except Exception:                                          # noqa: BLE001
+        return []
+    finally:
+        sys.path.pop(0)
+    found = []
+    texts = []
+    for base in [here.parent] + list(repos):
+        for rel in (pve.SETTINGS_TEMPLATE, '.claude/settings.json'):
+            try:
+                texts.append((base / rel).read_text(encoding='utf-8'))
+            except OSError:
+                continue
+    for text in texts:
+        for rule in pve.read_only_allow_rules(text):
+            if rule not in found:
+                found.append(rule)
+    return found
+
+
+def allow_at_user_level(rules, settings):
+    """ADD `rules` to the user-level settings' permissions.allow, never
+    editing, moving or removing what is there, and never one the file
+    denies. -> [added]; [] when there is nothing to add or the file does not
+    parse (left exactly as it was)."""
+    path = pathlib.Path(settings)
+    try:
+        data = json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {}
+    except (OSError, ValueError):
+        return []
+    perms = data.get('permissions') if isinstance(data, dict) else None
+    if not isinstance(data, dict) or (perms is not None and not isinstance(perms, dict)):
+        return []
+    have = set((perms or {}).get('allow') or []) | set((perms or {}).get('deny') or [])
+    add = [r for r in rules if r not in have]
+    if not add:
+        return []
+    data.setdefault('permissions', {}).setdefault('allow', []).extend(add)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    except OSError:
+        return []
+    return add
+
+
+def run(root, log=None, say=None, user_settings=None):
     """-> [(repo, command, returncode)] for every hook run. Runs nothing
     when `root` is itself a repository with settings of its own (its hooks
     ran natively)."""
@@ -166,6 +234,15 @@ def run(root, log=None, say=None):
             f'hook(s)' + (f', {len(bad)} failed -- see {log}' if bad else ''))
     if fh:
         fh.close()
+    # `user_settings` is passed by main() alone, so a test or another
+    # caller of run() never writes the real user-level file.
+    added = (allow_at_user_level(read_only_rules(root, repos_under(root)),
+                                 settings=user_settings)
+             if user_settings is not None else [])
+    if added:
+        say(f'precedent session hooks: allowed {len(added)} read-only '
+            f'Precedent tool rule(s) in user-level settings, since a session '
+            f'above several repositories reads none of theirs')
     if contexts:
         # The spoken commands first, whole and once, ahead of every repo's
         # output: what a person says must be understood before anything is
@@ -210,7 +287,7 @@ def main(argv):
     root = argv[0] if argv else (os.environ.get('CLAUDE_PROJECT_DIR')
                                  or os.getcwd())
     try:
-        run(root)
+        run(root, user_settings=pathlib.Path.home() / '.claude' / 'settings.json')
     except Exception as e:                                       # noqa: BLE001
         print(f'precedent session hooks: skipped ({type(e).__name__}: {e})',
               file=sys.stderr)
