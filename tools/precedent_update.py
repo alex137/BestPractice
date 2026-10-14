@@ -61,15 +61,14 @@ THE STEPS, with no question in between:
      and each line of an install-once file (the PR template, TODO.md, MAP.md
      ...) that is still, verbatim, wording its template has since dropped,
      left for you -- reported, never rewritten
-     then, where precedent.json names no landing_branch, pre-staging
-  3c. for a person whose own identity.json lands them straight on staging,
-     in a repository whose precedent.json does not make pre-staging the
-     landing branch for others (switched to staging first when they are
-     its only maintainer), while origin still has pre-staging: its waiting work merged into staging (--land's
+     then, where precedent.json names no landing_branch, staging
+  3c. for anyone on the ladder -- pre-staging is retired for everyone since
+     2026-10-14 -- a precedent.json naming pre-staging switched to staging,
+     and, while origin still has pre-staging: its waiting work merged into staging (--land's
      composition, quick checks), this repo's own instructions and links
      that send work to pre-staging repointed, and the branch offered for
      deletion as a link once it holds nothing staging lacks -- never
-     deleted. Silent for everyone else
+     deleted. Silent off the ladder
   4. the views regenerated -- the loader block, and in a practice set
      MAP.md and GLOSSARY.md too; in a repository that uses Precedent, a
      hand-written MAP.md or GLOSSARY.md moved into MAP.source.md /
@@ -80,10 +79,10 @@ THE STEPS, with no question in between:
      repo's own citations of any practice the update withdrew or reworded
      (a withdrawn one's pointer is a call left for you; a bare mention of
      one, and a reworded one's citation, are listed to read)
-  4a. any missing branch tier made on origin: staging from pre-staging,
-     pre-staging from staging, both from main when neither exists
-  5. the repo's own check at its landing branch's tier -- into pre-staging,
-     the fast checks on what changed; the full check waits for the Promote
+  4a. a missing staging made on origin: from a leftover pre-staging, else
+     from main
+  5. the repo's own check at its landing branch's tier -- into staging,
+     the quick checks on what changed; the full check waits for Debut or Produce
      (--skip-check to leave it out) -- run against a temporary commit of
      the staged update, undone right after, so it judges the tree the way
      the push will
@@ -1385,11 +1384,10 @@ def retired_mentions(repo, engine_out):
 # Morgan, 2026-10-09: when this reaches the repositories that vendor the
 # engine, "make sure we have a smooth upgrade process for each. Merging the
 # branches, telling he can delete pre-staging, updating previous mentions/
-# links within each repo, etc etc." So, for that person only -- their own
-# identity.json declares landing_branch "staging", never a default, and the
-# repository's precedent.json does not still make pre-staging the landing
-# branch for others (precedent_branches.pre_staging_unused; that case says
-# in one line why it waited) -- and only while origin still has pre-staging:
+# links within each repo, etc etc." Since 2026-10-14 that is everyone on
+# the ladder (precedent_branches.pre_staging_unused;
+# spec/PRE_STAGING_RETIREMENT_PLAN.md), and while origin still has
+# pre-staging:
 #   1. work waiting on pre-staging is brought into staging by --land's own
 #      composition (precedent_branches.land: staging, then main's direct
 #      work, then pre-staging, by merge commits, the quick checks, a push
@@ -1403,7 +1401,7 @@ def retired_mentions(repo, engine_out):
 #      only the clear instructions and links below are rewritten; every
 #      other mention is listed with why it was left.
 # It runs before the views are regenerated, so they render the reworded
-# sources. For anyone else it does nothing and says nothing.
+# sources. Off the ladder it does nothing and says nothing.
 RETIRE_PRE_STAGING_HEADER = 'PRE-STAGING IS RETIRED -- your work lands on staging now:'
 
 # A clear instruction: a verb that sends work somewhere, then the branch.
@@ -1596,33 +1594,14 @@ def reword_pre_staging(text, slug):
     return '\n'.join(lines), changed, left
 
 
-# THE SOLE MAINTAINER MAY SWITCH THE REPOSITORY (2026-10-09). The one thing
-# that keeps pre-staging for an explicit staging lander is precedent.json
-# making it the landing branch for others. Where precedent.json's
-# `maintainers` names exactly one person and that person is the one running
-# this -- matched as timezone_offer matches them, by the GitHub username
-# precedent_audience.viewer reads -- nobody else can be landing there, so
-# the value is switched to staging, that one value and nothing else, and the
-# retirement goes on in the same run. Two maintainers, or none named, keep
-# the one-line wait: the call is theirs together.
+# THE REPOSITORY'S OWN VALUE IS SWITCHED (2026-10-14). A precedent.json
+# that still names pre-staging is switched to staging, that one value and
+# nothing else, and the retirement goes on in the same run. From 2026-10-09
+# only a repository's sole maintainer could switch it, since others might
+# still land there; since pre-staging was retired for everyone
+# (spec/PRE_STAGING_RETIREMENT_PLAN.md) nobody does.
 _REPO_LANDS_ON_PRE_STAGING = re.compile(
     r'("' + re.escape(pb.LANDING_SETTING) + r'"\s*:\s*)"' + re.escape(pb.PRE_STAGING) + '"')
-
-
-def sole_maintainer_is_you(repo):
-    """-> '@login' when precedent.json's `maintainers` names exactly one
-    person and the person running this is that one, else None."""
-    people = [m for m in pb.precedent_json(repo).get('maintainers') or []
-              if isinstance(m, dict) and str(m.get('github') or '').strip()]
-    if len(people) != 1:
-        return None
-    login = str(people[0]['github']).strip().lstrip('@').lower()
-    try:
-        import precedent_audience as pa
-        gh, _email = pa.viewer(repo)
-    except Exception:                                        # noqa: BLE001
-        return None
-    return f'@{login}' if gh and gh.lower() == login else None
 
 
 def rewords_this_run(repo, switched, merged_now):
@@ -1676,17 +1655,16 @@ def switch_repo_landing_to_staging(repo):
 
 
 def retire_pre_staging_step(repo, rep):
-    """Update Vendors' upgrade off pre-staging, for a person who lands on
-    staging (see RETIRE_PRE_STAGING_HEADER above). Reports on `rep`: one
-    step line, and the block close() prints in every outcome (rep.retired).
-    Silent for anyone else, and once origin has no pre-staging."""
+    """Update Vendors' upgrade off pre-staging, for anyone on the ladder
+    (see RETIRE_PRE_STAGING_HEADER above). Reports on `rep`: one step line,
+    and the block close() prints in every outcome (rep.retired). Silent off
+    the ladder, and once origin has no pre-staging."""
     repo = pathlib.Path(repo)
-    # Only the person's own identity.json declaring staging retires it, and
-    # never while the repository makes it others' landing branch
-    # (precedent_branches.pre_staging_unused): one line says it waited.
+    # A precedent.json still naming pre-staging is switched first
+    # (precedent_branches.pre_staging_unused says it waits until then).
     unused, waits = pb.pre_staging_unused(repo)
     switched = False
-    if waits and pb._remote_tip(repo, pb.PRE_STAGING):
+    if waits:
         if not committed_engine_lands_on_staging(repo):
             # The first pass brings the engine and nothing else; the switch
             # waits for the next run, once that engine has landed (Morgan,
@@ -1696,13 +1674,11 @@ def retire_pre_staging_step(repo, rep):
                      f'engine that lands work straight on {pb.STAGING}. Land '
                      f'it, then run Update Vendors again: that run moves this '
                      f'repository onto {pb.STAGING}')
-        elif (sole_maintainer_is_you(repo)
-                and 'precedent.json' not in set(rep.before or ())
+        elif ('precedent.json' not in set(rep.before or ())
                 and switch_repo_landing_to_staging(repo)):
             switched = True
             rep.step('precedent.json', f'{pb.LANDING_SETTING} {pb.PRE_STAGING} '
-                     f'-> {pb.STAGING}, since you are this repository\'s only '
-                     f'maintainer')
+                     f'-> {pb.STAGING}: pre-staging is retired for everyone')
             unused, waits = pb.pre_staging_unused(repo)
         else:
             rep.step('pre-staging', f'kept, not retired: {waits}')
@@ -4487,14 +4463,12 @@ def tiers_step(repo, rep):
         rep.step('branch tiers', 'no origin remote here, so there is nowhere to '
                  'make them')
     elif rc != 0:
-        rep.leave('branch tiers', 'pre-staging and staging could not both be '
-                  'made on origin -- ' + ' '.join(tier_lines)[-400:])
+        rep.leave('branch tiers', 'staging could not be made on origin -- '
+                  + ' '.join(tier_lines)[-400:])
     else:
-        # pre-staging is no tier for a person who lands on staging
-        # (precedent_branches.pre_staging_retired), so it is not named.
+        # pre-staging is no tier since 2026-10-14, so it is not named.
         rep.step('branch tiers', '; '.join(made) if made else
-                 'staging and main both present' if pb.pre_staging_unused(repo)[0]
-                 else 'pre-staging, staging and main all present')
+                 'staging and main both present')
 
 
 # ONLY A MAIN THAT PASSED GITHUB'S TEST IS TAKEN (2026-10-09, the main
@@ -5055,10 +5029,11 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     dropped_template_lines_step(repo, rep, head.strip() if head_ok else None)
 
     # 3b. Where Go update lands, for a repository that has never said.
-    # Morgan, 2026-09-27 (strength: decided): every repository lands on
-    # pre-staging by default, set on its first update after that day; a
-    # person's own identity.json still wins, and a value already here is
-    # never changed.
+    # Morgan, 2026-09-27 (strength: decided): every repository gets a
+    # default, set on its first update after that day; a person's own
+    # identity.json still wins, and a value already here is never changed.
+    # The default was pre-staging until pre-staging was retired for everyone
+    # (2026-10-14); it is staging now.
     if pb.ensure_repo_landing(repo):
         rep.step('landing branch', f'{pb.LANDING_SETTING} set to '
                  f'{pb.REPO_LANDING_DEFAULT} in precedent.json (the repository '
@@ -5071,7 +5046,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     dropped_sets = retired_sources_step(repo, rep)
     approved_workflows_step(repo, rep)
 
-    # 3c. Off pre-staging, for a person who lands on staging: what waits there
+    # 3c. Off pre-staging, for anyone on the ladder: what waits there
     # merged into staging, this repo's own instructions and links repointed,
     # the branch offered for deletion. Before the views, so they render the
     # reworded sources.
@@ -5196,12 +5171,12 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                  f'{HEADROOM_FLOOR_DEFAULT} in tools/session_load_budgets.json '
                  f'(the default; the full check requires the key)')
 
-    # 4a. The branch tiers. Every repository works through pre-staging ->
-    # staging -> main, so a missing tier is made here rather than reported
-    # (Morgan, 2026-09-27, strength: decided: "Can we make sure update
-    # vendors checks for this and if they don't exist create it").
-    # ensure_tiers makes staging from pre-staging (or the old staging name),
-    # pre-staging from staging, and both from main when neither exists. It
+    # 4a. The branch tiers. A ladder repository works through staging ->
+    # main (pre-staging before it until 2026-10-14), so a missing tier is
+    # made here rather than reported (Morgan, 2026-09-27, strength: decided:
+    # "Can we make sure update vendors checks for this and if they don't
+    # exist create it"). ensure_tiers makes staging from a leftover
+    # pre-staging (or the old staging name), else from main. It
     # is the one thing this command pushes: a new branch at a commit origin
     # already has, never a change to one that exists.
     tiers_step(repo, rep)
@@ -5546,11 +5521,12 @@ def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
     seed_budgets_step(repo, rep)
     # 5. The repo's own check, at the tier of the branch the update lands
-    # on -- the gate before any push. Into pre-staging that is the fast
-    # checks on what the update changed; the full check waits for the
-    # Promote to staging (Morgan, 2026-09-27, strength: decided: "The point
-    # of pre-staging is to move fast, so I want the 10 minute checks to
-    # happen at the staging level, not pre-staging." Practice:
+    # on -- the gate before any push. Into staging, for a person who lands
+    # there, that is the quick checks on what the update changed; the full
+    # suite is Debut's (--run-tests) and Produce's. Until 2026-10-14 the
+    # fast tier was pre-staging (Morgan, 2026-09-27, strength: decided:
+    # "The point of pre-staging is to move fast, so I want the 10 minute
+    # checks to happen at the staging level, not pre-staging." Practice:
     # checks-follow-the-tier).
     check = repo / 'tools' / 'precedent_push_check.py'
     try:

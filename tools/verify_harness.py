@@ -2739,9 +2739,10 @@ def check_bootstrap_new_branch_compared_to_landing_branch():
     tools/bootstrap.sh had learned the tiers).
 
     Stated cases, for templates/bootstrap.sh and tools/bootstrap.sh alike: a
-    branch made from origin/pre-staging, with a commit of its own, in a repo
-    whose landing branch is pre-staging and whose main is one Promote ahead,
-    is checked against origin/pre-staging and draws no stale-base warning.
+    branch made from origin/staging, with a commit of its own, in a repo
+    whose landing branch is staging and whose main is one Produce ahead, is
+    checked against origin/staging and draws no stale-base warning (with
+    pre-staging until it was retired for everyone, 2026-10-14).
     And the two copies of that block are the same text, so one cannot learn
     a case the other has not."""
     import tempfile
@@ -2760,14 +2761,15 @@ def check_bootstrap_new_branch_compared_to_landing_branch():
         git(w, 'config', 'user.email', 'fixture@example.invalid')
         git(w, 'config', 'user.name', 'fixture')
         (w / 'precedent.json').write_text(
-            '{"base_branch": "main", "landing_branch": "pre-staging"}\n')
+            '{"base_branch": "main", "staging_branch": "staging", '
+            '"landing_branch": "staging"}\n')
         git(w, 'add', '.')
         git(w, 'commit', '-qm', 'init')
-        git(w, 'push', '-q', 'origin', 'main', 'main:pre-staging')
-        git(w, 'commit', '-q', '--allow-empty', '-m', 'Promote pre-staging into main')
+        git(w, 'push', '-q', 'origin', 'main', 'main:staging')
+        git(w, 'commit', '-q', '--allow-empty', '-m', 'Produce: staging into main')
         git(w, 'push', '-q', 'origin', 'main')
         git(w, 'fetch', '-q', 'origin')
-        git(w, 'checkout', '-q', '-b', 'feat', 'origin/pre-staging')
+        git(w, 'checkout', '-q', '-b', 'feat', 'origin/staging')
         git(w, 'commit', '-q', '--allow-empty', '-m', 'work of its own')
         (w / 'tools').mkdir()
         shutil.copy(ROOT / 'tools' / 'precedent_branches.py', w / 'tools')
@@ -2780,8 +2782,8 @@ def check_bootstrap_new_branch_compared_to_landing_branch():
             r = subprocess.run(['bash', 'tools/bootstrap.sh'], cwd=w, env=env,
                                capture_output=True, text=True, timeout=180)
             out = r.stdout + r.stderr
-            cases.append((f'{rel}: a new branch is checked against origin/pre-staging',
-                          'Checking it against origin/pre-staging' in out, out[-400:]))
+            cases.append((f'{rel}: a new branch is checked against origin/staging',
+                          'Checking it against origin/staging' in out, out[-400:]))
             cases.append((f'{rel}: and draws no stale-base warning',
                           'stale base' not in out, out[-400:]))
 
@@ -14527,15 +14529,16 @@ def check_update_vendors_is_one_command():
         # A repository that does ask -- its landing_branch names a tier --
         # gets whichever tier branch origin is missing.
         _pj = json.loads((done / 'precedent.json').read_text())
-        _pj['landing_branch'] = 'pre-staging'
+        _pj['landing_branch'] = 'staging'
         (done / 'precedent.json').write_text(json.dumps(_pj, indent=2) + '\n')
         sh('git', 'commit', '-qam', 'asks for tiers', cwd=done)
         update(done)
         _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=done)
         cases.append(('...and once its precedent.json asks for tiers, the update '
-                      'makes staging and pre-staging on origin',
+                      'makes staging on origin, and no pre-staging (retired for '
+                      'everyone, 2026-10-14)',
                       'refs/heads/staging' in heads
-                      and 'refs/heads/pre-staging' in heads, heads[-400:]))
+                      and 'refs/heads/pre-staging' not in heads, heads[-400:]))
         cases.append(('...its catalogue pin now names ' + pve_branch,
                       pin == pve_branch, pin))
         cases.append(('...and its loader views were regenerated',
@@ -29817,7 +29820,8 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
 def check_code_owners_only_practices_reach_only_code_owners():
     """A practice marked `visible_to: code-owners` reaches only a person the
     repository names as a code owner, and a stale-branch listing never names
-    main, staging, pre-staging or an engine branch.
+    main, staging or an engine branch (nor pre-staging, until it was retired
+    for everyone on 2026-10-14).
 
     Morgan, 2026-10-05 (strength: decided): rules about running a repository
     "should NOT be shown to a user who is NOT a CODEOWNER"; in doubt, hidden;
@@ -29937,9 +29941,14 @@ def check_code_owners_only_practices_reach_only_code_owners():
         g('fetch', '-q', 'origin')
         listed = [b_ for b_, _d in (sb.stale_in(work) or [])]
         cases.append(('a branch already in main is listed', 'claude/done' in listed, listed))
-        cases.append(('never main, staging, pre-staging or an engine branch',
-                      not {'main', 'staging', 'pre-staging', 'precedent-promote-lock'} & set(listed),
+        cases.append(('never main, staging or an engine branch',
+                      not {'main', 'staging', 'precedent-promote-lock'} & set(listed),
                       listed))
+        # Pre-staging was retired for everyone on 2026-10-14, so a leftover
+        # one that holds nothing staging lacks is offered like any finished
+        # branch (until then: "never pre-staging or staging").
+        cases.append(('a retired pre-staging holding nothing staging lacks is listed',
+                      'pre-staging' in listed, listed))
         cases.append(('CONTROL: a branch with work main lacks is not listed',
                       'claude/open' not in listed, listed))
         # An engine branch's old name, once its data- copy holds all of it,
@@ -37414,8 +37423,14 @@ def check_branch_tiers():
         (repo / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'main', 'landing_branch': 'pre-staging'}),
             encoding='utf-8')
-        cases.append(("a repo's own landing_branch applies to a person who names none",
-                      pb.landing_branch(repo, str(cfg))[0] == 'pre-staging'))
+        # Since 2026-10-14 pre-staging is retired for everyone: a value
+        # naming it reads as the staging tier, and says so.
+        retired_landing = pb.landing_branch(repo, str(cfg))
+        cases.append(("a repo's own landing_branch applies to a person who names "
+                      "none, and a retired pre-staging there reads as the "
+                      "staging tier, saying why",
+                      retired_landing[0] == pb.staging_branch(repo)
+                      and 'retired' in retired_landing[1]))
         (indiv / 'identity.json').write_text(_json.dumps(
             {'email': 'p@example.com', 'landing_branch': 'main'}), encoding='utf-8')
         cases.append(("the person's own landing_branch wins over the repo's",
@@ -37435,11 +37450,11 @@ def check_branch_tiers():
             'landing_branch' not in pb.precedent_json(repo)
         wrote = pb.ensure_repo_landing(repo, new_install=True, user_config=str(cfg))
         again = pb.ensure_repo_landing(repo, new_install=True, user_config=str(cfg))
-        cases.append(('the repo default is written once, as pre-staging, at a fresh '
+        cases.append(('the repo default is written once, as staging, at a fresh '
                       'install, never by an update into a repository without '
                       'tiers, and never over a value the repo already has',
                       kept and not_on_update and wrote and not again and
-                      pb.precedent_json(repo).get('landing_branch') == 'pre-staging'
+                      pb.precedent_json(repo).get('landing_branch') == 'staging'
                       and pb.precedent_json(repo).get('base_branch') == 'main'))
         (repo / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'main'}), encoding='utf-8')
@@ -37456,9 +37471,10 @@ def check_branch_tiers():
             encoding='utf-8')
         declared_default = pb.repo_landing_default(repo, str(cfg))[0]
         (indiv / 'identity.json').write_text(ident_before, encoding='utf-8')
-        cases.append(('a new repository lands on staging for a person who '
-                      'retired pre-staging, and on pre-staging otherwise',
-                      default_before == 'pre-staging'
+        cases.append(('a new repository lands on staging for everyone since '
+                      'pre-staging was retired (2026-10-14), whatever the '
+                      'person declares',
+                      default_before == 'staging'
                       and retired_default == 'staging'
                       and declared_default == 'staging'))
 
@@ -38058,32 +38074,18 @@ def check_promote_pre_staging():
                     os.environ.pop('PRECEDENT_USER_CONFIG', None)
                 else:
                     os.environ['PRECEDENT_USER_CONFIG'] = saved
+        # Since 2026-10-14 pre-staging is retired for everyone: a landing
+        # branch of pre-staging reads as staging, so nothing waits on
+        # pre-staging for a Promote and no reminder offers one. Until then
+        # this asked that the reminder was gentle, gave way to a running
+        # Promote's lock, came back once the lock was stale, and did not
+        # call a branch already on pre-staging unlanded.
         pg, got = unlanded()
-        cases.append(("unpromoted work on pre-staging is named gently, as "
-                      "something a Promote can move whenever it suits",
-                      any(l.startswith("this checkout: pre-staging is ")
-                          and 'a Promote can move them' in l
-                          and 'NOT' not in l and 'MUST' not in l
-                          for l in got)))
-        # While another window holds a fresh Promote lock, the same batch
-        # must never be offered for promoting (Morgan, 2026-09-27: "NEVER
-        # recommend a promote when another session is already doing it").
-        hold(60)
-        pg, got = unlanded()
-        cases.append(("while another window is promoting, the reminder is "
-                      "replaced by a line saying one is already running",
-                      any(pg.PROMOTE_RUNNING_MARK in l
-                          and 'held by another window' in l for l in got)
+        cases.append(("a landing branch of pre-staging, now retired, gets no "
+                      "reminder to promote pre-staging",
+                      not any(l.startswith("this checkout: pre-staging is ")
+                              for l in got)
                       and not any('a Promote can move them' in l for l in got)))
-        hold(3 * 3600)
-        pg, got = unlanded()
-        cases.append(("a stale claim is not a Promote running: the reminder "
-                      "comes back",
-                      any('a Promote can move them' in l for l in got)
-                      and not any(pg.PROMOTE_RUNNING_MARK in l for l in got)))
-        cases.append(("a branch whose commits are all on pre-staging is not "
-                      "called unlanded for lacking them on staging",
-                      not any("'w-landed'" in l for l in got)))
         # Only the flow this session worked on (Morgan, 2026-09-29): with a
         # session id set and no commit in the batch carrying it, the batch
         # is another session's and gets no line.
@@ -38779,7 +38781,7 @@ def check_promote_only_and_tier_branches():
     pins a practice source's session clone -- exactly as it was."""
     import tempfile, json as _json, shutil as _shutil
     name = ('promote_only refuses direct pushes and off-tier merges for the '
-            'person who sets it; --ensure-tiers makes staging and pre-staging')
+            'person who sets it; --ensure-tiers makes staging')
     tool = ROOT / 'tools' / 'precedent_branches.py'
     if not tool.exists():
         not_applicable(name, 'tools/precedent_branches.py is absent')
@@ -39004,17 +39006,18 @@ def check_promote_only_and_tier_branches():
                       and not tip('pre-staging'), out[-300:]))
         rc, out = branches('--ensure-tiers', '--apply')
         data = _json.loads((work / 'precedent.json').read_text(encoding='utf-8'))
-        cases.append(('--apply creates staging and pre-staging on origin at main',
-                      rc == 0 and tip('staging') == tip('main') == tip('pre-staging')
-                      and bool(tip('main')), out[-300:]))
+        cases.append(('--apply creates staging on origin at main, and no '
+                      'pre-staging (retired for everyone, 2026-10-14)',
+                      rc == 0 and tip('staging') == tip('main')
+                      and not tip('pre-staging') and bool(tip('main')), out[-300:]))
         cases.append(('--apply writes staging_branch and leaves base_branch on main',
                       data.get('staging_branch') == 'staging'
                       and data.get('base_branch') == 'main'))
         cases.append(('the staging tier is now the staging branch',
                       pb.staging_branch(work) == 'staging'))
         rc, out = branches('--ensure-tiers')
-        cases.append(('a second report finds all three present, exit 0',
-                      rc == 0 and 'all present' in out, out[-200:]))
+        cases.append(('a second report finds both present, exit 0',
+                      rc == 0 and 'both present' in out, out[-200:]))
 
         # --- Promote's own merge commits carry the repository's zone ---
         # 2026-09-25: an individual source refused its own Promote because
@@ -48305,8 +48308,9 @@ def check_hook_notes_are_said_when_they_change():
     are states, never tasks, and came out on every refresh, so every
     update's upstream review listed eight items with nothing to do.
     Planted: a consumer wiring two hooks, one of them kept by an adapter.
-    The first write says both notes; a second with the same state says
-    neither; the adapter claim dropped, the change is said; status lists
+    The first write says the unwired note and never the adapter one (a
+    consumer, 2026-10-13: six adapter notes on a first update, none a
+    task); a second with the same state says neither; the adapter claim dropped, the change is said; status lists
     what the record holds."""
     import contextlib, io, tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
@@ -48338,8 +48342,9 @@ def check_hook_notes_are_said_when_they_change():
         def manifest():
             return json.loads(mpath.read_text(encoding='utf-8'))
         out = write(None)
-        cases.append(('the first refresh says the adapter-kept hook and the '
-                      'unwired ones', 'is not vendored by this engine' in out
+        cases.append(('the first refresh says the unwired ones and never the '
+                      'adapter-kept hook', 'is not vendored by this engine' not in out
+                      and "adapters mechanism owns" not in out
                       and 'are not wired in this repo' in out, out[-600:]))
         rec = manifest().get(pve.HOOKS_NOT_VENDORED_KEY) or {}
         cases.append(('...and records what it said',
@@ -50755,8 +50760,8 @@ def check_full_tier_needs_a_reason_on_a_quick_landing():
     tier, unless a reason is given (Morgan, 2026-10-01, strength: decided:
     "Go, do both, then Booked"). The same day the bare run was fixed, a
     session still typed `--tier full` before every pre-staging landing and
-    wrote it into its helpers' briefs. Stated cases: refused on a
-    pre-staging landing; allowed with --because; untouched for --gate, for
+    wrote it into its helpers' briefs. Stated cases: refused on a quick
+    landing (pre-staging then, staging since it was retired, 2026-10-14); allowed with --because; untouched for --gate, for
     a named push, and on a landing branch that is fully checked."""
     import tempfile
     import precedent_push_check as ppc
@@ -50770,9 +50775,14 @@ def check_full_tier_needs_a_reason_on_a_quick_landing():
         def landing(branch):
             (tmp / 'precedent.json').write_text(json.dumps(
                 {'base_branch': 'main', 'landing_branch': branch}), encoding='utf-8')
-        landing('pre-staging')
+        # The quick landing is staging, for a person who lands there, since
+        # pre-staging was retired for everyone (2026-10-14).
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'base_branch': 'main', 'staging_branch': 'staging',
+             'landing_branch': 'staging', 'promote_only': True}), encoding='utf-8')
         full = ['--tier', 'full']
-        cases.append(('refused on a pre-staging landing',
+        cases.append(('refused on a quick landing (staging, for a person who '
+                      'lands there)',
                       bool(ppc._full_tier_refusal(tmp, full)), ''))
         cases.append(('...and the refusal says how to ask anyway',
                       '--because' in (ppc._full_tier_refusal(tmp, full) or ''), ''))
@@ -50804,9 +50814,10 @@ def check_bare_push_check_takes_the_landing_tier():
     to the person's landing branch gets (Morgan, 2026-10-01, strength:
     assented). A session ran it bare before every landing on pre-staging
     and paid the ~11-minute suite each time. Stated cases: bare, with a
-    pre-staging landing, it becomes a push to pre-staging at the basic
-    tier; a staging landing still runs full; --tier full and a named push
-    are left exactly as given."""
+    quick landing -- staging, for a person who lands there, since
+    pre-staging was retired (2026-10-14) -- it becomes a push there at the
+    basic tier; a landing on main still runs full; --tier full and a named
+    push are left exactly as given."""
     import contextlib, io, tempfile
     import precedent_push_check as ppc
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='bare-push-check-'))
@@ -50818,16 +50829,21 @@ def check_bare_push_check_takes_the_landing_tier():
 
         def landing(branch):
             (tmp / 'precedent.json').write_text(json.dumps(
-                {'base_branch': 'main', 'landing_branch': branch}), encoding='utf-8')
-        landing('pre-staging')
+                {'base_branch': 'main', 'staging_branch': 'staging',
+                 'landing_branch': branch, 'promote_only': True}),
+                encoding='utf-8')
+        # The quick landing is staging, for a person who lands there, since
+        # pre-staging was retired for everyone (2026-10-14).
+        landing('staging')
         with contextlib.redirect_stdout(io.StringIO()):
             argv = ppc._default_destination(tmp, [])
         cases.append(('bare, it names a push to the landing branch',
-                      argv == ['--push-command', 'origin HEAD:pre-staging'], str(argv)))
+                      argv == ['--push-command', 'origin HEAD:staging'], str(argv)))
         cases.append(('...which is the basic tier',
                       ppc._tier_from_args(tmp, argv)[0] == ppc.BASIC,
                       str(ppc._tier_from_args(tmp, argv))))
-        landing('main')
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'main'}), encoding='utf-8')
         with contextlib.redirect_stdout(io.StringIO()):
             argv = ppc._default_destination(tmp, [])
         cases.append(('a landing branch that is fully checked still runs full',
@@ -56124,8 +56140,9 @@ def check_very_deep_check_reads_live_and_names_landing_work():
     very-deep-check -- read main, write through the landing branch; Morgan,
     2026-09-28). Planted: a clone on a branch equal to main (reads the live
     version), then the same clone on a branch that differs (a NOTE), and a
-    pre-staging carrying one file main lacks (named, so a finding in it is
-    checked there before it is fixed twice)."""
+    staging carrying one file main lacks (named, so a finding in it is
+    checked there before it is fixed twice; pre-staging until it was retired
+    for everyone, 2026-10-14)."""
     import shutil, tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import very_deep_check as vdc
@@ -56141,18 +56158,19 @@ def check_very_deep_check_reads_live_and_names_landing_work():
         work.mkdir()
         git(work, 'init', '-q', '-b', 'main')
         (work / 'precedent.json').write_text(
-            json.dumps({'format_version': 1, 'landing_branch': 'pre-staging'}),
+            json.dumps({'format_version': 1, 'base_branch': 'main',
+                        'staging_branch': 'staging', 'landing_branch': 'staging'}),
             encoding='utf-8')
         (work / 'a.md').write_text('live\n', encoding='utf-8')
         git(work, 'add', '-A'); git(work, 'commit', '-q', '-m', 'live')
         git(work, 'remote', 'add', 'origin', str(origin))
         git(work, 'push', '-q', 'origin', 'main')
-        git(work, 'checkout', '-q', '-b', 'pre-staging')
+        git(work, 'checkout', '-q', '-b', 'staging')
         (work / 'zz-not-live.md').write_text('waiting\n', encoding='utf-8')
         git(work, 'add', '-A'); git(work, 'commit', '-q', '-m', 'unpromoted')
-        git(work, 'push', '-q', 'origin', 'pre-staging')
+        git(work, 'push', '-q', 'origin', 'staging')
         subprocess.run(['git', 'clone', '-q', str(origin), str(clone)], check=True)
-        git(clone, 'fetch', '-q', 'origin', 'pre-staging:refs/remotes/origin/pre-staging')
+        git(clone, 'fetch', '-q', 'origin', 'staging:refs/remotes/origin/staging')
         git(clone, 'checkout', '-q', '-b', 'work', 'origin/main')
         rows = vdc._live_vs_landing(clone)
         text = ' | '.join(f'{v} {m}' for v, m in rows)
@@ -58062,9 +58080,17 @@ def check_promote_branches_are_named_like_session_branches():
     import precedent_branches as pb
     import precedent_branch_name as pbn
     env = _fixture_git_env()
-    saved = {k: os.environ.get(k) for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE')}
+    saved = {k: os.environ.get(k) for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE',
+                                            'PRECEDENT_USER_CONFIG',
+                                            'PRECEDENT_GITHUB_USER')}
     os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'session_01FixtureSessionIdAbcde'
     os.environ['CLAUDECODE'] = '1'
+    # No person: the names are asserted without a username prefix, so the
+    # machine's own identity must not reach them (2026-10-14: in a session
+    # whose identity.json declares a GitHub username every name here
+    # carried it, and the check failed there while passing on GitHub).
+    os.environ['PRECEDENT_USER_CONFIG'] = os.devnull
+    os.environ['PRECEDENT_GITHUB_USER'] = ''
     tpl = (ROOT / 'templates' / 'github-actions' / 'light-check.yml.template').read_text(
         encoding='utf-8')
     try:
@@ -65988,21 +66014,21 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
         def merge_why(bases, heads, sha=None):
             return merge_refusal(work, bases, heads, str(cfg), head_sha=sha)
 
-        # --- the default, unchanged: landing on pre-staging, promote_only on ---
+        # --- a landing branch of pre-staging, retired for everyone since
+        # 2026-10-14: it reads as staging, so this person lands there too.
+        # Until then a push to staging was refused naming pre-staging, was
+        # fully checked, a working branch into staging was told to retarget
+        # at pre-staging, and --land was not their route (exit 2).
         person(landing_branch='pre-staging', promote_only=True)
-        why = push_why('origin HEAD:staging') or ''
-        cases.append(('default: with pre-staging as the landing branch, a push to '
-                      'staging is still refused, naming pre-staging',
-                      'HEAD:pre-staging' in why, why[:200]))
-        cases.append(('default: a push to staging is still fully checked',
-                      pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'full'))
-        why = merge_why(['staging'], ['claude/x']) or ''
-        cases.append(('default: a working branch into staging is still refused, '
-                      'saying to retarget at pre-staging',
-                      'Retarget it at pre-staging' in why, why[:200]))
+        cases.append(('a retired landing branch of pre-staging: a push to '
+                      'staging goes through',
+                      push_why('origin HEAD:staging') is None,
+                      str(push_why('origin HEAD:staging'))[:200]))
+        cases.append(('...and takes the quick checks',
+                      pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'basic'))
         rc, out = run('--land')
-        cases.append(('default: --land is not their route (exit 2), and moves '
-                      'nothing', rc == 2, out[-200:]))
+        cases.append(('...and --land is their route (never exit 2)',
+                      rc != 2 and 'LAND RESULT' in out, out[-200:]))
         person(landing_branch='staging')
         cases.append(('default: landing on staging without promote_only is '
                       'fully checked, as before',
@@ -66325,9 +66351,11 @@ def check_install_by_a_staging_person_makes_no_pre_staging():
     cases = [
         ('an install landing on staging gets staging and no pre-staging',
          results['staging'] == (0, ['main', 'staging'])),
-        ('an install landing on pre-staging still gets both tiers',
-         results['pre-staging'][0] == 0
-         and 'pre-staging' in results['pre-staging'][1]),
+        # Since 2026-10-14 pre-staging is retired for everyone: even a
+        # precedent.json still naming it gets no pre-staging made.
+        ('an install whose precedent.json still names pre-staging makes no '
+         'pre-staging either, since it is retired for everyone',
+         results['pre-staging'] == (0, ['main', 'staging'])),
     ]
     failed = [n for n, ok in cases if not ok]
     check(f'an install on staging makes no pre-staging ({len(cases)} stated '
@@ -66335,8 +66363,8 @@ def check_install_by_a_staging_person_makes_no_pre_staging():
 
 
 def check_update_vendors_retires_pre_staging():
-    """The upgrade off pre-staging, for a person who lands straight on
-    staging (Morgan, 2026-10-09: "make sure we have a smooth upgrade process
+    """The upgrade off pre-staging, for anyone on the ladder since it was
+    retired for everyone on 2026-10-14 (Morgan, 2026-10-09: "make sure we have a smooth upgrade process
     for each. Merging the branches, telling he can delete pre-staging,
     updating previous mentions/links within each repo"). Update Vendors'
     retire_pre_staging_step, on a local bare origin:
@@ -66353,13 +66381,14 @@ def check_update_vendors_retires_pre_staging():
     - a second run changes nothing and says it is retired, with the link;
     - a conflict stops with nothing moved, nothing reworded and no offer;
     - once it is gone, nothing makes it again and the step says nothing;
-    - anyone else (landing on pre-staging or main, or no promote_only)
-      sees nothing at all;
-    - a person moving repo by repo (retire_pre_staging) has the
-      repository's precedent.json switched only by a second pass, once the
-      repository's committed engine can land on staging."""
+    - off the ladder it sees nothing at all;
+    - a precedent.json naming pre-staging is switched to staging whoever
+      the maintainers are, but only by a second pass, once the repository's
+      committed engine can land on staging. (Until 2026-10-14 only an
+      explicit staging lander was moved, and only the sole maintainer could
+      switch precedent.json.)"""
     import tempfile, json as _json
-    name = 'Update Vendors retires pre-staging for a person who lands on staging'
+    name = 'Update Vendors retires pre-staging for anyone on the ladder'
     if not (ROOT / 'tools' / 'precedent_update.py').exists():
         not_applicable(name, 'tools/precedent_update.py is absent')
         return
@@ -66433,9 +66462,10 @@ def check_update_vendors_retires_pre_staging():
             '    print("RESULT " + json.dumps({"rc": pb.ensure_tiers(repo, '
             'apply=True, say=lambda *a: None)}))\n', encoding='utf-8')
 
-        def call(what):
+        def call(what, **extra):
             p = subprocess.run([sys.executable, str(script), what, str(work)],
-                               cwd=work, capture_output=True, text=True, env=env)
+                               cwd=work, capture_output=True, text=True,
+                               env=dict(env, **extra))
             line = next((l for l in p.stdout.splitlines()
                          if l.startswith('RESULT ')), None)
             res = _json.loads(line[len('RESULT '):]) if line else {}
@@ -66470,31 +66500,31 @@ def check_update_vendors_retires_pre_staging():
         git(work, 'reset', '-q', '--hard', 'origin/main')
         link = 'https://github.com/o/r/branches/all?query=pre-staging'
 
-        # --- everyone else: nothing done, nothing said ---
+        # --- off the ladder: nothing done, nothing said. Since 2026-10-14
+        # pre-staging is retired for everyone ON the ladder, whatever their
+        # own settings say; until then each of these people was left alone
+        # too, and only an explicit staging lander was moved off it. ---
         before = tips()
         for label, settings in (
-                ('landing on pre-staging', dict(landing_branch='pre-staging',
-                                                promote_only=True)),
-                ('landing on main', dict(landing_branch='main', promote_only=True)),
-                ('staging without promote_only', dict(landing_branch='staging')),
-                ('no landing branch of their own (staging only by default)',
-                 dict(promote_only=True)),
-                ('repo by repo without promote_only',
-                 dict(retire_pre_staging=True))):
+                ('off the ladder, landing on pre-staging',
+                 dict(landing_branch='pre-staging', promote_only=True)),
+                ('off the ladder, landing on staging',
+                 dict(landing_branch='staging', promote_only=True))):
             person(**settings)
-            res, out = call('step')
+            res, out = call('step', PRECEDENT_NO_LADDERS='1')
             cases.append((f'{label}: the step does nothing and says nothing',
                           res == {'steps': [], 'left': [], 'retired': []}
                           and tips() == before and text('AGENTS.md') == agents,
                           out[-300:]))
         person(promote_only=True)
         res, out = call('offers')
-        cases.append(('no landing branch of their own: it is never offered',
+        cases.append(('while it holds work staging lacks, with no landing '
+                      'branch of their own: it is never offered',
                       'pre-staging' in res.get('never', [])
                       and 'pre-staging' not in res.get('stale', ['x']), out[-300:]))
         person(landing_branch='pre-staging', promote_only=True)
         res, out = call('offers')
-        cases.append(('landing on pre-staging: it is never offered',
+        cases.append(('...nor landing on pre-staging',
                       'pre-staging' in res.get('never', [])
                       and 'pre-staging' not in res.get('stale', ['x'])
                       and 'pre-staging' in res.get('vdc', []), out[-300:]))
@@ -66512,43 +66542,13 @@ def check_update_vendors_retires_pre_staging():
             (work / 'precedent.json').write_text(body, encoding='utf-8')
             return body
 
-        for label, maintainers in (('no maintainers named', None),
-                                   ('two maintainers, you one of them',
-                                    ['p-user', 'someone-else']),
-                                   ('one maintainer who is someone else',
-                                    ['someone-else'])):
-            body = repo_lands_on_pre_staging(maintainers)
-            res, out = call('step')
-            steps = res.get('steps') or []
-            cases.append((f'{label}, precedent.json making pre-staging others\' '
-                          f'landing branch: nothing moved, nothing reworded, no '
-                          f'offer, precedent.json untouched',
-                          tips() == before and text('AGENTS.md') == agents
-                          and text('precedent.json') == body
-                          and not res.get('retired') and not res.get('left'),
-                          out[-300:]))
-            cases.append((f'{label}: one line says why it waited',
-                          len(steps) == 1 and steps[0][0] == 'pre-staging'
-                          and 'precedent.json still makes pre-staging' in steps[0][1],
-                          str(steps)[:300]))
-        res, out = call('offers')
-        cases.append(('and while it waits it is not offered for deletion',
-                      'pre-staging' in res.get('never', []), out[-300:]))
-        # Repo by repo (Morgan, 2026-10-09: "I want to fully complete one
-        # repo at a time"): no landing_branch of their own, so the
-        # repository's precedent.json decides, and only its second Update
-        # Vendors switches it.
-        person(retire_pre_staging=True, promote_only=True, github='p-user')
-        body = repo_lands_on_pre_staging(['p-user', 'someone-else'])
-        res, out = call('step')
-        steps = res.get('steps') or []
-        cases.append(('repo by repo, two maintainers: it waits, in one line, '
-                      'with nothing moved and precedent.json untouched',
-                      len(steps) == 1 and steps[0][0] == 'pre-staging'
-                      and 'precedent.json still makes pre-staging' in steps[0][1]
-                      and tips() == before and text('precedent.json') == body,
-                      str(steps)[:300]))
-        body = repo_lands_on_pre_staging(['P-User'])
+        # Until 2026-10-14 a precedent.json naming pre-staging kept it --
+        # "others' landing branch" -- unless the person running the update
+        # was the repository's only maintainer, and a person moving repo by
+        # repo waited for the second pass. Nobody else lands there now, so
+        # the value is switched whoever the maintainers are (below, with
+        # two of them).
+        body = repo_lands_on_pre_staging(['P-User', 'someone-else'])
         engine = work / 'tools' / 'precedent_branches.py'
         engine.write_text(text('tools/precedent_branches.py').replace(
             'def lands_on_staging(', 'def lands_elsewhere('), encoding='utf-8')
@@ -66565,8 +66565,8 @@ def check_update_vendors_retires_pre_staging():
                       str(steps)[:300]))
         git(work, 'reset', '-q', 'HEAD~1')
         git(work, 'checkout', '-q', 'HEAD', '--', 'tools/precedent_branches.py')
-        # The second pass, the sole maintainer running it: the switch is
-        # made, and the retirement runs in the same call below. A copy of a
+        # The second pass: the switch is made, whoever the maintainers are,
+        # and the retirement runs in the same call below. A copy of a
         # practice from another source, which names pre-staging as an
         # instruction, is the source's to word, never this repository's.
         (work / 'practices').mkdir(exist_ok=True)
@@ -66588,15 +66588,15 @@ def check_update_vendors_retires_pre_staging():
         res, out = call('step')
         retired = res.get('retired') or []
         steps = res.get('steps') or []
-        cases.append(('the only maintainer, running it: precedent.json\'s '
+        cases.append(('two maintainers, one of them running it: precedent.json\'s '
                       'landing_branch is switched to staging, every other byte '
                       'kept', text('precedent.json') == body.replace(
                           '"landing_branch": "pre-staging"',
                           '"landing_branch": "staging"'), text('precedent.json')))
         cases.append(('it is said in one line, before the retirement runs',
                       steps[:1] == [['precedent.json', 'landing_branch pre-staging '
-                                     '-> staging, since you are this '
-                                     'repository\'s only maintainer']]
+                                     '-> staging: pre-staging is retired for '
+                                     'everyone']]
                       and len(steps) == 2 and steps[1][0] == 'pre-staging',
                       str(steps)[:300]))
         cases.append(('the waiting work is brought into staging, with main\'s '
@@ -68271,7 +68271,8 @@ def check_update_done_names_the_check_it_ran():
         (repo / 'tools').mkdir(parents=True)
         (repo / 'tools' / 'precedent_push_check.py').write_text('', encoding='utf-8')
         (repo / 'precedent.json').write_text(json.dumps(
-            {'base_branch': 'main', 'landing_branch': 'pre-staging'}), encoding='utf-8')
+            {'base_branch': 'main', 'staging_branch': 'staging',
+             'landing_branch': 'staging', 'promote_only': True}), encoding='utf-8')
         subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
         saved = os.environ.get('PRECEDENT_USER_CONFIG')
         os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
@@ -68286,7 +68287,7 @@ def check_update_done_names_the_check_it_ran():
         try:
             rc, out = run('precedent_push_check: all passed\n')
             cases.append(('the step names the tier it ran',
-                          'basic check for pre-staging: passed' in out, out[-600:]))
+                          'basic check for staging: passed' in out, out[-600:]))
             cases.append(('DONE says the full check was NOT run, and how to run it',
                           rc == pu.DONE and 'full check was NOT run' in out
                           and '--tier full' in out, out[-600:]))
@@ -73949,15 +73950,23 @@ def check_very_deep_check_walks_every_tier_pair():
         subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
                        capture_output=True, text=True)
         _git(work, 'fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*')
-        pairs = vdc.tier_pairs(work)
+        # Where pre-staging is not retired -- off the ladder, since it was
+        # retired for everyone on it on 2026-10-14 -- a leftover one is
+        # still walked until Update Vendors moves the repository off it.
+        import precedent_branches as _pb
+        _real_unused = _pb.pre_staging_unused
+        _pb.pre_staging_unused = lambda root, user_config=None: (False, None)
+        try:
+            pairs = vdc.tier_pairs(work)
+        finally:
+            _pb.pre_staging_unused = _real_unused
         d = vdc.base_branch_drift(work, 'pre-staging', 'main') or {}
         subjects = [c['subject'] for c in d.get('commits') or []]
         e = vdc.endgame_merge(work, 'pre-staging', 'staging') or {}
-        # The same origin for a person who lands on staging: pre-staging is
-        # retired there, so no pair may name it (2026-10-11: a run told the
-        # person to sync 66 commits into a branch awaiting deletion).
-        import precedent_branches as _pb
-        _real_unused = _pb.pre_staging_unused
+        # The same origin where pre-staging is retired -- everyone on the
+        # ladder since 2026-10-14 -- so no pair may name it (2026-10-11: a
+        # run told the person to sync 66 commits into a branch awaiting
+        # deletion).
         _pb.pre_staging_unused = lambda root, user_config=None: (True, None)
         try:
             retired_pairs = vdc.tier_pairs(work)
