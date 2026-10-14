@@ -35810,6 +35810,13 @@ def check_changed_files_runs_one_copy_of_a_repo_local_test():
 # changed-files step calls it.
 import ast  # noqa: E402
 FOR_CHANGE_BUDGET_SECONDS = 60
+# Set by a harness run that is not --for-change, so every fixture it starts
+# plans without the live reach ledger (for_change_plan): a fixture is a
+# worktree of this repository, shares its refs, and would otherwise run
+# whatever the ledger fetched from origin picks -- main went red on
+# check_changed_files_only_judges_the_change that way (2026-10-14, run
+# 38607892096). A real push check never has it set.
+FOR_CHANGE_LEDGER_OFF_ENV = 'PRECEDENT_FOR_CHANGE_LEDGER_OFF'
 # The planted suite: one 13-minute test that cannot run one slug alone yet
 # (the 18 slugs _deep_assertion_slugs pins run together). A check whose only
 # harness coverage is its case there gets a note, not a run.
@@ -36128,7 +36135,8 @@ def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS, ledger=None):
     # left it out. Reached through what it read or ran: one remove from the
     # change. Picked only because its reach was never fully seen, or because
     # it is newer than the ledger: two.
-    if ledger is None and root.resolve() == ROOT.resolve():
+    if ledger is None and root.resolve() == ROOT.resolve() \
+            and os.environ.get(FOR_CHANGE_LEDGER_OFF_ENV) != '1':
         import harness_reach
         ledger = harness_reach.load_ledger(fetch=True)
     if ledger and ledger.get('green') is not False:
@@ -36373,7 +36381,10 @@ def check_for_change_adds_what_the_reach_ledger_picks():
     D. CONTROL: a test the ledger saw run only another function is not;
     E. CONTROL: a ledger from a failing run adds nothing;
     F. a change to the recording machinery adds nothing and says GitHub's
-       run will run the whole suite."""
+       run will run the whole suite;
+    G. a fixture the harness starts never reads the live ledger: one did,
+       as a worktree of this repository sharing its refs, and main went red
+       on check_changed_files_only_judges_the_change (run 38607892096)."""
     import tempfile
     import harness_reach
     name = '--for-change adds the tests the reach ledger picks'
@@ -36420,6 +36431,27 @@ def check_for_change_adds_what_the_reach_ledger_picks():
         (repo / 'tools' / 'harness_reach.py').write_text('# machinery\n', encoding='utf-8')
         git('add', '-A'); git('commit', '-qm', 'machinery')
         mach = for_change_plan(repo, since, budget=60, ledger=ledger)
+        # G: a harness run plans its fixtures without the live ledger. The
+        # scratch repository stands in for this one, so the default load
+        # is reached; the load itself is a stand-in that counts.
+        loads = []
+        saved = (globals()['ROOT'], harness_reach.load_ledger,
+                 os.environ.get(FOR_CHANGE_LEDGER_OFF_ENV))
+        globals()['ROOT'] = repo
+        harness_reach.load_ledger = lambda fetch=True: loads.append(1) or {}
+        try:
+            os.environ[FOR_CHANGE_LEDGER_OFF_ENV] = '1'
+            for_change_plan(repo, since, budget=60)
+            off = len(loads)
+            os.environ.pop(FOR_CHANGE_LEDGER_OFF_ENV)
+            for_change_plan(repo, since, budget=60)
+            on = len(loads) - off
+        finally:
+            globals()['ROOT'], harness_reach.load_ledger = saved[0], saved[1]
+            if saved[2] is None:
+                os.environ.pop(FOR_CHANGE_LEDGER_OFF_ENV, None)
+            else:
+                os.environ[FOR_CHANGE_LEDGER_OFF_ENV] = saved[2]
     cases = [
         ('A. without a ledger the child-process test is not picked',
          'check_child' not in bare['run'] + bare['deferred']),
@@ -36436,6 +36468,8 @@ def check_for_change_adds_what_the_reach_ledger_picks():
         ('F. a machinery change adds nothing and says the whole suite runs',
          'check_child' not in mach['run'] + mach['deferred']
          and any('whole suite' in n for n in mach['unmapped'])),
+        ('G. under a harness run the live ledger is never read; without the '
+         'mark it is', off == 0 and on == 1),
     ]
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
@@ -79946,6 +79980,7 @@ if __name__ == '__main__':
         if '--budget' in _args and _args.index('--budget') + 1 < len(_args):
             _budget = float(_args[_args.index('--budget') + 1])
         sys.exit(run_for_change(_args[_i + 1], _budget, dry_run='--dry-run' in _args))
+    os.environ.setdefault(FOR_CHANGE_LEDGER_OFF_ENV, '1')
     # A full run by hand is proposed first (HARNESS_ASKED_ENV, above).
     refusal = _full_run_refusal(sys.argv[1:], os.environ)
     if refusal:
