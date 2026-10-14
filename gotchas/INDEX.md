@@ -197,3 +197,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **In a Claude Code cloud session, every GitHub tool call fails with "invalid session": creating a pull request, listing them, merging one. The step that moves work up to main says to open a pull request and merge it "with the merge tool", and there is no tool that works.** [story](gotcha-2026-10-10-github-mcp-invalid-session-use-gh-api-rest.md)
 
 - **In Claude Code's auto mode, one refused call takes harmless ones down with it. A read-only command such as `python3 tools/precedent_show.py SLUG` comes back `Denied by auto mode classifier`, and after the third refusal in a row the person gets an "Allow once / Always allow / Deny" dialog on their phone ("3 consecutive actions were blocked") for that read.** [story](gotcha-2026-10-14-auto-mode-refusal-cascades-into-a-phone-dialog-over-a-read.md)
+
+- **A private repository's name sits in a public tree, and every leak gate run passed it. Then one session's gate refuses it, for content that has not changed in days.** [story](gotcha-2026-10-14-leak-gate-knew-only-the-private-repos-cloned-beside-it.md)

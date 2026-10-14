@@ -804,8 +804,9 @@ def auto_cover_enabled(path):
 def auto_private_name_patterns(refs, owners, allowed):
     """-> [(compiled pattern, name)] for private clones' bare names.
 
-    Same scope as the survey it replaces -- the checkouts on this disk, which
-    is the only inventory available offline -- and the same two exclusions: a
+    Scope: the checkouts on this disk plus the person's own written list
+    (listed_private_refs, since 2026-10-14) -- the only inventories available
+    offline -- and the same two exclusions as the survey it replaced: a
     repository under an owner nobody declared private, and one carrying an
     `allow` line, which is somebody having accepted that the name may appear.
     """
@@ -968,6 +969,51 @@ def local_clone_refs(root):
         if ref:
             refs.add(ref)
     return refs
+
+
+# THE PERSON'S OWN LIST OF PRIVATE REPOSITORIES (2026-10-14). The clones on
+# this disk were the only inventory auto-cover had, so a private name was
+# refused only in a session that happened to hold that repository. On
+# 2026-10-06 a session without one wrote a private consuming repository's
+# name into a public engine docstring, and nothing caught it until a session
+# that did hold the clone ran this gate eight days later. GitHub will not list
+# an account's repositories from a session ("sessions are bound to their
+# configured repositories"), so the inventory is written down: one
+# `owner/name` per line in this file, beside the person's blocklist in their
+# own private source, read in every session whatever is cloned. A separate
+# file rather than a new directive line on purpose: an engine older than a
+# directive refuses the whole blocklist over it, and one older than this
+# file simply never opens it.
+PRIVATE_REPOS_NAME = 'private-repos.txt'
+_LISTED_REF_RE = re.compile(r'^([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9][\w.-]*)$')
+
+
+def listed_private_refs(bl_path):
+    """-> {(owner, name)} from PRIVATE_REPOS_NAME beside `bl_path`: one
+    `owner/name` per line, `#` starting a comment. No file, no list."""
+    try:
+        text = (pathlib.Path(bl_path).parent / PRIVATE_REPOS_NAME).read_text(
+            encoding='utf-8')
+    except (OSError, TypeError):
+        return set()
+    out = set()
+    for raw in text.splitlines():
+        m = _LISTED_REF_RE.match(raw.split('#', 1)[0].strip())
+        if m:
+            out.add((m.group(1), m.group(2)))
+    return out
+
+
+def unlisted_private_clones(root, bl_path, owners, allowed):
+    """-> sorted ['owner/name'] for clones on this disk under a declared
+    private-by-default owner, with no `allow` line, that PRIVATE_REPOS_NAME
+    does not list yet: covered in this session because they are here, and
+    in no other session until they are written down."""
+    listed = {f'{o}/{n}'.lower() for o, n in listed_private_refs(bl_path)}
+    return sorted(f'{o}/{n}' for o, n in local_clone_refs(root)
+                  if o.lower() in (owners or {})
+                  and f'{o}/{n}'.lower() not in (allowed or {})
+                  and f'{o}/{n}'.lower() not in listed)
 
 
 def uncovered_repo_stems(refs, owners, allowed, patterns):
@@ -1760,7 +1806,8 @@ def main():
     # thing --structural-only exists to remove. `_bl_path` being None above
     # already empties this, since `_policy[0]` is then empty; it is spelled
     # out here so the next reader does not restore one without the other.
-    _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
+    _auto = (auto_private_name_patterns(local_clone_refs(ROOT)
+                                        | listed_private_refs(_bl_path), _policy[0],
                                         _policy[1])
              if (not structural_only and _policy[0] and _bl_path is not None
                  and auto_cover_enabled(_bl_path)) else [])
@@ -1791,8 +1838,9 @@ def main():
         blocklist, source, configured = load_blocklist()
         if _bl_path is not None and _bl_path.is_file():
             _policy = with_own_repo(parse_repo_policy(_bl_path), ROOT)
-            _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
-                                                _policy[1])
+            _auto = (auto_private_name_patterns(local_clone_refs(ROOT)
+                                                | listed_private_refs(_bl_path),
+                                                _policy[0], _policy[1])
                      if (_policy[0] and auto_cover_enabled(_bl_path)) else [])
             _public = parse_public_email_domains(_bl_path)
         hits = scan(units, blocklist, _policy, _auto, public_email_domains=_public)
