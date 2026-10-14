@@ -60747,6 +60747,46 @@ def check_empty_blocklist_is_not_a_pass():
             '; '.join(f'{n}: {d[:200]}' for n, d in bad))
 
 
+def check_leak_gate_reads_the_written_private_repo_list():
+    """The leak gate refuses a private repository's bare name from the
+    person's written list (private-repos.txt beside their blocklist), not
+    only from clones on this disk (2026-10-14: a session with no clone of a
+    private consumer wrote its name into a public engine docstring on
+    2026-10-06). THE DISCRIMINATING CASE is a listed repository with no
+    clone anywhere on disk."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as lg
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        bl = td / 'leak-blocklist.txt'
+        bl.write_text('# visibility-audit: private-owner someone -- theirs\n',
+                      encoding='utf-8')
+        cases.append(('no list file, no listed repositories',
+                      lg.listed_private_refs(bl) == set(), ''))
+        (td / lg.PRIVATE_REPOS_NAME).write_text(
+            '# a comment\nsomeone/secret-garden  # trailing comment\n'
+            'not a ref line\nother/elsewhere\n', encoding='utf-8')
+        refs = lg.listed_private_refs(bl)
+        cases.append(('owner/name lines are read, comments and prose skipped',
+                      refs == {('someone', 'secret-garden'), ('other', 'elsewhere')},
+                      refs))
+        owners, allowed = lg.parse_repo_policy(bl)
+        pats = lg.auto_private_name_patterns(refs, owners, allowed)
+        hits = lg.scan([('NOTES.md', 'NOTES.md', 'a session in secret-garden read it\n')],
+                       [], (owners, allowed), pats)
+        cases.append(('THE DISCRIMINATING CASE: a listed name with no clone is refused',
+                      any('secret-garden' in str(h) for h in hits), hits))
+        cases.append(('a listed repository under an owner nobody declared private is not',
+                      [n for _p, n in pats] == ['secret-garden'], pats))
+        cases.append(('a clone on disk that the list lacks is named for adding',
+                      lg.unlisted_private_clones(td, bl, owners, allowed) == [], ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the leak gate reads the written private-repository list ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
 def check_refresh_adds_read_only_allow_rules():
     """The refresh adds the settings template's read-only Precedent tool
     rules to a consumer's .claude/settings.json, add-only (2026-10-14: a
@@ -79258,6 +79298,7 @@ def main():
           *check_kept_section_repins_a_change_that_misses_the_kept_lines())
     check_repin_kept_records_the_persons_words()
     check_refresh_adds_read_only_allow_rules()
+    check_leak_gate_reads_the_written_private_repo_list()
     check_session_hooks_allow_read_only_tools_at_user_level()
     check('an empty blocklist is reported as nothing checked, never a pass',
           *check_empty_blocklist_is_not_a_pass())
