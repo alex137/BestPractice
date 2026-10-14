@@ -8331,8 +8331,13 @@ def refresh(clone, force=False, ref=None):
             written.append(ROOT / '.claude' / 'settings.json')
         written += _write_hook_files(ROOT, engine_dir / 'hooks',
                                      previous=before)
-        if _apply_read_only_allow(ROOT, read_only_allow_rules(
-                _template_settings_text(clone, new_commit))):
+        # A consumer's only: SETTINGS_TEMPLATE is the consumer adapter, and a
+        # manifest with no kind gets nothing guessed for it, exactly as
+        # _apply_hook_wiring leaves it (check_vendor_engine_wires_a_new_hook_
+        # into_an_installed_repo's control, which main's test failed on
+        # 2026-10-14 when this ran for every repo).
+        if manifest.get('kind') == 'consumer' and _apply_read_only_allow(
+                ROOT, read_only_allow_rules(_template_settings_text(clone, new_commit))):
             if ROOT / '.claude' / 'settings.json' not in written:
                 written.append(ROOT / '.claude' / 'settings.json')
         # Before the next session start, when a hook just wired may write a
