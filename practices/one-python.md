@@ -28,7 +28,7 @@ every place that starts Python gets that one.**
    imports. The engine's own needs (`cmarkgfm`, `markdown`) are added
    without being listed.
 2. **A session makes `python3` mean it.** Session start runs
-   [`tools/precedent_python.py setup`](https://github.com/alex137/BestPractice/blob/main/tools/precedent_python.py): the
+   [`tools/precedent_python.py setup`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_python.py): the
    declared Python's own pip installs the packages, and `python3`,
    `python`, `pip3` and `pip` resolve to that Python for the rest of the
    session. So a hook, a document or a person typing `python3` gets the
@@ -76,7 +76,7 @@ session would have started over.
 ## Install
 Declare the Python in `precedent.json` -- `"python": {"version": "3.12",
 "packages": [...]}`, listing what the repository's own code imports -- and
-take Update Vendors: it brings [`tools/precedent_python.py`](https://github.com/alex137/BestPractice/blob/main/tools/precedent_python.py), the lander that
+take Update Vendors: it brings [`tools/precedent_python.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_python.py), the lander that
 runs on it, and the session-start hook that calls it. A repository whose
 `tools/bootstrap.sh` it has edited takes the package block from Precedent's
 `templates/bootstrap.sh` by hand, since Update Vendors never rewrites that
