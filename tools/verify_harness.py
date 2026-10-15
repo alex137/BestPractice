@@ -60863,6 +60863,55 @@ def check_branch_cleanup_page_merges_the_saved_page():
           f'stated cases)', not bad, '; '.join(bad))
 
 
+def check_branch_cleanup_merge_warns_on_a_stale_copy():
+    """--merge warns when the file it is handed is not a read of the saved
+    page made just before the build.
+
+    WHY. 2026-10-15, a consuming repository: a session merged its own copy
+    from earlier in the session after another session had republished the
+    page; that merge would have dropped the other session's rows and the
+    ticks saved since. Planted: a fresh read built after this session's
+    last build (no warning); the output file itself; a read built before
+    this session's last build; a file saved long ago. Warnings only: the
+    merge still writes."""
+    import datetime
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as _sb
+    cases = []
+    t0 = datetime.datetime(2026, 10, 15, 12, 0, tzinfo=datetime.timezone.utc)
+    rows = [('o', 'A', [('a-done', '2026-10-01')])]
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        out = td / 'branch-cleanup.html'
+        out.write_text(_sb.render_html(rows, now=t0), encoding='utf-8')
+        fresh = _sb.render_html(rows, now=t0 + datetime.timedelta(minutes=5))
+        (td / 'index.html').write_text(fresh, encoding='utf-8')
+        now = datetime.datetime.fromtimestamp((td / 'index.html').stat().st_mtime,
+                                              datetime.timezone.utc)
+        said = _sb.stale_merge_warnings(td / 'index.html', out, fresh, now=now)
+        cases.append(('CONTROL: a fresh read built after our last build is quiet',
+                      said == [], said))
+        mine = out.read_text(encoding='utf-8')
+        said = _sb.stale_merge_warnings(out, out, mine, now=now)
+        cases.append(('merging the output file itself is called our own build',
+                      any("own last build" in w for w in said), said))
+        older = _sb.render_html(rows, now=t0 - datetime.timedelta(hours=1))
+        (td / 'old.html').write_text(older, encoding='utf-8')
+        said = _sb.stale_merge_warnings(td / 'old.html', out, older, now=now)
+        cases.append(('a copy built before our last build is called older',
+                      any('older copy' in w for w in said), said))
+        later = now + datetime.timedelta(minutes=_sb.FRESH_READ_MINUTES + 30)
+        said = _sb.stale_merge_warnings(td / 'index.html', out, fresh, now=later)
+        cases.append(('a file saved long before the build gives its age',
+                      any('minutes ago' in w for w in said), said))
+        cases.append(('a page without a JSON block has no build time',
+                      _sb.page_built('<p>x</p>') is None, ''))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'--merge warns when handed a stale copy of the cleanup page '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_branch_cleanup_page_is_one_page_updated_in_place():
     """The branch-cleanup page says when it was built, in the person's zone;
     its ticks belong to that build; and the person's saved page address is
@@ -80064,6 +80113,7 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_branch_cleanup_page_is_one_page_updated_in_place()
     check_branch_cleanup_page_merges_the_saved_page()
+    check_branch_cleanup_merge_warns_on_a_stale_copy()
     check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
