@@ -493,6 +493,29 @@ def _rule_text(text):
     return ' '.join(body.split())
 
 
+# What changed_slugs() calls a Rule whose text moved. The second is a Rule
+# that grew or was reworded while its title and index_clause -- the one line
+# a citation paraphrases -- stayed the same: the merge gate still lists its
+# citations for the author, and Update Vendors does not send a consumer to
+# read them (2026-10-15: a consumer was sent to read its citations of
+# reply-links-files and todo-is-a-handoff, whose one-line rules had not
+# changed, and both still read true).
+RULE_REWORDED = 'Rule reworded'
+RULE_BODY_ONLY = 'Rule reworded, its one-line rule unchanged'
+
+
+def _one_line_rule(text):
+    """-> (title, index_clause) from a practice's frontmatter, whitespace
+    normalized; '' for a field it lacks."""
+    m = re.match(r'---\n(.*?)\n---', text, re.S)
+    fm = m.group(1) if m else ''
+    out = []
+    for key in ('title', 'index_clause'):
+        f = re.search(rf'^{key}:[ \t]*(.*(?:\n[ \t]+.*)*)', fm, re.M)
+        out.append(' '.join(f.group(1).strip().strip('"\'').split()) if f else '')
+    return tuple(out)
+
+
 def changed_slugs(repo, base, staged=False):
     """-> {slug: what} for every practice withdrawn, deleted, renamed away,
     or whose Rule text changed: on this branch against `base`, or, with
@@ -550,7 +573,9 @@ def changed_slugs(repo, base, staged=False):
         if was == 'active' and now != 'active':
             out[slug] = f'now {now}'
         elif now == 'active' and _rule_text(old) != _rule_text(new):
-            out[slug] = 'Rule reworded'
+            was_line, now_line = _one_line_rule(old), _one_line_rule(new)
+            out[slug] = (RULE_BODY_ONLY if was_line == now_line and was_line[1]
+                         else RULE_REWORDED)
     return out
 
 
@@ -672,7 +697,7 @@ def main(argv=None):
         succ = successors.get(s)
         print(f'  {s}: {why[s]}' + (f' (in force as `{succ}`)' if succ else ''))
     live = _report(rows_by_root, a.all, successors, wmap)
-    reworded = [s for s, w in why.items() if w == 'Rule reworded']
+    reworded = [s for s, w in why.items() if w.startswith(RULE_REWORDED)]
     print(f'\n{live} live citation(s).'
           + (' A reworded Rule keeps its slug, so no check can tell whether a '
              'citation still describes it -- read each live one above.'

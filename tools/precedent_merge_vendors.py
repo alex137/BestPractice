@@ -180,6 +180,23 @@ def preconditions(repo):
     return None
 
 
+def approval_words(repo, paths):
+    """-> the sentence the person says to approve committing the staged
+    .claude/ `paths`, naming the files and the change -- precedent_update's
+    harness_approval, read from the index before anything is taken back.
+    Auto mode clears that commit only on words that name it; a bare yes was
+    refused (2026-10-15)."""
+    try:
+        here = str(pathlib.Path(__file__).resolve().parent)
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        import precedent_update as pu
+        return pu.harness_approval(paths, last=pu.migrates_to_stubs(repo, paths),
+                                   cases=pu.harness_cases(repo, paths))
+    except Exception:                               # practice: fail-gracefully
+        return f'Commit the {" and ".join(paths)} change'
+
+
 def take_back(repo):
     """Undo what an Update Vendors run left in a tree that was clean of
     tracked changes when it began: every path it staged goes back to HEAD,
@@ -296,12 +313,14 @@ def refresh_views(repo):
     harness = [n for n in staged if n.startswith('.claude/')]
     words = os.environ.get(HARNESS_GO_AHEAD, '').strip()
     if harness and not words:
+        say = approval_words(repo, harness)
         take_back(repo)
         print(f'VIEWS: stale, NOT REFRESHED -- the refresh changes '
-              f'{", ".join(harness)}, and Claude Code\'s auto mode holds a '
-              f'commit that changes hooks or settings until the person says '
-              f'yes. Nothing was committed. Ask the person, naming those '
-              f'files; with their yes, run again with '
+              f'{", ".join(harness)}, and Claude Code\'s auto mode lets a '
+              f'commit that changes hooks or settings through only on the '
+              f'person\'s words naming it, never a bare yes. Nothing was '
+              f'committed. Give them the sentence, not a yes-or-no question '
+              f'-- to approve, say: "{say}" -- and run again with '
               f'{HARNESS_GO_AHEAD}="<their words>".')
         return
     msg = ('Views refreshed at merge: a declared practice source moved\n\n'
@@ -373,13 +392,16 @@ def run(repo, source=None, check_only=False, always=False, extra=()):
             HARNESS_GO_AHEAD, '').strip():
         # This step commits by itself, so a change auto mode would hold is
         # taken back here and asked about, never met at the commit.
+        say = approval_words(repo, harness)
         taken = take_back(repo)
         print(f'VENDORS: NOT TAKEN -- the update changes {", ".join(harness)}, '
-              f'and Claude Code\'s auto mode holds a commit that changes hooks '
-              f'or settings until the person says yes. Its {len(taken)} '
-              f'written path(s) were taken back and the merge goes ahead '
-              f'without it. Ask the person, naming those files; with their '
-              f'yes, run this again with {HARNESS_GO_AHEAD}="<their words>".')
+              f'and Claude Code\'s auto mode lets a commit that changes hooks '
+              f'or settings through only on the person\'s words naming it, '
+              f'never a bare yes. Its {len(taken)} written path(s) were taken '
+              f'back and the merge goes ahead without it. Give them the '
+              f'sentence, not a yes-or-no question -- to approve, say: '
+              f'"{say}" -- and run this again with '
+              f'{HARNESS_GO_AHEAD}="<their words>".')
         refresh_views(repo)
         return 0
     if r.returncode == DONE and not _git(repo, 'diff', '--cached', '--name-only').stdout.strip():
