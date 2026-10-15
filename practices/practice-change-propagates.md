@@ -36,7 +36,10 @@ still describes it: read each live one the tool lists.
 
 **The consuming side does the same on every update.** Update Vendors lists
 the citations in the repository's own files of anything the update withdrew
-or reworded, and they are fixed in that update, not later.
+or renamed, or whose one-line rule (its title or `index_clause`, what a
+citation paraphrases) changed, and they are fixed in that update, not later.
+A Rule that only grew under the same one-line rule is not listed there: a
+citation of it still reads true (2026-10-15).
 
 **A practice file is never deleted.** Retire it in place -- `status:` and
 `in_force_at:` naming where the rule went -- so that anyone reading an old

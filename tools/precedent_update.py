@@ -2350,6 +2350,68 @@ def _still_an_old_template(repo, rel, tmpl, rev):
     return True
 
 
+# The template's own instruction comment: the first HTML comment that opens
+# "<!-- Template" (GETTING_STARTED.md's opens "<!-- Template AND ...").
+_TEMPLATE_COMMENT = re.compile(r'^\s*<!--\s*Template\b')
+
+
+def _template_comment_span(lines):
+    """-> (start, end), 0-based and end-exclusive, of the template's own
+    instruction comment in `lines`, or None when there is none."""
+    for i, line in enumerate(lines):
+        if _TEMPLATE_COMMENT.match(line):
+            for j in range(i, len(lines)):
+                if '-->' in lines[j]:
+                    return i, j + 1
+            return None
+    return None
+
+
+def refresh_template_comment(repo, rel, tmpl, rev, hits):
+    """Replace install-once file `rel`'s template instruction comment with
+    the current `tmpl`'s (at `rev`) when a dropped line `hits` found sits in
+    it. -> the hits left outside it, renumbered to the file as written, or
+    None when nothing was written.
+
+    The comment is the template's, not the repository's: it tells whoever
+    installs the file what to do with it. Only a comment whose every line
+    some version of the template carried is replaced, so a word the
+    repository added there is never lost (practice:
+    repair-cannot-discard-work); otherwise the lines are left for the person
+    as before, and so is anything outside the comment.
+
+    WHY (2026-10-15, a consumer's Update Vendors). Upstream renumbered
+    "INSTALL.md §1" to "§0" inside the comment of four templates, and the
+    update stopped on four LEFT FOR YOU lines until a person edited one line
+    in each file by hand -- the same four in every consuming repository."""
+    target = pathlib.Path(repo) / rel
+    current = _source_text(rev, tmpl)
+    try:
+        text = target.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return None
+    if current is None:
+        return None
+    lines, theirs = text.splitlines(keepends=True), current.splitlines(keepends=True)
+    ours, now = _template_comment_span(lines), _template_comment_span(theirs)
+    if not ours or not now:
+        return None
+    a, b = ours
+    if not any(a < n <= b for n, _l in hits):
+        return None
+    upstream = _template_lines_ever(rev, tmpl) | {l.strip() for l in theirs}
+    if any(l.strip() not in upstream for l in lines[a:b] if l.strip()):
+        return None
+    new = theirs[now[0]:now[1]]
+    if new and not new[-1].endswith('\n') and lines[b:]:
+        new[-1] += '\n'
+    if new == lines[a:b]:
+        return None
+    target.write_text(''.join(lines[:a] + new + lines[b:]), encoding='utf-8')
+    shift = len(new) - (b - a)
+    return [(n + shift if n > b else n, l) for n, l in hits if not a < n <= b]
+
+
 def dropped_template_lines_step(repo, rep, rev):
     """Put each line dropped_template_lines finds on the Left-for-you list.
     A file precedent.json's kept_template_divergences records as kept on
@@ -2388,6 +2450,16 @@ def dropped_template_lines_step(repo, rep, rev):
                      f'of {tmpl} with no edits of this repository\'s own, so it '
                      f'now carries the current template')
             continue
+        if verdict in (None, 'unreasoned'):
+            left = refresh_template_comment(repo, rel, tmpl, rev, hits)
+            if left is not None:
+                rep.step('template comment refreshed', f'{rel}: the '
+                         f'instruction comment {tmpl} opens with was an older '
+                         f'version of the template\'s own, so it now carries '
+                         f'the current one; nothing outside it was touched')
+                hits = left
+                if not hits:
+                    continue
         for n, line in hits[:DROPPED_LINES_SHOWN]:
             shown = line if len(line) <= 160 else line[:157] + '...'
             rep.leave(f'{rel}:{n}', f'is template wording the current template '
@@ -3607,6 +3679,41 @@ def harness_new_gates(repo, paths):
     return out
 
 
+# What each kind of .claude/ change is called in the sentence the person
+# says to approve it: (pattern on a harness_cases() line, short name).
+_APPROVAL_NAMES = (
+    (re.compile(r'^settings\.json allows '), 'allow-list'),
+    (re.compile(r'^settings\.json (gains|drops|rewrites)'), 'hook wiring'),
+    (re.compile(r'becomes the permanent stub|hook stub itself'), 'hook stub'),
+    (re.compile(r'^a (new )?hook file'), 'hook file'),
+    (re.compile(r'^a hook that is not yet a stub'), 'hook'),
+)
+
+
+def harness_approval(paths, last=False, cases=None):
+    """-> the sentence the person says to approve the commit of these
+    .claude/ changes, naming the files and the change.
+
+    WHY (2026-10-15, a consumer's Update Vendors). The question asked for a
+    yes; the person answered "Yes approved. Booked" and auto mode still
+    refused the commit of .claude/settings.json as [Self-Modification]. His
+    next words, "Commit the .claude/settings.json allow-list change", went
+    through first time. Auto mode clears an action only on words that name
+    it, the same as the merge, so the report hands the session those words
+    rather than a yes-or-no question. The gotcha:
+    gotchas/gotcha-2026-10-15-auto-mode-clears-only-words-that-name-the-action.md"""
+    files = ' and '.join(paths) if len(paths) <= 2 else f'{len(paths)} .claude/ files'
+    if last:
+        return f'Commit the {files} change that makes the hooks permanent stubs'
+    kinds = []
+    for case in cases or ():
+        name = next((n for rx, n in _APPROVAL_NAMES if rx.search(case)), 'settings')
+        if name not in kinds:
+            kinds.append(name)
+    kind = ' and '.join(kinds) if kinds else 'hooks and settings'
+    return f'Commit the {files} {kind} change'
+
+
 def harness_ask(paths, last=False, cases=None, gates=None):
     """The question for the person when an update changes hooks or settings.
     `last`: this is the update that turns the hooks into permanent stubs, so
@@ -3614,12 +3721,20 @@ def harness_ask(paths, last=False, cases=None, gates=None):
     harness_cases(), so any other question says which kind of change it is
     rather than only that something under .claude/ moved. `gates`:
     harness_new_gates(), each hook newly wired and what it does -- so the
-    question never says nothing new is blocked when something is."""
+    question never says nothing new is blocked when something is. It ends on
+    harness_approval()'s sentence: a bare yes does not clear the commit."""
     new = ''
     if gates:
         new = (f'It also wires {len(gates)} hook(s) this repository did not '
                f'run before, and each can refuse what it names: '
                + '; '.join(f'{n} ({e}): {w}' for n, e, w in gates) + '. ')
+    say = harness_approval(paths, last=last, cases=cases)
+    approve = (f'Claude Code\'s auto mode lets this commit through only on the '
+               f'person\'s words naming it, never on a bare yes, so tell them '
+               f'what changes and give them the sentence, not a yes-or-no '
+               f'question. To approve, say: "{say}". A merge that takes the '
+               f'update by itself needs those words as '
+               f'{HARNESS_GO_AHEAD}="<their words>"')
     if last:
         blocked = (new if gates else
                    'Nothing changes about when anything is blocked. ')
@@ -3627,18 +3742,10 @@ def harness_ask(paths, last=False, cases=None, gates=None):
                 f'last time: each hook becomes a permanent pointer to the '
                 f'engine, and settings.json gains one fixed entry per event '
                 f'for hooks added later. {blocked}From now on hook changes '
-                f'arrive with the engine without this question. Ask the '
-                f'person in those words before committing; their yes is what '
-                f'lets the commit through, and a merge that takes the update '
-                f'by itself needs it as {HARNESS_GO_AHEAD}="<their words>". '
+                f'arrive with the engine without this question. {approve}. '
                 f'Files: {", ".join(paths)}')
     what = f' -- {"; ".join(cases)}' if cases else ''
-    return (f'this update changes {", ".join(paths)}{what}. {new}Claude Code\'s '
-            f'auto mode holds a commit that changes hooks or settings until '
-            f'the person says yes, so ask now, naming these files and what '
-            f'each change is, before committing. Their yes is what lets the '
-            f'commit through; a merge that takes the update by itself needs '
-            f'it as {HARNESS_GO_AHEAD}="<their words>"')
+    return (f'this update changes {", ".join(paths)}{what}. {new}{approve}')
 
 
 def stage_update(repo, before):
@@ -4193,6 +4300,13 @@ def citation_findings(data, engine=frozenset()):
             # wording -- the same consumer was sent to read five of those.
             if h['file'].endswith('.md'):
                 read.append(where)
+        elif slugs.get(h['slug'], '').startswith('Rule reworded'):
+            # Its title and index_clause, the one line a citation
+            # paraphrases, did not change: the Rule only grew or was
+            # reworded under it, so the citation still reads true
+            # (precedent_practice_refs.RULE_BODY_ONLY; 2026-10-15, a
+            # consumer sent to read two such citations, both still correct).
+            continue
         elif h['slug'] in slugs:
             # A bare mention of a renamed or withdrawn slug. The check
             # does not refuse it (it may be lineage), but it is a citation
