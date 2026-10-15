@@ -58911,6 +58911,83 @@ def check_update_asks_before_changing_hooks():
               and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
 
 
+def check_update_asks_for_words_that_name_the_commit():
+    """The hooks-and-settings question Update Vendors puts to the person,
+    and the merge step's take-back of the same change, hand the session the
+    exact sentence the person says -- naming the files and the change --
+    and never ask for a bare yes.
+
+    WHY. 2026-10-15, a consumer's Update Vendors: the question said "their
+    yes is what lets the commit through"; the person answered "Yes approved.
+    Booked", and auto mode refused the commit of .claude/settings.json as
+    [Self-Modification]. "Commit the .claude/settings.json allow-list
+    change" went through first time.
+
+    Negative control, measured 2026-10-15: on staging's code the stated
+    cases fail -- there is no harness_approval, and the question asks for a
+    yes."""
+    import inspect, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    import precedent_merge_vendors as pmv
+    env = _fixture_git_env()
+    cases = []
+    approval = getattr(pu, 'harness_approval', None)
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        (repo / '.claude').mkdir()
+        sj = repo / '.claude' / 'settings.json'
+        sj.write_text(json.dumps({'permissions': {'allow': []}}) + '\n',
+                      encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        sj.write_text(json.dumps({'permissions': {'allow': [
+            'Bash(python3 tools/precedent_show.py:*)']}}) + '\n', encoding='utf-8')
+        g('add', '-A')
+        paths = pu.harness_changes(repo)
+        cases_now = pu.harness_cases(repo, paths)
+        ask = pu.harness_ask(paths, cases=cases_now)
+        want = 'Commit the .claude/settings.json allow-list change'
+        said = approval(paths, cases=cases_now) if approval else None
+        cases.append(('an allow-list change is named as one, with its file',
+                      said == want, repr(said)))
+        cases.append(('...and the question gives that sentence to say',
+                      f'To approve, say: "{want}"' in ask, ask))
+        cases.append(('...and never asks for a yes, or says one is enough',
+                      'yes-or-no' in ask and 'their yes is what' not in ask.lower()
+                      and 'says yes' not in ask, ask))
+        words = getattr(pmv, 'approval_words', None)
+        got = words(repo, paths) if words else None
+        cases.append(('the merge step, which takes the change back, has the '
+                      'same sentence', got == want, repr(got)))
+        cases.append(('...read before the take-back, from the staged change',
+                      words is not None and 'approval_words(repo, harness)'
+                      in inspect.getsource(pmv.refresh_views)
+                      and 'approval_words(repo, harness)' in inspect.getsource(pmv.run),
+                      ''))
+    if approval:
+        hook = approval(['.claude/hooks/h.sh'], cases=['a new hook file, h.sh'])
+        cases.append(('a new hook file is named as one',
+                      hook == 'Commit the .claude/hooks/h.sh hook file change', hook))
+        two = approval(['.claude/settings.json', '.claude/hooks/h.sh'],
+                       cases=['settings.json gains an entry for h.sh (Stop)',
+                              'a new hook file, h.sh'])
+        cases.append(('two files and two kinds are both named',
+                      two == 'Commit the .claude/settings.json and '
+                             '.claude/hooks/h.sh hook wiring and hook file change', two))
+        last = approval(['.claude/hooks/h.sh'], last=True)
+        cases.append(('the move to stubs is named as that',
+                      'permanent stubs' in last and '.claude/hooks/h.sh' in last, last))
+        cases.append(('...and its question gives the sentence too',
+                      f'To approve, say: "{last}"' in pu.harness_ask(
+                          ['.claude/hooks/h.sh'], last=True), ''))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors asks for words that name a hooks-or-settings commit, '
+          f'never a yes ({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
+
+
 def check_update_question_names_new_gates():
     """The hooks-and-settings question Update Vendors puts to the person
     names every hook the update newly wires into settings.json and what it
@@ -79698,6 +79775,7 @@ def main():
     check_stale_views_judged_on_what_a_push_brings()
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
+    check_update_asks_for_words_that_name_the_commit()
     check_update_question_names_new_gates()
     check_promote_branches_are_named_like_session_branches()
     check_data_branches_are_named_for_the_ladder()

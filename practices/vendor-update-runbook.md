@@ -131,11 +131,16 @@ moved practice source left stale**, as a commit of its own: a push to a
 working branch is no longer refused for a stale view it did not bring, so
 this is where the refresh happens.
 
-**A change to hooks or settings needs the person's yes, asked before the
-commit.** Claude Code's auto mode holds a commit that changes `.claude/`
-until the person approves it. So when the update staged anything there, it
-still finishes, and prints the files under QUESTIONS FOR THE PERSON: ask,
-naming them, before committing. The merge step commits by itself, so there
+**A change to hooks or settings needs the person's words naming it, asked
+for before the commit.** Claude Code's auto mode holds a commit that changes
+`.claude/` until the person approves it, and it clears the commit only on
+words that name it: a bare yes was refused (a consumer, 2026-10-15: "Yes
+approved. Booked" was refused, "Commit the .claude/settings.json allow-list
+change" went through). So when the update staged anything there, it still
+finishes, and prints the files under QUESTIONS FOR THE PERSON with the
+sentence to say. Pass that sentence on, before committing, and never ask it
+as a yes-or-no question
+([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-15-auto-mode-clears-only-words-that-name-the-action.md)). The merge step commits by itself, so there
 the update and the views refresh are taken back and said instead, until
 the person's words arrive as `PRECEDENT_HARNESS_GO_AHEAD="<their words>"`.
 

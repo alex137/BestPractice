@@ -3607,6 +3607,41 @@ def harness_new_gates(repo, paths):
     return out
 
 
+# What each kind of .claude/ change is called in the sentence the person
+# says to approve it: (pattern on a harness_cases() line, short name).
+_APPROVAL_NAMES = (
+    (re.compile(r'^settings\.json allows '), 'allow-list'),
+    (re.compile(r'^settings\.json (gains|drops|rewrites)'), 'hook wiring'),
+    (re.compile(r'becomes the permanent stub|hook stub itself'), 'hook stub'),
+    (re.compile(r'^a (new )?hook file'), 'hook file'),
+    (re.compile(r'^a hook that is not yet a stub'), 'hook'),
+)
+
+
+def harness_approval(paths, last=False, cases=None):
+    """-> the sentence the person says to approve the commit of these
+    .claude/ changes, naming the files and the change.
+
+    WHY (2026-10-15, a consumer's Update Vendors). The question asked for a
+    yes; the person answered "Yes approved. Booked" and auto mode still
+    refused the commit of .claude/settings.json as [Self-Modification]. His
+    next words, "Commit the .claude/settings.json allow-list change", went
+    through first time. Auto mode clears an action only on words that name
+    it, the same as the merge, so the report hands the session those words
+    rather than a yes-or-no question. The gotcha:
+    gotchas/gotcha-2026-10-15-auto-mode-clears-only-words-that-name-the-action.md"""
+    files = ' and '.join(paths) if len(paths) <= 2 else f'{len(paths)} .claude/ files'
+    if last:
+        return f'Commit the {files} change that makes the hooks permanent stubs'
+    kinds = []
+    for case in cases or ():
+        name = next((n for rx, n in _APPROVAL_NAMES if rx.search(case)), 'settings')
+        if name not in kinds:
+            kinds.append(name)
+    kind = ' and '.join(kinds) if kinds else 'hooks and settings'
+    return f'Commit the {files} {kind} change'
+
+
 def harness_ask(paths, last=False, cases=None, gates=None):
     """The question for the person when an update changes hooks or settings.
     `last`: this is the update that turns the hooks into permanent stubs, so
@@ -3614,12 +3649,20 @@ def harness_ask(paths, last=False, cases=None, gates=None):
     harness_cases(), so any other question says which kind of change it is
     rather than only that something under .claude/ moved. `gates`:
     harness_new_gates(), each hook newly wired and what it does -- so the
-    question never says nothing new is blocked when something is."""
+    question never says nothing new is blocked when something is. It ends on
+    harness_approval()'s sentence: a bare yes does not clear the commit."""
     new = ''
     if gates:
         new = (f'It also wires {len(gates)} hook(s) this repository did not '
                f'run before, and each can refuse what it names: '
                + '; '.join(f'{n} ({e}): {w}' for n, e, w in gates) + '. ')
+    say = harness_approval(paths, last=last, cases=cases)
+    approve = (f'Claude Code\'s auto mode lets this commit through only on the '
+               f'person\'s words naming it, never on a bare yes, so tell them '
+               f'what changes and give them the sentence, not a yes-or-no '
+               f'question. To approve, say: "{say}". A merge that takes the '
+               f'update by itself needs those words as '
+               f'{HARNESS_GO_AHEAD}="<their words>"')
     if last:
         blocked = (new if gates else
                    'Nothing changes about when anything is blocked. ')
@@ -3627,18 +3670,10 @@ def harness_ask(paths, last=False, cases=None, gates=None):
                 f'last time: each hook becomes a permanent pointer to the '
                 f'engine, and settings.json gains one fixed entry per event '
                 f'for hooks added later. {blocked}From now on hook changes '
-                f'arrive with the engine without this question. Ask the '
-                f'person in those words before committing; their yes is what '
-                f'lets the commit through, and a merge that takes the update '
-                f'by itself needs it as {HARNESS_GO_AHEAD}="<their words>". '
+                f'arrive with the engine without this question. {approve}. '
                 f'Files: {", ".join(paths)}')
     what = f' -- {"; ".join(cases)}' if cases else ''
-    return (f'this update changes {", ".join(paths)}{what}. {new}Claude Code\'s '
-            f'auto mode holds a commit that changes hooks or settings until '
-            f'the person says yes, so ask now, naming these files and what '
-            f'each change is, before committing. Their yes is what lets the '
-            f'commit through; a merge that takes the update by itself needs '
-            f'it as {HARNESS_GO_AHEAD}="<their words>"')
+    return (f'this update changes {", ".join(paths)}{what}. {new}{approve}')
 
 
 def stage_update(repo, before):
