@@ -515,6 +515,9 @@ ENGINE_FILES = [
     # from this list failed at once. Every repo that stamps a date needs it
     # anyway (practice: timestamps-carry-offset); it has no dependencies of
     # its own beyond the standard library.
+    # one-python: what makes python3 the declared Python in a session, and
+    # says so when it is not (added 2026-10-15)
+    'precedent_python.py',
     'precedent_time.py',
     # Files a failure an unattended job could not report anywhere else as an
     # open item under todo/, and lists the open ones at session start
