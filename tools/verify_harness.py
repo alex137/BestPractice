@@ -71670,14 +71670,14 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
                             '--repo', str(repo), '--check'], cwd=str(repo), env=env,
                            capture_output=True, text=True, timeout=600)
-        # Only AGENTS.md is this case's question: the fixture never builds
-        # MAP.md or GLOSSARY.md from sources of their own, and build_views
-        # reports them whether or not the set is pinned.
-        drift = next((l for l in (r.stdout + r.stderr).splitlines()
-                      if 'drifted from regeneration' in l), '')
+        # This consumer has no MAP.md or GLOSSARY.md, and no engine manifest:
+        # the sync writes no view a repository lacks, and build_views --check
+        # knows it for a consumer by its materialized MANIFEST.json (it
+        # failed on both here until 2026-10-15).
         cases.append(('...and so does build_views --check: AGENTS.md is read from '
-                      'the set at the same recorded commit, with the clone on v1',
-                      'AGENTS.md' not in drift and 'Version two.' not in
+                      'the set at the same recorded commit, with the clone on v1, '
+                      'and no view the sync never writes is called drift',
+                      r.returncode == 0 and 'Version two.' not in
                       git(st, 'show', 'HEAD:practices/set-rule.md').stdout,
                       (r.stdout + r.stderr)[-600:]))
         rc, out = sync('--check', '--for-branch', 'pre-staging')
@@ -79516,7 +79516,9 @@ def check_update_leftovers_installs_and_stamps():
         (doc_lifecycle.without_header_stamp), so a commit-time restamp
         does not make every artifact built from it stale;
       * synced_copies names the single files a manifest keeps in step with
-        upstream, which a commit-time fixer must not stamp.
+        upstream, which a commit-time fixer must not stamp;
+      * build_views knows a consumer by its materialized MANIFEST.json, as
+        the sync does, so a view the sync never writes is not drift.
     -> (ok, detail, failure)."""
     import json, shutil, subprocess as sp_, tempfile, types
     import precedent_update as pu
@@ -79575,6 +79577,23 @@ def check_update_leftovers_installs_and_stamps():
         shutil.rmtree(tmp, ignore_errors=True)
     cases.append(('synced_copies names whole-file synced entries, in every manifest',
                   got == {'GETTING_STARTED.md', 'pack/README.md'}, repr(sorted(got))))
+
+    import build_views as bv_
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-consumer-'))
+    try:
+        (tmp / 'MANIFEST.json').write_text(json.dumps(
+            {'generated_by': 'tools/precedent_materialize.py'}), encoding='utf-8')
+        materialized = bv_.repo_is_consumer(tmp)
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'source'}), encoding='utf-8')
+        declared_source = bv_.repo_is_consumer(tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    cases.append(('a repository with a materialized MANIFEST.json is a consumer, '
+                  'unless its engine manifest says otherwise',
+                  materialized and not declared_source,
+                  f'{materialized} {declared_source}'))
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     return (not bad, f'{len(cases)} stated cases',
@@ -80427,7 +80446,8 @@ def main():
     check_due_reminder_reaches_the_reply()
     check_todo_and_gotcha_sweeps()
     check('an update leaves what a removed check strands, installs past PEP 668, '
-          'and stamps never reach a build code or a synced copy',
+          'stamps never reach a build code or a synced copy, and a materialized '
+          'repository is a consumer',
           *check_update_leftovers_installs_and_stamps())
 
     # RECAP THE FAILURES BY NAME, immediately before the summary line.

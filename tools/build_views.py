@@ -1882,14 +1882,34 @@ def repo_is_practice_source(root):
 
 def repo_is_consumer(root):
     """Whether this repo CONSUMES the practice sets: tools/ENGINE_MANIFEST.json
-    says `kind: consumer`. BestPractice itself has no manifest and a practice
-    set says `source`, so neither reads as one; an unreadable manifest is not
-    one either."""
-    mf = root / 'tools' / 'ENGINE_MANIFEST.json'
+    says `kind: consumer`, or, with no engine manifest saying otherwise, a
+    MANIFEST.json that precedent_materialize.py wrote is at its root.
+    BestPractice itself has neither and a practice set's engine manifest
+    says `source`, so neither reads as one; an unreadable manifest is not
+    one either.
+
+    WHY THE SECOND SIGNAL (2026-10-15). precedent_sync_views.py treats every
+    repository it materializes into as a consumer -- it keeps the views one
+    has and never writes one it lacks -- while this asked only the engine
+    manifest, which a consumer whose engine sits elsewhere (the classic
+    process/upstream/tools/ layout) or was never recorded does not carry.
+    There `build_views --check` failed on a MAP.md and a GLOSSARY.md that
+    no sync would ever write, right after a sync whose own check passed.
+    precedent_materialize.py refuses a self-referential source, so its
+    MANIFEST.json is in exactly the repositories that consume."""
     try:
-        return json.loads(mf.read_text()).get('kind') == 'consumer'
+        kind = json.loads((root / 'tools' / 'ENGINE_MANIFEST.json')
+                          .read_text(encoding='utf-8')).get('kind')
+    except Exception:                                        # noqa: BLE001
+        kind = None
+    if kind is not None:
+        return kind == 'consumer'
+    try:
+        made_by = json.loads((root / 'MANIFEST.json')
+                             .read_text(encoding='utf-8')).get('generated_by') or ''
     except Exception:                                        # noqa: BLE001
         return False
+    return str(made_by).endswith('precedent_materialize.py')
 
 
 def _same_repository(path, root):
