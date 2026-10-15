@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 171 practice files (6 resident, 165 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 172 practice files (6 resident, 166 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -103,6 +103,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md) | on-demand | a tool warns about already-published git history |
 | [no-version-suffix](practices/no-version-suffix.md) | on-demand | naming or adding a file |
 | [one-formatter-per-quantity](practices/one-formatter-per-quantity.md) | on-demand | computing, quoting or tabulating figures |
+| [one-python](practices/one-python.md) | on-demand | a repository's code runs on a Python, or a script starts another Python program |
 | [open-item-disposition](practices/open-item-disposition.md) | on-demand | writing or triaging an open item, or deciding whether to raise one in a reply |
 | [organize-scattered-content](practices/organize-scattered-content.md) | on-demand | about four or more end-user content files sit scattered around a repo |
 | [orientation-map](practices/orientation-map.md) | on-demand | orienting in a repo for the first time this session |
@@ -283,6 +284,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_practice_refs.py](tools/precedent_practice_refs.py) | Who cites a practice, across this repo and every source it declares -- live citations vs history; the lookup behind practice-change-propagates, the merge moment and Update Vendors |
 | [tools/precedent_promote.py](tools/precedent_promote.py) | Stage 3 (phase 5) — runs a candidate against the four promotion criteria |
 | [tools/precedent_push_check.py](tools/precedent_push_check.py) | Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch runs its basic tier only, and a push to main the full one |
+| [tools/precedent_python.py](tools/precedent_python.py) | precedent_python.py -- one Python per repository (practice: one-python). |
 | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) | Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none |
 | [tools/precedent_regenerate.py](tools/precedent_regenerate.py) | Rebuilds the generated files whose inputs a commit touches, and stages them -- run by the commit backstop, never refuses a commit |
 | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) | The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires |

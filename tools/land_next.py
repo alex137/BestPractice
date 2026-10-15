@@ -182,9 +182,23 @@ def git(repo, *args, check=True):
     return r
 
 
+def python_cmd(cmd):
+    """A command that names `python3` (or `python`) runs on THIS interpreter
+    -- the one the repository declares (practice one-python) -- not on
+    whatever `python3` means on PATH. The lander ran its checks as
+    `python3` by name, and in a container where that was 3.11 a landing
+    passed one check and failed the next on files only 3.12 parses
+    (2026-10-14). Commands a repository lists in its `lander` block say
+    `python3` too, so this covers them as well."""
+    cmd = list(cmd)
+    if cmd and cmd[0] in ("python3", "python"):
+        cmd[0] = sys.executable
+    return cmd
+
+
 def run(repo, cmd):
     """-> (ok, full output)."""
-    r = subprocess.run(cmd, cwd=str(repo), capture_output=True, text=True)
+    r = subprocess.run(python_cmd(cmd), cwd=str(repo), capture_output=True, text=True)
     return r.returncode == 0, (r.stdout + r.stderr).strip()
 
 

@@ -24,6 +24,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
 | decided | [decision-strength](practices/decision-strength.md) |
 | declared fallback zone | [timestamps-carry-offset](practices/timestamps-carry-offset.md) |
+| declared Python | [one-python](practices/one-python.md) |
 | decommission | [decommission-deletes-files](practices/decommission-deletes-files.md) |
 | deep check | [two-check-levels](practices/two-check-levels.md) |
 | delete link | [branch-delete-links](practices/branch-delete-links.md) |

@@ -104,6 +104,7 @@ being checked by it.
 | `no-duplication` | tree | a practice set carries no active copy of a practice its declared universal source also has active: it adds to that rule in a practice of its own, holding only what it adds |
 | `no-rewrite-for-warnings` | turn-end | the commit this branch was last published at is still an ancestor of its tip — published history has not been rewritten |
 | `no-version-suffix` | change | a file added by this change must not end its name in a version token (unless it sits beside the unsuffixed predecessor it must coexist with), nor in a state word -- final, draft, copy, new, old, latest, backup -- beside the unsuffixed original it forks. A date is not a version: a dated record keeps its date (2026-10-07) |
+| `one-python` | tree | the repository runs on ONE Python: no tracked Python file starts another with `python3` or `python` named in a subprocess call's argument list (it uses sys.executable, the Python it is running in), and the version precedent.json declares (`"python": {"version"}`, default tools/precedent_python.py DEFAULT_VERSION) is the one every GitHub workflow here sets with `python-version` |
 | `open-item-disposition` | tree | every `**Disposition:` line in a TODO file names one of the three dispositions, and a `parked` or `ask` line records the date it was set and who set it; and every OPEN todo/todo-*.md item's frontmatter `disposition:` is one of the three, or null |
 | `orientation-map` | tree | MAP.md exists at the repository root, is not empty, and the session instructions point at it |
 | `parallel-artifact-ledger` | tree | `templates/harness/LEDGER.md` exists, and every commit that touched a harness-adapter member (claude-code/, codex/, or gemini-cli/) is named in exactly one row's `Originating change` cell, or added its own row in the same commit (a commit cannot name its own ID) -- a mention in another row's prose is a citation, not that commit's own row |
@@ -134,7 +135,7 @@ being checked by it.
 | `whats-new` | change | a changed What's New log has every entry in the shape: a heading "<Weekday> <date>: <slug>" whose weekday is the date's own, the fixed opening line word for word, every bullet opening with a bold key phrase, and no approver named |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-66 of 182 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+67 of 183 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
