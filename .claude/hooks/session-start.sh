@@ -35,9 +35,19 @@ set -euo pipefail
 # Ungated 2026-09-06: a stale checkout is not a cloud-only failure, and the
 # reason to gate the pip install (do not touch a developer's own environment)
 # does not apply to reading and repairing git state.
+#
+# The install goes through tools/precedent_python.py (practice one-python):
+# the declared Python's own pip, and python3 meaning that Python for the rest
+# of the session. A bare `pip` installed into whichever Python it belonged
+# to, which in a container with several was not the one the code ran on
+# (2026-10-13).
 if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
-  pip_err="$(pip install --quiet cmarkgfm markdown 2>&1 1>/dev/null)" || \
-    echo "WARN: pip install failed - doc_lint strikethrough check, .md deck slides, and tools/doc_html.py all degrade - pip stderr: ${pip_err}" >&2
+  python3 "${CLAUDE_PROJECT_DIR:-.}/tools/precedent_python.py" setup || \
+    echo "WARN: the declared Python is not set up - doc_lint strikethrough check, .md deck slides, and tools/doc_html.py may degrade (above says why)" >&2
+  _pybin="$(python3 "${CLAUDE_PROJECT_DIR:-.}/tools/precedent_python.py" bin 2>/dev/null)" && [ -d "$_pybin" ] && export PATH="$_pybin:$PATH"
+else
+  python3 "${CLAUDE_PROJECT_DIR:-.}/tools/precedent_python.py" check >/dev/null || \
+    python3 "${CLAUDE_PROJECT_DIR:-.}/tools/precedent_python.py" check || true
 fi
 
 # WHAT IS BROKEN COMES FIRST (2026-10-09, the main landing plan, piece B,

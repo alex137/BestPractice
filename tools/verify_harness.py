@@ -26976,6 +26976,85 @@ def check_routing_reason_lives_in_the_practice():
           not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
 
 
+def check_one_python():
+    """practice one-python: a tool that starts Python by name, and a workflow
+    on another version than the declared one, are refused; sys.executable,
+    a fixture string and a matching workflow pass. And precedent_python
+    reads the declaration, defaults it, and adds the engine's own packages.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    import precedent_python as pp
+
+    def judge(files):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-one-python-'))
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+        subprocess.run(['git', '-C', str(d), 'init', '-q'], capture_output=True)
+        old = pc.ROOT
+        pc.ROOT = d
+        try:
+            return '; '.join(str(f) for f in pc._one_python(pc.Ctx(paths=['x'])))
+        finally:
+            pc.ROOT = old
+            shutil.rmtree(d, ignore_errors=True)
+
+    cases = []
+    out = judge({'tools/a.py': "import subprocess\nsubprocess.run(['python3', 'b.py'])\n"})
+    cases.append(('a tool starting python3 by name is refused', 'tools/a.py:2' in out, out))
+    out = judge({'tools/a.py': "import subprocess as sp\nsp.check_output(('python', 'b.py'))\n"})
+    cases.append(('...and `python` in a tuple, through an alias', 'tools/a.py:2' in out, out))
+    out = judge({'tools/a.py': "import subprocess, sys\nsubprocess.run([sys.executable, 'b.py'])\n"
+                               "FIXTURE = \"subprocess.run(['python3', 'x.py'])\"\n"})
+    cases.append(('sys.executable passes, and a fixture string is prose', out == '', out))
+    wf = 'jobs:\n  t:\n    steps:\n      - uses: actions/setup-python@v5\n        with:\n          python-version: "{}"\n'
+    out = judge({'precedent.json': '{"python": {"version": "3.12"}}\n',
+                 '.github/workflows/t.yml': wf.format('3.11'), 'tools/a.py': 'x = 1\n'})
+    cases.append(('a workflow on another version is refused', '3.11' in out and '3.12' in out, out))
+    out = judge({'.github/workflows/t.yml': wf.format(pp.DEFAULT_VERSION), 'tools/a.py': 'x = 1\n'})
+    cases.append(('no declaration: the default, matched by the workflow, passes', out == '', out))
+
+    d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-one-python-decl-'))
+    try:
+        cases.append(('no precedent.json: the default version and the engine packages',
+                      pp.declared(d) == (pp.DEFAULT_VERSION, pp.BASE_PACKAGES), pp.declared(d)))
+        (d / 'precedent.json').write_text('{"python": {"version": "3.13", "packages": ["numpy", "markdown"]}}')
+        got = pp.declared(d)
+        cases.append(('a declaration is read, the engine packages added once',
+                      got == ('3.13', ['cmarkgfm', 'markdown', 'numpy']), got))
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+    exe = pp.interpreter(pp.DEFAULT_VERSION) or sys.executable
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-one-python-env-'))
+    env = dict(os.environ, CLAUDE_ENV_FILE=str(tmp / 'env'), XDG_CACHE_HOME=str(tmp / 'cache'))
+    try:
+        r = subprocess.run([sys.executable, '-c',
+                            'import sys; sys.path.insert(0, sys.argv[1]); import precedent_python as pp; '
+                            'd = pp.make_shims(sys.argv[2], "9.9"); print(d); print(pp.export_path(d) or "ok")',
+                            str(ROOT / 'tools'), exe], env=env, capture_output=True, text=True)
+        lines = r.stdout.split()
+        shim = pathlib.Path(lines[0]) if lines else tmp
+        written = (tmp / 'env').read_text() if (tmp / 'env').exists() else ''
+        v = subprocess.run([str(shim / 'python3'), '-c', 'import sys; print(sys.executable)'],
+                           capture_output=True, text=True).stdout.strip()
+        cases.append(('setup links python3 to the declared Python and puts it first on PATH '
+                      'through the session environment file',
+                      lines[-1:] == ['ok'] and f'export PATH="{shim}:$PATH"' in written
+                      and pathlib.Path(v).resolve() == pathlib.Path(exe).resolve(),
+                      (r.stdout, r.stderr[-300:], written, v)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check(f'one Python: tools start Python with sys.executable, workflows match the '
+          f'declared version, and setup makes python3 mean it ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
 def check_filename_separator_knows_names_it_did_not_choose():
     """Two names the separator check used to count as a directory's own
     choice, each planted beside a name using the other separator.
@@ -79482,6 +79561,7 @@ def main():
           *check_no_conflict_markers_in_shipped_tools())
     check_routing_reason_lives_in_the_practice()
     check_filename_separator_knows_names_it_did_not_choose()
+    check_one_python()
     check_new_exemption_needs_a_root_fix()
     check_retired_words_are_found_and_history_is_left()
     check_practice_file_shape_judges_one_file_at_a_time()

@@ -6448,6 +6448,66 @@ def _adds_to_names_a_rule_in_force(ctx):
     return out
 
 
+@check('one-python', 'tree',
+       'the repository runs on ONE Python: no tracked Python file starts '
+       'another with `python3` or `python` named in a subprocess call\'s '
+       'argument list (it uses sys.executable, the Python it is running in), '
+       'and the version precedent.json declares (`"python": {"version"}`, '
+       'default tools/precedent_python.py DEFAULT_VERSION) is the one every '
+       'GitHub workflow here sets with `python-version`',
+       'a command built in a string and run through a shell, a hook or '
+       'script that says `python3` (session start makes that name mean the '
+       'declared Python, so it is right), an argument list assembled in a '
+       'variable before the call, and whether the session\'s python3 really '
+       'is the declared one -- that is a fact about the machine, which '
+       '`tools/precedent_python.py check` reports at session start')
+def _one_python(ctx):
+    """Two halves of one property. AST, not grep: a fixture that writes
+    `subprocess.run(['python3', ...])` into a string is prose, not a call."""
+    import ast
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_python as pp
+        version = pp.declared(ctx.root)[0]
+    except Exception:
+        version = None
+    out = []
+    calls = {'run', 'Popen', 'call', 'check_call', 'check_output'}
+    files = _ls_files_on_disk('--cached', '--others', '--exclude-standard',
+                              '--', '*.py', root=ctx.root)
+    if not files:
+        raise NotApplicable('no tracked Python files in this repository')
+    for rel in files:
+        try:
+            tree = ast.parse((ctx.root / rel).read_text(encoding='utf-8'))
+        except (OSError, SyntaxError):
+            continue        # timestamps-carry-offset already names such a file
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and node.args):
+                continue
+            fn = node.func
+            name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, 'id', '')
+            base = fn.value.id if isinstance(fn, ast.Attribute) and isinstance(fn.value, ast.Name) else ''
+            if name not in calls or base not in ('subprocess', 'sp', ''):
+                continue
+            first = node.args[0]
+            if isinstance(first, (ast.List, ast.Tuple)) and first.elts and \
+                    isinstance(first.elts[0], ast.Constant) and \
+                    first.elts[0].value in ('python3', 'python'):
+                out.append(Finding(f'{rel}:{node.lineno}',
+                                   f'starts `{first.elts[0].value}` by name, which is '
+                                   'whatever Python PATH finds; use sys.executable'))
+    if version:
+        import re
+        for wf in sorted((ctx.root / '.github' / 'workflows').glob('*.y*ml')):
+            for m in re.finditer(r'python-version:\s*["\']?([0-9.]+)', wf.read_text(encoding='utf-8')):
+                if m.group(1) != version:
+                    out.append(Finding(f'{wf.relative_to(ctx.root)}',
+                                       f'sets python-version {m.group(1)}; this repository '
+                                       f'declares {version} (precedent.json "python")'))
+    return out
+
+
 @check('timestamps-carry-offset', 'tree',
        'no tracked Python file stamps a moment with a bare `date.today()`, '
        '`utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` '
