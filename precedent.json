@@ -1,4 +1,5 @@
 {
+  "python": {"version": "3.12", "packages": []},
   "format_version": 1,
   "base_branch": "staging",
   "_base_branch_comment": [

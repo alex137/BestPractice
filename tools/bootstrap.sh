@@ -38,22 +38,36 @@ local_session="${PRECEDENT_LOCAL_SESSION:-}"
 # GitHub-renderer check; keep it even if you add nothing else):
 if [ "$local_session" = "1" ]; then
   echo "NOTE: local session -- skipped pip install (cmarkgfm markdown); this machine manages its own packages. doc_lint's strikethrough check needs cmarkgfm installed by hand." >&2
+  [ -f tools/precedent_python.py ] && { python3 tools/precedent_python.py check >/dev/null || python3 tools/precedent_python.py check || true; }
 else
-  # pip's own last line goes into the warning, and the import is checked
-  # after: a consumer's first prompt warned the markdown package was
-  # missing, the push check later installed it without trouble, and with
-  # the error thrown away nothing said why (2026-10-04). A `pip` that
-  # belongs to another Python than python3 installs quietly and fails the
-  # import check, so that case is said too.
-  _pip_rc=0
-  _pip_log="$(mktemp 2>/dev/null || echo /tmp/precedent-pip.$$)"
-  pip install --quiet cmarkgfm markdown 2>"$_pip_log" >/dev/null || _pip_rc=$?
-  if [ "$_pip_rc" -ne 0 ]; then
-    echo "WARN: pip install failed - doc_lint strikethrough check will be skipped: $(tail -n 1 "$_pip_log")" >&2
-  elif ! python3 -c 'import cmarkgfm, markdown' 2>/dev/null; then
-    echo "WARN: pip install reported success but $(command -v python3) cannot import cmarkgfm and markdown -- pip may belong to another Python: $(command -v pip)" >&2
+  # Through tools/precedent_python.py (practice one-python): the Python
+  # precedent.json declares gets the packages, through its own pip, and
+  # python3 means that Python for the rest of the session. A bare `pip`
+  # installed into whichever Python it belonged to (2026-10-13: python3 was
+  # 3.11 with the packages, python3.12 ran the code and had none).
+  if [ -f tools/precedent_python.py ]; then
+    python3 tools/precedent_python.py setup || \
+      echo "WARN: the declared Python is not set up (above says why); doc_lint's strikethrough check may be skipped" >&2
+    # and for the rest of this script too: the session file reaches later
+    # commands, not the process already running
+    _pybin="$(python3 tools/precedent_python.py bin 2>/dev/null)" && [ -d "$_pybin" ] && export PATH="$_pybin:$PATH"
+  else
+    # pip's own last line goes into the warning, and the import is checked
+    # after: a consumer's first prompt warned the markdown package was
+    # missing, the push check later installed it without trouble, and with
+    # the error thrown away nothing said why (2026-10-04). A `pip` that
+    # belongs to another Python than python3 installs quietly and fails the
+    # import check, so that case is said too.
+    _pip_rc=0
+    _pip_log="$(mktemp 2>/dev/null || echo /tmp/precedent-pip.$$)"
+    pip install --quiet cmarkgfm markdown 2>"$_pip_log" >/dev/null || _pip_rc=$?
+    if [ "$_pip_rc" -ne 0 ]; then
+      echo "WARN: pip install failed - doc_lint strikethrough check will be skipped: $(tail -n 1 "$_pip_log")" >&2
+    elif ! python3 -c 'import cmarkgfm, markdown' 2>/dev/null; then
+      echo "WARN: pip install reported success but $(command -v python3) cannot import cmarkgfm and markdown -- pip may belong to another Python: $(command -v pip)" >&2
+    fi
+    rm -f "$_pip_log"
   fi
-  rm -f "$_pip_log"
 fi
 
 # Set the commit author to whoever is actually running this session, not
