@@ -61663,6 +61663,73 @@ def check_dedup_onto_same_slug_withdraws_nothing():
           got.get('moved-rule') == 'now deduplicated', repr(got))
 
 
+def check_update_skips_citations_of_a_rule_that_only_grew():
+    """Update Vendors sends a consumer to read a citation of a practice only
+    when the practice was withdrawn or renamed, or its title or
+    index_clause -- the one line a citation paraphrases -- changed. A Rule
+    that only grew under the same one-line rule is still said to the merge
+    gate (the author's side), and not listed to the consumer.
+
+    WHY. 2026-10-15, a consumer's Update Vendors: the "citations of a
+    practice reworded or withdrawn" line flagged AGENTS.md (citing
+    reply-links-files) and TODO.md (citing todo-is-a-handoff). Neither
+    practice's index_clause or title had changed; both citations still read
+    true, and a session read both rules to find that out.
+
+    Negative control, measured 2026-10-15: on staging's code the grown rule
+    is reported as plain "Rule reworded" and its citation is listed."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    ppr = __import__('precedent_practice_refs')
+    pu = __import__('precedent_update')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='rule-only-grew-'))
+    env = _fixture_git_env()
+    fm = ('---\nslug: {s}\ntitle: {t}\nindex_clause: "{c}"\nstatus: active\n'
+          '---\n## Rule\n{r}\n')
+    cases = []
+    try:
+        g = lambda *a: subprocess.run(['git', '-C', str(tmp), *a], env=env,
+                                      check=True, capture_output=True)
+        g('init', '-q', '-b', 'main')
+        (tmp / 'practices').mkdir()
+        w = lambda s, t, c, r: (tmp / 'practices' / f'{s}.md').write_text(
+            fm.format(s=s, t=t, c=c, r=r), encoding='utf-8')
+        w('grew', 'A grown rule', 'do the thing', 'Do the thing.')
+        w('reclaused', 'A reclaused rule', 'do the thing', 'Do the thing.')
+        w('retitled', 'A retitled rule', 'do the thing', 'Do the thing.')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('checkout', '-qb', 'work')
+        w('grew', 'A grown rule', 'do the thing',
+          'Do the thing.\n\nAnd now, also in a reply.')
+        w('reclaused', 'A reclaused rule', 'do the other thing', 'Do the other thing.')
+        w('retitled', 'A rule with a new title', 'do the thing', 'Do the thing, said again.')
+        got = ppr.changed_slugs(tmp, 'main')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    body_only = getattr(ppr, 'RULE_BODY_ONLY', None)
+    cases.append(('a Rule that grew under the same one-line rule is said as that',
+                  body_only is not None and got.get('grew') == body_only, repr(got)))
+    cases.append(('CONTROL: a changed index_clause is a reworded Rule',
+                  got.get('reclaused') == 'Rule reworded', repr(got)))
+    cases.append(('CONTROL: a changed title is too',
+                  got.get('retitled') == 'Rule reworded', repr(got)))
+    hit = lambda slug: {'source': 'this repository', 'kind': 'live',
+                        'file': 'AGENTS.md', 'line': 3, 'slug': slug,
+                        'must_fix': False}
+    data = {'slugs': got, 'successors': {},
+            'hits': [hit('grew'), hit('reclaused'), hit('retitled')]}
+    fix, read = pu.citation_findings(data)
+    cases.append(('Update Vendors lists no citation of the rule that only grew',
+                  not fix and len(read) == 2
+                  and not any('grew' in r for r in read), repr((fix, read))))
+    cases.append(('the merge gate still counts it as reworded, for the author',
+                  'grew' in got and got['grew'].startswith('Rule reworded'),
+                  repr(got)))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors skips citations of a rule that only grew '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
+
+
 def check_practice_refs_sorts_live_from_history():
     """precedent_practice_refs.py finds every citation of a renamed practice
     in a SET, marks the live pointers as must-fix, and leaves history alone.
@@ -79875,6 +79942,7 @@ def main():
     check_links_to_renamed_practice_forward()
     check_practice_refs_sorts_live_from_history()
     check_dedup_onto_same_slug_withdraws_nothing()
+    check_update_skips_citations_of_a_rule_that_only_grew()
     check_practice_declared_hooks_are_wired()
     check_stale_views_judged_on_what_a_push_brings()
     check_merge_refreshes_stale_views_as_its_own_commit()

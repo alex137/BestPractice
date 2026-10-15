@@ -4300,6 +4300,13 @@ def citation_findings(data, engine=frozenset()):
             # wording -- the same consumer was sent to read five of those.
             if h['file'].endswith('.md'):
                 read.append(where)
+        elif slugs.get(h['slug'], '').startswith('Rule reworded'):
+            # Its title and index_clause, the one line a citation
+            # paraphrases, did not change: the Rule only grew or was
+            # reworded under it, so the citation still reads true
+            # (precedent_practice_refs.RULE_BODY_ONLY; 2026-10-15, a
+            # consumer sent to read two such citations, both still correct).
+            continue
         elif h['slug'] in slugs:
             # A bare mention of a renamed or withdrawn slug. The check
             # does not refuse it (it may be lineage), but it is a citation
