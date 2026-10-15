@@ -1486,6 +1486,38 @@ def mirrored_prefixes(repo):
     return tuple(sorted(prefixes))
 
 
+def synced_copies(repo):
+    """-> frozenset of repo-relative paths that a process/manifest*.json
+    records as a whole-file copy kept in step with upstream: an entry with
+    granularity "file" (the default) and status "synced" (the default).
+
+    mirrored_prefixes answers for whole vendored trees; this answers for the
+    single files a consumer keeps beside its own -- a template it rendered
+    once and tracks, like GETTING_STARTED.md. practice_audit.py holds each
+    to its recorded sha256, and reports any change as DRIFT until it is
+    exported upstream. So nothing that writes on its own may touch one: on
+    2026-10-15 the commit-time file-header fixer stamped a synced
+    GETTING_STARTED.md on an edit and again on a byte-for-byte restore, and
+    the audit refused the landing each time. A person's own edit is still
+    theirs to make and export; a tool's stamp is not.
+
+    Never raises; a repository with no manifest has no synced copies."""
+    repo_root = pathlib.Path(repo).resolve()
+    out = set()
+    for manifest in sorted((repo_root / 'process').glob('manifest*.json')):
+        try:
+            entries = json.loads(manifest.read_text(encoding='utf-8')).get('entries') or []
+        except (ValueError, OSError, AttributeError):
+            continue
+        for e in entries:
+            if not isinstance(e, dict) or not e.get('local_path'):
+                continue
+            if e.get('granularity', 'file') == 'file' \
+                    and e.get('status', 'synced') == 'synced':
+                out.add(pathlib.PurePosixPath(e['local_path']).as_posix())
+    return frozenset(out)
+
+
 def declared_record_paths(repo):
     """-> precedent.json's `record_paths` entries ({"path", "reason"}), as
     path strings; an entry ending in "/" covers a directory. A whole record

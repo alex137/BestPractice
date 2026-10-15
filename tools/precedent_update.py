@@ -608,6 +608,17 @@ def removed_links_step(rep, out):
                 else 'an earlier update removed')
         rep.leave(line[0], f'links `{line[1]}`, which {when} '
                            f'({line[3]}). Repoint it or remove it')
+    # A check script or test the sync took out, named by path or by name
+    # (precedent_sync_views._mentions_of_removed_files). Until 2026-10-15
+    # these were printed and nothing more: a consumer's update deleted a
+    # retired check, said DONE, and the light check and rename-updates-links
+    # then refused the landing for a precedent.json key, a repo-local stub
+    # and a closed open item that still named it.
+    for where, path in re.findall(r'precedent_sync_views: (\S+:\d+) still names '
+                                  r'(\S+), which this sync removed', out):
+        rep.leave(where, f'still names {path}, which this update removed. '
+                         f'Repoint it or remove it; the full check '
+                         f'(rename-updates-links) refuses it')
 
 
 def retired_sources_step(repo, rep):

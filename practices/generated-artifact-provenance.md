@@ -27,6 +27,19 @@ content hash) produced it. Outputs are gitignored and marked binary in
 (force-added), alongside their manifest.
 
 ## Detail
+**A build code hashes what the reader gets, never a stamp a commit writes.**
+A commit-time header fixer rewrites a source's `<!-- Last updated: ... -->`
+line after the builder has run, so a code hashed over the whole file reads
+stale the moment the commit lands. Hash each source through
+[`tools/doc_lifecycle.py`](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lifecycle.py)'s
+`without_header_stamp()`; the built file drops the HTML comment anyway.
+
+**A check that an artifact is current is routed by every input its build
+code hashes**: the content files, and also the builder, any shared
+renderer it imports, and any asset such as a logo. A routing list that
+names only the content lets a renderer change pass a branch's check and
+fail the full one on the way to `main`, where nothing about the change
+looks related.
 
 ## Why
 A content-derived build code makes an artifact's identity **a property of its content rather than of when it was built**, which is the only version of the question that survives two builds minutes apart. A timestamp or a commit hash answers "which run produced this"; neither answers "is this the same thing that shipped".

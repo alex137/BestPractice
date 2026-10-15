@@ -71600,7 +71600,11 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         rule.parent.mkdir(parents=True)
 
         def set_commit(text, msg):
-            rule.write_text(_pin_fixture_practice('set-rule', text), encoding='utf-8')
+            # Resident, so the version reaches AGENTS.md's loader block and
+            # not only the materialized practice.
+            rule.write_text(_pin_fixture_practice('set-rule', text).replace(
+                'tier:        on-demand', 'tier:        resident'),
+                encoding='utf-8')
             git(st, 'add', '-A')
             git(st, 'commit', '-qm', msg)
             return git(st, 'rev-parse', 'HEAD').stdout.strip()
@@ -71659,6 +71663,23 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         cases.append(('the views check passes with the clone on main: it reads the '
                       'set at the recorded commit (the reported refusal)',
                       rc == 0, out[-600:]))
+        # build_views --check, which generated-artifact-provenance runs, asks
+        # the same question of the same tree. It read the clone as it stood,
+        # and called AGENTS.md stale where the sync's check called it
+        # byte-identical (a consumer's main, 2026-10-15).
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                            '--repo', str(repo), '--check'], cwd=str(repo), env=env,
+                           capture_output=True, text=True, timeout=600)
+        # Only AGENTS.md is this case's question: the fixture never builds
+        # MAP.md or GLOSSARY.md from sources of their own, and build_views
+        # reports them whether or not the set is pinned.
+        drift = next((l for l in (r.stdout + r.stderr).splitlines()
+                      if 'drifted from regeneration' in l), '')
+        cases.append(('...and so does build_views --check: AGENTS.md is read from '
+                      'the set at the same recorded commit, with the clone on v1',
+                      'AGENTS.md' not in drift and 'Version two.' not in
+                      git(st, 'show', 'HEAD:practices/set-rule.md').stdout,
+                      (r.stdout + r.stderr)[-600:]))
         rc, out = sync('--check', '--for-branch', 'pre-staging')
         cases.append(('...and a push to pre-staging passes: the set has v2 on its '
                       'own pre-staging', rc == 0, out[-600:]))
@@ -79482,6 +79503,84 @@ def check_filtered_check_does_not_break_the_unpack_family():
     return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
+def check_update_leftovers_installs_and_stamps():
+    """Four engine answers a consumer's landings depended on, 2026-10-15:
+
+      * an update lists, as LEFT FOR YOU, every file still naming a check
+        script the sync removed (removed_links_step) -- it only printed
+        them, and the landing was refused for each;
+      * the one install call retries pip's PEP 668 refusal
+        (precedent_python.pip_install), which the push check's own copy
+        did not;
+      * a build code can hash a source without its header stamp
+        (doc_lifecycle.without_header_stamp), so a commit-time restamp
+        does not make every artifact built from it stale;
+      * synced_copies names the single files a manifest keeps in step with
+        upstream, which a commit-time fixer must not stamp.
+    -> (ok, detail, failure)."""
+    import json, shutil, subprocess as sp_, tempfile, types
+    import precedent_update as pu
+    import precedent_python as ppy
+    import doc_lifecycle as dl
+    import precedent_resolve as pr_
+    cases = []
+
+    rep = types.SimpleNamespace(left=[])
+    rep.leave = lambda what, why: rep.left.append((what, why))
+    pu.removed_links_step(rep, (
+        'precedent_sync_views: local/practices/x.md:11 still names '
+        'tools/checks/check_gone.py, which this sync removed -- repoint or '
+        'remove it\n'))
+    cases.append(('a mention of a removed check script is left for the person',
+                  [w for w, _ in rep.left] == ['local/practices/x.md:11']
+                  and 'check_gone.py' in rep.left[0][1], repr(rep.left)))
+
+    calls = []
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        if '--break-system-packages' in cmd:
+            return sp_.CompletedProcess(cmd, 0, '', '')
+        return sp_.CompletedProcess(cmd, 1, '', 'error: externally-managed-environment')
+    real = ppy.subprocess.run
+    ppy.subprocess.run = fake_run
+    try:
+        r = ppy.pip_install('python3', ['somepkg'])
+    finally:
+        ppy.subprocess.run = real
+    cases.append(('a PEP 668 refusal is retried with --break-system-packages',
+                  r.returncode == 0 and len(calls) == 2
+                  and calls[1][-1] == '--break-system-packages', repr(calls)))
+
+    a = ('<!-- Last updated: 2026-10-15 20:00:00 (Buenos Aires) by Morgan F, '
+         'to version 3 -->\n# Title\nbody\n')
+    b = a.replace('20:00:00', '21:30:00').replace('version 3', 'version 4')
+    cases.append(('two stamps on the same text hash the same',
+                  dl.without_header_stamp(a) == dl.without_header_stamp(b)
+                  == '# Title\nbody\n', repr(dl.without_header_stamp(a))))
+    quoted = '# Title\n<!-- Last updated: quoted further down -->\n'
+    cases.append(('only a first-line stamp is taken out',
+                  dl.without_header_stamp(quoted) == quoted, ''))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-synced-'))
+    try:
+        (tmp / 'process').mkdir()
+        (tmp / 'process' / 'manifest.json').write_text(json.dumps({'entries': [
+            {'local_path': 'GETTING_STARTED.md', 'status': 'synced'},
+            {'local_path': 'AGENTS.md', 'granularity': 'section', 'status': 'synced'},
+            {'local_path': 'NOTES.md', 'status': 'diverged'}]}), encoding='utf-8')
+        (tmp / 'process' / 'manifest_pack.json').write_text(json.dumps({'entries': [
+            {'local_path': 'pack/README.md', 'granularity': 'file'}]}), encoding='utf-8')
+        got = pr_.synced_copies(tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    cases.append(('synced_copies names whole-file synced entries, in every manifest',
+                  got == {'GETTING_STARTED.md', 'pack/README.md'}, repr(sorted(got))))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
+
+
 def main():
     _install_retrying_tempdir_cleanup()
     _install_check_filter()
@@ -80327,6 +80426,9 @@ def main():
     check_todo_gotcha_stale_reference_fires()
     check_due_reminder_reaches_the_reply()
     check_todo_and_gotcha_sweeps()
+    check('an update leaves what a removed check strands, installs past PEP 668, '
+          'and stamps never reach a build code or a synced copy',
+          *check_update_leftovers_installs_and_stamps())
 
     # RECAP THE FAILURES BY NAME, immediately before the summary line.
     #
