@@ -58,7 +58,9 @@ only the clones on this machine, so a session with fewer repositories open
 than the last one would wipe the rows that one listed. With a saved page,
 `--html` writes nothing until it is handed that page as it stands --
 `--merge FILE` (in Claude Code, the file the Artifact tool's read saves
-with path index.html) -- or told
+with path index.html, read immediately before the build: never a copy
+from earlier in the session, which another session may have republished
+over since -- the tool warns when the file looks like one) -- or told
 `--replace`, for a saved page that is gone or cannot be read. Merged, a
 repository this run checked gets its fresh rows, or none if nothing in it
 is deletable any more; one it did not check keeps the rows last listed,
@@ -394,6 +396,61 @@ def page_format(text):
     return fmt if isinstance(fmt, int) and not isinstance(fmt, bool) else None
 
 
+def page_built(text):
+    """-> the aware datetime a page's JSON block says it was built, or None
+    (no block, or no readable `built`)."""
+    m = _DATA.search(text)
+    if not m:
+        return None
+    try:
+        when = datetime.datetime.fromisoformat(json.loads(m.group(1))['built'])
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+    return when if when.tzinfo else when.replace(tzinfo=datetime.timezone.utc)
+
+
+# How old a file handed to --merge may be before it is called out as not a
+# fresh read. A judgment, not a measurement: a read made just before the
+# build is seconds old, and a copy from earlier in the session is usually
+# far older than this.
+FRESH_READ_MINUTES = 10
+
+
+def stale_merge_warnings(prev, out, prev_text, now=None):
+    """-> the reasons the file handed to --merge looks like something other
+    than a read of the saved page made just before this build (2026-10-15:
+    a session merged its own earlier copy after another session had
+    republished the page, which would have dropped that session's rows and
+    the ticks saved since). Warnings, never a refusal: the artifact
+    service's conflict check is the backstop, and only the person's page
+    knows what is current."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    said = []
+    try:
+        same = prev.resolve() == out.resolve()
+    except OSError:
+        same = False
+    if same:
+        said.append(f'{prev} is the file this tool writes, so it is this '
+                    f'session\'s own last build, not the saved page')
+    elif out.is_file():
+        try:
+            ours = page_built(out.read_text(encoding='utf-8'))
+        except OSError:
+            ours = None
+        theirs = page_built(prev_text)
+        if ours and theirs and theirs < ours:
+            said.append(f'{prev} was built before the page this session '
+                        f'last wrote to {out}, so it is an older copy')
+    try:
+        age = now.timestamp() - prev.stat().st_mtime
+    except OSError:
+        age = 0
+    if age > FRESH_READ_MINUTES * 60:
+        said.append(f'{prev} was saved {int(age // 60)} minutes ago')
+    return said
+
+
 def read_page(text):
     """-> [{'owner', 'repo', 'checked', 'branches': [[branch, date]]}] from a
     page this tool built: its JSON block, or, on a page built before it
@@ -602,6 +659,11 @@ def main(argv):
                       f'the page the saved address holds, or --replace if '
                       f'replacing it is meant.')
                 return 2
+            for why in stale_merge_warnings(prev, out, prev_text):
+                print(f'WARNING: {why}. Merge a read of the saved page made '
+                      f'immediately before this build (the Artifact tool\'s '
+                      f'read of its url with path index.html), or rows and '
+                      f'ticks saved since are lost.')
             carried = carried_over(previous, seen, done)
             ticked = (sum(len(r.get('branches') or []) for r in previous
                           if (r['owner'], r['repo']) in
