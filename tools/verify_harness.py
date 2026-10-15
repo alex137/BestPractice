@@ -69640,6 +69640,110 @@ def check_update_vendors_reports_dropped_template_wording():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_refreshes_a_template_own_comment():
+    """A line the template dropped from its own instruction comment (the
+    `<!-- Template: ... -->` header) is replaced by the current template's
+    comment and said once, not left for a person; text outside that comment
+    is still only reported, and a comment the repository wrote into is
+    never written.
+
+    WHY. 2026-10-15, a consumer's Update Vendors: upstream renumbered
+    "INSTALL.md §1" to "§0" inside the header comment of four templates, and
+    the run stopped on four LEFT FOR YOU lines until a person edited one
+    line in each file by hand -- the same four in every consumer.
+
+    Negative control, measured 2026-10-15: on staging's code the comment
+    line is left for the person and the file is unchanged."""
+    import contextlib, io, tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-template-comment-'))
+    env = dict(_fixture_git_env(), GIT_CONFIG_NOSYSTEM='1')
+    git = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                         capture_output=True, text=True)
+    cases = []
+    saved_source = pu.SOURCE
+    head = ('<!-- Template: instantiate per Precedent INSTALL.md §{n} (practice x).\n'
+            '     This file is deliberately tiny and stays that way. -->\n')
+    body_v1 = ('# Open items\n'
+               'Write every open item as a checkbox in this file.\n'
+               'Every open item is tracked in one place here.\n')
+    body_v2 = ('# Open items\n'
+               'Every open item is tracked in one place here.\n')
+    try:
+        src = tmp / 'source'
+        (src / 'templates').mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        tmpl = src / 'templates' / 'TODO.md.template'
+        tmpl.write_text(head.format(n=1) + body_v1, encoding='utf-8')
+        git(src, 'add', '-A'); git(src, 'commit', '-qm', 'v1')
+        v2_head = head.format(n=0).replace(
+            ' -->\n', '\n     Do not rewrite it into a checkbox list. -->\n')
+        tmpl.write_text(v2_head + body_v2, encoding='utf-8')
+        git(src, 'add', '-A'); git(src, 'commit', '-qm', 'v2')
+        rev = git(src, 'rev-parse', 'HEAD').stdout.strip()
+        pu.SOURCE = src
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        own = 'Our own note about the billing export, written by this repo.\n'
+        todo = repo / 'TODO.md'
+
+        def run():
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                pu.dropped_template_lines_step(repo, rep, rev)
+            return rep
+
+        todo.write_text(head.format(n=1) + body_v1 + own, encoding='utf-8')
+        rep = run()
+        text = todo.read_text(encoding='utf-8')
+        cases.append(('the template\'s own comment takes the current one, said once',
+                      text.startswith(v2_head)
+                      and any(n == 'template comment refreshed' for n, _o in rep.steps),
+                      f'{text[:300]!r} {rep.steps}'))
+        cases.append(('...and the renumbered line is not left for you',
+                      not any('§1' in str(v) for v in dict(rep.left).values()),
+                      str(rep.left)))
+        cases.append(('a dropped line outside the comment is still left, at its '
+                      'line in the file as written',
+                      'TODO.md:5' in dict(rep.left)
+                      and text.splitlines()[4].startswith('Write every open item'),
+                      f'{rep.left}'))
+        cases.append(('...and it, and the repo\'s own line, are not written',
+                      text.endswith(body_v1 + own), repr(text[-200:])))
+
+        mine = head.format(n=1).replace('stays that way.', 'stays that way. Ours: keep it.')
+        todo.write_text(mine + body_v2, encoding='utf-8')
+        rep = run()
+        cases.append(('a comment the repository wrote into is never written, and '
+                      'is still left for you',
+                      todo.read_text(encoding='utf-8') == mine + body_v2
+                      and 'TODO.md:1' in dict(rep.left), f'{rep.left} {rep.steps}'))
+
+        todo.write_text(head.format(n=1) + body_v2, encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({
+            pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                'reason': 'kept on purpose', 'template_sha256': '0' * 64}}}),
+            encoding='utf-8')
+        run()
+        cases.append(('a file recorded as kept is never written',
+                      todo.read_text(encoding='utf-8') == head.format(n=1) + body_v2,
+                      ''))
+        (repo / 'precedent.json').unlink()
+        rep = run()
+        cases.append(('...and without the record, a file whose only dropped line '
+                      'was in the comment leaves nothing for you',
+                      not rep.left and todo.read_text(encoding='utf-8') == v2_head + body_v2,
+                      f'{rep.left} {rep.steps}'))
+    except (OSError, ValueError, AttributeError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pu.SOURCE = saved_source
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors refreshes a template\'s own instruction comment, and '
+          f'only that ({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -79926,6 +80030,7 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_update_vendors_refreshes_a_template_own_comment()
     check_update_vendors_dropped_wording_reads_a_views_source()
     check_kept_pin_moves_across_a_comment_only_template_change()
     check_update_vendors_names_what_others_changed_upstream()

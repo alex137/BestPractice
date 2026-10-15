@@ -2350,6 +2350,68 @@ def _still_an_old_template(repo, rel, tmpl, rev):
     return True
 
 
+# The template's own instruction comment: the first HTML comment that opens
+# "<!-- Template" (GETTING_STARTED.md's opens "<!-- Template AND ...").
+_TEMPLATE_COMMENT = re.compile(r'^\s*<!--\s*Template\b')
+
+
+def _template_comment_span(lines):
+    """-> (start, end), 0-based and end-exclusive, of the template's own
+    instruction comment in `lines`, or None when there is none."""
+    for i, line in enumerate(lines):
+        if _TEMPLATE_COMMENT.match(line):
+            for j in range(i, len(lines)):
+                if '-->' in lines[j]:
+                    return i, j + 1
+            return None
+    return None
+
+
+def refresh_template_comment(repo, rel, tmpl, rev, hits):
+    """Replace install-once file `rel`'s template instruction comment with
+    the current `tmpl`'s (at `rev`) when a dropped line `hits` found sits in
+    it. -> the hits left outside it, renumbered to the file as written, or
+    None when nothing was written.
+
+    The comment is the template's, not the repository's: it tells whoever
+    installs the file what to do with it. Only a comment whose every line
+    some version of the template carried is replaced, so a word the
+    repository added there is never lost (practice:
+    repair-cannot-discard-work); otherwise the lines are left for the person
+    as before, and so is anything outside the comment.
+
+    WHY (2026-10-15, a consumer's Update Vendors). Upstream renumbered
+    "INSTALL.md §1" to "§0" inside the comment of four templates, and the
+    update stopped on four LEFT FOR YOU lines until a person edited one line
+    in each file by hand -- the same four in every consuming repository."""
+    target = pathlib.Path(repo) / rel
+    current = _source_text(rev, tmpl)
+    try:
+        text = target.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return None
+    if current is None:
+        return None
+    lines, theirs = text.splitlines(keepends=True), current.splitlines(keepends=True)
+    ours, now = _template_comment_span(lines), _template_comment_span(theirs)
+    if not ours or not now:
+        return None
+    a, b = ours
+    if not any(a < n <= b for n, _l in hits):
+        return None
+    upstream = _template_lines_ever(rev, tmpl) | {l.strip() for l in theirs}
+    if any(l.strip() not in upstream for l in lines[a:b] if l.strip()):
+        return None
+    new = theirs[now[0]:now[1]]
+    if new and not new[-1].endswith('\n') and lines[b:]:
+        new[-1] += '\n'
+    if new == lines[a:b]:
+        return None
+    target.write_text(''.join(lines[:a] + new + lines[b:]), encoding='utf-8')
+    shift = len(new) - (b - a)
+    return [(n + shift if n > b else n, l) for n, l in hits if not a < n <= b]
+
+
 def dropped_template_lines_step(repo, rep, rev):
     """Put each line dropped_template_lines finds on the Left-for-you list.
     A file precedent.json's kept_template_divergences records as kept on
@@ -2388,6 +2450,16 @@ def dropped_template_lines_step(repo, rep, rev):
                      f'of {tmpl} with no edits of this repository\'s own, so it '
                      f'now carries the current template')
             continue
+        if verdict in (None, 'unreasoned'):
+            left = refresh_template_comment(repo, rel, tmpl, rev, hits)
+            if left is not None:
+                rep.step('template comment refreshed', f'{rel}: the '
+                         f'instruction comment {tmpl} opens with was an older '
+                         f'version of the template\'s own, so it now carries '
+                         f'the current one; nothing outside it was touched')
+                hits = left
+                if not hits:
+                    continue
         for n, line in hits[:DROPPED_LINES_SHOWN]:
             shown = line if len(line) <= 160 else line[:157] + '...'
             rep.leave(f'{rel}:{n}', f'is template wording the current template '
