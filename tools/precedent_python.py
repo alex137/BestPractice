@@ -186,6 +186,9 @@ def main(argv):
         return setup()
     if argv[1:] == ['check']:
         return check()
+    if argv[1:2] in (['--help'], ['-h']):
+        print(__doc__)
+        return 0
     if argv[1:] == ['bin']:
         print(shim_dir(declared()[0]))
         return 0

@@ -35,7 +35,19 @@ set -euo pipefail
 # Ungated 2026-09-06: a stale checkout is not a cloud-only failure, and the
 # reason to gate the pip install (do not touch a developer's own environment)
 # does not apply to reading and repairing git state.
-#
+
+# WHAT IS BROKEN COMES FIRST (2026-10-09, the main landing plan, piece B,
+# layer 2): an open "main's test failed" issue, which deep-check.yml opens
+# when the test on main fails, then the failures an unattended job filed
+# under todo/ (tools/open_failures.py). tools/bootstrap.sh has run this
+# since 2026-10-08; this hook never had, so a Claude Code session here was
+# not told. First, on stdout, so it is not cut off behind the longer
+# notices below. One GitHub call; when GitHub cannot be read it says so in
+# one line. Never gates.
+if [ -f tools/open_failures.py ]; then
+  python3 tools/open_failures.py 2>/dev/null || true
+fi
+
 # The install goes through tools/precedent_python.py (practice one-python):
 # the declared Python's own pip, and python3 meaning that Python for the rest
 # of the session. A bare `pip` installed into whichever Python it belonged
@@ -48,18 +60,6 @@ if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
 else
   python3 "${CLAUDE_PROJECT_DIR:-.}/tools/precedent_python.py" check >/dev/null || \
     python3 "${CLAUDE_PROJECT_DIR:-.}/tools/precedent_python.py" check || true
-fi
-
-# WHAT IS BROKEN COMES FIRST (2026-10-09, the main landing plan, piece B,
-# layer 2): an open "main's test failed" issue, which deep-check.yml opens
-# when the test on main fails, then the failures an unattended job filed
-# under todo/ (tools/open_failures.py). tools/bootstrap.sh has run this
-# since 2026-10-08; this hook never had, so a Claude Code session here was
-# not told. First, on stdout, so it is not cut off behind the longer
-# notices below. One GitHub call; when GitHub cannot be read it says so in
-# one line. Never gates.
-if [ -f tools/open_failures.py ]; then
-  python3 tools/open_failures.py 2>/dev/null || true
 fi
 
 # Repair a single-branch clone's refspec before anything tries to fetch.

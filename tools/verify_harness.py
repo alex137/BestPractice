@@ -25148,6 +25148,14 @@ def check_precedent_check_fires():
                 encoding='utf-8')
         case('timestamps-carry-offset', _plant_tco)
 
+        # one-python -- a tool that starts python3 by name
+        def _plant_onepy(repo):
+            (repo / 'tools' / 'zz_starts_python3.py').write_text(
+                '#!/usr/bin/env python3\nimport subprocess\n\n\n'
+                "def go():\n    subprocess.run(['python3', 'tools/x.py'])\n",
+                encoding='utf-8')
+        case('one-python', _plant_onepy)
+
         # tracked-practice-files -- a practice file left out of the index
         def _plant_tpf(repo):
             src = next((repo / 'practices').glob('*.md'))
