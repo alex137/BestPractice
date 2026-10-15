@@ -94,17 +94,29 @@ def missing(exe, packages):
     return out
 
 
+def pip_install(exe, packages):
+    """`exe -m pip install --quiet packages` -> the CompletedProcess.
+
+    THE ONE INSTALL CALL every engine tool that installs a package makes.
+    A distribution's Python marks itself managed by apt (PEP 668), and pip
+    refuses outright; in a throwaway container that is the Python we mean
+    to use, so the refusal is retried with --break-system-packages. The
+    push check's own installer made the plain call and stopped on that
+    refusal in a cloud container (2026-10-15) -- a second copy of an
+    install line is a second place to forget it."""
+    cmd = [exe, '-m', 'pip', 'install', '--quiet', *packages]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode and 'externally-managed' in (r.stderr + r.stdout):
+        r = subprocess.run(cmd + ['--break-system-packages'], capture_output=True, text=True)
+    return r
+
+
 def install(exe, packages):
     """Install `packages` into `exe` with its own pip. -> '' or why not."""
     need = missing(exe, packages)
     if not need:
         return ''
-    cmd = [exe, '-m', 'pip', 'install', '--quiet', *need]
-    r = subprocess.run(cmd, capture_output=True, text=True)
-    if r.returncode and 'externally-managed' in (r.stderr + r.stdout):
-        # A distribution's Python marks itself managed by apt (PEP 668). In a
-        # throwaway container that is the Python we mean to use.
-        r = subprocess.run(cmd + ['--break-system-packages'], capture_output=True, text=True)
+    r = pip_install(exe, need)
     if r.returncode:
         tail = (r.stderr or r.stdout).strip().splitlines()[-1:] or ['']
         return f'{exe} -m pip install {" ".join(need)} failed: {tail[0]}'

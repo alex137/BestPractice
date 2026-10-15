@@ -653,6 +653,20 @@ def _plan_checks(sources, res=None):
                 for name in (f'{stem}.py', f'{stem.replace("check_", "test_", 1)}.sh'):
                     claimed_names.add(name)
                     claimed_by.setdefault(name, set()).add(practice.get('source'))
+            # A tool a practice SHIPS can have a test of its own,
+            # tools/checks/tests/test_<tool>.sh, and nothing else claims it:
+            # until 2026-10-15 every sync of a set shipping tools/typography.py
+            # said its test_typography.sh was claimed by no practice and left
+            # it behind, so the tool reached consumers untested.
+            try:
+                shipped_paths = pr.bv.ships_paths(practice.get('fm', {}))
+            except ValueError:
+                shipped_paths = []        # _plan_ships refuses it, by name
+            for shipped in shipped_paths:
+                if shipped.startswith('tools/') and shipped.endswith('.py'):
+                    name = f'test_{pathlib.PurePath(shipped).stem}.sh'
+                    claimed_names.add(name)
+                    claimed_by.setdefault(name, set()).add(practice.get('source'))
 
     def unclaimed_here(name, source_name):
         """True when a resolved practice claims `name`, but from another

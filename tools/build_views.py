@@ -54,7 +54,7 @@ Run:
       # not the target repo's content, the same "sibling files travel with
       # the script, not with --repo" rule sibling-module imports follow.
 """
-import collections, json, os, pathlib, re, subprocess, sys
+import atexit, collections, contextlib, json, os, pathlib, re, subprocess, sys
 
 # _ENGINE_DIR (where this file itself lives) is only ever used for the
 # sibling-module import and the MAP.md "## The engine" listing below --
@@ -1882,14 +1882,34 @@ def repo_is_practice_source(root):
 
 def repo_is_consumer(root):
     """Whether this repo CONSUMES the practice sets: tools/ENGINE_MANIFEST.json
-    says `kind: consumer`. BestPractice itself has no manifest and a practice
-    set says `source`, so neither reads as one; an unreadable manifest is not
-    one either."""
-    mf = root / 'tools' / 'ENGINE_MANIFEST.json'
+    says `kind: consumer`, or, with no engine manifest saying otherwise, a
+    MANIFEST.json that precedent_materialize.py wrote is at its root.
+    BestPractice itself has neither and a practice set's engine manifest
+    says `source`, so neither reads as one; an unreadable manifest is not
+    one either.
+
+    WHY THE SECOND SIGNAL (2026-10-15). precedent_sync_views.py treats every
+    repository it materializes into as a consumer -- it keeps the views one
+    has and never writes one it lacks -- while this asked only the engine
+    manifest, which a consumer whose engine sits elsewhere (the classic
+    process/upstream/tools/ layout) or was never recorded does not carry.
+    There `build_views --check` failed on a MAP.md and a GLOSSARY.md that
+    no sync would ever write, right after a sync whose own check passed.
+    precedent_materialize.py refuses a self-referential source, so its
+    MANIFEST.json is in exactly the repositories that consume."""
     try:
-        return json.loads(mf.read_text()).get('kind') == 'consumer'
+        kind = json.loads((root / 'tools' / 'ENGINE_MANIFEST.json')
+                          .read_text(encoding='utf-8')).get('kind')
+    except Exception:                                        # noqa: BLE001
+        kind = None
+    if kind is not None:
+        return kind == 'consumer'
+    try:
+        made_by = json.loads((root / 'MANIFEST.json')
+                             .read_text(encoding='utf-8')).get('generated_by') or ''
     except Exception:                                        # noqa: BLE001
         return False
+    return str(made_by).endswith('precedent_materialize.py')
 
 
 def _same_repository(path, root):
@@ -2202,8 +2222,50 @@ def _code_owners_only(fm):
     return _pa.for_code_owners(fm)
 
 
-def loader_practices(root, own_practices, individual_absent='notice'):
+# The pinned worktrees _resolve_at_pins reads from stay until the process
+# exits: a resolved practice keeps the path of its file, and rendering the
+# block reads from it after loader_practices has returned.
+_PINNED_WORKTREES = contextlib.ExitStack()
+atexit.register(_PINNED_WORKTREES.close)
+
+
+def _resolve_at_pins(pr, root, declared, context):
+    """resolve() over `declared`, each live source read at the commit this
+    repository's MANIFEST.json records syncing it at.
+
+    WHY (2026-10-15, a consumer's main). `precedent_sync_views.py --check`
+    has read the sets at their recorded commits since 2026-10-05
+    (precedent_source_pins.py); this check read them as their clones stood.
+    So the moment the person's individual set moved on, `build_views
+    --check` -- which generated-artifact-provenance runs -- called AGENTS.md
+    "hand-edited or stale" while the sync's check, in the same tree, called
+    it byte-identical. Same question, two answers: both now read the
+    recorded inputs, and the sync's own freshness note says when a set has
+    moved on. A repository with no recorded pins (Precedent itself, a
+    source set) reads the clones as they stand, as before."""
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_source_pins as psp
+    except Exception:                                        # noqa: BLE001
+        return pr.resolve(declared, context=context)
+    live = [s for s in declared if not s.get('brought')]
+    pinned = psp.pins(str(root), live)
+    if not pinned:
+        return pr.resolve(declared, context=context)
+    at, notes = _PINNED_WORKTREES.enter_context(psp.at_pins(declared, pinned))
+    for n in notes:
+        print(f"build_views: {n}.", file=sys.stderr)
+    return pr.resolve(at, context=context)
+
+
+def loader_practices(root, own_practices, individual_absent='notice',
+                     pinned=False):
     """-> (practices, source_levels) for the AGENTS.md loader block.
+
+    `pinned` reads each live source (a set's clone beside this repository,
+    the person's individual set) at the commit this repository's
+    MANIFEST.json records syncing it at, the way `precedent_sync_views.py
+    --check` reads them (_resolve_at_pins). --check passes it.
 
     `individual_absent` says what to do when the committed block carries
     individual practices and no individual set resolves here
@@ -2291,7 +2353,9 @@ def loader_practices(root, own_practices, individual_absent='notice'):
 
     # A brought set is left out of the block but still counts for what is in
     # force (precedent_resolve.resolve's `context`).
-    res = _pr.resolve(declared, context=[s for s in _deferred if s.get('brought')])
+    context = [s for s in _deferred if s.get('brought')]
+    res = (_resolve_at_pins(_pr, root, declared, context) if pinned
+           else _pr.resolve(declared, context=context))
     if res['missing']:
         # A declared source that does not resolve HERE makes the block
         # unverifiable, not stale. A shared source is a sibling clone and an
@@ -3257,7 +3321,8 @@ def main():
         block_practices, levels = loader_practices(
             root, practices,
             individual_absent=('ignore' if views_only else
-                               'raise' if check or STRICT_BUDGETS else 'notice'))
+                               'raise' if check or STRICT_BUDGETS else 'notice'),
+            pinned=check)
     except _BlockNotVerifiable as e:
         # Exit 0: not verified is not a failure, and not a pass either --
         # the reason is already on stderr, in those words.
