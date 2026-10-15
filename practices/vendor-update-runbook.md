@@ -135,8 +135,8 @@ this is where the refresh happens.
 for before the commit.** Claude Code's auto mode holds a commit that changes
 `.claude/` until the person approves it, and it clears the commit only on
 words that name it: a bare yes was refused (a consumer, 2026-10-15: "Yes
-approved. Booked" was refused, "Commit the .claude/settings.json allow-list
-change" went through). So when the update staged anything there, it still
+approved" was refused, "Commit the .claude/settings.json allow-list change"
+went through). So when the update staged anything there, it still
 finishes, and prints the files under QUESTIONS FOR THE PERSON with the
 sentence to say. Pass that sentence on, before committing, and never ask it
 as a yes-or-no question
