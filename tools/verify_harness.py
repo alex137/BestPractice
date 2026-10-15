@@ -58998,6 +58998,83 @@ def check_update_asks_before_changing_hooks():
               and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
 
 
+def check_update_asks_for_words_that_name_the_commit():
+    """The hooks-and-settings question Update Vendors puts to the person,
+    and the merge step's take-back of the same change, hand the session the
+    exact sentence the person says -- naming the files and the change --
+    and never ask for a bare yes.
+
+    WHY. 2026-10-15, a consumer's Update Vendors: the question said "their
+    yes is what lets the commit through"; the person answered "Yes approved.
+    Booked", and auto mode refused the commit of .claude/settings.json as
+    [Self-Modification]. "Commit the .claude/settings.json allow-list
+    change" went through first time.
+
+    Negative control, measured 2026-10-15: on staging's code the stated
+    cases fail -- there is no harness_approval, and the question asks for a
+    yes."""
+    import inspect, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    import precedent_merge_vendors as pmv
+    env = _fixture_git_env()
+    cases = []
+    approval = getattr(pu, 'harness_approval', None)
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        (repo / '.claude').mkdir()
+        sj = repo / '.claude' / 'settings.json'
+        sj.write_text(json.dumps({'permissions': {'allow': []}}) + '\n',
+                      encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        sj.write_text(json.dumps({'permissions': {'allow': [
+            'Bash(python3 tools/precedent_show.py:*)']}}) + '\n', encoding='utf-8')
+        g('add', '-A')
+        paths = pu.harness_changes(repo)
+        cases_now = pu.harness_cases(repo, paths)
+        ask = pu.harness_ask(paths, cases=cases_now)
+        want = 'Commit the .claude/settings.json allow-list change'
+        said = approval(paths, cases=cases_now) if approval else None
+        cases.append(('an allow-list change is named as one, with its file',
+                      said == want, repr(said)))
+        cases.append(('...and the question gives that sentence to say',
+                      f'To approve, say: "{want}"' in ask, ask))
+        cases.append(('...and never asks for a yes, or says one is enough',
+                      'yes-or-no' in ask and 'their yes is what' not in ask.lower()
+                      and 'says yes' not in ask, ask))
+        words = getattr(pmv, 'approval_words', None)
+        got = words(repo, paths) if words else None
+        cases.append(('the merge step, which takes the change back, has the '
+                      'same sentence', got == want, repr(got)))
+        cases.append(('...read before the take-back, from the staged change',
+                      words is not None and 'approval_words(repo, harness)'
+                      in inspect.getsource(pmv.refresh_views)
+                      and 'approval_words(repo, harness)' in inspect.getsource(pmv.run),
+                      ''))
+    if approval:
+        hook = approval(['.claude/hooks/h.sh'], cases=['a new hook file, h.sh'])
+        cases.append(('a new hook file is named as one',
+                      hook == 'Commit the .claude/hooks/h.sh hook file change', hook))
+        two = approval(['.claude/settings.json', '.claude/hooks/h.sh'],
+                       cases=['settings.json gains an entry for h.sh (Stop)',
+                              'a new hook file, h.sh'])
+        cases.append(('two files and two kinds are both named',
+                      two == 'Commit the .claude/settings.json and '
+                             '.claude/hooks/h.sh hook wiring and hook file change', two))
+        last = approval(['.claude/hooks/h.sh'], last=True)
+        cases.append(('the move to stubs is named as that',
+                      'permanent stubs' in last and '.claude/hooks/h.sh' in last, last))
+        cases.append(('...and its question gives the sentence too',
+                      f'To approve, say: "{last}"' in pu.harness_ask(
+                          ['.claude/hooks/h.sh'], last=True), ''))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors asks for words that name a hooks-or-settings commit, '
+          f'never a yes ({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
+
+
 def check_update_question_names_new_gates():
     """The hooks-and-settings question Update Vendors puts to the person
     names every hook the update newly wires into settings.json and what it
@@ -61671,6 +61748,73 @@ def check_dedup_onto_same_slug_withdraws_nothing():
           'kept-rule' not in got, repr(got))
     check('CONTROL: a copy deduplicated onto another slug still is',
           got.get('moved-rule') == 'now deduplicated', repr(got))
+
+
+def check_update_skips_citations_of_a_rule_that_only_grew():
+    """Update Vendors sends a consumer to read a citation of a practice only
+    when the practice was withdrawn or renamed, or its title or
+    index_clause -- the one line a citation paraphrases -- changed. A Rule
+    that only grew under the same one-line rule is still said to the merge
+    gate (the author's side), and not listed to the consumer.
+
+    WHY. 2026-10-15, a consumer's Update Vendors: the "citations of a
+    practice reworded or withdrawn" line flagged AGENTS.md (citing
+    reply-links-files) and TODO.md (citing todo-is-a-handoff). Neither
+    practice's index_clause or title had changed; both citations still read
+    true, and a session read both rules to find that out.
+
+    Negative control, measured 2026-10-15: on staging's code the grown rule
+    is reported as plain "Rule reworded" and its citation is listed."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    ppr = __import__('precedent_practice_refs')
+    pu = __import__('precedent_update')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='rule-only-grew-'))
+    env = _fixture_git_env()
+    fm = ('---\nslug: {s}\ntitle: {t}\nindex_clause: "{c}"\nstatus: active\n'
+          '---\n## Rule\n{r}\n')
+    cases = []
+    try:
+        g = lambda *a: subprocess.run(['git', '-C', str(tmp), *a], env=env,
+                                      check=True, capture_output=True)
+        g('init', '-q', '-b', 'main')
+        (tmp / 'practices').mkdir()
+        w = lambda s, t, c, r: (tmp / 'practices' / f'{s}.md').write_text(
+            fm.format(s=s, t=t, c=c, r=r), encoding='utf-8')
+        w('grew', 'A grown rule', 'do the thing', 'Do the thing.')
+        w('reclaused', 'A reclaused rule', 'do the thing', 'Do the thing.')
+        w('retitled', 'A retitled rule', 'do the thing', 'Do the thing.')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('checkout', '-qb', 'work')
+        w('grew', 'A grown rule', 'do the thing',
+          'Do the thing.\n\nAnd now, also in a reply.')
+        w('reclaused', 'A reclaused rule', 'do the other thing', 'Do the other thing.')
+        w('retitled', 'A rule with a new title', 'do the thing', 'Do the thing, said again.')
+        got = ppr.changed_slugs(tmp, 'main')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    body_only = getattr(ppr, 'RULE_BODY_ONLY', None)
+    cases.append(('a Rule that grew under the same one-line rule is said as that',
+                  body_only is not None and got.get('grew') == body_only, repr(got)))
+    cases.append(('CONTROL: a changed index_clause is a reworded Rule',
+                  got.get('reclaused') == 'Rule reworded', repr(got)))
+    cases.append(('CONTROL: a changed title is too',
+                  got.get('retitled') == 'Rule reworded', repr(got)))
+    hit = lambda slug: {'source': 'this repository', 'kind': 'live',
+                        'file': 'AGENTS.md', 'line': 3, 'slug': slug,
+                        'must_fix': False}
+    data = {'slugs': got, 'successors': {},
+            'hits': [hit('grew'), hit('reclaused'), hit('retitled')]}
+    fix, read = pu.citation_findings(data)
+    cases.append(('Update Vendors lists no citation of the rule that only grew',
+                  not fix and len(read) == 2
+                  and not any('grew' in r for r in read), repr((fix, read))))
+    cases.append(('the merge gate still counts it as reworded, for the author',
+                  'grew' in got and got['grew'].startswith('Rule reworded'),
+                  repr(got)))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors skips citations of a rule that only grew '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
 
 
 def check_practice_refs_sorts_live_from_history():
@@ -69648,6 +69792,110 @@ def check_update_vendors_reports_dropped_template_wording():
     check(f'Update Vendors reports install-once wording its template dropped '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_vendors_refreshes_a_template_own_comment():
+    """A line the template dropped from its own instruction comment (the
+    `<!-- Template: ... -->` header) is replaced by the current template's
+    comment and said once, not left for a person; text outside that comment
+    is still only reported, and a comment the repository wrote into is
+    never written.
+
+    WHY. 2026-10-15, a consumer's Update Vendors: upstream renumbered
+    "INSTALL.md §1" to "§0" inside the header comment of four templates, and
+    the run stopped on four LEFT FOR YOU lines until a person edited one
+    line in each file by hand -- the same four in every consumer.
+
+    Negative control, measured 2026-10-15: on staging's code the comment
+    line is left for the person and the file is unchanged."""
+    import contextlib, io, tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-template-comment-'))
+    env = dict(_fixture_git_env(), GIT_CONFIG_NOSYSTEM='1')
+    git = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                         capture_output=True, text=True)
+    cases = []
+    saved_source = pu.SOURCE
+    head = ('<!-- Template: instantiate per Precedent INSTALL.md §{n} (practice x).\n'
+            '     This file is deliberately tiny and stays that way. -->\n')
+    body_v1 = ('# Open items\n'
+               'Write every open item as a checkbox in this file.\n'
+               'Every open item is tracked in one place here.\n')
+    body_v2 = ('# Open items\n'
+               'Every open item is tracked in one place here.\n')
+    try:
+        src = tmp / 'source'
+        (src / 'templates').mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        tmpl = src / 'templates' / 'TODO.md.template'
+        tmpl.write_text(head.format(n=1) + body_v1, encoding='utf-8')
+        git(src, 'add', '-A'); git(src, 'commit', '-qm', 'v1')
+        v2_head = head.format(n=0).replace(
+            ' -->\n', '\n     Do not rewrite it into a checkbox list. -->\n')
+        tmpl.write_text(v2_head + body_v2, encoding='utf-8')
+        git(src, 'add', '-A'); git(src, 'commit', '-qm', 'v2')
+        rev = git(src, 'rev-parse', 'HEAD').stdout.strip()
+        pu.SOURCE = src
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        own = 'Our own note about the billing export, written by this repo.\n'
+        todo = repo / 'TODO.md'
+
+        def run():
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                pu.dropped_template_lines_step(repo, rep, rev)
+            return rep
+
+        todo.write_text(head.format(n=1) + body_v1 + own, encoding='utf-8')
+        rep = run()
+        text = todo.read_text(encoding='utf-8')
+        cases.append(('the template\'s own comment takes the current one, said once',
+                      text.startswith(v2_head)
+                      and any(n == 'template comment refreshed' for n, _o in rep.steps),
+                      f'{text[:300]!r} {rep.steps}'))
+        cases.append(('...and the renumbered line is not left for you',
+                      not any('§1' in str(v) for v in dict(rep.left).values()),
+                      str(rep.left)))
+        cases.append(('a dropped line outside the comment is still left, at its '
+                      'line in the file as written',
+                      'TODO.md:5' in dict(rep.left)
+                      and text.splitlines()[4].startswith('Write every open item'),
+                      f'{rep.left}'))
+        cases.append(('...and it, and the repo\'s own line, are not written',
+                      text.endswith(body_v1 + own), repr(text[-200:])))
+
+        mine = head.format(n=1).replace('stays that way.', 'stays that way. Ours: keep it.')
+        todo.write_text(mine + body_v2, encoding='utf-8')
+        rep = run()
+        cases.append(('a comment the repository wrote into is never written, and '
+                      'is still left for you',
+                      todo.read_text(encoding='utf-8') == mine + body_v2
+                      and 'TODO.md:1' in dict(rep.left), f'{rep.left} {rep.steps}'))
+
+        todo.write_text(head.format(n=1) + body_v2, encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({
+            pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                'reason': 'kept on purpose', 'template_sha256': '0' * 64}}}),
+            encoding='utf-8')
+        run()
+        cases.append(('a file recorded as kept is never written',
+                      todo.read_text(encoding='utf-8') == head.format(n=1) + body_v2,
+                      ''))
+        (repo / 'precedent.json').unlink()
+        rep = run()
+        cases.append(('...and without the record, a file whose only dropped line '
+                      'was in the comment leaves nothing for you',
+                      not rep.left and todo.read_text(encoding='utf-8') == v2_head + body_v2,
+                      f'{rep.left} {rep.steps}'))
+    except (OSError, ValueError, AttributeError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pu.SOURCE = saved_source
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors refreshes a template\'s own instruction comment, and '
+          f'only that ({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
 
 
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
@@ -79782,10 +80030,12 @@ def main():
     check_links_to_renamed_practice_forward()
     check_practice_refs_sorts_live_from_history()
     check_dedup_onto_same_slug_withdraws_nothing()
+    check_update_skips_citations_of_a_rule_that_only_grew()
     check_practice_declared_hooks_are_wired()
     check_stale_views_judged_on_what_a_push_brings()
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
+    check_update_asks_for_words_that_name_the_commit()
     check_update_question_names_new_gates()
     check_promote_branches_are_named_like_session_branches()
     check_data_branches_are_named_for_the_ladder()
@@ -79936,6 +80186,7 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_update_vendors_refreshes_a_template_own_comment()
     check_update_vendors_dropped_wording_reads_a_views_source()
     check_kept_pin_moves_across_a_comment_only_template_change()
     check_update_vendors_names_what_others_changed_upstream()

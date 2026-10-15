@@ -393,8 +393,11 @@ any other change. In order:
    [spec/INSTALL_QUESTIONS.md](https://github.com/alex137/BestPractice/blob/staging/spec/INSTALL_QUESTIONS.md)
    folds into the question about which assistant works there. Claude
    Code's auto mode holds any commit that changes `.claude/` until the
-   person says yes, and no setting lifts that, so a yes asked for only at
-   commit time stalls the install at its last step.
+   person's own words name it, and no setting lifts that, so a go-ahead
+   asked for only at commit time stalls the install at its last step. Ask
+   for it as a sentence they say, such as "Commit the `.claude/` hooks and
+   settings", never a bare yes: auto mode clears an action only on words
+   that name it.
 2. **Run the installer** as above, then commit everything, authored as the
    person, on the session's branch.
 3. **Check it at `main`'s tier**:
