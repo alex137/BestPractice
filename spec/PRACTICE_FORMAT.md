@@ -431,7 +431,7 @@ Two constraints from the plan's phase-3 row governed every decision:
 | Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
 | Words in `## Detail` | — | — | **6,718** |
 
-Twenty-six of the fifty-two practices carry a Detail. The resident block — the
+Twenty-seven of the fifty-two practices carry a Detail. The resident block — the
 text every session pays for, whatever it is doing — **halved**, which is the
 closest this catalogue has come to the plan's "nine tenths" claim and still
 short of it.
