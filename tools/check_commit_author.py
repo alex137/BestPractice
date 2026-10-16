@@ -6,7 +6,7 @@ The engine's one copy of this check, for every kind of repository.
 Its rule, commit-author, lives in a person's own practice set, not in the
 universal catalogue, so it is named here without a citation: engine code
 cites only the catalogue it ships with (code-cites-practice).
-precedent_push_check.IDENTITY_SLUGS and the practice's checked_by tie the
+the practice's checked_by ties the
 two together.
 
 ONE COPY, SHIPPED BY THE ENGINE (Morgan, 2026-10-10: "yes ... build the
@@ -80,7 +80,19 @@ os.environ.setdefault('PRECEDENT_ALLOW_ANY_AUTHOR', '1')
 # and can no longer be absent; only what to audit is overridable.
 SOURCE_ROOT = pathlib.Path(__file__).resolve().parent.parent
 ROOT = pathlib.Path(os.environ.get("PRECEDENT_CHECK_ROOT") or SOURCE_ROOT)
-PRACTICE_FILE = SOURCE_ROOT / "practices" / "commit-author.md"
+
+
+def practice_file():
+    """The practice that names this script as its check -- a person's own
+    set says which of its practices this enforces, and the engine never
+    names it (Morgan, 2026-10-16: "sets practice names should NOT be in
+    BestPractice"). None where no practice in force here names it."""
+    try:
+        import precedent_identity
+        return precedent_identity.practice_checked_by(
+            pathlib.Path(__file__).name, ROOT)[1]
+    except Exception:                                        # noqa: BLE001
+        return None
 
 # Still named here, and still read directly, for two questions that are
 # genuinely about THIS repository rather than about which person a commit
@@ -324,9 +336,10 @@ def rule_text() -> str:
     # and then buried under a traceback. Found 2026-09-06 running every
     # source-supplied check against BestPractice; 14 of the 16 shared this
     # exact body. The Rule text being unavailable is not the check failing.
-    if not PRACTICE_FILE.is_file():
-        return "(practice file not found at %s)" % PRACTICE_FILE
-    text = PRACTICE_FILE.read_text(encoding="utf-8")
+    path = practice_file()
+    if path is None or not path.is_file():
+        return "(no practice in force here names this check as its checked_by)"
+    text = path.read_text(encoding="utf-8")
     m = re.search(r"## Rule\n(.*?)\n## ", text, re.S)
     return m.group(1).strip() if m else "(no Rule found)"
 
@@ -870,7 +883,7 @@ if __name__ == "__main__":
         for w in BOT_WARNINGS:
             print(f"WARNING:   {w}")
     if findings:
-        print(f"VIOLATION: {PRACTICE_FILE.stem}")
+        print(f"VIOLATION: {(practice_file() or pathlib.Path('the declared-identity rule')).stem}")
         for f in findings:
             print(f"  {f}")
         print("\nthe rule:")

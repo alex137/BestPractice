@@ -7829,6 +7829,14 @@ def _enforcement_lives_with_its_practice(ctx):
                 pass
             for field, rel in paths:
                 base = pathlib.PurePosixPath(rel).name
+                # The engine's generic checks a set's practice may name: they
+                # judge against what the person declares and name no one
+                # (Morgan, 2026-10-16, strength: decided: "keep it in best
+                # practice"). The engine finds the practice by its
+                # checked_by (precedent_identity.practice_checked_by).
+                if rel in ('tools/check_commit_author.py',
+                           'tools/check_commit_dates.py'):
+                    continue
                 # A set's addition to a universal practice is checked by the
                 # universal practice's own check, which is the engine's.
                 if f.stem in universal and rel == 'tools/precedent_check.py':
@@ -7842,7 +7850,9 @@ def _enforcement_lives_with_its_practice(ctx):
                         f'rule is enforced by Precedent\'s engine. Move it '
                         f'into {name} (shipped by this practice) and out of '
                         f'the engine\'s file lists'))
-    wanted = names | set(slugs)
+    # The default individual set name is a convention every person shares,
+    # not one set's rule (Morgan, 2026-10-16: "keep the default name").
+    wanted = (names | set(slugs)) - {_pr.DEFAULT_INDIVIDUAL_NAME}
     for name in sorted(engine):
         path = ctx.root / 'tools' / name
         if not name.endswith('.py') or not path.is_file():

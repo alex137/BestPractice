@@ -2512,7 +2512,7 @@ def check_session_check_suggests_anchored_also_list():
     saved = (psc.ROOT, os.environ.get('HOME'), os.environ.get('CLAUDE_PROJECT_DIR'))
     try:
         home, work = tmp / 'home', tmp / 'work'
-        for d in (home / 'precedent-individual', work / 'precedent-shared-writing',
+        for d in (home / 'precedent-individual', work / 'precedent-shared-acme',
                   work / 'project'):
             (d / '.git').mkdir(parents=True)
         psc.ROOT = (work / 'project').resolve()
@@ -2523,13 +2523,13 @@ def check_session_check_suggests_anchored_also_list():
                       '~/precedent-individual' in got, str(got)))
         cases.append(('a shared set beside the project is written '
                       '$CLAUDE_PROJECT_DIR/../<name>',
-                      '$CLAUDE_PROJECT_DIR/../precedent-shared-writing' in got, str(got)))
+                      '$CLAUDE_PROJECT_DIR/../precedent-shared-acme' in got, str(got)))
         cases.append(('no absolute path is suggested',
                       not any(p.startswith('/') for p in got), str(got)))
         back = pathlib.Path(psc._expand_source_path(
-            '$CLAUDE_PROJECT_DIR/../precedent-shared-writing')).resolve()
+            '$CLAUDE_PROJECT_DIR/../precedent-shared-acme')).resolve()
         cases.append(('the anchored form expands to the real clone',
-                      back == (work / 'precedent-shared-writing').resolve(), str(back)))
+                      back == (work / 'precedent-shared-acme').resolve(), str(back)))
     finally:
         psc.ROOT = saved[0]
         for k, val in (('HOME', saved[1]), ('CLAUDE_PROJECT_DIR', saved[2])):
@@ -6925,7 +6925,7 @@ def check_sync_says_which_copy_of_a_claimed_check_runs():
 
     THE INCIDENT (2026-10-08). Every sync in a consumer warned that nothing
     claimed universal's tools/checks/check_commit_author.py and
-    check_buenos_aires_dates.py, while commit-author and buenos-aires-dates
+    check_buenos_aires_dates.py, while planted-author-rule and planted-dates-rule
     were in force there from the person's individual set, which ships and
     claims its own copies.
 
@@ -6963,7 +6963,7 @@ def check_sync_says_which_copy_of_a_claimed_check_runs():
                    {'name': 'precedent-individual', 'path': str(ind),
                     'level': 'individual'}]
         res = {'practices': {
-            'commit-author': practice('commit-author', 'commit_author',
+            'planted-author-rule': practice('planted-author-rule', 'commit_author',
                                       'precedent-individual'),
             'solo': practice('solo', 'solo', 'precedent-individual')}}
         err = io.StringIO()
@@ -6984,7 +6984,7 @@ def check_sync_says_which_copy_of_a_claimed_check_runs():
                       and 'solo' not in orphan, f'{got} {orphan}'))
         cases.append(('4: CONTROL: a check nothing claims is still reported',
                       'check_lost.py (precedent)' in orphan, orphan))
-        res['practices']['commit-author-u'] = practice('commit-author', 'commit_author',
+        res['practices']['commit-author-u'] = practice('planted-author-rule', 'commit_author',
                                                        'precedent')
         try:
             with contextlib.redirect_stderr(io.StringIO()):
@@ -7050,7 +7050,7 @@ def check_session_start_charges_brought_sets_to_the_person():
     saved = (psp._brought_renders, psp.brought_budget)
     cases = []
     try:
-        psp._brought_renders = lambda repo=None: (1500, 900, ['precedent-shared-ladder'])
+        psp._brought_renders = lambda repo=None: (1500, 900, ['acme-shared-ladder'])
         psp.brought_budget = lambda repo=None: (700, '/ind')
         n, note, over = psc._charge_brought_share(1500)
         cases.append(('the brought share leaves the repository\'s count',
@@ -7811,7 +7811,7 @@ def check_stale_view_names_its_real_cause():
             a[0] if a else [], 1,
             stdout='build_views --check FAIL: hand-edited or stale, drifted from '
                    'regeneration: MAP.md\n',
-            stderr='build_views: precedent-shared-ladder deferred to '
+            stderr='build_views: acme-shared-ladder deferred to '
                    '.precedent/SESSION_PRACTICES.md -- brought by the person working '
                    'here, not declared by this repository.\n')
         try:
@@ -7844,11 +7844,11 @@ def check_tracked_views_read_the_same_whoever_regenerates():
         (root / 'precedent.json').write_text('{"sources": []}', encoding='utf-8')
         try:
             bv.sources_for_tracked_block = lambda r, d: (
-                [], [{'name': 'precedent-shared-ladder', 'brought': True}], [])
+                [], [{'name': 'acme-shared-ladder', 'brought': True}], [])
             only_brought = bv.defers_any_source(root)
             bv.sources_for_tracked_block = lambda r, d: (
-                [], [{'name': 'precedent-shared-ladder', 'brought': True},
-                     {'name': 'precedent-shared-writing'}], [])
+                [], [{'name': 'acme-shared-ladder', 'brought': True},
+                     {'name': 'acme-shared-writing'}], [])
             declared_too = bv.defers_any_source(root)
         finally:
             bv.sources_for_tracked_block = real
@@ -8914,7 +8914,7 @@ def check_legacy_status_migration():
     never had one, which is exactly why nothing here would otherwise
     exercise this. So the fixtures below reproduce both real cases:
 
-      bestpractice-sync   the surviving copy has the SAME slug, in another
+      planted-sync-rule   the surviving copy has the SAME slug, in another
                           source -- mechanically determinable.
       header-caps         the surviving rule is `headline-capitalization`
                           at universal -- a RENAMED successor, which nothing
@@ -8946,22 +8946,22 @@ def check_legacy_status_migration():
             (d / f'{slug}.md').write_text(x, encoding='utf-8')
             return d / f'{slug}.md'
 
-        team_sync = make('team', 'bestpractice-sync', 'retired',
+        team_sync = make('team', 'planted-sync-rule', 'retired',
                          'Moved to the individual set.', legacy=True)
         team_caps = make('team', 'header-caps', 'retired',
                          'The universal catalogue carries this now.', legacy=True)
-        make('individual', 'bestpractice-sync')
+        make('individual', 'planted-sync-rule')
         make('universal', 'headline-capitalization')
         against = [str(tmp / 'individual'), str(tmp / 'universal')]
 
         recs = pms.legacy_records(tmp / 'team' / 'practices')
         cases.append(('a legacy record (non-active, no in_force_at) is found',
                       {fm.get('slug') for _f, fm, _s in recs}
-                      == {'bestpractice-sync', 'header-caps'}))
+                      == {'planted-sync-rule', 'header-caps'}))
 
         live = pms.active_slugs(against)
         cases.append(('only ACTIVE slugs count as a surviving copy',
-                      'bestpractice-sync' in live and 'headline-capitalization' in live))
+                      'planted-sync-rule' in live and 'headline-capitalization' in live))
 
         # report-only must never write
         before = team_sync.read_text(encoding='utf-8')
@@ -8981,7 +8981,7 @@ def check_legacy_status_migration():
         sync_after = team_sync.read_text(encoding='utf-8')
         cases.append(('...while the same-slug case IS migrated, to deduplicated',
                       'status:      deduplicated' in sync_after
-                      and 'in_force_at: bestpractice-sync' in sync_after))
+                      and 'in_force_at: planted-sync-rule' in sync_after))
 
         # an explicitly named target that is not in force is refused
         pms.report(str(tmp / 'team'), against, {'header-caps': 'no-such-slug'}, True)
@@ -11665,10 +11665,10 @@ def check_not_binding_cannot_be_abused():
                       pr.load_not_binding(tmp) == {}))
 
         cfg({**base, "not_binding": [
-            {"slug": "commit-author", "reason": "about a repo one person authors alone"}]})
+            {"slug": "planted-author-rule", "reason": "about a repo one person authors alone"}]})
         cases.append(('a well-formed exemption is read, reason and all',
                       pr.load_not_binding(tmp) ==
-                      {"commit-author": "about a repo one person authors alone"}))
+                      {"planted-author-rule": "about a repo one person authors alone"}))
 
         def refuses(obj):
             cfg(obj)
@@ -11690,7 +11690,7 @@ def check_not_binding_cannot_be_abused():
         cases.append(('a `not_binding` that is not a list is refused',
                       refuses({**base, "not_binding": {"x": "y"}})))
         cases.append(('a non-object entry is refused',
-                      refuses({**base, "not_binding": ["commit-author"]})))
+                      refuses({**base, "not_binding": ["planted-author-rule"]})))
 
         # Through the REAL check function, with its ROOT pointed at a
         # fixture repo. Driven in-process rather than by subprocess because
@@ -19899,8 +19899,8 @@ def check_update_vendors_asks_about_a_rule_in_force_nowhere():
 
     2026-09-28, a consumer's update: the sync warned that a deduplicated
     practice's forwarding address named a set this consumer does not
-    declare, then in the same run said "name-the-branch ... now in force as
-    name-the-branch", and Update Vendors said DONE with the warning nowhere
+    declare, then in the same run said "planted-branch-rule ... now in force as
+    planted-branch-rule", and Update Vendors said DONE with the warning nowhere
     in its report. Whether that deduplication is acceptable is the person's
     call; this pins only that the question reaches them."""
     import io, contextlib, tempfile
@@ -19913,19 +19913,19 @@ def check_update_vendors_asks_about_a_rule_in_force_nowhere():
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
         repo, team, user, write = _sync_views_fixture(
-            tmp, {'name-the-branch': '', 'keeper-u': ''}, {'keeper-t': ''})
+            tmp, {'planted-branch-rule': '', 'keeper-u': ''}, {'keeper-t': ''})
         _sync_views_run(repo, user, commit=True)
-        write(repo / 'precedent' / 'universal', 'name-the-branch',
-              'status: deduplicated\nin_force_at: name-the-branch\n')
+        write(repo / 'precedent' / 'universal', 'planted-branch-rule',
+              'status: deduplicated\nin_force_at: planted-branch-rule\n')
         r = _sync_views_run(repo, user)
         out = r.stdout + r.stderr
         cases.append(('the fixture reaches IN FORCE NOWHERE',
-                      'IN FORCE NOWHERE' in out and 'name-the-branch' in out))
+                      'IN FORCE NOWHERE' in out and 'planted-branch-rule' in out))
         cases.append(('the sync no longer claims the rule is in force as itself',
-                      'now in force as name-the-branch' not in out))
+                      'now in force as planted-branch-rule' not in out))
         found = getattr(pu, 'in_force_nowhere', lambda o: [])(out)
         cases.append(('Update Vendors picks the warning out of the sync\'s output',
-                      any('name-the-branch' in f for f in found)))
+                      any('planted-branch-rule' in f for f in found)))
         rep = pu.Report()
         for f in found:
             getattr(rep, 'ask', rep.leave)('IN FORCE NOWHERE', f)
@@ -19935,7 +19935,7 @@ def check_update_vendors_asks_about_a_rule_in_force_nowhere():
         text = buf.getvalue()
         cases.append(('...and its report asks the person, without holding the update',
                       rc == pu.DONE and 'QUESTION' in text
-                      and 'name-the-branch' in text))
+                      and 'planted-branch-rule' in text))
     failed = [name for name, ok in cases if not ok]
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
@@ -21222,10 +21222,10 @@ def check_legacy_leftovers_retired_by_content():
 
         # 7. Stale source paths, and a hardcoded identity.
         pj = {'sources': [
-            {'name': 'precedent-shared-writing',
-             'path': '../precedent-team-writing', 'level': 'shared'},
-            {'name': 'precedent-shared-working-style',
-             'path': '../precedent-shared-working-style', 'level': 'shared'}]}
+            {'name': 'precedent-shared-acme',
+             'path': '../precedent-team-acme', 'level': 'shared'},
+            {'name': 'precedent-shared-other',
+             'path': '../precedent-shared-other', 'level': 'shared'}]}
         r7 = make('paths', {'precedent.json': json.dumps(pj),
                             'tools/bootstrap.sh':
                                 'git config user.name "A Person"\n'
@@ -21239,12 +21239,12 @@ def check_legacy_leftovers_retired_by_content():
         paths7 = [s['path'] for s in json.loads(
             (r7 / 'precedent.json').read_text(encoding='utf-8'))['sources']]
         cases.append(('a stale ../precedent-team-* source path is repointed',
-                      paths7 == ['../precedent-shared-writing',
-                                 '../precedent-shared-working-style']
-                      and not any('writing' in i for i in flagged),
+                      paths7 == ['../precedent-shared-acme',
+                                 '../precedent-shared-other']
+                      and not any('acme' in i for i in flagged),
                       f'{paths7} {flagged}'))
         cases.append(('NEGATIVE: a current ../precedent-shared-* path is not',
-                      not any('working-style' in i for i in flagged),
+                      not any('other' in i for i in flagged),
                       str(flagged)))
         ids = [i for i, _w in left if i.startswith('tools/bootstrap.sh')]
         cases.append(('a literal git identity is reported; one read from a '
@@ -30621,7 +30621,7 @@ def check_archive_guard_refuses_work_left_on_a_feature_branch():
                       clean == [], f'{clean}'))
 
         rc._stranded_branches = lambda *a, **k: [('this checkout', 'claude/fixture-abc123')]
-        req = [{'practice': 'ladder-required', '_source': 'individual/fixture',
+        req = [{'practice': 'planted-ladder-rule', '_source': 'individual/fixture',
                 'require_landed_if_says': ['You can archive this session']}]
         kinds = lambda text: [v['kind'] for v in rc.violations(text, req)]
         cases += [
@@ -51522,7 +51522,7 @@ def check_refresh_sources_lists_a_linked_tree_once():
                       got.count(declared.resolve()) == 1, str(got)))
         cases.append(('...and the checkout itself is not listed',
                       checkout.resolve() not in got, str(got)))
-        other = work / 'precedent-shared-writing'
+        other = work / 'acme-shared-writing'
         other.mkdir()
         got = [p.resolve() for p in prs.candidate_dirs()]
         cases.append(('CONTROL: a separate sibling tree is still listed',
@@ -52366,8 +52366,8 @@ def check_stale_source_paths_accepts_the_universal_pair():
     try:
         (tmp / 'precedent.json').write_text(_j.dumps({'sources': [
             {'level': 'universal', 'name': 'precedent', 'path': '../BestPractice'},
-            {'level': 'shared', 'name': 'precedent-shared-writing',
-             'path': '../precedent-shared-writing'},
+            {'level': 'shared', 'name': 'acme-shared-writing',
+             'path': '../acme-shared-writing'},
             {'level': 'shared', 'name': 'precedent-shared-x',
              'path': '../precedent-team-x'}]}), encoding='utf-8')
         got = [n for n, _p, _w in pve.stale_source_paths(tmp)]
@@ -55011,13 +55011,13 @@ def _push_gate_fixture(tmp, real_modules=()):
     (tools / 'check_commit_author.py').write_text(
         '#!/usr/bin/env python3\n'
         '"""Stand-in: every commit reachable from HEAD, as older copies read."""\n'
-        '# practice: commit-author\n'
+        '# practice: planted-author-rule\n'
         'import subprocess, sys\n'
         'log = subprocess.run(["git", "log", "--format=%H|%an"], '
         'capture_output=True, text=True).stdout.split()\n'
         'bad = [l.split("|")[0] for l in log if l.endswith("|Mallory")]\n'
         'if bad:\n'
-        '    print("VIOLATION: commit-author")\n'
+        '    print("VIOLATION: planted-author-rule")\n'
         '    for sha in bad:\n'
         '        print(f"  commit {sha[:12]}: author is \'Mallory\', expected \'T\'")\n'
         '    print("\\nthe rule:\\n  commits carry the declared author")\n'
@@ -55283,7 +55283,7 @@ def check_push_check_honours_not_binding():
     precedent_check.py does, by asking precedent_check's own
     load_exemptions().
 
-    2026-09-28, a consumer: its precedent.json declared commit-author not
+    2026-09-28, a consumer: its precedent.json declared planted-author-rule not
     binding, precedent_check reported it EXEMPT, and the push check ran
     tools/checks/check_commit_author.py directly anyway and refused a push
     over two old commits already on main."""
@@ -55295,6 +55295,13 @@ def check_push_check_honours_not_binding():
         # The real engine modules, so the exemption is read by
         # precedent_check itself.
         work, env, git = _push_gate_fixture(tmp, real_modules='*')
+        # The practice the author check enforces is found by its checked_by,
+        # never by a name the engine carries (2026-10-16).
+        (work / 'practices').mkdir(exist_ok=True)
+        (work / 'practices' / 'planted-author-rule.md').write_text(
+            '---\nslug:        planted-author-rule\n'
+            'checked_by:  tools/check_commit_author.py\n---\n## Rule\nx\n',
+            encoding='utf-8')
         (work / 'm.txt').write_text('x\n', encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'a commit by someone else',
@@ -55311,10 +55318,10 @@ def check_push_check_honours_not_binding():
                       rc == 1 and 'commit_author' in out))
         reason = 'many people commit here, so no one author binds it'
         (work / 'precedent.json').write_text(_json.dumps(
-            {'not_binding': [{'slug': 'commit-author', 'reason': reason}]}),
+            {'not_binding': [{'slug': 'planted-author-rule', 'reason': reason}]}),
             encoding='utf-8')
         git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'declare commit-author not binding')
+        git(work, 'commit', '-q', '-m', 'declare planted-author-rule not binding')
         pc = subprocess.run([sys.executable, '-c',
                              'import sys; sys.path.insert(0, "tools"); '
                              'import precedent_check as pc; '
@@ -55322,7 +55329,7 @@ def check_push_check_honours_not_binding():
                             cwd=work, capture_output=True, text=True, env=env)
         cases.append(("precedent_check's own load_exemptions() reads it as "
                       "exempt (the fixture is real)",
-                      "['commit-author']" in pc.stdout))
+                      "['planted-author-rule']" in pc.stdout))
         rc, out = push_check()
         cases.append((f'declared not binding, the push check skips it, says '
                       f'EXEMPT with the reason, and passes (exit {rc})',
@@ -59310,7 +59317,7 @@ def check_practice_declared_hooks_are_wired():
     """A practice's `hooks:` declaration is parsed in one place, refused when
     it reaches past what the practice ships, and wired add-only by the sync.
 
-    WHY. 2026-10-06: the writing set's dated-download-names shipped its
+    WHY. 2026-10-06: the writing set's planted-download-names shipped its
     script and a check requiring a SendUserFile hook, and said the hook was
     wired by hand. Nothing wired it, so a consumer failed that check right
     after a clean sync."""
@@ -59350,7 +59357,7 @@ def check_practice_declared_hooks_are_wired():
         repo = pathlib.Path(td)
         (repo / 'tools').mkdir()
         (repo / 'tools' / 'dated_name.py').write_text('', encoding='utf-8')
-        practices = {'dated-download-names': {'fm': good}}
+        practices = {'planted-download-names': {'fm': good}}
         entries, notes = psv._declared_practice_hooks(repo, practices)
         check('no settings.json: nothing is written, and none is created',
               pve.add_practice_hooks(repo, entries) == []
@@ -60197,7 +60204,7 @@ def check_update_takes_a_removal_its_source_decommissioned():
                                 f'(from precedent)'), at) == []))
         cases.append(('from a set, not the universal source: refused',
                       pu.decommissioned_removals(refusal.format(
-                          items=f'{gone} (from precedent-shared-writing)'),
+                          items=f'{gone} (from acme-shared-writing)'),
                           at) == []))
         cases.append(('at a commit before the record says so: refused',
                       pu.decommissioned_removals(refusal.format(
@@ -69715,12 +69722,12 @@ def check_update_in_force_nowhere_asks_once():
     pu, _pve, _pr = _update_tools()
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-nowhere-'))
     cases = []
-    out = ('precedent_sync_views: IN FORCE NOWHERE -- doc-link-text '
+    out = ('precedent_sync_views: IN FORCE NOWHERE -- planted-link-text '
            '(precedent-shared-repo-maintenance): status: deduplicated names '
-           'in_force_at: doc-link-text, but nothing resolves it\n'
+           'in_force_at: planted-link-text, but nothing resolves it\n'
            'precedent_sync_views: IN FORCE NOWHERE -- old-rule (precedent): '
            'withdrawn from universal on 2026-09-20; in force in '
-           '`precedent-shared-writing` -- declare that set to keep it\n')
+           '`acme-shared-writing` -- declare that set to keep it\n')
     try:
         repo = tmp / 'consumer'
         repo.mkdir()
@@ -69739,13 +69746,13 @@ def check_update_in_force_nowhere_asks_once():
                       len(rep.asks) == 2 and all('not_in_force_here' in q
                                                  for _w, q in rep.asks), str(rep.asks)))
         cases.append(('...naming the set when the finding knows it',
-                      any('`precedent-shared-writing`' in q for _w, q in rep.asks),
+                      any('`acme-shared-writing`' in q for _w, q in rep.asks),
                       str(rep.asks)))
         cases.append(('the header no longer contradicts itself',
                       'blocks the update' not in text and 'before Go update'
                       not in text and 'QUESTIONS FOR THE PERSON' in text, text[-600:]))
-        rep, _ = run({'not_in_force_here': {'doc-link-text': 'we dropped that set',
-                                            'precedent-shared-writing': 'dropped'}})
+        rep, _ = run({'not_in_force_here': {'planted-link-text': 'we dropped that set',
+                                            'acme-shared-writing': 'dropped'}})
         cases.append(('recorded by slug and by set, nothing is asked',
                       not rep.asks, str(rep.asks)))
         cases.append(('...and they are said in one step line',
@@ -74491,7 +74498,7 @@ def check_as_ci_says_why_a_shard_failed():
 
 
 def check_declared_identity_has_a_passing_state_in_a_shared_repo():
-    """`commit-author` and `buenos-aires-dates` have to be able to PASS in
+    """`planted-author-rule` and `planted-dates-rule` have to be able to PASS in
     a repo many people commit to.
 
     Both computed the expected author from an `identity.json` at the
@@ -74607,8 +74614,8 @@ def check_declared_identity_has_a_passing_state_in_a_shared_repo():
         if src.is_file():
             shutil.copy2(src, seeded / name)
     cases.append(('a practice set seeded from ENGINE_FILES receives '
-                  'precedent_identity.py, so its own commit-author and '
-                  'buenos-aires-dates checks can import it',
+                  'precedent_identity.py, so its own planted-author-rule and '
+                  'planted-dates-rule checks can import it',
                   (seeded / 'precedent_identity.py').is_file(),
                   str(sorted(f.name for f in seeded.iterdir()))))
     # This asserted `not (seeded / 'precedent_resolve.py').is_file()` until

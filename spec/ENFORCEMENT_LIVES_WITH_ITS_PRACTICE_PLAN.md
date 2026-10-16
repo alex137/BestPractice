@@ -11,8 +11,8 @@ summary:       "Moves each practice set's enforcement out of Precedent's engine 
 ---
 # Enforcement lives with its practice: the move plan
 
-Status: plan, 2026-10-16. Parts 1 and 2 are built; part 3 waits on
-Morgan's go-ahead, and part 4 on one decision of his.
+Status: plan, 2026-10-16. Parts 1, 2 and 4 are built; part 3 waits on
+Morgan's go-ahead ("not yet", 2026-10-16).
 
 The rule is
 [enforcement-lives-with-its-practice](../practices/enforcement-lives-with-its-practice.md):
@@ -91,32 +91,32 @@ that predates this practice. The move, in outline:
 This is a restructuring of its own, several sessions long. Nothing in it
 starts without Morgan's go-ahead.
 
-## 4. One decision for Morgan: the commit-identity checks
+## 4. Decided and built: the commit-identity checks stay in the engine
 
-The individual set's `commit-author` and its date-zone practice declare
-`checked_by: tools/check_commit_author.py` and
-[`tools/check_commit_dates.py`](../tools/check_commit_dates.py), which are engine files. That was decided on
-purpose (Morgan, 2026-10-10, strength: decided: "yes ... build the shared
-check"): two copies had drifted, and the engine's single copy names no one
--- it reads the person from their declared identity. The engine's push
-gate and global hooks call both.
+The individual set's commit-author and date-zone practices point
+`checked_by` at the engine's [tools/check_commit_author.py](../tools/check_commit_author.py) and
+[tools/check_commit_dates.py](../tools/check_commit_dates.py), which name no one: they read the person
+from their declared identity. Morgan, 2026-10-16, strength: decided:
+"keep it in best practice" -- and "sets practice names should NOT be in
+BestPractice". So the engine no longer names those practices anywhere in
+its logic: the checks and the push check ask
+[`precedent_identity.practice_checked_by()`](../tools/precedent_identity.py) which practice in force names
+the script, and the engine's tests use planted practice names. The same
+pass took the writing set's names out of the engine's tests; that set has
+no logic in the engine.
 
-**Recommendation: keep them in the engine, as generic plumbing,** since
-any person's individual set can use them and they carry nothing private;
-but take the individual set's practice slugs out of engine code
-(`precedent_push_check.IDENTITY_SLUGS` names them today), so the engine
-says "the declared-identity checks" and the set's practices say they use
-them. The inventory check then counts a `checked_by` on a declared generic
-engine check as fine. The other way -- moving both into the individual
-set -- reverses the 2026-10-10 decision and puts back the drift it fixed,
-so it is his call, not this plan's.
+What stays, on purpose: comments (Morgan: "I don't really care if they're
+mentioned in comments"), history, `go-merge` (a name BestPractice itself
+retired, used by the tests of retirement), and the default individual set
+name below.
 
 ## 5. Not a finding: the default individual set name
 
-Five engine files name `precedent-individual` as the default name of a
-person's individual set, the convention a fresh install uses when nothing
-else is declared. That is a convention every person shares, not one set's
-rule, and the check will exempt that one name once this plan is adopted.
+A handful of engine files name `precedent-individual` as the default name
+of a person's individual set, the convention a fresh install uses when
+nothing else is declared. That is a convention every person shares, not
+one set's rule (Morgan, 2026-10-16, strength: decided: "keep the default
+name"), and the inventory check does not count it.
 
 ## 6. How it reaches consumers
 
