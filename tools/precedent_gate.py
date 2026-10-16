@@ -902,10 +902,26 @@ def _print_hard_requirements(root):
         # container is unsafe" and leaving the session to wonder which it is
         # would reproduce, one rung up, exactly the failure this whole
         # function exists to end -- the person paying for the reply twice.
-        # Silent when the container is clean, which is the ordinary case.
+        #
+        # CLEAN NOW IS NOT CLEAN AT THE END (2026-10-16). This answer is a
+        # snapshot from before the turn's first tool call. A consumer's
+        # closing turn started clean, wrote two working files into its
+        # scratch folder, said the archive line, and was refused by the stop
+        # hook -- with nothing printed here, because at turn start there was
+        # nothing to print. A helper agent writes into the same folder. So a
+        # clean answer still says, in one line, that what the turn itself
+        # writes counts and when to look again (practice: the-boildown).
         for _ph in (r.get('require_container_safe_if_says') or []):
             _verdict = _container_report()
-            if _verdict is None:
+            if _verdict == '':
+                print(f"- [{src}] the container is clean as this turn "
+                      f"starts. Before a reply says \"{_ph}\", run `python3 "
+                      f"tools/precedent_container_safe.py` again: files this "
+                      f"turn or its helpers write (a scratch folder "
+                      f"included) count, and the stop hook refuses the line "
+                      f"over them. Push what you would keep; delete what "
+                      f"you could make again.")
+            elif _verdict is None:
                 print(f"- [{src}] a reply saying \"{_ph}\" requires a "
                       f"container with nothing uncommitted and nothing off a "
                       f"remote -- and the scanner that checks it "
