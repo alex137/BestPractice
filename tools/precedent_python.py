@@ -168,13 +168,33 @@ def setup(root=ROOT):
               f'is no python{version} on PATH; python3 here is {running_version() or "missing"}. '
               'Install it, or change "python" in precedent.json.', file=sys.stderr)
         return 1
-    problems = [p for p in (install(exe, packages), export_path(make_shims(exe, version))) if p]
+    problems = [p for p in (install(exe, packages), export_path(make_shims(exe, version)),
+                            hook_install(exe)) if p]
     for p in problems:
         print(f'precedent_python: WARN -- {p}', file=sys.stderr)
     if not problems:
         print(f'precedent_python: python3 is Python {version} ({exe}) for this session, '
               f'with {", ".join(packages)}.')
     return 1 if problems else 0
+
+
+def hook_install(exe, running=sys.executable):
+    """Give the Python hooks run the packages the gates import. -> '' or why not.
+
+    THE GAP (2026-10-16, a consumer). The session file reaches the Bash
+    tool's commands only. Claude Code starts every hook with its own PATH,
+    where `python3` is still the image's default (3.13 beside a declared
+    3.12), so the prompt gate, run as a hook, found cmarkgfm and markdown
+    missing a minute after this setup reported them installed. Setup runs
+    from the session-start hook before the PATH line, so the Python running
+    it is the one the hooks get; when that is not the declared one, the
+    engine's own packages go there too. Only BASE_PACKAGES: a hook runs
+    engine tools, and the push check installs what else it needs itself
+    (practice: one-python)."""
+    if not running or os.path.realpath(running) == os.path.realpath(exe):
+        return ''
+    why = install(running, BASE_PACKAGES)
+    return f'for the Python hooks run ({running}): {why}' if why else ''
 
 
 def check(root=ROOT):
