@@ -1927,6 +1927,45 @@ def main_test_cadence(root, user_config=None):
     return float(value), where
 
 
+# THE CLEANUP BUTTON'S OWN NUMBER (2026-10-16, spec/BRANCH_CLEANUP_BUTTON_PLAN.md).
+# At most how often the branch cleanup page offers a PRIVATE repository's
+# "Delete all merged branches" button, in hours, counted from that
+# repository's last cleanup run. Apart from github_ci_every_hours on purpose.
+# Morgan: "instead of using the same variable ... let's define a second
+# variable next to me and let's make that variable 336 for now" (strength:
+# decided). Nothing ever runs the cleanup automatically; this only decides
+# whether the button is shown.
+CLEANUP_CADENCE_KEYS = ('github_branch_cleanup_every_hours',)
+
+
+def branch_cleanup_cadence(root, user_config=None):
+    """-> (hours, where): at most how often a private repository's cleanup
+    button is shown. 0 means always. The person's identity.json first, then
+    the repository's precedent.json, the way main_test_cadence reads its
+    number. Unlike it, this says nothing about visibility: the page decides
+    that per repository. A doubt -- unset, not a number, negative -- is 0,
+    the button shown: showing it costs nothing, only a click does."""
+    found = None
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email'):
+            found = next(((ident[k], str(path)) for k in CLEANUP_CADENCE_KEYS
+                          if k in ident), None)
+            if found:
+                break
+    if not found:
+        repo = precedent_json(root)
+        found = next(((repo[k], "this repo's precedent.json")
+                      for k in CLEANUP_CADENCE_KEYS if k in repo), None)
+    if not found:
+        return 0.0, 'github_branch_cleanup_every_hours is not set anywhere'
+    value, where = found
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        return 0.0, (f'github_branch_cleanup_every_hours is {value!r} in {where}, '
+                     f'which is not a number of hours')
+    return float(value), where
+
+
 SWITCH_KEYS = ('github_ci_workflows', 'ci_workflows')
 
 

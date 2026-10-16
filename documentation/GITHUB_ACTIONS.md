@@ -6,7 +6,7 @@ This is especially important when working through GitHub-connected ChatGPT. A no
 
 ## Precedent's Own Workflows (This Repo, Not a Template)
 
-Two workflows run on this repo itself, in [.github/workflows/](https://github.com/alex137/BestPractice/tree/staging/.github/workflows).
+Three workflows live in this repo itself, in [.github/workflows/](https://github.com/alex137/BestPractice/tree/staging/.github/workflows).
 (A third, `docs.yml`, ran the Markdown lint here until that left CI on
 2026-09-21; see the next section.)
 
@@ -36,6 +36,15 @@ Two workflows run on this repo itself, in [.github/workflows/](https://github.co
   ([the gotcha](../gotchas/gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy.md)).
   The harness now refuses any other way of running the suite in this
   workflow.
+- **`precedent-branch-cleanup.yml`** — added 2026-10-16
+  ([spec/BRANCH_CLEANUP_BUTTON_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_BUTTON_PLAN.md)).
+  **It never runs by itself:** its only trigger is a person clicking Run
+  workflow, reached from the delete-all button on the branch cleanup page.
+  It deletes every branch already in `main`, never `main`, `staging`, the
+  engine's own branches or an open pull request's source, and its summary
+  names each branch. One job: about a billed minute a click in a private
+  repository, nothing in a public one. The same file ships to every
+  dependent repository (below).
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
   (`b3bfb54`). Runs [tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py)'s structural
   layer on a push to `main`. Until 2026-10-10 it ran on every push to every
@@ -294,10 +303,14 @@ individual's own practice set or dependent project.
 ## Install in a Dependent Repository
 
 Nothing to copy by hand. `precedent_install.py` (INSTALL.md §0) writes
-`.github/workflows/leak-gate.yml` and `.github/workflows/light-check.yml`
-from [templates/github-actions/](../templates/github-actions/) by default,
-and records both in `tools/ENGINE_MANIFEST.json`. A source that declares
-`"github_ci_workflows": "disabled"` switches both off. The engine owns them
+`.github/workflows/leak-gate.yml`, `.github/workflows/light-check.yml` and
+`.github/workflows/precedent-branch-cleanup.yml` from
+[templates/github-actions/](../templates/github-actions/) by default, and
+records them in `tools/ENGINE_MANIFEST.json`. A source that declares
+`"github_ci_workflows": "disabled"` switches all three off. The cleanup
+workflow costs nothing until someone clicks Run workflow on it; if a run
+fails on permissions, allow it at the repository's **Settings → Actions →
+General → Workflow permissions**. The engine owns them
 from then on: see "Updating an Installed Repository" below, and
 "Controlling Actions Minutes" above for what each costs.
 
@@ -359,8 +372,10 @@ Repository rules vary by account and organization. Use the repository's current 
 ## Updating an Installed Repository
 
 **Update Vendors does it; there is nothing to compare by hand.** Every
-refresh writes `leak-gate.yml` and `light-check.yml` from the templates over
-whatever the repository has, hand-made or hand-edited, and removes every
+refresh writes `leak-gate.yml`, `light-check.yml` and
+`precedent-branch-cleanup.yml` from the templates over whatever the
+repository has (the cleanup workflow is also added where the other two are
+installed and it is missing), hand-made or hand-edited, and removes every
 other workflow upstream does not ship that the person did not approve in
 their own words (practice `ci-workflow-approved`). It checks first that
 nothing needed is lost: a workflow running something the local push check

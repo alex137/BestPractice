@@ -41,7 +41,9 @@ one at a time:
 - the GitHub Model Context Protocol (MCP) server — it ships `create_branch`
   and **no delete counterpart at all**, so there is nothing to call
 - the REST or GraphQL API by hand — `curl`, a fetch tool, a throwaway script
-- a GitHub Actions workflow written, edited or dispatched to do it
+- a GitHub Actions workflow written, edited or dispatched to do it -- the
+  engine's own `precedent-branch-cleanup.yml` included: a session never
+  starts it (below)
 - handing it to a subagent, a spawned session or a workflow — they carry the
   same credential and get the same refusal
 - pushing a scratch branch "to check whether deleting works now"
@@ -51,6 +53,18 @@ session's own clone (`git branch -d`, `git branch -D`) touches no remote and
 is ordinary housekeeping. And GitHub's own **Delete branch** button, clicked
 by a person, works normally — that is the whole point of the link the next
 paragraph requires.
+
+**One workflow may delete branches, and only a person starts it.** The
+engine ships `.github/workflows/precedent-branch-cleanup.yml`, whose only
+trigger is a person clicking Run workflow on GitHub, reached from the
+delete-all button on the branch cleanup page. It deletes only branches
+already in `main`, never `main`, `staging`, the engine's own branches, a
+`data-` branch or an open pull request's source. **A session
+never starts it, by any route, and never offers to;** the tool behind it
+refuses to delete anything outside that workflow. Morgan, 2026-10-16: "on
+both [private] and public, NEVER run the cleanup automatically. In both
+cases, [put] the buttons on the branch cleanup page" (strength: decided;
+[the plan](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_BUTTON_PLAN.md)).
 
 **What to do instead, every time: hand over the one-click link and move on.**
 [branch-delete-links](branch-delete-links.md) has the exact form. Say it once,

@@ -2900,6 +2900,10 @@ CI_WORKFLOW_TEMPLATES = {
     'consumer': (
         ('leak-gate.yml.template', '.github/workflows/leak-gate.yml'),
         ('light-check.yml.template', '.github/workflows/light-check.yml'),
+        # THE BRANCH CLEANUP BUTTON (2026-10-16, spec/BRANCH_CLEANUP_BUTTON_PLAN.md).
+        # Started only by a person, from the button on the branch cleanup
+        # page; no other trigger, so it bills nothing while it sits here.
+        ('branch-cleanup.yml.template', '.github/workflows/precedent-branch-cleanup.yml'),
     ),
     # A PRACTICE SOURCE RUNS NO CI AT ALL (2026-09-21, Morgan, strength:
     # decided): "the sets don't need CI; maybe we define the default to be
@@ -2939,6 +2943,14 @@ CI_WORKFLOW_TEMPLATES = {
     # while an unknown kind still triggers nothing.
     'source': (),
 }
+
+# The CI_WORKFLOW_TEMPLATES entries a refresh WRITES into a repository that
+# lacks them, when the kind's other workflows are installed there
+# (_refresh_ci_workflow_files). Every other template is written only at
+# install and kept up to date after, never put back once removed. The branch
+# cleanup workflow is here because it costs nothing until a person clicks it
+# (2026-10-16, spec/BRANCH_CLEANUP_BUTTON_PLAN.md).
+CI_ADDED_ON_REFRESH = frozenset({'branch-cleanup.yml.template'})
 
 # CI-workflow analog of RETIRED_ENGINE_FILES above -- a relative path this
 # manifest may still be tracking in ci_workflow_files/ci_workflows_sha256
@@ -5311,9 +5323,23 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
             recorded.pop(rel, None)
             continue
         path = dest_root / rel
-        if not path.is_file():
-            continue
         src = ci_workflows_dir / template
+        if not path.is_file():
+            # A TEMPLATE THE KIND GAINED SINCE THIS REPO'S INSTALL is written
+            # where the kind's other workflows already are: their presence is
+            # the install's "GitHub workflows on" (ci_workflows), and without
+            # this a new engine workflow reached only fresh installs. Only
+            # the ones named in CI_ADDED_ON_REFRESH, so a workflow a person
+            # removed on purpose is not put back.
+            if not (converges and template in CI_ADDED_ON_REFRESH and src.is_file()):
+                continue
+            rendered = render_ci_workflow(dest_root, src.read_bytes())
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(rendered)
+            recorded[rel] = hashlib.sha256(rendered).hexdigest()
+            owned.append(rel)
+            refreshed.append(rel)
+            continue
         if not src.is_file():
             continue                  # this commit predates the template
         rendered = render_ci_workflow(dest_root, src.read_bytes())

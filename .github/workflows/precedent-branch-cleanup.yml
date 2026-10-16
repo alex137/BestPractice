@@ -1,0 +1,73 @@
+# Installed as .github/workflows/precedent-branch-cleanup.yml in a dependent
+# repository. THE ENGINE OWNS THIS FILE: install and Update Vendors write it
+# from this template (precedent_vendor_engine.CI_WORKFLOW_TEMPLATES).
+#
+# WHAT IT DOES. Deletes every branch on origin that is already in `main`,
+# so deleting it loses nothing -- the same branches the branch cleanup page
+# lists, chosen by the same code (tools/precedent_stale_branches.py,
+# --delete-merged). Never `main`, `staging`, `pre-staging`, the engine's own
+# branches, a `data-` branch, the repository's default branch, or a branch
+# that is the source of an open pull request. The run's summary names every
+# branch it deleted and every one it skipped.
+#
+# WHO STARTS IT: A PERSON, NEVER A SESSION OR A SCHEDULE (2026-10-16,
+# spec/BRANCH_CLEANUP_BUTTON_PLAN.md). The only trigger is workflow_dispatch:
+# the "Delete every merged branch" button on the branch cleanup page opens
+# this workflow's page on GitHub, where the person clicks Run workflow. So
+# the file bills nothing while it sits here. Morgan: "on both [private] and
+# public, NEVER run the cleanup automatically" (strength: decided). A
+# session never starts it (practice: never-delete-a-remote-branch), and
+# --delete-merged refuses to run anywhere but in this workflow.
+#
+# ONE JOB. GitHub bills each job for at least a whole minute
+# (spec/BILLING_FLOOR.md), so a click costs about one minute in a private
+# repository and nothing in a public one.
+name: Delete merged branches
+
+on:
+  workflow_dispatch:
+
+permissions:
+  # The least that can delete a branch with this workflow's own token.
+  contents: write
+  # To skip a branch that is an open pull request's source. Read-only.
+  pull-requests: read
+
+# Two clicks queue rather than race; the second finds nothing left.
+concurrency:
+  group: precedent-branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Delete merged branches
+    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          # Every branch, with its history: whether a branch is in main is
+          # decided by git, against the whole of main.
+          fetch-depth: 0
+
+      - name: List the branches open pull requests come from
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 1000 \
+            --json headRefName --jq '.[].headRefName' > "$RUNNER_TEMP/open-heads.txt"
+          echo "$(wc -l < "$RUNNER_TEMP/open-heads.txt") open pull request(s)"
+
+      - name: Delete every branch already in main
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -eu
+          if [ ! -f tools/precedent_stale_branches.py ]; then
+            echo "No vendored engine at tools/precedent_stale_branches.py:" \
+                 "run Update Vendors in this repository." >&2
+            exit 1
+          fi
+          python3 tools/precedent_stale_branches.py --delete-merged \
+            --keep "$DEFAULT_BRANCH" --skip-heads "$RUNNER_TEMP/open-heads.txt"

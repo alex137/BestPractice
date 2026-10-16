@@ -80,6 +80,15 @@ undeleted costs nothing and breaks nothing; treating it as an outstanding item
 turns a courtesy into homework, which is how the whole list stops being read.
 Say it as an offer and let it go.
 
+**The branch cleanup page's delete-all button is an addition, never a
+replacement.** Each repository's section on that page may open with a link
+that starts the engine's cleanup workflow (practice
+[never-delete-a-remote-branch](never-delete-a-remote-branch.md) says who
+may start it); every branch still gets its own row and its own filtered
+link, so the person can count them, read the names, and delete one at a
+time instead (Morgan, 2026-10-16: "it should ALSO keep the list as it is
+now", strength: decided).
+
 **The session never attempts the deletion itself** — not by any route, and not
 after being asked to. [never-delete-a-remote-branch](never-delete-a-remote-branch.md)
 says why, and lists the routes that get tried in order when that rule is not in
