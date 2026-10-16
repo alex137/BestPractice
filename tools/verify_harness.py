@@ -30284,9 +30284,135 @@ def check_branch_cleanup_button():
         pve._refresh_ci_workflow_files(dest, 'consumer', src, man)
         cases.append(('CONTROL: with no workflow installed (GitHub workflows off), none is added',
                       not (wf / 'precedent-branch-cleanup.yml').exists(), ''))
+        # 2026-10-16, a consumer's Update Vendors: the workflow was added with
+        # no word in the repository's own guide, and its basic check refused
+        # it (github-setup-disclosed). The refresh now writes the bullet.
+        guide = dest / 'GETTING_STARTED.md'
+        guide.write_text('# Getting started\n\n- **Before anything** reaches main.\n'
+                         '- **Your writing is checked before it is saved, not after.**\n',
+                         encoding='utf-8')
+        (wf / 'light-check.yml').write_bytes(rendered)
+        refreshed, _c, _r = pve._refresh_ci_workflow_files(dest, 'consumer', src, man)
+        text = guide.read_text(encoding='utf-8')
+        cases.append(('the refresh that adds the workflow says so in the guide, '
+                      'before the writing bullet',
+                      'GETTING_STARTED.md' in refreshed
+                      and text.index('precedent-branch-cleanup.yml')
+                      < text.index('Your writing is checked'), text))
+        again = pve._disclose_added_workflow(
+            dest, '.github/workflows/precedent-branch-cleanup.yml', 'branch-cleanup.yml.template')
+        cases.append(('a guide that already names it is left alone',
+                      again is False and text == guide.read_text(encoding='utf-8'), ''))
+        guide.write_text('# A guide of its own\n', encoding='utf-8')
+        pve._LEFT_FOR_YOU.clear()
+        pve._disclose_added_workflow(
+            dest, '.github/workflows/precedent-branch-cleanup.yml', 'branch-cleanup.yml.template')
+        cases.append(('a guide with no place for it is left for the person, with the text',
+                      guide.read_text(encoding='utf-8') == '# A guide of its own\n'
+                      and any('GETTING_STARTED.md' in str(i) for i in pve._LEFT_FOR_YOU),
+                      pve._LEFT_FOR_YOU))
+        pve._LEFT_FOR_YOU.clear()
+    import precedent_install as _pi
+    cases.append(('the installer\'s guide paragraph carries the same bullet, one copy',
+                  pve.CI_DISCLOSURES['branch-cleanup.yml.template'] in _pi._CI_PARAGRAPH_ON
+                  and _pi._CI_PARAGRAPH_ON in (ROOT / 'templates' / 'GETTING_STARTED.md'
+                                               ).read_text(encoding='utf-8'), ''))
+    import precedent_update as _pu
+    picked = _pu.vendored_layer_paths(ROOT, ['.github/workflows/precedent-branch-cleanup.yml',
+                                             '.github/workflows/light-check.yml',
+                                             '.github/workflows/someones-own.yml'])
+    cases.append(('a rerun puts the engine\'s own workflows back with the engine, and '
+                  'only those (the old engine never judges a file it lacks)',
+                  sorted(picked) == ['.github/workflows/light-check.yml',
+                                     '.github/workflows/precedent-branch-cleanup.yml'], picked))
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'the branch cleanup page\'s delete-all button ({len(cases)} stated cases)',
           not bad, '; '.join(map(str, bad)))
+
+
+def check_update_holds_a_settings_change_and_offers_it_again():
+    """A .claude/ change Update Vendors asks the person about keeps its old
+    manifest baseline until their words are given, and a read-only allow
+    rule left uncommitted is offered again by a rerun on the same commit.
+
+    WHY. 2026-10-16, Update Vendors in four voice repositories: the run
+    staged an allow-list change for the person's words and re-recorded
+    settings.json's baseline to the new content at once, so the session
+    that set the change aside, as asked, failed the practice audit as
+    DRIFT; and after the person approved, the rerun said DONE with the
+    change nowhere, because the refresh's early exit never looked at
+    settings.json. Planted: an uncommitted settings change is held without
+    the words and not with them; a held path keeps its baseline, the same
+    path unheld is re-recorded; a missing read-only rule is listed, a
+    declined one is not, and the refresh's early exit asks about it."""
+    import hashlib
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    import precedent_vendor_engine as pve
+    cases = []
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                  capture_output=True, text=True)
+        git('init', '-q', '-b', 'main')
+        (repo / '.claude').mkdir()
+        settings = repo / '.claude' / 'settings.json'
+        settings.write_text('{"permissions": {"allow": []}}\n', encoding='utf-8')
+        (repo / 'process').mkdir()
+        old = hashlib.sha256(settings.read_bytes()).hexdigest()
+        manifest = {'entries': [{'local_path': '.claude/settings.json', 'status': 'synced',
+                                 'upstream_path': 'templates/harness/claude-code/settings.json',
+                                 'local_sha256': old}]}
+        (repo / 'process' / 'manifest.json').write_text(json.dumps(manifest), encoding='utf-8')
+        git('add', '-A'); git('commit', '-qm', 'base')
+        settings.write_text('{"permissions": {"allow": ["Bash(python3 tools/x.py:*)"]}}\n',
+                            encoding='utf-8')
+        saved = os.environ.pop(pu.HARNESS_GO_AHEAD, None)
+        try:
+            held = pu.held_harness_paths(repo)
+            cases.append(('without the person\'s words the settings change is held',
+                          held == {'.claude/settings.json'}, held))
+            os.environ[pu.HARNESS_GO_AHEAD] = 'Commit the .claude/settings.json allow-list change'
+            cases.append(('CONTROL: with their words nothing is held',
+                          pu.held_harness_paths(repo) == set(), pu.held_harness_paths(repo)))
+        finally:
+            os.environ.pop(pu.HARNESS_GO_AHEAD, None)
+            if saved is not None:
+                os.environ[pu.HARNESS_GO_AHEAD] = saved
+        done = pu.rebaseline_vendored_entries(repo, {'.claude/settings.json'},
+                                              hold={'.claude/settings.json'})
+        kept = json.loads((repo / 'process' / 'manifest.json').read_text())['entries'][0]
+        cases.append(('a held change keeps the old baseline, so setting it aside is not DRIFT',
+                      done == [] and kept['local_sha256'] == old, (done, kept)))
+        done = pu.rebaseline_vendored_entries(repo, {'.claude/settings.json'})
+        cases.append(('CONTROL: the same change, not held, is re-recorded',
+                      done == ['.claude/settings.json'], done))
+
+    with tempfile.TemporaryDirectory() as td:
+        dest = pathlib.Path(td)
+        (dest / '.claude').mkdir()
+        (dest / 'tools').mkdir()
+        (dest / 'tools' / 'precedent_show.py').write_text('', encoding='utf-8')
+        (dest / '.claude' / 'settings.json').write_text('{}', encoding='utf-8')
+        rule = 'Bash(python3 tools/precedent_show.py *)'
+        missing = pve._read_only_allow_missing(dest, [rule])
+        cases.append(('a read-only rule the settings lack is listed', missing == [rule], missing))
+        (dest / 'precedent.json').write_text(json.dumps({pve.DECLINED_ALLOW_KEY: [rule]}),
+                                             encoding='utf-8')
+        cases.append(('CONTROL: a declined rule is not offered again',
+                      pve._read_only_allow_missing(dest, [rule]) == [], ''))
+    src = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_text(encoding='utf-8')
+    exit_at = src.find('engine already current with')
+    cases.append(('the refresh\'s "nothing to do" exit asks whether an allow rule is missing',
+                  'and not allow_pending' in src[:exit_at]
+                  and src.find('allow_pending = ') < exit_at, ''))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors holds a settings change\'s baseline and offers it again '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
 
 
 def check_stale_branches_lists_one_repository_once():
@@ -55638,8 +55764,16 @@ def check_a_failure_item_lists_the_index_it_creates():
         git('init', '-q', '--bare', '-b', 'main', str(origin), cwd=tmp)
         git('clone', '-q', str(origin), str(work), cwd=tmp)
         git('checkout', '-q', '-b', 'main')
-        shutil.copytree(ROOT / 'tools', work / 'tools',
-                        ignore=shutil.ignore_patterns('__pycache__', 'verify_harness.py'))
+        # The files git tracks, never the whole folder: a brought set ships
+        # tools into a session untracked (.git/info/exclude), and one naming
+        # a private repository made the global leak gate refuse this
+        # fixture's first push, failing the case on any machine with that
+        # set (2026-10-16; practice: fixture-owns-its-state).
+        for rel in subprocess.run(['git', '-C', str(ROOT), 'ls-files', '--', 'tools'],
+                                  capture_output=True, text=True).stdout.split():
+            if rel != 'tools/verify_harness.py':
+                (work / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(ROOT / rel, work / rel)
         (work / 'tools' / 'generated_files.json').write_text(
             json.dumps({'files': []}) + '\n', encoding='utf-8')
         (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
@@ -58638,6 +58772,64 @@ def _renamed_universal_fixture(tmp):
                {'level': 'individual', 'name': 'precedent-individual',
                 'path': str(ind)}]
     return sources, consumer, write
+
+
+def check_deduplicated_copy_stays_in_force_until_its_target_arrives():
+    """A practice a set handed on to another source stays in force from the
+    handed-on copy while the copy it names has not reached this repository,
+    said so on every sync, and stands down by itself once it has.
+
+    WHY. 2026-10-16, a consuming repository: a plain sync printed "IN FORCE NOWHERE --
+    curly-quotes (precedent-shared-writing)" and removed the rule and its
+    check, still reporting OK. precedent-shared-writing had handed
+    curly-quotes to universal, and the repository's vendored universal
+    catalogue predated that. Planted: the handed-on copy alone; the same
+    with the target present (the control); and the bytes the materializer
+    writes for a kept copy. And the control the other way: a universal copy
+    pointing at a set the repo does not declare is not kept -- that is the
+    person's call (not_in_force_here), asked by Update Vendors."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr
+    import precedent_materialize as _pm
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-kept-'))
+    cases = []
+    try:
+        sources, _consumer, write = _renamed_universal_fixture(tmp)
+        write(tmp / 'ind' / 'practices' / 'handed-on.md', 'handed-on',
+              'deduplicated', 'handed-on', rule='The whole rule, still here.')
+        res = _pr.resolve(sources)
+        kept = res['practices'].get('handed-on') or {}
+        entry = next((d for d in res['dangling'] if d['slug'] == 'handed-on'), {})
+        cases.append(('the handed-on copy binds while its target is missing',
+                      bool(kept.get('kept_in_force')), sorted(res['practices'])))
+        cases.append(('and every report says it was kept, and why',
+                      entry.get('kept_in_force') is True
+                      and 'kept in force here' in entry.get('why', ''), entry))
+        data = _pm._as_written(kept) if kept else b''
+        cases.append(('it is written out active, with no forwarding address',
+                      b'status: active' in data and b'in_force_at: null' in data
+                      and b'The whole rule, still here.' in data, data[:300]))
+        write(tmp / 'uni' / 'practices' / 'to-a-set.md', 'to-a-set',
+              'deduplicated', 'to-a-set')
+        res = _pr.resolve(sources)
+        cases.append(('CONTROL: a universal copy pointing at an undeclared set is not kept',
+                      'to-a-set' not in res['practices']
+                      and any(d['slug'] == 'to-a-set' and not d.get('kept_in_force')
+                              for d in res['dangling']), sorted(res['practices'])))
+        write(tmp / 'uni' / 'practices' / 'handed-on.md', 'handed-on')
+        res = _pr.resolve(sources)
+        cases.append(('CONTROL: once the target arrives, it is the rule in force and '
+                      'the handed-on copy stands down',
+                      res['practices'].get('handed-on', {}).get('source') == 'precedent'
+                      and not res['practices']['handed-on'].get('kept_in_force')
+                      and not any(d['slug'] == 'handed-on' for d in res['dangling']),
+                      str(res['practices'].get('handed-on', {}).get('source'))))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'a deduplicated copy stays in force until its target arrives '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
 
 
 def check_in_force_at_chain_is_followed():
@@ -80065,6 +80257,8 @@ def main():
     check_freshness_guard_never_tells_a_tier_branch_to_merge()
     check_stale_branches_lists_one_repository_once()
     check_branch_cleanup_button()
+    check_update_holds_a_settings_change_and_offers_it_again()
+    check_deduplicated_copy_stays_in_force_until_its_target_arrives()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
     check_bootstrap_runs_every_tool_session_start_runs()
     check_codex_hooks_template_runs_the_claude_gates()
