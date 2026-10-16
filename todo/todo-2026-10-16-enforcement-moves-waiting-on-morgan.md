@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "Morgan: go-ahead for the ladder restructuring (plan part 3), the call on the commit-identity checks (part 4), and which repositories get the GitHub branch ruleset"
+waiting_on:        "Morgan: when the ladder restructuring (plan part 3) starts, and the shape of the GitHub branch ruleset opt-in"
 noted:             2026-10-16
 closed:            null
 ---
@@ -36,3 +36,15 @@ Three calls left by
 All three are decided, and what was decided is built or parked.
 
 ## Notes
+
+- 2026-10-16, Morgan, on part 3: "not yet" (strength: decided).
+- 2026-10-16, Morgan, on part 4: "keep it in best practice" (strength:
+  decided) -- and, his emphasis, "sets practice names should NOT be in
+  BestPractice!!!". Measured the same day on staging: the three sets'
+  names and practice slugs appear about 1,400 times in BestPractice, in
+  code (string literals, comments, tests) and in docs (practices, specs,
+  open items, gotchas). Removing them is its own piece of work, proposed
+  to him the same day.
+- 2026-10-16, Morgan, on the ruleset: make it something a person opts in
+  to in their own settings, so nothing changes for anyone who has not.
+
