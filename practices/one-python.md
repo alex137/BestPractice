@@ -39,11 +39,16 @@ every place that starts Python gets that one.**
 4. **GitHub's workflows set the same version** with `python-version`.
 
 ## Detail
-**A hook does not get the declared Python.** Claude Code starts hooks with
-its own PATH, which the session file never reaches, so a hook's `python3`
-is the image's default. Setup runs inside the session-start hook, so it
-also installs the engine's packages into the Python running it, which is
-the one every later hook gets.
+**A hook gets the declared Python from a link, not from the session
+file.** Claude Code starts hooks with its own PATH, which the session file
+never reaches, so a bare `python3` in a hook is the image's default. Setup
+therefore also links the declared Python at `.precedent/python-bin` in the
+checkout, and every hook script in `tools/` that starts `python3` puts that
+link first on its PATH before it does, in one block `verify_harness` keeps
+identical. No link -- setup has never run here -- and the hook runs on the
+default, as before; it is never refused. For that first run, setup also
+installs the engine's packages into the Python running it, which is the
+default the session-start hook was given.
 
 `python3 tools/precedent_python.py check` says whether this shell's
 `python3` is the declared one and can import the declared packages. A
@@ -83,9 +88,14 @@ session would have started over.
 cmarkgfm and markdown, and the first prompt's gate, a minute later, said
 both were missing. The gate runs as a hook, and Claude Code gives a hook
 its own PATH, where `python3` was the image's 3.13; the session file had
-changed PATH for the session's commands only. Setup now installs the
-engine's packages into the Python running it too, which is the hooks'
-Python, since the session-start hook is what runs it.
+changed PATH for the session's commands only. The first fix installed the
+engine's packages into that default Python too, which cured the gate but
+left every hook on the wrong Python: the push check ran a repository's
+checks without its declared packages, and on an image whose default is
+older than the declared version it would fail to parse newer syntax, the
+2026-10-13 incident again. The same day, setup began linking the declared
+Python into the checkout and every hook script began putting that link
+first.
 
 ## Install
 Declare the Python in `precedent.json` -- `"python": {"version": "3.12",
