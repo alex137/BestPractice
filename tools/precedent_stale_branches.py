@@ -9,6 +9,7 @@ deleting it loses nothing.
     python3 tools/precedent_stale_branches.py --html OUT.html --merge SAVED.html
     python3 tools/precedent_stale_branches.py --html OUT.html --replace
     python3 tools/precedent_stale_branches.py --page-url      # the person's saved page
+    python3 tools/precedent_stale_branches.py --waiting       # staging that main lacks
 
 A branch is STALE when its tip is already in `origin/main`, or when it carries
 no change `main` lacks (a Promote's fix branch or copy of staging whose merge commits
@@ -100,6 +101,21 @@ the engine here is older than the page and Update Vendors fixes it. A page
 with no `format` predates the field and counts as format 0, accepted.
 Reported by a consuming repository, 2026-10-13, after a vendored engine
 older than the page's merged it.
+
+WAITING TO GO LIVE (2026-10-16). The page also lists, above the branches,
+each repository whose staging tier carries a change main lacks: how many
+commits, the date of the oldest, and a link to GitHub's comparison of the
+two. Same repositories, same code-owner filter, and merged across sessions
+the same way: a repository this run checked gets its fresh row, or none
+when it is level, and one it did not check keeps its last row under the
+date it was checked. A repository with no staging tier, where main is
+staging, has no row. This is what the retired chief-of-staff practice's
+Promotion Reviews did on request; Morgan, 2026-10-16, retiring it: "Let's
+implement your three suggestion" (strength: decided), the suggestion being
+to put the staging check on this page so it comes without being asked and
+covers, across sessions, every repository the person works in. A page
+carrying a waiting list is format 2, so an engine from before this refuses
+to merge it rather than drop the list.
 """
 import datetime
 import html
@@ -128,7 +144,7 @@ PAGE_FILENAME = 'branch-cleanup.html'
 # The version of the page's JSON block (`format` in branch-data). Raise it
 # whenever the block gains a field an older engine would drop or misread:
 # an older engine handed a newer page refuses to merge it (page_format).
-PAGE_FORMAT = 1
+PAGE_FORMAT = 2
 
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(_ENGINE_DIR))
@@ -323,6 +339,65 @@ def collect(fetch=False, seen=None):
     return groups, notes
 
 
+def waiting_in(repo):
+    """-> (staging, commits, oldest_date) when `repo`'s staging tier carries
+    a change origin/main lacks; None when the two are level, when main is
+    staging here, or when either is missing. Reads the remote-tracking refs
+    as they stand: fetch first for a current answer."""
+    try:
+        import precedent_branches as pb
+        staging = pb.staging_branch(repo)
+    except Exception:                                        # noqa: BLE001
+        staging = 'staging'
+    if not staging or staging == 'main':
+        return None
+    lo, hi = 'origin/main', f'origin/{staging}'
+    for ref in (lo, hi):
+        if _git(repo, 'rev-parse', '--verify', '--quiet', ref).returncode:
+            return None
+    # Nothing to move when staging changes no file main lacks: a staging
+    # that only merged main back in after a Produce is level, not waiting.
+    if _git(repo, 'diff', '--quiet', f'{lo}...{hi}').returncode == 0:
+        return None
+    dates = _git(repo, 'log', '--no-merges', '--format=%cs',
+                 f'{lo}..{hi}').stdout.split()
+    if not dates:
+        dates = _git(repo, 'log', '--format=%cs', f'{lo}..{hi}').stdout.split()
+    if not dates:
+        return None
+    return staging, len(dates), min(dates)
+
+
+def collect_waiting(fetch=False, seen=None):
+    """-> [(owner, name, staging, commits, oldest)] for every repository
+    open here, where the person is a code owner, whose staging waits to go
+    into main. `seen`, a list, gets (owner, name) of every repository read,
+    the level ones included: what a merge replaces."""
+    try:
+        import precedent_audience as pa
+    except ImportError:
+        pa = None
+    out = []
+    for repo, (owner, name) in _repos():
+        if pa is not None and not pa.is_code_owner(repo)[0]:
+            continue
+        if fetch:
+            _git(repo, 'fetch', '-q', '--prune', 'origin')
+        if _git(repo, 'rev-parse', '--verify', '--quiet', 'origin/main').returncode:
+            continue
+        if seen is not None:
+            seen.append((owner, name))
+        row = waiting_in(repo)
+        if row:
+            out.append((owner, name, *row))
+    return out
+
+
+def compare_link(owner, name, staging):
+    return (f'https://github.com/{owner}/{name}/compare/main...'
+            + urllib.parse.quote(staging, safe=''))
+
+
 def link(owner, name, branch):
     return (f'https://github.com/{owner}/{name}/branches/all?query='
             + urllib.parse.quote(branch, safe=''))
@@ -498,6 +573,68 @@ def carried_over(previous, seen, done=None):
     return out
 
 
+def read_waiting(text):
+    """-> [{'owner', 'repo', 'checked', 'staging', 'commits', 'oldest'}]
+    from a page's JSON block; [] for a page from before the list existed."""
+    m = _DATA.search(text)
+    if not m:
+        return []
+    try:
+        rows = json.loads(m.group(1)).get('waiting') or []
+    except (ValueError, AttributeError):
+        return []
+    return [r for r in rows if isinstance(r, dict) and r.get('owner') and r.get('repo')]
+
+
+def carried_waiting(previous, seen):
+    """-> [(owner, name, staging, commits, oldest, checked)]: the saved
+    page's waiting rows for repositories this run did not check."""
+    checked_now = {_key(o, n) for o, n in seen}
+    return [(r['owner'], r['repo'], r.get('staging') or 'staging',
+             int(r.get('commits') or 0), r.get('oldest') or '', r.get('checked') or '')
+            for r in previous if _key(r['owner'], r['repo']) not in checked_now]
+
+
+def is_page(text):
+    """True when `text` is a page this tool built: its JSON block reads, or,
+    before the block, it carries the build stamp."""
+    m = _DATA.search(text)
+    if m:
+        try:
+            return isinstance(json.loads(m.group(1)), dict)
+        except ValueError:
+            return False
+    return bool(_STAMP.search(text) and _SECTION.search(text))
+
+
+def _waiting_section(waiting, carried, tz):
+    if not waiting and not carried:
+        return ''
+    lis = []
+    for owner, name, staging, n, oldest, *rest in [(*w, '') for w in waiting] + list(carried):
+        checked = rest[0] if rest else ''
+        note = ''
+        if checked:
+            try:
+                note = (' <span class="carried">As of the last check, '
+                        + html.escape(built_line(datetime.datetime.fromisoformat(checked),
+                                                 tz)[len('Refreshed '):])
+                        + '; it may have moved since.</span>')
+            except (TypeError, ValueError):
+                note = ' <span class="carried">As of an earlier check.</span>'
+        lis.append(
+            f'<li><div class="wait"><a href="{compare_link(owner, name, staging)}" '
+            f'target="_blank" rel="noopener">{html.escape(name)}</a>'
+            f'<span>{n} commit{"" if n == 1 else "s"} on <code>{html.escape(staging)}</code> '
+            f'that <code>main</code> lacks, oldest from {html.escape(oldest)}.{note}</span>'
+            f'</div></li>')
+    return ('<section class="waiting"><h2>Waiting to go live '
+            f'<span class="count">{len(lis)}</span></h2>'
+            '<p class="carried">Say Produce in a session rooted in that repository '
+            'to move it into main. Each link opens GitHub\'s comparison of the two.</p>'
+            f'<ul>{"".join(lis)}</ul></section>')
+
+
 def _section(owner, name, rows, note=''):
     lis = '\n'.join(
         f'<li><label class="row"><input type="checkbox" '
@@ -512,13 +649,17 @@ def _section(owner, name, rows, note=''):
             + f'<ul>{lis}</ul></section>')
 
 
-def render_html(groups, now=None, tz='', carried=()):
+def render_html(groups, now=None, tz='', carried=(), waiting=(), carried_wait=()):
     """`carried`: [(owner, name, rows, checked)] kept from the saved page for
     repositories this run did not check (carried_over), shown after the
-    fresh ones under the date they were last checked."""
+    fresh ones under the date they were last checked. `waiting`:
+    [(owner, name, staging, commits, oldest)] from collect_waiting, and
+    `carried_wait` the saved page's rows this run did not check
+    (carried_waiting), listed first, above the branches."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
     total = sum(len(r) for *_x, r in groups) + sum(len(c[2]) for c in carried)
-    secs = [_section(owner, name, rows) for owner, name, rows in groups]
+    secs = [_waiting_section(waiting, carried_wait, tz)]
+    secs += [_section(owner, name, rows) for owner, name, rows in groups]
     for owner, name, rows, checked in carried:
         try:
             when = ', ' + built_line(datetime.datetime.fromisoformat(checked),
@@ -533,7 +674,11 @@ def render_html(groups, now=None, tz='', carried=()):
         {'owner': o, 'repo': n, 'checked': now.isoformat(),
          'branches': [[b, d] for b, d in rows]} for o, n, rows in groups] + [
         {'owner': o, 'repo': n, 'checked': c, 'branches': [[b, d] for b, d in rows]}
-        for o, n, rows, c in carried]}
+        for o, n, rows, c in carried], 'waiting': [
+        {'owner': o, 'repo': n, 'checked': now.isoformat(), 'staging': st,
+         'commits': k, 'oldest': d} for o, n, st, k, d in waiting] + [
+        {'owner': o, 'repo': n, 'checked': c, 'staging': st, 'commits': k, 'oldest': d}
+        for o, n, st, k, d, c in carried_wait]}
     # The list the next merge reads (read_page); '<' escaped so no branch
     # name can close the script element.
     secs.append('<script type="application/json" id="branch-data">'
@@ -561,11 +706,17 @@ h1 { font-size:1.6rem; font-weight:600; margin:0; text-wrap:balance; }
 .bar .progress { font-variant-numeric:tabular-nums; font-weight:500; }
 .bar button { font:inherit; font-size:.85rem; background:none; border:1px solid var(--line); color:var(--muted); border-radius:4px; padding:3px 10px; cursor:pointer; }
 .bar button:focus-visible, a:focus-visible, input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-.repo h2 { font-size:1.05rem; font-weight:600; margin:0; display:flex; gap:8px; align-items:baseline; }
+.repo h2, .waiting h2 { font-size:1.05rem; font-weight:600; margin:0; display:flex; gap:8px; align-items:baseline; }
 .count, .owner { font-family:var(--mono); color:var(--muted); }
 .count { font-size:.8rem; font-weight:400; }
 .owner { font-size:.78rem; margin:2px 0 10px; }
 .carried { font-size:.85rem; color:var(--muted); margin:-4px 0 10px; max-width:62ch; }
+.waiting .carried { margin:2px 0 10px; }
+.wait { display:grid; gap:2px; padding:8px 12px; }
+.wait a { font-weight:600; color:var(--accent); text-decoration:none; }
+.wait a:hover { text-decoration:underline; }
+.wait span { color:var(--muted); font-size:.88rem; }
+.wait .carried { display:block; margin:2px 0 0; font-size:.8rem; }
 ul { list-style:none; margin:0; padding:0; background:var(--surface); border:1px solid var(--line); border-radius:6px; }
 li + li { border-top:1px solid var(--line); }
 .row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px 12px; cursor:pointer; }
@@ -639,11 +790,20 @@ def main(argv):
     if '--count' in argv:
         print(total)
         return 0
+    # After collect, whose --fetch already brought every ref up to date.
+    wait_seen = []
+    waiting = collect_waiting(seen=wait_seen)
+    if '--waiting' in argv:
+        for owner, name, staging, n, oldest in waiting:
+            print(f'{name}: {n} commit(s) on {staging} that main lacks, oldest '
+                  f'from {oldest}  {compare_link(owner, name, staging)}')
+        print(f'{len(waiting)} repositor(ies) waiting to go live.')
+        return 0
     if '--html' in argv:
         out = pathlib.Path(argv[argv.index('--html') + 1])
         person = _person()
         url = saved_page(person)
-        carried, ticked = [], 0
+        carried, ticked, carried_wait = [], 0, []
         if '--merge' in argv:
             prev = pathlib.Path(argv[argv.index('--merge') + 1])
             try:
@@ -661,7 +821,7 @@ def main(argv):
                       f'Vendors in this repository brings the engine up to '
                       f'date; then run this again.')
                 return 2
-            if not previous and '--replace' not in argv:
+            if not is_page(prev_text) and '--replace' not in argv:
                 print(f'{prev} holds no branch list this tool can read, so '
                       f'merging it would keep nothing. Nothing written: pass '
                       f'the page the saved address holds, or --replace if '
@@ -673,6 +833,7 @@ def main(argv):
                       f'read of its url with path index.html), or rows and '
                       f'ticks saved since are lost.')
             carried = carried_over(previous, seen, done)
+            carried_wait = carried_waiting(read_waiting(prev_text), wait_seen)
             ticked = (sum(len(r.get('branches') or []) for r in previous
                           if (r['owner'], r['repo']) in
                           {(o, n) for o, n, *_x in carried_over(previous, seen)})
@@ -687,7 +848,9 @@ def main(argv):
                   f'add --replace instead.')
             return 2
         out.write_text(finish_html(render_html(groups, tz=person.get('timezone') or '',
-                                               carried=carried)), encoding='utf-8')
+                                               carried=carried, waiting=waiting,
+                                               carried_wait=carried_wait)),
+                       encoding='utf-8')
         # Noted for the publish gate, which passes a page an engine
         # generator wrote, unedited, within the hour (artifact_publish_gate.py,
         # "ENGINE-REGISTERED GENERATORS"). Without it the page the
@@ -706,6 +869,10 @@ def main(argv):
                  if carried else '')
               + (f'; {ticked} left off because the person ticked them on the '
                  f'page' if ticked else '')
+              + (f'; {len(waiting) + len(carried_wait)} repositor(ies) waiting '
+                 f'to go live' + (f' ({len(carried_wait)} kept from the saved '
+                                  f'page)' if carried_wait else '')
+                 if waiting or carried_wait else '')
               + ('' if noted else ' (not noted for the publish gate, which '
                  'will refuse it: artifact_publish_gate.py did not load)'))
         print(f'Publish it to the saved page, in place: {url}, with '
@@ -717,7 +884,10 @@ def main(argv):
               'individual practice source, so the next close updates it.')
         return 0
     if '--json' in argv:
-        print(json.dumps({'total': total, 'notes': notes, 'repos': [
+        print(json.dumps({'total': total, 'notes': notes, 'waiting': [
+            {'owner': o, 'repo': n, 'staging': st, 'commits': k, 'oldest': d,
+             'link': compare_link(o, n, st)} for o, n, st, k, d in waiting],
+            'repos': [
             {'owner': o, 'repo': n, 'branches': [
                 {'branch': b, 'date': d, 'link': link(o, n, b)} for b, d in rows]}
             for o, n, rows in groups]}, indent=2))
@@ -729,6 +899,9 @@ def main(argv):
     for n in notes:
         print(f'note: {n}')
     print(f'{total} stale branch(es) across {len(groups)} repositor(ies).')
+    for owner, name, staging, n, oldest in waiting:
+        print(f'waiting to go live: {name}, {n} commit(s) on {staging} that '
+              f'main lacks, oldest from {oldest}')
     return 0
 
 

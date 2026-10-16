@@ -1341,6 +1341,8 @@ def main():
         # stale-branch-cleanup; Morgan, 2026-10-05). Only when that practice
         # reached this person -- it is for code owners -- and only when there
         # are any: "Don't do that if there aren't any."
+        # WAITING TO GO LIVE rides the same page (2026-10-16): a staging
+        # that main lacks is reason enough to build it, branches or none.
         if 'stale-branch-cleanup' in slugs:
             try:
                 import precedent_stale_branches as _sb
@@ -1348,15 +1350,23 @@ def main():
                 _n = sum(len(r) for *_x, r in _groups)
             except Exception:                                 # noqa: BLE001
                 _n = 0
-            if _n:
+            try:
+                _w = len(_sb.collect_waiting())
+            except Exception:                                 # noqa: BLE001
+                _w = 0
+            if _n or _w:
                 # NO COUNT HERE (2026-10-10, a consumer): this reads the
                 # remote-tracking refs as they stand, without a fetch -- a
                 # fetch per repository at every turn costs too much -- while
                 # the page fetches first, so "13 branch(es) across 4" here
                 # met 16 on the page. The page's number is the one to give.
                 print(f"- For the CLOSING Boildown only (the reply that says "
-                      f"\"You can archive this session\"): some branches "
-                      f"can be deleted (the page counts them, after a fetch). "
+                      f"\"You can archive this session\"): "
+                      + ("some branches can be deleted"
+                         + (" and " if _w else "") if _n else "")
+                      + ("a repository's staging is waiting to go into "
+                         "main" if _w else "")
+                      + f" (the page counts them, after a fetch). "
                       f"Build the page with `python3 tools/"
                       f"precedent_stale_branches.py --fetch --html "
                       f"<scratchpad>/{_sb.PAGE_FILENAME}` -- with a saved "

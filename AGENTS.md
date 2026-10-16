@@ -44,7 +44,7 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
   paste-ready block for a new session, opened with a tool only when he asks
   for that in his own words; no merge authorization unless he gave one for
   this handoff.
-- **"Root issues"** / **"Root fixes"** ([root-issues](practices/root-issues.md))
+- **"Root issues"** ([root-issues](practices/root-issues.md))
   — every bug, warning, fix or band-aid from this session that also belongs
   in Precedent, a precedent-* repo, a template or a related repo, in one
   Prompt Please block for a session rooted in all of them.
@@ -187,7 +187,7 @@ When a person says "Prompt Please", or work belongs in a new session -- a repo t
   prompt-please — one paste-ready prompt for a new session; open it only when asked
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target:
   reduction-pass — work the menu in order; move, never delete; report what moved
-When a person says "Root issues" or "Root fixes", or asks what this session found or fixed that should go back upstream:
+When a person says "Root issues", or asks what this session found or fixed that should go back upstream:
   root-issues — what this session hit that belongs upstream, in one prompt across those repos
 When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance

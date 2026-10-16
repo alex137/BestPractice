@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A phrase in a MESSAGE, about the whole session so far -- no file path reaches it. Routed by the occasion index and the `reply` gate. Decided: 2026-10-01, when the practice landed."
-occasion:    "a person says \"Root issues\" or \"Root fixes\", or asks what this session found or fixed that should go back upstream"
+occasion:    "a person says \"Root issues\", or asks what this session found or fixed that should go back upstream"
 gates:       ["reply"]
 gates_why:   "The whole obligation is one reply: every finding from the session that belongs upstream, in one Prompt Please block for a session rooted in all their repos, or a plain none."
 index_clause: "what this session hit that belongs upstream, in one prompt across those repos"
@@ -26,13 +26,19 @@ approved_by: "Morgan, 2026-10-01 -- coined both names and wrote the meaning
   quoted paragraph with his new wording; and again the same day, to one
   prompt for a session rooted in every relevant repo instead of one block
   per finding; widened by Morgan on 2026-10-08 to fix the warnings a session
-  got, ranked after what broke or could break something"
+  got, ranked after what broke or could break something; narrowed by Morgan
+  on 2026-10-16 to one name, \"Root issues\", with \"Root fixes\" kept only
+  as a synonym: \"I'd like to rename 'root fixes' as in the command
+  everywhere to 'root issues'. We can still accept it as a synonym or
+  interpret the meaning, but not as the primary phrase used\""
 strength:    decided
 ---
 ## Rule
-**"Root issues" and "Root fixes" mean the same thing, and neither is the only
-form.** "Anything here we should send upstream?" asks the same question and
-gets the same answer. When the person says it, answer as if they had asked
+**The command is "Root issues."** "Root fixes" still works as a synonym, and
+so does any plain question like "anything here we should send upstream?" All
+of them get the same answer. **But a session only ever writes "Root issues"**,
+because the command finds the issues and hands them on. It does not fix them;
+the session the prompt goes to does. When the person says it, answer as if they had asked
 this:
 
 > In everything you did this session so far, did you find any bug or issue
@@ -154,6 +160,12 @@ all, beside the failures that had cost real time. The same night a
 consumer's 227 broken-link warnings, all from one upstream cause, turned out
 to sit beside a defect that refused every Produce; both belonged in the
 prompt, in that order. Strength: decided.
+
+**One name, 2026-10-16.** Until then the two names were equals, side by
+side in every list a person read. Morgan asked for "Root issues" alone, with
+"Root fixes" kept only as a synonym, because the second name says the wrong
+thing: *"you don't 'fix' those issues, you just find them and give me the
+prompt, for another session to fix it."* Strength: decided.
 
 ## Install
 Nothing mechanical checks that a reply found every upstream finding: whether

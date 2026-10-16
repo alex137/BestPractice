@@ -60774,11 +60774,13 @@ def check_branch_cleanup_page_merges_the_saved_page():
                       ('B', ['b-done', 'b-<odd>'], '2026-10-11T10:00')],
                   _sb.read_page(legacy)))
     real_collect, real_person = _sb.collect, _sb._person
+    real_waiting = _sb.collect_waiting
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
         saved_ledger = os.environ.get('PRECEDENT_GENERATED_PAGES')
         os.environ['PRECEDENT_GENERATED_PAGES'] = str(td / 'ledger.json')
         (td / 'saved.html').write_text(old, encoding='utf-8')
+        _sb.collect_waiting = lambda fetch=False, seen=None: []
         out = td / 'out.html'
 
         def collect(fetch=False, seen=None):
@@ -60871,12 +60873,100 @@ def check_branch_cleanup_page_merges_the_saved_page():
                           f'{got} {said}'))
         finally:
             _sb.collect, _sb._person = real_collect, real_person
+            _sb.collect_waiting = real_waiting
             if saved_ledger is None:
                 os.environ.pop('PRECEDENT_GENERATED_PAGES', None)
             else:
                 os.environ['PRECEDENT_GENERATED_PAGES'] = saved_ledger
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'refreshing the branch-cleanup page merges the saved one ({len(cases)} '
+          f'stated cases)', not bad, '; '.join(bad))
+
+
+def check_branch_cleanup_page_lists_staging_waiting_to_go_live():
+    """The branch-cleanup page lists each repository whose staging carries a
+    change main lacks, and merges that list across sessions the way it
+    merges branches.
+
+    WHY. 2026-10-16, Morgan retired chief-of-staff, whose Promotion Reviews
+    said on request which repositories had staging waiting for main; the
+    check moved onto this page, which every closing session refreshes.
+    Planted: a real repository whose staging is ahead of main by one change
+    (listed), one whose staging only merged main back in (level, not
+    listed), one with no staging (no row); a saved page whose waiting row
+    for a repository this run did not check is kept under its date, and one
+    for a repository this run checked and found level is dropped; a page
+    with branches gone but a waiting row still merges."""
+    import datetime
+    import subprocess as _sp
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as _sb
+    cases = []
+
+    def git(cwd, *a):
+        return _sp.run(['git', '-C', str(cwd), *a], capture_output=True, text=True,
+                       env={**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+                            'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'})
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        origin, work = td / 'origin.git', td / 'work'
+        git(td, 'init', '-q', '--bare', str(origin))
+        git(td, 'init', '-q', '-b', 'main', str(work))
+        (work / 'a.txt').write_text('one\n')
+        git(work, 'add', '.'); git(work, 'commit', '-qm', 'one')
+        git(work, 'remote', 'add', 'origin', str(origin))
+        git(work, 'push', '-q', 'origin', 'main')
+        cases.append(('no staging tier, no row',
+                      _sb.waiting_in(work) is None, _sb.waiting_in(work)))
+        git(work, 'switch', '-qc', 'staging')
+        (work / 'a.txt').write_text('two\n')
+        git(work, 'commit', '-qam', 'two')
+        git(work, 'push', '-q', 'origin', 'staging')
+        git(work, 'fetch', '-q', 'origin')
+        got = _sb.waiting_in(work)
+        cases.append(('staging ahead of main by one change is waiting',
+                      got is not None and got[0] == 'staging' and got[1] == 1, got))
+        git(work, 'switch', '-q', 'main')
+        git(work, 'merge', '-q', '--ff-only', 'staging')
+        (work / 'b.txt').write_text('fix\n')
+        git(work, 'add', '.'); git(work, 'commit', '-qm', 'fix on main')
+        git(work, 'push', '-q', 'origin', 'main')
+        git(work, 'switch', '-q', 'staging')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'main back in', 'main')
+        git(work, 'push', '-q', 'origin', 'staging')
+        git(work, 'fetch', '-q', 'origin')
+        cases.append(('CONTROL: a staging that only merged main back in is level',
+                      _sb.waiting_in(work) is None, _sb.waiting_in(work)))
+    then = datetime.datetime(2026, 10, 14, 12, 0, tzinfo=datetime.timezone.utc)
+    now = then + datetime.timedelta(days=2)
+    old = _sb.render_html([], now=then, waiting=[
+        ('o', 'Kept', 'staging', 2, '2026-10-10'),
+        ('o', 'Level', 'staging', 1, '2026-10-12')])
+    cases.append(('a page with no branches but a waiting row is still a page',
+                  _sb.is_page(old) and _sb.page_format(old) >= 2, ''))
+    prev = _sb.read_waiting(old)
+    carried = _sb.carried_waiting(prev, [('o', 'level'), ('o', 'New')])
+    cases.append(('a repository this run did not check keeps its row; one it '
+                  'checked (case aside) is replaced',
+                  [(c[1], c[3], c[5][:10]) for c in carried]
+                  == [('Kept', 2, '2026-10-14')], carried))
+    page = _sb.render_html([], now=now, waiting=[('o', 'New', 'staging', 3, '2026-10-15')],
+                           carried_wait=carried, tz='America/Argentina/Buenos_Aires')
+    got = {r['repo']: r for r in _sb.read_waiting(page)}
+    cases.append(('the merged page lists New fresh and Kept under its date',
+                  sorted(got) == ['Kept', 'New']
+                  and got['New']['checked'].startswith('2026-10-16')
+                  and got['Kept']['checked'].startswith('2026-10-14'), got))
+    cases.append(('...under a Waiting to go live heading, linking the comparison, '
+                  'and saying a kept row may have moved',
+                  'Waiting to go live' in page
+                  and 'github.com/o/New/compare/main...staging' in page
+                  and 'As of the last check, 14 Oct 2026' in page, ''))
+    cases.append(('CONTROL: nothing waiting, no waiting section',
+                  'Waiting to go live' not in _sb.render_html([], now=now), ''))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the branch-cleanup page lists staging waiting to go live ({len(cases)} '
           f'stated cases)', not bad, '; '.join(bad))
 
 
@@ -80311,6 +80401,7 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_branch_cleanup_page_is_one_page_updated_in_place()
     check_branch_cleanup_page_merges_the_saved_page()
+    check_branch_cleanup_page_lists_staging_waiting_to_go_live()
     check_branch_cleanup_merge_warns_on_a_stale_copy()
     check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
