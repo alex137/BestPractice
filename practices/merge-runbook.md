@@ -41,7 +41,10 @@ its own instructions file, where the people who use it will read it.
 since the branch forked, because the audits enforce only the rules that have
 a check. Two passes: **apply every rule that changed on the trunk** (the
 practices, conventions and instructions files, a vendor update included) to
-the files the branch changed, fixing them before the merge commits; and
+**everything the session has delivered**, not only what this merge carries:
+work it landed in an earlier merge is reviewed too, and anything a new rule
+now faults is fixed in this merge, by the session that knows why it was
+written that way. Work other sessions delivered is not its to sweep. And
 **read the trunk's other work against the merge decision**, stopping to ask,
 with a recommendation, when the trunk already did the same work, reversed a
 decision the branch builds on, or moved a figure or design it relies on.
@@ -67,7 +70,11 @@ the branch's content should meet first. It did not: the trunk was merged in
 and its audits ran, but a rule that relied on judgment and had landed while
 the branch was open was never applied to the branch's content, and nothing
 checked whether the trunk's other work overlapped or contradicted the
-branch. The catch-up review was added to the Rule.
+branch. The catch-up review was added to the practice. The same person then asked that it
+cover the session's earlier merges as well, since a new rule can fault work
+already landed, and that the session adding a rule sweep existing work once
+([rule-level-by-reach](rule-level-by-reach.md)) rather than every merge
+sweeping everything.
 
 ## Install
 Runbook section in
