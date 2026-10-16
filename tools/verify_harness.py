@@ -61047,7 +61047,7 @@ def check_branch_cleanup_page_merges_the_saved_page():
             cases.append(('a branch the person ticked on the page is left off '
                           'a repository this run did not check',
                           rc == 0 and got.get('B') == ['b-<odd>']
-                          and '1 left off because the person ticked' in said,
+                          and '1 left off because the person checked them off' in said,
                           f'{got} {said}'))
             cases.append(('CONTROL: a tick never hides a row this run checked',
                           got.get('C') == ['c-done'], got))
