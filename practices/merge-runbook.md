@@ -30,12 +30,26 @@ sides keeps both sides' additions (renumbering the side not yet referenced
 elsewhere); **generated outputs are never hand-merged** (the side matching
 the committed manifest wins; unshipped builds are deleted and rebuilt). The
 audits ([convention-to-audit](convention-to-audit.md)) must pass before the merge commits — the audit, not
-re-inspection, is what makes fast mechanical resolution safe. Authorization
+re-inspection, is what makes fast mechanical resolution safe; a catch-up review
+(`## Detail`) covers the rules they cannot check. Authorization
 to actually run this runbook is the user saying so, in whatever words they
 use; a project where one fixed phrase carries that meaning should say so in
 its own instructions file, where the people who use it will read it.
 
 ## Detail
+**Bringing the trunk in includes a catch-up review** of what landed there
+since the branch forked, because the audits enforce only the rules that have
+a check. Two passes: **apply every rule that changed on the trunk** (the
+practices, conventions and instructions files, a vendor update included) to
+**everything the session has delivered**, not only what this merge carries:
+work it landed in an earlier merge is reviewed too, and anything a new rule
+now faults is fixed in this merge, by the session that knows why it was
+written that way. Work other sessions delivered is not its to sweep. And
+**read the trunk's other work against the merge decision**, stopping to ask,
+with a recommendation, when the trunk already did the same work, reversed a
+decision the branch builds on, or moved a figure or design it relies on.
+Record the fork point before merging; afterwards the merge base is the trunk
+itself. The reply reports the outcome in one line.
 
 ## Why
 The expensive part of an ad-hoc merge is not the time it takes. It is that **conflict resolution is judgment exercised under pressure, on exactly the files that matter most** — shared registries, indexes, logs — and that is where an entry quietly gets dropped rather than where anyone expects to make a mistake.
@@ -49,6 +63,18 @@ Every thread in the originating repo touched the same registry and
 index files; conflicts were universal. Ad-hoc resolution was slow and once
 dropped a registry entry. Fixed rules plus a loud audit made merges fast
 *and* safer than careful manual resolution.
+
+Later (2026-10-16), a person asked whether "merge" checked the trunk for
+anything that should change the decision to merge, such as new practices
+the branch's content should meet first. It did not: the trunk was merged in
+and its audits ran, but a rule that relied on judgment and had landed while
+the branch was open was never applied to the branch's content, and nothing
+checked whether the trunk's other work overlapped or contradicted the
+branch. The catch-up review was added to the practice. The same person then asked that it
+cover the session's earlier merges as well, since a new rule can fault work
+already landed, and that the session adding a rule sweep existing work once
+([rule-level-by-reach](rule-level-by-reach.md)) rather than every merge
+sweeping everything.
 
 ## Install
 Runbook section in
