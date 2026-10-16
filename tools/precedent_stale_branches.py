@@ -457,6 +457,19 @@ def _declared_visibility(repo):
     return {'private': True, 'public': False}.get(v)
 
 
+def _is_source(repo):
+    """True for a practice set: it carries no GitHub workflow at all
+    (practice: source-sets-run-no-ci), so it never gets the button."""
+    for f in (pathlib.Path(repo) / 'tools' / 'ENGINE_MANIFEST.json',
+              pathlib.Path(repo) / 'precedent.json'):
+        try:
+            if json.loads(f.read_text(encoding='utf-8')).get('kind') == 'source':
+                return True
+        except (OSError, ValueError, AttributeError):
+            continue
+    return False
+
+
 def _github():
     try:
         import github_budget
@@ -502,6 +515,7 @@ def cleanup_state(repo, owner, name, gh=None, hours=None, now=None):
     installed = cleanup_installed(repo)
     last = last_cleanup_run(f'{owner}/{name}', gh) if installed and private else ''
     return {'owner': owner, 'repo': name, 'installed': installed, 'private': private,
+            'source': _is_source(repo),
             'hours': float(hours or 0), 'last': last, 'checked': now.isoformat()}
 
 
@@ -594,6 +608,9 @@ def _cleanup_line(owner, name, n, state, now=None, tz=''):
     back, or why there is none. '' when there is no record at all."""
     if not state:
         return ''
+    if not state.get('installed') and state.get('source'):
+        return ('<p class="cleanup">No delete-all button here: a practice set carries '
+                'no GitHub workflow. Delete its branches one at a time below.</p>')
     if not state.get('installed'):
         return ('<p class="cleanup">No delete-all button here: this repository\'s '
                 '<code>main</code> does not have the cleanup workflow yet. Update '
@@ -1001,9 +1018,9 @@ li + li { border-top:1px solid var(--line); }
 <header>
 <h1>Branch cleanup</h1>
 <p class="built">{{BUILT}}</p>
-<p class="lede">{{TOTAL}} branches, all already in <code>main</code> (a retired <code>pre-staging</code>: already in <code>staging</code>), so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, <code>pre-staging</code> while it is in use, and the engine's own branches. Ticking a branch, or opening its link, saves the tick into this page, so the next refresh leaves it off a repository it cannot check.</p>
+<p class="lede">{{TOTAL}} branches, all already in <code>main</code> (a retired <code>pre-staging</code>: already in <code>staging</code>), so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, <code>pre-staging</code> while it is in use, and the engine's own branches. Checking a branch off, or opening its link, saves the checkmark into this page, so the next refresh leaves it off a repository it cannot check.</p>
 </header>
-<div class="bar"><span class="progress" id="progress">0 of {{TOTAL}} done</span><button type="button" id="clear">Clear ticks</button></div>
+<div class="bar"><span class="progress" id="progress">0 of {{TOTAL}} done</span><button type="button" id="clear">Clear checkmarks</button></div>
 {{SECTIONS}}
 </main>
 <script>
@@ -1142,7 +1159,7 @@ def main(argv):
                 print(f'WARNING: {why}. Merge a read of the saved page made '
                       f'immediately before this build (the Artifact tool\'s '
                       f'read of its url with path index.html), or rows and '
-                      f'ticks saved since are lost.')
+                      f'checkmarks saved since are lost.')
             carried = carried_over(previous, seen, done)
             prev_cleanup, clicked = read_cleanup(prev_text)
             carried_wait = carried_waiting(read_waiting(prev_text), wait_seen)
@@ -1190,8 +1207,8 @@ def main(argv):
               + (f', and {kept} kept from the saved page for '
                  f'{len(carried)} repositor(ies) this session did not check'
                  if carried else '')
-              + (f'; {ticked} left off because the person ticked them on the '
-                 f'page' if ticked else '')
+              + (f'; {ticked} left off because the person checked them off on '
+                 f'the page' if ticked else '')
               + (f'; {len(waiting) + len(carried_wait)} repositor(ies) waiting '
                  f'to go live' + (f' ({len(carried_wait)} kept from the saved '
                                   f'page)' if carried_wait else '')
@@ -1200,9 +1217,9 @@ def main(argv):
                  'will refuse it: artifact_publish_gate.py did not load)'))
         print(f'Publish it to the saved page, in place: {url}, with '
               f'capabilities {{"artifact": {{}}}} so the page can save its own '
-              f'ticks' if url else
+              f'checkmarks' if url else
               'No saved page yet: publish it as a new page with capabilities '
-              '{"artifact": {}}, so it can save its own ticks, then save its '
+              '{"artifact": {}}, so it can save its own checkmarks, then save its '
               'address as "branch_cleanup_page" in the identity.json of your '
               'individual practice source, so the next close updates it.')
         return 0
