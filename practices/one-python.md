@@ -32,15 +32,19 @@ every place that starts Python gets that one.**
    declared Python's own pip installs the packages, and `python3`,
    `python`, `pip3` and `pip` resolve to that Python for the rest of the
    session. So a command, a document or a person typing `python3` gets the
-   right one. **A hook does not**: Claude Code starts hooks with its own
-   PATH, which the session file never reaches, so setup also installs the
-   engine's packages into the Python hooks run. A person's own machine is
-   only checked and told, never changed.
+   right one. A person's own machine is only checked and told, never
+   changed.
 3. **A tool starts a tool with the Python it is running in:**
    `[sys.executable, 'tools/x.py']`, never `['python3', 'tools/x.py']`.
 4. **GitHub's workflows set the same version** with `python-version`.
 
 ## Detail
+**A hook does not get the declared Python.** Claude Code starts hooks with
+its own PATH, which the session file never reaches, so a hook's `python3`
+is the image's default. Setup runs inside the session-start hook, so it
+also installs the engine's packages into the Python running it, which is
+the one every later hook gets.
+
 `python3 tools/precedent_python.py check` says whether this shell's
 `python3` is the declared one and can import the declared packages. A
 hosted session that reports otherwise has a session start that did not
