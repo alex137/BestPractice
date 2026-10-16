@@ -27,7 +27,9 @@ symbol with k/M magnitude suffixes on currency amounts, thousands
 separators, leading zeros, bare decimals, units; em-dash empties last);
 decimal-aligned numeric columns (cells leading with a number are padded
 so the integer end / decimal point lines up down the column, measured
-markup-safe with Range rects); a filter dropdown on EVERY column --
+markup-safe with Range rects); a reference table (every row's first cell
+a link and nothing else) stays plain, with none of what follows; a filter
+dropdown on EVERY column of every other table --
 value checkboxes when 2-60 distinct values (MULTI-select: any checked
 subset keeps its rows, none checked = All), plus on value columns a
 </≤/=/≥/> comparator against a typed threshold (displayed units; empty
@@ -451,9 +453,25 @@ JS = """
     }
     return { n: null, s: t.toLowerCase() };
   }
+  // A reference table -- every body row's first cell is a link and
+  // nothing else ("Worked out in | What it covers") -- is a list of where
+  // to read more, not data: it stays a plain table, with no toolbar, sort
+  // or filters (Alex, 2026-10-17: "having filters in these link tables
+  // doesn't make any sense").
+  function isLinkTable(tbl) {
+    var rows = tbl.tBodies.length ? tbl.tBodies[0].rows : [];
+    if (!rows.length) return false;
+    for (var i = 0; i < rows.length; i++) {
+      var c = rows[i].cells[0];
+      var a = c && c.querySelector("a");
+      if (!a || a.textContent.trim() !== c.textContent.trim()) return false;
+    }
+    return true;
+  }
   document.querySelectorAll("table").forEach(function (tbl) {
     var head = tbl.tHead;
     if (!head || !tbl.tBodies.length) return;
+    if (isLinkTable(tbl)) return;
     var hrow = head.rows[0];
     var original = Array.prototype.slice.call(tbl.tBodies[0].rows);
     // Alternate-value views: a cell may carry one <span data-view=X>
