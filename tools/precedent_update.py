@@ -90,7 +90,8 @@ THE STEPS, with no question in between:
 THE REPORT, and the exit code a session acts on:
   0  DONE -- nothing is left. Commit on a branch of its own (DONE prints
      the command when the checkout sits on a tier branch), then land it on
-     your landing branch.
+     your landing branch -- or, when it changes a CI workflow, open a pull
+     request into it, which DONE says.
   1  LEFT FOR YOU -- only the calls that belong to this repo: an
      uncommitted edit to a received file, a kept-on-purpose file upstream
      has since changed, a line a check-in would lose, a decline to decide
@@ -3225,6 +3226,14 @@ class Report:
             print("\nDONE -- nothing left for this repo to decide. Ask the "
                   "question(s) above, review the staged diff, commit, then land "
                   "it the way this repository lands work.")
+        elif staged_workflows(self.pin_repo):
+            print("\nDONE -- nothing left to decide. Review the staged diff "
+                  "and commit. It changes a CI workflow ("
+                  + ", ".join(staged_workflows(self.pin_repo)) + "), so it "
+                  "takes a pull request into your landing branch, not a direct "
+                  "landing: a workflow runs on this repository's own Actions, "
+                  "and only a run there shows it works here. Push the branch, "
+                  "open the pull request, and merge it once its checks pass.")
         else:
             print("\nDONE -- nothing left to decide. Review the staged diff, "
                   "commit, then land it on your landing branch.")
@@ -3235,6 +3244,17 @@ class Report:
         if self.not_run:
             print(self.not_run)
         return DONE
+
+
+def staged_workflows(repo):
+    """-> the staged .github/workflows/ files, for DONE to say the update
+    takes a pull request (2026-10-16: an update bringing a new workflow was
+    landed straight on staging because DONE said "land it")."""
+    if repo is None:
+        return []
+    r = subprocess.run(['git', '-C', str(repo), 'diff', '--cached', '--name-only',
+                        '--', '.github/workflows/'], capture_output=True, text=True)
+    return [l for l in r.stdout.splitlines() if l.strip()] if r.returncode == 0 else []
 
 
 def run(argv, cwd):
