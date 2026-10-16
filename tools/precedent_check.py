@@ -7715,7 +7715,20 @@ def _vocabulary_reaches_the_consumer(ctx):
                 f'practice. Drop the scope, or drop the command.'))
         named = sorted({m for m in _re.findall(r'tools/([A-Za-z0-9_]+\.py)',
                                                text)})
+        # A script the practice ships itself reaches every consumer with it
+        # (precedent_materialize copies each `ships:` path), so it needs no
+        # engine list -- and a set's own enforcement belongs with the set,
+        # not in the engine (practice: enforcement-lives-with-its-practice;
+        # 2026-10-16, act shipping its branch-name guard was refused here).
+        _ships = _re.search(r'^ships:\s*(\[.*\])\s*$', text, _re.M)
+        try:
+            shipped = {pathlib.PurePosixPath(p).name
+                       for p in json.loads(_ships.group(1))} if _ships else set()
+        except (ValueError, TypeError):
+            shipped = set()
         for script in named:
+            if script in shipped:
+                continue
             if levels.get(slug) == 'repo-local':
                 if not (ctx.root / 'tools' / script).is_file():
                     findings.append(Finding(
