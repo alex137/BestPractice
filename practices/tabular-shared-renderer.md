@@ -92,7 +92,11 @@ of this practice is entitled to assume when a repo says
    em-dash cells sort last. The same key drives the frontier axis
    pull-down ([item 8](#frontier-axis-pulldown)), so a column ranks exactly as it sorts.
 3. **A filter dropdown on every column** — no column is left without
-   one. The panel offers what the column supports: a multi-select
+   one. The exception is a **reference table**: every row's first cell
+   is a link and nothing else, as in a "Worked out in | What it covers"
+   list. It says where to read more, so it renders plain, with no
+   toolbar, sort or filters (Alex, 2026-10-17: "having filters in these
+   link tables doesn't make any sense"). The panel offers what the column supports: a multi-select
    checkbox list of distinct values where the set is usefully small
    (2–60; any checked subset keeps its rows, none checked = "All", the
    default), plus on **value columns** a comparator — pick </≤/=/≥/>
