@@ -1127,6 +1127,50 @@ def _plan_ships(res, declined=None, adapter_dests=()):
     return plan, declined_rows
 
 
+def _ship_drift_advice(out_dir, source_name, rel, dest):
+    """-> what to do about a shipped file whose copy here differs from the
+    one its source's sync delivers. When the source's own clone carries
+    these exact bytes on a branch, the copy here is that change arriving
+    early: land it in the source first (2026-10-16, a consumer took a fix
+    to a shipped file while the same fix sat on the set's working branch,
+    and this told it to decline the file -- the wrong move). Only when the
+    source has nothing matching is declining offered."""
+    decline = (f"to keep this repository's own version, decline it under "
+               f"\"{DECLINED_SHIPS_KEY}\" in precedent.json")
+    try:
+        clone = next((pathlib.Path(p) for p, _lvl, name, _n in
+                      pr.declared_source_paths(out_dir)
+                      if name == source_name and p), None)
+    except Exception:                                        # noqa: BLE001
+        clone = None
+    if clone is None or not (clone / '.git').exists():
+        return decline
+
+    def git(*a):
+        r = subprocess.run(['git', '-C', str(clone), *a], capture_output=True,
+                           text=True)
+        return r.stdout.strip() if r.returncode == 0 else ''
+    blob = subprocess.run(['git', 'hash-object', str(dest)], capture_output=True,
+                          text=True).stdout.strip()
+    if not blob:
+        return decline
+    refs = git('for-each-ref', '--format=%(refname:short)', 'refs/heads',
+               'refs/remotes').split()
+    base = (git('symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD')
+            or 'origin/main')
+    carrying = [r for r in refs if not r.endswith('/HEAD')
+                and git('rev-parse', '-q', '--verify', f'{r}:{rel}') == blob]
+    if not carrying:
+        return decline
+    if base in carrying:
+        return (f"{source_name}'s {base} already carries exactly this; the "
+                f"pin here is older -- run the sync to take it")
+    shown = ', '.join(sorted(carrying)[:3])
+    return (f"{source_name} has exactly this on {shown}, not yet on its "
+            f"{base}: land it there first, then sync -- declining it here "
+            f"would keep a copy that drifts from the fix")
+
+
 def _prior_ship_hashes(out_dir):
     """{destination: sha256_16} from the manifest this tree already carries
     -- the same question _prior_adapter_hashes answers, for shipped files."""
@@ -1955,9 +1999,8 @@ def drift(sources, res, out_dir, withheld=None):
                           f"({label})")
         elif hashlib.sha256(dest.read_bytes()).hexdigest()[:16] != f['sha256_16']:
             found.append(f"{f['path']} differs from what a fresh sync delivers "
-                          f"({label}) -- to keep this repository's own "
-                          f"version, decline it under \"{DECLINED_SHIPS_KEY}\" "
-                          f"in precedent.json")
+                          f"({label}) -- "
+                          + _ship_drift_advice(out_dir, f['source'], f['path'], dest))
         elif os.access(dest, os.X_OK) != f['executable']:
             want_x = 'executable' if f['executable'] else 'not executable'
             found.append(f"{f['path']} is {'not ' if f['executable'] else ''}"
