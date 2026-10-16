@@ -2531,6 +2531,10 @@ GITHUB_ONLY_STEPS = {
     'python3 tools/harness_reach.py publish':
         'stores the ledger of what each check reaches that a green whole-suite '
         'run on GitHub recorded (2026-10-12)',
+    'python3 tools/precedent_stale_branches.py --delete-merged':
+        'deletes the branches already in main, from the branch cleanup '
+        "page's button, started only by a person (2026-10-16, "
+        'spec/BRANCH_CLEANUP_BUTTON_PLAN.md)',
 }
 
 
