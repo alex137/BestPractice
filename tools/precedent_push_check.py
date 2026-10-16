@@ -271,6 +271,7 @@ PUSH_TIME_SINCE = {'session_trailer': '--all-history'}
 # they stand aside and the push gate judges the real commit. An engine too
 # old to know the variable ignores it and behaves as before.
 STANDIN_COMMIT_ENV = 'PRECEDENT_STANDIN_COMMIT'
+IDENTITY_NAMES = ('commit_author', 'commit_dates')
 IDENTITY_CHECKS = (
     ('commit_author', ['{engine}/check_commit_author.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
@@ -279,12 +280,24 @@ IDENTITY_CHECKS = (
     ('session_trailer', ['{engine}/checks/check_session_trailer.py'],
      'nothing -- the trailer was judged only inside a full sweep'),
 )
-# The practice each identity check enforces, for not_binding: the two
-# engine copies in tools/ cite no practice (theirs live in a person's own
-# set), so the slug is written here rather than read from a `# practice:`
-# line; check_session_trailer.py, materialized, carries its own.
-IDENTITY_SLUGS = {'commit_author': 'commit-author',
-                  'commit_dates': 'buenos-aires-dates'}
+
+
+def identity_slug(name, root):
+    """-> the practice the identity check `name` enforces here, for
+    not_binding: the practice in force whose checked_by names the engine's
+    tools/check_<name>.py. The engine's two copies cite no practice -- theirs
+    live in a person's own set, whose practice names the engine never
+    carries (Morgan, 2026-10-16, strength: decided: "sets practice names
+    should NOT be in BestPractice") -- and check_session_trailer.py,
+    materialized, carries its own `# practice:` line."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_identity
+        return precedent_identity.practice_checked_by(f'check_{name}.py', root)[0]
+    except Exception:                                        # noqa: BLE001
+        return None
+    finally:
+        sys.path.pop(0)
 # Every workflow file is the engine's own untouched copy or carries the
 # person's approval pinned to its content (practice: ci-workflow-approved).
 # Every file a tool writes is current with its tool: basic tier
@@ -1878,7 +1891,7 @@ def run(root, checks, landed=None, reported=None):
             print(f'[{i}/{len(checks)}] {name}: not here -- this repo has no '
                   f'{argv[1]}', flush=True)
             continue
-        slug = IDENTITY_SLUGS.get(name) or (
+        slug = (identity_slug(name, root) if name in IDENTITY_NAMES else None) or (
             _practice_of(script) if script.is_file() and
             'checks' in Path(argv[1]).parts else None)
         if slug and slug in not_binding():

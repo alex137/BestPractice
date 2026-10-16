@@ -47,4 +47,10 @@ All three are decided, and what was decided is built or parked.
   to him the same day.
 - 2026-10-16, Morgan, on the ruleset: make it something a person opts in
   to in their own settings, so nothing changes for anyone who has not.
+- 2026-10-16, Morgan: comments and history may keep the names; logic and
+  tests may not. Built: the individual set's practice names are out of the
+  engine's logic (practice_checked_by), and the individual and writing
+  sets' names out of its tests. The default name `precedent-individual`
+  stays (Morgan, "keep the default name", strength: decided). The ladder's
+  names in logic wait for part 3.
 
