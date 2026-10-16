@@ -1,7 +1,7 @@
 ---
 title:         A "Delete merged branches" button on the branch cleanup page
 kind:          proposal
-status:        drafted
+status:        executed
 opened:        2026-10-16
 closed:        null
 superseded_by: null
@@ -12,9 +12,17 @@ summary:       "One button per repository on the branch cleanup page that starts
 
 # A "Delete merged branches" button on the branch cleanup page
 
-**Status: a plan, not built.** Morgan shaped it in one conversation on
-2026-10-16 and asked for it written up; building it needs his go-ahead
-(Act). Every decision below quotes him and carries its strength.
+**Status: built, 2026-10-16** (Morgan: "This is great. Build it, please,
+and then Booked."). Morgan shaped it in one conversation that day; every
+decision below quotes him and carries its strength. **One change from the
+plan as first written, a small call made while building:** the workflow
+ships to every consuming repository that has the engine's GitHub
+workflows on, not to ladder repositories only. Which workflows a
+repository carries cannot depend on who runs its Update Vendors, or a
+refresh by someone off the ladder would delete the file a ladder user's
+refresh wrote. It costs nothing until clicked, and only the ladder's page
+links to it. **Not yet measured:** whether the workflow can delete
+branches in a given repository; the first click is that measurement.
 
 ## The problem
 
@@ -134,19 +142,22 @@ A new engine template,
     repository's default branch as GitHub reports it;
   - the branch's tip must be in `origin/main` at the moment of the run;
   - **a branch that is the source of an open pull request is skipped**,
-    because deleting it would close that PR (a new rule; the page marks
-    such rows too).
+    because deleting it would close that PR (a new rule; the run's summary
+    names each one).
 - **The run's summary names every branch it deleted and every one it
   skipped, with why.** That is the record of what went.
-- **Shipped by the engine, ladder repositories only.** Update Vendors
-  removes any workflow upstream doesn't ship and the person didn't
-  approve, so the file must come from the engine's own list
-  (`CI_CONVERGES_KINDS` in
+- **Shipped by the engine, to every consuming repository with its GitHub
+  workflows on.** Update Vendors removes any workflow upstream doesn't
+  ship and the person didn't approve, so the file comes from the engine's
+  own list (`CI_WORKFLOW_TEMPLATES` in
   [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)).
-  It is written only for a person on the ladder, since the page it serves
-  is a ladder practice. Morgan's approval for it is recorded per
-  [ci-workflow-approved](https://github.com/alex137/BestPractice/blob/staging/practices/ci-workflow-approved.md),
-  quoting this conversation.
+  A refresh writes it into a repository that already has the engine's
+  other workflows (`CI_ADDED_ON_REFRESH`), so existing installs get it
+  without a reinstall; one with GitHub workflows off gets none. In
+  BestPractice itself it is
+  `.github/workflows/precedent-branch-cleanup.yml`, with Morgan's approval
+  pinned to its content in `precedent.json`, per
+  [ci-workflow-approved](https://github.com/alex137/BestPractice/blob/staging/practices/ci-workflow-approved.md).
 
 ### 3. The page
 
@@ -160,7 +171,7 @@ one line at the top:
   credential, and it must not hold one.
 - **Private, due:** the same link.
 - **Private, not due:** no link, and the line says when it comes back:
-  *"Delete-all button back on 30 October"*.
+  *"Delete-all button back on 29 Oct."*.
 - **Workflow not installed yet:** the line says so and that Update Vendors
   installs it.
 
@@ -228,7 +239,7 @@ no trigger but `workflow_dispatch`; no engine code dispatching it; and
   protects `main` and `staging` from deletion (the 2026-09-26 gotcha's
   retirement condition) would block the workflow there too.
 - **A branch with an open pull request** would have that PR closed by the
-  deletion. *Answered:* skipped, and marked on the page.
+  deletion. *Answered:* skipped, and named in the run's summary.
 - **The workflow may not be able to delete branches at all.** A
   repository or organization setting can hold `GITHUB_TOKEN` to read-only,
   and a ruleset can forbid deletions. Nobody has measured this here.

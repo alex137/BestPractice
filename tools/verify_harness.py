@@ -30074,6 +30074,217 @@ def check_code_owners_only_practices_reach_only_code_owners():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_branch_cleanup_button():
+    """The branch cleanup page's delete-all button: shown always for a
+    public repository, for a private one only once its own number of hours
+    has passed since that repository's last cleanup run, and started only
+    by a person -- the tool behind it deletes nothing outside its workflow
+    (spec/BRANCH_CLEANUP_BUTTON_PLAN.md).
+
+    WHY. Morgan, 2026-10-16 (strength: decided): "on both [private] and
+    public, NEVER run the cleanup automatically ... for public ones, the
+    button is always there; for private ones, the button only appears if
+    the tracker for that says it can be shown", with "a second variable
+    next to me ... 336 for now", and the per-branch list kept as it is.
+    Planted: the setting and its doubt cases; the due rule for public,
+    private never run, private within and past the hours, not installed;
+    GitHub's run history (a failure does not count, a running one does,
+    an error is unknown); the merge of GitHub's history, the saved record
+    and the page's click; the line and the round trip through a saved
+    page; --delete-merged refusing outside its workflow and, inside it,
+    deleting only a merged branch while skipping an open pull request's
+    source and an unmerged branch; the template's single trigger; no
+    engine tool starting it; and a refresh adding the workflow beside an
+    installed one."""
+    import datetime
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as sb
+    import precedent_branches as pb
+    import precedent_vendor_engine as pve
+    cases = []
+    utc = datetime.timezone.utc
+    now = datetime.datetime(2026, 10, 16, 12, 0, tzinfo=utc)
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        none_cfg = td / 'no-config.json'
+
+        def ident(value):
+            d = {'name': 'P', 'email': 'p@example.com'}
+            if value is not None:
+                d['github_branch_cleanup_every_hours'] = value
+            (td / 'identity.json').write_text(json.dumps(d), encoding='utf-8')
+            return pb.branch_cleanup_cadence(td, user_config=none_cfg)[0]
+        cases.append(('the person\'s 336 is read', ident(336) == 336.0, ident(336)))
+        cases.append(('CONTROL: unset is 0, the button shown', ident(None) == 0.0, ''))
+        cases.append(('not a number is 0', ident('two weeks') == 0.0, ''))
+        cases.append(('a negative number is 0', ident(-5) == 0.0, ''))
+        (td / 'identity.json').unlink()
+        (td / 'precedent.json').write_text(json.dumps(
+            {'github_branch_cleanup_every_hours': 48}), encoding='utf-8')
+        got = pb.branch_cleanup_cadence(td, user_config=none_cfg)[0]
+        cases.append(('the repository\'s own number when the person has none',
+                      got == 48.0, got))
+
+    def st(private, last, hours=336, installed=True):
+        return {'owner': 'o', 'repo': 'r', 'installed': installed, 'private': private,
+                'hours': hours, 'last': last, 'checked': now.isoformat()}
+    day_ago = (now - datetime.timedelta(days=1)).isoformat()
+    weeks_ago = (now - datetime.timedelta(days=15)).isoformat()
+    cases.append(('public: always shown, even just after a run',
+                  sb.cleanup_due(st(False, day_ago), now) == (True, None), ''))
+    cases.append(('private, never run: shown',
+                  sb.cleanup_due(st(True, ''), now) == (True, None), ''))
+    shown, back = sb.cleanup_due(st(True, day_ago), now)
+    cases.append(('private, run a day ago with 336 hours: hidden until 336 hours after it',
+                  not shown and back == now - datetime.timedelta(days=1)
+                  + datetime.timedelta(hours=336), (shown, back)))
+    cases.append(('private, run fifteen days ago: shown',
+                  sb.cleanup_due(st(True, weeks_ago), now) == (True, None), ''))
+    cases.append(('private, visibility unknown: shown',
+                  sb.cleanup_due(st(None, day_ago), now) == (True, None), ''))
+    cases.append(('private with no number: shown',
+                  sb.cleanup_due(st(True, day_ago, hours=0), now) == (True, None), ''))
+    cases.append(('not installed: never a link',
+                  sb.cleanup_due(st(False, '', installed=False), now) == (False, None), ''))
+
+    class GH:
+        def __init__(self, answer):
+            self.answer = answer
+
+        def call(self, path, cache=True):
+            return self.answer
+    runs = {'workflow_runs': [
+        {'status': 'completed', 'conclusion': 'failure', 'created_at': '2026-10-15T10:00:00Z'},
+        {'status': 'completed', 'conclusion': 'success', 'created_at': '2026-10-01T10:00:00Z'}]}
+    got = sb.last_cleanup_run('o/r', GH((runs, None)))
+    cases.append(('a failed run does not count; the success before it does',
+                  got == '2026-10-01T10:00:00Z', got))
+    got = sb.last_cleanup_run('o/r', GH(({'workflow_runs': [
+        {'status': 'in_progress', 'conclusion': None, 'created_at': '2026-10-16T11:00:00Z'}]}, None)))
+    cases.append(('a run still going counts', got == '2026-10-16T11:00:00Z', got))
+    cases.append(('no runs at all: never run',
+                  sb.last_cleanup_run('o/r', GH(({'workflow_runs': []}, None))) == '', ''))
+    cases.append(('GitHub not answering: unknown',
+                  sb.last_cleanup_run('o/r', GH((None, 'timed out'))) is None, ''))
+    cases.append(('no session access to GitHub: unknown',
+                  sb.last_cleanup_run('o/r', None) is None, ''))
+
+    click = (now - datetime.timedelta(hours=2)).isoformat()
+    prev = [st(True, weeks_ago), dict(st(True, weeks_ago), repo='carried')]
+    clicked = {'o/r': click, 'o/carried': click}
+    merged = sb.merge_cleanup([st(True, '')], prev, clicked)
+    cases.append(('GitHub says never run: a click that started nothing is dropped',
+                  merged[('o', 'r')]['last'] == '', merged[('o', 'r')]))
+    merged = sb.merge_cleanup([st(True, None)], prev, clicked)
+    cases.append(('GitHub not answering: the newer of the saved run and the click',
+                  merged[('o', 'r')]['last'] == click, merged[('o', 'r')]))
+    cases.append(('a repository this run did not ask keeps its record, with the click',
+                  merged[('o', 'carried')]['last'] == click, merged.get(('o', 'carried'))))
+
+    line = sb._cleanup_line('o', 'r', 3, st(True, day_ago), now)
+    cases.append(('a private repository within its hours: link hidden, the date shown',
+                  'class="del-all"' in line and ' hidden>Delete every' in line
+                  and 'Delete-all button back on 29 Oct.' in line, line))
+    line = sb._cleanup_line('o', 'r', 3, st(False, day_ago), now)
+    cases.append(('a public one: the link, to the workflow\'s page',
+                  sb.workflow_link('o', 'r') in line and ' hidden>Delete every' not in line, line))
+    line = sb._cleanup_line('o', 'r', 3, st(False, '', installed=False), now)
+    cases.append(('not installed: says so, no link',
+                  'href' not in line and 'Update Vendors installs it' in line, line))
+    page = sb.render_html([('o', 'r', [('done-branch', '2026-10-01')])], now=now,
+                          cleanup={('o', 'r'): st(True, day_ago)})
+    recs, _clicked = sb.read_cleanup(page)
+    cases.append(('the page keeps every row beside the button',
+                  'branches/all?query=done-branch' in page and 'class="cleanup"' in page, ''))
+    cases.append(('the record survives a saved page', recs and recs[0]['last'] == day_ago, recs))
+    cases.append(('a page with the button is format 3', sb.page_format(page) == 3,
+                  sb.page_format(page)))
+
+    # Every delete below runs in a throwaway repository whose origin is a
+    # local bare one: with its guard broken, this test must still never
+    # reach a real remote (practice: never-delete-a-remote-branch; 2026-10-16,
+    # a negative control run against this checkout tried GitHub, which
+    # refused).
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        origin, work = td / 'origin.git', td / 'work'
+
+        def git(*a, cwd=None):
+            return subprocess.run(['git', *a], cwd=cwd or work, env=env,
+                                  capture_output=True, text=True)
+        git('init', '-q', '--bare', '-b', 'main', str(origin), cwd=td)
+        git('clone', '-q', str(origin), str(work), cwd=td)
+        (work / 'f').write_text('1\n')
+        git('add', 'f'); git('commit', '-qm', 'base')
+        for b in ('merged-one', 'open-pr', 'staging'):
+            git('branch', b)
+        git('switch', '-q', '-c', 'unmerged')
+        (work / 'g').write_text('2\n')
+        git('add', 'g'); git('commit', '-qm', 'not in main')
+        git('switch', '-q', 'main')
+        git('push', '-q', 'origin', 'main', 'merged-one', 'open-pr', 'staging', 'unmerged')
+        git('fetch', '-q', 'origin')
+        said = []
+        code = sb.delete_merged(work, env={}, say=said.append)
+        heads = git('ls-remote', '--heads', 'origin').stdout.count('refs/heads/')
+        cases.append(('--delete-merged refuses outside its workflow, in its own words',
+                      code == 2 and heads == 5 and 'runs only inside the '
+                      'precedent-branch-cleanup workflow' in ' '.join(said), (code, heads, said)))
+        said = []
+        code = sb.delete_merged(work, keep=['main'], skip_heads=['open-pr'],
+                                env={'GITHUB_ACTIONS': 'true',
+                                     'GITHUB_EVENT_NAME': 'workflow_dispatch'},
+                                say=said.append)
+        left = sorted(l.split('refs/heads/')[-1] for l in
+                      git('ls-remote', '--heads', 'origin').stdout.splitlines())
+        cases.append(('inside its workflow: the merged branch goes, and only it',
+                      code == 0 and left == ['main', 'open-pr', 'staging', 'unmerged'],
+                      (code, left, said)))
+        cases.append(('an open pull request\'s source is skipped, and said',
+                      any('open-pr' in l and 'open pull request' in l for l in said), said))
+
+    tpl = (ROOT / 'templates' / 'github-actions' / 'branch-cleanup.yml.template'
+           ).read_text(encoding='utf-8')
+    body = re.sub(r'(?m)^\s*#.*$', '', tpl)
+    on = re.search(r'(?ms)^on:\n(.*?)^\S', body)
+    cases.append(('the workflow\'s only trigger is a person\'s click',
+                  on is not None and on.group(1).split() == ['workflow_dispatch:'],
+                  on.group(1) if on else 'no on:'))
+    starters = [f.name for f in (ROOT / 'tools').glob('*.py')
+                if f.name != 'verify_harness.py'
+                and sb.CLEANUP_WORKFLOW in (txt := f.read_text(encoding='utf-8', errors='ignore'))
+                and 'dispatches' in txt]
+    cases.append(('no engine tool can start it', starters == [], starters))
+
+    with tempfile.TemporaryDirectory() as td:
+        dest = pathlib.Path(td)
+        (dest / 'tools').mkdir()
+        wf = dest / '.github' / 'workflows'
+        wf.mkdir(parents=True)
+        src = ROOT / 'templates' / 'github-actions'
+        rendered = pve.render_ci_workflow(dest, (src / 'light-check.yml.template').read_bytes())
+        (wf / 'light-check.yml').write_bytes(rendered)
+        import hashlib as _h
+        man = {'ci_workflows_sha256': {'.github/workflows/light-check.yml':
+                                       _h.sha256(rendered).hexdigest()}}
+        (dest / 'tools' / pve.MANIFEST_NAME).write_text(json.dumps(man), encoding='utf-8')
+        refreshed, _c, _r = pve._refresh_ci_workflow_files(dest, 'consumer', src, man)
+        cases.append(('a refresh adds the cleanup workflow beside an installed one',
+                      (wf / 'precedent-branch-cleanup.yml').is_file()
+                      and '.github/workflows/precedent-branch-cleanup.yml' in refreshed,
+                      refreshed))
+        (wf / 'light-check.yml').unlink()
+        (wf / 'precedent-branch-cleanup.yml').unlink()
+        pve._refresh_ci_workflow_files(dest, 'consumer', src, man)
+        cases.append(('CONTROL: with no workflow installed (GitHub workflows off), none is added',
+                      not (wf / 'precedent-branch-cleanup.yml').exists(), ''))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the branch cleanup page\'s delete-all button ({len(cases)} stated cases)',
+          not bad, '; '.join(map(str, bad)))
+
+
 def check_stale_branches_lists_one_repository_once():
     """precedent_stale_branches.py lists a repository once, however it is
     reached.
@@ -79849,6 +80060,7 @@ def main():
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_freshness_guard_never_tells_a_tier_branch_to_merge()
     check_stale_branches_lists_one_repository_once()
+    check_branch_cleanup_button()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
     check_bootstrap_runs_every_tool_session_start_runs()
     check_codex_hooks_template_runs_the_claude_gates()
