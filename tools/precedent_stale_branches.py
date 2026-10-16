@@ -124,6 +124,14 @@ import pathlib
 import re
 import subprocess
 import sys
+# finished typography on every HTML page, where the writing set is in force
+# (finish_html.py; the writing set's curly-quotes rule)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+try:
+    from finish_html import finish as finish_html
+except ImportError:     # a copy of this file without the engine beside it
+    def finish_html(page, committed=False):
+        return page
 import urllib.parse
 
 # The file name the closing Boildown is told to write the page to, inside
@@ -839,9 +847,10 @@ def main(argv):
                   f'--merge <that file>. Only if it is gone or unreadable, '
                   f'add --replace instead.')
             return 2
-        out.write_text(render_html(groups, tz=person.get('timezone') or '',
-                                   carried=carried, waiting=waiting,
-                                   carried_wait=carried_wait), encoding='utf-8')
+        out.write_text(finish_html(render_html(groups, tz=person.get('timezone') or '',
+                                               carried=carried, waiting=waiting,
+                                               carried_wait=carried_wait)),
+                       encoding='utf-8')
         # Noted for the publish gate, which passes a page an engine
         # generator wrote, unedited, within the hour (artifact_publish_gate.py,
         # "ENGINE-REGISTERED GENERATORS"). Without it the page the

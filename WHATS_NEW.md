@@ -1,9 +1,26 @@
 ---
-checked_through: 2026-10-13
+checked_through: 2026-10-15
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Thursday 2026-10-15: one-python
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Every repository now runs one declared Python**, so a tool can no longer pick up a different interpreter that lacks the packages (precedent.json declares it, default 3.12 as on GitHub's tests; session start points python3 and pip at it; the new practice one-python, whose check refuses a tool that calls python3 by name).
+- **Update Vendors raises fewer false alarms and stops asking for a bare yes** (a citation is listed only when the one-line rule it quotes changed, which drops 11 of 15 reworded practices in one recent update; for a hooks or settings commit it hands over the exact sentence auto mode accepts).
+- **The branch-cleanup page can no longer be rebuilt from a stale copy** (the closing line says to read the saved page with path index.html just before building; precedent_stale_branches.py --merge warns on a copy older than ten minutes).
+
+## Wednesday 2026-10-14: pre-staging-retired
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **The pre-staging tier is retired for everyone**: work lands on staging, and Update Vendors merges anything waiting on pre-staging into staging in each repository still carrying it (spec/PRE_STAGING_RETIREMENT_PLAN.md).
+- **The leak check now knows every private repository, not just the ones cloned in the session** (a written list, private-repos.txt beside the person's blocklist; one private name had slipped into a public file and sat there eight days).
+- **Update Vendors takes upstream's version by default without asking**, and finds renamed engine files from git instead of a hand-kept map that missed renames (vendor-update-runbook; precedent_update.py).
+- **Anything the person can have now goes to them first**, before landing or testing (answer-first-ask-before-long-work part 1, after a finished Word file was held back about ten minutes).
 
 ## Tuesday 2026-10-13: branch-page-remembers-ticks
 
