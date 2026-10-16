@@ -79622,62 +79622,89 @@ def check_update_leftovers_installs_and_stamps():
             '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
 
 
-def check_finish_html_applies_typography_only_where_the_set_is():
-    """finish_html.finish() is the last step before an engine tool writes an
-    HTML page (the writing set's curly-quotes rule, 2026-10-16: "basically in any html
-    file or html output"). It applies the writing set's smarten_html() when
-    typography.py sits beside it, and hands the page back unchanged where it
-    does not, where it is too old to have smarten_html(), and where it raises:
-    a repository that never took the rule gets none, and no page is lost to
-    its finish. A committed page is finished only where the repository
-    tracks typography.py, so a render never differs by who ran it.
-    -> (ok, detail, failure)."""
+def check_typography_finishes_outward_text_and_every_engine_page():
+    """practice: curly-quotes. typography.py is the one copy of the rules
+    that turn Markdown's plain keys into finished typography for an outside
+    reader, and finish_html.finish() runs every HTML page the engine writes
+    through it. Its cases moved here with the practice on 2026-10-16, from
+    the writing set's test_typography.sh.
+
+    Each direction: `--` becomes an em dash and a number range an en dash,
+    while a date, a code, a code span, a link address and an escape stay as
+    typed; quotes curl, around an inline tag too; an HTML page changes only
+    in the text a reader sees, never in a tag, an attribute, a comment, a
+    script or code, and a second run changes nothing. finish() applies it,
+    and hands a page back as built where typography.py is missing or too old
+    for HTML. -> (ok, detail, failure)."""
     import shutil, subprocess as sp_, tempfile
-    page = '<p>"a" -- b</p>'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import typography as ty
+    S = ty.smarten
     cases = []
+    for given, want in [
+            ("word--word", "word\u2014word"), ("a -- b", "a \u2014 b"),
+            ("x---y", "x\u2014y"), ("a ---- rule", "a ---- rule"),
+            ("1990-2000", "1990\u20132000"), ("pages 10-20", "pages 10\u201320"),
+            ("9-5, 3:00-5:00, 2.5-3", "9\u20135, 3:00\u20135:00, 2.5\u20133"),
+            ("on 2026-10-13", "on 2026-10-13"), ("555-123-4567", "555-123-4567"),
+            ("PR-173, B-52, 1-on-1, 10-K", "PR-173, B-52, 1-on-1, 10-K"),
+            ("Monday-Friday", "Monday-Friday"),
+            ("a \u2014 b \u2013 c \u201cq\u201d", "a \u2014 b \u2013 c \u201cq\u201d"),
+            ('a "quote" and it\'s', "a \u201cquote\u201d and it\u2019s"),
+            ('**"bold"**', "**\u201cbold\u201d**"),
+            (ty.LINK_OPEN + "https://x/1990-2000--a" + ty.LINK_MID + "t",
+             ty.LINK_OPEN + "https://x/1990-2000--a" + ty.LINK_MID + "t"),
+            ("1990\\-2000", "1990\\-2000"),
+            ("run `git push --force` -- now", "run `git push --force` \u2014 now"),
+            ("`1990-2000` and 1990-2000", "`1990-2000` and 1990\u20132000")]:
+        got = S(given)
+        cases.append((f'smarten({given!r})', got == want, f'{got!r}, wanted {want!r}'))
+    H = getattr(ty, 'smarten_html', None)
+    for given, want in [
+            ('<p>The shape ("if we build this, here&#x27;s what") -- done.</p>',
+             '<p>The shape (\u201cif we build this, here\u2019s what\u201d) \u2014 done.</p>'),
+            ('<p>"<b>word</b>" and <a href="x--y.html" title="a \'t\'">it\'s</a></p>',
+             '<p>\u201c<b>word</b>\u201d and <a href="x--y.html" title="a \'t\'">it\u2019s</a></p>'),
+            ('<pre>git push --force "x"</pre><p>"a"</p>',
+             '<pre>git push --force "x"</pre><p>\u201ca\u201d</p>'),
+            ('<p>run <code>--check</code> -- and 1990-2000</p>',
+             '<p>run <code>--check</code> \u2014 and 1990\u20132000</p>'),
+            ('<!-- a -- "b" --><script>var a="--";</script><p>&quot;q&quot; &amp; 2026-10-16</p>',
+             '<!-- a -- "b" --><script>var a="--";</script><p>\u201cq\u201d &amp; 2026-10-16</p>'),
+            ('<li>"one"</li><li>"two"</li>', '<li>\u201cone\u201d</li><li>\u201ctwo\u201d</li>')]:
+        got = H(given) if H else None
+        cases.append((f'smarten_html({given[:40]!r})', got == want and H(want) == want,
+                      f'{got!r}, wanted {want!r}'))
+
+    page = '<p>"a" -- b</p>'
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-finish-html-'))
     try:
-        def run(typography, committed=False, tracked=False):
+        def run(typography):
             d = tmp / str(len(cases))
             d.mkdir()
             shutil.copy(ROOT / 'tools' / 'finish_html.py', d / 'finish_html.py')
             if typography is not None:
                 (d / 'typography.py').write_text(typography, encoding='utf-8')
-            if tracked:
-                env = _fixture_git_env()
-                sp_.run(['git', 'init', '-q', str(d)], env=env, capture_output=True)
-                sp_.run(['git', '-C', str(d), 'add', 'typography.py'], env=env,
-                        capture_output=True)
             r = sp_.run([sys.executable, '-c',
                          'import sys; sys.path.insert(0, sys.argv[1]); '
                          'from finish_html import finish; '
-                         'sys.stdout.write(finish(sys.argv[2], '
-                         'committed=sys.argv[3] == "1"))',
-                         str(d), page, '1' if committed else '0'],
+                         'sys.stdout.write(finish(sys.argv[2]))', str(d), page],
                         capture_output=True, text=True)
             return r.stdout
+        got = run((ROOT / 'tools' / 'typography.py').read_text(encoding='utf-8'))
+        cases.append(('finish() applies the engine\'s typography to a page',
+                      got == '<p>\u201ca\u201d \u2014 b</p>', got))
         got = run(None)
-        cases.append(('no typography.py beside it: the page as built', got == page, got))
-        got = run('def smarten_html(s):\n    return s.replace("--", "\u2014")\n')
-        cases.append(('typography.py beside it: its smarten_html() finishes the page',
-                      got == '<p>"a" \u2014 b</p>', got))
-        dash = 'def smarten_html(s):\n    return s.replace("--", "\u2014")\n'
-        got = run(dash, committed=True)
-        cases.append(('a committed page, typography.py beside it but untracked (a set '
-                      'the person brings): the page as built, the same for every '
-                      'checkout', got == page, got))
-        got = run(dash, committed=True, tracked=True)
-        cases.append(('a committed page where the repository tracks typography.py: '
-                      'finished', got == '<p>"a" \u2014 b</p>', got))
+        cases.append(('finish() without typography.py beside it: the page as built',
+                      got == page, got))
         got = run('def smarten(s):\n    return s\n')
-        cases.append(('a typography.py too old for HTML: the page as built', got == page, got))
-        got = run('def smarten_html(s):\n    raise ValueError("x")\n')
-        cases.append(('a typography.py that raises: the page as built', got == page, got))
+        cases.append(('finish() with a typography.py too old for HTML: the page as built',
+                      got == page, got))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     return (not bad, f'{len(cases)} stated cases',
-            '; '.join(f'{n} -- {d[:300]!r}' for n, d in bad))
+            '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 
 
 def main():
@@ -80525,8 +80552,8 @@ def main():
     check_todo_gotcha_stale_reference_fires()
     check_due_reminder_reaches_the_reply()
     check_todo_and_gotcha_sweeps()
-    check('an engine page gets finished typography exactly where the writing set '
-          'is in force', *check_finish_html_applies_typography_only_where_the_set_is())
+    check('typography finishes outward text, and every engine page goes through it',
+          *check_typography_finishes_outward_text_and_every_engine_page())
     check('an update leaves what a removed check strands, installs past PEP 668, '
           'stamps never reach a build code or a synced copy, and a materialized '
           'repository is a consumer',

@@ -98,7 +98,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 147 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 148 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -221,6 +221,8 @@ When attaching a practice source:
   attach-never-clone-individual — attach the individual one, never a second clone; shared sets sit beside the repo
 When being asked for something another window or session of the person's may already be working on:
   dont-race-another-window — say so and decline; send them to the window already on it
+When building a Word document, a web page, any HTML output or any other format an outside reader sees, or writing quotes and dashes in Markdown:
+  curly-quotes — plain quotes and hyphens in Markdown; anything built for a reader converts them
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else it now serves
 When building a permutation or configuration-sweep table:

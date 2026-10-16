@@ -108,13 +108,12 @@ import pathlib
 import re
 import subprocess
 import sys
-# finished typography on every HTML page, where the writing set is in force
-# (finish_html.py; the writing set's curly-quotes rule)
+# finished typography on every HTML page (finish_html.py; practice: curly-quotes)
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 try:
     from finish_html import finish as finish_html
 except ImportError:     # a copy of this file without the engine beside it
-    def finish_html(page, committed=False):
+    def finish_html(page):
         return page
 import urllib.parse
 
