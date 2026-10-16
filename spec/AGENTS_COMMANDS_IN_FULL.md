@@ -135,7 +135,7 @@ used to read on turn one.
   AT THE PULL REQUEST` in those words; given one, it is bounded to the
   handed-off work, that repository's routine branch and its own checks
   passing.
-- **"Root issues"** / **"Root fixes"** ([root-issues](../practices/root-issues.md))
+- **"Root issues"** ([root-issues](../practices/root-issues.md))
   — look back over **everything this session has done**, warnings and its
   own fixes and band-aids included, and hand back each one that also
   belongs in Precedent, a precedent-* repo, the template that generates the

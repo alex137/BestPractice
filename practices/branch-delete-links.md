@@ -287,13 +287,15 @@ without its link (`require_delete_link_when_landed`).
 ## Install
 Two surfaces carry this, and both cite it rather than restating it:
 
-- A fleet sweep, where the person's own set provides one, covers every
-  repository the person owns carrying a Precedent install.
+- The pinned branch-cleanup page, where the person's own set provides one
+  (the ladder set's `stale-branch-cleanup`), which every closing session
+  merges into, so over a few closes it covers every repository the person
+  works in.
 - [very-deep-check](very-deep-check.md)'s pass 4 sweeps the checkout it is
   running in and the sources that are their own git checkouts, and no further.
   Branch hygiene is per-repository bookkeeping, not a seam finding between two
   repositories, so widening the deep check to the fleet would duplicate what
-  the Chief of Staff owns and make an already expensive check more expensive
+  the cleanup page does and make an already expensive check more expensive
   for no new judgment.
 
 The engine side is [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py):
