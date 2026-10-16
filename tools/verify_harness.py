@@ -79600,6 +79600,64 @@ def check_update_leftovers_installs_and_stamps():
             '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
 
 
+def check_finish_html_applies_typography_only_where_the_set_is():
+    """finish_html.finish() is the last step before an engine tool writes an
+    HTML page (the writing set's curly-quotes rule, 2026-10-16: "basically in any html
+    file or html output"). It applies the writing set's smarten_html() when
+    typography.py sits beside it, and hands the page back unchanged where it
+    does not, where it is too old to have smarten_html(), and where it raises:
+    a repository that never took the rule gets none, and no page is lost to
+    its finish. A committed page is finished only where the repository
+    tracks typography.py, so a render never differs by who ran it.
+    -> (ok, detail, failure)."""
+    import shutil, subprocess as sp_, tempfile
+    page = '<p>"a" -- b</p>'
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-finish-html-'))
+    try:
+        def run(typography, committed=False, tracked=False):
+            d = tmp / str(len(cases))
+            d.mkdir()
+            shutil.copy(ROOT / 'tools' / 'finish_html.py', d / 'finish_html.py')
+            if typography is not None:
+                (d / 'typography.py').write_text(typography, encoding='utf-8')
+            if tracked:
+                env = _fixture_git_env()
+                sp_.run(['git', 'init', '-q', str(d)], env=env, capture_output=True)
+                sp_.run(['git', '-C', str(d), 'add', 'typography.py'], env=env,
+                        capture_output=True)
+            r = sp_.run([sys.executable, '-c',
+                         'import sys; sys.path.insert(0, sys.argv[1]); '
+                         'from finish_html import finish; '
+                         'sys.stdout.write(finish(sys.argv[2], '
+                         'committed=sys.argv[3] == "1"))',
+                         str(d), page, '1' if committed else '0'],
+                        capture_output=True, text=True)
+            return r.stdout
+        got = run(None)
+        cases.append(('no typography.py beside it: the page as built', got == page, got))
+        got = run('def smarten_html(s):\n    return s.replace("--", "\u2014")\n')
+        cases.append(('typography.py beside it: its smarten_html() finishes the page',
+                      got == '<p>"a" \u2014 b</p>', got))
+        dash = 'def smarten_html(s):\n    return s.replace("--", "\u2014")\n'
+        got = run(dash, committed=True)
+        cases.append(('a committed page, typography.py beside it but untracked (a set '
+                      'the person brings): the page as built, the same for every '
+                      'checkout', got == page, got))
+        got = run(dash, committed=True, tracked=True)
+        cases.append(('a committed page where the repository tracks typography.py: '
+                      'finished', got == '<p>"a" \u2014 b</p>', got))
+        got = run('def smarten(s):\n    return s\n')
+        cases.append(('a typography.py too old for HTML: the page as built', got == page, got))
+        got = run('def smarten_html(s):\n    raise ValueError("x")\n')
+        cases.append(('a typography.py that raises: the page as built', got == page, got))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {d[:300]!r}' for n, d in bad))
+
+
 def main():
     _install_retrying_tempdir_cleanup()
     _install_check_filter()
@@ -80445,6 +80503,8 @@ def main():
     check_todo_gotcha_stale_reference_fires()
     check_due_reminder_reaches_the_reply()
     check_todo_and_gotcha_sweeps()
+    check('an engine page gets finished typography exactly where the writing set '
+          'is in force', *check_finish_html_applies_typography_only_where_the_set_is())
     check('an update leaves what a removed check strands, installs past PEP 668, '
           'stamps never reach a build code or a synced copy, and a materialized '
           'repository is a consumer',
