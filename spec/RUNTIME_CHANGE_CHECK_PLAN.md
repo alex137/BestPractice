@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "When the Python a repository runs on changes -- its own declaration, or the engine's default -- nothing runs the repository's code on the new version before the change lands, and PHP has no declaration at all. Proposal: a runtime change selects the full suite under the new interpreter at the push that carries it, and one-python generalizes to one declared runtime per language."
+summary:       "When the Python a repository runs on changes -- its own declaration, or the engine's default -- the full local suite that runs after Produce still runs on the session's old Python, so nothing tests the code on the new version; and PHP has no declaration at all. Proposal: every full local run starts the Python the tested commit declares, and one-python generalizes to one declared runtime per language."
 ---
 # A change of language runtime is proven before it lands
 
@@ -16,10 +16,19 @@ summary:       "When the Python a repository runs on changes -- its own declarat
 Morgan, 2026-10-16: "when a version of python (or php for repos that use
 that?) is changed/defined, do we make sure there is nothing that breaks?"
 
-The short answer today is no. Precedent makes sure every place in a
-repository *uses the same* Python. Nothing makes sure the repository's code
-*still works* on a Python it has just moved to. For PHP, or any other
-language, there is no declaration at all.
+**The full local tests run, in full, after every Produce.** Whenever
+GitHub's test is not due, Produce runs the repository's whole local suite on
+`main` right after the merge (`--run-tests main`), not a sample of it; when
+GitHub's test is due, GitHub runs it. The only Produce with no full run
+after it is one whose exact commits a Debut already tested, one that
+changed nothing but prose, or one the person asked to be fast. A version
+change in `precedent.json` is none of those, so it always gets a full run.
+
+**The gap is which Python that run uses, not whether it runs.** It starts
+the suite with the Python the session is already running, and a session
+switches to a newly declared version only at its next start. So the full
+run right after a version change tests the new code on the old Python. For
+PHP, or any other language, there is no declaration at all.
 
 ## What exists today
 
@@ -44,17 +53,22 @@ packages were installed into a third interpreter. It settled *which* Python:
 
 What none of that does:
 
-1. **No test runs on the new version before it lands.** Changing `"3.12"`
-   to `"3.13"` in `precedent.json` is a one-line diff. The push check
-   judges it like any other one-line change of a JSON file: at the basic
-   tier a push to `staging` gets, it does not run the repository's own
-   test suite at all, and the session that made the change still has the
-   old interpreter as `python3` until the next session start. Into `main`,
-   Produce runs the quick checks; the full suite runs only when the
-   person's CI cadence makes GitHub's test due (in a private repository,
-   at most once every 168 hours by Morgan's setting), or when somebody
-   runs `--run-tests main`. So a version change can reach `main` with no
-   run of the repository's code on the version it now declares.
+1. **No test runs the code on the new version.** Changing `"3.12"` to
+   `"3.13"` in `precedent.json` is a one-line diff. The full suite does
+   run: Produce runs it locally on `main` right after the merge whenever
+   GitHub's test is not due (`--run-tests main`), and GitHub runs it when
+   it is. But the local run starts the suite with the Python the session
+   is already running
+   ([`precedent_branches._check`](../tools/precedent_branches.py) passes
+   `sys.executable`), and the session that made the change still has the
+   old interpreter until its next session start, when setup re-points
+   `python3`. So the run right after the change tests the new code on the
+   old Python, and passes. GitHub's run, when due, sets the version its
+   workflow names, which `one-python` keeps equal to the declaration --
+   but in a private repository it is due at most once every 168 hours by
+   Morgan's setting, and it does not install the declared packages
+   (gap 4). (Corrected 2026-10-16: the first draft said the full suite
+   runs only on GitHub's cadence; Morgan pointed out the local run.)
 2. **The engine's default moves every repository that does not declare
    one, silently.** `DEFAULT_VERSION` is an engine constant. When it moves,
    every consuming repository relying on the default takes the new
@@ -110,11 +124,21 @@ misses removed modules (they fail at import, not at parse), behavior
 changes, and packages. Kept as one cheap part of the answer, not as the
 answer.
 
-**C. Treat a runtime change as a full-suite change.** When a push carries a
-change to what the runtime is -- the `python` key of `precedent.json`, or
-`DEFAULT_VERSION` for a repository that does not declare one -- the push
-check runs the full suite instead of the basic tier, under the new
-interpreter. Attacked:
+**C. Treat a runtime change as a full-suite change before it lands.** When
+a push carries a change to what the runtime is -- the `python` key of
+`precedent.json`, or `DEFAULT_VERSION` for a repository that does not
+declare one -- the push check runs the full suite instead of the basic
+tier, under the new interpreter. Attacked, and then cut down:
+
+- *The full suite already runs after Produce's merge.* Running it before
+  the merge as well buys only the time between the merge and that run, and
+  the standing rule is to merge and be told of a problem rather than wait
+  (Alex, 2026-10-08: "Didn't we decide that we would merge and get
+  notified of problems instead?"). What that run lacks is the right
+  Python, not the right moment. So the proposal keeps the run where it is
+  and fixes the interpreter it starts (C'). A pre-merge full run stays
+  available for a repository that wants it, as the tier override it
+  already is.
 
 - *The session's `python3` is still the old one.* So the run must start
   the suite with the new interpreter explicitly (`python3.13
@@ -126,10 +150,9 @@ interpreter. Attacked:
   the interpreter, rather than passing on a run that did not happen
   (`not verified is not current`). The person can still push with the
   existing override, which is recorded.
-- *The full suite is slow* (BestPractice's is about ten minutes). A runtime
-  change is rare, and it is exactly the change whose risk the basic tier
-  cannot see, so paying the full suite for it is in proportion. Every
-  other push is unaffected.
+- *The full suite is slow* (BestPractice's is about ten minutes), and it
+  already runs in full after Produce; a second run before landing would
+  pay it twice for one change.
 - *The default moves inside an Update Vendors.* The update knows the old
   and new `DEFAULT_VERSION` (both engine copies are on disk during the
   refresh), so it can say "this repository's Python moves from 3.12 to
@@ -157,24 +180,29 @@ declaration the same way `one-python` does for Python); the *setup* and the
 *change check* for a language are built when the first repository that
 uses it needs them, from the same shape.
 
+**C'. Every full run starts the Python the tested commit declares.** The
+full local suite -- Produce's run after the merge, `--run-tests`, a Debut
+-- reads `precedent.json` in the worktree it tests, installs the declared
+packages into that interpreter with `precedent_python.install()`, and
+starts the suite with it rather than with `sys.executable`. The run that
+already happens after every Produce then tests a version change on the
+version it declares, with no new step and no extra wait.
+
 ## The proposal
 
-1. **A runtime change is a full-suite push, under the new interpreter.**
-   The push check selects its full tier when the diff changes the `python`
-   key of `precedent.json`, a declared package pin, or -- in a repository
-   with no declared version -- the engine's `DEFAULT_VERSION`. It installs
-   the declared packages into the new interpreter with
-   `precedent_python.install()` and runs the suite with that interpreter.
-   No new interpreter in the container: refused, naming it. The selection
-   lives in the push check's tier choice, one place, so the gate, Booked
-   and Produce all get it.
+1. **A full run uses the tested commit's declared interpreter** (C'). One
+   place: `precedent_branches._check`, which every full local run goes
+   through. A run whose declared interpreter is not installed in the
+   container says so and records the run as not verified, naming the
+   interpreter -- never a pass on the old one.
 2. **A parse-and-import pass** over every tracked Python file under the
    declared interpreter, run as part of (1) and also by the very deep
    check: `py_compile` each file, then import each module the repository's
    own code imports from the standard library. Cheap, and it names a
    removed module by name rather than as a traceback deep in a test.
-3. **Update Vendors says when the Python moves**, as its own step, and runs
-   (1)'s check for a repository that relies on the default, before DONE.
+3. **Update Vendors says when the Python moves**, as its own step, for a
+   repository that relies on the default; the full run after its Produce
+   then tests it on the new version, by (1).
 4. **GitHub's workflows install what the repository declares**: the
    templates replace their hard-coded `pip install` lines with
    `python tools/precedent_python.py setup`, and their hard-coded
@@ -209,16 +237,18 @@ has moved by then.
 ## Build order
 
 1. Part 2 (parse-and-import), alone: smallest, useful by itself.
-2. Part 1 (the full-suite selection), with harness cases for: a version
-   change selecting the full tier; the run using the new interpreter; a
-   missing interpreter refusing by name; an unrelated `precedent.json`
-   change not selecting it.
+2. Part 1 (the declared interpreter for a full run), with harness cases
+   for: a commit declaring another version running the suite under it; its
+   packages installed into that interpreter first; a missing interpreter
+   recorded as not verified, by name; a commit declaring the session's own
+   version running exactly as today.
 3. Part 3 (Update Vendors' step).
 4. Part 4 (templates), then part 5 (the declaration's shape and the
    generalized consistency check).
 
 ## Decisions for the person
 
-- Whether a missing new interpreter **refuses** the push (proposed), or
-  only warns.
+- Whether a full run whose declared interpreter is missing is recorded
+  as **not verified** (proposed, so main reads as unchecked until a run
+  that can prove it), or only warns.
 - Whether package pins stay optional (proposed) or become required.
