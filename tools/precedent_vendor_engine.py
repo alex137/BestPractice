@@ -370,9 +370,6 @@ FOLLOWED_BRANCH = followed_branch(ROOT)
 # note at their entry in ENGINE_FILES below.
 HOOK_SCRIPT_FILES = [
     'artifact-publish-gate.sh',
-    # Says once per branch when a session commits on the harness's branch
-    # name (2026-10-11); run through tools/hook_wiring.json.
-    'branch-name-commit-note.sh',
     'commit-identity-once.sh',
     'commit-identity-push-gate.sh',
     'commit-identity.sh',

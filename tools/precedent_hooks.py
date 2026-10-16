@@ -212,10 +212,111 @@ def combine(event, results):
     return 0, (json.dumps(obj) if obj else ''), ''.join(err)
 
 
+GIT_EVENTS = ('pre-push',)
+
+
+def _attach_hints(root=ROOT):
+    """-> {name: 'owner/repo'} for the sources whose repository is known:
+    the individual set from the user config, the sets it brings from its
+    `brings`, and a declared shared set from PRECEDENT_SOURCE_BASE_URL."""
+    import precedent_resolve as pr
+    hints = {}
+
+    def owner_repo(url):
+        m = re.search(r'github\.com[/:]([^/]+)/([^/]+?)(?:\.git)?/?$', url or '')
+        return f'{m.group(1)}/{m.group(2)}' if m else None
+
+    try:
+        cfg = json.loads(Path(os.environ.get(pr.USER_CONFIG_ENV, str(
+            pr.DEFAULT_USER_CONFIG))).expanduser().read_text(encoding='utf-8'))
+        ind = cfg.get('individual') or {}
+    except (OSError, ValueError, AttributeError):
+        ind = {}
+    if isinstance(ind, dict):
+        if owner_repo(ind.get('repo_url')):
+            hints[ind.get('name') or pr.DEFAULT_INDIVIDUAL_NAME] = owner_repo(ind['repo_url'])
+        for b in pr.brought_sources(ind.get('path'), warn=False):
+            if owner_repo(b.get('repo')):
+                hints[b['name']] = owner_repo(b['repo'])
+    base = os.environ.get('PRECEDENT_SOURCE_BASE_URL', '')
+    m = re.search(r'github\.com[/:]([^/]+)', base)
+    if m:
+        hints.setdefault('*', m.group(1))
+    return hints
+
+
+def unloaded_sources(root=ROOT):
+    """-> [(name, attach)] for every shared or individual practice source
+    this repository declares, or its person brings, that is not on disk to
+    read (no practices/ directory). `attach` is the add_repo call that fixes
+    it, or '' where the owner is not known here.
+
+    Why at pre-push (2026-10-16): a set that fails to clone at session start
+    reads, to everything downstream, the same as a set nobody declared --
+    its hooks are not listed, its tools are not there -- so a pre-push hook
+    it ships would be skipped without a word, which is how harness-named
+    branches reached origin while the rule against them was in force. A
+    person with no user config declares no individual set, and nothing is
+    said for one."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_resolve as pr
+        rows = pr.declared_source_paths(root)
+        hints = _attach_hints(root)
+    except Exception as exc:                                 # noqa: BLE001
+        print(f'precedent_hooks: the practice sources here could not be read '
+              f'({exc}); whether each loaded is not known', file=sys.stderr)
+        return []
+    out = []
+    for path, level, name, _note in rows:
+        if pr.normalize_level(level) not in pr.PRIVATE_LEVELS or not path:
+            continue
+        if (Path(path) / 'practices').is_dir():
+            continue
+        where = hints.get(name) or (f"{hints['*']}/{name}" if '*' in hints else '')
+        out.append((name, where))
+    return out
+
+
+def run_git_hook(event, git_args, payload, root=ROOT):
+    """-> exit status for git: 0 lets it through, 1 refuses. Runs every
+    practice hook listed for `event`, in turn, with git's arguments and
+    stdin; refuses first, without running any, while a source that would
+    list one did not load (unloaded_sources)."""
+    missing = unloaded_sources(root)
+    if missing:
+        lines = [f'  {name}: ' + (f'add_repo {where} (read access)'
+                                  if where else 'attach it with add_repo')
+                 + ', clone it where python3 tools/precedent_session_check.py '
+                 'says, then push again'
+                 for name, where in missing]
+        print('push refused: a practice source in force here did not load, so '
+              'the pre-push checks it ships could not run:\n' + '\n'.join(lines),
+              file=sys.stderr)
+        return 1
+    env = dict(os.environ)
+    env['CLAUDE_PROJECT_DIR'] = str(root)
+    for label, argv, timeout in entries_for(event, '', root=root):
+        if argv[:2] == ['bash', '-c']:
+            argv = ['bash', '-c', argv[2] + ' "$@"', event, *git_args]
+        label, rc, out, err, timed_out = _run(label, argv, timeout, payload, env)
+        for text in (out, err):
+            if text and text.strip():
+                sys.stderr.write(text if text.endswith('\n') else text + '\n')
+        if rc != 0 or timed_out:
+            return 1
+    return 0
+
+
 def main(argv):
     if not argv:
-        print('usage: precedent_hooks.py <hook event>', file=sys.stderr)
+        print('usage: precedent_hooks.py <hook event> | --git <git hook> [args]',
+              file=sys.stderr)
         return 0
+    if argv[0] == '--git':
+        if len(argv) < 2 or argv[1] not in GIT_EVENTS:
+            return 0
+        return run_git_hook(argv[1], argv[2:], sys.stdin.read())
     event = argv[0]
     payload = sys.stdin.read()
     try:

@@ -7715,7 +7715,20 @@ def _vocabulary_reaches_the_consumer(ctx):
                 f'practice. Drop the scope, or drop the command.'))
         named = sorted({m for m in _re.findall(r'tools/([A-Za-z0-9_]+\.py)',
                                                text)})
+        # A script the practice ships itself reaches every consumer with it
+        # (precedent_materialize copies each `ships:` path), so it needs no
+        # engine list -- and a set's own enforcement belongs with the set,
+        # not in the engine (practice: enforcement-lives-with-its-practice;
+        # 2026-10-16, act shipping its branch-name guard was refused here).
+        _ships = _re.search(r'^ships:\s*(\[.*\])\s*$', text, _re.M)
+        try:
+            shipped = {pathlib.PurePosixPath(p).name
+                       for p in json.loads(_ships.group(1))} if _ships else set()
+        except (ValueError, TypeError):
+            shipped = set()
         for script in named:
+            if script in shipped:
+                continue
             if levels.get(slug) == 'repo-local':
                 if not (ctx.root / 'tools' / script).is_file():
                     findings.append(Finding(
@@ -7737,6 +7750,137 @@ def _vocabulary_reaches_the_consumer(ctx):
                 f'runs upstream, add it to this check\'s UPSTREAM_ONLY '
                 f'with the reason, so the exception is visible.'))
     return findings
+
+
+@check('enforcement-lives-with-its-practice', 'tree',
+       "every shared and individual practice set on disk keeps its own "
+       "enforcement: no practice's checked_by or ships resolves to an engine "
+       "file, and no string in the engine's code names a set or one of its "
+       "practice slugs",
+       "a set not on disk here (it is not read), engine code that encodes "
+       "a set's rule without naming it, and comments: only string literals "
+       "in engine .py files are read, so a rule spelled out in prose, or "
+       "logic keyed on a value no slug matches, is invisible to it",
+       advisory=True,
+       advisory_term={'term': 'temporary',
+                      'waiting_for': 'the moves in '
+                                     'spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md',
+                      'owner': 'Morgan',
+                      'revisit': '2026-11-16'},
+       selects_on=('practices/*.md', 'tools/*.py', 'tools/*.sh',
+                   'tools/precedent_vendor_engine.py'))
+def _enforcement_lives_with_its_practice(ctx):
+    """The inventory behind spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md.
+
+    THE INCIDENT (2026-10-16). The ladder set's act was enforced by engine
+    code that switched on only when the ladder loaded, and the private
+    individual set declared its commit checks as engine files. So a set
+    that failed to load switched its own rule off, and a private set's
+    rules sat in the public engine. Advisory until the moves land, so the
+    first run is the list of what to move rather than a wall of refusals.
+
+    RUNS WHERE THE ENGINE IS AUTHORED: it needs the engine file lists,
+    which exist only in BestPractice; elsewhere it declines."""
+    import io as _io
+    import tokenize as _tok
+    try:
+        import precedent_vendor_engine as pve
+        import precedent_resolve as _pr
+        import build_views as _bv
+    except ImportError as e:
+        raise NotApplicable(f'the engine modules did not import ({e})')
+    if (ctx.root / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+        raise NotApplicable('a vendored engine: the engine file lists are '
+                            'authored in BestPractice, so this runs there')
+    engine = set(getattr(pve, 'ENGINE_FILES', [])) | set(
+        getattr(pve, 'CONSUMER_ENGINE_FILES', []))
+    if not engine:
+        raise NotApplicable('this engine carries no ENGINE_FILES list')
+    sets = [(pathlib.Path(p), level, name) for p, level, name, _n in
+            _pr.declared_source_paths(ctx.root)
+            if _pr.normalize_level(level) in _pr.PRIVATE_LEVELS and p
+            and (pathlib.Path(p) / 'practices').is_dir()]
+    if not sets:
+        raise NotApplicable('no shared or individual set is on disk here to '
+                            'read')
+    universal = {f.stem for f in (ctx.root / 'practices').glob('*.md')}
+    findings, names, slugs = [], set(), {}
+    for root, level, name in sets:
+        names.add(name)
+        try:
+            vendored = set(json.loads((root / 'tools' / 'ENGINE_MANIFEST.json')
+                                      .read_text(encoding='utf-8')).get('files') or [])
+        except (OSError, ValueError):
+            vendored = set()
+        for f in sorted((root / 'practices').glob('*.md')):
+            try:
+                fm = sp._read_practice_file(f)[0]
+            except Exception:                                # noqa: BLE001
+                continue
+            if f.stem not in universal:
+                slugs.setdefault(f.stem, name)
+            paths = []
+            cb = str(fm.get('checked_by') or '').strip().strip('"')
+            if cb and cb not in ('null', '~'):
+                paths.append(('checked_by', cb))
+            try:
+                paths += [('ships', s) for s in _bv.ships_paths(fm)]
+            except ValueError:
+                pass
+            for field, rel in paths:
+                base = pathlib.PurePosixPath(rel).name
+                # A set's addition to a universal practice is checked by the
+                # universal practice's own check, which is the engine's.
+                if f.stem in universal and rel == 'tools/precedent_check.py':
+                    continue
+                if rel.startswith('tools/') and rel.count('/') == 1 and (
+                        base in vendored or (base in engine and base not in
+                                             _set_own_files(root))):
+                    findings.append(Finding(
+                        f'{name}/practices/{f.name}',
+                        f'{field} {rel} is an engine file: {name}\'s own '
+                        f'rule is enforced by Precedent\'s engine. Move it '
+                        f'into {name} (shipped by this practice) and out of '
+                        f'the engine\'s file lists'))
+    wanted = names | set(slugs)
+    for name in sorted(engine):
+        path = ctx.root / 'tools' / name
+        if not name.endswith('.py') or not path.is_file():
+            continue
+        try:
+            toks = _tok.generate_tokens(_io.StringIO(
+                path.read_text(encoding='utf-8')).readline)
+            hits = set()
+            for tk in toks:
+                if tk.type != _tok.STRING:
+                    continue
+                try:
+                    value = ast.literal_eval(tk.string)
+                except (ValueError, SyntaxError):
+                    continue
+                if isinstance(value, str) and value in wanted:
+                    hits.add(value)
+        except (_tok.TokenError, SyntaxError, UnicodeDecodeError):
+            continue
+        for h in sorted(hits):
+            what = (f'the set {h}' if h in names else
+                    f'{slugs[h]}\'s practice {h}')
+            findings.append(Finding(
+                f'tools/{name}',
+                f'names {what} in code: the engine knows how to run a set\'s '
+                f'checks, never what one set\'s rule is'))
+    return findings
+
+
+def _set_own_files(root):
+    """-> the tools/ files a set tracks that its engine manifest does not
+    list: its own code."""
+    try:
+        listed = set(json.loads((root / 'tools' / 'ENGINE_MANIFEST.json')
+                                .read_text(encoding='utf-8')).get('files') or [])
+    except (OSError, ValueError):
+        listed = set()
+    return {p.name for p in (root / 'tools').glob('*') if p.name not in listed}
 
 
 @check('shipped-template-carries-its-script', 'tree',

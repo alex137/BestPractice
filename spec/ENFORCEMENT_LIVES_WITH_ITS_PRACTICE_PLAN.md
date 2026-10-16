@@ -1,0 +1,128 @@
+---
+title:         "Enforcement lives with its practice: the move plan"
+kind:          proposal
+status:        accepted
+opened:        2026-10-16
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       "Moves each practice set's enforcement out of Precedent's engine and into the set: built for the ladder's branch-naming rule and go-update's high-risk line; the ladder's own steps wait on Morgan's go-ahead; the commit-identity checks wait on one decision of his."
+---
+# Enforcement lives with its practice: the move plan
+
+Status: plan, 2026-10-16. Parts 1 and 2 are built; part 3 waits on
+Morgan's go-ahead, and part 4 on one decision of his.
+
+The rule is
+[enforcement-lives-with-its-practice](../practices/enforcement-lives-with-its-practice.md):
+a practice's checks, tools and hooks live in the repository the practice
+lives in, and the engine knows how to run them, never what any one set's
+rule is. Its check, `python3 tools/precedent_check.py --only
+enforcement-lives-with-its-practice`, is the inventory this plan works
+from. It warns, without refusing, until the moves below land
+(`revisit: 2026-11-16`).
+
+## 1. Built: the ladder's branch-naming rule
+
+The ladder set's `act` now ships its enforcement:
+[`tools/branch_name_guard.py`](https://github.com/themorgan/precedent-shared-ladder/blob/staging/tools/branch_name_guard.py) refuses a push to the harness's own branch
+name, or a new branch named by hand, and notes the first commit on a
+harness-named branch; [`tools/precedent_branch_rules.py`](https://github.com/themorgan/precedent-shared-ladder/blob/staging/tools/precedent_branch_rules.py) reports, and with
+`--apply` adds, the GitHub ruleset that refuses creating `claude/**` and
+`session/**` branches. The engine's naming refusal, push note, commit-note
+hook and Update Vendors line are gone. What the engine gained is generic:
+
+- a `pre-push` hook event a practice can declare, run by the global
+  pre-push through [`precedent_hooks.py --git`](../tools/precedent_hooks.py), in every session shape
+  (Morgan, 2026-10-16: approved "just for the branch related check"; each
+  further pre-push hook is his call);
+- a refusal of every push while a declared or brought source did not
+  load, and a session start that opens with the `add_repo` call for each;
+- `PRECEDENT_PUSH_DESTINATION` and `PRECEDENT_CHANGED_SINCE`, set for the
+  checks a push check runs, so a set's check can judge a push by where it
+  goes.
+
+**Left in the engine on purpose:** [`precedent_branch_name.py`](../tools/precedent_branch_name.py)'s name
+builder. It enforces nothing, and the engine's own ladder steps (a
+landing, a Promote, Update Vendors) name their branches with it. It moves
+with them in part 3.
+
+**Not applied anywhere:** the GitHub ruleset. Morgan says which
+repositories get it; for BestPractice the call is Alex's.
+
+## 2. Built: go-update's high-risk line
+
+[`check_landing_takes_a_pr.py`](https://github.com/themorgan/precedent-shared-ladder/blob/staging/tools/checks/check_landing_takes_a_pr.py), in the ladder set, refuses a push straight
+to the landing branch that changes a CI workflow, the gating engine files
+or `tools/checks/`, and prints the pull-request route. An engine file
+byte-identical to what the engine manifest recorded vendoring from
+BestPractice's main is exempt (Morgan, 2026-10-16); a workflow never is.
+Update Vendors' DONE says when an update takes a pull request.
+
+## 3. Waiting on Morgan: the ladder's own steps
+
+The ladder's stages run on engine code today, and the inventory names it:
+
+| Engine file | What is the ladder's |
+|---|---|
+| [`precedent_branches.py`](../tools/precedent_branches.py) | `--land`, `--promote`, `--run-tests`, the tier branches, promote-only, the Debut and Produce steps |
+| [`ladder_words.py`](../tools/ladder_words.py) | the stage words and every ladder practice slug |
+| [`precedent_others_did.py`](../tools/precedent_others_did.py) | the `others-did` reply block |
+| [`precedent_stale_branches.py`](../tools/precedent_stale_branches.py), [`precedent_gate.py`](../tools/precedent_gate.py) | the `stale-branch-cleanup` page and its reply requirement |
+| [`precedent_upstream_review.py`](../tools/precedent_upstream_review.py) | Debut and Produce wording |
+| [`precedent_branch_name.py`](../tools/precedent_branch_name.py) | the name builder (part 1) |
+
+The 2026-10-03 decision kept these in the engine
+([LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md), D4, strength: assented);
+that predates this practice. The move, in outline:
+
+1. Split [`precedent_branches.py`](../tools/precedent_branches.py) into what any repository needs (its
+   landing branch, a lock, composing a merge in a worktree, pushing it)
+   and what only the ladder needs (staging, pre-staging, Promote, Debut,
+   Produce). The first stays; the second ships from the ladder set.
+2. [`ladder_words.py`](../tools/ladder_words.py), [`precedent_others_did.py`](../tools/precedent_others_did.py) and the stale-branch page
+   ship from the ladder set as they are.
+3. The reply gate learns its ladder requirements from the set (its
+   `reply_check.json` already exists), instead of from engine code.
+4. Each piece lands with its engine copy removed in the same release, so a
+   consumer's Update Vendors takes both halves at once.
+
+This is a restructuring of its own, several sessions long. Nothing in it
+starts without Morgan's go-ahead.
+
+## 4. One decision for Morgan: the commit-identity checks
+
+The individual set's `commit-author` and its date-zone practice declare
+`checked_by: tools/check_commit_author.py` and
+[`tools/check_commit_dates.py`](../tools/check_commit_dates.py), which are engine files. That was decided on
+purpose (Morgan, 2026-10-10, strength: decided: "yes ... build the shared
+check"): two copies had drifted, and the engine's single copy names no one
+-- it reads the person from their declared identity. The engine's push
+gate and global hooks call both.
+
+**Recommendation: keep them in the engine, as generic plumbing,** since
+any person's individual set can use them and they carry nothing private;
+but take the individual set's practice slugs out of engine code
+(`precedent_push_check.IDENTITY_SLUGS` names them today), so the engine
+says "the declared-identity checks" and the set's practices say they use
+them. The inventory check then counts a `checked_by` on a declared generic
+engine check as fine. The other way -- moving both into the individual
+set -- reverses the 2026-10-10 decision and puts back the drift it fixed,
+so it is his call, not this plan's.
+
+## 5. Not a finding: the default individual set name
+
+Five engine files name `precedent-individual` as the default name of a
+person's individual set, the convention a fresh install uses when nothing
+else is declared. That is a convention every person shares, not one set's
+rule, and the check will exempt that one name once this plan is adopted.
+
+## 6. How it reaches consumers
+
+Every piece above reaches a consuming repository through Update Vendors:
+the engine half when it refreshes the engine, the set half when it syncs
+the set. For part 1 both halves landed together, so a consumer that takes
+both stays enforced throughout. One that takes only the engine half loses
+the old engine refusal before it has the set's guard. Taking both in the
+same Update Vendors run avoids that gap.

@@ -86,6 +86,7 @@ being checked by it.
 | `docs-are-current-state` | change | a changed document does not carry an in-document revision annotation -- an "(added <date>)" / "(rewritten <date>)" tag, or a "Rev N" heading ladder -- since version control already carries that losslessly |
 | `docs-track-models` | tree | a figure a script declares it owns is not hand-typed into the prose around its generated block |
 | `document-status-header` | tree | every document under spec/ and record/ that CARRIES a lifecycle frontmatter header declares a legal kind/status pair, a title matching its own first heading, a `closed:` date exactly when it is closed, a `superseded_by:` that resolves exactly when it is superseded, and no competing hand-maintained `Last updated:` comment |
+| `enforcement-lives-with-its-practice` | tree | every shared and individual practice set on disk keeps its own enforcement: no practice's checked_by or ships resolves to an engine file, and no string in the engine's code names a set or one of its practice slugs |
 | `engine-plus-host-shims` | tree | no file outside the vendored tree duplicates a run of lines from inside it — that is a fork, not a shim |
 | `environment-gotchas` | tree | the session instructions point at a gotcha catalogue and every live entry in it carries what failed, not only the fix — reading gotchas/*.md directly where a repo has migrated to that shape (and then refusing an index of it -- two or more list or table lines each linking one trap -- in AGENTS.md or CLAUDE.md), or following the link into the record on the pre-migration shape |
 | `filename-separator` | tree | files of the same kind in one directory use one word separator, never both - and _ |
@@ -135,7 +136,7 @@ being checked by it.
 | `whats-new` | change | a changed What's New log has every entry in the shape: a heading "<Weekday> <date>: <slug>" whose weekday is the date's own, the fixed opening line word for word, every bullet opening with a bold key phrase, and no approver named |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-67 of 184 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+68 of 185 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
