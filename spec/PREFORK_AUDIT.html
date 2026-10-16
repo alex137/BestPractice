@@ -132,11 +132,11 @@ audience:      session
 summary:       The verdict recorded for each inherited practice against the architecture the restructuring plan approved.</p>
 <hr />
 <h1 id="pre-fork-catalogue-audit">Pre-Fork Catalogue Audit</h1>
-<time class="renderstamp" datetime="2026-10-16T09:26:57+00:00">2026-10-16 09:26 UTC</time>
+<time class="renderstamp" datetime="2026-10-16T09:52:27+00:00">2026-10-16 09:52 UTC</time>
 <nav class="contents" id="contents"><span class="contents-label">Contents</span><ol><li><a href="#the-table">The table</a></li><li><a href="#two-systemic-gaps-this-audit-found-bigger-than-any-one-row">Two systemic gaps this audit found, bigger than any one row</a></li><li><a href="#what-was-checked-and-found-clean">What was checked and found clean</a></li></ol></nav>
 <p>One row per practice inherited from pre-fork BestPractice (the original 52,
-numbered <code>PRACTICES.md</code> catalogue, plus Alex's practice 53 added on <code>main</code>
-after the fork point), verdict against this plan's architecture: does it
+numbered <code>PRACTICES.md</code> catalogue, plus Alex’s practice 53 added on <code>main</code>
+after the fork point), verdict against this plan’s architecture: does it
 still mean and do the same thing, or did something about how it works
 change under Precedent. Named as required before phase 6 starts migrating a
 consumer repo by <a href="https://github.com/alex137/bestpractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward">What phase 5 should carry forward</a>
@@ -510,7 +510,7 @@ nothing pre-fork to compare them against.</p>
 <td>50</td>
 <td>rewritten</td>
 <td>yes (below)</td>
-<td>Gained a real <code>checked_by</code>; today's <code>PreToolUse</code>-hook work is a new <em>application</em> of the pattern, not a change to this file (already logged separately)</td>
+<td>Gained a real <code>checked_by</code>; today’s <code>PreToolUse</code>-hook work is a new <em>application</em> of the pattern, not a change to this file (already logged separately)</td>
 </tr>
 <tr>
 <td><a href="https://github.com/alex137/bestpractice/blob/staging/practices/one-formatter-per-quantity.md">one-formatter-per-quantity</a></td>
@@ -531,7 +531,7 @@ nothing pre-fork to compare them against.</p>
 <td>53</td>
 <td>active-as-is</td>
 <td>—</td>
-<td>Alex's own post-fork addition, converted unmodified; already logged</td>
+<td>Alex’s own post-fork addition, converted unmodified; already logged</td>
 </tr>
 </tbody>
 </table></div>
@@ -540,37 +540,37 @@ nothing pre-fork to compare them against.</p>
 <p>Neither is a single-practice miss — both are a whole <em>mechanism</em> that
 landed across many inherited practices at once without ever being logged
 as its own event in <a href="https://github.com/alex137/bestpractice/blob/staging/spec/CHANGES_TO_TELL_ALEX.md">Changes to tell Alex</a>,
-whose own scope statement says plainly: "changes what its <code>checked_by</code>
-actually enforces goes here." Both are now logged there
+whose own scope statement says plainly: “changes what its <code>checked_by</code>
+actually enforces goes here.” Both are now logged there
 (2026-09-03), in full, rather than only summarized here.</p>
 <p><strong>1. The phase-4 enforcement rollout was unlogged.</strong> 24 of the 53 inherited
 practices gained a real <code>checked_by</code> — moving from purely advisory (a
 session had to notice and follow the prose) to mechanically checked. 16 of
 the 24 were mentioned in <code>CHANGES_TO_TELL_ALEX.md</code> only for the unrelated
-citation-link sweep, whose own text ("no <code>checked_by</code> enforcement changed")
+citation-link sweep, whose own text (“no <code>checked_by</code> enforcement changed”)
 is true of that specific commit but left the separate, earlier
 enforcement-adding commits undisclosed; 8 were absent from the file
 entirely.</p>
 <p><strong>2. The phase-2 resident-tier promotion was unlogged.</strong> Six inherited
 practices were promoted from <code>tier: on-demand</code> to <code>tier: resident</code> — always
-loaded into every session via <code>AGENTS.md</code>'s generated block, rather than
+loaded into every session via <code>AGENTS.md</code>’s generated block, rather than
 reached on demand. BestPractice pre-fork had no tier concept at all, so
 this is a first-order change to how these six practices reach a session.
-None of the six practices' own files, nor any prior <code>CHANGES_TO_TELL_ALEX.md</code>
+None of the six practices’ own files, nor any prior <code>CHANGES_TO_TELL_ALEX.md</code>
 entry, ever named this.</p>
 <p class="contents-back"><a href="#contents">↑ Contents</a></p>
 <h2 id="what-was-checked-and-found-clean">What was checked and found clean</h2>
 <ul>
 <li><strong>No <code>status:</code> frontmatter value other than <code>active</code></strong> anywhere in
   <code>practices/*.md</code> — no inherited practice is self-declared superseded or
-  merged (<code>layered-practice-packs</code>' pack-mechanism note is the only
-  "superseded" language anywhere, already logged).</li>
+  merged (<code>layered-practice-packs</code>’ pack-mechanism note is the only
+  “superseded” language anywhere, already logged).</li>
 <li><strong>No populated <code>supersedes:</code> field</strong> on any file.</li>
 <li><strong>The whole-catalogue editorial passes</strong> — the Rule/Detail split, the
   index-clause authoring pass, the routing-glob narrowing pass
   (<code>tools/routing_scope.json</code>) — are genuinely non-substantive by their own
-  commit messages' own stated reasoning, and are not treated as individual
-  gaps here, the same way the citation sweep already isn't.</li>
+  commit messages’ own stated reasoning, and are not treated as individual
+  gaps here, the same way the citation sweep already isn’t.</li>
 </ul><p class="contents-back"><a href="#contents">↑ Contents</a></p>
 
 </main>

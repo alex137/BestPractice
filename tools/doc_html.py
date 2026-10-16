@@ -111,13 +111,12 @@ import markdown
 
 import subprocess
 import datetime
-# finished typography on every HTML page, where the writing set is in force
-# (finish_html.py; the writing set's curly-quotes rule)
+# finished typography on every HTML page (finish_html.py; practice: curly-quotes)
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 try:
     from finish_html import finish as finish_html
 except ImportError:     # a copy of this file without the engine beside it
-    def finish_html(page, committed=False):
+    def finish_html(page):
         return page
 
 # practice: one-formatter-per-quantity -- every moment in time this project
@@ -1748,8 +1747,7 @@ def render(src, out_path, title):
 <script>{JS}</script>
 <script>{STAMP_JS}</script>
 """
-    # A registered render is committed beside its source.
-    out_path.write_text(finish_html(out, committed=True), encoding="utf-8")
+    out_path.write_text(finish_html(out), encoding="utf-8")
     n_tables = body.count("<table>")
     # Graceful degradation, not a crash: relative_to() raises for any
     # absolute path outside the repo, and rendering to one is legitimate --

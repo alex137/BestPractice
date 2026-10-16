@@ -565,11 +565,16 @@ ENGINE_FILES = [
     # repositories, for the ladder set's stale-branch-cleanup (2026-10-05).
     'precedent_stale_branches.py',
     # The last step before an engine tool writes an HTML page: finished
-    # typography where the writing set's typography.py is beside it
-    # (the writing set's curly-quotes rule, 2026-10-16). Imported at module level by
+    # typography through typography.py, below (practice: curly-quotes,
+    # 2026-10-16). Imported at module level by
     # precedent_stale_branches.py and precedent_review_page.py, which every
     # kind of repository gets, so it travels with them.
     'finish_html.py',
+    # The one copy of the typography rules (practice: curly-quotes): every
+    # builder of an outside reader's file imports it from beside itself, and
+    # finish_html.py runs every engine page through it. An engine file since
+    # 2026-10-16, when the practice moved here from the writing set.
+    'typography.py',
     # The resolver and the untracked-block writer, added 2026-09-13 so a
     # session rooted in a practice SET reads the universal catalogue instead
     # of that set's own practices alone. Until then a set resolved nothing:

@@ -1178,6 +1178,23 @@ def _prior_ship_hashes(out_dir):
 # one precedent.json declines, and an untracked file this never wrote, or
 # wrote and somebody since edited, are each left exactly as they are. A file
 # it wrote that no practice ships any more is removed only while unchanged.
+def _engine_owned(repo):
+    """-> the tools/ paths this repository's vendored engine owns, read off
+    tools/ENGINE_MANIFEST.json; empty where there is none.
+
+    A file a set used to ship and the engine now carries is the engine's,
+    not a leftover: the stale-ships notice below tells a person to remove
+    each file it names by hand, and on 2026-10-16 typography.py moved from
+    the writing set into the engine -- that notice would have named it on
+    every sync, inviting the deletion of an engine file."""
+    try:
+        files = json.loads((pathlib.Path(repo) / 'tools' / 'ENGINE_MANIFEST.json')
+                           .read_text(encoding='utf-8')).get('files') or []
+    except (OSError, ValueError, AttributeError):
+        return set()
+    return {f'tools/{f}' for f in files}
+
+
 SESSION_SHIPS_RECORD = pr.bv.SESSION_SHIPS_RECORD
 SESSION_HOOKS_FILE = '.precedent/practice_hooks.json'
 _EXCLUDE_BEGIN = ('# BEGIN precedent session ships -- files a practice set '
@@ -1675,7 +1692,8 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
         # on: out of info/exclude, so it is committed with the sync.
         release_session_ships(out_dir, [s['path'] for s in ships_written])
     stale_ships = sorted(set(prior_ships) - {s['path'] for s in ships_written}
-                         - {d['path'] for d in declined_rows})
+                         - {d['path'] for d in declined_rows}
+                         - _engine_owned(out_dir))
     if stale_ships and not dry_run:
         print("precedent_materialize: shipped file(s) this tree received that "
               "no practice in force here ships any more -- left in place, not "
