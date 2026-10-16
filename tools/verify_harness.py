@@ -30161,8 +30161,18 @@ def check_branch_cleanup_button():
             continue
         txt = f.read_text(encoding='utf-8', errors='ignore')
         if f.name == 'precedent_stale_branches.py':
-            txt = re.sub(r"(?s)\n_PAGE = '''.*?\n'''\n", '', txt)
-            txt = re.sub(r"PAGE_CAPABILITIES = \{.*?\]\}\]\}\}", '', txt, flags=re.S)
+            # Its prose and the page it renders may name the call; its
+            # Python may not make it.
+            import ast as _ast
+            lines = txt.splitlines(keepends=True)
+            for node in reversed(_ast.parse(txt).body):
+                names = [t.id for t in getattr(node, 'targets', [])
+                         if isinstance(t, _ast.Name)]
+                if (names and names[0] in ('_PAGE', 'PAGE_CAPABILITIES')) or (
+                        isinstance(node, _ast.Expr) and isinstance(
+                            getattr(node, 'value', None), _ast.Constant)):
+                    del lines[node.lineno - 1:node.end_lineno]
+            txt = ''.join(lines)
         if sb.CLEANUP_WORKFLOW in txt and ('dispatches' in txt or starts.search(txt)):
             starters.append(f.name)
     cases.append(('no engine tool can start it', starters == [], starters))
