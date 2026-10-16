@@ -60,10 +60,13 @@ THE SAVED PAGE IS MERGED, NEVER OVERWRITTEN (2026-10-12). This tool sees
 only the clones on this machine, so a session with fewer repositories open
 than the last one would wipe the rows that one listed. With a saved page,
 `--html` writes nothing until it is handed that page as it stands --
-`--merge FILE` (in Claude Code, the file the Artifact tool's read saves
-with path index.html, read immediately before the build: never a copy
-from earlier in the session, which another session may have republished
-over since -- the tool warns when the file looks like one) -- or told
+`--merge FILE` (in Claude Code, one read of the page's url without a path,
+immediately before the build: the read a republish needs, which saves the
+full HTML to a file when the page is large -- that file is FILE; only a
+page that came back inline needs a second read, with path index.html.
+Never a copy from earlier in the session, which another session may have
+republished over since -- the tool warns when the file looks like one) --
+or told
 `--replace`, for a saved page that is gone or cannot be read. Merged, a
 repository this run checked gets its fresh rows, or none if nothing in it
 is deletable any more; one it did not check keeps the rows last listed,
@@ -1157,8 +1160,9 @@ def main(argv):
                 return 2
             for why in stale_merge_warnings(prev, out, prev_text):
                 print(f'WARNING: {why}. Merge a read of the saved page made '
-                      f'immediately before this build (the Artifact tool\'s '
-                      f'read of its url with path index.html), or rows and '
+                      f'immediately before this build (the file the '
+                      f'Artifact tool\'s read of its url, without a path, '
+                      f'saved), or rows and '
                       f'checkmarks saved since are lost.')
             carried = carried_over(previous, seen, done)
             prev_cleanup, clicked = read_cleanup(prev_text)
@@ -1171,9 +1175,13 @@ def main(argv):
             print(f'Nothing written: the saved page ({url}) may list '
                   f'repositories this session cannot see, and publishing over '
                   f'it would drop them. Save the page as it stands to a file '
-                  f'(in Claude Code: the Artifact tool\'s read of that url '
-                  f'with path index.html), then run this again adding '
-                  f'--merge <that file>. Only if it is gone or unreadable, '
+                  f'(in Claude Code: ONE Artifact read of that url without '
+                  f'a path -- the read a republish needs -- and the file it '
+                  f'says the full HTML was saved to; only if the page came '
+                  f'back inline, read it again with path index.html for the '
+                  f'file), then run this again adding --merge <that file>, '
+                  f'and never Read the file yourself. Only if it is gone or '
+                  f'unreadable, '
                   f'add --replace instead.')
             return 2
         # Each listed repository's delete-all button: asked of GitHub here,

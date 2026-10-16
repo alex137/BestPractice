@@ -31,7 +31,7 @@ every place that starts Python gets that one.**
    [`tools/precedent_python.py setup`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_python.py): the
    declared Python's own pip installs the packages, and `python3`,
    `python`, `pip3` and `pip` resolve to that Python for the rest of the
-   session. So a hook, a document or a person typing `python3` gets the
+   session. So a command, a document or a person typing `python3` gets the
    right one. A person's own machine is only checked and told, never
    changed.
 3. **A tool starts a tool with the Python it is running in:**
@@ -39,6 +39,12 @@ every place that starts Python gets that one.**
 4. **GitHub's workflows set the same version** with `python-version`.
 
 ## Detail
+**A hook does not get the declared Python.** Claude Code starts hooks with
+its own PATH, which the session file never reaches, so a hook's `python3`
+is the image's default. Setup runs inside the session-start hook, so it
+also installs the engine's packages into the Python running it, which is
+the one every later hook gets.
+
 `python3 tools/precedent_python.py check` says whether this shell's
 `python3` is the declared one and can import the declared packages. A
 hosted session that reports otherwise has a session start that did not
@@ -72,6 +78,14 @@ failed twice on a one-line text fix, once for each interpreter. On
 landing the same way. Each time a session found the cause, installed
 packages by hand and pointed `python3` at 3.12 for one command; the next
 session would have started over.
+
+2026-10-16, another consumer: session start said `python3` was 3.12 with
+cmarkgfm and markdown, and the first prompt's gate, a minute later, said
+both were missing. The gate runs as a hook, and Claude Code gives a hook
+its own PATH, where `python3` was the image's 3.13; the session file had
+changed PATH for the session's commands only. Setup now installs the
+engine's packages into the Python running it too, which is the hooks'
+Python, since the session-start hook is what runs it.
 
 ## Install
 Declare the Python in `precedent.json` -- `"python": {"version": "3.12",
