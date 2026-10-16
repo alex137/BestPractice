@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 172 practice files (6 resident, 166 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 173 practice files (6 resident, 167 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -42,6 +42,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires |
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
+| [curly-quotes](practices/curly-quotes.md) | on-demand | building a Word document, a web page, any HTML output or any other format an outside reader sees, or writing quotes and dashes in Markdown |
 | [current-rule-governs](practices/current-rule-governs.md) | resident | a person gives a standing command, or asks for something a practice already governs |
 | [dated-list-runs-forward](practices/dated-list-runs-forward.md) | on-demand | a document carries a list of dated entries that will be added to over time |
 | [decision-strength](practices/decision-strength.md) | on-demand | recording that someone approved a practice or a decision, or citing their past approval back to them |
@@ -136,7 +137,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [report-up-the-chain](practices/report-up-the-chain.md) | on-demand | finishing a task a session was spawned or triggered to do |
 | [revert-needs-no-trailer](practices/revert-needs-no-trailer.md) | on-demand | committing a revert, or a trailer check flags one |
 | [review-against-a-contract](practices/review-against-a-contract.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
-| [root-issues](practices/root-issues.md) | on-demand | a person says "Root issues" or "Root fixes", or asks what this session found or fixed that should go back upstream |
+| [root-issues](practices/root-issues.md) | on-demand | a person says "Root issues", or asks what this session found or fixed that should go back upstream |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether practices that should have fired for recent work did |
 | [rule-level-by-reach](practices/rule-level-by-reach.md) | on-demand | deciding which practice set a new rule belongs in -- repo-local, shared, individual or universal |
 | [rule-scope-ask](practices/rule-scope-ask.md) | on-demand | a new rule's scope isn't obvious |
@@ -227,6 +228,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/doc_lint.py](tools/doc_lint.py) | Markdown hygiene checks — strikethrough, links, acronyms |
 | [tools/doc_sync.py](tools/doc_sync.py) | Keeps script-generated blocks inside documents in sync with what the script emits |
 | [tools/fact_ledger.py](tools/fact_ledger.py) | Verified facts (code fingerprint, recorded reads, result) that let a drift gate or an audit skip a unit whose fact still holds |
+| [tools/finish_html.py](tools/finish_html.py) | finish_html.py -- the last step before any engine tool writes an HTML page. |
 | [tools/frontmatter_yaml.py](tools/frontmatter_yaml.py) | The real-YAML frontmatter parser doc_lint.py and verify_harness.py both check against, shared so the two never drift |
 | [tools/full_practice_audit.py](tools/full_practice_audit.py) | The full practice audit — on-demand, whole-catalogue sweep across every source |
 | [tools/generated_blocks.py](tools/generated_blocks.py) | Whether a line is inside a generated block, in both marker styles, closing marker required -- the one answer every scan that skips generated text uses |
@@ -326,6 +328,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/todo_disposition.py](tools/todo_disposition.py) | records "Drop it" on a todo item in both places a park lives, in one go |
 | [tools/todo_migrate.py](tools/todo_migrate.py) | One-time converter from the old TODO.md/gotchas-index format into spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's per-item todo/gotchas files, dry-run by default |
 | [tools/todo_progress.py](tools/todo_progress.py) | which open items a change may have moved, and which name a file that is gone -- reports a resemblance, never a verdict |
+| [tools/typography.py](tools/typography.py) | typography.py -- the one place plain Markdown typing becomes finished |
 | [tools/upstream_fix.py](tools/upstream_fix.py) | Sets up the fix to a vendored file where it comes from -- names the source repository and the file's path there, and opens a branch in that source's clone off its landing branch; never edits the copy |
 | [tools/verify_harness.py](tools/verify_harness.py) | The verification harness — run before trusting any change here |
 | [tools/very_deep_check.py](tools/very_deep_check.py) | The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit |

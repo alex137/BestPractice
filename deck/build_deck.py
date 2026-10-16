@@ -286,6 +286,15 @@ def build(deck_dir, send=False):
 
     base = manifest.get('output', 'Deck')
     out = deck_dir / (f'{base}_send.html' if send else f'{base}.html')
+    # Finished typography (the engine's tools/finish_html.py; practice:
+    # curly-quotes). A deck directory with no
+    # engine beside it writes the page as built.
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'tools'))
+        from finish_html import finish
+        doc = finish(doc)
+    except ImportError:
+        pass
     out.write_text(doc, encoding='utf-8')
 
     externals = EXTERNAL_RE.findall(doc)

@@ -57,8 +57,8 @@
       "quick": 2
     },
     {
-      "looking_for": "Running many sessions at once — the proposed Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces",
-      "go_to": "[spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — decided 2026-09-14 (build it); was tracked at TODO.md's `chief-of-staff-session` item, since closed and pruned"
+      "looking_for": "Running many sessions at once — the retired Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces",
+      "go_to": "[spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — built 2026-09-14, retired 2026-10-16; its staging check now rides the branch-cleanup page"
     },
     {
       "looking_for": "Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these)",

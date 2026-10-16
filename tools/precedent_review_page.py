@@ -58,6 +58,13 @@ import re
 import subprocess
 import sys
 import urllib.parse
+# finished typography on every HTML page (finish_html.py; practice: curly-quotes)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+try:
+    from finish_html import finish as finish_html
+except ImportError:     # a copy of this file without the engine beside it
+    def finish_html(page):
+        return page
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -462,8 +469,8 @@ def write(repo_root, out=None, recommend=(), fetch=False, day=None,
                          f'text. Write it under .precedent/ or outside the repo.')
     by_source, groups, pairs = collect(repo_root, fetch=fetch)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(by_source, groups, recommend, day, pairs, verdicts),
-                   encoding='utf-8')
+    out.write_text(finish_html(render(by_source, groups, recommend, day,
+                                      pairs, verdicts)), encoding='utf-8')
     return out
 
 

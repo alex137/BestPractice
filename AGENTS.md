@@ -44,7 +44,7 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
   paste-ready block for a new session, opened with a tool only when he asks
   for that in his own words; no merge authorization unless he gave one for
   this handoff.
-- **"Root issues"** / **"Root fixes"** ([root-issues](practices/root-issues.md))
+- **"Root issues"** ([root-issues](practices/root-issues.md))
   — every bug, warning, fix or band-aid from this session that also belongs
   in Precedent, a precedent-* repo, a template or a related repo, in one
   Prompt Please block for a session rooted in all of them.
@@ -98,7 +98,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 147 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 148 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -187,7 +187,7 @@ When a person says "Prompt Please", or work belongs in a new session -- a repo t
   prompt-please — one paste-ready prompt for a new session; open it only when asked
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target:
   reduction-pass — work the menu in order; move, never delete; report what moved
-When a person says "Root issues" or "Root fixes", or asks what this session found or fixed that should go back upstream:
+When a person says "Root issues", or asks what this session found or fixed that should go back upstream:
   root-issues — what this session hit that belongs upstream, in one prompt across those repos
 When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance
@@ -221,6 +221,8 @@ When attaching a practice source:
   attach-never-clone-individual — attach the individual one, never a second clone; shared sets sit beside the repo
 When being asked for something another window or session of the person's may already be working on:
   dont-race-another-window — say so and decline; send them to the window already on it
+When building a Word document, a web page, any HTML output or any other format an outside reader sees, or writing quotes and dashes in Markdown:
+  curly-quotes — plain quotes and hyphens in Markdown; anything built for a reader converts them
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else it now serves
 When building a permutation or configuration-sweep table:

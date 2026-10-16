@@ -1,15 +1,23 @@
 ---
 title:         "Chief of Staff: one session that routes the fleet"
 kind:          proposal
-status:        accepted
+status:        executed
 opened:        2026-09-13
 closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       A standing session that reads every other session, says what is blocked and what collides, and spawns work rather than doing it — accepted 2026-09-14; the sweeper Routine and the universal practice are built, the tag namespaces are not.
+summary:       "RETIRED 2026-10-16: the chief-of-staff practice is retired, and its staging-waits-for-main check rides the branch-cleanup page. Kept as the record of a standing session that read every other session, said what was blocked and what collided, and spawned work rather than doing it -- accepted 2026-09-14."
 ---
 # Chief of Staff: one session that routes the fleet
+
+**Retired 2026-10-16.** Morgan rarely used it and is building a new Chief of
+Staff system that will take the name, so the old practice was retired rather
+than renamed (strength: decided). The part nothing else did, telling him
+which repositories have staging waiting for main, now comes without being
+asked: the branch-cleanup page every closing session refreshes lists it
+(the ladder set's `stale-branch-cleanup`). The branch sweep was already
+there. What follows is the record.
 
 **Accepted 2026-09-14, and partly built.** Morgan asked for the design on
 2026-09-13, held implementation, and authorized the build a day later after
@@ -342,7 +350,10 @@ five-deep parent chain nobody can read. Making spawning a single session's
 privilege is what keeps the tag namespaces honest, since one session applies
 them.
 
-## Open questions
+## Questions it left
+
+All four are moot since the practice was retired on 2026-10-16, and are
+kept as asked.
 
 1. **Does Chief of Staff live in one repository or above them all?** It must
    name repositories it cannot attach to — cross-owner attachment is refused

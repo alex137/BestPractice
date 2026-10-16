@@ -11079,7 +11079,8 @@ def check_push_refuses_a_hand_made_session_branch_name():
     rename. Morgan, 2026-10-06: "how can we make sure that you always use the
     new format for temporary branches?" -- a session and its agents had typed
     date-and-topic names that lead back to no session. Planted: the tool's
-    own names (and its clash form) pass; the harness-given name passes; a
+    own names (and its clash form) pass; the harness-given name is refused
+    on the ladder (2026-10-16), and passes off it; a
     hand-typed name is refused, end to end through precedent_push_check; a
     branch origin already has is not judged again; a tier branch is not a
     session branch."""
@@ -11116,8 +11117,14 @@ def check_push_refuses_a_hand_made_session_branch_name():
                   '(Morgan, 2026-10-11)',
                   'five random characters' in (_bn.name_refusal(
                       f'2026-10-06-some-work-{tail}', tail=tail, user='') or '')))
-    cases.append(('a harness-given name passes',
-                  _bn.name_refusal('claude/peaceful-ritchie-3u31td', tail=tail, user='') is None))
+    # Refused since 2026-10-16: the note alone left five such branches on
+    # one consumer's origin in a day (Morgan, 2026-10-15, decided).
+    cases.append(('a harness-given name is refused, naming the rename command',
+                  'precedent_branch_name.py' in (_bn.name_refusal(
+                      'claude/peaceful-ritchie-3u31td', tail=tail, user='') or '')))
+    cases.append(('...and the refusal grants the sister-branch permission',
+                  _bn.SISTER_BRANCH_PERMISSION in (_bn.name_refusal(
+                      'claude/peaceful-ritchie-3u31td', tail=tail, user='') or '')))
     cases.append(('a hand-typed date-and-topic name is refused',
                   bool(_bn.name_refusal('2026-10-06-vdc-fixes', tail=tail, user=''))))
     cases.append(('a name ending in another session\'s id is refused',
@@ -11203,11 +11210,14 @@ def check_push_refuses_a_hand_made_session_branch_name():
             finally:
                 os.environ.clear()
                 os.environ.update(saved)
-        cases.append(('end to end: a push to the harness-given name is noted, '
-                      'not refused',
-                      refused('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
-                      is None
-                      and len(notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td'))
+        cases.append(('end to end: a push creating the harness-given name is '
+                      'refused, naming the rename (Morgan, 2026-10-15)',
+                      'precedent_branch_name.py' in (refused(
+                          'origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
+                          or '')))
+        cases.append(('...and a push to it that origin already has is noted, '
+                      'so work pushed before 2026-10-16 is never stranded',
+                      len(notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td'))
                       == 1))
         cases.append(('...and a push to a tool-made name is not',
                       notes(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}-x9y8z')
@@ -11217,6 +11227,9 @@ def check_push_refuses_a_hand_made_session_branch_name():
         off = {'PRECEDENT_NO_LADDERS': '1'}
         cases.append(('off the ladder, a hand-named branch is not refused',
                       refused('origin HEAD:refs/heads/2026-10-06-other-fixes', off)
+                      is None))
+        cases.append(('...nor the harness-given name',
+                      refused('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td', off)
                       is None))
         cases.append(('...and a push to the harness-given name is not noted',
                       notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td',
@@ -55902,6 +55915,10 @@ def check_branch_name_counts_local_branches():
         g(w, 'branch', first)
         saved_env = dict(os.environ)
         os.environ.update(env)
+        # The session's own declared username must not reach the names
+        # this expects (2026-10-16).
+        os.environ['PRECEDENT_USER_CONFIG'] = os.devnull
+        os.environ.pop('PRECEDENT_GITHUB_USER', None)
         try:
             name, notes = pbn.build(['update', 'vendors'], date='2026-10-11',
                                     tail='abcde', rand='q7m2x',
@@ -60757,11 +60774,13 @@ def check_branch_cleanup_page_merges_the_saved_page():
                       ('B', ['b-done', 'b-<odd>'], '2026-10-11T10:00')],
                   _sb.read_page(legacy)))
     real_collect, real_person = _sb.collect, _sb._person
+    real_waiting = _sb.collect_waiting
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
         saved_ledger = os.environ.get('PRECEDENT_GENERATED_PAGES')
         os.environ['PRECEDENT_GENERATED_PAGES'] = str(td / 'ledger.json')
         (td / 'saved.html').write_text(old, encoding='utf-8')
+        _sb.collect_waiting = lambda fetch=False, seen=None: []
         out = td / 'out.html'
 
         def collect(fetch=False, seen=None):
@@ -60854,12 +60873,100 @@ def check_branch_cleanup_page_merges_the_saved_page():
                           f'{got} {said}'))
         finally:
             _sb.collect, _sb._person = real_collect, real_person
+            _sb.collect_waiting = real_waiting
             if saved_ledger is None:
                 os.environ.pop('PRECEDENT_GENERATED_PAGES', None)
             else:
                 os.environ['PRECEDENT_GENERATED_PAGES'] = saved_ledger
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'refreshing the branch-cleanup page merges the saved one ({len(cases)} '
+          f'stated cases)', not bad, '; '.join(bad))
+
+
+def check_branch_cleanup_page_lists_staging_waiting_to_go_live():
+    """The branch-cleanup page lists each repository whose staging carries a
+    change main lacks, and merges that list across sessions the way it
+    merges branches.
+
+    WHY. 2026-10-16, Morgan retired chief-of-staff, whose Promotion Reviews
+    said on request which repositories had staging waiting for main; the
+    check moved onto this page, which every closing session refreshes.
+    Planted: a real repository whose staging is ahead of main by one change
+    (listed), one whose staging only merged main back in (level, not
+    listed), one with no staging (no row); a saved page whose waiting row
+    for a repository this run did not check is kept under its date, and one
+    for a repository this run checked and found level is dropped; a page
+    with branches gone but a waiting row still merges."""
+    import datetime
+    import subprocess as _sp
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as _sb
+    cases = []
+
+    def git(cwd, *a):
+        return _sp.run(['git', '-C', str(cwd), *a], capture_output=True, text=True,
+                       env={**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+                            'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'})
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        origin, work = td / 'origin.git', td / 'work'
+        git(td, 'init', '-q', '--bare', str(origin))
+        git(td, 'init', '-q', '-b', 'main', str(work))
+        (work / 'a.txt').write_text('one\n')
+        git(work, 'add', '.'); git(work, 'commit', '-qm', 'one')
+        git(work, 'remote', 'add', 'origin', str(origin))
+        git(work, 'push', '-q', 'origin', 'main')
+        cases.append(('no staging tier, no row',
+                      _sb.waiting_in(work) is None, _sb.waiting_in(work)))
+        git(work, 'switch', '-qc', 'staging')
+        (work / 'a.txt').write_text('two\n')
+        git(work, 'commit', '-qam', 'two')
+        git(work, 'push', '-q', 'origin', 'staging')
+        git(work, 'fetch', '-q', 'origin')
+        got = _sb.waiting_in(work)
+        cases.append(('staging ahead of main by one change is waiting',
+                      got is not None and got[0] == 'staging' and got[1] == 1, got))
+        git(work, 'switch', '-q', 'main')
+        git(work, 'merge', '-q', '--ff-only', 'staging')
+        (work / 'b.txt').write_text('fix\n')
+        git(work, 'add', '.'); git(work, 'commit', '-qm', 'fix on main')
+        git(work, 'push', '-q', 'origin', 'main')
+        git(work, 'switch', '-q', 'staging')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'main back in', 'main')
+        git(work, 'push', '-q', 'origin', 'staging')
+        git(work, 'fetch', '-q', 'origin')
+        cases.append(('CONTROL: a staging that only merged main back in is level',
+                      _sb.waiting_in(work) is None, _sb.waiting_in(work)))
+    then = datetime.datetime(2026, 10, 14, 12, 0, tzinfo=datetime.timezone.utc)
+    now = then + datetime.timedelta(days=2)
+    old = _sb.render_html([], now=then, waiting=[
+        ('o', 'Kept', 'staging', 2, '2026-10-10'),
+        ('o', 'Level', 'staging', 1, '2026-10-12')])
+    cases.append(('a page with no branches but a waiting row is still a page',
+                  _sb.is_page(old) and _sb.page_format(old) >= 2, ''))
+    prev = _sb.read_waiting(old)
+    carried = _sb.carried_waiting(prev, [('o', 'level'), ('o', 'New')])
+    cases.append(('a repository this run did not check keeps its row; one it '
+                  'checked (case aside) is replaced',
+                  [(c[1], c[3], c[5][:10]) for c in carried]
+                  == [('Kept', 2, '2026-10-14')], carried))
+    page = _sb.render_html([], now=now, waiting=[('o', 'New', 'staging', 3, '2026-10-15')],
+                           carried_wait=carried, tz='America/Argentina/Buenos_Aires')
+    got = {r['repo']: r for r in _sb.read_waiting(page)}
+    cases.append(('the merged page lists New fresh and Kept under its date',
+                  sorted(got) == ['Kept', 'New']
+                  and got['New']['checked'].startswith('2026-10-16')
+                  and got['Kept']['checked'].startswith('2026-10-14'), got))
+    cases.append(('...under a Waiting to go live heading, linking the comparison, '
+                  'and saying a kept row may have moved',
+                  'Waiting to go live' in page
+                  and 'github.com/o/New/compare/main...staging' in page
+                  and 'As of the last check, 14 Oct 2026' in page, ''))
+    cases.append(('CONTROL: nothing waiting, no waiting section',
+                  'Waiting to go live' not in _sb.render_html([], now=now), ''))
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'the branch-cleanup page lists staging waiting to go live ({len(cases)} '
           f'stated cases)', not bad, '; '.join(bad))
 
 
@@ -75163,11 +75270,16 @@ def check_branch_name_follows_the_convention():
 
     _git = fixture_git
     results = []
+    # No user-level config and no declared username: the names below carry
+    # none, and a session whose own config declares one otherwise failed
+    # here on a change that had nothing to do with naming (2026-10-16).
     saved = {k: os.environ.pop(k, None)
-             for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE')}
+             for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE',
+                       'PRECEDENT_USER_CONFIG', 'PRECEDENT_GITHUB_USER')}
     try:
         os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01SQeHb3tgRrvXtsoviaWpkv'
         os.environ['CLAUDECODE'] = '1'
+        os.environ['PRECEDENT_USER_CONFIG'] = os.devnull
         name, notes = pbn.build(['Feature', 'branch naming!'], date='2026-10-01',
                                 rand='q7m2x')
         os.environ.pop('CLAUDECODE')
@@ -79600,6 +79712,102 @@ def check_update_leftovers_installs_and_stamps():
             '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
 
 
+def check_typography_finishes_outward_text_and_every_engine_page():
+    """practice: curly-quotes. typography.py is the one copy of the rules
+    that turn Markdown's plain keys into finished typography for an outside
+    reader, and finish_html.finish() runs every HTML page the engine writes
+    through it. Its cases moved here with the practice on 2026-10-16, from
+    the writing set's test_typography.sh.
+
+    Each direction: `--` becomes an em dash and a number range an en dash,
+    while a date, a code, a code span, a link address and an escape stay as
+    typed; quotes curl, around an inline tag too; an HTML page changes only
+    in the text a reader sees, never in a tag, an attribute, a comment, a
+    script or code, and a second run changes nothing. finish() applies it,
+    and hands a page back as built where typography.py is missing or too old
+    for HTML. -> (ok, detail, failure)."""
+    import shutil, subprocess as sp_, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import typography as ty
+    S = ty.smarten
+    cases = []
+    for given, want in [
+            ("word--word", "word\u2014word"), ("a -- b", "a \u2014 b"),
+            ("x---y", "x\u2014y"), ("a ---- rule", "a ---- rule"),
+            ("1990-2000", "1990\u20132000"), ("pages 10-20", "pages 10\u201320"),
+            ("9-5, 3:00-5:00, 2.5-3", "9\u20135, 3:00\u20135:00, 2.5\u20133"),
+            ("on 2026-10-13", "on 2026-10-13"), ("555-123-4567", "555-123-4567"),
+            ("PR-173, B-52, 1-on-1, 10-K", "PR-173, B-52, 1-on-1, 10-K"),
+            ("Monday-Friday", "Monday-Friday"),
+            ("a \u2014 b \u2013 c \u201cq\u201d", "a \u2014 b \u2013 c \u201cq\u201d"),
+            ('a "quote" and it\'s', "a \u201cquote\u201d and it\u2019s"),
+            ('**"bold"**', "**\u201cbold\u201d**"),
+            (ty.LINK_OPEN + "https://x/1990-2000--a" + ty.LINK_MID + "t",
+             ty.LINK_OPEN + "https://x/1990-2000--a" + ty.LINK_MID + "t"),
+            ("1990\\-2000", "1990\\-2000"),
+            ("run `git push --force` -- now", "run `git push --force` \u2014 now"),
+            ("`1990-2000` and 1990-2000", "`1990-2000` and 1990\u20132000")]:
+        got = S(given)
+        cases.append((f'smarten({given!r})', got == want, f'{got!r}, wanted {want!r}'))
+    H = getattr(ty, 'smarten_html', None)
+    for given, want in [
+            ('<p>The shape ("if we build this, here&#x27;s what") -- done.</p>',
+             '<p>The shape (\u201cif we build this, here\u2019s what\u201d) \u2014 done.</p>'),
+            ('<p>"<b>word</b>" and <a href="x--y.html" title="a \'t\'">it\'s</a></p>',
+             '<p>\u201c<b>word</b>\u201d and <a href="x--y.html" title="a \'t\'">it\u2019s</a></p>'),
+            ('<pre>git push --force "x"</pre><p>"a"</p>',
+             '<pre>git push --force "x"</pre><p>\u201ca\u201d</p>'),
+            ('<p>run <code>--check</code> -- and 1990-2000</p>',
+             '<p>run <code>--check</code> \u2014 and 1990\u20132000</p>'),
+            ('<!-- a -- "b" --><script>var a="--";</script><p>&quot;q&quot; &amp; 2026-10-16</p>',
+             '<!-- a -- "b" --><script>var a="--";</script><p>\u201cq\u201d &amp; 2026-10-16</p>'),
+            ('<li>"one"</li><li>"two"</li>', '<li>\u201cone\u201d</li><li>\u201ctwo\u201d</li>')]:
+        got = H(given) if H else None
+        cases.append((f'smarten_html({given[:40]!r})', got == want and H(want) == want,
+                      f'{got!r}, wanted {want!r}'))
+
+    page = '<p>"a" -- b</p>'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-finish-html-'))
+    try:
+        def run(typography):
+            d = tmp / str(len(cases))
+            d.mkdir()
+            shutil.copy(ROOT / 'tools' / 'finish_html.py', d / 'finish_html.py')
+            if typography is not None:
+                (d / 'typography.py').write_text(typography, encoding='utf-8')
+            r = sp_.run([sys.executable, '-c',
+                         'import sys; sys.path.insert(0, sys.argv[1]); '
+                         'from finish_html import finish; '
+                         'sys.stdout.write(finish(sys.argv[2]))', str(d), page],
+                        capture_output=True, text=True)
+            return r.stdout
+        got = run((ROOT / 'tools' / 'typography.py').read_text(encoding='utf-8'))
+        cases.append(('finish() applies the engine\'s typography to a page',
+                      got == '<p>\u201ca\u201d \u2014 b</p>', got))
+        got = run(None)
+        cases.append(('finish() without typography.py beside it: the page as built',
+                      got == page, got))
+        got = run('def smarten(s):\n    return s\n')
+        cases.append(('finish() with a typography.py too old for HTML: the page as built',
+                      got == page, got))
+        # A file a set used to ship and the engine now carries is never
+        # named as a leftover to delete by hand (precedent_materialize).
+        import precedent_materialize as pm_
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'files': ['typography.py']}), encoding='utf-8')
+        owned = pm_._engine_owned(repo)
+        cases.append(('an engine file a set used to ship is not a stale ship',
+                      owned == {'tools/typography.py'}
+                      and pm_._engine_owned(tmp / 'nowhere') == set(), repr(owned)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
 def main():
     _install_retrying_tempdir_cleanup()
     _install_check_filter()
@@ -80231,6 +80439,7 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_branch_cleanup_page_is_one_page_updated_in_place()
     check_branch_cleanup_page_merges_the_saved_page()
+    check_branch_cleanup_page_lists_staging_waiting_to_go_live()
     check_branch_cleanup_merge_warns_on_a_stale_copy()
     check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
@@ -80445,6 +80654,8 @@ def main():
     check_todo_gotcha_stale_reference_fires()
     check_due_reminder_reaches_the_reply()
     check_todo_and_gotcha_sweeps()
+    check('typography finishes outward text, and every engine page goes through it',
+          *check_typography_finishes_outward_text_and_every_engine_page())
     check('an update leaves what a removed check strands, installs past PEP 668, '
           'stamps never reach a build code or a synced copy, and a materialized '
           'repository is a consumer',

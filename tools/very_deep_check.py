@@ -2891,9 +2891,9 @@ def _carry_through(repo_dir):
 
     SCOPE IS THE REPOS THIS RUN ALREADY OPENS -- this checkout and every
     attached source. The fleet version of this question, every Precedent
-    repo the person owns, is chief-of-staff's, and widening it here would
-    duplicate that practice while making an expensive check more expensive
-    for no new judgment."""
+    repo the person owns, needed chief-of-staff (retired 2026-10-16) and was
+    never this pass's; widening it here would make an expensive check more
+    expensive for no new judgment."""
     try:
         import precedent_engine_freshness as pef
     except ImportError:

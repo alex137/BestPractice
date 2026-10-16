@@ -70,10 +70,13 @@ THE HARNESS'S OWN BRANCH. Claude Code on the web opens a session on a
 branch it named before the task was known: two random words
 (`claude/eager-volta-hfk5k3`) or, when the session starts from a task, a
 few words of it (`claude/branch-naming-enforcement-cjm44t`), then six
-characters. Both are let through (a session that kept one can always
-push), and both are said: at the first commit on one, once per branch
-(commit_note, from branch-name-commit-note.sh), and at every push to one
-(harness_name_note). The first commit is the moment every building session
+characters. On the ladder, a push that would create one on origin is
+refused since 2026-10-16, with the rename command (name_refusal): the
+earlier let-through, with a note, kept losing to the harness's own
+instructions. A branch origin already has is still pushable, with the note
+(harness_name_note), so nothing pushed before then is stranded. The first
+commit on one is also said, once per branch (commit_note, from
+branch-name-commit-note.sh). The first commit is the moment every building session
 passes through, whatever word started the building; on 2026-10-11 a whole
 feature in a consumer went up and landed on claude/eager-volta-hfk5k3
 after a go-ahead ("Great") that never loaded act.
@@ -375,7 +378,16 @@ def name_refusal(name, tail=None, user=None):
     ladder only (conventions_in_force).
 
     Judged: names that open with a date, or sit under `claude/` or
-    `session/`. Passed: a harness-given name; a
+    `session/`. Refused since 2026-10-16: a harness-given name, the one a
+    cloud session opens on. Letting it through so no work was left
+    unpushable, with a note on every commit and push, did not stop it:
+    sessions kept following the harness's own "never push to another
+    branch" over the note, and five such branches went up in one consumer
+    on 2026-10-15 alone (Morgan, 2026-10-15, strength: decided: "I keep on
+    asking you to do this but again and again you are not doing it and the
+    old branch names keep on being used"). Nothing is lost by the refusal:
+    `git branch -m` keeps every commit, and the refusal prints the command.
+    Passed: a
     `<date>-<username>-<slug>-<session>-<random>` name whose username is
     this person's, whose session part is this session's and whose last part
     is five characters. With no session ID to compare, any two
@@ -388,7 +400,12 @@ def name_refusal(name, tail=None, user=None):
     if not _JUDGED_RE.match(name):
         return None
     if is_harness_name(name):
-        return None
+        return (f'{name} is the name the harness gave this session when it '
+                f'opened, and a session on the ladder never pushes under it. '
+                f'Rename it before pushing -- every commit comes with it: '
+                f'git branch -m {name} '
+                f'"$(python3 tools/precedent_branch_name.py <a few words>)" '
+                f'-- then push that name. {SISTER_BRANCH_PERMISSION}')
     tail = session_id_tail() if tail is None else tail
     user = github_user() if user is None else user
     m = _TOOL_NAME_RE.fullmatch(name)
@@ -488,7 +505,8 @@ def commit_note(repo='.', branch=None):
             f'git switch -c "$(python3 tools/precedent_branch_name.py <a few '
             f'words>)" -- run it now, and every commit made so far comes '
             f'with it. {SISTER_BRANCH_PERMISSION} This commit goes ahead; '
-            f'this note is said once per branch.')
+            f'a push under this name is refused. This note is said once per '
+            f'branch.')
 
 
 def main(argv=None):
