@@ -31465,15 +31465,168 @@ print(repr(pb._resolve_by_regenerating({str(r)!r}, say=lambda *a: None)))
                              text=True)
         cases.append(('resolving it does not crash', out.returncode == 0
                       and 'Traceback' not in out.stderr, out.stderr[-500:]))
-        cases.append(("...and reports the binary file as the hand-written "
-                      "conflict that stops the merge",
-                      out.stdout.strip() == "(False, ['out.docx'])",
+        cases.append(("...and reports the binary file as the conflict that "
+                      "stops the merge, saying nothing here rebuilds it",
+                      out.stdout.strip().startswith("(False, ['out.docx'], ")
+                      and 'no generator here rebuilds it' in out.stdout,
                       out.stdout.strip()[-300:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'a Promote names a binary merge conflict ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_land_rebuilds_generated_content_without_a_header():
+    """A land's conflict in generated content with no `generated_by:` header
+    is rebuilt, and a refusal never calls generated content hand-written.
+
+    2026-10-16: a land in a repository writing a book conflicted on a
+    doc_sync block (<!--gen:word-count-->) inside its manuscript and on a
+    generated .docx. Neither carries a header, so _generator_of missed both,
+    and the land stopped saying "the same lines of hand-written text
+    changed on both sides". Now: a conflict entirely inside gen blocks is
+    resolved hunk by hunk to one side and doc_sync --write rewrites the
+    block, keeping the other side's clean prose edits; a file the
+    repository declares under "generated" in precedent.json is rebuilt by
+    the command it names; and each refusal says which kind of stop it is.
+    """
+    import ast, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-gen-conflict-'))
+    cases = []
+
+    def repo(name, files, ours, theirs, extra=None):
+        r = tmp / name
+        r.mkdir()
+        def git(*a, **kw):
+            return fixture_git(r, *a, **kw)
+        git('init', '-q')
+        git('config', 'user.email', 'fixture@example.com')
+        git('config', 'user.name', 'fixture')
+        for rel, data in {**files, **(extra or {})}.items():
+            f = r / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_bytes(data if isinstance(data, bytes) else data.encode())
+        git('add', '-A')
+        git('commit', '-qm', 'base')
+        git('checkout', '-qb', 'other')
+        for rel, data in theirs.items():
+            (r / rel).write_bytes(data if isinstance(data, bytes) else data.encode())
+        git('commit', '-qam', 'theirs')
+        git('checkout', '-q', '-')
+        for rel, data in ours.items():
+            (r / rel).write_bytes(data if isinstance(data, bytes) else data.encode())
+        git('commit', '-qam', 'ours')
+        merged = git('merge', '-q', 'other', allow_failure=True)
+        return r, merged.returncode != 0
+
+    def resolve(r):
+        script = tmp / f'run-{r.name}.py'
+        script.write_text(f"""
+import sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+import precedent_branches as pb
+print(repr(pb._resolve_by_regenerating({str(r)!r}, say=lambda *a: None)))
+""", encoding='utf-8')
+        out = subprocess.run([sys.executable, str(script)], capture_output=True,
+                             text=True)
+        try:
+            got = ast.literal_eval(out.stdout.strip())
+        except (ValueError, SyntaxError):
+            return None, out.stdout + out.stderr
+        # An older return shape reads as a named failure, never an IndexError.
+        return (got if isinstance(got, tuple) and len(got) == 3 else None,
+                out.stdout + out.stderr)
+
+    # A stand-in doc_sync: rewrites every word-count block with the count of
+    # the words outside it, and records that it ran with --write.
+    doc_sync = (
+        "import pathlib, re, sys\n"
+        "assert '--write' in sys.argv\n"
+        "p = pathlib.Path(sys.argv[sys.argv.index('--only') + 1])\n"
+        "t = p.read_text()\n"
+        "words = len(re.sub(r'<!--gen:word-count-->.*?<!--/gen:word-count-->',"
+        " '', t, flags=re.S).split())\n"
+        "p.write_text(re.sub(r'(<!--gen:word-count-->\\n).*?(<!--/gen:word-count-->)',"
+        " lambda m: m.group(1) + f'words: {words}\\n' + m.group(2), t, flags=re.S))\n")
+    prose = ['Chapter one.'] + [f'Line {i} of the story.' for i in range(12)]
+
+    def manuscript(count, first='Chapter one.', last='The end.'):
+        body = [first] + prose[1:]
+        return ('\n'.join(body[:6]) + '\n<!--gen:word-count-->\n'
+                f'words: {count}\n<!--/gen:word-count-->\n'
+                + '\n'.join(body[6:]) + f'\n{last}\n')
+
+    try:
+        # --- a conflict only inside a gen block --------------------------
+        r, conflicted = repo('block', {'MANUSCRIPT.md': manuscript(10),
+                                       'tools/doc_sync.py': doc_sync},
+                             ours={'MANUSCRIPT.md': manuscript(11)},
+                             theirs={'MANUSCRIPT.md': manuscript(
+                                 12, last='The end, revised.')})
+        cases.append(('the fixture merge conflicts inside the gen block',
+                      conflicted, ''))
+        got, err = resolve(r)
+        text = (r / 'MANUSCRIPT.md').read_text(encoding='utf-8')
+        cases.append(('a conflict only inside a doc_sync block is resolved, '
+                      'not refused', got is not None and got[0] is True
+                      and got[1] == ['MANUSCRIPT.md'], f'{got} {err[-300:]}'))
+        cases.append(("...keeping the other side's clean edit to the prose, "
+                      'with no conflict markers left',
+                      'The end, revised.' in text and '<<<<<<<' not in text,
+                      text[-200:]))
+        cases.append(('...and doc_sync --write rewrote the block afresh',
+                      f'words: {len(re.sub(r"<!--gen:word-count-->.*?<!--/gen:word-count-->", "", text, flags=re.S).split())}' in text,
+                      text[-200:]))
+
+        # --- the same file, but a hunk in the prose -----------------------
+        r, conflicted = repo('prose', {'MANUSCRIPT.md': manuscript(10),
+                                       'tools/doc_sync.py': doc_sync},
+                             ours={'MANUSCRIPT.md': manuscript(11, first='Ours.')},
+                             theirs={'MANUSCRIPT.md': manuscript(12, first='Theirs.')})
+        got, err = resolve(r)
+        cases.append(('a hunk in the prose around a gen block still stops, as '
+                      'hand-written text', conflicted and got is not None
+                      and got[0] is False and got[1] == ['MANUSCRIPT.md']
+                      and 'hand-written' in got[2], f'{got} {err[-300:]}'))
+
+        # --- an output the repository declares ----------------------------
+        decl = json.dumps({'generated': [{'paths': ['output/*.docx'],
+                                          'rebuild': ['tools/build_book.py']}]})
+        build = ("import pathlib\n"
+                 "pathlib.Path('output/book.docx').write_bytes(b'PK\\x03\\x04rebuilt')\n")
+        r, conflicted = repo('declared', {'output/book.docx': b'PK\x03\x04\x85base',
+                                          'precedent.json': decl,
+                                          'tools/build_book.py': build},
+                             ours={'output/book.docx': b'PK\x03\x04\x85ours'},
+                             theirs={'output/book.docx': b'PK\x03\x04\x85theirs'})
+        got, err = resolve(r)
+        cases.append(('a declared generated .docx that conflicts is rebuilt by '
+                      'the command precedent.json names',
+                      conflicted and got is not None and got[0] is True
+                      and (r / 'output' / 'book.docx').read_bytes()
+                      == b'PK\x03\x04rebuilt', f'{got} {err[-300:]}'))
+
+        # --- a declared rebuild that fails says so -----------------------
+        r, conflicted = repo('failing', {'output/book.docx': b'PK\x03\x04\x85base',
+                                         'precedent.json': decl,
+                                         'tools/build_book.py': 'raise SystemExit(3)\n'},
+                             ours={'output/book.docx': b'PK\x03\x04\x85ours'},
+                             theirs={'output/book.docx': b'PK\x03\x04\x85theirs'})
+        got, err = resolve(r)
+        cases.append(('a rebuild that fails stops the land and says the rebuild '
+                      'failed -- never "hand-written"',
+                      conflicted and got is not None and got[0] is False
+                      and 'could not rebuild' in got[2]
+                      and 'hand-written' not in got[2], f'{got} {err[-300:]}'))
+    except FixtureSetupError as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a land rebuilds generated content that carries no header '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 
 def check_produce_sees_main_changes_staging_carries():
     """A red main whose tip changes nothing staging lacks does not hold Produce.
@@ -33157,13 +33310,21 @@ def check_materialize_carries_harness_adapters():
                       'copies would still owe',
                       any('.claude/hooks/guard.sh differs' in x for x in found)))
 
-        # --- adopting an unrecorded copy is loud ---------------------------
+        # --- an edit no commit holds is kept, and said so -----------------
+        # practice: repair-cannot-discard-work -- this consumer is not a git
+        # checkout, so replacing the hand-edit would lose it for good.
         rc, out = run()
-        cases.append(('replacing content this tree never recorded as '
-                      'materialized -- a hand-copy being adopted, or a local '
-                      'edit reverted -- says so and names the file',
-                      rc == 0 and 'REPLACED' in out
-                      and '.claude/hooks/guard.sh' in out))
+        cases.append(('a hand-edit no git commit holds is LEFT UNTOUCHED, '
+                      'said so, and the file named',
+                      rc == 0 and 'LEFT UNTOUCHED' in out
+                      and 'REPLACED' not in out
+                      and '.claude/hooks/guard.sh' in out, out[-300:]))
+        (consumer / '.claude' / 'hooks' / 'guard.sh').unlink()
+        rc, out = run()
+        cases.append(('deleting it and syncing again installs the source\'s '
+                      'copy', rc == 0
+                      and (consumer / '.claude' / 'hooks' / 'guard.sh').is_file()
+                      and 'LEFT UNTOUCHED' not in out))
 
         # --- an adapter no source declares any more is reported, not deleted
         declare(uni, [])
@@ -33224,8 +33385,8 @@ def check_materialize_carries_harness_adapters():
     check(f'precedent_materialize.py carries a source\'s harness adapters '
           f'({len(cases)} stated cases: installed executable and recorded in '
           f'the manifest, a source change reaching the consumer with no '
-          f'hand-copy, a hand-edit reported by drift(), an unrecorded copy '
-          f'adopted loudly and an ordinary update quietly, an undeclared one '
+          f'hand-copy, a hand-edit reported by drift(), an edit no commit '
+          f'holds kept loudly and an ordinary update quietly, an undeclared one '
           f'reported rather than deleted, and five refusals -- destination '
           f'collision, settings.json, "..", a wiped directory, and an '
           f'unreadable source config)',
@@ -33440,6 +33601,9 @@ def check_practice_ships_its_files():
             return json.loads(mf.read_text(encoding='utf-8')) if mf.is_file() else {}
 
         def drift():
+            return _drift_at(consumer)
+
+        def _drift_at(where):
             sys.path.insert(0, str(ROOT / 'tools'))
             import precedent_resolve as _pr, precedent_materialize as _pm
             # The fixture owns the whole environment the resolver reads, not
@@ -33455,8 +33619,8 @@ def check_practice_ships_its_files():
                 # config path from the real HOME when it was first imported.
                 user_cfg = tmp / 'user-config.json'
                 user_cfg.write_text('{}', encoding='utf-8')
-                srcs = _pr.load_config(str(consumer), str(user_cfg))
-                return _pm.drift(srcs, _pr.resolve(srcs), consumer)
+                srcs = _pr.load_config(str(where), str(user_cfg))
+                return _pm.drift(srcs, _pr.resolve(srcs), where)
             finally:
                 os.environ.pop('HOME', None)
                 os.environ.update(saved)
@@ -33496,13 +33660,91 @@ def check_practice_ships_its_files():
                       rc == 0 and 'v2' in text_of(delivered)
                       and 'REPLACED' not in out))
 
+        # practice: repair-cannot-discard-work. This consumer is not a git
+        # checkout, so a hand-edit here exists nowhere else: it is kept.
         put(delivered, 'print("hand edited")\n')
-        cases.append(('a hand-edit to a delivered file is drift',
-                      any('tools/helper.py differs' in x for x in drift())))
+        cases.append(('a hand-edit no commit holds is drift, named as unsaved',
+                      any('tools/helper.py holds changes no git commit has' in x
+                          for x in drift())))
         rc, out = run()
-        cases.append(('replacing an unrecorded copy says so, and names the way '
-                      'to keep one', rc == 0 and 'REPLACED' in out
-                      and 'tools/helper.py' in out and 'declined_ships' in out))
+        cases.append(('a sync leaves a hand-edit no commit holds untouched, and '
+                      'says how to keep it or take the set\'s copy',
+                      rc == 0 and 'hand edited' in text_of(delivered)
+                      and 'LEFT UNTOUCHED' in out and 'REPLACED' not in out
+                      and 'tools/helper.py' in out, out[-300:]))
+        delivered.unlink()
+        rc, out = run()
+        cases.append(('deleting it and syncing again takes the set\'s copy',
+                      rc == 0 and 'v2' in text_of(delivered)))
+
+        # --- git: the 2026-10-16 incident, the origin case, an adoption ----
+        gconsumer = tmp / 'gconsumer'
+        shutil.copytree(consumer, gconsumer)
+        gdelivered = gconsumer / 'tools' / 'helper.py'
+
+        def grun():
+            r = subprocess.run([sys.executable, tool, '--out', str(gconsumer),
+                                '--repo', str(gconsumer)],
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        def ggit(*a):
+            return fixture_git(gconsumer, *a)
+        ggit('init', '-q')
+        ggit('config', 'user.email', 'fixture@example.com')
+        ggit('config', 'user.name', 'fixture')
+        ggit('add', '-A')
+        ggit('commit', '-qm', 'synced')
+        put(gdelivered, 'print("uncommitted")\n')
+        rc, out = grun()
+        cases.append(('an uncommitted edit to a delivered, committed file is '
+                      'left untouched -- the incident: it used to be replaced '
+                      'and `git diff` showed nothing',
+                      rc == 0 and 'uncommitted' in text_of(gdelivered)
+                      and 'LEFT UNTOUCHED' in out and 'no git commit has' in out,
+                      out[-300:]))
+        ggit('commit', '-qam', 'our own newer helper')
+        rc, out = grun()
+        cases.append(('once committed, the repository\'s own newer version is '
+                      'kept, and the set is named as the one behind',
+                      rc == 0 and 'uncommitted' in text_of(gdelivered)
+                      and 'the set\'s copy is the older one' in out, out[-300:]))
+        cases.append(('...and is not drift: it needs no declined_ships entry',
+                      not any('tools/helper.py' in x for x in
+                              _drift_at(gconsumer))))
+        # The origin case before any delivery is recorded: this file's own
+        # history holds the set's exact bytes, then moved on.
+        mf = gconsumer / 'MANIFEST.json'
+        m = json.loads(mf.read_text(encoding='utf-8'))
+        m.pop('ships', None)
+        mf.write_text(json.dumps(m), encoding='utf-8')
+        put(gdelivered, 'print("v2")\n')
+        ggit('commit', '-qam', 'the copy the set later took')
+        put(gdelivered, 'print("origin, newer")\n')
+        ggit('commit', '-qam', 'the origin moves on')
+        rc, out = grun()
+        cases.append(('a repository whose history holds the set\'s copy keeps '
+                      'its newer one, with no delivery on record',
+                      rc == 0 and 'origin, newer' in text_of(gdelivered)
+                      and 'the set\'s copy is the older one' in out, out[-300:]))
+        # A committed hand-copy the set never came from is still adopted: git
+        # keeps what goes.
+        m = json.loads(mf.read_text(encoding='utf-8'))
+        m.pop('ships', None)
+        mf.write_text(json.dumps(m), encoding='utf-8')
+        shutil.rmtree(gconsumer / '.git')
+        put(gdelivered, 'print("hand copy")\n')
+        ggit('init', '-q')
+        ggit('config', 'user.email', 'fixture@example.com')
+        ggit('config', 'user.name', 'fixture')
+        ggit('add', '-A')
+        ggit('commit', '-qm', 'a hand copy')
+        rc, out = grun()
+        cases.append(('a committed hand-copy whose history never held the '
+                      'set\'s copy is replaced, and the way to keep one named',
+                      rc == 0 and 'v2' in text_of(gdelivered)
+                      and 'REPLACED' in out and 'declined_ships' in out,
+                      out[-300:]))
 
         # --- decline --------------------------------------------------------
         config({'declined_ships': {'tools/helper.py': 'we have our own'}})
@@ -80453,6 +80695,7 @@ def main():
     check_compaction_offer_owed_printed_at_turn_start()
     check_killed_promote_releases_its_lock()
     check_promote_names_a_binary_conflict()
+    check_land_rebuilds_generated_content_without_a_header()
     check_produce_sees_main_changes_staging_carries()
     check_gate_drops_a_practice_another_source_replaced()
     check_container_check_lists_commands_still_running()

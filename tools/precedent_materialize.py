@@ -1668,6 +1668,7 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
     adapters_written = []
     prior_adapters = _prior_adapter_hashes(out_dir)
     adopted = []
+    adapters_unsaved = []
     held = []
     for dest_rel, source_name, data, executable in adapters_plan:
         dest = out_dir / dest_rel
@@ -1679,11 +1680,19 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
             data, executable = keep
             held.append(f'{dest_rel} ({source_name})')
         want = hashlib.sha256(data).hexdigest()[:16]
+        unsaved = False
         if dest.is_file():
             have = hashlib.sha256(dest.read_bytes()).hexdigest()[:16]
             if have != want and prior_adapters.get(dest_rel) != have:
-                adopted.append(f'{dest_rel} ({source_name})')
-        if not dry_run:
+                # practice: repair-cannot-discard-work -- the shipped files'
+                # rule below, 'unsaved' half only: an adapter is machinery
+                # every consumer runs, so a committed local copy is still
+                # replaced, with git holding what went.
+                unsaved = _ship_keep_reason(out_dir, dest_rel, data,
+                                            True) == 'unsaved'
+                (adapters_unsaved if unsaved else adopted).append(
+                    f'{dest_rel} ({source_name})')
+        if not dry_run and not unsaved:
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(data)
             # The executable bit is content here: a hook that is not
@@ -1723,23 +1732,42 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
     if adopted and not dry_run:
         print("precedent_materialize: harness adapter(s) whose previous "
               "content this tree had not recorded as materialized were "
-              "REPLACED -- a hand-copy being adopted, or a local edit being "
-              "reverted. `git diff` shows exactly what went, before you "
-              "commit: " + ', '.join(adopted), file=sys.stderr)
+              "REPLACED -- a hand-copy being adopted, or a committed local "
+              "edit being reverted. `git diff` shows exactly what went, "
+              "before you commit: " + ', '.join(adopted), file=sys.stderr)
+    if adapters_unsaved and not dry_run:
+        print("precedent_materialize: harness adapter(s) LEFT UNTOUCHED, not "
+              "replaced -- each holds changes no git commit has, and "
+              "replacing it would lose them for good. Commit it (the next "
+              "sync then replaces it, with git keeping your version), or "
+              "delete it and sync again: " + ', '.join(adapters_unsaved),
+              file=sys.stderr)
 
     # Shipped files: written file by file for the reason adapters are, since
     # tools/ also holds the vendored engine and the consumer's own scripts.
     ships_written = []
     prior_ships = _prior_ship_hashes(out_dir)
     ships_adopted = []
+    ships_kept = []
     for dest_rel, source_name, slug, data, executable in ships_plan:
         dest = out_dir / dest_rel
         want = hashlib.sha256(data).hexdigest()[:16]
+        kept = None
         if dest.is_file():
             have = hashlib.sha256(dest.read_bytes()).hexdigest()[:16]
             if have != want and prior_ships.get(dest_rel) != have:
-                ships_adopted.append(f'{dest_rel} ({slug}, {source_name})')
-        if not dry_run:
+                kept = _ship_keep_reason(out_dir, dest_rel, data,
+                                         dest_rel in prior_ships)
+                if kept is None:
+                    ships_adopted.append(f'{dest_rel} ({slug}, {source_name})')
+        if kept is not None:
+            # Recorded with the source's hash, not the kept file's: the
+            # manifest says what the set ships, so the next sync asks this
+            # same question again rather than taking the kept file for its
+            # own and replacing it quietly.
+            ships_kept.append({'path': dest_rel, 'why': kept,
+                               'label': f'{dest_rel} ({slug}, {source_name})'})
+        elif not dry_run:
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(data)
             os.chmod(dest, 0o755 if executable else 0o644)
@@ -1762,11 +1790,27 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
     if ships_adopted and not dry_run:
         print("precedent_materialize: shipped file(s) whose previous content "
               "this tree had not recorded as materialized were REPLACED -- a "
-              "hand-copy being adopted, or a local edit being reverted. `git "
-              "diff` shows exactly what went, before you commit; to keep a "
-              f"repository's own version instead, decline it under "
+              "hand-copy being adopted. Its committed version is in git "
+              "(`git diff` shows exactly what went, before you commit); to "
+              f"keep a repository's own version instead, decline it under "
               f"\"{DECLINED_SHIPS_KEY}\" in precedent.json: "
               + ', '.join(ships_adopted), file=sys.stderr)
+    unsaved = [k['label'] for k in ships_kept if k['why'] == 'unsaved']
+    ahead = [k['label'] for k in ships_kept if k['why'] == 'ahead']
+    if unsaved and not dry_run:
+        print("precedent_materialize: shipped file(s) LEFT UNTOUCHED, not "
+              "replaced -- each holds changes no git commit has, and "
+              "replacing it would lose them for good. Commit it to keep it "
+              "as this repository's own version (and carry it to the set "
+              "that ships it), or delete it and sync again to take the set's "
+              "copy: " + ', '.join(unsaved), file=sys.stderr)
+    if ahead and not dry_run:
+        print("precedent_materialize: shipped file(s) LEFT UNTOUCHED, not "
+              "replaced -- this repository committed its own version after "
+              "the set's copy, so the set's copy is the older one. Carry this "
+              "repository's version to the set that ships it; to take the "
+              "set's copy instead, delete the file and sync again: "
+              + ', '.join(ahead), file=sys.stderr)
 
     rstats = pr.resident_stats(res)
     if rstats['over_budget']:
@@ -1785,7 +1829,53 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
         write_manifest(out_dir / 'MANIFEST.json', manifest)
     return {'written': written, 'checks': checks_written,
             'adapters': adapters_written, 'rstats': rstats,
-            'ships': ships_written, 'declined_ships': declined_rows}
+            'ships': ships_written, 'declined_ships': declined_rows,
+            'ships_kept': ships_kept}
+
+
+def _ship_keep_reason(out_dir, rel, data, delivered_before):
+    """Why a shipped file whose content this tree did not write must stay as
+    it is -- 'unsaved' or 'ahead' -- or None when replacing it loses nothing.
+
+    practice: repair-cannot-discard-work -- a sync replaces a file only
+    where the content it removes survives somewhere: in git, as the version
+    HEAD holds. THE INCIDENT (2026-10-16): a repository had an uncommitted
+    edit to a file its person's individual set ships a copy of; a sync
+    replaced it with the set's older copy and said "`git diff` shows
+    exactly what went". It showed nothing -- the file now matched HEAD --
+    and the edit was gone.
+
+    'unsaved': git holds no copy of what is there -- the file is untracked,
+    the tree is not a git checkout, or the file has uncommitted changes.
+
+    'ahead': the file is committed, and this repository moved it on from
+    the set's copy -- the manifest already records a delivery (so the
+    commit came after it), or this file's own history holds the set's exact
+    bytes. That is a repository that is the ORIGIN of a file a set ships
+    back to it: replacing it would revert its own newer work on every
+    sync, and it should not need a hand-written `declined_ships` entry to
+    stop that loop. Read from the committed manifest wherever it can be, so
+    a shallow clone in CI reaches the same answer as the full one."""
+    def git(*args, **kw):
+        return subprocess.run(['git', '-C', str(out_dir), *args],
+                              capture_output=True, **kw)
+    if git('ls-files', '--error-unmatch', '--', rel).returncode != 0:
+        return 'unsaved'
+    if git('diff', '--quiet', 'HEAD', '--', rel).returncode != 0:
+        return 'unsaved'
+    if delivered_before:
+        return 'ahead'
+    blob = git('hash-object', '--stdin', input=data)
+    if blob.returncode != 0:
+        return None
+    blob = blob.stdout.decode().strip()
+    history = git('log', '--format=', '--raw', '--no-abbrev', 'HEAD', '--', rel)
+    if history.returncode == 0 and any(
+            line.split()[3:4] == [blob]
+            for line in history.stdout.decode(errors='replace').splitlines()
+            if line.startswith(':')):
+        return 'ahead'
+    return None
 
 
 def write_manifest(mf, manifest):
@@ -1991,9 +2081,20 @@ def drift(sources, res, out_dir, withheld=None):
 
     # Shipped files: the adapters' comparison, for the adapters' reason --
     # tools/ is not this tool's to sweep.
+    kept = {k['path']: k['why'] for k in plan['ships_kept']}
     for f in plan['ships']:
         dest = out_dir / f['path']
         label = f"shipped by {f['practice']}, {f['source']}"
+        if kept.get(f['path']) == 'ahead':
+            # This repository committed its own newer version; a sync keeps
+            # it too, so a fresh sync would write nothing different here.
+            continue
+        if kept.get(f['path']) == 'unsaved':
+            found.append(f"{f['path']} holds changes no git commit has, so a "
+                          f"sync leaves it untouched ({label}) -- commit it "
+                          f"to keep it as this repository's own version, or "
+                          f"delete it and sync again to take the set's copy")
+            continue
         if not dest.is_file():
             found.append(f"{f['path']} is missing -- a fresh sync delivers it "
                           f"({label})")
