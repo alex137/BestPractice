@@ -58,8 +58,8 @@ paragraph requires.
 engine ships `.github/workflows/precedent-branch-cleanup.yml`, whose only
 trigger is a person clicking Run workflow on GitHub, reached from the
 delete-all button on the branch cleanup page. It deletes only branches
-already in `main`, never `main`, `staging`, `pre-staging`, the engine's own
-branches, a `data-` branch or an open pull request's source. **A session
+already in `main`, never `main`, `staging`, the engine's own branches, a
+`data-` branch or an open pull request's source. **A session
 never starts it, by any route, and never offers to;** the tool behind it
 refuses to delete anything outside that workflow. Morgan, 2026-10-16: "on
 both [private] and public, NEVER run the cleanup automatically. In both
