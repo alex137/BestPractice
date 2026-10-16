@@ -37268,15 +37268,16 @@ def check_push_check_gate():
                       not denied))
         cases.append(('and the pass is recorded against the tree',
                       record.is_file()))
-        # A NOTE reaches the session as additionalContext, and the push still
-        # goes ahead: the harness-given branch name (2026-10-11).
+        # A push that would create the harness-given branch name is refused
+        # on the ladder, naming the rename (Morgan, 2026-10-15, decided; it
+        # went ahead with a note from 2026-10-11 until 2026-10-16). This
+        # fixture has no origin, so the push would create the branch.
         _shutil.copy2(ROOT / 'tools' / 'precedent_branch_name.py',
                       work / 'tools' / 'precedent_branch_name.py')
         denied, out = gate('git push origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
-        cases.append(('a push to the harness-given branch name goes ahead, and '
-                      'the session is told to make its named branch',
-                      not denied and '"additionalContext"' in out
-                      and 'precedent_branch_name.py' in out))
+        cases.append(('a push creating the harness-given branch name is refused, '
+                      'naming the command that renames it',
+                      denied and 'precedent_branch_name.py' in out))
         cases.append(('a push with nothing to note hands the session nothing',
                       '"additionalContext"' not in out_main))
 
