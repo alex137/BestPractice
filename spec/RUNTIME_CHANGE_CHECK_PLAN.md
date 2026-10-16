@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "When the Python a repository runs on changes -- its own declaration, or the engine's default -- the full local suite that runs after Produce still runs on the session's old Python, so nothing tests the code on the new version; and PHP has no declaration at all. Proposal: every full local run starts the Python the tested commit declares; a lock file records the package versions of the last passing full run, and moves only when a new full run passes; and one-python generalizes to one declared runtime per language."
+summary:       "When the Python a repository runs on changes -- its own declaration, or the engine's default -- the full local suite that runs after Produce still runs on the session's old Python, so nothing tests the code on the new version; and PHP has no declaration at all. Proposal: every full local run starts the Python the tested commit declares, installing it with uv when it is missing and recording the run as not verified only when that fails; a lock file records the package versions of the last passing full run, and moves only when a new full run passes; and one-python generalizes to one declared runtime per language."
 ---
 # A change of language runtime is proven before it lands
 
@@ -150,10 +150,14 @@ tier, under the new interpreter. Attacked, and then cut down:
   interpreter first on `PATH`), after installing the declared packages into
   it -- `precedent_python.install()` already does exactly that. Answered.
 - *The new interpreter is not installed in the container.* Then the
-  change cannot be proven here, and the push says so and refuses, naming
-  the interpreter, rather than passing on a run that did not happen
-  (`not verified is not current`). The person can still push with the
-  existing override, which is recorded.
+  run installs it first, with `uv python install <version>`: tried in a
+  hosted session on 2026-10-16, it downloaded and installed Python 3.14
+  in about three seconds, into uv's own directory, leaving the system's
+  Python alone. Only when that install fails -- no uv, the download
+  refused, no such version -- is the change unproven here, and then the
+  run says so and records it as not verified, naming the interpreter and
+  why it could not get it, rather than passing on a run that did not
+  happen (`not verified is not current`).
 - *The full suite is slow* (BestPractice's is about ten minutes), and it
   already runs in full after Produce; a second run before landing would
   pay it twice for one change.
@@ -226,9 +230,12 @@ version it declares, with no new step and no extra wait.
 
 1. **A full run uses the tested commit's declared interpreter** (C'). One
    place: `precedent_branches._check`, which every full local run goes
-   through. A run whose declared interpreter is not installed in the
-   container says so and records the run as not verified, naming the
-   interpreter -- never a pass on the old one.
+   through. **A declared interpreter that is not installed is installed**
+   with `uv python install`, here and at session setup, which today only
+   warns and carries on with whatever `python3` it has. If that install
+   fails, the run says so and records itself as not verified, naming the
+   interpreter and the reason -- never a pass on the old one, and never a
+   pass with a warning beside it.
 2. **A parse-and-import pass** over every tracked Python file under the
    declared interpreter, run as part of (1) and also by the very deep
    check: `py_compile` each file, then import each module the repository's
@@ -281,8 +288,10 @@ has moved by then.
 2. Part 1 (the declared interpreter for a full run), with harness cases
    for: a commit declaring another version running the suite under it; its
    packages installed into that interpreter first; a missing interpreter
-   recorded as not verified, by name; a commit declaring the session's own
-   version running exactly as today.
+   installed by uv and then used; a missing interpreter uv cannot install
+   recorded as not verified, by name and reason; session setup installing
+   a missing interpreter instead of only warning; a commit declaring the
+   session's own version running exactly as today.
 3. Part 5 (the lock file), with harness cases for: a passing run after a
    re-resolve writing the new versions; a failing run keeping the old lock
    and naming the package that moved; an install reinstalling a version
@@ -294,10 +303,18 @@ has moved by then.
 
 ## Decisions for the person
 
-- Whether a full run whose declared interpreter is missing is recorded
-  as **not verified** (proposed, so main reads as unchecked until a run
-  that can prove it), or only warns.
+None open.
 
-Settled: package pins stay optional, and the lock file moves the versions
-forward on a passing full run (Morgan, 2026-10-16: "Yup let's add optional
-pins to package versions").
+Settled:
+
+- Package pins stay optional, and the lock file moves the versions
+  forward on a passing full run (Morgan, 2026-10-16: "Yup let's add
+  optional pins to package versions").
+- **A declared Python that is not installed is installed** with uv, at
+  session setup and before a full run; only when that fails is the run
+  recorded as **not verified**, so `main` reads as unchecked until a run
+  that can prove it. "Only warn" was rejected: it is the false pass this
+  plan exists to remove. On a person's own computer the install is
+  allowed without asking, since uv keeps it in its own directory. (Morgan,
+  2026-10-16, agreeing to the session's recommendation: "Yes, write it
+  into the plan".)
