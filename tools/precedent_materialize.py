@@ -1156,8 +1156,8 @@ def _ship_drift_advice(out_dir, source_name, rel, dest):
         return decline
     refs = git('for-each-ref', '--format=%(refname:short)', 'refs/heads',
                'refs/remotes').split()
-    base = (git('symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD')
-            or 'origin/main')
+    # The source's own declared base branch, never origin/HEAD.
+    base = f"origin/{pr._base_branch_of(clone)}"
     carrying = [r for r in refs if not r.endswith('/HEAD')
                 and git('rev-parse', '-q', '--verify', f'{r}:{rel}') == blob]
     if not carrying:

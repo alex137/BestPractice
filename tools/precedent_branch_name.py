@@ -70,7 +70,7 @@ check, switched on only when the engine found the ladder loaded -- and a
 ladder set that failed to clone switched them off without a word. The
 builder stays in the engine for now because the engine's own ladder steps
 (Update Vendors, Promote, a landing) name their branches with it; it moves
-with them (spec/LADDER_ENFORCEMENT_MOVE_PLAN.md).
+with them (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md).
 
 NO PREFIX (Morgan, 2026-10-07, strength: decided: "many of your temp github
 [branches] you create start with 'claude/' - I think update the rule to

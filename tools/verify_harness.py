@@ -11099,8 +11099,9 @@ def check_engine_carries_no_branch_naming_enforcement():
          not any(hasattr(_ppc, n) for n in ('_branch_name_refusal',
                                              '_branch_name_notes'))),
         ('no engine hook notes a commit',
-         'branch-name-commit-note.sh' not in _pve.HOOK_SCRIPT_FILES
-         and not (ROOT / 'tools' / 'branch-name-commit-note.sh').exists()
+         not any(n.startswith('branch-name-commit-note') for n in _pve.HOOK_SCRIPT_FILES)
+         and not any(p.name.startswith('branch-name-commit-note')
+                     for p in (ROOT / 'tools').iterdir())
          and 'branch-name-commit-note' not in
          (ROOT / 'tools' / 'hook_wiring.json').read_text(encoding='utf-8')),
         ('the global pre-push runs the practices\' pre-push hooks',
@@ -25914,6 +25915,44 @@ def check_precedent_check_fires():
         case('vocabulary-reaches-the-consumer',
              _plant_vocabulary_reaches,
              setup=_setup_vocabulary_reaches)
+
+        # enforcement-lives-with-its-practice (2026-10-16). An individual set
+        # of the fixture's own, found through a user config it brings
+        # (relative, so the planted and clean trees each read their own).
+        # Setup: the set's practice is checked by its own tools/checks/
+        # script. Plant: by an engine file instead. Advisory until the moves
+        # in spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md land.
+        def _set_practice(checked_by):
+            return ('---\nslug:        zzz-planted-set-rule\ntitle:       Planted\n'
+                    'tier:        on-demand\nseverity:    default\n'
+                    'applies_to:  ["**"]\noccasion:    "testing"\n'
+                    'index_clause: "planted"\n'
+                    f'checked_by:  {checked_by}\n'
+                    'defines:     []\nstatus:      active\nsupersedes:  []\n'
+                    'overrides:   null\nadded:       null\napproved_by: "h"\n'
+                    '---\n\n## Rule\nDo it.\n\n## Story\nPlanted.\n')
+
+        def _setup_enforcement_lives(repo):
+            ind = repo / '_planted_individual'
+            (ind / 'practices').mkdir(parents=True, exist_ok=True)
+            (ind / 'tools' / 'checks').mkdir(parents=True, exist_ok=True)
+            (ind / 'tools' / 'checks' / 'check_zzz.py').write_text('', encoding='utf-8')
+            (ind / 'practices' / 'zzz-planted-set-rule.md').write_text(
+                _set_practice('tools/checks/check_zzz.py'), encoding='utf-8')
+            (repo / '.planted-user-config.json').write_text(_pj_e.dumps({
+                'format_version': 1, 'individual': {
+                    'name': 'zzz-planted-set', 'path': '_planted_individual'}}),
+                encoding='utf-8')
+
+        def _plant_enforcement_lives(repo):
+            (repo / '_planted_individual' / 'practices' / 'zzz-planted-set-rule.md'
+             ).write_text(_set_practice('tools/leak_gate.py'), encoding='utf-8')
+
+        import json as _pj_e
+        case('enforcement-lives-with-its-practice',
+             _plant_enforcement_lives, setup=_setup_enforcement_lives,
+             advisory=True,
+             env_extra={'PRECEDENT_USER_CONFIG': '.planted-user-config.json'})
 
         # wired-hooks-can-reach-a-consumer (2026-09-21). The check reads a
         # repo's own .claude/settings.json against the REAL HOOK_SOURCE_DIR
