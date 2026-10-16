@@ -65,6 +65,12 @@ refuses to delete anything outside that workflow. Morgan, 2026-10-16: "on
 both [private] and public, NEVER run the cleanup automatically. In both
 cases, [put] the buttons on the branch cleanup page" (strength: decided;
 [the plan](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_BUTTON_PLAN.md)).
+**The page's all-public button is the same click, made once for every
+public repository:** the page asks GitHub, through the person's own GitHub
+connector, to run each one's workflow, and only that click calls it
+([the follow-up](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_ALL_REPOS_PLAN.md)).
+A session never clicks it, never calls that connector tool itself, and
+never publishes a page that calls it on load.
 
 **What to do instead, every time: hand over the one-click link and move on.**
 [branch-delete-links](branch-delete-links.md) has the exact form. Say it once,
