@@ -1478,6 +1478,22 @@ def _prior_adapter_hashes(out_dir):
             if isinstance(a, dict) and isinstance(a.get('path'), str)}
 
 
+_DEDUP_STATUS_RE = re.compile(rb'^status:([ \t]+)deduplicated[ \t]*$', re.M)
+_IN_FORCE_AT_RE = re.compile(rb'^in_force_at:([ \t]+)\S.*$', re.M)
+
+
+def _as_written(practice):
+    """-> the bytes practices/<slug>.md gets: the source file, except that a
+    deduplicated copy the resolver kept in force (its target not here yet;
+    precedent_resolve.resolve, `kept_in_force`) is written active, so every
+    view and check binds it exactly as the copy it stands in for will."""
+    data = pathlib.Path(practice['file']).read_bytes()
+    if not practice.get('kept_in_force'):
+        return data
+    data = _DEDUP_STATUS_RE.sub(lambda m: b'status:' + m.group(1) + b'active', data, count=1)
+    return _IN_FORCE_AT_RE.sub(lambda m: b'in_force_at:' + m.group(1) + b'null', data, count=1)
+
+
 def materialize(sources, res, out_dir, dry_run=False, withheld=None,
                 declined_ships=None):
     """-> (written, checks_written, adapters_written, rstats) -- see
@@ -1537,7 +1553,7 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
 
     excluded_engine_dev = sorted(slug for slug, practice in res['practices'].items()
                                   if _is_engine_dev_scoped(practice))
-    practice_plan = {slug: (practice, pathlib.Path(practice['file']).read_bytes())
+    practice_plan = {slug: (practice, _as_written(practice))
                       for slug, practice in res['practices'].items()
                       if not _is_engine_dev_scoped(practice)}
     checks_plan = _plan_checks(sources, res)   # raises MaterializeError before any write
