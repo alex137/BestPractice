@@ -55915,6 +55915,10 @@ def check_branch_name_counts_local_branches():
         g(w, 'branch', first)
         saved_env = dict(os.environ)
         os.environ.update(env)
+        # The session's own declared username must not reach the names
+        # this expects (2026-10-16).
+        os.environ['PRECEDENT_USER_CONFIG'] = os.devnull
+        os.environ.pop('PRECEDENT_GITHUB_USER', None)
         try:
             name, notes = pbn.build(['update', 'vendors'], date='2026-10-11',
                                     tail='abcde', rand='q7m2x',
@@ -75176,11 +75180,16 @@ def check_branch_name_follows_the_convention():
 
     _git = fixture_git
     results = []
+    # No user-level config and no declared username: the names below carry
+    # none, and a session whose own config declares one otherwise failed
+    # here on a change that had nothing to do with naming (2026-10-16).
     saved = {k: os.environ.pop(k, None)
-             for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE')}
+             for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE',
+                       'PRECEDENT_USER_CONFIG', 'PRECEDENT_GITHUB_USER')}
     try:
         os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01SQeHb3tgRrvXtsoviaWpkv'
         os.environ['CLAUDECODE'] = '1'
+        os.environ['PRECEDENT_USER_CONFIG'] = os.devnull
         name, notes = pbn.build(['Feature', 'branch naming!'], date='2026-10-01',
                                 rand='q7m2x')
         os.environ.pop('CLAUDECODE')

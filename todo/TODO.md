@@ -148,7 +148,6 @@ as_of: 2026-10-16
 | [`todo-2026-10-14-alex-private-repos-outside-the-leak-list`](todo-2026-10-14-alex-private-repos-outside-the-leak-list.md) | Since 2026-10-14 the leak gate reads a person's written list of private | 2d | wait |  |
 | [`todo-2026-10-14-delete-pre-staging-code`](todo-2026-10-14-delete-pre-staging-code.md) | Delete the engine code that only served the pre-staging tier, and its | 2d | wait | every repository Morgan uses Precedent in has run Update Vendors with the engine… |
 | [`todo-2026-10-14-update-review-remembers-past-updates`](todo-2026-10-14-update-review-remembers-past-updates.md) | Make the upstream review that Update Vendors prints | 2d | parked |  |
-| [`todo-2026-10-16-naming-tests-read-the-sessions-identity`](todo-2026-10-16-naming-tests-read-the-sessions-identity.md) | Two naming tests in tools/verify_harness.py, | 0d | wait |  |
 
 ## Decisions (the Person's Call)
 
