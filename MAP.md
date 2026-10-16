@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 173 practice files (6 resident, 167 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 174 practice files (6 resident, 168 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -61,6 +61,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [document-status-header](practices/document-status-header.md) | on-demand | creating, migrating, closing or superseding a document under spec/ or record/ |
 | [dont-race-another-window](practices/dont-race-another-window.md) | on-demand | being asked for something another window or session of the person's may already be working on |
 | [drift-notice](practices/drift-notice.md) | on-demand | session start reports a source BEHIND or NOT VERIFIED |
+| [enforcement-lives-with-its-practice](practices/enforcement-lives-with-its-practice.md) | on-demand | writing or moving a practice's check, tool or hook, or engine code that enforces one set's rule |
 | [engine-plus-host-shims](practices/engine-plus-host-shims.md) | on-demand | exporting a tool across a repo boundary |
 | [environment-gotchas](practices/environment-gotchas.md) | on-demand | an environment or tooling trap costs real time |
 | [fail-gracefully](practices/fail-gracefully.md) | on-demand | writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one |

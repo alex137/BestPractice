@@ -965,9 +965,20 @@ def ship_path_problem(path):
 # event, and a set reaches every repository that declares it. So a declared
 # hook may only run a file the same practice ships, with python3, at one of
 # a few events, with plain arguments -- never a command line of its own.
+#
+# `pre-push` is git's, not Claude Code's: the global pre-push hook
+# (commit-identity.sh) runs it through precedent_hooks.py --git on every
+# push, in any session shape, because a session rooted above its
+# repositories loads no repository's .claude/settings.json and so runs none
+# of the Claude Code events (2026-10-16: harness-named branches reached
+# origin from exactly such a session, with every in-session guard silent).
+# Morgan, 2026-10-16, strength: decided, approving the hook point "just for
+# the branch related check not all of the other checks": a pre-push hook
+# is added one at a time, on the person's word, never as a home for checks
+# that run fine elsewhere -- every one of them slows every push.
 HOOKS_FIELD = 'hooks'
 HOOK_EVENTS = ('PreToolUse', 'PostToolUse', 'UserPromptSubmit', 'Stop',
-               'SessionStart')
+               'SessionStart', 'pre-push')
 _TOOL_EVENTS = ('PreToolUse', 'PostToolUse')
 _HOOK_ARG_RE = re.compile(r'^[A-Za-z0-9_.,=/:-]+$')
 _HOOK_MATCHER_RE = re.compile(r'^[A-Za-z0-9_|*.:-]+$')
