@@ -45,6 +45,15 @@ packages were installed into a third interpreter. It settled *which* Python:
   (past the Python Enhancement Proposal (PEP) 668 refusal) and makes `python3`, `python`, `pip3` and
   `pip` mean that interpreter for the rest of the session. `check` says
   when `python3` is not the declared one.
+- **The hooks.** The session file that re-points `python3` reaches the
+  session's own commands, never a hook: Claude Code starts each hook with
+  its own PATH. Since 2026-10-16 setup also links the declared interpreter
+  at `.precedent/python-bin`, and every hook script that starts `python3`
+  puts that link first, so the gates -- the push check among them -- run
+  on the declared Python with its packages. That is the session's
+  declared Python, though: a commit that changes the declaration is still
+  checked on the old one until the next session start, which is what
+  part 1 below fixes for the full run.
 - **The `one-python` check** in
   [`tools/precedent_check.py`](../tools/precedent_check.py) refuses a
   tracked Python file that starts `python3` by name instead of
