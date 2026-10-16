@@ -44,6 +44,13 @@ the rule** — one line, in the reply or in the change. A rule written as prose
 into an instructions file has no set at all: not a fourth answer, a missing
 one.
 
+**A new rule gets one sweep of the existing work it reaches**, by the
+session that adds it, in the same change: the documents and records already
+in its set's reach are checked against it once, and what it faults is fixed
+or, where too large, filed as an open item. After that, each session's
+catch-up review at merge ([merge-runbook](merge-runbook.md)) keeps its own
+work current; nobody re-sweeps the whole tree at every merge.
+
 ## Detail
 **This is a different axis from [layered-practice-packs](layered-practice-packs.md),
 which is the practice it looks like.** That one asks how *general* a rule's
