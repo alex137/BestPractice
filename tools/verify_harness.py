@@ -30192,6 +30192,10 @@ def check_branch_cleanup_button():
     line = sb._cleanup_line('o', 'r', 3, st(False, '', installed=False), now)
     cases.append(('not installed: says so, no link',
                   'href' not in line and 'Update Vendors installs it' in line, line))
+    line = sb._cleanup_line('o', 'r', 3, dict(st(False, '', installed=False), source=True), now)
+    cases.append(('a practice set: never told Update Vendors installs it',
+                  'href' not in line and 'practice set carries no GitHub workflow' in line
+                  and 'Update Vendors' not in line, line))
     page = sb.render_html([('o', 'r', [('done-branch', '2026-10-01')])], now=now,
                           cleanup={('o', 'r'): st(True, day_ago)})
     recs, _clicked = sb.read_cleanup(page)
@@ -61043,7 +61047,7 @@ def check_branch_cleanup_page_merges_the_saved_page():
             cases.append(('a branch the person ticked on the page is left off '
                           'a repository this run did not check',
                           rc == 0 and got.get('B') == ['b-<odd>']
-                          and '1 left off because the person ticked' in said,
+                          and '1 left off because the person checked them off' in said,
                           f'{got} {said}'))
             cases.append(('CONTROL: a tick never hides a row this run checked',
                           got.get('C') == ['c-done'], got))
