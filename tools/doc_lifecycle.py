@@ -87,6 +87,26 @@ CODESPAN_RE = re.compile(r'`[^`\n]*`')
 LAST_UPDATED_RE = re.compile(r'<!--[^>]*Last updated:', re.S)
 
 
+# The whole `<!-- Last updated: ... -->` stamp line, as a commit-time
+# header fixer writes it on a file's first line.
+HEADER_STAMP_LINE_RE = re.compile(r'\A<!--[^\n>]*Last updated:[^\n]*?-->[ \t]*\n?')
+
+
+def without_header_stamp(text):
+    """-> `text` without a `<!-- Last updated: ... -->` stamp on its first
+    line; any other text unchanged.
+
+    WHAT A BUILD CODE HASHES (practice: generated-artifact-provenance). A
+    commit-time fixer rewrites the stamp AFTER a builder has run, so a build
+    code hashed over the whole source reads stale the moment the commit
+    lands, and every artifact built from that file with it (a consumer's
+    Word files, 2026-10-15). The stamp says when and by whom, never what
+    the reader gets -- the Word file and the web page both drop the HTML
+    comment -- so a builder hashes its sources through this. One copy, in
+    the engine, so no builder writes its own pattern."""
+    return HEADER_STAMP_LINE_RE.sub('', text, count=1)
+
+
 def has_last_updated_comment(text):
     """-> True only for a REAL `<!-- Last updated: ... -->` comment.
 

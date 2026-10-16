@@ -155,10 +155,12 @@ ANCHORS = [
     # and carrying a Detail, was withdrawn from universal into the set that
     # provides the five-stage ladder (spec/LADDER_OPT_IN_PLAN.md). Then
     # 23->24 on 2026-10-06, when docs-are-current-state gained a Detail
-    # showing how to declare load_bearing_annotations.
+    # showing how to declare load_bearing_annotations. Then 25->26 on
+    # 2026-10-15, when generated-artifact-provenance gained a Detail on what
+    # a build code hashes and what routes a currency check.
     # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     25, 25, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     26, 26, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as
