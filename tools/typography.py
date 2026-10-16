@@ -207,6 +207,9 @@ def smarten_html(html):
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] in (["--help"], ["-h"]):
+        print(__doc__)
+        sys.exit(0)
     if sys.argv[1:2] == ["--html"]:
         print(smarten_html(sys.stdin.read()), end="")
         sys.exit(0)
