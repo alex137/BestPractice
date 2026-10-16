@@ -1,16 +1,20 @@
 ---
 title:         A changed check runs its own tests at push time
 kind:          proposal
-status:        accepted
+status:        closed
 opened:        2026-10-11
-closed:        null
-superseded_by: null
+closed:        2026-10-16
+superseded_by: spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md
 supersedes:    []
 audience:      contributor
 summary:       "When a push changes a check in precedent_check.py, code a check uses, a tools/ module a check imports, a check script, or a harness test, the quick push check now runs those checks' own harness tests -- what fits in about a minute, the rest named with the command that runs them. A check whose only test is its planted case gets a visible note until that case can run alone."
 ---
 
 # A changed check runs its own tests at push time
+
+**Reversed on 2026-10-16:** these tests now run at the Debut and around
+Produce, never before a push -- see
+[TESTS_RUN_AT_THE_DEBUT_PLAN.md](TESTS_RUN_AT_THE_DEBUT_PLAN.md).
 
 **Approved by Morgan on 2026-10-11 ("Let's build"), after two review rounds
 with a second session.**
