@@ -148,7 +148,7 @@ CLONE = drv.display_root(SOURCE)
 DONE, LEFT, FAILED = 0, 1, 2
 
 
-def rebaseline_vendored_entries(repo, rewritten=()):
+def rebaseline_vendored_entries(repo, rewritten=(), hold=()):
     """-> [local_path] whose recorded local_sha256 was re-recorded.
 
     A `synced` manifest entry whose local file sits INSIDE the vendored
@@ -176,7 +176,13 @@ def rebaseline_vendored_entries(repo, rewritten=()):
     the loader rewrites AGENTS.md, .claude/settings.json and .gitignore, so
     its old hash is stale by construction exactly like the mirror's. Until
     then such a file kept the classic install's baseline, the pre-staging
-    check never ran the audit, and the first Debut refused it as DRIFT."""
+    check never ran the audit, and the first Debut refused it as DRIFT.
+
+    `hold` (2026-10-16): paths never re-recorded on this run, whatever else
+    holds -- a .claude/ change still waiting on the person's words
+    (held_harness_paths). Re-recorded while held, a session that set the
+    change aside as the question asks left the manifest naming content the
+    file no longer had, and the practice audit failed it as DRIFT."""
     import hashlib
     mf = repo / 'process' / 'manifest.json'
     try:
@@ -192,7 +198,7 @@ def rebaseline_vendored_entries(repo, rewritten=()):
         if e.get('status') != 'synced' or e.get('granularity', 'file') != 'file':
             continue
         f = repo / rel
-        if not rel or not f.is_file():
+        if not rel or not f.is_file() or rel in hold:
             continue
         if not rel.startswith(tree):
             up = str(e.get('upstream_path') or '')
@@ -3502,6 +3508,18 @@ def status_paths(repo, *pathspec):
 HARNESS_GO_AHEAD = 'PRECEDENT_HARNESS_GO_AHEAD'
 
 
+def held_harness_paths(repo):
+    """-> the .claude/ paths this run changed from HEAD while the person's
+    words for them are not given (HARNESS_GO_AHEAD unset): what the update
+    asks about and may not commit yet, so their baselines wait for the run
+    that has the words (rebaseline_vendored_entries' `hold`)."""
+    if os.environ.get(HARNESS_GO_AHEAD, '').strip():
+        return set()
+    r = subprocess.run(['git', '-C', str(repo), 'diff', 'HEAD', '--name-only',
+                        '--', '.claude/'], capture_output=True, text=True)
+    return {n for n in r.stdout.splitlines() if n}
+
+
 def harness_changes(repo):
     """-> the staged paths under .claude/ (hooks, settings): what Claude
     Code's auto mode holds a commit over until the person approves it."""
@@ -3743,9 +3761,12 @@ def harness_ask(paths, last=False, cases=None, gates=None):
     approve = (f'Claude Code\'s auto mode lets this commit through only on the '
                f'person\'s words naming it, never on a bare yes, so tell them '
                f'what changes and give them the sentence, not a yes-or-no '
-               f'question. To approve, say: "{say}". A merge that takes the '
-               f'update by itself needs those words as '
-               f'{HARNESS_GO_AHEAD}="<their words>"')
+               f'question. To approve, say: "{say}". Then run this update '
+               f'again with {HARNESS_GO_AHEAD}="<their words>": that run '
+               f'records these files\' new baselines, and until it does the '
+               f'manifest keeps the old ones, so committing everything else '
+               f'without them leaves nothing red. Left out, the change is '
+               f'offered again on the next update')
     if last:
         blocked = (new if gates else
                    'Nothing changes about when anything is blocked. ')
@@ -4075,8 +4096,15 @@ def vendored_layer_paths(repo, paths):
     except Exception:                                          # noqa: BLE001
         mirrors = ()
     engine = ('tools/', f'{pve.HOOK_DEST_DIR}/') + mirrors
+    # The engine's own workflow files are its output too (CI_CONVERGES_KINDS),
+    # and must go back with it: a rerun puts tools/ back to HEAD, so the
+    # repo's OLD engine runs first, and a workflow the earlier run added
+    # that its list lacks reads to it as unshipped and unapproved -- left
+    # for the person, the update never DONE (2026-10-16, a consumer taking
+    # precedent-branch-cleanup.yml). Put back, the new engine writes it again.
+    shipped = {rel for rows in pve.CI_WORKFLOW_TEMPLATES.values() for _t, rel in rows}
     return [p for p in paths if p.startswith(engine)
-            or p == 'process/manifest.json' or p in declared]
+            or p == 'process/manifest.json' or p in declared or p in shipped]
 
 
 def restore_own_staged_output(repo, select):
@@ -5353,7 +5381,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # After the views, because the view sync writes harness adapters too.
     rebased = rebaseline_vendored_entries(
         repo, this_updates_output(repo, before, rep.earlier)
-        | earlier_asked(repo))
+        | earlier_asked(repo), hold=held_harness_paths(repo))
     if rebased:
         rep.step('manifest baselines', 're-recorded for files this update '
                  'rewrote, to upstream or from a template: ' + ', '.join(rebased))

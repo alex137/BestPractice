@@ -420,8 +420,9 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
               file=sys.stderr)
     for d in res.get('dangling', ()):
         # The resolver established it; a sync is where somebody is looking.
-        print(f"precedent_sync_views: IN FORCE NOWHERE -- {d['slug']} "
-              f"({d['source']}): {d['why']}", file=sys.stderr)
+        print(f"precedent_sync_views: "
+              f"{'KEPT IN FORCE, ITS TARGET NOT HERE YET' if d.get('kept_in_force') else 'IN FORCE NOWHERE'}"
+              f" -- {d['slug']} ({d['source']}): {d['why']}", file=sys.stderr)
 
     # REFUSE TO WRITE from an incomplete source set. materialize() rebuilds
     # practices/ by delete-and-rewrite, so a source that merely failed to
