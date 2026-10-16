@@ -55764,8 +55764,16 @@ def check_a_failure_item_lists_the_index_it_creates():
         git('init', '-q', '--bare', '-b', 'main', str(origin), cwd=tmp)
         git('clone', '-q', str(origin), str(work), cwd=tmp)
         git('checkout', '-q', '-b', 'main')
-        shutil.copytree(ROOT / 'tools', work / 'tools',
-                        ignore=shutil.ignore_patterns('__pycache__', 'verify_harness.py'))
+        # The files git tracks, never the whole folder: a brought set ships
+        # tools into a session untracked (.git/info/exclude), and one naming
+        # a private repository made the global leak gate refuse this
+        # fixture's first push, failing the case on any machine with that
+        # set (2026-10-16; practice: fixture-owns-its-state).
+        for rel in subprocess.run(['git', '-C', str(ROOT), 'ls-files', '--', 'tools'],
+                                  capture_output=True, text=True).stdout.split():
+            if rel != 'tools/verify_harness.py':
+                (work / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(ROOT / rel, work / rel)
         (work / 'tools' / 'generated_files.json').write_text(
             json.dumps({'files': []}) + '\n', encoding='utf-8')
         (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
@@ -58777,7 +58785,9 @@ def check_deduplicated_copy_stays_in_force_until_its_target_arrives():
     curly-quotes to universal, and the repository's vendored universal
     catalogue predated that. Planted: the handed-on copy alone; the same
     with the target present (the control); and the bytes the materializer
-    writes for a kept copy."""
+    writes for a kept copy. And the control the other way: a universal copy
+    pointing at a set the repo does not declare is not kept -- that is the
+    person's call (not_in_force_here), asked by Update Vendors."""
     import shutil, tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_resolve as _pr
@@ -58800,6 +58810,13 @@ def check_deduplicated_copy_stays_in_force_until_its_target_arrives():
         cases.append(('it is written out active, with no forwarding address',
                       b'status: active' in data and b'in_force_at: null' in data
                       and b'The whole rule, still here.' in data, data[:300]))
+        write(tmp / 'uni' / 'practices' / 'to-a-set.md', 'to-a-set',
+              'deduplicated', 'to-a-set')
+        res = _pr.resolve(sources)
+        cases.append(('CONTROL: a universal copy pointing at an undeclared set is not kept',
+                      'to-a-set' not in res['practices']
+                      and any(d['slug'] == 'to-a-set' and not d.get('kept_in_force')
+                              for d in res['dangling']), sorted(res['practices'])))
         write(tmp / 'uni' / 'practices' / 'handed-on.md', 'handed-on')
         res = _pr.resolve(sources)
         cases.append(('CONTROL: once the target arrives, it is the rule in force and '

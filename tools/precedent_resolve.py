@@ -1866,7 +1866,12 @@ def resolve(sources, context=()):
                              why=(f"withdrawn from universal on {gone[0]}; in "
                                   f"force in `{gone[1]}` -- declare that set "
                                   f"to keep it"))
-            elif practice['slug'] not in resolved:
+            elif practice['level'] != 'universal' and practice['slug'] not in resolved:
+                # A SET'S copy only. A universal copy pointing at a set this
+                # repo does not declare is the person's call, asked by Update
+                # Vendors and answerable with not_in_force_here; keeping it
+                # would override that answer. A set's copy points the other
+                # way, at a source every repo takes, so its target is only late.
                 keep.append((practice, msg))
                 entry.update(kept_in_force=True,
                              why=f"{msg} -- kept in force here from this copy until "
@@ -1879,8 +1884,8 @@ def resolve(sources, context=()):
     # curly-quotes, until Update Vendors brought the universal copy. The
     # handed-on copy still carries the whole rule, so it binds here, said so
     # on every sync, until its target resolves and it stands down by itself.
-    # Applied only after every copy was judged against what resolved on its
-    # own: kept one at a time, a kept copy made the next one in a chain or a
+    # A set's copy only, never universal's (above). Applied only after every
+    # copy was judged against what resolved on its own: kept one at a time, a kept copy made the next one in a chain or a
     # cycle look satisfied, and that one went unreported.
     for practice, msg in keep:
         retired.remove(practice)
