@@ -11079,7 +11079,8 @@ def check_push_refuses_a_hand_made_session_branch_name():
     rename. Morgan, 2026-10-06: "how can we make sure that you always use the
     new format for temporary branches?" -- a session and its agents had typed
     date-and-topic names that lead back to no session. Planted: the tool's
-    own names (and its clash form) pass; the harness-given name passes; a
+    own names (and its clash form) pass; the harness-given name is refused
+    on the ladder (2026-10-16), and passes off it; a
     hand-typed name is refused, end to end through precedent_push_check; a
     branch origin already has is not judged again; a tier branch is not a
     session branch."""
@@ -11116,8 +11117,14 @@ def check_push_refuses_a_hand_made_session_branch_name():
                   '(Morgan, 2026-10-11)',
                   'five random characters' in (_bn.name_refusal(
                       f'2026-10-06-some-work-{tail}', tail=tail, user='') or '')))
-    cases.append(('a harness-given name passes',
-                  _bn.name_refusal('claude/peaceful-ritchie-3u31td', tail=tail, user='') is None))
+    # Refused since 2026-10-16: the note alone left five such branches on
+    # one consumer's origin in a day (Morgan, 2026-10-15, decided).
+    cases.append(('a harness-given name is refused, naming the rename command',
+                  'precedent_branch_name.py' in (_bn.name_refusal(
+                      'claude/peaceful-ritchie-3u31td', tail=tail, user='') or '')))
+    cases.append(('...and the refusal grants the sister-branch permission',
+                  _bn.SISTER_BRANCH_PERMISSION in (_bn.name_refusal(
+                      'claude/peaceful-ritchie-3u31td', tail=tail, user='') or '')))
     cases.append(('a hand-typed date-and-topic name is refused',
                   bool(_bn.name_refusal('2026-10-06-vdc-fixes', tail=tail, user=''))))
     cases.append(('a name ending in another session\'s id is refused',
@@ -11203,11 +11210,14 @@ def check_push_refuses_a_hand_made_session_branch_name():
             finally:
                 os.environ.clear()
                 os.environ.update(saved)
-        cases.append(('end to end: a push to the harness-given name is noted, '
-                      'not refused',
-                      refused('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
-                      is None
-                      and len(notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td'))
+        cases.append(('end to end: a push creating the harness-given name is '
+                      'refused, naming the rename (Morgan, 2026-10-15)',
+                      'precedent_branch_name.py' in (refused(
+                          'origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
+                          or '')))
+        cases.append(('...and a push to it that origin already has is noted, '
+                      'so work pushed before 2026-10-16 is never stranded',
+                      len(notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td'))
                       == 1))
         cases.append(('...and a push to a tool-made name is not',
                       notes(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}-x9y8z')
@@ -11217,6 +11227,9 @@ def check_push_refuses_a_hand_made_session_branch_name():
         off = {'PRECEDENT_NO_LADDERS': '1'}
         cases.append(('off the ladder, a hand-named branch is not refused',
                       refused('origin HEAD:refs/heads/2026-10-06-other-fixes', off)
+                      is None))
+        cases.append(('...nor the harness-given name',
+                      refused('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td', off)
                       is None))
         cases.append(('...and a push to the harness-given name is not noted',
                       notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td',
