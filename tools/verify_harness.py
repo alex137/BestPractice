@@ -27070,6 +27070,29 @@ def check_one_python():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    # The Python hooks run (2026-10-16): the session file never reaches a
+    # hook, so setup, which runs inside one, also gives the engine packages
+    # to the Python running it -- and leaves it alone when that IS the
+    # declared one (a shim resolves to it).
+    saved_install = pp.install
+    calls = []
+    try:
+        pp.install = lambda e, p: calls.append((e, list(p))) or ''
+        pp.hook_install('/usr/bin/python3.12', running='/usr/bin/python3.13')
+        cases.append(('setup also installs the engine packages into the Python '
+                      'hooks run, when it is not the declared one',
+                      calls == [('/usr/bin/python3.13', pp.BASE_PACKAGES)], calls))
+        calls.clear()
+        pp.hook_install(exe, running=exe)
+        cases.append(('...and does nothing when that Python is the declared one',
+                      calls == [], calls))
+        pp.install = lambda e, p: 'pip refused'
+        why = pp.hook_install('/usr/bin/python3.12', running='/usr/bin/python3.13')
+        cases.append(('...and a failure there names the hook Python',
+                      'Python hooks run' in why and 'python3.13' in why, why))
+    finally:
+        pp.install = saved_install
+
     bad = [(n, det) for n, ok, det in cases if not ok]
     check(f'one Python: tools start Python with sys.executable, workflows match the '
           f'declared version, and setup makes python3 mean it ({len(cases)} stated cases)',
@@ -31277,12 +31300,19 @@ def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
                       'You can archive this session' in r8.stdout,
                       r8.stdout[-250:]))
 
+        # A clean container at turn start is a snapshot, not the answer at
+        # the end of the turn (2026-10-16: a consumer's closing turn wrote
+        # two scratch files after this ran clean and was refused with no
+        # warning). So the clean case says to look again -- and never the
+        # refusal itself.
         r9 = gate(safe_engine)
-        cases.append(('negative control: the gate is SILENT on a clean '
-                      'container -- naming a requirement already met is the '
-                      'noise its own comment declines to print',
-                      'You can archive this session' not in r9.stdout,
-                      r9.stdout[-250:]))
+        cases.append(('negative control: a clean container gets no refusal '
+                      'warning, only the one line saying what this turn '
+                      'writes still counts and to scan again before the line',
+                      'DO NOT SAY' not in r9.stdout
+                      and 'clean as this turn starts' in r9.stdout
+                      and 'precedent_container_safe.py` again' in r9.stdout,
+                      r9.stdout[-400:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
