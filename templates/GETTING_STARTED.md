@@ -339,6 +339,13 @@ Click-paths as of <install date>.
   maintenance. If they don't appear on a pull request's checks, GitHub
   Actions may be disabled for this repository — an administrator can turn
   it on at repository **Settings → Actions**.
+- **Old branches can be deleted in one go** (the GitHub Actions workflow
+  `precedent-branch-cleanup.yml`). It never runs by itself: someone opens
+  it under **Actions → Delete merged branches** and clicks **Run
+  workflow**. It deletes only branches whose work is already in `main`,
+  never `main` or `staging`. If a run fails on permissions, an
+  administrator can allow it at repository **Settings → Actions → General
+  → Workflow permissions** ("Read and write permissions").
 - **Your writing is checked before it is saved, not after.** A formatting
   check runs on every commit, so a broken link or a malformed heading is
   caught while you are still working rather than once it is shared. This

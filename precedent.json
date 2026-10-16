@@ -819,6 +819,14 @@
     ".github/workflows/leak-gate.yml": {
       "sha256": "2991d1d89770774e1a4772fbd3549e8b8c67d6a1b27f55c1c08d411cbddbf898",
       "approved_by": "Morgan, 2026-10-11: \"Both yml are fine and approved.\" (the structural leak gate on each push to main, and by hand; a merge made on GitHub never passes the session's own push gate) Morgan, 2026-10-14: \"Yes on fix 6\" (actions/checkout v4 -> v5 and actions/setup-python v5 -> v6, the releases that run on Node 24; no CI work added)."
+    },
+    ".github/workflows/precedent-branch-cleanup.yml": {
+      "sha256": "5ccd72963a7c26a12bbe56a1e94a6d18c57c65567960a98b610982dc7cb6d84a",
+      "approved_by": "Morgan, 2026-10-16: \"on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page\" and \"This is great. Build it, please, and then Booked.\" (spec/BRANCH_CLEANUP_BUTTON_PLAN.md: one job, started only by hand with workflow_dispatch from the branch cleanup page's button; it deletes the branches already in main; about one billed minute a click in a private repository, none in a public one, nothing while it sits unclicked)."
+    },
+    "templates/github-actions/branch-cleanup.yml.template": {
+      "sha256": "5ccd72963a7c26a12bbe56a1e94a6d18c57c65567960a98b610982dc7cb6d84a",
+      "approved_by": "Morgan, 2026-10-16: \"on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page\" and \"This is great. Build it, please, and then Booked.\" (spec/BRANCH_CLEANUP_BUTTON_PLAN.md: one job, started only by hand with workflow_dispatch from the branch cleanup page's button; it deletes the branches already in main; about one billed minute a click in a private repository, none in a public one, nothing while it sits unclicked)."
     }
   },
   "landing_branch": "staging",
