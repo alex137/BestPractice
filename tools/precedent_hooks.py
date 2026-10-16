@@ -269,7 +269,7 @@ def unloaded_sources(root=ROOT):
         return []
     out = []
     for path, level, name, _note in rows:
-        if level not in ('shared', 'individual') or not path:
+        if pr.normalize_level(level) not in pr.PRIVATE_LEVELS or not path:
             continue
         if (Path(path) / 'practices').is_dir():
             continue

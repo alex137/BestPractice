@@ -37452,16 +37452,12 @@ def check_push_check_gate():
                       not denied))
         cases.append(('and the pass is recorded against the tree',
                       record.is_file()))
-        # A push that would create the harness-given branch name is refused
-        # on the ladder, naming the rename (Morgan, 2026-10-15, decided; it
-        # went ahead with a note from 2026-10-11 until 2026-10-16). This
-        # fixture has no origin, so the push would create the branch.
-        _shutil.copy2(ROOT / 'tools' / 'precedent_branch_name.py',
-                      work / 'tools' / 'precedent_branch_name.py')
+        # A harness-given branch name is the ladder set's to refuse, at
+        # git's pre-push (its branch_name_guard, 2026-10-16); this gate
+        # judges no name.
         denied, out = gate('git push origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
-        cases.append(('a push creating the harness-given branch name is refused, '
-                      'naming the command that renames it',
-                      denied and 'precedent_branch_name.py' in out))
+        cases.append(('the push gate judges no branch name: the ladder set\'s '
+                      'own pre-push guard does', not denied))
         cases.append(('a push with nothing to note hands the session nothing',
                       '"additionalContext"' not in out_main))
 

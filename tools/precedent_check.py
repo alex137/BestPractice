@@ -7798,7 +7798,7 @@ def _enforcement_lives_with_its_practice(ctx):
         raise NotApplicable('this engine carries no ENGINE_FILES list')
     sets = [(pathlib.Path(p), level, name) for p, level, name, _n in
             _pr.declared_source_paths(ctx.root)
-            if level in ('shared', 'individual') and p
+            if _pr.normalize_level(level) in _pr.PRIVATE_LEVELS and p
             and (pathlib.Path(p) / 'practices').is_dir()]
     if not sets:
         raise NotApplicable('no shared or individual set is on disk here to '
