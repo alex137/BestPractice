@@ -30152,11 +30152,64 @@ def check_branch_cleanup_button():
     cases.append(('the workflow\'s only trigger is a person\'s click',
                   on is not None and on.group(1).split() == ['workflow_dispatch:'],
                   on.group(1) if on else 'no on:'))
-    starters = [f.name for f in (ROOT / 'tools').glob('*.py')
-                if f.name != 'verify_harness.py'
-                and sb.CLEANUP_WORKFLOW in (txt := f.read_text(encoding='utf-8', errors='ignore'))
-                and 'dispatches' in txt]
+    # The one call that starts it is the page's all-public button, run by a
+    # person's click through their own GitHub connector; Python never does.
+    starts = re.compile(r'actions_run_trigger|run_workflow|/dispatches|workflow run\b')
+    starters = []
+    for f in (ROOT / 'tools').glob('*.py'):
+        if f.name == 'verify_harness.py':
+            continue
+        txt = f.read_text(encoding='utf-8', errors='ignore')
+        if f.name == 'precedent_stale_branches.py':
+            # Its prose and the page it renders may name the call; its
+            # Python may not make it.
+            import ast as _ast
+            lines = txt.splitlines(keepends=True)
+            for node in reversed(_ast.parse(txt).body):
+                names = [t.id for t in getattr(node, 'targets', [])
+                         if isinstance(t, _ast.Name)]
+                if (names and names[0] in ('_PAGE', 'PAGE_CAPABILITIES')) or (
+                        isinstance(node, _ast.Expr) and isinstance(
+                            getattr(node, 'value', None), _ast.Constant)):
+                    del lines[node.lineno - 1:node.end_lineno]
+            txt = ''.join(lines)
+        if sb.CLEANUP_WORKFLOW in txt and ('dispatches' in txt or starts.search(txt)):
+            starters.append(f.name)
     cases.append(('no engine tool can start it', starters == [], starters))
+    script = sb._PAGE
+    click = script.find("all.addEventListener('click'")
+    cases.append(('the page starts it only from the all-public button\'s click',
+                  script.count("method:'run_workflow'") == 1 and click != -1
+                  and script.index("method:'run_workflow'") > click, ''))
+    cases.append(('the page may call one GitHub tool and nothing else',
+                  sb.PAGE_CAPABILITIES['mcp']['servers']
+                  == [{'server': sb.GITHUB_CONNECTOR, 'tools': ['actions_run_trigger']}],
+                  sb.PAGE_CAPABILITIES))
+
+    pub = dict(st(False, ''), repo='pub')
+    groups = [('o', 'pub', [('p1', '2026-10-01'), ('p2', '2026-10-02')]),
+              ('o', 'r', [('x', '2026-10-01')]),
+              ('o', 'unknown', [('u', '2026-10-01')])]
+    keyed = {('o', 'pub'): pub, ('o', 'r'): st(True, ''),
+             ('o', 'unknown'): dict(st(None, ''), repo='unknown')}
+    got = sb.public_cleanup(groups, [('o', 'gone', [('g', '2026-10-01')], '')],
+                            {**keyed, ('o', 'gone'): dict(st(False, ''), repo='gone')})
+    cases.append(('the all-public button covers public repositories, carried ones too, '
+                  'and never a private or unknown one',
+                  got == [('o', 'pub', 2), ('o', 'gone', 1)], got))
+    cases.append(('CONTROL: a public repository without the workflow is left out',
+                  sb.public_cleanup(groups[:1], [], {('o', 'pub'): dict(pub, installed=False)})
+                  == [], ''))
+    page = sb.render_html(groups, now=now, cleanup=keyed)
+    cases.append(('the page carries the all-public button, counting its rows',
+                  'id="del-public"' in page and 'all 1 public repository (2 listed)' in page
+                  and page.count('data-public="1"') == 1, ''))
+    cases.append(('CONTROL: with no public repository there is no all-public button',
+                  'id="del-public"' not in sb.render_html(
+                      groups[1:], now=now, cleanup=keyed), ''))
+    cases.append(('any cleanup click checks off that repository\'s rows',
+                  "function started(p)" in script and "started(p); save()" in script
+                  and "pub.forEach(started)" in script, ''))
 
     with tempfile.TemporaryDirectory() as td:
         dest = pathlib.Path(td)
