@@ -79700,6 +79700,17 @@ def check_typography_finishes_outward_text_and_every_engine_page():
         got = run('def smarten(s):\n    return s\n')
         cases.append(('finish() with a typography.py too old for HTML: the page as built',
                       got == page, got))
+        # A file a set used to ship and the engine now carries is never
+        # named as a leftover to delete by hand (precedent_materialize).
+        import precedent_materialize as pm_
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'files': ['typography.py']}), encoding='utf-8')
+        owned = pm_._engine_owned(repo)
+        cases.append(('an engine file a set used to ship is not a stale ship',
+                      owned == {'tools/typography.py'}
+                      and pm_._engine_owned(tmp / 'nowhere') == set(), repr(owned)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
