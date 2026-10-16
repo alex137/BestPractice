@@ -1,13 +1,13 @@
 ---
 title:         "Chief of Staff: one session that routes the fleet"
 kind:          proposal
-status:        closed
+status:        executed
 opened:        2026-09-13
-closed:        2026-10-16
+closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "CLOSED 2026-10-16: the chief-of-staff practice is retired, and its staging-waits-for-main check rides the branch-cleanup page. Kept as the record of a standing session that read every other session, said what was blocked and what collided, and spawned work rather than doing it -- accepted 2026-09-14."
+summary:       "RETIRED 2026-10-16: the chief-of-staff practice is retired, and its staging-waits-for-main check rides the branch-cleanup page. Kept as the record of a standing session that read every other session, said what was blocked and what collided, and spawned work rather than doing it -- accepted 2026-09-14."
 ---
 # Chief of Staff: one session that routes the fleet
 
