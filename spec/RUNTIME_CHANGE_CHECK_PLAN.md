@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "When the Python a repository runs on changes -- its own declaration, or the engine's default -- the full local suite that runs after Produce still runs on the session's old Python, so nothing tests the code on the new version; and PHP has no declaration at all. Proposal: every full local run starts the Python the tested commit declares, and one-python generalizes to one declared runtime per language."
+summary:       "When the Python a repository runs on changes -- its own declaration, or the engine's default -- the full local suite that runs after Produce still runs on the session's old Python, so nothing tests the code on the new version; and PHP has no declaration at all. Proposal: every full local run starts the Python the tested commit declares; a lock file records the package versions of the last passing full run, and moves only when a new full run passes; and one-python generalizes to one declared runtime per language."
 ---
 # A change of language runtime is proven before it lands
 
@@ -75,9 +75,13 @@ What none of that does:
    version at its next Update Vendors, inside a diff of a hundred engine
    files, and nothing in that update says "your Python changed" or runs
    that repository's code on it.
-3. **Packages are not pinned.** `"packages": ["python-docx"]` installs
-   whatever version pip resolves today. A new major version of a package
-   can break a repository with no change in that repository at all.
+3. **Packages are not pinned, and nothing records what passed.**
+   `"packages": ["python-docx"]` installs whatever version pip resolves
+   today. A new major version of a package can break a repository with no
+   change in that repository at all, and when it does, nothing says which
+   version last worked. A repository that writes a pin by hand
+   (`"python-docx==1.1.2"`) gets that version, and then keeps it forever:
+   no tool moves a pin forward when a newer version would pass.
 4. **GitHub's workflows do not install the declared packages.** The
    light-check template installs `pyyaml` and nothing else; BestPractice's
    own deep check installs `cmarkgfm markdown`. A repository whose checks
@@ -163,10 +167,40 @@ tier, under the new interpreter. Attacked, and then cut down:
   tested move for a silent drift away from what GitHub runs.
 
 **D. Pin package versions** (`"packages": ["python-docx==1.1.2"]`).
-Attacked: pinning without a way to move the pins forward means nobody ever
-takes a security fix. Proposed only as optional: `precedent_python` accepts
-a pin when a repository writes one (pip already does), and the runtime
-change check (C) also fires when a pin changes. Not made a requirement.
+Attacked: a pin a person writes by hand never moves, so nobody ever takes a
+security fix, and when Python moves the pins stay where they were even if
+newer versions would pass. Required pins were rejected for that reason.
+Kept as optional: `precedent_python` honors a pin a repository writes (pip
+already does), and the runtime change check (C') also fires when one
+changes. The moving part is D'.
+
+**D'. A lock file that moves only on a passing full run.** The repository
+keeps, beside `precedent.json`, a lock file (`precedent.lock.json`) with the
+exact version of every package the last passing full run used. Attacked:
+
+- *Who moves it?* The engine, never a person. When the declared Python
+  changes, or at Update Vendors, the engine resolves the newest version of
+  each declared package for the declared interpreter, installs those, and
+  runs the full local suite. If it passes, the new versions are written to
+  the lock file and committed with the change. If it fails, the lock file
+  stays as it was, the run names the package whose version moved, and the
+  change reports what broke rather than landing on untested versions.
+- *What does an install use between moves?* The lock file: session setup
+  and every full run install exactly the locked versions, so two sessions
+  a week apart run the same packages. Today `install()` only asks whether a
+  package imports; it would also compare the installed version against the
+  lock and reinstall a mismatch.
+- *A hand-written pin and the lock disagree.* The pin wins: the engine
+  resolves under it, so a pinned package never moves, and the lock records
+  the pinned version.
+- *A repository with no lock file yet.* The first full run that passes
+  writes one. Until then, installs behave as today.
+
+This answers Morgan's question (2026-10-16: "If the update to a new python
+version passes our tests, does it then automatically update all the
+corresponding the pins?"): yes for the lock file, which moves on its own
+when, and only when, the full suite passes; no for a hand-written pin,
+which is the person's to move.
 
 **E. A generic runtime declaration.** Generalize `"python"` into
 `"runtimes": {"python": {...}, "php": {"version": "8.3", ...}}`. Attacked:
@@ -209,7 +243,14 @@ version it declares, with no new step and no extra wait.
    `python-version` with the declared one, which `one-python` already
    checks. Rolled out through the templates and Update Vendors, like any
    template change.
-5. **One declared runtime per language.** `precedent.json` gains
+5. **A lock file of package versions that passed** (D'). Installs use
+   `precedent.lock.json`'s exact versions. It is rewritten only by a full
+   run that passes after the engine re-resolved the packages -- on a
+   change to the declared Python, or at Update Vendors -- and committed with
+   that change. A failing run keeps the old lock and names the package that
+   moved. A hand-written pin in `precedent.json` stays optional and is
+   honored over the lock.
+6. **One declared runtime per language.** `precedent.json` gains
    `"runtimes"`, with `"python"` kept as its first member (the existing
    key stays readable, so no repository has to migrate). `one-python`
    becomes `one-runtime`: for each declared language, workflows set the
@@ -228,8 +269,8 @@ version it declares, with no new step and no extra wait.
 
 ## Rollout
 
-Parts 1 to 3 and 5 are engine changes in BestPractice; part 4 is a template
-change. All reach consuming repositories through Update Vendors, and none
+Parts 1 to 3, 5 and 6 are engine changes in BestPractice; part 4 is a
+template change. All reach consuming repositories through Update Vendors, and none
 needs a repository to change anything first. The first Update Vendors that
 carries part 3 is itself the first runtime move it reports, if the default
 has moved by then.
@@ -242,8 +283,13 @@ has moved by then.
    packages installed into that interpreter first; a missing interpreter
    recorded as not verified, by name; a commit declaring the session's own
    version running exactly as today.
-3. Part 3 (Update Vendors' step).
-4. Part 4 (templates), then part 5 (the declaration's shape and the
+3. Part 5 (the lock file), with harness cases for: a passing run after a
+   re-resolve writing the new versions; a failing run keeping the old lock
+   and naming the package that moved; an install reinstalling a version
+   that differs from the lock; a hand-written pin winning over the lock; a
+   repository with no lock file behaving as today until its first pass.
+4. Part 3 (Update Vendors' step), which re-resolves the lock by part 5.
+5. Part 4 (templates), then part 6 (the declaration's shape and the
    generalized consistency check).
 
 ## Decisions for the person
@@ -251,4 +297,7 @@ has moved by then.
 - Whether a full run whose declared interpreter is missing is recorded
   as **not verified** (proposed, so main reads as unchecked until a run
   that can prove it), or only warns.
-- Whether package pins stay optional (proposed) or become required.
+
+Settled: package pins stay optional, and the lock file moves the versions
+forward on a passing full run (Morgan, 2026-10-16: "Yup let's add optional
+pins to package versions").
