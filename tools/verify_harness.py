@@ -26906,6 +26906,66 @@ def check_one_python():
     finally:
         pp.install = saved_install
 
+    # Which Python a hook's python3 IS (2026-10-16). Claude Code starts a hook
+    # with its own PATH, so each tools/*.sh that starts python3 (and the
+    # bootstrap template a consumer's own copy comes from) carries one
+    # block putting <checkout>/.precedent/python-bin first, and setup leaves
+    # that link. Run the real block, cut from a real gate, with a PATH that
+    # has no shim on it: with the link its python3 is the declared one,
+    # without it python3 is whatever PATH gave (never a refusal).
+    start, end = '# THE DECLARED PYTHON (', 'PATH="$_precedent_pybin:$PATH"; fi\n'
+    blocks = {}
+    for f in sorted((ROOT / 'tools').glob('*.sh')) + [ROOT / 'templates' / 'bootstrap.sh']:
+        text = f.read_text(encoding='utf-8')
+        if 'python3 ' not in text:
+            continue
+        a = text.find(start)
+        b = text.find(end, a)
+        first_py = min((m.start() for m in re.finditer(r'python3 ', text)
+                        if not text[text.rfind('\n', 0, m.start()) + 1:m.start()].lstrip().startswith('#')),
+                       default=-1)
+        blocks[str(f.relative_to(ROOT))] = text[a:b + len(end)] if 0 <= a < b and (first_py < 0 or b < first_py) else None
+    missing = sorted(n for n, v in blocks.items() if v is None)
+    cases.append(('every hook script that starts python3 puts the declared Python first, '
+                  'before its first python3, in one identical block',
+                  not missing and len({v for v in blocks.values()}) == 1,
+                  f'missing or after the first python3 in {missing}' if missing
+                  else f'{len(set(blocks.values()))} different copies'))
+    block = blocks.get('tools/push-check-gate.sh') or ''
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-one-python-hook-'))
+    try:
+        (tmp / 'tools').mkdir()
+        probe = tmp / 'tools' / 'probe.sh'
+        probe.write_text('#!/usr/bin/env bash\nset -euo pipefail\n' + block
+                         + 'command -v python3 || echo none\n')
+        shims = tmp / 'shims'
+        shims.mkdir()
+        (shims / 'python3').write_text('#!/bin/sh\necho declared\n')
+        (shims / 'python3').chmod(0o755)
+        bare_path = '/usr/local/bin:/usr/bin:/bin'
+        run = lambda: subprocess.run(['bash', str(probe)], cwd='/', capture_output=True, text=True,
+                                     env={'PATH': bare_path, 'HOME': str(tmp)})
+        r = run()
+        cases.append(('...with no link, a hook keeps the python3 PATH gave it and runs on',
+                      r.returncode == 0 and str(tmp) not in r.stdout, (r.stdout, r.stderr[-300:])))
+        cases.append(('...setup links the declared Python for the hooks',
+                      pp.link_for_hooks(shims, tmp) == ''
+                      and os.readlink(tmp / '.precedent' / 'python-bin') == str(shims),
+                      sorted(str(x) for x in tmp.rglob('*'))))
+        r = run()
+        cases.append(('...and then a hook started with no shim on its PATH, from another '
+                      'directory, runs the declared python3',
+                      r.returncode == 0 and r.stdout.strip() == str(tmp / '.precedent' / 'python-bin' / 'python3'),
+                      (r.stdout, r.stderr[-300:])))
+        other = tmp / 'other'
+        other.mkdir()
+        cases.append(('...and setup run again for another version repoints the link',
+                      pp.link_for_hooks(other, tmp) == ''
+                      and os.readlink(tmp / '.precedent' / 'python-bin') == str(other),
+                      os.readlink(tmp / '.precedent' / 'python-bin')))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
     bad = [(n, det) for n, ok, det in cases if not ok]
     check(f'one Python: tools start Python with sys.executable, workflows match the '
           f'declared version, and setup makes python3 mean it ({len(cases)} stated cases)',
@@ -71009,12 +71069,19 @@ def check_session_start_hook_runs_bootstrap_locally():
             (work / '.claude' / 'hooks').mkdir(parents=True)
             (work / '.claude' / 'hooks' / 'commit-identity.sh').write_text(
                 f'#!/bin/sh\necho identity >> "{calls}"\n', encoding='utf-8')
+            # A copy inside the fixture, never ROOT's own: the script puts
+            # its checkout's .precedent/python-bin first on PATH, and this
+            # checkout's real one would shadow the fake pip
+            # (practice: fixture-owns-its-state).
+            (work / 'tools').mkdir()
+            script = work / 'tools' / 'bootstrap.sh'
+            shutil.copy2(ROOT / rel, script)
             for local in (True, False):
                 calls.unlink(missing_ok=True)
                 extra = {'PATH': path}
                 if local:
                     extra['PRECEDENT_LOCAL_SESSION'] = '1'
-                r = run(ROOT / rel, work, **extra)
+                r = run(script, work, **extra)
                 did = calls.read_text(encoding='utf-8').split() if calls.exists() else []
                 if local:
                     cases.append((f'{rel}, local: no pip install and no '

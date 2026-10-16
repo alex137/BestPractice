@@ -26,7 +26,7 @@ implementation note, not a restatement.
 | Path-triggered | [tools/precedent_paths.py](../tools/precedent_paths.py) + [templates/harness/claude-code/hooks/precedent-paths.sh](../templates/harness/claude-code/hooks/precedent-paths.sh) | **Built and wired (2026-09-03)** — a `PreToolUse` hook, matching `Edit\|Write\|NotebookEdit`, is now templated in [templates/harness/claude-code/settings.json](../templates/harness/claude-code/settings.json); a fresh install of the Claude Code adapter gets it automatically, closing the consumer-repo-integration gap this row named. See [The PreToolUse hook, and what is confirmed versus assumed](#the-pretooluse-hook-and-what-is-confirmed-versus-assumed) below for what the harness actually proves. Its glob matcher was rewritten after the first phase-2 pass shipped a broken one — see [Where this channel was silently broken](#where-this-channel-was-silently-broken-and-what-it-cost--the-numbers) below. |
 | Gate-triggered | [tools/precedent_gate.py](../tools/precedent_gate.py) | Built later than this document's other rows (see the file's own docstring for why and what it does and does not promise); this row was left saying "Not built" long after that landed. Caught and fixed by the 2026-09-04 gate audit — the same drift class this row itself is an instance of. |
 | Enforced (`checked_by`) | Already exists from phase 1 (8 of 52 practices carry one, naming 4 distinct scripts) | Unchanged by phase 2; phase 4 is "convert checkable practices to scripts." |
-| "One code path" (`precedent show`) | [tools/precedent_show.py](../tools/precedent_show.py) (phase 1) | Unchanged; `precedent_paths.py` calls the same file reader (`split_practices._read_practice_file`), not a second extractor. |
+| "One code path" (`precedent show`) | [tools/precedent_show.py](../tools/precedent_show.py) (phase 1) | Unchanged; [`precedent_paths.py`](../tools/precedent_paths.py) calls the same file reader (`split_practices._read_practice_file`), not a second extractor. |
 | Generated views | [tools/build_views.py](../tools/build_views.py) → AGENTS.md's loader block, [MAP.md](../MAP.md), [GLOSSARY.md](../GLOSSARY.md) | Built. All three fail tools/verify_harness.py if hand-edited or stale. |
 | Resident budget, hard-capped | `RESIDENT_BUDGET_TOKENS = 2000` in tools/build_views.py; the build exits nonzero over budget | Built. Current size is in [The catalogue as it stands](#the-catalogue-as-it-stands) below, generated. |
 | Premise measured, not assumed | [tools/behavioral_replay.py](../tools/behavioral_replay.py) | Built. See "What the replay measures" below — it is honest about what it can and cannot prove. |
@@ -54,7 +54,7 @@ directly rather than re-read from disk) as one command. See
 [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)'s
 "Known gap" section for what this replaces and one real bug it took to get
 here (a repo-local source declared at the bare repo root silently losing
-hand-authored content to `precedent_materialize.py`'s own output — fixed,
+hand-authored content to [`precedent_materialize.py`](../tools/precedent_materialize.py)'s own output — fixed,
 and now why repo-local's recommended `path` is a subdirectory, not `"."`).
 Built and tested against a real four-source fixture
 (`check_sync_views_cross_source` in
@@ -70,10 +70,10 @@ reads the tool call's target path off stdin (`tool_input.file_path`, or
 `PreToolUse` JSON response naming the matched Rules as
 `hookSpecificOutput.additionalContext`, with `permissionDecision: "allow"`
 so the edit always proceeds — this is advisory context, never a gate. It
-is one code path with `precedent_paths.py` — same matching logic
-`tools/behavioral_replay.py` already drives — so a `## Rule` shown by the
+is one code path with [`precedent_paths.py`](../tools/precedent_paths.py) — same matching logic
+[`tools/behavioral_replay.py`](../tools/behavioral_replay.py) already drives — so a `## Rule` shown by the
 hook is the same text either channel would print (`code-cites-practice`,
-`tools/precedent_paths.py`; `engine-plus-host-shims`, the wrapper itself).
+[`tools/precedent_paths.py`](../tools/precedent_paths.py); `engine-plus-host-shims`, the wrapper itself).
 
 **What `check_pretooluse_hook_fires` in [tools/verify_harness.py](../tools/verify_harness.py) actually proves**
 (5 stated cases, run against two stable, narrowly-scoped real practices —
@@ -126,7 +126,7 @@ is worth keeping.
 its bootstrap placeholder, which left it with one resident practice and no
 on-demand ones. The block it generated still carried an occasion index —
 rendered as an empty ``` ``` box — and a standing instruction telling every
-session to consult that index and to run four `precedent_gate.py` commands.
+session to consult that index and to run four [`precedent_gate.py`](../tools/precedent_gate.py) commands.
 All four exit `FAIL` there, because no practice in that set registers a gate.
 Nothing was wrong with the practice file, the vocabulary, or the vendored
 engine's version: the three sections and the four gate names were emitted
