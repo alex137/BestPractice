@@ -71062,12 +71062,19 @@ def check_session_start_hook_runs_bootstrap_locally():
             (work / '.claude' / 'hooks').mkdir(parents=True)
             (work / '.claude' / 'hooks' / 'commit-identity.sh').write_text(
                 f'#!/bin/sh\necho identity >> "{calls}"\n', encoding='utf-8')
+            # A copy inside the fixture, never ROOT's own: the script puts
+            # its checkout's .precedent/python-bin first on PATH, and this
+            # checkout's real one would shadow the fake pip
+            # (practice: fixture-owns-its-state).
+            (work / 'tools').mkdir()
+            script = work / 'tools' / 'bootstrap.sh'
+            shutil.copy2(ROOT / rel, script)
             for local in (True, False):
                 calls.unlink(missing_ok=True)
                 extra = {'PATH': path}
                 if local:
                     extra['PRECEDENT_LOCAL_SESSION'] = '1'
-                r = run(ROOT / rel, work, **extra)
+                r = run(script, work, **extra)
                 did = calls.read_text(encoding='utf-8').split() if calls.exists() else []
                 if local:
                     cases.append((f'{rel}, local: no pip install and no '
