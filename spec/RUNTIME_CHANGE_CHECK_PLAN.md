@@ -16,10 +16,19 @@ summary:       "When the Python a repository runs on changes -- its own declarat
 Morgan, 2026-10-16: "when a version of python (or php for repos that use
 that?) is changed/defined, do we make sure there is nothing that breaks?"
 
-The short answer today is no. Precedent makes sure every place in a
-repository *uses the same* Python. Nothing makes sure the repository's code
-*still works* on a Python it has just moved to. For PHP, or any other
-language, there is no declaration at all.
+**The full local tests run, in full, after every Produce.** Whenever
+GitHub's test is not due, Produce runs the repository's whole local suite on
+`main` right after the merge (`--run-tests main`), not a sample of it; when
+GitHub's test is due, GitHub runs it. The only Produce with no full run
+after it is one whose exact commits a Debut already tested, one that
+changed nothing but prose, or one the person asked to be fast. A version
+change in `precedent.json` is none of those, so it always gets a full run.
+
+**The gap is which Python that run uses, not whether it runs.** It starts
+the suite with the Python the session is already running, and a session
+switches to a newly declared version only at its next start. So the full
+run right after a version change tests the new code on the old Python. For
+PHP, or any other language, there is no declaration at all.
 
 ## What exists today
 
@@ -141,10 +150,9 @@ tier, under the new interpreter. Attacked, and then cut down:
   the interpreter, rather than passing on a run that did not happen
   (`not verified is not current`). The person can still push with the
   existing override, which is recorded.
-- *The full suite is slow* (BestPractice's is about ten minutes). A runtime
-  change is rare, and it is exactly the change whose risk the basic tier
-  cannot see, so paying the full suite for it is in proportion. Every
-  other push is unaffected.
+- *The full suite is slow* (BestPractice's is about ten minutes), and it
+  already runs in full after Produce; a second run before landing would
+  pay it twice for one change.
 - *The default moves inside an Update Vendors.* The update knows the old
   and new `DEFAULT_VERSION` (both engine copies are on disk during the
   refresh), so it can say "this repository's Python moves from 3.12 to
