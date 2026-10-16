@@ -1018,73 +1018,6 @@ def publish_pass(root, rec):
           f'other checkouts ({why}); they will run the suite themselves.')
 
 
-def _branch_name_refusal(root, argv):
-    """-> why a push that CREATES a session branch with a hand-made name is
-    refused, or None. Only a branch origin does not have yet is judged, so
-    a branch already pushed, a tier branch and every other name pass; an
-    engine copy without the naming tool refuses nothing (Morgan,
-    2026-10-06: always use the new format for temporary branches)."""
-    if '--push-command' not in argv:
-        return None
-    i = argv.index('--push-command')
-    cmd = argv[i + 1] if i + 1 < len(argv) else ''
-    sys.path.insert(0, str(HERE))
-    try:
-        import precedent_branches
-        import precedent_branch_name
-    except ImportError:
-        return None
-    finally:
-        sys.path.pop(0)
-    judge = getattr(precedent_branch_name, 'name_refusal', None)
-    if judge is None:
-        return None
-    # The naming rule is the ladder's: off it, nothing is judged (Morgan,
-    # 2026-10-11: "in force for people who use ladders, not everyone else").
-    if not getattr(precedent_branch_name, 'conventions_in_force',
-                   lambda r: True)(root):
-        return None
-    for name in precedent_branches.push_targets(root, cmd) or []:
-        if subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', '-q',
-                           f'refs/remotes/origin/{name}'],
-                          capture_output=True).returncode == 0:
-            continue
-        why = judge(name)
-        if why:
-            return why
-    return None
-
-
-
-def _branch_name_notes(root, argv):
-    """-> what to say about the branch names a push targets, never a
-    refusal: today, a push to the branch the harness named when the session
-    opened (precedent_branch_name.harness_name_note). Every push is judged,
-    not only the one that creates the branch, since that is where a session
-    that forgot act's naming keeps pushing. push-check-gate.sh hands each
-    NOTE line to the session; an engine copy without the note says nothing."""
-    if '--push-command' not in argv:
-        return []
-    i = argv.index('--push-command')
-    cmd = argv[i + 1] if i + 1 < len(argv) else ''
-    sys.path.insert(0, str(HERE))
-    try:
-        import precedent_branches
-        import precedent_branch_name
-    except ImportError:
-        return []
-    finally:
-        sys.path.pop(0)
-    note = getattr(precedent_branch_name, 'harness_name_note', None)
-    if note is None:
-        return []
-    if not getattr(precedent_branch_name, 'conventions_in_force',
-                   lambda r: True)(root):
-        return []
-    return [n for n in (note(name) for name in
-                        precedent_branches.push_targets(root, cmd) or []) if n]
-
-
 def _promote_only_refusal(root, argv):
     """-> why the named push is refused before any check runs, or None.
     Only a person who turned promote_only on is ever refused here
@@ -2195,12 +2128,6 @@ def main(argv):
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1
-    refused = _branch_name_refusal(root, argv)
-    if refused:
-        print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
-        return 1
-    for note in _branch_name_notes(root, argv):
-        print(f'precedent_push_check: NOTE -- {note}', flush=True)
     if '--tier' in argv:
         i = argv.index('--tier')
         value = argv[i + 1] if i + 1 < len(argv) else ''
