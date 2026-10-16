@@ -243,9 +243,20 @@ above", 2026-09-26):
     someone off the ladder, while pre-staging drifted and the next Produce
     met the conflict: on 2026-10-03, two direct commits left main red on a
     stale generated page, and nothing on the ladder could take them.
-  - A conflict only in generated files (a `generated_by:` header, or a
-    page `doc_html.py` renders) is rebuilt by each file's own generator from
-    the merged sources. A conflict in hand-written text still stops.
+  - A conflict only in generated files is rebuilt by each file's own
+    generator from the merged sources. A file counts as generated when it
+    carries a `generated_by:` header, is a page `doc_html.py` renders, or
+    is declared by the repository in its `precedent.json`:
+    `"generated": [{"paths": ["book/output/*.docx"], "rebuild":
+    ["tools/build_book.py"]}]` (globs, and a `tools/` script with its
+    arguments). A conflict that sits entirely inside `doc_sync` blocks
+    (`<!--gen:NAME-->`) of an otherwise hand-written document is resolved
+    hunk by hunk to one side, keeping the other side's clean edits around
+    it, and `tools/doc_sync.py --write` writes the block afresh. A conflict
+    in hand-written text still stops, and the refusal says which kind of
+    stop it is: hand-written text, a rebuild that failed, or a rebuild that
+    left conflict markers (2026-10-16: a land called a word-count block and
+    a generated `.docx` "hand-written text").
   - Produce is held by a red main until staging both carries main's tip
     and that staging tip has passed the full local check, so the repair is
     checked first, never taken on trust (Morgan: "Should it check this

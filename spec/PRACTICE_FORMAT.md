@@ -917,8 +917,24 @@ the practice to work. Absent, `null` and `[]` all mean "nothing".
 copies each entry of every practice it materializes to the **same path** in
 the consuming repository, the way it copies `tools/checks/`: recorded in
 `MANIFEST.json` under `ships`, compared by `--check`, a destination two
-sources both claim refused, a copy the manifest never recorded replaced with
-a notice, a file no practice ships any more reported and left in place.
+sources both claim refused, a file no practice ships any more reported and
+left in place.
+
+**A copy this tree did not write is replaced only when git keeps what
+goes** (practice: repair-cannot-discard-work). A committed hand-copy is
+replaced with a notice, since `git diff` then shows exactly what went. A
+copy holding changes no commit has (untracked, uncommitted, or outside any
+git checkout) is left untouched, and both the sync and `--check` say so:
+commit it to keep it, or delete it and sync again to take the set's copy.
+A committed copy this repository moved on from the set's -- after a
+recorded delivery, or with the set's exact bytes in that file's own history
+-- is left untouched too and is not drift: that repository is the file's
+origin, and the set's copy is the older one, so the notice says to carry it
+to the set, with no `declined_ships` entry needed. On 2026-10-16 a sync
+replaced an uncommitted edit with a set's older copy and pointed at
+`git diff`, which showed nothing. Harness adapters follow the first two
+halves of the same rule.
+
 Before this field, such a file travelled by "copy it in by hand", which is
 how `create-word-doc`'s test went red in a consumer on 2026-09-26: the test
 copies `tools/create_word_doc.py`, and nothing had delivered it.
