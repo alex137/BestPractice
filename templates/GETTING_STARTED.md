@@ -274,7 +274,7 @@ conversation:
 
 A few things can only be done by hand, in GitHub's own settings pages, by
 someone with administrator rights here. None is urgent, and each fails
-*quietly* rather than loudly, so they are worth a look when you have a
+*without any warning*, so they are worth a look when you have a
 moment. **Ask the AI Assistant for more specific instructions on any of
 them**, or read the full reference at
 [GITHUB_SETTINGS.md](<upstream-docs>/documentation/GITHUB_SETTINGS.md).

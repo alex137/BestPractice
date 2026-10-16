@@ -2117,8 +2117,17 @@ def _importable(mod):
 
 
 def _pip_install(mods):
-    r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--quiet',
-                        *mods], capture_output=True, text=True)
+    # precedent_python.pip_install is the engine's one install call: it
+    # retries a PEP 668 refusal, which a cloud container's system Python
+    # gives a plain `pip install` (2026-10-15). Both files are engine files;
+    # the plain call stays only for a tree that lacks it.
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_python
+        r = precedent_python.pip_install(sys.executable, mods)
+    except ImportError:
+        r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--quiet',
+                            *mods], capture_output=True, text=True)
     tail = (r.stderr or r.stdout or '').strip().splitlines()
     return tail[-1] if tail else ''
 
