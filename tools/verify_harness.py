@@ -30192,6 +30192,10 @@ def check_branch_cleanup_button():
     line = sb._cleanup_line('o', 'r', 3, st(False, '', installed=False), now)
     cases.append(('not installed: says so, no link',
                   'href' not in line and 'Update Vendors installs it' in line, line))
+    line = sb._cleanup_line('o', 'r', 3, dict(st(False, '', installed=False), source=True), now)
+    cases.append(('a practice set: never told Update Vendors installs it',
+                  'href' not in line and 'practice set carries no GitHub workflow' in line
+                  and 'Update Vendors' not in line, line))
     page = sb.render_html([('o', 'r', [('done-branch', '2026-10-01')])], now=now,
                           cleanup={('o', 'r'): st(True, day_ago)})
     recs, _clicked = sb.read_cleanup(page)

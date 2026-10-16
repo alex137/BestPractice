@@ -457,6 +457,19 @@ def _declared_visibility(repo):
     return {'private': True, 'public': False}.get(v)
 
 
+def _is_source(repo):
+    """True for a practice set: it carries no GitHub workflow at all
+    (practice: source-sets-run-no-ci), so it never gets the button."""
+    for f in (pathlib.Path(repo) / 'tools' / 'ENGINE_MANIFEST.json',
+              pathlib.Path(repo) / 'precedent.json'):
+        try:
+            if json.loads(f.read_text(encoding='utf-8')).get('kind') == 'source':
+                return True
+        except (OSError, ValueError, AttributeError):
+            continue
+    return False
+
+
 def _github():
     try:
         import github_budget
@@ -502,6 +515,7 @@ def cleanup_state(repo, owner, name, gh=None, hours=None, now=None):
     installed = cleanup_installed(repo)
     last = last_cleanup_run(f'{owner}/{name}', gh) if installed and private else ''
     return {'owner': owner, 'repo': name, 'installed': installed, 'private': private,
+            'source': _is_source(repo),
             'hours': float(hours or 0), 'last': last, 'checked': now.isoformat()}
 
 
@@ -594,6 +608,9 @@ def _cleanup_line(owner, name, n, state, now=None, tz=''):
     back, or why there is none. '' when there is no record at all."""
     if not state:
         return ''
+    if not state.get('installed') and state.get('source'):
+        return ('<p class="cleanup">No delete-all button here: a practice set carries '
+                'no GitHub workflow. Delete its branches one at a time below.</p>')
     if not state.get('installed'):
         return ('<p class="cleanup">No delete-all button here: this repository\'s '
                 '<code>main</code> does not have the cleanup workflow yet. Update '
