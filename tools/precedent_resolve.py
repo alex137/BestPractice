@@ -1841,7 +1841,7 @@ def resolve(sources, context=()):
     # set's own `go-merge`, deduplicated against the universal one, read IN
     # FORCE NOWHERE in every consumer -- the rule was live the whole time,
     # one hop further on.
-    dangling = []
+    dangling, keep = [], []
     for practice in retired:
         if bv.practice_status(practice['fm']) != bv.DEDUPLICATED_STATUS:
             continue
@@ -1866,7 +1866,30 @@ def resolve(sources, context=()):
                              why=(f"withdrawn from universal on {gone[0]}; in "
                                   f"force in `{gone[1]}` -- declare that set "
                                   f"to keep it"))
+            elif practice['level'] != 'universal' and practice['slug'] not in resolved:
+                # A SET'S copy only. A universal copy pointing at a set this
+                # repo does not declare is the person's call, asked by Update
+                # Vendors and answerable with not_in_force_here; keeping it
+                # would override that answer. A set's copy points the other
+                # way, at a source every repo takes, so its target is only late.
+                keep.append((practice, msg))
+                entry.update(kept_in_force=True,
+                             why=f"{msg} -- kept in force here from this copy until "
+                                 f"its target arrives (Update Vendors brings it)")
             dangling.append(entry)
+    # KEPT IN FORCE UNTIL ITS TARGET ARRIVES (2026-10-16). A set handed the
+    # rule on, and the copy it was handed to has not reached this repository
+    # yet -- a vendored catalogue older than the set. Dropped, the rule bound
+    # nowhere and the sync still said OK; in a consuming repository that was
+    # curly-quotes, until Update Vendors brought the universal copy. The
+    # handed-on copy still carries the whole rule, so it binds here, said so
+    # on every sync, until its target resolves and it stands down by itself.
+    # A set's copy only, never universal's (above). Applied only after every
+    # copy was judged against what resolved on its own: kept one at a time, a kept copy made the next one in a chain or a
+    # cycle look satisfied, and that one went unreported.
+    for practice, msg in keep:
+        retired.remove(practice)
+        resolved.setdefault(practice['slug'], dict(practice, kept_in_force=msg))
     return {'practices': resolved, 'shadowed': shadowed, 'blocked': blocked,
             'missing': missing, 'retired': retired, 'dangling': dangling}
 
@@ -2102,8 +2125,8 @@ def _report(res, sources, out=sys.stdout):
         print(f"  not in force: {r['slug']} ({r['source']}) is status: "
               f"{bv._json_str(r['fm'].get('status'))}", file=out)
     for d in res.get('dangling', ()):
-        print(f"  IN FORCE NOWHERE: {d['slug']} ({d['source']}) -- {d['why']}",
-              file=out)
+        print(f"  {'KEPT IN FORCE, ITS TARGET NOT HERE YET' if d.get('kept_in_force') else 'IN FORCE NOWHERE'}"
+              f": {d['slug']} ({d['source']}) -- {d['why']}", file=out)
     if res.get('dangling'):
         print(f"  {len(res['dangling'])} deduplication(s) unreachable from "
               f"here -- rerun with --strict to fail on this", file=out)
