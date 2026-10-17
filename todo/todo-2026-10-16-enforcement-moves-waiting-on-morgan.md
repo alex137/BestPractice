@@ -63,3 +63,8 @@ All three are decided, and what was decided is built or parked.
   session to continue with the enforcement lives plan including starting
   with section 3 now". A new session rooted in BestPractice and the ladder
   set does it, planning each step first and landing each piece on staging.
+- 2026-10-17: the step-by-step for part 3 is written into the plan
+  ([section 3a](../spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md)):
+  six pieces, each set half first, then the engine half. Waiting on
+  Morgan's go-ahead for it, and on his call to keep
+  [`precedent_branch_name.py`](../tools/precedent_branch_name.py) in the engine.

@@ -103,6 +103,66 @@ that predates this practice. The move, in outline:
 This is a restructuring of its own, several sessions long. Morgan gave
 the go-ahead on 2026-10-17 (strength: decided).
 
+### 3a. The step-by-step (proposed 2026-10-17, waiting on Morgan's go-ahead)
+
+Measured on staging at `8e122175`: the inventory names 23 ladder names
+in engine code -- 16 in [`ladder_words.py`](../tools/ladder_words.py), 2 each in
+[`precedent_branches.py`](../tools/precedent_branches.py) and [`precedent_upstream_review.py`](../tools/precedent_upstream_review.py), 1 each in
+[`precedent_gate.py`](../tools/precedent_gate.py), [`precedent_others_did.py`](../tools/precedent_others_did.py) and [`verify_harness.py`](../tools/verify_harness.py).
+[`precedent_branches.py`](../tools/precedent_branches.py) is about 5,000 lines, imported by 19 engine
+tools, and its tests are a few hundred references in [`verify_harness.py`](../tools/verify_harness.py).
+
+**Two facts shape the order.** A set's `ships:` path may not be an engine
+file (`build_views.ship_path_problem`), so the set copy takes a new path:
+everything lands under the set's own `tools/ladder/`. And BestPractice
+runs its own ladder steps from the copy it materializes out of the
+ladder set's clone, so the engine may drop a piece only once the set's
+copy is on the set's `main`.
+
+**So each piece goes in two halves, set first:**
+
+1. *Set half.* The new file under `tools/ladder/` plus its tests, in the
+   ladder set. Additive: nothing calls it yet, so a consumer that takes it
+   alone carries one unused file. Booked on the set's `staging`, then
+   Produce into its `main` on Morgan's word.
+2. *Engine half.* Callers switch to the set copy (or to a generic seam),
+   the engine copy is deleted, its tests leave [`verify_harness.py`](../tools/verify_harness.py), and the
+   inventory loses that file's names. Booked on BestPractice `staging`;
+   Produce on his word, never before the set half is on the set's `main`.
+
+A consumer that runs Update Vendors after both Produces takes both
+halves at once, as part 3's outline asks; one that takes only the set
+half loses nothing.
+
+**The pieces, smallest first:**
+
+| # | Piece | Set gets | Engine keeps | Names gone |
+|---|---|---|---|---|
+| 1 | Stage words | `tools/ladder/ladder_words.py`; the check `ladder-words-stay-in-the-ladder-set` (today in [`precedent_check.py`](../tools/precedent_check.py)) becomes the set's `tools/checks/check_ladder_words_stay.py` with its test | nothing | 16 |
+| 2 | others-did | `tools/ladder/others_did.py`, run by a `SessionStart` hook the `others-did` practice declares | nothing; the gate stops importing it | 1 |
+| 3 | Branch-cleanup page | `tools/ladder/stale_branches.py`, and its reply requirement as a rule in the set's `reply_check.json` | a generic reply-check rule kind: "in the closing reply, require what this set tool prints" | 1 |
+| 4 | Debut and Produce wording | `tools/ladder/upstream_review.py` | nothing | 2 |
+| 5a | A seam, no behaviour change | -- | a branch-policy hook: a set that provides the `ladder` capability names a module, and the engine asks it for the tier branches, each one's check level and whether it is promote-only; with none, the landing branch and the trunk are all there is | 0 |
+| 5b | Promote, Debut, Produce, `--land`, `--run-tests`, the tiers | `tools/ladder/ladder_branches.py`, built on the engine core | landing branch, lock, composing a merge in a worktree, pushing it | 2 |
+| 5c | Their tests | the ladder tests from [`verify_harness.py`](../tools/verify_harness.py), beside the code | engine tests against a planted policy with made-up names | 1 |
+| 6 | Close | -- | part 3's files off the held-on-purpose list; the inventory reads clean | -- |
+
+**One deviation, for Morgan to decide:** [`precedent_branch_name.py`](../tools/precedent_branch_name.py)
+stays in the engine. It enforces nothing and names no set's practice;
+Update Vendors and the source bootstrap, which every repository runs,
+name their branches with it. The ladder already ships the guard that
+enforces the naming (part 1). It comes off the held list in piece 6.
+
+**Left alone on purpose.** The push-check level each tier gets moves as
+it is. Whether three of those spots should run only the quick checks is
+Morgan's open question in another session; if his answer lands first, it
+is carried through 5b.
+
+**Small calls, noted.** The set's tests for a tool that is not a check
+go in `tools/checks/tests/` beside the rest, since that is where the set's
+runner already looks; piece 1 confirms a consumer's sync skips a test
+with no check beside it instead of complaining about it.
+
 ## 4. Decided and built: the commit-identity checks stay in the engine
 
 The individual set's commit-author and date-zone practices point
