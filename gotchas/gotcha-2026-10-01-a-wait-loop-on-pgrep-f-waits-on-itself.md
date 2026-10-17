@@ -57,7 +57,7 @@ its process ID (PID), `cmd & pid=$!`, and use `wait "$pid"` in the same shell, o
 If a name search is unavoidable, the bracket trick keeps it from matching
 itself: `pgrep -f '[r]uncases.py'`.
 
-**Listed since 2026-09-28**: `tools/precedent_container_safe.py` lists any
+**Listed since 2026-09-28**: [tools/precedent_container_safe.py](../tools/precedent_container_safe.py) lists any
 shell the session's agent started that is still running, so a loop like
 this shows up at the next reply gate.
 

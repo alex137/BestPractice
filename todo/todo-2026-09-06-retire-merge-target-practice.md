@@ -94,7 +94,7 @@ closed:            2026-09-27
       with no conflict raised** — 496 under `evals/`, plus
       [templates/leak-blocklist.txt.template](../templates/leak-blocklist.txt.template),
       [templates/hooks/pre-push](../templates/hooks/pre-push),
-      [tools/section_split.json](../tools/section_split.json),
+      `tools/section_split.json`,
       [tools/practice_metadata.json](../tools/practice_metadata.json),
       [decisions/README.md](../decisions/README.md),
       [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md),

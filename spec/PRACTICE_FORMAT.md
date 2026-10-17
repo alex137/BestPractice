@@ -338,11 +338,14 @@ practices whose source opens on bare prose (47–52) had their *entire* body
 land in `## Rule`, because the label walk never saw a `**Why.**` to leave on.
 `## Story` was empty in all 52.
 
-[`tools/resplit_sections.py`](../tools/resplit_sections.py) performs the
+A one-off re-split tool performed the
 second, editorial half — the step the plan describes as "LLM-assisted and
-human-reviewed, once per practice". The editorial judgment lives in
-[`tools/practice_metadata.json`](../tools/practice_metadata.json)'s sibling,
-`tools/section_split.json`, as **references to source paragraphs** rather than
+human-reviewed, once per practice". (Both it and its data file were
+decommissioned on 2026-10-17: the split was long done, its list named
+practices that had since moved to another set, and nothing called it; git
+history keeps both.) The editorial judgment lived in a data
+file beside [`tools/practice_metadata.json`](../tools/practice_metadata.json),
+as **references to source paragraphs** rather than
 as rewritten text: the tool moves text by reference, so retyping a sentence
 slightly differently is not something the mechanism can do, and a reviewer can
 read the decisions on their own, apart from their effect. Every one of the 52
@@ -407,8 +410,7 @@ now expected output showing the re-split, not a defect report.
 It holds **normative operational specifics** — numbered policy rules, worked
 procedures, sub-rules with their own tests: text that is binding but is not
 needed to decide *whether* the practice applies. Same machinery as the
-phase-1.5 pass ([tools/resplit_sections.py](../tools/resplit_sections.py)
-over [tools/section_split.json](../tools/section_split.json)), so the
+phase-1.5 re-split (its tool and data file since decommissioned), so the
 decisions are reviewable as data and the text moves by reference rather than
 being retyped.
 
