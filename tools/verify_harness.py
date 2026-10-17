@@ -8953,9 +8953,10 @@ def check_very_deep_check_test_worth_judges_what_changed():
             'def check_old_tier():\n    """The tier."""\n    return "zz-gone-tier"\n\n'
             'def check_owed():\n    """To retire."""\n    return 3\n\n'
             'def helper():\n    return 4\n', encoding='utf-8')
-        (tmp / 'tools' / 'harness_check_times.json').write_text(json.dumps({'seconds': {
-            'check_quiet': 0.4, 'check_grew': 9.0, 'check_old_tier': 2.0,
-            'check_owed': 1.0}}), encoding='utf-8')
+        (tmp / 'tools' / 'harness_check_times.json').write_text(json.dumps({
+            'measured': '2026-10-09, 4 cores, --as-ci', 'seconds': {
+                'check_quiet': 0.4, 'check_grew': 9.0, 'check_old_tier': 2.0,
+                'check_owed': 1.0}}), encoding='utf-8')
         (tmp / 'tools' / 'tests' / 'test_thing.sh').write_text(
             '#!/bin/sh\n# Two-direction test for the thing.\nexit 0\n', encoding='utf-8')
         subprocess.run(['git', 'init', '-q', str(tmp)], check=True)
@@ -9006,17 +9007,36 @@ def check_very_deep_check_test_worth_judges_what_changed():
                       and by['tools/tests/test_thing.sh']['status'] == 'unjudged',
                       repr(r['problems'])))
         text = tr.render_text(r)
-        cases.append(('the text counts what is judged and what is to judge',
+        cases.append(('the text counts what is judged and what is to judge, '
+                      'and says when the times were measured',
                       'Judged 1; to judge: 2 never judged, 1 to judge again, 1 '
-                      'cheapen/retire owed.' in text, text))
+                      'cheapen/retire owed.' in text
+                      and 'Times measured 2026-10-09, 4 cores' in text, text))
         md = tr.render_markdown([('fixture', r)])
         cases.append(('the block gives time by importance and the slowest against it',
                       '| medium | 2 | 9 |' in md and '| `check_grew` | 9.0 | keep | medium |' in md,
                       md))
         doc = tmp / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
         doc.write_text('# Run\n\nBody.\n', encoding='utf-8')
-        with contextlib.redirect_stdout(io.StringIO()):
+        # Times from an earlier day are said to be stale before judging;
+        # today's are not (2026-10-17: a list said 777 s for a test that
+        # took 266 s that day).
+        stale_out = io.StringIO()
+        with contextlib.redirect_stdout(stale_out):
             vdc.test_worth_section([('fixture', tmp)], tmp)
+        times_f = tmp / 'tools' / 'harness_check_times.json'
+        rec = json.loads(times_f.read_text(encoding='utf-8'))
+        rec['measured'] = f'{vdc.precedent_time.today(tmp)}, 4 cores, --as-ci'
+        times_f.write_text(json.dumps(rec), encoding='utf-8')
+        fresh_out = io.StringIO()
+        with contextlib.redirect_stdout(fresh_out):
+            vdc.test_worth_section([('fixture', tmp)], tmp)
+        cases.append(('times from an earlier day are flagged before judging, '
+                      'today\'s are not',
+                      "TIMES ARE NOT TODAY'S (measured 2026-10-09" in stale_out.getvalue()
+                      and 'TIMES ARE NOT TODAY' not in fresh_out.getvalue(),
+                      stale_out.getvalue()[-600:] + ' || ' + fresh_out.getvalue()[-300:]))
+        with contextlib.redirect_stdout(io.StringIO()):
             (tmp / 'tools' / 'tests' / 'test_thing.sh').unlink()
             vdc.test_worth_section([('fixture', tmp)], tmp)
         body = doc.read_text(encoding='utf-8')
@@ -9029,7 +9049,7 @@ def check_very_deep_check_test_worth_judges_what_changed():
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'very_deep_check.py\'s TEST WORTH lists every test and judges what changed '
           f'({len(cases)} stated cases: inventory, time, leads, new, again, owed, '
-          f'stale, malformed, write-up block)',
+          f'stale, malformed, times\' age, write-up block)',
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
@@ -13093,8 +13113,10 @@ def check_bare_all_runs_across_the_cores():
                   "env['PRECEDENT_HARNESS_ALL'] = '1'" in src
                   and 'if every_case:' in src))
     main_src = pathlib.Path(__file__).read_text(encoding='utf-8')
-    cases.append(('the entry point dispatches it',
-                  '_done(run_as_ci(every_case=True))' in main_src))
+    cases.append(('the entry point dispatches it, and passes --record-times on',
+                  "_done(run_as_ci(every_case=True,\n"
+                  "                        record_times='--record-times' in sys.argv[1:]))"
+                  in main_src))
     failed = [n for n, ok in cases if not ok]
     check(f'a bare --all runs across the cores ({len(cases)} stated cases)',
           not failed, '; '.join(failed))
@@ -85483,6 +85505,12 @@ if __name__ == '__main__':
     # (run_as_ci starts them with no arguments) and a filtered run keeps its
     # filter, so neither recurses. PRECEDENT_HARNESS_SERIAL=1 is the old
     # one-process run, for profiling.
+    #
+    # --all --record-times records every check's time from that run
+    # (2026-10-17): the very deep check's whole-suite run is the one the
+    # TEST WORTH section judges by, so its times must be that day's, not a
+    # list measured before the suite last changed shape.
     if _bare_all_runs_in_parallel(sys.argv[1:], os.environ):
-        _done(run_as_ci(every_case=True))
+        _done(run_as_ci(every_case=True,
+                        record_times='--record-times' in sys.argv[1:]))
     _done(main())

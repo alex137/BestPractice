@@ -124,10 +124,11 @@ def inventory(root):
     harness = root / HARNESS_RELPATH
     if harness.is_file() and HARNESS_RELPATH not in vendored:
         try:
-            times = json.loads((root / TIMES_RELPATH).read_text(
-                encoding='utf-8')).get('seconds') or {}
+            rec = json.loads((root / TIMES_RELPATH).read_text(encoding='utf-8'))
+            times = rec.get('seconds') or {}
+            measured = str(rec.get('measured') or '')
         except (OSError, ValueError, AttributeError):
-            times = {}
+            times, measured = {}, ''
         text = harness.read_text(encoding='utf-8')
         lines = text.splitlines()
         try:
@@ -140,7 +141,7 @@ def inventory(root):
                 # By line range: ast.get_source_segment rescans the whole
                 # file per call, minutes over the harness's 700-odd tests.
                 tests.append({
-                    'name': node.name, 'kind': 'harness',
+                    'name': node.name, 'kind': 'harness', 'measured': measured,
                     'file': HARNESS_RELPATH, 'line': node.lineno,
                     'seconds': float(t) if isinstance(t, (int, float)) else None,
                     'about': _first_line(ast.get_docstring(node) or ''),
@@ -308,6 +309,7 @@ def review(root):
         n, s = by_importance.get(k, (0, 0.0))
         by_importance[k] = (n + 1, s + (t['seconds'] or 0))
     totals = {'tests': len(tests), 'seconds': secs(tests),
+              'measured': next((t['measured'] for t in tests if t.get('measured')), ''),
               'timed': sum(1 for t in tests if t['seconds'] is not None),
               'by_status': {s: sum(1 for t in tests if t['status'] == s)
                             for s in ('judged', 'unjudged', 'rejudge', 'owed')},
@@ -333,7 +335,8 @@ def render_text(result, show_all=False, label=''):
     lines = [f'  {label}{tt["tests"]} test(s), {tt["timed"]} timed, '
              f'{tt["seconds"]:.0f} s recorded in all. Judged {st["judged"]}; '
              f'to judge: {st["unjudged"]} never judged, {st["rejudge"]} to judge '
-             f'again, {st["owed"]} cheapen/retire owed. {tt["with_leads"]} carry a lead.']
+             f'again, {st["owed"]} cheapen/retire owed. {tt["with_leads"]} carry a lead.'
+             + (f' Times measured {tt["measured"]}.' if tt.get('measured') else '')]
     imp = tt['by_importance']
     if imp:
         lines.append('  TIME BY IMPORTANCE: ' + '; '.join(
@@ -382,7 +385,9 @@ def render_markdown(results):
                f'{tt["seconds"]:.0f} s recorded in all. Judged: {st["judged"]}. '
                f'Never judged: {st["unjudged"]}. To judge again: {st["rejudge"]}. '
                f'Cheapen or retire owed: {st["owed"]}. Carrying a lead: '
-               f'{tt["with_leads"]}.', '']
+               f'{tt["with_leads"]}.'
+               + (f' Times measured {tt["measured"]}.' if tt.get('measured') else ''),
+               '']
         if tt['by_importance']:
             md += ['| Importance | Tests | Seconds |', '|---|---:|---:|']
             for k in IMPORTANCE + ('not judged yet',):

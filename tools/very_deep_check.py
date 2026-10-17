@@ -170,8 +170,9 @@ Run:
   python3 tools/very_deep_check.py --skip-session-sweep
       -- skip that sweep entirely.
   python3 tools/very_deep_check.py --with-harness
-      -- run `verify_harness.py --all` from inside this run and record the
-      result as its own ledger section. Off by default: it is minutes, and
+      -- run `verify_harness.py --all --record-times` from inside this run
+      and record the result as its own ledger section; a green run also
+      records every test's time, which TEST WORTH then judges by. Off by default: it is minutes, and
       its stress checks have OOM-killed a session's shell before. Left off,
       the PLANTED CASE COVERAGE section says the rotation is still owed and
       names the command.
@@ -1398,7 +1399,11 @@ def planted_case_coverage(repo_root, run=False, timeout=2400):
     if not harness.is_file():
         return 'n/a', ['no tools/verify_harness.py here -- this repo runs no '
                        'planted cases, so there is no rotation to settle']
-    cmd = ("python3 tools/verify_harness.py --all --because "
+    # --record-times: this is the run TEST WORTH judges by, so every test's
+    # time is recorded from it, after a green run (2026-10-17: the list it
+    # read had been measured before the suite's largest test got about
+    # three times faster).
+    cmd = ("python3 tools/verify_harness.py --all --record-times --because "
            "'very deep check, step 2'")
     if not run:
         return 'owed', [
@@ -1410,7 +1415,8 @@ def planted_case_coverage(repo_root, run=False, timeout=2400):
             'in the ledger.']
     started = time.time()
     try:
-        proc = subprocess.run([sys.executable, str(harness), '--all', '--because',
+        proc = subprocess.run([sys.executable, str(harness), '--all',
+                               '--record-times', '--because',
                                'very deep check, step 2 (--with-harness)'],
                               cwd=str(repo_root), capture_output=True,
                               text=True, timeout=timeout)
@@ -1425,9 +1431,9 @@ def planted_case_coverage(repo_root, run=False, timeout=2400):
     # back is the evidence that --all actually took effect, rather than
     # this section asserting it did.
     sel = [l.strip() for l in body.splitlines()
-           if 'planted case' in l and 'ran' in l]
+           if ('planted case' in l and 'ran' in l) or 'check times' in l]
     lines = [f'ran `{cmd}` in {took:.0f}s -- exit {proc.returncode}']
-    lines += [f'  {s}' for s in sel[:2]]
+    lines += [f'  {s}' for s in sel[:3]]
     if proc.returncode != 0:
         tail = [l for l in body.splitlines() if l.strip()][-8:]
         lines.append('FAIL -- the full set does not pass. Tail:')
@@ -9171,6 +9177,7 @@ def test_worth_section(targets, repo_root):
     still to judge."""
     import test_review as tr
     results = []
+    today = precedent_time.today(repo_root)
     for name, path in targets:
         if not pathlib.Path(path).is_dir():
             continue
@@ -9179,6 +9186,15 @@ def test_worth_section(targets, repo_root):
             print(f'  {name}: no tests of its own.')
             continue
         print(tr.render_text(r, label=f'{name}: '))
+        measured = r['totals'].get('measured') or ''
+        if r['totals']['timed'] and not measured.startswith(today):
+            # Judge on today's times, never an old list (2026-10-17: the
+            # list said 777 s for a test that took 266 s that day).
+            when = measured or 'on an unknown date'
+            print(f'  TIMES ARE NOT TODAY\'S (measured {when}). Re-time before '
+                  f'judging: run this check with --with-harness, or '
+                  f'`python3 tools/verify_harness.py --all --record-times '
+                  f'--because "<why>"` in {name}, then --refresh-tests.')
         print()
         results.append((name, r))
     n = sum(len(tr.to_judge(r)) for _n, r in results)
