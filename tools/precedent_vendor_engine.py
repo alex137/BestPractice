@@ -1437,6 +1437,32 @@ def _wired_hook_names_anywhere(dest_root):
     return _settings_hook_names(dest_root, _HOOK_CMD_ANY_RE)
 
 
+_HOOK_CMD_PATH_RE = re.compile(r'([\w.${}/-]*?)([\w.-]+\.sh)\b')
+
+
+def _wired_hook_paths(dest_root):
+    """-> {basename: {repo-relative path}} for every hook script this repo's
+    .claude/settings.json runs, wherever it lives -- the paths behind
+    _wired_hook_names_anywhere, for saying WHICH copy is wired."""
+    settings_path = pathlib.Path(dest_root) / '.claude' / 'settings.json'
+    try:
+        settings = json.loads(settings_path.read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return {}
+    out = collections.defaultdict(set)
+    for group in (settings.get('hooks') or {}).values():
+        for entry in group if isinstance(group, list) else ():
+            for h in (entry or {}).get('hooks', []) if isinstance(entry, dict) else ():
+                cmd = (h.get('command', '') or '').replace('"', '').replace("'", '')
+                for where, name in _HOOK_CMD_PATH_RE.findall(cmd):
+                    for lead in ('$CLAUDE_PROJECT_DIR/', '${CLAUDE_PROJECT_DIR}/', './'):
+                        if where.startswith(lead):
+                            where = where[len(lead):]
+                    if '$' not in where and not where.startswith('/'):
+                        out[name].add(where + name)
+    return dict(out)
+
+
 def _settings_hook_names(dest_root, pattern):
     """The shared walk behind the two functions above, so a change to how
     settings.json is read cannot reach one and miss the other.
@@ -2331,6 +2357,18 @@ def _write_hook_files(dest_root, hooks_src_dir, previous=None):
     # two copies of it. See _wired_hook_names_anywhere.
     elsewhere = sorted(set(skipped) & _wired_hook_names_anywhere(dest_root))
     skipped = [n for n in skipped if n not in set(elsewhere)]
+    # ...but "nothing to do" is true only when something keeps that copy
+    # current: an engine_paths entry the refresh rewrites. A copy in place
+    # that no entry declares goes stale for good (2026-10-17, very deep
+    # check: an individual set wired bootstrap/precedent-universal-
+    # catalogue.sh, a copy from 2026-09-20, and was told nothing to do).
+    declared = set(declared_engine_paths(dest_root).values())
+    paths = _wired_hook_paths(dest_root)
+    undeclared = {n: sorted(p for p in paths.get(n, ())
+                            if p != f'{HOOK_DEST_DIR}/{n}' and p not in declared)
+                  for n in elsewhere}
+    undeclared = {n: ps for n, ps in undeclared.items() if ps}
+    elsewhere = [n for n in elsewhere if n not in undeclared]
     # SAID ONCE, WHEN IT CHANGES (2026-10-12, a consuming repository's
     # Update Vendors): the three notes below are states, never tasks, and
     # were printed on every refresh, so every update's upstream review
@@ -2339,9 +2377,18 @@ def _write_hook_files(dest_root, hooks_src_dir, previous=None):
     state = {'elsewhere': elsewhere, 'not_wired': list(skipped),
              'adapters': {n: claimed[f'{HOOK_DEST_DIR}/{n}']
                           for n in sorted(adapter_owned & wired)}}
+    if undeclared:
+        state['undeclared'] = undeclared
     said = previous.get(HOOKS_NOT_VENDORED_KEY) if isinstance(previous, dict) else None
     if said == state:
-        elsewhere, skipped = [], []
+        elsewhere, skipped, undeclared = [], [], {}
+    for n, ps in sorted(undeclared.items()):
+        print(f"NOTE: precedent_vendor_engine: {n}, which BestPractice ships, "
+              f"is wired by this repo from {', '.join(ps)}, a path precedent.json's "
+              f"{ENGINE_PATHS_KEY} does not declare -- so no refresh keeps that "
+              f"copy current. Declare it there (\"{HOOK_SOURCE_DIR}/{n}\": "
+              f"\"{ps[0]}\"), or wire {HOOK_DEST_DIR}/{n} instead, which the "
+              f"refresh vendors.", file=sys.stderr)
     if elsewhere:
         print(f"NOTE: precedent_vendor_engine: {len(elsewhere)} hook "
               f"script(s) BestPractice also ships ({', '.join(elsewhere)}) "
@@ -7429,6 +7476,11 @@ def status(clone):
                   f"{', '.join(left['not_wired'])}")
         for n, src in sorted((left.get('adapters') or {}).items()):
             print(f"    {HOOK_DEST_DIR}/{n}: kept by {src!r}'s own adapters")
+    for n, ps in sorted(((left.get('undeclared') or {}) if isinstance(left, dict)
+                         else {}).items()):
+        print(f"  NOTE: {n} is wired from {', '.join(ps)}, which {ENGINE_PATHS_KEY} "
+              f"does not declare, so no refresh keeps it current: declare it "
+              f"there, or wire {HOOK_DEST_DIR}/{n} instead.")
     if 'hook_files' not in manifest:
         print(f"  NOTE: this manifest has no hook_files recorded yet -- vendored before hook "
               f"scripts were tracked. `refresh` will pick them up on the next run.")

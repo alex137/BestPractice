@@ -72009,6 +72009,75 @@ def check_refresh_replaces_a_past_individual_hook_rendering():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_refresh_names_an_in_place_hook_no_engine_path_keeps():
+    """A hook a repo wires from a path of its own is "nothing to do" only
+    when precedent.json's engine_paths declares that path; one it does not
+    declare is named once, with the fix.
+
+    2026-10-17, very deep check: an individual set wires
+    bootstrap/precedent-universal-catalogue.sh, a copy from 2026-09-20 that
+    no engine_paths entry keeps current, and every refresh said there was
+    NOTHING TO DO about it, so it stayed stale for good. Decision (the
+    session's, under Morgan's delegation of 2026-10-17): say so once, with
+    both fixes. Planted: two shipped hooks wired from bootstrap/, one of
+    them declared in engine_paths."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-in-place-hook-'))
+    cases = []
+    try:
+        src = tmp / 'hooks'
+        src.mkdir()
+        for n in ('kept-current.sh', 'left-stale.sh'):
+            (src / n).write_text('#!/bin/bash\n', encoding='utf-8')
+        repo = tmp / 'set'
+        (repo / '.claude').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / pve.MANIFEST_NAME).write_text('{}\n', encoding='utf-8')
+        (repo / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
+            'SessionStart': [{'hooks': [
+                {'type': 'command',
+                 'command': '$CLAUDE_PROJECT_DIR/bootstrap/kept-current.sh'},
+                {'type': 'command',
+                 'command': '"$CLAUDE_PROJECT_DIR"/bootstrap/left-stale.sh'}]}]}}),
+            encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({pve.ENGINE_PATHS_KEY: {
+            f'{pve.HOOK_SOURCE_DIR}/kept-current.sh': 'bootstrap/kept-current.sh'}}),
+            encoding='utf-8')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            pve._write_hook_files(repo, src, previous={})
+        out = err.getvalue()
+        nothing = [l for l in out.splitlines() if 'NOTHING TO DO' in l]
+        stale = [l for l in out.splitlines() if 'left-stale.sh' in l
+                 and pve.ENGINE_PATHS_KEY in l]
+        cases.append(('the declared in-place copy is still "nothing to do"',
+                      any('kept-current.sh' in l for l in nothing), out[:600]))
+        cases.append(('the undeclared one is never called "nothing to do"',
+                      not any('left-stale.sh' in l for l in nothing), out[:600]))
+        cases.append(('...and is named with both fixes: declare it, or wire .claude/hooks/',
+                      stale and 'bootstrap/left-stale.sh' in stale[0]
+                      and f'{pve.HOOK_DEST_DIR}/left-stale.sh' in stale[0], out[:600]))
+        manifest = json.loads((repo / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            pve._write_hook_files(repo, src, previous=manifest)
+        cases.append(('said once: a second refresh with the same state is silent',
+                      'left-stale.sh' not in err.getvalue(), err.getvalue()[:400]))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'refresh names an in-place hook no engine_paths entry keeps current '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -82787,6 +82856,7 @@ def main():
     check_update_vendors_dropped_wording_reads_placeholders_filled()
     check_update_takes_an_untouched_install_copy()
     check_refresh_replaces_a_past_individual_hook_rendering()
+    check_refresh_names_an_in_place_hook_no_engine_path_keeps()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
