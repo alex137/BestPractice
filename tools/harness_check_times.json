@@ -352,7 +352,6 @@
   "check_one_python": 0.1,
   "check_one_upstream_move_is_said_once_at_session_start": 0.0,
   "check_orphan_scan_reads_who_claims_a_script": 0.0,
-  "check_others_did_counts_from_your_last_commit_and_writes_nothing_to_origin": 3.2,
   "check_over_target_line_says_whose_load_and_how_to_break_it_down": 0.0,
   "check_owned_paths_previews_the_boundary": 0.9,
   "check_parallel_artifact_ledger_fires": 1.0,

@@ -71,7 +71,7 @@ the person's own last commit instead: [the decision](todo-2026-10-10-others-did-
 Claude-signed commits: "great". The mechanism must be part of Precedent
 itself, so future people in the repository get it (Morgan, 2026-10-08).
 
-**Built 2026-10-08.** [tools/precedent_others_did.py](../tools/precedent_others_did.py)
+**Built 2026-10-08.** [tools/precedent_others_did.py](https://github.com/themorgan/precedent-shared-ladder/blob/staging/tools/ladder/others_did.py)
 replaces the beta-branch check and ships with the engine. Measured the same
 day, the old check had found Alex's commits at session start and still
 never told Morgan: its notice sat past the part of the start-up output a

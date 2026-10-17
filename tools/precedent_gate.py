@@ -1123,20 +1123,6 @@ def main():
         except ImportError:
             pass
 
-        # What other people landed here since this person's own last commit,
-        # left by the session-start hook for the first prompt and printed
-        # once (the others-did practice, in the ladder set). One local file read; no fetch, so a
-        # reply with no news costs nothing. An older engine without the
-        # module stays quiet.
-        try:
-            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-            import precedent_others_did as pod
-            report = pod.remind(root)
-            if report:
-                print(f"{report}\n")
-        except ImportError:
-            pass
-
         # The longest-due reminder this conversation has not shown yet, for
         # the Boildown's Todo line, by date rather than by topic (practice:
         # todo-reminder; Morgan, 2026-10-10: "Maybe we should have it show

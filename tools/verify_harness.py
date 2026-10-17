@@ -22674,9 +22674,28 @@ def check_precedent_check_fires():
     cases = []
     try:
         pristine = tmp / 'pristine'
-        shutil.copytree(ROOT, pristine,
-                        ignore=shutil.ignore_patterns('.git', '__pycache__',
-                                                      '*.pyc', 'prompts'))
+        # Files a set this repository does not track ships here
+        # (precedent_materialize.deliver_session_ships lists them in
+        # .git/info/exclude) are this session's, never the tree's: a copy
+        # that takes them judges a set's own code as this repository's.
+        _shipped = set()
+        try:
+            _excl = (ROOT / '.git' / 'info' / 'exclude').read_text(encoding='utf-8')
+            if '# BEGIN precedent session ships' in _excl:
+                _block = _excl.split('# BEGIN precedent session ships', 1)[1]
+                _block = _block.split('# END precedent session ships', 1)[0]
+                _shipped = {ln.strip().lstrip('/') for ln in _block.splitlines()[1:]
+                            if ln.strip() and not ln.startswith('#')}
+        except OSError:
+            pass
+        _base_ignore = shutil.ignore_patterns('.git', '__pycache__', '*.pyc', 'prompts')
+
+        def _ignore(d, names):
+            rel = pathlib.PurePath(os.path.relpath(d, ROOT)).as_posix()
+            return set(_base_ignore(d, names)) | {
+                n for n in names
+                if (f'{rel}/{n}' if rel != '.' else n) in _shipped}
+        shutil.copytree(ROOT, pristine, ignore=_ignore)
         git(pristine, 'init', '-q')
         git(pristine, 'config', 'user.email', 'harness@example.com')
         git(pristine, 'config', 'user.name', 'harness')
@@ -26178,8 +26197,14 @@ def check_precedent_check_fires():
         # Setup: the set's practice is checked by its own tools/checks/
         # script. Plant: by an engine file instead. Advisory until the moves
         # in spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md land.
+        # The set's name is made at run time, never written here: this file
+        # is one the check reads, and a planted name spelled out in it is
+        # itself "an engine test naming the set" in the clean tree.
+        import secrets as _zz_secrets
+        _zz_set = 'zzz-planted-' + _zz_secrets.token_hex(3)
+
         def _set_practice(checked_by):
-            return ('---\nslug:        zzz-planted-set-rule\ntitle:       Planted\n'
+            return (f'---\nslug:        {_zz_set}-rule\ntitle:       Planted\n'
                     'tier:        on-demand\nseverity:    default\n'
                     'applies_to:  ["**"]\noccasion:    "testing"\n'
                     'index_clause: "planted"\n'
@@ -26197,15 +26222,15 @@ def check_precedent_check_fires():
             (ind / 'tools' / 'checks' / 'tests').mkdir(exist_ok=True)
             (ind / 'tools' / 'checks' / 'tests' / 'test_zzz.sh').write_text(
                 '#!/bin/bash\nexit 0\n', encoding='utf-8')
-            (ind / 'practices' / 'zzz-planted-set-rule.md').write_text(
+            (ind / 'practices' / f'{_zz_set}-rule.md').write_text(
                 _set_practice('tools/checks/check_zzz.py'), encoding='utf-8')
             (repo / '.planted-user-config.json').write_text(_pj_e.dumps({
                 'format_version': 1, 'individual': {
-                    'name': 'zzz-planted-set', 'path': '_planted_individual'}}),
+                    'name': _zz_set, 'path': '_planted_individual'}}),
                 encoding='utf-8')
 
         def _plant_enforcement_lives(repo):
-            (repo / '_planted_individual' / 'practices' / 'zzz-planted-set-rule.md'
+            (repo / '_planted_individual' / 'practices' / f'{_zz_set}-rule.md'
              ).write_text(_set_practice('tools/leak_gate.py'), encoding='utf-8')
 
         import json as _pj_e
@@ -32105,225 +32130,6 @@ print(repr(pb.main_test_holds_produce({str(r)!r}, say=lambda *a: None)))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'Produce sees main changes staging already carries ({len(cases)} '
           f'stated cases)', not bad, '; '.join(f'{n} ({d})' for n, d in bad))
-
-def check_others_did_counts_from_your_last_commit_and_writes_nothing_to_origin():
-    """tools/precedent_others_did.py (the others-did practice, in the ladder
-    set), end to end on a throwaway origin with main and pre-staging.
-
-    WHERE IT STARTS (Morgan, 2026-10-10: "Go with option 1"): the report
-    counts from the person's own last commit here, and nothing is written to
-    origin. Until then a mark of what each person was last told lived on
-    origin's refs/precedent/others-did, and a cloud session's push of it was
-    refused with HTTP 403, so every new container started over. So:
-
-    - THE DISCRIMINATING CASE: a colleague's commit made BEFORE the
-      person's last commit, merged after it, is reported -- it is counted by
-      when it landed, not by its own date;
-    - nothing the person did is reported, their Claude session's included;
-    - origin receives no push of any ref, and the work clone's branch, HEAD
-      and staged edit stay exactly as they were;
-    - the report reaches the reply gate once; at most one report a day in a
-      container, none before 07:00;
-    - it asks for the three or four most important things, never the whole
-      list (Morgan, 2026-10-10: "It should not list EVERYTHING");
-    - a new container repeats the list until the person commits again (the
-      cost Morgan accepted), and after that commit says nobody else did
-      anything;
-    - where this container's note is newer than the last commit, the note's
-      tips are the starting point, so what was told is not told again;
-    - a person with no commit here is told so, not handed all of history.
-
-    Each case is checked against the tool's own words
-    (practice: control-asserts-which-failure)."""
-    import datetime, shutil, tempfile
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_others_did as pod
-
-    MINE, THEIRS = 'owner@example.com', 'colleague@example.com'
-    BOT = 'noreply@anthropic.com'
-    S_MINE = 'https://claude.ai/code/session_01Mine'
-    S_THEIRS = 'https://claude.ai/code/session_01Theirs'
-    day = datetime.datetime(2026, 10, 8, tzinfo=datetime.timezone.utc)
-    cases = []
-
-    def at(days, hour):
-        return day + datetime.timedelta(days=days, hours=hour)
-
-    def git(cwd, *args, author=MINE, when=None):
-        env = dict(os.environ)
-        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = author
-        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = \
-            'Claude' if author == BOT else author.split('@')[0]
-        if when:
-            env['GIT_AUTHOR_DATE'] = env['GIT_COMMITTER_DATE'] = when.isoformat()
-        r = subprocess.run(['git', '-C', str(cwd), *args],
-                           capture_output=True, text=True, env=env)
-        if r.returncode != 0:
-            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
-        return r.stdout.strip()
-
-    saved = {k: os.environ.get(k) for k in
-             ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
-              'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG',
-              'GIT_CONFIG_GLOBAL')}
-    saved_off = pod.off_ladder
-    tmp = pathlib.Path(tempfile.mkdtemp(prefix='others-did-'))
-    try:
-        os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
-        os.environ['PRECEDENT_COMMIT_NAME'] = 'Owner'
-        os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
-        # A file of the fixture's own, never os.devnull: `git config
-        # --global` against /dev/null replaces it with a regular file.
-        os.environ['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
-        (tmp / 'gitconfig').write_text('', encoding='utf-8')
-        os.environ.pop('PRECEDENT_USER_CONFIG', None)
-        pod.off_ladder = lambda root, user_config=None: False
-
-        origin = tmp / 'origin.git'
-        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
-        pushed = tmp / 'pushed.log'
-        hook = origin / 'hooks' / 'update'
-        hook.write_text(f'#!/bin/sh\necho "$1" >> "{pushed}"\nexit 0\n',
-                        encoding='utf-8')
-        hook.chmod(0o755)
-        seed = tmp / 'seed'
-        git(tmp, 'clone', '-q', str(origin), str(seed))
-        (seed / 'keep.txt').write_text('x\n', encoding='utf-8')
-        (seed / '.gitignore').write_text('.precedent/\n', encoding='utf-8')
-        git(seed, 'add', '-A')
-        git(seed, 'commit', '-qm', 'c0', when=at(0, 0))
-        git(seed, 'push', '-q', 'origin', 'main')
-        git(seed, 'push', '-q', 'origin', 'main:pre-staging')
-
-        def land(branch, subject, author, when, trailer=None):
-            git(seed, 'fetch', '-q', 'origin', branch)
-            git(seed, 'checkout', '-q', '-B', branch, f'origin/{branch}')
-            (seed / f'{branch}.txt').write_text(subject, encoding='utf-8')
-            git(seed, 'add', '-A')
-            msg = ['-m', subject] + (['-m', f'Claude-Session: {trailer}'] if trailer else [])
-            git(seed, 'commit', '-q', *msg, author=author, when=when)
-            git(seed, 'push', '-q', 'origin', branch)
-
-        def clone(name):
-            path = tmp / name
-            git(tmp, 'clone', '-q', str(origin), str(path))
-            return path
-
-        def run(repo, when):
-            return pod.check(root=repo, now=when)
-
-        def pushes():
-            return pushed.read_text(encoding='utf-8').split() if pushed.is_file() else []
-
-        work = clone('work')
-        git(work, 'checkout', '-q', '-b', 'feature')
-        (work / 'draft.txt').write_text('half done\n', encoding='utf-8')
-        git(work, 'add', 'draft.txt')
-        before = (git(work, 'rev-parse', 'HEAD'), git(work, 'diff', '--cached', '--name-only'))
-        baseline = len(pushes())
-
-        status, lines = run(work, at(0, 8))
-        cases.append(('CONTROL: with only the person\'s own commit, nobody else '
-                      'changed anything since it',
-                      status == 'ok' and 'nobody else changed anything since your '
-                      'last commit here' in lines[0], f'{status} {lines}'))
-
-        # The person's session commits under their own name, which is what
-        # makes a later commit signed only by Claude in it theirs too.
-        land('pre-staging', 'my own change', MINE, at(0, 9), trailer=S_MINE)
-        # A colleague's pull request: its commit is dated BEFORE the
-        # person's last one and lands by a merge after it.
-        git(seed, 'fetch', '-q', 'origin', 'main')
-        git(seed, 'checkout', '-q', '-B', 'their-pr', 'origin/main')
-        (seed / 'pr.txt').write_text('pr\n', encoding='utf-8')
-        git(seed, 'add', '-A')
-        git(seed, 'commit', '-qm', 'old commit merged late', author=THEIRS, when=at(0, 3))
-        git(seed, 'checkout', '-q', '-B', 'main', 'origin/main')
-        git(seed, 'merge', '-q', '--no-ff', '-m', 'Merge their pull request',
-            'their-pr', author=THEIRS, when=at(0, 10))
-        git(seed, 'push', '-q', 'origin', 'main')
-        land('main', 'their change', THEIRS, at(0, 11))
-        land('pre-staging', 'session signed by Claude, mine', BOT, at(0, 12), trailer=S_MINE)
-        land('main', 'their session change', THEIRS, at(0, 13), trailer=S_THEIRS)
-        land('main', 'session signed by Claude, theirs', BOT, at(0, 14), trailer=S_THEIRS)
-
-        status, lines = run(work, at(1, 6))
-        cases.append(('nothing before 07:00',
-                      status == 'ok' and 'before 07:00' in lines[0], f'{status} {lines}'))
-        status, lines = run(work, at(1, 8))
-        block = pod.remind(work) or ''
-        cases.append(('after 07:00 it reports, counted from the last commit',
-                      status == 'alert' and 'since your last commit here' in block,
-                      f'{status} {lines}'))
-        cases.append(('the report asks for the three or four most important things, '
-                      'never the whole list (Morgan, 2026-10-10)',
-                      'THREE OR FOUR MOST IMPORTANT' in block
-                      and 'NEVER THE WHOLE LIST' in block
-                      and 'not to copy into the reply' in block, block[:800]))
-        cases.append(("THE DISCRIMINATING CASE: a colleague's commit made before the "
-                      'last commit and merged after it is reported',
-                      'old commit merged late' in block, block[-600:]))
-        cases.append(("the report holds the colleague's commits, their Claude session's included",
-                      'their change' in block and 'session signed by Claude, theirs' in block,
-                      block[-600:]))
-        cases.append(("...and none of the person's own, their Claude session's included",
-                      'my own change' not in block
-                      and 'session signed by Claude, mine' not in block, block[-600:]))
-        cases.append(('the reply gate hands it over once',
-                      pod.remind(work) is None, 'a second remind() returned text'))
-        status, lines = run(work, at(1, 10))
-        cases.append(('reported once that day in this container, not again',
-                      status == 'ok' and 'already told today' in lines[0], f'{status} {lines}'))
-        after = (git(work, 'rev-parse', 'HEAD'), git(work, 'diff', '--cached', '--name-only'))
-        cases.append(("the work clone's branch, HEAD and staged edit are untouched",
-                      after == before and git(work, 'branch', '--show-current') == 'feature',
-                      f'{before} -> {after}'))
-
-        other = clone('other-container')
-        status, lines = run(other, at(1, 9))
-        block2 = pod.remind(other) or ''
-        cases.append(('a new container repeats the list until the person commits '
-                      'again (the accepted cost)',
-                      status == 'alert' and 'their change' in block2, f'{status} {lines}'))
-
-        land('main', 'after the report', THEIRS, at(1, 12))
-        status, lines = run(work, at(2, 8))
-        block3 = pod.remind(work) or ''
-        cases.append(("where the container's note is newer than the last commit, "
-                      'it counts from the note: only what came after',
-                      status == 'alert' and 'since you were last told in this '
-                      'container' in block3 and 'after the report' in block3
-                      and 'their change' not in block3, f'{status} {block3[-500:]}'))
-
-        land('pre-staging', 'more of my own', MINE, at(2, 9))
-        status, lines = run(clone('third-container'), at(3, 8))
-        cases.append(('after the person commits again, a new container says '
-                      'nobody else changed anything',
-                      status == 'ok' and 'nobody else changed anything' in lines[0],
-                      f'{status} {lines}'))
-
-        cases.append(('origin received no push from the tool: every pushed ref is '
-                      "the fixture's own branch, never a refs/precedent/ mark",
-                      all(r.startswith('refs/heads/') for r in pushes()[baseline:])
-                      and not git(origin, 'for-each-ref', 'refs/precedent'),
-                      repr(pushes()[baseline:])))
-
-        os.environ['PRECEDENT_COMMIT_EMAIL'] = 'newcomer@example.com'
-        status, lines = run(clone('newcomer'), at(3, 8))
-        cases.append(('a person with no commit here is told so, not handed all of history',
-                      status == 'ok' and 'no commit here yet' in lines[0], f'{status} {lines}'))
-    finally:
-        pod.off_ladder = saved_off
-        for k, v in saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-        shutil.rmtree(tmp, ignore_errors=True)
-    bad = [(c[0], c[2]) for c in cases if not c[1]]
-    return (not bad, f'{len(cases)} stated cases',
-            '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
-
 
 def check_update_repoints_engine_paths_that_moved():
     """Update Vendors rewrites live mentions of an engine path that moved
@@ -45795,22 +45601,22 @@ def check_bootstrap_runs_every_tool_session_start_runs():
 
     Found by the 2026-09-28 very deep check: the hook ran
     precedent_engine_freshness.py and the beta-branch watermark check (now
-    precedent_others_did.py) and the script ran neither, while the PARALLELS.md row still called it a
+    precedent_others_did.py, in the ladder set since 2026-10-17) and the script ran neither, while the PARALLELS.md row still called it a
     parallel -- the same gap, one step smaller, that the 2026-09-21 row
-    records (three steps of seven). Planted by deleting the watermark call
-    from a copy of the script: the missing name must come back."""
+    records (three steps of seven). Planted by deleting the engine freshness
+    call from a copy of the script: the missing name must come back."""
     hook = (ROOT / '.claude' / 'hooks' / 'session-start.sh').read_text(encoding='utf-8')
     boot = (ROOT / 'tools' / 'bootstrap.sh').read_text(encoding='utf-8')
     missing = _session_start_tools_missing_from_bootstrap(hook, boot)
     planted_boot = '\n'.join(ln for ln in boot.splitlines()
-                             if 'precedent_others_did.py' not in ln
+                             if 'precedent_engine_freshness.py' not in ln
                              or ln.lstrip().startswith('#'))
     planted = _session_start_tools_missing_from_bootstrap(hook, planted_boot)
     check('tools/bootstrap.sh runs every tools/*.py .claude/hooks/session-start.sh runs',
           not missing, 'the hook runs these and the script does not: '
           + ', '.join(missing))
-    check('...PLANTED: a bootstrap.sh without the others-did call is caught by name',
-          planted == ['precedent_others_did'], repr(planted))
+    check('...PLANTED: a bootstrap.sh without the engine freshness call is caught by name',
+          planted == ['precedent_engine_freshness'], repr(planted))
 
 
 _CODEX_HOOK_EVENTS = ('PreToolUse', 'PermissionRequest', 'PostToolUse',
@@ -71849,10 +71655,10 @@ def check_update_vendors_names_what_others_changed_upstream():
     CONTROL: the morning report's own block still reads as it did."""
     import tempfile
     pu, _pve, _pr = _update_tools()
-    import precedent_others_did as od
+    import precedent_commit_owners as od
     import precedent_identity as pi
     cases = []
-    saved = (pu.SOURCE, pi.declared_identity, od.off_ladder)
+    saved = (pu.SOURCE, pi.declared_identity, pu._off_ladder)
     with tempfile.TemporaryDirectory() as td:
         src = pathlib.Path(td) / 'source'
         src.mkdir()
@@ -71874,7 +71680,7 @@ def check_update_vendors_names_what_others_changed_upstream():
         try:
             pu.SOURCE = src
             pi.declared_identity = lambda *_a, **_k: {'name': 'Me', 'email': 'me@example.com'}
-            od.off_ladder = lambda *_a, **_k: False
+            pu._off_ladder = lambda *_a, **_k: False
             block = pu.upstream_changes_block(pathlib.Path(td), old, new)
             cases.append(('a colleague\'s upstream commit is listed, with the '
                           'instruction to open the report with it',
@@ -71943,18 +71749,15 @@ def check_update_vendors_names_what_others_changed_upstream():
             cases.append(('a depth-1 clone lacking the old commit is deepened and '
                           'read', lacks != 0 and got is not None
                           and any(w == 'Colleague' for _s, w, _t in got[0]), got))
-            od.off_ladder = lambda *_a, **_k: True
+            pu._off_ladder = lambda *_a, **_k: True
             cases.append(('a person off the ladder gets nothing',
                           pu.upstream_changes_block(pathlib.Path(td), old, new) == '', ''))
         finally:
-            pu.SOURCE, pi.declared_identity, od.off_ladder = saved
-    morning = od._block('o/r', 'since then', [('a' * 40, 'Colleague', 'x')], [])
-    cases.append(('CONTROL: the morning block still opens the first reply and '
-                  'lists by person',
-                  morning.startswith('WHAT OTHERS DID IN o/r since then')
-                  and 'OPEN YOUR FIRST REPLY' in morning
-                  and '\n\nThe commits, to choose from' in morning
-                  and 'Colleague -- 1 commit(s):\n  aaaaaaaaa  x' in morning, morning))
+            pu.SOURCE, pi.declared_identity, pu._off_ladder = saved
+    listing = od.commit_listing([('a' * 40, 'Colleague', 'x')], [])
+    cases.append(('CONTROL: the shared listing still says who, by person',
+                  listing.startswith('The commits, to choose from')
+                  and 'Colleague -- 1 commit(s):\n  aaaaaaaaa  x' in listing, listing))
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'Update Vendors names what others changed upstream ({len(cases)} '
           f'stated cases)', not bad, '; '.join(bad))
@@ -75015,8 +74818,6 @@ def check_ladder_off_engine_says_no_ladder_words():
         ('the landing branch', ['tools/precedent_branches.py', '--landing']),
         ('the branch status', ['tools/precedent_branches.py']),
         ('the deep check\'s listing', ['tools/precedent_push_check.py', '--list']),
-        ('the others-did check', ['tools/precedent_others_did.py',
-                                  '--no-push', '--no-fetch']),
         ('the ladder helper', ['tools/precedent_ladder.py', '--status']),
     ]
     excused = ('staging document',)
@@ -75263,38 +75064,6 @@ def check_ladder_test_session_and_the_two_ladder_checks():
                           f'for {what}', got == want, (r.stdout + r.stderr)[-300:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-
-    # What others did says nothing to a person off the ladder, through the
-    # reply gate's own call too (2026-10-02: only its command line asked, so
-    # a colleague's reply gate named who had pushed to staging). Off the
-    # ladder the pending report is left where it is, not handed over.
-    import precedent_others_did as pod
-    saved_off = pod.off_ladder
-    pend_root = pathlib.Path(tempfile.mkdtemp(prefix='others-did-gate-'))
-    try:
-        (pend_root / '.precedent').mkdir()
-        (pend_root / pod.PENDING).write_text('SOMEONE PUSHED\n', encoding='utf-8')
-        pod.off_ladder = lambda root, user_config=None: True
-        quiet = pod.remind(str(pend_root))
-        pod.off_ladder = lambda root, user_config=None: False
-        loud = pod.remind(str(pend_root))
-    finally:
-        pod.off_ladder = saved_off
-        shutil.rmtree(pend_root, ignore_errors=True)
-    cases.append(('what others did is silent at the reply gate for a person '
-                  'off the ladder, and still speaks for one on it',
-                  quiet is None and loud == 'SOMEONE PUSHED', f'{quiet!r} {loud!r}'))
-    env_off = {k: v for k, v in os.environ.items()
-               if k not in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS')}
-    env_off['PRECEDENT_USER_CONFIG'] = str(pathlib.Path(tempfile.gettempdir())
-                                           / 'no-such-precedent-config.json')
-    r = subprocess.run([sys.executable, '-c',
-                        'import sys; sys.path.insert(0, "tools"); '
-                        'import precedent_others_did as b; '
-                        'print(b.off_ladder("."))'],
-                       cwd=str(ROOT), env=env_off, capture_output=True, text=True)
-    cases.append(('...and a person with no set of their own is off the ladder there',
-                  r.stdout.strip() == 'True', (r.stdout + r.stderr)[-200:]))
 
     # The push check recognises the size-cap warning precedent_check.py
     # prints today (2026-10-02: that wording was made plain and the push
@@ -82173,8 +81942,6 @@ def main():
     check_vocabulary_prefers_the_file_you_are_standing_on()
     check_vocabulary_moves_a_word_to_our_language()
     check_archive_guard_refuses_work_left_on_a_feature_branch()
-    check('others-did counts from your last commit and writes nothing to origin',
-          *check_others_did_counts_from_your_last_commit_and_writes_nothing_to_origin())
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
     check_close_detect_counts_only_this_sessions_reverts()
