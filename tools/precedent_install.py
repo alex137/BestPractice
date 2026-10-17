@@ -358,19 +358,13 @@ def _ci_paragraph_off():
     )
 
 
-def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_enabled, force):
-    written, skipped = [], []
-    today = precedent_time.today(ROOT)  # practice: timestamps-carry-offset
-    common = {
-        '<project name>': project,
-        '<OWNER/REPOSITORY>': owner_repo or '<OWNER/REPOSITORY>',
-        '<administrator contact>': f'@{admin}' if admin else '<administrator contact>',
-        '<install date>': today,
-        '<upstream-docs>': UPSTREAM_DOCS,
-        '<precedent upstream URL>': UPSTREAM_URL,
-        '<default-branch>': base_branch,
-    }
-    per_file = {
+def per_file_substitutions(ci_enabled=True):
+    """-> {root file: {text: replacement}}: what an install writes into a
+    template beyond its `<placeholder>`s, file by file. One table, read by
+    _instantiate_root_files and by precedent_update.py, which re-renders an
+    older template the same way to tell an install's untouched copy from
+    one the repository edited (2026-10-17)."""
+    return {
         # The classic model's manifest bookkeeping has no place here; what a
         # loader install does instead is the standing `Update Vendors` run.
         'TODO.md': {
@@ -387,6 +381,21 @@ def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_en
         },
         'GETTING_STARTED.md': {} if ci_enabled else {_CI_PARAGRAPH_ON: _ci_paragraph_off()},
     }
+
+
+def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_enabled, force):
+    written, skipped = [], []
+    today = precedent_time.today(ROOT)  # practice: timestamps-carry-offset
+    common = {
+        '<project name>': project,
+        '<OWNER/REPOSITORY>': owner_repo or '<OWNER/REPOSITORY>',
+        '<administrator contact>': f'@{admin}' if admin else '<administrator contact>',
+        '<install date>': today,
+        '<upstream-docs>': UPSTREAM_DOCS,
+        '<precedent upstream URL>': UPSTREAM_URL,
+        '<default-branch>': base_branch,
+    }
+    per_file = per_file_substitutions(ci_enabled)
     for name, tmpl in ROOT_FILES.items():
         target = dest / name
         if target.exists() and not force:

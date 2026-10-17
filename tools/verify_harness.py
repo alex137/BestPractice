@@ -71586,19 +71586,21 @@ def check_update_vendors_reports_dropped_template_wording():
             cases.append(('...and listed again once the template has changed since',
                           len(rep.left) == 3, str(rep.left)))
 
-            # A file that is, byte for byte, an older version of a template
-            # it is told to copy verbatim was never made the repository's own:
-            # it takes the current template, and says so. One meant to be
-            # adapted (this TODO.md) is still only reported.
+            # A file that is, byte for byte, an older version of its
+            # template was never made the repository's own: it takes the
+            # current template, and says so -- one meant to be adapted (this
+            # TODO.md) as well, since 2026-10-17 (untouched_install_copy).
             (repo / 'precedent.json').unlink()
             v1 = git(src, 'show', f'{rev}~1:templates/TODO.md.template').stdout
             (repo / 'TODO.md').write_text(v1, encoding='utf-8')
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
                 step(repo, rep, rev)
-            cases.append(('an adaptable template left exactly as installed is still '
-                          'reported, never written',
-                          rep.left and (repo / 'TODO.md').read_text(encoding='utf-8') == v1,
+            cases.append(('an adaptable template left exactly as installed takes '
+                          'the current one, said once, not left for you',
+                          not rep.left and (repo / 'TODO.md').read_bytes()
+                          == tmpl.read_bytes()
+                          and any(n == 'templates taken' for n, _o in rep.steps),
                           f'{rep.left} {rep.steps}'))
             (repo / 'TODO.md').unlink()
             prt = src / 'templates' / 'pull_request_template.md.template'
@@ -71620,7 +71622,8 @@ def check_update_vendors_reports_dropped_template_wording():
                 step(repo, rep, rev2)
             cases.append(('a copy-verbatim template that is word for word an older '
                           'version takes the current one, said once, not left for you',
-                          not rep.left and any(n == 'refreshed' for n, _o in rep.steps)
+                          not rep.left and any(n == 'templates taken'
+                                               for n, _o in rep.steps)
                           and pr.read_bytes() == prt.read_bytes(),
                           f'{rep.left} {rep.steps}'))
             pr.write_text(pr_v1 + 'One line of our own.\n', encoding='utf-8')
@@ -71760,6 +71763,147 @@ def check_update_vendors_refreshes_a_template_own_comment():
           f'only that ({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
 
 
+def check_update_takes_an_untouched_install_copy():
+    """An install-once file still exactly as an install wrote it -- its
+    placeholders filled in, the install's own per-file text put in -- takes
+    the current template whole, filled in with the same values; one the
+    repository edited is still only read, line by line, and left for you.
+
+    2026-10-17, very deep check: an untouched install from 2026-10-01 could
+    not finish an update without seven hand calls, all upstream rewording in
+    GETTING_STARTED.md, MAP.md and project-voice.md, because only a template
+    copied verbatim was recognised as unedited. Decision (the session's,
+    under Morgan's delegation of 2026-10-17): compare each file with the
+    template as installed. Planted: a GETTING_STARTED.md template whose
+    version 1 names `<project name>` and `<install date>` and whose version
+    2 rewords a line and adds one; a MAP.md template carrying the row the
+    install replaces; a consumer whose GETTING_STARTED.md was then extended
+    in the working tree by an earlier step of the same run; and a copy with
+    one line of the repository's own."""
+    import contextlib, io, tempfile
+    pu, _pve, _pr = _update_tools()
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-untouched-copy-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+
+    if not hasattr(pi, 'per_file_substitutions'):
+        check('Update Vendors takes an untouched install copy whole, and still '
+              'asks about an edited one', False,
+              'precedent_install.per_file_substitutions is missing: the install\'s '
+              'own per-file text is not one table the update can read')
+        return
+    row = next(iter(pi.per_file_substitutions(True)['MAP.source.md']))
+    gs1 = ('# Getting started with <project name>\n\n'
+           'This page was written for <project name> on <install date>.\n'
+           'Ask the person who looks after this project before changing it.\n'
+           'The old wording that the next template version rewords here.\n')
+    gs2 = ('# Getting started with <project name>\n\n'
+           'This page was written for <project name> on <install date>.\n'
+           'Ask the person who looks after this project before changing it.\n'
+           'The new wording that replaced the older sentence in this place.\n'
+           'A paragraph upstream added later, which no install has yet.\n')
+    map1 = '# Map\n\nThe older wording of the map template sits here.\n' + row + '\n'
+    map2 = '# Map\n\nThe current wording of the map template sits here.\n' + row + '\n'
+    values = {'<project name>': 'Garden Planner', '<install date>': '2026-10-01'}
+
+    def filled(text, name):
+        text = pi._substitute(text, pi.per_file_substitutions(True).get(name, {}))
+        return pi._substitute(text, values)
+
+    cases = []
+    saved_source = pu.SOURCE
+    try:
+        src = tmp / 'source'
+        (src / 'templates').mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        (src / 'templates' / 'GETTING_STARTED.md').write_text(gs1, encoding='utf-8')
+        (src / 'templates' / 'MAP.md.template').write_text(map1, encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v1')
+        (src / 'templates' / 'GETTING_STARTED.md').write_text(gs2, encoding='utf-8')
+        (src / 'templates' / 'MAP.md.template').write_text(map2, encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v2')
+        rev = git(src, 'rev-parse', 'HEAD').stdout.strip()
+        pu.SOURCE = src
+
+        def run(build, before=None):
+            repo = tmp / f'consumer-{len(cases)}'
+            repo.mkdir()
+            git(tmp, 'init', '-q', str(repo))
+            build(repo)
+            rep = pu.Report()
+            rep.before = before
+            with contextlib.redirect_stdout(io.StringIO()):
+                pu.dropped_template_lines_step(repo, rep, rev)
+            return repo, rep
+
+        def untouched(repo):
+            (repo / 'GETTING_STARTED.md').write_text(filled(gs1, 'GETTING_STARTED.md'),
+                                                     encoding='utf-8')
+            (repo / 'MAP.md').write_text(filled(map1, 'MAP.source.md'), encoding='utf-8')
+        repo, rep = run(untouched)
+        cases.append(('an untouched copy with placeholders filled takes the current '
+                      'template, filled in with the same values, not left for you',
+                      not rep.left and (repo / 'GETTING_STARTED.md').read_text(
+                          encoding='utf-8') == filled(gs2, 'GETTING_STARTED.md'),
+                      f'{rep.left} {rep.steps}'))
+        cases.append(('...and so does one carrying the install\'s own per-file text',
+                      (repo / 'MAP.md').read_text(encoding='utf-8')
+                      == filled(map2, 'MAP.source.md'), f'{rep.steps}'))
+        cases.append(('...said once, naming the files',
+                      [o for n, o in rep.steps if n == 'templates taken'] and
+                      'GETTING_STARTED.md' in dict(rep.steps).get('templates taken', ''),
+                      f'{rep.steps}'))
+
+        def written_ahead(repo):
+            untouched(repo)
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'install')
+            with (repo / 'GETTING_STARTED.md').open('a', encoding='utf-8') as f:
+                f.write('A disclosure an earlier step of this run added.\n')
+        repo, rep = run(written_ahead, before=set())
+        cases.append(('a file clean when the run started is judged on its committed '
+                      'text, so an earlier step\'s addition does not make it edited',
+                      not rep.left and (repo / 'GETTING_STARTED.md').read_text(
+                          encoding='utf-8') == filled(gs2, 'GETTING_STARTED.md'),
+                      f'{rep.left}'))
+
+        def edited(repo):
+            untouched(repo)
+            with (repo / 'GETTING_STARTED.md').open('a', encoding='utf-8') as f:
+                f.write('Our committee reads this page first, every season.\n')
+        repo, rep = run(edited)
+        left = dict(rep.left)
+        cases.append(('a copy with one line of the repository\'s own is never '
+                      'written, and its dropped line is still left for you',
+                      'GETTING_STARTED.md:5' in left
+                      and 'Our committee' in (repo / 'GETTING_STARTED.md').read_text(
+                          encoding='utf-8')
+                      and 'old wording' in (repo / 'GETTING_STARTED.md').read_text(
+                          encoding='utf-8'), f'{rep.left}'))
+    except (OSError, ValueError, KeyError, StopIteration) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        pu.SOURCE = saved_source
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors takes an untouched install copy whole, and still asks '
+          f'about an edited one ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -71812,7 +71956,10 @@ def check_update_vendors_dropped_wording_reads_placeholders_filled():
             '<!-- not just a mention in the install log under\n'
             '     `process/upstream/`. Add a line whenever a future install step\n'
             '     introduces a new one. -->\n'
-            'Read the guide in process/upstream/documentation before you start.\n',
+            'Read the guide in process/upstream/documentation before you start.\n'
+            # A line of the repository's own, so the file is not an
+            # untouched install copy, which takes the current template whole.
+            'Our own note about the planting calendar, written by this repo.\n',
             encoding='utf-8')
         pu.SOURCE = src
         rep = pu.Report()
@@ -72083,6 +72230,7 @@ def check_update_vendors_dropped_wording_reads_a_views_source():
                               capture_output=True, text=True)
 
     old = 'This map was written by the older template wording here.'
+    own = 'Our own row about the planting calendar, written by this repo.\n'
     view = ('---\ngenerated_by: tools/build_views.py\n---\n# Map\n\n'
             + old + '\n')
     cases = []
@@ -72113,8 +72261,10 @@ def check_update_vendors_dropped_wording_reads_a_views_source():
 
         def with_source(repo):
             (repo / 'MAP.md').write_text(view, encoding='utf-8')
-            (repo / 'MAP.source.md').write_text('# Map\n\n' + old + '\n',
-                                                encoding='utf-8')
+            # A line of the repository's own: an untouched install copy
+            # takes the current template whole instead (2026-10-17).
+            (repo / 'MAP.source.md').write_text('# Map\n\n' + old + '\n'
+                                                + own, encoding='utf-8')
         left = left_for(with_source)
         cases.append(('a generated view with a source file: the line is '
                       'reported in MAP.source.md, never in MAP.md',
@@ -72141,7 +72291,7 @@ def check_update_vendors_dropped_wording_reads_a_views_source():
                       'can edit, so nothing is listed', not left, str(left)))
 
         def hand_written(repo):
-            (repo / 'MAP.md').write_text('# Map\n\n' + old + '\n',
+            (repo / 'MAP.md').write_text('# Map\n\n' + old + '\n' + own,
                                          encoding='utf-8')
         left = left_for(hand_written)
         cases.append(('a hand-written MAP.md is the repo\'s own and still read',
@@ -82530,6 +82680,7 @@ def main():
     check_update_in_force_nowhere_asks_once()
     check_update_repoints_moved_engine_commands()
     check_update_vendors_dropped_wording_reads_placeholders_filled()
+    check_update_takes_an_untouched_install_copy()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()

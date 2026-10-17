@@ -58,9 +58,11 @@ THE STEPS, with no question in between:
      beside it; and where there is neither, a line saying so
      then a root VOICE.md or STYLEGUIDE.md left for you to convert, and
      any line templates/gitignore.template gained appended to .gitignore,
-     and each line of an install-once file (the PR template, TODO.md, MAP.md
-     ...) that is still, verbatim, wording its template has since dropped,
-     left for you -- reported, never rewritten
+     and each install-once file (the PR template, TODO.md, MAP.md ...)
+     still exactly as an install wrote it brought onto the current
+     template; in one the repository edited, each line that is still,
+     verbatim, wording its template has since dropped, left for you --
+     reported, never rewritten
      then, where precedent.json names no landing_branch, staging
   3c. for anyone on the ladder -- pre-staging is retired for everyone since
      2026-10-14 -- a precedent.json naming pre-staging switched to staging,
@@ -2331,42 +2333,134 @@ def _hand_kept_files(repo, rel):
     return [target]
 
 
-_COPY_VERBATIM = re.compile(r'\bcopy verbatim\b', re.IGNORECASE)
+# The key precedent_install.per_file_substitutions() gives each install-once
+# file under, where it is not the file's own name: the install writes the
+# map's text to MAP.source.md, which MAP.md is generated from.
+_INSTALL_KEYS = {'MAP.md': 'MAP.source.md', 'GLOSSARY.md': 'GLOSSARY.source.md'}
 
 
-def _still_an_old_template(repo, rel, tmpl, rev):
-    """Write the current `tmpl` (at `rev`) over install-once file `rel` when
-    the template says it is copied verbatim and `rel`, at the path the
-    template installs to, is byte for byte a version `tmpl` had in the
-    source's history: the repository never made it its own, so there is
-    nothing of its to lose, and the older text stays in the source's
-    history. -> whether it was written. A file with any edit of its own, a
-    template meant to be adapted (TODO.md, MAP.md, GETTING_STARTED.md: a copy
-    left as installed there is still read and reported), and a view's source
-    file are never touched: the lines are left for the person as before
-    (practice: repair-cannot-discard-work).
+def _template_versions(rev, tmpl, limit=200):
+    """-> [text] each version `tmpl` had in the source's history up to
+    `rev`, newest first, `--follow`ed through renames, each text once."""
+    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--follow', f'-{limit}',
+                        '--format=%x00%H', '--name-only', rev, '--', tmpl],
+                       capture_output=True, text=True, errors='replace')
+    seen, out = set(), []
+    for chunk in (r.stdout.split('\0')[1:] if r.returncode == 0 else []):
+        lines = [l for l in chunk.splitlines() if l.strip()]
+        if len(lines) < 2:
+            continue
+        text = _source_text(lines[0], lines[-1])
+        if text is not None and text not in seen:
+            seen.add(text)
+            out.append(text)
+    return out
 
-    2026-10-13, a consuming repository: its pull request template matched
-    the old template exactly, the template's only change was one comment
-    line, and the update still left it for a person to copy in by hand."""
-    import hashlib
+
+def _placeholder_values(template, filled):
+    """-> {placeholder: value} read off `filled`, an install's copy of
+    `template`: for each template line with a placeholder and enough words
+    around it to say where it is, the text a line of `filled` has in its
+    place (a placeholder used twice in a line must read the same both
+    times); the commonest value wins. A placeholder the install left as it
+    was reads back as itself."""
+    import collections
+    lines = set(filled.splitlines())
+    votes = collections.defaultdict(collections.Counter)
+    for line in set(template.splitlines()):
+        found = _PLACEHOLDER_RE.findall(line)
+        if not found:
+            continue
+        parts = _PLACEHOLDER_RE.split(line)
+        if len(''.join(parts).strip()) < 8:
+            continue
+        groups, pat = {}, re.escape(parts[0])
+        for name, part in zip(found, parts[1:]):
+            if name in groups:
+                pat += f'(?P={groups[name]})'
+            else:
+                groups[name] = f'g{len(groups)}'
+                pat += f'(?P<{groups[name]}>.+?)'
+            pat += re.escape(part)
+        rx = re.compile(pat)
+        for got in lines:
+            m = rx.fullmatch(got)
+            if m:
+                for name, g in groups.items():
+                    votes[name][m.group(g)] += 1
+    return {name: c.most_common(1)[0][0] for name, c in votes.items()}
+
+
+def _render(text, values):
+    for name, value in values.items():
+        text = text.replace(name, value)
+    return text
+
+
+def untouched_install_copy(repo, rel, tmpl, rev, committed=None):
+    """Write the current `tmpl` (at `rev`), filled in as the install filled
+    it, over install-once file `rel` when `rel` is still exactly what an
+    install wrote from some version of `tmpl` in the source's history -- the
+    version at the commit the install recorded among them: the same
+    placeholders filled with the same values (read off the file itself) and
+    the same per-file text precedent_install.per_file_substitutions() puts
+    in. -> whether it was written. A file with any edit of the repository's
+    own matches no version, and is left for the person as before (practice:
+    repair-cannot-discard-work); so is a view's source in the directory
+    form, which no install writes. `committed`, when given, is the text the
+    file had before this update wrote anything (HEAD's, for a file that was
+    clean when the run started), and is what is judged: the engine refresh
+    adds its own disclosures to GETTING_STARTED.md first, and those are the
+    current template's, not the repository's.
+
+    WHY (2026-10-17, very deep check, an update of a two-week-old install).
+    An install that nobody had touched stopped on seven LEFT FOR YOU lines,
+    every one of them upstream rewording GETTING_STARTED.md, MAP.md or
+    local/practices/project-voice.md, because only a template copied
+    verbatim was recognised as unedited, and these three have placeholders
+    an install fills. That narrower test (2026-10-13: a consumer's pull
+    request template matched an old template exactly and was still left for
+    a person to copy in by hand) is the case of this one with no
+    placeholders, and was folded into it. Morgan's rule of 2026-10-14
+    is to take upstream's version by default; the decision to compare with
+    the template as installed was the session's, under Morgan's delegation
+    of 2026-10-17 ("Fix the other issues you found including the checks
+    that never run. Tell me what you decide. I will be offline so don't
+    wait for me. Approved, act, and Booked.")."""
+    import precedent_install as pi
     target = pathlib.Path(repo) / rel
-    if (rel, tmpl) not in INSTALL_ONCE_TEMPLATES or _hand_kept_files(repo, rel) != [target]:
+    key = _INSTALL_KEYS.get(rel, rel)
+    if rel == 'README.md' or rel not in (
+            {r for r, _t in INSTALL_ONCE_TEMPLATES} | set(_INSTALL_KEYS.values())):
         return False
-    current = _source_text(rev, tmpl)
-    if current is None or not _COPY_VERBATIM.search(current):
+    if rel in _INSTALL_KEYS and _hand_kept_files(repo, rel) != [target]:
+        return False
+    current = _source_text(rev, tmpl) if rev else None
+    if current is None:
         return False
     try:
-        data = target.read_bytes()
-    except OSError:
+        now = target.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
         return False
-    if data == current.encode('utf-8'):
-        return False
-    if pve.template_text_at(SOURCE, rev, tmpl,
-                            hashlib.sha256(data).hexdigest()) is None:
-        return False
-    target.write_text(current, encoding='utf-8')
-    return True
+    ours = now if committed is None else committed
+    variants = []
+    for ci in (True, False):
+        subs = pi.per_file_substitutions(ci).get(key, {})
+        if subs not in variants:
+            variants.append(subs)
+    versions = _template_versions(rev, tmpl)
+    for subs in variants:
+        for old in versions:
+            base = pi._substitute(old, subs)
+            values = _placeholder_values(base, ours)
+            if _render(base, values) != ours:
+                continue
+            new = _render(pi._substitute(current, subs), values)
+            if new == now:
+                return False
+            target.write_text(new, encoding='utf-8')
+            return True
+    return False
 
 
 # The template's own instruction comment: the first HTML comment that opens
@@ -2444,7 +2538,29 @@ def dropped_template_lines_step(repo, rep, rev):
     was inside an HTML comment, which no reader of the file sees. When the
     pinned text can be found in the template's history and differs from
     today's only in comments, the pin is moved and said once; otherwise the
-    question shows what changed, so it is answered on the change."""
+    question shows what changed, so it is answered on the change.
+
+    AN UNTOUCHED COPY TAKES UPSTREAM'S VERSION FIRST (2026-10-17): each
+    install-once file still exactly as an install wrote it is brought onto
+    the current template before any line is read (untouched_install_copy),
+    so only a file the repository edited can leave a line for the person."""
+    taken = []
+    kept = set(pve.kept_template_divergences(repo)) if rev else set()
+    for rel, tmpl in INSTALL_ONCE_TEMPLATES if rev else ():
+        files = _hand_kept_files(repo, rel)
+        if len(files) != 1 or not files[0].is_file():
+            continue
+        own = files[0].relative_to(repo).as_posix()
+        committed = (_git_show(repo, f'HEAD:{own}')
+                     if rep.before is not None and own not in rep.before else None)
+        if own not in kept and untouched_install_copy(repo, own, tmpl, rev,
+                                                      committed):
+            taken.append(own)
+    if taken:
+        rep.step('templates taken', f'{", ".join(taken)}: still exactly as '
+                 f'the install wrote them from an older template, with no edit '
+                 f'of this repository\'s own, so each now carries the current '
+                 f'template, filled in with the same values')
     for rel, tmpl, sha, hits in dropped_template_lines(repo, rev):
         verdict, reason = pve._kept_divergence(repo, rel, sha)
         old = None
@@ -2463,11 +2579,6 @@ def dropped_template_lines_step(repo, rep, rev):
         if verdict == 'kept':
             rep.step('kept on purpose', f'{rel} keeps wording {tmpl} dropped, '
                      f'as precedent.json records -- "{reason}"')
-            continue
-        if verdict is None and _still_an_old_template(repo, rel, tmpl, rev):
-            rep.step('refreshed', f'{rel} was, word for word, an older version '
-                     f'of {tmpl} with no edits of this repository\'s own, so it '
-                     f'now carries the current template')
             continue
         if verdict in (None, 'unreasoned'):
             left = refresh_template_comment(repo, rel, tmpl, rev, hits)
