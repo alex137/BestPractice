@@ -1314,8 +1314,11 @@ def main(argv):
                   f'a path -- the read a republish needs -- and the file it '
                   f'says the full HTML was saved to; only if the page came '
                   f'back inline, read it again with path index.html for the '
-                  f'file), then run this again adding --merge <that file>, '
-                  f'and never Read the file yourself. Only if it is gone or '
+                  f'file), then run this again adding --merge <that file>. '
+                  f'Before the first publish, Read every line of that file '
+                  f'in ranges and change nothing: the Artifact tool refuses '
+                  f'a republish over another session\'s version until it '
+                  f'has been read through. Only if it is gone or '
                   f'unreadable, '
                   f'add --replace instead.')
             return 2
