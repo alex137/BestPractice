@@ -11281,6 +11281,88 @@ def check_engine_carries_no_branch_naming_enforcement():
           not failed, '; '.join(failed))
 
 
+def check_fix_sweep_judges_in_force_by_the_targets_resolver():
+    """FIX SWEEP decides whether a new detector's practice is in force in a
+    repository by that repository's own resolver, not by a practices/<slug>.md
+    in its copy (2026-10-17 very deep check: in each set 17 of 18 rows read
+    SKIPPED, "not in force here", though every set declares universal).
+
+    Stated cases: a practice the set's resolver puts in force from universal
+    is run against the set's copy, not skipped; the real set is left as it
+    was; one cause behind most skips is said once, ONE CAUSE, the way CHECK
+    COVERAGE says it, and a spread of causes is not."""
+    import shutil, tempfile
+    import very_deep_check as _vdc
+    import precedent_vendor_engine as pve
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-fix-sweep-'))
+    try:
+        s = tmp / 'zz-set'
+        (s / 'practices').mkdir(parents=True)
+        (s / 'tools').mkdir()
+        for name in pve.ENGINE_FILES:
+            src = ROOT / 'tools' / name
+            if src.is_file() and name != 'verify_harness.py':
+                shutil.copy2(src, s / 'tools' / name)
+        (s / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'source', 'files': []}), encoding='utf-8')
+        (s / 'precedent-source.json').write_text(
+            json.dumps({'name': 'zz-set', 'level': 'shared'}), encoding='utf-8')
+        (s / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'base_branch': 'main', 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]}),
+            encoding='utf-8')
+        (s / 'practices' / 'zz-own.md').write_text(
+            '---\nslug: zz-own\ntitle: Fixture\ntier: on-demand\nseverity: default\n'
+            'applies_to: ["**"]\noccasion: "x"\nindex_clause: "x"\nstatus: active\n'
+            '---\n## Rule\nx\n\n## Story\nx\n', encoding='utf-8')
+        for a in (['init', '-q', '-b', 'main'], ['add', '-A'],
+                  ['-c', 'user.email=h@example.com', '-c', 'user.name=h',
+                   'commit', '-qm', 'fixture']):
+            subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C', str(s), *a],
+                           capture_output=True)
+        saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'none.json')
+        # The sweep as the run calls it, with its detector list planted.
+        real_added = _vdc._detectors_added
+        _vdc._detectors_added = lambda *_a, **_k: (['one-python'], '', '')
+        try:
+            _since, _slugs, rows, _note, _cav = _vdc._fix_sweep(
+                ROOT, [('zz-set', str(s))], since='2026-01-01')
+        finally:
+            _vdc._detectors_added = real_added
+            if saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved
+        label, verdicts, why = rows[0] if rows else ('zz-set', None, 'no row')
+        got = verdicts[0] if verdicts else (None, None, why)
+        cases.append(('a practice the set resolves from universal is run on the '
+                      'copy, not skipped', got[1] not in (None, 'SKIPPED')
+                      and 'in force here by its resolver' in (got[2] or ''),
+                      repr(got)))
+        status = subprocess.run(['git', '-C', str(s), 'status', '--porcelain',
+                                 '--untracked-files=all'],
+                                capture_output=True, text=True).stdout
+        cases.append(('the real set is left as it was', status.strip() == ''
+                      and not (s / 'process').exists(), status))
+        _one_cause = getattr(_vdc, '_one_skip_cause', lambda v: '')
+        one = _one_cause([('a', 'SKIPPED', 'no file'),
+                                    ('b', 'SKIPPED', 'no file'),
+                                    ('c', 'clean', '')])
+        spread = _one_cause([('a', 'SKIPPED', 'x'), ('b', 'SKIPPED', 'y'),
+                                       ('c', 'clean', '')])
+        cases.append(('one cause behind most skips is said once, ONE CAUSE; a '
+                      'spread of causes is not', one.startswith('ONE CAUSE 2 of 3')
+                      and spread == '', repr((one, spread))))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the fix sweep judges a detector in force by the target repository\'s '
+          f'resolver ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:600]}' for n, d in bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -20119,6 +20201,16 @@ def check_update_vendors_asks_about_a_rule_in_force_nowhere():
                       'IN FORCE NOWHERE' in out and 'planted-branch-rule' in out))
         cases.append(('the sync no longer claims the rule is in force as itself',
                       'now in force as planted-branch-rule' not in out))
+        # 2026-10-17 very deep check: the line after IN FORCE NOWHERE said
+        # "so the removal is correct: planted-branch-rule (... which is IN
+        # FORCE NOWHERE here -- see above)".
+        cases.append(('nor calls a removal into nowhere correct: it says the '
+                      'rule is lost here',
+                      not any('removal is correct' in ln
+                              and 'planted-branch-rule' in ln
+                              for ln in out.splitlines())
+                      and any('LOST here' in ln and 'planted-branch-rule' in ln
+                              for ln in out.splitlines())))
         found = getattr(pu, 'in_force_nowhere', lambda o: [])(out)
         cases.append(('Update Vendors picks the warning out of the sync\'s output',
                       any('planted-branch-rule' in f for f in found)))
@@ -23057,6 +23149,33 @@ def check_precedent_check_fires():
                           'never the one the change adds',
                           'practices/repo-is-memory.md' in _pa
                           and 'zzz-moved-in' not in _pa))
+
+        # universal-dedup-lands-in-universal: a universal stub hand-pointed
+        # at a slug only a set carries (2026-10-17 very deep check), and a
+        # second one carrying the move tool's --accept-reach-loss line,
+        # which must stay clean.
+        def _plant_universal_dedup_nowhere(repo):
+            rewrite(repo, 'practices/brief-it.md',
+                    lambda t: re.sub(r'^in_force_at:.*$',
+                                     'in_force_at:       zz-set-only-rule', t,
+                                     count=1, flags=re.M))
+            rewrite(repo, 'practices/session-text.md',
+                    lambda t: re.sub(r'^in_force_at:.*$',
+                                     'in_force_at:       zz-other-set-rule', t,
+                                     count=1, flags=re.M).replace(
+                        '\n## Install', '\nWithdrawn from universal on '
+                        '2026-10-17, deliberately, with --accept-reach-loss '
+                        '(approved by Pat): deduplicated here; the rule is in '
+                        'force only from the shared set `zz-set` now. A '
+                        'consumer resolving only universal no longer gets '
+                        'it.\n\n## Install', 1))
+        case('universal-dedup-lands-in-universal', _plant_universal_dedup_nowhere)
+        if 'universal-dedup-lands-in-universal' in planted:
+            _ud = planted['universal-dedup-lands-in-universal'][1]
+            cases.append(('universal-dedup-lands-in-universal: the hand stub is '
+                          'refused, the one carrying the --accept-reach-loss '
+                          'line is not', 'practices/brief-it.md' in _ud
+                          and 'practices/session-text.md' not in _ud))
 
         # session-trailer: the baseline commit carries an explicit "none
         # available" trailer; the plant adds one commit with no trailer at
@@ -32947,7 +33066,10 @@ def check_materialize_bridges_loader():
 
         consumer = tmp / 'consumer'
         (consumer).mkdir()
+        # Declared private: run directly, materialize refuses a team-level
+        # source's text in a public (or undeclared) repo since 2026-10-17.
         (consumer / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
                         {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)}]
         }), encoding='utf-8')
@@ -33448,6 +33570,7 @@ def check_materialize_carries_harness_adapters():
         declare(team, [])
         consumer.mkdir()
         (consumer / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',  # a team source, run directly (2026-10-17)
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
                         {'level': 'team', 'name': 'precedent-team-fixture',
                          'path': str(team)}]}), encoding='utf-8')
@@ -33793,7 +33916,8 @@ def check_practice_ships_its_files():
         consumer.mkdir()
 
         def config(extra=None):
-            d = {'sources': [
+            d = {'visibility': 'private',  # team source, run directly
+                 'sources': [
                 {'level': 'universal', 'name': 'precedent', 'path': str(uni)},
                 {'level': 'team', 'name': 'precedent-team-fixture',
                  'path': str(team)}]}
@@ -34474,7 +34598,10 @@ def check_show_flags_unreachable_materialized_source():
 
         consumer = tmp / 'consumer'
         (consumer).mkdir()
+        # Private: run directly, materialize refuses individual text in a
+        # public (or undeclared) repo since 2026-10-17.
         (consumer / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)}]
         }), encoding='utf-8')
         user_config = tmp / 'user-config.json'
@@ -67592,6 +67719,281 @@ def check_individual_source_bootstrap_self_heals():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_a_set_in_a_linked_worktree_does_not_load_itself_twice():
+    """A set the individual set brings is left out when it IS the repository
+    being resolved -- in a linked worktree of it too (2026-10-17 very deep
+    check: precedent_resolve compared paths only, so the ladder set in a
+    worktree loaded itself a second time from its main checkout, 3,801
+    words of session load against 3,399 in the clone; --land and the merge
+    gate check in throwaway worktrees).
+
+    Stated cases: in the clone the brought copy is left out (control); in a
+    linked worktree of the same set it is left out too; a different set
+    beside it is still brought."""
+    import shutil, tempfile
+    import precedent_resolve as pr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-wt-self-'))
+    cases = []
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C',
+                               str(repo), *a], capture_output=True, text=True)
+
+    def practice(d, slug):
+        (d / 'practices').mkdir(parents=True, exist_ok=True)
+        (d / 'practices' / f'{slug}.md').write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+            f'severity: default\napplies_to: ["**"]\noccasion: "x"\n'
+            f'index_clause: "x"\nstatus: active\n---\n## Rule\nx\n\n## Story\nx\n',
+            encoding='utf-8')
+
+    try:
+        ind, ladder, other = tmp / 'zz-ind', tmp / 'zz-ladder', tmp / 'zz-other'
+        practice(ind, 'zz-ind-rule')
+        (ind / 'precedent-source.json').write_text(json.dumps({
+            'name': 'zz-ind', 'level': 'individual', 'brings': [
+                {'name': 'zz-ladder', 'repo_url': 'https://example.com/zz-ladder'},
+                {'name': 'zz-other', 'repo_url': 'https://example.com/zz-other'}]}),
+            encoding='utf-8')
+        for s in (ladder, other):
+            practice(s, f'{s.name}-rule')
+            (s / 'precedent-source.json').write_text(json.dumps(
+                {'name': s.name, 'level': 'shared'}), encoding='utf-8')
+            (s / 'precedent.json').write_text(json.dumps({
+                'format_version': 1, 'base_branch': 'main', 'sources': [
+                    {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]}),
+                encoding='utf-8')
+            git(s, 'init', '-q', '-b', 'main')
+            git(s, 'add', '-A')
+            git(s, '-c', 'user.email=h@example.com', '-c', 'user.name=h',
+                'commit', '-qm', 'fixture')
+        wt = tmp / 'elsewhere' / 'zz-ladder-wt'
+        wt.parent.mkdir()
+        git(ladder, 'worktree', 'add', '-q', '-b', 'wt', str(wt))
+        user = tmp / 'user.json'
+        user.write_text(json.dumps({'format_version': 1, 'individual': {
+            'name': 'zz-ind', 'path': str(ind)}}), encoding='utf-8')
+
+        def brought(repo):
+            os.environ[pr.SELF_HEAL_RENDER_ENV] = '1'   # no render from a fixture
+            try:
+                srcs = pr.load_config(str(repo), str(user))
+            finally:
+                os.environ.pop(pr.SELF_HEAL_RENDER_ENV, None)
+            return sorted(s['name'] for s in srcs if s.get('brought'))
+
+        got_clone, got_wt = brought(ladder), brought(wt)
+        cases.append(('control: in the clone, the set does not bring itself',
+                      got_clone == ['zz-other'], repr(got_clone)))
+        cases.append(('in a linked worktree of the set, it does not bring itself '
+                      'from its main checkout either', got_wt == ['zz-other'],
+                      repr(got_wt)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a set resolved in a linked worktree of itself does not load itself '
+          f'twice ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
+def check_a_sets_own_hooks_are_registered_in_a_session_rooted_in_it():
+    """A practice set's own `hooks:` run in a session rooted in the set
+    (2026-10-17 very deep check: precedent_materialize was not in the source
+    engine's file list, so the session file printed "No module named
+    'precedent_materialize'", and only a consumer's sync ever wrote
+    process/practice_hooks.json, so no set registered its own hooks).
+
+    Stated cases: a set's engine carries precedent_materialize.py and the
+    module it imports; the session file run in a set registers the set's own
+    practice hook in .precedent/practice_hooks.json; an engine without the
+    module gets one plain sentence, never a ModuleNotFoundError."""
+    import contextlib, io, shutil, tempfile
+    import precedent_vendor_engine as pve
+    import precedent_session_practices as psp_mod
+    cases = [('a practice set\'s engine carries precedent_materialize.py and '
+              'precedent_source_pins.py',
+              {'precedent_materialize.py', 'precedent_source_pins.py'}
+              <= set(pve.ENGINE_FILES), '')]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-set-hooks-'))
+    try:
+        s = tmp / 'zz-set'
+        (s / 'practices').mkdir(parents=True)
+        (s / 'tools').mkdir()
+        (s / '.claude').mkdir()
+        (s / '.claude' / 'settings.json').write_text('{"hooks": {}}', encoding='utf-8')
+        (s / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'source', 'files': []}), encoding='utf-8')
+        (s / 'tools' / 'zz_hook.py').write_text('print("hi")\n', encoding='utf-8')
+        (s / 'precedent-source.json').write_text(
+            json.dumps({'name': 'zz-set', 'level': 'shared'}), encoding='utf-8')
+        (s / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'base_branch': 'main', 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]}),
+            encoding='utf-8')
+        (s / 'practices' / 'zz-hooked.md').write_text(
+            '---\nslug: zz-hooked\ntitle: Fixture\ntier: on-demand\n'
+            'severity: default\napplies_to: ["**"]\noccasion: "x"\n'
+            'index_clause: "x"\nstatus: active\n'
+            'ships: ["tools/zz_hook.py"]\n'
+            'hooks: [{"event": "SessionStart", "run": "tools/zz_hook.py"}]\n'
+            '---\n## Rule\nx\n\n## Story\nx\n', encoding='utf-8')
+        for a in (['init', '-q', '-b', 'main'], ['add', '-A'],
+                  ['-c', 'user.email=h@example.com', '-c', 'user.name=h',
+                   'commit', '-qm', 'fixture']):
+            subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C', str(s), *a],
+                           capture_output=True)
+        env = dict(os.environ, PRECEDENT_USER_CONFIG=str(tmp / 'none.json'),
+                   HOME=str(tmp / 'home'))
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' /
+                                                'precedent_session_practices.py'),
+                            '--repo', str(s), '--quiet'], capture_output=True,
+                           text=True, env=env, cwd=str(s))
+        hooks_f = s / '.precedent' / 'practice_hooks.json'
+        listed = hooks_f.read_text(encoding='utf-8') if hooks_f.is_file() else ''
+        cases.append(('the session file in a set registers the set\'s own practice '
+                      'hook in .precedent/practice_hooks.json',
+                      'tools/zz_hook.py' in listed and '"SessionStart"' in listed,
+                      (r.stdout + r.stderr)[-600:] + listed))
+
+        saved = sys.modules.get('precedent_materialize')
+        sys.modules['precedent_materialize'] = None      # import now fails
+        err = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(err):
+                psp_mod.deliver_ships(str(s), [])
+        finally:
+            if saved is None:
+                sys.modules.pop('precedent_materialize', None)
+            else:
+                sys.modules['precedent_materialize'] = saved
+        said = err.getvalue()
+        cases.append(('an engine without the module gets one plain sentence, not '
+                      'a ModuleNotFoundError', 'ModuleNotFoundError' not in said
+                      and 'does not carry tools/precedent_materialize.py' in said,
+                      said))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a practice set\'s own hooks are registered in a session rooted in '
+          f'it ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:600]}' for n, d in bad))
+
+
+def check_stale_render_heal_never_overwrites_with_less():
+    """A read-only check must not replace a complete session file with an
+    emptier one (2026-10-17 very deep check: in an isolated clone with no
+    sibling checkouts, build_views.py --check's load_config() ran
+    precedent_resolve._self_heal_stale_render, which re-rendered a 3-day-old
+    complete .precedent/SESSION_PRACTICES.md into one listing its sources as
+    "did NOT resolve").
+
+    Stated cases: the heal asks the renderer to keep an incomplete render
+    out (--keep-if-incomplete); with that flag and a declared source
+    missing, the renderer keeps the old file, marks it STALE on the line
+    after its GENERATED comment, names the missing source, and leaves its
+    modification time, so it still reads as stale; a second kept run does
+    not add a second mark; with every source resolving, the same flag
+    renders normally; and without the flag (session start) the renderer
+    still writes what it can resolve."""
+    import shutil, tempfile
+    import precedent_resolve as pr
+    tool = str(ROOT / 'tools' / 'precedent_session_practices.py')
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-keep-render-'))
+    env = dict(os.environ, PRECEDENT_USER_CONFIG=str(tmp / 'no-user.json'),
+               HOME=str(tmp / 'home'))
+    try:
+        # 1. The heal passes the flag (a stub renderer records its argv).
+        stub_repo = tmp / 'stub'
+        (stub_repo / 'tools').mkdir(parents=True)
+        (stub_repo / 'tools' / 'precedent_session_practices.py').write_text(
+            'import pathlib, sys\n'
+            'repo = sys.argv[sys.argv.index("--repo") + 1]\n'
+            'o = pathlib.Path(repo) / ".precedent"; o.mkdir(exist_ok=True)\n'
+            '(o / "SESSION_PRACTICES.md").write_text(" ".join(sys.argv[1:]))\n',
+            encoding='utf-8')
+        saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = env['PRECEDENT_USER_CONFIG']
+        try:
+            pr._self_heal_stale_render(stub_repo)
+        finally:
+            if saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved
+        argv = (stub_repo / '.precedent' / 'SESSION_PRACTICES.md').read_text(
+            encoding='utf-8') if (stub_repo / '.precedent' /
+                                  'SESSION_PRACTICES.md').is_file() else ''
+        cases.append(('the self-heal asks the renderer to keep a complete '
+                      'render (--keep-if-incomplete)',
+                      '--keep-if-incomplete' in argv, argv))
+
+        # 2. The real renderer against a repo whose shared source is gone.
+        shared = tmp / 'shared-set'
+        (shared / 'practices').mkdir(parents=True)
+        (shared / 'practices' / 'shared-rule.md').write_text(
+            '---\nslug: shared-rule\ntitle: Fixture\ntier: on-demand\n'
+            'severity: default\napplies_to: ["**"]\noccasion: "x happens"\n'
+            'index_clause: "do the shared thing"\nstatus: active\n---\n'
+            '## Rule\nSHARED-RULE-TEXT.\n\n## Story\nx\n', encoding='utf-8')
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        # Public, so the shared set is the session file's to carry.
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'base_branch': 'main', 'visibility': 'public',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(ROOT)},
+                        {'level': 'shared', 'name': 'precedent-shared-fixture',
+                         'path': str(shared)}]}), encoding='utf-8')
+        target = repo / '.precedent' / 'SESSION_PRACTICES.md'
+
+        def render(*extra):
+            r = subprocess.run([sys.executable, tool, '--repo', str(repo),
+                                '--quiet', *extra], capture_output=True,
+                               text=True, env=env, cwd=str(repo))
+            return r.stdout + r.stderr
+
+        out = render('--keep-if-incomplete')
+        full = target.read_text(encoding='utf-8') if target.is_file() else ''
+        cases.append(('control: with every source resolving the flag renders '
+                      'normally', 'shared-rule' in full and 'STALE' not in full,
+                      out))
+        old = time.time() - 3 * 86400
+        os.utime(target, (old, old))
+        shutil.move(str(shared), str(tmp / 'shared-hidden'))
+
+        out = render('--keep-if-incomplete')
+        kept = target.read_text(encoding='utf-8')
+        lines = kept.splitlines()
+        cases.append(('with a source missing, the complete render is kept',
+                      'shared-rule' in kept, out + kept[:400]))
+        cases.append(('and marked STALE on the line after its GENERATED comment, '
+                      'naming the missing source',
+                      len(lines) > 1 and lines[0].startswith('<!--')
+                      and lines[1].startswith('> **STALE:**')
+                      and 'precedent-shared-fixture' in lines[1], kept[:400]))
+        cases.append(('and keeps its old modification time, so the next heal '
+                      'still re-renders it', abs(target.stat().st_mtime - old) < 2,
+                      str(target.stat().st_mtime - old)))
+        render('--keep-if-incomplete')
+        cases.append(('a second kept run does not add a second mark',
+                      target.read_text(encoding='utf-8').count('**STALE:**') == 1,
+                      target.read_text(encoding='utf-8')[:400]))
+
+        render()
+        now = target.read_text(encoding='utf-8')
+        cases.append(('without the flag (session start) the renderer writes '
+                      'what resolves and says what did not',
+                      'did NOT resolve' in now and 'STALE' not in now, now[:400]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a read-only check keeps a complete session file rather than '
+          f'rewrite it from sources that did not resolve ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_stale_render_self_heals():
     """spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md's Shape C, tested rather
     than trusted -- precedent_resolve._self_heal_stale_render() is the fix
@@ -72628,7 +73030,9 @@ def check_move_tool_covers_every_direction_and_team_removals():
         cases.append(('the team copy\'s Story line names who approved the removal, and sits '
                       'in ## Story -- not after ## Install, where nothing reads a Story',
                       'removal from `precedent-team-fixture` approved by Fixture Approver'
-                      in story and 'Moved to the individual set' in story
+                      # An individual set is named only as one outside it
+                      # (2026-10-17).
+                      in story and 'Moved to an individual set' in story
                       and src.rstrip().endswith('Nothing to install.'), src[-700:]))
 
         # -- --dedupe-only from a team needs --approved-by at all --
@@ -72652,11 +73056,14 @@ def check_move_tool_covers_every_direction_and_team_removals():
                 '--to', 'individual', '--to-path', str(indiv), '--dedupe-only',
                 '--accept-reach-loss', '--approved-by', 'Owner')
         u = text(uclone / 'practices' / 'zz-out.md')
+        # The universal clone is public: the individual set is named only as
+        # one there (2026-10-17), and still reads back as a withdrawal.
         cases.append(('universal -> individual withdraws with --accept-reach-loss, and the '
-                      'Story line names the set and who approved it',
+                      'Story line says where (an individual set, unnamed) and who approved it',
                       r.returncode == 0 and 'status:      deduplicated' in u
                       and '--accept-reach-loss (approved by Owner)' in u
-                      and 'from the individual set `precedent-individual`' in u,
+                      and 'in force only from an individual set now' in u
+                      and 'precedent-individual' not in u,
                       (r.stdout + r.stderr)[-500:]))
 
         # -- individual -> universal: a draft, given the ## Install it lacked --
@@ -72733,6 +73140,225 @@ def check_move_tool_covers_every_direction_and_team_removals():
     failed = [c for c in cases if not c[1]]
     check(f'tools/precedent_move.py runs the remaining directions and asks a team\'s own '
           f'approver before removing its practice ({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
+def check_move_tool_names_sets_truly_and_keeps_approvals_current():
+    """tools/precedent_move.py names each set as the set declares itself,
+    never names an individual set outside it, keeps every approved_by true
+    after the step that changes it, and says when a move puts a set over
+    its ceiling (2026-10-17 very deep check, findings on the move tool).
+
+    Stated cases, each against the defect it pins:
+      - a set checked out under another directory name is named by its
+        precedent-source.json, in Story and in approval;
+      - after --dedupe-only --accept-reach-loss the set copy's approved_by
+        no longer says a universal copy "stays active";
+      - shared -> individual takes the individual owner's yes (checked
+        against identity.json) and a shared approver's for the removal
+        (--removal-approved-by), and writes no individual set's name into
+        the shared set, its Story or its mentions;
+      - an individual -> universal draft does not name the individual set;
+      - the --dedupe-only after a move into universal rewrites the
+        "pending PR review" approval when git shows the merge, and says
+        what to write when it does not;
+      - "`x` lives in universal, which ..." is named for a person, a link
+        repointed inside "... is the universal copy" is too, and a prose
+        rewrite on a line with no link gets no "its link now points" note;
+      - a move that puts a set over its declared ceiling says so;
+      - a universal rule withdrawn to an individual set is never told to
+        "declare that set"."""
+    import shutil, tempfile
+    import precedent_resolve as pr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-move-names-'))
+    env = _move_fixture_env(tmp)
+    cases = []
+
+    def run(*args):
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_move.py'),
+                            *args], cwd=str(ROOT), capture_output=True, text=True,
+                           env=env)
+        return r, r.stdout + r.stderr
+
+    def text(p):
+        return p.read_text(encoding='utf-8') if p.is_file() else ''
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C',
+                               str(repo), *a], capture_output=True, text=True)
+
+    def commit_all(repo, msg='fixture'):
+        git(repo, 'add', '-A')
+        git(repo, '-c', 'user.email=h@example.com', '-c', 'user.name=h',
+            'commit', '-qm', msg)
+
+    try:
+        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        # The shared set's checkout directory is NOT its name.
+        shared, indiv = tmp / 'shared-two-checkout', tmp / 'zz-person-set'
+        subprocess.run([sys.executable, boot, '--level', 'shared', '--name',
+                        'precedent-shared-real', '--dest', str(shared),
+                        '--approver', 'Fixture Approver:fixture-gh'],
+                       capture_output=True, text=True, env=env)
+        subprocess.run([sys.executable, boot, '--level', 'individual', '--name',
+                        'zz-person-set', '--dest', str(indiv)],
+                       capture_output=True, text=True, env=env)
+        ident = json.loads(text(indiv / 'identity.json') or '{}')
+        ident.update(name='Pat Owner', github='pat-owner')
+        (indiv / 'identity.json').write_text(json.dumps(ident), encoding='utf-8')
+        uclone = tmp / 'BestPractice'
+        (uclone / 'practices').mkdir(parents=True)
+        (uclone / 'docs').mkdir()
+        P = _move_fixture_practice
+        (uclone / 'practices' / 'zz-out.md').write_text(P('zz-out'), encoding='utf-8')
+        (uclone / 'docs' / 'notes.md').write_text(
+            '# Notes\n\n`zz-out` lives in universal, which every consumer '
+            'resolves.\n', encoding='utf-8')
+        (shared / 'practices' / 'zz-down.md').write_text(P('zz-down'), encoding='utf-8')
+        (shared / 'NOTES.md').write_text(
+            '# Notes\n\n'
+            '- `zz-down` (precedent-shared-real) is the rule we pair with.\n\n'
+            '- [zz-out](https://github.com/example/BestPractice/blob/main/'
+            'practices/zz-out.md) is the universal copy we lean on.\n\n'
+            '- `zz-hab` (zz-person-set) is the habit rule this set leans on.\n',
+            encoding='utf-8')
+        (indiv / 'practices' / 'zz-up.md').write_text(P('zz-up'), encoding='utf-8')
+        (indiv / 'practices' / 'zz-hab.md').write_text(P('zz-hab'), encoding='utf-8')
+        for repo in (shared, indiv, uclone):
+            git(repo, 'init', '-q', '-b', 'main')
+            commit_all(repo)
+
+        # -- universal -> shared, then the deliberate withdrawal --
+        r, out = run('--slug', 'zz-out', '--from', 'universal', '--from-path',
+                     str(uclone), '--to', 'shared', '--to-path', str(shared),
+                     '--approved-by', 'Fixture Approver')
+        commit_all(shared)
+        commit_all(uclone)
+        r, out = run('--slug', 'zz-out', '--from', 'universal', '--from-path',
+                     str(uclone), '--to', 'shared', '--to-path', str(shared),
+                     '--dedupe-only', '--accept-reach-loss', '--approved-by',
+                     'Fixture Approver')
+        u, s = text(uclone / 'practices' / 'zz-out.md'), text(shared / 'practices' / 'zz-out.md')
+        cases.append(('a set checked out under another directory is named by its '
+                      'precedent-source.json in the universal Story',
+                      r.returncode == 0 and '`precedent-shared-real`' in u
+                      and 'shared-two-checkout' not in u, out[-600:]))
+        cases.append(('after --dedupe-only --accept-reach-loss the set copy no longer '
+                      'says a universal copy stays active',
+                      'where a copy stays active' not in s
+                      and 'deduplicated there on' in s, s[:900]))
+        cases.append(('"`x` lives in universal, which ..." is named for a person, '
+                      'not passed over', 'could not fix: BestPractice/docs/notes.md:3'
+                      in out, out[-900:]))
+        cases.append(('a link repointed inside "... is the universal copy we lean on" '
+                      'is named for rewording', 'shared-two-checkout/NOTES.md:5' in out
+                      and 'still calls it the universal copy' in out, out[-900:]))
+
+        # -- shared -> individual: two approvals, and no individual name in the shared set --
+        r, out = run('--slug', 'zz-down', '--from', 'shared', '--from-path', str(shared),
+                     '--to', 'individual', '--to-path', str(indiv),
+                     '--approved-by', 'Somebody Else',
+                     '--removal-approved-by', 'Fixture Approver')
+        cases.append(('landing in an individual set by a name its identity.json does '
+                      'not declare is refused', r.returncode == 1
+                      and 'not the owner' in out, out[-500:]))
+        r, out = run('--slug', 'zz-down', '--from', 'shared', '--from-path', str(shared),
+                     '--to', 'individual', '--to-path', str(indiv),
+                     '--approved-by', 'Pat Owner',
+                     '--removal-approved-by', 'Fixture Approver')
+        sd, notes = text(shared / 'practices' / 'zz-down.md'), text(shared / 'NOTES.md')
+        cases.append(('shared -> individual takes the owner for the landing and a '
+                      'shared approver for the removal (--removal-approved-by)',
+                      r.returncode == 0 and 'status:      deduplicated' in sd
+                      and 'removal from `precedent-shared-real` approved by Fixture '
+                      'Approver' in sd, out[-600:]))
+        cases.append(('the shared stub and the shared set\'s mentions never name the '
+                      'individual set', 'zz-person-set' not in sd
+                      and 'Moved to an individual set' in sd
+                      and '`zz-down` (an individual set)' in notes
+                      and 'zz-down` (zz-person-set)' not in notes, sd[-500:] + notes))
+
+        # -- individual -> shared: a prose rewrite with no link gets no link note --
+        r, out = run('--slug', 'zz-hab', '--from', 'individual', '--from-path', str(indiv),
+                     '--to', 'shared', '--to-path', str(shared),
+                     '--approved-by', 'Fixture Approver')
+        cases.append(('a prose rewrite on a line with no link gets no "its link now '
+                      'points" note', r.returncode == 0
+                      and 'NOTES.md:7 -- its link' not in out
+                      and '`zz-hab` (precedent-shared-real)' in text(shared / 'NOTES.md'),
+                      out[-600:]))
+
+        # -- individual -> universal: the draft names no individual set --
+        r, out = run('--slug', 'zz-up', '--from', 'individual', '--from-path', str(indiv),
+                     '--to', 'universal', '--to-path', str(uclone), '--approved-by', 'Pat Owner')
+        d = text(uclone / 'practices' / 'zz-up.md')
+        cases.append(('an individual -> universal draft says "moved from an individual '
+                      'set", never its name', r.returncode == 0
+                      and 'moved from an individual set' in d and 'zz-person-set' not in d,
+                      d[:700]))
+        r, out = run('--slug', 'zz-up', '--from', 'individual', '--from-path', str(indiv),
+                     '--to', 'universal', '--to-path', str(uclone), '--dedupe-only')
+        cases.append(('its --dedupe-only before the merge says the placeholder must be '
+                      'rewritten, and leaves it', r.returncode == 0
+                      and 'still says approved_by "pending PR review"' in out
+                      and 'pending PR review' in text(uclone / 'practices' / 'zz-up.md'),
+                      out[-600:]))
+        # Merged: origin/main has the draft.
+        (indiv / 'practices' / 'zz-up2.md').write_text(P('zz-up2'), encoding='utf-8')
+        run('--slug', 'zz-up2', '--from', 'individual', '--from-path', str(indiv),
+            '--to', 'universal', '--to-path', str(uclone), '--approved-by', 'Pat Owner')
+        bare = tmp / 'origin.git'
+        subprocess.run(['git', 'init', '-q', '--bare', str(bare)], capture_output=True)
+        commit_all(uclone, 'Draft zz-up2 (#41)')
+        git(uclone, 'remote', 'add', 'origin', str(bare))
+        git(uclone, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+        git(uclone, 'fetch', '-q', 'origin')
+        r, out = run('--slug', 'zz-up2', '--from', 'individual', '--from-path', str(indiv),
+                     '--to', 'universal', '--to-path', str(uclone), '--dedupe-only')
+        d2 = text(uclone / 'practices' / 'zz-up2.md')
+        cases.append(('its --dedupe-only after the merge rewrites the placeholder from '
+                      'git', r.returncode == 0 and 'pending PR review' not in d2
+                      and 'merged in PR #41' in d2 and 'drafted' in d2, d2[:800]))
+
+        # -- a move that puts a set over its declared ceiling says so --
+        reg_f = shared / 'tools' / 'session_load_budgets.json'
+        reg = json.loads(text(reg_f) or '{"surfaces": {}}')
+        reg.setdefault('surfaces', {}).setdefault('AGENTS.md', {})['ceiling'] = 10
+        reg_f.write_text(json.dumps(reg), encoding='utf-8')
+        (indiv / 'practices' / 'zz-big.md').write_text(P('zz-big'), encoding='utf-8')
+        r, out = run('--slug', 'zz-big', '--from', 'individual', '--from-path', str(indiv),
+                     '--to', 'shared', '--to-path', str(shared),
+                     '--approved-by', 'Fixture Approver')
+        cases.append(('a move that leaves a set over its declared ceiling warns, naming '
+                      'the set and the ceiling',
+                      'WARNING: precedent-shared-real: AGENTS.md is now' in out
+                      and 'ceiling of 10' in out, out[-600:]))
+
+        # -- withdrawn to an individual set: never "declare that set" --
+        (uclone / 'practices' / 'zz-gone.md').write_text(P('zz-gone'), encoding='utf-8')
+        commit_all(uclone)
+        run('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+            '--to', 'individual', '--to-path', str(indiv), '--approved-by', 'Pat Owner')
+        r, out = run('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+                     '--to', 'individual', '--to-path', str(indiv), '--dedupe-only',
+                     '--accept-reach-loss', '--approved-by', 'Pat Owner')
+        g = text(uclone / 'practices' / 'zz-gone.md')
+        res = pr.resolve([{'level': 'universal', 'name': 'precedent',
+                           'path': str(uclone)}])
+        why = ' '.join(d_.get('why', '') for d_ in res.get('dangling', ())
+                       if d_.get('slug') == 'zz-gone')
+        cases.append(('a universal rule withdrawn to an individual set names no set '
+                      'in the public clone, and is never told to "declare that set"',
+                      r.returncode == 0 and 'zz-person-set' not in g
+                      and 'user config' in why and 'declare that set' not in why,
+                      why or g[-500:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [c for c in cases if not c[1]]
+    check(f'tools/precedent_move.py names sets as they declare themselves, keeps '
+          f'an individual set\'s name inside it, keeps approvals true and warns '
+          f'on a ceiling ({len(cases)} stated cases)', not failed,
           '; '.join(f'{n}: {d}' for n, _ok, d in failed))
 
 
@@ -75700,11 +76326,16 @@ def check_declared_identity_has_a_passing_state_in_a_shared_repo():
     # path at all. What is left of the consumer-only boundary is the
     # materializing pair, so that is what this case now asserts: a set
     # materializes nothing and must not be handed the tools that do.
+    # precedent_materialize.py joined ENGINE_FILES on 2026-10-17: a set's
+    # session file delivers ships and registers hooks with it. Its writer is
+    # refused in a set (check_materialize_run_directly_refuses_what_the_sync_
+    # withholds), so the boundary that matters is the sync, still a
+    # consumer's alone.
     cases.append(('a seeded practice set does NOT receive '
-                  'precedent_materialize.py or precedent_sync_views.py -- '
-                  'the consumer-only boundary that survives the resolver '
-                  'moving into ENGINE_FILES',
-                  not (seeded / 'precedent_materialize.py').is_file()
+                  'precedent_sync_views.py -- the consumer-only boundary that '
+                  'survives the resolver moving into ENGINE_FILES -- and does '
+                  'receive precedent_materialize.py for its session file',
+                  (seeded / 'precedent_materialize.py').is_file()
                   and not (seeded / 'precedent_sync_views.py').is_file(),
                   str(sorted(f.name for f in seeded.iterdir()))))
     cases.append(('and DOES receive precedent_resolve.py and '
@@ -78279,6 +78910,134 @@ def check_branch_report_writes_delete_links_to_a_committable_file():
               f'non-GitHub origin producing no link at all being the '
               f'negative control)',
               not failed, '; '.join(failed) if failed else '')
+
+
+def check_materialize_run_directly_refuses_what_the_sync_withholds():
+    """precedent_materialize.py RUN DIRECTLY refuses the two writes only its
+    wrapper, precedent_sync_views.py, used to prevent (2026-10-17 very deep
+    check, finding "running precedent_materialize.py directly in a public
+    consumer copies private practice text into its tracked tree").
+
+    Reproduced before the fix: a scratch consumer declaring `visibility:
+    public` with an individual source got that set's practice under its
+    tracked practices/, and MANIFEST.json recorded `withheld: []` beside the
+    individual source's name and absolute path; with a declared source
+    unreachable it printed "Materializing WITHOUT it" and wrote anyway.
+
+    Stated cases: a public consumer with an individual source refuses, names
+    the wrapper, and writes nothing; a declared source that is missing
+    refuses and writes nothing; --allow-missing-sources proceeds; a private
+    consumer with the same individual source materializes it (the control);
+    and the wrapper itself still syncs the public consumer, withholding."""
+    import tempfile, shutil
+    import json as _json
+    tool = str(ROOT / 'tools' / 'precedent_materialize.py')
+    cases = []
+
+    def practice(d, slug, canary):
+        (d / 'practices').mkdir(parents=True, exist_ok=True)
+        (d / 'practices' / f'{slug}.md').write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+            f'severity: default\napplies_to: ["**"]\noccasion: "x happens"\n'
+            f'index_clause: "do the thing"\nstatus: active\n---\n'
+            f'## Rule\n{canary} applies.\n\n## Story\nBecause.\n',
+            encoding='utf-8')
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        uni, ind = tmp / 'uni', tmp / 'ind'
+        practice(uni, 'uni-rule', 'UNIVERSAL-TEXT')
+        practice(ind, 'private-only', 'SECRET-CANARY-VALUE')
+        user_cfg = tmp / 'user.json'
+        user_cfg.write_text(_json.dumps({'format_version': 1, 'individual': {
+            'name': 'precedent-individual', 'path': str(ind)}}), encoding='utf-8')
+        empty_cfg = tmp / 'empty-user.json'
+        empty_cfg.write_text(_json.dumps({'format_version': 1}), encoding='utf-8')
+
+        def consumer(name, visibility, extra_sources=()):
+            repo = tmp / name
+            repo.mkdir()
+            (repo / 'precedent.json').write_text(_json.dumps({
+                'format_version': 1, 'base_branch': 'main',
+                'visibility': visibility,
+                'sources': [{'level': 'universal', 'name': 'precedent',
+                             'path': str(uni)}, *extra_sources]}),
+                encoding='utf-8')
+            return repo
+
+        def run(repo, cfg, *extra):
+            env = dict(os.environ, HOME=str(tmp / 'home'))
+            r = subprocess.run([sys.executable, tool, '--out', str(repo),
+                                '--repo', str(repo), '--user-config', str(cfg),
+                                *extra], capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        def tree_text(repo):
+            return '\n'.join(f.read_text(encoding='utf-8')
+                             for f in repo.rglob('*') if f.is_file())
+
+        pub = consumer('pub', 'public')
+        rc, out = run(pub, user_cfg)
+        cases.append(('a public consumer with an individual source refuses',
+                      rc != 0 and 'refusing' in out, out))
+        cases.append(('and names precedent_sync_views.py as the route',
+                      'precedent_sync_views.py' in out, out))
+        cases.append(('and writes no private text, no practices/ and no '
+                      'MANIFEST.json', 'SECRET-CANARY-VALUE' not in tree_text(pub)
+                      and not (pub / 'practices').exists()
+                      and not (pub / 'MANIFEST.json').exists(), out))
+
+        gone = consumer('gone', 'private', [{'level': 'team', 'name':
+                        'precedent-team-gone', 'path': str(tmp / 'nowhere')}])
+        rc, out = run(gone, empty_cfg)
+        cases.append(('a declared source that did not resolve refuses',
+                      rc != 0 and 'incomplete source set' in out
+                      and 'precedent-team-gone' in out, out))
+        cases.append(('and writes nothing', not (gone / 'practices').exists(), out))
+        rc, out = run(gone, empty_cfg, '--allow-missing-sources')
+        cases.append(('--allow-missing-sources proceeds past it',
+                      rc == 0 and (gone / 'practices' / 'uni-rule.md').is_file(), out))
+
+        # A set carries this module for its session file since 2026-10-17;
+        # materializing into one would replace its own catalogue.
+        aset = consumer('aset', 'private')
+        (aset / 'tools').mkdir()
+        (aset / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'source', 'files': []}), encoding='utf-8')
+        practice(aset, 'own-rule', 'THE-SETS-OWN-TEXT')
+        rc, out = run(aset, empty_cfg)
+        cases.append(('a practice set refuses, and keeps its own practices/',
+                      rc != 0 and 'practice set' in out
+                      and (aset / 'practices' / 'own-rule.md').is_file()
+                      and not (aset / 'practices' / 'uni-rule.md').exists(), out))
+
+        priv = consumer('priv', 'private')
+        rc, out = run(priv, user_cfg)
+        cases.append(('control: a private consumer materializes the same '
+                      'individual source', rc == 0 and
+                      (priv / 'practices' / 'private-only.md').is_file(), out))
+
+        import precedent_sync_views as psv
+        pub2 = consumer('pub2', 'public')
+        import build_views as _bv
+        (pub2 / 'AGENTS.md').write_text(
+            f'# Consumer\n\n{_bv.BEGIN_MARKER} -->\n{_bv.END_MARKER} -->\n',
+            encoding='utf-8')
+        try:
+            psv.sync(str(pub2), user_config=str(user_cfg))
+            err = ''
+        except Exception as e:  # noqa: BLE001 -- reported as the case's detail
+            err = repr(e)
+        cases.append(('the wrapper still syncs the public consumer, withholding '
+                      'the private text', not err
+                      and (pub2 / 'practices' / 'uni-rule.md').is_file()
+                      and 'SECRET-CANARY-VALUE' not in tree_text(pub2), err))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'precedent_materialize.py run directly refuses private text in a '
+          f'public repo and an incomplete source set, naming the sync '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
 def check_public_consumer_does_not_materialize_private_text():
@@ -81673,6 +82432,7 @@ def main():
     check_very_deep_check_convergent_drift()
     check_public_tree_bakes_in_no_owner_account()
     check_public_consumer_does_not_materialize_private_text()
+    check_materialize_run_directly_refuses_what_the_sync_withholds()
     check_assumed_visibility_never_deletes_practices()
     check_access_probe_separates_refusal_from_silence()
     check_sync_refuses_to_write_from_incomplete_sources()
@@ -81733,6 +82493,7 @@ def main():
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
+    check_fix_sweep_judges_in_force_by_the_targets_resolver()
     check_engine_carries_no_branch_naming_enforcement()
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
@@ -82269,6 +83030,9 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
+    check_stale_render_heal_never_overwrites_with_less()
+    check_a_sets_own_hooks_are_registered_in_a_session_rooted_in_it()
+    check_a_set_in_a_linked_worktree_does_not_load_itself_twice()
     check_attached_sets_sources_are_synced()
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()
@@ -82388,6 +83152,7 @@ def main():
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
+    check_move_tool_names_sets_truly_and_keeps_approvals_current()
     check_move_withdrawal_from_universal_leaves_universal_green()
     check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix()
     check_bootstrapped_shared_set_carries_current_codeowners()

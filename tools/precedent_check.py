@@ -10442,6 +10442,89 @@ def _pending_approval_outlives_its_merge(ctx):
     return out
 
 
+# What precedent_move.py --dedupe-only --accept-reach-loss writes into the
+# universal copy's ## Story (and precedent_resolve.withdrawn_from_universal
+# reads back): "Withdrawn from universal on <date>, deliberately, with
+# --accept-reach-loss ...: ... in force only from the <level> set `<name>`".
+_ACCEPT_REACH_LOSS_FLAG = '--accept-reach-loss'
+
+
+@check('universal-dedup-lands-in-universal', 'tree',
+       "no universal practice is deduplicated to a slug that is not active in "
+       "the universal catalogue, unless its ## Story carries the line "
+       "precedent_move.py --dedupe-only --accept-reach-loss writes ("
+       "'Withdrawn from universal on <date>, deliberately, with "
+       "--accept-reach-loss')",
+       "whether the withdrawal was a good idea, or whether the set it went to "
+       "is one the consumers that matter declare -- only that the reach loss "
+       "was accepted on the record. A deduplication into another universal "
+       "practice is judged by following its in_force_at, one hop at a time.",
+       practice_backed=False,
+       selects_on=('practices/*.md',))
+def _universal_dedup_lands_in_universal(ctx):
+    """2026-10-17 very deep check: a universal practice deduplicated by hand
+    to a slug that only a set carries passed every check. The only signal
+    was the view sync's stderr, IN FORCE NOWHERE, followed by a line that
+    called the removal correct. Universal is the one level every consumer
+    resolves, so such a stub leaves the rule in force nowhere for a consumer
+    that declares universal alone. The move tool refuses that shape without
+    --accept-reach-loss; this check refuses the same shape made by hand."""
+    if _engine_manifest() or not (ctx.root / 'tools' / 'verify_harness.py').is_file():
+        raise NotApplicable('not the engine\'s own repository')
+    practices_dir = ctx.root / 'practices'
+    if not practices_dir.is_dir():
+        raise NotApplicable('no practices/ directory')
+    parsed = {}
+    for f in sorted(practices_dir.glob('*.md')):
+        try:
+            fm, sections = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue          # an unparseable file is another check's finding
+        parsed[(fm.get('slug') or f.stem).strip()] = (f, fm, sections)
+
+    def status(fm):
+        return (fm.get('status') or 'active').strip().strip('"\'')
+
+    def target(fm):
+        return (fm.get('in_force_at') or '').strip().strip('"\'')
+
+    def lands(slug):
+        seen = set()
+        while slug in parsed and slug not in seen:
+            seen.add(slug)
+            fm = parsed[slug][1]
+            if status(fm) == 'active':
+                return True
+            if status(fm) != 'deduplicated':
+                return False
+            slug = target(fm)
+        return False
+
+    out = []
+    for slug, (f, fm, sections) in parsed.items():
+        if status(fm) != 'deduplicated':
+            continue
+        to = target(fm)
+        if to in ('', 'null', 'none', 'engine') or lands(to):
+            continue
+        story = sections.get('story') or ''
+        import precedent_resolve as pr
+        if (_ACCEPT_REACH_LOSS_FLAG in story
+                and pr.withdrawn_from_universal(sections)):
+            continue
+        out.append(Finding(
+            f'practices/{f.name}',
+            f'deduplicated to `{to}`, which is not an active practice in the '
+            f'universal catalogue, so a consumer that declares only universal '
+            f'gets this rule from nowhere. Either point in_force_at at the '
+            f'universal practice that carries it, put it back to active, or '
+            f'withdraw it on the record: tools/precedent_move.py --slug {slug} '
+            f'--from universal --from-path . --to <level> --to-path <set> '
+            f'--dedupe-only --accept-reach-loss --approved-by <name> writes '
+            f'the Story line this check reads.'))
+    return out
+
+
 _MANDATORY_SECTIONS = ('rule', 'why', 'story', 'install')   # 'detail' is optional
 
 
