@@ -82,7 +82,7 @@ The ladder's stages run on engine code today, and the inventory names it:
 | `ladder_words.py` (moved 2026-10-17: the words are the set's own data now, read by the engine's [`set_words.py`](../tools/set_words.py)) | the stage words and every ladder practice slug |
 | `precedent_others_did.py` | the `others-did` reply block |
 | [`precedent_stale_branches.py`](../tools/precedent_stale_branches.py), [`precedent_gate.py`](../tools/precedent_gate.py) | the `stale-branch-cleanup` page and its reply requirement |
-| [`precedent_upstream_review.py`](../tools/precedent_upstream_review.py) | Debut and Produce wording |
+| `precedent_upstream_review.py` | Debut and Produce wording |
 | [`precedent_branch_name.py`](../tools/precedent_branch_name.py) | the name builder (part 1) |
 
 The 2026-10-03 decision kept these in the engine
@@ -112,7 +112,7 @@ own steps use its dated names only when a person's config turns them on.
 
 Measured on staging at `8e122175`: the inventory names 23 ladder names
 in engine code -- 16 in `ladder_words.py`, 2 each in
-[`precedent_branches.py`](../tools/precedent_branches.py) and [`precedent_upstream_review.py`](../tools/precedent_upstream_review.py), 1 each in
+[`precedent_branches.py`](../tools/precedent_branches.py) and `precedent_upstream_review.py`, 1 each in
 [`precedent_gate.py`](../tools/precedent_gate.py), `precedent_others_did.py` and [`verify_harness.py`](../tools/verify_harness.py).
 [`precedent_branches.py`](../tools/precedent_branches.py) is about 5,000 lines, imported by 19 engine
 tools, and its tests are a few hundred references in [`verify_harness.py`](../tools/verify_harness.py).
@@ -147,7 +147,7 @@ half loses nothing.
 | 1 | Stage words (built 2026-10-17) | its words as data: `owned_words` in its precedent-source.json, each pattern with the examples it must and must never match | a general check, `set-words-stay-in-their-set`, and its matcher [`set_words.py`](../tools/set_words.py): every set is held to the words the other sets in force declare. The ladder's own check would have guarded the ladder set, the one place its words are allowed | 16 |
 | 2 | others-did (built 2026-10-17) | `tools/ladder/others_did.py` and its test, wired by the practice's own SessionStart and UserPromptSubmit hooks; the first prompt runs the day's check itself if the start-up hook missed it | [`precedent_commit_owners.py`](../tools/precedent_commit_owners.py): who made each commit, which Update Vendors' upstream note also reads | 1 |
 | 3 | Branch-cleanup note (built 2026-10-17) | `tools/ladder/branch_page_note.py` and its test, named in its `reply_check.json` as `note_from_tool` | a general `note_from_tool` key: the reply gate runs a tool a set ships and prints what it says. The page itself, [`precedent_stale_branches.py`](../tools/precedent_stale_branches.py), stays: its delete button runs on GitHub, where nothing a set ships is present, and it names no set's rule. This piece's engine half lands first: an older engine only reports the new key, never refuses on it | 1 |
-| 4 | Debut and Produce wording | `tools/ladder/upstream_review.py` | nothing | 2 |
+| 4 | Upstream review (built 2026-10-17) | `tools/ladder/upstream_review.py` and its test, named `step_review` in its precedent-source.json | [`load_set_tool`](../tools/precedent_resolve.py): Update Vendors and the stages ask for whatever step_review a set in force names, and write its lines into the commit | 2 |
 | 5a | A seam, no behaviour change | -- | a branch-policy hook: a set that provides the `ladder` capability names a module, and the engine asks it for the tier branches, each one's check level and whether it is promote-only; with none, the landing branch and the trunk are all there is | 0 |
 | 5b | Promote, Debut, Produce, `--land`, `--run-tests`, the tiers | `tools/ladder/ladder_branches.py`, built on the engine core | landing branch, lock, composing a merge in a worktree, pushing it | 2 |
 | 5c | Their tests | the ladder tests from [`verify_harness.py`](../tools/verify_harness.py), beside the code | engine tests against a planted policy with made-up names | 1 |

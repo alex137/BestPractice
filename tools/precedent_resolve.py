@@ -1134,6 +1134,53 @@ def brought_sources(individual_path, warn=True):
     return [b for b in out if b.get('name') not in gone]
 
 
+def set_tool(repo, key, user_config=None):
+    """-> the path of the tool a practice source in force here names under
+    `key` in its precedent-source.json, or None. A set declares a tool the
+    engine may call at a named point -- "step_review", say -- as a path
+    relative to the set; the copy the sync ships into this repository is
+    preferred, the set's own clone otherwise. The engine knows the point and
+    the tool's interface, never which set fills it or what its rule is
+    (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md part 3, 2026-10-17).
+    The repository itself counts when it is a set: a set's own steps use
+    its own tool."""
+    repo_root = pathlib.Path(repo).resolve()
+    candidates = [str(repo_root)] + [p for p, _l, _n, note in
+                                     declared_source_paths(repo_root, user_config)
+                                     if p and not note]
+    for src in candidates:
+        try:
+            man = json.loads((pathlib.Path(src) / SOURCE_MANIFEST).read_text(
+                encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        rel = man.get(key) if isinstance(man, dict) else None
+        if not isinstance(rel, str) or not rel.startswith('tools/') \
+                or not rel.endswith('.py') or '..' in pathlib.PurePosixPath(rel).parts:
+            continue
+        for base in (repo_root, pathlib.Path(src)):
+            if (base / rel).is_file():
+                return base / rel
+    return None
+
+
+def load_set_tool(repo, key, user_config=None):
+    """-> the module set_tool() finds, imported, or None -- on any failure
+    too: a set's tool that cannot load must never stop the engine's step."""
+    path = set_tool(repo, key, user_config)
+    if path is None:
+        return None
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            f'_precedent_set_tool_{key}', str(path))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception:                                         # noqa: BLE001
+        return None
+
+
 def declared_source_paths(repo, user_config=None):
     """-> [(path, level, name, note)] for every practice source this repo and
     this person DECLARE, at the paths load_config() resolves -- without
