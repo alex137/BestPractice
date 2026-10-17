@@ -20,6 +20,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Boildown | [the-boildown](practices/the-boildown.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [capture-gate](practices/capture-gate.md) |
+| code owner | [inner-workings-for-code-owners](practices/inner-workings-for-code-owners.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
 | decided | [decision-strength](practices/decision-strength.md) |
@@ -53,6 +54,8 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
 | Protocol | [practice-standing](practices/practice-standing.md) |
+| quick checks | [quick-tier-is-closed](practices/quick-tier-is-closed.md) |
+| quick tier | [quick-tier-is-closed](practices/quick-tier-is-closed.md) |
 | Reduction pass | [reduction-pass](practices/reduction-pass.md) |
 | repo: | [session-tags](practices/session-tags.md) |
 | result cache | [shared-result-cache](practices/shared-result-cache.md) |
