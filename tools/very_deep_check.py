@@ -3939,7 +3939,7 @@ def token_budgets_section(targets, repo_root, fire=True, out=None):
                   + (f" ({detail})" if verdict != 'fired' and detail else ''),
                   file=out)
     md = render_budget_markdown(rows, fires, totals,
-                                date=datetime.date.today().isoformat())
+                                date=precedent_time.today(repo_root))
     # The write-up is tracked: in a public repo a private source is named
     # only in general terms (practice: private-repo-scrub). The console
     # above keeps the real names; it is not a publication.

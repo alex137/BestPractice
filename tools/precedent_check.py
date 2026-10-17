@@ -7915,7 +7915,7 @@ def _enforcement_lives_with_its_practice(ctx):
             findings.append(Finding(path.relative_to(ctx.root).as_posix(),
                                     f'names {what} in a test: a set\'s practices '
                                     f'are tested in the set, beside the check'))
-    # A RULE ABOUT ONE SET in a universal practice: its Rule or Detail
+    # A RULE ABOUT ONE SET in a universal practice, where its Rule or Detail
     # points at a set's practice, or names the set. Its Story and approval
     # history are the record, and may.
     for f in sorted((ctx.root / 'practices').glob('*.md')):
