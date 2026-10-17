@@ -2367,21 +2367,32 @@ def _template_versions(rev, tmpl, limit=200):
 
 def _placeholder_values(template, filled):
     """-> {placeholder: value} read off `filled`, an install's copy of
-    `template`: for each template line with a placeholder and enough words
-    around it to say where it is, the text a line of `filled` has in its
-    place (a placeholder used twice in a line must read the same both
-    times); the commonest value wins. A placeholder the install left as it
-    was reads back as itself."""
-    import collections
-    lines = set(filled.splitlines())
-    votes = collections.defaultdict(collections.Counter)
-    for line in set(template.splitlines()):
-        found = _PLACEHOLDER_RE.findall(line)
+    `template`, or None when `filled` is not one. The two are aligned line
+    by line; every line that differs must be its template line with each
+    placeholder filled in, a placeholder reading the same wherever it
+    recurs. Lines with one placeholder are read first, so a line with
+    several splits on values already known. A placeholder the install left
+    as it was reads back as itself, by matching its line unchanged."""
+    import difflib
+    t_lines, f_lines = template.splitlines(), filled.splitlines()
+    pairs = []
+    sm = difflib.SequenceMatcher(None, t_lines, f_lines, autojunk=False)
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == 'equal':
+            continue
+        if tag != 'replace' or i2 - i1 != j2 - j1:
+            return None
+        pairs += list(zip(t_lines[i1:i2], f_lines[j1:j2]))
+    values = {}
+    pairs.sort(key=lambda tc: len(set(_PLACEHOLDER_RE.findall(tc[0]))))
+    for t, c in pairs:
+        t = _render(t, values)
+        found = _PLACEHOLDER_RE.findall(t)
         if not found:
+            if t != c:
+                return None
             continue
-        parts = _PLACEHOLDER_RE.split(line)
-        if len(''.join(parts).strip()) < 8:
-            continue
+        parts = _PLACEHOLDER_RE.split(t)
         groups, pat = {}, re.escape(parts[0])
         for name, part in zip(found, parts[1:]):
             if name in groups:
@@ -2390,13 +2401,12 @@ def _placeholder_values(template, filled):
                 groups[name] = f'g{len(groups)}'
                 pat += f'(?P<{groups[name]}>.+?)'
             pat += re.escape(part)
-        rx = re.compile(pat)
-        for got in lines:
-            m = rx.fullmatch(got)
-            if m:
-                for name, g in groups.items():
-                    votes[name][m.group(g)] += 1
-    return {name: c.most_common(1)[0][0] for name, c in votes.items()}
+        m = re.fullmatch(pat, c)
+        if not m:
+            return None
+        for name, g in groups.items():
+            values[name] = m.group(g)
+    return values
 
 
 def _render(text, values):
@@ -2461,7 +2471,7 @@ def untouched_install_copy(repo, rel, tmpl, rev, committed=None):
         for old in versions:
             base = pi._substitute(old, subs)
             values = _placeholder_values(base, ours)
-            if _render(base, values) != ours:
+            if values is None or _render(base, values) != ours:
                 continue
             new = _render(pi._substitute(current, subs), values)
             if new == now:
