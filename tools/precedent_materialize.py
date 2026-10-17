@@ -44,6 +44,15 @@ claim one slug" refusal is the same discipline applied here.
 
 Usage:
   precedent_materialize.py --out DIR [--repo REPO] [--user-config PATH]
+                           [--allow-missing-sources]
+A consuming repo syncs through precedent_sync_views.py, which wraps this
+tool and keeps two things out of a tracked tree that this tool, run on its
+own, cannot: a private (shared or individual) source's practice text in a
+public repo, and the silent removal an unreachable source causes. Run
+directly, this tool REFUSES both (2026-10-17) and names the wrapper;
+--allow-missing-sources lets a run proceed past an unreachable source when
+that removal is meant. There is no flag for the first: the wrapper is the
+route.
 Exit: 0 on a clean materialization, 1 on a resolve conflict, an over-budget
 resident set, a checks/ filename collision, a harness adapter declaration
 that is malformed or collides on its destination, or a `ships:` declaration
@@ -2231,11 +2240,60 @@ def _parse_args(argv):
     i = 0
     while i < len(argv):
         tok = argv[i]
+        if tok in _BARE_FLAGS:
+            args[tok] = True
+            i += 1
+            continue
         if not tok.startswith('--') or i + 1 >= len(argv):
             sys.exit(f"precedent_materialize FAIL: expected --flag value pairs, stuck at {tok!r}")
         args[tok] = argv[i + 1]
         i += 2
     return args
+
+
+# Flags that take no value.
+_BARE_FLAGS = ('--allow-missing-sources',)
+
+
+def _refuse_direct_run(repo, sources, res, allow_missing=False):
+    """-> a refusal message, or None when a direct run may write.
+
+    precedent_sync_views.py is the route a consuming repo syncs by, and the
+    only one that (a) withholds a private source's practice text from a
+    PUBLIC repo's tracked tree and (b) refuses to write from a source set
+    missing a member. Run directly, this tool did neither: reproduced on
+    2026-10-17, a scratch consumer declaring `visibility: public` with an
+    individual source got that set's practices and check scripts under its
+    tracked tree, and MANIFEST.json recorded `withheld: []` beside the
+    individual source's name, absolute path and commit; with a source
+    unreachable it said "Materializing WITHOUT it" and rewrote practices/
+    anyway. Refusing here, rather than duplicating the wrapper's withholding,
+    keeps one implementation of it (judgment-check-or-tool)."""
+    route = (f"Sync through tools/precedent_sync_views.py --repo {repo} "
+             f"instead: it is the route a consuming repo syncs by")
+    if pr.bv.repo_is_public(pathlib.Path(repo)):
+        private = sorted({pr.declared_level(p) for p in res['practices'].values()
+                          if pr.declared_level(p) in pr.bv.PRIVATE_LEVELS})
+        if private:
+            return (f"refusing to materialize {', '.join(private)}-level "
+                    f"practice text into {repo}, which is public (its "
+                    f"precedent.json declares `visibility: public`, or "
+                    f"declares none, which counts as public). Its practices/ "
+                    f"tree is tracked, so the text would be published. "
+                    f"{route}, and it withholds that text while those "
+                    f"practices still bind through "
+                    f".precedent/SESSION_PRACTICES.md.")
+    if res['missing'] and not allow_missing:
+        names = ', '.join(f"{m['level']}/{m['name']} ({m['reason']})"
+                          for m in res['missing'])
+        return (f"refusing to WRITE from an incomplete source set: {names} "
+                f"did not resolve. Writing anyway DELETES every practice "
+                f"those sources contribute from {repo}'s tracked tree. Make "
+                f"them resolvable and re-run. {route}, and it refuses the "
+                f"same way; pass --allow-missing-sources here only if the "
+                f"removal is what you mean.")
+    return None
+
 
 
 def main():
@@ -2247,18 +2305,28 @@ def main():
     user_config = args.get('--user-config')
 
     try:
-        sources = pr.load_config(repo, user_config)
+        loaded = pr.load_config(repo, user_config)
+        # A set a person brings is theirs, never the repository's: like the
+        # wrapper (precedent_sync_views._sync), write only the declared
+        # sources, with a brought set as context for what is in force.
+        sources = [s for s in loaded if not s.get('brought')]
+        brought = [s for s in loaded if s.get('brought')]
         if not sources:
             sys.exit(f"precedent_materialize FAIL: no practice sources are "
                       f"declared for {repo} (see precedent_resolve.py's own "
                       f"error for the same case).")
-        res = pr.resolve(sources)
+        res = pr.resolve(sources, context=brought)
     except pr.ResolveError as e:
         sys.exit(f"precedent_materialize FAIL: {e}")
 
+    why = _refuse_direct_run(repo, sources, res,
+                             allow_missing=bool(args.get('--allow-missing-sources')))
+    if why:
+        sys.exit(f"precedent_materialize FAIL: {why}")
     for m in res['missing']:
         print(f"precedent_materialize: the {m['level']} source {m['name']!r} "
-              f"is not available ({m['reason']}). Materializing WITHOUT it.",
+              f"is not available ({m['reason']}). Materializing WITHOUT it "
+              f"(--allow-missing-sources).",
               file=sys.stderr)
 
     try:

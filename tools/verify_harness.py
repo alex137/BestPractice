@@ -33141,7 +33141,10 @@ def check_materialize_bridges_loader():
 
         consumer = tmp / 'consumer'
         (consumer).mkdir()
+        # Declared private: run directly, materialize refuses a team-level
+        # source's text in a public (or undeclared) repo since 2026-10-17.
         (consumer / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
                         {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)}]
         }), encoding='utf-8')
@@ -33642,6 +33645,7 @@ def check_materialize_carries_harness_adapters():
         declare(team, [])
         consumer.mkdir()
         (consumer / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',  # a team source, run directly (2026-10-17)
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
                         {'level': 'team', 'name': 'precedent-team-fixture',
                          'path': str(team)}]}), encoding='utf-8')
@@ -33987,7 +33991,8 @@ def check_practice_ships_its_files():
         consumer.mkdir()
 
         def config(extra=None):
-            d = {'sources': [
+            d = {'visibility': 'private',  # team source, run directly
+                 'sources': [
                 {'level': 'universal', 'name': 'precedent', 'path': str(uni)},
                 {'level': 'team', 'name': 'precedent-team-fixture',
                  'path': str(team)}]}
@@ -34668,7 +34673,10 @@ def check_show_flags_unreachable_materialized_source():
 
         consumer = tmp / 'consumer'
         (consumer).mkdir()
+        # Private: run directly, materialize refuses individual text in a
+        # public (or undeclared) repo since 2026-10-17.
         (consumer / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)}]
         }), encoding='utf-8')
         user_config = tmp / 'user-config.json'
@@ -78425,6 +78433,121 @@ def check_branch_report_writes_delete_links_to_a_committable_file():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_materialize_run_directly_refuses_what_the_sync_withholds():
+    """precedent_materialize.py RUN DIRECTLY refuses the two writes only its
+    wrapper, precedent_sync_views.py, used to prevent (2026-10-17 very deep
+    check, finding "running precedent_materialize.py directly in a public
+    consumer copies private practice text into its tracked tree").
+
+    Reproduced before the fix: a scratch consumer declaring `visibility:
+    public` with an individual source got that set's practice under its
+    tracked practices/, and MANIFEST.json recorded `withheld: []` beside the
+    individual source's name and absolute path; with a declared source
+    unreachable it printed "Materializing WITHOUT it" and wrote anyway.
+
+    Stated cases: a public consumer with an individual source refuses, names
+    the wrapper, and writes nothing; a declared source that is missing
+    refuses and writes nothing; --allow-missing-sources proceeds; a private
+    consumer with the same individual source materializes it (the control);
+    and the wrapper itself still syncs the public consumer, withholding."""
+    import tempfile, shutil
+    import json as _json
+    tool = str(ROOT / 'tools' / 'precedent_materialize.py')
+    cases = []
+
+    def practice(d, slug, canary):
+        (d / 'practices').mkdir(parents=True, exist_ok=True)
+        (d / 'practices' / f'{slug}.md').write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+            f'severity: default\napplies_to: ["**"]\noccasion: "x happens"\n'
+            f'index_clause: "do the thing"\nstatus: active\n---\n'
+            f'## Rule\n{canary} applies.\n\n## Story\nBecause.\n',
+            encoding='utf-8')
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        uni, ind = tmp / 'uni', tmp / 'ind'
+        practice(uni, 'uni-rule', 'UNIVERSAL-TEXT')
+        practice(ind, 'private-only', 'SECRET-CANARY-VALUE')
+        user_cfg = tmp / 'user.json'
+        user_cfg.write_text(_json.dumps({'format_version': 1, 'individual': {
+            'name': 'precedent-individual', 'path': str(ind)}}), encoding='utf-8')
+        empty_cfg = tmp / 'empty-user.json'
+        empty_cfg.write_text(_json.dumps({'format_version': 1}), encoding='utf-8')
+
+        def consumer(name, visibility, extra_sources=()):
+            repo = tmp / name
+            repo.mkdir()
+            (repo / 'precedent.json').write_text(_json.dumps({
+                'format_version': 1, 'base_branch': 'main',
+                'visibility': visibility,
+                'sources': [{'level': 'universal', 'name': 'precedent',
+                             'path': str(uni)}, *extra_sources]}),
+                encoding='utf-8')
+            return repo
+
+        def run(repo, cfg, *extra):
+            env = dict(os.environ, HOME=str(tmp / 'home'))
+            r = subprocess.run([sys.executable, tool, '--out', str(repo),
+                                '--repo', str(repo), '--user-config', str(cfg),
+                                *extra], capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        def tree_text(repo):
+            return '\n'.join(f.read_text(encoding='utf-8')
+                             for f in repo.rglob('*') if f.is_file())
+
+        pub = consumer('pub', 'public')
+        rc, out = run(pub, user_cfg)
+        cases.append(('a public consumer with an individual source refuses',
+                      rc != 0 and 'refusing' in out, out))
+        cases.append(('and names precedent_sync_views.py as the route',
+                      'precedent_sync_views.py' in out, out))
+        cases.append(('and writes no private text, no practices/ and no '
+                      'MANIFEST.json', 'SECRET-CANARY-VALUE' not in tree_text(pub)
+                      and not (pub / 'practices').exists()
+                      and not (pub / 'MANIFEST.json').exists(), out))
+
+        gone = consumer('gone', 'private', [{'level': 'team', 'name':
+                        'precedent-team-gone', 'path': str(tmp / 'nowhere')}])
+        rc, out = run(gone, empty_cfg)
+        cases.append(('a declared source that did not resolve refuses',
+                      rc != 0 and 'incomplete source set' in out
+                      and 'precedent-team-gone' in out, out))
+        cases.append(('and writes nothing', not (gone / 'practices').exists(), out))
+        rc, out = run(gone, empty_cfg, '--allow-missing-sources')
+        cases.append(('--allow-missing-sources proceeds past it',
+                      rc == 0 and (gone / 'practices' / 'uni-rule.md').is_file(), out))
+
+        priv = consumer('priv', 'private')
+        rc, out = run(priv, user_cfg)
+        cases.append(('control: a private consumer materializes the same '
+                      'individual source', rc == 0 and
+                      (priv / 'practices' / 'private-only.md').is_file(), out))
+
+        import precedent_sync_views as psv
+        pub2 = consumer('pub2', 'public')
+        import build_views as _bv
+        (pub2 / 'AGENTS.md').write_text(
+            f'# Consumer\n\n{_bv.BEGIN_MARKER} -->\n{_bv.END_MARKER} -->\n',
+            encoding='utf-8')
+        try:
+            psv.sync(str(pub2), user_config=str(user_cfg))
+            err = ''
+        except Exception as e:  # noqa: BLE001 -- reported as the case's detail
+            err = repr(e)
+        cases.append(('the wrapper still syncs the public consumer, withholding '
+                      'the private text', not err
+                      and (pub2 / 'practices' / 'uni-rule.md').is_file()
+                      and 'SECRET-CANARY-VALUE' not in tree_text(pub2), err))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'precedent_materialize.py run directly refuses private text in a '
+          f'public repo and an incomplete source set, naming the sync '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_public_consumer_does_not_materialize_private_text():
     """A public consumer repo's TRACKED practices/ tree must not carry a
     private source's practice text (practice: very-deep-check, found by it).
@@ -81817,6 +81940,7 @@ def main():
     check_very_deep_check_convergent_drift()
     check_public_tree_bakes_in_no_owner_account()
     check_public_consumer_does_not_materialize_private_text()
+    check_materialize_run_directly_refuses_what_the_sync_withholds()
     check_assumed_visibility_never_deletes_practices()
     check_access_probe_separates_refusal_from_silence()
     check_sync_refuses_to_write_from_incomplete_sources()
