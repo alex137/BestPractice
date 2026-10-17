@@ -4923,8 +4923,9 @@ def _parallels_rows(text):
 
 
 @check('claude-only-surface-has-a-parallel', 'tree',
-       'every hook in .claude/hooks/, and every hook .claude/settings*.json '
-       'wires, is named in a row of templates/harness/PARALLELS.md, and '
+       'every hook in .claude/hooks/, every hook .claude/settings*.json '
+       'wires, and every hook templates/harness/claude-code/hooks/ ships, is '
+       'named in a row of templates/harness/PARALLELS.md, and '
        'every row of that table carries a non-empty verdict for each of '
        + ', '.join(_PARALLEL_COLUMNS),
        'whether a recorded verdict is still TRUE -- a `none because the '
@@ -4958,7 +4959,13 @@ def _claude_only_surface_has_a_parallel(ctx):
             'Claude-only surface here for the other adapters to parallel. '
             'A repo with its own such surface still needs the answer; '
             'finding that surface is not something this check can do')
-    surface = _claude_surface(ctx.root)
+    # A hook the claude-code adapter SHIPS is a mechanism too, run here or
+    # not: artifact-publish-gate.sh reaches every consumer and BestPractice
+    # runs none of it, so it had no row, and this check refused adding one
+    # as naming a hook that does not exist (2026-10-17, very deep check;
+    # decision the session's, under Morgan's delegation of that day).
+    surface = _claude_surface(ctx.root) | {
+        p.name for p in (family / 'claude-code' / 'hooks').glob('*.sh')}
     if not surface:
         raise NotApplicable('.claude/ here wires and ships no hooks at all')
     path = family / 'PARALLELS.md'
@@ -5004,8 +5011,9 @@ def _claude_only_surface_has_a_parallel(ctx):
             if tok not in surface:
                 findings.append(Finding(
                     rel,
-                    f'names {tok}, which is neither in .claude/hooks/ nor '
-                    f'wired by any .claude/settings*.json -- a row left '
+                    f'names {tok}, which is neither in .claude/hooks/, '
+                    f'wired by any .claude/settings*.json, nor shipped from '
+                    f'templates/harness/claude-code/hooks/ -- a row left '
                     f'behind by a deleted hook reads as coverage. Drop it'))
     return findings
 

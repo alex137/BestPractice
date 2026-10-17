@@ -72463,6 +72463,65 @@ def check_bootstrapping_a_set_reaches_no_network_unless_asked():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_parallels_table_holds_a_shipped_hook_this_repo_does_not_run():
+    """templates/harness/PARALLELS.md must carry a row for every hook the
+    claude-code adapter ships, run here or not -- and may: a row for one is
+    never refused as naming a hook that does not exist.
+
+    2026-10-17, very deep check: artifact-publish-gate.sh and
+    precedent-universal-catalogue.sh ship to consumers and sets, BestPractice
+    runs neither, so they had no row, and claude-only-surface-has-a-parallel
+    refused adding one. Decision (the session's, under Morgan's delegation
+    of 2026-10-17): the check reads templates/harness/claude-code/hooks/ as
+    part of its list of mechanisms. Planted: a hook run here and a hook only
+    shipped, with and without a row each; and this repository's own table."""
+    import tempfile, types
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-parallels-'))
+    cases = []
+    try:
+        (tmp / '.claude' / 'hooks').mkdir(parents=True)
+        (tmp / '.claude' / 'hooks' / 'run-here.sh').write_text('#!/bin/bash\n')
+        shipped = tmp / 'templates' / 'harness' / 'claude-code' / 'hooks'
+        shipped.mkdir(parents=True)
+        for n in ('run-here.sh', 'only-shipped.sh'):
+            (shipped / n).write_text('#!/bin/bash\n')
+        head = '| Mechanism | What it does | codex | gemini-cli | grok-build |\n|---|---|---|---|---|\n'
+        row = lambda n: f'| `{n}` | does a thing | none, why | none, why | none, why |\n'
+        table = tmp / 'templates' / 'harness' / 'PARALLELS.md'
+        ctx = types.SimpleNamespace(root=tmp)
+
+        def run(text):
+            table.write_text('# Parallels\n\n' + text, encoding='utf-8')
+            return [f.detail for f in pc._claude_only_surface_has_a_parallel(ctx)]
+        got = run(head + row('run-here.sh') + row('only-shipped.sh'))
+        cases.append(('a row for a hook only shipped is accepted', not got, str(got)))
+        got = run(head + row('run-here.sh'))
+        cases.append(('...and required', any('only-shipped.sh' in m for m in got), str(got)))
+        got = run(head + row('run-here.sh') + row('only-shipped.sh') + row('long-gone.sh'))
+        cases.append(('a row for a hook neither run nor shipped is still a finding',
+                      any('long-gone.sh' in m for m in got), str(got)))
+        real = ROOT / 'templates' / 'harness' / 'PARALLELS.md'
+        text = real.read_text(encoding='utf-8')
+        missing = [n for n in ('artifact-publish-gate.sh', 'precedent-universal-catalogue.sh')
+                   if f'| `{n}` |' not in text]
+        cases.append(('this repository\'s table carries both shipped-only hooks',
+                      not missing, str(missing)))
+        cases.append(('...and says only Claude Code\'s wiring is refreshed for you',
+                      'Only Claude Code\'s wiring is written and kept current' in text, ''))
+    except OSError as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the parallels table holds a hook BestPractice ships but does not run '
+          f'({len(cases)} stated cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -83247,6 +83306,7 @@ def main():
     check_update_says_once_that_commands_moved_to_an_undeclared_set()
     check_retired_words_reads_past_the_decommission_ledger()
     check_bootstrapping_a_set_reaches_no_network_unless_asked()
+    check_parallels_table_holds_a_shipped_hook_this_repo_does_not_run()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
