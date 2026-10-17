@@ -190,10 +190,12 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
    that would hold in an unrelated project, not just this one's own
    documents? Fold the abstracted form into this repo's own vendored copy
    of the universal source (`precedent.json`'s `universal` entry — see its
-   `path`) and open it as an ordinary pull request directly against that
-   source's own repo (`https://github.com/alex137/BestPractice`). **There
-   is no local check-in mirror for this yet** — a plain PR against the
-   upstream repo is the real mechanism until one is wired in. Then run
+   `path`), commit it, and send it upstream with
+   `python3 tools/checkin.py push <upstream-clone> --why "<what went wrong>"`:
+   it merges the change onto the source's landing branch in that clone,
+   runs this repo's scrub and the source's leak gate and basic checks, and
+   pushes it as a branch there, then prints the prompt for the session that
+   lands it (it never opens a pull request or merges). Then run
    `python3 tools/precedent_sync_views.py --repo .` locally to pick your own change
    back up once it lands upstream.
 1. Fetch and merge the default branch locally.

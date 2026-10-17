@@ -75,6 +75,18 @@ Run:
   python3 tools/precedent_session_practices.py --quiet    # write it, print nothing
   python3 tools/precedent_session_practices.py --check    # report, write nothing
   python3 tools/precedent_session_practices.py --repo DIR
+  python3 tools/precedent_session_practices.py --keep-if-incomplete
+        # when a declared source does not resolve, keep the file already
+        # there and mark it stale rather than write one with less in it
+
+--keep-if-incomplete is what precedent_resolve._self_heal_stale_render
+passes. That heal runs on every load_config(), from read-only checks
+(build_views.py --check among them) included, and on 2026-10-17 it replaced a
+complete 3-day-old file in an isolated clone with no sibling checkouts by one
+listing every source as "did NOT resolve". A check that only reads must not
+leave a session with fewer rules than it had; the old render, marked STALE on
+its first line and left with its old modification time so the next heal still
+re-renders it once the sources resolve, is the better guess.
 """
 import collections
 import json
@@ -93,6 +105,48 @@ OUT_NAME = 'SESSION_PRACTICES.md'
 # `- ` lines right after it. precedent_run_session_hooks.py finds it by this.
 SPOKEN_HEAD = ('Spoken commands in force here that AGENTS.md does not carry '
                '(load one with: python3 tools/precedent_show.py SLUG):')
+
+# The line --keep-if-incomplete puts at the top of a render it kept. One
+# line, replaced rather than added to on a second kept run.
+STALE_MARK = '> **STALE:** '
+
+
+def keep_stale(target, unresolved):
+    """Mark the render at `target` stale instead of rewriting it, because
+    `unresolved` (the notes naming sources that did not resolve) would leave
+    it with less. -> True when kept. Its modification time is put back, so
+    it still reads as stale and the next heal re-renders it once the
+    sources resolve."""
+    try:
+        st = target.stat()
+        lines = target.read_text(encoding='utf-8').splitlines()
+    except OSError:
+        return False
+    if not lines:
+        return False
+    try:
+        import precedent_time
+        when = precedent_time.from_unix(st.st_mtime, target.parent.parent
+                                        ).strftime('%Y-%m-%d %H:%M %z')
+    except Exception:                                        # noqa: BLE001
+        when = 'earlier'
+    mark = (f'{STALE_MARK}rendered {when}, kept because a re-render could not '
+            f'resolve ' + '; '.join(n.split(' did NOT resolve')[0] for n in unresolved)
+            + '. Its practices may be out of date; run '
+            'python3 tools/precedent_session_practices.py once they resolve.')
+    body = [ln for ln in lines if not ln.startswith(STALE_MARK)]
+    # After the GENERATED comment, so the file still opens with it.
+    at = 1 if body and body[0].startswith('<!--') else 0
+    body[at:at] = [mark]
+    tmp = target.with_name(f'.{target.name}.{os.getpid()}.tmp')
+    try:
+        tmp.write_text('\n'.join(body) + '\n', encoding='utf-8')
+        os.replace(tmp, target)
+        os.utime(target, (st.st_atime, st.st_mtime))
+    except OSError:
+        return False
+    return True
+
 
 # WHICH LEVELS THIS FILE CARRIES: exactly the ones a public repo's tracked
 # loader block leaves out, which is build_views.PRIVATE_LEVELS -- imported
@@ -580,6 +634,15 @@ def deliver_ships(repo, extra):
     session start (practice: fail-gracefully)."""
     try:
         import precedent_materialize as pm
+    except ImportError:
+        # Said plainly, not as a traceback's last line (2026-10-17: a set's
+        # session printed "No module named 'precedent_materialize'").
+        print('precedent session practices: this repository\'s engine does '
+              'not carry tools/precedent_materialize.py, so the files and hooks '
+              'the practices in force here ship were not set up. Update '
+              'Vendors brings it.', file=sys.stderr)
+        return None
+    try:
         r = pm.deliver_session_ships(repo, [(fm, f) for fm, _s, f in extra])
     except Exception as e:                                   # noqa: BLE001
         print(f'precedent session practices: the files the practices below '
@@ -600,6 +663,21 @@ def deliver_ships(repo, extra):
               f'tool\'s copies or edited since: {", ".join(r["left"])}',
               file=sys.stderr)
     return r
+
+
+def own_practices(repo):
+    """-> a practice set's own practices in force, in collect()'s shape, so
+    the session file registers their `hooks:` too; [] anywhere else. In a
+    consuming repository the sync registers them in process/practice_hooks.json;
+    a set has no sync, so until 2026-10-17 a set's own hooks never ran in a
+    session rooted in it."""
+    root = pathlib.Path(repo)
+    if not bv.repo_is_practice_source(root) or not (root / 'practices').is_dir():
+        return []
+    try:
+        return bv.load_practices(root / 'practices', announce=False)
+    except Exception:                                        # noqa: BLE001
+        return []
 
 
 def attach_first(repo):
@@ -672,10 +750,19 @@ def main(argv=None):
               f'written; {n_bad} source(s) unresolved.')
         return 0
 
+    unresolved = [n for kind, n in notes if kind == 'unresolved']
+    target = pathlib.Path(repo) / OUT_DIR / OUT_NAME
+    if ('--keep-if-incomplete' in args and unresolved and target.is_file()
+            and keep_stale(target, unresolved)):
+        print(f'precedent session practices: kept {OUT_DIR}/{OUT_NAME} as it '
+              f'was, marked STALE, rather than rewrite it from a source set '
+              f'missing a member.', file=sys.stderr)
+        return 0
+
     lead = attach_first(repo)
     if lead:
         print(lead)
-    deliver_ships(repo, extra)
+    deliver_ships(repo, extra + own_practices(repo))
     text = _with_target_warning(repo, text, brought=brought_share(repo)[0])
     out_dir = pathlib.Path(repo) / OUT_DIR
     try:

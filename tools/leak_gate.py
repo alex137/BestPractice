@@ -957,7 +957,7 @@ def local_clone_refs(root):
     # alone found four of the five repositories on this disk and missed the
     # private one -- so its name was never auto-blocklisted and never
     # reported as uncovered, which is the exact shape of the bug this
-    # session was handed in record/GOTCHAS.md#g40 (the session-start
+    # session was handed in gotchas/gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md (the session-start
     # identity block, same wrong assumption, same missed repository).
     #
     # Asked of the resolver, which is what knows where the declared sources
@@ -1320,6 +1320,30 @@ def discovered_blocklist_path():
         return None
     path = pathlib.Path(raw).expanduser() / INDIVIDUAL_BLOCKLIST_NAME
     return path if path.is_file() else None
+
+
+def _private_list_expected(root=None):
+    """-> True when something says this person or repository has a private
+    blocklist that this run could not read: the user-level config names an
+    individual set, git config asks for the vocabulary layer, or
+    precedent.json declares a private source. False means nobody declared
+    one, and the notice says so instead of sending a new person to look
+    for a list they never had (2026-10-17)."""
+    cfg = pathlib.Path(os.environ.get('HOME', '~')).expanduser() / '.config' / 'precedent' / 'config.json'
+    try:
+        import json as _json
+        data = _json.loads(cfg.read_text(encoding='utf-8'))
+        ind = data.get('individual') or {}
+        if isinstance(ind, dict) and (ind.get('path') or ind.get('repo_url')):
+            return True
+    except (OSError, ValueError, AttributeError):
+        pass
+    try:
+        if _require_vocabulary_configured():
+            return True
+    except Exception:                                        # noqa: BLE001
+        return True
+    return _private_sources_declared(root)
 
 
 def discovered_neighbour_blocklists(root=None):
@@ -1881,7 +1905,21 @@ def main():
         # session to go configure it, both written off this one line, while
         # the run's own summary named the fallback file two lines later
         # (practice: fail-gracefully -- match the telling to the reader).
-        if not configured:
+        if not configured and not _private_list_expected():
+            # NOBODY DECLARED ONE (2026-10-17). A new person with no
+            # individual set was told to go and find "your private
+            # blocklist" and set PRECEDENT_GIT_TOKEN, for a list they never
+            # had (very deep check, install rehearsal).
+            print(f'leak gate NOTE: the repo-reference allowlist is off: '
+                  f'this run read {source}, the committed default, because '
+                  f'no private blocklist is declared here (no individual '
+                  f'practice set is configured on this machine, and this '
+                  f'repository declares no private source). Nothing is '
+                  f'missing; a private list, if you make one, goes in your '
+                  f'individual set as {INDIVIDUAL_BLOCKLIST_NAME} '
+                  f'(documentation/PER_MACHINE_SETUP.md).',
+                  file=sys.stderr)
+        elif not configured:
             print(f'leak gate NOTE: the repo-reference allowlist is INERT '
                   f'HERE because this run read {source} -- the committed '
                   f'fallback -- and not your private blocklist, which was '

@@ -95,7 +95,8 @@ fi
 # from "the files changed against the base branch" to "the files not
 # committed yet", and precedent_check.py's `scope: tree` checks read an empty
 # `git log` as `0 violated` rather than as "could not check"
-# (record/GOTCHAS.md#g6, #g8). Git itself is not immune: a branch that is
+# (gotchas/gotcha-2026-09-13-this-repo-is-normally-cloned-depth-1-and-several-tools-degra.md,
+# gotchas/gotcha-2026-09-13-a-scope-tree-check-in-tools-precedentcheck-py-can-silently-r.md). Git itself is not immune: a branch that is
 # merely BEHIND reads as diverged when the two truncated stretches do not
 # overlap, which cost a whole session on 2026-09-14 (#g37) before the
 # freshness guard learned to deepen before believing its own counts.
@@ -303,7 +304,7 @@ fi
 if [ -n "$_ident_script" ]; then
   _here="$(pwd -P)"
   # `$_indiv` IS IN THIS LIST, and leaving it out was a real bug (2026-09-14,
-  # record/GOTCHAS.md#g40). An individual set does not have to be a sibling of
+  # gotchas/gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md). An individual set does not have to be a sibling of
   # the primary repo -- `~/.config/precedent/config.json` puts it wherever it
   # was cloned, which on this container is `$HOME/precedent-individual` while
   # the primary repo and every shared-set clone sit under a different parent. The

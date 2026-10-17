@@ -11,7 +11,7 @@ as_of: 2026-10-17
 
 | Item | What | Age | Disposition | Blocked on |
 |---|---|---|---|---|
-| [`todo-2026-09-06-background-freshness-fetch`](todo-2026-09-06-background-freshness-fetch.md) | Consider making the freshness check's fetch asynchronous. | 41d | wait | nothing external, but it was not worth the complexity at the measured numbers —… |
+| [`todo-2026-09-06-background-freshness-fetch`](todo-2026-09-06-background-freshness-fetch.md) | Consider making the freshness check's fetch asynchronous. | 41d | parked | nothing external, but it was not worth the complexity at the measured numbers —… |
 | [`todo-2026-09-06-companion-mobile-app`](todo-2026-09-06-companion-mobile-app.md) | Companion mobile app, if the Shortcut proves insufficient. | 41d | wait |  |
 | [`todo-2026-09-06-document-project-pilot`](todo-2026-09-06-document-project-pilot.md) | Run the document-project pilot once Morgan has a real first project. | 41d | wait | a real subject and a real person, neither of which exists yet. |
 | [`todo-2026-09-06-individual-practice-scoping`](todo-2026-09-06-individual-practice-scoping.md) | `for_team:`/`in_repos:` individual-practice scoping. | 41d | wait |  |
@@ -20,9 +20,7 @@ as_of: 2026-10-17
 | [`todo-2026-09-06-reduce-github-dependency`](todo-2026-09-06-reduce-github-dependency.md) | Reduce GitHub dependency when ready. | 41d | wait |  |
 | [`todo-2026-09-06-sweep-for-other-places-bestpractice-does-not-follow-its-own-`](todo-2026-09-06-sweep-for-other-places-bestpractice-does-not-follow-its-own-.md) | Sweep for other places BestPractice does not follow its own install instructions. | 41d | wait | nothing but its size and the per-step judgment call about which steps apply to t… |
 | [`todo-2026-09-06-unreachable-practices`](todo-2026-09-06-unreachable-practices.md) | Populate `not_binding` for the practices in force here that do not bind this repo. | 41d | wait | a session that can resolve the private sources — see `attach-private-sources` fo… |
-| [`todo-2026-09-07-audience-register-sharpening`](todo-2026-09-07-audience-register-sharpening.md) | Sharpen `audience-register` so the plainer register actually holds — three changes, all in the individual practice set, | 40d | wait | his approval of the new wording. It is his rule about how he is spoken to, and a… |
-| [`todo-2026-09-07-consumers-need-refresh-after-promotion`](todo-2026-09-07-consumers-need-refresh-after-promotion.md) | A consumer that vendors an OLD universal catalogue loses a promoted practice at its next sync, silently. | 40d | wait | the refresh itself belongs in each consumer, run under that repo's own gates — t… |
-| [`todo-2026-09-07-stem-reminder-at-the-refusal`](todo-2026-09-07-stem-reminder-at-the-refusal.md) | Consider putting the stem reminder in the allowlist's REFUSAL message too. | 40d | wait |  |
+| [`todo-2026-09-07-stem-reminder-at-the-refusal`](todo-2026-09-07-stem-reminder-at-the-refusal.md) | Consider putting the stem reminder in the allowlist's REFUSAL message too. | 40d | parked |  |
 | [`todo-2026-09-08-branch-move-cause-unknown`](todo-2026-09-08-branch-move-cause-unknown.md) | Something moved this checkout off its working branch mid-session on 2026-09-08, and the cause was not found. | 39d | wait | the next recurrence, with ps and the reflog captured before anything else |
 | [`todo-2026-09-08-retired-practice-filenames`](todo-2026-09-08-retired-practice-filenames.md) | Evaluate marking retired and deduplicated practice files in their filename, so a directory listing shows what is still i | 39d | wait |  |
 | [`todo-2026-09-10-sync-refuses-a-rewind`](todo-2026-09-10-sync-refuses-a-rewind.md) | Make `precedent_sync_views.py` refuse a sync that would rewind a practice's content, not just one that would remove the | 37d | wait | nothing external — it is queued for size, not for permission. It carries no disp… |
@@ -59,7 +57,6 @@ as_of: 2026-10-17
 | [`todo-2026-10-05-very-deep-check-pass-3-findings`](todo-2026-10-05-very-deep-check-pass-3-findings.md) | What the 2026-10-05 very deep check's pass 3 (does the writing hold | 12d | ask |  |
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 12d | ask |  |
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 6d | ask |  |
-| [`todo-2026-10-17-very-deep-check-findings`](todo-2026-10-17-very-deep-check-findings.md) | What the 2026-10-17 very deep check found and did not fix in the same run. | 0d | ask |  |
 
 ## Verify Before External Use
 
@@ -75,10 +72,8 @@ as_of: 2026-10-17
 
 | Item | What | Age | Disposition | Blocked on |
 |---|---|---|---|---|
-| [`todo-2026-09-06-relax-the-pinned-branch-hold`](todo-2026-09-06-relax-the-pinned-branch-hold.md) | Relax the pinned-branch hold once the fix has run through real sync cycles. | 41d | wait | the fix surviving real sync cycles rather than only its own tests, and then Morg… |
 | [`todo-2026-09-07-philosophy-profanity-divergence`](todo-2026-09-07-philosophy-profanity-divergence.md) | Three words in `philosophy/` are masked, and there is no longer an original to compare them against. | 40d | wait | nothing mechanical — it needs Morgan to say whether masking is right for his own… |
 | [`todo-2026-09-07-undeclared-deprecated-files`](todo-2026-09-07-undeclared-deprecated-files.md) | Nothing finds a deprecated file nobody declared. | 40d | wait | nothing any more: the one objection to the mechanical workflow check (a delibera… |
-| [`todo-2026-09-10-private-owner-allowlist-inert`](todo-2026-09-10-private-owner-allowlist-inert.md) | The repo-reference allowlist is inert here, and this public tree names the account that owns the private practice sets. | 37d | wait |  |
 | [`todo-2026-09-11-consumer-views-drift-uncheckable-in-ci`](todo-2026-09-11-consumer-views-drift-uncheckable-in-ci.md) | A consuming repo's generated loader block cannot be drift-checked in CI, and today nothing checks it anywhere. | 36d | wait |  |
 | [`todo-2026-09-11-contributor-access`](todo-2026-09-11-contributor-access.md) | Run the contributor-access plan for real. | 36d | wait | a real person and repo for the rest of it, and Morgan adding the GitHub collabor… |
 | [`todo-2026-09-11-session-practices-reports-unresolved-sources`](todo-2026-09-11-session-practices-reports-unresolved-sources.md) | `.precedent/SESSION_PRACTICES.md` can report a source as unresolved that resolved fine minutes later — and a session rea | 36d | wait | a fresh session to reproduce the ordering, since the failure only exists at sess… |
@@ -90,7 +85,6 @@ as_of: 2026-10-17
 | [`todo-2026-09-14-workflow-run-is-not-gated`](todo-2026-09-14-workflow-run-is-not-gated.md) | `CODEOWNERS` gates the merge of an edited workflow, not its first run. | 33d | wait | verifying the run behaviour itself against GitHub's own documentation, which a h… |
 | [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 31d | ask |  |
 | [`todo-2026-09-21-alex137-is-not-declared-private-by-default`](todo-2026-09-21-alex137-is-not-declared-private-by-default.md) | This public tree links a private repository, and the check whose whole job is preventing that never asked. | 26d | ask |  |
-| [`todo-2026-09-21-branch-delete-links-not-yet-vendored-to-consumers`](todo-2026-09-21-branch-delete-links-not-yet-vendored-to-consumers.md) | The branch-delete-link work landed in BestPractice's originals only. Every consuming repo still carries the pre-change c | 26d | ask |  |
 | [`todo-2026-09-21-commit-identity-reaches-some-sessions-and-not-others`](todo-2026-09-21-commit-identity-reaches-some-sessions-and-not-others.md) | `commit-identity.sh` reaches some sessions and not others, and the commits that landed say which. | 26d | wait |  |
 | [`todo-2026-09-21-leak-gate-self-heals-by-cloning-into-home`](todo-2026-09-21-leak-gate-self-heals-by-cloning-into-home.md) | cloning the individual practice set into `$HOME` | 26d | ask |  |
 | [`todo-2026-09-21-nothing-checks-a-consumer-against-upstream`](todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md) | Every check in this system runs inside one repository. | 26d | ask |  |
@@ -125,7 +119,6 @@ as_of: 2026-10-17
 |---|---|---|---|---|
 | [`todo-2026-09-10-stale-days-does-not-travel`](todo-2026-09-10-stale-days-does-not-travel.md) | Decide whether the four private practice sets should declare their own `branch_stale_days`. | 37d | wait |  |
 | [`todo-2026-09-12-my-options-includes-doing-nothing`](todo-2026-09-12-my-options-includes-doing-nothing.md) | Decide whether "My options" must always list the do-nothing option. | 35d | wait | Morgan's decision, explicitly deferred. |
-| [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay | 28d | ask |  |
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | 16d | wait | Morgan: noted as a possibility for the future, not approved (2026-10-01) |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. | 14d | ask |  |
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | 9d | ask |  |
@@ -161,7 +154,6 @@ as_of: 2026-10-17
 | [`todo-2026-10-05-very-deep-check-pass-3-findings`](todo-2026-10-05-very-deep-check-pass-3-findings.md) | What the 2026-10-05 very deep check's pass 3 (does the writing hold | 12d |
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 12d |
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 6d |
-| [`todo-2026-10-17-very-deep-check-findings`](todo-2026-10-17-very-deep-check-findings.md) | What the 2026-10-17 very deep check found and did not fix in the same run. | 0d |
 
 ## Open Decisions
 
@@ -169,7 +161,6 @@ as_of: 2026-10-17
 |---|---|---|
 | [`todo-2026-09-10-stale-days-does-not-travel`](todo-2026-09-10-stale-days-does-not-travel.md) | Decide whether the four private practice sets should declare their own `branch_stale_days`. |  |
 | [`todo-2026-09-12-my-options-includes-doing-nothing`](todo-2026-09-12-my-options-includes-doing-nothing.md) | Decide whether "My options" must always list the do-nothing option. | Morgan |
-| [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay |  |
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | Morgan |
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. |  |
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | Alex's or Morgan's approval of the plan below, stage by stage |

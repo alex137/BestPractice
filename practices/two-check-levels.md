@@ -169,6 +169,15 @@ says the check before a push is the deep check, and asking for one by name
 adds the read. Morgan, 2026-10-06 (strength: assented -- he delegated the
 wording).
 
+**2026-10-17: the receipt the deep check pushes is said.** The very deep
+check that day found that a pass of the push check pushes a receipt to
+origin and no document said a check does; a helper running it bare in a
+scratch worktree had pushed one. The Install now says it, and so does the
+run's own line. Chosen by the session under Morgan's delegation of
+2026-10-17: "Fix the other issues you found including the checks that
+never run. Tell me what you decide. I will be offline so don't wait for
+me. Approved, act, and Booked."
+
 ## Install
 This repo's own [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) is
 already the fast pass — it scans only the markdown a session touched — and
@@ -185,6 +194,15 @@ Those four are already run everywhere by the engine's own `light-check` check
 in [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) (since 2026-10-05,
 ported from the repository-maintenance set), so a repo gets the minimum audit
 without writing one.
+
+**This engine's deep check writes to origin.** A pass of
+[tools/precedent_push_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_push_check.py)
+is recorded against the tree and also pushed as a small receipt -- the
+files named by hash, none of their content -- to a receipt branch on
+origin, so another checkout of the same files skips the run; the run's
+own line says it pushed, and to which branch. `PRECEDENT_NO_SHARED_PASS=1`
+turns both the push and the reading of receipts off, which a helper in a
+scratch worktree sets.
 
 **A rare, on-request audit is not a third level, and does not count against
 that.** The test is whether a session has to run it to land work. Something

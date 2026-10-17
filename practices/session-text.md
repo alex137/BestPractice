@@ -98,7 +98,7 @@ recognisable: *"cross-tier adds are not supported in v1: requested
 refused three times, including as a session's very first tool call, alongside
 two sessions that held both owners at once — with no explanation fitting both
 ([the gotchas index](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md#build-environment-gotchas--do-not-rediscover-these), in full in
-[record/GOTCHAS.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md), with the contradictory sequence itself in
+[gotchas/](https://github.com/alex137/BestPractice/blob/staging/gotchas/INDEX.md), with the contradictory sequence itself in
 [the archive](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md)). **Call it and read what it says, never a
 remembered result.**
 
@@ -193,7 +193,7 @@ reads and pastes themselves, never something handed to an automated
 `create_session` call -- the ambiguity it closes is theirs, at the moment
 they decide whether to type `Go merge` into the window they just opened. It
 is also part of why `create_session` is gone from this practice at all:
-[record/GOTCHAS.md#g43](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g43)
+[a recorded gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-15-a-spawned-session-s-seeded-prompt-cannot-pre-authorize-a-mer.md)
 found the harness's own permission classifier refusing a `create_session`
 call outright over a baked-in merge instruction, `[Merge Without Review]` --
 one data point among the ones that led to retiring the automated route
@@ -534,7 +534,7 @@ full merge instruction into `create_session`'s seeded prompt, on the reading
 that a spawned session should carry the same authorization it would have had
 inline. The harness's own permission classifier refused the `create_session`
 call itself over it -- `[Merge Without Review]`, recorded in full as
-[record/GOTCHAS.md#g43](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g43)
+[a gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-15-a-spawned-session-s-seeded-prompt-cannot-pre-authorize-a-mer.md)
 -- which is what prompted Morgan to ask about it: *"Could it be related to
 the fact that you, in spawning new sessions, a day or two ago, we had it
 include 'go merge'?"* His proposed fix, in his own words: *"maybe we remove

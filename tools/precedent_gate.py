@@ -1178,8 +1178,8 @@ def main():
     # and somebody remembering to run it. On 2026-09-14 a session read that
     # banner, did not run it, and spent hours with four guarantees down --
     # noticing only when two uninstalled packages surfaced as three
-    # unrelated-looking verify_harness failures (record/GOTCHAS.md#g1,
-    # #g17). Guidance a session can skip is not a mechanism. A gate is
+    # unrelated-looking verify_harness failures (gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md,
+    # gotchas/gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo.md). Guidance a session can skip is not a mechanism. A gate is
     # something it runs at a named moment, so the gate is where this belongs.
     #
     # Offline, so it costs a tenth of a second and never fetches; silent
@@ -1192,7 +1192,9 @@ def main():
         block = psck.remind(prefix='precedent gate')
         if block:
             print(f"{block}\n")
-    except Exception:
+    except (Exception, SystemExit):
+        # SystemExit too: something this imports exiting is still only an
+        # advisory block failing, and must not end the gate (2026-10-17).
         # This tool reads git config and the filesystem; on a repo shape it
         # does not expect it may raise, and a gate that dies because its
         # ADVISORY block failed would be worse than one that stays quiet.

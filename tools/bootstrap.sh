@@ -48,7 +48,11 @@ local_session="${PRECEDENT_LOCAL_SESSION:-}"
 # GitHub-renderer check; keep it even if you add nothing else):
 if [ "$local_session" = "1" ]; then
   echo "NOTE: local session -- skipped pip install (cmarkgfm markdown); this machine manages its own packages. doc_lint's strikethrough check needs cmarkgfm installed by hand." >&2
-  [ -f tools/precedent_python.py ] && { python3 tools/precedent_python.py check >/dev/null || python3 tools/precedent_python.py check || true; }
+  # Once: its warning goes to stderr, which is shown; only the success line
+  # is kept quiet. The check used to run again on failure, so a machine on
+  # another Python heard the same warning twice at every session start
+  # (2026-10-17, on 3.13).
+  [ -f tools/precedent_python.py ] && { python3 tools/precedent_python.py check >/dev/null || true; }
 else
   # Through tools/precedent_python.py (practice one-python): the Python
   # precedent.json declares gets the packages, through its own pip, and
@@ -250,7 +254,7 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
   }
   if [ -n "$git_dir" ] && [ -f "$git_dir/shallow" ]; then
     # TODO.md's shallow-clone-self-heal-hardening item (BestPractice
-    # record/GOTCHAS.md#g37, third occurrence): one bounded attempt used to
+    # gotchas/gotcha-2026-09-14-a-shallow-clone-makes-a-merely-behind-checkout-read-as-diver.md, third occurrence): one bounded attempt used to
     # be the whole mechanism, and a failure here surfaced as nothing more
     # than a WARN line. A second, independently-bounded attempt costs
     # nothing when the first succeeds; a marker file left behind on total

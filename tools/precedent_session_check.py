@@ -43,7 +43,7 @@ THE THIRD ROUTE EXISTS BECAUSE THE FIRST TWO ARE SKIPPABLE, 2026-09-14. A
 session read that banner, did not run this tool, and worked for hours with
 four guarantees down -- no session-practices file, no commit backstop, two
 uninstalled packages -- noticing only when the packages surfaced as three
-unrelated-looking verify_harness failures (record/GOTCHAS.md#g1). Guidance a
+unrelated-looking verify_harness failures (gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md). Guidance a
 session can skip is not a mechanism; a gate it runs at a named moment is.
 
 Exit 0 when every guarantee holds, 1 otherwise, so it can gate a run.
@@ -481,7 +481,7 @@ def checks(offline=False):
     # applies commit-identity.sh to a LIST of repositories, and until
     # 2026-09-14 that list was the primary repo plus its siblings -- which
     # silently excluded an individual set cloned somewhere else, i.e. the one
-    # repository the block reads the identity FROM (record/GOTCHAS.md#g40).
+    # repository the block reads the identity FROM (gotchas/gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md).
     # Nothing reported it, because nothing had ever asked the question of any
     # repo but this one, and a normal session never commits to a source set.
     #
@@ -505,7 +505,7 @@ def checks(offline=False):
                 'be a wrong-author commit, and the global backstop will refuse '
                 'it. The session-start identity block is meant to have covered '
                 'it; a source outside the primary repo\'s own parent directory '
-                'is how it gets missed (record/GOTCHAS.md#g40)'))
+                'is how it gets missed (gotchas/gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md)'))
 
     # 4. The global backstop reaches repositories attached later.
     #
@@ -1199,8 +1199,14 @@ def _ci_cadence_row():
         v, bwhere = _personal('on_branches')
         branches = v is not False
     if not hours and branches:
-        return (name, True, f'every push runs CI (github_ci_every_hours is 0, from '
-                            f'{where}; github_ci_on_branches is true, from {bwhere})')
+        # "every push runs CI" was said here until 2026-10-17, which no
+        # push has done since the workflows moved to a pull request into
+        # main: this row decides only whether the commit hook adds
+        # [skip ci], and the workflows' own triggers decide the rest.
+        return (name, True, f'no commit is held back from CI by [skip ci] '
+                            f'(github_ci_every_hours is 0, from {where}; '
+                            f'github_ci_on_branches is true, from {bwhere}); '
+                            f'what runs is whatever the workflows trigger on')
     asked = []
     if hours:
         asked.append(f'github_ci_every_hours is {hours:g} (from {where})')
@@ -1208,11 +1214,11 @@ def _ci_cadence_row():
         asked.append(f'github_ci_on_branches is false (from {bwhere})')
     asked = ' and '.join(asked)
     if cfg.get('visibility') != 'private':
-        return (name, True, f'every push runs CI: {asked}, but this repo does '
+        return (name, True, f'no [skip ci] is added: {asked}, but this repo does '
                             f'not declare "visibility": "private"')
     base = cfg.get('base_branch')
     if not isinstance(base, str) or not base:
-        return (name, True, f'every push runs CI: {asked}, but this repo '
+        return (name, True, f'no [skip ci] is added: {asked}, but this repo '
                             f'declares no base_branch to apply it on')
     rc, hooks, _ = _git('config', '--get', 'core.hooksPath')
     if rc != 0 or not hooks:
@@ -1221,15 +1227,15 @@ def _ci_cadence_row():
     cad = pathlib.Path(hooks).expanduser() / 'precedent-ci-cadence' if hooks else None
     if not (cad and os.access(cad, os.X_OK)):
         return (name, False, f'{asked}, but no precedent-ci-cadence script '
-                             f'sits beside the commit hooks here, so every '
-                             f'push still runs CI. commit-identity.sh writes '
+                             f'sits beside the commit hooks here, so no '
+                             f'commit gets [skip ci]. commit-identity.sh writes '
                              f'it at session start, and only for a declared '
                              f'identity')
     on_base = (f'CI runs at most once every {hours:g}h (from {where})'
-               if hours else 'every push runs CI')
+               if hours else 'no [skip ci] on it')
     on_other = ('other branches never run CI (github_ci_on_branches false, from '
-                f'{bwhere})' if not branches else 'other branches run CI on '
-                'every push')
+                f'{bwhere})' if not branches else 'other branches get no '
+                '[skip ci]')
     return (name, True, f'private, primary branch {base}: {on_base}; '
                         f'{on_other}. PRECEDENT_CI_NOW=1 git commit ... '
                         f'forces a run')
@@ -1329,7 +1335,12 @@ def _clone_behind(path, fetch=True, branch=None):
                                  capture_output=True, text=True).stdout.strip()
             if cur and cur != branch:
                 _pcs.fetch_missing_tracking_ref(path, cur)
-        except ImportError:
+        except (Exception, SystemExit):
+            # SystemExit too (2026-10-17): this runs inside other tools --
+            # the reply gate's advisory step among them -- and a module that
+            # exits as it loads (a test's stub scanner did) took the whole
+            # gate down with it, before it printed the archive-line verdict.
+            # An advisory lookup never ends its caller (fail-gracefully).
             pass
         r = subprocess.run(['git', '-C', str(path), 'rev-list', '--count',
                             '--no-merges', 'HEAD', '--not', '--remotes=origin',

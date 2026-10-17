@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 175 practice files (6 resident, 169 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 174 practice files (6 resident, 168 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -137,7 +137,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
 | [report-up-the-chain](practices/report-up-the-chain.md) | on-demand | finishing a task a session was spawned or triggered to do |
-| [revert-needs-no-trailer](practices/revert-needs-no-trailer.md) | on-demand | committing a revert, or a trailer check flags one |
 | [review-against-a-contract](practices/review-against-a-contract.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [root-issues](practices/root-issues.md) | on-demand | a person says "Root issues", or asks what this session found or fixed that should go back upstream |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether practices that should have fired for recent work did |
@@ -192,7 +191,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## Withdrawn practices
 
-11 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+12 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
 
 | Practice | Status | Now in force at | Why it was withdrawn |
 |---|---|---|---|
@@ -204,6 +203,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [merged-session-offers-a-practice](practices/merged-session-offers-a-practice.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Morgan, 2026-09-14, on the practice engine he had been feeding by hand for weeks: *"I love the methodology of turning what we decide into Practices to be followed or enforced, but it seems like I'm always the one making the suggestions. |
 | [next-steps-after-commit](practices/next-steps-after-commit.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Raised by Morgan as a standing personal preference, rather than in response to a specific missed handoff, and it lived in his individual set from 2026-09-04 to 2026-09-14. |
 | [response-please](practices/response-please.md) | retired | — (nowhere) | **Retired 2026-09-30.** Morgan: *"Response please probably doesn't need a phrase, because it doesn't really add anything so we can remove."* A pasted message from another session is weighed from context, and Prompt Please still hands work on. |
+| [revert-needs-no-trailer](practices/revert-needs-no-trailer.md) | deduplicated | [session-trailer](practices/session-trailer.md) | 2026-09-29, Morgan, while approving the change that made the trailer check judge only what a push carries: *"I think we should update the 'Session' trailer rule to say that it is okay if reverts don't have it ... |
 | [second-pass-capture](practices/second-pass-capture.md) | deduplicated | [capture-gate](practices/capture-gate.md) | **An owner-prompted sweep found two real gaps in a single day's work.** Somebody asked "did we miss capturing anything?" of work that had already been drafted, reviewed and considered finished, and the answer was yes twice: a cross-artifact transfer that had been waved off, and a competitor-inspired idea noted in passing but never landed anywhere durable. |
 | [session-text](practices/session-text.md) | deduplicated | [prompt-please](practices/prompt-please.md) | **Coined by Morgan, 2026-09-11**, in his own words: *"When you give me what I need to do, first look to see if it should be in a different session, and that includes most importantly checking for cross repo issues first. |
 | [wide-search-needs-asking](practices/wide-search-needs-asking.md) | deduplicated | [grep-before-search](practices/grep-before-search.md) | **2026-09-28.** A session fixed the Boildown so it stopped asking which repositories to add or remove. |
@@ -224,7 +224,9 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/check_commit_dates.py](tools/check_commit_dates.py) | Each commit carries the declared person's time zone (practice buenos-aires-dates) |
 | [tools/checkin.py](tools/checkin.py) | Drives the periodic check-in (INSTALL.md §4) mechanically |
 | [tools/ci_fleet_audit.py](tools/ci_fleet_audit.py) | Every GitHub Actions workflow on every branch of every reachable repo, asked of GitHub: approval, triggers, schedules, 30 days of runs |
+| [tools/commit_checks_common.py](tools/commit_checks_common.py) | What the two commit-identity checks share: the identity module, the grandfather list, the log reader, the Rule text |
 | [tools/content_record.py](tools/content_record.py) | Hash a set of inputs now and say later whether they still hold and which moved, under frozen schemes: the hashing shared by the fact ledger and any drift check |
+| [tools/declared_base_branch.py](tools/declared_base_branch.py) | The branch a repository declares its work is measured against: precedent.json's base_branch |
 | [tools/doc_html.py](tools/doc_html.py) | The one sortable-table HTML renderer for repo documents |
 | [tools/doc_lifecycle.py](tools/doc_lifecycle.py) | The document status header — kind, status, supersession — checked across spec/ and record/ |
 | [tools/doc_lint.py](tools/doc_lint.py) | Markdown hygiene checks — strikethrough, links, acronyms |
@@ -315,7 +317,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_whats_new.py](tools/precedent_whats_new.py) | The mechanics behind "What's new?": which finished days on main a project's running log lacks, what changed on each, today so far, and marking the log current -- the entries themselves are the session's to write |
 | [tools/precedent_which_repo.py](tools/precedent_which_repo.py) | Names the repo an engine tool reads, and warns when it is run from inside a different one -- engine tools read their own file's repo, never the current directory |
 | [tools/reach_key.py](tools/reach_key.py) | A memo key over the code a solve can reach -- syntax trees of the definitions and constants an entry function touches, so an edit the solve never runs re-keys nothing |
-| [tools/resplit_sections.py](tools/resplit_sections.py) | The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json |
 | [tools/result_cache.py](tools/result_cache.py) | The shared result cache -- code-keyed memos on one snapshot branch, a leased cold solve that peers wait for |
 | [tools/routing_audit.py](tools/routing_audit.py) | The routing audit — mechanical coverage check plus a rotating deep-read slice |
 | [tools/routing_eval.py](tools/routing_eval.py) | Measures whether trigger-based loading actually beats carrying the whole catalogue |

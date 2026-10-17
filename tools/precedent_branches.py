@@ -4474,6 +4474,18 @@ def _raced(root, say, staging, stip, ptip, new, p):
 # the push and nothing is lost. Main is never touched; nothing is dropped
 # from it or overwritten.
 LAND_RESULT = 'LAND RESULT'
+# WHAT IS BEING LANDED, TOLD TO THE PUSH'S OWN HOOKS (2026-10-17). git's
+# pre-push sees only `<sha> -> refs/heads/staging` for a landing: the branch
+# the work came from is gone by then, so a pre-push hook a practice declares
+# could judge where work goes but never what was landed -- a harness-named
+# branch reached staging by --land with every hook passing. So the landing's
+# push carries the name it was asked to land (a branch, or HEAD's branch) in
+# this variable, and it is pushed from the person's own checkout, not the
+# throwaway worktree: hooks listed in untracked files there (a set the person
+# brings, written at session start) are not in a fresh worktree, and did not
+# run at all. Morgan, 2026-10-17: "Fix the other issues you found including
+# the checks that never run" (very deep check of that day).
+LANDING_SOURCE_ENV = 'PRECEDENT_LANDING_SOURCE'
 
 
 def land(root, work=None, say=print):
@@ -4582,7 +4594,9 @@ def _land_composed(root, sha, label, staging, why, say):
                                            out, f'{stip}..{sha}')
         if written:
             new = _git(wt, 'rev-parse', 'HEAD')
-        p = _run(wt, 'push', '-q', 'origin', f'{new}:refs/heads/{staging}')
+        # From the checkout, naming what is landed (LANDING_SOURCE_ENV).
+        p = _run(root, 'push', '-q', 'origin', f'{new}:refs/heads/{staging}',
+                 env=dict(os.environ, **{LANDING_SOURCE_ENV: label}))
     if p.returncode != 0:
         moved, said = refused_push(root, staging, new, p)
         if moved:

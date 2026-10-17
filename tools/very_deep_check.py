@@ -675,27 +675,9 @@ def report_freshness(label, verdict, out=None):
     return False
 
 
-def _declared_base_branch(repo_dir):
-    """The branch a repo DECLARES its work is measured against, in its own
-    precedent.json `base_branch` -- not inferred from `origin/HEAD`.
-
-    Those are two different questions with usually the same answer, which is
-    why asking the wrong one survives so long. `origin/HEAD` answers "what
-    does GitHub show first"; callers here mean "what lineage does this work
-    belong to". They diverge the moment a repo pins its work to a branch
-    that is not the configured default -- this repo's own
-    `precedent-beta-v01` -- and then every inference is quietly wrong with
-    nothing failing. Returns None when undeclared or unreadable, so callers
-    fall back to the old inference rather than breaking (practice: fail-gracefully).
-    Enforced by precedent_check.py's `declared-base-branch`.
-    """
-    try:
-        import json as _json, pathlib as _pathlib
-        v = _json.loads((_pathlib.Path(repo_dir) / 'precedent.json')
-                        .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 def _second_practice_lists(repo_dir, threshold=0.8):
     """-> [(rel, named, total)] for every tracked, hand-kept file that names
@@ -872,6 +854,12 @@ def _named_anywhere_else(shipped, root):
                         f"'{stem}'"]
         needles += ['/'.join(parts[i:-1]) + '/'
                     for i in range(0, len(parts) - 2)]
+        # The folder AS A CONSUMER SEES IT is a reader too (2026-10-17):
+        # environment-gotchas tells every session in a consumer to grep
+        # `process/upstream/gotchas/`, and a grep names no file, so every
+        # retired gotcha read as shipped to nobody.
+        if '/' in dest:
+            needles.append(dest.rsplit('/', 1)[0] + '/')
         if not any(n in text for other, text in texts.items()
                    if other != dest for n in needles):
             unnamed.append(dest)
@@ -1940,7 +1928,7 @@ def _link_siblings(src, scratch):
             continue
 
 
-def _scratch_tree(src, dest, engine_src):
+def _scratch_tree(src, dest, engine_src, extra=None):
     """Copy `src`'s tracked tree to `dest`, give it a one-commit history, and
     drop THIS checkout's precedent_check.py in as its engine.
 
@@ -1973,6 +1961,17 @@ def _scratch_tree(src, dest, engine_src):
         except OSError:
             continue
     shutil.copy2(engine_src, pathlib.Path(dest) / 'tools' / 'precedent_check.py')
+    # Practice files in force in `src` from another source, placed where a
+    # received catalogue sits (process/upstream/practices/), so a check
+    # whose practice the repository's resolver puts in force runs on the
+    # copy instead of skipping for want of a local file (_in_force_files).
+    for rel, s in (extra or {}).items():
+        d = pathlib.Path(dest) / rel
+        d.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(s, d)
+        except OSError:
+            continue
     for args in (['init', '-q'], ['add', '-A'],
                  ['-c', 'user.email=sweep@localhost', '-c', 'user.name=sweep',
                   'commit', '-qm', 'fix sweep scratch']):
@@ -1981,6 +1980,48 @@ def _scratch_tree(src, dest, engine_src):
         if r.returncode != 0 and args[0] != '-c':
             return f'could not git {args[0]} the copy'
     return ''
+
+
+# Where precedent_check._practice_file finds a practice file, in its order.
+_PRACTICE_LAYOUTS = ('practices', 'local/practices', 'process/upstream/practices')
+
+
+def _in_force_files(path, slugs):
+    """-> ({slug: practice file}, note) for each of `slugs` the repository at
+    `path` puts in force, as ITS OWN resolver reads its declared sources,
+    with no local practice file of its own; note is '' or why the resolver
+    could not be asked.
+
+    THE GAP (2026-10-17 very deep check). FIX SWEEP decided "in force" by a
+    practices/<slug>.md in the copy, so in each set 17 of 18 new detectors
+    reported SKIPPED, "not in force here", though every set declares
+    universal and resolves those practices. The resolver's answer is the one
+    the repository lives by."""
+    path = pathlib.Path(path)
+    have = {s for s in slugs
+            if any((path / lay / f'{s}.md').is_file() for lay in _PRACTICE_LAYOUTS)}
+    want = [s for s in slugs if s not in have]
+    if not want:
+        return {}, ''
+    saved = os.environ.get(pr.SELF_HEAL_RENDER_ENV)
+    os.environ[pr.SELF_HEAL_RENDER_ENV] = '1'       # a sweep renders nothing
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            res = pr.resolve(pr.load_config(str(path)))
+    except Exception as exc:                                 # noqa: BLE001
+        return {}, f'its resolver could not be read ({type(exc).__name__})'
+    finally:
+        if saved is None:
+            os.environ.pop(pr.SELF_HEAL_RENDER_ENV, None)
+        else:
+            os.environ[pr.SELF_HEAL_RENDER_ENV] = saved
+    out = {}
+    for s in want:
+        p = (res.get('practices') or {}).get(s)
+        f = pathlib.Path(p['file']) if p and p.get('file') else None
+        if f and f.is_file():
+            out[s] = f
+    return out, ''
 
 
 def _fix_sweep(repo_root, targets, since=None, timeout=300):
@@ -2013,74 +2054,99 @@ def _fix_sweep(repo_root, targets, since=None, timeout=300):
     if not slugs:
         return since, [], [], '', caveat
     engine = pathlib.Path(repo_root) / 'tools' / 'precedent_check.py'
-    rows = []
-    for label, path in targets:
-        if not path or not pathlib.Path(path).is_dir():
-            rows.append((label, None, 'not on this disk -- cannot be swept'))
-            continue
-        if pathlib.Path(path).resolve() == pathlib.Path(repo_root).resolve():
-            rows.append((label, None, 'the origin of the fix -- swept by its '
-                                      'own gate, not here'))
-            continue
-        # The copy sits at <scratch>/<its own name>, beside links to the
-        # real repo's siblings: a check that finds a source cloned beside the
-        # repo (a set an individual set brings, say) otherwise finds nothing
-        # there, and the ladder-words check reported the individual set in
-        # violation of a rule it is exempt from (very deep check, 2026-10-05).
-        scratch = pathlib.Path(tempfile.mkdtemp(prefix='fix-sweep-'))
-        tmp = scratch / pathlib.Path(path).resolve().name
-        tmp.mkdir()
-        _link_siblings(path, scratch)
-        try:
-            bad = _scratch_tree(path, tmp, engine)
-            if bad:
-                rows.append((label, None, bad))
-                continue
-            verdicts = []
-            for slug in slugs:
-                try:
-                    proc = subprocess.run(
-                        [sys.executable, str(tmp / 'tools' /
-                                             'precedent_check.py'),
-                         '--only', slug, '--full-sweep'],
-                        cwd=str(tmp), capture_output=True, text=True,
-                        timeout=timeout)
-                except (OSError, subprocess.SubprocessError) as exc:
-                    verdicts.append((slug, 'ERRORED', type(exc).__name__))
-                    continue
-                body = (proc.stdout or '') + (proc.stderr or '')
-                why = ''
-                for line in body.splitlines():
-                    if line.startswith(('SKIPPED', 'VIOLATION', 'ADVISORY')):
-                        for sep in ('\u2014', '--'):
-                            if sep in line:
-                                why = line.split(sep, 1)[1].strip()
-                                break
-                        break
-                m = re.search(r'precedent_check: (\d+) passed, (\d+) violated,'
-                              r' (\d+) advisory, (\d+) errored, (\d+) skipped',
-                              body)
-                if not m:
-                    verdicts.append((slug, 'UNREADABLE', 'no summary line'))
-                elif int(m.group(2)):
-                    verdicts.append((slug, 'VIOLATION', why))
-                elif int(m.group(3)):
-                    # An advisory check reports here, not in "passed";
-                    # reading only passed/skipped called it "did not run".
-                    verdicts.append((slug, 'ADVISORY', why))
-                elif int(m.group(4)):
-                    verdicts.append((slug, 'ERRORED', why))
-                elif int(m.group(1)):
-                    verdicts.append((slug, 'clean', ''))
-                elif int(m.group(5)):
-                    verdicts.append((slug, 'SKIPPED', why))
-                else:
-                    verdicts.append((slug, 'did not run', ''))
-            rows.append((label, verdicts, ''))
-        finally:
-            # rmtree unlinks the sibling links; it never follows them.
-            shutil.rmtree(scratch, ignore_errors=True)
+    rows = [_sweep_target(label, path, slugs, engine, repo_root, timeout)
+            for label, path in targets]
     return since, slugs, rows, '', caveat
+
+
+def _one_skip_cause(verdicts):
+    """-> 'ONE CAUSE n of m skip(s): <cause>' when one reason is behind most
+    of a repository's sweep verdicts, else ''. Said the way CHECK COVERAGE
+    says it: one cause behind most of the skips is the finding, not the
+    skips (2026-10-17: 17 of 18 in each set, all one cause, read as 17
+    separate lines)."""
+    causes = collections.Counter(d or 'no reason given'
+                                 for _s, v, d in verdicts if v == 'SKIPPED')
+    for cause, n in causes.most_common(1):
+        if n >= 2 and n * 2 > len(verdicts):
+            return f'ONE CAUSE {n} of {len(verdicts)} skip(s): {cause[:96]}'
+    return ''
+
+
+def _sweep_target(label, path, slugs, engine, repo_root, timeout=300):
+    """-> (label, verdicts or None, why): `slugs` run with `engine` against a
+    copy of the repository at `path`, each judged in force or not by that
+    repository's resolver (_in_force_files)."""
+    if not path or not pathlib.Path(path).is_dir():
+        return (label, None, 'not on this disk -- cannot be swept')
+    if pathlib.Path(path).resolve() == pathlib.Path(repo_root).resolve():
+        return (label, None, 'the origin of the fix -- swept by its '
+                             'own gate, not here')
+    in_force, rnote = _in_force_files(path, slugs)
+    # The copy sits at <scratch>/<its own name>, beside links to the
+    # real repo's siblings: a check that finds a source cloned beside the
+    # repo (a set an individual set brings, say) otherwise finds nothing
+    # there, and the ladder-words check reported the individual set in
+    # violation of a rule it is exempt from (very deep check, 2026-10-05).
+    scratch = pathlib.Path(tempfile.mkdtemp(prefix='fix-sweep-'))
+    tmp = scratch / pathlib.Path(path).resolve().name
+    tmp.mkdir()
+    _link_siblings(path, scratch)
+    try:
+        bad = _scratch_tree(path, tmp, engine, extra={
+            f'process/upstream/practices/{s}.md': f
+            for s, f in in_force.items()})
+        if bad:
+            return (label, None, bad)
+        verdicts = []
+        for slug in slugs:
+            try:
+                proc = subprocess.run(
+                    [sys.executable, str(tmp / 'tools' /
+                                         'precedent_check.py'),
+                     '--only', slug, '--full-sweep'],
+                    cwd=str(tmp), capture_output=True, text=True,
+                    timeout=timeout)
+            except (OSError, subprocess.SubprocessError) as exc:
+                verdicts.append((slug, 'ERRORED', type(exc).__name__))
+                continue
+            body = (proc.stdout or '') + (proc.stderr or '')
+            why = ''
+            for line in body.splitlines():
+                if line.startswith(('SKIPPED', 'VIOLATION', 'ADVISORY')):
+                    for sep in ('\u2014', '--'):
+                        if sep in line:
+                            why = line.split(sep, 1)[1].strip()
+                            break
+                    break
+            m = re.search(r'precedent_check: (\d+) passed, (\d+) violated,'
+                          r' (\d+) advisory, (\d+) errored, (\d+) skipped',
+                          body)
+            if not m:
+                verdicts.append((slug, 'UNREADABLE', 'no summary line'))
+            elif int(m.group(2)):
+                verdicts.append((slug, 'VIOLATION', why))
+            elif int(m.group(3)):
+                # An advisory check reports here, not in "passed";
+                # reading only passed/skipped called it "did not run".
+                verdicts.append((slug, 'ADVISORY', why))
+            elif int(m.group(4)):
+                verdicts.append((slug, 'ERRORED', why))
+            elif int(m.group(1)):
+                verdicts.append((slug, 'clean', ''))
+            elif int(m.group(5)):
+                verdicts.append((slug, 'SKIPPED', why
+                                 + (f' (resolver: {rnote})' if rnote else '')))
+            else:
+                verdicts.append((slug, 'did not run', ''))
+            if slug in in_force and verdicts[-1][1] != 'SKIPPED':
+                s_, v_, d_ = verdicts[-1]
+                verdicts[-1] = (s_, v_, (d_ + ' ' if d_ else '')
+                                + '(in force here by its resolver)')
+        return (label, verdicts, '')
+    finally:
+        # rmtree unlinks the sibling links; it never follows them.
+        shutil.rmtree(scratch, ignore_errors=True)
 
 def _pending_deletions(repo_dir):
     """-> (rows, note) for files the NEXT refresh would delete here, each
@@ -8215,10 +8281,23 @@ def _record_pass(value, path=None, repo=None):
               f"complete (newest {runs[-1].get('run_id')}); this pass is "
               f"recorded against the last completed run instead.",
               file=sys.stderr)
-    target.setdefault('passes', []).append(entry)
+    # ONE ENTRY PER PASS PER RUN (2026-10-17). Recording a pass again --
+    # its findings recounted, its note corrected -- used to append a second
+    # entry beside the first, so the run carried two answers for one pass
+    # and every reader took whichever it met first. The newer one replaces
+    # the older, in place.
+    passes = target.setdefault('passes', [])
+    same = [i for i, p in enumerate(passes) if str(p.get('pass')) == name]
+    if same:
+        passes[same[0]] = entry
+        for i in reversed(same[1:]):
+            del passes[i]
+    else:
+        passes.append(entry)
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     print(f"recorded: pass {name} = {status or '(no status)'} against the run "
-          f"of {target.get('run_id')} in {path}.")
+          f"of {target.get('run_id')} in {path}"
+          + (", replacing the entry already recorded for it." if same else "."))
     # The run's full account is owed the moment its last pass is in, and the
     # deep check refuses a push without it (practice: very-deep-check;
     # Morgan, 2026-10-11, after a run left it out until he asked).
@@ -11009,6 +11088,10 @@ def _main(box):
                     _fs_findings += 1
                 _tail = f" -- {_detail}" if _detail else ''
                 print(f"      {_label}: {_slug} -> {_verdict}{_tail}")
+            _one = _one_skip_cause(_verdicts)
+            if _one:
+                _fs_findings += 1
+                print(f"      {_label}: {_one}")
         print("\n  A VIOLATION here is the case this exists for: the fix "
               "landed where the bug was\n  found, the detector came with "
               "it, and the repo that still has the bug has not\n  vendored "

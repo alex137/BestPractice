@@ -1,16 +1,24 @@
 ---
 title:         Build-environment Gotchas — the Live Text
-kind:          record
-status:        live
+kind:          reference
+status:        superseded
 opened:        2026-09-13
 closed:        null
-superseded_by: null
+superseded_by: gotchas/INDEX.md
 supersedes:    []
 audience:      session
-summary:       Every live gotcha in full. AGENTS.md carries the one-line symptom index; the story is here.
+summary:       The 44 gotchas as they stood at the 2026-09-16 migration, kept for history; each one's live text is its own file under gotchas/, indexed by gotchas/INDEX.md.
 ---
 
 # Build-environment Gotchas — the Live Text
+
+> **Superseded on 2026-10-17 by [gotchas/INDEX.md](../gotchas/INDEX.md).**
+> Every entry below has its own file under [gotchas/](../gotchas/), and that
+> file is the one kept current: it carries the status, the retirement and any
+> later correction, and nothing here does. The text below is the copy the
+> 2026-09-16 migration started from, left in place so old `#gN` links still
+> land; [spec/TODO_GOTCHA_MIGRATION_MAP.md](../spec/TODO_GOTCHA_MIGRATION_MAP.md)
+> maps each `gN` to its file. Do not edit an entry here; edit its file.
 
 **These are the traps that can still bite you today, each with the story of
 what failed.** [AGENTS.md](../AGENTS.md)'s gotchas section carries the same 36

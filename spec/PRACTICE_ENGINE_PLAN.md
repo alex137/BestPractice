@@ -1081,8 +1081,8 @@ than reporting a clean pass it did not earn.
 body sections — Rule, Detail, Why, Story, Install — and only the first is
 loaded to decide whether a practice applies. Doing the Rule/Detail split at
 phase 3 is close to free: the editorial machinery already exists
-([tools/resplit_sections.py](../tools/resplit_sections.py) plus
-[tools/section_split.json](../tools/section_split.json)), so the work is one more
+(`tools/resplit_sections.py` plus
+`tools/section_split.json`), so the work is one more
 pass over a reviewable JSON file rather than 52 hand-edits, and the
 content-preservation checks that guard it are already written and adversarially
 tested. Doing it *after* phase 6 vendors the format into consumer repos means

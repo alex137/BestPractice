@@ -33,4 +33,7 @@ before; a real change to AGENTS.md's generation pipeline and its token
 budget, deliberately deferred rather than rushed. **Since done:**
 AGENTS.md now carries only a pointer and a grep instruction, and the
 one-line index is the generated [gotchas/INDEX.md](gotchas/INDEX.md),
-rebuilt by `python3 tools/build_gotcha_index.py`.
+rebuilt by `python3 tools/build_gotcha_index.py`. On 2026-10-17
+[record/GOTCHAS.md](record/GOTCHAS.md) stopped being a live copy (its
+header names [gotchas/INDEX.md](gotchas/INDEX.md) as its successor): each
+entry's own file under [gotchas/](gotchas/) is the one kept current.

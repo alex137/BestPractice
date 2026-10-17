@@ -1,11 +1,14 @@
 ---
 slug:            gotcha-2026-09-28-a-wait-loop-on-pgrep-f-finds-itself-and-never-ends
-status:          live
+status:          retired
 noted:           2026-09-28
 severity:        minor
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
+**Retired 2026-10-17: the same trap as [gotcha-2026-10-01-a-wait-loop-on-pgrep-f-waits-on-itself](gotcha-2026-10-01-a-wait-loop-on-pgrep-f-waits-on-itself.md), which now
+carries this story too.** Read that one.
+
 ## Symptom
 
 A shell loop written to wait for a script to finish never ends, though the

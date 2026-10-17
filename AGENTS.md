@@ -98,7 +98,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 150 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 149 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -370,6 +370,11 @@ place — nothing is ever deleted, and nothing moves.
   table — [GEMINI.md](GEMINI.md) at the root already says so for Gemini
   CLI, and [templates/harness/codex/README.md](templates/harness/codex/README.md)
   covers Codex.
+- **Schedules in force: one.**
+  [deep-check.yml](.github/workflows/deep-check.yml) runs the whole suite
+  daily at 07:17 UTC (`cron: '17 7 * * *'`, Alex, 2026-10-12: "yes on daily
+  run"); its header says why. Nothing else here runs on a clock. A commit
+  that adds, changes, pauses or removes a schedule updates this line.
 - **Work lands on your landing branch** (the opening paragraph;
   `python3 tools/precedent_branches.py --landing`).
 - **Some changes arrive as check-in PRs from dependent repos** (INSTALL.md
@@ -395,7 +400,10 @@ place — nothing is ever deleted, and nothing moves.
   before every commit; **deep check** is `python3 tools/precedent_push_check.py`,
   before push or merge, **always run bare**: it checks at the tier a push
   to your landing branch gets -- seconds for `staging` when you land there,
-  the full suite for `main`. What matters is `0 failed` and `0 violated`. Which one a push gets, `--as-ci`, and failing tests a
+  the full suite for `main`. What matters is `0 failed` and `0 violated`.
+  **A pass pushes to origin:** a small receipt (file hashes, no content)
+  on the receipt branch, so other checkouts skip those files;
+  `PRECEDENT_NO_SHARED_PASS=1` turns that off. Which one a push gets, `--as-ci`, and failing tests a
   source shipped:
   [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#two-check-levels).
 

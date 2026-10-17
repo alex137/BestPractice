@@ -1347,16 +1347,17 @@ confidently.
     before it pushes to staging or main (a route taken only on the
     person's own words, like Produce's `--full`, is listed and not
     flagged), a plain push to either that the push gate checks fully, and a
-    per-file step that starts a test. A route of pre-staging, retired for
-    everyone on 2026-10-14, is reported as retired code to delete, and so
-    is any mention of pre-staging the run finds: it is fixed to assume the
-    retirement (Morgan, 2026-10-17: "any mention of pre-staging it finds
-    should be fixed to assume its deprecation").
+    per-file step that starts a test. A route through the old tier below
+    staging, retired for everyone on 2026-10-14, is reported as retired
+    code to delete, and so is any mention of that tier the run finds: it
+    is fixed to assume the retirement (Morgan, 2026-10-17, of that tier:
+    "any mention of [it] it finds should be fixed to assume its
+    deprecation").
 
     **Fix each violation in this pass**: move the check to the full tier,
     or make the move run the quick tier before it pushes. Only the person's
     own words keep a check before a push, given after they were told its
-    time and urged to leave it to the Debut
+    time and urged to leave it to the full test run on staging
     ([quick-tier-is-closed](quick-tier-is-closed.md)). A fix that changes
     how a tier works for everyone, not just one check, is put to the person
     with your pick first.

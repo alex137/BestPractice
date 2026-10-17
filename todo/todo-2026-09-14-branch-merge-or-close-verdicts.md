@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "Morgan, for three branch deletions, and nothing else. A session cannot make them: `git push origin --delete` is refused by the permission classifier as `[Git Destructive]` before it reaches GitHub — a different wall from the 403 [record/GOTCHAS.md](../record/GOTCHAS.md#g39) describes, and one no retry "
+blocked_on:        "Morgan, for three branch deletions, and nothing else. A session cannot make them: `git push origin --delete` is refused by the permission classifier as `[Git Destructive]` before it reaches GitHub — a different wall from the 403 [the gotcha](../gotchas/gotcha-2026-09-14-a-session-can-push-branches-but-cannot-delete-a-remote-branc.md) describes, and one no retry "
 batch:             null
 decision:          null
 decision_strength: null
@@ -55,7 +55,7 @@ closed:            null
   2026-09-19), and nothing else. A session cannot make them: `git push
   origin --delete` is refused by the permission classifier as `[Git
   Destructive]` before it reaches GitHub — a different wall from the 403
-  [record/GOTCHAS.md](../record/GOTCHAS.md#g39) describes, and one no
+  [the gotcha](../gotchas/gotcha-2026-09-14-a-session-can-push-branches-but-cannot-delete-a-remote-branc.md) describes, and one no
   retry or alternate tool gets around. Links were handed to him
   2026-09-14; the fourth link is in this run's own
   [spec/VERY_DEEP_CHECK.md](../spec/VERY_DEEP_CHECK.md).
@@ -76,7 +76,7 @@ closed:            null
 
 ## How It Closes
 
-Not open until: Morgan, for three branch deletions, and nothing else. A session cannot make them: `git push origin --delete` is refused by the permission classifier as `[Git Destructive]` before it reaches GitHub — a different wall from the 403 [record/GOTCHAS.md](../record/GOTCHAS.md#g39) describes, and one no retry 
+Not open until: Morgan, for three branch deletions, and nothing else. A session cannot make them: `git push origin --delete` is refused by the permission classifier as `[Git Destructive]` before it reaches GitHub — a different wall from the 403 [the gotcha](../gotchas/gotcha-2026-09-14-a-session-can-push-branches-but-cannot-delete-a-remote-branc.md) describes, and one no retry 
 
 ## Notes
 

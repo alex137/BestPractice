@@ -524,7 +524,7 @@ _behind_base_count() {
 # on 2026-09-13: a session ran a whole thread against a day-old tree, applying
 # rules that had been superseded, and only found out when an unrelated command
 # was blocked. Deepen once and recount before believing the counts.
-# practice: upstream-fix. See record/GOTCHAS.md#g12 for the merge-base shape of
+# practice: upstream-fix. See gotchas/gotcha-2026-09-13-on-a-shallow-clone-git-merge-base-between-two-different-bran.md for the merge-base shape of
 # the same false negative.
 _deepen_if_shallow() {
   _is_shallow || return 1
@@ -645,6 +645,8 @@ _session_start_one() {
   if [ "$fetched" -eq 0 ] && _branch_absent_from_origin "$branch"; then
     fetched=1
     echo "NOTE: freshness-guard: '$branch' does not exist on origin yet -- nothing to be behind. Checking it against the base branch only." >&2
+  elif [ "$fetched" -eq 0 ] && ! _git remote get-url origin >/dev/null 2>&1; then
+    echo "WARN: freshness-guard: this repository has no origin yet, so there is nothing to fetch and its freshness is NOT verified. Give it one: git remote add origin <its GitHub URL>, then push." >&2
   elif [ "$fetched" -eq 0 ]; then
     echo "WARN: freshness-guard: could not fetch origin/$branch -- freshness NOT verified. Everything below is measured against a possibly stale remote-tracking ref; a silent result here means 'not checked', never 'in sync'." >&2
   fi
@@ -895,7 +897,7 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
   # either has written it, and both fall through to `_pre_write_one`, which
   # runs `git fetch`/`--deepen` against the same `.git` directory at once.
   # Reproduced 2026-09-15: one of two parallel Bash calls blocked on a
-  # false "diverged" reading (a shallow-clone artifact, record/GOTCHAS.md#g37)
+  # false "diverged" reading (a shallow-clone artifact, gotchas/gotcha-2026-09-14-a-shallow-clone-makes-a-merely-behind-checkout-read-as-diver.md)
   # while its sibling call, racing the same checkout, read the correct
   # counts and passed clean -- same session, same instant, two different
   # verdicts, because nothing serialized them. flock turns the race into a
@@ -983,6 +985,9 @@ _pre_write_one() {
   if ! _git fetch --quiet origin "$branch" 2>/dev/null; then
     if _branch_absent_from_origin "$branch"; then
       echo "NOTE: freshness-guard: '$branch' does not exist on origin yet -- nothing to be behind, so this call is not blocked on it. The base-branch check below still runs." >&2
+    elif ! _git remote get-url origin >/dev/null 2>&1; then
+      # No origin at all: "git fetch origin" is no remedy (2026-10-17).
+      _pw_block "this repository has no origin yet, so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Give it one: git remote add origin <its GitHub URL>, then push $branch"
     else
       _pw_block "could not fetch origin/$branch, so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Run: git fetch origin $branch"
     fi

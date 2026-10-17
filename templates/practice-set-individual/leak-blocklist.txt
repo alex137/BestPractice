@@ -1,8 +1,17 @@
 # Private-term blocklist — the leak gate's VOCABULARY layer.
 #
-# This file is already in the right place: your own individual practice
-# set. Fill it in here, then point the environment variable at it and turn
-# vocabulary checking on:
+# FIRST, CHECK THIS SET'S VISIBILITY. precedent-source.json says whether
+# this repository is public. If it is, this file is published with it, and
+# a term written here is published the moment it is pushed -- the leak the
+# list exists to stop. So a public set's blocklist never holds a private
+# term: leave the placeholders below as they are, say in this header that
+# the set is public, and put private terms in a private set's blocklist
+# instead (the individual set of the person who knows them, or a private
+# shared set), where the leak gate reads them the same way.
+#
+# In a private set this file is already in the right place: your own
+# individual practice set. Fill it in here, then point the environment
+# variable at it and turn vocabulary checking on:
 #
 #     export PRECEDENT_LEAK_BLOCKLIST={{DEST_PATH}}/leak-blocklist.txt
 #     git config precedent.requireVocabulary true

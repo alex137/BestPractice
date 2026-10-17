@@ -90,6 +90,14 @@ DEFAULT_USER_CONFIG = pathlib.Path.home() / '.config' / 'precedent' / 'config.js
 # than configurable: the self-heal below has to find it without first
 # resolving a config that might be exactly what's missing.
 INDIVIDUAL_BOOTSTRAP_HOOK = '.claude/hooks/precedent-individual-bootstrap.sh'
+# Set, to any value, to keep both self-heals below from running: neither
+# the individual set's hook (which may ask GitHub whose a token is, clone a
+# private set into $HOME and write a user config) nor the universal clone.
+# precedent_bootstrap_source.py sets it for itself and every tool it runs,
+# so bootstrapping a set reaches no network unless --network true asks it to
+# (2026-10-17, very deep check: bootstrapping a SHARED set in a scratch home
+# cloned the operator's private individual set into it).
+NO_SELF_HEAL_ENV = 'PRECEDENT_NO_SELF_HEAL'
 
 def _scratch_copy_of(repo_root):
     """-> the checkout `repo_root` was copied from, when its `origin` is
@@ -150,6 +158,8 @@ def _self_heal_individual_source(repo_root):
     different answers to "do you have an individual set?" (2026-09-06: this
     returned None either way, and the difference was the whole reason a real
     rule went looked-for and not found.)"""
+    if os.environ.get(NO_SELF_HEAL_ENV):
+        return 'not-asked'
     if os.environ.get('CLAUDE_CODE_REMOTE') != 'true':
         return 'not-remote'
     if _scratch_copy_of(repo_root):
@@ -213,6 +223,8 @@ def _self_heal_universal_source(repo_root):
     nor the gap this closes). Never raises: a failed clone here is reported
     by the ordinary 'missing source' path load_config's caller already has,
     not a new failure mode."""
+    if os.environ.get(NO_SELF_HEAL_ENV):
+        return 'not-asked'
     tool = repo_root / 'tools' / 'precedent_source_bootstrap.py'
     if not tool.is_file():
         return 'no-tool'
@@ -389,7 +401,13 @@ def _self_heal_stale_render(repo_root):
                 and _render_older_than_sources(repo_root, rendered_at) is None:
             return 'fresh'
     try:
-        subprocess.run([sys.executable, str(tool), '--repo', str(repo_root)],
+        # --keep-if-incomplete: this runs from read-only checks too, and a
+        # source that does not resolve here must not cost the session a
+        # complete render (2026-10-17: an isolated clone's 3-day-old full
+        # file became one listing every source as "did NOT resolve"). The
+        # renderer keeps the old file and marks it STALE instead.
+        subprocess.run([sys.executable, str(tool), '--repo', str(repo_root),
+                        '--keep-if-incomplete'],
                        cwd=str(repo_root), capture_output=True, timeout=60,
                        env=dict(os.environ, **{SELF_HEAL_RENDER_ENV: '1'}))
     except (OSError, subprocess.TimeoutExpired):
@@ -715,6 +733,12 @@ def _diagnose_no_individual(why, heal, user_cfg_path, repo_root):
                             "or clone), so no individual practices are in "
                             "force; set PRECEDENT_INDIVIDUAL_REPO if you have "
                             "one")}
+    if heal == 'not-asked':
+        return {'certain': False, 'code': 'self-heal-off',
+                'message': (f"no individual source resolved in {repo_root}, "
+                            f"and {NO_SELF_HEAL_ENV} kept this run from looking "
+                            f"for one (a tool that reaches no network unless "
+                            f"asked set it). Unknown here, not 'none'.")}
     if heal == 'scratch-copy':
         return {'certain': False, 'code': 'scratch-copy',
                 'message': (
@@ -751,6 +775,45 @@ def _diagnose_no_individual(why, heal, user_cfg_path, repo_root):
             'message': (f"{user_cfg_path} does not exist, so no individual "
                         f"practices are in force. On a local machine that is "
                         f"a definite answer; declare one there to change it.")}
+
+
+def _git_common_dir(path):
+    """-> the resolved git common directory of the checkout whose top level
+    is `path` (the same for a clone and every linked worktree of it), or
+    None -- also for a directory INSIDE a checkout, which is not a
+    repository of its own."""
+    r = subprocess.run(['git', '-C', str(path), 'rev-parse', '--show-toplevel',
+                        '--git-common-dir'], capture_output=True, text=True)
+    lines = r.stdout.strip().splitlines() if r.returncode == 0 else []
+    if len(lines) != 2:
+        return None
+    top, common = pathlib.Path(lines[0]), pathlib.Path(lines[1])
+    try:
+        if top.resolve() != pathlib.Path(path).resolve():
+            return None
+    except OSError:
+        return None
+    return (common if common.is_absolute() else pathlib.Path(path) / common).resolve()
+
+
+def _same_repository(a, b):
+    """True when `a` and `b` are the same repository: the same path, or two
+    checkouts (a clone and a linked worktree of it) sharing one git common
+    directory. A set brought by the individual set is skipped when it IS the
+    repository being resolved; comparing paths alone missed a linked
+    worktree of the set, which then loaded itself twice -- measured
+    2026-10-17 at 3,801 words of session load in a worktree against 3,399 in
+    the clone, and --land and the merge gate check in throwaway worktrees."""
+    try:
+        pa, pb = pathlib.Path(a).resolve(), pathlib.Path(b).resolve()
+    except OSError:
+        return False
+    if pa == pb:
+        return True
+    if not (pa.is_dir() and pb.is_dir()):
+        return False
+    ca, cb = _git_common_dir(pa), _git_common_dir(pb)
+    return ca is not None and ca == cb
 
 
 def _main_checkout(repo_root):
@@ -1328,7 +1391,7 @@ def load_config(repo, user_config=None):
                 # everybody there reads.
                 if b['name'] in have:
                     continue
-                if pathlib.Path(b['path']).resolve() == repo_root:
+                if _same_repository(b['path'], repo_root):
                     continue
                 sources.append(b)
     gone = deleted_sets(entry['path'] if entry is not None else None,
@@ -1861,7 +1924,17 @@ def resolve(sources, context=()):
             # -- the rule does not bind here, and whether that is fine is
             # this repo's call.
             gone = withdrawn_from_universal(practice.get('sections'))
-            if gone:
+            if gone and withdrawn_to_level(practice.get('sections')) == 'individual':
+                # An individual set is a person's, from their own user
+                # config: no repository declares one, so "declare that set"
+                # was advice nobody could take (2026-10-17).
+                entry.update(withdrawn_on=gone[0], withdrawn_to=gone[1],
+                             why=(f"withdrawn from universal on {gone[0]}; in "
+                                  f"force only in {set_ref(gone[1])}, which a "
+                                  f"person brings in their own user config -- "
+                                  f"no repository declares it, so only that "
+                                  f"person's sessions get it"))
+            elif gone:
                 entry.update(withdrawn_on=gone[0], withdrawn_to=gone[1],
                              why=(f"withdrawn from universal on {gone[0]}; in "
                                   f"force in `{gone[1]}` -- declare that set "
@@ -1901,9 +1974,13 @@ def resolve(sources, context=()):
 # now." Read back rather than stored as a new frontmatter field: a field
 # would change the practice-file format every set and consumer vendors, and
 # this sentence is already on every such stub.
+# How a file outside an individual set names it: never by its name, which is
+# its owner's (precedent_move.py, 2026-10-17). Read back as the set's "name"
+# by the readers below, so a withdrawal to one still reads as a withdrawal.
+AN_INDIVIDUAL_SET = 'an individual set'
 _WITHDRAWN_RE = re.compile(
     r'Withdrawn from universal on (\d{4}-\d\d-\d\d)\b.*?'
-    r'in force only from the \w+ set `([^`]+)`', re.S)
+    r'in force only from (?:the (\w+) set `([^`]+)`|(an individual set))', re.S)
 
 
 def withdrawn_from_universal(sections):
@@ -1912,7 +1989,27 @@ def withdrawn_from_universal(sections):
     wins, the way the latest Story line is the current record."""
     story = (sections or {}).get('story') or ''
     found = _WITHDRAWN_RE.findall(story)
-    return tuple(found[-1]) if found else None
+    if not found:
+        return None
+    date, _level, name, unnamed = found[-1]
+    return (date, name or unnamed)
+
+
+def set_ref(name):
+    """A set as a sentence names it: `name` in backticks, or 'an individual
+    set' as it stands."""
+    return name if name == AN_INDIVIDUAL_SET else f'`{name}`'
+
+
+def withdrawn_to_level(sections):
+    """-> the level of the set a universal stub's ## Story says the rule was
+    withdrawn to ('individual' for one named only as an individual set), or
+    None."""
+    found = _WITHDRAWN_RE.findall((sections or {}).get('story') or '')
+    if not found:
+        return None
+    _d, level, _n, unnamed = found[-1]
+    return 'individual' if unnamed else normalize_level(level)
 
 
 # The committed record precedent_move.py --withdraw-from-universal keeps of
@@ -1933,22 +2030,25 @@ def withdrawn_from_universal(sections):
 WITHDRAWN_RECORD = 'record/WITHDRAWN_FROM_UNIVERSAL.md'
 _WITHDRAWN_LINE_RE = re.compile(
     r'^- (\d{4}-\d\d-\d\d): `([^`]+)`(?: \([^)\n]*\))? withdrawn from '
-    r'universal\b[^\n]*?(in force only from|kept as history in) the \w+ set '
-    r'`([^`]+)`', re.M)
+    r'universal\b[^\n]*?(in force only from|kept as history in) '
+    r'(?:the \w+ set `([^`]+)`|(an individual set))', re.M)
 _WITHDRAWN_HISTORY = 'kept as history in'
 
 
 def withdrawn_record_line(date, slug, level, name, approved_by, forwarded_to=None):
     """The record line for one withdrawal, newline included: a rule's shape,
     or, with `forwarded_to`, a retired name's. The one writer of the shapes
-    _WITHDRAWN_LINE_RE reads."""
+    _WITHDRAWN_LINE_RE reads. An individual set is named only as one: the
+    record is in the public universal clone."""
+    where = (AN_INDIVIDUAL_SET if normalize_level(level) == 'individual'
+             else f'the {level} set `{name}`')
     if forwarded_to:
         return (f'- {date}: `{slug}` (a retired name that forwarded to '
                 f'`{forwarded_to}`) withdrawn from universal, deliberately; '
-                f'kept as history in the {level} set `{name}`, beside the rule '
+                f'kept as history in {where}, beside the rule '
                 f'it forwards to. Approved by {approved_by}.\n')
     return (f'- {date}: `{slug}` withdrawn from universal, deliberately; in '
-            f'force only from the {level} set `{name}`, for the people who '
+            f'force only from {where}, for the people who '
             f'bring or declare it. Approved by {approved_by}. Its full text '
             f'and Story are there.\n')
 
@@ -1956,8 +2056,9 @@ def withdrawn_record_line(date, slug, level, name, approved_by, forwarded_to=Non
 def withdrawn_record_entries(text):
     """-> [(date, slug, set name, is_history)] for every line of a withdrawal
     record's text that this module can read, in file order."""
-    return [(date, slug, name, how == _WITHDRAWN_HISTORY)
-            for date, slug, how, name in _WITHDRAWN_LINE_RE.findall(text or '')]
+    return [(date, slug, name or unnamed, how == _WITHDRAWN_HISTORY)
+            for date, slug, how, name, unnamed
+            in _WITHDRAWN_LINE_RE.findall(text or '')]
 
 
 def _withdrawn_entries(source_path):

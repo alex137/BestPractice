@@ -4809,7 +4809,10 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
     'freshness-guard.sh',
     'precedent-paths.sh',
     'push-check-gate.sh',
+    'reply-gate.sh',
     'seeded-prompt-gate.sh',
+    'stop-git-check.sh',
+    'stop-reply-check.sh',
     'wait-loop-gate.sh',
 )
 
@@ -4818,10 +4821,12 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
        'each hook in DOGFOODED_HOOKS_MATCH_TEMPLATE is byte-identical '
        'between .claude/hooks/ and templates/harness/claude-code/hooks/',
        'a hook this repo deliberately customizes (session-start.sh, '
-       'stop-git-check.sh, stop-reply-check.sh, reply-gate.sh -- each '
-       'carries real repo-specific content and is correctly not in the '
-       'list); whether either copy is actually correct, only that the '
-       'two agree',
+       'which carries real repo-specific content and is correctly not in '
+       'the list; reply-gate.sh and the two stop hooks were listed here '
+       'too until 2026-10-17, but they were drifted hand copies of the '
+       'engine scripts, not customizations, and are stubs now); an engine '
+       'hook stub left off the list; whether either copy is actually '
+       'correct, only that the two agree',
        practice_backed=False,
        # Both sides of every pair it compares. Touch either copy of a
        # dogfooded hook and this runs, instead of waiting for its rotation
@@ -4923,8 +4928,9 @@ def _parallels_rows(text):
 
 
 @check('claude-only-surface-has-a-parallel', 'tree',
-       'every hook in .claude/hooks/, and every hook .claude/settings*.json '
-       'wires, is named in a row of templates/harness/PARALLELS.md, and '
+       'every hook in .claude/hooks/, every hook .claude/settings*.json '
+       'wires, and every hook templates/harness/claude-code/hooks/ ships, is '
+       'named in a row of templates/harness/PARALLELS.md, and '
        'every row of that table carries a non-empty verdict for each of '
        + ', '.join(_PARALLEL_COLUMNS),
        'whether a recorded verdict is still TRUE -- a `none because the '
@@ -4958,7 +4964,13 @@ def _claude_only_surface_has_a_parallel(ctx):
             'Claude-only surface here for the other adapters to parallel. '
             'A repo with its own such surface still needs the answer; '
             'finding that surface is not something this check can do')
-    surface = _claude_surface(ctx.root)
+    # A hook the claude-code adapter SHIPS is a mechanism too, run here or
+    # not: artifact-publish-gate.sh reaches every consumer and BestPractice
+    # runs none of it, so it had no row, and this check refused adding one
+    # as naming a hook that does not exist (2026-10-17, very deep check;
+    # decision the session's, under Morgan's delegation of that day).
+    surface = _claude_surface(ctx.root) | {
+        p.name for p in (family / 'claude-code' / 'hooks').glob('*.sh')}
     if not surface:
         raise NotApplicable('.claude/ here wires and ships no hooks at all')
     path = family / 'PARALLELS.md'
@@ -5004,8 +5016,9 @@ def _claude_only_surface_has_a_parallel(ctx):
             if tok not in surface:
                 findings.append(Finding(
                     rel,
-                    f'names {tok}, which is neither in .claude/hooks/ nor '
-                    f'wired by any .claude/settings*.json -- a row left '
+                    f'names {tok}, which is neither in .claude/hooks/, '
+                    f'wired by any .claude/settings*.json, nor shipped from '
+                    f'templates/harness/claude-code/hooks/ -- a row left '
                     f'behind by a deleted hook reads as coverage. Drop it'))
     return findings
 
@@ -5814,7 +5827,8 @@ def _engine_plus_host_shims(ctx):
         raise NotApplicable('this repo vendors no upstream tree at '
                             'process/upstream/, so there is no engine/shim '
                             'boundary to hold. This is the expected state in '
-                            'the upstream repo itself')
+                            'Precedent itself and in any project installed '
+                            'onto the loader (INSTALL.md section 0)')
     # A copy the ENGINE MANIFEST records is not a fork. This check's whole
     # concern is a duplicate that drifts unnoticed, and
     # precedent_vendor_engine.py exists to make exactly these copies
@@ -7046,7 +7060,8 @@ def _unguarded_branch_inferences(text):
         for n in ast.walk(fn):
             if isinstance(n, ast.Call):
                 f = n.func
-                if isinstance(f, ast.Name) and f.id == '_declared_base_branch':
+                if isinstance(f, ast.Name) and f.id in (
+                        '_declared_base_branch', 'declared_base_branch'):
                     return True
                 if isinstance(f, ast.Attribute) and f.attr == 'get' and n.args \
                         and isinstance(n.args[0], ast.Constant) \
@@ -8606,10 +8621,21 @@ def _derived_file_marker(ctx):
     return out
 
 
+# The one helper (tools/declared_base_branch.py) and the one tool allowed a
+# copy of its own: doc_html.py is meant to be dropped into a host repository
+# alone and imports nothing from the engine (its own _default_branch says so).
+_BASE_BRANCH_HELPER = 'declared_base_branch.py'
+_BASE_BRANCH_COPY_OK = {
+    'doc_html.py': 'meant to be dropped into a host repository on its own, '
+                   'so it imports nothing from the engine',
+}
+
+
 @check('declared-base-branch', 'tree',
        "every tool that resolves the repo's branch reads precedent.json's "
        "declared `base_branch` before falling back to inferring one from "
-       "`refs/remotes/origin/HEAD`",
+       "`refs/remotes/origin/HEAD`, and reads it through the one helper, "
+       "tools/declared_base_branch.py, rather than a copy of its own",
        "whether the declared value is CORRECT, whether a tool that needs a "
        "base branch resolves one at all (a tool that hardcodes 'main' as a "
        "string and never touches origin/HEAD is invisible here), and every "
@@ -8635,18 +8661,32 @@ def _declared_base_branch_is_read(ctx):
     `doc_html._link_base()` emitted `/blob/main/` for content that exists
     only on the beta branch: every generated link dead.
 
-    The duplication is deliberate and stays -- doc_lint.py and doc_html.py
-    are meant to be droppable into a host repo alone, and doc_html.py's own
-    docstring says so. So this does not demand a shared import. It demands
-    that each copy ask the declared question first. Without a check the
+    It demands that each tool ask the declared question first, and since
+    2026-10-17 that it ask it through the one helper. The copies had been
+    left deliberate on the reasoning that doc_lint.py and doc_html.py are
+    droppable into a host repo alone; by then doc_lint.py imported two
+    engine modules at load, and nine tools carried the helper in three
+    wordings. Each now imports tools/declared_base_branch.py, and a tool
+    that defines its own copy again is a finding, except doc_html.py
+    (_BASE_BRANCH_COPY_OK), which really does run alone. Without a check the
     next tool copies the nearest existing resolver, inherits the bug, and
-    tests clean again: that is precisely how this reached six copies.
+    tests clean again: that is precisely how this reached six copies, and
+    then nine.
     """
     findings = []
     for path in _tools_py(ROOT / 'tools'):
+        text = path.read_text(encoding='utf-8', errors='ignore')
+        if path.name != _BASE_BRANCH_HELPER \
+                and path.name not in _BASE_BRANCH_COPY_OK \
+                and re.search(r'^\s*def _?declared_base_branch\(', text, re.M):
+            findings.append(Finding(
+                f'tools/{path.name}',
+                'defines its own copy of the declared-base-branch helper -- '
+                'import the one in tools/declared_base_branch.py instead '
+                '(`from declared_base_branch import declared_base_branch`), '
+                'so a fix to it reaches every tool'))
         if path.name in _BASE_BRANCH_INFERENCE_OK:
             continue
-        text = path.read_text(encoding='utf-8', errors='ignore')
         for fn in _unguarded_branch_inferences(text):
             findings.append(Finding(
                 f'tools/{path.name}',
@@ -8654,7 +8694,8 @@ def _declared_base_branch_is_read(ctx):
                 "DECLARED branch being read first, so under this repo's "
                 "branch pin it measures against a lineage the work never "
                 "touched -- read precedent.json's `base_branch` (the "
-                "`_declared_base_branch` helper the other resolvers carry), "
+                "helper in tools/declared_base_branch.py the other resolvers "
+                "import), "
                 "or the manifest's `upstream.branch` if the question is "
                 "which branch a vendored copy tracks"))
     return findings
@@ -9532,27 +9573,9 @@ def _two_check_level_names():
 
 
 
-def _declared_base_branch(root):
-    """The branch this repo's work is measured against, as DECLARED in
-    precedent.json's `base_branch` -- not inferred from `origin/HEAD`.
-
-    Those are two different questions with usually the same answer, which is
-    why asking the wrong one survives so long. `origin/HEAD` answers "what
-    does GitHub show first"; callers here mean "what lineage does this work
-    belong to". They diverge the moment a repo pins its work to a branch
-    that is not the configured default -- BestPractice's own
-    `precedent-beta-v01` -- and then every inference is quietly wrong with
-    nothing failing. Returns None when undeclared or unreadable, so callers
-    fall back to the old inference rather than breaking (practice: fail-gracefully).
-    Enforced by precedent_check.py's `declared-base-branch`.
-    """
-    try:
-        import json as _json, pathlib as _pathlib
-        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
-                        .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 def _landing_ref():
     """-> origin/<the branch this person's work lands on>, when
@@ -10325,7 +10348,13 @@ def _repo_retired_terms(cfg_path, _ol):
     # it -- so this scrub reads it as well, and a record is declared once.
     # exempt_files stays for what is not a record (a materialized tree, a
     # generated index), and still works for a record listed there before.
-    exempt_files = [RETIRED_VOCAB_CONFIG] + exempt_files + _declared_record_paths()
+    # The decommission tool's own ledger names every retired path by
+    # construction, the retired pack's among them, exactly as this config
+    # names every retired term: a migration that followed step 5 to the
+    # letter failed here on the record step 5 makes (2026-10-17, very deep
+    # check's migration rehearsal).
+    exempt_files = ([RETIRED_VOCAB_CONFIG, DECOMMISSIONED_PATHS_REGISTRY]
+                    + exempt_files + _declared_record_paths())
     retired = [(t, 'this repository\'s current wording', [_retired_term_re(t)])
                for t in terms]
     out = []
@@ -10439,6 +10468,89 @@ def _pending_approval_outlives_its_merge(ctx):
                  f'--diff-filter=A {base} -- {rel}` names the commit that '
                  f'added it; its pull request is the one that carried that '
                  f'commit'))
+    return out
+
+
+# What precedent_move.py --dedupe-only --accept-reach-loss writes into the
+# universal copy's ## Story (and precedent_resolve.withdrawn_from_universal
+# reads back): "Withdrawn from universal on <date>, deliberately, with
+# --accept-reach-loss ...: ... in force only from the <level> set `<name>`".
+_ACCEPT_REACH_LOSS_FLAG = '--accept-reach-loss'
+
+
+@check('universal-dedup-lands-in-universal', 'tree',
+       "no universal practice is deduplicated to a slug that is not active in "
+       "the universal catalogue, unless its ## Story carries the line "
+       "precedent_move.py --dedupe-only --accept-reach-loss writes ("
+       "'Withdrawn from universal on <date>, deliberately, with "
+       "--accept-reach-loss')",
+       "whether the withdrawal was a good idea, or whether the set it went to "
+       "is one the consumers that matter declare -- only that the reach loss "
+       "was accepted on the record. A deduplication into another universal "
+       "practice is judged by following its in_force_at, one hop at a time.",
+       practice_backed=False,
+       selects_on=('practices/*.md',))
+def _universal_dedup_lands_in_universal(ctx):
+    """2026-10-17 very deep check: a universal practice deduplicated by hand
+    to a slug that only a set carries passed every check. The only signal
+    was the view sync's stderr, IN FORCE NOWHERE, followed by a line that
+    called the removal correct. Universal is the one level every consumer
+    resolves, so such a stub leaves the rule in force nowhere for a consumer
+    that declares universal alone. The move tool refuses that shape without
+    --accept-reach-loss; this check refuses the same shape made by hand."""
+    if _engine_manifest() or not (ctx.root / 'tools' / 'verify_harness.py').is_file():
+        raise NotApplicable('not the engine\'s own repository')
+    practices_dir = ctx.root / 'practices'
+    if not practices_dir.is_dir():
+        raise NotApplicable('no practices/ directory')
+    parsed = {}
+    for f in sorted(practices_dir.glob('*.md')):
+        try:
+            fm, sections = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue          # an unparseable file is another check's finding
+        parsed[(fm.get('slug') or f.stem).strip()] = (f, fm, sections)
+
+    def status(fm):
+        return (fm.get('status') or 'active').strip().strip('"\'')
+
+    def target(fm):
+        return (fm.get('in_force_at') or '').strip().strip('"\'')
+
+    def lands(slug):
+        seen = set()
+        while slug in parsed and slug not in seen:
+            seen.add(slug)
+            fm = parsed[slug][1]
+            if status(fm) == 'active':
+                return True
+            if status(fm) != 'deduplicated':
+                return False
+            slug = target(fm)
+        return False
+
+    out = []
+    for slug, (f, fm, sections) in parsed.items():
+        if status(fm) != 'deduplicated':
+            continue
+        to = target(fm)
+        if to in ('', 'null', 'none', 'engine') or lands(to):
+            continue
+        story = sections.get('story') or ''
+        import precedent_resolve as pr
+        if (_ACCEPT_REACH_LOSS_FLAG in story
+                and pr.withdrawn_from_universal(sections)):
+            continue
+        out.append(Finding(
+            f'practices/{f.name}',
+            f'deduplicated to `{to}`, which is not an active practice in the '
+            f'universal catalogue, so a consumer that declares only universal '
+            f'gets this rule from nowhere. Either point in_force_at at the '
+            f'universal practice that carries it, put it back to active, or '
+            f'withdraw it on the record: tools/precedent_move.py --slug {slug} '
+            f'--from universal --from-path . --to <level> --to-path <set> '
+            f'--dedupe-only --accept-reach-loss --approved-by <name> writes '
+            f'the Story line this check reads.'))
     return out
 
 
@@ -12007,8 +12119,8 @@ def _todo_gotcha_stale_reference(ctx):
         if rel not in BARE_GOTCHA_ANCHOR_EXEMPT_FILES:
             checks.append(
                 (BARE_GOTCHA_ANCHOR_RE, 'links to a bare `#gN` anchor with no '
-                 'file -- qualify it (record/GOTCHAS.md#gN, or the item\'s own '
-                 'gotchas/*.md file)'))
+                 'file -- link the trap\'s own gotchas/*.md '
+                 'file instead'))
         for pat, label in checks:
             for m in pat.finditer(text):
                 line_no = text.count('\n', 0, m.start()) + 1
