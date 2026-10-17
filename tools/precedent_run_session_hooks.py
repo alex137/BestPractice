@@ -169,11 +169,38 @@ def read_only_rules(root, repos):
     return found
 
 
-def allow_at_user_level(rules, settings):
-    """ADD `rules` to the user-level settings' permissions.allow, never
-    editing, moving or removing what is there, and never one the file
-    denies. -> [added]; [] when there is nothing to add or the file does not
-    parse (left exactly as it was)."""
+def ask_rules(root, repos):
+    """-> the rules that always ask the person first, from the same files as
+    read_only_rules (precedent_vendor_engine.engine_ask_rules), each once.
+    They go beside the broad engine allow rule, never without it."""
+    here = pathlib.Path(__file__).resolve().parent
+    sys.path.insert(0, str(here))
+    try:
+        import precedent_vendor_engine as pve
+    except Exception:                                          # noqa: BLE001
+        return []
+    finally:
+        sys.path.pop(0)
+    found = []
+    for base in [here.parent] + list(repos):
+        for rel in (pve.SETTINGS_TEMPLATE, '.claude/settings.json'):
+            try:
+                text = (base / rel).read_text(encoding='utf-8')
+            except OSError:
+                continue
+            for rule in pve.engine_ask_rules(text):
+                if rule not in found:
+                    found.append(rule)
+    return found
+
+
+def allow_at_user_level(rules, settings, ask=()):
+    """ADD `rules` to the user-level settings' permissions.allow and `ask` to
+    its permissions.ask, never editing, moving or removing what is there,
+    and never one the file denies; the broad engine allow rule only with
+    every ask rule beside it (precedent_vendor_engine.
+    permission_rules_to_add, 2026-10-17). -> [added]; [] when there is
+    nothing to add or the file does not parse (left exactly as it was)."""
     path = pathlib.Path(settings)
     try:
         data = json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {}
@@ -182,11 +209,26 @@ def allow_at_user_level(rules, settings):
     perms = data.get('permissions') if isinstance(data, dict) else None
     if not isinstance(data, dict) or (perms is not None and not isinstance(perms, dict)):
         return []
-    have = set((perms or {}).get('allow') or []) | set((perms or {}).get('deny') or [])
-    add = [r for r in rules if r not in have]
-    if not add:
+    here = pathlib.Path(__file__).resolve().parent
+    sys.path.insert(0, str(here))
+    try:
+        import precedent_vendor_engine as pve
+        add, add_ask = pve.permission_rules_to_add(perms, list(rules), list(ask))
+    except Exception:                                          # noqa: BLE001
+        # No engine to say when the broad rule is safe: never write it.
+        have = set((perms or {}).get('allow') or []) | set((perms or {}).get('deny') or [])
+        add = [r for r in rules if r not in have
+               and r != 'Bash(python3 tools/precedent_*)']
+        add_ask = []
+    finally:
+        sys.path.pop(0)
+    if not add and not add_ask:
         return []
-    data.setdefault('permissions', {}).setdefault('allow', []).extend(add)
+    if add_ask:
+        data.setdefault('permissions', {}).setdefault('ask', []).extend(add_ask)
+    if add:
+        data.setdefault('permissions', {}).setdefault('allow', []).extend(add)
+    add = add + add_ask
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
@@ -237,12 +279,14 @@ def run(root, log=None, say=None, user_settings=None):
     # `user_settings` is passed by main() alone, so a test or another
     # caller of run() never writes the real user-level file.
     added = (allow_at_user_level(read_only_rules(root, repos_under(root)),
-                                 settings=user_settings)
+                                 settings=user_settings,
+                                 ask=ask_rules(root, repos_under(root)))
              if user_settings is not None else [])
     if added:
-        say(f'precedent session hooks: allowed {len(added)} read-only '
-            f'Precedent tool rule(s) in user-level settings, since a session '
-            f'above several repositories reads none of theirs')
+        say(f'precedent session hooks: added {len(added)} Precedent tool '
+            f'rule(s) to user-level settings (the tools that land, produce or '
+            f'merge always ask), since a session above several repositories '
+            f'reads none of theirs')
     if contexts:
         # The spoken commands first, whole and once, ahead of every repo's
         # output: what a person says must be understood before anything is

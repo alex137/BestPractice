@@ -814,8 +814,8 @@
   "_github_ci_approved_comment": "The person's approval of a workflow edit, pinned to the file's content (practice: ci-workflow-approved). In this repo the check judges only growth, and a failure-only step is not growth; recorded anyway, so the words behind the step that opens an issue when main's test fails sit beside the file they approved.",
   "github_ci_approved": {
     ".github/workflows/deep-check.yml": {
-      "sha256": "2b3567c8c178fe7494826da204849e15c3d6b115dc26fc74029da9114e7fa9cb",
-      "approved_by": "Morgan, 2026-10-09: \"Act on the ... plan\" (the plan's piece B, layer 2: a failed test on main opens a GitHub issue); Morgan, 2026-10-10: \"yes, build it and take it to main\" (a passed test pushes a git marker, refs/precedent/passed/<tree>, with contents: write on the job); Morgan, 2026-10-11: \"Both yml are fine and approved.\" (a passing run on main's head closes the main-test-failed issue, from both jobs, with issues: write on the already-tested job); Alex, 2026-10-12: \"Yes, go ahead with the change-scoped checks\" (a pull request and a push to main run only the checks the change reaches; a green whole-suite run into or on main records and publishes the reach ledger at refs/precedent/harness-reach; a merge landing while its pull request's run of the same files is still going waits on that run), \"yes on daily run\" and \"You may write the approval for the daily run\" (the whole suite once a day at 07:17 UTC, about 15 minutes) Morgan, 2026-10-14: \"Yes on fix 6\" (actions/checkout v4 -> v5 and actions/setup-python v5 -> v6, the releases that run on Node 24; no CI work added)."
+      "sha256": "23f8fefe29cfeb807c3e55d34ad7c24917cf59da77b28a04cb8af81794121251",
+      "approved_by": "Morgan, 2026-10-09: \"Act on the ... plan\" (the plan's piece B, layer 2: a failed test on main opens a GitHub issue); Morgan, 2026-10-10: \"yes, build it and take it to main\" (a passed test pushes a git marker, refs/precedent/passed/<tree>, with contents: write on the job); Morgan, 2026-10-11: \"Both yml are fine and approved.\" (a passing run on main's head closes the main-test-failed issue, from both jobs, with issues: write on the already-tested job); Alex, 2026-10-12: \"Yes, go ahead with the change-scoped checks\" (a pull request and a push to main run only the checks the change reaches; a green whole-suite run into or on main records and publishes the reach ledger at refs/precedent/harness-reach; a merge landing while its pull request's run of the same files is still going waits on that run), \"yes on daily run\" and \"You may write the approval for the daily run\" (the whole suite once a day at 07:17 UTC, about 15 minutes) Morgan, 2026-10-14: \"Yes on fix 6\" (actions/checkout v4 -> v5 and actions/setup-python v5 -> v6, the releases that run on Node 24; no CI work added). Morgan, 2026-10-17: \"yes to both, and booked\" (a passing pull request into main closes the main-test-failed issue when main's head holds exactly the files that run tested; no CI work added)."
     },
     ".github/workflows/leak-gate.yml": {
       "sha256": "2991d1d89770774e1a4772fbd3549e8b8c67d6a1b27f55c1c08d411cbddbf898",
@@ -836,6 +836,6 @@
     "no landing_branch: straight on staging, with the quick checks; Produce moves",
     "staging into main fast, and GitHub's test runs after the merge. Anyone off",
     "the ladder lands on main, as before. Set 2026-10-09 (Morgan: \"Please update",
-    "BP so it uses the new system\"); pre-staging was the landing branch until then."
+    "BP so it uses the new system\")."
   ]
 }

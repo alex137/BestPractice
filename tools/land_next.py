@@ -856,7 +856,7 @@ def self_check():
         ok &= followed_branch(work) == "main"
         (work / "precedent.json").write_text('{"upstream_branch": "staging"}\n')
         ok &= followed_branch(work) == "staging"
-        (work / "precedent.json").write_text('{"upstream_branch": "pre-staging"}\n')
+        (work / "precedent.json").write_text('{"upstream_branch": "some-feature-branch"}\n')
         ok &= followed_branch(work) == "main"
         # The repository's own part comes from precedent.json's "lander" block.
         (td / "precedent.json").write_text(

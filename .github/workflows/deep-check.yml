@@ -354,10 +354,19 @@ jobs:
       # closes nothing unless this run tested main's current head, so an
       # older run finishing green cannot close a newer failure. The
       # already-tested job does the same when it skips this one.
+      # AND ON A PULL REQUEST INTO MAIN, WHEN MAIN NOW HOLDS ITS FILES
+      # (Morgan, 2026-10-17: "yes to both"). Produce merges the pull request
+      # at once, so main's own run stands aside for this one ("still going
+      # and decides", above), and this run speaks for main: it could open
+      # the issue and never close it. Issue #1174 stayed open after main was
+      # green that day. The script closes only when main's head has exactly
+      # the files this run tested, so a pull request passing while main is
+      # still red elsewhere closes nothing.
       - name: Close the issue when main's test passes again
         if: >-
-          success() &&
-          github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+          success() && (
+          (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'pull_request' && github.base_ref == 'main'))
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

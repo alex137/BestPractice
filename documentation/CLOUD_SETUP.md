@@ -105,9 +105,11 @@ p.write_text(json.dumps(d, indent=2))
 PY
 ```
 
-**The runner also adds the read-only Precedent tools to the allow list**
-there (since 2026-10-14): `precedent_show.py`, `precedent_check.py` and the
-others the settings template lists as only reading. A session above several
+**The runner also adds the Precedent tools to the allow list** there
+(since 2026-10-14): since 2026-10-17, one rule for every engine tool, with
+the rules that make landing, Produce, merging and Update Vendors always ask
+you first, and the few read-only tools outside the engine by name. The
+broad rule is never added without those asks. A session above several
 repositories reads none of their own permission rules, so without this
 every such read waits on auto mode's check
 ([gotcha-2026-10-14](../gotchas/gotcha-2026-10-14-auto-mode-refusal-cascades-into-a-phone-dialog-over-a-read.md)).

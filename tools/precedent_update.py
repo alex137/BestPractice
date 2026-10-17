@@ -64,13 +64,8 @@ THE STEPS, with no question in between:
      verbatim, wording its template has since dropped, left for you --
      reported, never rewritten
      then, where precedent.json names no landing_branch, staging
-  3c. for anyone on the ladder -- pre-staging is retired for everyone since
-     2026-10-14 -- a precedent.json naming pre-staging switched to staging,
-     and, while origin still has pre-staging: its waiting work merged into staging (--land's
-     composition, quick checks), this repo's own instructions and links
-     that send work to pre-staging repointed, and the branch offered for
-     deletion as a link once it holds nothing staging lacks -- never
-     deleted. Silent off the ladder
+  3c. the migrations: each tools/migration_*.py moves the repository off
+     an arrangement the engine has dropped
   4. the views regenerated -- the loader block, and in a practice set
      MAP.md and GLOSSARY.md too; in a repository that uses Precedent, a
      hand-written MAP.md or GLOSSARY.md moved into MAP.source.md /
@@ -81,8 +76,7 @@ THE STEPS, with no question in between:
      repo's own citations of any practice the update withdrew or reworded
      (a withdrawn one's pointer is a call left for you; a bare mention of
      one, and a reworded one's citation, are listed to read)
-  4a. a missing staging made on origin: from a leftover pre-staging, else
-     from main
+  4a. a missing staging made on origin, from main
   5. the repo's own check at its landing branch's tier -- into staging,
      the quick checks on what changed; the full check waits for Debut or Produce
      (--skip-check to leave it out) -- run against a temporary commit of
@@ -109,7 +103,7 @@ commit will hold, and leaves anything already uncommitted alone -- save the
 pinned engine a source refresh wrote ahead of it, which is the update's own
 and is staged as such when every file matches the manifest. It never
 leaves a commit behind, and never merges. The one thing it pushes is a
-missing branch tier (pre-staging or staging), made at a commit origin
+missing branch tier (staging), made at a commit origin
 already has; the deep check's temporary commit is undone before it
 reports. Those stay with the session, which lands the update the way the
 repository lands work, where the authorization already lives.
@@ -122,7 +116,6 @@ import re
 import signal
 import subprocess
 import sys
-import urllib.parse
 
 HERE = pathlib.Path(__file__).resolve()
 SOURCE = HERE.parents[1]
@@ -130,10 +123,6 @@ sys.path.insert(0, str(HERE.parent))
 import precedent_vendor_engine as pve  # noqa: E402
 import precedent_branches as pb  # noqa: E402
 import precedent_local_edits as le  # noqa: E402
-try:
-    import precedent_upstream_review as ur  # noqa: E402
-except ImportError:     # an engine copy from before 2026-10-11
-    ur = None
 
 # Everything the steps' commands printed, for the upstream review at DONE
 # (the ladder set's upstream-review practice): a warning a step met and
@@ -160,8 +149,8 @@ def rebaseline_vendored_entries(repo, rewritten=(), hold=()):
     its old hash is stale by construction, and practice_audit read that as
     DRIFT -- "changed since baseline" -- on a file upstream changed, not
     this repo (2026-09-28, a consumer's doc-lint entry at
-    process/upstream/tools/doc_lint.py). The pre-staging check does not run
-    the audit, so the update said done and the Promote would have gone red.
+    process/upstream/tools/doc_lint.py). The quick check does not run the
+    audit, so the update said done and the Promote would have gone red.
 
     A synced entry OUTSIDE the tree is re-recorded on one condition only:
     its file is now byte-for-byte its upstream_path in the vendored tree.
@@ -178,8 +167,8 @@ def rebaseline_vendored_entries(repo, rewritten=(), hold=()):
     re-recorded too: the update rewrote it on purpose, as a migration onto
     the loader rewrites AGENTS.md, .claude/settings.json and .gitignore, so
     its old hash is stale by construction exactly like the mirror's. Until
-    then such a file kept the classic install's baseline, the pre-staging
-    check never ran the audit, and the first Debut refused it as DRIFT.
+    then such a file kept the classic install's baseline, the quick check
+    never ran the audit, and the first Debut refused it as DRIFT.
 
     `hold` (2026-10-16): paths never re-recorded on this run, whatever else
     holds -- a .claude/ change still waiting on the person's words
@@ -302,7 +291,7 @@ def ensure_scrub_blocklist_decision(repo):
     """-> 'null' when it recorded `scrub_blocklist: null` for a public repo,
     'ask' when the repo has to decide, None when nothing is owed. 'ask' is
     not listed as left for the person here: the practice audit, which runs
-    at every pre-staging push of a consumer, refuses it with the remedy in
+    at every push of a consumer, refuses it with the remedy in
     its own words, so the update would only be saying it twice.
 
     practice_audit.py fails a manifest with no `scrub_blocklist` key whose
@@ -349,8 +338,8 @@ def ensure_headroom_floor(repo):
     session-load-budget check now requires of any registry that declares
     ceilings. -> True when it wrote one.
 
-    The check is full-tier only, so an update into pre-staging passed and
-    the Promote to staging went red on a key nothing had ever written
+    The check is full-tier only, so an update's quick check passed and
+    the full check went red on a key nothing had ever written
     (2026-09-28, a consumer's update). 5 is the value BestPractice declares
     and precedent_bootstrap_source.py seeds. A value already there, `false`
     included -- a deliberate decline -- is never touched (practice:
@@ -602,6 +591,27 @@ def brought_sets_step(rep, fetch=None, repo=None):
         rep.leave(f'brought set {name}', f'could not be fetched ({str(out)[-200:]}), '
                   f'so its rules are not in force for this sync; attach it '
                   f'and run this again')
+
+
+_HOOK_NOT_HERE = re.compile(
+    r'precedent_sync_views: (\S+): its (\S+) hook runs (\S+), which is not '
+    r'in this repository yet')
+
+
+def hooks_not_here_step(rep, out):
+    """Say each hook a practice in force declares whose script this
+    repository does not have yet (precedent_sync_views notes it).
+
+    WHY (2026-10-17, the session moving enforcement into the sets). The
+    engine dropped a refusal that a practice set now ships as its own hook;
+    a repository that took the engine half without that set's files lost the
+    old refusal before it had the new one, and nothing said so."""
+    for slug, event, run in _HOOK_NOT_HERE.findall(out or ''):
+        rep.step('a check not here yet',
+                 f'WARNING: {slug} declares a {event} hook running {run}, which '
+                 f'this repository does not have yet, so that check is off here. '
+                 f'Take its source\'s sync in this same update (the sets layer), '
+                 f'or the engine half lands without the check that replaced it')
 
 
 def removed_links_step(rep, out):
@@ -1427,14 +1437,41 @@ def _without_duplicate_permissions(text):
     return json.dumps(data, indent=indent, ensure_ascii=False) + '\n'
 
 
+def names_full_path(line, path):
+    """True when `line` names `path` the way rename-updates-links reads a
+    line: the whole path, or with ./ or ../ in front, never as the tail of a
+    longer path and never by its file name alone.
+
+    WHY (2026-10-17, a document project's Update Vendors): the first run
+    left precedent.json lines that the same run had already repointed from
+    tools/checks/check_commit_author.py to tools/check_commit_author.py, and
+    the engine manifest's bare "check_commit_author.py" at its new home, as
+    still naming the old path: this matched the file name alone. Nothing
+    refuses those lines, and the next run, with no edit, did not list
+    them."""
+    start = 0
+    while True:
+        i = line.find(path, start)
+        if i < 0:
+            return False
+        start = i + 1
+        k = i
+        while k > 0 and (line[k - 1].isalnum() or line[k - 1] in '._-/'):
+            k -= 1
+        prefix = line[k:i]
+        if not prefix or (prefix.endswith('/') and all(
+                seg in ('.', '..') for seg in prefix[:-1].split('/'))):
+            return True
+
+
 def retired_mentions(repo, engine_out):
     """-> [(where, gone)] for each file that still names something the
     engine refresh deleted, and still does now that the rest of the update
     has run.
 
     The engine only WARNs about these, on stderr, and says nothing refuses
-    over a mention. The pre-staging check agreed; the full check at the
-    Promote to staging did not, and refused on them (practice:
+    over a mention. The quick check agreed; the full check did not, and
+    refused on them (practice:
     rename-updates-links; 2026-09-28: a retired bestpractice-docs.yml still
     named in a consumer's docs). So each one goes on Left for you, inside
     the update.
@@ -1473,450 +1510,25 @@ def retired_mentions(repo, engine_out):
             text = (repo / path).read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             continue
-        base = pathlib.PurePosixPath(gone).name
         hit = next((n for n, l in enumerate(text.splitlines(), 1)
-                    if gone in l or base in l), None)
+                    if names_full_path(l, gone)), None)
         if hit is not None and (f'{path}:{hit}', gone) not in out:
             out.append((f'{path}:{hit}', gone))
     return out
 
 
-# UPGRADING OFF PRE-STAGING (2026-10-09). A person who lands straight on
-# staging (precedent_branches.lands_on_staging) no longer uses pre-staging.
-# Morgan, 2026-10-09: when this reaches the repositories that vendor the
-# engine, "make sure we have a smooth upgrade process for each. Merging the
-# branches, telling he can delete pre-staging, updating previous mentions/
-# links within each repo, etc etc." Since 2026-10-14 that is everyone on
-# the ladder (precedent_branches.pre_staging_unused;
-# spec/PRE_STAGING_RETIREMENT_PLAN.md), and while origin still has
-# pre-staging:
-#   1. work waiting on pre-staging is brought into staging by --land's own
-#      composition (precedent_branches.land: staging, then main's direct
-#      work, then pre-staging, by merge commits, the quick checks, a push
-#      never forced). A conflict or a red check moves nothing and says what
-#      to do (practice: repair-cannot-discard-work);
-#   2. once it holds nothing staging lacks, it is offered for deletion as a
-#      link, never deleted (practice: never-delete-a-remote-branch);
-#   3. this repository's own Markdown that tells a reader work lands on
-#      pre-staging, or links to this repository's pre-staging tree, is
-#      repointed to staging (practice: rename-updates-links). Conservative:
-#      only the clear instructions and links below are rewritten; every
-#      other mention is listed with why it was left.
-# It runs before the views are regenerated, so they render the reworded
-# sources. Off the ladder it does nothing and says nothing.
-RETIRE_PRE_STAGING_HEADER = 'PRE-STAGING IS RETIRED -- your work lands on staging now:'
-
-# A clear instruction: a verb that sends work somewhere, then the branch.
-_PS_TOKEN = r'(?P<q>[`"\']?)pre-staging(?P=q)(?![\w-])'
-_PS_INSTRUCTION = re.compile(
-    r'(?i)\b(?:(?:land|lands|landing|push|pushes|pushing|merge|merges|merging'
-    r'|target|targets|targeting|retarget|retargets|base|bases)'
-    r'(?:\s+(?:it|them|this|work|your\s+work|the\s+work|the\s+change|'
-    r'changes|your\s+changes|the\s+branch|your\s+branch))?'
-    r'|(?:a\s+|the\s+)?(?:pull\s+requests?|PRs?))'
-    r'\s+(?:on|onto|to|into|against|at)\s+' + _PS_TOKEN)
-# A link into a tree, file or history on a GitHub branch.
-_PS_LINK = re.compile(r'github\.com/(?P<slug>[^/\s()]+/[^/\s()]+)/'
-                      r'(?P<kind>tree|blob|commits)/pre-staging(?=[/)\s#?"\'>\]]|$)')
-_DATED = re.compile(r'\b20\d\d-\d\d-\d\d\b')
-_QUOTED = re.compile(r'"[^"\n]*"|\u201c[^\u201d\n]*\u201d')
-# Words that make a line read as history or a comparison, not an instruction.
-_HISTORY_WORDS = re.compile(
-    r'(?i)\b(?:today|until|used\s+to|no\s+longer|was|were|had|before|'
-    r'formerly|previously|retired|old|instead\s+of|rather\s+than)\b')
-_HEADING = re.compile(r'^(#{1,6})\s+(.*)$')
-# Whole files that are history: what they record stays as it was.
-_HISTORY_DIRS = ('gotchas/', 'record/')
-
-
-def _retire_scope(repo):
-    """-> (files, history): this repository's own hand-written Markdown to
-    read, and the tracked Markdown left whole as history. Vendored copies
-    (the catalogue mirror, a vendored universal source, engine files) and
-    generated views are neither: they are not this repository's to word."""
-    r = subprocess.run(['git', '-C', str(repo), 'ls-files', '-z', '--', '*.md'],
-                       capture_output=True, text=True)
-    tracked = [p for p in r.stdout.split('\0') if p] if r.returncode == 0 else []
-    vendored = ['process/upstream/']
-    try:
-        uni = universal_catalogue_path(repo)
-    except Exception:                                        # noqa: BLE001
-        uni = None
-    if uni:
-        vendored.append(uni.rstrip('/') + '/')
-    engine = _engine_owned(repo) | set(_materialized_practices(repo))
-    try:
-        import precedent_resolve as pr
-        records = list(pr.declared_record_paths(repo))
-    except Exception:                                        # noqa: BLE001
-        records = []
-    files, history = [], []
-    for rel in tracked:
-        if rel in engine or any(rel.startswith(v) for v in vendored):
-            continue
-        if _is_generated_view(repo, rel):
-            continue
-        if (rel.startswith(_HISTORY_DIRS)
-                or any(rel == p or (p.endswith('/') and rel.startswith(p))
-                       for p in records)
-                or (rel.startswith('todo/') and _closed_item(repo / rel))):
-            history.append(rel)
-            continue
-        files.append(rel)
-    return files, history
-
-
-def _materialized_practices(repo):
-    """-> {repo-relative path: source name} for each practices/<slug>.md
-    MANIFEST.json says the sync wrote. Each is a copy of a practice that
-    lives elsewhere (a source repository, or this repository's own local/
-    tree), so the next sync puts back whatever is written into it: the
-    retire step words the original, never the copy. On 2026-10-09 it
-    "reworded" a copy of the person's promote-only rule that the same run's
-    view regeneration then put back."""
-    try:
-        mf = json.loads((pathlib.Path(repo) / 'MANIFEST.json').read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return {}
-    out = {}
-    for p in mf.get('practices') or []:
-        if isinstance(p, dict) and p.get('slug'):
-            out[f"practices/{p['slug']}.md"] = str(p.get('source') or '')
-    return out
-
-
-def _closed_item(path):
-    """True for an open-item file whose frontmatter status is not open."""
-    try:
-        head = path.read_text(encoding='utf-8', errors='ignore')[:2000]
-    except OSError:
-        return False
-    if not head.startswith('---\n'):
-        return False
-    m = re.search(r'^status:[ \t]*(\S+)', head[:max(head.find('\n---', 4), 0)], re.M)
-    return bool(m) and m.group(1).strip('"\'') not in ('open', 'claimed')
-
-
-def reword_pre_staging(text, slug):
-    """-> (new_text, changed, left): `text` (one Markdown file) with each clear
-    instruction to land on pre-staging, and each link to `slug`'s pre-staging
-    tree, file or history, repointed to staging. `changed` is [(line, why)]
-    and `left` [(line, why)] for every other line that names pre-staging,
-    1-based. Front matter, generated blocks, code blocks, a Story section and
-    anything under a dated heading are never rewritten.
-
-    An INDENTED code block counts as code too (CommonMark: four spaces or a
-    tab, after a blank line or another such line, and not a list item's
-    continuation). On 2026-10-09 a handoff prompt quoted that way in an open
-    item's Notes had its "Push to `pre-staging` (Booked) refused" reworded
-    to staging -- a record of where a push went, made false -- because only
-    fenced blocks were recognized."""
-    import generated_blocks
-    lines = text.split('\n')
-    hidden = generated_blocks.mask(lines)
-    code = generated_blocks.code_mask(lines)
-    # A dated SENTENCE is history on every line it wraps onto: on
-    # 2026-10-09 a note whose date sat two lines above its quote of an old
-    # instruction was reworded. By sentence, not by paragraph: a paragraph
-    # can hold a dated sentence beside a live instruction, and the
-    # instruction is still reworded.
-    para_dated = [False] * len(lines)
-    carry = False
-    for k, ln in enumerate(lines):
-        if not ln.strip() or code[k]:
-            carry = False
-            continue
-        if carry:
-            para_dated[k] = True
-        if _DATED.search(ln) or carry:
-            carry = not ln.rstrip().endswith(('.', '!', '?'))
-    changed, left = [], []
-    story = None          # heading level of an open Story section
-    dated = None          # heading level of an open dated section
-    front = lines[:1] == ['---']
-    for i, line in enumerate(lines):
-        if front:
-            if i and line.strip() == '---':
-                front = False
-            continue
-        if code[i]:
-            if 'pre-staging' in line and not hidden[i]:
-                left.append((i + 1, 'code block'))
-            continue
-        h = _HEADING.match(line)
-        if h:
-            level = len(h.group(1))
-            if story is not None and level <= story:
-                story = None
-            if dated is not None and level <= dated:
-                dated = None
-            if re.match(r'(?i)story\b', h.group(2).strip()):
-                story = level
-            elif _DATED.search(h.group(2)):
-                dated = level
-        if 'pre-staging' not in line or hidden[i]:
-            continue
-        why = ('Story section, history' if story is not None else
-               'under a dated heading, history' if dated is not None else
-               'dated line, history' if _DATED.search(line) else
-               'dated sentence, history' if para_dated[i] else
-               'quotation' if line.lstrip().startswith('>') else
-               'table row' if line.lstrip().startswith('|') else
-               'reads as history or a comparison' if _HISTORY_WORDS.search(line)
-               else None)
-        if why:
-            left.append((i + 1, why))
-            continue
-        # A phrase inside double quotes is a report of what something said,
-        # never an instruction (2026-10-09: "Push to `pre-staging` (Booked)
-        # refused" was reworded in a note about the bug).
-        quoted = [(q.start(), q.end()) for q in _QUOTED.finditer(line)]
-
-        def to_staging(m):
-            if any(a <= m.start() < b for a, b in quoted):
-                return m.group(0)
-            return (m.group(0)[:m.start('q') - m.start(0)]
-                    + f'{m.group("q")}staging{m.group("q")}')
-        said = _PS_INSTRUCTION.sub(to_staging, line)
-        new = _PS_LINK.sub(lambda m: (m.group(0).replace('/pre-staging', '/staging')
-                                      if slug and m.group('slug').lower() == slug.lower()
-                                      else m.group(0)), said)
-        if new != line:
-            lines[i] = new
-            changed.append((i + 1, ' and '.join(
-                w for w, did in (('instruction', said != line), ('link', new != said))
-                if did)))
-        if 'pre-staging' in new:
-            other = _PS_LINK.search(new)
-            in_quote = any(a <= new.find('pre-staging') < b for a, b in
-                           [(q.start(), q.end()) for q in _QUOTED.finditer(new)])
-            left.append((i + 1, 'link into another repository' if other
-                         else 'quotation, history' if in_quote
-                         else 'not a clear instruction'))
-    return '\n'.join(lines), changed, left
-
-
-# THE REPOSITORY'S OWN VALUE IS SWITCHED (2026-10-14). A precedent.json
-# that still names pre-staging is switched to staging, that one value and
-# nothing else, and the retirement goes on in the same run. From 2026-10-09
-# only a repository's sole maintainer could switch it, since others might
-# still land there; since pre-staging was retired for everyone
-# (spec/PRE_STAGING_RETIREMENT_PLAN.md) nobody does.
-_REPO_LANDS_ON_PRE_STAGING = re.compile(
-    r'("' + re.escape(pb.LANDING_SETTING) + r'"\s*:\s*)"' + re.escape(pb.PRE_STAGING) + '"')
-
-
-def rewords_this_run(repo, switched, merged_now):
-    """-> True when this run is the one moving the repository off
-    pre-staging, so stale instructions to land there are reworded: it
-    switched precedent.json, it brought pre-staging's work into staging, or
-    the switch is not committed yet (a rerun before the commit). After that,
-    a new mention of pre-staging is usually deliberate, and a reword would
-    rewrite it on every later update (2026-10-09, reported by another
-    session: a note quoting the old instruction was reworded a run later)."""
-    if switched or merged_now:
-        return True
-    rc, out = run(['git', 'show', 'HEAD:precedent.json'], repo)
-    try:
-        committed = json.loads(out).get(pb.LANDING_SETTING) if rc == 0 else None
-    except ValueError:
-        committed = None
-    return committed != pb.STAGING
-
-
-def committed_engine_lands_on_staging(repo):
-    """-> True when the engine this repository has committed (HEAD's
-    tools/precedent_branches.py) can land work straight on staging: one
-    that predates it would refuse every landing there once precedent.json
-    says staging."""
-    rc, out = run(['git', 'show', 'HEAD:tools/precedent_branches.py'], repo)
-    return rc == 0 and 'def lands_on_staging(' in out
-
-
-def switch_repo_landing_to_staging(repo):
-    """Change precedent.json's `landing_branch` from pre-staging to staging,
-    every other byte kept. -> True when written; False, writing nothing,
-    unless the value appears exactly once and the result still parses."""
-    path = pathlib.Path(repo) / 'precedent.json'
-    try:
-        text = path.read_text(encoding='utf-8')
-    except OSError:
-        return False
-    found = list(_REPO_LANDS_ON_PRE_STAGING.finditer(text))
-    if len(found) != 1:
-        return False
-    m = found[0]
-    new = text[:m.start()] + m.group(1) + f'"{pb.STAGING}"' + text[m.end():]
-    try:
-        if json.loads(new).get(pb.LANDING_SETTING) != pb.STAGING:
-            return False
-    except ValueError:
-        return False
-    path.write_text(new, encoding='utf-8')
-    return True
-
-
-def retire_pre_staging_step(repo, rep):
-    """Update Vendors' upgrade off pre-staging, for anyone on the ladder
-    (see RETIRE_PRE_STAGING_HEADER above). Reports on `rep`: one step line,
-    and the block close() prints in every outcome (rep.retired). Silent off
-    the ladder, and once origin has no pre-staging."""
-    repo = pathlib.Path(repo)
-    # A precedent.json still naming pre-staging is switched first
-    # (precedent_branches.pre_staging_unused says it waits until then).
-    unused, waits = pb.pre_staging_unused(repo)
-    switched = False
-    if waits:
-        if not committed_engine_lands_on_staging(repo):
-            # The first pass brings the engine and nothing else; the switch
-            # waits for the next run, once that engine has landed (Morgan,
-            # 2026-10-09: "do the vendor updates, tell you, then I'll do
-            # the vendor updates again").
-            rep.step('pre-staging', f'kept for now: this update brings the '
-                     f'engine that lands work straight on {pb.STAGING}. Land '
-                     f'it, then run Update Vendors again: that run moves this '
-                     f'repository onto {pb.STAGING}')
-        elif ('precedent.json' not in set(rep.before or ())
-                and switch_repo_landing_to_staging(repo)):
-            switched = True
-            rep.step('precedent.json', f'{pb.LANDING_SETTING} {pb.PRE_STAGING} '
-                     f'-> {pb.STAGING}: pre-staging is retired for everyone')
-            unused, waits = pb.pre_staging_unused(repo)
-        else:
-            rep.step('pre-staging', f'kept, not retired: {waits}')
-    if not unused:
-        return
-    state, _ptip = pb.pre_staging_retired(repo, fetch=True)
-    if state is None:
-        return
-    staging = pb.staging_branch(repo)
-    block = []
-    if state == pb.RETIRED_WAITING:
-        said = []
-        rc = pb.land(repo, work=f'origin/{pb.PRE_STAGING}', say=said.append)
-        text = '\n'.join(said)
-        result = next((l for l in reversed(said)
-                       if l.startswith(pb.LAND_RESULT)), '')
-        if rc != 0:
-            rep.step('pre-staging', f'not brought into {staging}; nothing moved')
-            if 'conflicts with' in result:
-                why = (f'{pb.PRE_STAGING} holds work {staging} lacks, and it does '
-                       f'not merge cleanly: the same lines changed on both sides. '
-                       f'Nothing moved, and nothing was dropped')
-            elif 'quick checks failed' in result:
-                why = (f'{pb.PRE_STAGING} holds work {staging} lacks, and the quick '
-                       f'checks failed on {staging} with it merged in. Nothing moved')
-            else:
-                why = (f'{pb.PRE_STAGING} holds work {staging} lacks, and it could '
-                       f'not be brought in ({result or "see the lines below"}). '
-                       f'Nothing moved')
-            rep.leave(pb.PRE_STAGING, why + '. To bring it in: '
-                      f'`git switch --no-track -c "$(python3 tools/precedent_branch_name.py '
-                      f'merge pre-staging)" origin/{pb.PRE_STAGING}`, then '
-                      f'`git merge origin/{staging} origin/{pb.MAIN}`, fix what '
-                      f'it names and commit, `git push -u origin HEAD`, then '
-                      f'`python3 tools/precedent_branches.py --land '
-                      f'"$(git branch --show-current)"`, and run Update Vendors '
-                      f'again')
-            rep.details[pb.PRE_STAGING] = [l for l in text.splitlines()
-                                           if l.strip()][-12:]
-            return
-        moved = [l.split('   <- ', 1)[0].rstrip() for l in text.splitlines()
-                 if l.startswith(('LANDED ', 'BROUGHT IN ', 'REBUILT ', '  '))]
-        block.append(f'merged into {staging}, with the quick checks:')
-        block += [f'  {l}' for l in moved]
-        state, _ptip = pb.pre_staging_retired(repo, fetch=True)
-        if state != pb.RETIRED_MERGED:
-            rep.step('pre-staging', f'its work brought into {staging}; it gained '
-                     f'more meanwhile')
-            block.append(f'{pb.PRE_STAGING} gained work while this ran; run Update '
-                         f'Vendors again to bring that in too.')
-            rep.retired = block
-            return
-    slug = pb._slug(repo)
-    files, history = _retire_scope(repo)
-    before = set(rep.before or ())
-    changed, left = [], []
-    reword = rewords_this_run(repo, switched, bool(block))
-    deliberate = []
-    for rel in files:
-        path = repo / rel
-        try:
-            text = path.read_text(encoding='utf-8')
-        except (OSError, UnicodeDecodeError):
-            continue
-        if 'pre-staging' not in text:
-            continue
-        new, did, kept = reword_pre_staging(text, slug)
-        if did and not reword:
-            # Moved onto staging in an earlier update: a mention written
-            # since is read as deliberate, reported and never rewritten.
-            deliberate += [(rel, n) for n, _w in did]
-        elif did and rel in before:
-            # Never mixed into somebody's uncommitted work.
-            left += [(rel, n, 'uncommitted edits in this file') for n, _w in did]
-        elif did:
-            path.write_text(new, encoding='utf-8')
-            changed += [(rel, n, w) for n, w in did]
-        left += [(rel, n, w) for n, w in kept]
-    in_history = []
-    for rel in history:
-        try:
-            n = (repo / rel).read_text(encoding='utf-8', errors='ignore').count('pre-staging')
-        except OSError:
-            n = 0
-        if n:
-            in_history.append(n)
-    if deliberate:
-        shown = deliberate[:10]
-        block.append('not reworded -- this repository moved onto staging in an '
-                     'earlier update, so a mention of pre-staging now reads as '
-                     'deliberate; change it by hand if it is a stale '
-                     'instruction: ' + ', '.join(f'{rel}:{n}' for rel, n in shown)
-                     + (f'; and {len(deliberate) - len(shown)} more'
-                        if len(deliberate) > len(shown) else ''))
-    if changed:
-        block.append('reworded to staging: ' + ', '.join(
-            f'{rel}:{n} ({w})' for rel, n, w in changed))
-    if left:
-        shown = left[:10]
-        block.append('left as they are: ' + '; '.join(
-            f'{rel}:{n} ({w})' for rel, n, w in shown)
-            + (f'; and {len(left) - len(shown)} more' if len(left) > len(shown) else ''))
-    if in_history:
-        block.append(f'left as history: {sum(in_history)} mention(s) in '
-                     f'{len(in_history)} record file(s) (gotchas/, record/, closed '
-                     f'todo items, declared record paths)')
-    elsewhere = []
-    for rel, source in sorted(_materialized_practices(repo).items()):
-        if source in ('', 'local'):
-            continue                    # its original is under local/, read above
-        try:
-            body = (repo / rel).read_text(encoding='utf-8', errors='ignore')
-        except OSError:
-            continue
-        if reword_pre_staging(body, slug)[1]:
-            elsewhere.append(f'{rel} (from {source})')
-    if elsewhere:
-        block.append('copies of practices from other sources still name '
-                     'pre-staging as an instruction; reword each in its own '
-                     'source, never here: ' + ', '.join(elsewhere))
-    if switched and 'pre-staging' in json.dumps(
-            pb.precedent_json(repo).get('_landing_branch_comment') or ''):
-        block.append('precedent.json: landing_branch is now staging, and its '
-                     '_landing_branch_comment still describes pre-staging; '
-                     'reword it in this same commit')
-    link = (f'https://github.com/{slug}/branches/all?query='
-            + urllib.parse.quote(pb.PRE_STAGING, safe='')) if slug else None
-    block.append(f'{pb.PRE_STAGING} holds nothing {staging} lacks and is no '
-                 f'longer used, so it is safe to delete: '
-                 + (link or "GitHub's branches page, with its trash icon"))
-    rep.retired = block
-    rep.step('pre-staging', 'retired'
-             + (f', its work merged into {staging}' if len(block) and
-                block[0].startswith('merged into') else '')
-             + (f', {len(changed)} mention(s) reworded' if changed else '')
-             + '; safe to delete')
+def migrations_step(repo, rep):
+    """Run every tools/migration_*.py beside this file, in name order,
+    without naming any: each exposes migrate(repo, rep, update), `update`
+    being this module. A migration is how a repository whose vendors were
+    not updated is moved off something the engine no longer knows; it is
+    deleted once nobody needs it, and nothing here changes when it is."""
+    import importlib.util
+    for path in sorted(HERE.parent.glob('migration_*.py')):
+        spec = importlib.util.spec_from_file_location(path.stem, path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod.migrate(pathlib.Path(repo), rep, sys.modules[__name__])
 
 
 FULL_VIEWS = ('MAP.md', 'GLOSSARY.md')
@@ -2715,6 +2327,9 @@ def dropped_template_lines_step(repo, rep, rev):
             rep.step('kept on purpose', f'{rel} keeps wording {tmpl} dropped, '
                      f'as precedent.json records -- "{reason}"')
             continue
+        if verdict == 'stale':
+            kept_file_question(repo, rep, rel, tmpl, sha, reason, old, rev)
+            continue
         if verdict in (None, 'unreasoned'):
             left = refresh_template_comment(repo, rel, tmpl, rev, hits)
             if left is not None:
@@ -2738,19 +2353,74 @@ def dropped_template_lines_step(repo, rep, rev):
                 f'purpose? record "{rel}" in precedent.json\'s '
                 f'{pve.KEPT_DIVERGENCES_KEY} with a reason and template_sha256 '
                 f'{sha}']
-        if verdict == 'stale':
-            change = (pve._template_change(old, _source_text(rev, tmpl) or '')
-                      if old is not None else [])
-            shown = ['  ' + (l if len(l) <= 160 else l[:157] + '...')
-                     for l in change[:20]]
-            if len(change) > 20:
-                shown.append(f'  ... and {len(change) - 20} more line(s)')
-            note[:0] = [f'recorded as kept ("{reason}"), but {tmpl} has changed '
-                        f'since -- ' + ('what changed:' if shown else
-                                        'read it again')] + shown
-        elif verdict == 'unreasoned':
+        if verdict == 'unreasoned':
             note.insert(0, 'recorded as kept with no reason, so not honoured')
         rep.details.setdefault(first, []).extend(note)
+
+
+def _lines_this_update_added(repo, rel, rep):
+    """-> [line] the file `rel` has now and had at HEAD, which this run
+    wrote: only when the file was clean when the run started writing, so a
+    person's own uncommitted edit is never called the update's."""
+    if rep.before is None or rel in rep.before:
+        return []
+    committed = _git_show(repo, f'HEAD:{rel}')
+    if committed is None:
+        return []
+    try:
+        now = (repo / rel).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return []
+    import difflib
+    return [l[1:] for l in difflib.unified_diff(
+                committed.splitlines(), now.splitlines(), lineterm='', n=0)
+            if l.startswith('+') and not l.startswith('+++') and l[1:].strip()]
+
+
+def kept_file_question(repo, rep, rel, tmpl, sha, reason, old, rev):
+    """ONE question for a file kept whole on purpose whose template has
+    changed since that was recorded: what changed in the template, what
+    this update already carried into the file, and the one edit that
+    records it as still kept.
+
+    WHY (2026-10-17, a consuming repository's Update Vendors): its
+    GETTING_STARTED.md is rewritten on purpose and recorded as kept. The
+    template gained a bullet and a reworded line. The update carried the
+    bullet into the file itself, said nothing about it, and then left ten
+    items, one per line of the repository's own rewrite, each saying "bring
+    it in line with templates/GETTING_STARTED.md, or drop the line". A
+    session doing what it was told would have cut lines from a file the
+    repository keeps on purpose. The lines are the repository's; the
+    question is only whether the decision still holds."""
+    change = (pve._template_change(old, _source_text(rev, tmpl) or '')
+              if old is not None else [])
+    carried = _lines_this_update_added(repo, rel, rep)
+
+    def clip(line):
+        return '  ' + (line if len(line) <= 160 else line[:157] + '...')
+    rep.leave(rel, f'kept on purpose ("{reason}"), and {tmpl} has changed '
+              f'since that was recorded: is it still kept as it is? Its own '
+              f'lines are this repository\'s; none of them is to be dropped '
+              f'for this question')
+    note = []
+    if change:
+        note.append(f'what changed in {tmpl} since the recorded version:')
+        note += [clip(l) for l in change[:20]]
+        if len(change) > 20:
+            note.append(f'  ... and {len(change) - 20} more line(s)')
+    else:
+        note.append(f'the recorded version of {tmpl} could not be found in '
+                    f'its history, so read the current template against the '
+                    f'file')
+    if carried:
+        note.append(f'this update already carried {len(carried)} line(s) of '
+                    f'it into {rel}, uncommitted:')
+        note += [clip(l) for l in carried[:10]]
+    note.append(f'still kept? in precedent.json, set '
+                f'{pve.KEPT_DIVERGENCES_KEY}["{rel}"].template_sha256 to {sha} '
+                f'and run again; not kept? bring {rel} in line with {tmpl} by '
+                f'hand, then remove its entry')
+    rep.details.setdefault(rel, []).extend(note)
 
 
 def budget_note_key(tool):
@@ -3210,7 +2880,7 @@ MERGE_HEAD_NOTE = (
 
 
 # THE BRANCH THE UPDATE IS COMMITTED ON (2026-10-09). An update run on a
-# tier branch -- main, staging, pre-staging -- ended "commit, then land it"
+# tier branch -- main or staging -- ended "commit, then land it"
 # without naming a branch, and a consumer's session made one by hand; the
 # push check refused it, since a session branch is named by
 # tools/precedent_branch_name.py. The update does not move the checkout
@@ -3284,7 +2954,7 @@ class Report:
         self.before = None   # what was uncommitted when the run started writing
         self.old_agents = None   # HEAD's AGENTS.md, read before anything writes
         self.earlier = set() # of `before`, what an earlier run staged, unchanged
-        self.retired = []    # retire_pre_staging_step's block, every outcome
+        self.migration_notes = {}  # header -> lines, from each migration; every outcome
         self.commit_note = None  # a --take-anyway: said in the commit message
         self.code_warning = None  # the code this run ran may be older than its data
 
@@ -3353,13 +3023,14 @@ class Report:
                   f"different and important, with the keep command printed "
                   f"there; ask the person when it is a close call.")
 
-    def _retired_block(self):
-        # Said in every outcome: a merge into staging has already been
-        # pushed by then, and the delete link is the person's to act on.
-        if self.retired:
-            print(f"\n{RETIRE_PRE_STAGING_HEADER}")
-            for line in self.retired:
-                print(f"  {line}")
+    def _migration_notes(self):
+        # Said in every outcome: what a migration did (a merge it pushed, a
+        # link that is the person's to act on) has happened by then.
+        for header, lines in self.migration_notes.items():
+            if lines:
+                print(f"\n{header}")
+                for line in lines:
+                    print(f"  {line}")
 
     def _commit_note(self):
         if self.commit_note:
@@ -3382,7 +3053,13 @@ class Report:
         # otherwise, and nothing is printed). A local edit still local or
         # merged is an item: it is the fix that belongs upstream. Printed on
         # DONE only -- a LEFT or FAILED update runs again.
-        if ur is None or self.pin_repo is None:
+        if self.pin_repo is None:
+            return
+        # The review is a set's (step_review in its precedent-source.json,
+        # 2026-10-17); with no set providing one there is nothing to show.
+        import precedent_resolve as _pr
+        ur = _pr.load_set_tool(self.pin_repo, 'step_review')
+        if ur is None:
             return
         extra = [f'local edit {outcome}: {rel} -- {text}'
                  for outcome, rel, text in self.edits
@@ -3445,7 +3122,7 @@ class Report:
             print(f"  {name}: {outcome}")
         self._local_edits()
         self._questions()
-        self._retired_block()
+        self._migration_notes()
         if self.upstream_changes and not failed:
             print('\n' + self.upstream_changes.rstrip())
         if failed:
@@ -3892,10 +3569,24 @@ def _settings_cases(was, now):
     except (ValueError, AttributeError, TypeError):
         more = []
     if more:
+        broad = pve.ENGINE_ALLOW_RULE in more
         ro = all(pve.is_read_only_allow_rule(r) for r in more)
         cases.append(f'settings.json allows {len(more)} more '
-                     + ('read-only Precedent tool ' if ro else '')
-                     + f'command(s): {", ".join(more)}')
+                     + ('Precedent tool ' if ro else '')
+                     + f'command(s): {", ".join(more)}'
+                     + (' -- the first covers every engine tool, and the ask '
+                        'rules beside it keep the ones that land, produce, '
+                        'merge or update other repositories asking the person'
+                        if broad else ''))
+    # The rules that always ask (2026-10-17): said by name too.
+    try:
+        ask = lambda t: ((json.loads(t) if t else {}).get('permissions') or {}).get('ask') or []
+        asks = [r for r in ask(now) if r not in ask(was)]
+    except (ValueError, AttributeError, TypeError):
+        asks = []
+    if asks:
+        cases.append(f'settings.json makes {len(asks)} command(s) always ask the '
+                     f'person first: {", ".join(asks)}')
     if not cases and (was or '') != (now or ''):
         cases.append('settings.json changes outside its hook entries')
     return cases
@@ -4022,7 +3713,96 @@ def harness_approval(paths, last=False, cases=None):
     return f'Commit the {files} {kind} change'
 
 
-def harness_ask(paths, last=False, cases=None, gates=None):
+ENGINE_MANIFEST_REL = 'tools/ENGINE_MANIFEST.json'
+
+
+def _head_json(repo, rel):
+    text = _git_show(repo, f'HEAD:{rel}')
+    try:
+        return json.loads(text) if text else None
+    except ValueError:
+        return None
+
+
+def hold_hook_hashes(repo, paths, approved):
+    """-> [hook names] whose hash in tools/ENGINE_MANIFEST.json this call set.
+
+    WHY (2026-10-17, a document project's update). The refresh writes the
+    NEW hooks' hashes into the engine manifest at once, while the hooks
+    themselves wait on the person's words. Committed without the hooks, as
+    the question invited, the manifest named content the files did not
+    have, and the next run called the 14 old hooks "your local edit" and
+    would not replace them. So while the words are missing, a held hook's
+    hash goes back to the one HEAD records (or out, for a hook HEAD did not
+    have); the run that has the words records each staged hook's own hash.
+    Either way the manifest is re-staged, so what is committed agrees with
+    itself."""
+    import hashlib
+    hooks = sorted({pathlib.PurePosixPath(p).name for p in paths
+                    if p.startswith('.claude/hooks/')})
+    mf = pathlib.Path(repo) / ENGINE_MANIFEST_REL
+    if not hooks or not mf.is_file():
+        return []
+    try:
+        data = json.loads(mf.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    hashes = dict(data.get('hooks_sha256') or {})
+    head = (_head_json(repo, ENGINE_MANIFEST_REL) or {}).get('hooks_sha256') or {}
+    done = []
+    for name in hooks:
+        if name not in hashes and name not in head:
+            continue
+        if approved:
+            f = pathlib.Path(repo) / '.claude' / 'hooks' / name
+            want = hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else None
+        else:
+            want = head.get(name)
+        if hashes.get(name) == want:
+            continue
+        if want is None:
+            hashes.pop(name, None)
+        else:
+            hashes[name] = want
+        done.append(name)
+    if done:
+        data['hooks_sha256'] = hashes
+        mf.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                      encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '--', ENGINE_MANIFEST_REL],
+                       capture_output=True, text=True)
+    return done
+
+
+def harness_baselines(repo, paths):
+    """-> ([path], [path]): the held .claude/ paths that have a recorded
+    baseline (a synced entry in process/manifest.json, or a hook's hash in
+    the engine manifest), and those that have none -- so the question says
+    what the go-ahead run records, never a baseline that does not exist
+    (2026-10-17: a consumer's .claude/settings.json had none, and the
+    question promised one)."""
+    repo = pathlib.Path(repo)
+    entries = set()
+    try:
+        data = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+        entries = {str(e.get('local_path') or '') for e in data.get('entries') or []
+                   if e.get('status') == 'synced' and e.get('local_sha256')}
+    except (OSError, ValueError):
+        pass
+    try:
+        hooks = set((json.loads((repo / ENGINE_MANIFEST_REL).read_text(
+            encoding='utf-8')).get('hooks_sha256') or {}))
+    except (OSError, ValueError):
+        hooks = set()
+    has, none = [], []
+    for p in paths:
+        named = p in entries or (p.startswith('.claude/hooks/')
+                                 and pathlib.PurePosixPath(p).name in hooks)
+        (has if named else none).append(p)
+    return has, none
+
+
+def harness_ask(paths, last=False, cases=None, gates=None, baselines=None):
     """The question for the person when an update changes hooks or settings.
     `last`: this is the update that turns the hooks into permanent stubs, so
     the question says, in plain words, that it is the last one. `cases`:
@@ -4037,14 +3817,26 @@ def harness_ask(paths, last=False, cases=None, gates=None):
                f'run before, and each can refuse what it names: '
                + '; '.join(f'{n} ({e}): {w}' for n, e, w in gates) + '. ')
     say = harness_approval(paths, last=last, cases=cases)
+    has, none = baselines if baselines is not None else (list(paths), [])
+    records = []
+    if has:
+        records.append(f'records the new baselines of {", ".join(has)}')
+    if none:
+        records.append(f'has no baseline to record for {", ".join(none)} '
+                       f'(none is kept for it)')
     approve = (f'Claude Code\'s auto mode lets this commit through only on the '
                f'person\'s words naming it, never on a bare yes, so tell them '
                f'what changes and give them the sentence, not a yes-or-no '
                f'question. To approve, say: "{say}". Then run this update '
                f'again with {HARNESS_GO_AHEAD}="<their words>": that run '
-               f'records these files\' new baselines, and until it does the '
-               f'manifest keeps the old ones, so committing everything else '
-               f'without them leaves nothing red. Left out, the change is '
+               f'{" and ".join(records) or "stages them"}. In auto mode the '
+               f'rerun can still be refused as self-modification even with their '
+               f'words; then the person approves the one permission prompt, or '
+               f'switches to default permissions for it -- the sentence alone '
+               f'is not always enough. Get the words before committing: '
+               f'committed without these files, the repository\'s push check '
+               f'can refuse the push, because the hooks the view sync writes '
+               f'no longer match the committed ones. Left out, the change is '
                f'offered again on the next update')
     if last:
         blocked = (new if gates else
@@ -4593,7 +4385,7 @@ def citations(repo, rev=None):
     except ValueError:
         return None
     stock = {}
-    for tmpl in (pve.AGENTS_MD_TEMPLATES.get('consumer') or ())[:1]:
+    for tmpl in (pve.agents_md_templates(repo, 'consumer') or ())[:1]:
         text = _source_text(rev, tmpl) if rev else None
         if text:
             stock['AGENTS.md'] = {l.strip() for l in text.splitlines() if l.strip()}
@@ -5000,7 +4792,7 @@ def tiers_step(repo, rep):
     tier_lines = []
     # Tiers are a ladder user's, in a repository that has them (D3). For
     # anyone else this step says nothing at all: a report line about
-    # pre-staging and staging is the ladder's words in their session.
+    # staging is the ladder's words in their session.
     ladder = pb.ladder_in_force(repo)
     if ladder is False or (ladder and not pb.repo_has_tiers(repo)):
         return
@@ -5019,7 +4811,6 @@ def tiers_step(repo, rep):
         rep.leave('branch tiers', 'staging could not be made on origin -- '
                   + ' '.join(tier_lines)[-400:])
     else:
-        # pre-staging is no tier since 2026-10-14, so it is not named.
         rep.step('branch tiers', '; '.join(made) if made else
                  'staging and main both present')
 
@@ -5167,13 +4958,17 @@ def source_commit(follow, tip, take=None):
             out['commit'] = sha
             if skipped:
                 n = len(skipped)
-                fix = _attach_remedy(unknown) if any(
-                    st == 'unmarked' for _s, st in skipped) else ''
-                out['step'] = (f"took {follow} @ {sha[:12]}, {n} commit"
+                # No attach advice here (2026-10-17, a consumer's session):
+                # the commit taken is the newest with a recorded pass, which
+                # is right, and the advice pushed a read-only session toward
+                # a push grant only to read a public check's status.
+                unread = any(st == 'unmarked' for _s, st in skipped)
+                out['step'] = (f"took {follow} @ {sha[:12]}"
+                               + (", the newest with a recorded pass" if unread else '')
+                               + f", {n} commit"
                                f"{'s' if n != 1 else ''} behind the newest {follow}, "
                                f"{tip[:12]}, because {_why_not_newer(skipped)}. This "
-                               f"repo gets the newer ones once their test passes"
-                               + (f" -- or now: {fix}" if fix else ''))
+                               f"repo gets the newer ones once their test passes")
             return out
         if state == 'unknown':
             if not skipped:
@@ -5587,8 +5382,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # Morgan, 2026-09-27 (strength: decided): every repository gets a
     # default, set on its first update after that day; a person's own
     # identity.json still wins, and a value already here is never changed.
-    # The default was pre-staging until pre-staging was retired for everyone
-    # (2026-10-14); it is staging now.
+    # The default is staging.
     if pb.ensure_repo_landing(repo):
         rep.step('landing branch', f'{pb.LANDING_SETTING} set to '
                  f'{pb.REPO_LANDING_DEFAULT} in precedent.json (the repository '
@@ -5601,11 +5395,10 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     dropped_sets = retired_sources_step(repo, rep)
     approved_workflows_step(repo, rep)
 
-    # 3c. Off pre-staging, for anyone on the ladder: what waits there
-    # merged into staging, this repo's own instructions and links repointed,
-    # the branch offered for deletion. Before the views, so they render the
-    # reworded sources.
-    retire_pre_staging_step(repo, rep)
+    # 3c. The migrations: each tools/migration_*.py moves a repository off
+    # an arrangement the engine has dropped. Before the views, so they
+    # render what a migration rewords.
+    migrations_step(repo, rep)
 
     # 4. The views. A refresh changes what the loader renders.
     #
@@ -5660,6 +5453,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                 rep)
         in_force_nowhere_step(repo, rep, out)
         removed_links_step(rep, out)
+        hooks_not_here_step(rep, out)
         if rc != 0:
             # A declared source whose clone answers to another name is a
             # call about this repo's own precedent.json, so it is left for
@@ -5728,11 +5522,11 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                  f'(the default; the full check requires the key)')
 
     # 4a. The branch tiers. A ladder repository works through staging ->
-    # main (pre-staging before it until 2026-10-14), so a missing tier is
+    # main, so a missing tier is
     # made here rather than reported (Morgan, 2026-09-27, strength: decided:
     # "Can we make sure update vendors checks for this and if they don't
-    # exist create it"). ensure_tiers makes staging from a leftover
-    # pre-staging (or the old staging name), else from main. It
+    # exist create it"). ensure_tiers makes staging from the old
+    # staging name if one is left, else from main. It
     # is the one thing this command pushes: a new branch at a commit origin
     # already has, never a change to one that exists.
     tiers_step(repo, rep)
@@ -5794,14 +5588,22 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     harness = harness_changes(repo)
     if harness:
         words = os.environ.get(HARNESS_GO_AHEAD, '').strip()
+        rehashed = hold_hook_hashes(repo, harness, approved=bool(words))
         if words:
             rep.step('hooks and settings', f'{", ".join(harness)} changed, with '
-                     f'the person\'s go-ahead: "{words}"')
+                     f'the person\'s go-ahead: "{words}"'
+                     + (f'; recorded the hash of {", ".join(rehashed)} in '
+                        f'{ENGINE_MANIFEST_REL}' if rehashed else ''))
         else:
+            if rehashed:
+                rep.step('hooks and settings', f'{ENGINE_MANIFEST_REL} keeps '
+                         f'the committed hash of {", ".join(rehashed)} until the '
+                         f'run with the person\'s words')
             rep.ask('hooks and settings',
                     harness_ask(harness, last=migrates_to_stubs(repo, harness),
                                 cases=harness_cases(repo, harness),
-                                gates=harness_new_gates(repo, harness)))
+                                gates=harness_new_gates(repo, harness),
+                                baselines=harness_baselines(repo, harness)))
 
     # 4b. Files that still name what the refresh deleted: the full check's
     # rename-updates-links refuses each one at the Promote, so they are
@@ -6083,10 +5885,7 @@ def closing_check(repo, rep, skip_check=False):
     # 5. The repo's own check, at the tier of the branch the update lands
     # on -- the gate before any push. Into staging, for a person who lands
     # there, that is the quick checks on what the update changed; the full
-    # suite is Debut's (--run-tests) and Produce's. Until 2026-10-14 the
-    # fast tier was pre-staging (Morgan, 2026-09-27, strength: decided:
-    # "The point of pre-staging is to move fast, so I want the 10 minute
-    # checks to happen at the staging level, not pre-staging." Practice:
+    # suite is Debut's (--run-tests) and Produce's (practice:
     # checks-follow-the-tier).
     check = repo / 'tools' / 'precedent_push_check.py'
     try:
@@ -6096,10 +5895,10 @@ def closing_check(repo, rep, skip_check=False):
     argv = [sys.executable, str(check)]
     if landing:
         argv += ['--push-command', f'origin HEAD:{landing}']
-    # DONE says which check it was. The basic tier is right for
-    # pre-staging, but "check for pre-staging: passed" read as the push
-    # gate's all-clear, and a consumer's full check then failed three ways
-    # on the same tree (2026-10-01, from a consumer's Update Vendors).
+    # DONE says which check it was: a bare "passed" from the basic tier
+    # read as the push gate's all-clear, and a consumer's full check then
+    # failed three ways on the same tree (2026-10-01, from a consumer's
+    # Update Vendors).
     tier = pb.FULL
     if landing:
         try:

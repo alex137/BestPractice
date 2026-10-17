@@ -170,8 +170,9 @@ Run:
   python3 tools/very_deep_check.py --skip-session-sweep
       -- skip that sweep entirely.
   python3 tools/very_deep_check.py --with-harness
-      -- run `verify_harness.py --all` from inside this run and record the
-      result as its own ledger section. Off by default: it is minutes, and
+      -- run `verify_harness.py --all --record-times` from inside this run
+      and record the result as its own ledger section; a green run also
+      records every test's time, which TEST WORTH then judges by. Off by default: it is minutes, and
       its stress checks have OOM-killed a session's shell before. Left off,
       the PLANTED CASE COVERAGE section says the rotation is still owed and
       names the command.
@@ -198,6 +199,10 @@ Run:
       excluded what the run found: re-collects, prints the open groups
       against this run's start and the previous run, and rewrites the
       warnings block in the run's write-up. Nothing else runs.
+  python3 tools/very_deep_check.py --refresh-tests
+      -- the TEST WORTH section alone, after the session has judged the
+      tests it listed: re-reads tools/test_verdicts.json and rewrites the
+      test review block in the run's write-up. Nothing else runs.
   python3 tools/very_deep_check.py --record-pass '2=done,findings=3,tokens=120000,note=...'
       -- record a hand-worked pass's outcome against the most recent run in
       the ledger, and exit. `findings`, `tokens` and `note` are each
@@ -1137,15 +1142,12 @@ def _github_slug(repo_dir):
 # still pinned to it take their update from it) and Promote's lock branch.
 # Spelled out here as well as read from precedent_branches.py, so the
 # guarantee holds even where that import fails. Morgan, 2026-09-28 (strength:
-# decided): "it needs to never never offer to delete pre-staging nor staging."
+# decided): it must "never never offer to delete ... staging."
 # Why it bites at all: every Promote fast-forwards the lower tiers, so an
-# ancestor test calls pre-staging and precedent-beta-v01 "merged" right after
+# ancestor test calls staging and precedent-beta-v01 "merged" right after
 # one -- and staging itself was deleted from a merge page on 2026-09-26.
-# The one exception, 2026-10-09, is in _never_deletable: a pre-staging
-# retired for a person who lands on staging, once it holds nothing staging
-# lacks. Staging and main stay here for everyone.
 NEVER_DELETE_BRANCHES = frozenset({
-    'main', 'master', 'staging', 'pre-staging', 'precedent-beta-v01',
+    'main', 'master', 'staging', 'precedent-beta-v01',
     'precedent-promote-lock', 'precedent-check-receipts',
     'data-promote-lock', 'data-check-receipts'})
 
@@ -1176,11 +1178,6 @@ def _never_deletable(repo_dir):
         import precedent_branches as _pb
         names |= set(_pb.tier_branches(pathlib.Path(repo_dir)))
         names.add(_pb.LOCK_BRANCH)
-        # The one exception (2026-10-09): pre-staging retired for a person
-        # who lands on staging, holding nothing staging lacks, is offered
-        # like any finished branch (precedent_branches.never_offered).
-        if _pb.PRE_STAGING not in _pb.never_offered(pathlib.Path(repo_dir)):
-            names.discard(_pb.PRE_STAGING)
     except Exception:                                            # noqa: BLE001
         pass
     if repo_dir:
@@ -1402,7 +1399,11 @@ def planted_case_coverage(repo_root, run=False, timeout=2400):
     if not harness.is_file():
         return 'n/a', ['no tools/verify_harness.py here -- this repo runs no '
                        'planted cases, so there is no rotation to settle']
-    cmd = ("python3 tools/verify_harness.py --all --because "
+    # --record-times: this is the run TEST WORTH judges by, so every test's
+    # time is recorded from it, after a green run (2026-10-17: the list it
+    # read had been measured before the suite's largest test got about
+    # three times faster).
+    cmd = ("python3 tools/verify_harness.py --all --record-times --because "
            "'very deep check, step 2'")
     if not run:
         return 'owed', [
@@ -1414,7 +1415,8 @@ def planted_case_coverage(repo_root, run=False, timeout=2400):
             'in the ledger.']
     started = time.time()
     try:
-        proc = subprocess.run([sys.executable, str(harness), '--all', '--because',
+        proc = subprocess.run([sys.executable, str(harness), '--all',
+                               '--record-times', '--because',
                                'very deep check, step 2 (--with-harness)'],
                               cwd=str(repo_root), capture_output=True,
                               text=True, timeout=timeout)
@@ -1429,9 +1431,9 @@ def planted_case_coverage(repo_root, run=False, timeout=2400):
     # back is the evidence that --all actually took effect, rather than
     # this section asserting it did.
     sel = [l.strip() for l in body.splitlines()
-           if 'planted case' in l and 'ran' in l]
+           if ('planted case' in l and 'ran' in l) or 'check times' in l]
     lines = [f'ran `{cmd}` in {took:.0f}s -- exit {proc.returncode}']
-    lines += [f'  {s}' for s in sel[:2]]
+    lines += [f'  {s}' for s in sel[:3]]
     if proc.returncode != 0:
         tail = [l for l in body.splitlines() if l.strip()][-8:]
         lines.append('FAIL -- the full set does not pass. Tail:')
@@ -5851,7 +5853,7 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     # (main) sitting around -- never report it as a deletion candidate just
     # because it happens not to be an ancestor of the *other* protected
     # branch.
-    # Every tier branch too (pre-staging, staging, its old name, main) and
+    # Every tier branch too (staging, its old name, main) and
     # Promote's lock: an ancestor test calls each of them "merged" right
     # after a Promote, and none may ever be offered for deletion
     # (NEVER_DELETE_BRANCHES).
@@ -6272,44 +6274,24 @@ def tier_pairs(repo_dir, target=None):
     """-> {'drift': [(lower, upper), ...], 'endgame': [(lower, upper), ...]}
     for the branch tiers origin actually carries here.
 
-    Until 2026-09-28 the drift scan and the endgame rehearsal each asked
-    about ONE pair: the declared base branch against the default one
-    (staging against main). Work now lands on pre-staging and reaches
-    staging and main only by Promote (spec/BRANCH_TIERS_PLAN.md), so the
-    questions a run owes are one tier wider:
+    Work lands on staging and reaches main only by Promote
+    (spec/BRANCH_TIERS_PLAN.md), so a run asks:
 
       drift   -- what an upper tier carries that a lower one never took:
-                 staging -> pre-staging, main -> pre-staging, main -> staging.
-                 The first two are what precedent_branches.py --drift and a
-                 Promote's own sync copy down; a run lists them before the
-                 Promote rather than after.
-      endgame -- each merge a Promote actually makes: pre-staging into
-                 staging, staging into main. The silent-drop check is as
-                 true of the first as of the second, and the first is the one
-                 that happens every day.
+                 main -> staging.
+      endgame -- each merge a Promote actually makes: staging into main.
 
-    A pair is listed only when both branches exist on origin (a repo with no
-    pre-staging has the old single pair and nothing else), never twice, and
-    never a branch against itself. A pre-staging retired for this person
-    (precedent_branches.pre_staging_unused) is in no pair: it is a branch
-    awaiting deletion, not a tier. `target` overrides the declared base, as
-    the --target flag always has."""
+    A pair is listed only when both branches exist on origin, never twice,
+    and never a branch against itself. `target` overrides the declared
+    base, as the --target flag always has."""
     repo_dir = pathlib.Path(repo_dir)
     default = _default_remote_branch(repo_dir)
     declared = target or _declared_base_branch(repo_dir)
     try:
         import precedent_branches as _pb
         staging = _pb.staging_branch(repo_dir)
-        pre = _pb.PRE_STAGING
-        # A pre-staging retired for this person (they land on staging) is
-        # no tier: nothing reaches it, so "staging carries what pre-staging
-        # never took" is true forever and calls for no sync. Listing it
-        # told the 2026-10-11 run to bring 66 commits down into a branch
-        # waiting to be deleted.
-        if _pb.pre_staging_unused(repo_dir)[0]:
-            pre = None
     except Exception:                                            # noqa: BLE001
-        staging, pre = declared, 'pre-staging'
+        staging = declared
     main = default or 'main'
 
     def _on_origin(b):
@@ -6331,7 +6313,7 @@ def tier_pairs(repo_dir, target=None):
 
     # The tiered chain first, in the order a Promote walks it -- only for a
     # person on the ladder: anyone else has no tiers, and a pass naming
-    # pre-staging and staging would be the ladder's words in their audit
+    # staging would be the ladder's words in their audit
     # (spec/LADDER_OPT_IN_PLAN.md D4).
     try:
         import precedent_ladder as _pl
@@ -6339,10 +6321,7 @@ def tier_pairs(repo_dir, target=None):
     except Exception:                                            # noqa: BLE001
         _tiers = True
     if _tiers:
-        _add(drift, pre, staging)
-        _add(drift, pre, main)
         _add(drift, staging, main)
-        _add(endgame, pre, staging)
         _add(endgame, staging, main)
     # The pair every earlier run asked about, when the declared base is not
     # one of the tiers above (a repo pinned to some other integration branch).
@@ -7712,7 +7691,7 @@ def _live_vs_landing(repo_dir, live='main'):
     actually running, which is `main`, and changes it only by the ordinary
     route -- a working branch landed on the person's landing branch by
     `Go update`, then a Promote. Until then a run read whatever the harness
-    had checked out: `main` in one repo and `pre-staging` in four others,
+    had checked out: `main` in one repo and a lower tier in four others,
     the same afternoon, with nothing saying so.
 
     The landing branch half exists because reading `main` alone would
@@ -8877,22 +8856,13 @@ STAGES_EMBED = 'checks-by-stage'
 # when its check runs, where the move goes). 'before': the move runs it
 # before it pushes or merges, so only the quick tier may run there.
 # 'asked': a route taken only on the person's own words. 'after': a check of
-# work already on the branch. 'moves-nothing': the Debut. 'retired': a route
-# of pre-staging, retired for everyone 2026-10-14 (spec/
-# PRE_STAGING_RETIREMENT_PLAN.md), whose code waits to be deleted.
-_PRE_STAGING_ITEM = 'todo/todo-2026-10-14-delete-pre-staging-code.md'
+# work already on the branch. 'moves-nothing': the Debut.
 STAGE_ROUTES = {
     '_land_composed': ('Booked: the land onto staging', 'before', 'staging'),
     '_promote_to_main_fast': ('Produce: the fast move into main (the default)',
                               'before', 'main'),
     '_promote_to_main': ('Produce: the --full route, on the person\'s own words',
                          'asked', 'main'),
-    '_promote_unlocked': ('Promote from pre-staging into staging', 'retired',
-                          'staging'),
-    'sync_pre_staging': ('Sync into pre-staging', 'retired', 'pre-staging'),
-    '_check_tier': ('Drift sync: work that reached staging or main from '
-                    'above, checked before it is copied down', 'after',
-                    'pre-staging'),
     '_run_tests': ('Debut', 'moves-nothing', None),
 }
 # What a check started from the per-file step must never be: a test, the
@@ -9047,13 +9017,6 @@ def stage_checks(tree):
                                          f'-- add it to STAGE_ROUTES in '
                                          f'tools/very_deep_check.py, saying '
                                          f'whether it runs before a push'))
-                    elif when == 'retired':
-                        findings.append(('RETIRED', f'{move} is pre-staging '
-                                         f'code still present (precedent_'
-                                         f'branches.py:{node.lineno}, {fn.name})'
-                                         f' -- pre-staging was retired '
-                                         f'2026-10-14; delete it as '
-                                         f'{_PRE_STAGING_ITEM} says'))
                     elif when == 'before' and tier != 'basic' and dest in (
                             'staging', 'main'):
                         findings.append(('VIOLATION', f'{move} runs the {tier} '
@@ -9077,22 +9040,6 @@ def stage_checks(tree):
                                  f'fast move\'s copy, read tier_for_branch) '
                                  f'-- only the quick tier may run before a push '
                                  f'to {branch}'))
-        if staging != pb.MAIN and gates.get(staging, {}).get('tier') == 'basic' \
-                and hasattr(pb, 'lands_on_staging'):
-            real = pb.lands_on_staging
-            pb.lands_on_staging = lambda *a, **k: (False, None)
-            try:
-                tier, why = pb.tier_for_branch(tree, staging)
-            finally:
-                pb.lands_on_staging = real
-            gates['for a person who still promotes from pre-staging'] = {
-                'tier': tier, 'why': why, 'branch': staging}
-            if tier == 'full':
-                findings.append(('RETIRED', f'a push to {staging} still runs the '
-                                 f'full tier for a person who does not land on '
-                                 f'it, which only the retired pre-staging route '
-                                 f'left anyone doing ({why}); delete it with the '
-                                 f'pre-staging code ({_PRE_STAGING_ITEM})'))
     staging = pb.staging_branch(tree) if pb is not None and hasattr(
         pb, 'staging_branch') else 'staging'
     return {'kind': kind, 'quick': quick, 'untimed': untimed,
@@ -9201,6 +9148,71 @@ def set_independence_section(repo_root):
         print(f'\n  written into {pathlib.Path(written).relative_to(repo_root)}, '
               f'its `## Set independence` block.')
     return len(fix)
+
+
+# TEST WORTH (practice: very-deep-check, Pass 2's question 27; Morgan,
+# 2026-10-17, strength: decided). Tests are added one at a time and nothing
+# asked the reverse question until then: does each still test something in
+# use, and is it worth its time for how much it matters? The harness still
+# carried a pile of tests about the tier below staging three days after
+# that tier was retired. tools/test_review.py lists every test a repository
+# owns, with its recorded time and its leads; the session judges each and
+# records the verdict in that repository's tools/test_verdicts.json.
+TESTS_EMBED = 'test-review'
+
+
+def _test_targets(repo_root, user_config=None):
+    """-> [(name, path)]: this checkout and every shared and individual
+    source on disk -- the repositories the full run's TEST WORTH reads."""
+    out = [('this checkout', pathlib.Path(repo_root))]
+    for s in enumerate_scope(repo_root, user_config)['sources']:
+        if pr.declared_level(s) in FATAL_MISSING_LEVELS and s.get('path'):
+            out.append((s.get('name'), pathlib.Path(s['path'])))
+    return out
+
+
+def test_worth_section(targets, repo_root):
+    """Print TEST WORTH for every repository in `targets` [(name, path)],
+    write its block into the run's write-up, and -> the number of tests
+    still to judge."""
+    import test_review as tr
+    results = []
+    today = precedent_time.today(repo_root)
+    for name, path in targets:
+        if not pathlib.Path(path).is_dir():
+            continue
+        r = tr.review(path)
+        if not r['tests']:
+            print(f'  {name}: no tests of its own.')
+            continue
+        print(tr.render_text(r, label=f'{name}: '))
+        measured = r['totals'].get('measured') or ''
+        if r['totals']['timed'] and not measured.startswith(today):
+            # Judge on today's times, never an old list (2026-10-17: the
+            # list said 777 s for a test that took 266 s that day).
+            when = measured or 'on an unknown date'
+            print(f'  TIMES ARE NOT TODAY\'S (measured {when}). Re-time before '
+                  f'judging: run this check with --with-harness, or '
+                  f'`python3 tools/verify_harness.py --all --record-times '
+                  f'--because "<why>"` in {name}, then --refresh-tests.')
+        print()
+        results.append((name, r))
+    n = sum(len(tr.to_judge(r)) for _n, r in results)
+    if n:
+        print(f'  {n} test(s) to judge in this pass, slowest first: keep (with '
+              f'its importance), cheapen, or retire -- recorded in that '
+              f'repository\'s {tr.REGISTRY_RELPATH}, "by": "agent". Delete a '
+              f'retired test now; make a cheapened one cheaper now. Every test '
+              f'is listed with `python3 tools/test_review.py --all` (`--repo '
+              f'PATH` for another repository). Then `--refresh-tests` rewrites '
+              f'the write-up\'s block.')
+    written = _write_run_block(repo_root, TESTS_EMBED, 'Test review',
+                               'TEST WORTH', tr.render_markdown(results),
+                               'refresh with --refresh-tests')
+    if written:
+        print(f'  written into {pathlib.Path(written).relative_to(repo_root)}, '
+              f'its `## Test review` block.')
+    return n
 
 
 def _stage_lines(name, r):
@@ -9339,8 +9351,7 @@ def checks_by_stage_section(targets, repo_root):
         for line in _stage_lines(name, r):
             print(line)
         print()
-    n = sum(1 for _n, r in results for lvl, _t in r.get('findings') or []
-            if lvl != 'RETIRED')
+    n = sum(len(r.get('findings') or []) for _n, r in results)
     if n:
         print(f'  {n} finding(s). Fix each in this pass: move the check to the '
               f'full tier, or change the move so it runs the quick tier '
@@ -9692,7 +9703,8 @@ BOOLEAN_FLAGS = ('--json', '--allow-missing-sources', '--skip-branch-scan',
                  '--checklist', '--with-harness', '--skip-visibility',
                  '--skip-liveness', '--landable-only', '--skip-endgame-merge',
                  '--skip-base-drift', '--skip-session-sweep', '--allow-stale',
-                 '--freshen', '--refresh-warnings', '--help', '-h')
+                 '--freshen', '--refresh-warnings', '--refresh-tests', '--help',
+                 '-h')
 
 
 def _unknown_args(argv):
@@ -9800,6 +9812,12 @@ def _main(box):
         # After the session has fixed and excluded: the WARNINGS section
         # alone, against the same ledger, rewriting the write-up's block.
         warnings_section(pathlib.Path(repo or ROOT).resolve(), refresh=True)
+        return 0
+    if '--refresh-tests' in args:
+        # After the session has judged: the TEST WORTH section alone, for
+        # this checkout, rewriting the write-up's block.
+        root = pathlib.Path(repo or ROOT).resolve()
+        test_worth_section(_test_targets(root, user_config), root)
         return 0
 
     if '--emit' in args:
@@ -10269,8 +10287,8 @@ def _main(box):
             activity[f"{s_['level']} source {s_['name']}"] = recent_activity(
                 s_['path'], _win)
 
-    # One entry per tier pair (tier_pairs): pre-staging -> staging -> main
-    # where the tiers exist, else the single declared-base pair as before.
+    # One entry per tier pair (tier_pairs): staging -> main where the tiers
+    # exist, else the single declared-base pair.
     _pairs = (tier_pairs(repo_root, checkout_target)
               if not (skip_endgame and skip_base_drift)
               else {'drift': [], 'endgame': []})
@@ -11420,6 +11438,14 @@ def _main(box):
     print()
     if led:
         led.end(findings=_si_findings)
+        led.start('TEST WORTH')
+
+    print("TEST WORTH -- does every test still test something in use, and is "
+          "it worth its time for how much it matters\n")
+    _tw_open = test_worth_section(_orph_targets, repo_root)
+    print()
+    if led:
+        led.end(findings=_tw_open)
         led.start('CROSS-REPO LINKS')
 
     print("CROSS-REPO LINKS -- do absolute github.com links into a repo "
@@ -11838,35 +11864,15 @@ def _main(box):
                 if drift.get('truncated'):
                     print(f"      ... and {drift['truncated']} older commit(s) "
                           f"not detailed (--json for the full list)")
-                if drift['target'] == 'pre-staging':
-                    # A tier below its own upper tiers: everything above is
-                    # meant to come down. Staging's is copied by the sync;
-                    # main's only inside a Promote into staging, composed and
-                    # fully checked with the rest (precedent_branches.py,
-                    # DRIFT FROM ABOVE and _promote_unlocked).
-                    take = ('`python3 tools/precedent_branches.py --promote '
-                            '--to staging`, which composes it with\n  staging '
-                            'and pre-staging and checks it'
-                            if drift['base'] == 'main' else
-                            '`python3 tools/precedent_branches.py '
-                            '--sync-pre-staging --check`\n  (it runs the '
-                            'checks staging\'s work still lacks first)')
-                    print(f"\n  TIER DRIFT, not a choice: everything on "
-                          f"origin/{drift['base']} belongs on pre-staging, "
-                          f"and the next\n  Promote brings it in. To take it "
-                          f"now: {take}. A row listed here that nobody\n  "
-                          f"wants is a revert owed on origin/{drift['base']}, "
-                          f"not a row to skip.\n")
-                else:
-                    print(f"\n  ASK, DO NOT IMPLEMENT. None of this is applied "
-                          f"automatically, by this tool or by\n  the session reading "
-                          f"it: put the list to the person, say for each row whether "
-                          f"it\n  belongs on this branch, and take only what they "
-                          f"say to take (practice: very-deep-check).")
-                    print(f"  Some rows will be deliberately not-carried. A row "
-                          f"declined once is still listed the\n  next run -- this "
-                          f"scan has no memory of a decision; the run record is "
-                          f"where that lives.\n")
+                print(f"\n  ASK, DO NOT IMPLEMENT. None of this is applied "
+                      f"automatically, by this tool or by\n  the session reading "
+                      f"it: put the list to the person, say for each row whether "
+                      f"it\n  belongs on this branch, and take only what they "
+                      f"say to take (practice: very-deep-check).")
+                print(f"  Some rows will be deliberately not-carried. A row "
+                      f"declined once is still listed the\n  next run -- this "
+                      f"scan has no memory of a decision; the run record is "
+                      f"where that lives.\n")
             if drift['shallow']:
                 print(f"  CAVEAT: this clone is shallow, so the merge base may "
                       f"not be the real one. Deepen\n  "

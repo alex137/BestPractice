@@ -12,7 +12,7 @@ would say a ladder word asks this module first, so the one question has one
 answer:
 
     import precedent_ladder
-    precedent_ladder.say('Booked (step 3 of 5): landed on pre-staging.',
+    precedent_ladder.say('Booked: landed on staging.',
                          'Landed on main.')
 
 From a hook:

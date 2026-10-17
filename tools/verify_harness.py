@@ -228,7 +228,7 @@ import catalogue_stats as cs
 FAILED = []
 
 # THE HARNESS RUNS ON THE LADDER BY DEFAULT (2026-10-02). Most of its cases
-# test the tier machinery -- Promote, promote_only, a pre-staging landing --
+# test the tier machinery -- Promote, promote_only, a staging landing --
 # through fixture people who bring no set, and since the ladder became a set
 # a person brings (spec/LADDER_OPT_IN_PLAN.md) such a person is off it. This
 # keeps those cases testing what they always tested. Every case about the
@@ -2746,15 +2746,14 @@ def check_bootstrap_new_branch_compared_to_landing_branch():
     """A branch not yet on origin is checked against the person's landing
     branch, in the template a consumer receives as well as in this repo's
     own copy (2026-10-01, from a consumer's Update Vendors: every branch cut
-    from pre-staging was warned "cut from a stale base", because main holds
-    the Promote merge commits pre-staging never gets, and only
+    from the landing tier was warned "cut from a stale base", because main
+    holds the Promote merge commits that tier never gets, and only
     tools/bootstrap.sh had learned the tiers).
 
     Stated cases, for templates/bootstrap.sh and tools/bootstrap.sh alike: a
     branch made from origin/staging, with a commit of its own, in a repo
     whose landing branch is staging and whose main is one Produce ahead, is
-    checked against origin/staging and draws no stale-base warning (with
-    pre-staging until it was retired for everyone, 2026-10-14).
+    checked against origin/staging and draws no stale-base warning.
     And the two copies of that block are the same text, so one cannot learn
     a case the other has not."""
     import tempfile
@@ -6258,7 +6257,7 @@ def check_build_views_refuses_a_long_index_clause():
 
     2026-09-26: a clause was extended to 81 characters and build_views
     rendered it silently; only this harness knew the limit, and a push to
-    pre-staging does not run it. The writer finds out from the tool it
+    the landing branch does not run it. The writer finds out from the tool it
     runs. Three states: an over-long clause the base already had passes
     (practice sets carry older ones), the same file edited is refused, and
     a consumer, whose practices/ is materialized from other sources, is
@@ -7903,7 +7902,7 @@ def check_tracked_views_read_the_same_whoever_regenerates():
 def check_stale_views_say_why_and_stop_at_the_push():
     """A repository's generated views going stale because a practice source
     changed is said with its cause and its command, and stops the push to
-    pre-staging, not only the Debut (2026-10-03: a reduction pass retired
+    the landing branch, not only the Debut (2026-10-03: a reduction pass retired
     practices in the shared sets, a consumer was never re-synced, and the
     full check's message sent its session after missing sources). The
     failures that matter: a stale view that passes the basic tier, a message
@@ -8921,6 +8920,136 @@ def check_very_deep_check_warnings_are_judged_not_just_counted():
     check(f'very_deep_check.py\'s WARNINGS judges every group, not just counts them '
           f'({len(cases)} stated cases: parsing, open, permanent, temporary, lapsed, '
           f'stale, malformed, write-up block)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
+def check_very_deep_check_test_worth_judges_what_changed():
+    """very_deep_check.py's TEST WORTH section (tools/test_review.py): every
+    harness test and test script is listed with its recorded time; a test
+    naming a retired thing carries that lead; a test with no verdict is
+    new, a keep whose time more than doubled or that gained a lead comes
+    back, a cheapen or retire is owed, and a verdict for a test that is gone
+    is stale; a keep without its importance is a registry problem; and the
+    write-up gets one `## Test review` block that a second write replaces.
+
+    Added 2026-10-17 with the section (practice: very-deep-check, Pass 2's
+    question 27; Morgan: "review all TESTS to see if all tests are relevant
+    and important"). The repository is a temporary one the test builds
+    (practice: fixture-owns-its-state); each case asserts the tool's own
+    words or status (practice: control-asserts-which-failure)."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import test_review as tr
+    import very_deep_check as vdc
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vdc-tests-'))
+    try:
+        (tmp / 'tools' / 'tests').mkdir(parents=True)
+        (tmp / 'spec').mkdir()
+        (tmp / 'tools' / 'verify_harness.py').write_text(
+            'def check_quiet():\n    """Guards a thing still in use."""\n    return 1\n\n'
+            'def check_grew():\n    """Got slow."""\n    return 2\n\n'
+            'def check_old_tier():\n    """The tier."""\n    return "zz-gone-tier"\n\n'
+            'def check_owed():\n    """To retire."""\n    return 3\n\n'
+            'def helper():\n    return 4\n', encoding='utf-8')
+        (tmp / 'tools' / 'harness_check_times.json').write_text(json.dumps({
+            'measured': '2026-10-09, 4 cores, --as-ci', 'seconds': {
+                'check_quiet': 0.4, 'check_grew': 9.0, 'check_old_tier': 2.0,
+                'check_owed': 1.0}}), encoding='utf-8')
+        (tmp / 'tools' / 'tests' / 'test_thing.sh').write_text(
+            '#!/bin/sh\n# Two-direction test for the thing.\nexit 0\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(tmp)], check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], check=True)
+        keep = {'verdict': 'keep', 'importance': 'medium', 'why': 'w',
+                'date': '2026-10-17', 'by': 'agent'}
+        (tmp / 'tools' / 'test_verdicts.json').write_text(json.dumps({
+            'retired': [{'what': 'the zz tier', 'retired': '2026-10-14',
+                         'patterns': [r'\bzz-gone-tier\b']}],
+            'verdicts': {
+                'check_quiet': dict(keep, seconds=0.4),
+                'check_grew': dict(keep, seconds=2.0),
+                'check_owed': {'verdict': 'retire', 'why': 'covered elsewhere',
+                               'date': '2026-10-17', 'by': 'agent'},
+                'check_gone': dict(keep, seconds=1.0),
+                'tools/tests/test_thing.sh': {'verdict': 'keep', 'why': 'w',
+                                              'date': '2026-10-17', 'by': 'agent'}}}),
+            encoding='utf-8')
+        r = tr.review(tmp)
+        by = {t['name']: t for t in r['tests']}
+        cases.append(('every check_* and every test script is listed, a helper is not',
+                      sorted(by) == ['check_grew', 'check_old_tier', 'check_owed',
+                                     'check_quiet', 'tools/tests/test_thing.sh'],
+                      repr(sorted(by))))
+        cases.append(('a harness test carries its recorded time; a script is untimed',
+                      by['check_grew']['seconds'] == 9.0
+                      and by['tools/tests/test_thing.sh']['seconds'] is None, ''))
+        cases.append(('a test naming a retired thing carries that lead and is judged first',
+                      by['check_old_tier']['leads'] == ['names the zz tier (retired 2026-10-14)']
+                      and tr.to_judge(r)[0]['name'] == 'check_old_tier',
+                      repr(by['check_old_tier']['leads'])))
+        cases.append(('a test with no verdict is unjudged',
+                      by['check_old_tier']['status'] == 'unjudged', ''))
+        cases.append(('a keep whose time more than doubled is judged again, saying so',
+                      by['check_grew']['status'] == 'rejudge'
+                      and 'more than doubled' in ' '.join(by['check_grew']['why_rejudge']),
+                      repr(by['check_grew'])))
+        cases.append(('a current keep stays judged (the quiet half)',
+                      by['check_quiet']['status'] == 'judged', ''))
+        cases.append(('a retire verdict on a test still there is owed',
+                      by['check_owed']['status'] == 'owed', ''))
+        cases.append(('a verdict for a test that is gone is stale',
+                      r['stale'] == ['check_gone'], repr(r['stale'])))
+        cases.append(('a keep without its importance is a registry problem, '
+                      'and the test stays unjudged',
+                      any('tools/tests/test_thing.sh' in p and 'importance' in p
+                          for p in r['problems'])
+                      and by['tools/tests/test_thing.sh']['status'] == 'unjudged',
+                      repr(r['problems'])))
+        text = tr.render_text(r)
+        cases.append(('the text counts what is judged and what is to judge, '
+                      'and says when the times were measured',
+                      'Judged 1; to judge: 2 never judged, 1 to judge again, 1 '
+                      'cheapen/retire owed.' in text
+                      and 'Times measured 2026-10-09, 4 cores' in text, text))
+        md = tr.render_markdown([('fixture', r)])
+        cases.append(('the block gives time by importance and the slowest against it',
+                      '| medium | 2 | 9 |' in md and '| `check_grew` | 9.0 | keep | medium |' in md,
+                      md))
+        doc = tmp / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+        doc.write_text('# Run\n\nBody.\n', encoding='utf-8')
+        # Times from an earlier day are said to be stale before judging;
+        # today's are not (2026-10-17: a list said 777 s for a test that
+        # took 266 s that day).
+        stale_out = io.StringIO()
+        with contextlib.redirect_stdout(stale_out):
+            vdc.test_worth_section([('fixture', tmp)], tmp)
+        times_f = tmp / 'tools' / 'harness_check_times.json'
+        rec = json.loads(times_f.read_text(encoding='utf-8'))
+        rec['measured'] = f'{vdc.precedent_time.today(tmp)}, 4 cores, --as-ci'
+        times_f.write_text(json.dumps(rec), encoding='utf-8')
+        fresh_out = io.StringIO()
+        with contextlib.redirect_stdout(fresh_out):
+            vdc.test_worth_section([('fixture', tmp)], tmp)
+        cases.append(('times from an earlier day are flagged before judging, '
+                      'today\'s are not',
+                      "TIMES ARE NOT TODAY'S (measured 2026-10-09" in stale_out.getvalue()
+                      and 'TIMES ARE NOT TODAY' not in fresh_out.getvalue(),
+                      stale_out.getvalue()[-600:] + ' || ' + fresh_out.getvalue()[-300:]))
+        with contextlib.redirect_stdout(io.StringIO()):
+            (tmp / 'tools' / 'tests' / 'test_thing.sh').unlink()
+            vdc.test_worth_section([('fixture', tmp)], tmp)
+        body = doc.read_text(encoding='utf-8')
+        cases.append(('the write-up gets one ## Test review block, replaced on the second write',
+                      body.count('## Test review') == 1 and body.startswith('# Run\n\nBody.\n')
+                      and '4 test(s)' in body and '5 test(s)' not in body, body))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'very_deep_check.py\'s TEST WORTH lists every test and judges what changed '
+          f'({len(cases)} stated cases: inventory, time, leads, new, again, owed, '
+          f'stale, malformed, times\' age, write-up block)',
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
@@ -11069,6 +11198,55 @@ def check_update_hands_the_engine_refresh_the_followed_tip():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_refresh_from_ref_off_the_branch_is_recorded():
+    """A refresh --from-ref of a commit the followed branch lacks records
+    that in the manifest (seeded_from_branch), as seed --off-main does, so
+    the manifest never claims main for a commit main does not have
+    (2026-10-17: a practice set's manifest said source_branch main over a
+    BestPractice feature-branch commit, refreshed with --from-ref).
+
+    Negative control: on staging's code there is no from_ref_off_branch and
+    refresh writes no seeded_from_branch."""
+    import inspect, tempfile
+    name = 'a refresh --from-ref off the followed branch is recorded'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    cases = []
+    fn = getattr(pve, 'from_ref_off_branch', None)
+    cases.append(('the engine can tell an off-branch commit', callable(fn)))
+    if callable(fn):
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                       GIT_AUTHOR_EMAIL='t@example.invalid',
+                       GIT_COMMITTER_EMAIL='t@example.invalid')
+
+            def g(*a):
+                return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True).stdout.strip()
+            g('init', '-q', '-b', pve.FOLLOWED_BRANCH)
+            g('commit', '-q', '--allow-empty', '-m', 'on the branch')
+            on = g('rev-parse', 'HEAD')
+            g('checkout', '-q', '-b', 'feature')
+            g('commit', '-q', '--allow-empty', '-m', 'only on a feature branch')
+            off = g('rev-parse', 'HEAD')
+            got = fn(repo, off)
+            cases.append(('a feature-branch commit is named as off the branch',
+                          bool(got) and off[:12] in got
+                          and pve.FOLLOWED_BRANCH in got, got))
+            cases.append(('CONTROL: a commit on the branch is not',
+                          fn(repo, on) is None, fn(repo, on)))
+    src = inspect.getsource(pve.refresh) if hasattr(pve, 'refresh') else ''
+    cases.append(('refresh writes it into the manifest',
+                  'seeded_from=off_branch' in src))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d)[:200] + ')' if d else ''}" for n, d in bad))
+
+
 def check_refresh_never_says_nothing_to_do_after_removing_a_file():
     """A refresh whose recorded commit already matches still removes an
     engine file the kind no longer includes, and then said "engine already
@@ -11203,63 +11381,6 @@ def check_fresh_install_links_its_file_names():
     check(f'a fresh install links the file names its templates write '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {x}' for n, x in bad))
-
-
-def check_debut_waits_for_an_open_produce_pull_request():
-    """A move from pre-staging into staging waits while a pull request into
-    main from a to-main- copy of staging is open (2026-10-06: a second Debut
-    ran while a Produce pull request waited on its GitHub test, the copy
-    went out of date, and the Produce had to be made again). Planted with a
-    stand-in for the GitHub call: an open to-main- pull request holds, with
-    the remedy; one from another branch, none at all, or GitHub unreachable
-    does not; and promote() asks before a pre-staging move."""
-    import inspect
-    import tempfile as _tf
-    sys.path.insert(0, str(ROOT / 'tools'))
-    try:
-        import precedent_branches as _pb
-    finally:
-        sys.path.pop(0)
-
-    class _GH:
-        def __init__(self, answer):
-            self.answer, self.asked = answer, []
-
-        def call(self, path, cache=True, **_kw):
-            self.asked.append(path)
-            return self.answer, None
-
-    cases = []
-    with _tf.TemporaryDirectory() as td:
-        repo = pathlib.Path(td) / 'repo'
-        subprocess.run(['git', 'init', '-q', str(repo)], check=True)
-        subprocess.run(['git', '-C', str(repo), 'remote', 'add', 'origin',
-                        'https://github.com/example/repo.git'], check=True)
-        gh = _GH([{'number': 913, 'head': {'ref': 'to-main-20261006T093345-0300'}}])
-        why = _pb.produce_waiting_hold(repo, gh=gh) or ''
-        cases.append(('an open to-main- pull request into main holds the move, '
-                      'naming it and the remedy',
-                      '#913' in why and 'PROMOTE REFUSED' in why
-                      and '--wait-main-test' in why))
-        cases.append(('...asking GitHub for open pull requests into main only',
-                      any('state=open' in a and 'base=main' in a for a in gh.asked)))
-        cases.append(('an open pull request from another branch does not hold',
-                      _pb.produce_waiting_hold(repo, gh=_GH([
-                          {'number': 5, 'head': {'ref': 'claude/x'}}])) is None))
-        cases.append(('no open pull request does not hold',
-                      _pb.produce_waiting_hold(repo, gh=_GH([])) is None))
-        cases.append(('GitHub unreachable does not hold (the merge check still '
-                      'refuses a stale copy)',
-                      _pb.produce_waiting_hold(repo, gh=_GH(None)) is None))
-    # promote() wraps _promote_run() since 2026-10-08, to end every run with
-    # its PROMOTE RESULT line; the order is read where the moves are made.
-    src = inspect.getsource(getattr(_pb, '_promote_run', _pb.promote))
-    cases.append(('promote() asks before moving pre-staging into staging',
-                  'produce_waiting_hold(root)' in src
-                  and src.index('if step == STAGING:') < src.index('produce_waiting_hold(root)')))
-    failed = [n for n, ok in cases if not ok]
-    check(f'a Debut waits for an open Produce pull request ({len(cases)} stated cases)',
-          not failed, '; '.join(failed))
 
 
 def check_engine_carries_no_branch_naming_enforcement():
@@ -12640,9 +12761,11 @@ def _check_times(path=None):
     return times, (float(default) if isinstance(default, (int, float)) else None)
 
 
-def _write_check_times(seconds, measured, path=None):
+def _write_check_times(seconds, measured, path=None, default=None):
     """Rewrite HARNESS_CHECK_TIMES from {check name: seconds}. Every check is
-    named, so default_seconds covers only checks added since."""
+    named, so default_seconds covers only checks added since. `default`
+    keeps the recorded one: only a whole re-record moves it (2026-10-17,
+    harness_times_merge.py says why)."""
     vals = sorted(seconds.values())
     rec = {
         'about': ('What each verify_harness check took, read by --as-ci to '
@@ -12651,7 +12774,8 @@ def _write_check_times(seconds, measured, path=None):
                   "--record-times --because '<why>'. A check missing here "
                   'counts as default_seconds.'),
         'measured': measured,
-        'default_seconds': round(vals[len(vals) // 2], 2) if vals else 1.0,
+        'default_seconds': (default if default is not None else
+                            round(vals[len(vals) // 2], 2) if vals else 1.0),
         'seconds': {k: round(v, 1) for k, v in sorted(seconds.items())},
     }
     pathlib.Path(path or HARNESS_CHECK_TIMES).write_text(
@@ -12672,12 +12796,32 @@ def record_new_times():
     of the push check refuses a new test whose time is not recorded
     (precedent_push_check.changed_files_check), naming this command."""
     import tempfile
-    times, _ = _check_times()
+    times, default = _check_times()
     names = sorted(n for n, v in globals().items()
                    if n.startswith('check_') and callable(v))
     missing = [n for n in names if n not in times]
+    # A TEST THAT IS GONE LEAVES THE LIST HERE (2026-10-17). Before, only a
+    # whole --as-ci --record-times run, about fourteen minutes, cleared a
+    # removed test's time, and the --as-ci partition case refused the list
+    # until then. The run's other fields stay as recorded, so two branches
+    # that each record a test touch only their own lines.
+    stale = sorted(n for n in times if n not in set(names))
+    if stale:
+        times = {n: t for n, t in times.items() if n not in set(stale)}
+        print(f'verify_harness: dropped {len(stale)} time(s) for test(s) that no '
+              f'longer exist: ' + ', '.join(stale))
+    try:
+        before = json.loads(HARNESS_CHECK_TIMES.read_text(encoding='utf-8')).get(
+            'measured', '')
+    except (OSError, ValueError):
+        before = ''
     if not missing:
-        print('verify_harness: every test already has a recorded time.')
+        if stale:
+            _write_check_times(times, before, default=default)
+            print(f'verify_harness: wrote {HARNESS_CHECK_TIMES.relative_to(ROOT)}; '
+                  f'commit it.')
+        else:
+            print('verify_harness: every test already has a recorded time.')
         return 0
     # ONE BASIS (2026-10-17). The list is recorded by `--as-ci
     # --record-times`, on CI's parts; this times tests in one process on
@@ -12702,15 +12846,9 @@ def record_new_times():
     if not got:
         print('verify_harness: the run recorded no times; nothing written.')
         return r.returncode or 1
-    try:
-        before = json.loads(HARNESS_CHECK_TIMES.read_text(encoding='utf-8')).get(
-            'measured', '')
-    except (OSError, ValueError):
-        before = ''
-    _write_check_times({**times, **got},
-                       f'{before}; {len(got)} added {time.strftime("%Y-%m-%d")} '
-                       f'by --record-new-times, scaled by {scale:.2f} to it'
-                       .lstrip('; '))
+    _write_check_times({**times, **got}, before, default=default)
+    print(f'verify_harness: {len(got)} added by --record-new-times, scaled by '
+          f'{scale:.2f} to the recorded basis.')
     print(f'verify_harness: recorded {len(got)} time(s) in '
           f'{HARNESS_CHECK_TIMES.relative_to(ROOT)}; commit it with the tests.')
     return r.returncode
@@ -12789,7 +12927,7 @@ def _bare_all_runs_in_parallel(argv, environ):
 
 # A FULL RUN IS PROPOSED BEFORE IT STARTS (Morgan, 2026-10-07, strength:
 # decided). A session started this suite whole, by hand, to double-check
-# work bound only for pre-staging, quoted "15 to 25 minutes" from memory,
+# work bound only for the landing branch, quoted "15 to 25 minutes" from memory,
 # and was still running at 25 minutes with a third done -- the one-process
 # run takes about 40. answer-first-ask-before-long-work already said to
 # propose a long run with the tool's own cost line; this suite had no such
@@ -12872,7 +13010,7 @@ def _full_run_refusal(argv, environ):
             f'Not needed for:\n'
             f'  - the tests your change touched: '
             f'PRECEDENT_CHECK_ONLY=check_a,check_b python3 tools/verify_harness.py\n'
-            f'  - Booked (pre-staging): its push check is the quick tier\n'
+            f'  - Booked (staging): its push check is the quick tier\n'
             f'  - Debut and Produce: precedent_push_check.py runs the whole '
             f'suite itself, in the faster --as-ci shape')
 
@@ -12975,8 +13113,10 @@ def check_bare_all_runs_across_the_cores():
                   "env['PRECEDENT_HARNESS_ALL'] = '1'" in src
                   and 'if every_case:' in src))
     main_src = pathlib.Path(__file__).read_text(encoding='utf-8')
-    cases.append(('the entry point dispatches it',
-                  '_done(run_as_ci(every_case=True))' in main_src))
+    cases.append(('the entry point dispatches it, and passes --record-times on',
+                  "_done(run_as_ci(every_case=True,\n"
+                  "                        record_times='--record-times' in sys.argv[1:]))"
+                  in main_src))
     failed = [n for n, ok in cases if not ok]
     check(f'a bare --all runs across the cores ({len(cases)} stated cases)',
           not failed, '; '.join(failed))
@@ -13728,7 +13868,8 @@ def check_as_ci_shards_match_the_workflow():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
-def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None):
+def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None,
+                         named=None):
     """-> (set of slugs to run, one-line reason). Never raises: a
     selector that cannot decide runs everything, because the failure
     of a scheduler must not be silently less coverage.
@@ -13748,7 +13889,29 @@ def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None):
     -- which prescribes --all, ran it, and turned the suite red on its first
     outing. A scheduler that cannot be exercised in the state it is not
     currently in is the same untestable scheduler this signature already
-    exists to avoid."""
+    exists to avoid.
+
+    `named` picks cases by slug: normally PRECEDENT_HARNESS_CASES, a
+    comma-separated list (2026-10-17). A session that changed one planted
+    case could run the whole family or none of it; --all and
+    PRECEDENT_HARNESS_ALL only force everything. The named cases run with
+    the pinned ones, which later assertions read back, so nothing else
+    breaks for lack of them. A name that is not a case is said, never
+    silently dropped; when none is, every case runs."""
+    if named is None:
+        named = os.environ.get('PRECEDENT_HARNESS_CASES', '')
+    wanted = {w.strip() for w in str(named or '').split(',') if w.strip()}
+    if wanted:
+        known = wanted & set(all_slugs)
+        unknown = sorted(wanted - known)
+        note = f'; not a planted case: {", ".join(unknown)}' if unknown else ''
+        if not known:
+            return set(all_slugs), ('all (PRECEDENT_HARNESS_CASES names no '
+                                    f'planted case{note})')
+        pinned = _deep_assertion_slugs() or set()
+        return known | (pinned & set(all_slugs)), (
+            f'{len(known)} named in PRECEDENT_HARNESS_CASES, with the '
+            f'{len(pinned & set(all_slugs))} pinned{note}')
     if forced is None:
         forced = ('--all' in sys.argv
                   or os.environ.get('PRECEDENT_HARNESS_ALL') == '1')
@@ -14139,8 +14302,8 @@ def check_upstream_branch_declaration_is_followed():
     Asserted end to end where it lands: followed_branch() itself, the
     catalogue pin moving to the declared branch and back again when the
     declaration goes, and the engine manifest recording the branch the
-    repo follows. The negative controls are pre-staging -- seconds of
-    checking, deliberately not followable -- and a pin to a feature branch,
+    repo follows. The negative controls are a value off the list
+    ('nightly'), deliberately not followable, and a pin to a feature branch,
     which stays somebody's own choice under either declaration.
     """
     import tempfile
@@ -14183,10 +14346,10 @@ def check_upstream_branch_declaration_is_followed():
                       pve.followed_branch(st) == 'staging'
                       and pve.upstream_branch_problem(st) is None,
                       pve.followed_branch(st)))
-        pre = repo_with('pre', 'pre-staging')
-        cases.append(('pre-staging is not followable: main, and the problem is said',
+        pre = repo_with('pre', 'nightly')
+        cases.append(('a value off the list is not followable: main, and the problem is said',
                       pve.followed_branch(pre) == 'main'
-                      and 'pre-staging' in (pve.upstream_branch_problem(pre) or ''),
+                      and 'nightly' in (pve.upstream_branch_problem(pre) or ''),
                       str(pve.upstream_branch_problem(pre))))
         cases.append(('a repo with no precedent.json follows main',
                       pve.followed_branch(tmp / 'nothing-here') == 'main', ''))
@@ -14641,8 +14804,7 @@ def check_update_vendors_is_one_command():
                       landing is None, landing))
         _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=done)
         cases.append(('...and origin, which had only main, still has only main',
-                      'refs/heads/staging' not in heads
-                      and 'refs/heads/pre-staging' not in heads, heads[-400:]))
+                      'refs/heads/staging' not in heads, heads[-400:]))
         # A repository that does ask -- its landing_branch names a tier --
         # gets whichever tier branch origin is missing.
         _pj = json.loads((done / 'precedent.json').read_text())
@@ -14652,10 +14814,8 @@ def check_update_vendors_is_one_command():
         update(done)
         _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=done)
         cases.append(('...and once its precedent.json asks for tiers, the update '
-                      'makes staging on origin, and no pre-staging (retired for '
-                      'everyone, 2026-10-14)',
-                      'refs/heads/staging' in heads
-                      and 'refs/heads/pre-staging' not in heads, heads[-400:]))
+                      'makes staging on origin',
+                      'refs/heads/staging' in heads, heads[-400:]))
         cases.append(('...its catalogue pin now names ' + pve_branch,
                       pin == pve_branch, pin))
         cases.append(('...and its loader views were regenerated',
@@ -14742,8 +14902,7 @@ def check_update_vendors_is_one_command():
         cases.append(('a repo still to be migrated is sent to the migration, and an '
                       'update gives it no tiers it did not ask for',
                       rc == 1 and 'this is a migration' in out
-                      and 'refs/heads/staging' not in heads
-                      and 'refs/heads/pre-staging' not in heads, (out + heads)[-800:]))
+                      and 'refs/heads/staging' not in heads, (out + heads)[-800:]))
 
         rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
                      '--repo', str(ROOT), cwd=ROOT)
@@ -15247,8 +15406,8 @@ def check_update_vendors_resolves_local_edits():
     journal a killed run left behind.
 
     Negative control (practice: control-asserts-which-failure), measured
-    2026-09-29 against precedent_update.py and checkin.py as they were on
-    pre-staging at c1dd37f5: every rule case fails -- the refresh refuses
+    2026-09-29 against precedent_update.py and checkin.py as they were at
+    c1dd37f5: every rule case fails -- the refresh refuses
     ("hand-edited since the last seed/refresh") and no LOCAL EDITS section
     is printed; the refresh-fails case passes there only because nothing was
     ever swapped, and the journal case fails because nothing replays one.
@@ -15930,7 +16089,7 @@ def check_update_vendors_resolves_a_catalogue_edit():
     one practice lacks upstream's last line, so NEW (what checkin.py update
     mirrors) differs from BASE in exactly that file.
 
-    Negative control, measured 2026-09-29: with pre-staging's c1dd37f5
+    Negative control, measured 2026-09-29: with c1dd37f5's
     precedent_update.py the update refuses ("the vendored tree has local
     changes"); with --resolving removed from the record call, record is held
     by the carry check ("lines to lose")."""
@@ -16628,10 +16787,13 @@ def check_update_vendors_takes_only_a_main_that_passed():
                       and 'left no passed marker, and GitHub could not be asked, on '
                           f'{c0[:12]}' in steps(text)[0]
                       and 'WARNING' not in steps(text)[0], (handed, steps(text))))
-        cases.append(('(g2) ...and that line names the fix: attach the source with '
-                      'add_repo, access "push" (2026-10-10, a consumer that had to '
-                      'work it out)',
-                      len(steps(text)) == 1 and 'add_repo, access "push"' in steps(text)[0],
+        cases.append(('(g2) ...and that line says it took the newest commit with a '
+                      'recorded pass, with no advice to attach the source for push '
+                      '(2026-10-17, a consumer: the advice pushed a read-only '
+                      'session toward a push grant only to read a public check)',
+                      len(steps(text)) == 1
+                      and 'the newest with a recorded pass' in steps(text)[0]
+                      and 'add_repo' not in steps(text)[0],
                       steps(text)))
         text, handed, _held, _a = run_update('marked-red', {
             c0: ('failed', 'url')}, marks=[tree(c1)])
@@ -16798,9 +16960,13 @@ def check_main_test_pass_closes_the_issue():
     any open main-test-failed issue, with a comment linking the run -- from
     the deep-check job when its run on main passed, and from the
     already-tested job when a push to main skipped that run because the
-    same files had already passed. Never on a pull request, never on a
-    failure, never on another branch, and never when main has moved past
-    the commit this run tested.
+    same files had already passed, and from a passing pull request into
+    main when main's head now holds exactly the files that run tested
+    (2026-10-17, Morgan: "yes to both": Produce merges at once, main's own
+    run stands aside for the pull request's, and issue #1174 stayed open
+    after main was green). Never on a failure, never on another branch,
+    never into another base, and never when main's files differ from what
+    this run tested.
 
     WHY (2026-10-10, relayed from another session, checked here): issue
     #1036 stayed open about eleven hours while main's test passed at least
@@ -16837,7 +17003,9 @@ def check_main_test_pass_closes_the_issue():
     runs = [
         ('push', 'refs/heads/main', '', False, True),
         ('workflow_dispatch', 'refs/heads/main', '', False, True),
-        ('pull_request', 'refs/pull/9/merge', 'main', False, False),
+        ('pull_request', 'refs/pull/9/merge', 'main', False, True),
+        ('pull_request', 'refs/pull/9/merge', 'main', True, False),
+        ('pull_request', 'refs/pull/9/merge', 'staging', False, False),
         ('push', 'refs/heads/main', '', True, False),
         ('push', 'refs/heads/feature', '', False, False),
         ('workflow_dispatch', 'refs/heads/feature', '', False, False),
@@ -16867,25 +17035,46 @@ def check_main_test_pass_closes_the_issue():
                   and 'continue-on-error: true' in body
                   and 'continue-on-error: true' in skip_block, ''))
 
-    def run(head, issues, gh_fails=False):
+    def run(head, issues, gh_fails=False, head_tree=None):
+        # head_tree: main's head's files -- 'tested' for exactly the files
+        # this run tested (a real commit's tree), anything else for others.
         with tempfile.TemporaryDirectory() as td:
             d = pathlib.Path(td)
             log = d / 'gh.log'
             fake = d / 'gh'
+            sha, tree = 'a' * 40, 'c' * 40
+            if head_tree is not None:
+                g = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                         GIT_AUTHOR_EMAIL='t@example.invalid',
+                         GIT_COMMITTER_EMAIL='t@example.invalid')
+                repo = d / 'repo'
+                subprocess.run(['git', 'init', '-q', str(repo)], env=g)
+                (repo / 'f').write_text('x\n', encoding='utf-8')
+                subprocess.run(['git', '-C', str(repo), 'add', 'f'], env=g)
+                subprocess.run(['git', '-C', str(repo), 'commit', '-q', '-m', 'x'], env=g)
+                sha = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'],
+                                     capture_output=True, text=True).stdout.strip()
+                real = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD^{tree}'],
+                                      capture_output=True, text=True).stdout.strip()
+                tree = real if head_tree == 'tested' else head_tree
             fake.write_text(
                 '#!/bin/sh\n'
                 f'echo "$*" >> "{log}"\n'
                 + ('exit 1\n' if gh_fails else '')
+                + 'case "$*" in\n'
+                f'  *commit.tree.sha*) echo "{tree}"; exit 0 ;;\n'
+                'esac\n'
                 + 'case "$1 $2" in\n'
                 f'  "api repos/o/r/commits/main") echo "{head}" ;;\n'
                 f'  "issue list") printf "{issues}" ;;\n'
                 'esac\nexit 0\n', encoding='utf-8')
             fake.chmod(0o755)
             env = dict(os.environ, PATH=f'{d}:{os.environ.get("PATH", "")}',
-                       GH_REPO='o/r', GITHUB_SHA='a' * 40, GH_TOKEN='x',
+                       GH_REPO='o/r', GITHUB_SHA=sha, GH_TOKEN='x',
                        RUN_URL='https://example.invalid/run/1', HOW='this run passed')
             r = subprocess.run(['bash', str(script)], env=env,
-                               capture_output=True, text=True)
+                               capture_output=True, text=True,
+                               cwd=str(d / 'repo') if head_tree is not None else None)
             calls = log.read_text(encoding='utf-8') if log.is_file() else ''
             return r.returncode, calls, r.stdout
     if script.is_file():
@@ -16899,6 +17088,15 @@ def check_main_test_pass_closes_the_issue():
         cases.append(('main moved past the commit this run tested: nothing is closed',
                       rc == 0 and 'issue close' not in calls
                       and 'issue list' not in calls, calls + out))
+        rc, calls, out = run('b' * 40, '1174\\n', head_tree='tested')
+        cases.append(('a pull request\'s run (its test merge is never main\'s '
+                      'head) closes it once main holds exactly the files it tested',
+                      rc == 0 and 'issue close 1174 --reason completed' in calls,
+                      calls + out))
+        rc, calls, out = run('b' * 40, '1174\\n', head_tree='d' * 40)
+        cases.append(('...and closes nothing while main\'s files differ (not '
+                      'merged yet, or main moved on)',
+                      rc == 0 and 'issue close' not in calls, calls + out))
         rc, calls, out = run('a' * 40, '', gh_fails=True)
         cases.append(('GitHub unreachable: a warning, exit 0, nothing closed',
                       rc == 0 and 'issue close' not in calls
@@ -18011,7 +18209,7 @@ def check_merge_is_judged_by_the_landing_check():
             rep.merges = {'tools/x.py': (merged, new)}
             pu.judged_as_committed = lambda _r, _a: (
                 (1, 'red') if red_when(f.read_bytes()) else (0, 'green'))
-            rc, _out = pu.check_with_merge_fallback(repo, rep, [], 'check for pre-staging')
+            rc, _out = pu.check_with_merge_fallback(repo, rep, [], 'check for staging')
             return rc, rep
 
         rc, rep = run(lambda data: b'MERGED' in data)
@@ -18981,15 +19179,15 @@ def check_thread_renders_never_touch_the_shared_ledger():
 
 
 def check_changed_files_only_judges_the_change():
-    """A push into pre-staging runs the practice checks on the files it
+    """A push into the landing branch runs the practice checks on the files it
     changes, and only those (Morgan, 2026-09-27, strength: decided: "ONLY for
     files that changed (or were added) in that session ... NOT for every file
     in the repo"). Both directions: a change that breaks a document's
     title/heading match is refused; a change elsewhere passes even while
     that mismatch sits in the tree, and says it left it to the full check."""
     import tempfile
-    name = ('the practice checks on a push into pre-staging judge only the '
-            'files it changes')
+    name = ('the practice checks on a push into the landing branch judge only '
+            'the files it changes')
     tool = ROOT / 'tools' / 'precedent_check.py'
     doc = None
     for f in sorted((ROOT / 'spec').glob('*.md')):
@@ -19019,7 +19217,7 @@ def check_changed_files_only_judges_the_change():
     # (Morgan, 2026-10-08: "minor and very very long, so let's fix this
     # right now"). What --changed-files-only does with a finding -- keep it,
     # set it aside, say why -- is the same code whichever checks ran, and
-    # every real push into pre-staging runs the full sweep this way anyway.
+    # every real push into the landing branch runs the full sweep this way anyway.
     def run_check(since, slug):
         p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only', slug,
                             '--range', f'{since}...HEAD', '--changed-files-only'],
@@ -19195,9 +19393,9 @@ def check_changed_files_only_judges_the_change():
         rc, out = files_check(start)
         cases.append(('a changed practice whose views were not regenerated is refused, '
                       'and passes once they are', stale_ok and rc == 0, out[-400:]))
-        # todo-2026-09-29-pre-staging-tier-skips-doc-sync: a new practice
-        # moves the counts doc_sync keeps, so it is refused at this push,
-        # not first at the Debut.
+        # A new practice moves the counts doc_sync keeps, so it is refused
+        # at this push, not first at the Debut (the quick tier once skipped
+        # doc_sync, 2026-09-29).
         start = git('rev-parse', 'HEAD').stdout.strip()
         src = practice.read_text(encoding='utf-8')
         (wt / 'practices' / 'zz-fixture-new-rule.md').write_text(
@@ -19216,8 +19414,8 @@ def check_changed_files_only_judges_the_change():
         cases.append(('a new practice whose generated counts were not '
                       'regenerated is refused at this push, and passes once '
                       'they are', refused and rc == 0, out[-400:]))
-        # A size cap warns on the way into pre-staging and refuses at the
-        # Debut (Morgan, 2026-09-30, strength: decided). The resident cap is
+        # A size cap warns at the quick check and refuses at the full
+        # check, the Debut's (Morgan, 2026-09-30, strength: decided). The resident cap is
         # lowered under what the block holds.
         start = git('rev-parse', 'HEAD').stdout.strip()
         reg = wt / 'tools' / 'session_load_budgets.json'
@@ -19233,7 +19431,7 @@ def check_changed_files_only_judges_the_change():
                       (bv.stdout + bv.stderr)[-400:]))
         git('commit', '-qam', 'a block over its resident cap')
         rc, out = run_check(start, 'loader-within-caps')
-        cases.append(('the pre-staging check lets it through with a warning '
+        cases.append(('the quick check lets it through with a warning '
                       'naming the staging refusal',
                       rc == 0 and 'over a size cap. The quick check lets it through' in out,
                       out[-600:]))
@@ -19875,7 +20073,7 @@ def check_update_vendors_second_consumer_findings():
     rep.details['tools/bootstrap.sh'] = ['    templates/bootstrap.sh:42 "Clone every shared practice set"']
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        rep.close('the check for pre-staging is red')
+        rep.close('the check for staging is red')
     text = buf.getvalue()
     cases.append(('1. a FAILED update still prints what it left for the person, with detail',
                   'tools/bootstrap.sh' in text and 'Clone every shared practice set' in text
@@ -20559,7 +20757,7 @@ def check_update_vendors_rebaselines_a_file_now_identical_to_upstream():
 
 
 def check_consumer_basic_tier_runs_the_practice_audit():
-    """A consumer's pre-staging push runs the practice audit's two checks,
+    """A consumer's push to its landing branch runs the practice audit's two checks,
     scrub-gate and practice-export-loop (2026-10-02). A classic install
     migrated onto the loader carried stale manifest baselines and no scrub
     blocklist; both are practice_audit findings, which ran only inside the
@@ -20598,7 +20796,7 @@ def check_consumer_basic_tier_runs_the_practice_audit():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
-    check(f'a consumer\'s pre-staging push runs the practice audit '
+    check(f'a consumer\'s landing push runs the practice audit '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 
@@ -20700,7 +20898,7 @@ def check_update_vendors_leaves_mentions_of_a_deleted_file():
 
     2026-09-28, a consumer: the refresh deleted a retired
     bestpractice-docs.yml and only WARNed about a doc still naming it; the
-    pre-staging check passed and the full check refused on
+    quick check passed and the full check refused on
     rename-updates-links at the Promote. The WARN is produced by the
     engine's own function, so the two cannot drift apart; a mention inside
     the vendored tree, and one already gone by report time, are not left."""
@@ -20917,21 +21115,21 @@ def check_merge_gate_judges_the_declared_base():
     """The merge gate judges a pull request by the base GitHub declares, and
     guesses from branch tips only when it cannot read it.
 
-    2026-09-28: pre-staging and staging had just been made at main's commit,
-    so a pull request into pre-staging matched all three by tip and the gate
-    announced "main is a fully checked branch"."""
+    2026-09-28: staging had just been made at main's commit, so a pull
+    request into staging matched both by tip and the gate announced "main
+    is a fully checked branch"."""
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
         import precedent_merge_check as pmc
     finally:
         sys.path.pop(0)
-    tips = ['main', 'pre-staging', 'staging']
+    tips = ['main', 'staging']
     if not hasattr(pmc, 'choose_bases'):
         return (False, '0 stated cases', 'precedent_merge_check.py has no '
                 'choose_bases(): the base is still guessed from branch tips')
     cases = [
-        ('three branches at one commit, declared base pre-staging: judged as pre-staging',
-         pmc.choose_bases('pre-staging', tips) == ['pre-staging']),
+        ('two branches at one commit, declared base staging: judged as staging',
+         pmc.choose_bases('staging', tips) == ['staging']),
         ('no declared base (GitHub unreadable): every tip match, strictest decides',
          pmc.choose_bases(None, tips) == tips),
         ('a declared base with no tip match still wins',
@@ -21788,6 +21986,73 @@ def check_a_consumer_may_declare_a_ci_workflow_its_own():
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_reply_gate_prints_a_note_from_a_set_tool():
+    """precedent_gate._note_from_tool (2026-10-17): a set's reply_check.json
+    may name, as `note_from_tool`, a tool the set ships here, and the reply
+    gate prints what it says among the hard requirements. Made-up tool and
+    names; the engine knows nothing of what the note is about.
+
+    - a tool that prints a line: the line is printed, tagged with its source;
+    - a tool that prints nothing, or fails: nothing, and the gate goes on;
+    - a path outside tools/, or one that walks up with "..": never run;
+    - the reply check itself treats the key as known, never as a rule this
+      engine cannot evaluate."""
+    import contextlib, io, tempfile
+    import precedent_gate as pg
+    import precedent_reply_check as prc
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'tools').mkdir()
+        (root / 'tools' / 'zz_note.py').write_text(
+            'print("ZZ NOTE: the planted line")\n', encoding='utf-8')
+        (root / 'tools' / 'zz_quiet.py').write_text('', encoding='utf-8')
+        (root / 'tools' / 'zz_fails.py').write_text(
+            'print("SHOULD NOT SHOW"); raise SystemExit(1)\n', encoding='utf-8')
+        (root / 'outside.py').write_text(
+            'open("ran-outside", "w").write("x")\nprint("OUTSIDE")\n',
+            encoding='utf-8')
+        for spec, want, what in (
+                ({'run': 'tools/zz_note.py'}, ['ZZ NOTE: the planted line'],
+                 'a tool that prints a line'),
+                ({'run': 'tools/zz_quiet.py'}, [], 'a tool that prints nothing'),
+                ({'run': 'tools/zz_fails.py'}, [], 'a tool that fails'),
+                ({'run': 'tools/no_such.py'}, [], 'a tool that is not there'),
+                ({'run': 'outside.py'}, [], 'a path outside tools/'),
+                ({'run': 'tools/../outside.py'}, [], 'a path that walks up'),
+                ({'run': 'tools/zz_note.py', 'args': [1]}, [], 'an argument that is not a string')):
+            got = pg._note_from_tool(root, spec)
+            cases.append((f'{what}: {want or "nothing"}', got == want, repr(got)))
+        cases.append(('a path outside tools/ was never run',
+                      not (root / 'ran-outside').exists(), 'it ran'))
+        rc = root / 'repo'
+        (rc / 'tools').mkdir(parents=True)
+        (rc / 'tools' / 'zz_note.py').write_text(
+            'print("ZZ NOTE from the set")\n', encoding='utf-8')
+        out = io.StringIO()
+        saved = prc.declared_requirements
+        prc.declared_requirements = lambda _r: ([{
+            '_source': 'shared/zz-set', 'note_from_tool': {'run': 'tools/zz_note.py'},
+            'require_one_of': ['ZZ']}], [])
+        try:
+            with contextlib.redirect_stdout(out):
+                pg._print_hard_requirements(rc)
+        finally:
+            prc.declared_requirements = saved
+        cases.append(('the reply gate prints it among the hard requirements, '
+                      'tagged with its source',
+                      '- [shared/zz-set] ZZ NOTE from the set' in out.getvalue(),
+                      out.getvalue()[-300:]))
+    cases.append(('the reply check knows the key, so it is never reported as a '
+                  'rule this engine cannot evaluate',
+                  prc._unknown_predicates({'note_from_tool': {}, 'practice': 'x'}) == [],
+                  repr(prc._unknown_predicates({'note_from_tool': {}}))))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the reply gate prints a note a set\'s own tool gives it '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
 def check_reply_check_names_what_it_cannot_evaluate():
@@ -22738,6 +23003,36 @@ def check_planted_case_rotation_never_narrows_silently():
                                      forced=False)
     cases.append(('an empty slice runs everything rather than nothing',
                   'empty' in why or empty == set(), why))
+
+    # One case by name (PRECEDENT_HARNESS_CASES, 2026-10-17), with the
+    # pinned ones the later assertions read back.
+    loose = sorted(set(slugs) - (_deep_assertion_slugs() or set()))
+    if loose:
+        one = loose[0]
+        try:
+            sel, why = _selected_case_slugs(slugs, touched={'README.md'},
+                                            count=0, forced=False, named=one)
+        except TypeError as e:
+            sel, why = set(), f'no selector by name: {e}'
+        cases.append((f'a case named alone runs ({one}), with the pinned ones '
+                      f'and nothing else',
+                      one in sel and sel == {one} | (pinned & set(slugs)), why))
+        try:
+            sel, why = _selected_case_slugs(slugs, touched={'README.md'},
+                                            count=0, forced=False,
+                                            named=f'{one},no-such-case')
+        except TypeError as e:
+            sel, why = set(), str(e)
+        cases.append(('a name that is no case is said, not silently dropped',
+                      one in sel and 'no-such-case' in why, why))
+        try:
+            sel, why = _selected_case_slugs(slugs, touched={'README.md'},
+                                            count=0, forced=False,
+                                            named='no-such-case')
+        except TypeError as e:
+            sel, why = set(), str(e)
+        cases.append(('naming no real case runs every case, never none',
+                      sel == set(slugs), why))
 
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
@@ -24239,6 +24534,29 @@ def check_precedent_check_fires():
         cases.append(('very-deep-check: a run with pass 4 not yet recorded '
                       'does not owe its account yet',
                       _rcm == 0 and 'VIOLATION' not in _outm))
+
+        # A run from 2026-10-18 on owes its test review too (Pass 2's
+        # question 27). The plant: a current account with every other
+        # section and no `## Test review`. The quiet half is the real tree,
+        # whose 2026-10-17 run predates the rule and passes above.
+        def _vdc_from_the_18th(t):
+            d = json.loads(_vdc_four_passes(t))
+            [r for r in d['runs'] if r.get('completed', True)][-1]['date'] = '2026-10-18'
+            return json.dumps(d, indent=2) + '\n'
+
+        def _vdc_no_test_review(t):
+            t = re.sub(r'^opened:(\s*)\S+', r'opened:\g<1>2026-10-18', t,
+                       count=1, flags=re.M)
+            t = re.sub(r'^## Test review\s*$', '## Tests', t, flags=re.M)
+            return t if re.search(r'^## Checks by stage\s*$', t, re.M) \
+                else t + '\n## Checks by stage\n\nPlanted.\n'
+        _vdc_tr = fresh('very-deep-check-no-test-review')
+        rewrite(_vdc_tr, 'record/very-deep-check-ledger.json', _vdc_from_the_18th)
+        rewrite(_vdc_tr, _VDC_UP, _vdc_no_test_review)
+        _rct, _outt = run(_vdc_tr, 'very-deep-check')
+        cases.append(('very-deep-check: a run from 2026-10-18 whose account '
+                      'has no test review fails, saying so',
+                      _rct == 1 and 'no `## Test review` section' in _outt))
 
         # heading-outline -- a heading demoted two levels at once, so it has
         # no parent. documentation/INSTALL.md is the plant because it is a
@@ -25980,6 +26298,22 @@ def check_precedent_check_fires():
 
         case('declared-base-branch', _plant_unguarded_branch_inference)
 
+        # risky-engine-tools-ask -- the template allows every engine tool
+        # and drops the ask rules for Update All Vendors, which pushes in
+        # every repository: it would run with no prompt (2026-10-17).
+        def _plant_unasked_pusher(repo):
+            import json as _j
+            rewrite(repo, 'templates/harness/claude-code/settings.json',
+                    lambda s: _j.dumps({**_j.loads(s), 'permissions': {
+                        **_j.loads(s).get('permissions', {}),
+                        'ask': [r for r in _j.loads(s).get('permissions', {})
+                                .get('ask', []) if 'update_all' not in r]}},
+                        indent=2) + '\n')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'an engine tool that pushes, asked for by nobody')
+
+        case('risky-engine-tools-ask', _plant_unasked_pusher)
+
         # document-status-header -- a stamped document whose declared
         # status is illegal for its declared kind. The fixture must stamp a
         # SECOND file legally as well: the check raises NotApplicable when
@@ -27211,8 +27545,8 @@ def check_routing_reason_lives_in_the_practice():
     practices were caught, at staging, and why a deleted practice's entry
     could outlive it unnoticed. The reason now lives in the practice's own
     applies_to_why, so there is no second list to fall out of step (practice:
-    upstream-fix), and the check reads one file at a time, so pre-staging
-    runs it. The list is gone from routing_scope.json; asserted here so it
+    upstream-fix), and the check reads one file at a time, so the quick
+    check runs it. The list is gone from routing_scope.json; asserted here so it
     does not grow back.
     """
     import tempfile
@@ -27643,8 +27977,8 @@ def check_retired_words_are_found_and_history_is_left():
 
 def check_practice_file_shape_judges_one_file_at_a_time():
     """precedent_check.py's practice-file-shape, which took over seven
-    verify_harness.py checks on 2026-09-29 so pre-staging runs them on the
-    files a change touches. Each rule planted once in a throwaway catalogue,
+    verify_harness.py checks on 2026-09-29 so the quick check runs them on
+    the files a change touches. Each rule planted once in a throwaway catalogue,
     asserted by its own words, with a clean practice beside it that must
     stay quiet (practice: control-asserts-which-failure).
     """
@@ -29521,7 +29855,7 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'a feature-branch ending': 'Build it on your feature branch, push it there, and stop.',
         'a negated line': 'Open no pull request and merge nothing into main.',
         'a tier branch, which off the ladder is not a landing':
-            'Push it to pre-staging once it is green.',
+            'Push it to staging once it is green.',
         # 2026-10-10, a consumer's root-issues reply: a report of a past
         # merge, with no ending at Act, is not an order.
         'a report of a past merge, as the rule ships':
@@ -30055,14 +30389,14 @@ def check_reply_check_refuses_a_repeated_boildown():
         first = ('Harness passed.\n\n## Boildown\n'
                  '- The work of this session is now on: `claude/x-btnxe` '
                  '(BestPractice), pushed but not landed.\n'
-                 '- **Your call:** say "Booked" to land it on `pre-staging`. '
+                 '- **Your call:** say "Booked" to land it on `staging`. '
                  'My pick is yes.\n'
                  "- Don't archive this session. Archived now, the work never "
                  'lands.\n')
         again = ('That notice is the result I already reported.\n\n## Boildown\n'
                  '- The work of this session is now on: `claude/x-btnxe` '
                  '(BestPractice), pushed but not landed.\n'
-                 '- Next is your "Booked" to land it on `pre-staging`.\n'
+                 '- Next is your "Booked" to land it on `staging`.\n'
                  "- Don't archive this session. The work would stay on its "
                  'feature branch.\n')
         r1 = run(transcript('repeat.jsonl', [first, again]))
@@ -30075,7 +30409,7 @@ def check_reply_check_refuses_a_repeated_boildown():
                       and 'Output NOTHING' not in r1.stderr,
                       f'exit {r1.returncode}: {r1.stderr[:300]}'))
 
-        news = again.replace('- Next is your "Booked" to land it on `pre-staging`.',
+        news = again.replace('- Next is your "Booked" to land it on `staging`.',
                              '- The harness found a broken link, fixed in the '
                              'last commit.')
         r2 = run(transcript('news.jsonl', [first, news]))
@@ -30083,12 +30417,12 @@ def check_reply_check_refuses_a_repeated_boildown():
                       r2.returncode == 0, f'exit {r2.returncode}: {r2.stderr[:200]}'))
 
         moved = again.replace('`claude/x-btnxe` (BestPractice), pushed but not '
-                              'landed', '`pre-staging` (BestPractice), landed')
+                              'landed', '`staging` (BestPractice), landed')
         moved = moved.replace("- Don't archive this session. The work would stay "
                               'on its feature branch.',
-                              "- Don't archive this session. Staging still waits.")
-        moved = moved.replace('- Next is your "Booked" to land it on `pre-staging`.',
-                              '- Landed on `pre-staging`.')
+                              "- Don't archive this session. Main still waits.")
+        moved = moved.replace('- Next is your "Booked" to land it on `staging`.',
+                              '- Landed on `staging`.')
         r3 = run(transcript('moved.jsonl', [first, moved]))
         cases.append(('negative control: a branch that changed is a change, '
                       'however alike the words',
@@ -30917,12 +31251,11 @@ def check_a_person_with_no_individual_set_can_be_a_code_owner():
 def check_code_owners_only_practices_reach_only_code_owners():
     """A practice marked `visible_to: code-owners` reaches only a person the
     repository names as a code owner, and a stale-branch listing never names
-    main, staging or an engine branch (nor pre-staging, until it was retired
-    for everyone on 2026-10-14).
+    main, staging or an engine branch.
 
     Morgan, 2026-10-05 (strength: decided): rules about running a repository
     "should NOT be shown to a user who is NOT a CODEOWNER"; in doubt, hidden;
-    and the branch list is "never pre-staging or staging".
+    and the branch list never names a tier branch.
 
     practice: control-asserts-which-failure -- each hidden case asserts the
     reason printed, and the controls prove an owner, an unmarked practice and
@@ -31030,7 +31363,7 @@ def check_code_owners_only_practices_reach_only_code_owners():
         subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
         (work / 'a.txt').write_text('a\n'); g('add', '-A'); g('commit', '-qm', 'a')
         g('push', '-q', 'origin', 'HEAD:main')
-        for b_ in ('staging', 'pre-staging', 'precedent-promote-lock', 'claude/done'):
+        for b_ in ('staging', 'precedent-promote-lock', 'claude/done'):
             g('push', '-q', 'origin', f'HEAD:refs/heads/{b_}')
         g('checkout', '-q', '-b', 'claude/open')
         (work / 'b.txt').write_text('b\n'); g('add', '-A'); g('commit', '-qm', 'b')
@@ -31041,11 +31374,6 @@ def check_code_owners_only_practices_reach_only_code_owners():
         cases.append(('never main, staging or an engine branch',
                       not {'main', 'staging', 'precedent-promote-lock'} & set(listed),
                       listed))
-        # Pre-staging was retired for everyone on 2026-10-14, so a leftover
-        # one that holds nothing staging lacks is offered like any finished
-        # branch (until then: "never pre-staging or staging").
-        cases.append(('a retired pre-staging holding nothing staging lacks is listed',
-                      'pre-staging' in listed, listed))
         cases.append(('CONTROL: a branch with work main lacks is not listed',
                       'claude/open' not in listed, listed))
         # An engine branch's old name, once its data- copy holds all of it,
@@ -31450,7 +31778,8 @@ def check_update_holds_a_settings_change_and_offers_it_again():
         (dest / '.claude' / 'settings.json').write_text('{}', encoding='utf-8')
         rule = 'Bash(python3 tools/precedent_show.py *)'
         missing = pve._read_only_allow_missing(dest, [rule])
-        cases.append(('a read-only rule the settings lack is listed', missing == [rule], missing))
+        cases.append(('a read-only rule the settings lack is listed',
+                      missing == [('allow', rule)], missing))
         (dest / 'precedent.json').write_text(json.dumps({pve.DECLINED_ALLOW_KEY: [rule]}),
                                              encoding='utf-8')
         cases.append(('CONTROL: a declined rule is not offered again',
@@ -31584,7 +31913,7 @@ def check_reply_check_requires_the_boildown_first_line():
                       r2.returncode == 2, f'exit {r2.returncode}'))
 
         r3 = replycheck('good.md', '## The Boildown\n\n- **The work of this '
-                                   'session is now on:** `pre-staging` (you have '
+                                   'session is now on:** `staging` (you have '
                                    'finished step 3 of 5, Booked)\n- Next.\n')
         cases.append(('negative control: the bold first line passes',
                       r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:160]}'))
@@ -32609,17 +32938,16 @@ def check_killed_promote_releases_its_lock():
 import sys, time, pathlib
 sys.path.insert(0, {str(ROOT / 'tools')!r})
 import precedent_branches as pb
-pb.promotion_step = lambda root, to, work: (pb.STAGING, 'fixture')
+pb.promotion_step = lambda root, to, work: (pb.MAIN, 'fixture')
 pb.staging_branch = lambda root: pb.STAGING
 pb.repo_has_tiers = lambda root: True
-pb._drifted_from_above = lambda root: []
 pb._lock_claim = lambda root, say: ('held', 'fixture-commit')
 pb._lock_release = lambda root, held, say: pathlib.Path({str(marker)!r}).write_text(held)
 def _run(root, say):
     pathlib.Path({str(started)!r}).write_text('1')
     time.sleep(60)
     return 0
-pb._promote_unlocked = _run
+pb._promote_to_main = _run
 sys.exit(pb.promote('.', say=lambda *a: None))
 """, encoding='utf-8')
         for sig_name in ('SIGTERM', 'SIGHUP'):
@@ -33298,7 +33626,7 @@ def check_close_detect_counts_only_this_sessions_reverts():
 
     Found 2026-09-30: signals() took every revert reachable from HEAD since
     the session started, so another session's revert, brought in by a merge
-    from pre-staging, was reported as "work this session undid". Now only a
+    from staging, was reported as "work this session undid". Now only a
     commit carrying this session's trailer, on its own first-parent line,
     counts. Driven against a throwaway repository (practice:
     fixture-owns-its-state)."""
@@ -33319,17 +33647,17 @@ def check_close_detect_counts_only_this_sessions_reverts():
             (repo / f).write_text(text, encoding='utf-8')
             g('add', '-A'); g('commit', '-qm', msg)
 
-        g('init', '-q', '-b', 'pre-staging')
+        g('init', '-q', '-b', 'staging')
         commit('a', '1', 'base')
         g('checkout', '-q', '-b', 'claude/mine')
-        g('checkout', '-q', 'pre-staging')
+        g('checkout', '-q', 'staging')
         commit('b', '1', 'other work\n\nSession: https://claude.ai/code/session_OTHER')
         g('revert', '--no-edit', 'HEAD')
         g('commit', '-q', '--amend', '-m',
           'Revert "other work"\n\nSession: https://claude.ai/code/session_OTHER')
         g('checkout', '-q', 'claude/mine')
         commit('c', '1', 'mine\n\nSession: https://claude.ai/code/session_ME')
-        g('merge', '-q', '--no-ff', '--no-edit', 'pre-staging')
+        g('merge', '-q', '--no-ff', '--no-edit', 'staging')
         records = [{'timestamp': '2000-01-01T00:00:00Z', 'type': 'user'}]
         os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_ME'
         try:
@@ -33355,14 +33683,14 @@ def check_close_detect_ignores_the_assistant_quoted_back():
     sentences, quoted back by the person, as the person's instruction.
 
     2026-10-04, a consumer: the assistant wrote "Each one, from Sept 11 to
-    Sept 25, has a single commit that never reached pre-staging."; the person
+    Sept 25, has a single commit that never reached staging."; the person
     pasted it in quotes and added "review those", and the close check
     reported "the person said: ... never reached ..." as an explicit
     instruction. CONTROL: a quote the assistant never wrote still fires, and
     so does the person's own unquoted rule."""
     import precedent_close_detect as pcd
     said = ('Here is what I found. Each one, from Sept 11 to Sept 25, has a '
-            '**single commit** that never reached pre-staging. Nothing else.')
+            '**single commit** that never reached staging. Nothing else.')
 
     def session(person):
         return [{'type': 'assistant', 'message': {'role': 'assistant',
@@ -33373,9 +33701,9 @@ def check_close_detect_ignores_the_assistant_quoted_back():
         return [d for n, d in pcd.signals(session(person), ROOT)
                 if n == 'explicit-instruction']
     quoted = ('"Each one, from Sept 11 to Sept 25, has a single commit that '
-              'never reached pre-staging." review those')
+              'never reached staging." review those')
     block = ('> Each one, from Sept 11 to Sept 25, has a single commit\n'
-             '> that never reached pre-staging.\n\nreview those')
+             '> that never reached staging.\n\nreview those')
     cases = [
         ('the assistant\'s sentence quoted back is not the person\'s instruction',
          fired(quoted) == [], fired(quoted)),
@@ -34211,6 +34539,9 @@ def check_shipped_tests_name_their_owner_and_fail_at_home():
                       and merged.get('GIT_CONFIG_KEY_0') == 'a.b'
                       and merged.get('GIT_CONFIG_KEY_1') == 'core.excludesFile'
                       and merged.get('GIT_CONFIG_VALUE_1') == '/x/ignore'))
+        cases.append(('every test runs with no bytecode cache, set once here, '
+                      'so no test needs its own PYTHONDONTWRITEBYTECODE',
+                      merged.get('PYTHONDONTWRITEBYTECODE') == '1'))
 
         names = {kind: [n for n, _a, _r in ppc.PUSH_CHECKS[kind]]
                  for kind in ppc.PUSH_CHECKS}
@@ -37275,7 +37606,7 @@ def check_changed_files_asks_a_new_check_for_its_test():
     the commit that adds it, and the refusal names what to write.
 
     check_deep_check.py refuses both, but judges the whole tree, so the
-    changed-files scope a pre-staging push runs dropped its finding: in a
+    changed-files scope a quick-tier push runs dropped its finding: in a
     consumer repo four repo-local checks landed with neither, and nothing
     said so until a Promote ran the full check (2026-09-28). The clean case
     is the control -- the same check with its test and SOURCE_ROOT passes.
@@ -37355,9 +37686,9 @@ def check_changed_files_asks_a_new_check_for_its_planted_case():
     check_precedent_check_fires -- named, in seconds, with the line to add.
 
     The harness asserts the same thing ("every registered check has a
-    planted case here"), but only on a full run, which pre-staging never
-    does: on 2026-09-29 a new check reached pre-staging without one and the
-    Debut to staging failed 20 minutes in. Both halves of the registry are
+    planted case here"), but only on a full run, which the quick tier never
+    does: on 2026-09-29 a new check was pushed through the quick tier
+    without one and the Debut failed 20 minutes in. Both halves of the registry are
     held: an @check in precedent_check.py, and a check script, named by the
     practice whose checked_by claims it. The control is the same tree with
     both cases added.
@@ -38773,7 +39104,10 @@ def check_quick_tier_is_closed():
 def check_boildown_contradiction_spares_work_waiting_upstream():
     """"Still waiting upstream" beside "You can archive this session" is not
     a contradiction: the work sits in another repository's queue, not this
-    session's. The shipped reply_check.json refused exactly that reply
+    session's. Nor is a due reminder's own line asking for an answer
+    (2026-10-17, from a consuming repo: the reminder lives in todo/, so
+    archiving loses nothing, and the two universal practices' required
+    texts collided). The shipped reply_check.json refused exactly that reply
     (2026-09-28). Read from the real file, so the test is of the pattern that
     ships; the control is "still waiting" about this session's own work,
     which must still be refused.
@@ -38820,6 +39154,16 @@ def check_boildown_contradiction_spares_work_waiting_upstream():
                             'is.\n\nYou can archive this session.\n')
         mine = replycheck('## The Boildown\n\n- This session is blocked on '
                           'your answer.\n\nYou can archive this session.\n')
+        # 2026-10-17: a due reminder's line (todo-reminder) asks the person
+        # something, but the item lives in todo/: archiving loses nothing.
+        due = replycheck('## The Boildown\n\n- A reminder you asked for, due '
+                         'since 2026-10-15: [Renew the domain](todo/x.md). Is it '
+                         'done, does it get a new date, or is it dropped? It '
+                         'still needs your answer.\n\nYou can archive this '
+                         'session.\n')
+        ask = replycheck('## The Boildown\n\n- The merge still needs your '
+                         'approval. It is waiting on you.\n\nYou can archive '
+                         'this session.\n')
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     cases = [
@@ -38832,6 +39176,10 @@ def check_boildown_contradiction_spares_work_waiting_upstream():
          theirs.returncode == 0),
         ('control: "this session is blocked on" is still refused',
          mine.returncode == 2 and 'cannot both be true' in mine.stderr),
+        ('a due reminder\'s line ("A reminder you asked for ... still needs '
+         'your answer") beside the archive sentence passes', due.returncode == 0),
+        ('control: "needs your approval" on any other line is still refused',
+         ask.returncode == 2 and 'cannot both be true' in ask.stderr),
     ]
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
@@ -39433,7 +39781,7 @@ def check_push_check_gate():
                 # precedent_check.py also answers as the basic tier's
                 # ci_workflows (--only ci-workflow-approved), a check of
                 # its own: fail it only when FAIL names that one.
-                # ...and as pre-staging's changed_practice (--changed-files-only).
+                # ...and as the quick tier's changed_practice (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
@@ -39473,6 +39821,29 @@ def check_push_check_gate():
                                capture_output=True, timeout=300,
                                env=dict(env, CLAUDE_PROJECT_DIR=str(project)))
             return '"deny"' in p.stdout, p.stdout
+
+        # No branch is fully checked before a push by default any more
+        # (main and staging since 2026-10-17): the full check before a push is for a person whose
+        # branch_push_checks says full.
+        full_person = tmp / 'full-person'
+        full_person.mkdir()
+        (full_person / 'identity.json').write_text(_json.dumps(
+            {'email': 'full@example.com', 'branch_push_checks': 'full'}),
+            encoding='utf-8')
+        full_cfg = tmp / 'full-config.json'
+        full_cfg.write_text(_json.dumps(
+            {'individual': {'path': str(full_person)}}), encoding='utf-8')
+
+        def full_gate(command):
+            saved = env.get('PRECEDENT_USER_CONFIG')
+            env['PRECEDENT_USER_CONFIG'] = str(full_cfg)
+            try:
+                return gate(command)
+            finally:
+                if saved is None:
+                    env.pop('PRECEDENT_USER_CONFIG')
+                else:
+                    env['PRECEDENT_USER_CONFIG'] = saved
 
         denied, out_main = gate('git push origin main')
         record = work / '.git' / 'precedent-push-check.json'
@@ -39539,15 +39910,13 @@ def check_push_check_gate():
 
         (work / 'FAIL').write_text('zero', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'a run that checks nothing')
-        # Pushed to staging, the one branch still fully checked before the
-        # push for a person who does not land there: since 2026-10-17 a push
-        # to main takes the quick checks and the full suite runs after it.
-        denied, out = gate('git push origin HEAD:staging')
+        # Pushed to staging by a person whose pushes are fully checked.
+        denied, out = full_gate('git push origin HEAD:staging')
         cases.append(('a precedent_check run that passed ZERO checks is '
                       'refused although it exits 0', denied and 'ZERO' in out))
         (work / 'FAIL').write_text('deep_check', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'break the deep check suite')
-        denied, out = gate('git push origin HEAD:staging')
+        denied, out = full_gate('git push origin HEAD:staging')
         cases.append(("a repo's own deep-check suite (tools/checks/tests/"
                       "run_all.sh) runs, and its failure refuses the push",
                       denied and 'deep_check' in out))
@@ -39574,31 +39943,31 @@ def check_push_check_gate():
             denied, _ = gate('git push -u origin feature')
             cases.append(('a push to a working branch gets the basic check: a '
                           'failing full-only check does not refuse it', not denied))
-            denied, _ = gate('git push origin HEAD:pre-staging')
-            cases.append(('so does a push to pre-staging', not denied))
+            denied, _ = gate('git push origin HEAD:staging')
+            cases.append(('so does a push to staging, where work lands', not denied))
             # The practice checks on the changed files run at the Debut and
             # around Produce, never before a push (Morgan, 2026-10-16): a
             # landing push no longer runs them, so their failure refuses
             # neither it nor a working branch's push.
             (work / 'FAIL').write_text('changed_practice', encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'break the changed-files practice run')
-            denied, out = gate('git push origin HEAD:pre-staging')
-            cases.append(('a push to pre-staging does not run the practice checks '
+            denied, out = gate('git push origin HEAD:staging')
+            cases.append(('a push to staging does not run the practice checks '
                           'on the files it changes -- they wait for the Debut',
                           not denied and 'changed_practice' not in out))
             denied, _ = gate('git push -u origin feature')
             cases.append(('nor does a push to a working branch', not denied))
             (work / 'FAIL').write_text('precedent_check', encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'back to a full-only failure')
-            denied, out = gate('git push origin HEAD:staging')
-            cases.append(('the same tree pushed to a fully checked branch '
-                          '(staging, for a person who does not land there) is '
-                          'refused by the full check -- the basic pass just '
-                          'recorded does not satisfy it',
+            denied, out = full_gate('git push origin HEAD:staging')
+            cases.append(('the same tree pushed by a person whose '
+                          'branch_push_checks says full is refused by the full '
+                          'check -- the basic pass just recorded does not '
+                          'satisfy it', denied and 'precedent_check' in out))
+            denied, out = full_gate('git push origin main feature')
+            cases.append(('one push naming main and a branch that person '
+                          'checks fully is checked fully',
                           denied and 'precedent_check' in out))
-            denied, out = gate('git push origin feature HEAD:staging')
-            cases.append(('one push naming a working branch and a fully checked '
-                          'one is checked fully', denied and 'precedent_check' in out))
             (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'break the leak gate again')
             denied, out = gate('git push origin feature')
@@ -39606,7 +39975,7 @@ def check_push_check_gate():
                           denied and 'leak_gate' in out))
             git(work, 'rm', '-q', 'FAIL')
             git(work, 'commit', '-q', '-m', 'fix it again')
-            denied, _ = gate('git push origin main')
+            denied, _ = full_gate('git push origin main')
             again = subprocess.run(
                 [sys.executable, 'tools/precedent_push_check.py', '--gate',
                  '--push-command', 'origin feature'],
@@ -39629,7 +39998,10 @@ def check_push_check_gate():
                                    *a], cwd=cwd, capture_output=True, text=True,
                                   env=env).stdout
 
-        ran = run_check(work, '--tier', 'full')
+        # Staging, the landing branch, takes the quick check, so asking for
+        # the full suite says why.
+        ran = run_check(work, '--tier', 'full', '--because',
+                        'the shared-receipt test needs a full pass')
         files = git(hub, 'ls-tree', '-r', '--name-only',
                     'precedent-check-receipts').stdout.split()
         cases.append(('a full pass is published to origin as a receipt',
@@ -39890,19 +40262,18 @@ def check_global_backstop_runs_person_fixer():
 
 
 def check_branch_tiers():
-    """The three branch tiers (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
-    strength: decided): a push to staging or main is checked fully; a push
-    to pre-staging or any other branch gets the basic check unless the
-    person's `branch_push_checks` says full. tools/precedent_branches.py
+    """The branch tiers (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
+    since narrowed): every push gets the basic check unless the person's
+    `branch_push_checks` says full -- main and staging alike since
+    2026-10-17 (main's full suite runs after the push, staging's at the
+    Debut). tools/precedent_branches.py
     holds the rule; this pins what it answers.
 
     The cases that matter are the ones that would land unchecked work: a
-    push whose destination cannot be read must come out FULL, a typo in the
-    setting must come out FULL, and nothing the setting says may lower
-    staging or main. A branch the repository still calls by its pre-rename
-    name (`base_branch`) is staging and must be full too."""
+    push whose destination cannot be read must come out FULL, and a typo in
+    the setting must come out FULL."""
     import tempfile, json as _json
-    name = 'branch tiers: main and a landing staging take the quick checks, other branches basic by default'
+    name = 'branch tiers: every branch takes the quick checks unless the person asks for full'
     tool = ROOT / 'tools' / 'precedent_branches.py'
     if not tool.exists():
         not_applicable(name, 'tools/precedent_branches.py is absent')
@@ -39936,13 +40307,16 @@ def check_branch_tiers():
         def tier(branch, user_config=nocfg):
             return pb.tier_for_branch(repo, branch, user_config)[0]
 
-        cases.append(('pre-staging is basic by default', tier('pre-staging') == 'basic'))
         cases.append(('a working branch is basic by default', tier('claude/x') == 'basic'))
         cases.append(('main takes the quick checks; its full suite runs after '
                       'the push (2026-10-17)', tier('main') == 'basic'))
-        cases.append(('staging is full', tier('staging') == 'full'))
-        cases.append(("the repo's declared base_branch (staging before the "
-                      "rename) is full", tier('precedent-beta-v01') == 'full'))
+        cases.append(('staging under its new name takes the quick checks too, '
+                      'like any branch (2026-10-17)',
+                      tier('staging') == 'basic'))
+        cases.append(("the repo's declared base_branch, its staging tier under "
+                      "the old name, takes the quick checks: work lands there "
+                      "(2026-10-17)",
+                      tier('precedent-beta-v01') == 'basic'))
         cases.append(('staging_branch() names the declared branch until the '
                       'rename', pb.staging_branch(repo) == 'precedent-beta-v01'))
 
@@ -39950,6 +40324,8 @@ def check_branch_tiers():
             {'email': 'p@example.com', 'branch_push_checks': 'full'}), encoding='utf-8')
         cases.append(("the person's identity.json can raise other branches to "
                       "full", tier('claude/x', str(cfg)) == 'full'))
+        cases.append(("...staging among them",
+                      tier('precedent-beta-v01', str(cfg)) == 'full'))
         (indiv / 'identity.json').write_text(_json.dumps(
             {'email': 'p@example.com', 'branch_push_checks': 'bassic'}), encoding='utf-8')
         cases.append(('a value that is neither basic nor full is checked fully',
@@ -39968,9 +40344,9 @@ def check_branch_tiers():
         cases.append(('a repo whose base_branch is main, with no staging '
                       'branch yet, promotes into main -- never into a staging '
                       'branch it does not have -- and a person with no '
-                      'landing_branch lands there too (pre-staging is opt-in '
-                      'since 2026-09-26)', pb.staging_branch(repo) == 'main'
-                      and tier('staging') == 'full'
+                      'landing_branch lands there too',
+                      pb.staging_branch(repo) == 'main'
+                      and tier('staging') == 'basic'
                       and pb.landing_branch(repo, nocfg)[0] == 'main'))
 
         # Morgan, 2026-09-27 (strength: decided): the person's own
@@ -39978,16 +40354,34 @@ def check_branch_tiers():
         # names none; the built-in default stays staging.
         ident_before = (indiv / 'identity.json').read_text(encoding='utf-8')
         (repo / 'precedent.json').write_text(_json.dumps(
-            {'base_branch': 'main', 'landing_branch': 'pre-staging'}),
+            {'base_branch': 'main', 'landing_branch': 'nightly'}),
             encoding='utf-8')
-        # Since 2026-10-14 pre-staging is retired for everyone: a value
-        # naming it reads as the staging tier, and says so.
-        retired_landing = pb.landing_branch(repo, str(cfg))
+        # A value that is neither staging nor main is one this engine does
+        # not know: the repository's reads as the staging tier and says so,
+        # and unknown_landing() names it for --land to refuse on.
+        unknown_repo = pb.landing_branch(repo, str(cfg))
         cases.append(("a repo's own landing_branch applies to a person who names "
-                      "none, and a retired pre-staging there reads as the "
-                      "staging tier, saying why",
-                      retired_landing[0] == pb.staging_branch(repo)
-                      and 'retired' in retired_landing[1]))
+                      "none, and a value the engine does not know there reads "
+                      "as the staging tier, saying why",
+                      unknown_repo[0] == pb.staging_branch(repo)
+                      and 'which this engine does not know, so it reads as '
+                          'staging; --land refuses until it is fixed'
+                      in unknown_repo[1]))
+        said = pb.unknown_landing(repo, str(cfg)) or ''
+        cases.append(("...and unknown_landing() names the value and where it is",
+                      "landing_branch is 'nightly' in this repo's precedent.json, "
+                      "a branch this engine does not know" in said))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'staging'}), encoding='utf-8')
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'landing_branch': 'nightly'}), encoding='utf-8')
+        unknown_person = pb.landing_branch(repo, str(cfg))
+        cases.append(("the person's own unknown value is passed over as if unset: "
+                      "the repo's staging applies",
+                      unknown_person[0] == pb.staging_branch(repo)
+                      and "this repo's precedent.json" in unknown_person[1]))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'nightly'}), encoding='utf-8')
         (indiv / 'identity.json').write_text(_json.dumps(
             {'email': 'p@example.com', 'landing_branch': 'main'}), encoding='utf-8')
         cases.append(("the person's own landing_branch wins over the repo's",
@@ -40015,30 +40409,27 @@ def check_branch_tiers():
                       and pb.precedent_json(repo).get('base_branch') == 'main'))
         (repo / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'main'}), encoding='utf-8')
-        # A person who has retired pre-staging starts a new repository on
-        # staging, not on the tier they left (2026-10-11: a fresh install
-        # by Morgan wrote pre-staging and made it on origin).
+        # A new repository starts on staging whatever the person declares
+        # (2026-10-11).
         default_before = pb.repo_landing_default(repo, str(cfg))[0]
         (indiv / 'identity.json').write_text(_json.dumps(
-            {**_json.loads(ident_before), 'retire_pre_staging': True,
-             'promote_only': True}), encoding='utf-8')
-        retired_default = pb.repo_landing_default(repo, str(cfg))[0]
+            {**_json.loads(ident_before), 'promote_only': True}), encoding='utf-8')
+        promote_default = pb.repo_landing_default(repo, str(cfg))[0]
         (indiv / 'identity.json').write_text(_json.dumps(
             {**_json.loads(ident_before), 'landing_branch': 'staging'}),
             encoding='utf-8')
         declared_default = pb.repo_landing_default(repo, str(cfg))[0]
         (indiv / 'identity.json').write_text(ident_before, encoding='utf-8')
-        cases.append(('a new repository lands on staging for everyone since '
-                      'pre-staging was retired (2026-10-14), whatever the '
-                      'person declares',
+        cases.append(('a new repository lands on staging for everyone, '
+                      'whatever the person declares',
                       default_before == 'staging'
-                      and retired_default == 'staging'
+                      and promote_default == 'staging'
                       and declared_default == 'staging'))
 
         def targets(args):
             return pb.push_targets(repo, args)
-        cases.append(('`origin pre-staging` writes pre-staging',
-                      targets('origin pre-staging') == ['pre-staging']))
+        cases.append(('`origin some-feature` writes some-feature',
+                      targets('origin some-feature') == ['some-feature']))
         cases.append(('`-u origin a b` writes a and b',
                       targets('-u origin a b') == ['a', 'b']))
         cases.append(('`origin +x:refs/heads/main` writes main',
@@ -40071,9 +40462,8 @@ def check_merge_check_gate():
 
     The fixture is a local "origin" carrying refs/pull/N/head and
     refs/pull/N/merge the way GitHub does. The cases that matter are the
-    ones that would land unchecked work: a pull request into a fully checked
-    branch (staging, for a person who does not land there) must get the full
-    check; a base that cannot be matched must get it too; and a base branch
+    ones that would land unchecked work: a pull request into staging, for a
+    person whose branch_push_checks says full, must get the full check; a base that cannot be matched must get it too; and a base branch
     sitting at the same commit as that branch -- exactly how
     AGENTS.md's merge-target rule began, and how this check's first live
     run misread a real pull request -- must not be mistaken for the
@@ -40122,7 +40512,7 @@ def check_merge_check_gate():
                 # precedent_check.py also answers as the basic tier's
                 # ci_workflows (--only ci-workflow-approved), a check of
                 # its own: fail it only when FAIL names that one.
-                # ...and as pre-staging's changed_practice (--changed-files-only).
+                # ...and as the changed-files run (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
@@ -40135,14 +40525,19 @@ def check_merge_check_gate():
                    if t == 'precedent_check' else f'name = "{t}"\n')
                 + 'sys.exit(1 if name in body else 0)\n',
                 encoding='utf-8')
+        # The tiers exist here, so a landing into staging holds it still.
+        (work / 'precedent.json').write_text(
+            _json.dumps({'landing_branch': 'staging'}), encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
         git(work, 'push', '-q', 'origin', 'main')
         # Since 2026-10-17 a pull request into main takes the quick checks
         # and its full suite runs after the merge (Morgan: "the full tests
-        # should happen after that"); staging, for a person who does not
-        # land on it, is the fully checked base these cases use.
+        # should happen after that"), and so does one into staging: the
+        # full check before a merge is for a
+        # person whose branch_push_checks says full, and staging is the
+        # base these cases use for one.
         git(work, 'checkout', '-q', '-b', 'staging')
         (work / 'staging.txt').write_text('staging', encoding='utf-8')
         git(work, 'add', 'staging.txt')
@@ -40155,13 +40550,14 @@ def check_merge_check_gate():
         git(work, 'add', 'fb.txt')
         git(work, 'commit', '-q', '-m', 'fb')
         git(work, 'push', '-q', 'origin', 'fb')
-        # The tiers exist here, so a landing into main holds it still: a
-        # pre-staging of its own, at no other branch's commit.
-        git(work, 'checkout', '-q', '-b', 'ps', 'main')
-        (work / 'ps.txt').write_text('ps', encoding='utf-8')
-        git(work, 'add', 'ps.txt')
-        git(work, 'commit', '-q', '-m', 'ps')
-        git(work, 'push', '-q', 'origin', 'ps:pre-staging')
+        full_person = tmp / 'full-person'
+        full_person.mkdir()
+        (full_person / 'identity.json').write_text(_json.dumps(
+            {'email': 'full@example.com', 'branch_push_checks': 'full'}),
+            encoding='utf-8')
+        full_cfg = tmp / 'full-config.json'
+        full_cfg.write_text(_json.dumps(
+            {'individual': {'path': str(full_person)}}), encoding='utf-8')
 
         def pull(number, base, fail):
             """Publish pull request `number` into `base` whose head plants
@@ -40208,25 +40604,33 @@ def check_merge_check_gate():
         cases.append(('a pull request into main gets the quick check, so a '
                       'full-only failure is let through for the full suite '
                       'after the merge', not denied and '(basic)' in out))
+        lock_log = lambda: git(bare, 'log', '--format=%s', 'precedent-promote-lock').stdout
         denied, out = mcp(7)
-        cases.append(('a pull request into staging gets the full check, and a '
+        cases.append(('a pull request into staging gets the quick check like '
+                      'any other, so a full-only failure is let through for '
+                      'the Debut', not denied and '(basic)' in out))
+        before = lock_log()
+        denied, out = mcp(8)
+        cases.append(('a pull request into a working branch gets the basic '
+                      'check, so the same failure is let through', not denied))
+        cases.append(('...and holds nothing still, since a working branch is '
+                      'not a tier anyone else lands on', lock_log() == before))
+        denied, out = mcp(9)
+        cases.append(('the basic check still refuses a failing leak gate',
+                      denied and 'leak_gate' in out))
+        # From here on, a person whose pushes are fully checked.
+        env['PRECEDENT_USER_CONFIG'] = str(full_cfg)
+        denied, out = mcp(7)
+        cases.append(('a pull request into staging, for a person whose '
+                      'branch_push_checks says full, gets the full check, and a '
                       'failing full-only check refuses the merge',
                       denied and 'merge check REFUSED' in out
                       and 'precedent_check' in out))
-        lock_log = lambda: git(bare, 'log', '--format=%s', 'precedent-promote-lock').stdout
         held_log = lock_log()
         cases.append(('...staging was held still while that check ran: the gate '
                       'claimed the Promote lock for the landing and freed it '
                       'after', 'landing pull request #7 into' in held_log
                       and held_log.splitlines()[0] == 'free [skip ci]'))
-        denied, out = mcp(8)
-        cases.append(('a pull request into a working branch gets the basic '
-                      'check, so the same failure is let through', not denied))
-        cases.append(('...and holds nothing still, since a working branch is '
-                      'not a tier anyone else lands on', lock_log() == held_log))
-        denied, out = mcp(9)
-        cases.append(('the basic check still refuses a failing leak gate',
-                      denied and 'leak_gate' in out))
         denied, out = mcp(10)
         cases.append(('a base that matches no branch on origin is checked '
                       'fully', denied and 'unmatched base' in out))
@@ -40248,13 +40652,14 @@ def check_merge_check_gate():
         denied, out = mcp(7, owner='nobody')
         cases.append(('no checkout of the repository: let through, and said',
                       not denied and 'NOTE: merge-check-gate' in out))
-        git(work, 'push', '-q', 'origin', ':pre-staging')
+        tiers_file = (work / 'precedent.json').read_text(encoding='utf-8')
+        (work / 'precedent.json').unlink()
         before = lock_log()
         mcp(7)
-        cases.append(('a repository without the tiers holds nothing still: no '
-                      'pre-staging, so the lock branch is not touched',
+        cases.append(('a repository without the tiers holds nothing still: '
+                      'no tier declared, so the lock branch is not touched',
                       lock_log() == before))
-        git(work, 'push', '-q', 'origin', 'ps:pre-staging')
+        (work / 'precedent.json').write_text(tiers_file, encoding='utf-8')
 
         # Another window holds main still (a Promote, or its own landing):
         # a fresh claim on the lock branch, made the way Promote makes one.
@@ -40362,319 +40767,6 @@ def check_merge_check_gate():
 
 
 @_without_session_id
-def check_promote_pre_staging():
-    """Promote moves pre-staging into staging (spec/BRANCH_TIERS_PLAN.md),
-    and is the one route by which the batch gets its full check.
-
-    The cases that matter would land unchecked work or lose work: a batch
-    failing a full-only check must leave staging exactly where it was; a
-    promotion must be a merge commit, never a fast-forward, so no
-    pre-staging commit's `[skip ci]` line becomes staging's head (hole 3);
-    and pre-staging must pick up what was pushed to staging directly
-    (hole 2) -- by a merge, and not at all when that merge conflicts."""
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_branches as pb  # is_fix_branch / is_main_copy: new names and old
-    import tempfile, json as _json, shutil as _shutil
-    name = 'Promote: pre-staging into staging, fully checked, by a merge commit'
-    tool = ROOT / 'tools' / 'precedent_branches.py'
-    if not tool.exists():
-        not_applicable(name, 'tools/precedent_branches.py is absent')
-        return
-    cases = []
-    with tempfile.TemporaryDirectory() as td:
-        tmp = pathlib.Path(td)
-        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
-                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
-                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
-                   PRECEDENT_USER_CONFIG=str(tmp / 'config.json'))
-
-        def git(cwd, *a):
-            return subprocess.run(['git', '-C', str(cwd), *a],
-                                  capture_output=True, text=True, env=env)
-
-        bare = tmp / 'origin.git'
-        git(tmp, 'init', '-q', '--bare', '-b', 'beta', str(bare))
-        work = tmp / 'work'
-        (work / 'tools').mkdir(parents=True)
-        git(tmp, 'init', '-q', '-b', 'beta', str(work))
-        for f in ('precedent_push_check.py', 'precedent_branches.py'):
-            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
-        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
-            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
-        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
-            (work / 'tools' / f'{t}.py').write_text(
-                'import pathlib, sys\n'
-                'f = pathlib.Path("FAIL")\n'
-                'body = f.read_text() if f.exists() else ""\n'
-                + ('print("precedent_check: 3 passed, 0 violated")\n'
-                   if t == 'precedent_check' else '')
-                # precedent_check.py also answers as the basic tier's
-                # ci_workflows (--only ci-workflow-approved), a check of
-                # its own: fail it only when FAIL names that one.
-                # ...and as pre-staging's changed_practice (--changed-files-only).
-                + ('name = ("ci_workflows" if "ci-workflow-approved" in '
-                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
-                   '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "rename_links" if '
-                   '"rename-updates-links" in sys.argv else '
-                   '"generated_files" if '
-                   '"generated-files-registered" in '
-                   'sys.argv else "changed_practice" if "--changed-files-only" '
-                   'in sys.argv else "precedent_check")\n'
-                   if t == 'precedent_check' else f'name = "{t}"\n')
-                # PROMOTE_RACE: a command the stub runs mid-check, standing
-                # in for another window promoting the same batch meanwhile.
-                + ('import os, subprocess\n'
-                   'if os.environ.get("PROMOTE_RACE"):\n'
-                   '    subprocess.run(os.environ["PROMOTE_RACE"], shell=True)\n'
-                   if t == 'precedent_check' else '')
-                + 'sys.exit(1 if name in body else 0)\n',
-                encoding='utf-8')
-        # A repo whose staging still goes by its pre-rename name.
-        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'beta'}),
-                                             encoding='utf-8')
-        (work / 'list.txt').write_text('a\nb\nc\n', encoding='utf-8')
-        git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'init')
-        git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        git(work, 'push', '-q', 'origin', 'beta')
-
-        def branches(*a, extra=None):
-            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
-                               cwd=work, capture_output=True, text=True,
-                               env=dict(env, **(extra or {})))
-            return p.returncode, p.stdout + p.stderr
-
-        def tip(b):
-            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
-
-        rc, out = branches('--landing')
-        # The tiered route is opt-in since 2026-09-26 (Morgan: "mandatory for
-        # me, but not necessarily anyone else"): with no landing_branch set,
-        # Go update lands on the repository's own staging branch.
-        cases.append(("Go update lands on the repo's staging branch by default "
-                      "-- pre-staging is opt-in", out.split('\n')[0] == 'beta'))
-        indiv = tmp / 'indiv'
-        indiv.mkdir()
-        (tmp / 'config.json').write_text(_json.dumps({'individual': {'path': str(indiv)}}),
-                                         encoding='utf-8')
-        (indiv / 'identity.json').write_text(_json.dumps(
-            {'email': 'p@example.com', 'landing_branch': 'staging'}), encoding='utf-8')
-        rc, out = branches('--landing')
-        cases.append(("a person's landing_branch can send it to staging (the "
-                      "declared base, still named beta here)",
-                      out.split('\n')[0] == 'beta'))
-        (indiv / 'identity.json').write_text(_json.dumps(
-            {'email': 'p@example.com', 'landing_branch': 'main'}), encoding='utf-8')
-        rc, out = branches('--landing')
-        cases.append(("a person's landing_branch can send it straight to main",
-                      out.split('\n')[0] == 'main'))
-        (indiv / 'identity.json').write_text(_json.dumps(
-            {'email': 'p@example.com', 'landing_branch': 'somewhere'}), encoding='utf-8')
-        rc, out = branches('--landing')
-        cases.append(('an unreadable landing_branch lands on staging, never somewhere new',
-                      out.split('\n')[0] == 'beta'))
-
-        rc, out = branches('--sync-pre-staging')
-        cases.append(('pre-staging is created at staging when origin has none',
-                      rc == 0 and tip('pre-staging') == tip('beta')))
-        rc, out = branches('--promote')
-        cases.append(('nothing on pre-staging: nothing to promote, staging unmoved',
-                      rc == 0 and 'nothing to promote' in out))
-
-        def commit_to(branch, path, text, msg):
-            git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
-            (work / path).write_text(text, encoding='utf-8')
-            git(work, 'add', path)
-            git(work, 'commit', '-q', '-m', msg)
-            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-
-        commit_to('pre-staging', 'list.txt', 'A\nb\nc\n', 'rename a [skip ci]')
-        commit_to('beta', 'other.txt', 'direct\n', 'pushed straight to staging')
-        pre_before = tip('pre-staging')
-        rc, out = branches('--sync-pre-staging')
-        cases.append(('a push made straight to staging with no full check on '
-                      'record is held by the quick sync, which names --check',
-                      rc == 0 and 'NOT COPIED YET' in out and '--check' in out
-                      and tip('pre-staging') == pre_before))
-        rc, out = branches('--sync-pre-staging', '--check')
-        git(work, 'fetch', '-q', 'origin')
-        cases.append(('a push made straight to staging is checked, then merged into pre-staging',
-                      rc == 0 and git(work, 'merge-base', '--is-ancestor',
-                                      'origin/beta', 'origin/pre-staging').returncode == 0))
-
-        before = tip('beta')
-        commit_to('pre-staging', 'FAIL', 'precedent_check', 'break a full-only check')
-        pre_before = tip('pre-staging')
-        rc, out = branches('--promote')
-        fixes = [b for b in git(work, 'for-each-ref', '--format=%(refname:short)',
-                                'refs/heads/').stdout.split() if pb.is_fix_branch(b)]
-        cases.append(('a batch failing a full-only check is not finished: neither '
-                      'staging nor pre-staging moves, and it says what failed',
-                      rc == 1 and 'PROMOTE NOT FINISHED' in out
-                      and 'precedent_check' in out and tip('beta') == before
-                      and tip('pre-staging') == pre_before))
-        cases.append(('...and the composition it checked is on a local fix '
-                      'branch, with the command that finishes it', len(fixes) == 1
-                      and f'--work {fixes[0]}' in out and git(
-                          work, 'merge-base', '--is-ancestor', pre_before,
-                          f'refs/heads/{fixes[0]}').returncode == 0))
-
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'w-fix', 'origin/pre-staging')
-        git(work, 'rm', '-q', 'FAIL')
-        git(work, 'commit', '-q', '-m', 'fix it')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
-        promoted = tip('pre-staging')
-        rc, out = branches('--promote')
-        git(work, 'fetch', '-q', 'origin')
-        parents = git(work, 'rev-list', '--parents', '-n', '1', 'origin/beta').stdout.split()
-        msg = git(work, 'log', '-1', '--format=%B', 'origin/beta').stdout
-        cases.append(('a passing batch is promoted', rc == 0 and 'PROMOTED' in out))
-        cases.append(('as a merge commit whose second parent is the pre-staging '
-                      'it promoted', len(parents) == 3 and parents[2] == promoted))
-        cases.append(('...and pre-staging moves to that same commit, level with '
-                      'staging', tip('pre-staging') == tip('beta')
-                      and 'both at' in out))
-        cases.append(("and staging's head carries no [skip ci], though a "
-                      "promoted commit did", '[skip ci]' not in msg))
-        cases.append(('and it says the full check ran, rather than leaving a '
-                      'person to guess', 'check ran on the batch and passed' in out
-                      and 'NOT re-run' not in out))
-
-        # Same files, already fully checked: Promote says it did not re-run
-        # the suite, and when the earlier run was (Morgan, 2026-09-25: "it
-        # should not run the full suite again if nothing has changed").
-        commit_to('pre-staging', 'list.txt', 'Z\nb\nc\n', 'another edit')
-        subprocess.run([sys.executable, 'tools/precedent_push_check.py',
-                        '--tier', 'full', '--because', 'harness case'], cwd=work, capture_output=True,
-                       text=True, env=env)
-        rc, out = branches('--promote')
-        cases.append(('a batch whose exact files already passed the full check '
-                      'is promoted without re-running it, and says so, with '
-                      'when it passed', rc == 0 and 'PROMOTED' in out
-                      and 'NOT re-run' in out and 'already passed the full '
-                      'check at' in out))
-
-        # Another window promotes the same batch while this one checks it.
-        # The push is refused, and Promote must say the work is already on
-        # staging -- not send the person round again with "Promote again".
-        commit_to('pre-staging', 'list.txt', 'W\nb\nc\n', 'raced edit')
-        race = tmp / 'race'
-        git(tmp, 'clone', '-q', f'file://{bare}', str(race))
-        rc, out = branches('--promote', extra={'PROMOTE_RACE': (
-            f'git -C {race} fetch -q origin && '
-            f'git -C {race} checkout -q -B r origin/beta && '
-            f'git -C {race} merge -q --no-ff -m other-window origin/pre-staging && '
-            f'git -C {race} push -q origin HEAD:refs/heads/beta')})
-        cases.append(('a batch another window promoted mid-check is reported '
-                      'as already on staging, not as "Promote again"',
-                      rc == 0 and 'another window promoted this batch' in out
-                      and 'Promote again' not in out
-                      and git(work, 'log', '-1', '--format=%s',
-                              tip('beta')).stdout.strip() == 'other-window'))
-
-        # The Promote lock: a branch that only moves forward, whose newest
-        # commit says who holds it. Every Promote above claimed and released
-        # it, so it reads free now.
-        def lock_subject():
-            git(work, 'fetch', '-q', 'origin')
-            return git(work, 'log', '-1', '--format=%s',
-                       'origin/precedent-promote-lock').stdout.strip()
-        cases.append(('after a Promote the lock branch exists and reads free, '
-                      'with [skip ci] so no workflow runs for it',
-                      lock_subject() == 'free [skip ci]'))
-
-        def hold(age_seconds):
-            when = f'@{int(time.time()) - age_seconds} -0300'
-            made = subprocess.run(
-                ['git', '-C', str(work), 'commit-tree',
-                 '4b825dc642cb6eb9a060e54bf8d69288fbee4904', '-p',
-                 'origin/precedent-promote-lock', '-m',
-                 'held by another window [skip ci]'], capture_output=True,
-                text=True, env=dict(env, GIT_COMMITTER_DATE=when,
-                                    GIT_AUTHOR_DATE=when)).stdout.strip()
-            git(work, 'push', '-q', 'origin',
-                f'{made}:refs/heads/precedent-promote-lock')
-
-        commit_to('pre-staging', 'list.txt', 'V\nb\nc\n', 'waits for the lock')
-        before = tip('beta')
-        hold(60)
-        rc, out = branches('--promote')
-        cases.append(('a Promote that finds the lock freshly held by another '
-                      'window does nothing, says who has it, and says not to '
-                      'Promote again', rc == 0
-                      and 'another window is promoting or landing right now' in out
-                      and 'held by another window' in out
-                      and tip('beta') == before
-                      and lock_subject() == 'held by another window [skip ci]'))
-        hold(3 * 3600)
-        rc, out = branches('--promote')
-        cases.append(('a claim left behind by a window that died is taken over '
-                      'once it is stale, and the Promote goes ahead',
-                      rc == 0 and 'PROMOTED' in out and tip('beta') != before
-                      and lock_subject() == 'free [skip ci]'))
-
-        commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
-        commit_to('beta', 'list.txt', 'Y\nb\nc\n', 'staging edits line 1 too')
-        pre_before = tip('pre-staging')
-        rc, out = branches('--sync-pre-staging', '--check')
-        cases.append(('a conflicting direct push to staging stops the sync and '
-                      'pushes nothing', rc == 1 and 'does not merge cleanly' in out
-                      and tip('pre-staging') == pre_before))
-        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
-        cases.append(('no worktree is left behind', len(wts) == 1))
-
-        # The Boildown's reminder (precedent_gate.py's _unlanded_work): work
-        # on pre-staging has landed for a person who lands there, and what
-        # it still owes is a Promote.
-        (indiv / 'identity.json').write_text(_json.dumps(
-            {'email': 'p@example.com', 'landing_branch': 'pre-staging'}), encoding='utf-8')
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'w-landed', 'origin/pre-staging')
-        def unlanded():
-            sys.path.insert(0, str(ROOT / 'tools'))
-            saved = os.environ.get('PRECEDENT_USER_CONFIG')
-            os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'config.json')
-            try:
-                import precedent_gate as pg
-                return pg, pg._unlanded_work(work, siblings=False)
-            finally:
-                sys.path.pop(0)
-                if saved is None:
-                    os.environ.pop('PRECEDENT_USER_CONFIG', None)
-                else:
-                    os.environ['PRECEDENT_USER_CONFIG'] = saved
-        # Since 2026-10-14 pre-staging is retired for everyone: a landing
-        # branch of pre-staging reads as staging, so nothing waits on
-        # pre-staging for a Promote and no reminder offers one. Until then
-        # this asked that the reminder was gentle, gave way to a running
-        # Promote's lock, came back once the lock was stale, and did not
-        # call a branch already on pre-staging unlanded.
-        pg, got = unlanded()
-        cases.append(("a landing branch of pre-staging, now retired, gets no "
-                      "reminder to promote pre-staging",
-                      not any(l.startswith("this checkout: pre-staging is ")
-                              for l in got)
-                      and not any('a Promote can move them' in l for l in got)))
-        # Only the flow this session worked on (Morgan, 2026-09-29): with a
-        # session id set and no commit in the batch carrying it, the batch
-        # is another session's and gets no line.
-        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01FixtureNotInAnyCommit'
-        try:
-            pg, got = unlanded()
-        finally:
-            os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
-        cases.append(("a pre-staging batch this session made none of gets no "
-                      "Promote line",
-                      not any('a Promote can move them' in l for l in got)
-                      and not any(pg.PROMOTE_RUNNING_MARK in l for l in got)))
-    failed = [n for n, ok in cases if not ok]
-    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
-
-
 def _engine_commit_fixture(tmp, name, kind, git_env):
     """A repository with an origin, the REAL engine files the engine-commit
     checks exercise, and stubs for the gates they do not. -> (work, bare).
@@ -40770,6 +40862,9 @@ def check_engine_commits_state_their_author():
     real run in a source, because consumer_shape would not run in the linked
     worktree Promote always checks in.
 
+    Since 2026-10-17 the commits are the ones the move into main makes: the copy of staging merged with main that its pull
+    request comes from, and the Promote lock's.
+
     The fixture reproduces that session exactly -- bot global identity, no
     user config, a TZ that is not the person's -- and asserts on the commits
     Promote actually pushed. THE CONTROL: the same Promote with nobody
@@ -40804,13 +40899,31 @@ def check_engine_commits_state_their_author():
                                   capture_output=True, text=True,
                                   env=person_git).stdout.strip()
 
-        def to_pre_staging(work, path, text, msg):
+        def to_staging(work, path, text, msg):
+            # main holds what beta had, then beta gains an edit and a commit
+            # main also gained, so the copy is a real merge the engine makes.
             git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', 'w', 'origin/pre-staging')
+            git(work, 'push', '-q', 'origin', 'origin/beta:refs/heads/main')
+            git(work, 'checkout', '-q', '-B', 'm', 'origin/beta')
+            (work / 'main-only.txt').write_text('m\n', encoding='utf-8')
+            git(work, 'add', 'main-only.txt')
+            git(work, 'commit', '-q', '-m', 'a change made on main')
+            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+            git(work, 'checkout', '-q', '-B', 'w', 'origin/beta')
             (work / path).write_text(text, encoding='utf-8')
             git(work, 'add', path)
             git(work, 'commit', '-q', '-m', msg)
-            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/beta')
+
+        def copy_head(work):
+            git(work, 'fetch', '-q', 'origin')
+            # The copy's name: the session-branch format, or the dated
+            # to-main- name where no workflow knows the new one (a fixture).
+            refs = [r for r in git(work, 'for-each-ref', '--format=%(refname:short)',
+                                   'refs/remotes/origin/').split()
+                    if 'promote-to-main' in r or '/to-main-' in r]
+            return git(work, 'log', '-1', '--format=%an|%ae|%ad|%s',
+                       '--date=format:%z', refs[-1]) if refs else ''
 
         def head_of(work, branch):
             git(work, 'fetch', '-q', 'origin')
@@ -40820,42 +40933,34 @@ def check_engine_commits_state_their_author():
         # 1. Declared by PRECEDENT_COMMIT_* alone, in a practice SOURCE --
         #    so the full check includes consumer_shape.
         work, _ = _engine_commit_fixture(tmp, 'work', 'source', person_git)
-        run_in(work, person, '--sync-pre-staging')
-        to_pre_staging(work, 'list.txt', 'b\n', 'an edit to promote')
-        mark = tmp / 'cs-mark'
-        rc, out = run_in(work, dict(person, CS_MARK=str(mark)), '--promote')
-        cases.append((f'the Promote in a hookless session succeeds (rc={rc}, '
+        to_staging(work, 'list.txt', 'b\n', 'an edit to promote')
+        rc, out = run_in(work, person, '--promote', '--to', 'main')
+        cases.append((f'the move into main in a hookless session gets as far as '
+                      f'its pull request (rc={rc}, '
                       f'{out.strip().splitlines()[-1][:160] if out.strip() else ""!r})',
-                      rc == 0 and 'PROMOTED' in out))
-        got = head_of(work, 'beta')
-        cases.append((f'its merge commit is authored by the declared person, '
-                      f'not git\'s global bot identity (got {got!r})',
+                      'READY FOR MAIN' in out))
+        got = copy_head(work)
+        cases.append((f'the merge commit it makes is authored by the declared '
+                      f'person, not git\'s global bot identity (got {got!r})',
                       got.startswith('Pat Person|pat@example.com|')
-                      and '|Promote pre-staging into beta' in got))
+                      and '|Promote beta into main' in got))
         cases.append((f'and dated in the declared zone (+0530), not the '
                       f'ambient TZ (got {got!r})', '|+0530|Promote' in got))
         lock = head_of(work, 'precedent-promote-lock')
         cases.append((f'the Promote lock commits are authored the same way '
                       f'(got {lock!r})',
                       lock.startswith('Pat Person|pat@example.com|')))
-        ran = mark.read_text(encoding='utf-8') if mark.exists() else ''
-        cases.append((f"Promote's full check ran consumer_shape to a pass in "
-                      f"its linked worktree, in a copy named after the real "
-                      f"checkout (marker: {ran.strip()!r})",
-                      'ran in work' in ran and 'check ran on the batch and '
-                      'passed' in out))
 
         # 2. THE CONTROL: nobody declared, a shared repository.
         work2, _ = _engine_commit_fixture(tmp, 'shared', 'consumer', person_git)
-        run_in(work2, ambient, '--sync-pre-staging')
-        to_pre_staging(work2, 'list.txt', 'c\n', 'another edit')
-        rc, out = run_in(work2, ambient, '--promote')
-        got = head_of(work2, 'beta')
+        to_staging(work2, 'list.txt', 'c\n', 'another edit')
+        rc, out = run_in(work2, ambient, '--promote', '--to', 'main')
+        got = copy_head(work2)
         cases.append((f'control: with nobody declared, the same Promote still '
                       f'authors as git\'s global identity -- the bot this '
                       f'fixture set, so case 1 is not passing by accident '
                       f'(rc={rc}, got {got!r})',
-                      rc == 0 and got.startswith('Claude|noreply@anthropic.com|')))
+                      got.startswith('Claude|noreply@anthropic.com|')))
 
         # 3. An individual source nobody can be read out of: refused.
         work3, _ = _engine_commit_fixture(tmp, 'indiv', 'source', person_git)
@@ -40864,16 +40969,15 @@ def check_engine_commits_state_their_author():
         git(work3, 'add', 'identity.json')
         git(work3, 'commit', '-q', '-m', 'an unreadable declaration')
         git(work3, 'push', '-q', 'origin', 'beta')
-        run_in(work3, ambient, '--sync-pre-staging')
-        to_pre_staging(work3, 'list.txt', 'd\n', 'an edit')
-        before = head_of(work3, 'beta')
-        rc, out = run_in(work3, ambient, '--promote')
+        to_staging(work3, 'list.txt', 'd\n', 'an edit')
+        before = head_of(work3, 'main')
+        rc, out = run_in(work3, ambient, '--promote', '--to', 'main')
         cases.append((f'an individual source with no resolvable author '
                       f'REFUSES the commit and moves nothing (rc={rc}, '
                       f'{out.strip()[-160:]!r})',
                       rc == 1 and 'REFUSED: no commit was made' in out
                       and 'identity.json' in out
-                      and head_of(work3, 'beta') == before))
+                      and head_of(work3, 'main') == before and not copy_head(work3)))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -41107,22 +41211,19 @@ def check_identity_mechanism_check_reaches_a_stubbed_hook():
 
 
 def check_promote_picks_its_step():
-    """Promote picks pre-staging -> staging or staging -> main, and says
-    which before anything else (Morgan, 2026-09-26, strength: decided: it
-    "should decide based on the context and ... what branch we were just
-    working on", and print "Now promoting from pre-staging to staging or now
-    promoting staging to main").
+    """Promote moves staging into main, and says so before anything else
+    (Morgan, 2026-09-26: print "now promoting staging to main"). It has no
+    step into staging (Morgan, 2026-10-17, strength: decided): asked for, it moves nothing and says work reaches
+    staging by Booked.
 
-    The cases that matter: waiting work on pre-staging always goes first
-    when nothing says otherwise; staging moves into main only through a
-    throwaway copy, main itself untouched by the script; the work the
-    session names (--work) decides over the tiers' own order, except that
-    both steps waiting is ambiguous and goes pre-staging first; and nothing
-    waiting prints no "Now promoting" line at all."""
+    The cases that matter: staging moves into main only through a throwaway
+    copy, main itself untouched by the script; the work the session names
+    (--work) must be on staging already; and nothing waiting prints no "Now
+    promoting" line at all."""
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_branches as pb  # is_fix_branch / is_main_copy: new names and old
     import tempfile, json as _json, shutil as _shutil
-    name = 'Promote picks pre-staging->staging or staging->main, and says which'
+    name = 'Promote moves staging into main, and says so first'
     tool = ROOT / 'tools' / 'precedent_branches.py'
     if not tool.exists():
         not_applicable(name, 'tools/precedent_branches.py is absent')
@@ -41161,7 +41262,7 @@ def check_promote_picks_its_step():
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        for b in ('main', 'staging', 'pre-staging'):
+        for b in ('main', 'staging'):
             git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{b}')
 
         def branches(*a):
@@ -41190,19 +41291,20 @@ def check_promote_picks_its_step():
         cases.append(('an unknown --to is refused with the usage line',
                       rc == 2 and 'usage:' in out))
 
-        commit_to('pre-staging', 'one.txt', '1\n')
-        rc, out = branches('--promote')
-        cases.append(('work on pre-staging goes first, and the first line says '
-                      'so in those words', rc == 0 and out.startswith(
-                          'Now promoting from pre-staging to staging')
-                      and 'PROMOTED' in out))
+        commit_to('staging', 'one.txt', '1\n')
+        staging_before = tip('staging')
+        rc, out = branches('--promote', '--to', 'staging')
+        cases.append(('the retired step into staging moves nothing and says work '
+                      'reaches staging by Booked', rc == 0
+                      and 'no step into staging' in out and 'Now promoting' not in out
+                      and tip('staging') == staging_before))
 
         main_before = tip('main')
         rc, out = branches('--promote')
         copies = [r for r in (l.split('\t')[1] for l in git(
             work, 'ls-remote', 'origin', 'refs/heads/*').stdout.splitlines())
             if pb.is_main_copy(r[len('refs/heads/'):])]
-        cases.append(('with pre-staging empty, staging goes into main, said in '
+        cases.append(('staging goes into main, said in '
                       'those words, exiting 3 since main has not moved yet',
                       rc == 3 and out.startswith(
                           'Now promoting from staging to main')
@@ -41263,12 +41365,11 @@ def check_promote_picks_its_step():
         git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
 
         on_staging = commit_to('staging', 'two.txt', '2\n')
-        commit_to('pre-staging', 'three.txt', '3\n')
         seen = set(all_copies())
         rc, out = branches('--promote', '--to', 'main', '--full', '--because', 'test the long way', '--work', on_staging)
         # The long way's first line names the person's words; the step comes
         # next.
-        cases.append(('both steps waiting, and the step named: --to main wins',
+        cases.append(('the step named: --to main, the long way when asked for',
                       rc == 3 and out.startswith('the full route into main, '
                                                  'because the person asked')
                       and out.splitlines()[1].startswith(
@@ -41296,21 +41397,17 @@ def check_promote_picks_its_step():
                       'refused', why != '', why))
         git(work, 'push', '-q', 'origin', ':refs/heads/to-main-20991231T000000-0300')
         rc, out = branches('--promote', '--work', on_staging)
-        cases.append(('both steps waiting and none named is ambiguous: '
-                      'pre-staging into staging, even with the work just done '
-                      'already on staging (Morgan, 2026-09-26)',
-                      rc == 0 and out.startswith(
-                          'Now promoting from pre-staging to staging')
-                      and 'ambiguous' in out))
-        rc, out = branches('--promote', '--work', on_staging)
-        cases.append(('with pre-staging empty again, the work just done on '
-                      'staging goes into main', rc == 3 and out.startswith(
-                          'Now promoting from staging to main')))
-        commit_to('pre-staging', 'four.txt', '4\n')
-        rc, out = branches('--promote', '--work', 'w-pre-staging')
-        cases.append(('work only on pre-staging goes into staging',
-                      rc == 0 and out.startswith(
-                          'Now promoting from pre-staging to staging')))
+        cases.append(('the work just done, on staging, goes into main',
+                      rc == 3 and out.startswith('Now promoting from staging to main')))
+        git(work, 'checkout', '-q', '-B', 'w-feature', 'origin/staging')
+        (work / 'four.txt').write_text('4\n', encoding='utf-8')
+        git(work, 'add', 'four.txt')
+        git(work, 'commit', '-q', '-m', 'not landed')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/w-feature')
+        rc, out = branches('--promote', '--work', 'w-feature')
+        cases.append(('work not on staging yet is not promoted: Book it first',
+                      rc == 0 and 'not on staging yet' in out
+                      and 'Now promoting' not in out))
         rc, out = branches('--promote', '--work', 'no-such-thing')
         cases.append(('a --work it cannot see chooses nothing and says why',
                       rc == 0 and 'is not a branch or commit' in out
@@ -41330,7 +41427,7 @@ def check_empty_commits_are_never_counted():
     Morgan, 2026-09-27 (strength: decided): "let's have the system stop
     describing and/or reporting and/or mentioning empty merges", and the
     branch lines count "the number of commits ahead/behind that made changes
-    to the repo". Every Promote into main leaves merge commits pre-staging
+    to the repo". Every Promote into main leaves merge commits staging
     lacks, so a count by lineage is never zero and never means anything."""
     import tempfile, shutil as _shutil
     name = 'commits that change no file are never counted or reported'
@@ -41359,29 +41456,29 @@ def check_empty_commits_are_never_counted():
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        for b in ('staging', 'pre-staging'):
+        for b in ('main', 'staging'):
             git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{b}')
 
-        # pre-staging gains an empty commit and an empty merge.
-        git(work, 'checkout', '-q', '-b', 'pre-staging')
+        # staging gains an empty commit and an empty merge.
+        git(work, 'checkout', '-q', '-b', 'staging')
         git(work, 'commit', '-q', '--allow-empty', '-m', 'empty')
         git(work, 'checkout', '-q', '-b', 'side', 'HEAD~1')
         git(work, 'commit', '-q', '--allow-empty', '-m', 'side empty')
-        git(work, 'checkout', '-q', 'pre-staging')
+        git(work, 'checkout', '-q', 'staging')
         git(work, 'merge', '-q', '--no-ff', '-m', 'empty merge', 'side')
-        git(work, 'push', '-q', 'origin', 'pre-staging')
+        git(work, 'push', '-q', 'origin', 'staging')
         git(work, 'fetch', '-q', 'origin')
 
-        cases.append(('an empty commit and an empty merge on pre-staging: the '
+        cases.append(('an empty commit and an empty merge on staging: the '
                       'Boildown line counts nothing waiting',
-                      _pg._unpromoted(work, 'staging', out) == 0))
+                      _pg._unpromoted(work, 'main', out) == 0))
         cases.append(('and Promote finds nothing waiting to move',
-                      _pb._new_commits(work, 'origin/staging',
-                                       'origin/pre-staging') == []))
+                      _pb._new_commits(work, 'origin/main',
+                                       'origin/staging') == []))
 
         # A stop with only empty commits unpushed is not blocked.
         hook = ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'
-        git(work, 'checkout', '-q', '-b', 'feature', 'origin/pre-staging')
+        git(work, 'checkout', '-q', '-b', 'feature', 'origin/staging')
         git(work, 'push', '-q', '-u', 'origin', 'feature')
         git(work, 'commit', '-q', '--allow-empty', '-m', 'nothing')
 
@@ -41401,13 +41498,13 @@ def check_empty_commits_are_never_counted():
         cases.append(('one real commit among empty ones: the stop hook blocks '
                       'and says 1, not 3', r.returncode == 2
                       and '1 unpushed commit(s)' in r.stderr))
-        git(work, 'push', '-q', 'origin', 'feature:pre-staging')
+        git(work, 'push', '-q', 'origin', 'feature:staging')
         git(work, 'fetch', '-q', 'origin')
         cases.append(('and the Boildown line counts that one real commit',
-                      _pg._unpromoted(work, 'staging', out) == 1))
+                      _pg._unpromoted(work, 'main', out) == 1))
         cases.append(('Promote sees exactly that one commit',
-                      len(_pb._new_commits(work, 'origin/staging',
-                                           'origin/pre-staging')) == 1))
+                      len(_pb._new_commits(work, 'origin/main',
+                                           'origin/staging')) == 1))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -41417,16 +41514,15 @@ def check_promote_only_and_tier_branches():
 
     `promote_only`, a per-person opt-in: with it on, staging and main take
     work only by promotion. That day five changes reached a practice
-    source's main without passing pre-staging, and nothing refused any of
-    them. The cases that matter: it is OFF unless a person turns it on
+    source's main without passing the tier below it, and nothing refused
+    any of them. The cases that matter: it is OFF unless a person turns it on
     (Morgan asked for it as his own rule, not everyone's), a direct push or
     an off-tier pull request is refused with the way round named, and the
-    promotion routes themselves -- pre-staging into staging, staging into
-    main -- are never refused. An ambiguous base is not refused either,
+    promotion route itself -- staging into main -- is never refused. An ambiguous base is not refused either,
     since two branches at one commit is the normal state right after
     Promote.
 
-    `--ensure-tiers`, the migration step that gives a repository all three
+    `--ensure-tiers`, the migration step that gives a repository both tier
     branches. A repo whose staging tier was main gains a real `staging`
     branch and a `staging_branch` key, and keeps `base_branch` -- which also
     pins a practice source's session clone -- exactly as it was."""
@@ -41474,7 +41570,7 @@ def check_promote_only_and_tier_branches():
         # promote_only means something only where there are tiers to
         # promote through (Morgan, 2026-10-02, strength: decided).
         (work / 'precedent.json').write_text(_json.dumps(
-            {'base_branch': 'main', 'landing_branch': 'pre-staging'}),
+            {'base_branch': 'main', 'landing_branch': 'staging'}),
             encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
@@ -41511,14 +41607,13 @@ def check_promote_only_and_tier_branches():
         person(promote_only=True)
         why = push_refused('origin main') or ''
         cases.append(('on: a push to main is refused, naming the setting and the '
-                      'way round', 'promote_only is on' in why
-                      and 'HEAD:pre-staging' in why and 'Promote' in why, why))
+                      'way round: with no staging branch yet, make one and '
+                      'land there', 'promote_only is on' in why
+                      and '--ensure-tiers --apply' in why and 'Promote' in why, why))
         cases.append(('on: a refspec onto main is refused too',
                       push_refused('origin HEAD:main') is not None))
         cases.append(('on: a push to staging is refused',
                       push_refused('origin staging') is not None))
-        cases.append(('on: a push to pre-staging goes through',
-                      push_refused('origin pre-staging') is None))
         # The first landing (promote-only's first-install exception, Morgan,
         # 2026-10-08): a push into a remote holding no branch at all creates
         # main and goes through; the remote above, which has main, refuses.
@@ -41531,23 +41626,21 @@ def check_promote_only_and_tier_branches():
                       push_refused('nosuchremote main') is not None))
         cases.append(('on: a push to a working branch goes through',
                       push_refused('origin claude/x') is None))
-        cases.append(('on: pre-staging into staging is the promotion route, '
-                      'never refused', merge_refused(['staging'], ['pre-staging']) is None))
         cases.append(('on: staging into main is the promotion route, never refused',
                       merge_refused(['main'], ['staging']) is None))
         # A to-main- copy left behind when staging moved (2026-10-06): the
         # refusal says it is out of date and to make a fresh one, never to
-        # retarget it at pre-staging.
+        # retarget it.
         why = merge_refused(['main'], ['to-main-20261006T090733-0300']) or ''
         cases.append(('on: a stale to-main copy into main is refused as out of '
                       'date, with a fresh Produce as the remedy',
-                      'out of date' in why and 'Never retarget' in why
-                      and 'Retarget it at pre-staging' not in why, why))
+                      'out of date' in why and 'Never retarget' in why, why))
         why = merge_refused(['staging'], ['claude/x']) or ''
-        cases.append(('on: a working branch into staging is refused, saying to '
-                      'retarget at pre-staging', 'Retarget it at pre-staging' in why, why))
-        cases.append(('on: pre-staging straight into main is refused (it skips '
-                      'staging)', merge_refused(['main'], ['pre-staging']) is not None))
+        cases.append(('on: a working branch into staging is refused while there '
+                      'is no staging branch, saying to make one',
+                      '--ensure-tiers --apply' in why, why))
+        cases.append(('on: a working branch straight into main is refused',
+                      merge_refused(['main'], ['claude/x']) is not None))
         # promote-only's red-main exception (Morgan, 2026-10-11, assented):
         # a fix built on main's tip goes straight in while main's own GitHub
         # test is red; green, or not built on main, it is refused as before.
@@ -41583,7 +41676,7 @@ def check_promote_only_and_tier_branches():
             sys.path.pop(0)
         base_tip = git(work, 'rev-parse', 'main').stdout.strip()
         (work / 'precedent.json').write_text(_json.dumps(
-            {'base_branch': 'main', 'landing_branch': 'pre-staging',
+            {'base_branch': 'main', 'landing_branch': 'staging',
              'content_paths': ['content/']}), encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'declare content')
@@ -41612,7 +41705,7 @@ def check_promote_only_and_tier_branches():
                                                str(cfg), head_sha=sha) is not None))
             git(work, 'reset', '-q', '--hard', decl_tip)
             (work / 'precedent.json').write_text(_json.dumps(
-                {'base_branch': 'main', 'landing_branch': 'pre-staging',
+                {'base_branch': 'main', 'landing_branch': 'staging',
                  'content_paths': ['content/', 'notes.md']}), encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'widen content')
             cases.append(('on: widening content_paths in the same change is refused',
@@ -41621,9 +41714,9 @@ def check_promote_only_and_tier_branches():
             git(work, 'push', '-q', '-f', 'origin', f'{base_tip}:refs/heads/main')
             git(work, 'reset', '-q', '--hard', base_tip)
             git(work, 'fetch', '-q', 'origin')
-        cases.append(('on: an ambiguous base (pre-staging and staging at one '
-                      'commit) is not refused',
-                      merge_refused(['pre-staging', 'staging'], ['claude/x']) is None))
+        cases.append(('on: an ambiguous base (a working branch and staging at '
+                      'one commit) is not refused',
+                      merge_refused(['claude/y', 'staging'], ['claude/x']) is None))
         (work / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'main', 'promote_only': False}), encoding='utf-8')
         cases.append(("a repository's own precedent.json overrides the person, "
@@ -41653,14 +41746,13 @@ def check_promote_only_and_tier_branches():
         rc, out = branches('--ensure-tiers')
         cases.append(('report mode on a main-only repo: exit 1, naming what is '
                       'missing, changing nothing',
-                      rc == 1 and 'missing' in out and not tip('staging')
-                      and not tip('pre-staging'), out[-300:]))
+                      rc == 1 and 'missing' in out and not tip('staging'),
+                      out[-300:]))
         rc, out = branches('--ensure-tiers', '--apply')
         data = _json.loads((work / 'precedent.json').read_text(encoding='utf-8'))
-        cases.append(('--apply creates staging on origin at main, and no '
-                      'pre-staging (retired for everyone, 2026-10-14)',
+        cases.append(('--apply creates staging on origin at main',
                       rc == 0 and tip('staging') == tip('main')
-                      and not tip('pre-staging') and bool(tip('main')), out[-300:]))
+                      and bool(tip('main')), out[-300:]))
         cases.append(('--apply writes staging_branch and leaves base_branch on main',
                       data.get('staging_branch') == 'staging'
                       and data.get('base_branch') == 'main'))
@@ -41706,77 +41798,6 @@ def check_promote_only_and_tier_branches():
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
-
-
-def check_promote_leaves_the_retired_old_name_alone():
-    """precedent-beta-v01 was renamed staging on 2026-09-25 and kept in step
-    by every Promote until Morgan retired it on 2026-10-11
-    (todo-2026-09-26-retire-precedent-beta-v01). A Promote now leaves it
-    exactly where it is and says nothing about it, so the branch can be
-    deleted without the next Promote reaching for it."""
-    import tempfile, json as _json, shutil as _shutil
-    name = 'Promote leaves the retired precedent-beta-v01 where it is'
-    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
-        not_applicable(name, 'tools/precedent_branches.py is absent')
-        return
-    cases = []
-    with tempfile.TemporaryDirectory() as td:
-        tmp = pathlib.Path(td)
-        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
-                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
-                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
-                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
-
-        def git(cwd, *a):
-            return subprocess.run(['git', '-C', str(cwd), *a],
-                                  capture_output=True, text=True, env=env)
-        bare = tmp / 'origin.git'
-        git(tmp, 'init', '-q', '--bare', '-b', 'staging', str(bare))
-        work = tmp / 'work'
-        (work / 'tools').mkdir(parents=True)
-        git(tmp, 'init', '-q', '-b', 'staging', str(work))
-        for f in ('precedent_push_check.py', 'precedent_branches.py'):
-            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
-        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
-            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
-        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
-            (work / 'tools' / f'{t}.py').write_text(
-                ('print("precedent_check: 3 passed, 0 violated")\n'
-                 if t == 'precedent_check' else '') + 'pass\n', encoding='utf-8')
-        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'staging'}),
-                                             encoding='utf-8')
-        git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'init')
-        git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        git(work, 'push', '-q', 'origin', 'staging', 'staging:precedent-beta-v01')
-
-        def tip(b):
-            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
-
-        def branches(*a):
-            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
-                               cwd=work, capture_output=True, text=True, env=env)
-            return p.returncode, p.stdout + p.stderr
-
-        def commit_to(branch, path, msg):
-            git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
-            (work / path).write_text(msg, encoding='utf-8')
-            git(work, 'add', path)
-            git(work, 'commit', '-q', '-m', msg)
-            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-
-        branches('--sync-pre-staging')
-        old = tip('precedent-beta-v01')
-        commit_to('pre-staging', 'new.txt', 'window work')
-        rc, out = branches('--promote')
-        cases.append(('Promote moves staging and leaves the old name where it was',
-                      rc == 0 and tip('staging') != old
-                      and tip('precedent-beta-v01') == old
-                      and 'precedent-beta-v01' not in out))
-    failed = [n for n, ok in cases if not ok]
-    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def _gh_if(expr, event_name, private, head_ref=''):
@@ -41858,7 +41879,7 @@ def check_main_test_minutes_rule():
     # (1) Every event shape, against the rule's first half: never off main.
     for private in (False, True):
         kind = 'private' if private else 'public'
-        for b in ('pre-staging', 'staging', 'claude/feature-x'):
+        for b in ('staging', 'claude/feature-x'):
             cases.append((f'{kind}: a push to {b} starts no runner',
                           not starts('push', b, private)))
             cases.append((f'{kind}: a pull request into {b} starts no runner',
@@ -42040,7 +42061,6 @@ def check_main_test_minutes_rule():
         os.environ.update(env)
         pb2 = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(pb2)
-        pb2.sync_pre_staging = lambda root, say=print, check=False, **_kw: True
         pb2._check = lambda root, wt, tier, dest=None: (True, 'this exact tree already passed')
         pb2._slug = lambda root: 'o/r'
         pb2.USER_CONFIG_ENV = '_PB_TEST_UNUSED'
@@ -42195,7 +42215,7 @@ def check_main_test_repo_setting():
         RAW, REN = raw.decode('utf-8'), rendered.decode('utf-8')
         for private in (True, False):
             kind = 'private' if private else 'public'
-            for b in ('pre-staging', 'staging', 'claude/feature-x'):
+            for b in ('staging', 'claude/feature-x'):
                 cases.append((f'"always", {kind}: a push to {b} still starts no runner',
                               not starts(REN, 'push', b, private)))
         cases.append(('"always", private: a push to main runs',
@@ -42832,807 +42852,6 @@ def _write_generator_fixture(work):
         encoding='utf-8')
     if not (work / 'src.txt').exists():
         (work / 'src.txt').write_text('a\nb\nc\n', encoding='utf-8')
-
-
-def check_sync_copies_work_from_above_once_checked():
-    """What reached staging or main without climbing through pre-staging --
-    a workflow's bot commit on main, a web edit, a direct push -- is copied
-    down into pre-staging, and only once its tier's checks have passed
-    (spec/BRANCH_TIERS_PLAN.md, holes 4 and 5; Morgan, 2026-09-26).
-
-    The failures that matter: a copy of work that failed its checks, which
-    spreads it; a silent refusal, which hides it; and noise about the two
-    merge commits every ordinary pull request into main leaves behind, which
-    trains a person to ignore the note that one day matters."""
-    import tempfile, json as _json, shutil as _shutil
-    name = 'the sync copies work from staging or main down once it has its checks'
-    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
-        not_applicable(name, 'tools/precedent_branches.py is absent')
-        return
-    cases = []
-    with tempfile.TemporaryDirectory() as td:
-        tmp = pathlib.Path(td)
-        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
-                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
-                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
-                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
-        env.pop('PRECEDENT_NO_SHARED_PASS', None)
-
-        def git(cwd, *a):
-            return subprocess.run(['git', '-C', str(cwd), *a],
-                                  capture_output=True, text=True, env=env)
-
-        def make(label, base, workflows=False):
-            bare = tmp / f'{label}.git'
-            git(tmp, 'init', '-q', '--bare', '-b', base, str(bare))
-            work = tmp / label
-            (work / 'tools').mkdir(parents=True)
-            git(tmp, 'init', '-q', '-b', base, str(work))
-            for f in ('precedent_push_check.py', 'precedent_branches.py'):
-                _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
-            (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
-                _json.dumps({'kind': 'consumer'}), encoding='utf-8')
-            for t in ('precedent_check', 'leak_gate', 'doc_lint'):
-                (work / 'tools' / f'{t}.py').write_text(
-                    'import pathlib, sys\n'
-                    'f = pathlib.Path("FAIL")\n'
-                    'body = f.read_text() if f.exists() else ""\n'
-                    + ('print("precedent_check: 3 passed, 0 violated")\n'
-                       'name = ("ci_workflows" if "ci-workflow-approved" in '
-                       'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
-                       '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "rename_links" if '
-                   '"rename-updates-links" in sys.argv else '
-                   '"generated_files" if '
-                   '"generated-files-registered" in '
-                       'sys.argv else "precedent_check")\n'
-                       if t == 'precedent_check' else f'name = "{t}"\n')
-                    + 'sys.exit(1 if name in body else 0)\n', encoding='utf-8')
-            if workflows:
-                (work / '.github' / 'workflows').mkdir(parents=True)
-                (work / '.github' / 'workflows' / 'light-check.yml').write_text(
-                    'name: Light check\non:\n  pull_request:\n    branches: [main]\n'
-                    '  workflow_dispatch:\njobs: {}\n', encoding='utf-8')
-            (work / 'precedent.json').write_text(_json.dumps({'base_branch': base}),
-                                                 encoding='utf-8')
-            (work / 'list.txt').write_text('a\nb\nc\n', encoding='utf-8')
-            git(work, 'add', '-A')
-            git(work, 'commit', '-q', '-m', 'init')
-            git(work, 'remote', 'add', 'origin', f'file://{bare}')
-            refs = [base] + ([f'{base}:main'] if base != 'main' else [])
-            git(work, 'push', '-q', 'origin', *refs)
-            return work
-
-        def tools(work):
-            def branches(*a):
-                p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
-                                   cwd=work, capture_output=True, text=True, env=env)
-                return p.returncode, p.stdout + p.stderr
-
-            def tip(b):
-                return git(work, 'ls-remote', 'origin',
-                           f'refs/heads/{b}').stdout.split('\t')[0]
-
-            def commit_to(branch, path, text, msg):
-                git(work, 'fetch', '-q', 'origin')
-                git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
-                (work / path).write_text(text, encoding='utf-8')
-                git(work, 'add', path)
-                git(work, 'commit', '-q', '-m', msg)
-                git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-
-            def has(upper):
-                git(work, 'fetch', '-q', 'origin')
-                return git(work, 'merge-base', '--is-ancestor', f'origin/{upper}',
-                           'origin/pre-staging').returncode == 0
-            return branches, tip, commit_to, has
-
-        work = make('tiers', 'staging')
-        branches, tip, commit_to, has = tools(work)
-        branches('--sync-pre-staging')
-
-        # The ordinary route: pre-staging -> staging -> main by merge commits.
-        # Main ends up ahead only by merges whose files pre-staging has.
-        commit_to('pre-staging', 'list.txt', 'A\nb\nc\n', 'ordinary work')
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'st', 'origin/staging')
-        git(work, 'merge', '-q', '--no-ff', '-m', 'Promote', 'origin/pre-staging')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
-        git(work, 'checkout', '-q', '-B', 'mn', 'origin/main')
-        git(work, 'merge', '-q', '--no-ff', '-m', 'Merge pull request', 'st')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
-        # ...and pre-staging moves on past main, so the two tips differ even
-        # though main brings nothing: a plain diff of the tips calls that
-        # drift, and it is not.
-        commit_to('pre-staging', 'later.txt', 'later\n', 'later window work')
-        before = tip('pre-staging')
-        rc, report = branches('--drift')
-        rc2, out = branches('--sync-pre-staging', '--check')
-        cases.append(('merge commits that change no file are not drift: no note, '
-                      'no check, no copy', rc == 0 and report.strip() == ''
-                      and rc2 == 0 and out.strip() == ''
-                      and tip('pre-staging') == before))
-
-        # A bot commit straight onto main, with no check on record. Main's
-        # work is never copied by the sync (D10, Morgan 2026-10-03): it comes
-        # down only composed and fully checked in a Promote into staging --
-        # check_promote_composes_main_and_moves_both_tiers.
-        commit_to('main', 'state.json', '{"n": 1}\n', 'bot: weekly sync')
-        rc, report = branches('--drift')
-        cases.append(('the session-start note names main, the count, and '
-                      '"unchecked", and names the Promote into staging that '
-                      'brings it in', 'origin/main is 1 commit(s) ahead' in report
-                      and '(unchecked)' in report
-                      and '--promote --to staging' in report
-                      and '--sync-pre-staging' not in report
-                      and 'origin/staging' not in report))
-        before = tip('pre-staging')
-        rc, out = branches('--sync-pre-staging')
-        rc2, out2 = branches('--sync-pre-staging', '--check')
-        cases.append(('the sync leaves main\'s work for that Promote, with or '
-                      'without --check, and says so',
-                      rc == 0 and rc2 == 0 and 'LEFT FOR THE NEXT PROMOTE' in out
-                      and 'LEFT FOR THE NEXT PROMOTE' in out2
-                      and not has('main') and tip('pre-staging') == before))
-
-        # A commit whose tree has a full-check receipt on origin.
-        commit_to('main', 'state.json', '{"n": 1.5}\n', 'bot: a checked commit')
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '--detach', 'origin/main')
-        subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--tier', 'full',
-                        '--because', 'harness case'],
-                       cwd=work, capture_output=True, text=True, env=env)
-        rc, report = branches('--drift')
-        cases.append(('a commit whose tree has a published full-check receipt '
-                      'reads "(checked)"', '(checked)' in report
-                      and '--check' not in report))
-        rc, out = branches('--sync-pre-staging')
-        cases.append(('...and even checked, main\'s work is left for the Promote: '
-                      'pre-staging takes only compositions that passed',
-                      rc == 0 and 'LEFT FOR THE NEXT PROMOTE' in out
-                      and not has('main')))
-
-        # Both sides changed a GENERATED file (2026-10-03: two tiers each
-        # rebuilt spec/PREFORK_AUDIT.html): rebuilt from the merged sources by
-        # its own generator, never one side taken. Staging's direct push is
-        # the upper side here; the Promote's composition with main is
-        # check_promote_composes_main_and_moves_both_tiers's.
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'gen', 'origin/pre-staging')
-        git(work, 'merge', '-q', '--no-ff', '-m', 'level the two', 'origin/staging')
-        _write_generator_fixture(work)
-        subprocess.run([sys.executable, 'tools/build_todo_index.py'], cwd=work, env=env)
-        git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'a generated file')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging',
-            'HEAD:refs/heads/staging')
-        for branch, text in (('pre-staging', 'x\nb\nc\n'), ('staging', 'a\nb\nz\n')):
-            git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', f'g-{branch}', f'origin/{branch}')
-            (work / 'src.txt').write_text(text, encoding='utf-8')
-            subprocess.run([sys.executable, 'tools/build_todo_index.py'], cwd=work, env=env)
-            git(work, 'add', '-A')
-            git(work, 'commit', '-q', '-m', f'{branch} edits the source and rebuilds')
-            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-        rc, out = branches('--sync-pre-staging', '--check')
-        git(work, 'fetch', '-q', 'origin')
-        merged = git(work, 'show', 'origin/pre-staging:OUT.md').stdout
-        cases.append(('a conflict only in a generated file is rebuilt from the '
-                      'merged sources, not stopped and not one side taken',
-                      rc == 0 and has('staging') and 'rebuilt from the merged sources' in out
-                      and 'X\nB\nZ' in merged and '<<<<<<<' not in merged))
-        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
-        cases.append(('no worktree is left behind', len(wts) == 1))
-
-        # A repository whose staging tier IS main: main is the staging tier,
-        # so it gets the staging tier's check -- no GitHub test -- even with
-        # a pull-request workflow installed.
-        one = make('one', 'main', workflows=True)
-        branches1, tip1, commit_to1, has1 = tools(one)
-        branches1('--sync-pre-staging')
-        commit_to1('main', 'state.json', '{"n": 1}\n', 'bot commit')
-        rc, out = branches1('--sync-pre-staging', '--check')
-        cases.append(('where main is the staging tier, work on it is copied down '
-                      'on the local check alone', rc == 0 and has1('main')
-                      and 'GitHub test' not in out))
-
-        # No GitHub test installed, main a tier of its own: said out loud.
-        two = make('two', 'staging')
-        branches2, tip2, commit_to2, has2 = tools(two)
-        branches2('--sync-pre-staging')
-        commit_to2('main', 'state.json', '{"n": 1}\n', 'bot commit')
-        import importlib.util as _ilu
-        sys.path.insert(0, str(two / 'tools'))
-        try:
-            # A private copy under its own name: the stand-ins patched onto it
-            # below must never reach a module another check imported.
-            spec = _ilu.spec_from_file_location('_pb_drift_fixture',
-                                                two / 'tools' / 'precedent_branches.py')
-            pb = _ilu.module_from_spec(spec)
-            spec.loader.exec_module(pb)
-            cases.append(("a pull-request workflow into main with a button is read "
-                          "as main's GitHub test, and dispatchable",
-                          pb.github_tests(one, 'HEAD')
-                          == [('.github/workflows/light-check.yml', True)]))
-            wfd = two / '.github' / 'workflows'
-            wfd.mkdir(parents=True)
-            (wfd / 'x.yml').write_text(
-                'name: X\non:\n  # pull_request:\n  #   branches: [main]\n'
-                '  push:\n    branches: [main]\n  workflow_dispatch:\njobs: {}\n',
-                encoding='utf-8')
-            git(two, 'add', '-A')
-            git(two, 'commit', '-q', '-m', 'a workflow with its pull_request trigger commented out')
-            cases.append(('a commented-out pull_request trigger is not a GitHub test',
-                          pb.github_tests(two, 'HEAD') == []))
-
-            # A `paths:` filter (2026-10-04): a Produce whose diff did not touch
-            # a docs check's paths never ran it, rightly, and the wait said
-            # "Do not merge" for good. Required only when the diff reaches it.
-            (wfd / 'docs.yml').write_text(
-                'name: Docs\non:\n  pull_request:\n    branches: [main]\n    paths:\n'
-                '      - "docs/**"\n      - README.md\n  workflow_dispatch:\njobs: {}\n',
-                encoding='utf-8')
-            (wfd / 'lint.yml').write_text(
-                'name: Lint\non:\n  pull_request:\n    branches:\n      - main\n'
-                '    paths-ignore: [\'notes/**\']\njobs: {}\n', encoding='utf-8')
-            (two / 'tools' / 'touched.py').write_text('x = 1\n', encoding='utf-8')
-            git(two, 'add', '-A')
-            git(two, 'commit', '-q', '-m', 'two path-filtered workflows, a tool change')
-            got = [p for p, _ in pb.github_tests(two, 'HEAD')]
-            cases.append(('a workflow whose paths: the diff into main does not reach '
-                          'is not required; one whose paths-ignore: it gets past is, '
-                          'with its branches given as a list',
-                          '.github/workflows/docs.yml' not in got
-                          and '.github/workflows/lint.yml' in got))
-            (two / 'README.md').write_text('changed\n', encoding='utf-8')
-            git(two, 'add', '-A')
-            git(two, 'commit', '-q', '-m', 'README')
-            got = [p for p, _ in pb.github_tests(two, 'HEAD')]
-            cases.append(('CONTROL: once the diff touches one of its paths, it is '
-                          'required', '.github/workflows/docs.yml' in got))
-
-            # Merged first, waited after (2026-10-13): once main carries the
-            # Produce's copy, the copy's own diff against the main it merged
-            # onto still decides, never an empty diff from main's new tip.
-            git(two, 'fetch', '-q', 'origin')
-            here = git(two, 'rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
-            head = git(two, 'rev-parse', 'HEAD').stdout.strip()
-            main_was = git(two, 'rev-parse', 'origin/main').stdout.strip()
-            with_wf = git(two, 'rev-parse', 'HEAD~1').stdout.strip()   # the two workflows
-            def merged_copy(fname):
-                git(two, 'push', '-q', '-f', 'origin', f'{with_wf}:refs/heads/main')
-                git(two, 'checkout', '-q', '-B', 'w-side', with_wf)
-                (two / fname).parent.mkdir(parents=True, exist_ok=True)
-                (two / fname).write_text('side\n', encoding='utf-8')
-                git(two, 'add', '-A')
-                git(two, 'commit', '-q', '-m', f'side touches {fname}')
-                git(two, 'checkout', '-q', '-B', 'w-copy', with_wf)
-                git(two, 'merge', '-q', '--no-ff', '-m', 'copy: side into main', 'w-side')
-                copy = git(two, 'rev-parse', 'HEAD').stdout.strip()
-                git(two, 'push', '-q', '-f', 'origin', 'HEAD:refs/heads/main')
-                return copy
-            try:
-                copy = merged_copy('tools/other.py')
-                got = [p for p, _ in pb.github_tests(two, copy)]
-                cases.append(('with main already carrying the copy, a workflow whose '
-                              'paths: the copy\'s own diff misses is still not required',
-                              '.github/workflows/docs.yml' not in got
-                              and '.github/workflows/lint.yml' in got))
-                copy = merged_copy('docs/page.md')
-                got = [p for p, _ in pb.github_tests(two, copy)]
-                cases.append(('CONTROL: ...and one the copy\'s diff reaches is still '
-                              'required, though main\'s tip now holds it',
-                              '.github/workflows/docs.yml' in got))
-            finally:
-                git(two, 'push', '-q', '-f', 'origin', f'{main_was}:refs/heads/main')
-                git(two, 'fetch', '-q', 'origin')
-                git(two, 'checkout', '-q', *(['--detach', head] if here == 'HEAD'
-                                             else ['-B', here, head]))
-            git(two, 'reset', '-q', '--hard', 'HEAD~2')
-            said = []
-            saved = dict(os.environ)
-            os.environ.update({k: v for k, v in env.items()
-                               if k.startswith(('GIT_', 'PRECEDENT_'))})
-            try:
-                git(two, 'fetch', '-q', 'origin')
-                ok, detail = pb._check_tier(two, 'main', tip2('main'), said.append)
-            finally:
-                os.environ.clear()
-                os.environ.update(saved)
-            cases.append(('with no GitHub test installed, main gets the local check '
-                          'and the detail says there is no GitHub test',
-                          ok and 'no GitHub test is installed' in detail))
-
-            # main's GitHub test, read and started through a stand-in for
-            # github_budget.py -- no request leaves this process.
-            class GH:
-                def __init__(self, runs, pulls=(), pr_runs=()):
-                    self.runs, self.pulls, self.pr_runs = list(runs), list(pulls), list(pr_runs)
-                    self.posted = []
-
-                def call(self, path, cache=True):
-                    if path == 'repos/o/r':
-                        return {'full_name': 'o/r'}, None
-                    if '/pulls' in path:
-                        return self.pulls, None
-                    if 'head_sha=HEAD' in path:
-                        return {'workflow_runs': self.pr_runs}, None
-                    return {'workflow_runs': self.runs}, None
-
-                def post(self, path, payload):
-                    self.posted.append((path, payload))
-                    self.runs.append({'path': '.github/workflows/light-check.yml',
-                                      'status': 'completed', 'conclusion': 'success',
-                                      'created_at': '2026-09-26T12:00:00Z'})
-                    return True, None
-            tests = [('.github/workflows/light-check.yml', True)]
-            pb._slug = lambda root: 'o/r'
-            ok_run = {'path': tests[0][0], 'status': 'completed', 'conclusion': 'success',
-                      'created_at': '2026-09-26T10:00:00Z'}
-            st, why = pb.github_test_state(two, 'SHA', tests, GH([]))
-            cases.append(('no run on the commit or its pull request reads "none"',
-                          st == 'none'))
-
-            # 2026-10-04: after a rename, the OLD name's run list answered with
-            # no runs and no error, and this said "never ran" on a test that
-            # had passed. Asked under the name GitHub gives now, it reads the
-            # run; when GitHub cannot name the repository, it is unknown.
-            class RenamedGH(GH):
-                def __init__(self, runs, named=True):
-                    super().__init__(runs)
-                    self.named = named
-
-                def call(self, path, cache=True):
-                    if path == 'repos/old/r':
-                        return ({'full_name': 'new/r'}, None) if self.named \
-                            else (None, 'HTTP 404')
-                    if path.startswith('repos/old/r/'):
-                        return ({'workflow_runs': []} if 'actions' in path else []), None
-                    return super().call(path, cache)
-            pb._slug = lambda root: 'old/r'
-            pb._CURRENT_SLUG.clear()
-            st, why = pb.github_test_state(two, 'SHA', tests, RenamedGH([ok_run]))
-            cases.append(('a repository renamed since origin was set is asked under '
-                          'its new name, and the old one is said',
-                          st == 'passed' and 'new/r' in why and 'old name' in why))
-            pb._CURRENT_SLUG.clear()
-            st, why = pb.github_test_state(two, 'SHA', tests, RenamedGH([ok_run], named=False))
-            cases.append(('when GitHub cannot name the repository, no run reads '
-                          '"unknown", never "none"', st == 'unknown'))
-            pb._slug = lambda root: 'o/r'
-            pb._CURRENT_SLUG.clear()
-            st, why = pb.github_test_state(two, 'SHA', tests, GH(
-                [], pulls=[{'number': 7, 'base': {'ref': 'main'},
-                            'head': {'sha': 'HEAD'}}], pr_runs=[ok_run]))
-            cases.append(('a pull-request run on the head that brought the commit '
-                          'in counts, and says which pull request',
-                          st == 'passed' and 'pull request #7' in why))
-            st, why = pb.github_test_state(two, 'SHA', tests, GH(
-                [dict(ok_run, conclusion='failure', html_url='U')]))
-            cases.append(('a failed run reads "failed", with its link', st == 'failed'
-                          and 'U' in why))
-
-            # 2026-09-30: the run list FILTERED by head_sha stayed empty for a
-            # whole wait while the test ran; the unfiltered list had it.
-            class LaggingGH(GH):
-                def call(self, path, cache=True):
-                    if 'head_sha=' in path:
-                        return {'workflow_runs': []}, None
-                    return super().call(path, cache)
-            going = dict(ok_run, status='in_progress', conclusion=None,
-                         head_sha='SHA')
-            st, why = pb.github_test_state(two, 'SHA', tests, LaggingGH([going]))
-            cases.append(('a run the filtered list leaves out, but the recent '
-                          'runs show on this commit, reads "running", not '
-                          '"none"', st == 'running'))
-            other = dict(ok_run, head_sha='SOMETHING-ELSE')
-            st, why = pb.github_test_state(two, 'SHA', tests, LaggingGH([other]))
-            cases.append(('...while a recent run on another commit does not '
-                          'count', st == 'none'))
-            gh = GH([])
-            pb.GITHUB_POLL_SECONDS = 0
-            pb._remote_tip = lambda root, branch: 'SHA'
-            pb._check = lambda root, wt, tier, dest=None: (True, 'this exact tree already passed')
-            pb._Worktree = type('W', (), {'__init__': lambda s, *a: None,
-                                          '__enter__': lambda s: None,
-                                          '__exit__': lambda s, *e: False})
-            pb.github_tests = lambda root, sha: tests
-            said = []
-            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh)
-            cases.append(('a commit with no GitHub test run gets one started by its '
-                          'workflow_dispatch trigger on main, and passes on its result',
-                          ok and gh.posted and gh.posted[0][1] == {'ref': 'main'}
-                          and gh.posted[0][0].endswith('/light-check.yml/dispatches')
-                          and any('started the GitHub test' in s for s in said)))
-            gh = GH([])
-            pb.github_tests = lambda root, sha: [(tests[0][0], False)]
-            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh)
-            cases.append(('a GitHub test with no workflow_dispatch trigger cannot be '
-                          'started, and that holds the copy and is said',
-                          not ok and not gh.posted and 'no workflow_dispatch' in detail))
-
-            # A Produce refuses while main's own test is failing, and lets a
-            # passed or absent one through (D10).
-            failed = dict(ok_run, conclusion='failure', html_url='U')
-            held = pb.main_test_holds_produce(two, said.append, GH([failed]))
-            cases.append(('a Produce is held while main\'s own GitHub test is failing',
-                          bool(held) and 'failing' in held and 'U' in held))
-            cases.append(('...and goes ahead once it passed, or where none ran',
-                          pb.main_test_holds_produce(two, said.append, GH([ok_run])) is None
-                          and pb.main_test_holds_produce(two, said.append, GH([])) is None))
-            # ...but not while staging already carries main's failing tip:
-            # that Produce is what repairs main (Morgan, 2026-10-03).
-            import types as _types
-            real_run = pb._run
-            pb._run = lambda r, *a, **k: (
-                _types.SimpleNamespace(returncode=0, stdout='', stderr='')
-                if a[:2] == ('merge-base', '--is-ancestor') else real_run(r, *a, **k))
-            said = []
-            real_receipt = pb._receipt
-            try:
-                pb._receipt = lambda root, sha: None
-                held3 = pb.main_test_holds_produce(two, said.append, GH([failed]))
-                pb._receipt = lambda root, sha: {'at': 'now'}
-                held2 = pb.main_test_holds_produce(two, said.append, GH([failed]))
-            finally:
-                pb._run, pb._receipt = real_run, real_receipt
-            cases.append(('a failing main whose tip staging carries, on a staging tip '
-                          'with no full check on record, still holds the Produce -- '
-                          'checked first, never taken on trust',
-                          bool(held3) and 'no full local check on record' in held3
-                          and 'Debut first' in held3))
-            cases.append(('...and once that tip has passed the full check, the '
-                          'Produce that repairs main goes ahead, and says so',
-                          held2 is None and any('this Produce goes ahead' in x for x in said)))
-            cases.append(('...while one staging does not carry yet still holds it, '
-                          'naming the Debut', bool(held) and 'Debut first' in held))
-
-            # --wait-main-test: the wait a Promote into main hands the session.
-            pb.github_tests = lambda root, sha: tests
-            said = []
-            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([ok_run]))
-            cases.append(('--wait-main-test exits 0 and says PASSED once the '
-                          'GitHub test passed', rc == 0 and 'PASSED' in said[-1]))
-            said = []
-            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH(
-                [dict(ok_run, conclusion='failure', html_url='U')]))
-            cases.append(('--wait-main-test exits 1 and says "Do not merge" on a '
-                          'failed test', rc == 1 and 'Do not merge' in said[-1]))
-            pb.GITHUB_START_WAIT_SECONDS = 0
-            said = []
-            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([]))
-            cases.append(('--wait-main-test stops on a test that never started '
-                          'rather than waiting the full half hour',
-                          rc == 1 and 'NONE' in said[-1]))
-            pb.github_tests = lambda root, sha: []
-            said = []
-            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([]))
-            cases.append(('--wait-main-test with no GitHub test installed exits 0 '
-                          'and says so', rc == 0 and 'no GitHub test' in said[-1]))
-        finally:
-            sys.path.pop(0)
-    failed = [n for n, ok in cases if not ok]
-    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
-
-
-def check_promote_composes_main_and_moves_both_tiers():
-    """The Promote into staging -- the ladder's Debut -- composes one tree:
-    staging, then a fix branch it is handed, then work made directly on main,
-    then pre-staging; rebuilds what main left stale; runs the full check on
-    it once; and only then moves staging AND pre-staging to that commit
-    (spec/LADDER_OPT_IN_PLAN.md D10, Morgan 2026-10-03, strength: decided).
-
-    The failures that matter: a tier moving on a tree that failed, or one
-    tier moving without the other; main's work left out, or taken into
-    pre-staging unchecked; a failure or conflict that ends with nowhere to
-    fix it; the fix route not finishing; a generator run that is not safe to
-    run, or a rebuild that churns every render's stamp."""
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_branches as pb  # is_fix_branch / is_main_copy: new names and old
-    import tempfile, json as _json, shutil as _shutil
-    name = 'the Promote into staging composes main and pre-staging, checks once, moves both'
-    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
-        not_applicable(name, 'tools/precedent_branches.py is absent')
-        return
-    cases = []
-    with tempfile.TemporaryDirectory() as td:
-        tmp = pathlib.Path(td)
-        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
-                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
-                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
-                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
-        env.pop('PRECEDENT_NO_SHARED_PASS', None)
-
-        def git(cwd, *a):
-            return subprocess.run(['git', '-C', str(cwd), *a],
-                                  capture_output=True, text=True, env=env)
-
-        bare = tmp / 'origin.git'
-        git(tmp, 'init', '-q', '--bare', '-b', 'staging', str(bare))
-        work = tmp / 'work'
-        (work / 'tools').mkdir(parents=True)
-        git(tmp, 'init', '-q', '-b', 'staging', str(work))
-        for f in ('precedent_push_check.py', 'precedent_branches.py'):
-            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
-        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
-            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
-        # Stubs: each fails when the FAIL file names it; precedent_check also
-        # counts its full runs, and runs PROMOTE_RACE mid-check.
-        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
-            (work / 'tools' / f'{t}.py').write_text(
-                'import os, pathlib, subprocess, sys\n'
-                'f = pathlib.Path("FAIL")\n'
-                'body = f.read_text() if f.exists() else ""\n'
-                + ('print("precedent_check: 3 passed, 0 violated")\n'
-                   'name = ("ci_workflows" if "ci-workflow-approved" in '
-                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
-                   '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "rename_links" if '
-                   '"rename-updates-links" in sys.argv else '
-                   '"generated_files" if '
-                   '"generated-files-registered" in '
-                   'sys.argv else "changed_practice" if "--changed-files-only" '
-                   'in sys.argv else "precedent_check")\n'
-                   'if name == "precedent_check" and os.environ.get("RUNS"):\n'
-                   '    open(os.environ["RUNS"], "a").write("run\\n")\n'
-                   'if os.environ.get("PROMOTE_RACE"):\n'
-                   '    subprocess.run(os.environ["PROMOTE_RACE"], shell=True)\n'
-                   if t == 'precedent_check' else f'name = "{t}"\n')
-                + 'sys.exit(1 if name in body else 0)\n', encoding='utf-8')
-        _write_generator_fixture(work)
-        # A render whose generator writes the time it ran: rebuilding it
-        # changes that line and nothing else.
-        (work / 'tools' / 'doc_html.py').write_text(
-            'import datetime, pathlib\n'
-            'now = datetime.datetime.now().isoformat()\n'
-            'pathlib.Path("PAGE.html").write_text('
-            '"<h1>Page</h1>\\n<time class=\\"renderstamp\\" datetime=\\"" + now'
-            ' + "\\">x</time>\\n" + pathlib.Path("src.txt").read_text())\n',
-            encoding='utf-8')
-        # A file whose header names a generator that is NOT safe to run bare:
-        # running it leaves a marker, which must never appear.
-        ran_very_deep = tmp / 'RAN_VERY_DEEP'
-        (work / 'tools' / 'very_deep_check.py').write_text(
-            f'import pathlib\npathlib.Path({str(ran_very_deep)!r}).write_text("x")\n',
-            encoding='utf-8')
-        (work / 'STALE.md').write_text(
-            '---\ngenerated_by: tools/very_deep_check.py\n---\nold\n', encoding='utf-8')
-        (work / '.gitignore').write_text('__pycache__/\n', encoding='utf-8')
-        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'staging'}),
-                                             encoding='utf-8')
-        (work / 'list.txt').write_text('a\nb\nc\n', encoding='utf-8')
-        for tool in ('build_todo_index', 'doc_html'):
-            subprocess.run([sys.executable, f'tools/{tool}.py'], cwd=work, env=env)
-        git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'init')
-        git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        git(work, 'push', '-q', 'origin', 'staging', 'staging:main')
-        runs = tmp / 'runs'
-
-        def branches(*a, extra=None):
-            runs.write_text('')
-            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
-                               cwd=work, capture_output=True, text=True,
-                               env=dict(env, RUNS=str(runs), **(extra or {})))
-            return p.returncode, p.stdout + p.stderr
-
-        def full_runs():
-            return runs.read_text().count('run')
-
-        def tip(b):
-            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
-
-        def show(b, path):
-            git(work, 'fetch', '-q', 'origin')
-            return git(work, 'show', f'origin/{b}:{path}').stdout
-
-        def commit_to(branch, files, msg):
-            git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
-            for path, text in files.items():
-                (work / path).write_text(text, encoding='utf-8')
-            git(work, 'add', '-A')
-            git(work, 'commit', '-q', '-m', msg)
-            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-            return git(work, 'rev-parse', 'HEAD').stdout.strip()
-
-        def on(sha, branch):
-            git(work, 'fetch', '-q', 'origin')
-            return git(work, 'merge-base', '--is-ancestor', sha,
-                       f'origin/{branch}').returncode == 0
-
-        def fixes():
-            # Local since 2026-10-06: a refused Promote leaves its fix branch
-            # in the clone, and only a pushed fix puts it on origin.
-            return sorted(b for b in git(work, 'for-each-ref', '--format=%(refname:short)',
-                                         'refs/heads/').stdout.split()
-                          if pb.is_fix_branch(b))
-
-        def fixes_on_origin():
-            return sorted(b for b in (l.split()[-1][len('refs/heads/'):] for l in git(
-                work, 'ls-remote', 'origin', 'refs/heads/*'
-            ).stdout.splitlines()) if pb.is_fix_branch(b))
-
-        def on_local(sha, branch):
-            return git(work, 'merge-base', '--is-ancestor', sha,
-                       f'refs/heads/{branch}').returncode == 0
-
-        def level():
-            return tip('staging') == tip('pre-staging')
-
-        branches('--sync-pre-staging')
-
-        # 1. The ordinary case with main's direct work: one composition, one
-        # check, both tiers to the same commit, main's work in it.
-        own = commit_to('pre-staging', {'mine.txt': 'mine\n'}, 'ladder work')
-        bot = commit_to('main', {'state.json': '{"n": 1}\n'}, 'bot: made on main')
-        rc, out = branches('--promote', '--to', 'staging')
-        subjects = git(work, 'log', '--format=%s', 'origin/staging', '-4').stdout
-        cases.append(('main\'s direct work and pre-staging\'s are composed and '
-                      'both tiers move to the same commit',
-                      rc == 0 and level() and on(bot, 'staging') and on(own, 'staging')
-                      and 'BROUGHT IN 1 commit(s) made directly on main' in out
-                      and 'PROMOTED 1 commit(s)' in out))
-        cases.append(('...main first, then pre-staging, each by a merge commit, '
-                      'checked once', 'Bring main into staging' in subjects
-                      and subjects.startswith('Promote pre-staging into staging')
-                      and full_runs() == 1))
-        cases.append(('...and a generator that is not safe to run bare is never '
-                      'run', not ran_very_deep.exists()))
-        cases.append(('...and a render that only changed its build stamp is left '
-                      'alone', 'Rebuild generated files' not in subjects
-                      and 'REBUILT' not in out))
-
-        # 2. Main edits a source and does not rebuild what is generated from
-        # it -- the commonest off-ladder slip. The Promote rebuilds it.
-        commit_to('main', {'src.txt': 'a\nb\nm\n'}, 'edit a source on main, no rebuild')
-        commit_to('pre-staging', {'more.txt': 'more\n'}, 'more ladder work')
-        rc, out = branches('--promote', '--to', 'staging')
-        cases.append(('what main left stale is rebuilt before the check, and said',
-                      rc == 0 and level() and 'REBUILT' in out and 'OUT.md' in out
-                      and 'A\nB\nM' in show('staging', 'OUT.md')
-                      and 'a\nb\nm' in show('staging', 'PAGE.html')))
-
-        # 3. Main breaks a check. Neither tier moves; the composition goes to
-        # a fix branch; the report says main brought it.
-        s0, p0 = tip('staging'), tip('pre-staging')
-        commit_to('main', {'FAIL': 'precedent_check'}, 'a web edit that breaks a check')
-        commit_to('pre-staging', {'third.txt': '3\n'}, 'third ladder work')
-        p1 = tip('pre-staging')
-        rc, out = branches('--promote', '--to', 'staging')
-        f = fixes() or ['no-fix-branch']
-        cases.append(('a composition failing the full check moves neither tier',
-                      rc == 1 and 'PROMOTE NOT FINISHED' in out
-                      and tip('staging') == s0 and tip('pre-staging') == p1))
-        cases.append(('...puts it on a LOCAL fix branch holding main\'s work and '
-                      'pre-staging\'s, not pushed, and names the command that '
-                      'finishes it', len(f) == 1 and on_local(tip('main'), f[0])
-                      and on_local(p1, f[0]) and f'--work {f[0]}' in out
-                      and fixes_on_origin() == [] and 'not pushed' in out))
-        cases.append(('...and names main\'s commits as where to look first, from '
-                      'staging\'s recorded pass, without a second full check or a '
-                      'verdict', 'Look there first' in out
-                      and 'a web edit that breaks a check' in out
-                      and 'own tip passed the full check' in out
-                      and full_runs() == 1 and 'came from main' not in out))
-        # The session fixes it on that branch and runs the Promote again.
-        git(work, 'checkout', '-q', '-B', 'fixing', f[0])
-        (work / 'FAIL').write_text('', encoding='utf-8')
-        git(work, 'commit', '-q', '-am', 'fix what main broke')
-        git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{f[0]}')
-        fixed = tip(f[0])
-        rc, out = branches('--promote', '--to', 'staging', '--work', f[0])
-        cases.append(('the fix branch, handed back with --work, is taken in and '
-                      'both tiers move level', rc == 0 and level()
-                      and on(fixed, 'staging') and on(p1, 'staging')
-                      and show('staging', 'FAIL') == '' and 'TOOK IN' in out))
-
-        # 4. Pre-staging breaks it, while main brought harmless work: the
-        # report says main's work alone passes.
-        commit_to('main', {'state.json': '{"n": 2}\n'}, 'bot: harmless')
-        commit_to('pre-staging', {'FAIL': 'precedent_check'}, 'ladder work that breaks')
-        rc, out = branches('--promote', '--to', 'staging')
-        cases.append(('a failure from pre-staging\'s own work is still not finished, '
-                      'and main is named only as a place to look, never as the cause',
-                      rc == 1 and 'PROMOTE NOT FINISHED' in out
-                      and 'Look there first' in out and 'came from main' not in out))
-        on_origin_before = fixes_on_origin()
-        commit_to('pre-staging', {'FAIL': ''}, 'ladder fixes its own break')
-        rc, out = branches('--promote', '--to', 'staging')
-        cases.append(('...and a fix pushed to pre-staging finishes it too',
-                      rc == 0 and level() and on(tip('main'), 'staging')))
-        cases.append(('...leaving no fix branch on origin for a person to delete '
-                      '(2026-10-06: one consumer had four in a day)',
-                      fixes_on_origin() == on_origin_before))
-
-        # 5. Hand-written text changed on both sides: not finished, the
-        # composition so far on a fix branch, resolved there, then finished.
-        n = len(fixes())
-        commit_to('main', {'list.txt': 'MAIN\nb\nc\n'}, 'main edits line 1')
-        commit_to('pre-staging', {'list.txt': 'LADDER\nb\nc\n'}, 'ladder edits line 1')
-        s0, p0 = tip('staging'), tip('pre-staging')
-        rc, out = branches('--promote', '--to', 'staging')
-        f = fixes() or ['no-fix-branch']
-        cases.append(('a conflict in hand-written text moves neither tier and '
-                      'says which merge to make on the fix branch',
-                      rc == 1 and 'does not merge cleanly' in out
-                      and tip('staging') == s0 and tip('pre-staging') == p0
-                      and len(f) == n + 1 and f'git merge {p0}' in out))
-        newest = [b for b in f if on_local(tip('main'), b)
-                  and not on_local(p0, b)] or ['no-fix-branch']
-        git(work, 'checkout', '-q', '-B', 'resolving', newest[0])
-        git(work, 'merge', '-q', p0)
-        (work / 'list.txt').write_text('BOTH\nb\nc\n', encoding='utf-8')
-        git(work, 'commit', '-q', '-am', 'resolve line 1')
-        git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{newest[0]}')
-        rc, out = branches('--promote', '--to', 'staging', '--work', newest[0])
-        cases.append(('...and, resolved there, the Promote with --work finishes, '
-                      'level, with the resolution',
-                      rc == 0 and level() and show('staging', 'list.txt') == 'BOTH\nb\nc\n'))
-
-        # 6. A generated file both sides rebuilt: rebuilt from the merged
-        # sources, not a conflict.
-        for branch, text in (('pre-staging', 'x\nb\nm\n'), ('main', 'a\nb\nz\n')):
-            git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', f'g-{branch}', f'origin/{branch}')
-            (work / 'src.txt').write_text(text, encoding='utf-8')
-            subprocess.run([sys.executable, 'tools/build_todo_index.py'], cwd=work, env=env)
-            git(work, 'add', '-A')
-            git(work, 'commit', '-q', '-m', f'{branch} edits the source and rebuilds')
-            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-        rc, out = branches('--promote', '--to', 'staging')
-        merged = show('staging', 'OUT.md')
-        cases.append(('a conflict only in a generated file is rebuilt from the '
-                      'merged sources', rc == 0 and level()
-                      and 'X\nB\nZ' in merged and '<<<<<<<' not in merged))
-
-        # 7. Nothing waits on pre-staging, but main has work: a bare Promote
-        # still composes it and moves both. Main first takes staging, as a
-        # Produce's pull request would, so no step is waiting.
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'mn', 'origin/main')
-        git(work, 'merge', '-q', '--no-ff', '-m', 'Merge pull request', 'origin/staging')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
-        bot = commit_to('main', {'state.json': '{"n": 3}\n'}, 'bot: a third week')
-        rc, out = branches('--promote')
-        cases.append(('with nothing on pre-staging, a Promote still brings main\'s '
-                      'work into both tiers', rc == 0 and 'Nothing waits to be promoted' in out
-                      and level() and on(bot, 'pre-staging')))
-
-        # 8. Pre-staging gains work while the check runs: nothing moves, and
-        # never one tier without the other.
-        commit_to('pre-staging', {'race.txt': '1\n'}, 'work being promoted')
-        s0 = tip('staging')
-        race = tmp / 'race'
-        git(tmp, 'clone', '-q', f'file://{bare}', str(race))
-        rc, out = branches('--promote', '--to', 'staging', extra={'PROMOTE_RACE': (
-            f'git -C {race} fetch -q origin && '
-            f'git -C {race} checkout -q -B r origin/pre-staging && '
-            f'git -C {race} commit -q --allow-empty -m booked-meanwhile && '
-            f'git -C {race} push -q origin HEAD:refs/heads/pre-staging')})
-        cases.append(('work booked onto pre-staging mid-check: nothing moves, '
-                      'not staging alone either, and it says so',
-                      rc == 1 and tip('staging') == s0
-                      and 'gained work while the check ran' in out))
-
-        # 9. --work naming a branch that is not on pre-staging and is not a
-        # fix branch: said, and never carried past Booked.
-        git(work, 'checkout', '-q', '-B', 'feature', 'origin/pre-staging')
-        (work / 'feature.txt').write_text('f\n', encoding='utf-8')
-        git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'unbooked feature work')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/feature')
-        feature = tip('feature')
-        rc, out = branches('--promote', '--to', 'staging', '--work', 'feature')
-        cases.append(('work that is not on pre-staging is named, and not carried '
-                      'into staging', 'is not on pre-staging' in out
-                      and not on(feature, 'staging')))
-        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
-        cases.append(('no worktree is left behind', len(wts) == 1))
-    failed = [n for n, ok in cases if not ok]
-    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_github_ci_setting_names():
@@ -44643,13 +43862,13 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
         cases.append(('push scoped to main IS expected on main',
                       'Commented' in on_main, str(sorted(on_main))))
         # A pull_request trigger scoped to main is not expected on a pull
-        # request into pre-staging (2026-09-30: the merge gate said "CI DID
+        # request into staging (2026-09-30: the merge gate said "CI DID
         # NOT RUN" for deep-check.yml on every one), and is into main.
         (wf / 'mainonly.yml').write_text(
             'name: MainOnly\non:\n  pull_request:\n    branches: [main]\n'
             '    types: [opened]\n\n  push:\n    branches: [main]\n\njobs: {}\n')
-        into_pre = pciv.expected_workflows(str(tmp), 'claude/feature', 'pre-staging')
-        cases.append(('a main-only pull_request is not expected into pre-staging',
+        into_pre = pciv.expected_workflows(str(tmp), 'claude/feature', 'staging')
+        cases.append(('a main-only pull_request is not expected into staging',
                       'MainOnly' not in into_pre and 'Real' in into_pre,
                       str(sorted(into_pre))))
         into_main = pciv.expected_workflows(str(tmp), 'to-main-x', 'main')
@@ -45058,7 +44277,7 @@ def check_session_check_stamps_at_session_start():
 
         git('init', '-q', '-b', 'main')
         commit('one')
-        git('branch', 'pre-staging')
+        git('branch', 'staging')
         git('checkout', '-q', '-b', '2026-10-09-feature-abcde')
         stamp = psc.session_stamp_path(git)
         stamp.write_text('somewhere-else\n0000\n')
@@ -45068,12 +44287,12 @@ def check_session_check_stamps_at_session_start():
                       and stamp.read_text().split()[0] == '2026-10-09-feature-abcde',
                       stamp.read_text()))
         commit('feature work', 'g')
-        # Promoted: merged into pre-staging (and origin's copy), and main
+        # Promoted: merged into staging (and origin's copy), and main
         # takes the same content as a commit of its own, not a merge.
-        git('checkout', '-q', 'pre-staging')
+        git('checkout', '-q', 'staging')
         git('-c', 'user.name=t', '-c', 'user.email=t@t', 'merge', '-q', '--no-ff',
             '-m', 'land', '2026-10-09-feature-abcde')
-        git('update-ref', 'refs/remotes/origin/pre-staging', 'pre-staging')
+        git('update-ref', 'refs/remotes/origin/staging', 'staging')
         git('checkout', '-q', 'main')
         commit('feature work, copied onto main', 'g')
         r = psc._session_branch_row(stamp, git)
@@ -45199,27 +44418,27 @@ def check_session_check_adopts_a_detached_start():
                       stamp.read_text()))
 
         # The ladder's move: the session starts on main and branches from
-        # pre-staging, which lacks main's newest commit (2026-10-01).
+        # staging, which lacks main's newest commit (2026-10-01).
         git('checkout', '-q', 'main')
-        git('branch', '-f', 'pre-staging', 'HEAD')
+        git('branch', '-f', 'staging', 'HEAD')
         git('branch', '-f', 'side', 'HEAD')
-        commit('main moves on: a Produce merge pre-staging lacks')
+        commit('main moves on: a Produce merge staging lacks')
         _, c_main, _ = git('rev-parse', 'HEAD')
         stamp.write_text(f'main\n{c_main}\n')
         os.utime(stamp, (_time.time() - 60, _time.time() - 60))
-        git('checkout', '-q', '-b', 'claude/ladder', 'pre-staging')
+        git('checkout', '-q', '-b', 'claude/ladder', 'staging')
         ok, detail = row()
-        cases.append(('a new branch made from pre-staging, which lacks the '
+        cases.append(('a new branch made from staging, which lacks the '
                       'start commit, passes', ok is True, detail))
         # The same move as a cloud session makes it, from origin's copy
-        # (`git checkout -b feat origin/pre-staging`).
+        # (`git checkout -b feat origin/staging`).
         git('checkout', '-q', 'main')
-        git('update-ref', 'refs/remotes/origin/pre-staging', 'pre-staging')
+        git('update-ref', 'refs/remotes/origin/staging', 'staging')
         stamp.write_text(f'main\n{c_main}\n')
         os.utime(stamp, (_time.time() - 60, _time.time() - 60))
-        git('checkout', '-q', '-b', 'claude/ladder-origin', 'origin/pre-staging')
+        git('checkout', '-q', '-b', 'claude/ladder-origin', 'origin/staging')
         ok, detail = row()
-        cases.append(('...and so does one made from origin/pre-staging',
+        cases.append(('...and so does one made from origin/staging',
                       ok is True, detail))
         git('checkout', '-q', 'main')
         stamp.write_text(f'main\n{c_main}\n')
@@ -45249,6 +44468,20 @@ def check_session_check_adopts_a_detached_start():
         ok, detail = row()
         cases.append(('a branch that strands the detached commit still fails',
                       ok is False and c2[:12] in detail, detail))
+
+        # Detached at a commit origin already has (main's tip, a Produce merge)
+        # and work cut from staging, which lacks it: nothing is stranded
+        # (2026-10-17, a false warning at every turn).
+        git('update-ref', 'refs/remotes/origin/main', 'main')
+        _, c_main_tip, _ = git('rev-parse', 'main')
+        stamp.write_text(f'HEAD\n{c_main_tip}\n')
+        git('checkout', '-q', '-B', 'claude/from-staging', 'staging')
+        ok, detail = row()
+        cases.append(('a detached start at a commit origin has, then a branch '
+                      'cut from staging that lacks it, passes',
+                      ok is True and 'already has' in detail, detail))
+        git('checkout', '-q', 'main')
+        git('update-ref', '-d', 'refs/remotes/origin/main')
 
         # An older one-line stamp recording HEAD is adopted, not failed.
         stamp.write_text('HEAD\n')
@@ -45896,27 +45129,27 @@ def check_freshness_guard_checks_attached_repositories():
                           rc == 0 and "(from '~/ghost')" in err))
 
             # THE DECLARED BASE WINS FOR AN ATTACHED REPO (2026-09-26). A
-            # practice source is read from main, and its own pre-staging is
+            # practice source is read from main, and its own staging is
             # ahead of main by design until a Promote. The guard used to let
-            # the person's landing branch (pre-staging) replace the entry's
+            # the person's landing branch (staging) replace the entry's
             # declared "=main", so a source sitting correctly on main was
-            # "missing N commits from origin/pre-staging" and every tool call
+            # "missing N commits from origin/staging" and every tool call
             # of the session was refused. A stub precedent_branches.py makes
-            # --landing answer pre-staging, the way a real source's does.
+            # --landing answer staging, the way a real source's does.
             def tiered(repo_seed, repo):
                 tools = repo_seed / 'tools'
                 tools.mkdir(exist_ok=True)
                 (tools / 'precedent_branches.py').write_text(
                     'import sys\n'
-                    'if "--landing" in sys.argv: print("pre-staging")\n')
+                    'if "--landing" in sys.argv: print("staging")\n')
                 git(repo_seed, 'add', 'tools')
                 git(repo_seed, 'commit', '-qm', 'landing stub')
                 git(repo_seed, 'push', '-q', 'origin', 'main')
-                git(repo_seed, 'checkout', '-qb', 'pre-staging')
+                git(repo_seed, 'checkout', '-qb', 'staging')
                 (repo_seed / 'g').write_text('unpromoted\n')
                 git(repo_seed, 'add', 'g')
                 git(repo_seed, 'commit', '-qm', 'unpromoted')
-                git(repo_seed, 'push', '-q', 'origin', 'pre-staging')
+                git(repo_seed, 'push', '-q', 'origin', 'staging')
                 git(repo_seed, 'checkout', '-q', 'main')
                 git(repo, 'fetch', '-q', 'origin')
                 git(repo, 'merge', '-q', '--ff-only', 'origin/main')
@@ -45925,13 +45158,13 @@ def check_freshness_guard_checks_attached_repositories():
             rc, err = run(proj, 'also-declared-main', also=f'{other}=main')
             cases.append((f'{tag}: an attached source on main is checked '
                           f'against its DECLARED base, not the landing '
-                          f'branch pre-staging (rc={rc}, '
+                          f'branch staging (rc={rc}, '
                           f'stderr={err.strip()[:90]!r})',
-                          rc == 0 and 'pre-staging' not in err))
+                          rc == 0 and 'staging' not in err))
 
             # THE CONTROL: the project dir, with no declared base, still
             # takes the landing override -- work written there lands on
-            # pre-staging, so a main checkout behind it is still refused.
+            # staging, so a main checkout behind it is still refused.
             # Without this the case above would pass if the landing override
             # were deleted outright.
             proj2_seed, proj2 = make('proj2')
@@ -45939,7 +45172,7 @@ def check_freshness_guard_checks_attached_repositories():
             rc, err = run(proj2, 'project-landing')
             cases.append((f'{tag}: the project dir itself is still held to '
                           f'the landing branch (rc={rc})',
-                          rc == 2 and 'origin/pre-staging' in err))
+                          rc == 2 and 'origin/staging' in err))
             cases.append((f'{tag}: ...and a block on the project itself reads '
                           f'as before, naming no other checkout',
                           'NOT this project' not in err))
@@ -46315,12 +45548,12 @@ def check_freshness_guard_never_tells_a_tier_branch_to_merge():
     """On a tier branch the stale-base remedy is a new working branch.
 
     Reported 2026-10-08 from a consuming repository: a session on main was
-    told "Bring it up to date deliberately: git merge origin/pre-staging",
-    which makes the local main diverge from origin/main. On main, staging
-    or pre-staging the guard now says to start a working branch from
+    told "Bring it up to date deliberately: git merge origin/staging",
+    which makes the local main diverge from origin/main. On main or
+    staging the guard now says to start a working branch from
     origin/<base> with `git switch --no-track -c`, named by
     precedent_branch_name.py where the checkout has it -- `--no-track`
-    because `git checkout -b X origin/pre-staging` makes X track the tier,
+    because `git checkout -b X origin/staging` makes X track the tier,
     and a bare `git push` would then land there.
 
     CONTROL: a working branch on the same stale base still gets the merge.
@@ -46364,14 +45597,14 @@ def check_freshness_guard_never_tells_a_tier_branch_to_merge():
             'print("2026-10-08-x-abcde")\n', encoding='utf-8')
         _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'one')
         _git(seed, 'remote', 'add', 'origin', str(origin))
-        _git(seed, 'push', '-q', 'origin', 'main', 'main:pre-staging', 'main:feature')
-        _git(seed, 'commit', '-q', '--allow-empty', '-m', 'on pre-staging only')
-        _git(seed, 'push', '-q', 'origin', 'main:pre-staging')
+        _git(seed, 'push', '-q', 'origin', 'main', 'main:staging', 'main:feature')
+        _git(seed, 'commit', '-q', '--allow-empty', '-m', 'on staging only')
+        _git(seed, 'push', '-q', 'origin', 'main:staging')
 
         def _run(guard, cwd, mode, session):
             payload = json.dumps({'session_id': session, 'tool_name': 'Write',
                                   'tool_input': {'file_path': 'x'}})
-            return subprocess.run(['bash', str(guard), mode, 'pre-staging'],
+            return subprocess.run(['bash', str(guard), mode, 'staging'],
                                   cwd=str(cwd), input=payload,
                                   capture_output=True, text=True, env=env)
 
@@ -46385,18 +45618,18 @@ def check_freshness_guard_never_tells_a_tier_branch_to_merge():
                     _git(d, 'checkout', '-q', branch)
                 for mode in ('session-start', 'pre-write'):
                     err = _run(guard, d, mode, f'{tag}-{branch}-{mode}').stderr
-                    said = 'missing 1 commit(s) from origin/pre-staging' in err
+                    said = 'missing 1 commit(s) from origin/staging' in err
                     if tier:
                         ok = (said and 'is a tier branch' in err
                               and 'git switch --no-track -c' in err
                               and 'tools/precedent_branch_name.py' in err
-                              and 'origin/pre-staging' in err
+                              and 'origin/staging' in err
                               and 'Bring it up to date' not in err)
                         what = (f'{tag} {mode}: on main, the remedy is a new '
                                 f'untracked branch named by the naming tool, not '
                                 f'a merge')
                     else:
-                        ok = (said and 'git merge origin/pre-staging' in err
+                        ok = (said and 'git merge origin/staging' in err
                               and 'is a tier branch' not in err)
                         what = (f'{tag} {mode}: CONTROL: a working branch is '
                                 f'still told to merge its base')
@@ -47414,15 +46647,15 @@ def check_tier_branches_are_never_a_pull_requests_source():
         import precedent_merge_check as pmc
     finally:
         sys.path.pop(0)
-    tiers = ['main', 'staging', 'pre-staging', 'precedent-beta-v01']
+    tiers = ['main', 'staging', 'precedent-beta-v01']
     cases = [
         ('a pull request FROM staging, same repository, is refused',
          bool(pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers))),
         ('...and the refusal says how: a throwaway copy',
          'promote-to-main' in (pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers) or '')
          or 'refs/heads/to-main-' in (pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers) or '')),
-        ('so is one from pre-staging or main',
-         all(pmc.tier_source_refusal(b, 'o/r', 'o', 'r', tiers) for b in ('pre-staging', 'main'))),
+        ('so is one from main',
+         bool(pmc.tier_source_refusal('main', 'o/r', 'o', 'r', tiers))),
         ("a fork's branch named staging is not refused",
          pmc.tier_source_refusal('staging', 'someone/r', 'o', 'r', tiers) is None),
         ('an ordinary working branch is not refused',
@@ -47456,7 +46689,7 @@ def check_tier_branches_are_never_a_pull_requests_source():
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'one')
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        git(work, 'push', '-q', 'origin', 'main', 'main:staging', 'main:pre-staging')
+        git(work, 'push', '-q', 'origin', 'main', 'main:staging')
         (work / 'f').write_text('2', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'two')
         git(work, 'push', '-q', 'origin', 'HEAD:staging', 'HEAD:precedent-beta-v01')
@@ -47474,24 +46707,23 @@ def check_tier_branches_are_never_a_pull_requests_source():
         r = ensure()
         # Retired 2026-10-11 (todo-2026-09-26-retire-precedent-beta-v01): the
         # old name is never a source any more, even when it is ahead.
-        cases.append(('a deleted staging is rebuilt from pre-staging, never from '
+        cases.append(('a deleted staging is rebuilt from main, never from '
                       'the retired old name',
-                      tip('staging') == tip('pre-staging') != want,
+                      tip('staging') == tip('main') != want,
                       (r.stdout + r.stderr)[-300:]))
         git(work, 'push', '-q', 'origin', ':staging', ':precedent-beta-v01')
         r = ensure()
         cases.append(('with no old name either, it is rebuilt from main',
                       tip('staging') == tip('main') != '', (r.stdout + r.stderr)[-300:]))
-        # Morgan, 2026-09-27: a missing staging is copied from pre-staging
-        # when pre-staging exists, and from main only when neither does.
+        # Any other branch is never a source either, even ahead of main.
         (work / 'f').write_text('3', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'three')
-        git(work, 'push', '-q', 'origin', 'HEAD:pre-staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:some-feature')
         git(work, 'push', '-q', 'origin', ':staging')
         r = ensure()
-        cases.append(('with pre-staging ahead of main and no old name, staging is '
-                      'copied from pre-staging',
-                      tip('staging') == tip('pre-staging') != tip('main'),
+        cases.append(('with an ordinary branch ahead of main, staging is '
+                      'still rebuilt from main',
+                      tip('staging') == tip('main') != tip('some-feature'),
                       (r.stdout + r.stderr)[-300:]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
@@ -49095,7 +48327,7 @@ def check_bootstrap_source_produces_resolvable_set():
         finally:
             sys.path.pop(0)
         cases.append(('a set\'s views are checked at the quick tier, so a stale or '
-                      'hand-edited one fails the push to pre-staging, not only the Debut',
+                      'hand-edited one fails the push to staging, not only the Debut',
                       'build_views' in _ppc.BASIC_CHECKS
                       and any(st[0] == 'build_views' for st in _ppc.PUSH_CHECKS['source']),
                       f'BASIC_CHECKS = {sorted(_ppc.BASIC_CHECKS)}'))
@@ -49232,7 +48464,9 @@ def check_session_hooks_allow_read_only_tools_at_user_level():
     read-only Precedent tool rules to user-level settings, add-only
     (2026-10-14). THE DISCRIMINATING CASE: a write-capable rule a repository
     allows (git push) never reaches user level, and what the user file
-    already holds -- its hooks, its own allow and deny rules -- is kept."""
+    already holds -- its hooks, its own allow and deny rules -- is kept.
+    Since 2026-10-17 the one rule that allows every engine tool arrives only
+    with the rules that make landing, Produce and merging ask."""
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_run_session_hooks as rsh
@@ -49259,7 +48493,12 @@ def check_session_hooks_allow_read_only_tools_at_user_level():
                       not any('push' in r for r in allow), allow))
         cases.append(('the read-only rules arrive, from the repository and the template',
                       'Bash(python3 tools/doc_lint.py *)' in allow
-                      and 'Bash(python3 tools/precedent_show.py *)' in allow, allow))
+                      and 'Bash(python3 tools/precedent_*)' in allow, allow))
+        asked = got['permissions'].get('ask') or []
+        cases.append(('THE DISCRIMINATING CASE (2026-10-17): the broad engine rule '
+                      'arrives with the asks for landing, Produce and the merge',
+                      any('precedent_branches.py --land' in r for r in asked)
+                      and 'mcp__github__merge_pull_request' in asked, asked))
         cases.append(('what the user file held is kept, and a denied rule is not added',
                       got['hooks'] == mine['hooks'] and allow[0] == 'Bash(ls)'
                       and got['permissions']['deny'] == mine['permissions']['deny']
@@ -52250,7 +51489,7 @@ class _KeptDivergenceFixture:
         self.sh('git', 'init', '-q', '-b', 'main', cwd=repo)
         self.write_config(repo, {
             'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
-            'landing_branch': 'pre-staging',
+            'landing_branch': 'staging',
             'sources': [{'level': 'universal', 'name': 'precedent',
                          'path': str(ROOT)}]})
         if agents is None:
@@ -52434,6 +51673,90 @@ def check_update_seeds_budgets_on_the_run_that_reports_done():
     bad = [n for n, ok in cases if not ok]
     check(f'Update Vendors seeds the session-load budgets on the run that '
           f'reports DONE ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_past_template_text_is_taken_over_a_stale_record():
+    """A section or template copy identical to a past version of its
+    template is taken, whatever hash the manifest records for it. 2026-10-17,
+    a consuming repo's Update Vendors: AGENTS.md "### Merging a thread
+    branch" carried the loader template's own earlier step 0b word for word,
+    but its recorded hash did not match, so the plan said 'diverged' without
+    looking at the template's history and the run stopped LEFT FOR YOU on a
+    call the person had already made (take upstream; keep only what is the
+    repo's own).
+
+    Discriminating cases: the stale record must now plan 'adopt' (the fix);
+    a matching record still plans 'refresh'; text no template ever had still
+    plans 'diverged'; and a section precedent.json records as kept on
+    purpose stays 'diverged', so the fix never overwrites a decision. The
+    same four for tools/bootstrap.sh, whose plan had the same order."""
+    import precedent_vendor_engine as pve
+    cases = []
+    tmp = pathlib.Path(_tempfile_for_env.mkdtemp(prefix='precedent-stale-record-'))
+    try:
+        key = '### Merging a thread branch'
+        old = f'{key}\n\n0b. There is no local check-in mirror yet.'
+        new = f'{key}\n\n0b. Send it with tools/checkin.py push.'
+        tpl = tmp / 'tpl'
+        (tpl / 'templates').mkdir(parents=True)
+        (tpl / 'templates/AGENTS.md.loader.template').write_text(
+            f'# AGENTS\n\n{new}\n', encoding='utf-8')
+        (tpl / pve._AGENTS_MD_HISTORY_NAME).write_text(
+            json.dumps({key: [old, new]}), encoding='utf-8')
+        boot_old, boot_new = '#!/bin/sh\necho old\n', '#!/bin/sh\necho new\n'
+        (tpl / 'templates/bootstrap.sh').write_text(boot_new, encoding='utf-8')
+        (tpl / pve._TEMPLATE_HISTORY_NAME).write_text(json.dumps(
+            {'templates/bootstrap.sh': [pve._git_blob_id(boot_old.encode()),
+                                        pve._git_blob_id(boot_new.encode())]}),
+            encoding='utf-8')
+
+        def plan(name, section, boot, record, kept=False):
+            c = tmp / name
+            (c / 'tools').mkdir(parents=True)
+            (c / 'AGENTS.md').write_text(f'# AGENTS\n\n{section}\n',
+                                         encoding='utf-8')
+            (c / 'tools/bootstrap.sh').write_text(boot, encoding='utf-8')
+            cfg = {'base_branch': 'main'}
+            if kept:
+                cfg[pve.KEPT_DIVERGENCES_KEY] = {
+                    f'AGENTS.md {key}': {'reason': 'ours', 'template_sha256': 'x'},
+                    'tools/bootstrap.sh': {'reason': 'ours', 'template_sha256': 'x'}}
+            (c / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+            manifest = {pve.AGENTS_MD_SECTIONS_KEY: {key: record(section)},
+                        pve.TEMPLATE_INSTANCES_KEY: {
+                            'tools/bootstrap.sh': record(boot, file=True)}}
+            a = [p[3] for p in pve._agents_md_plan(c, 'consumer', tpl, manifest)
+                 if p[0] == key]
+            b = [p[2] for p in pve._template_instance_plan(c, 'consumer', tpl,
+                                                            manifest)]
+            return a, b
+
+        def stale(text, file=False):
+            return '0' * 64
+
+        def matching(text, file=False):
+            if file:
+                return hashlib.sha256(text.encode()).hexdigest()
+            return pve._sha_text(text)
+
+        got = plan('control', old, boot_old, matching)
+        cases.append(('CONTROL: a past version matching its record is refreshed',
+                      got == (['refresh'], ['refresh']), got))
+        got = plan('stale', old, boot_old, stale)
+        cases.append(('THE FIX: a past version under a stale record is adopted',
+                      got == (['adopt'], ['adopt']), got))
+        got = plan('own', f'{key}\n\nOur own words.', '#!/bin/sh\necho ours\n',
+                   stale)
+        cases.append(('text no template version had is still diverged',
+                      got == (['diverged'], ['diverged']), got))
+        got = plan('kept', old, boot_old, stale, kept=True)
+        cases.append(('a past version recorded as kept on purpose stays diverged',
+                      got == (['diverged'], ['diverged']), got))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n}: got {d}' for n, ok, d in cases if not ok]
+    check('a past template version is taken over a stale recorded hash',
+          not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
 def check_kept_agents_md_divergence_is_recorded():
@@ -53181,8 +52504,8 @@ def check_staging_tier_is_never_main_where_origin_has_staging():
     base_branch "main" and landing_branch "staging", with no staging_branch,
     took main as its staging tier: staging_branch() fell back to
     base_branch. --landing printed "main" above its own reason line naming
-    staging, --land refused, and --promote looked for the retired
-    pre-staging. Since then main is not the staging tier where the repo
+    staging, --land refused, and --promote looked for a tier that no longer
+    exists. Since then main is not the staging tier where the repo
     lands on staging and origin has that branch.
 
     A. base main, landing staging, origin has staging: the tier is staging,
@@ -53310,6 +52633,39 @@ def check_refresh_sources_leaves_the_base_branch_clean():
                       not [b for b in g('branch', '--format=%(refname:short)').split()
                            if '-engine-refresh-99999999-' in b]
                       and g('branch', '--show-current') == 'main', str(steps)))
+
+        # SUPERSEDED REFRESH BRANCHES GO, AND THE RUN SAYS SO (2026-10-17).
+        # A commit with the tool's own subject, as apply_to really writes it.
+        def real_apply(e, commit=False, branch=None, body='newer\n'):
+            (repo / 'engine.txt').write_text(body, encoding='utf-8')
+            g('checkout', '-q', '-B', branch)
+            g('add', '-A')
+            subprocess.run(['git', '-C', str(repo), 'commit', '-qm',
+                            prs.REFRESH_SUBJECT + e['tip'][:8]],
+                           capture_output=True, text=True, env=env)
+            return [('refresh', True, ''), ('commit', True, 'committed')]
+        prs.apply_to = lambda e, commit=False, branch=None: real_apply(e, commit, branch, 'v1\n')
+        prs.apply_on_its_own_branch({'repo': repo, 'tip': '1111111112345'}, 'main')
+        older = [b for b in g('branch', '--format=%(refname:short)').split()
+                 if '-engine-refresh-11111111-' in b]
+        g('checkout', '-q', '-b', 'keep-engine-refresh-mine', 'main')
+        (repo / 'mine.txt').write_text('work\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', prs.REFRESH_SUBJECT + 'x')
+        (repo / 'mine2.txt').write_text('more\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'my own work')
+        g('checkout', '-q', 'main')
+        prs.apply_to = lambda e, commit=False, branch=None: real_apply(e, commit, branch, 'v2\n')
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': '2222222212345'}, 'main')
+        now = g('branch', '--format=%(refname:short)').split()
+        said = ' '.join(d for _s, _ok, d in steps)
+        cases.append(('a newer refresh removes the older refresh-only branch',
+                      bool(older) and older[0] not in now
+                      and any('-engine-refresh-22222222-' in b for b in now),
+                      f'{now} {steps}'))
+        cases.append(('...and names it in what the run reports',
+                      bool(older) and older[0] in said and 'removed 1' in said, said[:300]))
+        cases.append(('...and never a branch carrying work of its own',
+                      'keep-engine-refresh-mine' in now, str(now)))
     finally:
         prs.apply_to = saved
         shutil.rmtree(tmp, ignore_errors=True)
@@ -53727,9 +53083,9 @@ def check_full_tier_needs_a_reason_on_a_quick_landing():
     """`--tier full` is refused where the landing branch takes the quick
     tier, unless a reason is given (Morgan, 2026-10-01, strength: decided:
     "Go, do both, then Booked"). The same day the bare run was fixed, a
-    session still typed `--tier full` before every pre-staging landing and
+    session still typed `--tier full` before every quick landing and
     wrote it into its helpers' briefs. Stated cases: refused on a quick
-    landing (pre-staging then, staging since it was retired, 2026-10-14); allowed with --because; untouched for --gate, for
+    landing (staging); allowed with --because; untouched for --gate, for
     a named push, and on a landing branch that is fully checked."""
     import tempfile
     import precedent_push_check as ppc
@@ -53743,8 +53099,7 @@ def check_full_tier_needs_a_reason_on_a_quick_landing():
         def landing(branch):
             (tmp / 'precedent.json').write_text(json.dumps(
                 {'base_branch': 'main', 'landing_branch': branch}), encoding='utf-8')
-        # The quick landing is staging, for a person who lands there, since
-        # pre-staging was retired for everyone (2026-10-14).
+        # The quick landing is staging, for a person who lands there.
         (tmp / 'precedent.json').write_text(json.dumps(
             {'base_branch': 'main', 'staging_branch': 'staging',
              'landing_branch': 'staging', 'promote_only': True}), encoding='utf-8')
@@ -53783,11 +53138,10 @@ def check_full_tier_needs_a_reason_on_a_quick_landing():
 def check_bare_push_check_takes_the_landing_tier():
     """precedent_push_check.py run with no destination checks what a push
     to the person's landing branch gets (Morgan, 2026-10-01, strength:
-    assented). A session ran it bare before every landing on pre-staging
-    and paid the ~11-minute suite each time. Stated cases: bare, with a
-    quick landing -- staging, for a person who lands there, since
-    pre-staging was retired (2026-10-14) -- it becomes a push there at the
-    basic tier; a landing on main still runs full; --tier full and a named
+    assented). A session ran it bare before every quick landing and paid
+    the ~11-minute suite each time. Stated cases: bare, with a quick
+    landing -- staging, for a person who lands there -- it becomes a push
+    there at the basic tier; a landing on main still runs full; --tier full and a named
     push are left exactly as given."""
     import contextlib, io, tempfile
     import precedent_push_check as ppc
@@ -53803,8 +53157,7 @@ def check_bare_push_check_takes_the_landing_tier():
                 {'base_branch': 'main', 'staging_branch': 'staging',
                  'landing_branch': branch, 'promote_only': True}),
                 encoding='utf-8')
-        # The quick landing is staging, for a person who lands there, since
-        # pre-staging was retired for everyone (2026-10-14).
+        # The quick landing is staging, for a person who lands there.
         landing('staging')
         with contextlib.redirect_stdout(io.StringIO()):
             argv = ppc._default_destination(tmp, [])
@@ -53837,6 +53190,100 @@ def check_bare_push_check_takes_the_landing_tier():
     check(f'a bare push check takes the landing branch\'s tier '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
+    """A change waits until the person's question has an answer in words
+    (answer-first-ask-before-long-work; Morgan, 2026-10-17: "if I ask a
+    question, you answer it BEFORE you implement a change ... Make that
+    change enforcement stronger"). That day his message approved a landing
+    and asked for a workflow change's details; the session wrote "Landing
+    first, since you approved it." and landed. The gate, through the fixed
+    precedent-hooks.sh entry: a commit, push, merge, landing, edit outside
+    /tmp or GitHub write is refused while his latest message (typed, or
+    sent mid-turn) asks something and fewer than 50 words have answered
+    it; reading never is; a message that asks nothing holds nothing."""
+    import tempfile, json as _json
+    name = 'the answer-first gate holds a change until the question is answered'
+    gate = ROOT / 'tools' / 'answer-first-gate.sh'
+    if not gate.exists():
+        not_applicable(name, 'tools/answer-first-gate.sh is absent')
+        return
+    cases = []
+
+    def human(text, queued=False):
+        if queued:
+            return {'type': 'attachment', 'attachment': {
+                'type': 'queued_command', 'prompt': text,
+                'origin': {'kind': 'human'}}}
+        return {'type': 'user', 'origin': {'kind': 'human'},
+                'message': {'role': 'user', 'content': text}}
+
+    def said(text):
+        return {'type': 'assistant', 'message': {'role': 'assistant',
+                'content': [{'type': 'text', 'text': text}]}}
+
+    notice = {'type': 'user', 'origin': {'kind': 'task-notification'},
+              'message': {'role': 'user', 'content': 'a job finished?'}}
+    answer = said(' '.join(['word'] * 60))
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        def run(records, tool='Bash', tool_input=None, via_hooks=False):
+            tr = tmp / 'transcript.jsonl'
+            tr.write_text(''.join(_json.dumps(r) + '\n' for r in records),
+                          encoding='utf-8')
+            payload = _json.dumps({
+                'tool_name': tool, 'transcript_path': str(tr),
+                'tool_input': tool_input if tool_input is not None
+                else {'command': 'git push -u origin HEAD'}})
+            argv = (['python3', str(ROOT / 'tools' / 'precedent_hooks.py'),
+                     'PreToolUse'] if via_hooks else ['bash', str(gate)])
+            p = subprocess.run(argv, input=payload, capture_output=True,
+                               text=True, cwd=ROOT)
+            return p.returncode, p.stdout + p.stderr
+
+        asked = human('approved. On the workflow change - give me the details, I missed it.')
+        rc, out = run([asked, said('Landing first, since you approved it.')])
+        cases.append(('a push after "Landing first" with the question open is '
+                      'refused, quoting it', rc == 2 and 'ANSWER FIRST' in out
+                      and 'give me the details' in out, out[-200:]))
+        rc, out = run([asked, answer])
+        cases.append(('once answered, the push goes through', rc == 0, out[-200:]))
+        rc, _ = run([human('yes to both, and booked')])
+        cases.append(('a message that asks nothing holds nothing', rc == 0))
+        rc, _ = run([human('yes to both'), answer,
+                     human('why did main go red?', queued=True)])
+        cases.append(('a question sent mid-turn holds the next change',
+                      rc == 2))
+        rc, _ = run([asked, notice])
+        cases.append(('a notice is not the person: their question still holds',
+                      rc == 2))
+        rc, _ = run([asked], tool_input={'command': 'grep -rn push tools/'})
+        cases.append(('reading is never held', rc == 0))
+        rc, _ = run([asked], tool='Edit',
+                    tool_input={'file_path': str(ROOT / 'README.md')})
+        cases.append(('an edit to the work is held', rc == 2))
+        rc, _ = run([asked], tool='Edit',
+                    tool_input={'file_path': '/tmp/scratch/notes.md'})
+        cases.append(('an edit to scratch under /tmp is not', rc == 0))
+        rc, _ = run([asked], tool='mcp__github__merge_pull_request',
+                    tool_input={'pullNumber': 1})
+        cases.append(('a pull request merged on GitHub is held', rc == 2))
+        rc, out = run([asked, said('Landing first.')], via_hooks=True)
+        cases.append(('it runs through the fixed precedent-hooks.sh entry '
+                      '(tools/hook_wiring.json)', rc == 2 and 'ANSWER FIRST' in out,
+                      out[-200:]))
+        tr = tmp / 'transcript.jsonl'
+        tr.write_text('not json\n', encoding='utf-8')
+        p = subprocess.run(['bash', str(gate)], input='{broken', text=True,
+                           capture_output=True)
+        cases.append(('an unreadable payload lets the call through',
+                      p.returncode == 0))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
 def check_wait_loop_gate_refuses_pgrep_f():
@@ -53879,7 +53326,7 @@ def check_push_check_refuses_an_unknown_option():
     Found 2026-09-30: the pull request template named
     `precedent_push_check.py --changed-files-only`, an option this file
     never had. It was ignored silently and the full ~14-minute suite ran,
-    twice, where a seconds-long pre-staging check was meant."""
+    twice, where a seconds-long quick check was meant."""
     import precedent_push_check as ppc
     t0 = time.time()
     r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_push_check.py'),
@@ -53893,13 +53340,13 @@ def check_push_check_refuses_an_unknown_option():
         ('and runs nothing', time.time() - t0 < 30 and 'passed in' not in r.stdout,
          r.stdout[-200:]),
         ('the hook\'s own arguments are all known',
-         ppc.unknown_arguments(['--gate', '--push-command', 'origin pre-staging']) == [], ''),
+         ppc.unknown_arguments(['--gate', '--push-command', 'origin staging']) == [], ''),
         ('--changed-files-check takes its REF, or none',
          ppc.unknown_arguments(['--changed-files-check', 'origin/x', '--list']) == []
          and ppc.unknown_arguments(['--changed-files-check', '--gate']) == [], ''),
         ('the merge gate\'s arguments are all known',
          ppc.unknown_arguments(['--gate', '--tier', 'full']) == []
-         and ppc.unknown_arguments(['--changed-since', 'origin/pre-staging']) == [], ''),
+         and ppc.unknown_arguments(['--changed-since', 'origin/staging']) == [], ''),
         ('a stray positional is refused too',
          ppc.unknown_arguments(['--gate', 'oops']) == ['oops'], ''),
     ]
@@ -54030,7 +53477,7 @@ def check_push_check_records_over_its_own_ledgers():
                                cwd=work, capture_output=True, text=True, env=env)
             return p.stdout + p.stderr
 
-        out = run_check('--tier', 'full')
+        out = run_check('--tier', 'full', '--because', 'the ledger test')
         dirty = git('status', '--porcelain', '--untracked-files=no')
         cases.append(('the run dirtied its own tree with the ledger (the bug\'s '
                       'precondition)', dirty.endswith('audit_ledger.jsonl')))
@@ -54049,7 +53496,7 @@ def check_push_check_records_over_its_own_ledgers():
         # or after a ledger refresh, and the gate does not reuse the pass.
         record.unlink(missing_ok=True)
         (work / 'notes.txt').write_text('b\n', encoding='utf-8')
-        out = run_check('--tier', 'full')
+        out = run_check('--tier', 'full', '--because', 'the ledger test')
         cases.append(('an edited tracked file still blocks the record',
                       'NOT recorded' in out and not record.is_file()))
         out = run_check('--gate', '--tier', 'full')
@@ -54057,7 +53504,7 @@ def check_push_check_records_over_its_own_ledgers():
                       'already passed' not in out))
         git('checkout', '--', 'notes.txt')
         git('commit', '-q', '-am', 'commit the ledger')
-        out = run_check('--tier', 'full')
+        out = run_check('--tier', 'full', '--because', 'the ledger test')
         cases.append(('a run over a committed ledger records as before',
                       'recorded for tree' in out))
     bad = [c for c, ok in cases if not ok]
@@ -58304,13 +57751,13 @@ def check_a_replacing_rule_inherits_what_it_does_not_restate():
             'require_in_fence_paired_with': [{
                 'if_matches': r"\b(?:(?:land|merg|promot|push)\w*|pull requests?|PRs?)\b"
                               r"[^\n]{0,80}?\b(?:into|onto|on|to|against)\s+[`\"']?"
-                              r"(?:pre-staging|staging|main)\b",
+                              r"(?:staging|main)\b",
                 'must_also_match': r"[\"\u201c']\s*Booked\b"}]}
     settled = prc._settle(base + [tier], ROOT)
     rule = [r for r in settled if r.get('id') == 'prompt-please-landing-authority']
     pair = (rule[0].get('require_in_fence_paired_with') or [{}])[0] if rule else {}
     cases.append(('one rule results, with the tier branches and the word it wants',
-                  len(rule) == 1 and 'pre-staging' in pair.get('if_matches', '')
+                  len(rule) == 1 and '(?:staging|main)' in pair.get('if_matches', '')
                   and 'Booked' in pair.get('must_also_match', ''), str(pair)[:200]))
     cases.append(('THE DISCRIMINATING CASE: it inherits the exemptions it does not restate',
                   all(k in pair for k in ('description_exempt_if_clause_preceded_by',
@@ -59239,8 +58686,7 @@ def check_very_deep_check_reads_live_and_names_landing_work():
     2026-09-28). Planted: a clone on a branch equal to main (reads the live
     version), then the same clone on a branch that differs (a NOTE), and a
     staging carrying one file main lacks (named, so a finding in it is
-    checked there before it is fixed twice; pre-staging until it was retired
-    for everyone, 2026-10-14)."""
+    checked there before it is fixed twice)."""
     import shutil, tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import very_deep_check as vdc
@@ -60793,10 +60239,17 @@ def check_runner_drops_findings_on_received_files():
         # Built, never spelled: the check scans this very file.
         (repo / 'tools' / 'zzz_engine.py').write_text(
             'X = ROOT / ' + "'tools' / 'zzz_missing.json'\n", encoding='utf-8')
+        # The harness asserts files are gone by name, and ships nowhere
+        # (2026-10-17): what it names is never a stranded companion.
+        (repo / 'tools' / 'verify_harness.py').write_text(
+            'Y = ROOT / ' + "'tools' / 'zzz_retired.sh'\n", encoding='utf-8')
         out = run('vendored-engine-file-refs-resolve')
         if 'tools/zzz_engine.py' not in out:
             bad.append(f'vendored-engine-file-refs-resolve went quiet on a '
                        f'received engine file: {out[-400:]}')
+        if 'zzz_retired.sh' in out:
+            bad.append(f'vendored-engine-file-refs-resolve refused the '
+                       f'harness naming a file it asserts is gone: {out[-400:]}')
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     check('findings on files a repo received are dropped once by the runner '
@@ -61556,11 +61009,6 @@ def check_promote_branches_are_named_like_session_branches():
             run('git', 'push', '-q', 'origin', 'staging', cwd=repo)
             run('git', 'fetch', '-q', 'origin', cwd=repo)
             day, _m = pb._day_and_moment(repo)
-            fix = pb._fix_branch(repo)
-            check('a Promote\'s fix branch is named <date>-promote-fix-<id>-<random>, '
-                  'which the naming rule accepts',
-                  re.fullmatch(f'{day}-promote-fix-abcde-[a-z0-9]{{5}}', fix)
-                  and pb.is_fix_branch(fix), fix)
             have_tests = bool(pb.github_tests(repo, pb._remote_tip(repo, pb.staging_branch(repo))))
             copy, not_due = pb._to_main_copy(repo), pb._to_main_copy(repo, due=False)
             check('its copies of staging too, where the GitHub test knows the new names',
@@ -61678,8 +61126,22 @@ def check_practice_declared_hooks_are_wired():
               declined == [], repr(declined))
         (repo / 'precedent.json').unlink()
         (repo / 'tools' / 'dated_name.py').unlink()
-        absent, _n = psv._declared_practice_hooks(repo, practices)
+        absent, gone_notes = psv._declared_practice_hooks(repo, practices)
         check('a script not on disk gets no hook', absent == [], repr(absent))
+        # 2026-10-17: never in silence -- a check the engine stopped carrying,
+        # now a set's hook, was off in a repo that lacked the set's files.
+        check('...and says so: the check is off here until the script arrives',
+              any('planted-download-names' in n and 'not in this repository yet' in n
+                  for n in gone_notes), repr(gone_notes))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_update as _pu
+        _rep = _pu.Report()
+        if hasattr(_pu, 'hooks_not_here_step'):
+            _pu.hooks_not_here_step(_rep, '\n'.join(
+                f'precedent_sync_views: {n}' for n in gone_notes))
+        _said = repr(getattr(_rep, '__dict__', {}))
+        check('...and Update Vendors carries it into its report as a warning',
+              'tools/dated_name.py' in _said and 'WARNING' in _said, _said[-300:])
         bad, notes = psv._declared_practice_hooks(
             repo, {'x': {'fm': {**good, 'hooks': '[{"event": "Stop"}]'}}})
         check('a declaration that does not parse is a note, never a guess',
@@ -61856,6 +61318,99 @@ def check_update_asks_before_changing_hooks():
               'and the question is printed ahead of the commit',
               rc == pu.DONE and 'QUESTIONS FOR THE PERSON' in buf.getvalue()
               and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
+
+
+def check_update_keeps_hook_hashes_with_the_held_hooks():
+    """While the hooks-and-settings question waits on the person's words,
+    the engine manifest keeps the committed hooks' hashes, and the question
+    only promises what the go-ahead run really records.
+
+    WHY (2026-10-17, two consumers' updates). The refresh wrote the NEW
+    hooks' hashes into tools/ENGINE_MANIFEST.json at once; committed
+    without the held hooks, as the question invited, the next run called
+    the old hooks "your local edit" and would not replace them. The
+    question also said the go-ahead run "records these files' new
+    baselines" for a .claude/settings.json that had none, and that
+    committing without them "leaves nothing red", when the push check
+    refused the push. And auto mode refused the rerun even with the
+    person's sentence.
+
+    Negative control: on staging's code there is no hold_hook_hashes or
+    harness_baselines, and the question carries the old claims."""
+    import tempfile, hashlib, json as _json
+    name = 'an update keeps hook hashes with the held hooks'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    hold = getattr(pu, 'hold_hook_hashes', None)
+    base = getattr(pu, 'harness_baselines', None)
+    cases.append(('the updater has the hold and the baseline reader',
+                  callable(hold) and callable(base)))
+    if callable(hold) and callable(base):
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                       GIT_AUTHOR_EMAIL='t@example.invalid',
+                       GIT_COMMITTER_EMAIL='t@example.invalid')
+
+            def g(*a):
+                return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+            g('init', '-q')
+            (repo / '.claude' / 'hooks').mkdir(parents=True)
+            (repo / 'tools').mkdir()
+            hook = repo / '.claude' / 'hooks' / 'h.sh'
+            hook.write_text('old\n', encoding='utf-8')
+            old = hashlib.sha256(b'old\n').hexdigest()
+            mf = repo / 'tools' / 'ENGINE_MANIFEST.json'
+            mf.write_text(_json.dumps({'hook_files': ['h.sh'],
+                                       'hooks_sha256': {'h.sh': old}}), encoding='utf-8')
+            (repo / '.claude' / 'settings.json').write_text('{}\n', encoding='utf-8')
+            g('add', '-A')
+            g('commit', '-q', '-m', 'base')
+            # The refresh: new hook, new hash, a settings change; all staged.
+            hook.write_text('new\n', encoding='utf-8')
+            new = hashlib.sha256(b'new\n').hexdigest()
+            mf.write_text(_json.dumps({'hook_files': ['h.sh'],
+                                       'hooks_sha256': {'h.sh': new}}), encoding='utf-8')
+            (repo / '.claude' / 'settings.json').write_text('{"a": 1}\n', encoding='utf-8')
+            g('add', '-A')
+            paths = pu.harness_changes(repo)
+            done = hold(repo, paths, approved=False)
+            staged = _json.loads(g('show', ':tools/ENGINE_MANIFEST.json').stdout or '{}')
+            cases.append(('without the words, the staged manifest keeps the '
+                          'committed hook\'s hash',
+                          done == ['h.sh']
+                          and (staged.get('hooks_sha256') or {}).get('h.sh') == old,
+                          (done, staged)))
+            done = hold(repo, paths, approved=True)
+            staged = _json.loads(g('show', ':tools/ENGINE_MANIFEST.json').stdout or '{}')
+            cases.append(('with the words, it records the staged hook\'s own hash',
+                          done == ['h.sh']
+                          and (staged.get('hooks_sha256') or {}).get('h.sh') == new,
+                          (done, staged)))
+            has, none = base(repo, paths)
+            cases.append(('settings.json, with no recorded baseline, is said to '
+                          'have none; the hook has one',
+                          has == ['.claude/hooks/h.sh']
+                          and none == ['.claude/settings.json'], (has, none)))
+            ask = pu.harness_ask(paths, baselines=(has, none))
+            cases.append(('the question promises no baseline that does not exist',
+                          'records the new baselines of .claude/hooks/h.sh' in ask
+                          and 'has no baseline to record for .claude/settings.json' in ask,
+                          ask))
+            cases.append(('...never says committing without them leaves nothing '
+                          'red, and says to get the words first',
+                          'leaves nothing red' not in ask
+                          and 'Get the words before committing' in ask, ask))
+            cases.append(('...and says auto mode may still need the one permission '
+                          'prompt approved', 'permission prompt' in ask, ask))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d)[:200] + ')' if d else ''}" for n, d in bad))
 
 
 def check_update_asks_for_words_that_name_the_commit():
@@ -62052,7 +61607,7 @@ def check_landed_branch_gets_its_delete_link():
     by the turn's end is used up: the stop hook refuses a reply that gives no
     one-click delete link for it (the-boildown item 6, branch-delete-links).
 
-    WHY. 2026-10-06, a consumer session Booked its branch onto pre-staging and
+    WHY. 2026-10-06, a consumer session Booked its branch onto its landing tier and
     its reply named no delete link. Only the other half -- work NOT yet
     landed -- had anything enforcing it."""
     import tempfile
@@ -63179,8 +62734,8 @@ def check_update_done_names_the_branch_to_commit_on():
             line = _pu.feature_branch_line(repo) or ''
             cases.append(('on main, DONE prints the switch command',
                           _pu.SWITCH_COMMAND in line, line))
-            subprocess.run(g + ['switch', '-q', '-c', 'pre-staging'], check=True)
-            cases.append(('...and on pre-staging',
+            subprocess.run(g + ['switch', '-q', '-c', 'staging'], check=True)
+            cases.append(('...and on staging',
                           _pu.SWITCH_COMMAND in (_pu.feature_branch_line(repo) or ''),
                           ''))
             subprocess.run(g + ['switch', '-q', '-c',
@@ -63599,6 +63154,13 @@ def check_branch_cleanup_page_merges_the_saved_page():
     cases.append(('...says the kept rows are as last checked, and counts both',
                   'as listed when last checked, 11 Oct 2026, 10:00 UTC' in page
                   and '3 branches' in page, ''))
+    kept = _sb.carried_over([{'owner': 'o', 'repo': 'D', 'checked': '',
+                              'branches': [['precedent-promote-lock', '2026-10-01'],
+                                           ['precedent-check-receipts', '2026-10-01'],
+                                           ['d-done', '2026-10-01']]}], [])
+    cases.append(('a carried row never offers a branch the engine keeps, '
+                  'whoever listed it', [[b for b, _d in r] for _o, _n, r, _c in kept]
+                  == [['d-done']], kept))
     legacy = _sb._DATA.sub('', old)
     cases.append(('a page built before the JSON block is read from its sections',
                   [(r['repo'], [b for b, _d in r['branches']], r['checked'][:16])
@@ -63714,6 +63276,70 @@ def check_branch_cleanup_page_merges_the_saved_page():
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'refreshing the branch-cleanup page merges the saved one ({len(cases)} '
           f'stated cases)', not bad, '; '.join(bad))
+
+
+def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
+    """The page never offers main, staging or a live data- branch, from any
+    path, and an engine branch's old name is offered only from this run's
+    own check, marked as the moved name it is; its runtime version is left
+    where it was published.
+
+    WHY (2026-10-17, from two consuming repos' sessions). The page listed
+    precedent-promote-lock and precedent-check-receipts as deletable, and
+    its intro said the engine's own branches are never listed. Both were
+    old names whose data- copies held their whole history -- listed on
+    purpose since 2026-10-13 -- but nothing on the page said so, and two
+    sessions reported them as engine branches offered by mistake. A
+    republish reported an older runtime version, and nothing said whether
+    to move it.
+
+    Planted through render_html: a fresh repository carrying main, a live
+    data- branch, a moved old name and an ordinary branch; a carried one
+    whose saved rows hold an old engine name and an ordinary branch."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_stale_branches as _sb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    page = _sb.render_html(
+        [('o', 'fresh', [('main', '2026-10-01'), ('data-promote-lock', '2026-10-02'),
+                         ('precedent-promote-lock', '2026-10-03'),
+                         ('feat-a', '2026-10-04')])],
+        carried=[('o', 'saved', [('precedent-check-receipts', '2026-10-05'),
+                                 ('feat-b', '2026-10-06')],
+                  '2026-10-16T12:00:00+00:00')])
+    offered = set(re.findall(r'data-k="([^"]+)"', page))
+    cases.append(('main is never offered', 'fresh/main' not in offered, sorted(offered)))
+    cases.append(('a live data- branch is never offered',
+                  'fresh/data-promote-lock' not in offered))
+    cases.append(('an ordinary branch is, fresh or carried',
+                  {'fresh/feat-a', 'saved/feat-b'} <= offered))
+    row = page.split('fresh/precedent-promote-lock', 1)[-1].split('</li>', 1)[0]
+    cases.append(('a moved old name from this run\'s own check is offered, marked '
+                  'as the data- branch\'s old name',
+                  'fresh/precedent-promote-lock' in offered
+                  and 'data-promote-lock' in row and 'Nothing reads this one' in row,
+                  row[:200]))
+    cases.append(('an old engine name carried from a saved page is not offered',
+                  'saved/precedent-check-receipts' not in offered))
+    lede = page.split('class="lede"', 1)[-1].split('</p>', 1)[0]
+    cases.append(('the intro says how an old engine name appears',
+                  'says so' in lede, lede[:300]))
+    cases.append(('the count is of what is offered (3)',
+                  '>3 branches,' in page or '3 branches, all' in page))
+    cases.append(('one list of engine branch names, from the data-branch module',
+                  getattr(_sb, 'ENGINE_BRANCHES', frozenset()) >= {
+                      'precedent-promote-lock', 'precedent-check-receipts'}
+                  and getattr(_sb, 'ENGINE_BRANCHES', frozenset()) <= _sb.NEVER))
+    src = (ROOT / 'tools' / 'precedent_stale_branches.py').read_text(encoding='utf-8')
+    cases.append(('the publish line says to leave the runtime version as it is',
+                  'omit `contract`' in getattr(_sb, 'PAGE_RUNTIME_LINE', '')
+                  and '+ PAGE_RUNTIME_LINE' in src))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the cleanup page never offers main and marks moved engine names '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d) + ')' if d else ''}" for n, d in bad))
 
 
 def check_branch_cleanup_page_lists_staging_waiting_to_go_live():
@@ -64376,26 +64002,42 @@ def check_leak_gate_reads_the_written_private_repo_list():
 
 
 def check_refresh_adds_read_only_allow_rules():
-    """The refresh adds the settings template's read-only Precedent tool
-    rules to a consumer's .claude/settings.json, add-only (2026-10-14: a
-    consumer allowed none of them, and auto mode woke the person over a
-    precedent_show.py read). The DISCRIMINATING CASE is that a write-capable
-    template rule (git push, checkin.py) is never added, nor a rule for a
-    tool this repo's tools/ lacks, nor one precedent.json declines."""
+    """The refresh adds the settings template's Precedent tool rules to a
+    consumer's .claude/settings.json, add-only (2026-10-14: a consumer
+    allowed none of them, and auto mode woke the person over a
+    precedent_show.py read). Since 2026-10-17 (Morgan: "why not include all
+    on that list except a small list we explicitly want to exclude ... to
+    get the session user's permission", then "yes, build it") the template
+    allows every engine tool with one rule and asks for the tools that land,
+    produce, merge or update other repositories. THE DISCRIMINATING CASES:
+    the broad rule is never written without every ask rule beside it, and a
+    repository that declines an ask rule keeps
+    its tools allowed one by one. Both go into the file in one write."""
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_vendor_engine as pve
     cases = []
     tpl = (ROOT / pve.SETTINGS_TEMPLATE).read_text(encoding='utf-8')
     rules = pve.read_only_allow_rules(tpl)
-    cases.append(('THE DISCRIMINATING CASE: only read-only tools are taken from the template',
+    ask = pve.engine_ask_rules(tpl) if hasattr(pve, 'engine_ask_rules') else []
+    broad = getattr(pve, 'ENGINE_ALLOW_RULE', None)
+    cases.append(('the template allows every engine tool with one rule',
+                  bool(broad) and broad in rules, rules))
+    cases.append(('no write-capable rule is taken from the template as an allow',
                   rules and all(pve.is_read_only_allow_rule(r) for r in rules)
-                  and not any('push' in r or 'checkin' in r or 'commit' in r for r in rules)
-                  and 'Bash(python3 tools/precedent_show.py *)' in rules, rules))
-    cases.append(('every read-only tool the engine names has a template rule',
-                  {pve._ALLOW_RULE_RE.match(r).group(1) for r in rules}
-                  == set(pve.READ_ONLY_ALLOW_TOOLS), rules))
-    with tempfile.TemporaryDirectory() as td:
+                  and not any('push' in r or 'checkin' in r or 'commit' in r for r in rules),
+                  rules))
+    cases.append(('every read-only tool outside precedent_* still has its own rule',
+                  {pve._ALLOW_RULE_RE.match(r).group(1) for r in rules if r != broad}
+                  >= {t for t in pve.READ_ONLY_ALLOW_TOOLS
+                      if not t.startswith('precedent_')}, rules))
+    cases.append(('the template asks for landing, Produce, the merge and Update Vendors',
+                  any('precedent_branches.py --land' in r for r in ask)
+                  and any('precedent_branches.py --promote' in r for r in ask)
+                  and 'mcp__github__merge_pull_request' in ask
+                  and any('precedent_update.py' in r for r in ask), ask))
+
+    def fixture(td, own, declined=()):
         dest = pathlib.Path(td)
         (dest / '.claude').mkdir()
         (dest / 'tools').mkdir()
@@ -64403,36 +64045,165 @@ def check_refresh_adds_read_only_allow_rules():
             if t != 'routing_audit.py':
                 (dest / 'tools' / t).write_text('', encoding='utf-8')
         sp = dest / '.claude' / 'settings.json'
-        own = {'permissions': {'allow': ['Bash(make test)',
-                                         'Bash(python3 tools/doc_lint.py)'],
-                               'deny': ['Bash(python3 tools/precedent_check.py *)']},
-               'hooks': {}}
         sp.write_text(json.dumps(own), encoding='utf-8')
         (dest / 'precedent.json').write_text(json.dumps(
-            {pve.DECLINED_ALLOW_KEY: ['Bash(python3 tools/precedent_gate.py)']}),
-            encoding='utf-8')
+            {pve.DECLINED_ALLOW_KEY: list(declined)}), encoding='utf-8')
+        return dest, sp
+    own = {'permissions': {'allow': ['Bash(make test)',
+                                     'Bash(python3 tools/doc_lint.py)'],
+                           'deny': ['Bash(python3 tools/routing_audit.py *)']},
+           'hooks': {}}
+    with tempfile.TemporaryDirectory() as td:
+        dest, sp = fixture(td, own)
         before = sp.read_text(encoding='utf-8')
-        added = pve._apply_read_only_allow(dest, rules)
+        try:
+            pve._apply_read_only_allow(dest, rules, ask)
+            ok_call = True
+        except TypeError:
+            ok_call = False
         after = json.loads(sp.read_text(encoding='utf-8'))
-        allow = after['permissions']['allow']
+        perms = after['permissions']
+        allow = perms['allow']
+        cases.append(('THE DISCRIMINATING CASE: the broad rule comes with every ask rule',
+                      ok_call and broad in allow and perms.get('ask') == ask, perms))
         cases.append(('what was there stays first and unchanged',
                       allow[:2] == own['permissions']['allow']
-                      and after['permissions']['deny'] == own['permissions']['deny'], allow))
-        cases.append(('a rule already allowed, denied, declined, or for a tool not '
-                      'in tools/ is not added',
+                      and perms['deny'] == own['permissions']['deny'], allow))
+        cases.append(('a rule already allowed or denied, or for a tool not in tools/, '
+                      'is not added',
                       allow.count('Bash(python3 tools/doc_lint.py)') == 1
-                      and 'Bash(python3 tools/precedent_check.py *)' not in allow
-                      and 'Bash(python3 tools/precedent_gate.py)' not in allow
-                      and 'Bash(python3 tools/precedent_gate.py *)' in allow
                       and not any('routing_audit' in r for r in allow), allow))
         cases.append(('the change reads as refresh output, not a person\'s edit',
                       pve.settings_change_is_wiring_only(before, sp.read_text(encoding='utf-8')),
                       ''))
-        cases.append(('a second run adds nothing', pve._apply_read_only_allow(dest, rules) == [],
-                      ''))
+        cases.append(('a second run adds nothing',
+                      ok_call and pve._apply_read_only_allow(dest, rules, ask) == [], ''))
+    with tempfile.TemporaryDirectory() as td:
+        dest, sp = fixture(td, own, declined=[ask[0]] if ask else [])
+        if ok_call:
+            pve._apply_read_only_allow(dest, rules, ask)
+        perms = json.loads(sp.read_text(encoding='utf-8'))['permissions']
+        cases.append(('THE DISCRIMINATING CASE: declining one ask rule keeps the broad '
+                      'rule out, and no ask is written alone',
+                      bool(ask) and broad not in perms['allow'] and not perms.get('ask'),
+                      perms))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the refresh adds read-only Precedent tool allow rules ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
+def check_engine_tools_allowed_and_the_ones_that_move_work_ask():
+    """With the settings template as shipped, Claude Code lets every engine
+    tool run and asks the person before the ones that land, produce, merge,
+    update other repositories or send work upstream (Morgan, 2026-10-17:
+    "why not include all on that list except a small list we explicitly want
+    to exclude from that list to get the session user's permission", then
+    "yes, build it including the preemptive fix"). Matching follows Claude
+    Code's documented rules (code.claude.com/docs/en/permissions, read
+    2026-10-17): deny, then ask, then allow, the first match deciding; a
+    `*` matches any text, spaces included. A tool added later needs no
+    settings change. Fails on the old template: precedent_branches.py
+    --land was not asked for, and a new engine tool was not allowed."""
+    import re as _re
+    name = 'every engine tool runs, and the ones that move work ask'
+    tmpl = ROOT / 'templates' / 'harness' / 'claude-code' / 'settings.json'
+    if not tmpl.is_file():
+        not_applicable(name, 'no Claude Code settings template here')
+        return
+    perms = json.loads(tmpl.read_text(encoding='utf-8')).get('permissions') or {}
+
+    def matches(rule, command):
+        m = _re.fullmatch(r'Bash\((.*)\)', rule)
+        if not m:
+            return False
+        pat = '.*'.join(_re.escape(p) for p in m.group(1).split('*'))
+        return _re.fullmatch(pat, command) is not None
+
+    def decide(command):
+        for key in ('deny', 'ask', 'allow'):
+            if any(matches(r, command) for r in perms.get(key) or []):
+                return key
+        return 'unlisted'
+    want = [
+        ('python3 tools/precedent_brand_new_tool.py --any args', 'allow'),
+        ('python3 tools/precedent_show.py act', 'allow'),
+        ('python3 tools/precedent_check.py --full-sweep', 'allow'),
+        ('python3 tools/precedent_branches.py --landing', 'allow'),
+        ('python3 tools/precedent_branches.py --run-tests', 'allow'),
+        ('python3 tools/precedent_branches.py --land', 'ask'),
+        ('python3 tools/precedent_branches.py --land 2026-10-17-x-y', 'ask'),
+        ('python3 tools/precedent_branches.py --promote --to main --work b', 'ask'),
+        ('python3 ../BestPractice/tools/precedent_update.py --repo .', 'ask'),
+        ('python3 ../bestpractice/tools/precedent_update.py --repo .', 'ask'),
+        ('python3 tools/precedent_update.py --repo .', 'ask'),
+        ('python3 tools/precedent_update_all.py --list', 'ask'),
+        ('python3 tools/precedent_vendor_engine.py refresh --from x', 'ask'),
+        ('python3 tools/precedent_local_edits.py send', 'ask'),
+        ('python3 tools/precedent_local_edits.py list', 'allow'),
+        ('python3 tools/precedent_merge_check.py --pr 1', 'ask'),
+        ('python3 tools/doc_lint.py README.md', 'allow'),
+    ]
+    cases = [(f'{cmd!r} -> {exp}', decide(cmd) == exp, decide(cmd)) for cmd, exp in want]
+    cases.append(('the GitHub merge always asks',
+                  'mcp__github__merge_pull_request' in (perms.get('ask') or [])))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (got ' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_document_project_agents_md_is_compared_with_its_own_template():
+    """A repo made from templates/document-project/AGENTS.md is compared with
+    that template, never the loader template (2026-10-17, issue #1172: a
+    document project's update showed seven of its sections as DIVERGED and
+    four loader-only sections as MISSING, and never reported real drift from
+    its own template). Declared in precedent.json, or read from the headings
+    only that template has; any other consumer is compared as before.
+
+    Negative control: on staging's code there is no agents_md_templates, and
+    the plan is the loader template's."""
+    import tempfile, shutil
+    name = 'a document project\'s AGENTS.md is compared with its own template'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    cases = []
+    pick = getattr(pve, 'agents_md_templates', None)
+    cases.append(('the engine picks a template per repository', callable(pick)))
+    doc = ROOT / 'templates' / 'document-project' / 'AGENTS.md'
+    loader = ROOT / 'templates' / 'AGENTS.md.loader.template'
+    if callable(pick) and doc.is_file() and loader.is_file():
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            src = td / 'src'
+            src.mkdir()
+            pve._read_agents_md_sources(ROOT, 'HEAD', 'consumer', src)
+            dest = td / 'repo'
+            (dest / 'tools').mkdir(parents=True)
+            shutil.copy(doc, dest / 'AGENTS.md')
+            plan = pve._agents_md_plan(dest, 'consumer', src, {})
+            used = {p[1] for p in plan}
+            keys = {p[0] for p in plan}
+            cases.append(('a document project is planned against its own template',
+                          used == {'templates/document-project/AGENTS.md'}, used))
+            cases.append(('...so no loader-only section is reported MISSING',
+                          not any('Working in parallel' in k for k in keys)
+                          and not any(p[3] == 'missing' for p in plan),
+                          [(p[0], p[3]) for p in plan if p[3] != 'current']))
+            shutil.copy(loader, dest / 'AGENTS.md')
+            (dest / 'precedent.json').write_text(
+                json.dumps({'agents_md_template': 'document-project'}), encoding='utf-8')
+            cases.append(('declared in precedent.json, it is a document project '
+                          'whatever its headings',
+                          pick(dest, 'consumer') == ('templates/document-project/AGENTS.md',)))
+            (dest / 'precedent.json').unlink()
+            cases.append(('CONTROL: any other consumer is compared with the loader '
+                          'template, as before',
+                          pick(dest, 'consumer')[0] == 'templates/AGENTS.md.loader.template'))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d)[:300] + ')' if d else ''}" for n, d in bad))
 
 
 def check_repin_kept_records_the_persons_words():
@@ -65817,7 +65588,7 @@ def check_universal_occasion_share_is_capped():
                   allowed is not None and 0 < share <= allowed,
                   f'share {share}, allowance {allowed}'))
     # Over its allowance, --check warns and --budgets refuses: a size cap
-    # warns on the way into pre-staging and refuses at the full check
+    # warns at the quick check and refuses at the full check
     # (Morgan, 2026-09-30, strength: decided).
     real, argv, strict = bv.own_occasion_allowance, sys.argv, bv.STRICT_BUDGETS
     bv.own_occasion_allowance = lambda root: 10
@@ -66439,9 +66210,9 @@ def check_landed_reduction_quiets_the_reduction_ask():
     branch is reported as waiting on a Promote, not as needing another pass.
 
     Found 2026-10-01 in a reduction-pass session: the reply gate kept
-    requiring a Reduction pass after the pass had landed on pre-staging,
+    requiring a Reduction pass after the pass had landed on the tier below main,
     because the file it measures is built from main. The rule under test:
-    AGENTS.md smaller on origin/pre-staging than on origin/main marks the
+    AGENTS.md smaller on origin/staging than on origin/main marks the
     over-target line; the same size, or no landing branch, leaves it as
     the plain ask. Driven against a throwaway repository."""
     import tempfile
@@ -66466,27 +66237,27 @@ def check_landed_reduction_quiets_the_reduction_ask():
         git('add', '-A')
         git('commit', '-q', '-m', 'big')
         git('remote', 'add', 'origin', f'file://{bare}')
-        git('push', '-q', 'origin', 'HEAD:main', 'HEAD:pre-staging')
+        git('push', '-q', 'origin', 'HEAD:main', 'HEAD:staging')
         git('fetch', '-q', 'origin')
 
         got = pg._over_target(work, siblings=False)
-        cases.append(('over target, same size on pre-staging: the plain ask',
+        cases.append(('over target, same size on staging: the plain ask',
                       len(got) == 1 and pg.LANDED_REDUCTION_MARK not in got[0],
                       repr(got)))
-        git('checkout', '-q', '-b', 'pre-staging', 'origin/pre-staging')
+        git('checkout', '-q', '-b', 'staging', 'origin/staging')
         (work / 'AGENTS.md').write_text('# A\n' + 'word ' * 200, encoding='utf-8')
         git('commit', '-qam', 'reduction pass')
-        git('push', '-q', 'origin', 'pre-staging')
+        git('push', '-q', 'origin', 'staging')
         git('fetch', '-q', 'origin')
         git('checkout', '-q', 'main')
         got = pg._over_target(work, siblings=False)
-        cases.append(('a smaller AGENTS.md on pre-staging marks the line as '
+        cases.append(('a smaller AGENTS.md on staging marks the line as '
                       'waiting on a Promote, with both sizes',
                       len(got) == 1 and pg.LANDED_REDUCTION_MARK in got[0]
-                      and 'on main' in got[0] and 'on pre-staging' in got[0],
+                      and 'on main' in got[0] and 'on staging' in got[0],
                       repr(got)))
         # Off the ladder: the same fact, with no tier and no ladder word
-        # (found 2026-10-03, the line named pre-staging to such a person).
+        # (found 2026-10-03, the line named the landing tier to such a person).
         saved = {k: os.environ.pop(k, None) for k in
                  ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG')}
         os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
@@ -66500,7 +66271,7 @@ def check_landed_reduction_quiets_the_reduction_ask():
                       len(got) == 1 and pg.LANDED_REDUCTION_MARK_PLAIN in got[0]
                       and 'on main' in got[0]
                       and not _owned_word_hits(got[0]), repr(got)))
-        git('push', '-q', 'origin', '--delete', 'pre-staging')
+        git('push', '-q', 'origin', '--delete', 'staging')
         git('fetch', '-q', '--prune', 'origin')
         cases.append(('no landing branch on origin: no mark',
                       pg._landed_reduction(work) is None,
@@ -69564,7 +69335,7 @@ def check_self_heal_skips_a_scratch_copy():
     beside ANY repository that resolved, including a test's `git clone
     <path>` scratch copy in /tmp: precedent-shared-repo-maintenance's
     trailer test then resolved the working-style set it set out to exclude,
-    and failed on untouched pre-staging (2026-09-30). Planted, with a stand-
+    and failed on an untouched landing tier (2026-09-30). Planted, with a stand-
     in bootstrap tool that leaves a marker when it runs. Discriminating
     cases: from a copy whose origin is another checkout on this disk, the
     repair does not run; from a checkout whose origin is a remote, it still
@@ -69827,8 +69598,8 @@ def check_stop_hook_ignores_commits_another_remote_ref_has():
     after its pull request merged; the stale remote-tracking ref stayed,
     and once the branch was moved onto origin/main the hook counted seven
     commits that were all on origin/main. (b) The branch was reset onto
-    origin/pre-staging, whose tip is the merge of that same branch's pull
-    request; the hook counted one commit that was on origin/pre-staging.
+    origin/staging, whose tip is the merge of that same branch's pull
+    request; the hook counted one commit that was on origin/staging.
     Neither is the empty-merge case check_empty_commits_are_never_counted
     covers: both carry real file changes, just not unpushed ones.
 
@@ -69867,7 +69638,7 @@ def check_stop_hook_ignores_commits_another_remote_ref_has():
             write(work, 'a.txt', 'a\n')
             git(work, 'remote', 'add', 'origin', f'file://{bare}')
             git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
-            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
             # A second clone stands in for GitHub: it merges pull requests
             # and deletes branches without this checkout hearing about it.
             other = tmp / 'other'
@@ -69902,21 +69673,21 @@ def check_stop_hook_ignores_commits_another_remote_ref_has():
                           f'{r.stderr.strip()[:160]}]',
                           stale and r.returncode == 0))
 
-            # (b) feature2 is pushed and merged into pre-staging; the local
-            # branch is reset onto origin/pre-staging, whose tip is that merge.
-            git(work, 'checkout', '-q', '-B', 'feature2', 'origin/pre-staging')
+            # (b) feature2 is pushed and merged into staging; the local
+            # branch is reset onto origin/staging, whose tip is that merge.
+            git(work, 'checkout', '-q', '-B', 'feature2', 'origin/staging')
             write(work, 'g.txt', 'g\n')
             git(work, 'push', '-q', '-u', 'origin', 'feature2')
             git(other, 'fetch', '-q', 'origin')
-            git(other, 'checkout', '-q', '-B', 'pre-staging', 'origin/pre-staging')
+            git(other, 'checkout', '-q', '-B', 'staging', 'origin/staging')
             write(other, 'z.txt', 'z\n')
             git(other, 'merge', '-q', '--no-ff', '-m', 'merge feature2',
                 'origin/feature2')
-            git(other, 'push', '-q', 'origin', 'pre-staging')
+            git(other, 'push', '-q', 'origin', 'staging')
             git(work, 'fetch', '-q', 'origin')
-            git(work, 'reset', '-q', '--hard', 'origin/pre-staging')
+            git(work, 'reset', '-q', '--hard', 'origin/staging')
             r = stop()
-            cases.append((f'{label}: (b) branch reset onto origin/pre-staging, '
+            cases.append((f'{label}: (b) branch reset onto origin/staging, '
                           f'whose tip merges that branch: the stop is not '
                           f'blocked [{r.returncode}: {r.stderr.strip()[:160]}]',
                           r.returncode == 0))
@@ -70006,13 +69777,12 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
         tmp = pathlib.Path(td)
         env = _stale_ref_fixture_env(tmp)
         work, git, branches, tip = _promote_fixture(
-            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
+            tmp, env, 'staging', ('main', 'staging'))
         git(work, 'checkout', '-q', '-b', 'session-work', 'origin/staging')
         (work / 'two.txt').write_text('2\n', encoding='utf-8')
         git(work, 'add', 'two.txt')
         git(work, 'commit', '-q', '-m', 'work')
         git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
         before = git(work, 'rev-parse', 'HEAD').stdout.strip()
         main_before = tip('main')
         rc, out = branches('--promote', '--to', 'main', '--full', '--because', 'test the long way', '--work', 'session-work')
@@ -70027,25 +69797,25 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
                       == 'session-work'
                       and git(work, 'rev-parse', 'HEAD').stdout.strip() == before))
 
-    # A repository whose staging tier IS main: Promote moves pre-staging
-    # straight into main, so exit 0 there does mean main moved.
+    # A repository whose staging tier IS main: work lands there directly,
+    # so a Promote has nothing to move and says so.
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
         env = _stale_ref_fixture_env(tmp)
         work, git, branches, tip = _promote_fixture(
-            tmp, env, 'main', ('main', 'pre-staging'))
-        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+            tmp, env, 'main', ('main',))
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/main')
         (work / 'three.txt').write_text('3\n', encoding='utf-8')
         git(work, 'add', 'three.txt')
         git(work, 'commit', '-q', '-m', 'work')
         git(work, 'push', '-q', '-u', 'origin', 'session-work')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
         before = git(work, 'rev-parse', 'HEAD').stdout.strip()
         main_before = tip('main')
         rc, out = branches('--promote', '--work', 'session-work')
-        cases.append(('no staging branch: pre-staging into main exits 0 and '
-                      f'main moved (got {rc})',
-                      rc == 0 and tip('main') not in ('', main_before)))
+        cases.append(('no staging branch: nothing to promote, exit 0, main '
+                      f'untouched (got {rc})',
+                      rc == 0 and 'nothing to promote' in out
+                      and tip('main') == main_before))
         cases.append(('and the checked-out branch is where it was, pointing at '
                       'what its own remote copy holds',
                       git(work, 'branch', '--show-current').stdout.strip()
@@ -70057,8 +69827,8 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
 
 
 def check_landing_on_staging_run_tests_and_fast_move_into_main():
-    """The approved plan of 2026-10-09 (retire pre-staging for those who opt
-    in, make the full local suite optional, make the move into main fast),
+    """The approved plan of 2026-10-09 (land straight on staging, make the
+    full local suite optional, make the move into main fast),
     as the engine builds it, generically:
 
     - A person whose landing branch is staging, with promote_only on, lands
@@ -70077,6 +69847,8 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
       in full and the after-merge wait; a failed --run-tests on that very
       commit asks (exit 4) and --despite-failed-tests goes on; a failure on
       an older commit is stale and asks nothing.
+    - A landing_branch the engine does not know (neither staging nor main)
+      makes --land refuse, naming the value and where it is set.
     - Everyone else's routes are as before."""
     import tempfile, json as _json
     name = ('landing straight on staging, --run-tests and the fast move into '
@@ -70114,7 +69886,8 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
         # installed, so the move into main has one to name.
         (work / 'tools' / 'precedent_check.py').write_text(
             'import os, pathlib, sys\n'
-            'if not {"--changed-files-only", "--only"} & set(sys.argv):\n'
+            'if not {"--changed-files-only", "--only", "--base-dependent"}'
+            ' & set(sys.argv):\n'
             '    open(os.environ["RUNS"], "a").write("run\\n")\n'
             '    if pathlib.Path("FAIL").exists():\n'
             '        print("precedent_check: 1 violated")\n'
@@ -70161,25 +69934,20 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
         def merge_why(bases, heads, sha=None):
             return merge_refusal(work, bases, heads, str(cfg), head_sha=sha)
 
-        # --- a landing branch of pre-staging, retired for everyone since
-        # 2026-10-14: it reads as staging, so this person lands there too.
-        # Until then a push to staging was refused naming pre-staging, was
-        # fully checked, a working branch into staging was told to retarget
-        # at pre-staging, and --land was not their route (exit 2).
-        person(landing_branch='pre-staging', promote_only=True)
-        cases.append(('a retired landing branch of pre-staging: a push to '
-                      'staging goes through',
-                      push_why('origin HEAD:staging') is None,
-                      str(push_why('origin HEAD:staging'))[:200]))
-        cases.append(('...and takes the quick checks',
-                      pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'basic'))
+        # --- a landing branch this engine does not know: --land refuses,
+        # naming it, so work never goes somewhere the setting did not mean.
+        person(landing_branch='nightly', promote_only=True)
         rc, out = run('--land')
-        cases.append(('...and --land is their route (never exit 2)',
-                      rc != 2 and 'LAND RESULT' in out, out[-200:]))
+        cases.append(('an unknown landing_branch: --land refuses (exit 2), '
+                      'naming the value and where it is set, and lands nothing',
+                      rc == 2 and "LAND REFUSED: landing_branch is 'nightly' in "
+                      f"{indiv / 'identity.json'}, a branch this engine does not "
+                      'know. Run Update Vendors, which moves it' in out
+                      and 'Nothing was landed.' in out, out[-400:]))
         person(landing_branch='staging')
-        cases.append(('default: landing on staging without promote_only is '
-                      'fully checked, as before',
-                      pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'full'))
+        cases.append(('default: landing on staging without promote_only takes '
+                      'the quick checks too',
+                      pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'basic'))
 
         # --- landing straight on staging ---
         person(landing_branch='staging', promote_only=True)
@@ -70202,8 +69970,8 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
                                 git(work, 'rev-parse', 'HEAD').stdout.strip()) is None))
         why = merge_why(['main'], ['level']) or ''
         cases.append(('a working branch into main is still refused, saying to '
-                      'retarget at staging, their landing branch',
-                      'Retarget it at staging' in why, why[:200]))
+                      'land it on staging, their landing branch',
+                      'Land the branch on staging' in why, why[:200]))
 
         # A commit made directly on main, then work cut from staging.
         direct = commit_on('main', 'hotfix', 'direct.txt', 'd\n', push_to='main')
@@ -70456,57 +70224,133 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
-def check_install_by_a_staging_person_makes_no_pre_staging():
-    """A new install by a person who has retired pre-staging lands on
-    staging and makes no pre-staging on origin (2026-10-11).
+def check_debut_judges_the_change_against_main_too():
+    """A Debut judges what depends on the base against main as well as
+    staging, so a green Debut cannot be followed by a red main (2026-10-17).
 
-    WHY. The very deep check's install rehearsal, run as Morgan, got
-    landing_branch "pre-staging" written into precedent.json and a
-    pre-staging branch pushed to origin -- the tier he had retired from
-    every repository two days earlier. The next Update Vendors would then
-    have moved it back and offered the branch for deletion."""
-    import tempfile
-    import precedent_branches as pb
+    That day a Debut passed on staging and Produce turned main red: staging
+    had deleted a file a page still named, the full suite measured the
+    change from staging (where nothing was deleted), and GitHub's test of
+    the pull request into main measured it from main. Three pieces:
 
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp = pathlib.Path(tmp)
-        results = {}
-        for landing in ('staging', 'pre-staging'):
-            bare, repo = tmp / f'{landing}.git', tmp / f'{landing}-repo'
-            fixture_git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
-            fixture_git(tmp, 'init', '-q', '-b', 'main', str(repo))
-            fixture_git(repo, 'config', 'user.email', 'h@example.com')
-            fixture_git(repo, 'config', 'user.name', 'H')
-            (repo / 'precedent.json').write_text(json.dumps(
-                {'base_branch': 'staging', 'landing_branch': landing}) + '\n')
-            fixture_git(repo, 'add', '-A')
-            fixture_git(repo, 'commit', '-qm', 'install')
-            fixture_git(repo, 'remote', 'add', 'origin', str(bare))
-            fixture_git(repo, 'push', '-q', 'origin', 'main')
-            real = (pb.ladder_in_force, pb.pre_staging_unused)
-            pb.ladder_in_force = lambda *a, **k: True
-            pb.pre_staging_unused = lambda *a, **k: (False, None)
-            try:
-                rc = pb.ensure_tiers(repo, apply=True, say=lambda *a: None,
-                                     new_install=True)
-            finally:
-                pb.ladder_in_force, pb.pre_staging_unused = real
-            heads = subprocess.run(['git', '-C', str(bare), 'branch',
-                                    '--format=%(refname:short)'],
-                                   capture_output=True, text=True).stdout.split()
-            results[landing] = (rc, sorted(heads))
-    cases = [
-        ('an install landing on staging gets staging and no pre-staging',
-         results['staging'] == (0, ['main', 'staging'])),
-        # Since 2026-10-14 pre-staging is retired for everyone: even a
-        # precedent.json still naming it gets no pre-staging made.
-        ('an install whose precedent.json still names pre-staging makes no '
-         'pre-staging either, since it is retired for everyone',
-         results['pre-staging'] == (0, ['main', 'staging'])),
-    ]
-    failed = [n for n, ok in cases if not ok]
-    check(f'an install on staging makes no pre-staging ({len(cases)} stated '
-          f'cases)', not failed, '; '.join(failed) + f' -- {results}')
+    - precedent_check.py takes the base from PRECEDENT_CHANGED_SINCE first,
+      when it names a commit (the push check already set it, and nothing
+      read it), and falls back as before when it does not;
+    - --base-dependent selects only the checks a base can change -- every
+      change-scope check and each tree check reaching the resolver -- so the
+      second pass is seconds, never a second suite (Morgan: "It should
+      NOT");
+    - --run-tests runs that pass with main's tip as the base, and fails,
+      naming the check, when it finds what main would; so does Produce,
+      before it pushes the copy, since a Debut is optional and the quick
+      tier of an upstream repository runs no rename check."""
+    import tempfile, importlib.util as _u
+    name = 'the Debut judges the change against main too'
+    pc_path = ROOT / 'tools' / 'precedent_check.py'
+    if not (ROOT / 'tools' / 'precedent_branches.py').exists() or not pc_path.exists():
+        not_applicable(name, 'precedent_branches.py or precedent_check.py is absent')
+        return
+    cases = []
+    saved = sys.argv
+    sys.argv = ['precedent_check.py']
+    try:
+        spec = _u.spec_from_file_location('_vh_pc_base', pc_path)
+        pc = _u.module_from_spec(spec)
+        spec.loader.exec_module(pc)
+    finally:
+        sys.argv = saved
+    old = os.environ.pop('PRECEDENT_CHANGED_SINCE', None)
+    try:
+        plain = pc._published_default_branch()
+        head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True).stdout.strip()
+        os.environ['PRECEDENT_CHANGED_SINCE'] = head
+        named = pc._published_default_branch()
+        os.environ['PRECEDENT_CHANGED_SINCE'] = 'no-such-ref-anywhere'
+        bogus = pc._published_default_branch()
+    finally:
+        os.environ.pop('PRECEDENT_CHANGED_SINCE', None)
+        if old is not None:
+            os.environ['PRECEDENT_CHANGED_SINCE'] = old
+    cases.append(('PRECEDENT_CHANGED_SINCE naming a commit is the base',
+                  bool(head) and named == head, f'{named!r}'))
+    cases.append(('one naming nothing falls back to the usual base',
+                  bogus == plain, f'{bogus!r} vs {plain!r}'))
+    picks = getattr(pc, 'base_dependent_slugs', lambda: [])()
+    change = {s for s, c in pc.CHECKS.items() if c['scope'] == 'change'}
+    cases.append(('--base-dependent takes every change-scope check',
+                  bool(picks) and change <= set(picks),
+                  ', '.join(sorted(change - set(picks)))[:200]))
+    cases.append(('...and the tree checks that read the base, through a '
+                  'helper too (rename-updates-links, change-updates-its-docs)',
+                  {'rename-updates-links', 'change-updates-its-docs'} <= set(picks)))
+    cases.append(('...and not the rest: a check that never reads the base '
+                  '(light-check) is not run twice',
+                  'light-check' not in picks and len(picks) < len(pc.CHECKS) / 2,
+                  f'{len(picks)} of {len(pc.CHECKS)}'))
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        work, git, branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging'))
+        # The stub judges the way rename-updates-links does: a file the
+        # change deleted, measured from the base it is given.
+        (work / 'tools' / 'precedent_check.py').write_text(
+            'import os, subprocess, sys\n'
+            'if "--base-dependent" in sys.argv:\n'
+            '    base = os.environ.get("PRECEDENT_CHANGED_SINCE") or "origin/staging"\n'
+            '    d = subprocess.run(["git", "diff", "--name-status", base, "HEAD"],\n'
+            '                       capture_output=True, text=True).stdout\n'
+            '    if "D\\tgone.py" in d:\n'
+            '        print("VIOLATION  rename-updates-links")\n'
+            '        print("    doc.md:1: still references \'gone.py\', which this branch deleted")\n'
+            '        print("precedent_check: 0 passed, 1 violated")\n'
+            '        sys.exit(1)\n'
+            'print("precedent_check: 3 passed, 0 violated")\n', encoding='utf-8')
+        (work / 'gone.py').write_text('x = 1\n', encoding='utf-8')
+        (work / 'doc.md').write_text('See gone.py.\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'stub, a file and a page naming it')
+        git(work, 'push', '-q', 'origin', 'HEAD:main', 'HEAD:staging')
+        # Staging deletes the file and leaves the page, already landed.
+        git(work, 'rm', '-q', 'gone.py')
+        git(work, 'commit', '-q', '-m', 'delete gone.py')
+        git(work, 'push', '-q', 'origin', 'HEAD:staging')
+        rc, out = branches('--run-tests')
+        cases.append(('a Debut of staging that deleted a file main still has '
+                      'fails, naming the check and main',
+                      rc == 1 and 'rename-updates-links (against main)' in out,
+                      out[-300:]))
+        cases.append(('...and the RUN TESTS RESULT line names it',
+                      'RUN TESTS RESULT: staging: FAILED' in out
+                      and 'against main' in out.split('RUN TESTS RESULT')[-1],
+                      out[-200:]))
+        before = tip('main')
+        rc, out = branches('--promote', '--to', 'main')
+        cases.append(('a Produce right after that failed Debut asks first '
+                      '(exit 4)', rc == 4, out[-200:]))
+        # Past the question, Produce's own pass refuses it too, as it would
+        # with no Debut at all.
+        rc, out = branches('--promote', '--to', 'main', '--despite-failed-tests')
+        cases.append(('a Produce of the same staging is refused before it '
+                      'pushes anything, naming the check and main',
+                      rc == 1 and 'PROMOTE REFUSED' in out
+                      and 'rename-updates-links (against main)' in out,
+                      out[-300:]))
+        cases.append(('...and main did not move', tip('main') == before))
+        # Main catches up: the same tree now passes.
+        git(work, 'push', '-q', 'origin', 'HEAD:main')
+        rc, out = branches('--run-tests')
+        cases.append(('once main has the deletion too, the Debut passes',
+                      rc == 0 and 'against main)' not in out, out[-300:]))
+        rc, out = branches('--run-tests', 'main')
+        cases.append(('a Debut of main itself takes no second pass',
+                      rc == 0 and 'judging the change against main' not in out,
+                      out[-300:]))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
 def check_update_vendors_retires_pre_staging():
@@ -70514,7 +70358,7 @@ def check_update_vendors_retires_pre_staging():
     retired for everyone on 2026-10-14 (Morgan, 2026-10-09: "make sure we have a smooth upgrade process
     for each. Merging the branches, telling he can delete pre-staging,
     updating previous mentions/links within each repo"). Update Vendors'
-    retire_pre_staging_step, on a local bare origin:
+    migration (tools/migration_retire_pre_staging.py), on a local bare origin:
 
     - work on pre-staging that staging lacks is brought into staging by
       --land's composition, with main's direct work; nothing is dropped and
@@ -70593,13 +70437,14 @@ def check_update_vendors_retires_pre_staging():
             f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
             'import precedent_update as pu, precedent_branches as pb\n'
             'import precedent_stale_branches as sb\n'
+            'import migration_retire_pre_staging as m\n'
             'repo = pathlib.Path(sys.argv[2])\n'
             'if sys.argv[1] == "step":\n'
             '    rep = pu.Report(); rep.before = set()\n'
-            '    pu.retire_pre_staging_step(repo, rep)\n'
-            '    rep._retired_block()\n'
+            '    m.migrate(repo, rep, pu)\n'
+            '    rep._migration_notes()\n'
             '    print("RESULT " + json.dumps({"steps": rep.steps, '
-            '"left": rep.left, "retired": rep.retired}))\n'
+            '"left": rep.left, "retired": rep.migration_notes.get(m.HEADER, [])}))\n'
             'elif sys.argv[1] == "offers":\n'
             '    import very_deep_check as v\n'
             '    print("RESULT " + json.dumps({"never": pb.never_offered(repo), '
@@ -70663,18 +70508,10 @@ def check_update_vendors_retires_pre_staging():
                           res == {'steps': [], 'left': [], 'retired': []}
                           and tips() == before and text('AGENTS.md') == agents,
                           out[-300:]))
-        person(promote_only=True)
-        res, out = call('offers')
-        cases.append(('while it holds work staging lacks, with no landing '
-                      'branch of their own: it is never offered',
-                      'pre-staging' in res.get('never', [])
-                      and 'pre-staging' not in res.get('stale', ['x']), out[-300:]))
-        person(landing_branch='pre-staging', promote_only=True)
-        res, out = call('offers')
-        cases.append(('...nor landing on pre-staging',
-                      'pre-staging' in res.get('never', [])
-                      and 'pre-staging' not in res.get('stale', ['x'])
-                      and 'pre-staging' in res.get('vdc', []), out[-300:]))
+        # No case here protects pre-staging from deletion while it holds
+        # work: the step above brings that work into staging first, and
+        # nothing else in the engine treats pre-staging as a tier (Morgan,
+        # 2026-10-17: "WE SHOULD DELETE PRE-STAGING EVERYWHERE").
 
         # --- the repository still makes pre-staging others' landing branch ---
         person(landing_branch='staging', promote_only=True, github='p-user')
@@ -70726,11 +70563,6 @@ def check_update_vendors_retires_pre_staging():
         git(work, 'commit', '-q', '-m', 'a practice copied from a source')
 
         # --- the person who lands on staging, work waiting on pre-staging ---
-        res, out = call('offers')
-        cases.append(('while it holds work staging lacks, pre-staging is never '
-                      'offered', 'pre-staging' in res.get('never', [])
-                      and 'pre-staging' not in res.get('stale', ['x'])
-                      and 'pre-staging' in res.get('vdc', []), out[-300:]))
         main_before, ps_before = tip('main'), tip('pre-staging')
         res, out = call('step')
         retired = res.get('retired') or []
@@ -70811,9 +70643,11 @@ def check_update_vendors_retires_pre_staging():
                       and {'staging', 'main'} <= set(res.get('never', []))
                       and 'pre-staging' not in res.get('vdc', ['pre-staging']),
                       out[-300:]))
-        cases.append(('the stale-branch lister offers it, never staging or main',
-                      'pre-staging' in res.get('stale', [])
-                      and not {'staging', 'main'} & set(res.get('stale', [])),
+        # The stale-branch lister treats it as any branch since 2026-10-17:
+        # offered once main has its work. Until then the step's own link
+        # (above) is the offer.
+        cases.append(('the stale-branch lister never offers staging or main',
+                      not {'staging', 'main'} & set(res.get('stale', [])),
                       out[-300:]))
 
         # --- a second run: nothing changes; it says retired, with the link ---
@@ -70855,6 +70689,9 @@ def check_update_vendors_retires_pre_staging():
         # (2026-10-09, reported by another session: a note quoting the old
         # instruction was reworded on the update after the move.)
         import precedent_update as _pu_direct
+        import migration_retire_pre_staging as _pu_direct_m
+        _pu_direct_m.pu = _pu_direct
+        _pu_direct = _pu_direct_m
         cases.append(('once the switch to staging is committed, later runs '
                       'reword nothing', not _pu_direct.rewords_this_run(work, False, False)))
         cases.append(('the run that switches, or brings pre-staging\'s work '
@@ -70870,21 +70707,27 @@ def check_update_vendors_retires_pre_staging():
         res, out = call('step')
         cases.append(('and the step says nothing at all',
                       res == {'steps': [], 'left': [], 'retired': []}, out[-300:]))
-    # Where it runs: inside update(), before the views are regenerated, so
-    # they render the reworded sources.
+    # Where it runs: a migration, which update() runs without naming it,
+    # before the views are regenerated, so they render the reworded sources.
     import inspect
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
         import precedent_update as _pu
         src = inspect.getsource(_pu.update)
+        runner = inspect.getsource(_pu.migrations_step)
     except Exception as e:                                   # noqa: BLE001
-        src = f'{type(e).__name__}: {e}'
+        src = runner = f'{type(e).__name__}: {e}'
     finally:
         sys.path.pop(0)
-    step = src.find('retire_pre_staging_step(repo, rep)')
+    step = src.find('migrations_step(repo, rep)')
     views = src.find("sync = repo / 'tools' / 'precedent_sync_views.py'")
-    cases.append(('update() runs the step before it regenerates the views',
-                  0 <= step < views, src[:120] if step < 0 else ''))
+    cases.append(('update() runs the migrations before it regenerates the '
+                  'views', 0 <= step < views, src[:120] if step < 0 else ''))
+    cases.append(('update() names no migration, and the runner finds this one '
+                  'by its file name alone', 'pre_staging' not in src + runner
+                  and "glob('migration_*.py')" in runner
+                  and (ROOT / 'tools' / 'migration_retire_pre_staging.py').is_file(),
+                  runner[:200]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
@@ -70929,28 +70772,22 @@ def check_promote_ends_with_its_result_line():
         # machine's own PRECEDENT_GITHUB_USER.
         env = dict(_stale_ref_fixture_env(tmp), PRECEDENT_GITHUB_USER='')
         work, git, _branches, tip = _promote_fixture(
-            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
-        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+            tmp, env, 'staging', ('main', 'staging'))
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/staging')
         (work / 'two.txt').write_text('2\n', encoding='utf-8')
         git(work, 'add', 'two.txt')
         git(work, 'commit', '-q', '-m', 'work')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
 
+        # There is no step into staging (2026-10-17): asked
+        # for, it moves nothing and says why, still on its result line.
+        before = tip('staging')
         rc, last, out = run(work, env, '--promote', '--to', 'staging')
-        moved = tip('staging')
-        cases.append((f'a Debut that moves ends "PROMOTE RESULT: staging <- '
-                      f'pre-staging: PROMOTED at <full sha>" (rc={rc}, last: {last!r})',
-                      rc == 0 and last.startswith(
-                          'PROMOTE RESULT: staging <- pre-staging: PROMOTED at ')
-                      and bool(moved) and moved in sha40.findall(last)
-                      and one_result(out)))
-
-        rc, last, out = run(work, env, '--promote', '--to', 'staging')
-        cases.append((f'a Debut with nothing to move says so last (rc={rc}, '
-                      f'last: {last!r})',
-                      rc == 0 and last.startswith(
-                          'PROMOTE RESULT: staging <- pre-staging: NOTHING TO PROMOTE')
-                      and one_result(out)))
+        cases.append((f'the retired step into staging ends NOTHING TO PROMOTE and '
+                      f'says why (rc={rc}, last: {last!r})',
+                      rc == 0 and last.startswith('PROMOTE RESULT:')
+                      and 'NOTHING TO PROMOTE' in last and 'no step into staging' in last
+                      and tip('staging') == before and one_result(out)))
 
         rc, last, out = run(work, env, '--promote', '--to', 'main', '--full', '--because', 'test the long way')
         copy = next((l.split('pull request from ', 1)[1].split()[0]
@@ -70970,22 +70807,21 @@ def check_promote_ends_with_its_result_line():
         # machine's own PRECEDENT_GITHUB_USER.
         env = dict(_stale_ref_fixture_env(tmp), PRECEDENT_GITHUB_USER='')
         work, git, _branches, tip = _promote_fixture(
-            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
-        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+            tmp, env, 'staging', ('main', 'staging'))
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/staging')
         (work / 'tools' / 'precedent_check.py').write_text(
             'import sys\nprint("precedent_check: 0 passed, 1 violated")\n'
             'sys.exit(1)\n', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'a check that fails')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
-        before = tip('staging')
-        rc, last, out = run(work, env, '--promote', '--to', 'staging')
-        cases.append((f'a refused Debut ends PROMOTE REFUSED, with a reason and '
-                      f'the fix branch\'s full commit (rc={rc}, last: {last!r})',
-                      rc == 1 and tip('staging') == before
-                      and last.startswith(
-                          'PROMOTE RESULT: staging <- pre-staging: PROMOTE REFUSED: ')
-                      and 'full check failed' in last
-                      and bool(sha40.search(last)) and one_result(out)))
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
+        before = tip('main')
+        rc, last, out = run(work, env, '--promote', '--to', 'main', '--full',
+                            '--because', 'test the long way')
+        cases.append((f'a refused Produce ends PROMOTE REFUSED, with a reason, '
+                      f'and main does not move (rc={rc}, last: {last!r})',
+                      rc == 1 and tip('main') == before
+                      and last.startswith('PROMOTE RESULT: main <- staging: PROMOTE REFUSED: ')
+                      and one_result(out)))
 
         # An error mid-run still ends on the line, after the run's own output.
         sys.path.insert(0, str(work / 'tools'))
@@ -71030,10 +70866,10 @@ def check_reply_gate_refreshes_the_landing_branch():
 
     Reported 2026-09-28: a session merged its pull request through the
     GitHub API -- how every cloud session merges -- so nothing in the
-    checkout fetched, origin/pre-staging stayed at the pre-merge tip, and
-    for two turns the gate said the branch's commit was NOT on pre-staging
-    and demanded the Boildown recommend merging a pull request already
-    merged. Only `git fetch origin pre-staging` cleared it.
+    checkout fetched, origin/<landing tier> stayed at the pre-merge tip,
+    and for two turns the gate said the branch's commit was NOT on it and
+    demanded the Boildown recommend merging a pull request already merged.
+    Only a `git fetch` of that branch cleared it.
 
     A second clone stands in for GitHub here. Offline, the gate keeps its
     old answer from the ref it has, and never raises."""
@@ -71105,12 +70941,12 @@ def check_reply_gate_counts_staging_as_a_landing_branch():
     has landed: the reply gate prints no NOT YET LANDED line for it, and
     says instead that staging is ahead of main.
 
-    THE INCIDENT (2026-10-10, a consumer). Its second Update Vendors retired
-    pre-staging and set landing_branch to staging. A branch merged into
+    THE INCIDENT (2026-10-10, a consumer). Its second Update Vendors set
+    landing_branch to staging. A branch merged into
     staging still read "NOT YET LANDED ... NOT on 'main'", and the reply
     check, reading the same lines, refused "You can archive this session"
     for work already landed; the gentle "a Promote can move them" line was
-    computed only for pre-staging. The DISCRIMINATING CASE is the second;
+    computed only for the tier it had used before. The DISCRIMINATING CASE is the second;
     the first is the control that the branch is still reported before its
     merge. The fixture owns its repositories and its session id."""
     import tempfile
@@ -72419,10 +72255,10 @@ def check_update_done_names_the_check_it_ran():
     not run, and passes on a size-cap warning the check printed.
 
     2026-10-01, from a consumer's Update Vendors: the update printed "check
-    for pre-staging: passed" and DONE; the consumer's full check then failed
+    for <its landing tier>: passed" and DONE; the consumer's full check then failed
     three ways on the same tree, one of them a size cap this update's own
     regenerated AGENTS.md block had pushed over. The basic check is right
-    for pre-staging; reading as the push gate's all-clear was not."""
+    for the landing tier; reading as the push gate's all-clear was not."""
     import contextlib, io, tempfile
     pu, _pve, _pr = _update_tools()
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-done-tier-'))
@@ -72454,8 +72290,8 @@ def check_update_done_names_the_check_it_ran():
                           rc == pu.DONE and 'full check was NOT run' in out
                           and '--tier full' in out, out[-600:]))
             rc, out = run('passed\nWARNING: over a session-load size cap '
-                          '(changed_practice, above). Allowed onto pre-staging; '
-                          'the Debut into staging refuses it.\n')
+                          '(changed_practice, above). The quick check lets it '
+                          'through; the full check refuses it.\n')
             cases.append(('a size-cap warning the check printed is repeated '
                           'beside DONE', 'WARNING: over a session-load size cap'
                           in out.split('== Update Vendors ==')[-1], out[-600:]))
@@ -72538,7 +72374,7 @@ def check_update_on_stubs_stages_nothing_under_claude():
     (2026-10-07) was meant to end that, and the question said only that
     files under .claude/ changed.
 
-    Measured 2026-10-08: the first half already held on pre-staging (the
+    Measured 2026-10-08: the first half already held on the landing branch (the
     stubs do keep .claude/ still), so it stands as a guard; the second half
     failed before harness_cases() -- the question named the paths only."""
     pu, _pve, _pr = _update_tools()
@@ -72692,15 +72528,14 @@ def check_size_cap_warning_names_the_cap():
         (repo / 'tools').mkdir(parents=True)
         (repo / 'tools' / 'precedent_push_check.py').write_text('', encoding='utf-8')
         (repo / 'precedent.json').write_text(json.dumps(
-            {'base_branch': 'main', 'landing_branch': 'pre-staging'}), encoding='utf-8')
+            {'base_branch': 'main', 'landing_branch': 'staging'}), encoding='utf-8')
         subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
         saved_cfg = os.environ.get('PRECEDENT_USER_CONFIG')
         os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
         try:
             for said, want in ((line, 'AGENTS.md: 6,549 tokens'),
                                ('WARNING: over a session-load size cap '
-                                '(changed_practice, above). Allowed onto '
-                                'pre-staging.', '(changed_practice)')):
+                                '(changed_practice, above).', '(changed_practice)')):
                 pu.check_with_merge_fallback = lambda _r, _rep, _a, _l, o=said: (
                     0, 'passed\n' + o + '\n')
                 rep = pu.Report()
@@ -72892,6 +72727,120 @@ def check_install_and_update_offer_the_owners_zone():
           f'fallback ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_a_reasked_left_out_section_is_not_asked_every_rerun():
+    """A section recorded as left out, which a second pass asks about again
+    (its first pass ran an engine older than the hand-over), is asked once
+    per update, not on every re-run of it (2026-10-17, a document project's
+    Update Vendors: the first pass runs the repository's committed engine,
+    which an unfinished update has not committed, so every re-run asked the
+    same four sections again and the run could not reach DONE until the
+    engine was committed mid-update). The record is per source commit, in
+    the git directory: another update asks again."""
+    import contextlib, io, tempfile
+    import precedent_vendor_engine as pve
+    name = 'a re-asked left-out section is not asked on every re-run'
+    if not hasattr(pve, '_report_agents_md'):
+        not_applicable(name, '_report_agents_md is absent')
+        return
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='reasked-'))
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+        (tmp / 'AGENTS.md').write_text('# Notes\n', encoding='utf-8')
+        plan = [('## Session setup', 'AGENTS.md.loader.template', 12, 'absent', None)]
+
+        def run(commit):
+            saved = list(pve._LEFT_FOR_YOU)
+            pve._LEFT_FOR_YOU[:] = []
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    try:
+                        pve._report_agents_md(tmp, tmp, plan, reask_absent=True,
+                                              commit=commit)
+                    except TypeError:
+                        pve._report_agents_md(tmp, tmp, plan, reask_absent=True)
+                left = list(pve._LEFT_FOR_YOU)
+            finally:
+                pve._LEFT_FOR_YOU[:] = saved
+            return left, buf.getvalue()
+
+        left, out = run('c1')
+        cases.append(('the first re-run of an update asks again, as before',
+                      any('Session setup' in i for i, _w in left), out[-200:]))
+        left, out = run('c1')
+        cases.append(('the next re-run of the same update does not ask a '
+                      'third time, and says why',
+                      not left and 'not asked a third time' in out, out[-300:]))
+        left, out = run('c2')
+        cases.append(('an update to another source commit asks again',
+                      any('Session setup' in i for i, _w in left), out[-200:]))
+        tracked = subprocess.run(['git', '-C', str(tmp), 'status', '--porcelain',
+                                  '--untracked-files=all'],
+                                 capture_output=True, text=True).stdout
+        cases.append(('the record lives in the git directory, never in the tree',
+                      'reasked' not in tracked, tracked))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_update_vendors_maps_a_task_kind_to_manual():
+    """An open item filed as `kind: task` (or todo, action, chore) is moved
+    to `manual` by Update Vendors' migration, and the report names it, so
+    the update's generated-files step never stops on build_todo_index.py's
+    refusal (2026-10-17, a document project's Update Vendors: it failed half
+    way on "A `task` is usually `manual`"). A done item, and a kind that is
+    already legal, are left alone; the update runs the migration unnamed."""
+    import importlib.util, inspect, tempfile
+    name = 'Update Vendors moves an open item\'s `task` kind to `manual`'
+    path = ROOT / 'tools' / 'migration_todo_kind_synonyms.py'
+    if not path.is_file():
+        check(name, False, 'tools/migration_todo_kind_synonyms.py is missing')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        spec = importlib.util.spec_from_file_location('_vh_mig_kinds', path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    finally:
+        sys.path.pop(0)
+    pu, _pve, _pr = _update_tools()
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-task-kind-'))
+    try:
+        (tmp / 'todo').mkdir()
+
+        def item(slug, kind, status):
+            (tmp / 'todo' / f'todo-{slug}.md').write_text(
+                f'---\nslug:              todo-{slug}\nkind:              {kind}\n'
+                f'status:            {status}\n---\n## What\n\nBody `kind: task`.\n',
+                encoding='utf-8')
+        item('a', 'task', 'open')
+        item('b', 'chore', 'done')
+        item('c', 'verify', 'open')
+        rep = pu.Report()
+        mod.migrate(tmp, rep, pu)
+        a = (tmp / 'todo' / 'todo-a.md').read_text(encoding='utf-8')
+        cases.append(('an open `task` item becomes `manual`, frontmatter only',
+                      'kind:              manual\n' in a and 'Body `kind: task`.' in a, a))
+        cases.append(('a done item and a legal kind are untouched',
+                      'kind:              chore' in (tmp / 'todo' / 'todo-b.md').read_text()
+                      and 'kind:              verify' in (tmp / 'todo' / 'todo-c.md').read_text()))
+        said = ' '.join(o for n, o in rep.steps if n == 'open items')
+        cases.append(('the report names the file and what it was',
+                      'todo/todo-a.md (was `task`)' in said, said))
+        cases.append(('Update Vendors runs every migration file unnamed',
+                      "glob('migration_*.py')" in inspect.getsource(pu.migrations_step)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_update_vendors_reports_dropped_template_wording():
     """An install-once file still carrying wording its template has since
     dropped is left for the person, by file and line -- and nothing else is.
@@ -73000,8 +72949,46 @@ def check_update_vendors_reports_dropped_template_wording():
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
                 step(repo, rep, rev)
-            cases.append(('...and listed again once the template has changed since',
-                          len(rep.left) == 3, str(rep.left)))
+            # ONE QUESTION FOR A FILE KEPT WHOLE (2026-10-17, a consuming
+            # repository): its kept rewrite was left as one item per line,
+            # each saying "or drop the line"; and a line the update carried
+            # in by itself went unsaid.
+            cases.append(('...and asked again once the template has changed '
+                          'since: one item for the file, never one per line',
+                          sorted(dict(rep.left)) == ['TODO.md'], str(rep.left)))
+            v1_sha = hashlib.sha256(git(src, 'show', f'{rev}~1:templates/'
+                                        'TODO.md.template').stdout.encode()).hexdigest()
+            (repo / 'precedent.json').write_text(json.dumps({
+                pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                    'reason': 'kept on purpose', 'template_sha256': v1_sha}}}),
+                encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            said = ' '.join(dict(rep.left).values()) + ' ' + ' '.join(
+                rep.details.get('TODO.md', []))
+            cases.append(('...which never says to drop a line, shows what the '
+                          'template changed, and the hash to record',
+                          'drop the line' not in said
+                          and 'what changed in templates/TODO.md.template' in said
+                          and hashlib.sha256(tmpl.read_bytes()).hexdigest() in said,
+                          said[:400]))
+            git(repo, 'init', '-q')
+            git(repo, 'add', 'TODO.md')
+            git(repo, 'commit', '-qm', 'kept rewrite')
+            (repo / 'TODO.md').write_text(
+                body + 'A bullet the update carried in from the template.\n',
+                encoding='utf-8')
+            rep = pu.Report()
+            rep.before = set()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            said = ' '.join(rep.details.get('TODO.md', []))
+            cases.append(('...and says what this update already carried into it',
+                          'already carried 1 line(s)' in said
+                          and 'A bullet the update carried in' in said, said[:400]))
+            git(repo, 'checkout', '-q', '--', 'TODO.md')
+            shutil.rmtree(repo / '.git', ignore_errors=True)
 
             # A file that is, byte for byte, an older version of its
             # template was never made the repository's own: it takes the
@@ -73493,6 +73480,100 @@ def check_refresh_names_an_in_place_hook_no_engine_path_keeps():
     check(f'refresh names an in-place hook no engine_paths entry keeps current '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_retired_mentions_match_the_full_path_only():
+    """A file is left as still naming a deleted or moved path only when it
+    names the whole path, the way rename-updates-links reads it: never by
+    its file name alone, and never as the tail of a longer path.
+
+    2026-10-17, a document project's Update Vendors: precedent.json lines
+    the same run had repointed to tools/check_commit_author.py, and the
+    engine manifest's bare check_commit_author.py at its new home, were left
+    as still naming tools/checks/check_commit_author.py, because the scan
+    matched the file name. The next run, with no edit, listed none."""
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    name = 'a mention of a deleted path is the whole path, not its file name'
+    if not hasattr(pu, 'retired_mentions'):
+        not_applicable(name, 'retired_mentions is absent')
+        return
+    gone = 'tools/checks/check_commit_author.py'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-full-path-'))
+    cases = []
+    try:
+        files = {
+            'repointed.json': '{"run": "python3 tools/check_commit_author.py"}\n',
+            'bare.md': 'The check is check_commit_author.py now.\n',
+            'longer.md': 'A pack ships process/pack/tools/checks/check_commit_author.py.\n',
+            'old.md': f'Run `{gone}` before pushing.\n',
+            'relative/doc.md': f'See [it](../{gone}).\n',
+        }
+        for rel, text in files.items():
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        planted = '\n'.join(
+            f"WARN: precedent_vendor_engine: {gone} was moved, and {rel}:1 "
+            f"still names it -- 'x'. Nothing here refuses."
+            for rel in files)
+        got = sorted(w for w, _g in pu.retired_mentions(tmp, planted))
+        cases.append(('the whole path, and one written with ../ in front, are '
+                      'left for the person',
+                      'old.md:1' in got and 'relative/doc.md:1' in got, str(got)))
+        cases.append(('a line already repointed, a bare file name, and a longer '
+                      'path ending in it are not',
+                      got == ['old.md:1', 'relative/doc.md:1'], str(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_dependents_warning_skips_a_wholly_generated_view():
+    """The refresh's "still names it" warning leaves out a file a generator
+    writes whole, which the update rebuilds from its sources a moment later,
+    and still reads a file only partly generated (2026-10-17, a consuming
+    repository's Update Vendors: MAP.md was warned about for naming two
+    engine tools the refresh had removed, and the view rebuild then dropped
+    both lines). A source still naming the tool is warned about as before."""
+    import contextlib, io, tempfile
+    import precedent_vendor_engine as pve
+    name = 'the dependents warning skips a wholly generated view'
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-generated-dependents-'))
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    gone = 'tools/retired_words.py'
+    try:
+        def put(rel, text):
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        put('MAP.md', f'| `{gone}` | a tool |\n')
+        put('AGENTS.md', f'Run `{gone}` by hand.\n')
+        put('docs/HOWTO.md', f'Use `{gone}`.\n')
+        put('tools/generated_files.json', json.dumps({'files': [
+            {'path': 'MAP.md', 'generated_by': 'tools/build_views.py'},
+            {'path': 'AGENTS.md', 'part': '<!-- BEGIN GENERATED: x -->',
+             'generated_by': 'tools/build_views.py'}]}))
+        subprocess.run(['git', 'init', '-q', str(tmp)], env=env, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], env=env, check=True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            pve._warn_about_dependents(tmp, [gone], 'removed from this kind\'s engine set')
+        warned = err.getvalue()
+        cases.append(('a wholly generated MAP.md naming the removed tool is not '
+                      'warned about', 'MAP.md:' not in warned, warned[:400]))
+        cases.append(('...while a hand-written doc and a partly generated '
+                      'AGENTS.md still are',
+                      'docs/HOWTO.md:1' in warned and 'AGENTS.md:1' in warned,
+                      warned[:400]))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
 def check_retired_mentions_skip_what_the_repo_receives():
@@ -74286,7 +74367,7 @@ def check_kept_pin_moves_across_a_comment_only_template_change():
         shown = '\n'.join(l for v in rep.details.values() for l in v)
         cases.append(('CONTROL: a change a reader sees is still asked, and the '
                       'question shows the changed line',
-                      bool(rep.left) and 'what changed:' in shown
+                      bool(rep.left) and 'what changed in templates/' in shown
                       and '+One file for each item under todo/.' in shown, shown))
     except (OSError, ValueError, KeyError) as e:
         cases.append((f'fixture could not be built ({e})', False, ''))
@@ -75845,16 +75926,16 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
     """A consumer's views check reads each shared set at the commit its
     MANIFEST.json records syncing it at, never at whatever branch the set's
     clone has checked out (2026-10-05). Reported from a consumer: its
-    pre-staging took a set's Booked change, session start left the set's
+    landing tier took a set's Booked change, session start left the set's
     clone on main, and every push was refused for "drift" in files it never
     touched -- with a remedy, a plain sync, that rolled the Booked change
     back. Twice in one session.
 
-    Each direction: a pre-staging carrying a Booked-not-Produced set change
+    Each direction: a staging carrying a Booked-not-Produced set change
     passes; a write from a clone that lacks it is refused rather than
     rolling it back; a push to staging or main carrying a set commit the set
-    has not landed on that rung is refused, with promoting the set as the
-    remedy, and passes once it has; a hand-edited generated file still
+    has not landed on that rung is refused, with Booking or Producing it in
+    the set as the remedy, and passes once it has; a hand-edited generated file still
     fails; a manifest written before pins gets one inferred; uncommitted
     edits in a set's clone are never taken into a consumer."""
     import shutil, tempfile
@@ -75878,7 +75959,7 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         (uni / 'practices').mkdir(parents=True)
         (uni / 'practices' / 'uni-rule.md').write_text(
             _pin_fixture_practice('uni-rule', 'A universal rule.'), encoding='utf-8')
-        # The shared set: a clone of a bare origin, with all three rungs.
+        # The shared set: a clone of a bare origin, with both rungs.
         bare, st = tmp / 'origin-set.git', tmp / 'precedent-shared-fixture'
         subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
                        env=env, capture_output=True)
@@ -75899,19 +75980,15 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
 
         git(st, 'checkout', '-q', '-b', 'main')
         set_commit('Version one.', 'v1')
-        for b in ('pre-staging', 'staging'):
-            git(st, 'branch', b)
-        git(st, 'push', '-q', 'origin', 'main', 'pre-staging', 'staging')
-        # Version two is Booked: a working branch merged into pre-staging.
+        git(st, 'branch', 'staging')
+        git(st, 'push', '-q', 'origin', 'main', 'staging')
+        # Version two is on a working branch of the set, not Booked yet.
         git(st, 'checkout', '-q', '-b', 'feature', 'main')
-        set_commit('Version two.', 'v2')
-        git(st, 'checkout', '-q', 'pre-staging')
-        git(st, 'merge', '-q', '--no-ff', '-m', 'Book v2', 'feature')
-        git(st, 'push', '-q', 'origin', 'pre-staging')
-        booked = git(st, 'rev-parse', 'HEAD').stdout.strip()
+        v2 = set_commit('Version two.', 'v2')
+        git(st, 'push', '-q', 'origin', 'feature')
 
         repo = tmp / 'consumer'
-        subprocess.run(['git', 'init', '-q', '-b', 'pre-staging', str(repo)],
+        subprocess.run(['git', 'init', '-q', '-b', 'staging', str(repo)],
                        env=env, capture_output=True)
         (repo / 'precedent.json').write_text(json.dumps({
             'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
@@ -75934,16 +76011,27 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         def taken():
             return (repo / 'practices' / 'set-rule.md').read_text(encoding='utf-8')
 
-        # The consumer's pre-staging takes the Booked change.
+        # The consumer takes v2 from the set's working branch.
         rc, out = sync()
         pins = pinned() if rc == 0 else {}
         cases.append(('a sync records the commit it read the set at, and none for a '
                       'plain-directory source',
-                      rc == 0 and pins.get('precedent-shared-fixture') == booked
+                      rc == 0 and pins.get('precedent-shared-fixture') == v2
                       and pins.get('precedent') is None and 'Version two.' in taken(),
                       f'rc={rc} {pins} {out[-500:]}'))
         git(repo, 'add', '-A')
-        git(repo, 'commit', '-qm', 'take the Booked v2')
+        git(repo, 'commit', '-qm', 'take v2')
+
+        # The rung: staging may not carry what the set has not Booked.
+        rc, out = sync('--check', '--for-branch', 'staging')
+        cases.append(('a push to staging carrying a set commit the set has not '
+                      'Booked is refused, with Book as the remedy and never a sync',
+                      rc != 0 and 'Book it in precedent-shared-fixture' in out
+                      and 'Do NOT sync' in out, f'rc={rc} {out[-600:]}'))
+        # The set Books v2: its working branch merged into its staging.
+        git(st, 'checkout', '-q', 'staging')
+        git(st, 'merge', '-q', '--no-ff', '-m', 'Book v2', 'feature')
+        git(st, 'push', '-q', 'origin', 'staging')
 
         # Session start leaves the set's clone on main.
         git(st, 'checkout', '-q', 'main')
@@ -75968,18 +76056,18 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
                       r.returncode == 0 and 'Version two.' not in
                       git(st, 'show', 'HEAD:practices/set-rule.md').stdout,
                       (r.stdout + r.stderr)[-600:]))
-        rc, out = sync('--check', '--for-branch', 'pre-staging')
-        cases.append(('...and a push to pre-staging passes: the set has v2 on its '
-                      'own pre-staging', rc == 0, out[-600:]))
+        rc, out = sync('--check', '--for-branch', 'staging')
+        cases.append(('...and, once the set has Booked it, a push to staging '
+                      'passes: the set has v2 on its own staging', rc == 0, out[-600:]))
         rc, out = sync()
         cases.append(('a sync from the clone on main is REFUSED rather than rolling '
                       'the Booked change back, and writes nothing',
                       rc != 0 and 'roll those changes back' in out
-                      and 'origin/pre-staging' in out and 'Version two.' in taken(),
+                      and 'origin/staging' in out and 'Version two.' in taken(),
                       f'rc={rc} {out[-600:]}'))
-        git(st, 'checkout', '-q', '--detach', 'origin/pre-staging')
+        git(st, 'checkout', '-q', '--detach', 'origin/staging')
         rc, out = sync()
-        cases.append(('CONTROL: from the clone at the set\'s pre-staging, the same '
+        cases.append(('CONTROL: from the clone at the set\'s staging, the same '
                       'sync goes through and changes nothing',
                       rc == 0 and not git(repo, 'status', '--porcelain', '--',
                                           'practices').stdout.strip(),
@@ -75987,14 +76075,10 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         git(repo, 'checkout', '-q', '--', '.')
         git(st, 'checkout', '-q', 'main')
 
-        # The rung: staging and main may not carry what the set has not landed.
-        rc, out = sync('--check', '--for-branch', 'staging')
-        cases.append(('a push to staging carrying the set\'s pre-staging-only commit '
-                      'is refused, with Debut as the remedy and never a sync',
-                      rc != 0 and 'Debut it in precedent-shared-fixture' in out
-                      and 'Do NOT sync' in out, f'rc={rc} {out[-600:]}'))
+        # The rung: main may not carry what the set has not Produced.
         rc, out = sync('--check', '--for-branch', 'main')
-        cases.append(('...and so is a push to main, with Produce as the remedy',
+        cases.append(('a push to main carrying the set\'s staging-only commit is '
+                      'refused, with Produce as the remedy',
                       rc != 0 and 'Produce it in precedent-shared-fixture' in out,
                       f'rc={rc} {out[-600:]}'))
         rc, out = sync('--rung-only', '--for-branch', 'main')
@@ -76002,15 +76086,12 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
                       'push without rendering anything',
                       rc != 0 and 'Produce it in precedent-shared-fixture' in out
                       and 'Do NOT sync' in out, f'rc={rc} {out[-400:]}'))
-        git(st, 'checkout', '-q', 'staging')
-        git(st, 'merge', '-q', '--no-ff', '-m', 'Debut', 'origin/pre-staging')
-        git(st, 'push', '-q', 'origin', 'staging')
         git(st, 'checkout', '-q', 'main')
         git(st, 'merge', '-q', '--no-ff', '-m', 'Produce', 'origin/staging')
         git(st, 'push', '-q', 'origin', 'main')
         rc_s, out_s = sync('--check', '--for-branch', 'staging')
         rc_m, out_m = sync('--check', '--for-branch', 'main')
-        cases.append(('once the set has Debuted and Produced it, both pushes pass',
+        cases.append(('once the set has Produced it, both pushes pass',
                       rc_s == 0 and rc_m == 0, f'{out_s[-300:]} | {out_m[-300:]}'))
         rc, out = sync('--rung-only', '--for-branch', 'main')
         cases.append(('...and so does the rung step', rc == 0, out[-300:]))
@@ -76020,7 +76101,7 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         (repo / 'practices' / 'set-rule.md').write_text(
             good.replace('Version two.', 'Edited by hand.'), encoding='utf-8')
         failed = []
-        for b in (None, 'pre-staging', 'staging', 'main'):
+        for b in (None, 'staging', 'main'):
             rc, out = sync('--check', *(['--for-branch', b] if b else []))
             if rc == 0 or 'set-rule.md differs' not in out:
                 failed.append(f'{b}: rc={rc} {out[-200:]}')
@@ -76029,13 +76110,13 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         (repo / 'practices' / 'set-rule.md').write_text(good, encoding='utf-8')
 
         # A set moving on is said, never refused.
-        git(st, 'checkout', '-q', 'pre-staging')
-        git(st, 'merge', '-q', '--ff-only', 'origin/pre-staging')
+        git(st, 'checkout', '-q', 'staging')
+        git(st, 'merge', '-q', '--ff-only', 'origin/staging')
         set_commit('Version three.', 'v3')
-        git(st, 'push', '-q', 'origin', 'pre-staging')
+        git(st, 'push', '-q', 'origin', 'staging')
         git(st, 'checkout', '-q', 'main')
-        rc, out = sync('--check', '--for-branch', 'pre-staging')
-        cases.append(('a newer set commit on pre-staging is a note, not a refusal',
+        rc, out = sync('--check', '--for-branch', 'staging')
+        cases.append(('a newer set commit on staging is a note, not a refusal',
                       rc == 0 and 'differs from what this repository took' in out,
                       f'rc={rc} {out[-500:]}'))
 
@@ -76053,7 +76134,7 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         mf.write_text(original, encoding='utf-8')
 
         # Uncommitted edits in a set's clone never reach the consumer.
-        git(st, 'checkout', '-q', '--detach', 'origin/pre-staging')
+        git(st, 'checkout', '-q', '--detach', 'origin/staging')
         rule.write_text(_pin_fixture_practice('set-rule', 'Uncommitted.'),
                         encoding='utf-8')
         rc, out = sync()
@@ -76086,9 +76167,9 @@ def check_push_destination_reaches_the_views_check():
     cases = [
         ('a push to a working branch and main is judged as main',
          ppc._destination(ROOT, ['--push-command', 'origin feat main']) == 'main'),
-        ('a push to pre-staging is pre-staging',
-         ppc._destination(ROOT, ['--push-command', 'origin HEAD:pre-staging'])
-         == 'pre-staging'),
+        ('a push to an ordinary branch is that branch',
+         ppc._destination(ROOT, ['--push-command', 'origin HEAD:some-feature'])
+         == 'some-feature'),
         ('--destination wins',
          ppc._destination(ROOT, ['--destination', 'staging', '--push-command',
                                  'origin main']) == 'staging'),
@@ -76715,14 +76796,14 @@ def check_spoken_commands_lead_the_session_start():
         (practices / 'debut.md').write_text(
             '---\nslug: debut\ntitle: Debut\ntier: on-demand\nstatus: active\n'
             'occasion: "a person says \\"Debut\\""\n'
-            'index_clause: "stage 4: pre-staging into staging, full checks"\n'
+            'index_clause: "stage 4: staging into main, full checks"\n'
             'command: {"Debut": "Stage 4."}\n---\n\n## Rule\n\nMove it.\n', encoding='utf-8')
         import build_views as bv
         block = psp.spoken_block(bv.load_practices(practices)) \
             if hasattr(psp, 'spoken_block') else ''
         cases.append(('1. a practice with a command is one line of the block',
-                      block == f'{head}\n- "Debut" -> debut: stage 4: pre-staging '
-                               f'into staging, full checks\n'))
+                      block == f'{head}\n- "Debut" -> debut: stage 4: staging '
+                               f'into main, full checks\n'))
     except (OSError, ValueError, KeyError, TypeError) as e:
         cases.append((f'fixture could not be built ({type(e).__name__}: {e})', False))
     finally:
@@ -77040,9 +77121,9 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
             'tier: on-demand\n'
             'status: active\n'
             'occasion: "a person says \\"Debut\\""\n'
-            'index_clause: "stage 4: pre-staging into staging, full checks"\n'
+            'index_clause: "stage 4: staging into main, full checks"\n'
             'command: {"Debut": "Stage 4."}\n'
-            '---\n\n## Rule\n\nMove pre-staging into staging.\n\n'
+            '---\n\n## Rule\n\nMove staging into main.\n\n'
             '## Why\n\nSo staging is tested.\n', encoding='utf-8')
         extra = bv.load_practices(practices)
         repo = tmp / 'consumer'
@@ -77138,7 +77219,7 @@ def check_session_file_says_each_command_once():
         practice(own, 'install', 'installing Precedent into a repo',
                  'precedent_install.py, declare the set')
         practice(brought, 'planted-stage', 'a person says \\"Debut\\"',
-                 'stage 4: pre-staging into staging', {'Debut': 'Stage 4.'})
+                 'stage 4: staging into main', {'Debut': 'Stage 4.'})
         bare = bv.load_practices(own)
         full = bare + bv.load_practices(brought)
         levels = {'deep-check': 'universal', 'install': 'universal',
@@ -77495,7 +77576,7 @@ def check_ladder_off_engine_says_no_ladder_words():
         # history, written by people, not the engine's wording: a person off
         # the ladder meets the same titles in `git log`. Found 2026-10-03:
         # inside a Debut the checked copy sits on the Debut's own merge
-        # commit, titled "Promote pre-staging into staging", and the reply
+        # commit, titled as a Promote, and the reply
         # gate lists it as unlanded work. So is a command still running in
         # the session ("  pid N, running MM:SS: <command>",
         # precedent_container_safe): the person's own words, quoted. Found
@@ -78001,7 +78082,7 @@ def check_codeowners_stamp_hashes_only_the_registry():
         (proj / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
         write(proj)
         cases.append(('a freshly written project CODEOWNERS checks OK', check_rc(proj) == 0))
-        (proj / 'precedent.json').write_text(json.dumps(dict(cfg, landing_branch='pre-staging'),
+        (proj / 'precedent.json').write_text(json.dumps(dict(cfg, landing_branch='staging'),
                                                         indent=4), encoding='utf-8')
         cases.append(('an unrelated key (and reformatting) in precedent.json leaves it current',
                       check_rc(proj) == 0))
@@ -78035,6 +78116,109 @@ def check_codeowners_stamp_hashes_only_the_registry():
     failed = [n for n, ok in cases if not ok]
     check(f'CODEOWNERS is stamped with a hash of its registry, not the whole file '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_harness_times_merge_without_a_conflict():
+    """Two branches that each record a test, one of them deleting another,
+    merge tools/harness_check_times.json with no conflict, and the deleted
+    test stays deleted (2026-10-17). That day the file conflicted on nearly
+    every merge -- one shared "measured" line every recording appended to,
+    default_seconds rewritten each time, neighbouring inserts -- and a
+    union resolve brought back five timings #1180 had removed, turning the
+    --as-ci partition case red. Now: .gitattributes names a merge driver,
+    tools/bootstrap.sh configures it in the clone at session start, and
+    --record-new-times leaves the shared fields alone and drops a removed
+    test's time itself. Fails on the old code: no driver, so git leaves
+    the conflict."""
+    import tempfile, json as _json, shutil as _shutil, re as _re
+    name = 'the harness times file merges without a conflict'
+    script = ROOT / 'tools' / 'harness_times_merge.py'
+    boot = ROOT / 'tools' / 'bootstrap.sh'
+    attrs = ROOT / '.gitattributes'
+    cases = []
+    attr_ok = attrs.is_file() and 'tools/harness_check_times.json merge=precedent-harness-times' \
+        in attrs.read_text(encoding='utf-8')
+    cases.append(('.gitattributes names the driver for the times file', attr_ok))
+    btext = boot.read_text(encoding='utf-8') if boot.is_file() else ''
+    m = _re.search(r"merge\.precedent-harness-times\.driver \\\s*\n\s*'([^']+)'", btext)
+    cases.append(('bootstrap.sh configures it', bool(m) and script.is_file(),
+                  'no driver line in tools/bootstrap.sh'))
+    driver = m.group(1) if m else ''
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'r'
+        env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                   GIT_AUTHOR_EMAIL='t@example.invalid',
+                   GIT_COMMITTER_EMAIL='t@example.invalid',
+                   GIT_CONFIG_GLOBAL=str(pathlib.Path(td) / 'gc'),
+                   GIT_CONFIG_NOSYSTEM='1')
+
+        def git(*a, cwd=repo):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def times(seconds, measured='2026-10-09, 4 cores', default=0.3):
+            (repo / 'tools' / 'harness_check_times.json').write_text(_json.dumps(
+                {'about': 'x', 'measured': measured, 'default_seconds': default,
+                 'seconds': dict(sorted(seconds.items()))}, indent=1) + '\n',
+                encoding='utf-8')
+
+        (repo / 'tools').mkdir(parents=True)
+        git('init', '-q', '-b', 'main', str(repo), cwd=td)
+        if script.is_file():
+            _shutil.copy2(script, repo / 'tools' / script.name)
+        if attrs.is_file():
+            _shutil.copy2(attrs, repo / '.gitattributes')
+        if driver:
+            git('config', 'merge.precedent-harness-times.driver', driver)
+        base = {'check_a': 1.0, 'check_b': 2.0, 'check_c': 3.0}
+        times(base)
+        git('add', '-A')
+        git('commit', '-q', '-m', 'base')
+        git('checkout', '-q', '-b', 'ours')
+        times({**base, 'check_ca': 4.0}, measured='2026-10-09, 4 cores; 1 added',
+              default=0.5)
+        git('commit', '-q', '-am', 'ours records check_ca')
+        git('checkout', '-q', '-b', 'theirs', 'main')
+        rest = {k: v for k, v in base.items() if k != 'check_c'}
+        times({**rest, 'check_cb': 5.0}, measured='2026-10-09, 4 cores; 2 added',
+              default=0.4)
+        git('commit', '-q', '-am', 'theirs deletes check_c, records check_cb')
+        git('checkout', '-q', 'ours')
+        r = git('merge', '--no-edit', 'theirs')
+        cases.append(('merging the two branches leaves no conflict', r.returncode == 0,
+                      (r.stdout + r.stderr)[-200:]))
+        try:
+            got = _json.loads((repo / 'tools' / 'harness_check_times.json')
+                              .read_text(encoding='utf-8'))['seconds']
+        except (OSError, ValueError, KeyError):
+            got = {}
+        cases.append(('both new tests are kept, and the test one side deleted '
+                      'stays deleted',
+                      got == {'check_a': 1.0, 'check_b': 2.0, 'check_ca': 4.0,
+                              'check_cb': 5.0}, str(got)))
+        # A worktree shares the clone's config, as the stages' merges use.
+        wt = pathlib.Path(td) / 'wt'
+        git('branch', '-q', 'later', 'main')
+        git('worktree', 'add', '-q', str(wt), 'later')
+        (wt / 'tools' / 'harness_check_times.json').write_text(_json.dumps(
+            {'about': 'x', 'measured': '2026-10-09, 4 cores', 'default_seconds': 0.3,
+             'seconds': {**base, 'check_cc': 6.0}}, indent=1) + '\n', encoding='utf-8')
+        git('commit', '-q', '-am', 'later records check_cc', cwd=wt)
+        r = git('merge', '--no-edit', 'ours', cwd=wt)
+        cases.append(('a merge in a worktree uses the same driver', r.returncode == 0,
+                      (r.stdout + r.stderr)[-200:]))
+    path = pathlib.Path(tempfile.mkdtemp()) / 't.json'
+    try:
+        _write_check_times({'check_a': 9.0}, 'm', path=path, default=0.3)
+        kept = _json.loads(path.read_text(encoding='utf-8')).get('default_seconds')
+    except TypeError:
+        kept = None
+    finally:
+        _shutil.rmtree(path.parent, ignore_errors=True)
+    cases.append(('recording keeps default_seconds as recorded', kept == 0.3, str(kept)))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
 def check_as_ci_parts_partition_the_suite():
@@ -78102,7 +78286,8 @@ def check_as_ci_parts_partition_the_suite():
     rec = _check_times()[0]
     stale = sorted(set(rec) - set(names))
     cases.append(('the committed record names only checks that exist',
-                  not stale, f'stale: {stale[:3]} (rerun --as-ci --record-times)'))
+                  not stale, f'stale: {stale[:3]} (python3 tools/verify_harness.py '
+                             f'--record-new-times drops them, in seconds)'))
     failed = [(n, d) for n, ok, d in cases if not ok]
     check(f'--as-ci parts partition the suite ({len(cases)} stated cases)',
           not failed, '; '.join(f'{n}: {d}' for n, d in failed))
@@ -79253,15 +79438,15 @@ def check_endgame_merge_finds_the_silent_drop():
 
 
 def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
-    """The very deep check never offers pre-staging, staging, main, staging's
-    old name or Promote's lock branch for deletion, merged or not.
+    """The very deep check never offers staging, main, staging's old name or
+    Promote's lock branch for deletion, merged or not.
 
-    WHY. Morgan, 2026-09-28 (strength: decided): "it needs to never never
-    offer to delete pre-staging nor staging." Every Promote fast-forwards the
-    lower tiers, so right after one the ancestor test calls pre-staging and
-    precedent-beta-v01 "merged" -- and the branch sweep protected only the
-    declared base and the default branch, so both came back as safe to
-    delete, each with a one-click link. staging itself had been deleted from
+    WHY. Morgan, 2026-09-28 (strength: decided): the sweep must never offer
+    to delete a tier branch. Every Promote fast-forwards the lower tiers, so
+    right after one the ancestor test calls them and precedent-beta-v01
+    "merged" -- and the branch sweep protected only the declared base and
+    the default branch, so they came back as safe to delete, each with a
+    one-click link. staging itself had been deleted from
     a merge page two days earlier.
 
     Discriminating: a merged feature branch in the same fixture must still
@@ -79270,8 +79455,7 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
     import very_deep_check as vdc
 
     _git = fixture_git
-    tiers = ['main', 'staging', 'pre-staging', 'precedent-beta-v01',
-             'precedent-promote-lock']
+    tiers = ['main', 'staging', 'precedent-beta-v01', 'precedent-promote-lock']
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
@@ -79290,17 +79474,12 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
             {'format_version': 1, 'base_branch': 'staging'}) + '\n')
         _git(up, 'checkout', '-q', 'staging')
         _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'declare staging')
-        # pre-staging ahead of staging, as it is between Promotes.
-        _git(up, 'checkout', '-q', 'pre-staging')
-        _git(up, 'merge', '-q', '--ff-only', 'staging')
-        (up / 'work.txt').write_text('waiting for a Promote\n')
-        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'landed work')
         _git(up, 'checkout', '-q', 'main')
         subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
                        capture_output=True, text=True)
         _git(work, 'fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*')
         vdc._NEVER_DELETABLE_CACHE.clear()
-        # Scanned from a checkout on main, so pre-staging is not the
+        # Scanned from a checkout on main, so staging is not the
         # checked-out branch the old code happened to exclude.
         scan = vdc.scan_branches(work, exclude=('main',)) or {}
         listed = [r['name'] for k in ('merged', 'merged_elsewhere', 'unmerged')
@@ -79326,8 +79505,7 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
             ('the feature branch still gets its delete link',
              bool(gh_url['claude/finished-work'])),
             ('a filter that would also show a tier row says so on the row',
-             '`staging`' in warn and '`pre-staging`' in warn
-             and 'never delete' in warn),
+             '`staging`' in warn and 'never delete' in warn),
         ]
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check never offers a tier branch for deletion '
@@ -79336,83 +79514,106 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
 
 
 def check_upstream_review_only_for_a_code_owner_on_the_ladder():
-    """The upstream review (practice: upstream-review, in the ladder set) is
-    shown only on the ladder and only to a code owner, and a stage that shows
-    it writes its Upstream-seen lines into the commit it lands.
+    """A set's step_review (precedent_resolve.load_set_tool, 2026-10-17):
+    the engine finds the tool a set names in its precedent-source.json, and
+    a stage writes the lines the tool hands back into the commit it lands.
+    Made-up set and tool; the real review, and who sees it, are tested in
+    the set that ships it.
 
-    WHY. Morgan, 2026-10-11: "let's rebuild it but only in ladders and also
-    only when the user is a code owner." Built 2026-09-30 on a branch that
-    never landed; rebuilt on today's ladder. Negative controls: off the
-    ladder, and for someone not a code owner, nothing is shown and the
-    landing commit is left untouched."""
+    - a set that names a step_review: the stage shows its report and its
+      trailer line goes into the landing commit;
+    - the tool answers None (it does not apply to this person): nothing is
+      shown and the commit is left untouched;
+    - no set names one, or the named file is not there: nothing, no error;
+    - a named path outside tools/: never loaded."""
     import tempfile
-    import precedent_upstream_review as ur
     import precedent_branches as pb
-    import precedent_ladder as pl
-    import precedent_audience as pa
-    selfcheck = subprocess.run([sys.executable, str(ROOT / 'tools' /
-                                'precedent_upstream_review.py'), '--self-check'],
-                               capture_output=True, text=True)
-    real = (pl.ladder_in_force, pa.is_code_owner)
-    out = 'ok\nWARN: one thing\nall passed\n'
-    results, again = {}, []
+    import precedent_resolve as pr
+    cases = []
+    tool = (
+        'TRAILER = "Zz-seen:"\n'
+        'import os\n'
+        'def prepare(root, stage, text="", extra=(), rev_range=None):\n'
+        '    if os.environ.get("ZZ_OFF"):\n'
+        '        return None, None\n'
+        '    return [("abc", "WARN: one thing")], []\n'
+        'def trailer_lines(items):\n'
+        '    return [f"Zz-seen: {fp} {t}" for fp, t in items]\n'
+        'def report(stage, new, old, recording):\n'
+        '    return [f"ZZ REVIEW ({stage}): {len(new)}", recording or "none"]\n')
 
     def head_msg(wt):
         return subprocess.run(['git', '-C', str(wt), 'log', '-1', '--format=%B'],
                               capture_output=True, text=True).stdout
-    try:
-        with tempfile.TemporaryDirectory() as td:
-            wt = pathlib.Path(td)
+
+    saved_cfg = os.environ.get('PRECEDENT_USER_CONFIG')
+    with tempfile.TemporaryDirectory() as td:
+        wt = pathlib.Path(td) / 'repo'
+        wt.mkdir()
+        os.environ['PRECEDENT_USER_CONFIG'] = str(pathlib.Path(td) / 'no-config.json')
+        try:
             fixture_git(wt, 'init', '-q', '-b', 'main')
             fixture_git(wt, 'config', 'user.email', 'h@example.com')
             fixture_git(wt, 'config', 'user.name', 'H')
             fixture_git(wt, 'commit', '-q', '--allow-empty', '-m', 'base')
             base = subprocess.run(['git', '-C', str(wt), 'rev-parse', 'HEAD'],
                                   capture_output=True, text=True).stdout.strip()
-            fixture_git(wt, 'commit', '-q', '--allow-empty', '-m', 'Land x on staging')
-            for name, ladder, owner in (('off the ladder', False, (True, 'x')),
-                                        ('not a code owner', True, (False, 'no')),
-                                        ('a code owner on the ladder', True, (True, 'yes'))):
-                pl.ladder_in_force = lambda *a, _v=ladder, **k: _v
-                pa.is_code_owner = lambda *a, _v=owner, **k: _v
-                lines, written = pb._upstream_review(wt, wt, 'booked', out,
-                                                     f'{base}..HEAD')
-                results[name] = (lines, written, ur.TRAILER in head_msg(wt))
-            # The next stage reads the line back and skips it.
-            again, _w = pb._upstream_review(wt, None, 'produce', out, f'{base}..HEAD')
-    finally:
-        pl.ladder_in_force, pa.is_code_owner = real
-    owner_run = results.get('a code owner on the ladder', ([], False, False))
-    cases = [
-        ('the module checks itself', selfcheck.returncode == 0),
-        ('off the ladder: no review, no line in the commit',
-         results.get('off the ladder') == ([], False, False)),
-        ('not a code owner: no review, no line in the commit',
-         results.get('not a code owner') == ([], False, False)),
-        ('a code owner on the ladder: the review names the warning and its '
-         'line goes into the landing commit',
-         owner_run[1] and owner_run[2]
-         and any('WARN: one thing' in l for l in owner_run[0])),
-        ('the next stage skips what the commit already records',
-         any('0 item(s) to review' in l for l in again)),
-    ]
-    failed = [n for n, ok in cases if not ok]
-    check(f'the upstream review is only for a code owner on the ladder '
-          f'({len(cases)} stated cases)', not failed,
-          '; '.join(failed) + f' -- {results} {again} {selfcheck.stdout[-200:]}')
+            fixture_git(wt, 'commit', '-q', '--allow-empty', '-m', 'Land x')
+            lines, written = pb._upstream_review(wt, wt, 'booked', 'out', f'{base}..HEAD')
+            cases.append(('no set names a step_review: nothing, no error',
+                          lines == [] and not written, repr(lines)))
+            (wt / 'tools' / 'zz').mkdir(parents=True)
+            (wt / 'tools' / 'zz' / 'zz_review.py').write_text(tool, encoding='utf-8')
+            (wt / 'precedent-source.json').write_text(json.dumps({
+                'name': 'zz-set', 'level': 'shared',
+                'step_review': 'tools/zz/zz_review.py'}), encoding='utf-8')
+            cases.append(('the engine finds the tool the set names',
+                          pr.set_tool(wt, 'step_review') == wt / 'tools' / 'zz' / 'zz_review.py',
+                          repr(pr.set_tool(wt, 'step_review'))))
+            os.environ['ZZ_OFF'] = '1'
+            try:
+                lines, written = pb._upstream_review(wt, wt, 'booked', 'out', f'{base}..HEAD')
+            finally:
+                os.environ.pop('ZZ_OFF', None)
+            cases.append(('the tool says it does not apply: nothing shown, '
+                          'the commit untouched',
+                          lines == [] and not written
+                          and 'Zz-seen:' not in head_msg(wt), repr(lines)))
+            lines, written = pb._upstream_review(wt, wt, 'booked', 'out', f'{base}..HEAD')
+            cases.append(('the tool applies: its report is shown and its line '
+                          'goes into the landing commit',
+                          written and 'Zz-seen: abc WARN: one thing' in head_msg(wt)
+                          and any('ZZ REVIEW (booked): 1' in l for l in lines),
+                          f'{lines} {head_msg(wt)!r}'))
+            lines, written = pb._upstream_review(wt, None, 'produce', 'out', f'{base}..HEAD')
+            cases.append(('with no commit to write into, the report is shown and '
+                          'nothing is written',
+                          not written and any('ZZ REVIEW (produce)' in l for l in lines),
+                          repr(lines)))
+            (wt / 'precedent-source.json').write_text(json.dumps({
+                'name': 'zz-set', 'level': 'shared',
+                'step_review': '../outside.py'}), encoding='utf-8')
+            cases.append(('a named path outside tools/ is never loaded',
+                          pr.load_set_tool(wt, 'step_review') is None, ''))
+        finally:
+            if saved_cfg is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a stage runs the step_review a set names, and only that '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
 def check_very_deep_check_walks_every_tier_pair():
     """The drift scan and the merge rehearsal ask about every tier pair
-    origin carries: staging and main INTO pre-staging, and each merge a
-    Promote makes (pre-staging into staging, staging into main).
+    origin carries: main into staging, and the merge a Promote makes
+    (staging into main).
 
     WHY. Until 2026-09-28 both asked about one pair only, the declared base
-    against the default branch -- staging against main -- while work landed
-    on pre-staging. A fix pushed straight to main was then invisible to the
-    one section built to find it, and the merge that happens every day was
-    never rehearsed. Asserted by WHICH commit comes back for WHICH pair, so a
-    scan that returned nothing everywhere fails."""
+    against the default branch. Asserted by WHICH commit comes back for
+    WHICH pair, so a scan that returned nothing everywhere fails."""
     import tempfile
     import very_deep_check as vdc
 
@@ -79428,47 +79629,22 @@ def check_very_deep_check_walks_every_tier_pair():
             {'format_version': 1, 'base_branch': 'staging'}) + '\n')
         (up / 'base.txt').write_text('base\n')
         _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
-        _git(up, 'branch', 'staging'); _git(up, 'branch', 'pre-staging')
+        _git(up, 'branch', 'staging')
         (up / 'hotfix.txt').write_text('fixed on main\n')
         _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'hotfix straight to main')
         subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
                        capture_output=True, text=True)
         _git(work, 'fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*')
-        # Where pre-staging is not retired -- off the ladder, since it was
-        # retired for everyone on it on 2026-10-14 -- a leftover one is
-        # still walked until Update Vendors moves the repository off it.
-        import precedent_branches as _pb
-        _real_unused = _pb.pre_staging_unused
-        _pb.pre_staging_unused = lambda root, user_config=None: (False, None)
-        try:
-            pairs = vdc.tier_pairs(work)
-        finally:
-            _pb.pre_staging_unused = _real_unused
-        d = vdc.base_branch_drift(work, 'pre-staging', 'main') or {}
+        pairs = vdc.tier_pairs(work)
+        d = vdc.base_branch_drift(work, 'staging', 'main') or {}
         subjects = [c['subject'] for c in d.get('commits') or []]
-        e = vdc.endgame_merge(work, 'pre-staging', 'staging') or {}
-        # The same origin where pre-staging is retired -- everyone on the
-        # ladder since 2026-10-14 -- so no pair may name it (2026-10-11: a
-        # run told the person to sync 66 commits into a branch awaiting
-        # deletion).
-        _pb.pre_staging_unused = lambda root, user_config=None: (True, None)
-        try:
-            retired_pairs = vdc.tier_pairs(work)
-        finally:
-            _pb.pre_staging_unused = _real_unused
+        e = vdc.endgame_merge(work, 'staging', 'main') or {}
         results = [
-            ('a retired pre-staging is in no pair; staging into main still is',
-             retired_pairs.get('drift') == [('staging', 'main')]
-             and retired_pairs.get('endgame') == [('staging', 'main')]),
-            ('the drift pairs are staging and main into pre-staging, and main '
-             'into staging',
-             pairs.get('drift') == [('pre-staging', 'staging'),
-                                    ('pre-staging', 'main'),
-                                    ('staging', 'main')]),
-            ('the rehearsals are the two merges a Promote makes, in order',
-             pairs.get('endgame') == [('pre-staging', 'staging'),
-                                      ('staging', 'main')]),
-            ('the fix pushed straight to main is found missing from pre-staging',
+            ('main into staging is the one drift pair',
+             pairs.get('drift') == [('staging', 'main')]),
+            ('the rehearsal is the merge a Promote makes, staging into main',
+             pairs.get('endgame') == [('staging', 'main')]),
+            ('the fix pushed straight to main is found missing from staging',
              'hotfix straight to main' in subjects),
             ('the Promote merge is actually rehearsed, not skipped',
              e.get('status') in ('clean', 'findings')),
@@ -79476,8 +79652,7 @@ def check_very_deep_check_walks_every_tier_pair():
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check walks every tier pair ({len(results)} '
               f'stated cases)', not failed,
-              '; '.join(failed) + f' -- pairs {pairs}, retired '
-              f'{retired_pairs}, drift {subjects}, '
+              '; '.join(failed) + f' -- pairs {pairs}, drift {subjects}, '
               f'endgame {e.get("status")} {e.get("note")}')
 
 
@@ -84441,6 +84616,7 @@ def main():
     check_boundary_check_never_passes_unread()
     check_very_deep_check_boundary_audit_reads_the_setting()
     check_very_deep_check_warnings_are_judged_not_just_counted()
+    check_very_deep_check_test_worth_judges_what_changed()
     check_very_deep_check_token_budgets_are_shown_and_fire_tested()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
@@ -84452,10 +84628,10 @@ def main():
     check_install_records_the_commit_its_catalogue_came_from()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
-    check_debut_waits_for_an_open_produce_pull_request()
     check_bare_all_runs_across_the_cores()
     check_full_run_asks_first()
     check_refresh_never_says_nothing_to_do_after_removing_a_file()
+    check_refresh_from_ref_off_the_branch_is_recorded()
     check_upholds_is_a_listed_field()
     check_generated_files_candidates_are_repo_rooted_claims()
     check_incident_coverage_reads_what_the_gotcha_names()
@@ -84549,7 +84725,7 @@ def main():
     check('a passed test on main leaves a git marker any clone can read',
           *check_main_test_pass_leaves_a_git_marker())
     check('a passed test on main\'s head closes the "main\'s test failed" issue, '
-          'from either job, never from a pull request',
+          'from either job, or from a pull request once main holds its files',
           *check_main_test_pass_closes_the_issue())
     check('session start lists an open "main\'s test failed" issue first',
           *check_session_start_lists_a_red_main_first())
@@ -84645,6 +84821,7 @@ def main():
           *check_a_consumer_may_declare_a_ci_workflow_its_own())
     check('the reply check names every predicate it cannot evaluate',
           *check_reply_check_names_what_it_cannot_evaluate())
+    check_reply_gate_prints_a_note_from_a_set_tool()
     check('the archive check sees work left in a scratch folder',
           *check_archive_check_sees_work_left_in_a_scratch_folder())
     check('the session check adopts a detached start the branch carries',
@@ -84808,7 +84985,6 @@ def main():
     check_branch_tiers()
     check_merge_check_gate()
     check_refresh_sources_lists_a_linked_tree_once()
-    check_promote_pre_staging()
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()
     check_identity_mechanism_check_reaches_a_stubbed_hook()
@@ -84817,9 +84993,6 @@ def main():
     check_empty_commits_are_never_counted()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
-    check_promote_leaves_the_retired_old_name_alone()
-    check_sync_copies_work_from_above_once_checked()
-    check_promote_composes_main_and_moves_both_tiers()
     check_main_test_cadence()
     check_main_test_minutes_rule()
     check_main_test_repo_setting()
@@ -84913,6 +85086,7 @@ def main():
     check_bare_push_check_takes_the_landing_tier()
     check_full_tier_needs_a_reason_on_a_quick_landing()
     check_wait_loop_gate_refuses_pgrep_f()
+    check_answer_first_gate_holds_a_change_until_the_question_is_answered()
     check_reach_key_self_check()
     check_ledger_ignores_checkout_layout()
     check_content_record_self_check()
@@ -84951,6 +85125,7 @@ def main():
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
     check_update_asks_for_words_that_name_the_commit()
+    check_update_keeps_hook_hashes_with_the_held_hooks()
     check_update_question_names_new_gates()
     check_promote_branches_are_named_like_session_branches()
     check_data_branches_are_named_for_the_ladder()
@@ -84980,6 +85155,7 @@ def main():
     check_branch_cleanup_page_is_one_page_updated_in_place()
     check_branch_cleanup_page_merges_the_saved_page()
     check_branch_cleanup_page_lists_staging_waiting_to_go_live()
+    check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names()
     check_branch_cleanup_merge_warns_on_a_stale_copy()
     check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
@@ -84991,7 +85167,9 @@ def main():
     check('a kept section re-pins by itself when upstream\'s change misses what it kept',
           *check_kept_section_repins_a_change_that_misses_the_kept_lines())
     check_repin_kept_records_the_persons_words()
+    check_document_project_agents_md_is_compared_with_its_own_template()
     check_refresh_adds_read_only_allow_rules()
+    check_engine_tools_allowed_and_the_ones_that_move_work_ask()
     check_leak_gate_reads_the_written_private_repo_list()
     check_session_hooks_allow_read_only_tools_at_user_level()
     check('an empty blocklist is reported as nothing checked, never a pass',
@@ -85028,6 +85206,7 @@ def main():
     check_split_projection_is_costed_and_ordered()
     check('duplicate detection ignores a run of lines with no word in it',
           *check_duplicate_runs_skip_wordless_lines())
+    check_past_template_text_is_taken_over_a_stale_record()
     check_kept_agents_md_divergence_is_recorded()
     check_agents_templates_repeat_no_practice_text()
     check_agents_templates_conventions_point_to_practices()
@@ -85107,6 +85286,8 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_update_vendors_maps_a_task_kind_to_manual()
+    check_a_reasked_left_out_section_is_not_asked_every_rerun()
     check_update_vendors_refreshes_a_template_own_comment()
     check_update_vendors_dropped_wording_reads_a_views_source()
     check_kept_pin_moves_across_a_comment_only_template_change()
@@ -85125,6 +85306,8 @@ def main():
     check_refresh_replaces_a_past_individual_hook_rendering()
     check_refresh_names_an_in_place_hook_no_engine_path_keeps()
     check_retired_mentions_skip_what_the_repo_receives()
+    check_dependents_warning_skips_a_wholly_generated_view()
+    check_retired_mentions_match_the_full_path_only()
     check_second_pass_drops_a_first_pass_unshipped_workflow_call()
     check_update_says_once_that_commands_moved_to_an_undeclared_set()
     check_retired_words_reads_past_the_decommission_ledger()
@@ -85141,6 +85324,7 @@ def main():
     check_codeowners_stamp_hashes_only_the_registry()
     check_as_ci_says_why_a_shard_failed()
     check_as_ci_parts_partition_the_suite()
+    check_harness_times_merge_without_a_conflict()
     check_move_fixes_mentions_of_the_moved_practice()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
@@ -85148,8 +85332,8 @@ def main():
     check_stop_hook_says_each_state_once()
     check_promote_into_main_exits_nonzero_until_main_moves()
     check_landing_on_staging_run_tests_and_fast_move_into_main()
+    check_debut_judges_the_change_against_main_too()
     check_update_vendors_retires_pre_staging()
-    check_install_by_a_staging_person_makes_no_pre_staging()
     check_promote_ends_with_its_result_line()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
@@ -85321,6 +85505,12 @@ if __name__ == '__main__':
     # (run_as_ci starts them with no arguments) and a filtered run keeps its
     # filter, so neither recurses. PRECEDENT_HARNESS_SERIAL=1 is the old
     # one-process run, for profiling.
+    #
+    # --all --record-times records every check's time from that run
+    # (2026-10-17): the very deep check's whole-suite run is the one the
+    # TEST WORTH section judges by, so its times must be that day's, not a
+    # list measured before the suite last changed shape.
     if _bare_all_runs_in_parallel(sys.argv[1:], os.environ):
-        _done(run_as_ci(every_case=True))
+        _done(run_as_ci(every_case=True,
+                        record_times='--record-times' in sys.argv[1:]))
     _done(main())

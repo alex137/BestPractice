@@ -82,7 +82,7 @@ The ladder's stages run on engine code today, and the inventory names it:
 | `ladder_words.py` (moved 2026-10-17: the words are the set's own data now, read by the engine's [`set_words.py`](../tools/set_words.py)) | the stage words and every ladder practice slug |
 | `precedent_others_did.py` | the `others-did` reply block |
 | [`precedent_stale_branches.py`](../tools/precedent_stale_branches.py), [`precedent_gate.py`](../tools/precedent_gate.py) | the `stale-branch-cleanup` page and its reply requirement |
-| [`precedent_upstream_review.py`](../tools/precedent_upstream_review.py) | Debut and Produce wording |
+| `precedent_upstream_review.py` | Debut and Produce wording |
 | [`precedent_branch_name.py`](../tools/precedent_branch_name.py) | the name builder (part 1) |
 
 The 2026-10-03 decision kept these in the engine
@@ -112,7 +112,7 @@ own steps use its dated names only when a person's config turns them on.
 
 Measured on staging at `8e122175`: the inventory names 23 ladder names
 in engine code -- 16 in `ladder_words.py`, 2 each in
-[`precedent_branches.py`](../tools/precedent_branches.py) and [`precedent_upstream_review.py`](../tools/precedent_upstream_review.py), 1 each in
+[`precedent_branches.py`](../tools/precedent_branches.py) and `precedent_upstream_review.py`, 1 each in
 [`precedent_gate.py`](../tools/precedent_gate.py), `precedent_others_did.py` and [`verify_harness.py`](../tools/verify_harness.py).
 [`precedent_branches.py`](../tools/precedent_branches.py) is about 5,000 lines, imported by 19 engine
 tools, and its tests are a few hundred references in [`verify_harness.py`](../tools/verify_harness.py).
@@ -143,11 +143,11 @@ half loses nothing.
 
 | # | Piece | Set gets | Engine keeps | Names gone |
 |---|---|---|---|---|
-| 0 | Delete pre-staging (Morgan, 2026-10-17, decided; [its open item](../todo/todo-2026-10-14-delete-pre-staging-code.md)) | -- | nothing of it: `--sync-pre-staging`, Promote's pre-staging path, the retirement step and the full tier for staging all go, and every mention reads it as retired | 0, but less to move |
+| 0 | Delete pre-staging (Morgan, 2026-10-17, decided; [its open item](../todo/todo-2026-10-14-delete-pre-staging-code.md)) | -- | nothing of it but one migration (done 2026-10-17): `--sync-pre-staging`, Promote's pre-staging path and the full tier for staging are gone, and no mention is left in active use. The step that moves a repository off it became [tools/migration_retire_pre_staging.py](../tools/migration_retire_pre_staging.py), which Update Vendors runs without naming it | 0, but less to move |
 | 1 | Stage words (built 2026-10-17) | its words as data: `owned_words` in its precedent-source.json, each pattern with the examples it must and must never match | a general check, `set-words-stay-in-their-set`, and its matcher [`set_words.py`](../tools/set_words.py): every set is held to the words the other sets in force declare. The ladder's own check would have guarded the ladder set, the one place its words are allowed | 16 |
 | 2 | others-did (built 2026-10-17) | `tools/ladder/others_did.py` and its test, wired by the practice's own SessionStart and UserPromptSubmit hooks; the first prompt runs the day's check itself if the start-up hook missed it | [`precedent_commit_owners.py`](../tools/precedent_commit_owners.py): who made each commit, which Update Vendors' upstream note also reads | 1 |
-| 3 | Branch-cleanup page | `tools/ladder/stale_branches.py`, and its reply requirement as a rule in the set's `reply_check.json` | a generic reply-check rule kind: "in the closing reply, require what this set tool prints" | 1 |
-| 4 | Debut and Produce wording | `tools/ladder/upstream_review.py` | nothing | 2 |
+| 3 | Branch-cleanup note (built 2026-10-17) | `tools/ladder/branch_page_note.py` and its test, named in its `reply_check.json` as `note_from_tool` | a general `note_from_tool` key: the reply gate runs a tool a set ships and prints what it says. The page itself, [`precedent_stale_branches.py`](../tools/precedent_stale_branches.py), stays: its delete button runs on GitHub, where nothing a set ships is present, and it names no set's rule. This piece's engine half lands first: an older engine only reports the new key, never refuses on it | 1 |
+| 4 | Upstream review (built 2026-10-17) | `tools/ladder/upstream_review.py` and its test, named `step_review` in its precedent-source.json | [`load_set_tool`](../tools/precedent_resolve.py): Update Vendors and the stages ask for whatever step_review a set in force names, and write its lines into the commit | 2 |
 | 5a | A seam, no behaviour change | -- | a branch-policy hook: a set that provides the `ladder` capability names a module, and the engine asks it for the tier branches, each one's check level and whether it is promote-only; with none, the landing branch and the trunk are all there is | 0 |
 | 5b | Promote, Debut, Produce, `--land`, `--run-tests`, the tiers | `tools/ladder/ladder_branches.py`, built on the engine core | landing branch, lock, composing a merge in a worktree, pushing it | 2 |
 | 5c | Their tests | the ladder tests from [`verify_harness.py`](../tools/verify_harness.py), beside the code | engine tests against a planted policy with made-up names | 1 |
@@ -171,6 +171,32 @@ have a `pre-staging` branch, all of it already in their `staging`.
 One of Morgan's private repositories still declares `landing_branch:
 pre-staging` and has two commits only there; they move into its
 `staging` first.
+
+**The step that moves a repository off pre-staging is not deleted.**
+It became a migration on 2026-10-17
+([tools/migration_retire_pre_staging.py](../tools/migration_retire_pre_staging.py),
+which Update Vendors runs without naming it), so each repository is
+moved at its own next Update Vendors and no repository has to be checked
+from here first. A sweep across many repositories is never part of this
+plan: attaching or opening more than two beyond the ones a session
+started with waits for Morgan's approval, naming each (Morgan,
+2026-10-17, decided: "ANYTHING TO OPEN ALL THE REPOS MUST GET SESSION
+USER APPROVAL"). The 2026-10-17 sweep above ended with 21 repositories
+attached to one session, which is why.
+
+**Two suggestions for 5b**, from another session's Root issues list
+(2026-10-17), to weigh when the code moves:
+
+- Produce's other-work note (`_other_work_note`) tells a session to name
+  others' commits "when asking to approve this move", but Produce is
+  itself the go-ahead. Name them in the reply that reports the move, and
+  tell the person's own other sessions apart from other people with
+  [tools/precedent_commit_owners.py](../tools/precedent_commit_owners.py).
+- `--land` lands a commit from a hand-named branch that the ladder set's
+  branch-name guard refused at `git push`, because `--land` pushes
+  staging instead. Whether the naming rule holds at `--land` too is
+  decided with 5b, through the generic hook point, never as engine code
+  that names the ladder.
 
 **Small calls, noted.** The set's tests for a tool that is not a check
 go in `tools/checks/tests/` beside the rest, since that is where the set's

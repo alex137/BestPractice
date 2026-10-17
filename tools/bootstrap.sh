@@ -203,6 +203,21 @@ if git rev-parse --git-dir >/dev/null 2>&1 && git remote get-url origin >/dev/nu
   timeout 30 git remote prune origin >/dev/null 2>&1 || true
 fi
 
+# A FILE THAT MERGES ITSELF (2026-10-17). Where .gitattributes names the
+# harness-times merge driver and its script is here, configure it in this
+# clone's own config, so a merge rebuilds tools/harness_check_times.json
+# three ways instead of leaving a conflict to patch by hand
+# (tools/harness_times_merge.py says why). Inert in a repository that does
+# not name it. Re-running it is a no-op.
+if grep -qs 'merge=precedent-harness-times' .gitattributes \
+    && [ -f tools/harness_times_merge.py ] \
+    && git rev-parse --git-dir >/dev/null 2>&1; then
+  git config merge.precedent-harness-times.name \
+    'three-way merge of the harness per-test times' 2>/dev/null
+  git config merge.precedent-harness-times.driver \
+    'python3 tools/harness_times_merge.py %O %A %B' 2>/dev/null
+fi
+
 # Is THIS checkout current with its own origin -- and if not, MAKE it current.
 # See the instructions file's gotchas section for the incidents. Three now,
 # each worse than a warning would suggest:
@@ -302,9 +317,8 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
     fi
     # The branch tiers (spec/BRANCH_TIERS_PLAN.md): a person whose Go update
     # lands on a tier has every other window's work there, so that is the
-    # base -- the same answer freshness-guard.sh gives Claude Code. Staging
-    # since pre-staging was retired for everyone (2026-10-14); main holds
-    # Produce's merge commits staging never gets.
+    # base -- the same answer freshness-guard.sh gives Claude Code: staging,
+    # else main, which holds Produce's merge commits staging never gets.
     if [ -f tools/precedent_branches.py ]; then
       landing="$(python3 tools/precedent_branches.py --landing 2>/dev/null | head -n1 || true)"
       if [ -n "$landing" ] && [ "$landing" != "$branch" ] \

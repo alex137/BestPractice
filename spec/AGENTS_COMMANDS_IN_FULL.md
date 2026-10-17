@@ -32,8 +32,7 @@ used to read on turn one.
   and merges — **without asking again.** **Either path ends on the branch on
   `origin`** — the person's landing branch
   (`python3 tools/precedent_branches.py --landing`: the repository's own
-  staging branch, unless their `landing_branch` says `pre-staging` or
-  `main`), for the pull request too; never `main` for being the configured
+  staging branch, unless their `landing_branch` says `main`), for the pull request too; never `main` for being the configured
   default. **A person with `promote_only` on whose landing branch is
   `staging` lands with `python3 tools/precedent_branches.py --land
   [BRANCH]`** (since 2026-10-09): it brings `main`'s direct commits into
@@ -42,16 +41,7 @@ used to read on turn one.
   `LAND RESULT: ...` (exit 0 landed or nothing to land, 1 refused, 2 not
   this person's route). A plain push or pull request into `staging` that
   lacks `main`'s direct commits is refused and pointed at `--land`.
-  **Moving one repository at a time** (since 2026-10-09): the person sets
-  `"retire_pre_staging": true` and no `landing_branch` in their own
-  `identity.json`, so each repository's `precedent.json` decides, and an
-  older engine reads it the same way. In a repository whose only
-  maintainer they are, Update Vendors' first pass brings the engine and
-  nothing else; the second, once that engine has landed, switches the
-  repository's `landing_branch` to `staging`, brings anything left on
-  `pre-staging` in, rewords its instructions, and prints the delete link
-  for `pre-staging`. A
-  high-risk change landed below `main` gets one plain, unbolded line in The
+  A high-risk change landed below `main` gets one plain, unbolded line in The
   Boildown saying how far its branch is ahead of the tier above, with no
   urgency — moving it up waits until it suits. **A commit still sitting
   in the local clone has not landed anything**: fetch and confirm `origin` carries it
@@ -79,7 +69,7 @@ used to read on turn one.
   target it explicitly; say it bare and it defaults to the primary branch
   the work is already on — the person's landing branch
   (`python3 tools/precedent_branches.py --landing`), which is
-  the repository's own staging branch unless their `landing_branch` says `pre-staging` or `main`; never `main` just because that is the repository's
+  the repository's own staging branch unless their `landing_branch` says `main`; never `main` just because that is the repository's
   configured default. Not a standing exemption — it authorizes the change
   in front of it, not every change after it.
 - **"Drop it"** ([park-it](../practices/park-it.md)) — park the item meant
@@ -282,11 +272,11 @@ another checkout of the same files does not run them again; the run says
 so in its own line, and `PRECEDENT_NO_SHARED_PASS=1` turns it off. **Run bare, with no
 destination named, it checks what a push to your landing branch gets**
 (Morgan, 2026-10-01, strength: assented: a session ran it bare before every
-landing on pre-staging and paid the full suite each time); `--tier full`
+landing and paid the full suite each time); `--tier full`
 asks for everything, and where the landing branch takes the quick tier it is
 refused unless given a reason, `--because "<why>"` (Morgan, 2026-10-01,
 strength: decided: the same day, a session still typed `--tier full` before
-every pre-staging landing, and wrote it into its helpers' briefs). **Which of the two a push
+every landing, and wrote it into its helpers' briefs). **Which of the two a push
 gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)):
 a push to `staging` or `main` runs the deep check; a
 push to any other branch runs the basic tier -- the lint, the leak gate
@@ -296,8 +286,7 @@ practice audit's scrub-gate and practice-export-loop (2026-10-02), seconds
 `branch_push_checks` says `full`. **Since 2026-10-09 a push or pull
 request into `staging` by a person who lands there** (`promote_only` on,
 `landing_branch` `staging`) takes the quick tier too: staging is that
-person's quick tier (`checks-follow-the-tier`; `pre-staging`, which had
-it first, was retired on 2026-10-14). **Since 2026-10-16 the quick tier
+person's quick tier (`checks-follow-the-tier`). **Since 2026-10-16 the quick tier
 runs no test and no practice check** (Morgan: "all the testing EXCEPT THE
 BARE ESSENTIAL AND LEAK GATES SHOULD GO INTO DEBUT"): only the basic
 checks and per-file checks of what the push changes; the practice checks
@@ -307,8 +296,10 @@ and every test run in the full tier, at the Debut and around Produce
 them the full suite is asked for, not paid on every landing:
 `python3 tools/precedent_branches.py --run-tests [BRANCH]` (default: the
 landing branch) runs the full local suite on the branch composed with
-`main`'s direct work, moves nothing, records pass or fail, and ends
-`RUN TESTS RESULT: ...` (exit 0 passed, 1 failed). The fast move into
+`main`'s direct work, then judges the checks a base can change against
+`main` as well, the way GitHub's test of the pull request into `main` will
+(a few seconds, never a second suite), moves nothing, records pass or fail,
+and ends `RUN TESTS RESULT: ...` (exit 0 passed, 1 failed). The fast move into
 `main`, `python3 tools/precedent_branches.py --promote --to main`, is the
 default since 2026-10-11 (Morgan: "default to the fast route unless I
 explicitly agree to or request the slow route"; `--fast` is still taken). It

@@ -287,17 +287,16 @@ def _branches_module():
         sys.path.pop(0)
 
 
-# How _unlanded_work marks a repo whose pre-staging batch another window is
+# How _unlanded_work marks a repo whose landed batch another window is
 # already promoting; the reply gate turns it into a "say nothing" line.
-PROMOTE_RUNNING_MARK = 'another window is already promoting pre-staging'
+PROMOTE_RUNNING_MARK = 'another window is already promoting'
 
 
-def _unpromoted(repo, staging, _git, lower='pre-staging'):
+def _unpromoted(repo, staging, _git, lower='staging'):
     """-> how many commits origin/<lower> carries that origin/<staging>
     (the tier above it) does not, when their content differs; 0 otherwise.
     Content, not just lineage, for the reason _unlanded_work gives below.
-    `lower` is the landing branch: pre-staging, or staging once pre-staging
-    is retired (2026-10-10)."""
+    `lower` is the landing branch (staging)."""
     if not _git(repo, 'rev-parse', '--verify', '-q', f'refs/remotes/origin/{lower}'):
         return 0
     # Only commits that change a file: an empty commit or a merge is never
@@ -451,7 +450,7 @@ def _landed_reduction(repo, plain=False):
 
     A practice set's clone is checked out at main, and the session-start
     file is built from those clones, so a reduction pass that has landed on
-    pre-staging changes nothing measured until a Promote carries it to main.
+    staging changes nothing measured until a Promote carries it to main.
     Until then the reply gate asked for another Reduction pass on every
     reply (2026-10-01, from a reduction-pass session). Each set's AGENTS.md
     carries its generated resident block and occasion index, the parts a
@@ -470,7 +469,7 @@ def _landed_reduction(repo, plain=False):
     main = show('origin/main')
     if main is None:
         return None
-    for landing in ('pre-staging', 'staging'):
+    for landing in ('staging',):
         text = show(f'origin/{landing}')
         if text is None:
             continue
@@ -601,7 +600,7 @@ def _unlanded_work(root, siblings=True, records=None):
             ref = _git(repo, 'symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD')
             base = ref.rsplit('/', 1)[-1] if ref else 'main'
         # The branch tiers (spec/BRANCH_TIERS_PLAN.md): for a person whose
-        # `Go update` lands on pre-staging, work there HAS landed -- what it
+        # `Go update` lands on staging, work there HAS landed -- what it
         # still owes is a Promote, reported separately below.
         staging = base
         pb = _branches_module()
@@ -611,12 +610,10 @@ def _unlanded_work(root, siblings=True, records=None):
                 staging = pb.staging_branch(repo)
             except Exception:                                 # noqa: BLE001
                 landing = base
-            # Any landing branch below main is where work lands, staging
-            # included. Until 2026-10-10 only pre-staging counted, so in a
-            # repo whose pre-staging had retired, a branch merged into
-            # staging still read NOT YET LANDED against main, and the reply
-            # check refused "you can archive this session" for it (a
-            # consumer, the first day after its pre-staging retired).
+            # A landing branch below main is where work lands: a branch
+            # merged into staging that read NOT YET LANDED against main had
+            # the reply check refuse "you can archive this session" for it
+            # (a consumer, 2026-10-10).
             if landing and landing != pb.MAIN and _git(
                     repo, 'rev-parse', '--verify', '-q',
                     f'refs/remotes/origin/{landing}'):
@@ -626,10 +623,9 @@ def _unlanded_work(root, siblings=True, records=None):
                 # is on main, whatever branch the repository's own
                 # contributors work on (spec/LADDER_OPT_IN_PLAN.md D3).
                 base = pb.MAIN
-            # The tier a landed batch moves up to next: pre-staging into
-            # staging, staging into main.
-            above = staging if landing == pb.PRE_STAGING else \
-                pb.MAIN if landing and landing == staging and landing != pb.MAIN else None
+            # The tier a landed batch moves up to next: staging into main.
+            above = pb.MAIN if landing and landing == staging \
+                and landing != pb.MAIN else None
             pending = _unpromoted(repo, above, _git, lower=landing) \
                 if above else None
             if pending and not _range_is_this_sessions(
@@ -651,7 +647,7 @@ def _unlanded_work(root, siblings=True, records=None):
                     out.append(f"{name}: {PROMOTE_RUNNING_MARK} ({running})")
                     pending = None
             if pending:
-                # Said gently, on purpose. A pre-staging batch waiting on a
+                # Said gently, on purpose. A landed batch waiting on a
                 # Promote is the normal state of the tiers, not a problem, and
                 # an urgent, bolded nudge every turn had several windows
                 # promoting at once and racing each other (Morgan,
@@ -668,8 +664,8 @@ def _unlanded_work(root, siblings=True, records=None):
             continue
         # origin/<base> is only as fresh as the last fetch, and a pull request
         # merged through the GitHub API -- how every cloud session merges --
-        # fetches nothing. Seen 2026-09-28: two turns of "NOT on pre-staging"
-        # for a pull request already merged, cleared only by a fetch. So
+        # fetches nothing. Seen 2026-09-28: two turns saying a pull request
+        # already merged had not landed, cleared only by a fetch. So
         # before saying so, refresh that one branch: bounded and quiet, and
         # only here, where there is something to report, so a turn with
         # nothing ahead pays nothing. Offline, the ref stays as it was and
@@ -766,6 +762,41 @@ def _print_size_conditioned(src, r, one_of, every, prc):
               f"stays owed next turn.")
 
 
+def _note_from_tool(root, spec):
+    """-> the lines a set's own tool prints for the reply gate, or [].
+
+    `note_from_tool` in a set's reply_check.json -- {"run": "tools/...py",
+    "args": [...]} -- names a file the set ships into this repository; the
+    gate runs it with python3 and prints what it says among the hard
+    requirements, before the reply. The engine says nothing about what the
+    note is: the set's tool knows its own rule and when it has anything to
+    say (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md part 3,
+    2026-10-17: the ladder set's branch-cleanup note left this file this
+    way). Bounded like a declared hook: a .py under tools/, plain string
+    arguments, a time limit, and silence on any failure -- a note that
+    cannot be built must not take the gate down."""
+    if not isinstance(spec, dict) or not isinstance(spec.get('run'), str):
+        return []
+    run = spec['run']
+    args = spec.get('args') or []
+    parts = pathlib.PurePosixPath(run).parts
+    if (not run.startswith('tools/') or not run.endswith('.py') or '..' in parts
+            or not isinstance(args, list)
+            or not all(isinstance(a, str) for a in args)):
+        return []
+    path = pathlib.Path(root) / run
+    if not path.is_file():
+        return []
+    try:
+        r = subprocess.run([sys.executable, str(path), *args], cwd=str(root),
+                           capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if r.returncode != 0:
+        return []
+    return [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
+
+
 def _print_hard_requirements(root):
     """The reply requirements a source DECLARES, printed verbatim at the
     start of the turn.
@@ -821,6 +852,8 @@ def _print_hard_requirements(root):
           "these\n")
     for r in reqs:
         src = r.get('_source', 'a source')
+        for line in _note_from_tool(root, r.get('note_from_tool')):
+            print(f"- [{src}] {line}")
         pat = r.get('require_heading_matching')
         if pat:
             print(f"- [{src}] the reply carries a real markdown heading "
@@ -1341,55 +1374,6 @@ def main():
         print(f"{block}\n")
     if gate == 'reply':
         _print_hard_requirements(root)
-        # STALE BRANCHES, for the closing Boildown only (the ladder set's
-        # stale-branch-cleanup; Morgan, 2026-10-05). Only when that practice
-        # reached this person -- it is for code owners -- and only when there
-        # are any: "Don't do that if there aren't any."
-        # WAITING TO GO LIVE rides the same page (2026-10-16): a staging
-        # that main lacks is reason enough to build it, branches or none.
-        if 'stale-branch-cleanup' in slugs:
-            try:
-                import precedent_stale_branches as _sb
-                _groups, _ = _sb.collect()
-                _n = sum(len(r) for *_x, r in _groups)
-            except Exception:                                 # noqa: BLE001
-                _n = 0
-            try:
-                _w = len(_sb.collect_waiting())
-            except Exception:                                 # noqa: BLE001
-                _w = 0
-            if _n or _w:
-                # NO COUNT HERE (2026-10-10, a consumer): this reads the
-                # remote-tracking refs as they stand, without a fetch -- a
-                # fetch per repository at every turn costs too much -- while
-                # the page fetches first, so "13 branch(es) across 4" here
-                # met 16 on the page. The page's number is the one to give.
-                print(f"- For the CLOSING Boildown only (the reply that says "
-                      f"\"You can archive this session\"): "
-                      + ("some branches can be deleted"
-                         + (" and " if _w else "") if _n else "")
-                      + ("a repository's staging is waiting to go into "
-                         "main" if _w else "")
-                      + f" (the page counts them, after a fetch). "
-                      f"Build the page with `python3 tools/"
-                      f"precedent_stale_branches.py --fetch --html "
-                      f"<scratchpad>/{_sb.PAGE_FILENAME}` -- with a saved "
-                      f"page it asks for that page as it stands: read the "
-                      f"saved page's url with the Artifact tool, WITHOUT a "
-                      f"path, IMMEDIATELY before building -- the read a "
-                      f"republish needs -- and pass the file it says the "
-                      f"full HTML was saved to as `--merge FILE` (only a "
-                      f"page that came back inline needs a second read, "
-                      f"with path index.html, for the file). Never Read "
-                      f"that file yourself, and never a "
-                      f"copy from earlier in the session, so rows from "
-                      f"repositories this session cannot see, and ticks "
-                      f"saved since, are kept -- publish it as an "
-                      f"artifact the way its last line says (the page saves "
-                      f"the person's ticks into itself), and link it in one "
-                      f"Boildown line. In any "
-                      f"other reply, say nothing about it (practice: "
-                      f"stale-branch-cleanup).")
         # COMMITTED, BUT NOT WHERE WORK LANDS. Printed with the hard
         # requirements because for this person it is one: a reply that does
         # not say so is how a branch gets forgotten.

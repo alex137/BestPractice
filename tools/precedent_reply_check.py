@@ -56,6 +56,13 @@ ANOTHER session, window or repository ("your Planning window says
 it's blocked on an upstream bug") is not read as this session's state.
 Added 2026-10-01; an older engine ignores the key.
 
+It may carry `unless_line_matching` too: a match whose whole LINE matches it
+is skipped, for a Boildown line of several sentences whose opening words say
+what it is. Added 2026-10-17: a due reminder's line ("A reminder you asked
+for, due since ...: ... It still needs your answer.") refused a correct "You
+can archive this session", though the reminder lives in todo/ and archiving
+loses nothing. An older engine ignores the key, the stricter way.
+
 A `require_in_fence_paired_with` pair may carry
 `narration_exempt_if_block_matches`: in a fenced block that matches it,
 a clause that narrates what a session, tool or check did or was told, in
@@ -610,6 +617,13 @@ def _sentence_at(text, pos):
     return text[start:min(ends) if ends else len(text)]
 
 
+def _line_at(text, pos):
+    """The line of `text` that holds `pos`."""
+    start = text.rfind('\n', 0, pos) + 1
+    end = text.find('\n', pos)
+    return text[start:end if end != -1 else len(text)]
+
+
 def _strip_quoted_spans(s):
     """Blank out every double-quoted span in `s`. A reply that CITES a
     phrase as a string -- describing a rule, quoting what a check refuses --
@@ -1074,6 +1088,9 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_quiet_while_background_runs',
     'require_prompt_block_header',
     'unless_reply_declares_loss',
+    # printed by the reply gate before the reply, never evaluated here
+    # (precedent_gate._note_from_tool, 2026-10-17)
+    'note_from_tool',
     # conditions and metadata
     'id', 'requires',            # see _settle (2026-10-02)
     'inherits',                  # see _settle (2026-10-10); missing here
@@ -1333,11 +1350,17 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
             # window says it's blocked on an upstream bug" refused a correct
             # "You can archive this session").
             elsewhere = pair.get('unless_sentence_matching')
+            # `unless_line_matching`: the same, for the whole line a match
+            # sits on (a due reminder's Boildown line, 2026-10-17).
+            line_ok = pair.get('unless_line_matching')
             hit = None
             for m in re.finditer(pat2, quoted_stripped, re.I):
                 if elsewhere and re.search(elsewhere,
                                            _sentence_at(quoted_stripped, m.start()),
                                            re.I):
+                    continue
+                if line_ok and re.search(line_ok, _line_at(quoted_stripped, m.start()),
+                                         re.I):
                     continue
                 hit = m
                 break
@@ -1404,7 +1427,7 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
         # require_in_fence_paired_with: require_paired_with, judged one
         # fenced block at a time. A rule about what a paste block may say to
         # another session must read the block, not the reply around it: the
-        # reply's own prose says "lands on pre-staging" all day, to the
+        # reply's own prose says "lands on staging" all day, to the
         # person, and that is no instruction to anybody.
         #
         # WHY IT EXISTS (2026-10-01): two prompts a session wrote ended
@@ -1780,7 +1803,7 @@ def _stranded_branches(root=None, siblings=True):
 
     [] when the gate cannot be imported or run: an engine too old to carry
     it blocks nothing, the same posture as _container_verdict. Only the
-    not-landed lines count -- a pre-staging batch waiting on a Promote has
+    not-landed lines count -- a staging batch waiting on a Promote has
     landed, and is never a reason to keep a session open."""
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))

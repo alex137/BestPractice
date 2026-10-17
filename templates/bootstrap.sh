@@ -279,9 +279,8 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
     fi
     # The branch tiers (spec/BRANCH_TIERS_PLAN.md): a person whose Go update
     # lands on a tier has every other window's work there, so that is the
-    # base -- the same answer freshness-guard.sh gives Claude Code. Staging
-    # since pre-staging was retired for everyone (2026-10-14); main holds
-    # Produce's merge commits staging never gets.
+    # base -- the same answer freshness-guard.sh gives Claude Code: staging,
+    # else main, which holds Produce's merge commits staging never gets.
     if [ -f tools/precedent_branches.py ]; then
       landing="$(python3 tools/precedent_branches.py --landing 2>/dev/null | head -n1 || true)"
       if [ -n "$landing" ] && [ "$landing" != "$branch" ] \

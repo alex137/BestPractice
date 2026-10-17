@@ -96,7 +96,7 @@ def expected_workflows(root, branch='', base=''):
 
     THE BASE WAS IGNORED until 2026-09-30: any `pull_request:` counted, so
     deep-check.yml (`pull_request: branches: [main]`) was expected on every
-    pull request into pre-staging, where it never fires, and the merge gate
+    pull request into staging, where it never fires, and the merge gate
     said "CI DID NOT RUN" and advised a workflow_dispatch run that would
     have spent Actions minutes for nothing. Both shapes
     are live in this repository: deep-check.yml is pull_request plus push on
@@ -225,7 +225,7 @@ def _get(url, key):
 def merge_base_branch(root, branch):
     """-> the branch a pull request from `branch` merges into, as this
     repository's tiers make it: a Promote's to-main copy and staging go
-    into main, pre-staging into staging, anything else into the person's
+    into main, anything else into the person's
     landing branch. '' when that cannot be read."""
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -233,8 +233,6 @@ def merge_base_branch(root, branch):
         staging = pb.staging_branch(root)
         if pb.is_main_copy(branch) or branch == staging:
             return pb.MAIN
-        if branch == pb.PRE_STAGING:
-            return staging
         return pb.landing_branch(root)[0]
     except Exception:                                         # noqa: BLE001
         return ''

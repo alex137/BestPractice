@@ -321,8 +321,7 @@ def find_source_clones(near):
 # a consumer session: "Let's do option 2" -- the per-repo choice, offered
 # because a change took about 25 minutes to reach main and only a few to
 # reach staging (strength: decided). Staging has passed every local check
-# and lacks only GitHub's clean-environment test; pre-staging has had
-# seconds of checking, so it is not on the list. Nothing else changes for
+# and lacks only GitHub's clean-environment test. Nothing else changes for
 # a repo that names nothing: it follows main, as decided 2026-09-25.
 # spec/BRANCH_TIERS_PLAN.md, "Installs take their updates from main".
 UPSTREAM_BRANCH_KEY = 'upstream_branch'
@@ -371,6 +370,8 @@ FOLLOWED_BRANCH = followed_branch(ROOT)
 # Moved out of templates/harness/claude-code/hooks/ on 2026-10-07; see the
 # note at their entry in ENGINE_FILES below.
 HOOK_SCRIPT_FILES = [
+    # Its logic is answer_first_gate.py, in ENGINE_FILES (2026-10-17).
+    'answer-first-gate.sh',
     'artifact-publish-gate.sh',
     'commit-identity-once.sh',
     'commit-identity-push-gate.sh',
@@ -395,6 +396,8 @@ HOOK_SCRIPT_FILES = [
 ]
 
 ENGINE_FILES = [
+    # What answer-first-gate.sh runs (HOOK_SCRIPT_FILES).
+    'answer_first_gate.py',
     'build_views.py',
     # The one place this engine asks GitHub anything, and the counter behind
     # precedent_check.py's github-api-budget check (added 2026-09-14). It
@@ -630,11 +633,6 @@ ENGINE_FILES = [
     # set as much as a consumer, and the hooks call its --in-force exit code.
     # It imports precedent_resolve, which is in this list too.
     'precedent_ladder.py',
-    # The upstream review Booked, Debut, Produce and Update Vendors print for
-    # a code owner on the ladder (the ladder set's upstream-review practice,
-    # 2026-10-11). precedent_branches and precedent_update import it in
-    # every kind of repo; without it they simply print no review.
-    'precedent_upstream_review.py',
     # The one matcher for a set's own words, which precedent_check's
     # set-words-stay-in-their-set imports in every practice set; the words
     # are each set's own, in its precedent-source.json (2026-10-17).
@@ -811,6 +809,10 @@ ENGINE_FILES = [
     # routine checks print, matched against the repo's own
     # tools/warning_exclusions.json, which a consumer starts without.
     'warning_review.py',
+    # Its TEST WORTH section imports this (2026-10-17): every test the repo
+    # owns, its time and its leads, against its own tools/test_verdicts.json,
+    # which a consumer starts without.
+    'test_review.py',
     'parse_check.py',
     'precedent_bootstrap_source.py',
     # THE ONE CHECK THAT LOOKS OUTWARD (2026-09-21). Every other check in
@@ -920,8 +922,8 @@ ENGINE_FILES = [
     # get; push-check-gate.sh runs it before a session's `git push`. Every
     # kind needs it, and it reads its own kind back from ENGINE_MANIFEST.json.
     'precedent_push_check.py',
-    # The three branch tiers (spec/BRANCH_TIERS_PLAN.md, 2026-09-25): which
-    # branch is pre-staging, staging and main in this repository, and which
+    # The branch tiers (spec/BRANCH_TIERS_PLAN.md, 2026-09-25): which
+    # branch is staging and main in this repository, and which
     # tier of the push check a push to each one gets. precedent_push_check.py
     # asks it whenever the push gate names the push; every kind pushes.
     'precedent_branches.py',
@@ -1165,6 +1167,9 @@ RETIRED_ENGINE_FILES = {
     'precedent_others_did.py':
         'moved to the ladder set as tools/ladder/others_did.py, 2026-10-17; '
         'its commit sorting stayed, as precedent_commit_owners.py',
+    'precedent_upstream_review.py':
+        'moved to the ladder set as tools/ladder/upstream_review.py, 2026-10-17; '
+        'the engine finds a set\'s step_review through precedent_resolve.load_set_tool',
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 _WAS_COMMIT_ENV = 'PRECEDENT_REFRESH_WAS_COMMIT'  # the pre-refresh source_commit, for a second pass
@@ -1799,23 +1804,76 @@ READ_ONLY_ALLOW_TOOLS = ('precedent_show.py', 'precedent_paths.py',
                          'routing_audit.py', 'practice_audit.py')
 DECLINED_ALLOW_KEY = 'declined_allow_rules'
 _ALLOW_RULE_RE = re.compile(r'^Bash\(python3 tools/([\w.-]+)( \*)?\)$')
+# EVERY ENGINE TOOL IS ALLOWED, AND THE ONES THAT MOVE WORK ASK (Morgan,
+# 2026-10-17: "why not include all on that list except a small list we
+# explicitly want to exclude from that list to get the session user's
+# permission", then "yes, build it"). One allow rule covers every
+# tools/precedent_*.py, so a new engine tool needs no settings change and no
+# approval in any repository; the template's permissions.ask names the
+# tools that land, produce, merge, update other repositories or send work
+# upstream. Claude Code applies ask before allow, auto mode included, so
+# those always ask. The allow rule is never written without every ask rule
+# beside it (permission_rules_to_add), or for one moment every one of them
+# would run unasked. precedent_check.py's risky-engine-tools-ask keeps the
+# ask list complete.
+ENGINE_ALLOW_RULE = 'Bash(python3 tools/precedent_*)'
+
+
+def _is_engine_ask_rule(rule):
+    """True for an ask rule the template ships: one naming an engine tool
+    (tools/precedent_*.py), or the GitHub merge."""
+    return isinstance(rule, str) and (
+        rule == 'mcp__github__merge_pull_request'
+        or bool(re.match(r'^Bash\(python3 \*?tools/precedent_[\w.-]+\.py\b', rule)))
 
 
 def is_read_only_allow_rule(rule):
     """True for `Bash(python3 tools/X)` or `Bash(python3 tools/X *)` where X
-    is one of READ_ONLY_ALLOW_TOOLS."""
+    is one of READ_ONLY_ALLOW_TOOLS, and for ENGINE_ALLOW_RULE."""
+    if rule == ENGINE_ALLOW_RULE:
+        return True
     m = _ALLOW_RULE_RE.match(rule) if isinstance(rule, str) else None
     return bool(m) and m.group(1) in READ_ONLY_ALLOW_TOOLS
 
 
 def read_only_allow_rules(template_text):
-    """-> the settings template's allow rules for a read-only engine tool,
-    in the template's order. [] for text that does not parse."""
+    """-> the settings template's allow rules for an engine tool (the read-only
+    ones by name, and ENGINE_ALLOW_RULE), in the template's order. [] for
+    text that does not parse."""
     try:
         rules = (json.loads(template_text).get('permissions') or {}).get('allow') or []
     except (ValueError, AttributeError, TypeError):
         return []
     return [r for r in rules if is_read_only_allow_rule(r)]
+
+
+def engine_ask_rules(template_text):
+    """-> the settings template's permissions.ask rules, in its order. []
+    for text that does not parse."""
+    try:
+        rules = (json.loads(template_text).get('permissions') or {}).get('ask') or []
+    except (ValueError, AttributeError, TypeError):
+        return []
+    return [r for r in rules if isinstance(r, str)]
+
+
+def permission_rules_to_add(perms, allow, ask, declined=()):
+    """-> (allow rules, ask rules) to add to a settings file whose
+    permissions are `perms`: those it does not already have, less `declined`.
+    ENGINE_ALLOW_RULE comes only with every rule of `ask` present after the
+    write, so the broad allow never stands without the asks beside it; a
+    repo that declines one ask rule keeps the tools allowed one by one."""
+    perms = perms if isinstance(perms, dict) else {}
+    have_allow = set(perms.get('allow') or []) | set(perms.get('deny') or [])
+    have_ask = set(perms.get('ask') or []) | set(perms.get('deny') or [])
+    declined = set(declined or ())
+    add_ask = [r for r in ask if r not in have_ask and r not in declined]
+    asks_complete = all(r in have_ask or r in add_ask for r in ask) and bool(ask)
+    add_allow = [r for r in allow if r not in have_allow and r not in declined
+                 and (r != ENGINE_ALLOW_RULE or asks_complete)]
+    if ENGINE_ALLOW_RULE not in add_allow and ENGINE_ALLOW_RULE not in have_allow:
+        add_ask = []          # the asks exist for the broad allow, never alone
+    return add_allow, add_ask
 
 
 def _template_settings_text(clone, commit):
@@ -1828,15 +1886,17 @@ def _template_settings_text(clone, commit):
     return r.stdout if r.returncode == 0 else ''
 
 
-def _read_only_allow_missing(dest_root, rules):
+def _read_only_allow_missing(dest_root, rules, ask=()):
     """-> the rules _apply_read_only_allow would add here now, without
-    writing anything: the refresh's early exit asks, so a change the person
-    has not committed yet is offered again on every run until it is
-    committed or declined (DECLINED_ALLOW_KEY), never left behind once the
-    engine is current (2026-10-16, a consumer's rerun reported DONE with the
-    approved allow-list change nowhere)."""
+    writing anything, as [(key, rule)] with key 'allow' or 'ask': the
+    refresh's early exit asks, so a change the person has not committed yet
+    is offered again on every run until it is committed or declined
+    (DECLINED_ALLOW_KEY), never left behind once the engine is current
+    (2026-10-16, a consumer's rerun reported DONE with the approved
+    allow-list change nowhere). An allow rule naming one tool counts only
+    where that tool is here."""
     settings_path = pathlib.Path(dest_root) / '.claude' / 'settings.json'
-    if not rules or not settings_path.is_file():
+    if not (rules or ask) or not settings_path.is_file():
         return []
     try:
         data = json.loads(settings_path.read_text(encoding='utf-8'))
@@ -1848,20 +1908,26 @@ def _read_only_allow_missing(dest_root, rules):
     if not isinstance(data, dict) or (perms is not None and not isinstance(perms, dict)):
         return []
     declined = set(cfg.get(DECLINED_ALLOW_KEY) or []) if isinstance(cfg, dict) else set()
-    have = set((perms or {}).get('allow') or []) | set((perms or {}).get('deny') or [])
-    return [r for r in rules if r not in have and r not in declined
-            and (pathlib.Path(dest_root) / 'tools' / _ALLOW_RULE_RE.match(r).group(1)).is_file()]
+
+    def here(rule):
+        m = _ALLOW_RULE_RE.match(rule)
+        return not m or (pathlib.Path(dest_root) / 'tools' / m.group(1)).is_file()
+    add_allow, add_ask = permission_rules_to_add(
+        perms, [r for r in rules if here(r)], list(ask), declined)
+    return [('allow', r) for r in add_allow] + [('ask', r) for r in add_ask]
 
 
-def _apply_read_only_allow(dest_root, rules):
-    """ADD each of `rules` (read_only_allow_rules) this repo's
-    .claude/settings.json does not already allow or deny, for a tool its
-    tools/ holds, unless precedent.json declines it. -> [added]. Add-only,
-    like _apply_hook_wiring: nothing already in the file is edited, moved or
-    removed. No settings file, or one that does not parse: nothing."""
+def _apply_read_only_allow(dest_root, rules, ask=()):
+    """ADD each of `rules` (read_only_allow_rules) and `ask`
+    (engine_ask_rules) this repo's .claude/settings.json does not already
+    have, for a tool its tools/ holds, unless precedent.json declines it,
+    the broad allow only with every ask rule (permission_rules_to_add).
+    -> [added]. Add-only, like _apply_hook_wiring: nothing already in the
+    file is edited, moved or removed. No settings file, or one that does not
+    parse: nothing."""
     dest_root = pathlib.Path(dest_root)
     settings_path = dest_root / '.claude' / 'settings.json'
-    if not rules or not settings_path.is_file():
+    if not (rules or ask) or not settings_path.is_file():
         return []
     try:
         data = json.loads(settings_path.read_text(encoding='utf-8'),
@@ -1873,20 +1939,29 @@ def _apply_read_only_allow(dest_root, rules):
     perms = data.get('permissions')
     if perms is not None and not isinstance(perms, dict):
         return []
-    add = _read_only_allow_missing(dest_root, rules)
+    add = _read_only_allow_missing(dest_root, rules, ask)
     if not add:
         return []
-    allow = data.setdefault('permissions', collections.OrderedDict()).setdefault('allow', [])
-    allow.extend(add)
+    perms = data.setdefault('permissions', collections.OrderedDict())
+    for key in ('ask', 'allow'):            # one write: both, or neither
+        more = [r for k, r in add if k == key]
+        if more:
+            perms.setdefault(key, []).extend(more)
     settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                              encoding='utf-8')
-    print(f"precedent_vendor_engine refresh: allowed {len(add)} read-only "
-          f"Precedent tool rule(s) in .claude/settings.json, from "
+    allowed = [r for k, r in add if k == 'allow']
+    asked = [r for k, r in add if k == 'ask']
+    print(f"precedent_vendor_engine refresh: in .claude/settings.json, from "
           f"{SETTINGS_TEMPLATE} -- added only, nothing already there was "
-          f"changed: {', '.join(add)}. They only read, so a session no longer "
-          f"waits on auto mode's check for them. To keep one out, list it in "
-          f"precedent.json's {DECLINED_ALLOW_KEY}.")
-    return add
+          f"changed: "
+          + (f"allowed {len(allowed)} Precedent tool rule(s) ({', '.join(allowed)})"
+             if allowed else '')
+          + ('; ' if allowed and asked else '')
+          + (f"{len(asked)} rule(s) that always ask the person first, for the "
+             f"tools that land, produce, merge or update other repositories "
+             f"({', '.join(asked)})" if asked else '')
+          + f". To keep one out, list it in precedent.json's {DECLINED_ALLOW_KEY}.")
+    return [r for _k, r in add]
 
 
 def settings_change_is_wiring_only(before_text, after_text):
@@ -1930,11 +2005,16 @@ def settings_change_is_wiring_only(before_text, after_text):
     bp, ap = before.get('permissions') or {}, after.get('permissions') or {}
     if not isinstance(bp, dict) or not isinstance(ap, dict):
         return False
-    if ({k: v for k, v in bp.items() if k != 'allow'}
-            != {k: v for k, v in ap.items() if k != 'allow'}):
+    if ({k: v for k, v in bp.items() if k not in ('allow', 'ask')}
+            != {k: v for k, v in ap.items() if k not in ('allow', 'ask')}):
         return False
     ba, aa = bp.get('allow') or [], ap.get('allow') or []
     if aa[:len(ba)] != ba or not all(is_read_only_allow_rule(r) for r in aa[len(ba):]):
+        return False
+    # The ask rules it writes beside ENGINE_ALLOW_RULE (2026-10-17) are its
+    # output too; anything else added to ask is a person's.
+    bk, ak = bp.get('ask') or [], ap.get('ask') or []
+    if ak[:len(bk)] != bk or not all(_is_engine_ask_rule(r) for r in ak[len(bk):]):
         return False
     bh, ah = before.get('hooks') or {}, after.get('hooks') or {}
     if not isinstance(bh, dict) or not isinstance(ah, dict):
@@ -2031,6 +2111,25 @@ def received_paths(dest_root):
     return paths, tuple(dict.fromkeys(prefixes))
 
 
+GENERATED_REGISTRY = 'tools/generated_files.json'
+
+
+def wholly_generated_files(dest_root):
+    """-> {path} of each file this repository's generated-files registry
+    says a generator writes whole (an entry with no `part`). Never raises:
+    no registry is no generated file."""
+    try:
+        entries = json.loads((pathlib.Path(dest_root) / GENERATED_REGISTRY)
+                             .read_text(encoding='utf-8')).get('files') or []
+    except (OSError, ValueError, AttributeError):
+        return set()
+    whole = {str(e.get('path')) for e in entries
+             if isinstance(e, dict) and e.get('path') and not e.get('part')}
+    partial = {str(e.get('path')) for e in entries
+               if isinstance(e, dict) and e.get('path') and e.get('part')}
+    return whole - partial
+
+
 def dependents_of(dest_root, rels, cap=8):
     """-> {rel: [(referring path, line number, the line)]} for files that
     are about to stop existing, or just have.
@@ -2080,6 +2179,14 @@ def dependents_of(dest_root, rels, cap=8):
     # upstream does, and the next refresh rewrites it: counting it made every
     # row in a consumer a finding (2026-10-17, very deep check).
     received, received_under = received_paths(dest_root)
+    # A WHOLE FILE A GENERATOR WRITES (2026-10-17, a consuming repository's
+    # Update Vendors): MAP.md was warned about for naming two engine tools
+    # the refresh had just removed, and the update's own view rebuild a
+    # moment later dropped both lines. A generated view names what its
+    # sources and the tree name; a source that still names the file is
+    # warned about itself, and the view is rebuilt from them. A file only
+    # partly generated (AGENTS.md's blocks) is still read.
+    generated = wholly_generated_files(dest_root)
     needles = {}
     for rel in rels:
         base = pathlib.PurePosixPath(rel).name
@@ -2094,6 +2201,8 @@ def dependents_of(dest_root, rels, cap=8):
         if rel_here in rels:
             continue                      # the file being deleted itself
         if rel_here in received or rel_here.startswith(received_under):
+            continue
+        if rel_here in generated:
             continue
         try:
             text = f.read_text(encoding='utf-8')
@@ -2259,9 +2368,11 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
         'source_repo': SOURCE_REPO,
         'source_branch': followed_branch(dest_tools.parent),
         'source_commit': source_commit,
-        # Only when seed was told --off-main: the branch the engine really
-        # came from. source_branch stays what refresh follows; links and
-        # the universal clone are built from it. A refresh drops this.
+        # Only when seed was told --off-main, or a refresh --from-ref took a
+        # commit the followed branch lacks (from_ref_off_branch): where the
+        # engine really came from. source_branch stays what refresh follows;
+        # links and the universal clone are built from it. A refresh from
+        # the followed branch drops this.
         **({'seeded_from_branch': seeded_from} if seeded_from else {}),
         'files': files + ['routing_scope.json'],
         'sha256': hashes,
@@ -5908,13 +6019,14 @@ def _template_instance_plan(dest_root, kind, templates_dir, manifest):
                     bootstrap.sh decided something.
       'current'  -- byte-identical to the template.
       'refresh'  -- matches the recorded hash (unedited), template moved.
-      'adopt'    -- nothing recorded, but identical to a past version of
-                    the template (unedited, predates tracking).
+      'adopt'    -- identical to a past version of the template, recorded
+                    or not (unedited), and not kept on purpose.
       'legacy-shim' -- the pre-Precedent wrapper that runs upstream's own
                     bootstrap, and nothing of its own (_LEGACY_SHIM_TARGET).
                     Replaced with the template, and said so.
       'diverged' -- carries local edits. Reported, never written."""
     recorded = manifest.get(TEMPLATE_INSTANCES_KEY) or {}
+    kept = kept_template_divergences(dest_root)
     try:
         history = json.loads((templates_dir / _TEMPLATE_HISTORY_NAME)
                              .read_text(encoding='utf-8'))
@@ -5932,10 +6044,15 @@ def _template_instance_plan(dest_root, kind, templates_dir, manifest):
         on_disk = _sha256(path)
         if on_disk == _sha256(src):
             action = 'current'
-        elif rel in recorded:
-            action = 'refresh' if on_disk == recorded[rel] else 'diverged'
-        elif _git_blob_id(path.read_bytes()) in set(history.get(src_rel) or ()):
+        elif rel in recorded and on_disk == recorded[rel]:
+            action = 'refresh'
+        elif (_git_blob_id(path.read_bytes()) in set(history.get(src_rel) or ())
+              and rel not in kept):
+            # Recorded or not: a past template version carries nothing of
+            # this repo's own (_agents_md_plan says why).
             action = 'adopt'
+        elif rel in recorded:
+            action = 'diverged'
         elif _legacy_shim_lines(path.read_text(encoding='utf-8', errors='replace'),
                                 src.read_text(encoding='utf-8')) == []:
             action = 'legacy-shim'
@@ -6156,10 +6273,11 @@ def record_template_instances(dest_root, kind, source_root):
 #               way install substitutes them). Recorded.
 #   refresh  -- matches the hash recorded for it, so nobody edited it, and
 #               the template moved. Rewritten; the new text recorded.
-#   adopt    -- nothing recorded (every install before this date), but
-#               identical to the section in SOME past version of either
-#               AGENTS.md template. Stock, so rewritten and recorded -- the
-#               one-time catch-up.
+#   adopt    -- identical to the section in SOME past version of either
+#               AGENTS.md template, whether or not a hash is recorded (a
+#               recorded hash it does not match only says the text changed
+#               since; 2026-10-17). Stock, so rewritten and recorded. Not
+#               when precedent.json records it as kept on purpose.
 #   diverged -- anything else. Left alone, --force included, and reported
 #               with every block (bullet, paragraph, table row) of the
 #               current template's section it lacks, down to the sentences
@@ -6185,6 +6303,16 @@ AGENTS_MD_TEMPLATES = {
                  'templates/AGENTS.md.template'),
     'source': (),
 }
+# A DOCUMENT PROJECT IS ITS OWN KIND OF AGENTS.md (2026-10-17, issue #1172).
+# A repo made from templates/document-project/AGENTS.md was compared with
+# the loader template: seven of its sections read as DIVERGED and four
+# loader-only ones as MISSING, while real drift from its own template (its
+# Contributor access rewrite) was never reported. agents_md_templates() picks
+# this family when precedent.json declares `"agents_md_template":
+# "document-project"`, or when AGENTS.md carries the headings only that
+# template has.
+DOCUMENT_PROJECT_AGENTS_MD = ('templates/document-project/AGENTS.md',)
+_DOCUMENT_PROJECT_HEADINGS = ('Document workflow', 'Contributor access')
 AGENTS_MD_SECTIONS_KEY = 'agents_md_sections_sha256'
 _AGENTS_MD_HISTORY_NAME = 'agents-md-history.json'
 _GENERATED_BEGIN = '<!-- BEGIN GENERATED'
@@ -6338,6 +6466,36 @@ def _sha_text(text):
     return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
 
+def is_document_project(dest_root):
+    """True when this repository's AGENTS.md comes from the document-project
+    template: declared in precedent.json (`agents_md_template`), else read
+    from AGENTS.md's own headings."""
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = {}
+    declared = cfg.get('agents_md_template') if isinstance(cfg, dict) else None
+    if isinstance(declared, str) and declared.strip():
+        return declared.strip() in ('document-project', DOCUMENT_PROJECT_AGENTS_MD[0])
+    try:
+        text = (root / AGENTS_MD).read_text(encoding='utf-8')
+    except OSError:
+        return False
+    heads = {re.sub(r'^#+\s*', '', l).strip() for l in text.splitlines()
+             if _MD_HEADING_RE.match(l)}
+    return all(h in heads for h in _DOCUMENT_PROJECT_HEADINGS)
+
+
+def agents_md_templates(dest_root, kind):
+    """-> the AGENTS.md templates `dest_root` is compared with, first the one
+    a refresh writes from: AGENTS_MD_TEMPLATES[kind], or the document-project
+    template for a document project."""
+    if kind == 'consumer' and is_document_project(dest_root):
+        return DOCUMENT_PROJECT_AGENTS_MD
+    return AGENTS_MD_TEMPLATES.get(kind, ())
+
+
 def _read_agents_md_sources(clone, commit, kind, out_dir):
     """Write the current AGENTS.md template at `commit` into
     out_dir/<its path>, and every section text either template has ever
@@ -6346,8 +6504,14 @@ def _read_agents_md_sources(clone, commit, kind, out_dir):
     `clone`. `--follow`, because the classic template began as
     templates/CLAUDE.md.template."""
     history = {}
-    for n, src_rel in enumerate(AGENTS_MD_TEMPLATES.get(kind, ())):
-        if n == 0:
+    # Each family's head is written, so the plan can compare a document
+    # project with its own template (agents_md_templates).
+    families = [AGENTS_MD_TEMPLATES.get(kind, ())]
+    if kind == 'consumer':
+        families.append(DOCUMENT_PROJECT_AGENTS_MD)
+    reads = [(n == 0, src) for fam in families for n, src in enumerate(fam)]
+    for head, src_rel in reads:
+        if head:
             blob = subprocess.run(['git', '-C', str(clone), 'show',
                                    f'{commit}:{src_rel}'], capture_output=True)
             if blob.returncode == 0:
@@ -6383,7 +6547,7 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
     of the current template, in template order -- see the block comment
     above for the actions. `span` is (first, end) in AGENTS.md, or None.
     Empty when there is no AGENTS.md or no template to compare with."""
-    srcs = AGENTS_MD_TEMPLATES.get(kind, ())
+    srcs = agents_md_templates(dest_root, kind)
     path = dest_root / AGENTS_MD
     if not srcs or not (templates_dir / srcs[0]).is_file() or not path.is_file():
         return []
@@ -6395,6 +6559,7 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
     except (OSError, ValueError):
         history = {}
     recorded = manifest.get(AGENTS_MD_SECTIONS_KEY) or {}
+    kept = kept_template_divergences(dest_root)
     local = path.read_text(encoding='utf-8')
     lines = local.split('\n')
     spans = collections.defaultdict(list)
@@ -6414,11 +6579,20 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
         text = _section_text(lines, *span)
         if _same_section(text, _instantiate(raw, subs)):
             action = 'current'
-        elif recorded.get(key):
-            action = 'refresh' if _sha_text(text) == recorded[key] else 'diverged'
-        elif any(_same_section(text, past)
-                 or _same_section(text, _instantiate(past, subs))
-                 for past in history.get(key) or ()):
+        elif recorded.get(key) and _sha_text(text) == recorded[key]:
+            action = 'refresh'
+        elif (any(_same_section(text, past)
+                  or _same_section(text, _instantiate(past, subs))
+                  for past in history.get(key) or ())
+              and f'{AGENTS_MD} {key}' not in kept):
+            # Identical to a past version of the template: stock, whatever
+            # the record says. Until 2026-10-17 a recorded hash that did not
+            # match sent the section straight to 'diverged', and a consuming
+            # repo's Update Vendors stopped LEFT FOR YOU on "### Merging a
+            # thread branch" carrying the template's own pre-974ec8d01 text
+            # word for word -- nothing in it was the repo's, and the person's
+            # standing default is to take upstream's. A section recorded as
+            # kept on purpose stays the person's call.
             action = 'adopt'
         else:
             action = 'diverged'
@@ -6852,8 +7026,55 @@ def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
     return True
 
 
+# WHAT A SECOND PASS ALREADY ASKED AGAIN, KEPT ACROSS RE-RUNS OF ONE UPDATE
+# (2026-10-17, a document project's Update Vendors). A second pass whose
+# first pass ran an engine older than the hand-over asks again about every
+# section recorded as left out (reask_absent). The first pass runs the
+# repository's own committed engine, which an unfinished update has not
+# committed yet, so every re-run asked the same sections again and the run
+# never reached DONE until the engine was committed mid-update. A section
+# asked again once in this update, and still left out on the next run, is
+# the person's answer: it is not asked a third time for the same source
+# commit. Kept in the git directory, never committed; another source commit
+# starts a fresh record.
+REASKED_FILE = 'precedent-refresh-reasked.json'
+
+
+def _reasked_path(dest_root):
+    out = _git(dest_root, 'rev-parse', '--git-path', REASKED_FILE)
+    if not out:
+        return None
+    path = pathlib.Path(out)
+    return path if path.is_absolute() else pathlib.Path(dest_root) / path
+
+
+def reasked_sections(dest_root, commit):
+    """-> {section key} a second pass of this same update (`commit`)
+    already asked about again."""
+    path = _reasked_path(dest_root)
+    try:
+        data = json.loads(path.read_text(encoding='utf-8')) if path else {}
+    except (OSError, ValueError):
+        return set()
+    if not isinstance(data, dict) or data.get('commit') != commit:
+        return set()
+    return {str(k) for k in data.get('sections') or []}
+
+
+def record_reasked(dest_root, commit, keys):
+    path = _reasked_path(dest_root)
+    if not path or not commit:
+        return
+    keys = set(keys) | reasked_sections(dest_root, commit)
+    try:
+        path.write_text(json.dumps({'commit': commit, 'sections': sorted(keys)},
+                                   indent=1) + '\n', encoding='utf-8')
+    except OSError:
+        pass
+
+
 def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
-                      name_absent=False):
+                      name_absent=False, commit=None):
     """Print what refresh (or status) found in AGENTS.md's template
     sections, and put what needs a person on the Left-for-you list. Every
     run, the early exit included, for the reason
@@ -6879,6 +7100,8 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
     lines = (dest_root / AGENTS_MD).read_text(encoding='utf-8').split('\n')
     template_text = None
     complete = []
+    asked_before = reasked_sections(dest_root, commit) if reask_absent and commit else set()
+    asked_now = []
     for key, src_rel, line_no, action, span in plan:
         # This pass judges the section on today's state, so what the first
         # pass of a self-replacing refresh said about it no longer stands:
@@ -6893,9 +7116,15 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
             _CARRIED_LEFT[:] = [(i, w) for i, w in _CARRIED_LEFT
                                 if i != f'{AGENTS_MD} "{key}"']
         if action == 'absent' and reask_absent:
+            if key in asked_before:
+                print(f"  NOTE: {AGENTS_MD} \"{key}\" is recorded as left out, "
+                      f"and an earlier run of this same update already asked "
+                      f"about it again -- not asked a third time.")
+                continue
             print(f"  NOTE: {AGENTS_MD} \"{key}\" is recorded as left out, but "
                   f"possibly only by the first pass of this refresh, whose "
                   f"older engine did not hand its list over -- asking again.")
+            asked_now.append(key)
             action = 'missing'
         if action == 'missing':
             print(f"MISSING: {AGENTS_MD} has no \"{key}\" section; upstream's "
@@ -6960,6 +7189,8 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
               f'{len(lacks)} of its blocks (listed above) -- copy each in by '
               f'hand, keeping this repo\'s own text, or record it as kept on '
               f'purpose (vendor-update-runbook step 10(d))')
+    if asked_now:
+        record_reasked(dest_root, commit, asked_now)
     if complete:
         print(f"DIVERGED, nothing to copy in: {AGENTS_MD} "
               f"{', '.join(repr(k) for k in complete)} carr"
@@ -7053,7 +7284,7 @@ def record_agents_md_sections(dest_root, kind, source_root):
     AGENTS.md kept from before the install) is left unrecorded, for the next
     refresh to judge from history."""
     manifest_path = dest_root / 'tools' / MANIFEST_NAME
-    srcs = AGENTS_MD_TEMPLATES.get(kind, ())
+    srcs = agents_md_templates(dest_root, kind)
     if not srcs or not manifest_path.is_file() \
             or not (source_root / srcs[0]).is_file() \
             or not (dest_root / AGENTS_MD).is_file():
@@ -7374,6 +7605,23 @@ def off_source_branch(repo_dir, commit):
     r = subprocess.run(['git', '-C', str(repo_dir), 'symbolic-ref', '--short',
                         '-q', 'HEAD'], capture_output=True, text=True)
     return r.stdout.strip() or 'a detached HEAD'
+
+
+def from_ref_off_branch(clone, commit):
+    """-> what the manifest's seeded_from_branch says for a refresh
+    --from-ref of `commit` that FOLLOWED_BRANCH, as `clone` knows it, does
+    not contain; None when it does, or when that cannot be told.
+
+    WHY (2026-10-17, a practice set). A refresh --from-ref of a BestPractice
+    feature-branch commit recorded source_branch main over a commit main did
+    not have -- the same false provenance off_source_branch already stops at
+    seed (practice: generated-artifact-provenance)."""
+    tip = _rev(clone, f'origin/{FOLLOWED_BRANCH}') or _rev(clone, FOLLOWED_BRANCH)
+    if not tip or not commit or commit == 'unknown':
+        return None
+    if not engine_is_ahead(clone, commit, tip):
+        return None
+    return f'--from-ref {commit[:12]}, a commit {FOLLOWED_BRANCH} lacks'
 
 
 def seed_off_main_allowed():
@@ -8436,6 +8684,12 @@ def refresh(clone, force=False, ref=None):
 
     new_commit, engine_dir = _source_tools_at(clone, kind, ref=ref,
                                               fetch=ref is None)
+    off_branch = from_ref_off_branch(clone, new_commit) if ref is not None else None
+    if off_branch:
+        print(f"NOTICE: precedent_vendor_engine refresh: {new_commit[:12]} is not "
+              f"on {FOLLOWED_BRANCH}; the manifest records that "
+              f"(seeded_from_branch), so it never claims {FOLLOWED_BRANCH} for a "
+              f"commit {FOLLOWED_BRANCH} lacks.")
     recorded = str(manifest.get('source_commit') or '')
     if (ref is None and not force and recorded and recorded != new_commit
             and engine_is_ahead(clone, recorded, new_commit)):
@@ -8574,7 +8828,7 @@ def refresh(clone, force=False, ref=None):
         agents_plan = _agents_md_plan(ROOT, kind, engine_dir / 'templates', manifest)
         agents_pending = _agents_md_pending(agents_plan, manifest)
         _report_agents_md(ROOT, engine_dir / 'templates', agents_plan,
-                          reask_absent=not handed_over)
+                          reask_absent=not handed_over, commit=new_commit)
 
         # Before the early exit, so a repo whose engine is already current
         # but whose catalogue pin is not -- the state a half-finished update
@@ -8587,8 +8841,9 @@ def refresh(clone, force=False, ref=None):
         individual_pending = (any(_individual_hook_plan(ROOT, kind))
                               or individual_hook_copy_state(
                                   ROOT, clone, new_commit)[0] == 'past')
+        _tmpl = _template_settings_text(clone, new_commit)
         allow_pending = (manifest.get('kind') == 'consumer' and bool(_read_only_allow_missing(
-            ROOT, read_only_allow_rules(_template_settings_text(clone, new_commit)))))
+            ROOT, read_only_allow_rules(_tmpl), engine_ask_rules(_tmpl))))
 
         if new_commit == manifest.get('source_commit') and not force \
                 and not set_incomplete and not hooks_incomplete and not ci_incomplete \
@@ -8666,7 +8921,8 @@ def refresh(clone, force=False, ref=None):
 
         self_before = _sha256(HERE) if HERE.is_file() else None
         before = _previous_manifest(ROOT, manifest)
-        written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
+        written = _write_engine_files(dest_tools, engine_dir, new_commit, kind,
+                                      seeded_from=off_branch)
         if catalogue_repointed:
             written.append(catalogue_repointed)
         # AFTER the write, and using the manifest as it was BEFORE it:
@@ -8689,8 +8945,9 @@ def refresh(clone, force=False, ref=None):
         # _apply_hook_wiring leaves it (check_vendor_engine_wires_a_new_hook_
         # into_an_installed_repo's control, which main's test failed on
         # 2026-10-14 when this ran for every repo).
+        _tmpl = _template_settings_text(clone, new_commit)
         if manifest.get('kind') == 'consumer' and _apply_read_only_allow(
-                ROOT, read_only_allow_rules(_template_settings_text(clone, new_commit))):
+                ROOT, read_only_allow_rules(_tmpl), engine_ask_rules(_tmpl)):
             if ROOT / '.claude' / 'settings.json' not in written:
                 written.append(ROOT / '.claude' / 'settings.json')
         # Before the next session start, when a hook just wired may write a

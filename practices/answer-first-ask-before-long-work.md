@@ -32,6 +32,16 @@ pauses the work:** ask it early; do whatever its answer doesn't touch.
 "about 15 minutes, done around 15:35 <their city> time".
 
 ## Detail
+**Part (1) for a question is held by a gate, not only by this text.**
+[tools/answer_first_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/answer_first_gate.py)
+runs before every change a session makes: an edit outside `/tmp`, a commit,
+push, merge, landing or Produce, a pull request opened or merged. While the
+person's latest message asks something (a question mark, "explain", "give
+me the details" and the like) and fewer than 50 words have answered it, the
+change is refused, quoting the question. Reading and checking are never
+held. A line announcing the work ("Landing first") is not an answer, which
+is why a few words do not clear it.
+
 **Why a clock time, and whose.** A duration says nothing once the reader
 has lost track of when it was said, and chat surfaces show no timestamps,
 so "15 minutes" leaves the person no way to know when to look back. The
@@ -185,6 +195,16 @@ dropped. The Boildown, Booked, Produce and Prompt Please rules were read
 for an ordering that holds a deliverable back to the final reply; none
 has one. Approved in his words: *"I like your change - please implement
 it"*.
+
+2026-10-17: Morgan sent one message that approved a landing and asked
+for the details of a workflow change. The session wrote "Landing first,
+since you approved it." and landed, and he got the answer 18
+minutes later. His words: *"Don't we have a practice so that, if I ask a
+question, you answer it BEFORE you implement a change? THAT IS IMPORTANT,
+SO I CAN THINK ABOUT YOUR ANSWER ****WHILE**** YOU MAKE THE CHANGE SO WE
+DON'T LOSE OR WASTE TIME. Make that change enforcement stronger
+perhaps"*. The session proposed the gate, he said *"yes to both, and
+booked"*, and it was built the same day.
 
 ## Install
 Adopt the rule in the working-conventions file and name the cost-line

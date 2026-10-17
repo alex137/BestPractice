@@ -13,8 +13,8 @@
 # precedent_push_check.py, one place; this file only decides WHEN to run it.
 #
 # WHICH CHECKS, BY BRANCH (spec/BRANCH_TIERS_PLAN.md, 2026-09-25). A push to
-# staging or main runs everything; a push to pre-staging or any other
-# branch runs the basic tier -- markdown lint, leak gate, commit author --
+# staging or main runs everything; a push to any other branch runs the
+# basic tier -- markdown lint, leak gate, commit author --
 # in seconds. This hook only hands the push's own arguments over
 # (--push-command); precedent_branches.py decides, and a push whose
 # destination it cannot read is checked fully. An older vendored

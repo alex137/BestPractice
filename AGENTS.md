@@ -54,7 +54,8 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
   from `python3 tools/precedent_vocabulary.py`, never recall it.
 - **"Update Vendors"** ([vendor-update-runbook](practices/vendor-update-runbook.md))
   — `python3 ../BestPractice/tools/precedent_update.py --repo .` from the
-  consuming repo; it carries the merge too. Best said "Update Vendors and
+  consuming repo (the clone may be lowercase, `../bestpractice`, where the
+  attach tool made it); it carries the merge too. Best said "Update Vendors and
   merge"; **"Update All Vendors"** ([update-all-vendors](practices/update-all-vendors.md))
   does every repo you use it in without loading theirs.
 
@@ -399,8 +400,9 @@ place — nothing is ever deleted, and nothing moves.
   **light check** is `python3 tools/doc_lint.py` on the markdown you touched,
   before every commit; **deep check** is `python3 tools/precedent_push_check.py`,
   before push or merge, **always run bare**: it checks at the tier a push
-  to your landing branch gets -- seconds for `staging` when you land there,
-  the full suite for `main`. What matters is `0 failed` and `0 violated`.
+  to your landing branch gets -- seconds, for `staging` and for `main`
+  alike; the full suite runs at `--run-tests` and after a push into `main`.
+  What matters is `0 failed` and `0 violated`.
   **A pass pushes to origin:** a small receipt (file hashes, no content)
   on the receipt branch, so other checkouts skip those files;
   `PRECEDENT_NO_SHARED_PASS=1` turns that off. Which one a push gets, `--as-ci`, and failing tests a

@@ -3,16 +3,16 @@ slug:              todo-2026-10-14-delete-pre-staging-code
 kind:              manual
 domain:            engine
 severity:          null
-status:            open
-disposition:       ask
+status:            done
+disposition:       null
 remind_on:         null
 blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "the session doing the enforcement plan's part 3 (https://claude.ai/code/session_01LvW5EpniaTAEHqL8uii621), which does this first"
+waiting_on:        null
 noted:             2026-10-14
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -58,3 +58,22 @@ item closes.
   private repository, last touched 2026-09-28. Its work moves into its `staging` before the
   retirement step is deleted; that merge waits on Morgan's word, since it
   writes to another repository.
+- 2026-10-17, the step that moves a repository off pre-staging became a
+  migration, [tools/migration_retire_pre_staging.py](../tools/migration_retire_pre_staging.py),
+  which Update Vendors runs without naming it (PR #1184). It is kept, not
+  deleted, so a repository that has not updated loses nothing, and the
+  instruction above to check every repository first no longer applies.
+  A sweep across many repositories needs Morgan's approval first, naming
+  each (Morgan, 2026-10-17, decided: "ANYTHING TO OPEN ALL THE REPOS MUST
+  GET SESSION USER APPROVAL").
+- 2026-10-17, closed. The code is deleted and every mention in active use
+  is gone (the engine, its tests, the practices' rules, the templates and
+  settings); pre-staging is named only in
+  [tools/migration_retire_pre_staging.py](../tools/migration_retire_pre_staging.py),
+  its test, and history. The condition above waited for Update All
+  Vendors because deleting the step first would strand a repository that
+  had not updated. Morgan's decision the same day ("the code goes now",
+  above) and the migration change that: the step is kept as a migration,
+  so no repository is stranded, and the migration file is deleted on its
+  own once no repository needs it. Read as met on that basis; reopen if
+  the Update All Vendors run is still wanted first.

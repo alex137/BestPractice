@@ -2962,9 +2962,9 @@ def _withheld_from_manifest():
 # practices" as a stale count and refused a Promote. The engine's own scans
 # moved onto the helper the same day. This holds the checks a repo or a
 # practice source writes to the same line, since those are the ones nobody
-# in this repository reads. Every finding names its file, so into
-# pre-staging it judges only the check files a change touches, and at
-# staging every one (checks-follow-the-tier).
+# in this repository reads. Every finding names its file, so at the
+# quick check it judges only the check files a change touches, and at
+# the full check every one (checks-follow-the-tier).
 _CHECK_DIRS = ('tools/checks/', 'local/tools/checks/')
 _MARKER_SPELLING = re.compile(r'BEGIN GENERATED|END GENERATED|<!--(?:/\??)?gen\b')
 
@@ -6836,6 +6836,13 @@ _VDC_RULE_DATE = '2026-10-11'
 # main ... and the same for debut"), written by the CHECKS BY STAGE section.
 _VDC_STAGES_HEADING = re.compile(r'^## Checks by stage\s*$', re.M)
 _VDC_STAGES_DATE = '2026-10-17'
+# From 2026-10-18 it also carries the test review (Morgan, 2026-10-17:
+# "review all TESTS to see if all tests are relevant and important ...
+# Write all this in the result doc"), written by the TEST WORTH section. A
+# day later than the rule, so the run already finished on 2026-10-17 is not
+# refused for a section nobody owed it.
+_VDC_TESTS_HEADING = re.compile(r'^## Test review\s*$', re.M)
+_VDC_TESTS_DATE = '2026-10-18'
 
 
 @check('very-deep-check', 'tree',
@@ -6844,7 +6851,8 @@ _VDC_STAGES_DATE = '2026-10-17'
        "spec/VERY_DEEP_CHECK_LATEST_RUN.md exists and its `opened:` date is "
        "that run's date or later -- the run's full account was written, not "
        "left for the person to ask for -- and, for a run from 2026-10-17 on, "
-       "it carries a `## Checks by stage` section",
+       "it carries a `## Checks by stage` section, and from 2026-10-18 on a "
+       "`## Test review` section",
        "whether the account is any GOOD: a file with the right date and "
        "nothing in it passes. It also cannot see a run whose passes were "
        "never recorded with --record-pass, which is the other half of the "
@@ -6890,6 +6898,15 @@ def _very_deep_check_write_up(ctx):
             f'section writes it; re-run python3 tools/very_deep_check.py, or '
             f'restore the block if the rewrite dropped it '
             f'(practices/very-deep-check.md, Pass 2 question 25)'))]
+    if date >= _VDC_TESTS_DATE and not _VDC_TESTS_HEADING.search(
+            path.read_text(encoding='utf-8', errors='ignore')):
+        return [Finding(_VDC_WRITE_UP, (
+            f'{where} has no `## Test review` section -- whether every test '
+            f'still tests something in use, and is worth its time for how '
+            f'much it matters. Its TEST WORTH section writes it; re-run '
+            f'python3 tools/very_deep_check.py --refresh-tests, or restore '
+            f'the block if the rewrite dropped it '
+            f'(practices/very-deep-check.md, Pass 2 question 27)'))]
     return []
 
 
@@ -6914,6 +6931,13 @@ def _vendored_engine_file_refs_resolve(ctx):
     tools_dir = ROOT / 'tools'
     findings = []
     for p in _tools_py(tools_dir):
+        # THE HARNESS IS NEVER VENDORED, AND NAMES ABSENT FILES ON PURPOSE
+        # (2026-10-17). A case asserting that a retired script is gone has to
+        # spell its path, and this check refused it as a missing companion;
+        # the case was rewritten to hide the name. verify_harness.py ships to
+        # no repository, so no repository can be stranded by what it names.
+        if p.name == 'verify_harness.py':
+            continue
         text = p.read_text(encoding='utf-8', errors='ignore')
         for m in _ENGINE_REF_RE.finditer(text):
             name = m.group(1) or m.group(2)
@@ -8631,6 +8655,100 @@ _BASE_BRANCH_COPY_OK = {
 }
 
 
+# The engine tools that push or delete for a reason that is not a person's
+# work moving, so they are allowed with the rest; the reason is the record.
+_ASK_EXEMPT = {
+    'precedent_check_after.py': 'files only a failure item on the branch it '
+                                'just tested, after a move the person asked for',
+    'precedent_data_branches.py': "pushes only the engine's own data branches",
+    'precedent_push_check.py': "pushes only its pass receipts to the engine's "
+                               'receipt branch',
+    'precedent_stale_branches.py': 'deletes branches only inside the branch-cleanup '
+                                   'workflow, and refuses anywhere else',
+}
+
+
+def _pushing_calls(text):
+    """-> line numbers of calls in `text` that run `git push`, or merge a pull
+    request: a call whose literal arguments include 'push' beside 'git' or
+    through a git helper (_git, _run, git), or that names
+    merge_pull_request."""
+    import ast as _ast
+    try:
+        tree = _ast.parse(text)
+    except SyntaxError:
+        return []
+    lines = []
+    for node in _ast.walk(tree):
+        if not isinstance(node, _ast.Call):
+            continue
+        lits = [c.value for a in node.args for c in _ast.walk(a)
+                if isinstance(c, _ast.Constant) and isinstance(c.value, str)]
+        name = getattr(node.func, 'attr', None) or getattr(node.func, 'id', None)
+        if ('push' in lits and ('git' in lits or name in ('_git', '_run', 'git'))) \
+                or 'merge_pull_request' in lits:
+            lines.append(node.lineno)
+    return lines
+
+
+@check('risky-engine-tools-ask', 'tree',
+       "where the settings template allows every engine tool with one rule "
+       "(Bash(python3 tools/precedent_*)), every tools/precedent_*.py that "
+       "runs `git push` or merges a pull request is named by one of the "
+       "template's permissions.ask rules, or is in _ASK_EXEMPT with its "
+       "reason; and every ask rule names a tool that exists",
+       "a tool that changes things without git push -- writing another "
+       "repository's files, or calling GitHub through a library this does "
+       "not read -- and a push built from a variable rather than the literal "
+       "'push'. Whether an ask rule's pattern really matches the command a "
+       "session types is Claude Code's matching, tested in the harness, not "
+       "here.",
+       practice_backed=False,
+       selects_on=('tools/precedent_*.py',
+                   'templates/harness/claude-code/settings.json'))
+def _risky_engine_tools_ask(ctx):
+    """EVERY ENGINE TOOL IS ALLOWED, SO THE RISKY ONES MUST ASK (2026-10-17).
+    Morgan asked for the per-tool allow lines to become one rule, with "a
+    small list we explicitly want to exclude from that list to get the
+    session user's permission", and for the fix that keeps that list from
+    going stale: a new tool that pushes would otherwise be allowed the day
+    it lands, with no prompt and nobody deciding it."""
+    tmpl = ROOT / 'templates' / 'harness' / 'claude-code' / 'settings.json'
+    if not tmpl.is_file():
+        raise NotApplicable('no Claude Code settings template here')
+    try:
+        perms = json.loads(tmpl.read_text(encoding='utf-8')).get('permissions') or {}
+    except ValueError as exc:
+        return [Finding(str(tmpl.relative_to(ROOT)), f'does not parse: {exc}')]
+    if 'Bash(python3 tools/precedent_*)' not in (perms.get('allow') or []):
+        raise NotApplicable('the template allows engine tools one by one')
+    ask = [r for r in (perms.get('ask') or []) if isinstance(r, str)]
+    rel_t = str(tmpl.relative_to(ROOT))
+    findings = []
+    named = set()
+    for rule in ask:
+        m = re.search(r'tools/(precedent_[\w.-]+\.py)', rule)
+        if not m:
+            continue
+        named.add(m.group(1))
+        if not (ROOT / 'tools' / m.group(1)).is_file():
+            findings.append(Finding(rel_t, f'the ask rule {rule!r} names '
+                                    f'tools/{m.group(1)}, which is not here'))
+    for path in _tools_py(ROOT / 'tools'):
+        if not path.name.startswith('precedent_') or path.name in named:
+            continue
+        lines = _pushing_calls(path.read_text(encoding='utf-8', errors='ignore'))
+        if lines and path.name not in _ASK_EXEMPT:
+            findings.append(Finding(
+                f'tools/{path.name}',
+                f'pushes or merges (line {lines[0]}) and the settings template '
+                f'allows it with every engine tool, so it would run with no '
+                f'prompt -- add an ask rule for it to {rel_t}, or put it in '
+                f'precedent_check.py\'s _ASK_EXEMPT with the reason it needs '
+                f'none'))
+    return findings
+
+
 @check('declared-base-branch', 'tree',
        "every tool that resolves the repo's branch reads precedent.json's "
        "declared `base_branch` before falling back to inferring one from "
@@ -9596,6 +9714,51 @@ def _landing_ref():
     return None
 
 
+def base_dependent_slugs():
+    """-> every check whose answer depends on the branch a change is
+    measured against: the change-scope ones, and each tree-scope one whose
+    function reaches _published_default_branch, directly or through a
+    helper. --base-dependent runs these alone.
+
+    WHY (2026-10-17). A Debut judged staging against staging, so a file
+    staging deleted while a page still named it passed, and main went red
+    when GitHub judged the same tree against main. Judging against main as
+    well costs a second pass, and the whole suite twice would double the
+    Debut (Morgan, 2026-10-17: "will this do a second pass always, to go
+    from like 12 min to 24 min each time? It should NOT"); these are the only
+    checks a different base can change (4 s on staging, measured
+    2026-10-17, against 56 s for the full sweep). The set is
+    read from the code, so a new check that reads the base joins it with no
+    list to keep. Blind to a check script from a practice source that reads
+    git's base on its own, and to a tree check that reads the change
+    through ctx without calling a helper that names the resolver."""
+    import inspect, types
+    g = globals()
+    funcs = {n: f for n, f in g.items() if isinstance(f, types.FunctionType)
+             and f.__module__ == __name__}
+    src = {}
+    for n, f in funcs.items():
+        try:
+            src[n] = inspect.getsource(f)
+        except (OSError, TypeError):
+            src[n] = ''
+    reads = {'_published_default_branch'}
+    grew = True
+    while grew:
+        grew = False
+        for n in funcs:
+            if n not in reads and any(
+                    re.search(r'(?<![\w.])' + re.escape(d) + r'\(', src[n])
+                    for d in reads):
+                reads.add(n)
+                grew = True
+    direct = re.compile(r'\bctx\.(changed|added|range|base)\b')
+    return sorted(s for s, c in CHECKS.items()
+                  if c['scope'] == 'change'
+                  or getattr(c['fn'], '__name__', '') in reads
+                  or direct.search(src.get(getattr(c['fn'], '__name__', ''), '')))
+
+
 def _published_default_branch():
     """The branch a change is measured against: where this person's work
     lands, then the declared base branch, then origin's default.
@@ -9604,7 +9767,19 @@ def _published_default_branch():
     route lands on main while precedent.json still declares staging, days
     behind it; a push check judged a branch against staging and blamed it
     for a rename already on main. A change is what it adds to the branch
-    it will land on (checks-read-only-the-work)."""
+    it will land on (checks-read-only-the-work).
+
+    WHAT THE CALLER SAYS THE CHANGE IS MEASURED FROM COMES BEFORE THAT
+    (2026-10-17). The push check sets PRECEDENT_CHANGED_SINCE for every
+    check it runs -- a Produce sets it to main's tip -- and this resolver
+    ignored it: a Produce's quick check judged rename-updates-links against
+    staging, found nothing, and main went red on GitHub's test, which diffs
+    the pull request against main. A Debut sets it to main's tip for its
+    second pass (--base-dependent)."""
+    since = os.environ.get('PRECEDENT_CHANGED_SINCE', '').strip()
+    if since and _git('rev-parse', '--verify', '--quiet',
+                      f'{since}^{{commit}}').returncode == 0:
+        return since
     landing = _landing_ref()
     if landing:
         return landing
@@ -10178,7 +10353,7 @@ def _routing_reason(ctx):
     # `gates` had already drifted on fourteen practices. Morgan, 2026-09-29:
     # prevent what caused it, not only check for it later. With the reason
     # in the file, a practice cannot arrive or leave without it, and this
-    # check pins its finding to that one file, so pre-staging runs it
+    # check pins its finding to that one file, so the quick check runs it
     # (practice: upstream-fix).
     #
     # The engine's origin only: it vendors no engine into itself, so it has
@@ -10578,11 +10753,11 @@ def _practice_file_shape(ctx):
     # exist, check_no_bare_numeric_citations, check_slug_link_integrity,
     # check_practices_link_only_reachable_repos, check_rule_is_self_
     # contained, check_index_clauses -- so a practice file broken in any of
-    # these ways landed on pre-staging and was caught only at staging, 20
+    # these ways landed and was caught only at the full check, 20
     # minutes of suite later. Every one judges one file and takes
-    # milliseconds, and a finding here names that file, so the pre-staging
-    # changed-files run keeps it (Morgan, 2026-09-29: make the per-file
-    # checks at pre-staging thorough). The harness copies were deleted, not
+    # milliseconds, and a finding here names that file, so the quick
+    # changed-files run keeps it (Morgan, 2026-09-29: make the quick
+    # per-file checks thorough). The harness copies were deleted, not
     # kept beside these: two checks of one property is the redundancy the
     # very deep check's question 8 looks for.
     if _engine_manifest() or not (ctx.root / 'tools' / 'verify_harness.py').is_file():
@@ -11043,16 +11218,16 @@ def _parallel_artifact_ledger(ctx):
     # CI checkout, most obviously) `--max-parents=0` cannot be trusted to
     # find every commit this check should treat as "can't verify, don't
     # guess" the same way it already treats a genuine root.
-    # A RANGED RUN READS ONLY THE RANGE (2026-09-29). The pre-staging push
+    # A RANGED RUN READS ONLY THE RANGE (2026-09-29). The quick push
     # check passes --range <landing>...HEAD with --changed-files-only, and
     # this check used to walk each member directory's WHOLE history there
     # anyway -- and then pinned its finding to LEDGER.md, a file the push
     # usually did not change, so the changed-files filter dropped it: it
     # read the full history and could never refuse. Morgan, 2026-09-29:
-    # "pre-staging should never do any check of a full history." Ranged,
+    # the quick check should never read a full history. Ranged,
     # it reads only the commits the push brings and pins each finding to the
     # member file the commit changed, which the filter keeps. The full check
-    # at staging still reads everything.
+    # still reads everything.
     # This change only: the run's range, or this branch against the
     # published default branch -- never every commit the member
     # directories ever had (Morgan, 2026-10-08, strength: decided: "WE
@@ -12980,15 +13155,13 @@ def _source_resident_cap(path):
     return v if isinstance(v, int) else None
 
 
-# The checks that hold a session-load size cap. On the way into pre-staging
+# The checks that hold a session-load size cap. At the quick check
 # (--changed-files-only) their findings WARN and do not refuse; the full
 # check, at the Debut into staging, refuses them as before. Morgan,
-# 2026-09-30, strength: decided: "remove that limit for pre-staging and
-# instead just have it give the session user a warning, including telling
-# the user that it needs to be fixed before it can get onto staging; but no
-# change for the rules for staging ... I want to get the many many branches
-# always merge quickly and easily into pre-staging (but big checks on
-# staging)". budget-within-approval is not one of them: raising a budget
+# 2026-09-30, strength: decided: "just have it give the session user a
+# warning, including telling the user that it needs to be fixed before it
+# can get onto staging; but no change for the rules for staging".
+# budget-within-approval is not one of them: raising a budget
 # still needs the person's words, on every tier.
 SIZE_CAP_CHECKS = frozenset({'loader-within-caps', 'session-load-budget',
                              'session-file-allowances-fit'})
@@ -13007,8 +13180,8 @@ SIZE_CAP_CHECKS = frozenset({'loader-within-caps', 'session-load-budget',
                    'tools/build_views.py'))
 def _loader_within_caps(ctx):
     # build_views.py writes an over-cap block with a warning since
-    # 2026-09-30, so a branch can reach pre-staging; this is where the cap
-    # is still held, at the tier that must hold it.
+    # 2026-09-30, so a branch can still land; this is where the cap
+    # is held, at the tier that must hold it.
     builder = _tool_path('tools/build_views.py')
     if builder is None:
         raise NotApplicable('tools/build_views.py is absent')
@@ -13479,8 +13652,7 @@ def _touched_files():
 # change added .claude/hooks/precedent-hooks.sh and no row for it in
 # templates/harness/PARALLELS.md, Booked dropped that finding as outside
 # the change, and the Debut into staging found it -- for whichever session
-# promoted next. Keeping every tree finding, as first proposed
-# (todo-2026-10-07-pre-staging-runs-the-fast-tree-checks), would also keep
+# promoted next. Keeping every tree finding, as first proposed, would also keep
 # the repository's standing debt, and refuse an unrelated push over it:
 # the 2026-10-07 note in a private consuming repository refused four times
 # over files it never touched. So the question is the one the push check
@@ -13937,7 +14109,10 @@ def main():
         # tree-scope check run every time can always reach that state,
         # on purpose, with a reason to type: --full-sweep, or --all
         # (which already means "treat everything as changed" for ctx).
-        if '--full-sweep' in flags or '--all' in flags:
+        if '--base-dependent' in flags:
+            slugs = base_dependent_slugs()
+            results = run(slugs, ctx, scopes, exempt=exempt)
+        elif '--full-sweep' in flags or '--all' in flags:
             slugs = sorted(set(other_slugs) | set(tree_slugs))
             results = run(slugs, ctx, scopes, exempt=exempt)
         else:
@@ -13981,7 +14156,7 @@ def main():
         # A practice file sync wrote -- any the committed MANIFEST.json names
         # -- is not this change's own writing, even when this change is the
         # update that wrote it. Found 2026-09-28: a consuming repo's Update
-        # Vendors failed its pre-staging check on an acronym inside
+        # Vendors failed its quick check on an acronym inside
         # vendor-update-runbook, a file it cannot change. run() now drops
         # findings on another source's files for every check; what is left
         # for this to catch is a materialized copy of the repo's OWN
@@ -13993,7 +14168,7 @@ def main():
                 materialized += 1
         # A path this change deleted or renamed away is the change's own
         # doing wherever the mention it strands sits, and that is never in
-        # the change: the pre-staging check could not see a stranded
+        # the change: the quick check could not see a stranded
         # reference at all, so a consumer's Update Vendors passed Booked and
         # the Debut into staging refused on about 15 files no earlier run
         # had named (2026-09-30). Narrows the rule above, it does not undo
@@ -14041,7 +14216,7 @@ def main():
     # full; they just don't fail the run.
     violated = [r for r in all_violated if not CHECKS[r[0]].get('advisory')]
     advisory = [r for r in all_violated if CHECKS[r[0]].get('advisory')]
-    # Size caps warn on the way into pre-staging (SIZE_CAP_CHECKS).
+    # Size caps warn at the quick check (SIZE_CAP_CHECKS).
     held_for_staging = []
     if '--changed-files-only' in flags:
         held_for_staging = [r for r in violated if r[0] in SIZE_CAP_CHECKS]

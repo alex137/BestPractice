@@ -38,7 +38,7 @@ Run:
 
   --check reads each shared set at the commit MANIFEST.json records syncing
   it at (precedent_source_pins.py), never at whatever its clone has checked
-  out. --for-branch names where a push is going: pre-staging, staging or
+  out. --for-branch names where a push is going: staging or
   main may carry a set only at a commit that set has landed on the same
   rung; --rung-only does only that, and is what the push check runs, on
   every push and outside its recorded passes. A write refuses to roll a set back to a commit before the one this
@@ -305,6 +305,13 @@ def _declared_practice_hooks(repo, practices):
             if h['run'] in declined or pathlib.PurePosixPath(h['run']).name in declined:
                 continue
             if not (pathlib.Path(repo) / h['run']).is_file():
+                # Said, never skipped in silence (2026-10-17): a check the
+                # engine stopped carrying, now shipped by a set, is off here
+                # until that set's files arrive.
+                notes.append(f"{slug}: its {h['event']} hook runs {h['run']}, "
+                             f"which is not in this repository yet, so that "
+                             f"check does not run here until its source's "
+                             f"files arrive")
                 continue
             entries.append((h['event'], h['matcher'], bv.hook_command(h)))
     return entries, notes
@@ -320,7 +327,7 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     moved since; a write from the clone as it stands, refused when that
     would roll back a commit this repository already carries.
 
-    `for_branch` names where a push is going: a pre-staging, staging or
+    `for_branch` names where a push is going: a staging or
     main push may carry a set only at a commit the set has landed on that
     same rung itself, and --check refuses otherwise (2026-10-05)."""
     loaded = pr.load_config(repo, user_config)
@@ -1012,8 +1019,8 @@ def standing_findings_of_arrivals(repo, before, run=None):
         more = f' (+{len(findings) - 3} more)' if len(findings) > 3 else ''
         lines.append(f'{slug}, which this sync brought in or changed, does not '
                      f'hold yet on {len(findings)} place(s): {shown}{more}. '
-                     f'Nothing is refused for it now: a working-branch or '
-                     f'pre-staging push is judged only on what it changes, and '
+                     f'Nothing is refused for it now: a working-branch '
+                     f'push is judged only on what it changes, and '
                      f'the full check (into staging, or main) will refuse '
                      f'these -- fix them before then '
                      f'(python3 tools/precedent_check.py --only {slug})')
@@ -1217,7 +1224,7 @@ def _mentions_of_removed_files(repo, gone):
     Found 2026-10-06 in a consumer: a sync removed four check scripts, their
     tests and practices/light-check.md, and three rounds of checks each
     found more files still naming them -- the consumer's own light check
-    and a gotcha at the merge into pre-staging, two open items only at the
+    and a gotcha at the quick check, two open items only at the
     Debut's full check. Each round cost a commit and a re-run. A practice
     link -- `practices/<slug>.md` anywhere in a line, linked or not -- is
     _links_to_removed's, so this names only what that cannot: a check

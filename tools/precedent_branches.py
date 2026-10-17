@@ -1,37 +1,30 @@
 #!/usr/bin/env python3
 """Where a person's work lands here (spec/LADDER_OPT_IN_PLAN.md D3) and whether a push to a branch gets the basic or the full push check; the branch tiers and their moves for a person whose set provides them (spec/BRANCH_TIERS_PLAN.md)
 
-precedent_branches.py -- the three branch tiers, and what a push to each
-one is checked with. spec/BRANCH_TIERS_PLAN.md is the plan this implements.
+precedent_branches.py -- the branch tiers, staging and main, and what a
+push to each one is checked with. spec/BRANCH_TIERS_PLAN.md is the plan
+this implements.
 
-THE RULE (Morgan, 2026-09-25, strength: decided): "to prestaging only the
-most minimal test; to staging/precedent-beta-v01 all local tests; and then
-to main, you get all those local tests AND the most important GitHub test",
-and "the default for everyone should be all branches other than the above
-never get tested beyond the basic markdown test when pushed to".
+WHAT A PUSH GETS (Morgan, 2026-10-17, strength: decided: main and staging
+both take the quick checks before a push; the full suite runs at the Debut,
+`--run-tests`, and after a push into main):
 
-  pre-staging, and any other branch   basic  (markdown lint, leak gate,
-                                               the commit-author checks)
-  staging                             full   (everything
-                                               precedent_push_check.py runs)
-  main                                full, plus one GitHub test on the
-                                               pull request into it
+  staging, and any other branch   the person's branch_push_checks, basic
+                                  by default (markdown lint, leak gate,
+                                  the commit-author checks)
+  main                            the quick checks; the full suite after
 
 WHY ONE MODULE. The literal `precedent-beta-v01` sat in 249 files of this
 repository when the plan was written, 37 of them under tools/. The same
-three names are meant to hold in every repository, and the staging branch
-is being renamed; every tool that needs a tier name asks here, so the
-rename is a change in one place (practice: registry-source-of-truth).
+names are meant to hold in every repository, and the staging branch was
+renamed; every tool that needs a tier name asks here, so a rename is a
+change in one place (practice: registry-source-of-truth).
 
-STAGING BEFORE THE RENAME. Until a repository has a branch called
+STAGING BEFORE A STAGING BRANCH. Until a repository has a branch called
 `staging`, its staging tier is whatever it declares as `base_branch` in
-precedent.json -- `precedent-beta-v01` in the Precedent repositories. A
-repository whose base_branch is `main` -- most repositories that install
-Precedent -- has no separate staging branch yet, so its staging tier IS
-main: pre-staging is created from main and promoted into main, and `Go
-update` for a person who has not chosen pre-staging lands on main, as it
-always did. (Until 2026-09-25 this answered `staging` there, a branch those
-repositories do not have -- found before any of them had taken the engine.)
+precedent.json. A repository whose base_branch is `main` -- most
+repositories that install Precedent -- has no separate staging branch, so
+its staging tier IS main, and `Go update` lands on main, as it always did.
 
 A PUSH NOBODY CAN READ IS CHECKED FULLY. push_targets() returns None for a
 push whose destination it cannot establish (--all, --mirror, --tags, a tag
@@ -43,47 +36,35 @@ The person's setting, `branch_push_checks`, is read the way
 spec/CI_CADENCE_PLAN.md reads its own: a repository's precedent.json wins,
 then the person's identity.json (this repository's own when it is an
 individual source, else the one ~/.config/precedent/config.json names),
-then the default, `basic`. Nothing it says can lower staging or main.
+then the default, `basic`.
 
-WHERE `Go update` LANDS is `landing_branch`: `pre-staging`, `staging` or
-`main`. Read in the OTHER order from `branch_push_checks`: the person's own
-identity.json first, then the repository's precedent.json, then the built-in
-default, `staging` (Morgan, 2026-09-27, strength: decided: "have the
-individual repo take precedence over the others (if it set, use that)").
-Where a person works is theirs to choose; a repository's value is its
-default for everyone who has not. New repositories are written with
-`pre-staging` (precedent_install.py, the document-project template, a new
-practice set), and Update Vendors adds it to one that has none. An
-unreadable value lands on staging, where work landed before the tiers
-existed, never somewhere new.
+WHERE `Go update` LANDS is `landing_branch`: `staging` or `main`. Read in
+the OTHER order from `branch_push_checks`: the person's own identity.json
+first, then the repository's precedent.json, then the built-in default,
+`staging` (Morgan, 2026-09-27, strength: decided: "have the individual repo
+take precedence over the others (if it set, use that)"). Where a person
+works is theirs to choose; a repository's value is its default for everyone
+who has not. New repositories are written with `staging`, and Update
+Vendors adds it to one that has none. A value that is neither is not used,
+and --land refuses on it by name (unknown_landing), never sending work
+somewhere new.
 
-PROMOTE moves pre-staging into staging (plan step 6; Morgan named the
-command, strength: assented). Since 2026-10-03 it COMPOSES one tree in a
-throwaway worktree -- staging, then any fix branch it is handed (--work
-DATE-promote-fix-ID), then work made directly on main, then pre-staging -- each
-by a merge commit, never a fast-forward, so a `[skip ci]` line on a
-pre-staging commit can never become staging's head and silence the GitHub
-test on the pull request into main (plan, hole 3). It rebuilds the
-generated files main's work left stale, runs the FULL push check on that
-tree once, and only if it passes moves staging AND pre-staging to that same
-commit in one atomic push. A failure or a conflict nothing here rebuilds
-moves neither: the tree goes to a local DATE-promote-fix-ID branch
-(named like every temporary branch since 2026-10-06; promote-fix-DATE
-before, still recognized), to be fixed
-there and promoted with --work (spec/LADDER_OPT_IN_PLAN.md D10; see the
-comment above _promote_unlocked). It pushes by itself, so it runs the check
-by itself: no push gate sees a push made from inside a script.
+--land PUTS WORK ON STAGING: it composes staging, then what reached main
+directly, then the work, each by a merge commit in a throwaway worktree,
+runs the quick checks, and pushes staging, never forced (see LAND_RESULT).
 
-PROMOTE ALSO MOVES STAGING INTO MAIN, since 2026-09-26, and picks which of
-the two steps to run (promotion_step): the one the session names with --to,
-else pre-staging first whenever it has work waiting -- including when the
-work the session was just on (--work) waits on staging for main, since both
-steps waiting makes the Promote ambiguous -- else the one --work needs. It prints "Now promoting from X to Y" before
-anything else. Into main it runs the same full check on staging merged into
+PROMOTE MOVES STAGING INTO MAIN (promotion_step). It prints "Now promoting
+from X to Y" before anything else, runs the check on staging merged into
 main, then pushes a throwaway copy of staging for the pull request into
 main; that pull request's GitHub test is main's last gate, so main itself
 is never pushed from here. That state exits 3 (PROMOTE_MAIN_NOT_MOVED), not
 0, and says first that main has not moved: exit 0 means the branch moved.
+A failure or a conflict nothing here rebuilds moves nothing: the tree goes
+to a local DATE-promote-fix-ID branch (promote-fix-DATE before 2026-10-06,
+still recognized), to be fixed there and promoted with --work
+(spec/LADDER_OPT_IN_PLAN.md D10; see the comment above _promote_unlocked).
+It pushes by itself, so it runs the check by itself: no push gate sees a
+push made from inside a script.
 
 EVERY PROMOTE ENDS WITH ONE RESULT LINE (2026-10-08). Whatever path a run
 takes -- moved, nothing to move, refused, not finished, ready for main's
@@ -108,22 +89,13 @@ CLI:
   precedent_branches.py --tier BRANCH       prints `basic` or `full`
   precedent_branches.py --push ARGS...      the tier a `git push ARGS...` gets
   precedent_branches.py --landing           where `Go update` lands for this person
-  precedent_branches.py --sync-pre-staging [--check]
-                                            create pre-staging, or copy into it what
-                                            reached staging another way -- what has
-                                            had its tier's checks, or with --check,
-                                            whatever passes them once run (main's
-                                            comes down only in a Promote)
   precedent_branches.py --wait-main-test COPY
                                             wait for main's GitHub test on the to-main
                                             copy's pull request; 0 only when it passed,
                                             or when the copy is a not-due one
-  precedent_branches.py --drift             what staging and main carry that pre-staging
-                                            lacks, checked or not (the session-start note)
-  precedent_branches.py --promote [--to staging|main] [--work BRANCH]
-                                            pre-staging into staging, fully checked,
-                                            or staging into main, the fast way (below);
-                                            says which first. 0 moved or nothing to
+  precedent_branches.py --promote [--to main] [--work BRANCH]
+                                            staging into main, the fast way (below);
+                                            says so first. 0 moved or nothing to
                                             move, 1 refused, 3 main not moved yet
                                             (its pull request is still to open and
                                             merge)
@@ -153,8 +125,8 @@ CLI:
                                             work, moving nothing; recorded for the
                                             fast move into main. 0 passed, 1 failed
   precedent_branches.py --ensure-tiers [--apply]
-                                            report (or make) pre-staging and a real
-                                            staging branch on origin -- the migration step
+                                            report (or make) a real staging branch
+                                            on origin
 """
 import calendar
 import fnmatch
@@ -167,7 +139,6 @@ import subprocess
 import sys
 import time
 
-PRE_STAGING = 'pre-staging'
 STAGING = 'staging'
 # The staging branch's name until 2026-09-25, in the Precedent repositories.
 # Promote stopped keeping it in step on 2026-10-11, when Morgan retired it
@@ -185,15 +156,9 @@ DEFAULT_TIER = BASIC
 LANDING_SETTING = 'landing_branch'
 # The repository's own staging tier -- the conventional route, a pull
 # request into the branch work normally lands on -- for anyone who has not
-# chosen otherwise. The tiered route (pre-staging, then Promote) is a
-# person's opt-in, set as landing_branch "pre-staging" in their own
-# identity.json. Morgan, 2026-09-26 (strength: decided): "This forced
-# pre-staging -> staging -> main should be mandatory for me, but not
-# necessarily anyone else. (We may change that in the future.)" It was
-# PRE_STAGING for everyone from 2026-09-25 until then. Since 2026-09-27 a
-# repository carries its own default (pre-staging, written at install and
-# by Update Vendors), below the person and above this one: Morgan, "have
-# the Precedent one default to staging".
+# chosen otherwise. A repository carries its own default too
+# (REPO_LANDING_DEFAULT), below the person and above this one: Morgan,
+# 2026-09-27, "have the Precedent one default to staging".
 DEFAULT_LANDING = STAGING
 
 # Same names and values as precedent_identity.py, duplicated rather than
@@ -216,17 +181,12 @@ def precedent_json(root):
     return _read_json(pathlib.Path(root) / 'precedent.json') or {}
 
 
-# What a repository says when it has not been told otherwise: pre-staging,
-# the tiered route. Written into precedent.json at install, into a new
-# practice set, and by Update Vendors into a repository that has no value of
-# its own (Morgan, 2026-09-27, strength: decided). It sits BELOW the person
-# (landing_branch() reads identity.json first), so it is a default, never an
-# override of somebody's own choice.
-#
-# PRE-STAGING RETIRED FOR EVERYONE (Morgan, 2026-10-14, strength: decided:
-# "Only me, go ahead and plan it. Retire pre-staging."; plan of record
-# spec/PRE_STAGING_RETIREMENT_PLAN.md). The default is staging, and a
-# pre-staging value anywhere reads as staging (_retired_tier).
+# What a repository says when it has not been told otherwise: staging.
+# Written into precedent.json at install, into a new practice set, and by
+# Update Vendors into a repository that has no value of its own (Morgan,
+# 2026-09-27, strength: decided). It sits BELOW the person (landing_branch()
+# reads identity.json first), so it is a default, never an override of
+# somebody's own choice.
 REPO_LANDING_DEFAULT = STAGING
 REPO_LANDING_COMMENT = [
     'Where Go update lands for anyone whose own identity.json names no',
@@ -238,8 +198,7 @@ REPO_LANDING_COMMENT = [
 def repo_landing_default(root, user_config=None):
     """-> (branch, comment) a new install, or a repository given its first
     landing_branch, writes into precedent.json: REPO_LANDING_DEFAULT,
-    staging. Until 2026-10-11 it was pre-staging for everyone; until
-    2026-10-14, for anyone who had not retired pre-staging themselves."""
+    staging."""
     return REPO_LANDING_DEFAULT, REPO_LANDING_COMMENT
 
 
@@ -303,8 +262,7 @@ STAGING_KEY = 'staging_branch'
 def staging_branch(root):
     """The staging tier's branch name in this repository, today."""
     explicit = precedent_json(root).get(STAGING_KEY)
-    if isinstance(explicit, str) and explicit.strip() \
-            and explicit.strip() != PRE_STAGING:
+    if isinstance(explicit, str) and explicit.strip():
         return explicit.strip()
     declared = base_branch(root)
     if declared == MAIN and precedent_json(root).get(LANDING_SETTING) == STAGING \
@@ -313,9 +271,9 @@ def staging_branch(root):
         # staging branch origin has (2026-10-14): precedent-shared-ladder
         # declared base_branch main and landing_branch staging, and
         # --landing printed "main" above its own reason line naming
-        # staging; --land then refused and --promote looked for pre-staging.
+        # staging, and --land then refused.
         return STAGING
-    if declared and declared != PRE_STAGING:
+    if declared:
         return declared
     return STAGING
 
@@ -328,17 +286,6 @@ def _origin_has(root, branch):
                               capture_output=True, text=True).returncode == 0
     except OSError:
         return False
-
-
-def full_branches(root):
-    """Every branch a push to is always fully checked."""
-    # The pre-rename name stays fully checked while it exists: a push there
-    # is a push to staging under its old name.
-    names = {MAIN, STAGING, LEGACY_STAGING, staging_branch(root)}
-    declared = base_branch(root)
-    if declared and declared != PRE_STAGING:
-        names.add(declared)
-    return names
 
 
 def _identity_files(root, user_config=None):
@@ -380,9 +327,8 @@ def branch_push_checks(root, user_config=None):
 
 
 def tier_for_branch(root, branch, user_config=None):
-    """-> (tier, why) for a push to `branch`. Staging takes the quick checks
-    for a person who lands work straight on it (lands_on_staging): the
-    full suite is theirs to ask for with --run-tests.
+    """-> (tier, why) for a push to `branch`. Staging takes the quick checks:
+    work lands there, and the full suite is asked for with --run-tests.
 
     MAIN TAKES THE QUICK CHECKS TOO, and the full suite runs after the push
     (Morgan, 2026-10-17, strength: decided: "remove, the full tests should
@@ -396,14 +342,16 @@ def tier_for_branch(root, branch, user_config=None):
                        f'runs after it -- GitHub\'s test, or `python3 '
                        f'tools/precedent_branches.py --run-tests {MAIN}` where '
                        f'that is not due')
-    if branch in full_branches(root):
-        if branch != MAIN and branch == staging_branch(root):
-            quick, lwhy = lands_on_staging(root, user_config)
-            if quick:
-                return BASIC, (f'{branch} is your landing branch ({lwhy}), so a '
-                               f'push there gets the quick checks; the full '
-                               f'suite runs when asked for, with --run-tests')
-        return FULL, f'{branch} is a fully checked branch'
+    if branch in tier_branches(root):
+        # Staging, under whichever name the repository gives it, takes what
+        # every other branch takes (Morgan, 2026-10-17, strength: decided).
+        # Work lands here; the full suite runs when asked for, with
+        # --run-tests (the Debut), or before the push for a person whose
+        # branch_push_checks says full.
+        tier, why = branch_push_checks(root, user_config)
+        return tier, (f'{branch} is where work lands, so a push there gets '
+                      f'what any branch gets ({why}); the full suite runs '
+                      f'when asked for, with --run-tests')
     tier, why = branch_push_checks(root, user_config)
     return tier, f'{branch}: {why}'
 
@@ -442,25 +390,21 @@ def ladder_in_force(root, user_config=None):
 
 
 def repo_has_tiers(root):
-    """True when this repository has tiers: precedent.json names a tier as
-    its landing_branch or base_branch, or a staging_branch of its own, or
-    origin already carries pre-staging. A repository with none of these has
-    only its main branch, and nothing here gives it more."""
+    """True when this repository has tiers: precedent.json names a
+    landing_branch other than main, a staging base_branch, or a
+    staging_branch of its own. A repository with none of these has only its
+    main branch, and nothing here gives it more. A landing_branch this
+    engine does not know still counts: the repository asked for tiers, and
+    --land refuses it by name (unknown_landing) rather than sending work to
+    main."""
     data = precedent_json(root)
-    if data.get(LANDING_SETTING) in (PRE_STAGING, STAGING):
+    value = data.get(LANDING_SETTING)
+    if isinstance(value, str) and value.strip() and value != MAIN:
         return True
-    if base_branch(root) in (PRE_STAGING, STAGING, LEGACY_STAGING):
+    if base_branch(root) in (STAGING, LEGACY_STAGING):
         return True
     explicit = data.get(STAGING_KEY)
-    if isinstance(explicit, str) and explicit.strip():
-        return True
-    try:
-        r = subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify',
-                            '-q', f'refs/remotes/origin/{PRE_STAGING}'],
-                           capture_output=True, text=True)
-        return r.returncode == 0
-    except OSError:
-        return False
+    return isinstance(explicit, str) and bool(explicit.strip())
 
 
 def landing_branch(root, user_config=None):
@@ -468,14 +412,14 @@ def landing_branch(root, user_config=None):
     (spec/LADDER_OPT_IN_PLAN.md D3, Morgan 2026-10-02, strength: decided).
 
     1. The person's own landing_branch, else the repository's main branch.
-    2. A tier value -- pre-staging or staging, the person's or the
-       repository's -- counts only while the ladder is in force for this
+    2. A tier value -- staging, the person's or the repository's -- counts
+       only while the ladder is in force for this
        person AND the repository declares tiers. Otherwise it is ignored and
        never edited: a person off the ladder has no tiers, and a ladder user
        never creates them in a repository that did not ask for them.
     3. On the ladder, in a repository with tiers: the person, then the
-       repository, then staging. A pre-staging value reads as staging:
-       that tier is retired for everyone since 2026-10-14 (_retired_tier).
+       repository, then staging. A value that is neither staging nor main
+       is not used, and --land refuses until it is fixed (unknown_landing).
 
     With no tools/precedent_ladder.py beside this file, the order from before
     the ladder became opt-in: the person, the repository, DEFAULT_LANDING."""
@@ -485,32 +429,44 @@ def landing_branch(root, user_config=None):
     value, where = person_first_setting(root, LANDING_SETTING, user_config)
     if value is None:
         tier, why = DEFAULT_LANDING, f'{LANDING_SETTING} is not set; the default is {DEFAULT_LANDING}'
-    elif value in (PRE_STAGING, STAGING, MAIN):
+    elif value in (STAGING, MAIN):
         tier, why = value, f'{LANDING_SETTING} is "{value}" in {where}'
     else:
         tier, why = STAGING, (f'{LANDING_SETTING} is {value!r} in {where}, which '
-                              f'is none of "pre-staging", "staging" or "main" -- '
+                              f'is neither "staging" nor "main" -- '
                               f'landing on staging, as before the tiers')
-    if tier == PRE_STAGING:
-        return staging_branch(root), why + _retired_tier(PRE_STAGING)
     if tier == MAIN:
         # Straight to main is a person's choice to make (Morgan, 2026-09-25:
         # "they have to be able to set it to \"main\" if they want"). It
-        # skips staging, never the checks: a push to main is fully checked
-        # like one to staging. A repository's own rule about main -- this
+        # skips staging, never the checks: a push to main takes the quick
+        # checks and its full suite runs after (tier_for_branch, 2026-10-17). A repository's own rule about main -- this
         # one's needs the person to name main in the request -- still
         # decides whether a session may push there.
         return MAIN, why
     return staging_branch(root), why
 
 
-def _retired_tier(value):
-    """-> the clause a `why` carries when `value` names the retired tier:
-    pre-staging reads as staging since 2026-10-14 (REPO_LANDING_DEFAULT)."""
-    if value != PRE_STAGING:
-        return ''
-    return (f', which is retired: work lands on {STAGING} instead (Update '
-            f'Vendors moves this repository off {PRE_STAGING})')
+def unknown_landing(root, user_config=None):
+    """-> a sentence when the person's identity.json or this repository's
+    precedent.json sets a landing_branch that is neither staging nor main,
+    else None. landing_branch() passes over such a value; --land refuses on
+    it, so work never goes somewhere the setting did not mean. Update
+    Vendors' migrations rewrite a value the engine has dropped."""
+    found = []
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email') and LANDING_SETTING in ident:
+            found.append((ident[LANDING_SETTING], str(path)))
+            break
+    if LANDING_SETTING in precedent_json(root):
+        found.append((precedent_json(root)[LANDING_SETTING],
+                      "this repo's precedent.json"))
+    for value, where in found:
+        if value not in (STAGING, MAIN):
+            return (f'{LANDING_SETTING} is {value!r} in {where}, a branch this '
+                    f'engine does not know. Run Update Vendors, which moves it, '
+                    f'or set it to "{STAGING}" or "{MAIN}"')
+    return None
 
 
 def _landing_by_ladder(root, ladder, user_config=None):
@@ -523,22 +479,27 @@ def _landing_by_ladder(root, ladder, user_config=None):
             break
     repo = precedent_json(root).get(LANDING_SETTING)
     tiers = bool(ladder) and repo_has_tiers(root)
-    if person is not None and person not in (PRE_STAGING, STAGING, MAIN):
-        person = None                     # a typo: as if it were not set
+    if person is not None and person not in (STAGING, MAIN):
+        person = None                     # unknown: as if it were not set
     if person == MAIN:
         return MAIN, f'{LANDING_SETTING} is "main" in {where}'
-    if person in (PRE_STAGING, STAGING):
+    if person == STAGING:
         if tiers:
             return staging_branch(root), (f'{LANDING_SETTING} is "{person}" in '
-                                          f'{where}{_retired_tier(person)}')
+                                          f'{where}')
         return MAIN, (f'{LANDING_SETTING} is "{person}" in {where}, a branch '
                       f'this repository does not use for you, so work lands '
                       f'on {MAIN}')
     if tiers:
-        if repo in (PRE_STAGING, STAGING):
+        if repo == STAGING:
             return staging_branch(root), (f'{LANDING_SETTING} is "{repo}" in '
-                                          f"this repo's precedent.json"
-                                          f'{_retired_tier(repo)}')
+                                          f"this repo's precedent.json")
+        if repo is not None:
+            return staging_branch(root), (f'{LANDING_SETTING} is {repo!r} in '
+                                          f"this repo's precedent.json, which "
+                                          f'this engine does not know, so it '
+                                          f'reads as {STAGING}; --land refuses '
+                                          f'until it is fixed')
         return staging_branch(root), (f'{LANDING_SETTING} is not set in this '
                                       f"repo's precedent.json; the default "
                                       f'is {STAGING}')
@@ -556,7 +517,7 @@ def _landing_by_ladder(root, ladder, user_config=None):
 #
 # Why (2026-09-25, measured in a practice source that has no staging branch
 # of its own): five changes reached its main in one day without passing
-# through pre-staging -- sessions committing on the main checkout the
+# through a tier below it -- sessions committing on the main checkout the
 # session-start clone gives them, and a pull request opened against the
 # default branch. Nothing refused any of it: the push check chose how hard
 # to test by branch, and a push to main passed the full check.
@@ -579,20 +540,17 @@ def promote_only(root, user_config=None):
     return value is True, where
 
 
-# LANDING STRAIGHT ON STAGING (2026-10-09, Morgan, strength: decided; the
-# approved plan to retire pre-staging for those who opt in). A person whose
-# landing_branch is the staging tier AND who has promote_only on could not
-# land anywhere until now: the push gate refused every push into staging
-# except a Promote's. That combination now means "my work lands on staging,
-# and main still takes it only by promotion". Nobody else's route changes:
-# promote_only off, or a landing branch of pre-staging or main, reads as
+# LANDING STRAIGHT ON STAGING (2026-10-09, Morgan, strength: decided). A
+# person whose landing_branch is the staging tier AND who has promote_only
+# on means "my work lands on staging, and main still takes it only by
+# promotion". promote_only off, or a landing branch of main, reads as
 # before.
 #
-# Staging's reconciliation with main does not change (Morgan, 2026-10-09:
+# Staging is reconciled with main on every landing (Morgan, 2026-10-09:
 # "make sure that staging doesn't change what it does now, in reconciling
 # the versions sent directly to main with our staging"). --land composes
-# exactly as the Promote into staging does (_compose_onto): staging, then
-# what reached main directly, then the work. A plain push or a pull request
+# (_compose_onto): staging, then what reached main directly, then the
+# work. A plain push or a pull request
 # into staging is let through only when what it lands already carries
 # everything main has (main_work_missing), so nothing that reached main
 # directly is ever left out of staging.
@@ -614,11 +572,9 @@ def lands_on_staging(root, user_config=None):
 
 def changed_since_for(root, targets, user_config=None):
     """-> the ref a quick-checked landing on a tier is measured from, or
-    None: origin/pre-staging for a push there, and origin/<staging> for one
-    into staging by a person who lands there (lands_on_staging)."""
+    None: origin/<staging> for a push into staging by a person who lands
+    there (lands_on_staging)."""
     targets = set(targets or ())
-    if PRE_STAGING in targets:
-        return f'origin/{PRE_STAGING}'
     staging = staging_branch(root)
     if staging in targets and lands_on_staging(root, user_config)[0]:
         return f'origin/{staging}'
@@ -675,7 +631,9 @@ def _promotion_heads(root, base):
     the tier directly below it."""
     if base == MAIN:
         return {staging_branch(root), STAGING, LEGACY_STAGING} - {MAIN}
-    return {PRE_STAGING}
+    # Staging takes work by --land, never by merging a tier below it: there
+    # is none.
+    return set()
 
 
 def _push_remote(root, args):
@@ -764,7 +722,7 @@ def direct_push_refusal(root, args, user_config=None):
     if not on:
         return None
     targets = push_targets(root, args)
-    hit = sorted(set(targets or ()) & full_branches(root))
+    hit = sorted(set(targets or ()) & set(tier_branches(root)))
     if hit and _remote_is_empty(root, _push_remote(root, args)):
         return None
     landable, _lwhy = lands_on_staging(root, user_config)
@@ -789,6 +747,15 @@ def direct_push_refusal(root, args, user_config=None):
         hit = [b for b in hit if b != MAIN]
     if not hit:
         return None
+    if staging == MAIN:
+        # No staging branch yet: there is nothing to land on below main.
+        return (f'{" and ".join(hit)} take{"s" if len(hit) == 1 else ""} '
+                f'work only by promotion here -- '
+                f'{PROMOTE_ONLY_SETTING} is on in {where} -- and this '
+                f'repository has no staging branch to land on first. Make one '
+                f'with `python3 tools/precedent_branches.py --ensure-tiers '
+                f'--apply`, then land the work there (`{LAND_COMMAND}`) and say '
+                f'Promote.')
     if landable:
         return (f'{" and ".join(hit)} take{"s" if len(hit) == 1 else ""} work '
                 f'only by promotion here -- {PROMOTE_ONLY_SETTING} is on in '
@@ -797,10 +764,10 @@ def direct_push_refusal(root, args, user_config=None):
                 f'`python3 tools/precedent_branches.py --promote --to {MAIN}`.')
     return (f'{" and ".join(hit)} take{"s" if len(hit) == 1 else ""} work only '
             f'by promotion here -- {PROMOTE_ONLY_SETTING} is on in {where}. '
-            f'Push to {PRE_STAGING} instead (`git push origin HEAD:{PRE_STAGING}`), '
-            f'then say Promote. A commit made on a local {hit[0]} checkout goes '
-            f'the same way; move the checkout back with '
-            f'`git reset --keep origin/{hit[0]}` once origin/{PRE_STAGING} has it.')
+            f'Land it on {staging} instead (`{LAND_COMMAND}`), then say Promote. '
+            f'A commit made on a local {hit[0]} checkout goes the same way; move '
+            f'the checkout back with `git reset --keep origin/{hit[0]}` once '
+            f'origin/{staging} has it.')
 
 
 # ONE DEFINITION OF A CURRENT COPY FOR MAIN (2026-10-08). Since 2026-10-07
@@ -857,13 +824,14 @@ def merge_refusal(root, bases, heads, user_config=None, head_sha=None):
     below. `bases` and `heads` are every branch at the base and head tips;
     when the base is ambiguous (two branches at one commit, one of them not
     protected) nothing is refused -- a wrong refusal of an ordinary pull
-    request into pre-staging would be the common case right after Promote.
+    request into a branch sitting at staging's commit would be the common
+    case right after Promote.
     `head_sha`, the head's commit, lets a Produce copy that is a merge of
     staging and main through when main_copy_current says it is current."""
     on, where = promote_only(root, user_config)
     if not on or not bases:
         return None
-    protected = full_branches(root)
+    protected = set(tier_branches(root))
     if not all(b in protected for b in bases):
         return None
     staging = staging_branch(root)
@@ -902,11 +870,17 @@ def merge_refusal(root, bases, heads, user_config=None, head_sha=None):
                 f'Close this pull request, promote {staging_branch(root)} into '
                 f'{MAIN} again for a fresh copy, and open the pull request '
                 f'from that. Never retarget it.')
-    lower = staging if lands_on_staging(root, user_config)[0] else PRE_STAGING
+    if staging == MAIN:
+        return (f'a pull request into {MAIN} is merged only by promotion here '
+                f'-- {PROMOTE_ONLY_SETTING} is on in {where} -- and this '
+                f'repository has no staging branch to land on first. Make one '
+                f'with `python3 tools/precedent_branches.py --ensure-tiers '
+                f'--apply`, then land the branch there (`{LAND_COMMAND} '
+                f'BRANCH`) and say Promote.')
     return (f'a pull request into {" or ".join(sorted(bases))} is merged only '
-            f'from {" or ".join(sorted(allowed))} here -- {PROMOTE_ONLY_SETTING} '
-            f'is on in {where}. Retarget it at {lower}, merge it there, '
-            f'and say Promote.')
+            f'from {" or ".join(sorted(allowed)) or "nowhere"} here -- '
+            f'{PROMOTE_ONLY_SETTING} is on in {where}. Land the branch on '
+            f'{staging} (`{LAND_COMMAND} BRANCH`) and say Promote.')
 
 
 def main_test_failed(root):
@@ -944,113 +918,32 @@ def red_main_fix(root, head_sha):
 
 
 def tier_branches(root):
-    """Every branch that is a tier here: main, staging (and its old name)
-    and pre-staging. None of them may ever be the SOURCE of a pull request:
+    """Every branch that is a tier here: main and staging (and its old
+    name). None of them may ever be the SOURCE of a pull request:
     A merged pull request's page offers to delete its source branch, and
     staging was deleted right after a merge of it into main on 2026-09-26,
     cause not established (see
     gotchas/gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)."""
-    return sorted({MAIN, PRE_STAGING, LEGACY_STAGING, STAGING,
-                   staging_branch(root)})
-
-
-# PRE-STAGING, RETIRED FOR A PERSON WHO LANDS ON STAGING (2026-10-09). Such a
-# person (lands_on_staging) never lands on pre-staging again, so for them it
-# is neither made nor fed here any more, and once it holds nothing staging
-# lacks it is offered for deletion like any finished branch -- as a link,
-# never deleted by a session (practice: never-delete-a-remote-branch).
-# Morgan, 2026-10-09: when this reaches the repositories that vendor the
-# engine, "make sure we have a smooth upgrade process for each. Merging the
-# branches, telling he can delete pre-staging, updating previous mentions/
-# links within each repo". Update Vendors carries that upgrade
-# (precedent_update.retire_pre_staging_step). For everyone else pre-staging
-# stays a tier, never offered.
-#
-# ONLY AN EXPLICIT CHOICE RETIRES IT (2026-10-09). A person with no
-# landing_branch of their own can resolve to staging by default; if that
-# were enough, their Update Vendors in a repository where somebody else
-# still lands on pre-staging would merge that work with the quick checks
-# only, reword the repository's documents and offer the branch for
-# deletion before its owner switched. So it takes the person's own
-# identity.json saying "staging" (and promote_only on, lands_on_staging),
-# and a repository whose precedent.json still makes pre-staging the landing
-# branch for others keeps it: it is theirs.
-#
-# FOR EVERYONE, SINCE 2026-10-14. The only person on the ladder retired it
-# for everyone (Morgan: "Only me, go ahead and plan it. Retire
-# pre-staging."; spec/PRE_STAGING_RETIREMENT_PLAN.md), so nobody's work is
-# left there for the guard above to protect: pre_staging_unused holds for
-# anyone on the ladder, and the paragraphs above are its history.
-RETIRED_WAITING = 'waiting'
-RETIRED_MERGED = 'merged'
-
-
-def pre_staging_unused(root, user_config=None):
-    """-> (unused, waits): unused is True when pre-staging is retired here.
-    Since 2026-10-14 it is retired for everyone on the ladder (Morgan:
-    "Retire pre-staging."; spec/PRE_STAGING_RETIREMENT_PLAN.md), so this is
-    True for a person on the ladder -- unless this repository's
-    precedent.json still names pre-staging, when `waits` says so and Update
-    Vendors switches it (precedent_update.retire_pre_staging_step). Off the
-    ladder nobody ever landed on pre-staging: (False, None).
-
-    Until 2026-10-14 it took the person's own choice (landing_branch
-    "staging", or retire_pre_staging), since somebody else might still land
-    there; the only person on the ladder retired it for everyone."""
-    if not ladder_in_force(root, user_config):
-        return False, None
-    if precedent_json(root).get(LANDING_SETTING) == PRE_STAGING:
-        return False, (f'precedent.json still names {PRE_STAGING} as the '
-                       f'landing branch; it is retired, and work already '
-                       f'lands on {STAGING}. Update Vendors switches it')
-    return True, None
-
-
-def pre_staging_retired(root, user_config=None, fetch=False):
-    """-> (state, tip): whether origin's pre-staging is retired for this
-    person, and what it holds. state None: it is not (pre_staging_unused
-    says why), or origin has no pre-staging (as this checkout last
-    fetched it; with `fetch`, as origin says now). RETIRED_WAITING: it holds
-    work staging lacks. RETIRED_MERGED: merging it into staging would change
-    no file, so deleting it loses nothing. Never raises."""
-    try:
-        if not pre_staging_unused(root, user_config)[0]:
-            return None, None
-        staging = staging_branch(root)
-        if fetch:
-            if not _remote_tip(root, PRE_STAGING):
-                return None, None
-            _run(root, 'fetch', '-q', 'origin', PRE_STAGING, staging)
-        ptip = _git(root, 'rev-parse', '--verify', '-q',
-                    f'refs/remotes/origin/{PRE_STAGING}^{{commit}}')
-        if not ptip:
-            return None, None
-        stip = _git(root, 'rev-parse', '--verify', '-q',
-                    f'refs/remotes/origin/{staging}^{{commit}}')
-        if stip and _brings_nothing(root, stip, ptip):
-            return RETIRED_MERGED, ptip
-        return RETIRED_WAITING, ptip
-    except Exception:                                       # noqa: BLE001
-        return None, None
-
-
-def never_offered(root, user_config=None):
-    """-> the tier branches never offered for deletion here: tier_branches,
-    less a pre-staging retired for this person that holds nothing staging
-    lacks. Staging and main are never offered, whoever asks."""
-    names = set(tier_branches(root))
-    if pre_staging_retired(root, user_config)[0] == RETIRED_MERGED:
-        names.discard(PRE_STAGING)
+    names = {MAIN, LEGACY_STAGING, STAGING, staging_branch(root)}
+    declared = base_branch(root)
+    if declared:
+        names.add(declared)
     return sorted(names)
 
 
+def never_offered(root, user_config=None):
+    """-> the branches never offered for deletion here: the tiers -- staging
+    (and its old name) and main -- whoever asks. Every other branch is an
+    ordinary branch, offered like any other."""
+    return tier_branches(root)
+
+
 def ensure_tiers(root, apply=False, say=print, new_install=False):
-    """Make origin carry a real staging branch (pre-staging too until
-    2026-10-14, when it was retired for everyone and stopped being made).
+    """Make origin carry a real staging branch.
     -> 0 when it exists (or was just made), 1 when something is missing and
     `apply` is off, or could not be made.
 
-    A missing staging is made from a leftover pre-staging, else from main.
+    A missing staging is made from main.
     A repository whose staging tier is main (base_branch "main", no
     staging_branch) gains a `staging` branch the same way, and its
     precedent.json gains `"staging_branch": "staging"` -- written here,
@@ -1072,9 +965,6 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
                        f'{MAIN} here)')
     elif not _remote_tip(root, staging):
         missing.append(f'{staging} on origin')
-    # Pre-staging is retired for everyone since 2026-10-14
-    # (spec/PRE_STAGING_RETIREMENT_PLAN.md): nothing makes it, and making it
-    # again would undo the deletion Update Vendors offers.
     if not missing:
         say(f'tiers: {staging} -> {MAIN}, both present.')
         return 0
@@ -1083,24 +973,17 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
             ' -- run `python3 tools/precedent_branches.py --ensure-tiers --apply`.')
         return 1
     if wants_staging_branch or not _remote_tip(root, staging):
-        # A staging branch that has gone missing is rebuilt from
-        # pre-staging, else from main. 2026-09-26:
+        # A staging branch that has gone missing is rebuilt from main.
+        # 2026-09-26:
         # staging was deleted right after a pull request FROM staging into
         # main was merged (cause not established), and this looked for staging
         # itself to rebuild it from, found nothing and gave up. Right after
         # such a merge, main contains staging exactly.
         #
-        # From pre-staging, and only then from main (Morgan,
-        # 2026-09-27, strength: decided: "copying the latest from
-        # pre-staging to staging or vice versa and if neither exist then
-        # copying to both the latest from main"). What lands on staging this
-        # way has not had staging's full check, and it gets it on the way to
-        # main: a Promote into main runs the full check on anything it has
-        # not seen pass.
-        if _remote_tip(root, PRE_STAGING):
-            src = PRE_STAGING
-        else:
-            src = MAIN
+        # What lands on staging this way has not had staging's full check,
+        # and it gets it on the way to main: a Promote into main runs the
+        # full check on anything it has not seen pass.
+        src = MAIN
         tip = _remote_tip(root, STAGING) or _remote_tip(root, src)
         if not tip:
             say(f'origin has no {src} branch, so there is nothing to base '
@@ -1237,8 +1120,7 @@ def refused_push(root, branch, built, proc):
     `built` does not contain -- a race, worth doing again -- and `said`, what
     the push itself printed.
 
-    ONE PLACE FOR THIS, used by --land, the merge into pre-staging and
-    land_next.py (2026-10-11). Each used to explain any refusal as "the
+    ONE PLACE FOR THIS, used by --land and land_next.py (2026-10-11). Each used to explain any refusal as "the
     branch moved": the lander was fixed on 2026-10-10 and --land was not,
     so a leak-gate refusal on a branch that sat still was reported as a race
     and the push's own words were cut to two hundred characters."""
@@ -1299,14 +1181,12 @@ def _check(root, wt, tier, dest=None, since=None):
 
 
 # DRIFT FROM ABOVE (spec/BRANCH_TIERS_PLAN.md, holes 2, 4 and 5). Work is
-# meant to climb the tiers: pre-staging, then staging by Promote, then main
-# by the pull request from staging. Some of it arrives from above instead --
-# a direct push to staging, a workflow's bot commit on main, an edit made
-# on GitHub's website -- and none of that passed through pre-staging, so
-# the windows syncing from there never see it, and the next pull request
-# into main meets it as a conflict. The sync copies it DOWN into
-# pre-staging, and only once the tier it sits on has had its own checks:
-# staging's full local check, and on main that plus the GitHub test.
+# meant to climb the tiers: staging by --land, then main by the pull
+# request from staging. Some of it arrives from above instead -- a
+# workflow's bot commit on main, an edit made on GitHub's website -- and
+# the next pull request into main would meet it as a conflict. --land and
+# Promote compose it into staging, and only once the tier it sits on has
+# had its own checks: on main, the GitHub test.
 #
 # Morgan, 2026-09-26 (strength: decided): "a good point to check to make
 # sure anything that got onto main not through our system [...] had those
@@ -1317,9 +1197,8 @@ def _check(root, wt, tier, dest=None, since=None):
 # "I love it."
 #
 # ONLY A FILE CHANGE COUNTS. Right after an ordinary staging-to-main pull
-# request, main is ahead of pre-staging by two merge commits -- the Promote
-# merge and the pull request's -- whose files pre-staging already has
-# (measured 2026-09-26 in two repositories). The test is whether merging the
+# request, main is ahead of staging by merge commits whose files staging
+# already has (measured 2026-09-26 in two repositories). The test is whether merging the
 # upper branch in would change a file, not whether the two trees are equal:
 # a plain diff of the tips calls main "different" whenever staging has moved
 # on past it, which on that day was true in this repository too. Morgan, on
@@ -1384,7 +1263,10 @@ def _upstream_review(root, wt, stage, out, batch_range):
     sees nothing. `wt` is None where nothing is recorded (Produce: main
     moves by a pull request). Never refuses a stage: on any error the review
     is simply not shown."""
-    ur = _sibling('precedent_upstream_review')
+    # The review is a set's (step_review in its precedent-source.json); the
+    # engine only writes its lines into the commit (2026-10-17).
+    pr = _sibling('precedent_resolve')
+    ur = pr.load_set_tool(root, 'step_review') if pr is not None else None
     if ur is None:
         return [], False
     try:
@@ -2199,44 +2081,6 @@ def tier_check_state(root, branch, tip, gh=None):
     return ok, '; '.join(parts)
 
 
-def _check_tier(root, branch, tip, say, gh=None):
-    """Give `tip`, on tier `branch`, whatever of its tier's checks it lacks,
-    and -> (ok, detail). The full local check (a published receipt makes it
-    instant), then on main the GitHub test: found on the commit or its pull
-    request, else started and awaited."""
-    with _Worktree(root, tip) as wt:
-        t0 = time.monotonic()
-        ok, out = _check(root, wt, FULL, dest=branch)
-        took = time.monotonic() - t0
-    if not ok:
-        return False, f'the full local check failed on {tip[:12]}:\n{out}'
-    reused = any('already passed' in l for l in out.splitlines())
-    local = ('its full local check had already passed' if reused else
-             f'the full local check ran on it and passed, in {took:.0f}s')
-    if not _gets_github_test(root, branch):
-        return True, local
-    tests = github_tests(root, tip)
-    if not tests:
-        return True, (f'{local}; no GitHub test is installed in this repository, '
-                      f'so the local check is the whole check')
-    state, detail = github_test_state(root, tip, tests, gh)
-    if state != 'passed':
-        due, why = main_test_due(root, tip, gh=gh)
-        if not due:
-            return True, f'{local}; GitHub test not due: {why}'
-    if state == 'none':
-        state, detail = _run_github_test(root, tip, tests, say, gh)
-    elif state == 'running':
-        say(f'the GitHub test on {MAIN} ({tip[:12]}) is still running; waiting for it...')
-        deadline = time.monotonic() + GITHUB_TEST_WAIT_SECONDS
-        while state == 'running' and time.monotonic() < deadline:
-            time.sleep(GITHUB_POLL_SECONDS)
-            state, detail = github_test_state(root, tip, tests, gh)
-    if state == 'passed':
-        return True, f'{local}; GitHub test: {detail}'
-    return False, f'{local}, but the GitHub test is {state}: {detail}'
-
-
 def _at_head(sha):
     """', at head commit <all 40 characters>' -- the merge instruction's
     expected head. A merge through GitHub's API takes the head it expects in
@@ -2609,165 +2453,6 @@ def _rebuild_generated(wt, say):
     return [l for l in (_git(wt, 'diff', '--name-only') or '').splitlines() if l]
 
 
-def sync_pre_staging(root, say=print, check=False):
-    """Make origin's pre-staging exist and hold what reached staging without
-    climbing through it. -> True on success, False when pre-staging could
-    not be brought current (a conflict, a race, a failing basic check on the
-    merge).
-
-    MAIN'S WORK IS NOT COPIED HERE (spec/LADDER_OPT_IN_PLAN.md D10, Morgan
-    2026-10-03, strength: decided). People off the ladder push to main
-    directly, with none of the ladder's checks, so their work comes down
-    only inside a Promote into staging (_promote_unlocked), composed with
-    staging and pre-staging and fully checked as one tree: pre-staging only
-    ever receives a composition that passed. Where main has such work, this
-    says so and names that Promote.
-
-    Creates pre-staging at staging's tip when origin has none. Otherwise,
-    for staging with a file change pre-staging lacks: its tip must first
-    have had its own tier's checks -- tier_check_state. With `check`, anything missing is run (_check_tier);
-    without it, unchecked work is reported and left where it is, because a
-    GitHub test can take many minutes and `Go update` is meant to be quick.
-    Promote runs with `check`. What passes is merged into pre-staging, a
-    basic-tier push; what fails is reported with the commit and the reason,
-    and never copied. A conflict stops the sync and pushes nothing. Nothing
-    here ever pushes to staging or main.
-
-    For a person for whom pre-staging is retired (pre_staging_unused: their
-    own identity.json lands them on staging, and the repository does not
-    make pre-staging others' landing branch) this does nothing and -> True,
-    so it is neither made again after they delete it nor fed while it waits
-    to be."""
-    if pre_staging_unused(root)[0]:
-        return True
-    staging = staging_branch(root)
-    _run(root, 'fetch', '-q', 'origin', staging)
-    stip = _remote_tip(root, staging)
-    if not stip:
-        say(f'origin has no {staging} branch, so there is nothing to base pre-staging on.')
-        return False
-    ptip = _remote_tip(root, PRE_STAGING)
-    if not ptip:
-        p = _run(root, 'push', '-q', 'origin', f'{stip}:refs/heads/{PRE_STAGING}')
-        if p.returncode != 0:
-            say(f'could not create {PRE_STAGING} on origin: {p.stderr.strip()[:300]}')
-            return False
-        say(f'created {PRE_STAGING} on origin at {staging} ({stip[:12]}).')
-        return True
-    _run(root, 'fetch', '-q', 'origin', PRE_STAGING)
-    sources = [(staging, stip)]
-    if staging != MAIN:
-        mtip = _remote_tip(root, MAIN)
-        if mtip:
-            _run(root, 'fetch', '-q', 'origin', MAIN)
-            sources.append((MAIN, mtip))
-    pending = [(b, t, c) for b, t in sources for c in [drift(root, ptip, t)] if c]
-    if not pending:
-        return True
-    ready = []
-    for branch, tip, commits in pending:
-        what = (f'{branch} has {len(commits)} commit(s) with changes '
-                f'{PRE_STAGING} lacks, up to {tip[:12]}')
-        if branch == MAIN and staging != MAIN:
-            say(f'LEFT FOR THE NEXT PROMOTE INTO {staging.upper()}: {what}. They '
-                f'come down there, composed with {staging} and {PRE_STAGING} and '
-                f'fully checked as one tree, never copied here on their own: '
-                f'python3 tools/precedent_branches.py --promote --to staging')
-            continue
-        if check:
-            ok, detail = _check_tier(root, branch, tip, say)
-        else:
-            ok, detail = tier_check_state(root, branch, tip)
-        if ok:
-            ready.append((branch, tip))
-            continue
-        if not check:
-            say(f'NOT COPIED YET: {what}, and it has not had all of the '
-                f'{branch} checks ({detail}). Run them and copy it down: '
-                f'python3 tools/precedent_branches.py --sync-pre-staging --check '
-                f'(Promote does the same).')
-        else:
-            say(f'NOT COPIED: {what}, and it did not pass the {branch} checks, so it '
-                f'was not copied into {PRE_STAGING}. It is live on {branch} '
-                f'already; fix it the normal way -- on {PRE_STAGING}, then '
-                f'Promote.\n  '
-                + '\n  '.join(commits) + f'\n{detail}')
-    if not ready:
-        return True
-    with _Worktree(root, ptip) as wt:
-        for branch, tip in ready:
-            m = _run(wt, 'merge', '--no-ff', '-q', '-m',
-                     f'Merge {branch} into {PRE_STAGING}', tip, env=_merge_env(root))
-            if m.returncode != 0:
-                done, files, why = _resolve_by_regenerating(wt, say)
-                if done:
-                    c = _run(wt, 'commit', '-q', '--no-edit', env=_merge_env(root))
-                    done = c.returncode == 0
-                    why = 'the merge of the rebuilt files could not be committed'
-                if not done:
-                    _run(wt, 'merge', '--abort')
-                    say(f'{branch} does not merge cleanly into {PRE_STAGING} -- '
-                        f'{why}'
-                        + (f' ({", ".join(files)})' if files else '')
-                        + f'. Nothing was pushed. Merge {branch} into {PRE_STAGING} '
-                        f'by hand, resolve it, and push to {PRE_STAGING}.')
-                    return False
-                say(f'{branch} and {PRE_STAGING} both changed '
-                    f'{", ".join(files)}; generated, so rebuilt from the merged '
-                    f'sources rather than either side taken.')
-        ok, out = _check(root, wt, BASIC, dest=PRE_STAGING)
-        if not ok:
-            say(f'the merge of {" and ".join(b for b, _ in ready)} into '
-                f'{PRE_STAGING} fails the basic check; nothing was pushed.\n{out}')
-            return False
-        p = _run(wt, 'push', '-q', 'origin', f'HEAD:refs/heads/{PRE_STAGING}')
-        if p.returncode != 0:
-            moved, said = refused_push(root, PRE_STAGING, _git(wt, 'rev-parse', 'HEAD'), p)
-            if moved:
-                say(f'{PRE_STAGING} moved while this ran; run it again. ({said[:200]})')
-            else:
-                say(f'the push to {PRE_STAGING} was refused, and {PRE_STAGING} did '
-                    f'not move, so running it again would be refused the same '
-                    f'way. What the push said:\n{said[-1500:]}')
-            return False
-    say(f'merged {" and ".join(b for b, _ in ready)} into {PRE_STAGING}.')
-    return True
-
-
-def drift_report(root, gh=None):
-    """-> [line] for the session-start freshness report: each tier above
-    pre-staging with a file change pre-staging lacks, how many commits, and
-    whether they have had their tier's checks. Silent about merge commits
-    that change no file. Reads origin as last fetched plus the receipt
-    branch; on main with a GitHub test installed, a few API calls."""
-    staging = staging_branch(root)
-    ptip = _git(root, 'rev-parse', '-q', '--verify', f'refs/remotes/origin/{PRE_STAGING}')
-    if not ptip:
-        return []
-    out = []
-    for branch in [staging] + ([MAIN] if staging != MAIN else []):
-        tip = _git(root, 'rev-parse', '-q', '--verify', f'refs/remotes/origin/{branch}')
-        commits = drift(root, ptip, tip) if tip else []
-        if not commits:
-            continue
-        ok, _detail = tier_check_state(root, branch, tip, gh)
-        if branch == MAIN:
-            # Made off the ladder: they come down composed and fully checked
-            # with the ladder's own work, never copied on their own.
-            out.append(f'origin/{MAIN} is {len(commits)} commit(s) ahead of '
-                       f'origin/{PRE_STAGING} with changes it lacks '
-                       f'({"checked" if ok else "unchecked"}). The next Promote '
-                       f'into {staging} brings them in, checked with the rest: '
-                       f'python3 tools/precedent_branches.py --promote --to staging')
-            continue
-        cmd = ('python3 tools/precedent_branches.py --sync-pre-staging'
-               + ('' if ok else ' --check'))
-        out.append(f'origin/{branch} is {len(commits)} commit(s) ahead of '
-                   f'origin/{PRE_STAGING} with changes it lacks '
-                   f'({"checked" if ok else "unchecked"}). Bring them in: {cmd}')
-    return out
-
-
 # THE PROMOTE LOCK. Two windows promoting at once race: both run the full
 # check, one push wins, and the other run was minutes thrown away (seen twice
 # in a row on 2026-09-25). So a Promote first claims a lock on origin, and a
@@ -3051,7 +2736,7 @@ def mark_other_work(root, batch, work=None, sid=None):
 
     `work` decides nothing (kept for the callers' note). Being on the
     session's own branch said nothing: a feature branch is cut from
-    pre-staging and carries everything Booked there before it, and a fix
+    staging and carries everything Booked there before it, and a fix
     branch carries the whole batch. Found 2026-10-06, a Produce of fourteen
     commits, five of them other sessions', marked none."""
     sid = _this_session_id() if sid is None else sid
@@ -3082,36 +2767,22 @@ def _other_work_note(others, work=None):
 
 
 def promotion_step(root, to=None, work=None):
-    """-> (step, why): which Promote to run. `step` is STAGING (pre-staging
-    into staging), MAIN (staging into main) or None (nothing waiting).
+    """-> (step, why): which Promote to run -- MAIN (staging into main) or
+    None (nothing waiting, or nothing a Promote may do here).
 
-    Morgan, 2026-09-26 (strength: decided): Promote "should decide based on
-    the context and ... what branch we were just working on" whether it moves
-    pre-staging to staging or staging to main, and say which it chose. The
-    context is the session's, so the session hands it in:
-      to    the step itself, when the person named one
-      work  the branch or commit the session was just working on. Not on
-            staging yet -> pre-staging into staging; on staging but not on
-            main -> staging into main.
-    With neither, the tiers decide: work waiting on pre-staging goes first,
-    and only when there is none does staging move into main. A repository
-    whose staging tier IS main has one step only.
-
-    When BOTH steps have work waiting -- pre-staging ahead of staging and
-    staging ahead of main -- an unnamed Promote is ambiguous, and it moves
-    pre-staging into staging even when `work` sits on staging already
-    (Morgan, 2026-09-26, strength: decided: "if my 'promote' is ambiguous
-    and you don't know which of the two types of promotion it should refer
-    to - then choose to do pre-staging to staging"). Only --to main
-    overrides that."""
+    Work reaches staging by Booked (--land); a Promote only moves staging
+    into main (Morgan, 2026-10-17, strength: decided). Asked for a step
+    into staging, it says so and moves nothing. `work`, the branch the session was just on, still decides:
+    not on staging yet means it must be Booked first."""
     staging = staging_branch(root)
     if staging == MAIN:
-        return STAGING, f'{MAIN} is the staging tier here, so there is one step'
-    if to in (STAGING, MAIN):
-        return to, f'asked for by name (--to {to})'
-    _run(root, 'fetch', '-q', 'origin', PRE_STAGING, staging, MAIN)
+        return None, f'{MAIN} is the staging tier here, so work lands there directly'
+    if to == STAGING:
+        return None, (f'there is no step into {staging} any more: work reaches '
+                      f'{staging} by Booked (--land), and a Promote moves '
+                      f'{staging} into {MAIN}')
+    _run(root, 'fetch', '-q', 'origin', staging, MAIN)
     stip, mtip = _remote_tip(root, staging), _remote_tip(root, MAIN)
-    ptip = _remote_tip(root, PRE_STAGING)
     if work:
         _run(root, 'fetch', '-q', 'origin', work)
         sha = _git(root, 'rev-parse', '--verify', '--quiet', f'{work}^{{commit}}') \
@@ -3119,55 +2790,16 @@ def promotion_step(root, to=None, work=None):
         if not sha:
             return None, (f'{work!r} is not a branch or commit this checkout can '
                           f'see, so nothing was chosen from it')
-        on = lambda tip: bool(tip) and _run(
-            root, 'merge-base', '--is-ancestor', sha, tip).returncode == 0
-        if not on(stip):
-            return STAGING, (f'the work just done ({work}) is not on {staging} '
-                             f'yet, so it moves there first')
-        if mtip and not on(mtip):
-            if ptip and stip and _new_commits(root, stip, ptip):
-                return STAGING, (f'the work just done ({work}) waits for '
-                                 f'{MAIN}, but {PRE_STAGING} also has work '
-                                 f'{staging} lacks, so the step is ambiguous '
-                                 f'and {PRE_STAGING} goes first')
-            return MAIN, (f'the work just done ({work}) is on {staging} '
-                          f'already and not yet on {MAIN}')
-    if ptip and stip and _new_commits(root, stip, ptip):
-        return STAGING, (f'{PRE_STAGING} has work {staging} lacks, and it goes '
-                         f'first')
-    if stip and mtip and _new_commits(root, mtip, stip):
-        return MAIN, (f'nothing is waiting on {PRE_STAGING}, and {staging} has '
-                      f'work {MAIN} lacks')
+        if not (stip and _run(root, 'merge-base', '--is-ancestor', sha,
+                              stip).returncode == 0):
+            return None, (f'the work just done ({work}) is not on {staging} yet: '
+                          f'Book it there first (--land), then Promote')
+    if to == MAIN or (stip and mtip and _new_commits(root, mtip, stip)):
+        return MAIN, ('asked for by name (--to main)' if to == MAIN else
+                      f'{staging} has work {MAIN} lacks')
     if not mtip:
-        return None, f'{PRE_STAGING} has nothing {staging} lacks, and origin has no {MAIN}'
-    return None, f'{PRE_STAGING}, {staging} and {MAIN} carry the same work'
-
-
-def produce_waiting_hold(root, gh=None):
-    """-> why a move from pre-staging into staging waits, or None: a pull
-    request into main from a `to-main-` copy of staging is still open, and
-    moving staging now leaves that copy behind, so the merge check refuses
-    it and the Produce starts over. Seen 2026-10-06: a second Debut ran
-    while a Produce pull request waited on its GitHub test, and the pull
-    request had to be closed and made again. None when GitHub cannot be
-    asked -- the merge check still refuses a stale copy."""
-    gh = gh or _sibling('github_budget')
-    slug = _slug(root)
-    if gh is None or not slug:
-        return None
-    got, _err = gh.call(f'repos/{slug}/pulls?state=open&base={MAIN}', cache=False)
-    if not isinstance(got, list):
-        return None
-    waiting = [f'#{p.get("number")}' for p in got
-               if is_main_copy((p.get('head') or {}).get('ref'))]
-    if not waiting:
-        return None
-    return (f'PROMOTE REFUSED: {" and ".join(waiting)} into {MAIN} is still open, '
-            f'made from a copy of {staging_branch(root)}. Moving '
-            f'{staging_branch(root)} now would leave that copy out of date and '
-            f'the merge check would refuse it. Finish it first -- wait for its '
-            f'GitHub test (--wait-main-test) and merge it -- or close it, then '
-            f'promote again.')
+        return None, f'origin has no {MAIN}'
+    return None, f'{staging} and {MAIN} carry the same work'
 
 
 # What the run that is under way decided, for promote_result_line: set by
@@ -3197,7 +2829,7 @@ def promote_result_line(root, rc, to=None, last=''):
     except Exception:
         staging = STAGING
     move = _RESULT.get('move') or (
-        f'{MAIN} <- {staging}' if to == MAIN else f'{staging} <- {PRE_STAGING}')
+        f'{MAIN} <- {staging}')
     verdict = _RESULT.get('verdict')
     if not verdict:
         reason = ' '.join((str(last or '').strip().splitlines() or [''])[0].split())
@@ -3256,43 +2888,23 @@ def _promote_run(root, say=print, to=None, work=None, fast=False,
         return 0
     step, why = promotion_step(root, to, work)
     staging = staging_branch(root)
-    above = _drifted_from_above(root) if step is None else []
-    if step is None and not above:
+    if step is None:
         say(f'nothing to promote: {why}.')
         _verdict(f'NOTHING TO PROMOTE: {why}')
         return 0
-    if step is None:
-        # Nothing climbs, but something arrived from above -- a bot commit
-        # on main, a direct push to staging. Promote is where that gets its
-        # checks and is copied down, so it is not left for a day when
-        # pre-staging happens to have work waiting.
-        say(f'Nothing waits to be promoted ({why}), but {" and ".join(above)} '
-            f'carr{"ies" if len(above) == 1 else "y"} changes {PRE_STAGING} '
-            f'lacks: composing them with {staging} and {PRE_STAGING}, checking '
-            f'that, and moving both.')
-        run = _promote_unlocked
-    else:
-        source, dest = (PRE_STAGING, staging) if step == STAGING else (staging, MAIN)
-        if step == STAGING:
-            waits = produce_waiting_hold(root)
-            if waits:
-                say(waits)
-                return 1
-        # The one line a person reads first: which move this is, in these words.
-        say(f'Now promoting from {source} to {dest} ({why}).')
-        run = _promote_unlocked if step == STAGING else _promote_to_main
+    # The one line a person reads first: which move this is, in these words.
+    say(f'Now promoting from {staging} to {MAIN} ({why}).')
+    run = _promote_to_main
     kw = {'work': work} if work else {}
     if fast and run is _promote_to_main:
         kw.update(fast=True, despite_failed_tests=despite_failed_tests,
                   no_full_after=no_full_after)
-    if kw and run in (_promote_unlocked, _promote_to_main):
+    if kw:
         run = (lambda r, s, f=run, kw=kw: f(r, s, **kw))
     state, info = _lock_claim(root, say)
     if state == 'busy':
         say(f'another window is promoting or landing right now ({info}), so this one did '
-            f'nothing. It carries what was on {PRE_STAGING} when it started; '
-            f'anything pushed there since goes in the next Promote. Do not '
-            f'Promote again while it runs.')
+            f'nothing. Do not Promote again while it runs.')
         _verdict(f'PROMOTE REFUSED: another window is promoting or landing right now ({info}); '
                  f'do not Promote again while it runs')
         return 0
@@ -3363,22 +2975,6 @@ def _restore_signals(old):
             signal.signal(sig, handler)
         except (ValueError, OSError, TypeError):
             pass
-
-
-def _drifted_from_above(root):
-    """-> the tiers above pre-staging whose tips carry a file change
-    pre-staging lacks, as origin last showed them (promotion_step has just
-    fetched all three)."""
-    staging = staging_branch(root)
-    ptip = _remote_tip(root, PRE_STAGING)
-    if not ptip or staging == MAIN:
-        return []
-    out = []
-    for branch in (staging, MAIN):
-        tip = _remote_tip(root, branch)
-        if tip and drift(root, ptip, tip):
-            out.append(branch)
-    return out
 
 
 # PROMOTE'S OWN BRANCHES ARE NAMED LIKE A SESSION'S (Morgan, 2026-10-06,
@@ -3599,10 +3195,6 @@ def _promote_to_main(root, say=print, work=None, fast=False,
     if held:
         say(f'PROMOTE REFUSED: {held}')
         return 1
-    # What reached main or staging by another route is checked and copied
-    # down first, the same as before the step into staging.
-    if not sync_pre_staging(root, say, check=True):
-        return 1
     _run(root, 'fetch', '-q', 'origin', staging, MAIN)
     stip, mtip = _remote_tip(root, staging), _remote_tip(root, MAIN)
     if not stip or not mtip:
@@ -3622,7 +3214,8 @@ def _promote_to_main(root, say=print, work=None, fast=False,
         if not copy_tip:
             say(f'{staging} does not merge cleanly into {MAIN}; nothing was pushed. '
                 f'{MAIN} has changes of its own on the same lines -- merge {MAIN} '
-                f'into {PRE_STAGING}, resolve it there, and Promote again.')
+                f'into a branch, resolve it there, land it on {staging} '
+                f'(`{LAND_COMMAND} BRANCH`), and Promote again.')
             return 1
         # THE COPY IS THIS MERGE, NOT STAGING'S TIP (2026-10-07). Pushed as
         # staging's tip, the pull request's merge into main had main's last
@@ -3638,14 +3231,22 @@ def _promote_to_main(root, say=print, work=None, fast=False,
         say(f'checking {len(batch)} commit(s) from {staging} with the full push check...')
         t0 = time.monotonic()
         ok, out = _check(root, wt, FULL, dest=MAIN)
+        if ok:
+            # What GitHub's test of the pull request into main will judge
+            # against main, judged here first (a few seconds; 2026-10-17).
+            against = _against_main(root, wt, staging, mtip, say)
+            if against:
+                ok = False
+                out += '\n' + '\n'.join(f'  {f["check"]}: {f["line"]}'
+                                         for f in against)
         took = time.monotonic() - t0
     review = _upstream_review(root, None, 'produce', out, f'{mtip}..{stip}')[0] \
         if ok else []
     if not ok:
         say(f'PROMOTE REFUSED: the full check failed on {staging} merged into '
             f'{MAIN}, so nothing was pushed. The batch was:\n  '
-            + '\n  '.join(batch) + f'\n\n{out}\n\nFix it on {PRE_STAGING} and '
-            f'Promote again.')
+            + '\n  '.join(batch) + f'\n\n{out}\n\nFix it on a branch, land it on '
+            f'{staging} (`{LAND_COMMAND} BRANCH`), and Promote again.')
         return 1
     reused = next((l for l in out.splitlines() if 'already passed' in l), None)
     if reused:
@@ -4000,6 +3601,14 @@ def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False
             f'checks -- the full local suite is not run on a fast move...')
         t0 = time.monotonic()
         ok, out = _check(root, wt, BASIC, dest=MAIN, since=mtip)
+        if ok:
+            # What GitHub's test of the pull request into main will judge
+            # against main, judged here first (a few seconds; 2026-10-17).
+            against = _against_main(root, wt, staging, mtip, say)
+            if against:
+                ok = False
+                out += '\n' + '\n'.join(f'  {f["check"]}: {f["line"]}'
+                                         for f in against)
         took = time.monotonic() - t0
     review = _upstream_review(root, None, 'produce', out, f'{mtip}..{stip}')[0] \
         if ok else []
@@ -4072,44 +3681,23 @@ def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False
     return PROMOTE_MAIN_NOT_MOVED
 
 
-# THE PROMOTE INTO STAGING COMPOSES, CHECKS ONCE, THEN MOVES BOTH TIERS
+# WORK ONTO STAGING IS COMPOSED, CHECKED ONCE, THEN MOVED
 # (spec/LADDER_OPT_IN_PLAN.md D10, Morgan 2026-10-03, strength: decided).
 # The ladder is opt-in, so people off it push straight to main, and that is
 # expected to go on. Their work is live for everyone already; what the
-# ladder must not do is take it into pre-staging unchecked, or leave it out
-# until the next Produce meets it as a conflict. So this step builds one
-# tree in a scratch worktree -- staging, then main's new work, then
-# pre-staging's -- rebuilds what main left stale, runs the full check on it
-# once, and only then moves staging AND pre-staging to that same commit.
+# ladder must not do is leave it out of staging until the next Produce
+# meets it as a conflict. So one tree is built in a scratch worktree --
+# staging, then main's new work, then the work being landed -- what main
+# left stale is rebuilt, the check runs on it once, and only then does
+# staging move to that commit.
 #
-# A failure moves neither. The tree is put on a LOCAL fix branch (pushed
+# A failure moves nothing. The tree is put on a LOCAL fix branch (pushed
 # only with a fix, 2026-10-06; see _not_finished), and the
 # session fixes it there in the same turn, whoever's commit broke it ("if
 # it fails because of a problem on main (caused by someone not using this
 # process) -- then you have to fix it as part of this process"), and runs
 # this again with --work FIX-BRANCH, which takes the fix in first.
 FIX_PREFIX = 'promote-fix-'
-
-
-def _fix_branch(root):
-    """A fresh fix-branch name, in the session-branch format: e.g.
-    2026-10-11-promote-fix-y1ktn-q7m2x (promote_branch_name says why).
-    The old promote-fix-DATE only where the naming tool cannot be loaded."""
-    def taken(name):
-        return bool(_remote_tip(root, name)) or _run(
-            root, 'rev-parse', '--verify', '-q', f'refs/heads/{name}').returncode == 0
-    name = promote_branch_name(root, FIX_SLUG, taken)
-    if name:
-        return name
-    day, moment = _day_and_moment(root)
-    base = f'{FIX_PREFIX}{day}'
-    return base if not taken(base) else f'{FIX_PREFIX}{moment}'
-
-
-def _branches_page(root, name):
-    """-> the GitHub branches page filtered to `name`, or '' off GitHub."""
-    slug = _slug(root)
-    return f' (https://github.com/{slug}/branches/all?query={name})' if slug else ''
 
 
 def _compose(root, wt, parts, staging, say):
@@ -4250,221 +3838,6 @@ def _session_trailer():
             else 'Session: none available (precedent_branches.py)')
 
 
-def _promote_unlocked(root, say=print, work=None):
-    """Pre-staging into staging, composed with whatever reached main or
-    staging by another route, fully checked once, both tiers moved level.
-    `work` is the branch the session was on; a FIX_PREFIX branch is the fix
-    for an earlier unfinished run and is taken in first. -> 0 promoted or
-    nothing to promote; 1 refused or not finished (a failing check, a
-    conflict, a race)."""
-    staging = staging_branch(root)
-    if not _remote_tip(root, PRE_STAGING) and not sync_pre_staging(root, say):
-        return 1
-    _run(root, 'fetch', '-q', 'origin', staging, PRE_STAGING)
-    stip, ptip = _remote_tip(root, staging), _remote_tip(root, PRE_STAGING)
-    if not stip or not ptip:
-        say(f'origin lacks {staging if not stip else PRE_STAGING}, so there is '
-            f'nothing to promote.')
-        return 1
-    above = _from_above(root, staging, stip)
-    fix = None
-    if work:
-        name = work[len('origin/'):] if work.startswith('origin/') else work
-        _run(root, 'fetch', '-q', 'origin', name)
-        sha = (_git(root, 'rev-parse', '--verify', '--quiet', f'origin/{name}^{{commit}}')
-               or _git(root, 'rev-parse', '--verify', '--quiet', f'{work}^{{commit}}'))
-        if sha and is_fix_branch(name):
-            fix = (name, sha)
-        elif sha and not any(_run(root, 'merge-base', '--is-ancestor', sha,
-                                  t).returncode == 0 for t in (ptip, stip)):
-            say(f'NOTE: {work} is not on {PRE_STAGING}, so this Promote does not '
-                f'carry it. Book it onto {PRE_STAGING} first, then Promote again.')
-    batch = _new_commits(root, stip, ptip)
-    first = [(fix[0], fix[1], f'Merge {fix[0]} into {staging}: the fix '
-              f'for an unfinished Promote')] if fix else []
-    last = [(PRE_STAGING, ptip, f'Promote {PRE_STAGING} into {staging} '
-             f'({len(batch)} commit(s))')]
-    staging_brings = not _brings_nothing(root, ptip, stip)
-    if not fix and not above and _run(root, 'merge-base', '--is-ancestor', ptip,
-                                      stip).returncode == 0 and not staging_brings:
-        say(f'nothing to promote: {staging} already has everything on {PRE_STAGING}.')
-        _verdict(f'NOTHING TO PROMOTE: {staging} already has everything on '
-                 f'{PRE_STAGING} ({stip})', move=f'{staging} <- {PRE_STAGING}')
-        return 0
-    from_above = '; '.join(f'{b}\'s {len(c)} commit(s)' for b, _, c in above)
-    with _Worktree(root, stip) as wt:
-        conflict, merged, rebuilt = _compose_onto(root, wt, staging, first,
-                                                  above, last, say)
-        new = _git(wt, 'rev-parse', 'HEAD')
-        if conflict:
-            label, sha, files, why = conflict
-            return _not_finished(root, say, new, staging, (
-                f'{label} ({sha[:12]}) does not merge cleanly into '
-                f'{" + ".join([staging] + merged)}: {why}'
-                + (f' ({", ".join(files)})' if files else '') + '.'),
-                f'merge {label} into it -- git merge {sha} -- and resolve it')
-        say(f'checking the composition -- {staging}'
-            + (f', then {fix[0]}' if fix else '')
-            + (f', then {from_above} made directly' if above else '')
-            + f', then {len(batch)} commit(s) from {PRE_STAGING} -- with the full '
-            f'push check...')
-        t0 = time.monotonic()
-        ok, out = _check(root, wt, FULL, dest=staging)
-        took = time.monotonic() - t0
-        if not ok:
-            where = _where_it_fails(root, stip, above, staging)
-            return _not_finished(root, say, new, staging, (
-                f'the full check failed on the composition, after {took:.0f}s.'
-                + (f'\n{where}' if where else '') + f'\n\n{out}'),
-                'fix what failed there, whoever\'s commit it came from')
-        review, written = _upstream_review(root, wt if new != stip else None,
-                                           'debut', out, f'{stip}..{ptip}')
-        if written:
-            new = _git(wt, 'rev-parse', 'HEAD')
-        refs = ([f'{new}:refs/heads/{staging}'] if new != stip else []) + (
-            [f'{new}:refs/heads/{PRE_STAGING}'] if new != ptip else [])
-        if not refs:
-            say(f'nothing to promote: {staging} and {PRE_STAGING} are level.')
-            _verdict(f'NOTHING TO PROMOTE: {staging} and {PRE_STAGING} are level '
-                     f'at {new}', move=f'{staging} <- {PRE_STAGING}')
-            return 0
-        p = _run(wt, 'push', '--atomic', '-q', 'origin', *refs)
-        if p.returncode != 0 and 'does not support --atomic' in p.stderr:
-            # A remote that cannot take both in one push: staging first, so
-            # a refused second push leaves pre-staging behind, never ahead.
-            p = _run(wt, 'push', '-q', 'origin', refs[0])
-            if p.returncode == 0 and len(refs) > 1:
-                p = _run(wt, 'push', '-q', 'origin', refs[1])
-    if p.returncode != 0:
-        return _raced(root, say, staging, stip, ptip, new, p)
-    reused = next((l for l in out.splitlines() if 'already passed' in l), None)
-    if reused:
-        say('the full check was NOT re-run: ' + reused.split(': ', 1)[-1]
-            + ' Same files, so the earlier run stands.')
-    else:
-        say(f'the full check ran on the batch and passed, in {took:.0f}s.')
-    if batch:
-        shown, others = mark_other_work(root, batch, work)
-        say(f'PROMOTED {len(batch)} commit(s) from {PRE_STAGING} into {staging} '
-            f'({new[:12]}):\n  ' + '\n  '.join(shown)
-            + _other_work_note(others, work))
-    for branch, _tip, commits in above:
-        say(f'BROUGHT IN {len(commits)} commit(s) made directly on {branch}, '
-            f'checked with the rest:\n  ' + '\n  '.join(commits))
-    if rebuilt:
-        say(f'REBUILT what those left stale: {", ".join(rebuilt)}.')
-    if fix:
-        say(f'TOOK IN {fix[0]}, the fix for the last unfinished Promote. It has '
-            f'done its job{_branches_page(root, fix[0])}.')
-    if not batch and not above and not fix:
-        say(f'PROMOTED nothing new: {staging} had changes {PRE_STAGING} lacked, '
-            f'and they passed the full check.')
-    say(f'{staging} and {PRE_STAGING} are both at {new[:12]} now.')
-    for line in review:
-        say(line)
-    _verdict(f'PROMOTED at {new} ({staging} and {PRE_STAGING} are both there)',
-             move=f'{staging} <- {PRE_STAGING}')
-    return 0
-
-
-def _where_it_fails(root, stip, above, staging):
-    """After the composition failed the full check: -> where to look first,
-    from what is on record, or '' when nothing came from above. Never a
-    verdict. Checking staging with main's work alone used to settle it, at
-    the cost of a second full check -- on 2026-10-03 the two took about 24
-    minutes, past the Promote lock's 15, and still blamed main for a test
-    that failed on staging's own tip in that container. The session
-    measures it on the fix branch instead (practice: diagnosis-is-measured),
-    where running only what failed on each tip takes seconds."""
-    if not above:
-        return ''
-    names = ' and '.join(b for b, _, _ in above)
-    listed = '\n  '.join(c for _b, _t, cs in above for c in cs)
-    rec = _receipt(root, stip)
-    if rec:
-        return (f'{staging}\'s own tip passed the full check '
-                f'({rec.get("at", "time not recorded")}), and {names} brought these '
-                f'commits, made without the ladder\'s checks:\n  {listed}\nLook '
-                f'there first, then at how they meet {PRE_STAGING}\'s work; run '
-                f'what failed on each tip before saying which it was.')
-    return (f'{names} brought these commits, made without the ladder\'s '
-            f'checks:\n  {listed}\n{staging}\'s own tip has no full check on record '
-            f'either, so the failure may be on {staging} already; run what failed '
-            f'on {staging} alone first.')
-
-
-def _not_finished(root, say, sha, staging, what, todo):
-    """Put the composition `sha` on a fresh LOCAL fix branch, say what stopped
-    it and how the session finishes it, and -> 1. Neither tier has moved.
-
-    LOCAL, NOT PUSHED (2026-10-06). It used to be pushed at once, so every
-    refused Promote left a branch on origin -- one consumer had four by the
-    next day, all already contained in staging, each for a person to delete
-    by hand -- including the many refusals that are fixed on pre-staging and
-    never touch the fix branch at all. The composition can always be made
-    again, so nothing is lost if the container goes; it reaches origin only
-    when the session pushes a fix to it."""
-    fix = _fix_branch(root)
-    reason = ' '.join((str(what).strip().splitlines() or [''])[0].split())[:240]
-    _verdict(f'PROMOTE REFUSED: {reason}', move=f'{staging} <- {PRE_STAGING}')
-    b = _run(root, 'branch', fix, sha)
-    if b.returncode != 0:
-        say(f'PROMOTE NOT FINISHED, and neither {staging} nor {PRE_STAGING} '
-            f'moved: {what}\n\nThe composition could not be put on a fix '
-            f'branch either ({b.stderr.strip()[:200]}); run the Promote again.')
-        return 1
-    say(f'PROMOTE NOT FINISHED, and neither {staging} nor {PRE_STAGING} moved: '
-        f'{what}\n\nThe composition is on the local branch {fix} ({sha[:12]}), '
-        f'not pushed: a fix made on {PRE_STAGING} instead leaves nothing behind '
-        f'on origin. Finish it in this same turn: on {fix}, {todo}; push it '
-        f'with `git push -u origin {fix}`; then\n'
-        f'  python3 tools/precedent_branches.py --promote --to staging --work {fix}\n'
-        f'which takes the fix in first and moves both tiers together.')
-    _verdict(f'PROMOTE REFUSED: {reason} The composition is on the local branch '
-             f'{fix} ({sha}); fix it there, push it, and Promote again with '
-             f'--work {fix}', move=f'{staging} <- {PRE_STAGING}')
-    return 1
-
-
-def _raced(root, say, staging, stip, ptip, new, p):
-    """The push of a checked composition was refused: say why, -> 0 when the
-    work is on staging anyway, else 1. Nothing was pushed (the push is
-    atomic) -- or, on a remote without atomic pushes, staging alone."""
-    _run(root, 'fetch', '-q', 'origin', staging, PRE_STAGING)
-    now_s, now_p = _remote_tip(root, staging), _remote_tip(root, PRE_STAGING)
-    if now_s == new:
-        say(f'{staging} moved to the checked composition ({new[:12]}), but '
-            f'{PRE_STAGING} gained work while the check ran, so it was not '
-            f'moved; the next Promote levels it.')
-        _verdict(f'PROMOTED at {new} ({staging} only; {PRE_STAGING} gained work '
-                 f'meanwhile and was not moved)', move=f'{staging} <- {PRE_STAGING}')
-        return 0
-    if now_s != stip:
-        # Most often another window promoted the same batch while this one
-        # was checking it. Then there is nothing left to do, and "Promote
-        # again" would only send the person round a second time for work
-        # already on staging (2026-09-25: two sessions raced this way twice
-        # in a row, each told to try again).
-        if now_s and _run(root, 'merge-base', '--is-ancestor', ptip,
-                          now_s).returncode == 0:
-            say(f'another window promoted this batch while the check ran: '
-                f'{staging} ({now_s[:12]}) already has everything that was on '
-                f'{PRE_STAGING}. Nothing was pushed, and there is nothing '
-                f'left to promote.')
-            _verdict(f'NOTHING TO PROMOTE: another window promoted this batch; '
-                     f'{staging} is at {now_s}', move=f'{staging} <- {PRE_STAGING}')
-            return 0
-        say(f'{staging} moved while the check ran, so nothing was pushed; '
-            f'Promote again. ({p.stderr.strip()[:200]})')
-        return 1
-    if now_p != ptip:
-        say(f'{PRE_STAGING} gained work while the check ran, so nothing was '
-            f'pushed; Promote again to take it in too. ({p.stderr.strip()[:200]})')
-        return 1
-    say(f'the push was refused, so nothing moved: {p.stderr.strip()[:300]}')
-    return 1
-
-
 # --land: WORK LANDS ON STAGING, RECONCILED WITH MAIN (2026-10-09). For a
 # person who lands straight on staging (lands_on_staging). It composes in a
 # throwaway worktree exactly as the Promote into staging does -- staging,
@@ -4504,6 +3877,10 @@ def land(root, work=None, say=print):
 
 
 def _land(root, work, label, staging, say):
+    unknown = unknown_landing(root)
+    if unknown:
+        say(f'{unknown}. Nothing was landed.')
+        return 2, f'LAND REFUSED: {unknown}'
     on, why = lands_on_staging(root)
     if not on:
         landing, lwhy = landing_branch(root)
@@ -4689,9 +4066,58 @@ def _failed_checks(out):
     return found
 
 
+_VIOLATION_LINE = re.compile(r'^VIOLATION  (\S+)')
+
+
+def _against_main(root, wt, branch, mtip, say):
+    """-> [{check, line}]: what the checks that depend on the base find in
+    `wt` when its change is measured from main's tip `mtip`, the way
+    GitHub's test of the pull request into main measures it. [] when it is
+    clean, when `branch` is main, or when main is unknown here.
+
+    WHY (2026-10-17). The full suite measured staging against staging, so a
+    Debut passed a tree that removed a file another page still named, and
+    main went red after the Produce. Only these checks can answer
+    differently against main, so only they run again
+    (precedent_check.py's base_dependent_slugs): a few seconds, never a
+    second suite (Morgan: "It should NOT")."""
+    if branch == MAIN or not mtip:
+        return []
+    tool = pathlib.Path(wt) / 'tools' / 'precedent_check.py'
+    if not tool.is_file():
+        return []
+    _run(root, 'fetch', '-q', 'origin', MAIN)
+    if not _git(wt, 'rev-parse', '--verify', '--quiet', f'{mtip}^{{commit}}'):
+        # The checks would quietly measure from staging instead.
+        return [{'check': f'checks against {MAIN}', 'line':
+                 f'{MAIN}\'s tip {mtip[:12]} could not be read here, so the '
+                 f'change could not be judged against it'}]
+    say(f'judging the change against {MAIN} too, the way the pull request '
+        f'into {MAIN} will be judged (only the checks a base can change)...')
+    env = dict(os.environ, PRECEDENT_CHANGED_SINCE=mtip)
+    p = subprocess.run([sys.executable, str(tool), '--base-dependent'],
+                       cwd=wt, capture_output=True, text=True, env=env)
+    if p.returncode == 0:
+        return []
+    out = (p.stdout + p.stderr).splitlines()
+    found = []
+    for i, line in enumerate(out):
+        m = _VIOLATION_LINE.match(line)
+        if m:
+            first = next((l.strip() for l in out[i + 1:i + 2]
+                          if l.startswith('    ')), '')
+            found.append({'check': f'{m.group(1)} (against {MAIN})',
+                          'line': first[:200]})
+    if not found:
+        last = next((l.strip() for l in reversed(out) if l.strip()), 'no output')
+        found.append({'check': f'checks against {MAIN}', 'line': last[:200]})
+    return found
+
+
 def run_tests(root, branch=None, say=print):
     """Run the full local suite on `branch` (default: the landing branch)
-    composed with main's direct work, record the result, move nothing, and
+    composed with main's direct work, judge the checks a base can change
+    against main too (_against_main), record the result, move nothing, and
     end with one RUN TESTS RESULT line. -> 0 passed, 1 failed, 2 no such
     branch."""
     branch = branch or landing_branch(root)[0]
@@ -4738,6 +4164,10 @@ def _run_tests(root, branch, say):
         else:
             ok, out = _check(root, wt, FULL, dest=staging)
             failed = [] if ok else _failed_checks(out)
+            against = _against_main(root, wt, branch, mtip, say)
+            if against:
+                ok = False
+                failed += against
     took = time.monotonic() - t0
     entry = {'branch': branch, 'commit': tip, 'tested': tested, 'main': mtip,
              'result': 'passed' if ok else 'failed', 'failed': failed,
@@ -4933,17 +4363,10 @@ def _main(argv):
         print(branch)
         print(why, file=sys.stderr)
         return 0
-    if argv[:1] == ['--sync-pre-staging'] and set(argv[1:]) <= {'--check'}:
-        return 0 if sync_pre_staging(root, check='--check' in argv) else 1
-    if argv == ['--drift']:
-        _run(root, 'fetch', '-q', 'origin', PRE_STAGING, staging_branch(root), MAIN)
-        for line in drift_report(root):
-            print(line)
-        return 0
     if argv[:1] == ['--promote']:
         kw = promote_args(argv[1:])
         if kw is None:
-            print('usage: precedent_branches.py --promote [--to staging|main] '
+            print('usage: precedent_branches.py --promote [--to main] '
                   '[--work BRANCH-OR-COMMIT] [--full --because \'<their words>\' '
                   '| [--despite-failed-tests] [--no-full-after]]  (the move into '
                   'main is the fast one unless the person asks for --full)',
@@ -4980,14 +4403,13 @@ def _main(argv):
         # D3), and a repository without them has none to list for anyone:
         # the main branch, how pushes are checked, where work lands.
         print(f'main         {MAIN}')
-        print(f'checked fully: {MAIN}')
+        print(f'{MAIN}: the quick checks before a push, the full suite after')
         print(f'every other branch: {tier} ({why})')
         print(f'your work lands on: {landing} ({lwhy})')
         return 0
-    print(f'pre-staging  {PRE_STAGING}')
     print(f'staging      {staging_branch(root)}')
     print(f'main         {MAIN}')
-    print(f'always checked fully: {", ".join(sorted(full_branches(root)))}')
+    print(f'tier branches: {", ".join(sorted(set(tier_branches(root))))}')
     print(f'every other branch: {tier} ({why})')
     print(f'Booked (Go update) lands on: {landing} ({lwhy})')
     return 0
