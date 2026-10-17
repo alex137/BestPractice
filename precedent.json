@@ -836,6 +836,6 @@
     "no landing_branch: straight on staging, with the quick checks; Produce moves",
     "staging into main fast, and GitHub's test runs after the merge. Anyone off",
     "the ladder lands on main, as before. Set 2026-10-09 (Morgan: \"Please update",
-    "BP so it uses the new system\"); pre-staging was the landing branch until then."
+    "BP so it uses the new system\")."
   ]
 }
