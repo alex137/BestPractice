@@ -73659,7 +73659,7 @@ def check_kept_pin_moves_across_a_comment_only_template_change():
         shown = '\n'.join(l for v in rep.details.values() for l in v)
         cases.append(('CONTROL: a change a reader sees is still asked, and the '
                       'question shows the changed line',
-                      bool(rep.left) and 'what changed:' in shown
+                      bool(rep.left) and 'what changed in templates/' in shown
                       and '+One file for each item under todo/.' in shown, shown))
     except (OSError, ValueError, KeyError) as e:
         cases.append((f'fixture could not be built ({e})', False, ''))
