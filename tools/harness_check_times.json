@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -517,6 +517,7 @@
   "check_source_level_reads_go_through_the_normalizer": 4.1,
   "check_source_names_detects_a_rename": 0.3,
   "check_source_names_explains_a_proxy_refusal": 0.1,
+  "check_source_pin_counts_an_uncommitted_new_practice": 0.2,
   "check_source_precedence": 1.1,
   "check_source_sets_can_learn_they_are_stale": 2.3,
   "check_source_shape_is_verified": 0.2,

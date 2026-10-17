@@ -42217,6 +42217,55 @@ def check_github_ci_setting_names():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_source_pin_counts_an_uncommitted_new_practice():
+    """A set with a new practice file nobody committed is dirty to a sync.
+
+    2026-10-17, very deep check (the practice-move rehearsal): after
+    `precedent_move.py` put a practice into a shared set and before anyone
+    committed it there, a consumer's sync materialized the new file,
+    pinned the set at a commit that does not contain it, and its own
+    `--check` printed OK -- is_dirty asked git with --untracked-files=no.
+    The control halves matter as much: an untracked file outside what a
+    sync reads, an ignored one, and an engine file refreshed in place must
+    all still read clean, or no set clone in a session is ever pinned."""
+    import tempfile
+    import precedent_source_pins as psp
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env)
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        s = pathlib.Path(td) / 'set'
+        (s / 'practices').mkdir(parents=True)
+        (s / 'tools').mkdir()
+        (s / 'practices' / 'old.md').write_text('old\n', encoding='utf-8')
+        (s / 'tools' / 'engine.py').write_text('x = 1\n', encoding='utf-8')
+        (s / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            '{"files": ["engine.py"]}\n', encoding='utf-8')
+        (s / '.gitignore').write_text('scratch/\n', encoding='utf-8')
+        git(s, 'init', '-q', '-b', 'main')
+        git(s, 'add', '-A')
+        git(s, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', 'a')
+        cases.append(('a clean set reads clean', not psp.is_dirty(s)))
+        (s / 'notes.txt').write_text('mine\n', encoding='utf-8')
+        (s / 'scratch').mkdir()
+        (s / 'scratch' / 'practices.md').write_text('x\n', encoding='utf-8')
+        cases.append(('an untracked file a sync never reads, and an ignored '
+                      'one, leave it clean', not psp.is_dirty(s)))
+        (s / 'tools' / 'engine.py').write_text('x = 2\n', encoding='utf-8')
+        cases.append(('an engine file refreshed in place leaves it clean',
+                      not psp.is_dirty(s)))
+        (s / 'practices' / 'moved-in.md').write_text('new\n', encoding='utf-8')
+        cases.append(('an uncommitted NEW practice file makes it dirty',
+                      psp.is_dirty(s)))
+    failed = [n for n, ok in cases if not ok]
+    check(f'source pin counts an uncommitted new practice ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
 def check_source_clone_is_pinned_to_a_branch():
     """A source clone must not ask the remote which branch to use.
 
@@ -81288,6 +81337,7 @@ def main():
     check_main_test_without_individual_source()
     check_private_repo_skipped_gate_is_not_main_test()
     check_source_clone_is_pinned_to_a_branch()
+    check_source_pin_counts_an_uncommitted_new_practice()
     check_consumer_bootstrap_clones_declared_sources()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
