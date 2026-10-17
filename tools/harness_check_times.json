@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.64 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.22 to it; 1 added 2026-10-17 by --record-new-times, scaled by 1.46 to it",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.64 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.22 to it; 1 added 2026-10-17 by --record-new-times, scaled by 1.46 to it; 1 added 2026-10-17 by --record-new-times, scaled by 1.18 to it",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -74,6 +74,7 @@
   "check_brought_sets_have_their_own_session_budget": 0.2,
   "check_budget_approvals_see_computed_raises": 5.6,
   "check_build_views_refuses_a_long_index_clause": 0.4,
+  "check_build_views_says_what_it_decides": 0.1,
   "check_build_views_summary_matches_what_it_wrote": 4.5,
   "check_carry_check_never_counts_upstream_deletions": 3.1,
   "check_carry_check_never_invents_lost_content": 1.1,

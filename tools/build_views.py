@@ -35,12 +35,10 @@ Run:
   python3 tools/build_views.py --check      # regenerate to memory, diff against
                                              # the committed files, exit 1 on any diff
   python3 tools/build_views.py --agents-only [--check]
-      # write (or check) only AGENTS.md's loader block. MAP.md and
-      # GLOSSARY.md's content is specific to how THIS repo is laid out
-      # (render_map_md()'s engine table, its "this repo is
-      # BestPractice itself" prose); a shared or individual source repo
-      # vendoring this same file for its own practices/ catalogue wants
-      # the resident-block/occasion-index mechanism, not those two.
+      # write (or check) only AGENTS.md's loader block, skipping MAP.md
+      # and GLOSSARY.md. A practice set does NOT use it: a set's MAP.md
+      # and GLOSSARY.md are generated views too, and its instructions file
+      # says to run the full command after any practice change.
   python3 tools/build_views.py --views-only [--check]
       # write (or check) MAP.md, GLOSSARY.md and WHERE_THINGS_ARE.md, never
       # AGENTS.md -- what a repository using Precedent runs, since its
@@ -2075,9 +2073,10 @@ def _split_declared(root, declared):
             notes.append(
                 f"{', '.join(s['name'] + ' (' + s['level'] + ')' for s in deferred)} "
                 f"excluded from the loader block -- this repo declares "
-                f"visibility: public, and the block is a tracked file, so "
-                f"rendering a private source into it would publish its "
-                f"practice text")
+                f"visibility: public, and the block is a tracked file, so it "
+                f"carries no individual or shared set's text: those are kept "
+                f"out by level, whatever each set's own visibility, so that "
+                f"a private one is never published here")
         return tracked, deferred, notes
     return list(declared), [], notes
 
@@ -3300,14 +3299,11 @@ def main():
     check = '--check' in argv
     # --agents-only: regenerate just AGENTS.md's loader block (resident
     # block, occasion index, standing instruction), skip MAP.md and
-    # GLOSSARY.md. render_map_md()'s engine table and "this repo
-    # is BestPractice itself" prose are specific to this repo; a team or
-    # individual source repo vendoring this same engine for its OWN
-    # catalogue (practice: layered-practice-packs -- every level needs the
-    # same resident/occasion-index treatment universal already gets, not
-    # just a hand-written README describing the practice list in prose)
-    # wants only the loader-block mechanism, not BestPractice's own MAP/
-    # GLOSSARY conventions.
+    # GLOSSARY.md. Not for a practice set: since the sets generate their
+    # own MAP.md and GLOSSARY.md, each set's instructions say to run the
+    # full command after any practice change, never this flag -- a run with
+    # it leaves the other views stale. (Until 2026-10-17 this comment and
+    # --help recommended it for sets.)
     agents_only = '--agents-only' in argv
     # --views-only: MAP.md, GLOSSARY.md and WHERE_THINGS_ARE.md, never
     # AGENTS.md. In a repository that uses Precedent the loader block is the

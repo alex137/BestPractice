@@ -59187,6 +59187,44 @@ def check_retired_team_level_spares_ordinary_english():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_build_views_says_what_it_decides():
+    """build_views told a public repository that a public shared set was "a
+    private source", when it decides by level, not visibility; and its --help
+    recommended --agents-only for a practice set, which every set's own
+    instructions forbid (2026-10-17 very deep check). THE CASE: the note
+    for a shared set excluded from a public repository's block says it is
+    kept out by level and calls no set private. CONTROL: --help no longer
+    recommends --agents-only for a set."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as bv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='bv-wording-'))
+    try:
+        (tmp / 'precedent.json').write_text(
+            json.dumps({'visibility': 'public', 'sources': []}), encoding='utf-8')
+        declared = [{'name': 'a-public-set', 'level': 'shared',
+                     'path': str(tmp / 'a-public-set')}]
+        _t, deferred, notes = bv._split_declared(tmp, declared)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    note = ' '.join(notes)
+    helptext = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                               '--help'], capture_output=True, text=True).stdout
+    cases = [
+        ('the shared set is kept out of a public repository\'s block',
+         [s['name'] for s in deferred] == ['a-public-set'], note),
+        ('THE CASE: the note says it is kept out by level, and calls no '
+         'set private', 'by level' in note and 'a private source' not in note,
+         note),
+        ('CONTROL: --help does not recommend --agents-only for a set',
+         'does NOT use it' in helptext
+         and 'source repo\n      # vendoring' not in helptext, ''),
+    ]
+    bad = [c[0] + ' -- ' + str(c[2])[:300] for c in cases if not c[1]]
+    check(f'build_views says what it decides: by level, and the full command '
+          f'for a set ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_very_deep_check_runs_other_sources_checks_here():
     """A declared source's own check script whose practice is IN FORCE in
     this repo, and which this repo's precedent_check.py never discovers, is
@@ -82822,6 +82860,7 @@ def main():
     check_bestpractice_engine_hooks_are_stubs()
     check_shared_helpers_have_one_copy()
     check_retired_team_level_spares_ordinary_english()
+    check_build_views_says_what_it_decides()
     check_very_deep_check_runs_other_sources_checks_here()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()
