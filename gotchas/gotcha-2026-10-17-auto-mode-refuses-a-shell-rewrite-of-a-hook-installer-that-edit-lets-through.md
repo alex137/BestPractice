@@ -8,7 +8,7 @@ retires_when:    null
 ---
 ## Symptom
 
-A change to [tools/commit-identity.sh](../tools/commit-identity.sh), the
+A change to [tools/commit-identity.sh](https://github.com/alex137/BestPractice/blob/staging/tools/commit-identity.sh), the
 script that installs the global git hooks, is refused by Claude Code's auto
 mode as "Modify Shared Resources" when it is made with a shell command (a
 Python heredoc rewriting the file). Nothing in the repository refused it.
