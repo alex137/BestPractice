@@ -63,3 +63,5 @@ Not open until: a judgment about the links, which is why this was left out of th
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (still live, narrowed): the main ask is done: checkin.py's NOT_VENDORED has excluded spec, decisions and record (and evals, philosophy, todo, deck) since 86a0d770 (2026-09-17, Morgan's decision). Not verified this run: whether .github/workflows/, .claude/ and local/ still travel into a vendored copy.

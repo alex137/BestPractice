@@ -3,7 +3,7 @@ slug:              todo-2026-09-14-team-sets-carry-no-engine-refresh-workflow
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-14
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -437,3 +437,7 @@ closed:            null
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
 
 2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. The cron was killed (individual set PR #129) and the sets now carry no workflow at all (source-sets-run-no-ci; `git ls-tree origin/main .github/workflows` empty in all three); the one line left, relayed_authorization in the individual identity.json, now reads "accepted" (line 54).

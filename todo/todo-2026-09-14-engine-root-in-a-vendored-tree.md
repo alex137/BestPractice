@@ -3,7 +3,7 @@ slug:              todo-2026-09-14-engine-root-in-a-vendored-tree
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-14
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -56,3 +56,7 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Since 2026-09-30 a vendored process/upstream/ copy no longer carries tools/ (gotcha-2026-10-08 records the trimmed copy), so no engine tool runs from process/upstream/tools/ and the five remaining _ENGINE_DIR.parent defaults read the right repo: the consumer's own tools/.

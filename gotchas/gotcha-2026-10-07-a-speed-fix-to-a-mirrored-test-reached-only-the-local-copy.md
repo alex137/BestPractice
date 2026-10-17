@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy
-status:          live
+status:          retired
 noted:           2026-10-07
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -52,3 +52,7 @@ sides deal the suite identically. Refresh it with
 that runs in two places, measure it in both before calling it done. A
 local number says nothing about the copy GitHub runs. Better still, leave
 one copy: have the second place run the first one's command.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. The second copy is gone: deep-check.yml runs `python3 tools/verify_harness.py --as-ci` (line 333), the same command a session runs, and check_as_ci_shards_match_the_workflow refuses any other way of running the suite there.

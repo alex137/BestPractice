@@ -58,3 +58,5 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (still live, blocker stale): none of the three sets declares branch_stale_days; the cross-owner blocker no longer holds. Decision is Morgan's (raised 2026-09-10, unanswered).

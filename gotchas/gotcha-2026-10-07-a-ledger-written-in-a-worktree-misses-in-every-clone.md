@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-07-a-ledger-written-in-a-worktree-misses-in-every-clone
-status:          live
+status:          retired
 noted:           2026-10-07
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    every consuming repository has taken the engine that ignores the .git probe
 ---
 ## Symptom
@@ -30,3 +30,7 @@ records nor checks a read of `.git` itself (`checkout_layout()`); a ledger
 already carrying one holds again with no re-run. The git state work can
 see is recorded separately, as kind `g`. A repository still on the older
 engine gets the fix with Update Vendors.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed: tools/fact_ledger.py's checkout_layout() (line 272) neither records nor checks a read of .git itself.

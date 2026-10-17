@@ -3,7 +3,7 @@ slug:              todo-2026-09-08-vdc-pass1-partial-again
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-08
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -40,3 +40,7 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Later runs completed pass 1: 2026-09-28 with the first real consumer, 2026-10-11 with five rehearsals including a migration and a week-old update (spec/VERY_DEEP_CHECK.md "Runs so far").

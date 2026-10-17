@@ -94,3 +94,6 @@ proven to be the cause here — no session reproduced the old shape
 deliberately, and saying it was fixed by a named commit would be inventing
 a link the measurement does not carry.
 
+## Notes
+
+2026-10-17, very deep check pass 4 (still live): re-measured 2026-10-17 on origin/main since 2026-09-22: 30 more commits authored `Claude <noreply@anthropic.com>` (2026-09-23 to 2026-10-02) and 45 of Morgan's at -0400 (all 2026-09-25), so the 2026-09-22 "both stopped" did not hold; none since 2026-10-03.

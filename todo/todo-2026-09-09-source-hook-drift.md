@@ -3,7 +3,7 @@ slug:              todo-2026-09-09-source-hook-drift
 kind:              decision
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "those other threads first, then a session rooted under the sets' own owner to carry it out — this repository's sessions cannot push there, re-confirmed 2026-09-09 by `add_repo` refusing at `access: \"push\"`. It carries no disposition, so it is `wait` ([open-item-disposition](practices/open-item-dispo"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-09
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -209,3 +209,7 @@ Not open until: those other threads first, then a session rooted under the sets'
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Answered by 6ed8e53f (2026-10-07, "Hook changes never touch .claude/ again"): every engine hook in a set is now a 31-line stub that execs tools/<name>, which Update Vendors keeps current; the individual set's bootstrap/freshness-guard.sh and commit-identity.sh are such stubs (checked 2026-10-17), so the drift it measured cannot recur for engine hooks. The two non-stub files still drifting are carried by todo-2026-10-11-very-deep-check-findings.

@@ -37,3 +37,5 @@ Not open until: a decision per module: vendor it, or make the check say "not par
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (still live, narrowed): the PAIRS half is fixed (consumer reads tools/doc_sync_pairs.json, 77c66ef1) and doc_lifecycle.py is in the consumer engine (2026-10-06); catalogue_stats.py is still not, so docs-track-models still skips naming a missing file.

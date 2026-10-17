@@ -93,3 +93,5 @@ vendor-update-runbook step 1). So an install pinned to
 `precedent-beta-v01` is held by `_pinned_branch_hold` again, exactly as
 before. Still open on its own
 condition: Morgan saying the fix has held.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): SOURCE_BRANCH became 'main' (5afd766f, 2026-09-25), so installs on their default branch no longer trip _pinned_branch_hold, and Update Vendors (precedent_update.py) replaced checkin.py update as the channel; closing needs Morgan's "the fix has held". Would ask him to close it on that.

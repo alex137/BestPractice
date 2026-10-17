@@ -3,7 +3,7 @@ slug:              todo-2026-09-07-the-commit-identity-mechanism-does-not-reach-
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "nothing here. What remains is per-repo wiring, and a correction to the declining repo's reasoning when someone next works there."
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-07
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -67,3 +67,7 @@ Not open until: nothing here. What remains is per-repo wiring, and a correction 
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Commit-identity.sh now sets the GLOBAL identity and the system zone (reaches every clone in the container), commit-identity-once.sh covers sessions rooted above the repo (a3691c0c, 2026-09-22), and HOOK_WIRING in precedent_vendor_engine.py adds both hooks to every install on refresh; the "per-repo wiring" left is done by refresh.

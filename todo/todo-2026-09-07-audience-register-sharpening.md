@@ -65,3 +65,5 @@ Not open until: his approval of the new wording. It is his rule about how he is 
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): Morgan's own 2026-09-22 rewrite of the individual audience-register delivered change 1 (plain is the default); change 2 (gloss every time) and change 3 (record each miss in its Story) were not adopted. Would close as superseded by his rewrite.

@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh
-status:          live
+status:          retired
 noted:           2026-09-26
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    every consumer's tools/bootstrap.sh carries the "Clone every shared practice set" block, which declared-sources-are-cloned reports repo by repo
 ---
 ## Symptom
@@ -84,3 +84,7 @@ consumer.
   pinned branch. Otherwise it is left where it is.
 - The migration spec's declined-adapters step now says what declining the
   catalogue hook gives up.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed 2026-09-26: templates/bootstrap.sh runs `precedent_source_bootstrap.py --sources-from .` (line 127), and precedent_check.py's declared-sources-are-cloned fails any repo whose declared set has no way onto disk.

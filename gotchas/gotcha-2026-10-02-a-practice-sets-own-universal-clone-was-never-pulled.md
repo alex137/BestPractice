@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-02-a-practice-sets-own-universal-clone-was-never-pulled
-status:          live
+status:          retired
 noted:           2026-10-02
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -62,3 +62,7 @@ set's universal clone too.
 By hand, before that lands: `git -C $HOME/BestPractice fetch origin main &&
 git -C $HOME/BestPractice merge --ff-only origin/main`, then
 `python3 tools/precedent_session_practices.py --repo .` from the set.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed: precedent_source_bootstrap.sources_from_attached_sets() (line 1118) syncs every attached set's declared sources and pins universal clones to main, and the session check names an attached set's universal clone.

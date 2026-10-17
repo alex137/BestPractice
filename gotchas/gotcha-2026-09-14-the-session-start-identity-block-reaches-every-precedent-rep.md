@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep
-status:          live
+status:          retired
 noted:           2026-09-14
 severity:        null
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -111,3 +111,7 @@ the list, the same sequence restored the person's declared name and address
 from their individual set's `identity.json`. The
 script is idempotent, so a set that IS a sibling being named twice costs
 nothing.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed the same day (the loop names $_indiv), and since 2026-09-22 commit-identity.sh sets the global identity and system zone for the whole container, so no per-repo loop decides it; the individual set's commits of 2026-10-16 are authored "Morgan F" at -0300.

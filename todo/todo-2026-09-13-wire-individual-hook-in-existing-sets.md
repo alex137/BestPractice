@@ -3,7 +3,7 @@ slug:              todo-2026-09-13-wire-individual-hook-in-existing-sets
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "four repositories this session was not scoped to, under a different owner, each with its own merge rules — which is why it was handed off rather than done here."
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-13
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -88,3 +88,7 @@ Not open until: four repositories this session was not scoped to, under a differ
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
 
 2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. All three sets now wire precedent-individual-bootstrap.sh in .claude/settings.json; the other two named sets are deleted.

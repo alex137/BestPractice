@@ -3,7 +3,7 @@ slug:              todo-2026-09-14-close-detect-declaration-unpushed
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       parked
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-14
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -88,3 +88,7 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4: a parked item, plainly done. Its own text says "CLOSED 2026-09-14"; close_detect.json sits at BestPractice's root and no set carries a duplicate (checked all three). CLOSE (status was never set).

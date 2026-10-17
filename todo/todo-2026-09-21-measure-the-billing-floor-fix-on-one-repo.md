@@ -3,7 +3,7 @@ slug:              todo-2026-09-21-measure-the-billing-floor-fix-on-one-repo
 kind:              manual
 domain:            ci
 severity:          high
-status:            open
+status:            dropped
 disposition:       ask
 remind_on:         null
 blocked_on:        "the busiest consuming repo's vendor update finishing first — Morgan, 2026-09-21, sequencing"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-21
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -81,3 +81,7 @@ entry saying "and this one was predicted, measured and confirmed" is what
 turns that document from a post-mortem into something with a track record.
 
 If it is NOT confirmed, that belongs there too, in the same words.
+
+## Closed
+
+Dropped 2026-10-17 by the very deep check, pass 4: overtaken, so its condition can no longer be met as written. The subject is gone: the individual set carries no workflow at all since source-sets-run-no-ci (Morgan, 2026-10-01; `git ls-tree origin/main .github/workflows` empty), so there is no before/after left to measure there.

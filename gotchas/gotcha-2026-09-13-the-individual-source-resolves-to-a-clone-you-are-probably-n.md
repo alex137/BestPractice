@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-13-the-individual-source-resolves-to-a-clone-you-are-probably-n
-status:          live
+status:          retired
 noted:           2026-09-13
 severity:        null
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -35,3 +35,7 @@ read any recorded path here as current — run the command.
 ## Fix
 
 (migration could not isolate a distinct Fix paragraph -- read ## Story.)
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Since f753212c (2026-09-28) the bootstrap keeps one working tree and makes both paths lead to it; in this container ~/precedent-individual is a symlink to /home/user/precedent-individual and config.json names that same clone.

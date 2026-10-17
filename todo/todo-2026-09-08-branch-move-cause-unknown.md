@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        null
+blocked_on:        "the next recurrence, with ps and the reflog captured before anything else"
 batch:             null
 decision:          null
 decision_strength: null
@@ -41,3 +41,5 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (still live): recurred: gotcha-2026-09-25-a-session-rooted-above-every-repo... records HEAD moving to main mid-turn on two repos, cause still unknown.

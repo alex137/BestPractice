@@ -42,3 +42,5 @@ Not open until: a design for what a set itself could refuse — a `git diff` gua
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (still live): no guard exists; the home it named (a set's precedent-check.yml) is gone since sets run no CI, so a design would sit in the set's precedent_check.py.
