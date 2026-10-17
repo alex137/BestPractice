@@ -142,7 +142,7 @@ here rather than leaving to be discovered at the link.
   [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
 - **On your own machine, the session-start hook changes this checkout's
   git config, never your global one.**
-  [tools/commit-identity.sh](../tools/commit-identity.sh) sets
+  [tools/commit-identity.sh](https://github.com/alex137/BestPractice/blob/staging/tools/commit-identity.sh) sets
   `user.name`, `user.email` and a `pre-commit` backstop in the checkout,
   and says in one line what it left alone (your global identity, a global
   `core.hooksPath`, the system clock). In a cloud container it sets those
@@ -150,7 +150,7 @@ here rather than leaving to be discovered at the link.
   `CLAUDE_CODE_REMOTE`, or `PRECEDENT_LOCAL_SESSION=1` for another harness
   ([INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)).
 - **The engine assumes Python 3.12**, the version its GitHub checks run on
-  ([tools/precedent_python.py](../tools/precedent_python.py)). A hosted
+  ([tools/precedent_python.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_python.py)). A hosted
   session installs and selects it; on your own machine, a `python3` that is
   another version (3.13, say) gets one warning per session start, and the
   tools run on it anyway. `python3.12 tools/...` matches what CI runs.
