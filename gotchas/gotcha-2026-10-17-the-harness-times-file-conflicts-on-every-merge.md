@@ -26,7 +26,7 @@ request had removed, and the partition case went red there.
 ## Fix
 
 The file now merges itself. `.gitattributes` names a merge driver,
-[tools/harness_times_merge.py](../tools/harness_times_merge.py), which
+[tools/harness_times_merge.py](https://github.com/alex137/BestPractice/blob/staging/tools/harness_times_merge.py), which
 keeps a test one side deleted deleted and a test either side added kept,
 and `tools/bootstrap.sh` configures it in the clone at session start.
 `--record-new-times` no longer touches the shared fields, and drops a
