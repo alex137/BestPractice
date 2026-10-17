@@ -13688,7 +13688,8 @@ def check_as_ci_shards_match_the_workflow():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
-def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None):
+def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None,
+                         named=None):
     """-> (set of slugs to run, one-line reason). Never raises: a
     selector that cannot decide runs everything, because the failure
     of a scheduler must not be silently less coverage.
@@ -13708,7 +13709,29 @@ def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None):
     -- which prescribes --all, ran it, and turned the suite red on its first
     outing. A scheduler that cannot be exercised in the state it is not
     currently in is the same untestable scheduler this signature already
-    exists to avoid."""
+    exists to avoid.
+
+    `named` picks cases by slug: normally PRECEDENT_HARNESS_CASES, a
+    comma-separated list (2026-10-17). A session that changed one planted
+    case could run the whole family or none of it; --all and
+    PRECEDENT_HARNESS_ALL only force everything. The named cases run with
+    the pinned ones, which later assertions read back, so nothing else
+    breaks for lack of them. A name that is not a case is said, never
+    silently dropped; when none is, every case runs."""
+    if named is None:
+        named = os.environ.get('PRECEDENT_HARNESS_CASES', '')
+    wanted = {w.strip() for w in str(named or '').split(',') if w.strip()}
+    if wanted:
+        known = wanted & set(all_slugs)
+        unknown = sorted(wanted - known)
+        note = f'; not a planted case: {", ".join(unknown)}' if unknown else ''
+        if not known:
+            return set(all_slugs), ('all (PRECEDENT_HARNESS_CASES names no '
+                                    f'planted case{note})')
+        pinned = _deep_assertion_slugs() or set()
+        return known | (pinned & set(all_slugs)), (
+            f'{len(known)} named in PRECEDENT_HARNESS_CASES, with the '
+            f'{len(pinned & set(all_slugs))} pinned{note}')
     if forced is None:
         forced = ('--all' in sys.argv
                   or os.environ.get('PRECEDENT_HARNESS_ALL') == '1')
@@ -22801,6 +22824,36 @@ def check_planted_case_rotation_never_narrows_silently():
                                      forced=False)
     cases.append(('an empty slice runs everything rather than nothing',
                   'empty' in why or empty == set(), why))
+
+    # One case by name (PRECEDENT_HARNESS_CASES, 2026-10-17), with the
+    # pinned ones the later assertions read back.
+    loose = sorted(set(slugs) - (_deep_assertion_slugs() or set()))
+    if loose:
+        one = loose[0]
+        try:
+            sel, why = _selected_case_slugs(slugs, touched={'README.md'},
+                                            count=0, forced=False, named=one)
+        except TypeError as e:
+            sel, why = set(), f'no selector by name: {e}'
+        cases.append((f'a case named alone runs ({one}), with the pinned ones '
+                      f'and nothing else',
+                      one in sel and sel == {one} | (pinned & set(slugs)), why))
+        try:
+            sel, why = _selected_case_slugs(slugs, touched={'README.md'},
+                                            count=0, forced=False,
+                                            named=f'{one},no-such-case')
+        except TypeError as e:
+            sel, why = set(), str(e)
+        cases.append(('a name that is no case is said, not silently dropped',
+                      one in sel and 'no-such-case' in why, why))
+        try:
+            sel, why = _selected_case_slugs(slugs, touched={'README.md'},
+                                            count=0, forced=False,
+                                            named='no-such-case')
+        except TypeError as e:
+            sel, why = set(), str(e)
+        cases.append(('naming no real case runs every case, never none',
+                      sel == set(slugs), why))
 
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
@@ -34273,6 +34326,9 @@ def check_shipped_tests_name_their_owner_and_fail_at_home():
                       and merged.get('GIT_CONFIG_KEY_0') == 'a.b'
                       and merged.get('GIT_CONFIG_KEY_1') == 'core.excludesFile'
                       and merged.get('GIT_CONFIG_VALUE_1') == '/x/ignore'))
+        cases.append(('every test runs with no bytecode cache, set once here, '
+                      'so no test needs its own PYTHONDONTWRITEBYTECODE',
+                      merged.get('PYTHONDONTWRITEBYTECODE') == '1'))
 
         names = {kind: [n for n, _a, _r in ppc.PUSH_CHECKS[kind]]
                  for kind in ppc.PUSH_CHECKS}
@@ -59878,10 +59934,17 @@ def check_runner_drops_findings_on_received_files():
         # Built, never spelled: the check scans this very file.
         (repo / 'tools' / 'zzz_engine.py').write_text(
             'X = ROOT / ' + "'tools' / 'zzz_missing.json'\n", encoding='utf-8')
+        # The harness asserts files are gone by name, and ships nowhere
+        # (2026-10-17): what it names is never a stranded companion.
+        (repo / 'tools' / 'verify_harness.py').write_text(
+            'Y = ROOT / ' + "'tools' / 'zzz_retired.sh'\n", encoding='utf-8')
         out = run('vendored-engine-file-refs-resolve')
         if 'tools/zzz_engine.py' not in out:
             bad.append(f'vendored-engine-file-refs-resolve went quiet on a '
                        f'received engine file: {out[-400:]}')
+        if 'zzz_retired.sh' in out:
+            bad.append(f'vendored-engine-file-refs-resolve refused the '
+                       f'harness naming a file it asserts is gone: {out[-400:]}')
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     check('findings on files a repo received are dropped once by the runner '

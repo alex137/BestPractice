@@ -6914,6 +6914,13 @@ def _vendored_engine_file_refs_resolve(ctx):
     tools_dir = ROOT / 'tools'
     findings = []
     for p in _tools_py(tools_dir):
+        # THE HARNESS IS NEVER VENDORED, AND NAMES ABSENT FILES ON PURPOSE
+        # (2026-10-17). A case asserting that a retired script is gone has to
+        # spell its path, and this check refused it as a missing companion;
+        # the case was rewritten to hide the name. verify_harness.py ships to
+        # no repository, so no repository can be stranded by what it names.
+        if p.name == 'verify_harness.py':
+            continue
         text = p.read_text(encoding='utf-8', errors='ignore')
         for m in _ENGINE_REF_RE.finditer(text):
             name = m.group(1) or m.group(2)
