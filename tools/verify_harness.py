@@ -3256,6 +3256,9 @@ def check_update_deletes_a_shipped_voice_md():
             (r / 'process' / 'manifest.json').write_text(json.dumps({'entries': [
                 {'practice': 'voice', 'local_path': 'VOICE.md'},
                 {'practice': 'other', 'local_path': 'X.md'}]}), encoding='utf-8')
+            (r / 'precedent.json').write_text(json.dumps({'sources': [
+                {'level': 'repo-local', 'name': 'local', 'path': 'local'}]}),
+                encoding='utf-8')
             subprocess.run(['git', 'init', '-q', str(r)], env=env)
             subprocess.run(['git', '-C', str(r), 'add', '-A'], env=env)
             subprocess.run(['git', '-C', str(r), 'commit', '-qm', 'i'], env=env)
@@ -3269,6 +3272,19 @@ def check_update_deletes_a_shipped_voice_md():
                       not (same / 'VOICE.md').exists() and left == [], str(left)))
         cases.append(('...and its manifest entry goes, the rest stay',
                       [e['practice'] for e in entries] == ['other'], str(entries)))
+        # 2026-10-17, very deep check's migration rehearsal: the visual
+        # identity practice links project-voice.md, so deleting the default
+        # without writing the practice an install writes left a dead link.
+        voice = same / 'local' / 'practices' / 'project-voice.md'
+        tmpl = (ROOT / 'templates' / 'local-practices' /
+                'project-voice.md.template').read_text(encoding='utf-8')
+        cases.append(('...and local/practices/project-voice.md is written from '
+                      'its template, as an install writes it',
+                      voice.is_file() and re.fullmatch(
+                          re.escape(tmpl).replace(re.escape('<install date>'),
+                                                  r'\d{4}-\d\d-\d\d'),
+                          voice.read_text(encoding='utf-8')) is not None,
+                      str(voice)))
         edited = repo('edited', body.replace('a sharp colleague typing quickly',
                                              'a calm, formal narrator'))
         left = pu.legacy_root_docs(edited, rev)
@@ -21366,8 +21382,13 @@ def check_legacy_leftovers_retired_by_content():
                       'files sees it gone', SYNC not in g(r1, 'ls-files').stdout,
                       g(r1, 'status', '--short').stdout))
         cases.append(('the secrets only it read are named for the person',
-                      {'ANTHROPIC_API_KEY', 'PERSONAL_PACK_TOKEN'}
-                      <= set(res['secrets']), str(res['secrets'])))
+                      {'ANTHROPIC_API_KEY'} <= set(res['secrets']),
+                      str(res['secrets'])))
+        # 2026-10-17: a legacy secret name this repo never carried is not
+        # (check_legacy_secret_named_only_where_the_repo_had_it).
+        cases.append(('...and a legacy secret it never carried is not',
+                      'PERSONAL_PACK_TOKEN' not in res['secrets'],
+                      str(res['secrets'])))
         cases.append(('NEGATIVE: light-check.yml is never touched, whatever '
                       'it runs', (r1 / LIGHT).is_file(), ''))
 
@@ -28348,7 +28369,7 @@ def check_source_sets_can_learn_they_are_stale():
     # 2. The bootstrap tool warns when the clone it is seeding FROM is behind.
     bs = (ROOT / 'tools' / 'precedent_bootstrap_source.py').read_text(encoding='utf-8')
     cases.append(('bootstrap warns when seeding from a stale checkout',
-                  '_warn_if_clone_is_stale' in bs and '_warn_if_clone_is_stale()' in bs, ''))
+                  '_warn_if_clone_is_stale' in bs and '_warn_if_clone_is_stale(network)' in bs, ''))
 
     # 3. A session working HERE is told about stale attached sources.
     tool = ROOT / 'tools' / 'precedent_refresh_sources.py'
@@ -35499,7 +35520,7 @@ def check_seed_refuses_an_engine_main_lacks():
 
             bdest = pathlib.Path(td) / 'set'
             saved_warn = pbs._warn_if_clone_is_stale
-            pbs._warn_if_clone_is_stale = lambda: None
+            pbs._warn_if_clone_is_stale = lambda *_a: None
             try:
                 pbs.bootstrap('shared', 'precedent-shared-zz', bdest,
                               approvers=[{'name': 'A B', 'github': 'ab'}])
@@ -71881,19 +71902,21 @@ def check_update_vendors_reports_dropped_template_wording():
             cases.append(('...and listed again once the template has changed since',
                           len(rep.left) == 3, str(rep.left)))
 
-            # A file that is, byte for byte, an older version of a template
-            # it is told to copy verbatim was never made the repository's own:
-            # it takes the current template, and says so. One meant to be
-            # adapted (this TODO.md) is still only reported.
+            # A file that is, byte for byte, an older version of its
+            # template was never made the repository's own: it takes the
+            # current template, and says so -- one meant to be adapted (this
+            # TODO.md) as well, since 2026-10-17 (untouched_install_copy).
             (repo / 'precedent.json').unlink()
             v1 = git(src, 'show', f'{rev}~1:templates/TODO.md.template').stdout
             (repo / 'TODO.md').write_text(v1, encoding='utf-8')
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
                 step(repo, rep, rev)
-            cases.append(('an adaptable template left exactly as installed is still '
-                          'reported, never written',
-                          rep.left and (repo / 'TODO.md').read_text(encoding='utf-8') == v1,
+            cases.append(('an adaptable template left exactly as installed takes '
+                          'the current one, said once, not left for you',
+                          not rep.left and (repo / 'TODO.md').read_bytes()
+                          == tmpl.read_bytes()
+                          and any(n == 'templates taken' for n, _o in rep.steps),
                           f'{rep.left} {rep.steps}'))
             (repo / 'TODO.md').unlink()
             prt = src / 'templates' / 'pull_request_template.md.template'
@@ -71915,7 +71938,8 @@ def check_update_vendors_reports_dropped_template_wording():
                 step(repo, rep, rev2)
             cases.append(('a copy-verbatim template that is word for word an older '
                           'version takes the current one, said once, not left for you',
-                          not rep.left and any(n == 'refreshed' for n, _o in rep.steps)
+                          not rep.left and any(n == 'templates taken'
+                                               for n, _o in rep.steps)
                           and pr.read_bytes() == prt.read_bytes(),
                           f'{rep.left} {rep.steps}'))
             pr.write_text(pr_v1 + 'One line of our own.\n', encoding='utf-8')
@@ -72055,6 +72079,827 @@ def check_update_vendors_refreshes_a_template_own_comment():
           f'only that ({len(cases)} stated cases)', not bad, '; '.join(bad)[:3000])
 
 
+def check_update_takes_an_untouched_install_copy():
+    """An install-once file still exactly as an install wrote it -- its
+    placeholders filled in, the install's own per-file text put in -- takes
+    the current template whole, filled in with the same values; one the
+    repository edited is still only read, line by line, and left for you.
+
+    2026-10-17, very deep check: an untouched install from 2026-10-01 could
+    not finish an update without seven hand calls, all upstream rewording in
+    GETTING_STARTED.md, MAP.md and project-voice.md, because only a template
+    copied verbatim was recognised as unedited. Decision (the session's,
+    under Morgan's delegation of 2026-10-17): compare each file with the
+    template as installed. Planted: a GETTING_STARTED.md template whose
+    version 1 names `<project name>` and `<install date>` and whose version
+    2 rewords a line and adds one; a MAP.md template carrying the row the
+    install replaces; a consumer whose GETTING_STARTED.md was then extended
+    in the working tree by an earlier step of the same run; and a copy with
+    one line of the repository's own."""
+    import contextlib, io, tempfile
+    pu, _pve, _pr = _update_tools()
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-untouched-copy-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+
+    if not hasattr(pi, 'per_file_substitutions'):
+        check('Update Vendors takes an untouched install copy whole, and still '
+              'asks about an edited one', False,
+              'precedent_install.per_file_substitutions is missing: the install\'s '
+              'own per-file text is not one table the update can read')
+        return
+    row = next(iter(pi.per_file_substitutions(True)['MAP.source.md']))
+    gs1 = ('# Getting started with <project name>\n\n'
+           'This page was written for <project name> on <install date>.\n'
+           'Ask the person who looks after this project before changing it.\n'
+           'The old wording that the next template version rewords here.\n')
+    gs2 = ('# Getting started with <project name>\n\n'
+           'This page was written for <project name> on <install date>.\n'
+           'Ask the person who looks after this project before changing it.\n'
+           'The new wording that replaced the older sentence in this place.\n'
+           'A paragraph upstream added later, which no install has yet.\n')
+    map1 = '# Map\n\nThe older wording of the map template sits here.\n' + row + '\n'
+    map2 = '# Map\n\nThe current wording of the map template sits here.\n' + row + '\n'
+    values = {'<project name>': 'Garden Planner', '<install date>': '2026-10-01'}
+
+    def filled(text, name):
+        text = pi._substitute(text, pi.per_file_substitutions(True).get(name, {}))
+        return pi._substitute(text, values)
+
+    cases = []
+    saved_source = pu.SOURCE
+    try:
+        src = tmp / 'source'
+        (src / 'templates').mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        (src / 'templates' / 'GETTING_STARTED.md').write_text(gs1, encoding='utf-8')
+        (src / 'templates' / 'MAP.md.template').write_text(map1, encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v1')
+        (src / 'templates' / 'GETTING_STARTED.md').write_text(gs2, encoding='utf-8')
+        (src / 'templates' / 'MAP.md.template').write_text(map2, encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v2')
+        rev = git(src, 'rev-parse', 'HEAD').stdout.strip()
+        pu.SOURCE = src
+
+        def run(build, before=None):
+            repo = tmp / f'consumer-{len(cases)}'
+            repo.mkdir()
+            git(tmp, 'init', '-q', str(repo))
+            build(repo)
+            rep = pu.Report()
+            rep.before = before
+            with contextlib.redirect_stdout(io.StringIO()):
+                pu.dropped_template_lines_step(repo, rep, rev)
+            return repo, rep
+
+        def untouched(repo):
+            (repo / 'GETTING_STARTED.md').write_text(filled(gs1, 'GETTING_STARTED.md'),
+                                                     encoding='utf-8')
+            (repo / 'MAP.md').write_text(filled(map1, 'MAP.source.md'), encoding='utf-8')
+        repo, rep = run(untouched)
+        cases.append(('an untouched copy with placeholders filled takes the current '
+                      'template, filled in with the same values, not left for you',
+                      not rep.left and (repo / 'GETTING_STARTED.md').read_text(
+                          encoding='utf-8') == filled(gs2, 'GETTING_STARTED.md'),
+                      f'{rep.left} {rep.steps}'))
+        cases.append(('...and so does one carrying the install\'s own per-file text',
+                      (repo / 'MAP.md').read_text(encoding='utf-8')
+                      == filled(map2, 'MAP.source.md'), f'{rep.steps}'))
+        cases.append(('...said once, naming the files',
+                      [o for n, o in rep.steps if n == 'templates taken'] and
+                      'GETTING_STARTED.md' in dict(rep.steps).get('templates taken', ''),
+                      f'{rep.steps}'))
+
+        def written_ahead(repo):
+            untouched(repo)
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'install')
+            with (repo / 'GETTING_STARTED.md').open('a', encoding='utf-8') as f:
+                f.write('A disclosure an earlier step of this run added.\n')
+        repo, rep = run(written_ahead, before=set())
+        cases.append(('a file clean when the run started is judged on its committed '
+                      'text, so an earlier step\'s addition does not make it edited',
+                      not rep.left and (repo / 'GETTING_STARTED.md').read_text(
+                          encoding='utf-8') == filled(gs2, 'GETTING_STARTED.md'),
+                      f'{rep.left}'))
+
+        def edited(repo):
+            untouched(repo)
+            with (repo / 'GETTING_STARTED.md').open('a', encoding='utf-8') as f:
+                f.write('Our committee reads this page first, every season.\n')
+        repo, rep = run(edited)
+        left = dict(rep.left)
+        cases.append(('a copy with one line of the repository\'s own is never '
+                      'written, and its dropped line is still left for you',
+                      'GETTING_STARTED.md:5' in left
+                      and 'Our committee' in (repo / 'GETTING_STARTED.md').read_text(
+                          encoding='utf-8')
+                      and 'old wording' in (repo / 'GETTING_STARTED.md').read_text(
+                          encoding='utf-8'), f'{rep.left}'))
+    except (OSError, ValueError, KeyError, StopIteration) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        pu.SOURCE = saved_source
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors takes an untouched install copy whole, and still asks '
+          f'about an edited one ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_refresh_replaces_a_past_individual_hook_rendering():
+    """A copy of the individual-set hook that is a rendering of an older
+    version of its template becomes the current stub, in any kind of repo;
+    an edited copy is left as it is and reported; and BestPractice's own
+    copy is the current stub.
+
+    2026-10-17, very deep check: copies rendered before 2026-10-07, when the
+    template became a stub, never became it -- the refresh wrote the file
+    only when missing, and only for a consumer -- and BestPractice ran a
+    stale 181-line copy of its own from precedent_resolve's self-heal.
+    Decision (the session's, under Morgan's delegation of 2026-10-17):
+    replace a copy matching any past rendering in the template's git
+    history; never overwrite a hand-edited one (repair-cannot-discard-work).
+    Planted: a source clone whose template has a long version 1 and a stub
+    version 2; a repo with a version-1 rendering; one with that rendering
+    plus a line of its own."""
+    import contextlib, inspect, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    name = 'refresh replaces a past individual-hook rendering with the stub, never an edited copy'
+    state_of = getattr(pve, 'individual_hook_copy_state', None)
+    replace = getattr(pve, '_replace_past_individual_hook', None)
+    if state_of is None or replace is None:
+        check(name, False, 'precedent_vendor_engine has no individual_hook_copy_state / '
+              '_replace_past_individual_hook: a stale copy is only ever written when missing')
+        return
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-individual-hook-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+
+    cases = []
+    try:
+        src = tmp / 'source'
+        tdir = src / pve.HOOK_SOURCE_DIR
+        tdir.mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        t = tdir / pve.INDIVIDUAL_HOOK_TEMPLATE
+        v1 = ('#!/bin/bash\n# all the logic, the old way\n'
+              'NAME="{{SOURCE_NAME}}"\nURL="{{SOURCE_REPO_URL}}"\n'
+              'if [ "{{SOURCE_REPO_URL_SUBSTITUTED}}" != yes ]; then exit 0; fi\n'
+              'clone "$HOME/{{SOURCE_NAME}}"\n')
+        t.write_text(v1, encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v1')
+        v2 = ('#!/bin/bash\n# stub\nexport N="{{SOURCE_NAME}}"\n'
+              'exec bash tools/individual-source-bootstrap.sh\n')
+        t.write_text(v2, encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v2')
+        head = git(src, 'rev-parse', 'HEAD').stdout.strip()
+        old = (v1.replace('{{SOURCE_NAME}}', 'precedent-individual')
+                 .replace('{{SOURCE_REPO_URL}}', 'https://example.com/someone/set')
+                 .replace('{{SOURCE_REPO_URL_SUBSTITUTED}}', 'yes'))
+
+        def repo_with(text):
+            r = tmp / f'repo-{len(cases)}'
+            (r / pve.HOOK_DEST_DIR).mkdir(parents=True)
+            (r / pve.HOOK_DEST_DIR / pve.INDIVIDUAL_HOOK).write_text(text, encoding='utf-8')
+            return r, r / pve.HOOK_DEST_DIR / pve.INDIVIDUAL_HOOK
+
+        r, f = repo_with(old)
+        cases.append(('a version-1 rendering reads as a past rendering',
+                      state_of(r, src, head)[0] == 'past', str(state_of(r, src, head)[0])))
+        saved = list(pve._LEFT_FOR_YOU)
+        with contextlib.redirect_stdout(io.StringIO()):
+            wrote = replace(r, src, head)
+        cases.append(('...and becomes the current stub, rendered',
+                      wrote and f.read_text(encoding='utf-8')
+                      == pve.render_individual_hook(v2), f.read_text(encoding='utf-8')[:200]))
+        r, f = repo_with(old + 'echo "a line of our own"\n')
+        pve._LEFT_FOR_YOU[:] = []
+        with contextlib.redirect_stdout(io.StringIO()):
+            wrote = replace(r, src, head)
+        left = list(pve._LEFT_FOR_YOU)
+        pve._LEFT_FOR_YOU[:] = saved
+        cases.append(('an edited copy is never written, and is left for you',
+                      not wrote and 'a line of our own' in f.read_text(encoding='utf-8')
+                      and any(i.endswith(pve.INDIVIDUAL_HOOK) for i, _w in left),
+                      str(left)))
+        cases.append(('the refresh runs it, on its early exit too',
+                      inspect.getsource(pve.refresh).count('_replace_past_individual_hook(') >= 2
+                      and 'individual_hook_copy_state(' in inspect.getsource(pve.refresh), ''))
+        own = ROOT / pve.HOOK_DEST_DIR / pve.INDIVIDUAL_HOOK
+        tmpl_text = (ROOT / pve.HOOK_SOURCE_DIR / pve.INDIVIDUAL_HOOK_TEMPLATE).read_text(
+            encoding='utf-8')
+        cases.append(('BestPractice\'s own copy is the current stub',
+                      own.is_file() and own.read_text(encoding='utf-8')
+                      == pve.render_individual_hook(tmpl_text), str(own)))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_refresh_names_an_in_place_hook_no_engine_path_keeps():
+    """A hook a repo wires from a path of its own is "nothing to do" only
+    when precedent.json's engine_paths declares that path; one it does not
+    declare is named once, with the fix.
+
+    2026-10-17, very deep check: an individual set wires
+    bootstrap/precedent-universal-catalogue.sh, a copy from 2026-09-20 that
+    no engine_paths entry keeps current, and every refresh said there was
+    NOTHING TO DO about it, so it stayed stale for good. Decision (the
+    session's, under Morgan's delegation of 2026-10-17): say so once, with
+    both fixes. Planted: two shipped hooks wired from bootstrap/, one of
+    them declared in engine_paths."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-in-place-hook-'))
+    cases = []
+    try:
+        src = tmp / 'hooks'
+        src.mkdir()
+        for n in ('kept-current.sh', 'left-stale.sh'):
+            (src / n).write_text('#!/bin/bash\n', encoding='utf-8')
+        repo = tmp / 'set'
+        (repo / '.claude').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / pve.MANIFEST_NAME).write_text('{}\n', encoding='utf-8')
+        (repo / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
+            'SessionStart': [{'hooks': [
+                {'type': 'command',
+                 'command': '$CLAUDE_PROJECT_DIR/bootstrap/kept-current.sh'},
+                {'type': 'command',
+                 'command': '"$CLAUDE_PROJECT_DIR"/bootstrap/left-stale.sh'}]}]}}),
+            encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({pve.ENGINE_PATHS_KEY: {
+            f'{pve.HOOK_SOURCE_DIR}/kept-current.sh': 'bootstrap/kept-current.sh'}}),
+            encoding='utf-8')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            pve._write_hook_files(repo, src, previous={})
+        out = err.getvalue()
+        nothing = [l for l in out.splitlines() if 'NOTHING TO DO' in l]
+        stale = [l for l in out.splitlines() if 'left-stale.sh' in l
+                 and pve.ENGINE_PATHS_KEY in l]
+        cases.append(('the declared in-place copy is still "nothing to do"',
+                      any('kept-current.sh' in l for l in nothing), out[:600]))
+        cases.append(('the undeclared one is never called "nothing to do"',
+                      not any('left-stale.sh' in l for l in nothing), out[:600]))
+        cases.append(('...and is named with both fixes: declare it, or wire .claude/hooks/',
+                      stale and 'bootstrap/left-stale.sh' in stale[0]
+                      and f'{pve.HOOK_DEST_DIR}/left-stale.sh' in stale[0], out[:600]))
+        manifest = json.loads((repo / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            pve._write_hook_files(repo, src, previous=manifest)
+        cases.append(('said once: a second refresh with the same state is silent',
+                      'left-stale.sh' not in err.getvalue(), err.getvalue()[:400]))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'refresh names an in-place hook no engine_paths entry keeps current '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_retired_mentions_skip_what_the_repo_receives():
+    """A mention of a file the refresh deleted is this repo's to fix only
+    where the repo writes the file: never in the engine's own files or
+    hooks, materialized practices, or the vendored catalogue -- neither in
+    the refresh's warning nor on Update Vendors' Left for you.
+
+    2026-10-17, very deep check: Update Vendors told a session to edit
+    tools/precedent_bootstrap_source.py, precedent_vendor_engine.py and
+    very_deep_check.py ("repoint or remove the mention; the full check
+    refuses it"), vendored engine files, because retired_mentions() did not
+    treat the engine manifest's files as received; and the refresh's own
+    warning counted every received file, so every row in a consumer became
+    a finding. The decommission audit got this exclusion on 2026-09-28.
+    Planted: a consumer whose engine file, engine hook, materialized
+    practice, vendored universal practice and own doc all name a deleted
+    engine file."""
+    import contextlib, io, tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-received-mentions-'))
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    gone = 'tools/precedent_retire_path.py'
+    cases = []
+    try:
+        def put(rel, text):
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        line = f'Retire a path with `{gone}`.\n'
+        put('docs/HOWTO.md', '# How We Work\n\n' + line)
+        put('tools/precedent_vendor_engine.py', '# ' + line)
+        put('.claude/hooks/session-start.sh', '# ' + line)
+        put('practices/some-rule.md', line)
+        put('precedent/universal/practices/other-rule.md', line)
+        put('tools/' + pve.MANIFEST_NAME, json.dumps(
+            {'files': ['precedent_vendor_engine.py'], 'hook_files': ['session-start.sh']}))
+        put('MANIFEST.json', json.dumps({
+            'generated_by': 'tools/precedent_materialize.py',
+            'practices': [{'slug': 'some-rule'}]}))
+        put('precedent.json', json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'}]}))
+        subprocess.run(['git', 'init', '-q', str(tmp)], env=env, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], env=env, check=True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            pve._warn_about_dependents(tmp, [gone], 'dropped from the engine')
+        warned = [l for l in err.getvalue().splitlines() if 'still names it' in l]
+        cases.append(('the refresh warns about the repo\'s own doc',
+                      any('docs/HOWTO.md:3' in l for l in warned), err.getvalue()[:500]))
+        cases.append(('...and about nothing it receives (engine file, hook, '
+                      'materialized and vendored practices)',
+                      len(warned) == 1, '\n'.join(warned)[:800]))
+        planted = '\n'.join(
+            f"WARN: precedent_vendor_engine: {gone} was dropped from the engine, and "
+            f"{p}:1 still names it -- 'x'. Nothing here refuses."
+            for p in ('tools/precedent_vendor_engine.py', '.claude/hooks/session-start.sh',
+                      'docs/HOWTO.md'))
+        got = pu.retired_mentions(tmp, planted)
+        cases.append(('Update Vendors leaves only the repo\'s own file for the person, '
+                      'never a vendored engine file or hook',
+                      [w for w, _g in got] == ['docs/HOWTO.md:3'], str(got)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'mentions of a deleted file skip what the repo receives '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_second_pass_drops_a_first_pass_unshipped_workflow_call():
+    """A workflow the running engine ships is never left for the person as
+    one "upstream does not ship", even when an older first pass said so.
+
+    2026-10-17, very deep check: an Update Vendors rerun after a failed run
+    puts the earlier run's engine files back to HEAD's, so the refresh's
+    first pass is the old engine; it judged precedent-branch-cleanup.yml --
+    written by the earlier run's new engine, so uncommitted -- by its own
+    older list, and its "upstream does not ship it ... it has uncommitted
+    edits" reached Left for you through the hand-over to the second pass.
+    Reproduced on a scratch install from 2026-10-01: run, a failing basic
+    check, a fixed rerun. Planted: that hand-over, carrying the call about a
+    workflow this engine ships and one about a workflow it does not."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-carried-wf-'))
+    cases = []
+    saved = list(pve._CARRIED_LEFT), list(pve._LEFT_FOR_YOU)
+    try:
+        shipped = sorted(rel for _t, rel in pve.CI_WORKFLOW_TEMPLATES.get('consumer', ()))
+        rel = next(r for r in shipped if 'branch-cleanup' in r) if any(
+            'branch-cleanup' in r for r in shipped) else shipped[0]
+        other = '.github/workflows/our-own.yml'
+        dest = tmp / 'dest'
+        (dest / '.github' / 'workflows').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(dest)], capture_output=True)
+        (dest / rel).write_text('on: workflow_dispatch\njobs: {}\n', encoding='utf-8')
+        (dest / 'precedent.json').write_text('{}\n', encoding='utf-8')
+        why = ('upstream does not ship it and nobody approved it, so it goes, but '
+               'it was not removed: it has uncommitted edits')
+        pve._CARRIED_LEFT[:] = [(rel, why), (other, why)]
+        pve._LEFT_FOR_YOU[:] = []
+        with contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            pve._remove_unapproved_workflows(dest, {}, 'consumer', None)
+        carried = [i for i, _w in pve._CARRIED_LEFT]
+        cases.append((f'the first pass\'s call about {rel}, which this engine ships, '
+                      f'is dropped', rel not in carried, str(pve._CARRIED_LEFT)))
+        cases.append(('...and one about a workflow it does not ship is kept',
+                      other in carried, str(pve._CARRIED_LEFT)))
+        cases.append(('the shipped workflow is left where it is', (dest / rel).is_file(), ''))
+    except (OSError, StopIteration, IndexError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        pve._CARRIED_LEFT[:], pve._LEFT_FOR_YOU[:] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a second pass drops a first pass\'s call that a shipped workflow is '
+          f'unshipped ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_says_once_that_commands_moved_to_an_undeclared_set():
+    """When an update leaves standing commands the old AGENTS.md listed in
+    force nowhere here, because upstream moved their practices to an
+    optional set this repository does not declare, it says so in one line:
+    how many, and where -- never the phrases themselves.
+
+    2026-10-17, very deep check: an update of an install from before
+    2026-10-02 removed every ladder command from its instructions without a
+    word (17 phrases, measured on a scratch install at 2026-10-01 main).
+    By design for a repository off the ladder; the decision (the session's,
+    under Morgan's delegation of 2026-10-17) is one line, without the words,
+    which a person off the ladder never reads. Planted: an old index with
+    two commands, one of them withdrawn to a set in upstream's record."""
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    step = getattr(pu, 'moved_commands_step', None)
+    name = 'Update Vendors says once that commands moved to a set this repo does not declare'
+    if step is None:
+        check(name, False, 'precedent_update has no moved_commands_step: the commands '
+              'go without a word')
+        return
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-moved-commands-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    cases = []
+    saved = pu.SOURCE
+    try:
+        src = tmp / 'source'
+        (src / 'record').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(src)], env=env, capture_output=True)
+        (src / pu.WITHDRAWN_RECORD).write_text(
+            '- 2026-10-02: `zap-it` withdrawn from universal, deliberately; in force '
+            'only from the shared set `precedent-shared-zap`, for the people who '
+            'bring or declare it.\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(src), 'add', '-A'], env=env, capture_output=True)
+        subprocess.run(['git', '-C', str(src), 'commit', '-qm', 'r'], env=env,
+                       capture_output=True)
+        rev = subprocess.run(['git', '-C', str(src), 'rev-parse', 'HEAD'],
+                             capture_output=True, text=True).stdout.strip()
+        pu.SOURCE = src
+        old = ('## Occasion index\n\n```\n'
+               'When a person says "Zap" or "Zap twice":\n'
+               '  zap-it — do the zap\n'
+               'When a person says "Keep":\n'
+               '  keep-it — keep it\n```\n')
+        new = ('## Occasion index\n\n```\nWhen a person says "Keep":\n'
+               '  keep-it — keep it\n```\n')
+        repo = tmp / 'repo'
+        repo.mkdir()
+        (repo / 'AGENTS.md').write_text(new, encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'}]}),
+            encoding='utf-8')
+        rep = pu.Report()
+        step(repo, rep, old, rev)
+        said = [o for n, o in rep.steps if n == 'standing commands']
+        cases.append(('one line, with the count and the set',
+                      len(said) == 1 and said[0].startswith('2 command phrase(s)')
+                      and 'precedent-shared-zap' in said[0], str(rep.steps)))
+        cases.append(('...never the phrases themselves', said and 'Zap' not in said[0],
+                      str(said)))
+        cases.append(('nothing is left for the person', not rep.left, str(rep.left)))
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'precedent-shared-zap', 'path': '../zap'}]}),
+            encoding='utf-8')
+        rep = pu.Report()
+        step(repo, rep, old, rev)
+        cases.append(('silent where the repo declares that set',
+                      not [o for n, o in rep.steps if n == 'standing commands'],
+                      str(rep.steps)))
+        rep = pu.Report()
+        step(repo, rep, new, rev)
+        cases.append(('silent when nothing listed before is gone', not rep.steps,
+                      str(rep.steps)))
+    except OSError as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        pu.SOURCE = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_retired_words_reads_past_the_decommission_ledger():
+    """A repository's own retired terms are never refused in
+    process/decommissioned_paths.json, the decommission tool's own ledger,
+    which names every retired path by construction -- the same exemption
+    the vocabulary config itself has. A live file naming the term still is.
+
+    2026-10-17, very deep check's migration rehearsal: step 5 of
+    spec/MIGRATING_EXISTING_INSTALLS.md, followed to the letter, retires the
+    old pack through the audit (which writes the ledger) and declares the
+    pack's name retired, and then retired-words failed on the ledger.
+    Planted: the config, the ledger naming the retired pack, a live file."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ledger-words-'))
+    saved = pc.ROOT
+    cases = []
+    try:
+        (tmp / 'process').mkdir()
+        cfg = tmp / pc.RETIRED_VOCAB_CONFIG
+        cfg.write_text(json.dumps({'terms': ['oldpackname'], 'exempt_files': []}),
+                       encoding='utf-8')
+        (tmp / pc.DECOMMISSIONED_PATHS_REGISTRY).write_text(json.dumps({
+            'decommissioned': [{'path': 'process/oldpackname',
+                                'reason': 'migrated into the sets'}]}), encoding='utf-8')
+        (tmp / 'NOTES.md').write_text('We still read oldpackname here.\n',
+                                      encoding='utf-8')
+        pc.ROOT = tmp
+        pc._vendored_engine_files.cache_clear()
+        try:
+            import our_language as _ol
+        except ImportError:
+            _ol = None
+        where = [f.where for f in pc._repo_retired_terms(cfg, _ol)]
+        cases.append(('the ledger is not refused for naming the retired pack',
+                      not any(w.startswith(pc.DECOMMISSIONED_PATHS_REGISTRY) for w in where),
+                      str(where)))
+        cases.append(('...and a live file naming it still is',
+                      any(w.startswith('NOTES.md') for w in where), str(where)))
+    except OSError as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        pc.ROOT = saved
+        pc._vendored_engine_files.cache_clear()
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'retired-words reads past the decommission ledger ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_bootstrapping_a_set_reaches_no_network_unless_asked():
+    """precedent_bootstrap_source.py reaches nothing outside the machine
+    unless --network true asks: no fetch for its staleness warning, and the
+    resolver's self-heals -- the individual set's hook and the universal
+    clone -- are off for everything it runs, then put back.
+
+    2026-10-17, very deep check: bootstrapping a SHARED set with a scratch
+    HOME and the token variables unset asked GitHub whose the session's
+    token was, cloned the operator's private individual set into the
+    scratch home and wrote a user config naming it -- the new set's view
+    build ran the resolver, whose self-heal ran the set's individual hook --
+    against a docstring saying the tool touches no remote. Reproduced the
+    same day; with this change the scratch home stays empty and git's trace
+    shows no remote at all. Decision (the session's, under Morgan's
+    delegation of 2026-10-17): no network unless a flag asks for it.
+    Planted: a hosted-session environment and a repo whose individual hook
+    and universal bootstrap tool each leave a marker when run."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_resolve as pr
+        import precedent_bootstrap_source as pbs
+    finally:
+        sys.path.pop(0)
+    name = 'bootstrapping a set reaches no network unless asked'
+    key = getattr(pr, 'NO_SELF_HEAL_ENV', None)
+    if key is None:
+        check(name, False, 'precedent_resolve has no NO_SELF_HEAL_ENV: nothing can keep '
+              'the self-heals from cloning while a set is bootstrapped')
+        return
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-no-network-'))
+    saved = {k: os.environ.get(k) for k in (key, 'CLAUDE_CODE_REMOTE', 'HOME',
+                                            pr.USER_CONFIG_ENV)}
+    cases = []
+    try:
+        repo = tmp / 'set'
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        hook_marker, tool_marker = tmp / 'hook-ran', tmp / 'tool-ran'
+        (repo / pr.INDIVIDUAL_BOOTSTRAP_HOOK).write_text(
+            f'#!/bin/bash\ntouch {hook_marker}\n', encoding='utf-8')
+        (repo / 'tools' / 'precedent_source_bootstrap.py').write_text(
+            f'import pathlib\npathlib.Path({str(tool_marker)!r}).touch()\n',
+            encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'remote', 'add', 'origin',
+                        'https://example.invalid/set.git'], capture_output=True)
+        os.environ['HOME'] = str(tmp / 'home')
+        os.environ['CLAUDE_CODE_REMOTE'] = 'true'
+        os.environ.pop(pr.USER_CONFIG_ENV, None)
+        os.environ[key] = '1'
+        a = pr._self_heal_individual_source(repo)
+        b = pr._self_heal_universal_source(repo)
+        cases.append(('with the switch set, neither self-heal runs anything',
+                      a == b == 'not-asked' and not hook_marker.exists()
+                      and not tool_marker.exists(), f'{a} {b}'))
+        os.environ.pop(key)
+        pr._self_heal_individual_source(repo)
+        pr._self_heal_universal_source(repo)
+        cases.append(('...and without it both still do, in a hosted session (control)',
+                      hook_marker.exists() and tool_marker.exists(), ''))
+        calls = []
+        saved_git = pbs._git
+        pbs._git = lambda *args: (calls.append(args), (True, '0'))[1]
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                pbs._warn_if_clone_is_stale()
+            no_fetch = not any(c and c[0] == 'fetch' for c in calls)
+            calls.clear()
+            with contextlib.redirect_stderr(io.StringIO()):
+                pbs._warn_if_clone_is_stale(True)
+            fetched = any(c and c[0] == 'fetch' for c in calls)
+        finally:
+            pbs._git = saved_git
+        cases.append(('the staleness warning fetches only with --network true',
+                      no_fetch and fetched, ''))
+        seen = {}
+        saved_inner = pbs._bootstrap
+        pbs._bootstrap = lambda *a, **k: seen.setdefault('env', os.environ.get(key))
+        try:
+            pbs.bootstrap('shared', 'x', tmp / 'x')
+            inside = seen.pop('env', None)
+            after = os.environ.get(key)
+            pbs.bootstrap('shared', 'x', tmp / 'x', network=True)
+            asked = seen.pop('env', None)
+        finally:
+            pbs._bootstrap = saved_inner
+        cases.append(('bootstrap() switches the self-heals off for its run, and back',
+                      inside == '1' and after is None and asked is None,
+                      f'{inside} {after} {asked}'))
+        cases.append(('the docstring says so', 'NO NETWORK UNLESS ASKED' in (pbs.__doc__ or ''),
+                      ''))
+    except OSError as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_parallels_table_holds_a_shipped_hook_this_repo_does_not_run():
+    """templates/harness/PARALLELS.md must carry a row for every hook the
+    claude-code adapter ships, run here or not -- and may: a row for one is
+    never refused as naming a hook that does not exist.
+
+    2026-10-17, very deep check: artifact-publish-gate.sh and
+    precedent-universal-catalogue.sh ship to consumers and sets, BestPractice
+    runs neither, so they had no row, and claude-only-surface-has-a-parallel
+    refused adding one. Decision (the session's, under Morgan's delegation
+    of 2026-10-17): the check reads templates/harness/claude-code/hooks/ as
+    part of its list of mechanisms. Planted: a hook run here and a hook only
+    shipped, with and without a row each; and this repository's own table."""
+    import tempfile, types
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-parallels-'))
+    cases = []
+    try:
+        (tmp / '.claude' / 'hooks').mkdir(parents=True)
+        (tmp / '.claude' / 'hooks' / 'run-here.sh').write_text('#!/bin/bash\n')
+        shipped = tmp / 'templates' / 'harness' / 'claude-code' / 'hooks'
+        shipped.mkdir(parents=True)
+        for n in ('run-here.sh', 'only-shipped.sh'):
+            (shipped / n).write_text('#!/bin/bash\n')
+        head = '| Mechanism | What it does | codex | gemini-cli | grok-build |\n|---|---|---|---|---|\n'
+        row = lambda n: f'| `{n}` | does a thing | none, why | none, why | none, why |\n'
+        table = tmp / 'templates' / 'harness' / 'PARALLELS.md'
+        ctx = types.SimpleNamespace(root=tmp)
+
+        def run(text):
+            table.write_text('# Parallels\n\n' + text, encoding='utf-8')
+            return [f.detail for f in pc._claude_only_surface_has_a_parallel(ctx)]
+        got = run(head + row('run-here.sh') + row('only-shipped.sh'))
+        cases.append(('a row for a hook only shipped is accepted', not got, str(got)))
+        got = run(head + row('run-here.sh'))
+        cases.append(('...and required', any('only-shipped.sh' in m for m in got), str(got)))
+        got = run(head + row('run-here.sh') + row('only-shipped.sh') + row('long-gone.sh'))
+        cases.append(('a row for a hook neither run nor shipped is still a finding',
+                      any('long-gone.sh' in m for m in got), str(got)))
+        real = ROOT / 'templates' / 'harness' / 'PARALLELS.md'
+        text = real.read_text(encoding='utf-8')
+        missing = [n for n in ('artifact-publish-gate.sh', 'precedent-universal-catalogue.sh')
+                   if f'| `{n}` |' not in text]
+        cases.append(('this repository\'s table carries both shipped-only hooks',
+                      not missing, str(missing)))
+        cases.append(('...and says only Claude Code\'s wiring is refreshed for you',
+                      'Only Claude Code\'s wiring is written and kept current' in text, ''))
+    except OSError as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the parallels table holds a hook BestPractice ships but does not run '
+          f'({len(cases)} stated cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_noise_template_lines_and_a_secret_never_had():
+    """Two lines every consumer's update printed and nobody could act on:
+    the citations step listing AGENTS.md lines that are word for word the
+    current template, and the refresh naming a legacy secret,
+    PERSONAL_PACK_TOKEN, in repositories that never had it.
+
+    2026-10-17, very deep check, both seen on a scratch install from
+    2026-10-01 main. Now a cited line that is a line of the AGENTS.md
+    template at the commit taken is left out (it is upstream's, and the
+    refresh keeps it), and a legacy secret is named only where the
+    repository's history ever carried the word. Planted: a citation on a
+    template line and one on the repository's own line; a legacy workflow
+    that reads one secret, in a repo whose history never named the legacy
+    one, and in one whose history did."""
+    import tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-noise-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+    cases = []
+    try:
+        test = getattr(pu, '_stock_line_test', None)
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        tmpl_line = '  (practice `capture-gate`): did this thread\'s work imply anything'
+        (repo / 'AGENTS.md').write_text('# Agents\n' + tmpl_line + '\n'
+                                        'Our own note citing `capture-gate` here.\n',
+                                        encoding='utf-8')
+        data = {'slugs': {'capture-gate': 'Rule reworded'}, 'successors': {},
+                'hits': [{'source': 'this repository', 'kind': 'live',
+                          'slug': 'capture-gate', 'file': 'AGENTS.md', 'line': n}
+                         for n in (2, 3)]}
+        if test is None:
+            cases.append(('the citations step can tell a template line', False,
+                          'precedent_update has no _stock_line_test'))
+        else:
+            _fix, read = pu.citation_findings(
+                data, stock=test(repo, {'AGENTS.md': {tmpl_line.strip()}}))
+            cases.append(('a cited line that is the template\'s is left out; the '
+                          'repo\'s own is still listed', read == ['AGENTS.md:3'],
+                          str(read)))
+        sync = '.github/workflows/bestpractice-upstream-sync.yml'
+        text = ('name: sync\non:\n  workflow_dispatch:\njobs:\n  s:\n    steps:\n'
+                '      - uses: anthropics/claude-code-action@v1\n        with:\n'
+                '          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}\n')
+        legacy = pve.LEGACY_SECRETS[0]
+
+        def repo_with(name, history):
+            r = tmp / name
+            (r / '.github' / 'workflows').mkdir(parents=True)
+            git(tmp, 'init', '-q', str(r))
+            (r / 'README.md').write_text(history, encoding='utf-8')
+            git(r, 'add', '-A')
+            git(r, 'commit', '-qm', 'one')
+            (r / 'README.md').write_text('now\n', encoding='utf-8')
+            git(r, 'commit', '-qam', 'two')
+            return r
+        never = repo_with('never', 'a readme\n')
+        got = pve._orphaned_secrets(never, {sync: text})
+        cases.append(('a legacy secret the repo never carried is not named',
+                      'ANTHROPIC_API_KEY' in got and legacy not in got, str(got)))
+        had = repo_with('had', f'set {legacy} for the pack sync\n')
+        got = pve._orphaned_secrets(had, {sync: text})
+        cases.append(('...and one its history carried still is', legacy in got, str(got)))
+    except OSError as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors drops template-line citations and a secret never had '
+          f'({len(cases)} stated cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -72107,7 +72952,10 @@ def check_update_vendors_dropped_wording_reads_placeholders_filled():
             '<!-- not just a mention in the install log under\n'
             '     `process/upstream/`. Add a line whenever a future install step\n'
             '     introduces a new one. -->\n'
-            'Read the guide in process/upstream/documentation before you start.\n',
+            'Read the guide in process/upstream/documentation before you start.\n'
+            # A line of the repository's own, so the file is not an
+            # untouched install copy, which takes the current template whole.
+            'Our own note about the planting calendar, written by this repo.\n',
             encoding='utf-8')
         pu.SOURCE = src
         rep = pu.Report()
@@ -72375,6 +73223,7 @@ def check_update_vendors_dropped_wording_reads_a_views_source():
                               capture_output=True, text=True)
 
     old = 'This map was written by the older template wording here.'
+    own = 'Our own row about the planting calendar, written by this repo.\n'
     view = ('---\ngenerated_by: tools/build_views.py\n---\n# Map\n\n'
             + old + '\n')
     cases = []
@@ -72405,8 +73254,10 @@ def check_update_vendors_dropped_wording_reads_a_views_source():
 
         def with_source(repo):
             (repo / 'MAP.md').write_text(view, encoding='utf-8')
-            (repo / 'MAP.source.md').write_text('# Map\n\n' + old + '\n',
-                                                encoding='utf-8')
+            # A line of the repository's own: an untouched install copy
+            # takes the current template whole instead (2026-10-17).
+            (repo / 'MAP.source.md').write_text('# Map\n\n' + old + '\n'
+                                                + own, encoding='utf-8')
         left = left_for(with_source)
         cases.append(('a generated view with a source file: the line is '
                       'reported in MAP.source.md, never in MAP.md',
@@ -72433,7 +73284,7 @@ def check_update_vendors_dropped_wording_reads_a_views_source():
                       'can edit, so nothing is listed', not left, str(left)))
 
         def hand_written(repo):
-            (repo / 'MAP.md').write_text('# Map\n\n' + old + '\n',
+            (repo / 'MAP.md').write_text('# Map\n\n' + old + '\n' + own,
                                          encoding='utf-8')
         left = left_for(hand_written)
         cases.append(('a hand-written MAP.md is the repo\'s own and still read',
@@ -83149,6 +84000,16 @@ def main():
     check_update_in_force_nowhere_asks_once()
     check_update_repoints_moved_engine_commands()
     check_update_vendors_dropped_wording_reads_placeholders_filled()
+    check_update_takes_an_untouched_install_copy()
+    check_refresh_replaces_a_past_individual_hook_rendering()
+    check_refresh_names_an_in_place_hook_no_engine_path_keeps()
+    check_retired_mentions_skip_what_the_repo_receives()
+    check_second_pass_drops_a_first_pass_unshipped_workflow_call()
+    check_update_says_once_that_commands_moved_to_an_undeclared_set()
+    check_retired_words_reads_past_the_decommission_ledger()
+    check_bootstrapping_a_set_reaches_no_network_unless_asked()
+    check_parallels_table_holds_a_shipped_hook_this_repo_does_not_run()
+    check_update_noise_template_lines_and_a_secret_never_had()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
