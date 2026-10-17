@@ -8867,6 +8867,104 @@ def check_very_deep_check_warnings_are_judged_not_just_counted():
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
+def check_very_deep_check_token_budgets_are_shown_and_fire_tested():
+    """very_deep_check.py's TOKEN BUDGETS section: every budget gets a row
+    with its number whether or not it is over; a limit above the person's
+    approved max is NOT APPROVED; a repo's own check that reports a planted
+    overage is 'fired', one that passes it is 'DID NOT FIRE', one already
+    red unplanted is 'not run'; and the write-up gets one `## Token budgets`
+    block that a second write replaces.
+
+    Added 2026-10-17 with the section (Morgan: "even if they all pass,
+    share the exact numbers, the limits ... in the very deep check
+    document"). The fixture repo and its stand-in precedent_check.py are
+    built here (practice: fixture-owns-its-state); each case asserts the
+    tool's own words (practice: control-asserts-which-failure)."""
+    import io, shutil, subprocess, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+
+    honest = (
+        "import json, pathlib, sys\n"
+        "root = pathlib.Path(__file__).resolve().parent.parent\n"
+        "reg = json.loads((root / 'tools' / 'session_load_budgets.json').read_text())\n"
+        "n = int(len((root / 'AGENTS.md').read_text().split()) * 1.3)\n"
+        "slug = sys.argv[sys.argv.index('--only') + 1]\n"
+        "bad = {'session-load-budget': n > reg['surfaces']['AGENTS.md']['ceiling'],\n"
+        "       'budget-within-approval': reg['surfaces']['AGENTS.md']['ceiling'] >\n"
+        "           reg['approved_budgets']['surfaces/AGENTS.md']['max'],\n"
+        "       'loader-within-caps': reg.get('resident_block_tokens', 9) < 5}.get(slug, False)\n"
+        "print(f'precedent_check: {0 if bad else 1} passed, {1 if bad else 0} violated, 0 advisory')\n")
+    blind = "print('precedent_check: 1 passed, 0 violated, 0 advisory')\n"
+    red = "print('precedent_check: 0 passed, 1 violated, 0 advisory')\n"
+
+    def make(tmp, engine, ceiling=100, approved=100):
+        (tmp / 'tools').mkdir(parents=True)
+        (tmp / 'spec').mkdir()
+        (tmp / 'AGENTS.md').write_text(' '.join(['word'] * 40) + '\n', encoding='utf-8')
+        (tmp / 'tools' / 'session_load_budgets.json').write_text(json.dumps({
+            'resident_block_tokens': 100,
+            'surfaces': {'AGENTS.md': {'ceiling': ceiling}},
+            'approved_budgets': {'surfaces/AGENTS.md': {'max': approved}}}), encoding='utf-8')
+        (tmp / 'tools' / 'precedent_check.py').write_text(engine, encoding='utf-8')
+        (tmp / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md').write_text('# Run\n\nBody.\n', encoding='utf-8')
+        for cmd in (['init', '-q'], ['add', '-A'],
+                    ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'x']):
+            subprocess.run(['git', '-C', str(tmp)] + cmd, check=True, capture_output=True)
+
+    cases, tmps = [], []
+    try:
+        def fresh():
+            t = pathlib.Path(tempfile.mkdtemp(prefix='vdc-budgets-')) / 'r'
+            tmps.append(t.parent)
+            return t
+        a = fresh(); make(a, honest)
+        rows = vdc.budget_rows(a, 'a')
+        agents = [r for r in rows if r['what'] == 'AGENTS.md']
+        cases.append(('a passing budget still gets its row, number and limit',
+                      len(agents) == 1 and agents[0]['measured'] == 52 and agents[0]['limit'] == 100
+                      and vdc._budget_status(agents[0]) == 'ok', repr(rows)))
+        cases.append(('within the headroom floor is near',
+                      vdc._budget_status(dict(agents[0], measured=97)) == 'near', ''))
+        cases.append(('over the limit is OVER',
+                      vdc._budget_status(dict(agents[0], measured=101)).startswith('OVER'), ''))
+        cases.append(('a limit above the approved max is NOT APPROVED',
+                      'NOT APPROVED' in vdc._budget_status(dict(agents[0], limit=150)), ''))
+        fires = {f[1]: f[3] for f in vdc.budget_fire_test(a, 'a')}
+        cases.append(('an honest check fires on every plant it can carry',
+                      fires.get('AGENTS.md ceiling lowered under its size') == 'fired'
+                      and fires.get('AGENTS.md ceiling raised 5,000 with no approval') == 'fired'
+                      and fires.get('resident-block cap lowered under its size') == 'fired', repr(fires)))
+        cases.append(('a plant with no budget to plant on is not run, never fired',
+                      fires.get('session-file ceiling lowered under its size') == 'not run', repr(fires)))
+        wt = subprocess.run(['git', '-C', str(a), 'worktree', 'list'], capture_output=True, text=True).stdout
+        cases.append(('the throwaway worktree is gone afterwards', wt.count('\n') == 1, wt))
+        b = fresh(); make(b, blind)
+        fires_b = {f[1]: f[3] for f in vdc.budget_fire_test(b, 'b')}
+        cases.append(('a check that passes a planted overage is DID NOT FIRE',
+                      fires_b.get('AGENTS.md ceiling lowered under its size') == 'DID NOT FIRE', repr(fires_b)))
+        c = fresh(); make(c, red)
+        fires_c = {f[1]: (f[3], f[4]) for f in vdc.budget_fire_test(c, 'c')}
+        got = fires_c.get('AGENTS.md ceiling lowered under its size')
+        cases.append(('a check already red unplanted proves nothing: not run',
+                      got and got[0] == 'not run' and 'unplanted' in got[1], repr(fires_c)))
+        vdc.token_budgets_section([('a', a)], a, fire=False, out=io.StringIO())
+        vdc.token_budgets_section([('a', a)], a, fire=False, out=io.StringIO())
+        body = (a / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md').read_text(encoding='utf-8')
+        cases.append(('the write-up gets one ## Token budgets block with the numbers, even all passing',
+                      body.count('## Token budgets') == 1 and '| 52 | 100 | 52% |' in body
+                      and body.startswith('# Run\n\nBody.\n'), body))
+    finally:
+        for t in tmps:
+            shutil.rmtree(t, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'very_deep_check.py\'s TOKEN BUDGETS shows every number and proves the checks fire '
+          f'({len(cases)} stated cases: rows, near, over, unapproved, fired, not run, '
+          f'did not fire, cleanup, write-up block)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
 def check_build_views_summary_matches_what_it_wrote():
     """build_views.py's summary line reports the block it actually wrote.
 
@@ -80951,6 +81049,7 @@ def main():
     check_boundary_check_never_passes_unread()
     check_very_deep_check_boundary_audit_reads_the_setting()
     check_very_deep_check_warnings_are_judged_not_just_counted()
+    check_very_deep_check_token_budgets_are_shown_and_fire_tested()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
