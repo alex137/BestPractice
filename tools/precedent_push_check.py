@@ -101,8 +101,10 @@ window instead of one. PRECEDENT_NO_SHARED_PASS=1 turns
 both halves off.
 
 TWO TIERS, BY BRANCH (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
-strength: decided). A push to staging or main runs every check below -- the
-FULL tier. A push to pre-staging or any other branch runs only the BASIC
+strength: decided). Since 2026-10-17 a push to main, and to staging for a
+person who lands there, runs only the BASIC tier, and the FULL tier runs at
+the Debut and after the push into main (Morgan: "the full tests should
+happen after that"). A push to any other branch runs only the BASIC
 tier: the markdown lint, the leak gate (pushing any branch of a public
 repository publishes it) and the commit-author checks, seconds rather than
 minutes. The person's `branch_push_checks` setting can raise the other
@@ -2355,8 +2357,9 @@ def main(argv):
               f'({why}).', flush=True)
     else:
         print(f'precedent_push_check: {kind} repository {root.name}, the '
-              f'basic check, {len(checks)} check(s) ({why}). Staging and main '
-              f'get everything.', flush=True)
+              f'basic check, {len(checks)} check(s) ({why}). The full suite '
+              f'runs at the Debut, and after a push or Produce into main.',
+              flush=True)
     # The tree is read BEFORE the run as well as after, and a pass is
     # recorded only when the two agree. Read only afterwards, a commit made
     # while the suite ran was credited with a pass the suite never gave it:

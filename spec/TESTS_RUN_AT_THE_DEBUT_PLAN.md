@@ -89,3 +89,9 @@ reaches, when someone asks for it.
   25). Its first reading found a consumer's own approved workflow checks
   running before every push, outside `BASIC_CHECKS` where the closing
   could not see them; they moved to the full tier the same day.
+- **A push to main takes the quick checks too** (Morgan, 2026-10-17,
+  strength: decided: "remove, the full tests should happen after that").
+  The pre-push gate and the merge gate for a pull request into main run
+  the basic tier; the full suite runs after, as GitHub's test or
+  `--run-tests main` where that is not due. Produce's `--full` route still
+  runs it first, on the person's own words.

@@ -39050,7 +39050,7 @@ def check_branch_tiers():
     staging or main. A branch the repository still calls by its pre-rename
     name (`base_branch`) is staging and must be full too."""
     import tempfile, json as _json
-    name = 'branch tiers: staging and main full, other branches basic by default'
+    name = 'branch tiers: main and a landing staging take the quick checks, other branches basic by default'
     tool = ROOT / 'tools' / 'precedent_branches.py'
     if not tool.exists():
         not_applicable(name, 'tools/precedent_branches.py is absent')
@@ -39086,7 +39086,8 @@ def check_branch_tiers():
 
         cases.append(('pre-staging is basic by default', tier('pre-staging') == 'basic'))
         cases.append(('a working branch is basic by default', tier('claude/x') == 'basic'))
-        cases.append(('main is full', tier('main') == 'full'))
+        cases.append(('main takes the quick checks; its full suite runs after '
+                      'the push (2026-10-17)', tier('main') == 'basic'))
         cases.append(('staging is full', tier('staging') == 'full'))
         cases.append(("the repo's declared base_branch (staging before the "
                       "rename) is full", tier('precedent-beta-v01') == 'full'))
@@ -39103,8 +39104,8 @@ def check_branch_tiers():
                       tier('claude/x', str(cfg)) == 'full'))
         (indiv / 'identity.json').write_text(_json.dumps(
             {'email': 'p@example.com', 'branch_push_checks': 'basic'}), encoding='utf-8')
-        cases.append(('nothing the setting says lowers main',
-                      tier('main', str(cfg)) == 'full'))
+        cases.append(('nothing the setting says raises main before the push',
+                      tier('main', str(cfg)) == 'basic'))
         (repo / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'precedent-beta-v01', 'branch_push_checks': 'full'}),
             encoding='utf-8')
@@ -39200,8 +39201,8 @@ def check_branch_tiers():
                       targets('origin v1:refs/tags/v1') is None))
         cases.append(('an unreadable push is checked fully',
                       pb.tier_for_push(repo, '--all', nocfg)[0] == 'full'))
-        cases.append(('a push naming a working branch and main is checked '
-                      'fully', pb.tier_for_push(repo, 'origin feat main', nocfg)[0] == 'full'))
+        cases.append(('a push naming a working branch and main takes the quick '
+                      'checks', pb.tier_for_push(repo, 'origin feat main', nocfg)[0] == 'basic'))
         subprocess.run(['git', '-C', str(repo), 'checkout', '-q', '--detach'],
                        capture_output=True, env=env)
         cases.append(('a bare push from a detached HEAD cannot be read',
@@ -39218,9 +39219,10 @@ def check_merge_check_gate():
 
     The fixture is a local "origin" carrying refs/pull/N/head and
     refs/pull/N/merge the way GitHub does. The cases that matter are the
-    ones that would land unchecked work: a pull request into main must get
-    the full check; a base that cannot be matched must get it too; and a
-    base branch sitting at the same commit as main -- exactly how
+    ones that would land unchecked work: a pull request into a fully checked
+    branch (staging, for a person who does not land there) must get the full
+    check; a base that cannot be matched must get it too; and a base branch
+    sitting at the same commit as that branch -- exactly how
     AGENTS.md's merge-target rule began, and how this check's first live
     run misread a real pull request -- must not be mistaken for the
     working branch alone."""
@@ -39285,6 +39287,16 @@ def check_merge_check_gate():
         git(work, 'commit', '-q', '-m', 'init')
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
         git(work, 'push', '-q', 'origin', 'main')
+        # Since 2026-10-17 a pull request into main takes the quick checks
+        # and its full suite runs after the merge (Morgan: "the full tests
+        # should happen after that"); staging, for a person who does not
+        # land on it, is the fully checked base these cases use.
+        git(work, 'checkout', '-q', '-b', 'staging')
+        (work / 'staging.txt').write_text('staging', encoding='utf-8')
+        git(work, 'add', 'staging.txt')
+        git(work, 'commit', '-q', '-m', 'staging')
+        git(work, 'push', '-q', 'origin', 'staging')
+        git(work, 'checkout', '-q', 'main')
         # A base branch of its own, one commit past main.
         git(work, 'checkout', '-q', '-b', 'fb')
         (work / 'fb.txt').write_text('fb', encoding='utf-8')
@@ -39312,7 +39324,8 @@ def check_merge_check_gate():
             git(work, 'push', '-q', 'origin', f'merge{number}:refs/pull/{number}/merge')
             git(work, 'checkout', '-q', 'main')
 
-        pull(7, 'main', 'precedent_check')
+        pull(7, 'staging', 'precedent_check')
+        pull(6, 'main', 'precedent_check')
         pull(8, 'fb', 'precedent_check')
         pull(9, 'fb', 'leak_gate')
         # 10: a test merge whose first parent is no branch's tip.
@@ -39325,7 +39338,7 @@ def check_merge_check_gate():
         # origin lists it BEFORE main -- the order that made this check's
         # first live run read a pull request into the staging branch as one
         # into a working branch.
-        git(work, 'push', '-q', 'origin', 'main:aaa-topic')
+        git(work, 'push', '-q', 'origin', 'staging:aaa-topic')
 
         def gate(payload, project=work):
             p = subprocess.run(['bash', str(hook)], input=_json.dumps(payload),
@@ -39339,14 +39352,18 @@ def check_merge_check_gate():
                                         'pullNumber': number},
                          'cwd': str(work)})
 
+        denied, out = mcp(6)
+        cases.append(('a pull request into main gets the quick check, so a '
+                      'full-only failure is let through for the full suite '
+                      'after the merge', not denied and '(basic)' in out))
         denied, out = mcp(7)
-        cases.append(('a pull request into main gets the full check, and a '
+        cases.append(('a pull request into staging gets the full check, and a '
                       'failing full-only check refuses the merge',
                       denied and 'merge check REFUSED' in out
                       and 'precedent_check' in out))
         lock_log = lambda: git(bare, 'log', '--format=%s', 'precedent-promote-lock').stdout
         held_log = lock_log()
-        cases.append(('...main was held still while that check ran: the gate '
+        cases.append(('...staging was held still while that check ran: the gate '
                       'claimed the Promote lock for the landing and freed it '
                       'after', 'landing pull request #7 into' in held_log
                       and held_log.splitlines()[0] == 'free [skip ci]'))
@@ -39361,9 +39378,9 @@ def check_merge_check_gate():
         denied, out = mcp(10)
         cases.append(('a base that matches no branch on origin is checked '
                       'fully', denied and 'unmatched base' in out))
-        pull(11, 'main', 'precedent_check')
+        pull(11, 'staging', 'precedent_check')
         denied, out = mcp(11)
-        cases.append(('a base sitting at the same commit as main is checked '
+        cases.append(('a base sitting at the same commit as staging is checked '
                       'fully, not read as the working branch alone',
                       denied and 'precedent_check' in out))
         denied, out = gate({'tool_name': 'Bash',
@@ -39395,7 +39412,7 @@ def check_merge_check_gate():
                     'held by another window [skip ci]').stdout.strip()
         git(work, 'push', '-q', 'origin', f'{claim}:refs/heads/precedent-promote-lock')
         denied, out = mcp(7)
-        cases.append(('while another window holds main, a merge into it is '
+        cases.append(('while another window holds staging, a merge into it is '
                       'refused at once, naming the holder, and no check starts',
                       denied and 'held by another window' in out
                       and 'out of date' in out
@@ -39425,55 +39442,55 @@ def check_merge_check_gate():
             return git(bare, 'rev-parse', ref).stdout.strip()
 
         # 12: nothing moves between the check and the merge.
-        pull(12, 'main', '')
+        pull(12, 'staging', '')
         denied, out = mcp(12)
         merge12 = git(work, 'rev-parse', 'merge12').stdout.strip()
-        git(work, 'push', '-q', 'origin', 'merge12:main')
+        git(work, 'push', '-q', 'origin', 'merge12:staging')
         stdout, out = landed(12, merge12)
         cases.append(('after a merge where nothing moved, what landed is the tree '
                       'the gate passed: its pass is reused and nothing is said',
                       not denied and not stdout.strip() and 'as checked' in out))
-        # 13: main moves in the gap to a commit that makes the merge fail.
+        # 13: staging moves in the gap to a commit that makes the merge fail.
         git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'head13', 'origin/main')
+        git(work, 'checkout', '-q', '-B', 'head13', 'origin/staging')
         (work / 'pr13.txt').write_text('pr13', encoding='utf-8')
         git(work, 'add', 'pr13.txt')
         git(work, 'commit', '-q', '-m', 'pr 13')
         git(work, 'push', '-q', 'origin', 'head13:refs/pull/13/head')
-        git(work, 'checkout', '-q', '-B', 'gap', 'origin/main')
+        git(work, 'checkout', '-q', '-B', 'gap', 'origin/staging')
         (work / 'FAIL').write_text('precedent_check', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'another window lands in the gap')
-        git(work, 'push', '-q', 'origin', 'gap:main')
+        git(work, 'push', '-q', 'origin', 'gap:staging')
         git(work, 'checkout', '-q', '-B', 'merge13', 'gap')
         git(work, 'merge', '-q', '--no-ff', '-m', 'merge 13', 'head13')
         merge13 = git(work, 'rev-parse', 'merge13').stdout.strip()
-        git(work, 'push', '-q', 'origin', 'merge13:main')
+        git(work, 'push', '-q', 'origin', 'merge13:staging')
         git(work, 'checkout', '-q', 'main')
         stdout, out = landed(13, merge13)
-        after = tip('main')
-        cases.append(('after a merge where main moved in the gap and what landed '
+        after = tip('staging')
+        cases.append(('after a merge where staging moved in the gap and what landed '
                       'fails its full check, the session is told',
                       '"block"' in stdout and 'MOVED' in out and 'FAILED' in out))
-        cases.append(('...and main is put back to the tree the other window '
+        cases.append(('...and staging is put back to the tree the other window '
                       'landed, by a new commit on top of the merge',
                       after != merge13
-                      and git(bare, 'rev-parse', 'main^{tree}').stdout
+                      and git(bare, 'rev-parse', 'staging^{tree}').stdout
                       == git(work, 'rev-parse', 'gap^{tree}').stdout
-                      and git(bare, 'rev-parse', 'main^').stdout.strip() == merge13))
+                      and git(bare, 'rev-parse', 'staging^').stdout.strip() == merge13))
         cases.append(('...while the pull request\'s own branch keeps the work',
                       tip('refs/pull/13/head') == git(work, 'rev-parse', 'head13').stdout.strip()))
-        # The same failure, with main moved on again: never reverted over it.
+        # The same failure, with staging moved on again: never reverted over it.
         git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'later', 'origin/main')
+        git(work, 'checkout', '-q', '-B', 'later', 'origin/staging')
         (work / 'later.txt').write_text('later', encoding='utf-8')
         git(work, 'add', 'later.txt')
         git(work, 'commit', '-q', '-m', 'yet another landing')
-        git(work, 'push', '-q', 'origin', 'later:main')
+        git(work, 'push', '-q', 'origin', 'later:staging')
         git(work, 'checkout', '-q', 'main')
-        moved_on = tip('main')
+        moved_on = tip('staging')
         stdout, out = landed(13, merge13)
         cases.append(('a base that moved on past the merge is reported, never '
-                      'reverted over', tip('main') == moved_on and 'NOT reverted' in out))
+                      'reverted over', tip('staging') == moved_on and 'NOT reverted' in out))
         stdout, out = subprocess.run(
             ['bash', str(hook)], text=True, capture_output=True, timeout=60,
             input=_json.dumps({'hook_event_name': 'PostToolUse',
@@ -68544,9 +68561,9 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
                       'promote_only is on' in why and '--land' in why
                       and '--promote --to main`' in why
                       and '--full' not in why, why[:200]))
-        cases.append(('a push to staging takes the quick checks; main stays full',
+        cases.append(('a push to staging or main takes the quick checks',
                       pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'basic'
-                      and pb.tier_for_branch(work, 'main', str(cfg))[0] == 'full'))
+                      and pb.tier_for_branch(work, 'main', str(cfg))[0] == 'basic'))
         cases.append(('a pull request into staging carrying main is merged',
                       merge_why(['staging'], ['level'],
                                 git(work, 'rev-parse', 'HEAD').stdout.strip()) is None))

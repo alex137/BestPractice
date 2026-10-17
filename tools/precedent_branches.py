@@ -382,7 +382,20 @@ def branch_push_checks(root, user_config=None):
 def tier_for_branch(root, branch, user_config=None):
     """-> (tier, why) for a push to `branch`. Staging takes the quick checks
     for a person who lands work straight on it (lands_on_staging): the
-    full suite is theirs to ask for with --run-tests. Main never does."""
+    full suite is theirs to ask for with --run-tests.
+
+    MAIN TAKES THE QUICK CHECKS TOO, and the full suite runs after the push
+    (Morgan, 2026-10-17, strength: decided: "remove, the full tests should
+    happen after that"; 2026-10-16: "all the testing EXCEPT THE BARE
+    ESSENTIAL AND LEAK GATES SHOULD GO INTO DEBUT, AND THE GITHUB TEST AFTER
+    THE NEXT PRODUCE"). This reaches the pre-push gate and the merge gate for
+    a pull request into main; Produce's --full route still runs the full
+    suite first, on the person's own words."""
+    if branch == MAIN:
+        return BASIC, (f'a push to {MAIN} gets the quick checks; the full suite '
+                       f'runs after it -- GitHub\'s test, or `python3 '
+                       f'tools/precedent_branches.py --run-tests {MAIN}` where '
+                       f'that is not due')
     if branch in full_branches(root):
         if branch != MAIN and branch == staging_branch(root):
             quick, lwhy = lands_on_staging(root, user_config)

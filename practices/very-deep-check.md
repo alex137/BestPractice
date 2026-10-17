@@ -1343,7 +1343,11 @@ confidently.
     before it pushes to staging or main (a route taken only on the
     person's own words, like Produce's `--full`, is listed and not
     flagged), a plain push to either that the push gate checks fully, and a
-    per-file step that starts a test.
+    per-file step that starts a test. A route of pre-staging, retired for
+    everyone on 2026-10-14, is reported as retired code to delete, and so
+    is any mention of pre-staging the run finds: it is fixed to assume the
+    retirement (Morgan, 2026-10-17: "any mention of pre-staging it finds
+    should be fixed to assume its deprecation").
 
     **Fix each violation in this pass**: move the check to the full tier,
     or make the move run the quick tier before it pushes. Only the person's
