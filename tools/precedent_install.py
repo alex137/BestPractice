@@ -411,10 +411,32 @@ def _ci_preference(dest):
     return False, f"github_ci_workflows: {shown} ({pref['source']})"
 
 
-def _substitute(text, subs):
+_HTML_COMMENT = re.compile(r'<!--.*?-->', re.S)
+
+
+def _substitute(text, subs, outside_comments=False):
+    """Replace each placeholder. With outside_comments, text inside an
+    HTML comment is left as written: a template's comment that NAMES a
+    placeholder ("`<upstream-docs>` IS ONE OF THOSE PLACEHOLDERS") is
+    explaining itself to the installer, and filled in it read as nonsense
+    (very deep check, 2026-10-17)."""
+    if outside_comments:
+        parts, last = [], 0
+        for m in _HTML_COMMENT.finditer(text):
+            parts.append(_substitute(text[last:m.start()], subs))
+            parts.append(m.group(0))
+            last = m.end()
+        parts.append(_substitute(text[last:], subs))
+        return ''.join(parts)
     for old, new in subs.items():
         text = text.replace(old, new)
     return text
+
+
+def _blank_comments(text):
+    """-> `text` with every HTML comment's content blanked, line breaks
+    kept, so a line number still points at the same line."""
+    return _HTML_COMMENT.sub(lambda m: re.sub(r'[^\n]', ' ', m.group(0)), text)
 
 
 _CI_PARAGRAPH_ON = (
@@ -490,7 +512,7 @@ def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_en
             skipped.append(name)
             continue
         text = (TEMPLATES / tmpl).read_text(encoding='utf-8')
-        text = _substitute(text, common)
+        text = _substitute(text, common, outside_comments=True)
         text = _substitute(text, per_file.get(name, {}))
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding='utf-8')
@@ -531,10 +553,19 @@ def _readme(dest, project, about):
         # After the first heading and the paragraph under it, so a reader
         # learns what the project is before how it is maintained
         # (practice: lead-with-what-it-is). No heading: at the top.
+        # The blank line under the title is skipped first: stopping at it
+        # put the block between a title and its description, the common
+        # shape of a README (2026-10-17, install rehearsal). A second
+        # heading right under the title has no paragraph to wait for.
         insert_at = 0
         if lines and lines[0].startswith('#'):
             insert_at = 1
-            while insert_at < len(lines) and lines[insert_at].strip():
+            while insert_at < len(lines) and not lines[insert_at].strip():
+                insert_at += 1
+            if insert_at < len(lines) and lines[insert_at].startswith('#'):
+                insert_at = 1
+            while insert_at < len(lines) and lines[insert_at].strip() \
+                    and not lines[insert_at].startswith('#'):
                 insert_at += 1
         new = ''.join(lines[:insert_at]) + '\n' + block + '\n' + ''.join(lines[insert_at:])
         readme.write_text(new, encoding='utf-8')
@@ -743,7 +774,10 @@ def _placeholders_left(dest, names):
         p = dest / name
         if not p.is_file():
             continue
-        for n, line in enumerate(p.read_text(encoding='utf-8').splitlines(), 1):
+        # Not inside a comment: a comment that names a placeholder
+        # ("Replace <angle-bracket> placeholders ...") renders nowhere and
+        # is not one to adapt (2026-10-17).
+        for n, line in enumerate(_blank_comments(p.read_text(encoding='utf-8')).splitlines(), 1):
             for m in _PLACEHOLDER.finditer(line):
                 tok = m.group(0)
                 if _HTML_LIKE.match(tok) or tok in ('<undecided>',):

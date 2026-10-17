@@ -30082,6 +30082,143 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_install_rehearsal_small_findings_2026_10_17():
+    """The small findings of the 2026-10-17 install rehearsal, one stated
+    case each: the installer leaves a template comment that NAMES a
+    placeholder as written and does not list it as one to adapt; the
+    README entry block goes under a title's description, not between the
+    two; practice_audit's not-applicable line in a consumer does not call
+    it the upstream repo; the access check does not count the vendored
+    universal catalogue as another repository; the CI cadence row never
+    says "every push runs CI"; and the freshness guard tells a repository
+    with no origin to add one, not to fetch from it.
+
+    Decisions chosen by the session under Morgan's delegation of 2026-10-17
+    ("Fix the other issues you found including the checks that never run.
+    Tell me what you decide. I will be offline so don't wait for me.
+    Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: every case fails on the code
+    before the fix.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+        import precedent_access_check as pac
+        import precedent_session_check as psck
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rehearsal-small-'))
+    genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    try:
+        # 1. Placeholders named inside a comment.
+        tpl = ('<!-- `<upstream-docs>` IS ONE OF THOSE PLACEHOLDERS.\n'
+               '     Replace <angle-bracket> placeholders. -->\n'
+               '[A](<upstream-docs>/x.md) and <their city>\n')
+        try:
+            out = pi._substitute(tpl, {'<upstream-docs>': 'https://u'}, outside_comments=True)
+        except TypeError:                 # an installer with no such switch
+            out = pi._substitute(tpl, {'<upstream-docs>': 'https://u'})
+        cases.append(('a comment naming a placeholder keeps its words; the text outside is filled',
+                      '`<upstream-docs>` IS ONE OF' in out and '[A](https://u/x.md)' in out,
+                      out))
+        d = tmp / 'ph'
+        d.mkdir()
+        (d / 'A.md').write_text(out, encoding='utf-8')
+        left = pi._placeholders_left(d, ['A.md'])
+        cases.append(('a placeholder named inside a comment is not listed as one to adapt',
+                      left == ['A.md:3: <their city>'], str(left)))
+        # 2. README block under the description.
+        r = tmp / 'readme'
+        r.mkdir()
+        (r / 'README.md').write_text('# Bird Notes\n\nA newsletter about birds.\n',
+                                     encoding='utf-8')
+        pi._readme(r, 'Bird Notes', None)
+        text = (r / 'README.md').read_text(encoding='utf-8')
+        cases.append(('the README entry block goes under the description, not between it '
+                      'and the title',
+                      text.index('A newsletter about birds.') < text.index('bestpractice-agent-entry'),
+                      text[:200]))
+        # 3. practice_audit's not-applicable line in a consumer.
+        pa = tmp / 'consumer' / 'tools'
+        shutil.copytree(ROOT / 'tools', pa, ignore=shutil.ignore_patterns(
+            '__pycache__', 'verify_harness.py', '*.json'))
+        ra = subprocess.run([sys.executable, str(pa / 'practice_audit.py')], capture_output=True,
+                            text=True, cwd=str(pa.parent), timeout=120)
+        said = ra.stdout + ra.stderr
+        cases.append(("practice_audit's not-applicable line does not call a consumer the "
+                      'upstream repo', 'NOT APPLICABLE' in said
+                      and 'upstream repo itself' not in said
+                      and 'installed onto the loader' in said, said[-300:]))
+        # 4. The access check's targets.
+        c = tmp / 'access'
+        subprocess.run(['git', 'init', '-q', str(c)], capture_output=True)
+        (c / 'precedent' / 'universal' / 'practices').mkdir(parents=True)
+        shared = tmp / 'shared-set'
+        (shared / 'practices').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(shared)], capture_output=True)
+        (c / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'},
+            {'level': 'shared', 'name': 'shared-set', 'path': '../shared-set'},
+            {'level': 'repo-local', 'name': 'local', 'path': 'local'}]}), encoding='utf-8')
+        _saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+        try:
+            got = [label for label, _p in pac.targets(str(c))]
+        finally:
+            if _saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = _saved
+        cases.append(('the vendored universal catalogue is this checkout, not one more repo '
+                      'to answer for; a sibling set still is',
+                      'this checkout' in got and "shared source 'shared-set'" in got
+                      and not any(l.startswith('universal') for l in got), str(got)))
+        # 5. The CI cadence row's words.
+        q = tmp / 'cadence'
+        subprocess.run(['git', 'init', '-q', str(q)], capture_output=True)
+        (q / 'precedent.json').write_text(json.dumps({'base_branch': 'main'}), encoding='utf-8')
+        saved_root, saved_cfg = psck.ROOT, os.environ.get('PRECEDENT_USER_CONFIG')
+        try:
+            psck.ROOT = q
+            os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+            row = psck._ci_cadence_row()
+        finally:
+            psck.ROOT = saved_root
+            if saved_cfg is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
+        cases.append(('the CI cadence row says what it decides ([skip ci]), never that every '
+                      'push runs CI', 'every push runs CI' not in row[2]
+                      and '[skip ci]' in row[2], str(row)))
+        # 6. The freshness guard in a repository with no origin.
+        g = tmp / 'no-origin'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(g)], capture_output=True)
+        subprocess.run(['git', '-C', str(g), 'commit', '-q', '--allow-empty', '-m', 'i'],
+                       capture_output=True, env=genv)
+        sent = tmp / 'sentinels'
+        sent.mkdir()
+        rg = subprocess.run(['bash', str(ROOT / 'tools' / 'freshness-guard.sh'), 'pre-write', 'main'],
+                            input=json.dumps({'session_id': 'no-origin-fixture',
+                                              'tool_name': 'Write',
+                                              'tool_input': {'command': ''}}),
+                            env=dict(genv, TMPDIR=str(sent), CLAUDE_PROJECT_DIR=str(g)),
+                            capture_output=True, text=True, cwd=str(g), timeout=120)
+        cases.append(('the freshness guard tells a repository with no origin to add one, not '
+                      'to fetch from it', 'no origin yet' in rg.stderr
+                      and 'git remote add origin' in rg.stderr
+                      and 'Run: git fetch origin' not in rg.stderr, rg.stderr[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_leak_gate_note_says_when_no_private_list_is_declared():
     """With no private blocklist declared anywhere -- no individual set in
     the user config, no requireVocabulary, no private source in
@@ -70836,9 +70973,12 @@ def check_installer_produces_a_clean_install():
         cases.append(('AGENTS.md carries the generated loader block with the resident set in it',
                       bv.BEGIN_MARKER in agents and 'verify-postcondition' in agents, agents[:300]))
         gs = (proj / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj / 'GETTING_STARTED.md').is_file() else ''
+        # Outside comments: a comment that NAMES the placeholder keeps its
+        # words since 2026-10-17 (precedent_install._substitute).
         cases.append(('GETTING_STARTED.md has the project name and the administrator filled in, '
                       'and no dead upstream-docs placeholder',
-                      'Field Notes' in gs and '@dana' in gs and '<upstream-docs>' not in gs,
+                      'Field Notes' in gs and '@dana' in gs
+                      and '<upstream-docs>' not in re.sub(r'<!--.*?-->', '', gs, flags=re.S),
                       gs[:400]))
         # No individual source resolves here (PRECEDENT_USER_CONFIG points at
         # a file that does not exist), so ci_preference() has nothing to read
@@ -82721,6 +82861,8 @@ def main():
           *check_bootstrap_says_the_python_warning_once())
     check('the leak gate says no private list is declared when none is',
           *check_leak_gate_note_says_when_no_private_list_is_declared())
+    check("the 2026-10-17 install rehearsal's small findings stay fixed",
+          *check_install_rehearsal_small_findings_2026_10_17())
     check("a local session's commit identity leaves the laptop's global git config alone",
           *check_commit_identity_leaves_a_laptops_global_config_alone())
     check_endgame_merge_finds_the_silent_drop()

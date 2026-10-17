@@ -5814,7 +5814,8 @@ def _engine_plus_host_shims(ctx):
         raise NotApplicable('this repo vendors no upstream tree at '
                             'process/upstream/, so there is no engine/shim '
                             'boundary to hold. This is the expected state in '
-                            'the upstream repo itself')
+                            'Precedent itself and in any project installed '
+                            'onto the loader (INSTALL.md section 0)')
     # A copy the ENGINE MANIFEST records is not a fork. This check's whole
     # concern is a duplicate that drifts unnoticed, and
     # precedent_vendor_engine.py exists to make exactly these copies

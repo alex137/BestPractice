@@ -1199,8 +1199,14 @@ def _ci_cadence_row():
         v, bwhere = _personal('on_branches')
         branches = v is not False
     if not hours and branches:
-        return (name, True, f'every push runs CI (github_ci_every_hours is 0, from '
-                            f'{where}; github_ci_on_branches is true, from {bwhere})')
+        # "every push runs CI" was said here until 2026-10-17, which no
+        # push has done since the workflows moved to a pull request into
+        # main: this row decides only whether the commit hook adds
+        # [skip ci], and the workflows' own triggers decide the rest.
+        return (name, True, f'no commit is held back from CI by [skip ci] '
+                            f'(github_ci_every_hours is 0, from {where}; '
+                            f'github_ci_on_branches is true, from {bwhere}); '
+                            f'what runs is whatever the workflows trigger on')
     asked = []
     if hours:
         asked.append(f'github_ci_every_hours is {hours:g} (from {where})')
@@ -1208,11 +1214,11 @@ def _ci_cadence_row():
         asked.append(f'github_ci_on_branches is false (from {bwhere})')
     asked = ' and '.join(asked)
     if cfg.get('visibility') != 'private':
-        return (name, True, f'every push runs CI: {asked}, but this repo does '
+        return (name, True, f'no [skip ci] is added: {asked}, but this repo does '
                             f'not declare "visibility": "private"')
     base = cfg.get('base_branch')
     if not isinstance(base, str) or not base:
-        return (name, True, f'every push runs CI: {asked}, but this repo '
+        return (name, True, f'no [skip ci] is added: {asked}, but this repo '
                             f'declares no base_branch to apply it on')
     rc, hooks, _ = _git('config', '--get', 'core.hooksPath')
     if rc != 0 or not hooks:
@@ -1221,15 +1227,15 @@ def _ci_cadence_row():
     cad = pathlib.Path(hooks).expanduser() / 'precedent-ci-cadence' if hooks else None
     if not (cad and os.access(cad, os.X_OK)):
         return (name, False, f'{asked}, but no precedent-ci-cadence script '
-                             f'sits beside the commit hooks here, so every '
-                             f'push still runs CI. commit-identity.sh writes '
+                             f'sits beside the commit hooks here, so no '
+                             f'commit gets [skip ci]. commit-identity.sh writes '
                              f'it at session start, and only for a declared '
                              f'identity')
     on_base = (f'CI runs at most once every {hours:g}h (from {where})'
-               if hours else 'every push runs CI')
+               if hours else 'no [skip ci] on it')
     on_other = ('other branches never run CI (github_ci_on_branches false, from '
-                f'{bwhere})' if not branches else 'other branches run CI on '
-                'every push')
+                f'{bwhere})' if not branches else 'other branches get no '
+                '[skip ci]')
     return (name, True, f'private, primary branch {base}: {on_base}; '
                         f'{on_other}. PRECEDENT_CI_NOW=1 git commit ... '
                         f'forces a run')

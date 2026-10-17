@@ -301,8 +301,9 @@ nothing to choose here — this page installs §0, always.
       [CLOUD_SETUP.md](documentation/CLOUD_SETUP.md); the full list of every variable and
       what each does is [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md).
 
-   Put the same six into `GETTING_STARTED.md` so they are findable after
-   this conversation closes.
+   The installed `GETTING_STARTED.md` already carries the same six, under
+   "Settings Only You Can Turn On": check they are there, so they stay
+   findable after this conversation closes.
 8. **Hand them the keys.** Close by telling them three things: members are
    onboarded by saying **"Add project members"** to the project's agent
    (the installed instructions file teaches every future session how to
