@@ -26,7 +26,7 @@ means a project's folder of files, kept on GitHub.
 | **in force** | A practice that actually applies here, right now. |
 | **decided** | How a decision was made: the person running the session actively wanted it, in their own words. Its counterpart is **assented**; every recorded decision is one or the other, or unknown. |
 | **assented** | How a decision was made: the person running the session went along with a recommendation the session made, without pushing for it themselves. Its counterpart is **decided**. |
-| **primary branch** | The one shared branch regular work lands on. (A branch is a separate line of work in a repository.) |
+| **primary branch** | The repository's trunk: the branch its settings name as the base, usually main, where finished work ends up. (A branch is a separate line of work in a repository.) |
 | **landing branch** | The branch your saved work lands on: the repository's main branch, unless your own settings name another. |
 | **feature branch** | The short-lived branch one session works on, on GitHub. For a person on the ladder it is named by tools/precedent_branch_name.py, like `2026-10-12-themorgan-update-asks-less-mdxmq-owx9y`: the day it was made, whose it is, what the work is, the end of the session's ID, and five random characters; anyone else may name it as they like. GitHub's own word for it; some teams say "topic branch". It survives a lost session but is easy to forget, and it is deleted once its work is merged. |
 <!--/gen:words-->

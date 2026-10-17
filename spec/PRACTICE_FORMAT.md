@@ -168,6 +168,16 @@ adds. **An addition loads with its base and costs no line of its own**
   line in `.precedent/SESSION_PRACTICES.md` says how many additions it has
   here, never a line each.
 
+**One exception, said in the open.** An addition may replace one named
+part of its base, a bullet or a paragraph, for the people it binds, where
+`overrides:` would replace the whole rule and leave two copies to keep in
+step. Its Rule then opens by naming the part it replaces, and everything
+else in the base still holds. Decided 2026-10-17 by a session under
+Morgan's delegation that day ("Fix the other issues you found including
+the checks that never run"), when the ladder set's addition to
+prompt-please replaced one of its bullets while saying everything there
+held.
+
 Before this field, an addition reached a session only through an index line
 of its own, so every session paid for it whether or not the base came up,
 and the code-owner check refused the ones marked for code owners.
