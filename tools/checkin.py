@@ -1168,7 +1168,7 @@ def _declared_base_branch(root):
     why asking the wrong one survives so long. `origin/HEAD` answers "what
     does GitHub show first"; callers mean "what lineage does this work
     belong to". Returns None when undeclared or unreadable, so callers fall
-    back to the old inference rather than breaking (fail-gracefully).
+    back to the old inference rather than breaking (practice: fail-gracefully).
     Enforced by precedent_check.py's `declared-base-branch`.
     """
     try:
