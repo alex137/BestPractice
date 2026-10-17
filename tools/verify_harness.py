@@ -53684,9 +53684,12 @@ def check_full_tier_needs_a_reason_on_a_quick_landing():
                       ppc._full_tier_refusal(tmp, ['--tier', 'basic']) is None, ''))
         cases.append(('--because is a known option',
                       ppc.unknown_arguments(full + ['--because', 'x']) == [], ''))
+        # main is quick before the push since 2026-10-17, so --tier full
+        # there needs its reason as staging's does.
         landing('main')
-        cases.append(('a landing branch that is fully checked is untouched',
-                      ppc._full_tier_refusal(tmp, full) is None, ''))
+        cases.append(('refused on a landing branch of main too, which is '
+                      'quick before the push since 2026-10-17',
+                      bool(ppc._full_tier_refusal(tmp, full)), ''))
     finally:
         if saved is None:
             os.environ.pop('PRECEDENT_USER_CONFIG', None)
@@ -53736,8 +53739,12 @@ def check_bare_push_check_takes_the_landing_tier():
             {'base_branch': 'main', 'landing_branch': 'main'}), encoding='utf-8')
         with contextlib.redirect_stdout(io.StringIO()):
             argv = ppc._default_destination(tmp, [])
-        cases.append(('a landing branch that is fully checked still runs full',
-                      ppc._tier_from_args(tmp, argv)[0] == ppc.FULL,
+        # Since 2026-10-17 a push to main takes the quick checks too, and the
+        # full suite runs after it (Morgan: "the full tests should happen
+        # after that"); a landing branch of main is no longer fully checked
+        # before the push.
+        cases.append(('a landing branch of main takes the quick checks too',
+                      ppc._tier_from_args(tmp, argv)[0] == ppc.BASIC,
                       str(ppc._tier_from_args(tmp, argv))))
         for given in (['--tier', 'full'], ['--push-command', 'origin x']):
             cases.append((f'{given} is left as given',
