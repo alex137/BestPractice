@@ -775,13 +775,31 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
                 return (f", forwarding to {target}, which is IN FORCE NOWHERE "
                         f"here -- see above")
 
-            print("precedent_sync_views: removing "
-                  f"{len(_lost['withdrawn_upstream'])} practice(s) their own "
-                  "source now marks deduplicated or retired, so the removal is "
-                  "correct: " + '; '.join(
-                      f"{s} (from {src}{_where(s, src)})"
-                      for s, src in sorted(_lost['withdrawn_upstream'])),
-                  file=sys.stderr)
+            # A removal whose rule lands NOWHERE here is not "correct": it
+            # is the source's decision, and this repository loses the rule.
+            # 2026-10-17 very deep check: a hand deduplication of a universal
+            # practice printed IN FORCE NOWHERE and then, two lines on, "so
+            # the removal is correct: X (... which is IN FORCE NOWHERE here
+            # -- see above)". The two are said apart now.
+            _said = [(s, src, _where(s, src))
+                     for s, src in sorted(_lost['withdrawn_upstream'])]
+            _nowhere = [x for x in _said if 'IN FORCE NOWHERE' in x[2]]
+            _landed = [x for x in _said if 'IN FORCE NOWHERE' not in x[2]]
+            if _landed:
+                print("precedent_sync_views: removing "
+                      f"{len(_landed)} practice(s) their own source now marks "
+                      "deduplicated or retired, so the removal is correct: "
+                      + '; '.join(f"{s} (from {src}{w})" for s, src, w in _landed),
+                      file=sys.stderr)
+            if _nowhere:
+                print("precedent_sync_views: removing "
+                      f"{len(_nowhere)} practice(s) their own source marks "
+                      "deduplicated to a rule this repository does not load, "
+                      "so the rule is LOST here, not moved: "
+                      + '; '.join(f"{s} (from {src}{w})" for s, src, w in _nowhere)
+                      + ". Declare the set that carries it, or ask that "
+                      "source whether the reach loss was meant.",
+                      file=sys.stderr)
         if _lost.get('overridden'):
             print("precedent_sync_views: removing "
                   f"{len(_lost['overridden'])} practice(s) a declared source now "

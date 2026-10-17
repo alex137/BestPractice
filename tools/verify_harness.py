@@ -20119,6 +20119,16 @@ def check_update_vendors_asks_about_a_rule_in_force_nowhere():
                       'IN FORCE NOWHERE' in out and 'planted-branch-rule' in out))
         cases.append(('the sync no longer claims the rule is in force as itself',
                       'now in force as planted-branch-rule' not in out))
+        # 2026-10-17 very deep check: the line after IN FORCE NOWHERE said
+        # "so the removal is correct: planted-branch-rule (... which is IN
+        # FORCE NOWHERE here -- see above)".
+        cases.append(('nor calls a removal into nowhere correct: it says the '
+                      'rule is lost here',
+                      not any('removal is correct' in ln
+                              and 'planted-branch-rule' in ln
+                              for ln in out.splitlines())
+                      and any('LOST here' in ln and 'planted-branch-rule' in ln
+                              for ln in out.splitlines())))
         found = getattr(pu, 'in_force_nowhere', lambda o: [])(out)
         cases.append(('Update Vendors picks the warning out of the sync\'s output',
                       any('planted-branch-rule' in f for f in found)))
@@ -23038,6 +23048,33 @@ def check_precedent_check_fires():
                           'never the one the change adds',
                           'practices/repo-is-memory.md' in _pa
                           and 'zzz-moved-in' not in _pa))
+
+        # universal-dedup-lands-in-universal: a universal stub hand-pointed
+        # at a slug only a set carries (2026-10-17 very deep check), and a
+        # second one carrying the move tool's --accept-reach-loss line,
+        # which must stay clean.
+        def _plant_universal_dedup_nowhere(repo):
+            rewrite(repo, 'practices/brief-it.md',
+                    lambda t: re.sub(r'^in_force_at:.*$',
+                                     'in_force_at:       zz-set-only-rule', t,
+                                     count=1, flags=re.M))
+            rewrite(repo, 'practices/session-text.md',
+                    lambda t: re.sub(r'^in_force_at:.*$',
+                                     'in_force_at:       zz-other-set-rule', t,
+                                     count=1, flags=re.M).replace(
+                        '\n## Install', '\nWithdrawn from universal on '
+                        '2026-10-17, deliberately, with --accept-reach-loss '
+                        '(approved by Pat): deduplicated here; the rule is in '
+                        'force only from the shared set `zz-set` now. A '
+                        'consumer resolving only universal no longer gets '
+                        'it.\n\n## Install', 1))
+        case('universal-dedup-lands-in-universal', _plant_universal_dedup_nowhere)
+        if 'universal-dedup-lands-in-universal' in planted:
+            _ud = planted['universal-dedup-lands-in-universal'][1]
+            cases.append(('universal-dedup-lands-in-universal: the hand stub is '
+                          'refused, the one carrying the --accept-reach-loss '
+                          'line is not', 'practices/brief-it.md' in _ud
+                          and 'practices/session-text.md' not in _ud))
 
         # session-trailer: the baseline commit carries an explicit "none
         # available" trailer; the plant adds one commit with no trailer at
