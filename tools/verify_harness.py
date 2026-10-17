@@ -28723,10 +28723,19 @@ def check_gate_channel():
     # called precedent_gate.py at all. Checked in both the template a
     # dependent repo installs and this repo's own instantiated copy, so
     # neither can drift back to cited-only without this case catching it.
+    # Since 2026-10-17 this repo's own .claude/hooks/ copy is the engine
+    # stub, which runs tools/<same name>; its wiring is the script it runs.
+    def _hook_text(hook):
+        text = hook.read_text(errors='ignore') if hook.exists() else ''
+        if 'PRECEDENT HOOK STUB' in text:
+            real = ROOT / 'tools' / hook.name
+            return real.read_text(errors='ignore') if real.exists() else ''
+        return text
+
     for stop_hook in (ROOT / 'tools' / 'stop-reply-check.sh',
                       ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'the reply gate is wired into {stop_hook.relative_to(ROOT)}',
-                      stop_hook.exists() and 'precedent_gate' in stop_hook.read_text(errors='ignore')))
+                      stop_hook.exists() and 'precedent_gate' in _hook_text(stop_hook)))
 
     # 2026-09-13: the reply gate gained a second invocation point and a
     # blocking half, and both are wiring claims that can drift back to
@@ -28755,7 +28764,7 @@ def check_gate_channel():
                       ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'the BLOCKING reply check is called from '
                       f'{stop_hook.relative_to(ROOT)}',
-                      'precedent_reply_check' in stop_hook.read_text(errors='ignore')))
+                      'precedent_reply_check' in _hook_text(stop_hook)))
 
     # 2026-09-15: the Stop hook's own advisory print of the reply gate went
     # unbriefed for over a year -- `precedent_gate.py reply` with no
@@ -28769,7 +28778,7 @@ def check_gate_channel():
                       ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'{stop_hook.relative_to(ROOT)} calls the reply gate '
                       f'--brief, not the full Rules, on every Stop',
-                      'precedent_gate.py" reply --brief' in stop_hook.read_text(errors='ignore')))
+                      'precedent_gate.py" reply --brief' in _hook_text(stop_hook)))
 
     # --brief is the per-turn form, and its promise is that it is CHEAP. A
     # regression that printed full Rules there would not fail any case above.
