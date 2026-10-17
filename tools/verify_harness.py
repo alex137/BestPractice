@@ -21790,6 +21790,73 @@ def check_a_consumer_may_declare_a_ci_workflow_its_own():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_reply_gate_prints_a_note_from_a_set_tool():
+    """precedent_gate._note_from_tool (2026-10-17): a set's reply_check.json
+    may name, as `note_from_tool`, a tool the set ships here, and the reply
+    gate prints what it says among the hard requirements. Made-up tool and
+    names; the engine knows nothing of what the note is about.
+
+    - a tool that prints a line: the line is printed, tagged with its source;
+    - a tool that prints nothing, or fails: nothing, and the gate goes on;
+    - a path outside tools/, or one that walks up with "..": never run;
+    - the reply check itself treats the key as known, never as a rule this
+      engine cannot evaluate."""
+    import contextlib, io, tempfile
+    import precedent_gate as pg
+    import precedent_reply_check as prc
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'tools').mkdir()
+        (root / 'tools' / 'zz_note.py').write_text(
+            'print("ZZ NOTE: the planted line")\n', encoding='utf-8')
+        (root / 'tools' / 'zz_quiet.py').write_text('', encoding='utf-8')
+        (root / 'tools' / 'zz_fails.py').write_text(
+            'print("SHOULD NOT SHOW"); raise SystemExit(1)\n', encoding='utf-8')
+        (root / 'outside.py').write_text(
+            'open("ran-outside", "w").write("x")\nprint("OUTSIDE")\n',
+            encoding='utf-8')
+        for spec, want, what in (
+                ({'run': 'tools/zz_note.py'}, ['ZZ NOTE: the planted line'],
+                 'a tool that prints a line'),
+                ({'run': 'tools/zz_quiet.py'}, [], 'a tool that prints nothing'),
+                ({'run': 'tools/zz_fails.py'}, [], 'a tool that fails'),
+                ({'run': 'tools/no_such.py'}, [], 'a tool that is not there'),
+                ({'run': 'outside.py'}, [], 'a path outside tools/'),
+                ({'run': 'tools/../outside.py'}, [], 'a path that walks up'),
+                ({'run': 'tools/zz_note.py', 'args': [1]}, [], 'an argument that is not a string')):
+            got = pg._note_from_tool(root, spec)
+            cases.append((f'{what}: {want or "nothing"}', got == want, repr(got)))
+        cases.append(('a path outside tools/ was never run',
+                      not (root / 'ran-outside').exists(), 'it ran'))
+        rc = root / 'repo'
+        (rc / 'tools').mkdir(parents=True)
+        (rc / 'tools' / 'zz_note.py').write_text(
+            'print("ZZ NOTE from the set")\n', encoding='utf-8')
+        out = io.StringIO()
+        saved = prc.declared_requirements
+        prc.declared_requirements = lambda _r: ([{
+            '_source': 'shared/zz-set', 'note_from_tool': {'run': 'tools/zz_note.py'},
+            'require_one_of': ['ZZ']}], [])
+        try:
+            with contextlib.redirect_stdout(out):
+                pg._print_hard_requirements(rc)
+        finally:
+            prc.declared_requirements = saved
+        cases.append(('the reply gate prints it among the hard requirements, '
+                      'tagged with its source',
+                      '- [shared/zz-set] ZZ NOTE from the set' in out.getvalue(),
+                      out.getvalue()[-300:]))
+    cases.append(('the reply check knows the key, so it is never reported as a '
+                  'rule this engine cannot evaluate',
+                  prc._unknown_predicates({'note_from_tool': {}, 'practice': 'x'}) == [],
+                  repr(prc._unknown_predicates({'note_from_tool': {}}))))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the reply gate prints a note a set\'s own tool gives it '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_reply_check_names_what_it_cannot_evaluate():
     """A reply requirement nobody can evaluate, and a source nobody can
     reach, must both say so.
@@ -84645,6 +84712,7 @@ def main():
           *check_a_consumer_may_declare_a_ci_workflow_its_own())
     check('the reply check names every predicate it cannot evaluate',
           *check_reply_check_names_what_it_cannot_evaluate())
+    check_reply_gate_prints_a_note_from_a_set_tool()
     check('the archive check sees work left in a scratch folder',
           *check_archive_check_sees_work_left_in_a_scratch_folder())
     check('the session check adopts a detached start the branch carries',

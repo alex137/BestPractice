@@ -766,6 +766,41 @@ def _print_size_conditioned(src, r, one_of, every, prc):
               f"stays owed next turn.")
 
 
+def _note_from_tool(root, spec):
+    """-> the lines a set's own tool prints for the reply gate, or [].
+
+    `note_from_tool` in a set's reply_check.json -- {"run": "tools/...py",
+    "args": [...]} -- names a file the set ships into this repository; the
+    gate runs it with python3 and prints what it says among the hard
+    requirements, before the reply. The engine says nothing about what the
+    note is: the set's tool knows its own rule and when it has anything to
+    say (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md part 3,
+    2026-10-17: the ladder set's branch-cleanup note left this file this
+    way). Bounded like a declared hook: a .py under tools/, plain string
+    arguments, a time limit, and silence on any failure -- a note that
+    cannot be built must not take the gate down."""
+    if not isinstance(spec, dict) or not isinstance(spec.get('run'), str):
+        return []
+    run = spec['run']
+    args = spec.get('args') or []
+    parts = pathlib.PurePosixPath(run).parts
+    if (not run.startswith('tools/') or not run.endswith('.py') or '..' in parts
+            or not isinstance(args, list)
+            or not all(isinstance(a, str) for a in args)):
+        return []
+    path = pathlib.Path(root) / run
+    if not path.is_file():
+        return []
+    try:
+        r = subprocess.run([sys.executable, str(path), *args], cwd=str(root),
+                           capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if r.returncode != 0:
+        return []
+    return [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
+
+
 def _print_hard_requirements(root):
     """The reply requirements a source DECLARES, printed verbatim at the
     start of the turn.
@@ -821,6 +856,8 @@ def _print_hard_requirements(root):
           "these\n")
     for r in reqs:
         src = r.get('_source', 'a source')
+        for line in _note_from_tool(root, r.get('note_from_tool')):
+            print(f"- [{src}] {line}")
         pat = r.get('require_heading_matching')
         if pat:
             print(f"- [{src}] the reply carries a real markdown heading "
@@ -1341,55 +1378,6 @@ def main():
         print(f"{block}\n")
     if gate == 'reply':
         _print_hard_requirements(root)
-        # STALE BRANCHES, for the closing Boildown only (the ladder set's
-        # stale-branch-cleanup; Morgan, 2026-10-05). Only when that practice
-        # reached this person -- it is for code owners -- and only when there
-        # are any: "Don't do that if there aren't any."
-        # WAITING TO GO LIVE rides the same page (2026-10-16): a staging
-        # that main lacks is reason enough to build it, branches or none.
-        if 'stale-branch-cleanup' in slugs:
-            try:
-                import precedent_stale_branches as _sb
-                _groups, _ = _sb.collect()
-                _n = sum(len(r) for *_x, r in _groups)
-            except Exception:                                 # noqa: BLE001
-                _n = 0
-            try:
-                _w = len(_sb.collect_waiting())
-            except Exception:                                 # noqa: BLE001
-                _w = 0
-            if _n or _w:
-                # NO COUNT HERE (2026-10-10, a consumer): this reads the
-                # remote-tracking refs as they stand, without a fetch -- a
-                # fetch per repository at every turn costs too much -- while
-                # the page fetches first, so "13 branch(es) across 4" here
-                # met 16 on the page. The page's number is the one to give.
-                print(f"- For the CLOSING Boildown only (the reply that says "
-                      f"\"You can archive this session\"): "
-                      + ("some branches can be deleted"
-                         + (" and " if _w else "") if _n else "")
-                      + ("a repository's staging is waiting to go into "
-                         "main" if _w else "")
-                      + f" (the page counts them, after a fetch). "
-                      f"Build the page with `python3 tools/"
-                      f"precedent_stale_branches.py --fetch --html "
-                      f"<scratchpad>/{_sb.PAGE_FILENAME}` -- with a saved "
-                      f"page it asks for that page as it stands: read the "
-                      f"saved page's url with the Artifact tool, WITHOUT a "
-                      f"path, IMMEDIATELY before building -- the read a "
-                      f"republish needs -- and pass the file it says the "
-                      f"full HTML was saved to as `--merge FILE` (only a "
-                      f"page that came back inline needs a second read, "
-                      f"with path index.html, for the file). Never Read "
-                      f"that file yourself, and never a "
-                      f"copy from earlier in the session, so rows from "
-                      f"repositories this session cannot see, and ticks "
-                      f"saved since, are kept -- publish it as an "
-                      f"artifact the way its last line says (the page saves "
-                      f"the person's ticks into itself), and link it in one "
-                      f"Boildown line. In any "
-                      f"other reply, say nothing about it (practice: "
-                      f"stale-branch-cleanup).")
         # COMMITTED, BUT NOT WHERE WORK LANDS. Printed with the hard
         # requirements because for this person it is one: a reply that does
         # not say so is how a branch gets forgotten.

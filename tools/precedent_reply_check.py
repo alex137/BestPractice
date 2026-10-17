@@ -1074,6 +1074,9 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_quiet_while_background_runs',
     'require_prompt_block_header',
     'unless_reply_declares_loss',
+    # printed by the reply gate before the reply, never evaluated here
+    # (precedent_gate._note_from_tool, 2026-10-17)
+    'note_from_tool',
     # conditions and metadata
     'id', 'requires',            # see _settle (2026-10-02)
     'inherits',                  # see _settle (2026-10-10); missing here
