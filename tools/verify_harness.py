@@ -58991,6 +58991,35 @@ def check_ci_fleet_audit_counts_each_workflow_past_the_sample():
              '.github/workflows/busy.yml', ''),
          f'{n_small} calls; {small_t}'),
     ]
+
+    # GitHub's filtered listing stops counting (2026-10-17): BestPractice's
+    # repository total read 2500 while two workflows' own counts were 1027
+    # and 2394. A count at the cap is "at least", and parts that add up to
+    # more than the whole are said. Planted, no API call.
+    def capped(path):
+        o = 'repos/o/r'
+        if path.startswith(f'{o}/actions/workflows/7/runs'):
+            return {'total_count': 1027, 'workflow_runs': []}, None
+        if path.startswith(f'{o}/actions/workflows/8/runs'):
+            return {'total_count': cfa.LISTING_CAP, 'workflow_runs': []}, None
+        return fake(path, total=cfa.LISTING_CAP)
+    big = cfa.audit_repo('o/r', call=capped, today=today)
+    texts = [t for _v, t in big['rows']]
+    big_t = {t.split(' [')[0]: t for t in texts if ' [' in t}
+    cases += [
+        ('THE CASE: a repository total at the listing cap is "at least"',
+         any(t.startswith(f'at least {cfa.LISTING_CAP} runs in') for t in texts),
+         texts),
+        ('so is a workflow\'s own count at the cap',
+         f'at least {cfa.LISTING_CAP} runs' in big_t.get(
+             '.github/workflows/other.yml', ''), big_t),
+        ('per-workflow counts that add up to more than the total are named',
+         any(f'add up to {1027 + cfa.LISTING_CAP} runs' in t for t in texts),
+         texts),
+        ('CONTROL: counts under the cap that add up are left as numbers',
+         not any('add up to' in t or t.startswith('at least')
+                 for _v, t in small['rows']), small['rows']),
+    ]
     bad = [c[0] + ' -- ' + str(c[2])[:300] for c in cases if not c[1]]
     check(f'ci_fleet_audit counts each workflow past the 300-run sample '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
