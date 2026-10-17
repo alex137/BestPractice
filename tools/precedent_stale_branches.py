@@ -158,6 +158,16 @@ or a repository's own, checks off every row of the repositories it
 covers. Morgan: "whenever any of these cleanup buttons are clicked ... it
 should check the box and cross it off if it doesn't already" (strength:
 decided).
+
+OPEN ALL IN TABS (2026-10-17). A repository with more than one branch
+listed carries, under its delete-all line, a link that opens every branch
+link of that repository in its own tab, the ones not yet checked off (all
+of them once every one is), and checks off each tab that opened. Morgan:
+"at the start of the section for each repo, have a link to open all those
+links (in that repo) in new tabs". A browser opens one tab per click and
+blocks the rest until pop-ups are allowed for the page; the line under the
+link says how many it blocked and how to allow them, and a second click
+opens only what is left.
 """
 import datetime
 import html
@@ -1003,7 +1013,14 @@ def _section(owner, name, rows, note='', cleanup=''):
             f'<p class="owner">github.com/{html.escape(owner)}/{html.escape(name)}</p>'
             + (f'<p class="carried">{html.escape(note)}</p>' if note else '')
             + cleanup
+            + (_OPEN_ALL if len(rows) > 1 else '')
             + f'<ul>{lis}</ul></section>')
+
+
+# OPEN ALL IN TABS (module docstring).
+_OPEN_ALL = ('<p class="open-all"><button type="button" class="open-all-btn">'
+             'Open all these links in new tabs</button>'
+             '<span class="open-status" role="status"></span></p>')
 
 
 def render_html(groups, now=None, tz='', carried=(), waiting=(), carried_wait=(),
@@ -1106,6 +1123,10 @@ li + li { border-top:1px solid var(--line); }
 .cleanup-all button:disabled { opacity:.6; cursor:default; }
 .cleanup-all button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 .cleanup-all .status { color:var(--fg); }
+.open-all { margin:0 0 10px; font-size:.88rem; color:var(--muted); max-width:62ch; }
+.open-all button { font:inherit; font-weight:600; color:var(--accent); background:none; border:0; padding:0; cursor:pointer; }
+.open-all button:hover { text-decoration:underline; }
+.open-all button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 </style>
 <main>
 <header>
@@ -1219,6 +1240,30 @@ li + li { border-top:1px solid var(--line); }
       });
     });
   });
+  // Open every link of one repository, one tab each. A browser lets one
+  // click open one tab and blocks the rest until pop-ups are allowed for
+  // the page, so only the tabs that opened are checked off, and the line
+  // says how many were blocked; a second click opens what is left.
+  document.querySelectorAll('section.repo .open-all-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var sec=btn.closest('section.repo'), st=sec.querySelector('.open-status');
+      var rows=[].slice.call(sec.querySelectorAll('.row'));
+      var todo=rows.filter(function(r){ return !r.querySelector('input').checked; });
+      if(!todo.length) todo=rows;
+      var opened=0;
+      todo.forEach(function(r){
+        var a=r.querySelector('a'), b=r.querySelector('input'), w=null;
+        try { w=window.open(a.href,'_blank'); } catch(e) {}
+        if(!w) return;
+        try { w.opener=null; } catch(e) {}
+        opened++;
+        if(!b.checked){ b.checked=true; done[b.dataset.k]=new Date().toISOString(); }
+      });
+      save(); render();
+      st.textContent=opened===todo.length?' Opened '+opened+' tabs.'
+        :' Your browser opened '+opened+' of '+todo.length+' and blocked the rest. Allow pop-ups for this page (the blocked-pop-up icon in the address bar), then click again: it opens only the ones not checked off yet.';
+    });
+  });
   document.getElementById('clear').addEventListener('click',function(){ done={}; boxes.forEach(function(b){b.checked=false;}); save(); render(); });
   // Opening a branch's link leaves this page for GitHub: save then.
   document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') publish(); });
@@ -1314,8 +1359,11 @@ def main(argv):
                   f'a path -- the read a republish needs -- and the file it '
                   f'says the full HTML was saved to; only if the page came '
                   f'back inline, read it again with path index.html for the '
-                  f'file), then run this again adding --merge <that file>, '
-                  f'and never Read the file yourself. Only if it is gone or '
+                  f'file), then run this again adding --merge <that file>. '
+                  f'Before the first publish, Read every line of that file '
+                  f'in ranges and change nothing: the Artifact tool refuses '
+                  f'a republish over another session\'s version until it '
+                  f'has been read through. Only if it is gone or '
                   f'unreadable, '
                   f'add --replace instead.')
             return 2

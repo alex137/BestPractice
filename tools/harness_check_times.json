@@ -184,6 +184,7 @@
   "check_engine_checks_can_be_reached_by_what_you_touched": 0.3,
   "check_engine_commits_state_their_author": 4.1,
   "check_engine_fetch_reaches_main_in_a_single_branch_clone": 0.6,
+  "check_engine_tools_allowed_and_the_ones_that_move_work_ask": 0.0,
   "check_engine_tools_say_which_repo_they_read": 0.9,
   "check_engine_unpacks_tars_in_one_place": 1.6,
   "check_environment_gotchas_advises_migrating_an_inline_catalogue": 0.0,

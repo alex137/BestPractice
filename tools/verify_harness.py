@@ -26276,6 +26276,22 @@ def check_precedent_check_fires():
 
         case('declared-base-branch', _plant_unguarded_branch_inference)
 
+        # risky-engine-tools-ask -- the template allows every engine tool
+        # and drops the ask rules for Update All Vendors, which pushes in
+        # every repository: it would run with no prompt (2026-10-17).
+        def _plant_unasked_pusher(repo):
+            import json as _j
+            rewrite(repo, 'templates/harness/claude-code/settings.json',
+                    lambda s: _j.dumps({**_j.loads(s), 'permissions': {
+                        **_j.loads(s).get('permissions', {}),
+                        'ask': [r for r in _j.loads(s).get('permissions', {})
+                                .get('ask', []) if 'update_all' not in r]}},
+                        indent=2) + '\n')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'an engine tool that pushes, asked for by nobody')
+
+        case('risky-engine-tools-ask', _plant_unasked_pusher)
+
         # document-status-header -- a stamped document whose declared
         # status is illegal for its declared kind. The fixture must stamp a
         # SECOND file legally as well: the check raises NotApplicable when
@@ -31740,7 +31756,8 @@ def check_update_holds_a_settings_change_and_offers_it_again():
         (dest / '.claude' / 'settings.json').write_text('{}', encoding='utf-8')
         rule = 'Bash(python3 tools/precedent_show.py *)'
         missing = pve._read_only_allow_missing(dest, [rule])
-        cases.append(('a read-only rule the settings lack is listed', missing == [rule], missing))
+        cases.append(('a read-only rule the settings lack is listed',
+                      missing == [('allow', rule)], missing))
         (dest / 'precedent.json').write_text(json.dumps({pve.DECLINED_ALLOW_KEY: [rule]}),
                                              encoding='utf-8')
         cases.append(('CONTROL: a declined rule is not offered again',
@@ -48425,7 +48442,9 @@ def check_session_hooks_allow_read_only_tools_at_user_level():
     read-only Precedent tool rules to user-level settings, add-only
     (2026-10-14). THE DISCRIMINATING CASE: a write-capable rule a repository
     allows (git push) never reaches user level, and what the user file
-    already holds -- its hooks, its own allow and deny rules -- is kept."""
+    already holds -- its hooks, its own allow and deny rules -- is kept.
+    Since 2026-10-17 the one rule that allows every engine tool arrives only
+    with the rules that make landing, Produce and merging ask."""
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_run_session_hooks as rsh
@@ -48452,7 +48471,12 @@ def check_session_hooks_allow_read_only_tools_at_user_level():
                       not any('push' in r for r in allow), allow))
         cases.append(('the read-only rules arrive, from the repository and the template',
                       'Bash(python3 tools/doc_lint.py *)' in allow
-                      and 'Bash(python3 tools/precedent_show.py *)' in allow, allow))
+                      and 'Bash(python3 tools/precedent_*)' in allow, allow))
+        asked = got['permissions'].get('ask') or []
+        cases.append(('THE DISCRIMINATING CASE (2026-10-17): the broad engine rule '
+                      'arrives with the asks for landing, Produce and the merge',
+                      any('precedent_branches.py --land' in r for r in asked)
+                      and 'mcp__github__merge_pull_request' in asked, asked))
         cases.append(('what the user file held is kept, and a denied rule is not added',
                       got['hooks'] == mine['hooks'] and allow[0] == 'Bash(ls)'
                       and got['permissions']['deny'] == mine['permissions']['deny']
@@ -63956,26 +63980,42 @@ def check_leak_gate_reads_the_written_private_repo_list():
 
 
 def check_refresh_adds_read_only_allow_rules():
-    """The refresh adds the settings template's read-only Precedent tool
-    rules to a consumer's .claude/settings.json, add-only (2026-10-14: a
-    consumer allowed none of them, and auto mode woke the person over a
-    precedent_show.py read). The DISCRIMINATING CASE is that a write-capable
-    template rule (git push, checkin.py) is never added, nor a rule for a
-    tool this repo's tools/ lacks, nor one precedent.json declines."""
+    """The refresh adds the settings template's Precedent tool rules to a
+    consumer's .claude/settings.json, add-only (2026-10-14: a consumer
+    allowed none of them, and auto mode woke the person over a
+    precedent_show.py read). Since 2026-10-17 (Morgan: "why not include all
+    on that list except a small list we explicitly want to exclude ... to
+    get the session user's permission", then "yes, build it") the template
+    allows every engine tool with one rule and asks for the tools that land,
+    produce, merge or update other repositories. THE DISCRIMINATING CASES:
+    the broad rule is never written without every ask rule beside it, and a
+    repository that declines an ask rule keeps
+    its tools allowed one by one. Both go into the file in one write."""
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_vendor_engine as pve
     cases = []
     tpl = (ROOT / pve.SETTINGS_TEMPLATE).read_text(encoding='utf-8')
     rules = pve.read_only_allow_rules(tpl)
-    cases.append(('THE DISCRIMINATING CASE: only read-only tools are taken from the template',
+    ask = pve.engine_ask_rules(tpl) if hasattr(pve, 'engine_ask_rules') else []
+    broad = getattr(pve, 'ENGINE_ALLOW_RULE', None)
+    cases.append(('the template allows every engine tool with one rule',
+                  bool(broad) and broad in rules, rules))
+    cases.append(('no write-capable rule is taken from the template as an allow',
                   rules and all(pve.is_read_only_allow_rule(r) for r in rules)
-                  and not any('push' in r or 'checkin' in r or 'commit' in r for r in rules)
-                  and 'Bash(python3 tools/precedent_show.py *)' in rules, rules))
-    cases.append(('every read-only tool the engine names has a template rule',
-                  {pve._ALLOW_RULE_RE.match(r).group(1) for r in rules}
-                  == set(pve.READ_ONLY_ALLOW_TOOLS), rules))
-    with tempfile.TemporaryDirectory() as td:
+                  and not any('push' in r or 'checkin' in r or 'commit' in r for r in rules),
+                  rules))
+    cases.append(('every read-only tool outside precedent_* still has its own rule',
+                  {pve._ALLOW_RULE_RE.match(r).group(1) for r in rules if r != broad}
+                  >= {t for t in pve.READ_ONLY_ALLOW_TOOLS
+                      if not t.startswith('precedent_')}, rules))
+    cases.append(('the template asks for landing, Produce, the merge and Update Vendors',
+                  any('precedent_branches.py --land' in r for r in ask)
+                  and any('precedent_branches.py --promote' in r for r in ask)
+                  and 'mcp__github__merge_pull_request' in ask
+                  and any('precedent_update.py' in r for r in ask), ask))
+
+    def fixture(td, own, declined=()):
         dest = pathlib.Path(td)
         (dest / '.claude').mkdir()
         (dest / 'tools').mkdir()
@@ -63983,36 +64023,110 @@ def check_refresh_adds_read_only_allow_rules():
             if t != 'routing_audit.py':
                 (dest / 'tools' / t).write_text('', encoding='utf-8')
         sp = dest / '.claude' / 'settings.json'
-        own = {'permissions': {'allow': ['Bash(make test)',
-                                         'Bash(python3 tools/doc_lint.py)'],
-                               'deny': ['Bash(python3 tools/precedent_check.py *)']},
-               'hooks': {}}
         sp.write_text(json.dumps(own), encoding='utf-8')
         (dest / 'precedent.json').write_text(json.dumps(
-            {pve.DECLINED_ALLOW_KEY: ['Bash(python3 tools/precedent_gate.py)']}),
-            encoding='utf-8')
+            {pve.DECLINED_ALLOW_KEY: list(declined)}), encoding='utf-8')
+        return dest, sp
+    own = {'permissions': {'allow': ['Bash(make test)',
+                                     'Bash(python3 tools/doc_lint.py)'],
+                           'deny': ['Bash(python3 tools/routing_audit.py *)']},
+           'hooks': {}}
+    with tempfile.TemporaryDirectory() as td:
+        dest, sp = fixture(td, own)
         before = sp.read_text(encoding='utf-8')
-        added = pve._apply_read_only_allow(dest, rules)
+        try:
+            pve._apply_read_only_allow(dest, rules, ask)
+            ok_call = True
+        except TypeError:
+            ok_call = False
         after = json.loads(sp.read_text(encoding='utf-8'))
-        allow = after['permissions']['allow']
+        perms = after['permissions']
+        allow = perms['allow']
+        cases.append(('THE DISCRIMINATING CASE: the broad rule comes with every ask rule',
+                      ok_call and broad in allow and perms.get('ask') == ask, perms))
         cases.append(('what was there stays first and unchanged',
                       allow[:2] == own['permissions']['allow']
-                      and after['permissions']['deny'] == own['permissions']['deny'], allow))
-        cases.append(('a rule already allowed, denied, declined, or for a tool not '
-                      'in tools/ is not added',
+                      and perms['deny'] == own['permissions']['deny'], allow))
+        cases.append(('a rule already allowed or denied, or for a tool not in tools/, '
+                      'is not added',
                       allow.count('Bash(python3 tools/doc_lint.py)') == 1
-                      and 'Bash(python3 tools/precedent_check.py *)' not in allow
-                      and 'Bash(python3 tools/precedent_gate.py)' not in allow
-                      and 'Bash(python3 tools/precedent_gate.py *)' in allow
                       and not any('routing_audit' in r for r in allow), allow))
         cases.append(('the change reads as refresh output, not a person\'s edit',
                       pve.settings_change_is_wiring_only(before, sp.read_text(encoding='utf-8')),
                       ''))
-        cases.append(('a second run adds nothing', pve._apply_read_only_allow(dest, rules) == [],
-                      ''))
+        cases.append(('a second run adds nothing',
+                      ok_call and pve._apply_read_only_allow(dest, rules, ask) == [], ''))
+    with tempfile.TemporaryDirectory() as td:
+        dest, sp = fixture(td, own, declined=[ask[0]] if ask else [])
+        if ok_call:
+            pve._apply_read_only_allow(dest, rules, ask)
+        perms = json.loads(sp.read_text(encoding='utf-8'))['permissions']
+        cases.append(('THE DISCRIMINATING CASE: declining one ask rule keeps the broad '
+                      'rule out, and no ask is written alone',
+                      bool(ask) and broad not in perms['allow'] and not perms.get('ask'),
+                      perms))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the refresh adds read-only Precedent tool allow rules ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
+def check_engine_tools_allowed_and_the_ones_that_move_work_ask():
+    """With the settings template as shipped, Claude Code lets every engine
+    tool run and asks the person before the ones that land, produce, merge,
+    update other repositories or send work upstream (Morgan, 2026-10-17:
+    "why not include all on that list except a small list we explicitly want
+    to exclude from that list to get the session user's permission", then
+    "yes, build it including the preemptive fix"). Matching follows Claude
+    Code's documented rules (code.claude.com/docs/en/permissions, read
+    2026-10-17): deny, then ask, then allow, the first match deciding; a
+    `*` matches any text, spaces included. A tool added later needs no
+    settings change. Fails on the old template: precedent_branches.py
+    --land was not asked for, and a new engine tool was not allowed."""
+    import re as _re
+    name = 'every engine tool runs, and the ones that move work ask'
+    tmpl = ROOT / 'templates' / 'harness' / 'claude-code' / 'settings.json'
+    if not tmpl.is_file():
+        not_applicable(name, 'no Claude Code settings template here')
+        return
+    perms = json.loads(tmpl.read_text(encoding='utf-8')).get('permissions') or {}
+
+    def matches(rule, command):
+        m = _re.fullmatch(r'Bash\((.*)\)', rule)
+        if not m:
+            return False
+        pat = '.*'.join(_re.escape(p) for p in m.group(1).split('*'))
+        return _re.fullmatch(pat, command) is not None
+
+    def decide(command):
+        for key in ('deny', 'ask', 'allow'):
+            if any(matches(r, command) for r in perms.get(key) or []):
+                return key
+        return 'unlisted'
+    want = [
+        ('python3 tools/precedent_brand_new_tool.py --any args', 'allow'),
+        ('python3 tools/precedent_show.py act', 'allow'),
+        ('python3 tools/precedent_check.py --full-sweep', 'allow'),
+        ('python3 tools/precedent_branches.py --landing', 'allow'),
+        ('python3 tools/precedent_branches.py --run-tests', 'allow'),
+        ('python3 tools/precedent_branches.py --land', 'ask'),
+        ('python3 tools/precedent_branches.py --land 2026-10-17-x-y', 'ask'),
+        ('python3 tools/precedent_branches.py --promote --to main --work b', 'ask'),
+        ('python3 ../BestPractice/tools/precedent_update.py --repo .', 'ask'),
+        ('python3 ../bestpractice/tools/precedent_update.py --repo .', 'ask'),
+        ('python3 tools/precedent_update.py --repo .', 'ask'),
+        ('python3 tools/precedent_update_all.py --list', 'ask'),
+        ('python3 tools/precedent_vendor_engine.py refresh --from x', 'ask'),
+        ('python3 tools/precedent_local_edits.py send', 'ask'),
+        ('python3 tools/precedent_local_edits.py list', 'allow'),
+        ('python3 tools/precedent_merge_check.py --pr 1', 'ask'),
+        ('python3 tools/doc_lint.py README.md', 'allow'),
+    ]
+    cases = [(f'{cmd!r} -> {exp}', decide(cmd) == exp, decide(cmd)) for cmd, exp in want]
+    cases.append(('the GitHub merge always asks',
+                  'mcp__github__merge_pull_request' in (perms.get('ask') or [])))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (got ' + d + ')' if d else ''}" for n, d in bad))
 
 
 def check_document_project_agents_md_is_compared_with_its_own_template():
@@ -85033,6 +85147,7 @@ def main():
     check_repin_kept_records_the_persons_words()
     check_document_project_agents_md_is_compared_with_its_own_template()
     check_refresh_adds_read_only_allow_rules()
+    check_engine_tools_allowed_and_the_ones_that_move_work_ask()
     check_leak_gate_reads_the_written_private_repo_list()
     check_session_hooks_allow_read_only_tools_at_user_level()
     check('an empty blocklist is reported as nothing checked, never a pass',

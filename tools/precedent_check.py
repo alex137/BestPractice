@@ -8655,6 +8655,100 @@ _BASE_BRANCH_COPY_OK = {
 }
 
 
+# The engine tools that push or delete for a reason that is not a person's
+# work moving, so they are allowed with the rest; the reason is the record.
+_ASK_EXEMPT = {
+    'precedent_check_after.py': 'files only a failure item on the branch it '
+                                'just tested, after a move the person asked for',
+    'precedent_data_branches.py': "pushes only the engine's own data branches",
+    'precedent_push_check.py': "pushes only its pass receipts to the engine's "
+                               'receipt branch',
+    'precedent_stale_branches.py': 'deletes branches only inside the branch-cleanup '
+                                   'workflow, and refuses anywhere else',
+}
+
+
+def _pushing_calls(text):
+    """-> line numbers of calls in `text` that run `git push`, or merge a pull
+    request: a call whose literal arguments include 'push' beside 'git' or
+    through a git helper (_git, _run, git), or that names
+    merge_pull_request."""
+    import ast as _ast
+    try:
+        tree = _ast.parse(text)
+    except SyntaxError:
+        return []
+    lines = []
+    for node in _ast.walk(tree):
+        if not isinstance(node, _ast.Call):
+            continue
+        lits = [c.value for a in node.args for c in _ast.walk(a)
+                if isinstance(c, _ast.Constant) and isinstance(c.value, str)]
+        name = getattr(node.func, 'attr', None) or getattr(node.func, 'id', None)
+        if ('push' in lits and ('git' in lits or name in ('_git', '_run', 'git'))) \
+                or 'merge_pull_request' in lits:
+            lines.append(node.lineno)
+    return lines
+
+
+@check('risky-engine-tools-ask', 'tree',
+       "where the settings template allows every engine tool with one rule "
+       "(Bash(python3 tools/precedent_*)), every tools/precedent_*.py that "
+       "runs `git push` or merges a pull request is named by one of the "
+       "template's permissions.ask rules, or is in _ASK_EXEMPT with its "
+       "reason; and every ask rule names a tool that exists",
+       "a tool that changes things without git push -- writing another "
+       "repository's files, or calling GitHub through a library this does "
+       "not read -- and a push built from a variable rather than the literal "
+       "'push'. Whether an ask rule's pattern really matches the command a "
+       "session types is Claude Code's matching, tested in the harness, not "
+       "here.",
+       practice_backed=False,
+       selects_on=('tools/precedent_*.py',
+                   'templates/harness/claude-code/settings.json'))
+def _risky_engine_tools_ask(ctx):
+    """EVERY ENGINE TOOL IS ALLOWED, SO THE RISKY ONES MUST ASK (2026-10-17).
+    Morgan asked for the per-tool allow lines to become one rule, with "a
+    small list we explicitly want to exclude from that list to get the
+    session user's permission", and for the fix that keeps that list from
+    going stale: a new tool that pushes would otherwise be allowed the day
+    it lands, with no prompt and nobody deciding it."""
+    tmpl = ROOT / 'templates' / 'harness' / 'claude-code' / 'settings.json'
+    if not tmpl.is_file():
+        raise NotApplicable('no Claude Code settings template here')
+    try:
+        perms = json.loads(tmpl.read_text(encoding='utf-8')).get('permissions') or {}
+    except ValueError as exc:
+        return [Finding(str(tmpl.relative_to(ROOT)), f'does not parse: {exc}')]
+    if 'Bash(python3 tools/precedent_*)' not in (perms.get('allow') or []):
+        raise NotApplicable('the template allows engine tools one by one')
+    ask = [r for r in (perms.get('ask') or []) if isinstance(r, str)]
+    rel_t = str(tmpl.relative_to(ROOT))
+    findings = []
+    named = set()
+    for rule in ask:
+        m = re.search(r'tools/(precedent_[\w.-]+\.py)', rule)
+        if not m:
+            continue
+        named.add(m.group(1))
+        if not (ROOT / 'tools' / m.group(1)).is_file():
+            findings.append(Finding(rel_t, f'the ask rule {rule!r} names '
+                                    f'tools/{m.group(1)}, which is not here'))
+    for path in _tools_py(ROOT / 'tools'):
+        if not path.name.startswith('precedent_') or path.name in named:
+            continue
+        lines = _pushing_calls(path.read_text(encoding='utf-8', errors='ignore'))
+        if lines and path.name not in _ASK_EXEMPT:
+            findings.append(Finding(
+                f'tools/{path.name}',
+                f'pushes or merges (line {lines[0]}) and the settings template '
+                f'allows it with every engine tool, so it would run with no '
+                f'prompt -- add an ask rule for it to {rel_t}, or put it in '
+                f'precedent_check.py\'s _ASK_EXEMPT with the reason it needs '
+                f'none'))
+    return findings
+
+
 @check('declared-base-branch', 'tree',
        "every tool that resolves the repo's branch reads precedent.json's "
        "declared `base_branch` before falling back to inferring one from "
