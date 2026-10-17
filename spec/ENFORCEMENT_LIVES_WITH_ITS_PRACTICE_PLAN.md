@@ -11,8 +11,9 @@ summary:       "Moves each practice set's enforcement out of Precedent's engine 
 ---
 # Enforcement lives with its practice: the move plan
 
-Status: plan, 2026-10-16. Parts 1, 2 and 4 are built; part 3 waits on
-Morgan's go-ahead ("not yet", 2026-10-16).
+Status: plan, 2026-10-16. Parts 1, 2 and 4 are built; part 3 started
+2026-10-17 on Morgan's go-ahead (strength: decided): "starting with
+section 3 now".
 
 The rule is
 [enforcement-lives-with-its-practice](../practices/enforcement-lives-with-its-practice.md):
@@ -99,8 +100,8 @@ that predates this practice. The move, in outline:
 4. Each piece lands with its engine copy removed in the same release, so a
    consumer's Update Vendors takes both halves at once.
 
-This is a restructuring of its own, several sessions long. Nothing in it
-starts without Morgan's go-ahead.
+This is a restructuring of its own, several sessions long. Morgan gave
+the go-ahead on 2026-10-17 (strength: decided).
 
 ## 4. Decided and built: the commit-identity checks stay in the engine
 
