@@ -71,13 +71,14 @@ nothing to choose here — this page installs §0, always.
      go-ahead to commit its hooks and settings (`.claude/`): its auto mode
      holds that commit until they say yes, so ask now rather than stall at
      the end.
-   - *Should the vendored GitHub Actions workflow be on or off?* **Default
+   - *Should the vendored GitHub Actions workflows be on or off?* **Default
      on, since 2026-09-25**: one light check that runs only on a pull
      request into `main` (about one billed minute per merge into `main`),
-     plus a leak gate that runs only in a public repository. In a private
-     repository the light check runs only on the pull request a Produce
-     opens (a branch named `to-main-…` or `…-promote-to-main-…`); any
-     other pull request shows it as skipped. For an AI
+     plus a leak gate that runs only in a public repository, and a
+     branch-cleanup workflow that runs only when someone clicks it. In a
+     private repository the light check runs only on a pull request from a
+     branch named `to-main-…` or `…-promote-to-main-…`; any other pull
+     request shows it as skipped. For an AI
      Assistant with no terminal access (ChatGPT, or anything else with no
      local shell) it is the only place any check can run at all, so say
      so. Say the default out loud and let them override it. If they want
@@ -86,7 +87,8 @@ nothing to choose here — this page installs §0, always.
      ([documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md));
      if they answered "no" to the third question there is nowhere this
      install can record that yet, so say plainly that it stays on until a
-     source declares it. **What "declares" means, concretely**: this is
+     source declares it, or until they switch Actions off for the
+     repository itself (step 7, item 5). **What "declares" means, concretely**: this is
      a standing field in `identity.json` — the person's individual (or
      team) source, never `precedent.json` — so activating it is either
      something you do right now, if this session can reach that source,
@@ -129,8 +131,8 @@ nothing to choose here — this page installs §0, always.
    `GLOSSARY.source.md` (the sync generates `MAP.md` and `GLOSSARY.md`
    from those two), `GETTING_STARTED.md`, `local/practices/project-voice.md` and
    `local/practices/project-visual-identity.md`, the README entry
-   block, the Claude Code hooks, `tools/bootstrap.sh`, the Actions check
-   and the pull-request template, runs the sync, lints what it wrote, and
+   block, the Claude Code hooks, `tools/bootstrap.sh`, the Actions
+   workflows and the pull-request template, runs the sync, lints what it wrote, and
    then prints **the placeholders it left** — each is a `<…>` in a file it
    names, to be filled with the project's own subject matter from their
    first answer where they asked for that now, else left as placeholders
@@ -204,8 +206,8 @@ nothing to choose here — this page installs §0, always.
    the pull-request link and tell them exactly what to press.
 6. **Verify the automatic checks, while Actions is on.** On the pull
    request into `main`, confirm `light-check` appears and passes. In a
-   private repository it runs only when the branch is named for a Produce
-   (`to-main-…`), so an install's pull request from any other branch shows
+   private repository it runs only when the branch is named `to-main-…`
+   (or `…-promote-to-main-…`), so an install's pull request from any other branch shows
    it as skipped: that is the design, not a fault, and the local checks in
    step 3 are what this install was judged by. Nothing runs after the
    merge in a private repository either. If the repository or organization has Actions disabled,

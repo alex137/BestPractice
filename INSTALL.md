@@ -255,11 +255,13 @@ not this section.
    in a later conversation), the README
    agent-entry block, `.gitignore` (merged into an existing one), the
    harness adapter(s) (for Claude Code, `.claude/settings.json`, its hook
-   scripts and `CLAUDE.md`), `tools/bootstrap.sh`, the two workflows
-   rendered from `templates/github-actions/` (`leak-gate.yml.template` and
-   `light-check.yml.template`, written as `.github/workflows/leak-gate.yml`
-   and `light-check.yml`, unless a source declares
-   `github_ci_workflows: disabled`), the PR template. **Skip**
+   scripts and `CLAUDE.md`), `tools/bootstrap.sh`, the three workflows
+   rendered from `templates/github-actions/` (`leak-gate.yml.template`,
+   `light-check.yml.template` and `branch-cleanup.yml.template`, written as
+   `.github/workflows/leak-gate.yml`, `light-check.yml` and
+   `precedent-branch-cleanup.yml`, unless a source declares
+   `github_ci_workflows: disabled`; the cleanup one runs only when someone
+   clicks Run workflow), the PR template. **Skip**
    `process/manifest.json` and `process/scrub_blocklist.txt` — those are
    §1's own bookkeeping for a model this path doesn't use.
 
@@ -274,7 +276,7 @@ not this section.
    |---|---|
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
    | [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Mentions `process/upstream/` in prose, as a review-grouping hint. Harmless, but names a directory your repo does not have, so a reader follows a dead path. Reword or drop the line. (`templates/local-practices/project-voice.md.template` has no such mention — it is a repo-local practice under `local/`, not a `process/upstream/`-adjacent document.) |
-   | [templates/TODO.md.template](templates/TODO.md.template), [templates/MAP.md.template](templates/MAP.md.template) | Each names `process/` or `process/upstream/` once (a recurring check-in item, a map row). Same treatment: reword or drop the line. |
+   | [templates/MAP.md.template](templates/MAP.md.template) | Names `process/` once, in a map row. Same treatment: reword or drop the line. |
    | [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json) | Its permission allowlist names the `tools/…` forms, which is where the engine lives in every install since 2026-09-30. An older copy may still carry `process/upstream/tools/…` entries: harmless (they match nothing), but replace them with the `tools/…` forms. |
 
    **Then, from this repo, run
@@ -489,10 +491,11 @@ design and not oversight:
   `Update Vendors` ([tools/precedent_migrate_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_migrate_views.py), which puts
   everything back rather than lose a word).
 - **The creation pipeline isn't wired into a fresh install yet.**
-  Candidates, promotion, and approval routing
-  (`tools/precedent_candidate.py` and friends) exist in Precedent's own
-  `tools/` and in the private shared/individual repos, not in what this
-  section vendors. `templates/AGENTS.md.loader.template`'s own
+  `tools/precedent_candidate.py` and `tools/precedent_promote.py` do arrive
+  with the vendored engine, because the rule detector imports them, but
+  `tools/precedent_land.py`, which lands an approved candidate, does not,
+  so candidates, promotion and approval routing do not run end to end in a
+  consuming repo. `templates/AGENTS.md.loader.template`'s own
   merge-runbook export-gate step says so explicitly and names the real
   mechanism until it is wired in: an ordinary pull request against the
   vendored source's own upstream repo.
