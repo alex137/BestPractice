@@ -16741,9 +16741,13 @@ def check_main_test_pass_closes_the_issue():
     any open main-test-failed issue, with a comment linking the run -- from
     the deep-check job when its run on main passed, and from the
     already-tested job when a push to main skipped that run because the
-    same files had already passed. Never on a pull request, never on a
-    failure, never on another branch, and never when main has moved past
-    the commit this run tested.
+    same files had already passed, and from a passing pull request into
+    main when main's head now holds exactly the files that run tested
+    (2026-10-17, Morgan: "yes to both": Produce merges at once, main's own
+    run stands aside for the pull request's, and issue #1174 stayed open
+    after main was green). Never on a failure, never on another branch,
+    never into another base, and never when main's files differ from what
+    this run tested.
 
     WHY (2026-10-10, relayed from another session, checked here): issue
     #1036 stayed open about eleven hours while main's test passed at least
@@ -16780,7 +16784,9 @@ def check_main_test_pass_closes_the_issue():
     runs = [
         ('push', 'refs/heads/main', '', False, True),
         ('workflow_dispatch', 'refs/heads/main', '', False, True),
-        ('pull_request', 'refs/pull/9/merge', 'main', False, False),
+        ('pull_request', 'refs/pull/9/merge', 'main', False, True),
+        ('pull_request', 'refs/pull/9/merge', 'main', True, False),
+        ('pull_request', 'refs/pull/9/merge', 'staging', False, False),
         ('push', 'refs/heads/main', '', True, False),
         ('push', 'refs/heads/feature', '', False, False),
         ('workflow_dispatch', 'refs/heads/feature', '', False, False),
@@ -16810,25 +16816,46 @@ def check_main_test_pass_closes_the_issue():
                   and 'continue-on-error: true' in body
                   and 'continue-on-error: true' in skip_block, ''))
 
-    def run(head, issues, gh_fails=False):
+    def run(head, issues, gh_fails=False, head_tree=None):
+        # head_tree: main's head's files -- 'tested' for exactly the files
+        # this run tested (a real commit's tree), anything else for others.
         with tempfile.TemporaryDirectory() as td:
             d = pathlib.Path(td)
             log = d / 'gh.log'
             fake = d / 'gh'
+            sha, tree = 'a' * 40, 'c' * 40
+            if head_tree is not None:
+                g = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                         GIT_AUTHOR_EMAIL='t@example.invalid',
+                         GIT_COMMITTER_EMAIL='t@example.invalid')
+                repo = d / 'repo'
+                subprocess.run(['git', 'init', '-q', str(repo)], env=g)
+                (repo / 'f').write_text('x\n', encoding='utf-8')
+                subprocess.run(['git', '-C', str(repo), 'add', 'f'], env=g)
+                subprocess.run(['git', '-C', str(repo), 'commit', '-q', '-m', 'x'], env=g)
+                sha = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'],
+                                     capture_output=True, text=True).stdout.strip()
+                real = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD^{tree}'],
+                                      capture_output=True, text=True).stdout.strip()
+                tree = real if head_tree == 'tested' else head_tree
             fake.write_text(
                 '#!/bin/sh\n'
                 f'echo "$*" >> "{log}"\n'
                 + ('exit 1\n' if gh_fails else '')
+                + 'case "$*" in\n'
+                f'  *commit.tree.sha*) echo "{tree}"; exit 0 ;;\n'
+                'esac\n'
                 + 'case "$1 $2" in\n'
                 f'  "api repos/o/r/commits/main") echo "{head}" ;;\n'
                 f'  "issue list") printf "{issues}" ;;\n'
                 'esac\nexit 0\n', encoding='utf-8')
             fake.chmod(0o755)
             env = dict(os.environ, PATH=f'{d}:{os.environ.get("PATH", "")}',
-                       GH_REPO='o/r', GITHUB_SHA='a' * 40, GH_TOKEN='x',
+                       GH_REPO='o/r', GITHUB_SHA=sha, GH_TOKEN='x',
                        RUN_URL='https://example.invalid/run/1', HOW='this run passed')
             r = subprocess.run(['bash', str(script)], env=env,
-                               capture_output=True, text=True)
+                               capture_output=True, text=True,
+                               cwd=str(d / 'repo') if head_tree is not None else None)
             calls = log.read_text(encoding='utf-8') if log.is_file() else ''
             return r.returncode, calls, r.stdout
     if script.is_file():
@@ -16842,6 +16869,15 @@ def check_main_test_pass_closes_the_issue():
         cases.append(('main moved past the commit this run tested: nothing is closed',
                       rc == 0 and 'issue close' not in calls
                       and 'issue list' not in calls, calls + out))
+        rc, calls, out = run('b' * 40, '1174\\n', head_tree='tested')
+        cases.append(('a pull request\'s run (its test merge is never main\'s '
+                      'head) closes it once main holds exactly the files it tested',
+                      rc == 0 and 'issue close 1174 --reason completed' in calls,
+                      calls + out))
+        rc, calls, out = run('b' * 40, '1174\\n', head_tree='d' * 40)
+        cases.append(('...and closes nothing while main\'s files differ (not '
+                      'merged yet, or main moved on)',
+                      rc == 0 and 'issue close' not in calls, calls + out))
         rc, calls, out = run('a' * 40, '', gh_fails=True)
         cases.append(('GitHub unreachable: a warning, exit 0, nothing closed',
                       rc == 0 and 'issue close' not in calls
@@ -52713,6 +52749,100 @@ def check_bare_push_check_takes_the_landing_tier():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
+    """A change waits until the person's question has an answer in words
+    (answer-first-ask-before-long-work; Morgan, 2026-10-17: "if I ask a
+    question, you answer it BEFORE you implement a change ... Make that
+    change enforcement stronger"). That day his message approved a landing
+    and asked for a workflow change's details; the session wrote "Landing
+    first, since you approved it." and landed. The gate, through the fixed
+    precedent-hooks.sh entry: a commit, push, merge, landing, edit outside
+    /tmp or GitHub write is refused while his latest message (typed, or
+    sent mid-turn) asks something and fewer than 50 words have answered
+    it; reading never is; a message that asks nothing holds nothing."""
+    import tempfile, json as _json
+    name = 'the answer-first gate holds a change until the question is answered'
+    gate = ROOT / 'tools' / 'answer-first-gate.sh'
+    if not gate.exists():
+        not_applicable(name, 'tools/answer-first-gate.sh is absent')
+        return
+    cases = []
+
+    def human(text, queued=False):
+        if queued:
+            return {'type': 'attachment', 'attachment': {
+                'type': 'queued_command', 'prompt': text,
+                'origin': {'kind': 'human'}}}
+        return {'type': 'user', 'origin': {'kind': 'human'},
+                'message': {'role': 'user', 'content': text}}
+
+    def said(text):
+        return {'type': 'assistant', 'message': {'role': 'assistant',
+                'content': [{'type': 'text', 'text': text}]}}
+
+    notice = {'type': 'user', 'origin': {'kind': 'task-notification'},
+              'message': {'role': 'user', 'content': 'a job finished?'}}
+    answer = said(' '.join(['word'] * 60))
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        def run(records, tool='Bash', tool_input=None, via_hooks=False):
+            tr = tmp / 'transcript.jsonl'
+            tr.write_text(''.join(_json.dumps(r) + '\n' for r in records),
+                          encoding='utf-8')
+            payload = _json.dumps({
+                'tool_name': tool, 'transcript_path': str(tr),
+                'tool_input': tool_input if tool_input is not None
+                else {'command': 'git push -u origin HEAD'}})
+            argv = (['python3', str(ROOT / 'tools' / 'precedent_hooks.py'),
+                     'PreToolUse'] if via_hooks else ['bash', str(gate)])
+            p = subprocess.run(argv, input=payload, capture_output=True,
+                               text=True, cwd=ROOT)
+            return p.returncode, p.stdout + p.stderr
+
+        asked = human('approved. On the workflow change - give me the details, I missed it.')
+        rc, out = run([asked, said('Landing first, since you approved it.')])
+        cases.append(('a push after "Landing first" with the question open is '
+                      'refused, quoting it', rc == 2 and 'ANSWER FIRST' in out
+                      and 'give me the details' in out, out[-200:]))
+        rc, out = run([asked, answer])
+        cases.append(('once answered, the push goes through', rc == 0, out[-200:]))
+        rc, _ = run([human('yes to both, and booked')])
+        cases.append(('a message that asks nothing holds nothing', rc == 0))
+        rc, _ = run([human('yes to both'), answer,
+                     human('why did main go red?', queued=True)])
+        cases.append(('a question sent mid-turn holds the next change',
+                      rc == 2))
+        rc, _ = run([asked, notice])
+        cases.append(('a notice is not the person: their question still holds',
+                      rc == 2))
+        rc, _ = run([asked], tool_input={'command': 'grep -rn push tools/'})
+        cases.append(('reading is never held', rc == 0))
+        rc, _ = run([asked], tool='Edit',
+                    tool_input={'file_path': str(ROOT / 'README.md')})
+        cases.append(('an edit to the work is held', rc == 2))
+        rc, _ = run([asked], tool='Edit',
+                    tool_input={'file_path': '/tmp/scratch/notes.md'})
+        cases.append(('an edit to scratch under /tmp is not', rc == 0))
+        rc, _ = run([asked], tool='mcp__github__merge_pull_request',
+                    tool_input={'pullNumber': 1})
+        cases.append(('a pull request merged on GitHub is held', rc == 2))
+        rc, out = run([asked, said('Landing first.')], via_hooks=True)
+        cases.append(('it runs through the fixed precedent-hooks.sh entry '
+                      '(tools/hook_wiring.json)', rc == 2 and 'ANSWER FIRST' in out,
+                      out[-200:]))
+        tr = tmp / 'transcript.jsonl'
+        tr.write_text('not json\n', encoding='utf-8')
+        p = subprocess.run(['bash', str(gate)], input='{broken', text=True,
+                           capture_output=True)
+        cases.append(('an unreadable payload lets the call through',
+                      p.returncode == 0))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_wait_loop_gate_refuses_pgrep_f():
     """wait-loop-gate.sh refuses a Bash command running `pgrep -f` or
     `pkill -f`, and nothing else (2026-10-01: a wait loop on `pgrep -f`
@@ -83536,7 +83666,7 @@ def main():
     check('a passed test on main leaves a git marker any clone can read',
           *check_main_test_pass_leaves_a_git_marker())
     check('a passed test on main\'s head closes the "main\'s test failed" issue, '
-          'from either job, never from a pull request',
+          'from either job, or from a pull request once main holds its files',
           *check_main_test_pass_closes_the_issue())
     check('session start lists an open "main\'s test failed" issue first',
           *check_session_start_lists_a_red_main_first())
@@ -83897,6 +84027,7 @@ def main():
     check_bare_push_check_takes_the_landing_tier()
     check_full_tier_needs_a_reason_on_a_quick_landing()
     check_wait_loop_gate_refuses_pgrep_f()
+    check_answer_first_gate_holds_a_change_until_the_question_is_answered()
     check_reach_key_self_check()
     check_ledger_ignores_checkout_layout()
     check_content_record_self_check()
