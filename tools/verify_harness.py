@@ -30082,6 +30082,72 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_leak_gate_note_says_when_no_private_list_is_declared():
+    """With no private blocklist declared anywhere -- no individual set in
+    the user config, no requireVocabulary, no private source in
+    precedent.json -- the leak gate's allowlist note says none is declared
+    and that nothing is missing; with one declared but unreadable, it still
+    says that list was not reachable.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: a new
+    person with no individual set was told their "private blocklist ... was
+    not reachable" and to set PRECEDENT_GIT_TOKEN, sending them to look for
+    a list they never had. Decision chosen by the session under Morgan's
+    delegation of 2026-10-17 ("Fix the other issues you found including the
+    checks that never run. Tell me what you decide. I will be offline so
+    don't wait for me. Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: before the fix both runs print
+    the not-reachable note.
+    """
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-leak-none-'))
+    genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    try:
+        repo = tmp / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'leak_gate.py', repo / 'tools' / 'leak_gate.py')
+        shutil.copy(ROOT / 'tools' / 'leak-blocklist.default.txt',
+                    repo / 'tools' / 'leak-blocklist.default.txt')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        (repo / 'ok.md').write_text('nothing sensitive here\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], capture_output=True, env=genv)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'base'],
+                       capture_output=True, env=genv)
+
+        def gate(home):
+            e = {k: v for k, v in genv.items()
+                 if k not in ('PRECEDENT_LEAK_BLOCKLIST', 'PRECEDENT_USER_CONFIG')}
+            e['HOME'] = str(home)
+            r = subprocess.run([sys.executable, str(repo / 'tools' / 'leak_gate.py')],
+                               capture_output=True, text=True, cwd=str(repo), env=e,
+                               timeout=300)
+            return r.returncode, r.stdout + r.stderr
+        new = tmp / 'new-person'
+        new.mkdir()
+        rc, out = gate(new)
+        cases.append(('nothing declared: the note says none is declared, nothing is missing, '
+                      'and asks for no token',
+                      rc == 0 and 'no private blocklist is declared here' in out
+                      and 'not reachable' not in out and 'PRECEDENT_GIT_TOKEN' not in out,
+                      out[-500:]))
+        old = tmp / 'has-a-set'
+        (old / '.config' / 'precedent').mkdir(parents=True)
+        (old / '.config' / 'precedent' / 'config.json').write_text(json.dumps(
+            {'individual': {'path': str(tmp / 'absent-individual')}}), encoding='utf-8')
+        rc, out = gate(old)
+        cases.append(('CONTROL: an individual set is named but its list is not on disk: '
+                      'still "not reachable", with the remedy',
+                      'not reachable in this session' in out, out[-500:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_bootstrap_says_the_python_warning_once():
     """In a local session, both bootstrap.sh copies run the Python check
     once, so a machine whose python3 is not the declared version hears the
@@ -82653,6 +82719,8 @@ def main():
           *check_individual_skeleton_ci_comment_is_true())
     check('bootstrap.sh says a wrong-Python warning once, not twice',
           *check_bootstrap_says_the_python_warning_once())
+    check('the leak gate says no private list is declared when none is',
+          *check_leak_gate_note_says_when_no_private_list_is_declared())
     check("a local session's commit identity leaves the laptop's global git config alone",
           *check_commit_identity_leaves_a_laptops_global_config_alone())
     check_endgame_merge_finds_the_silent_drop()
