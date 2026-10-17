@@ -30082,6 +30082,81 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_installer_base_branch_asks_origin_before_the_current_branch():
+    """With origin/HEAD unset -- which is how `git remote add origin` and a
+    push leave it -- the installer asks origin for its default branch, then
+    looks for origin's main, before taking the branch checked out; and it
+    never says "(no origin)" about a repository that has one.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: a project
+    given its origin that way, installed from a feature branch, recorded the
+    feature branch as its base branch. Decision chosen by the session under
+    Morgan's delegation of 2026-10-17 ("Fix the other issues you found
+    including the checks that never run. Tell me what you decide. I will be
+    offline so don't wait for me. Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: on the code before the fix the
+    first three cases answer the feature branch, "(no origin)".
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-base-branch-'))
+    genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], capture_output=True,
+                              text=True, env=genv)
+
+    def project(name, origin_head='main'):
+        bare = tmp / f'{name}.git'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', origin_head, str(bare)],
+                       capture_output=True)
+        d = tmp / name
+        subprocess.run(['git', 'init', '-q', '-b', origin_head, str(d)], capture_output=True)
+        git(d, 'commit', '-q', '--allow-empty', '-m', 'init')
+        git(d, 'remote', 'add', 'origin', str(bare))
+        git(d, 'push', '-q', 'origin', origin_head)
+        git(d, 'switch', '-q', '-c', 'feature/install-precedent')
+        return d, bare
+
+    try:
+        d, _ = project('plain')
+        unset = git(d, 'symbolic-ref', '-q', 'refs/remotes/origin/HEAD').returncode != 0
+        got = pi._base_branch(d, None)
+        cases.append(('origin/HEAD unset after remote add + push: origin is asked, and '
+                      'its default is the base branch, not the feature branch',
+                      unset and got[0] == 'main' and 'no origin' not in got[1], str(got)))
+        d, _ = project('trunk', origin_head='trunk')
+        got = pi._base_branch(d, None)
+        cases.append(("origin's own default answers, whatever it is called",
+                      got[0] == 'trunk', str(got)))
+        d, _ = project('offline')
+        git(d, 'fetch', '-q', 'origin')
+        git(d, 'remote', 'set-url', 'origin', str(tmp / 'gone.git'))
+        got = pi._base_branch(d, None)
+        cases.append(("origin unreachable: origin's main, already fetched, answers",
+                      got[0] == 'main' and 'no origin' not in got[1], str(got)))
+        d = tmp / 'no-origin'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(d)], capture_output=True)
+        git(d, 'commit', '-q', '--allow-empty', '-m', 'init')
+        git(d, 'switch', '-q', '-c', 'feature')
+        got = pi._base_branch(d, None)
+        cases.append(('CONTROL: no origin at all: the branch checked out, said as such',
+                      got == ('feature', 'inferred from the branch checked out now (no origin)'),
+                      str(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_installer_vendors_the_catalogue_companions():
     """The universal catalogue's companions -- its manifest, its withdrawal
     record and its close_detect.json -- travel with practices/ on install,
@@ -82342,6 +82417,8 @@ def main():
           *check_a_person_with_no_individual_set_can_be_a_code_owner())
     check("the universal catalogue's close_detect.json travels with it on install and update",
           *check_installer_vendors_the_catalogue_companions())
+    check('the installer asks origin for the base branch before taking the current one',
+          *check_installer_base_branch_asks_origin_before_the_current_branch())
     check("a local session's commit identity leaves the laptop's global git config alone",
           *check_commit_identity_leaves_a_laptops_global_config_alone())
     check_endgame_merge_finds_the_silent_drop()

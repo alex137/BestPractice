@@ -176,10 +176,30 @@ def _base_branch(dest, declared):
         return already, 'declared in the existing precedent.json'
     rc, ref, _ = _git(dest, 'symbolic-ref', '-q', 'refs/remotes/origin/HEAD')
     if rc == 0 and ref.startswith('refs/remotes/origin/'):
-        return ref.rsplit('/', 1)[1], "inferred from origin's default branch"
+        return ref[len('refs/remotes/origin/'):], "inferred from origin's default branch"
+    # origin/HEAD is unset after `git remote add origin` and a push, which is
+    # how a new project gets its origin -- and the current branch is then
+    # often a feature branch, which became the base branch (very deep check,
+    # 2026-10-17). So ask origin itself, then look for its main, before
+    # falling back to the branch checked out.
+    has_origin = _git(dest, 'remote', 'get-url', 'origin')[0] == 0
+    if has_origin:
+        try:
+            r = subprocess.run(['git', 'ls-remote', '--symref', 'origin', 'HEAD'],
+                               cwd=str(dest), capture_output=True, text=True, timeout=20,
+                               env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'})
+            m = re.search(r'^ref: refs/heads/(\S+)\s+HEAD$', r.stdout, re.M)
+        except (OSError, subprocess.TimeoutExpired):
+            m = None
+        if m:
+            return m.group(1), "inferred from origin's default branch (asked origin)"
+        if _git(dest, 'rev-parse', '--verify', '-q', 'refs/remotes/origin/main')[0] == 0:
+            return 'main', "inferred from origin's main (origin names no default branch)"
     rc, cur, _ = _git(dest, 'rev-parse', '--abbrev-ref', 'HEAD')
     if rc == 0 and cur and cur != 'HEAD':
-        return cur, 'inferred from the branch checked out now (no origin)'
+        return cur, ('inferred from the branch checked out now (origin named no '
+                     'default branch and has no main)' if has_origin else
+                     'inferred from the branch checked out now (no origin)')
     return 'main', 'assumed; the repository has no branch yet'
 
 
