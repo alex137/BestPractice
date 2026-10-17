@@ -58939,6 +58939,71 @@ def check_ci_fleet_audit_counts_each_workflow_past_the_sample():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_bestpractice_engine_hooks_are_stubs():
+    """BestPractice's own .claude/hooks/reply-gate.sh, stop-git-check.sh and
+    stop-reply-check.sh were hand copies of the engine scripts that had
+    drifted from tools/<same>.sh -- two of them lacked the
+    .precedent/python-bin PATH block -- while the dogfooded-hooks check
+    called them repo-specific and left them out (2026-10-17 very deep
+    check). Each is now the one engine stub, the check names it, and the
+    stub still does the hook's job when Claude Code runs it: planted in a
+    fixture repository with a dirty tree, the stop hook blocks the stop,
+    and lets it go when Claude Code says a stop hook is already active."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    names = ('reply-gate.sh', 'stop-git-check.sh', 'stop-reply-check.sh')
+    stub = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' /
+            'doc-lint-gate.sh').read_bytes()
+    cases = []
+    for n in names:
+        live = ROOT / '.claude' / 'hooks' / n
+        cases.append((f'.claude/hooks/{n} is the engine stub',
+                      live.is_file() and live.read_bytes() == stub, n))
+        cases.append((f'the dogfooded-hooks check names {n}',
+                      n in pc.DOGFOODED_HOOKS_MATCH_TEMPLATE, n))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='bp-hook-stub-'))
+    try:
+        repo = tmp / 'repo'
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        shutil.copy(ROOT / '.claude' / 'hooks' / 'stop-git-check.sh',
+                    repo / '.claude' / 'hooks' / 'stop-git-check.sh')
+        shutil.copy(ROOT / 'tools' / 'stop-git-check.sh',
+                    repo / 'tools' / 'stop-git-check.sh')
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        g('add', '-A')
+        g('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit',
+          '-qm', 'base')
+        g('remote', 'add', 'origin', str(tmp / 'none.git'))
+        (repo / 'tools' / 'stop-git-check.sh').write_text(
+            (repo / 'tools' / 'stop-git-check.sh').read_text() + '\n',
+            encoding='utf-8')
+        env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo))
+
+        def stop(payload):
+            return subprocess.run(
+                ['bash', str(repo / '.claude' / 'hooks' / 'stop-git-check.sh')],
+                cwd=repo, input=payload, capture_output=True, text=True,
+                env=env, timeout=60)
+        r = stop('{"session_id": "h1", "stop_hook_active": false}')
+        cases.append(('THE CASE: the stub runs the engine stop hook, which '
+                      'blocks a stop over a dirty tree',
+                      r.returncode == 2 and 'Uncommitted changes' in r.stderr,
+                      f'rc={r.returncode} {r.stderr[:200]}'))
+        r = stop('{"session_id": "h1", "stop_hook_active": true}')
+        cases.append(('CONTROL: a stop hook already active is let through',
+                      r.returncode == 0, f'rc={r.returncode} {r.stderr[:200]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + ' -- ' + str(c[2])[:300] for c in cases if not c[1]]
+    check(f'BestPractice\'s reply and stop hooks are the engine stub, checked '
+          f'as dogfooded, and still run ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_very_deep_check_runs_other_sources_checks_here():
     """A declared source's own check script whose practice is IN FORCE in
     this repo, and which this repo's precedent_check.py never discovers, is
@@ -82570,6 +82635,7 @@ def main():
     check_very_deep_check_catalogue_loads_are_quiet()
     check_moved_claims_skips_narrated_deletions_and_templates()
     check_ci_fleet_audit_counts_each_workflow_past_the_sample()
+    check_bestpractice_engine_hooks_are_stubs()
     check_very_deep_check_runs_other_sources_checks_here()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()

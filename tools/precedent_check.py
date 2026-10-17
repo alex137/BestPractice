@@ -4809,7 +4809,10 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
     'freshness-guard.sh',
     'precedent-paths.sh',
     'push-check-gate.sh',
+    'reply-gate.sh',
     'seeded-prompt-gate.sh',
+    'stop-git-check.sh',
+    'stop-reply-check.sh',
     'wait-loop-gate.sh',
 )
 
@@ -4818,10 +4821,12 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
        'each hook in DOGFOODED_HOOKS_MATCH_TEMPLATE is byte-identical '
        'between .claude/hooks/ and templates/harness/claude-code/hooks/',
        'a hook this repo deliberately customizes (session-start.sh, '
-       'stop-git-check.sh, stop-reply-check.sh, reply-gate.sh -- each '
-       'carries real repo-specific content and is correctly not in the '
-       'list); whether either copy is actually correct, only that the '
-       'two agree',
+       'which carries real repo-specific content and is correctly not in '
+       'the list; reply-gate.sh and the two stop hooks were listed here '
+       'too until 2026-10-17, but they were drifted hand copies of the '
+       'engine scripts, not customizations, and are stubs now); an engine '
+       'hook stub left off the list; whether either copy is actually '
+       'correct, only that the two agree',
        practice_backed=False,
        # Both sides of every pair it compares. Touch either copy of a
        # dogfooded hook and this runs, instead of waiting for its rotation
