@@ -223,9 +223,8 @@ def _without_quoted_assistant(text, said):
     the person's own rule written down.
 
     2026-10-04, a consumer: the person pasted a quoted paragraph of the
-    assistant's ("... has a single commit that never reached pre-staging.")
-    and added "review those"; at close, the paragraph was read as two
-    explicit instructions the person gave."""
+    assistant's and added "review those"; at close, the paragraph was read
+    as two explicit instructions the person gave."""
     if not said.strip():
         return text
 
@@ -334,7 +333,8 @@ def signals(records, repo):
     since = session_started(records)
     if since:
         # Only this session's own commits: its trailer, on its own line of
-        # history. A revert merged in from pre-staging is another session's.
+        # history. A revert merged in from the landing branch is another
+        # session's.
         for sha, subject in pd.revert_hits(repo, since_date=since,
                                            session_id=pd.this_session_id() or None,
                                            first_parent=True):

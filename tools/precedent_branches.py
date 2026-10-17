@@ -1,37 +1,30 @@
 #!/usr/bin/env python3
 """Where a person's work lands here (spec/LADDER_OPT_IN_PLAN.md D3) and whether a push to a branch gets the basic or the full push check; the branch tiers and their moves for a person whose set provides them (spec/BRANCH_TIERS_PLAN.md)
 
-precedent_branches.py -- the three branch tiers, and what a push to each
-one is checked with. spec/BRANCH_TIERS_PLAN.md is the plan this implements.
+precedent_branches.py -- the branch tiers, staging and main, and what a
+push to each one is checked with. spec/BRANCH_TIERS_PLAN.md is the plan
+this implements.
 
-THE RULE (Morgan, 2026-09-25, strength: decided): "to prestaging only the
-most minimal test; to staging/precedent-beta-v01 all local tests; and then
-to main, you get all those local tests AND the most important GitHub test",
-and "the default for everyone should be all branches other than the above
-never get tested beyond the basic markdown test when pushed to".
+WHAT A PUSH GETS (Morgan, 2026-10-17, strength: decided: main and staging
+both take the quick checks before a push; the full suite runs at the Debut,
+`--run-tests`, and after a push into main):
 
-  pre-staging, and any other branch   basic  (markdown lint, leak gate,
-                                               the commit-author checks)
-  staging                             full   (everything
-                                               precedent_push_check.py runs)
-  main                                full, plus one GitHub test on the
-                                               pull request into it
+  staging, and any other branch   the person's branch_push_checks, basic
+                                  by default (markdown lint, leak gate,
+                                  the commit-author checks)
+  main                            the quick checks; the full suite after
 
 WHY ONE MODULE. The literal `precedent-beta-v01` sat in 249 files of this
 repository when the plan was written, 37 of them under tools/. The same
-three names are meant to hold in every repository, and the staging branch
-is being renamed; every tool that needs a tier name asks here, so the
-rename is a change in one place (practice: registry-source-of-truth).
+names are meant to hold in every repository, and the staging branch was
+renamed; every tool that needs a tier name asks here, so a rename is a
+change in one place (practice: registry-source-of-truth).
 
-STAGING BEFORE THE RENAME. Until a repository has a branch called
+STAGING BEFORE A STAGING BRANCH. Until a repository has a branch called
 `staging`, its staging tier is whatever it declares as `base_branch` in
-precedent.json -- `precedent-beta-v01` in the Precedent repositories. A
-repository whose base_branch is `main` -- most repositories that install
-Precedent -- has no separate staging branch yet, so its staging tier IS
-main: pre-staging is created from main and promoted into main, and `Go
-update` for a person who has not chosen pre-staging lands on main, as it
-always did. (Until 2026-09-25 this answered `staging` there, a branch those
-repositories do not have -- found before any of them had taken the engine.)
+precedent.json. A repository whose base_branch is `main` -- most
+repositories that install Precedent -- has no separate staging branch, so
+its staging tier IS main, and `Go update` lands on main, as it always did.
 
 A PUSH NOBODY CAN READ IS CHECKED FULLY. push_targets() returns None for a
 push whose destination it cannot establish (--all, --mirror, --tags, a tag
@@ -43,47 +36,35 @@ The person's setting, `branch_push_checks`, is read the way
 spec/CI_CADENCE_PLAN.md reads its own: a repository's precedent.json wins,
 then the person's identity.json (this repository's own when it is an
 individual source, else the one ~/.config/precedent/config.json names),
-then the default, `basic`. Nothing it says can lower staging or main.
+then the default, `basic`.
 
-WHERE `Go update` LANDS is `landing_branch`: `pre-staging`, `staging` or
-`main`. Read in the OTHER order from `branch_push_checks`: the person's own
-identity.json first, then the repository's precedent.json, then the built-in
-default, `staging` (Morgan, 2026-09-27, strength: decided: "have the
-individual repo take precedence over the others (if it set, use that)").
-Where a person works is theirs to choose; a repository's value is its
-default for everyone who has not. New repositories are written with
-`pre-staging` (precedent_install.py, the document-project template, a new
-practice set), and Update Vendors adds it to one that has none. An
-unreadable value lands on staging, where work landed before the tiers
-existed, never somewhere new.
+WHERE `Go update` LANDS is `landing_branch`: `staging` or `main`. Read in
+the OTHER order from `branch_push_checks`: the person's own identity.json
+first, then the repository's precedent.json, then the built-in default,
+`staging` (Morgan, 2026-09-27, strength: decided: "have the individual repo
+take precedence over the others (if it set, use that)"). Where a person
+works is theirs to choose; a repository's value is its default for everyone
+who has not. New repositories are written with `staging`, and Update
+Vendors adds it to one that has none. A value that is neither is not used,
+and --land refuses on it by name (unknown_landing), never sending work
+somewhere new.
 
-PROMOTE moves pre-staging into staging (plan step 6; Morgan named the
-command, strength: assented). Since 2026-10-03 it COMPOSES one tree in a
-throwaway worktree -- staging, then any fix branch it is handed (--work
-DATE-promote-fix-ID), then work made directly on main, then pre-staging -- each
-by a merge commit, never a fast-forward, so a `[skip ci]` line on a
-pre-staging commit can never become staging's head and silence the GitHub
-test on the pull request into main (plan, hole 3). It rebuilds the
-generated files main's work left stale, runs the FULL push check on that
-tree once, and only if it passes moves staging AND pre-staging to that same
-commit in one atomic push. A failure or a conflict nothing here rebuilds
-moves neither: the tree goes to a local DATE-promote-fix-ID branch
-(named like every temporary branch since 2026-10-06; promote-fix-DATE
-before, still recognized), to be fixed
-there and promoted with --work (spec/LADDER_OPT_IN_PLAN.md D10; see the
-comment above _promote_unlocked). It pushes by itself, so it runs the check
-by itself: no push gate sees a push made from inside a script.
+--land PUTS WORK ON STAGING: it composes staging, then what reached main
+directly, then the work, each by a merge commit in a throwaway worktree,
+runs the quick checks, and pushes staging, never forced (see LAND_RESULT).
 
-PROMOTE ALSO MOVES STAGING INTO MAIN, since 2026-09-26, and picks which of
-the two steps to run (promotion_step): the one the session names with --to,
-else pre-staging first whenever it has work waiting -- including when the
-work the session was just on (--work) waits on staging for main, since both
-steps waiting makes the Promote ambiguous -- else the one --work needs. It prints "Now promoting from X to Y" before
-anything else. Into main it runs the same full check on staging merged into
+PROMOTE MOVES STAGING INTO MAIN (promotion_step). It prints "Now promoting
+from X to Y" before anything else, runs the check on staging merged into
 main, then pushes a throwaway copy of staging for the pull request into
 main; that pull request's GitHub test is main's last gate, so main itself
 is never pushed from here. That state exits 3 (PROMOTE_MAIN_NOT_MOVED), not
 0, and says first that main has not moved: exit 0 means the branch moved.
+A failure or a conflict nothing here rebuilds moves nothing: the tree goes
+to a local DATE-promote-fix-ID branch (promote-fix-DATE before 2026-10-06,
+still recognized), to be fixed there and promoted with --work
+(spec/LADDER_OPT_IN_PLAN.md D10; see the comment above _promote_unlocked).
+It pushes by itself, so it runs the check by itself: no push gate sees a
+push made from inside a script.
 
 EVERY PROMOTE ENDS WITH ONE RESULT LINE (2026-10-08). Whatever path a run
 takes -- moved, nothing to move, refused, not finished, ready for main's
@@ -144,8 +125,8 @@ CLI:
                                             work, moving nothing; recorded for the
                                             fast move into main. 0 passed, 1 failed
   precedent_branches.py --ensure-tiers [--apply]
-                                            report (or make) pre-staging and a real
-                                            staging branch on origin -- the migration step
+                                            report (or make) a real staging branch
+                                            on origin
 """
 import calendar
 import fnmatch
@@ -158,7 +139,6 @@ import subprocess
 import sys
 import time
 
-PRE_STAGING = 'pre-staging'
 STAGING = 'staging'
 # The staging branch's name until 2026-09-25, in the Precedent repositories.
 # Promote stopped keeping it in step on 2026-10-11, when Morgan retired it
@@ -176,15 +156,9 @@ DEFAULT_TIER = BASIC
 LANDING_SETTING = 'landing_branch'
 # The repository's own staging tier -- the conventional route, a pull
 # request into the branch work normally lands on -- for anyone who has not
-# chosen otherwise. The tiered route (pre-staging, then Promote) is a
-# person's opt-in, set as landing_branch "pre-staging" in their own
-# identity.json. Morgan, 2026-09-26 (strength: decided): "This forced
-# pre-staging -> staging -> main should be mandatory for me, but not
-# necessarily anyone else. (We may change that in the future.)" It was
-# PRE_STAGING for everyone from 2026-09-25 until then. Since 2026-09-27 a
-# repository carries its own default (pre-staging, written at install and
-# by Update Vendors), below the person and above this one: Morgan, "have
-# the Precedent one default to staging".
+# chosen otherwise. A repository carries its own default too
+# (REPO_LANDING_DEFAULT), below the person and above this one: Morgan,
+# 2026-09-27, "have the Precedent one default to staging".
 DEFAULT_LANDING = STAGING
 
 # Same names and values as precedent_identity.py, duplicated rather than
@@ -207,17 +181,12 @@ def precedent_json(root):
     return _read_json(pathlib.Path(root) / 'precedent.json') or {}
 
 
-# What a repository says when it has not been told otherwise: pre-staging,
-# the tiered route. Written into precedent.json at install, into a new
-# practice set, and by Update Vendors into a repository that has no value of
-# its own (Morgan, 2026-09-27, strength: decided). It sits BELOW the person
-# (landing_branch() reads identity.json first), so it is a default, never an
-# override of somebody's own choice.
-#
-# PRE-STAGING RETIRED FOR EVERYONE (Morgan, 2026-10-14, strength: decided:
-# "Only me, go ahead and plan it. Retire pre-staging."; plan of record
-# spec/PRE_STAGING_RETIREMENT_PLAN.md). The default is staging, and a
-# pre-staging value anywhere reads as staging (_retired_tier).
+# What a repository says when it has not been told otherwise: staging.
+# Written into precedent.json at install, into a new practice set, and by
+# Update Vendors into a repository that has no value of its own (Morgan,
+# 2026-09-27, strength: decided). It sits BELOW the person (landing_branch()
+# reads identity.json first), so it is a default, never an override of
+# somebody's own choice.
 REPO_LANDING_DEFAULT = STAGING
 REPO_LANDING_COMMENT = [
     'Where Go update lands for anyone whose own identity.json names no',
@@ -229,8 +198,7 @@ REPO_LANDING_COMMENT = [
 def repo_landing_default(root, user_config=None):
     """-> (branch, comment) a new install, or a repository given its first
     landing_branch, writes into precedent.json: REPO_LANDING_DEFAULT,
-    staging. Until 2026-10-11 it was pre-staging for everyone; until
-    2026-10-14, for anyone who had not retired pre-staging themselves."""
+    staging."""
     return REPO_LANDING_DEFAULT, REPO_LANDING_COMMENT
 
 
@@ -294,8 +262,7 @@ STAGING_KEY = 'staging_branch'
 def staging_branch(root):
     """The staging tier's branch name in this repository, today."""
     explicit = precedent_json(root).get(STAGING_KEY)
-    if isinstance(explicit, str) and explicit.strip() \
-            and explicit.strip() != PRE_STAGING:
+    if isinstance(explicit, str) and explicit.strip():
         return explicit.strip()
     declared = base_branch(root)
     if declared == MAIN and precedent_json(root).get(LANDING_SETTING) == STAGING \
@@ -304,9 +271,9 @@ def staging_branch(root):
         # staging branch origin has (2026-10-14): precedent-shared-ladder
         # declared base_branch main and landing_branch staging, and
         # --landing printed "main" above its own reason line naming
-        # staging; --land then refused and --promote looked for pre-staging.
+        # staging, and --land then refused.
         return STAGING
-    if declared and declared != PRE_STAGING:
+    if declared:
         return declared
     return STAGING
 
@@ -319,19 +286,6 @@ def _origin_has(root, branch):
                               capture_output=True, text=True).returncode == 0
     except OSError:
         return False
-
-
-def full_branches(root):
-    """The tier branches: main and staging under every name it carries.
-    (The name is older than its meaning: none is fully checked before a push
-    any more -- tier_for_branch says what each gets.)"""
-    # The pre-rename name stays a tier branch while it exists: a push there
-    # is a push to staging under its old name.
-    names = {MAIN, STAGING, LEGACY_STAGING, staging_branch(root)}
-    declared = base_branch(root)
-    if declared and declared != PRE_STAGING:
-        names.add(declared)
-    return names
 
 
 def _identity_files(root, user_config=None):
@@ -388,15 +342,12 @@ def tier_for_branch(root, branch, user_config=None):
                        f'runs after it -- GitHub\'s test, or `python3 '
                        f'tools/precedent_branches.py --run-tests {MAIN}` where '
                        f'that is not due')
-    if branch in full_branches(root):
+    if branch in tier_branches(root):
         # Staging, under whichever name the repository gives it, takes what
-        # every other branch takes since pre-staging retired (Morgan,
-        # 2026-10-17, strength: decided: "pre-staging is deprecated so it
-        # should no longer do this"): the full tier here was for a person who
-        # promoted into staging from pre-staging, and nobody does. Work lands
-        # here; the full suite runs when asked for, with --run-tests (the
-        # Debut), or before the push for a person whose branch_push_checks
-        # says full.
+        # every other branch takes (Morgan, 2026-10-17, strength: decided).
+        # Work lands here; the full suite runs when asked for, with
+        # --run-tests (the Debut), or before the push for a person whose
+        # branch_push_checks says full.
         tier, why = branch_push_checks(root, user_config)
         return tier, (f'{branch} is where work lands, so a push there gets '
                       f'what any branch gets ({why}); the full suite runs '
@@ -439,15 +390,18 @@ def ladder_in_force(root, user_config=None):
 
 
 def repo_has_tiers(root):
-    """True when this repository has tiers: precedent.json names a tier as
-    its landing_branch or base_branch (a pre-staging value read as the
-    retired name of the same), or a staging_branch of its own. A repository
-    with none of these has
-    only its main branch, and nothing here gives it more."""
+    """True when this repository has tiers: precedent.json names a
+    landing_branch other than main, a staging base_branch, or a
+    staging_branch of its own. A repository with none of these has only its
+    main branch, and nothing here gives it more. A landing_branch this
+    engine does not know still counts: the repository asked for tiers, and
+    --land refuses it by name (unknown_landing) rather than sending work to
+    main."""
     data = precedent_json(root)
-    if data.get(LANDING_SETTING) in (PRE_STAGING, STAGING):
+    value = data.get(LANDING_SETTING)
+    if isinstance(value, str) and value.strip() and value != MAIN:
         return True
-    if base_branch(root) in (PRE_STAGING, STAGING, LEGACY_STAGING):
+    if base_branch(root) in (STAGING, LEGACY_STAGING):
         return True
     explicit = data.get(STAGING_KEY)
     return isinstance(explicit, str) and bool(explicit.strip())
@@ -458,14 +412,14 @@ def landing_branch(root, user_config=None):
     (spec/LADDER_OPT_IN_PLAN.md D3, Morgan 2026-10-02, strength: decided).
 
     1. The person's own landing_branch, else the repository's main branch.
-    2. A tier value -- pre-staging or staging, the person's or the
-       repository's -- counts only while the ladder is in force for this
+    2. A tier value -- staging, the person's or the repository's -- counts
+       only while the ladder is in force for this
        person AND the repository declares tiers. Otherwise it is ignored and
        never edited: a person off the ladder has no tiers, and a ladder user
        never creates them in a repository that did not ask for them.
     3. On the ladder, in a repository with tiers: the person, then the
-       repository, then staging. A pre-staging value reads as staging:
-       that tier is retired for everyone since 2026-10-14 (_retired_tier).
+       repository, then staging. A value that is neither staging nor main
+       is not used, and --land refuses until it is fixed (unknown_landing).
 
     With no tools/precedent_ladder.py beside this file, the order from before
     the ladder became opt-in: the person, the repository, DEFAULT_LANDING."""
@@ -475,14 +429,12 @@ def landing_branch(root, user_config=None):
     value, where = person_first_setting(root, LANDING_SETTING, user_config)
     if value is None:
         tier, why = DEFAULT_LANDING, f'{LANDING_SETTING} is not set; the default is {DEFAULT_LANDING}'
-    elif value in (PRE_STAGING, STAGING, MAIN):
+    elif value in (STAGING, MAIN):
         tier, why = value, f'{LANDING_SETTING} is "{value}" in {where}'
     else:
         tier, why = STAGING, (f'{LANDING_SETTING} is {value!r} in {where}, which '
-                              f'is none of "pre-staging", "staging" or "main" -- '
+                              f'is neither "staging" nor "main" -- '
                               f'landing on staging, as before the tiers')
-    if tier == PRE_STAGING:
-        return staging_branch(root), why + _retired_tier(PRE_STAGING)
     if tier == MAIN:
         # Straight to main is a person's choice to make (Morgan, 2026-09-25:
         # "they have to be able to set it to \"main\" if they want"). It
@@ -494,13 +446,27 @@ def landing_branch(root, user_config=None):
     return staging_branch(root), why
 
 
-def _retired_tier(value):
-    """-> the clause a `why` carries when `value` names the retired tier:
-    pre-staging reads as staging since 2026-10-14 (REPO_LANDING_DEFAULT)."""
-    if value != PRE_STAGING:
-        return ''
-    return (f', which is retired: work lands on {STAGING} instead (pre-staging '
-            f'retired on 2026-10-14)')
+def unknown_landing(root, user_config=None):
+    """-> a sentence when the person's identity.json or this repository's
+    precedent.json sets a landing_branch that is neither staging nor main,
+    else None. landing_branch() passes over such a value; --land refuses on
+    it, so work never goes somewhere the setting did not mean. Update
+    Vendors' migrations rewrite a value the engine has dropped."""
+    found = []
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email') and LANDING_SETTING in ident:
+            found.append((ident[LANDING_SETTING], str(path)))
+            break
+    if LANDING_SETTING in precedent_json(root):
+        found.append((precedent_json(root)[LANDING_SETTING],
+                      "this repo's precedent.json"))
+    for value, where in found:
+        if value not in (STAGING, MAIN):
+            return (f'{LANDING_SETTING} is {value!r} in {where}, a branch this '
+                    f'engine does not know. Run Update Vendors, which moves it, '
+                    f'or set it to "{STAGING}" or "{MAIN}"')
+    return None
 
 
 def _landing_by_ladder(root, ladder, user_config=None):
@@ -513,22 +479,27 @@ def _landing_by_ladder(root, ladder, user_config=None):
             break
     repo = precedent_json(root).get(LANDING_SETTING)
     tiers = bool(ladder) and repo_has_tiers(root)
-    if person is not None and person not in (PRE_STAGING, STAGING, MAIN):
-        person = None                     # a typo: as if it were not set
+    if person is not None and person not in (STAGING, MAIN):
+        person = None                     # unknown: as if it were not set
     if person == MAIN:
         return MAIN, f'{LANDING_SETTING} is "main" in {where}'
-    if person in (PRE_STAGING, STAGING):
+    if person == STAGING:
         if tiers:
             return staging_branch(root), (f'{LANDING_SETTING} is "{person}" in '
-                                          f'{where}{_retired_tier(person)}')
+                                          f'{where}')
         return MAIN, (f'{LANDING_SETTING} is "{person}" in {where}, a branch '
                       f'this repository does not use for you, so work lands '
                       f'on {MAIN}')
     if tiers:
-        if repo in (PRE_STAGING, STAGING):
+        if repo == STAGING:
             return staging_branch(root), (f'{LANDING_SETTING} is "{repo}" in '
-                                          f"this repo's precedent.json"
-                                          f'{_retired_tier(repo)}')
+                                          f"this repo's precedent.json")
+        if repo is not None:
+            return staging_branch(root), (f'{LANDING_SETTING} is {repo!r} in '
+                                          f"this repo's precedent.json, which "
+                                          f'this engine does not know, so it '
+                                          f'reads as {STAGING}; --land refuses '
+                                          f'until it is fixed')
         return staging_branch(root), (f'{LANDING_SETTING} is not set in this '
                                       f"repo's precedent.json; the default "
                                       f'is {STAGING}')
@@ -546,7 +517,7 @@ def _landing_by_ladder(root, ladder, user_config=None):
 #
 # Why (2026-09-25, measured in a practice source that has no staging branch
 # of its own): five changes reached its main in one day without passing
-# through pre-staging -- sessions committing on the main checkout the
+# through a tier below it -- sessions committing on the main checkout the
 # session-start clone gives them, and a pull request opened against the
 # default branch. Nothing refused any of it: the push check chose how hard
 # to test by branch, and a push to main passed the full check.
@@ -569,20 +540,17 @@ def promote_only(root, user_config=None):
     return value is True, where
 
 
-# LANDING STRAIGHT ON STAGING (2026-10-09, Morgan, strength: decided; the
-# approved plan to retire pre-staging for those who opt in). A person whose
-# landing_branch is the staging tier AND who has promote_only on could not
-# land anywhere until now: the push gate refused every push into staging
-# except a Promote's. That combination now means "my work lands on staging,
-# and main still takes it only by promotion". Nobody else's route changes:
-# promote_only off, or a landing branch of pre-staging or main, reads as
+# LANDING STRAIGHT ON STAGING (2026-10-09, Morgan, strength: decided). A
+# person whose landing_branch is the staging tier AND who has promote_only
+# on means "my work lands on staging, and main still takes it only by
+# promotion". promote_only off, or a landing branch of main, reads as
 # before.
 #
-# Staging's reconciliation with main does not change (Morgan, 2026-10-09:
+# Staging is reconciled with main on every landing (Morgan, 2026-10-09:
 # "make sure that staging doesn't change what it does now, in reconciling
 # the versions sent directly to main with our staging"). --land composes
-# exactly as the Promote into staging does (_compose_onto): staging, then
-# what reached main directly, then the work. A plain push or a pull request
+# (_compose_onto): staging, then what reached main directly, then the
+# work. A plain push or a pull request
 # into staging is let through only when what it lands already carries
 # everything main has (main_work_missing), so nothing that reached main
 # directly is ever left out of staging.
@@ -664,7 +632,7 @@ def _promotion_heads(root, base):
     if base == MAIN:
         return {staging_branch(root), STAGING, LEGACY_STAGING} - {MAIN}
     # Staging takes work by --land, never by merging a tier below it: there
-    # is none since pre-staging retired (2026-10-17).
+    # is none.
     return set()
 
 
@@ -754,7 +722,7 @@ def direct_push_refusal(root, args, user_config=None):
     if not on:
         return None
     targets = push_targets(root, args)
-    hit = sorted(set(targets or ()) & full_branches(root))
+    hit = sorted(set(targets or ()) & set(tier_branches(root)))
     if hit and _remote_is_empty(root, _push_remote(root, args)):
         return None
     landable, _lwhy = lands_on_staging(root, user_config)
@@ -863,7 +831,7 @@ def merge_refusal(root, bases, heads, user_config=None, head_sha=None):
     on, where = promote_only(root, user_config)
     if not on or not bases:
         return None
-    protected = full_branches(root)
+    protected = set(tier_branches(root))
     if not all(b in protected for b in bases):
         return None
     staging = staging_branch(root)
@@ -956,21 +924,22 @@ def tier_branches(root):
     staging was deleted right after a merge of it into main on 2026-09-26,
     cause not established (see
     gotchas/gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)."""
-    return sorted({MAIN, LEGACY_STAGING, STAGING, staging_branch(root)})
+    names = {MAIN, LEGACY_STAGING, STAGING, staging_branch(root)}
+    declared = base_branch(root)
+    if declared:
+        names.add(declared)
+    return sorted(names)
 
 
 def never_offered(root, user_config=None):
     """-> the branches never offered for deletion here: the tiers -- staging
-    (and its old name) and main -- whoever asks. Pre-staging is no tier and
-    nothing here treats it as one (Morgan, 2026-10-17: "WE SHOULD DELETE
-    PRE-STAGING EVERYWHERE SO IT SHOULD NEVER HAVE WORK FROM ANYWHERE"): a
-    branch still called that is an ordinary branch, offered like any other."""
+    (and its old name) and main -- whoever asks. Every other branch is an
+    ordinary branch, offered like any other."""
     return tier_branches(root)
 
 
 def ensure_tiers(root, apply=False, say=print, new_install=False):
-    """Make origin carry a real staging branch (pre-staging too until
-    2026-10-14, when it was retired for everyone and stopped being made).
+    """Make origin carry a real staging branch.
     -> 0 when it exists (or was just made), 1 when something is missing and
     `apply` is off, or could not be made.
 
@@ -996,9 +965,6 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
                        f'{MAIN} here)')
     elif not _remote_tip(root, staging):
         missing.append(f'{staging} on origin')
-    # Pre-staging is retired for everyone since 2026-10-14
-    # (spec/PRE_STAGING_RETIREMENT_PLAN.md): nothing makes it, and making it
-    # again would undo the deletion Update Vendors offers.
     if not missing:
         say(f'tiers: {staging} -> {MAIN}, both present.')
         return 0
@@ -1007,20 +973,16 @@ def ensure_tiers(root, apply=False, say=print, new_install=False):
             ' -- run `python3 tools/precedent_branches.py --ensure-tiers --apply`.')
         return 1
     if wants_staging_branch or not _remote_tip(root, staging):
-        # A staging branch that has gone missing is rebuilt from main
-        # (from a leftover pre-staging first, until it retired). 2026-09-26:
+        # A staging branch that has gone missing is rebuilt from main.
+        # 2026-09-26:
         # staging was deleted right after a pull request FROM staging into
         # main was merged (cause not established), and this looked for staging
         # itself to rebuild it from, found nothing and gave up. Right after
         # such a merge, main contains staging exactly.
         #
-        # From pre-staging, and only then from main (Morgan,
-        # 2026-09-27, strength: decided: "copying the latest from
-        # pre-staging to staging or vice versa and if neither exist then
-        # copying to both the latest from main"). What lands on staging this
-        # way has not had staging's full check, and it gets it on the way to
-        # main: a Promote into main runs the full check on anything it has
-        # not seen pass.
+        # What lands on staging this way has not had staging's full check,
+        # and it gets it on the way to main: a Promote into main runs the
+        # full check on anything it has not seen pass.
         src = MAIN
         tip = _remote_tip(root, STAGING) or _remote_tip(root, src)
         if not tip:
@@ -1158,8 +1120,7 @@ def refused_push(root, branch, built, proc):
     `built` does not contain -- a race, worth doing again -- and `said`, what
     the push itself printed.
 
-    ONE PLACE FOR THIS, used by --land, the merge into pre-staging and
-    land_next.py (2026-10-11). Each used to explain any refusal as "the
+    ONE PLACE FOR THIS, used by --land and land_next.py (2026-10-11). Each used to explain any refusal as "the
     branch moved": the lander was fixed on 2026-10-10 and --land was not,
     so a leak-gate refusal on a branch that sat still was reported as a race
     and the push's own words were cut to two hundred characters."""
@@ -1220,14 +1181,12 @@ def _check(root, wt, tier, dest=None, since=None):
 
 
 # DRIFT FROM ABOVE (spec/BRANCH_TIERS_PLAN.md, holes 2, 4 and 5). Work is
-# meant to climb the tiers: pre-staging, then staging by Promote, then main
-# by the pull request from staging. Some of it arrives from above instead --
-# a direct push to staging, a workflow's bot commit on main, an edit made
-# on GitHub's website -- and none of that passed through pre-staging, so
-# the windows syncing from there never see it, and the next pull request
-# into main meets it as a conflict. The sync copies it DOWN into
-# pre-staging, and only once the tier it sits on has had its own checks:
-# staging's full local check, and on main that plus the GitHub test.
+# meant to climb the tiers: staging by --land, then main by the pull
+# request from staging. Some of it arrives from above instead -- a
+# workflow's bot commit on main, an edit made on GitHub's website -- and
+# the next pull request into main would meet it as a conflict. --land and
+# Promote compose it into staging, and only once the tier it sits on has
+# had its own checks: on main, the GitHub test.
 #
 # Morgan, 2026-09-26 (strength: decided): "a good point to check to make
 # sure anything that got onto main not through our system [...] had those
@@ -1238,9 +1197,8 @@ def _check(root, wt, tier, dest=None, since=None):
 # "I love it."
 #
 # ONLY A FILE CHANGE COUNTS. Right after an ordinary staging-to-main pull
-# request, main is ahead of pre-staging by two merge commits -- the Promote
-# merge and the pull request's -- whose files pre-staging already has
-# (measured 2026-09-26 in two repositories). The test is whether merging the
+# request, main is ahead of staging by merge commits whose files staging
+# already has (measured 2026-09-26 in two repositories). The test is whether merging the
 # upper branch in would change a file, not whether the two trees are equal:
 # a plain diff of the tips calls main "different" whenever staging has moved
 # on past it, which on that day was true in this repository too. Morgan, on
@@ -2778,7 +2736,7 @@ def mark_other_work(root, batch, work=None, sid=None):
 
     `work` decides nothing (kept for the callers' note). Being on the
     session's own branch said nothing: a feature branch is cut from
-    pre-staging and carries everything Booked there before it, and a fix
+    staging and carries everything Booked there before it, and a fix
     branch carries the whole batch. Found 2026-10-06, a Produce of fourteen
     commits, five of them other sessions', marked none."""
     sid = _this_session_id() if sid is None else sid
@@ -2812,11 +2770,9 @@ def promotion_step(root, to=None, work=None):
     """-> (step, why): which Promote to run -- MAIN (staging into main) or
     None (nothing waiting, or nothing a Promote may do here).
 
-    ONE STEP SINCE PRE-STAGING RETIRED (Morgan, 2026-10-17, strength:
-    decided: "pre-staging is deprecated so it should no longer do this").
     Work reaches staging by Booked (--land); a Promote only moves staging
-    into main. Asked for the old step into staging, it says so and moves
-    nothing. `work`, the branch the session was just on, still decides:
+    into main (Morgan, 2026-10-17, strength: decided). Asked for a step
+    into staging, it says so and moves nothing. `work`, the branch the session was just on, still decides:
     not on staging yet means it must be Booked first."""
     staging = staging_branch(root)
     if staging == MAIN:
@@ -3725,17 +3681,17 @@ def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False
     return PROMOTE_MAIN_NOT_MOVED
 
 
-# THE PROMOTE INTO STAGING COMPOSES, CHECKS ONCE, THEN MOVES BOTH TIERS
+# WORK ONTO STAGING IS COMPOSED, CHECKED ONCE, THEN MOVED
 # (spec/LADDER_OPT_IN_PLAN.md D10, Morgan 2026-10-03, strength: decided).
 # The ladder is opt-in, so people off it push straight to main, and that is
 # expected to go on. Their work is live for everyone already; what the
-# ladder must not do is take it into pre-staging unchecked, or leave it out
-# until the next Produce meets it as a conflict. So this step builds one
-# tree in a scratch worktree -- staging, then main's new work, then
-# pre-staging's -- rebuilds what main left stale, runs the full check on it
-# once, and only then moves staging AND pre-staging to that same commit.
+# ladder must not do is leave it out of staging until the next Produce
+# meets it as a conflict. So one tree is built in a scratch worktree --
+# staging, then main's new work, then the work being landed -- what main
+# left stale is rebuilt, the check runs on it once, and only then does
+# staging move to that commit.
 #
-# A failure moves neither. The tree is put on a LOCAL fix branch (pushed
+# A failure moves nothing. The tree is put on a LOCAL fix branch (pushed
 # only with a fix, 2026-10-06; see _not_finished), and the
 # session fixes it there in the same turn, whoever's commit broke it ("if
 # it fails because of a problem on main (caused by someone not using this
@@ -3921,6 +3877,10 @@ def land(root, work=None, say=print):
 
 
 def _land(root, work, label, staging, say):
+    unknown = unknown_landing(root)
+    if unknown:
+        say(f'{unknown}. Nothing was landed.')
+        return 2, f'LAND REFUSED: {unknown}'
     on, why = lands_on_staging(root)
     if not on:
         landing, lwhy = landing_branch(root)
@@ -4449,7 +4409,7 @@ def _main(argv):
         return 0
     print(f'staging      {staging_branch(root)}')
     print(f'main         {MAIN}')
-    print(f'tier branches: {", ".join(sorted(full_branches(root)))}')
+    print(f'tier branches: {", ".join(sorted(set(tier_branches(root))))}')
     print(f'every other branch: {tier} ({why})')
     print(f'Booked (Go update) lands on: {landing} ({lwhy})')
     return 0

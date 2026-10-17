@@ -1098,7 +1098,7 @@ def check_index_clause(path):
     INDEX_CLAUSE_MAX when the clause was written or changed in this repo,
     but only when somebody runs it, and in a practice set that is the
     Debut's full check. A clause written too long was committed, pushed and
-    landed on pre-staging, then refused at the Debut, more than once
+    landed, then refused at the Debut, more than once
     (2026-10-02, name-the-branch at 92 characters). This asks the
     builder's own question, through its own function, at the commit the
     clause is written in -- the doc-lint gate runs this light pass on every

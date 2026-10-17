@@ -109,7 +109,7 @@ def revert_hits(repo, since=None, since_date=None, session_id=None,
     `session_id` keeps only commits whose message carries it (the session
     trailer), and `first_parent` leaves out what a merge brought in: a
     session-scoped scan otherwise reports another session's revert that
-    arrived with a merge from pre-staging as this session's own
+    arrived with a merge from staging as this session's own
     (2026-09-30).
 
     `since` is a git revision (REF..HEAD); `since_date` is anything

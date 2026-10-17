@@ -2962,9 +2962,9 @@ def _withheld_from_manifest():
 # practices" as a stale count and refused a Promote. The engine's own scans
 # moved onto the helper the same day. This holds the checks a repo or a
 # practice source writes to the same line, since those are the ones nobody
-# in this repository reads. Every finding names its file, so into
-# pre-staging it judges only the check files a change touches, and at
-# staging every one (checks-follow-the-tier).
+# in this repository reads. Every finding names its file, so at the
+# quick check it judges only the check files a change touches, and at
+# the full check every one (checks-follow-the-tier).
 _CHECK_DIRS = ('tools/checks/', 'local/tools/checks/')
 _MARKER_SPELLING = re.compile(r'BEGIN GENERATED|END GENERATED|<!--(?:/\??)?gen\b')
 
@@ -10242,7 +10242,7 @@ def _routing_reason(ctx):
     # `gates` had already drifted on fourteen practices. Morgan, 2026-09-29:
     # prevent what caused it, not only check for it later. With the reason
     # in the file, a practice cannot arrive or leave without it, and this
-    # check pins its finding to that one file, so pre-staging runs it
+    # check pins its finding to that one file, so the quick check runs it
     # (practice: upstream-fix).
     #
     # The engine's origin only: it vendors no engine into itself, so it has
@@ -10642,11 +10642,11 @@ def _practice_file_shape(ctx):
     # exist, check_no_bare_numeric_citations, check_slug_link_integrity,
     # check_practices_link_only_reachable_repos, check_rule_is_self_
     # contained, check_index_clauses -- so a practice file broken in any of
-    # these ways landed on pre-staging and was caught only at staging, 20
+    # these ways landed and was caught only at the full check, 20
     # minutes of suite later. Every one judges one file and takes
-    # milliseconds, and a finding here names that file, so the pre-staging
-    # changed-files run keeps it (Morgan, 2026-09-29: make the per-file
-    # checks at pre-staging thorough). The harness copies were deleted, not
+    # milliseconds, and a finding here names that file, so the quick
+    # changed-files run keeps it (Morgan, 2026-09-29: make the quick
+    # per-file checks thorough). The harness copies were deleted, not
     # kept beside these: two checks of one property is the redundancy the
     # very deep check's question 8 looks for.
     if _engine_manifest() or not (ctx.root / 'tools' / 'verify_harness.py').is_file():
@@ -11107,16 +11107,16 @@ def _parallel_artifact_ledger(ctx):
     # CI checkout, most obviously) `--max-parents=0` cannot be trusted to
     # find every commit this check should treat as "can't verify, don't
     # guess" the same way it already treats a genuine root.
-    # A RANGED RUN READS ONLY THE RANGE (2026-09-29). The pre-staging push
+    # A RANGED RUN READS ONLY THE RANGE (2026-09-29). The quick push
     # check passes --range <landing>...HEAD with --changed-files-only, and
     # this check used to walk each member directory's WHOLE history there
     # anyway -- and then pinned its finding to LEDGER.md, a file the push
     # usually did not change, so the changed-files filter dropped it: it
     # read the full history and could never refuse. Morgan, 2026-09-29:
-    # "pre-staging should never do any check of a full history." Ranged,
+    # the quick check should never read a full history. Ranged,
     # it reads only the commits the push brings and pins each finding to the
     # member file the commit changed, which the filter keeps. The full check
-    # at staging still reads everything.
+    # still reads everything.
     # This change only: the run's range, or this branch against the
     # published default branch -- never every commit the member
     # directories ever had (Morgan, 2026-10-08, strength: decided: "WE
@@ -13044,15 +13044,13 @@ def _source_resident_cap(path):
     return v if isinstance(v, int) else None
 
 
-# The checks that hold a session-load size cap. On the way into pre-staging
+# The checks that hold a session-load size cap. At the quick check
 # (--changed-files-only) their findings WARN and do not refuse; the full
 # check, at the Debut into staging, refuses them as before. Morgan,
-# 2026-09-30, strength: decided: "remove that limit for pre-staging and
-# instead just have it give the session user a warning, including telling
-# the user that it needs to be fixed before it can get onto staging; but no
-# change for the rules for staging ... I want to get the many many branches
-# always merge quickly and easily into pre-staging (but big checks on
-# staging)". budget-within-approval is not one of them: raising a budget
+# 2026-09-30, strength: decided: "just have it give the session user a
+# warning, including telling the user that it needs to be fixed before it
+# can get onto staging; but no change for the rules for staging".
+# budget-within-approval is not one of them: raising a budget
 # still needs the person's words, on every tier.
 SIZE_CAP_CHECKS = frozenset({'loader-within-caps', 'session-load-budget',
                              'session-file-allowances-fit'})
@@ -13071,8 +13069,8 @@ SIZE_CAP_CHECKS = frozenset({'loader-within-caps', 'session-load-budget',
                    'tools/build_views.py'))
 def _loader_within_caps(ctx):
     # build_views.py writes an over-cap block with a warning since
-    # 2026-09-30, so a branch can reach pre-staging; this is where the cap
-    # is still held, at the tier that must hold it.
+    # 2026-09-30, so a branch can still land; this is where the cap
+    # is held, at the tier that must hold it.
     builder = _tool_path('tools/build_views.py')
     if builder is None:
         raise NotApplicable('tools/build_views.py is absent')
@@ -13543,8 +13541,7 @@ def _touched_files():
 # change added .claude/hooks/precedent-hooks.sh and no row for it in
 # templates/harness/PARALLELS.md, Booked dropped that finding as outside
 # the change, and the Debut into staging found it -- for whichever session
-# promoted next. Keeping every tree finding, as first proposed
-# (todo-2026-10-07-pre-staging-runs-the-fast-tree-checks), would also keep
+# promoted next. Keeping every tree finding, as first proposed, would also keep
 # the repository's standing debt, and refuse an unrelated push over it:
 # the 2026-10-07 note in a private consuming repository refused four times
 # over files it never touched. So the question is the one the push check
@@ -14048,7 +14045,7 @@ def main():
         # A practice file sync wrote -- any the committed MANIFEST.json names
         # -- is not this change's own writing, even when this change is the
         # update that wrote it. Found 2026-09-28: a consuming repo's Update
-        # Vendors failed its pre-staging check on an acronym inside
+        # Vendors failed its quick check on an acronym inside
         # vendor-update-runbook, a file it cannot change. run() now drops
         # findings on another source's files for every check; what is left
         # for this to catch is a materialized copy of the repo's OWN
@@ -14060,7 +14057,7 @@ def main():
                 materialized += 1
         # A path this change deleted or renamed away is the change's own
         # doing wherever the mention it strands sits, and that is never in
-        # the change: the pre-staging check could not see a stranded
+        # the change: the quick check could not see a stranded
         # reference at all, so a consumer's Update Vendors passed Booked and
         # the Debut into staging refused on about 15 files no earlier run
         # had named (2026-09-30). Narrows the rule above, it does not undo
@@ -14108,7 +14105,7 @@ def main():
     # full; they just don't fail the run.
     violated = [r for r in all_violated if not CHECKS[r[0]].get('advisory')]
     advisory = [r for r in all_violated if CHECKS[r[0]].get('advisory')]
-    # Size caps warn on the way into pre-staging (SIZE_CAP_CHECKS).
+    # Size caps warn at the quick check (SIZE_CAP_CHECKS).
     held_for_staging = []
     if '--changed-files-only' in flags:
         held_for_staging = [r for r in violated if r[0] in SIZE_CAP_CHECKS]

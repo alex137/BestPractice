@@ -109,7 +109,7 @@ def _scratch_copy_of(repo_root):
     that resolves no working-style set -- had the repairs below clone every
     declared source beside the copy, in /tmp, in a hosted session. The
     copy then resolved exactly what the test set out to exclude, and failed
-    on untouched pre-staging. A checkout a person works in, attached or the
+    on an untouched branch. A checkout a person works in, attached or the
     project itself, has a remote for its origin; a copy of a checkout on
     this disk does not, and the sources it declares belong to the checkout
     it was copied from. The directory it sits in is not the test: the
@@ -884,8 +884,8 @@ NO_LADDERS_ENV = 'PRECEDENT_NO_LADDERS'
 LADDER_CAPABILITY = 'ladder'
 
 
-# For a test fixture of the tier machinery itself -- Promote, promote_only,
-# a pre-staging landing -- whose person brings no set: treat the ladder as
+# For a test fixture of the tier machinery itself -- Promote, promote_only
+# -- whose person brings no set: treat the ladder as
 # in force. Never set in a session; PRECEDENT_NO_LADDERS wins over it.
 ASSUME_LADDER_ENV = 'PRECEDENT_ASSUME_LADDER'
 

@@ -1427,7 +1427,7 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
         # require_in_fence_paired_with: require_paired_with, judged one
         # fenced block at a time. A rule about what a paste block may say to
         # another session must read the block, not the reply around it: the
-        # reply's own prose says "lands on pre-staging" all day, to the
+        # reply's own prose says "lands on staging" all day, to the
         # person, and that is no instruction to anybody.
         #
         # WHY IT EXISTS (2026-10-01): two prompts a session wrote ended
@@ -1803,7 +1803,7 @@ def _stranded_branches(root=None, siblings=True):
 
     [] when the gate cannot be imported or run: an engine too old to carry
     it blocks nothing, the same posture as _container_verdict. Only the
-    not-landed lines count -- a pre-staging batch waiting on a Promote has
+    not-landed lines count -- a staging batch waiting on a Promote has
     landed, and is never a reason to keep a session open."""
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))

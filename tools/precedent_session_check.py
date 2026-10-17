@@ -141,7 +141,7 @@ def _own_new_branch(git, cur, start_sha, stamp):
     except (IndexError, ValueError, OSError):
         return False
     # Made from a declared tier branch: the ladder's own move. A cloud
-    # session starts on main and branches from origin/pre-staging, which
+    # session starts on main and branches from origin/staging, which
     # lacks main's newest merge commit until the next back-merge -- so the
     # start commit is not in it, and every ladder session was warned on
     # every prompt (2026-10-01, from a consumer's session).
@@ -157,7 +157,7 @@ _TIER_NAMES = ('main', 'staging', 'precedent-beta-v01')
 
 def _is_tier_ref(git, ref):
     """True when `ref` (a branch's "Created from" source) names a tier
-    branch here, local or origin's: main, staging, pre-staging, or a branch
+    branch here, local or origin's: main, staging, its old name, or a branch
     precedent.json declares as base, staging or landing branch."""
     name = ref
     for prefix in ('refs/remotes/', 'refs/heads/', 'origin/'):
@@ -167,8 +167,8 @@ def _is_tier_ref(git, ref):
 
 
 def _tier_names(git):
-    """-> every branch name that is a tier here: main, staging,
-    pre-staging, the old staging name, and whatever precedent.json declares
+    """-> every branch name that is a tier here: main, staging, the old
+    staging name, and whatever precedent.json declares
     as base, staging or landing branch."""
     names = set(_TIER_NAMES)
     rc, top, _ = git('rev-parse', '--show-toplevel')
@@ -311,7 +311,7 @@ def _session_branch_row(stamp, git):
     # The branch it started on is wholly inside the one it is on now: work
     # carried, not stranded. Measured 2026-10-01: a container restarted
     # while the checkout sat on a feature branch, so the stamp named that
-    # branch; after Booked merged it into pre-staging and the session moved
+    # branch; after Booked merged it into staging and the session moved
     # there, every turn said the SessionStart guarantee was not in effect.
     # The start branch's tip as it is NOW, so a commit made there after the
     # stamp counts too; its recorded commit when the branch is gone. Only a
@@ -326,7 +326,7 @@ def _session_branch_row(stamp, git):
                                 f'which carries all of it -- nothing is stranded; '
                                 f'{cur!r} is now the baseline')
     # A MOVE ONTO A TIER BRANCH IS ORDINARY PROMOTE WORK (2026-10-09). After a
-    # promote the checkout sits on main, staging or pre-staging; that is
+    # promote the checkout sits on main or staging; that is
     # the normal end of a stage, not a jump. It passes when the branch it
     # started on is held by a tier branch, here or on origin -- the work
     # landed. A start branch whose commits are on no tier is still the

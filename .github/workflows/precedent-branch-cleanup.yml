@@ -5,7 +5,7 @@
 # WHAT IT DOES. Deletes every branch on origin that is already in `main`,
 # so deleting it loses nothing -- the same branches the branch cleanup page
 # lists, chosen by the same code (tools/precedent_stale_branches.py,
-# --delete-merged). Never `main`, `staging`, `pre-staging`, the engine's own
+# --delete-merged). Never `main`, `staging`, the engine's own
 # branches, a `data-` branch, the repository's default branch, or a branch
 # that is the source of an open pull request. The run's summary names every
 # branch it deleted and every one it skipped.

@@ -61,8 +61,7 @@ name: Light check
 on:
   # PULL REQUESTS INTO MAIN (spec/BRANCH_TIERS_PLAN.md, 2026-09-25), and in
   # a public repository pushes to main too (2026-09-27, below). This is a
-  # repository's one GitHub test: pre-staging,
-  # staging and working branches are checked by the local push check before
+  # repository's one GitHub test: staging and working branches are checked by the local push check before
   # every push, and GitHub's job is only to re-check what is about to reach
   # main on a clean machine that has none of the session's private sources.
   # Morgan: "to main, you get all those local tests AND the most important

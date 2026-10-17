@@ -279,7 +279,7 @@ def refresh_views(repo):
     one-line content push to a feature branch included. The push check now
     reports a staleness the push did not bring, and this is where the
     refresh it points at happens: at the merge, the way the vendor update
-    rides along, so pre-staging and above stay fresh."""
+    rides along, so staging and main stay fresh."""
     tool = repo / VIEWS_TOOL
     if not tool.is_file():
         return

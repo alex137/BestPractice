@@ -851,8 +851,8 @@ widening what sessions may run
    --update-baseline`, read what it names, and say so in the pull request:
    they still carry the classic install's hashes, which the audit reads as
    DRIFT (Update Vendors re-records the ones it rewrites itself; a
-   consumer's pre-staging push runs the audit since 2026-10-02, so a stale
-   one is refused at Booked rather than at the first Debut). And, since
+   consumer's Debut runs the audit, so a stale one is refused there).
+   And, since
    2026-09-19, run
    `python3 tools/todo_migrate.py --source todo.md --apply` then `python3
    tools/build_todo_index.py` if `TODO.md` is still the old single-file

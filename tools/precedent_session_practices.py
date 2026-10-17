@@ -599,7 +599,8 @@ def charged_to_repo(repo, n):
 def spoken_block(extra):
     """-> the spoken-commands block for `extra`, or '' when none of them
     defines a command: SPOKEN_HEAD, then one line per practice --
-    `"Debut" -> debut: stage 4: pre-staging into staging, full checks`."""
+    `"Drop it" -> park-it: mark the item `parked` now; never raise it
+    unprompted again`."""
     lines = []
     # An addition (`adds_to:`) loads with its base through precedent_show.py,
     # so the base's line only says how many there are here, never a line

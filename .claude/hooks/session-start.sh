@@ -371,9 +371,8 @@ fi
 # 2026-09-27: main takes all its work from staging by Promote now, so the
 # notice only ever counted Promote's own merge commits -- 548 of them, with
 # nothing on main to carry. The drift check in
-# tools/precedent_branches.py (--sync-pre-staging) asks the real question,
-# by files (Morgan: "Let's retire upstream moved - I think with the new
-# staging and pre-staging system we don't need it", strength: decided).
+# tools/precedent_branches.py (drift) asks the real question, by files
+# (Morgan, strength: decided).
 _hook_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
 # AND, IN A REPO THAT VENDORS THE ENGINE, whether that engine has fallen
