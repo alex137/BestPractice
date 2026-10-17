@@ -5940,13 +5940,14 @@ def _template_instance_plan(dest_root, kind, templates_dir, manifest):
                     bootstrap.sh decided something.
       'current'  -- byte-identical to the template.
       'refresh'  -- matches the recorded hash (unedited), template moved.
-      'adopt'    -- nothing recorded, but identical to a past version of
-                    the template (unedited, predates tracking).
+      'adopt'    -- identical to a past version of the template, recorded
+                    or not (unedited), and not kept on purpose.
       'legacy-shim' -- the pre-Precedent wrapper that runs upstream's own
                     bootstrap, and nothing of its own (_LEGACY_SHIM_TARGET).
                     Replaced with the template, and said so.
       'diverged' -- carries local edits. Reported, never written."""
     recorded = manifest.get(TEMPLATE_INSTANCES_KEY) or {}
+    kept = kept_template_divergences(dest_root)
     try:
         history = json.loads((templates_dir / _TEMPLATE_HISTORY_NAME)
                              .read_text(encoding='utf-8'))
@@ -5964,10 +5965,15 @@ def _template_instance_plan(dest_root, kind, templates_dir, manifest):
         on_disk = _sha256(path)
         if on_disk == _sha256(src):
             action = 'current'
-        elif rel in recorded:
-            action = 'refresh' if on_disk == recorded[rel] else 'diverged'
-        elif _git_blob_id(path.read_bytes()) in set(history.get(src_rel) or ()):
+        elif rel in recorded and on_disk == recorded[rel]:
+            action = 'refresh'
+        elif (_git_blob_id(path.read_bytes()) in set(history.get(src_rel) or ())
+              and rel not in kept):
+            # Recorded or not: a past template version carries nothing of
+            # this repo's own (_agents_md_plan says why).
             action = 'adopt'
+        elif rel in recorded:
+            action = 'diverged'
         elif _legacy_shim_lines(path.read_text(encoding='utf-8', errors='replace'),
                                 src.read_text(encoding='utf-8')) == []:
             action = 'legacy-shim'
@@ -6188,10 +6194,11 @@ def record_template_instances(dest_root, kind, source_root):
 #               way install substitutes them). Recorded.
 #   refresh  -- matches the hash recorded for it, so nobody edited it, and
 #               the template moved. Rewritten; the new text recorded.
-#   adopt    -- nothing recorded (every install before this date), but
-#               identical to the section in SOME past version of either
-#               AGENTS.md template. Stock, so rewritten and recorded -- the
-#               one-time catch-up.
+#   adopt    -- identical to the section in SOME past version of either
+#               AGENTS.md template, whether or not a hash is recorded (a
+#               recorded hash it does not match only says the text changed
+#               since; 2026-10-17). Stock, so rewritten and recorded. Not
+#               when precedent.json records it as kept on purpose.
 #   diverged -- anything else. Left alone, --force included, and reported
 #               with every block (bullet, paragraph, table row) of the
 #               current template's section it lacks, down to the sentences
@@ -6473,6 +6480,7 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
     except (OSError, ValueError):
         history = {}
     recorded = manifest.get(AGENTS_MD_SECTIONS_KEY) or {}
+    kept = kept_template_divergences(dest_root)
     local = path.read_text(encoding='utf-8')
     lines = local.split('\n')
     spans = collections.defaultdict(list)
@@ -6492,11 +6500,20 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
         text = _section_text(lines, *span)
         if _same_section(text, _instantiate(raw, subs)):
             action = 'current'
-        elif recorded.get(key):
-            action = 'refresh' if _sha_text(text) == recorded[key] else 'diverged'
-        elif any(_same_section(text, past)
-                 or _same_section(text, _instantiate(past, subs))
-                 for past in history.get(key) or ()):
+        elif recorded.get(key) and _sha_text(text) == recorded[key]:
+            action = 'refresh'
+        elif (any(_same_section(text, past)
+                  or _same_section(text, _instantiate(past, subs))
+                  for past in history.get(key) or ())
+              and f'{AGENTS_MD} {key}' not in kept):
+            # Identical to a past version of the template: stock, whatever
+            # the record says. Until 2026-10-17 a recorded hash that did not
+            # match sent the section straight to 'diverged', and a consuming
+            # repo's Update Vendors stopped LEFT FOR YOU on "### Merging a
+            # thread branch" carrying the template's own pre-974ec8d01 text
+            # word for word -- nothing in it was the repo's, and the person's
+            # standing default is to take upstream's. A section recorded as
+            # kept on purpose stays the person's call.
             action = 'adopt'
         else:
             action = 'diverged'
