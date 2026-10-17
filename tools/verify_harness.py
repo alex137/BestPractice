@@ -37424,6 +37424,82 @@ def check_upstream_edits_need_an_answer():
     check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_very_deep_check_lists_checks_by_stage():
+    """The very deep check's CHECKS BY STAGE reads, from a repository's own
+    push check and branch tool, what runs before and after Booked, Produce
+    and the Debut, and flags anything but the closed quick tier before a
+    push (Morgan, 2026-10-17, strength: decided; practice: very-deep-check,
+    Pass 2's question 25).
+
+    WHY. Checks crept into the pushes twice: by 2026-10-16 a landing's quick
+    check took 218 s (spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md). The quick tier's
+    own test sees BASIC_CHECKS; it could not see a move that called the full
+    tier before pushing, or a repository's workflow checks that ran at every
+    tier outside that set.
+
+    Planted cases, on a copy of tools/: Booked's land made to run the full
+    tier, and doc_sync slipped into the quick tier without an approval. The
+    control: this repository's own tools flag neither."""
+    import tempfile
+    vdc = ROOT / 'tools' / 'very_deep_check.py'
+    name = 'the very deep check lists the checks by stage and flags extra ones before a push'
+
+    def read(tree):
+        p = subprocess.run([sys.executable, str(vdc), '--stage-checks-json', str(tree)],
+                           capture_output=True, text=True, timeout=120)
+        try:
+            return json.loads(p.stdout)
+        except ValueError:
+            return {'error': (p.stderr or p.stdout)[-400:]}
+    cases = []
+    real = read(ROOT)
+    tiers = {r.get('fn'): r.get('tier') for r in real.get('routes') or []}
+    texts = [t for _l, t in real.get('findings') or []]
+    cases.append(('Booked lands with the quick tier, and the Debut runs the full one',
+                  tiers.get('_land_composed') == 'basic'
+                  and tiers.get('_run_tests') == 'full', real.get('error') or tiers))
+    cases.append(('every move that runs a check is named by a stage',
+                  not any('no stage names it' in t for t in texts), texts))
+    cases.append(('control: the real quick tier holds nothing unapproved',
+                  all(q.get('approved') for q in real.get('quick') or [])
+                  and real.get('quick'), real.get('quick')))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-stages-'))
+    try:
+        shutil.copytree(ROOT / 'tools', tmp / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        pb = tmp / 'tools' / 'precedent_branches.py'
+        src = pb.read_text(encoding='utf-8')
+        land = "ok, out = _check(root, wt, BASIC, dest=staging, since=stip)"
+        cases.append(('the planted line is still where Booked lands', land in src, ''))
+        pb.write_text(src.replace(land, "ok, out = _check(root, wt, FULL, dest=staging)", 1),
+                      encoding='utf-8')
+        ppc = tmp / 'tools' / 'precedent_push_check.py'
+        src = ppc.read_text(encoding='utf-8')
+        basic = 'BASIC_CHECKS = set(BASIC_CHECKS_APPROVED)'
+        cases.append(('the planted line is still where the quick tier is built',
+                      basic in src, ''))
+        ppc.write_text(src.replace(basic, basic + " | {'doc_sync'}", 1), encoding='utf-8')
+        planted = read(tmp)
+        texts = [t for lvl, t in planted.get('findings') or [] if lvl == 'VIOLATION']
+        cases.append(('a land onto staging that runs the full tier is a violation',
+                      any(t.startswith('Booked') and 'full' in t for t in texts),
+                      planted.get('error') or texts))
+        cases.append(('a check in the quick tier with no approval is a violation',
+                      any(t.startswith('doc_sync runs before every push') for t in texts),
+                      texts))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as v
+    trig = v._workflow_triggers(
+        'on:\n  push:\n    branches: [main]\n  pull_request:\n    branches:\n'
+        '      - main\n      - "release/*"\n  schedule:\n    - cron: x\njobs:\n')
+    cases.append(('a workflow\'s push and pull-request branches are read',
+                  trig == {'push': ['main'], 'pull_request': ['main', 'release/*']}, trig))
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_quick_tier_is_closed():
     """Nothing joins the checks run before a push without the person's own
     words (Morgan, 2026-10-16, strength: decided: "LET'S BAN ALL NEW TESTS
@@ -55482,8 +55558,8 @@ def check_push_gate_judges_only_what_a_working_branch_brings():
 
 def check_push_check_runs_approved_workflow_steps():
     """The push check runs each plain `python3 tools/<x>.py` step of a
-    workflow the repo keeps in precedent.json's github_ci_approved, at every
-    tier; never a workflow the engine installs, a step calling an engine
+    workflow the repo keeps in precedent.json's github_ci_approved, in its
+    full tier and never before a push (since 2026-10-17); never a workflow the engine installs, a step calling an engine
     file, or a tool its own list already runs; and names each other step
     once.
 
@@ -55537,6 +55613,19 @@ def check_push_check_runs_approved_workflow_steps():
         argvs = [c[1][1:] for c in checks]
         cases.append(('a plain step, with its arguments, is a check',
                       ['tools/check_docs.py', '--strict'] in argvs, argvs))
+        # They are tests, so the full tier runs them and the quick tier never
+        # does (2026-10-17: they had run at every tier, outside BASIC_CHECKS).
+        man = repo / 'tools' / 'ENGINE_MANIFEST.json'
+        kept = man.read_text(encoding='utf-8')
+        man.write_text(json.dumps(dict(json.loads(kept), kind='consumer')),
+                       encoding='utf-8')
+        _k, full_plan = ppc.plan(repo, engine=repo / 'tools', tier=ppc.FULL)
+        _k, basic_plan = ppc.plan(repo, engine=repo / 'tools', tier=ppc.BASIC)
+        man.write_text(kept, encoding='utf-8')
+        cases.append(('a workflow check runs in the full tier, never before a push',
+                      any(n.startswith('workflow ') for n, _a, _r in full_plan)
+                      and not any(n.startswith('workflow ') for n, _a, _r in basic_plan),
+                      ([n for n, _a, _r in full_plan], [n for n, _a, _r in basic_plan])))
         cases.append(("each line of a block step is its own check",
                       ['tools/build_a.py', '--check'] in argvs
                       and ['tools/build_b.py', '--check'] in argvs, argvs))
@@ -81571,6 +81660,7 @@ def main():
     check_for_change_adds_what_the_reach_ledger_picks()
     check_changed_files_runs_the_harness_tests_a_change_reaches()
     check_quick_tier_is_closed()
+    check_very_deep_check_lists_checks_by_stage()
     check_upstream_edits_need_an_answer()
     check_a_new_test_lands_with_its_time()
     check_boildown_contradiction_spares_work_waiting_upstream()

@@ -601,8 +601,9 @@ def repo_kind(engine=HERE):
 # run: every local tier passed a change that platform-docs-check.yml then
 # failed as GitHub's test on the pull request into main, a fix and a second
 # Produce later. The workflow file stays the one record of its commands: each
-# step that is a plain `python3 tools/<x>.py [args]` call runs here, at every
-# tier, as the repo's own light check does; a workflow the engine installs
+# step that is a plain `python3 tools/<x>.py [args]` call runs here, in the
+# full tier (the Debut and around Produce; never before a push, since
+# 2026-10-17); a workflow the engine installs
 # (ENGINE_MANIFEST's ci_workflow_files) is skipped, since this list already
 # carries what it runs, and so is a step calling an engine file. Any other
 # step is named by Update Vendors, once per update (the second answer of
@@ -812,6 +813,14 @@ def plan(root, engine=HERE, tier=FULL):
     # A workflow step calling a tool this list already runs is left to this
     # list, which owns its tier: BestPractice's own deep-check.yml runs the
     # full suite, which a basic push must not.
+    # A repository's own workflow checks are tests, so they run in the full
+    # tier only: at the Debut and around Produce, never before a push. Until
+    # 2026-10-17 they ran at every tier, outside BASIC_CHECKS, where the
+    # closed quick tier could not see them (Morgan, 2026-10-16: "all the
+    # testing EXCEPT THE BARE ESSENTIAL AND LEAK GATES SHOULD GO INTO DEBUT";
+    # found by the very deep check's CHECKS BY STAGE).
+    if tier == BASIC:
+        return kind, out
     planned = {Path(a[0].replace('{engine}', str(rel))).as_posix()
                for _n, a, _r in PUSH_CHECKS[kind] if a}
     out.extend(c for c in approved_workflow_checks(root)[0]
