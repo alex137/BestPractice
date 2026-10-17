@@ -15,8 +15,9 @@ name (and, for a team, its first approver), and prints -- or, opted in,
 writes -- the exact wiring a consuming repo or a person's own environment
 needs next. See spec/BOOTSTRAP_NEW_SOURCES.md for the full procedure this
 mechanizes, including the parts (creating the actual git remote) that stay a
-human/session step on purpose -- this tool never touches a git remote or
-any hosting API.
+human/session step on purpose -- this tool never writes to a git remote
+or calls any hosting API, and reads a remote only when --network true asks
+it to (NO NETWORK UNLESS ASKED, below).
 
 It also vendors a real, tracked, refreshable engine into the new set's own
 tools/ -- see tools/precedent_vendor_engine.py's docstring. This closed a
@@ -72,6 +73,19 @@ Usage:
   --force true    # allow writing into a non-empty --dest
   --off-main true # copy the engine from a checkout main does not contain
                   # (refused otherwise; the manifest names the branch)
+  --network true  # fetch origin first, to say whether this checkout is
+                  # behind it; and let the tools this runs look for
+                  # declared sources the way a session does
+
+NO NETWORK UNLESS ASKED (2026-10-17). Without --network true this tool
+reaches nothing outside this machine: the staleness warning compares with
+the origin ref this clone already has, and every tool it runs (the new
+set's build_views.py among them) runs with PRECEDENT_NO_SELF_HEAL set, so
+none of them asks GitHub whose a token is, clones a set, or writes a user
+config. Bootstrapping a shared set never touches the person's individual
+set: a very deep check bootstrapped one in a scratch home and found the
+operator's private individual set cloned into it, with a user config
+naming it, because the new set's view build ran the resolver's self-heal.
 
 Exit: 0 on success (prints the resulting config wiring either way); 1 on a
 refusal (existing non-empty dest without --force, missing --approver for a
@@ -1267,7 +1281,7 @@ def _malformed(level, path):
     return out
 
 
-def _warn_if_clone_is_stale():
+def _warn_if_clone_is_stale(network=False):
     """Say so, loudly, if THIS checkout is behind its own origin before we
     seed a new set from it.
 
@@ -1287,12 +1301,17 @@ def _warn_if_clone_is_stale():
     mean "checked and current" -- so an unreachable remote says THAT,
     rather than nothing, which would be indistinguishable from a clean
     result."""
-    ok, _ = _git('fetch', '--quiet', 'origin', precedent_vendor_engine.SOURCE_BRANCH)
-    if not ok:
-        print(f"NOTE: could not reach origin to check whether this BestPractice "
-              f"checkout is current, so the engine about to be vendored is "
-              f"whatever this clone holds. Not verified.", file=sys.stderr)
-        return
+    if not network:
+        print(f"NOTE: origin was not fetched (no --network true), so this "
+              f"checks against origin/{precedent_vendor_engine.SOURCE_BRANCH} "
+              f"as this clone last fetched it.", file=sys.stderr)
+    else:
+        ok, _ = _git('fetch', '--quiet', 'origin', precedent_vendor_engine.SOURCE_BRANCH)
+        if not ok:
+            print(f"NOTE: could not reach origin to check whether this BestPractice "
+                  f"checkout is current, so the engine about to be vendored is "
+                  f"whatever this clone holds. Not verified.", file=sys.stderr)
+            return
     ok, behind = _git('rev-list', '--count',
                       f'HEAD..origin/{precedent_vendor_engine.SOURCE_BRANCH}')
     if ok and behind.isdigit() and int(behind) > 0:
@@ -1318,7 +1337,28 @@ def _git(*args):
 
 
 def bootstrap(level, name, dest, approvers=None, force=False,
-              visibility='private', off_main=False):
+              visibility='private', off_main=False, network=False):
+    """Instantiate the set (see the module docstring). Without `network`,
+    nothing it does or runs reaches beyond this machine: the resolver's
+    self-heals are switched off for the duration (NO NETWORK UNLESS ASKED,
+    above), and put back as they were after."""
+    key = precedent_resolve.NO_SELF_HEAL_ENV
+    saved = os.environ.get(key)
+    if not network:
+        os.environ[key] = '1'
+    try:
+        return _bootstrap(level, name, dest, approvers=approvers, force=force,
+                          visibility=visibility, off_main=off_main,
+                          network=network)
+    finally:
+        if saved is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = saved
+
+
+def _bootstrap(level, name, dest, approvers=None, force=False,
+               visibility='private', off_main=False, network=False):
     level = precedent_resolve.normalize_level(level)
     if level not in LEVELS:
         raise BootstrapRefused(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
@@ -1337,7 +1377,7 @@ def bootstrap(level, name, dest, approvers=None, force=False,
             '--approver "Full Name:github-handle" (whoever is creating this '
             "set is its first approver, per PRACTICE_ENGINE_PLAN.md's Stage 4)")
 
-    _warn_if_clone_is_stale()
+    _warn_if_clone_is_stale(network)
     # Before anything is written: seed() refuses the same thing, but only
     # after the skeleton is already on disk.
     head = precedent_vendor_engine._head_commit(ROOT)
@@ -1967,7 +2007,8 @@ def main():
     try:
         result = bootstrap(level, name, dest, approvers=approvers, force=force,
                            visibility=args.get('--visibility', 'private'),
-                           off_main=args.get('--off-main', 'false').lower() == 'true')
+                           off_main=args.get('--off-main', 'false').lower() == 'true',
+                           network=args.get('--network', 'false').lower() == 'true')
     except BootstrapRefused as e:
         print(f"REFUSED: {e}")
         return 1

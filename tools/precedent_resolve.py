@@ -90,6 +90,14 @@ DEFAULT_USER_CONFIG = pathlib.Path.home() / '.config' / 'precedent' / 'config.js
 # than configurable: the self-heal below has to find it without first
 # resolving a config that might be exactly what's missing.
 INDIVIDUAL_BOOTSTRAP_HOOK = '.claude/hooks/precedent-individual-bootstrap.sh'
+# Set, to any value, to keep both self-heals below from running: neither
+# the individual set's hook (which may ask GitHub whose a token is, clone a
+# private set into $HOME and write a user config) nor the universal clone.
+# precedent_bootstrap_source.py sets it for itself and every tool it runs,
+# so bootstrapping a set reaches no network unless --network true asks it to
+# (2026-10-17, very deep check: bootstrapping a SHARED set in a scratch home
+# cloned the operator's private individual set into it).
+NO_SELF_HEAL_ENV = 'PRECEDENT_NO_SELF_HEAL'
 
 def _scratch_copy_of(repo_root):
     """-> the checkout `repo_root` was copied from, when its `origin` is
@@ -150,6 +158,8 @@ def _self_heal_individual_source(repo_root):
     different answers to "do you have an individual set?" (2026-09-06: this
     returned None either way, and the difference was the whole reason a real
     rule went looked-for and not found.)"""
+    if os.environ.get(NO_SELF_HEAL_ENV):
+        return 'not-asked'
     if os.environ.get('CLAUDE_CODE_REMOTE') != 'true':
         return 'not-remote'
     if _scratch_copy_of(repo_root):
@@ -213,6 +223,8 @@ def _self_heal_universal_source(repo_root):
     nor the gap this closes). Never raises: a failed clone here is reported
     by the ordinary 'missing source' path load_config's caller already has,
     not a new failure mode."""
+    if os.environ.get(NO_SELF_HEAL_ENV):
+        return 'not-asked'
     tool = repo_root / 'tools' / 'precedent_source_bootstrap.py'
     if not tool.is_file():
         return 'no-tool'
@@ -715,6 +727,12 @@ def _diagnose_no_individual(why, heal, user_cfg_path, repo_root):
                             "or clone), so no individual practices are in "
                             "force; set PRECEDENT_INDIVIDUAL_REPO if you have "
                             "one")}
+    if heal == 'not-asked':
+        return {'certain': False, 'code': 'self-heal-off',
+                'message': (f"no individual source resolved in {repo_root}, "
+                            f"and {NO_SELF_HEAL_ENV} kept this run from looking "
+                            f"for one (a tool that reaches no network unless "
+                            f"asked set it). Unknown here, not 'none'.")}
     if heal == 'scratch-copy':
         return {'certain': False, 'code': 'scratch-copy',
                 'message': (

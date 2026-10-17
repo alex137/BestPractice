@@ -28220,7 +28220,7 @@ def check_source_sets_can_learn_they_are_stale():
     # 2. The bootstrap tool warns when the clone it is seeding FROM is behind.
     bs = (ROOT / 'tools' / 'precedent_bootstrap_source.py').read_text(encoding='utf-8')
     cases.append(('bootstrap warns when seeding from a stale checkout',
-                  '_warn_if_clone_is_stale' in bs and '_warn_if_clone_is_stale()' in bs, ''))
+                  '_warn_if_clone_is_stale' in bs and '_warn_if_clone_is_stale(network)' in bs, ''))
 
     # 3. A session working HERE is told about stale attached sources.
     tool = ROOT / 'tools' / 'precedent_refresh_sources.py'
@@ -35582,7 +35582,7 @@ def check_seed_refuses_an_engine_main_lacks():
 
             bdest = pathlib.Path(td) / 'set'
             saved_warn = pbs._warn_if_clone_is_stale
-            pbs._warn_if_clone_is_stale = lambda: None
+            pbs._warn_if_clone_is_stale = lambda *_a: None
             try:
                 pbs.bootstrap('shared', 'precedent-shared-zz', bdest,
                               approvers=[{'name': 'A B', 'github': 'ab'}])
@@ -72357,6 +72357,112 @@ def check_retired_words_reads_past_the_decommission_ledger():
           f'cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_bootstrapping_a_set_reaches_no_network_unless_asked():
+    """precedent_bootstrap_source.py reaches nothing outside the machine
+    unless --network true asks: no fetch for its staleness warning, and the
+    resolver's self-heals -- the individual set's hook and the universal
+    clone -- are off for everything it runs, then put back.
+
+    2026-10-17, very deep check: bootstrapping a SHARED set with a scratch
+    HOME and the token variables unset asked GitHub whose the session's
+    token was, cloned the operator's private individual set into the
+    scratch home and wrote a user config naming it -- the new set's view
+    build ran the resolver, whose self-heal ran the set's individual hook --
+    against a docstring saying the tool touches no remote. Reproduced the
+    same day; with this change the scratch home stays empty and git's trace
+    shows no remote at all. Decision (the session's, under Morgan's
+    delegation of 2026-10-17): no network unless a flag asks for it.
+    Planted: a hosted-session environment and a repo whose individual hook
+    and universal bootstrap tool each leave a marker when run."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_resolve as pr
+        import precedent_bootstrap_source as pbs
+    finally:
+        sys.path.pop(0)
+    name = 'bootstrapping a set reaches no network unless asked'
+    key = getattr(pr, 'NO_SELF_HEAL_ENV', None)
+    if key is None:
+        check(name, False, 'precedent_resolve has no NO_SELF_HEAL_ENV: nothing can keep '
+              'the self-heals from cloning while a set is bootstrapped')
+        return
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-no-network-'))
+    saved = {k: os.environ.get(k) for k in (key, 'CLAUDE_CODE_REMOTE', 'HOME',
+                                            pr.USER_CONFIG_ENV)}
+    cases = []
+    try:
+        repo = tmp / 'set'
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        hook_marker, tool_marker = tmp / 'hook-ran', tmp / 'tool-ran'
+        (repo / pr.INDIVIDUAL_BOOTSTRAP_HOOK).write_text(
+            f'#!/bin/bash\ntouch {hook_marker}\n', encoding='utf-8')
+        (repo / 'tools' / 'precedent_source_bootstrap.py').write_text(
+            f'import pathlib\npathlib.Path({str(tool_marker)!r}).touch()\n',
+            encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'remote', 'add', 'origin',
+                        'https://example.invalid/set.git'], capture_output=True)
+        os.environ['HOME'] = str(tmp / 'home')
+        os.environ['CLAUDE_CODE_REMOTE'] = 'true'
+        os.environ.pop(pr.USER_CONFIG_ENV, None)
+        os.environ[key] = '1'
+        a = pr._self_heal_individual_source(repo)
+        b = pr._self_heal_universal_source(repo)
+        cases.append(('with the switch set, neither self-heal runs anything',
+                      a == b == 'not-asked' and not hook_marker.exists()
+                      and not tool_marker.exists(), f'{a} {b}'))
+        os.environ.pop(key)
+        pr._self_heal_individual_source(repo)
+        pr._self_heal_universal_source(repo)
+        cases.append(('...and without it both still do, in a hosted session (control)',
+                      hook_marker.exists() and tool_marker.exists(), ''))
+        calls = []
+        saved_git = pbs._git
+        pbs._git = lambda *args: (calls.append(args), (True, '0'))[1]
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                pbs._warn_if_clone_is_stale()
+            no_fetch = not any(c and c[0] == 'fetch' for c in calls)
+            calls.clear()
+            with contextlib.redirect_stderr(io.StringIO()):
+                pbs._warn_if_clone_is_stale(True)
+            fetched = any(c and c[0] == 'fetch' for c in calls)
+        finally:
+            pbs._git = saved_git
+        cases.append(('the staleness warning fetches only with --network true',
+                      no_fetch and fetched, ''))
+        seen = {}
+        saved_inner = pbs._bootstrap
+        pbs._bootstrap = lambda *a, **k: seen.setdefault('env', os.environ.get(key))
+        try:
+            pbs.bootstrap('shared', 'x', tmp / 'x')
+            inside = seen.pop('env', None)
+            after = os.environ.get(key)
+            pbs.bootstrap('shared', 'x', tmp / 'x', network=True)
+            asked = seen.pop('env', None)
+        finally:
+            pbs._bootstrap = saved_inner
+        cases.append(('bootstrap() switches the self-heals off for its run, and back',
+                      inside == '1' and after is None and asked is None,
+                      f'{inside} {after} {asked}'))
+        cases.append(('the docstring says so', 'NO NETWORK UNLESS ASKED' in (pbs.__doc__ or ''),
+                      ''))
+    except OSError as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -83140,6 +83246,7 @@ def main():
     check_second_pass_drops_a_first_pass_unshipped_workflow_call()
     check_update_says_once_that_commands_moved_to_an_undeclared_set()
     check_retired_words_reads_past_the_decommission_ledger()
+    check_bootstrapping_a_set_reaches_no_network_unless_asked()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
