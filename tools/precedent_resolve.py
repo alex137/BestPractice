@@ -389,7 +389,13 @@ def _self_heal_stale_render(repo_root):
                 and _render_older_than_sources(repo_root, rendered_at) is None:
             return 'fresh'
     try:
-        subprocess.run([sys.executable, str(tool), '--repo', str(repo_root)],
+        # --keep-if-incomplete: this runs from read-only checks too, and a
+        # source that does not resolve here must not cost the session a
+        # complete render (2026-10-17: an isolated clone's 3-day-old full
+        # file became one listing every source as "did NOT resolve"). The
+        # renderer keeps the old file and marks it STALE instead.
+        subprocess.run([sys.executable, str(tool), '--repo', str(repo_root),
+                        '--keep-if-incomplete'],
                        cwd=str(repo_root), capture_output=True, timeout=60,
                        env=dict(os.environ, **{SELF_HEAL_RENDER_ENV: '1'}))
     except (OSError, subprocess.TimeoutExpired):

@@ -67707,6 +67707,121 @@ def check_individual_source_bootstrap_self_heals():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_stale_render_heal_never_overwrites_with_less():
+    """A read-only check must not replace a complete session file with an
+    emptier one (2026-10-17 very deep check: in an isolated clone with no
+    sibling checkouts, build_views.py --check's load_config() ran
+    precedent_resolve._self_heal_stale_render, which re-rendered a 3-day-old
+    complete .precedent/SESSION_PRACTICES.md into one listing its sources as
+    "did NOT resolve").
+
+    Stated cases: the heal asks the renderer to keep an incomplete render
+    out (--keep-if-incomplete); with that flag and a declared source
+    missing, the renderer keeps the old file, marks it STALE on the line
+    after its GENERATED comment, names the missing source, and leaves its
+    modification time, so it still reads as stale; a second kept run does
+    not add a second mark; with every source resolving, the same flag
+    renders normally; and without the flag (session start) the renderer
+    still writes what it can resolve."""
+    import shutil, tempfile
+    import precedent_resolve as pr
+    tool = str(ROOT / 'tools' / 'precedent_session_practices.py')
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-keep-render-'))
+    env = dict(os.environ, PRECEDENT_USER_CONFIG=str(tmp / 'no-user.json'),
+               HOME=str(tmp / 'home'))
+    try:
+        # 1. The heal passes the flag (a stub renderer records its argv).
+        stub_repo = tmp / 'stub'
+        (stub_repo / 'tools').mkdir(parents=True)
+        (stub_repo / 'tools' / 'precedent_session_practices.py').write_text(
+            'import pathlib, sys\n'
+            'repo = sys.argv[sys.argv.index("--repo") + 1]\n'
+            'o = pathlib.Path(repo) / ".precedent"; o.mkdir(exist_ok=True)\n'
+            '(o / "SESSION_PRACTICES.md").write_text(" ".join(sys.argv[1:]))\n',
+            encoding='utf-8')
+        saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = env['PRECEDENT_USER_CONFIG']
+        try:
+            pr._self_heal_stale_render(stub_repo)
+        finally:
+            if saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved
+        argv = (stub_repo / '.precedent' / 'SESSION_PRACTICES.md').read_text(
+            encoding='utf-8') if (stub_repo / '.precedent' /
+                                  'SESSION_PRACTICES.md').is_file() else ''
+        cases.append(('the self-heal asks the renderer to keep a complete '
+                      'render (--keep-if-incomplete)',
+                      '--keep-if-incomplete' in argv, argv))
+
+        # 2. The real renderer against a repo whose shared source is gone.
+        shared = tmp / 'shared-set'
+        (shared / 'practices').mkdir(parents=True)
+        (shared / 'practices' / 'shared-rule.md').write_text(
+            '---\nslug: shared-rule\ntitle: Fixture\ntier: on-demand\n'
+            'severity: default\napplies_to: ["**"]\noccasion: "x happens"\n'
+            'index_clause: "do the shared thing"\nstatus: active\n---\n'
+            '## Rule\nSHARED-RULE-TEXT.\n\n## Story\nx\n', encoding='utf-8')
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        # Public, so the shared set is the session file's to carry.
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'base_branch': 'main', 'visibility': 'public',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(ROOT)},
+                        {'level': 'shared', 'name': 'precedent-shared-fixture',
+                         'path': str(shared)}]}), encoding='utf-8')
+        target = repo / '.precedent' / 'SESSION_PRACTICES.md'
+
+        def render(*extra):
+            r = subprocess.run([sys.executable, tool, '--repo', str(repo),
+                                '--quiet', *extra], capture_output=True,
+                               text=True, env=env, cwd=str(repo))
+            return r.stdout + r.stderr
+
+        out = render('--keep-if-incomplete')
+        full = target.read_text(encoding='utf-8') if target.is_file() else ''
+        cases.append(('control: with every source resolving the flag renders '
+                      'normally', 'shared-rule' in full and 'STALE' not in full,
+                      out))
+        old = time.time() - 3 * 86400
+        os.utime(target, (old, old))
+        shutil.move(str(shared), str(tmp / 'shared-hidden'))
+
+        out = render('--keep-if-incomplete')
+        kept = target.read_text(encoding='utf-8')
+        lines = kept.splitlines()
+        cases.append(('with a source missing, the complete render is kept',
+                      'shared-rule' in kept, out + kept[:400]))
+        cases.append(('and marked STALE on the line after its GENERATED comment, '
+                      'naming the missing source',
+                      len(lines) > 1 and lines[0].startswith('<!--')
+                      and lines[1].startswith('> **STALE:**')
+                      and 'precedent-shared-fixture' in lines[1], kept[:400]))
+        cases.append(('and keeps its old modification time, so the next heal '
+                      'still re-renders it', abs(target.stat().st_mtime - old) < 2,
+                      str(target.stat().st_mtime - old)))
+        render('--keep-if-incomplete')
+        cases.append(('a second kept run does not add a second mark',
+                      target.read_text(encoding='utf-8').count('**STALE:**') == 1,
+                      target.read_text(encoding='utf-8')[:400]))
+
+        render()
+        now = target.read_text(encoding='utf-8')
+        cases.append(('without the flag (session start) the renderer writes '
+                      'what resolves and says what did not',
+                      'did NOT resolve' in now and 'STALE' not in now, now[:400]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a read-only check keeps a complete session file rather than '
+          f'rewrite it from sources that did not resolve ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_stale_render_self_heals():
     """spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md's Shape C, tested rather
     than trusted -- precedent_resolve._self_heal_stale_render() is the fix
@@ -82539,6 +82654,7 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
+    check_stale_render_heal_never_overwrites_with_less()
     check_attached_sets_sources_are_synced()
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()
