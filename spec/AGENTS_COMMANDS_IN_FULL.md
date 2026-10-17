@@ -307,8 +307,10 @@ and every test run in the full tier, at the Debut and around Produce
 them the full suite is asked for, not paid on every landing:
 `python3 tools/precedent_branches.py --run-tests [BRANCH]` (default: the
 landing branch) runs the full local suite on the branch composed with
-`main`'s direct work, moves nothing, records pass or fail, and ends
-`RUN TESTS RESULT: ...` (exit 0 passed, 1 failed). The fast move into
+`main`'s direct work, then judges the checks a base can change against
+`main` as well, the way GitHub's test of the pull request into `main` will
+(a few seconds, never a second suite), moves nothing, records pass or fail,
+and ends `RUN TESTS RESULT: ...` (exit 0 passed, 1 failed). The fast move into
 `main`, `python3 tools/precedent_branches.py --promote --to main`, is the
 default since 2026-10-11 (Morgan: "default to the fast route unless I
 explicitly agree to or request the slow route"; `--fast` is still taken). It

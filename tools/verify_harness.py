@@ -68990,7 +68990,8 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
         # installed, so the move into main has one to name.
         (work / 'tools' / 'precedent_check.py').write_text(
             'import os, pathlib, sys\n'
-            'if not {"--changed-files-only", "--only"} & set(sys.argv):\n'
+            'if not {"--changed-files-only", "--only", "--base-dependent"}'
+            ' & set(sys.argv):\n'
             '    open(os.environ["RUNS"], "a").write("run\\n")\n'
             '    if pathlib.Path("FAIL").exists():\n'
             '        print("precedent_check: 1 violated")\n'
@@ -69327,6 +69328,505 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
             ('a fast-move flag on the move into staging is a usage error',
              pa(['--to', 'staging', '--full']) is None
              and pa(['--to', 'staging', '--no-full-after']) is None)]
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_debut_judges_the_change_against_main_too():
+    """A Debut judges what depends on the base against main as well as
+    staging, so a green Debut cannot be followed by a red main (2026-10-17).
+
+    That day a Debut passed on staging and Produce turned main red: staging
+    had deleted a file a page still named, the full suite measured the
+    change from staging (where nothing was deleted), and GitHub's test of
+    the pull request into main measured it from main. Three pieces:
+
+    - precedent_check.py takes the base from PRECEDENT_CHANGED_SINCE first,
+      when it names a commit (the push check already set it, and nothing
+      read it), and falls back as before when it does not;
+    - --base-dependent selects only the checks a base can change -- every
+      change-scope check and each tree check reaching the resolver -- so the
+      second pass is seconds, never a second suite (Morgan: "It should
+      NOT");
+    - --run-tests runs that pass with main's tip as the base, and fails,
+      naming the check, when it finds what main would; so does Produce,
+      before it pushes the copy, since a Debut is optional and the quick
+      tier of an upstream repository runs no rename check."""
+    import tempfile, importlib.util as _u
+    name = 'the Debut judges the change against main too'
+    pc_path = ROOT / 'tools' / 'precedent_check.py'
+    if not (ROOT / 'tools' / 'precedent_branches.py').exists() or not pc_path.exists():
+        not_applicable(name, 'precedent_branches.py or precedent_check.py is absent')
+        return
+    cases = []
+    saved = sys.argv
+    sys.argv = ['precedent_check.py']
+    try:
+        spec = _u.spec_from_file_location('_vh_pc_base', pc_path)
+        pc = _u.module_from_spec(spec)
+        spec.loader.exec_module(pc)
+    finally:
+        sys.argv = saved
+    old = os.environ.pop('PRECEDENT_CHANGED_SINCE', None)
+    try:
+        plain = pc._published_default_branch()
+        head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True).stdout.strip()
+        os.environ['PRECEDENT_CHANGED_SINCE'] = head
+        named = pc._published_default_branch()
+        os.environ['PRECEDENT_CHANGED_SINCE'] = 'no-such-ref-anywhere'
+        bogus = pc._published_default_branch()
+    finally:
+        os.environ.pop('PRECEDENT_CHANGED_SINCE', None)
+        if old is not None:
+            os.environ['PRECEDENT_CHANGED_SINCE'] = old
+    cases.append(('PRECEDENT_CHANGED_SINCE naming a commit is the base',
+                  bool(head) and named == head, f'{named!r}'))
+    cases.append(('one naming nothing falls back to the usual base',
+                  bogus == plain, f'{bogus!r} vs {plain!r}'))
+    picks = getattr(pc, 'base_dependent_slugs', lambda: [])()
+    change = {s for s, c in pc.CHECKS.items() if c['scope'] == 'change'}
+    cases.append(('--base-dependent takes every change-scope check',
+                  bool(picks) and change <= set(picks),
+                  ', '.join(sorted(change - set(picks)))[:200]))
+    cases.append(('...and the tree checks that read the base, through a '
+                  'helper too (rename-updates-links, change-updates-its-docs)',
+                  {'rename-updates-links', 'change-updates-its-docs'} <= set(picks)))
+    cases.append(('...and not the rest: a check that never reads the base '
+                  '(light-check) is not run twice',
+                  'light-check' not in picks and len(picks) < len(pc.CHECKS) / 2,
+                  f'{len(picks)} of {len(pc.CHECKS)}'))
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        work, git, branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging'))
+        # The stub judges the way rename-updates-links does: a file the
+        # change deleted, measured from the base it is given.
+        (work / 'tools' / 'precedent_check.py').write_text(
+            'import os, subprocess, sys\n'
+            'if "--base-dependent" in sys.argv:\n'
+            '    base = os.environ.get("PRECEDENT_CHANGED_SINCE") or "origin/staging"\n'
+            '    d = subprocess.run(["git", "diff", "--name-status", base, "HEAD"],\n'
+            '                       capture_output=True, text=True).stdout\n'
+            '    if "D\\tgone.py" in d:\n'
+            '        print("VIOLATION  rename-updates-links")\n'
+            '        print("    doc.md:1: still references \'gone.py\', which this branch deleted")\n'
+            '        print("precedent_check: 0 passed, 1 violated")\n'
+            '        sys.exit(1)\n'
+            'print("precedent_check: 3 passed, 0 violated")\n', encoding='utf-8')
+        (work / 'gone.py').write_text('x = 1\n', encoding='utf-8')
+        (work / 'doc.md').write_text('See gone.py.\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'stub, a file and a page naming it')
+        git(work, 'push', '-q', 'origin', 'HEAD:main', 'HEAD:staging')
+        # Staging deletes the file and leaves the page, already landed.
+        git(work, 'rm', '-q', 'gone.py')
+        git(work, 'commit', '-q', '-m', 'delete gone.py')
+        git(work, 'push', '-q', 'origin', 'HEAD:staging')
+        rc, out = branches('--run-tests')
+        cases.append(('a Debut of staging that deleted a file main still has '
+                      'fails, naming the check and main',
+                      rc == 1 and 'rename-updates-links (against main)' in out,
+                      out[-300:]))
+        cases.append(('...and the RUN TESTS RESULT line names it',
+                      'RUN TESTS RESULT: staging: FAILED' in out
+                      and 'against main' in out.split('RUN TESTS RESULT')[-1],
+                      out[-200:]))
+        before = tip('main')
+        rc, out = branches('--promote', '--to', 'main')
+        cases.append(('a Produce right after that failed Debut asks first '
+                      '(exit 4)', rc == 4, out[-200:]))
+        # Past the question, Produce's own pass refuses it too, as it would
+        # with no Debut at all.
+        rc, out = branches('--promote', '--to', 'main', '--despite-failed-tests')
+        cases.append(('a Produce of the same staging is refused before it '
+                      'pushes anything, naming the check and main',
+                      rc == 1 and 'PROMOTE REFUSED' in out
+                      and 'rename-updates-links (against main)' in out,
+                      out[-300:]))
+        cases.append(('...and main did not move', tip('main') == before))
+        # Main catches up: the same tree now passes.
+        git(work, 'push', '-q', 'origin', 'HEAD:main')
+        rc, out = branches('--run-tests')
+        cases.append(('once main has the deletion too, the Debut passes',
+                      rc == 0 and 'against main)' not in out, out[-300:]))
+        rc, out = branches('--run-tests', 'main')
+        cases.append(('a Debut of main itself takes no second pass',
+                      rc == 0 and 'judging the change against main' not in out,
+                      out[-300:]))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_update_vendors_retires_pre_staging():
+    """The upgrade off pre-staging, for anyone on the ladder since it was
+    retired for everyone on 2026-10-14 (Morgan, 2026-10-09: "make sure we have a smooth upgrade process
+    for each. Merging the branches, telling he can delete pre-staging,
+    updating previous mentions/links within each repo"). Update Vendors'
+    retire_pre_staging_step, on a local bare origin:
+
+    - work on pre-staging that staging lacks is brought into staging by
+      --land's composition, with main's direct work; nothing is dropped and
+      pre-staging itself is left where it was;
+    - once pre-staging holds nothing staging lacks it is offered for
+      deletion with the filtered branches-page link, and the stale-branch
+      lister and the very deep check offer it too -- never staging or main;
+    - a clear instruction and a link to this repo's pre-staging tree are
+      repointed to staging; a dated line, a Story section, another
+      repository's link and a gotcha are left alone and listed;
+    - a second run changes nothing and says it is retired, with the link;
+    - a conflict stops with nothing moved, nothing reworded and no offer;
+    - once it is gone, nothing makes it again and the step says nothing;
+    - off the ladder it sees nothing at all;
+    - a precedent.json naming pre-staging is switched to staging whoever
+      the maintainers are, but only by a second pass, once the repository's
+      committed engine can land on staging. (Until 2026-10-14 only an
+      explicit staging lander was moved, and only the sole maintainer could
+      switch precedent.json.)"""
+    import tempfile, json as _json
+    name = 'Update Vendors retires pre-staging for anyone on the ladder'
+    if not (ROOT / 'tools' / 'precedent_update.py').exists():
+        not_applicable(name, 'tools/precedent_update.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        # Who is running it comes from identity.json alone, never this
+        # machine's own PRECEDENT_GITHUB_USER.
+        env = dict(_stale_ref_fixture_env(tmp), PRECEDENT_GITHUB_USER='')
+        work, git, _branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
+        bare = tmp / 'origin.git'
+        # Origin answers as GitHub's o/r, so a delete link can be built.
+        git(work, 'remote', 'set-url', 'origin', 'https://github.com/o/r.git')
+        git(work, 'config', f'url.file://{bare}.insteadOf',
+            'https://github.com/o/r.git')
+        indiv = tmp / 'indiv'
+        indiv.mkdir()
+        (tmp / 'config.json').write_text(_json.dumps(
+            {'individual': {'path': str(indiv)}}), encoding='utf-8')
+
+        def person(**settings):
+            (indiv / 'identity.json').write_text(_json.dumps(
+                {'email': 'p' + chr(64) + 'example.com', **settings}),
+                encoding='utf-8')
+
+        agents = ('# Notes\n\n'
+                  'Work lands on `pre-staging` and waits there.\n'
+                  'See [the tree](https://github.com/o/r/tree/pre-staging/docs).\n'
+                  '2026-10-01: we chose to push to pre-staging first.\n'
+                  'Promote pre-staging into staging when ready.\n'
+                  'Upstream keeps [its own](https://github.com/x/y/tree/pre-staging).\n'
+                  '\n## Story\n\nSessions push to pre-staging here.\n'
+                  '\n## Next\n\nOpen a pull request into pre-staging.\n'
+                  '\n## Notes\n\n2026-10-07: handoff prompt, kept as sent:\n\n'
+                  '    2. **Push to `pre-staging` (Booked) refused.**\n'
+                  '\n- a list item\n    continued: push to `pre-staging`.\n'
+                  '\nThe bug, found 2026-10-07, read as\nfollows: Push to '
+                  '`pre-staging` (Booked) was refused.\n'
+                  '\nIts first line, "Push to `pre-staging` (Booked) refused", '
+                  'is the clue.\n')
+        gotcha = 'gotchas/gotcha-2026-10-01-pushes.md'
+        (work / 'gotchas').mkdir()
+        (work / gotcha).write_text('# Trap\n\nPush to pre-staging failed.\n',
+                                   encoding='utf-8')
+        (work / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'docs')
+        git(work, 'push', '-q', 'origin', 'HEAD:main', 'HEAD:staging',
+            'HEAD:pre-staging')
+
+        script = tmp / 'step.py'
+        script.write_text(
+            'import json, pathlib, sys\n'
+            f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+            'import precedent_update as pu, precedent_branches as pb\n'
+            'import precedent_stale_branches as sb\n'
+            'repo = pathlib.Path(sys.argv[2])\n'
+            'if sys.argv[1] == "step":\n'
+            '    rep = pu.Report(); rep.before = set()\n'
+            '    pu.retire_pre_staging_step(repo, rep)\n'
+            '    rep._retired_block()\n'
+            '    print("RESULT " + json.dumps({"steps": rep.steps, '
+            '"left": rep.left, "retired": rep.retired}))\n'
+            'elif sys.argv[1] == "offers":\n'
+            '    import very_deep_check as v\n'
+            '    print("RESULT " + json.dumps({"never": pb.never_offered(repo), '
+            '"stale": [b for b, _d in sb.stale_in(repo, fetch=True) or []], '
+            '"vdc": sorted(v._never_deletable(repo))}))\n'
+            'elif sys.argv[1] == "tiers":\n'
+            '    print("RESULT " + json.dumps({"rc": pb.ensure_tiers(repo, '
+            'apply=True, say=lambda *a: None)}))\n', encoding='utf-8')
+
+        def call(what, **extra):
+            p = subprocess.run([sys.executable, str(script), what, str(work)],
+                               cwd=work, capture_output=True, text=True,
+                               env=dict(env, **extra))
+            line = next((l for l in p.stdout.splitlines()
+                         if l.startswith('RESULT ')), None)
+            res = _json.loads(line[len('RESULT '):]) if line else {}
+            return res, p.stdout + p.stderr
+
+        def commit_on(branch, path, text):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', 'tmp-' + branch, f'origin/{branch}')
+            (work / path).write_text(text, encoding='utf-8')
+            git(work, 'add', '-A')
+            git(work, 'commit', '-q', '-m', f'{path} on {branch}')
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+            sha = git(work, 'rev-parse', 'HEAD').stdout.strip()
+            git(work, 'checkout', '-q', 'main')
+            git(work, 'reset', '-q', '--hard', 'origin/main')
+            return sha
+
+        def on(sha, branch):
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'merge-base', '--is-ancestor', sha,
+                       f'origin/{branch}').returncode == 0
+
+        def tips():
+            return tuple(tip(b) for b in ('main', 'staging', 'pre-staging'))
+
+        def text(rel):
+            return (work / rel).read_text(encoding='utf-8')
+
+        waiting = commit_on('pre-staging', 'ps.txt', 'p\n')
+        direct = commit_on('main', 'direct.txt', 'd\n')
+        git(work, 'checkout', '-q', 'main')
+        git(work, 'reset', '-q', '--hard', 'origin/main')
+        link = 'https://github.com/o/r/branches/all?query=pre-staging'
+
+        # --- off the ladder: nothing done, nothing said. Since 2026-10-14
+        # pre-staging is retired for everyone ON the ladder, whatever their
+        # own settings say; until then each of these people was left alone
+        # too, and only an explicit staging lander was moved off it. ---
+        before = tips()
+        for label, settings in (
+                ('off the ladder, landing on pre-staging',
+                 dict(landing_branch='pre-staging', promote_only=True)),
+                ('off the ladder, landing on staging',
+                 dict(landing_branch='staging', promote_only=True))):
+            person(**settings)
+            res, out = call('step', PRECEDENT_NO_LADDERS='1')
+            cases.append((f'{label}: the step does nothing and says nothing',
+                          res == {'steps': [], 'left': [], 'retired': []}
+                          and tips() == before and text('AGENTS.md') == agents,
+                          out[-300:]))
+        # No case here protects pre-staging from deletion while it holds
+        # work: the step above brings that work into staging first, and
+        # nothing else in the engine treats pre-staging as a tier (Morgan,
+        # 2026-10-17: "WE SHOULD DELETE PRE-STAGING EVERYWHERE").
+
+        # --- the repository still makes pre-staging others' landing branch ---
+        person(landing_branch='staging', promote_only=True, github='p-user')
+        pj = text('precedent.json')
+
+        def repo_lands_on_pre_staging(maintainers):
+            data = dict(_json.loads(pj), landing_branch='pre-staging',
+                        _landing_branch_comment=['Work lands on pre-staging here.'])
+            if maintainers is not None:
+                data['maintainers'] = [{'github': m} for m in maintainers]
+            body = _json.dumps(data, indent=2) + '\n'
+            (work / 'precedent.json').write_text(body, encoding='utf-8')
+            return body
+
+        # Until 2026-10-14 a precedent.json naming pre-staging kept it --
+        # "others' landing branch" -- unless the person running the update
+        # was the repository's only maintainer, and a person moving repo by
+        # repo waited for the second pass. Nobody else lands there now, so
+        # the value is switched whoever the maintainers are (below, with
+        # two of them).
+        body = repo_lands_on_pre_staging(['P-User', 'someone-else'])
+        engine = work / 'tools' / 'precedent_branches.py'
+        engine.write_text(text('tools/precedent_branches.py').replace(
+            'def lands_on_staging(', 'def lands_elsewhere('), encoding='utf-8')
+        git(work, 'commit', '-q', '-m', 'an engine from before', '--',
+            'tools/precedent_branches.py')
+        res, out = call('step')
+        steps = res.get('steps') or []
+        cases.append(('the first pass, its committed engine older: precedent.json '
+                      'untouched, nothing moved, one line says the next run '
+                      'moves it', text('precedent.json') == body
+                      and tips() == before and not res.get('retired')
+                      and len(steps) == 1 and steps[0][0] == 'pre-staging'
+                      and 'run Update Vendors again' in steps[0][1],
+                      str(steps)[:300]))
+        git(work, 'reset', '-q', 'HEAD~1')
+        git(work, 'checkout', '-q', 'HEAD', '--', 'tools/precedent_branches.py')
+        # The second pass: the switch is made, whoever the maintainers are,
+        # and the retirement runs in the same call below. A copy of a
+        # practice from another source, which names pre-staging as an
+        # instruction, is the source's to word, never this repository's.
+        (work / 'practices').mkdir(exist_ok=True)
+        borrowed = 'Push it to pre-staging.\n'
+        (work / 'practices' / 'borrowed.md').write_text(borrowed, encoding='utf-8')
+        (work / 'MANIFEST.json').write_text(_json.dumps({'practices': [
+            {'slug': 'borrowed', 'source': 'precedent-individual'}]}),
+            encoding='utf-8')
+        git(work, 'add', 'practices/borrowed.md', 'MANIFEST.json')
+        git(work, 'commit', '-q', '-m', 'a practice copied from a source')
+
+        # --- the person who lands on staging, work waiting on pre-staging ---
+        main_before, ps_before = tip('main'), tip('pre-staging')
+        res, out = call('step')
+        retired = res.get('retired') or []
+        steps = res.get('steps') or []
+        cases.append(('two maintainers, one of them running it: precedent.json\'s '
+                      'landing_branch is switched to staging, every other byte '
+                      'kept', text('precedent.json') == body.replace(
+                          '"landing_branch": "pre-staging"',
+                          '"landing_branch": "staging"'), text('precedent.json')))
+        cases.append(('it is said in one line, before the retirement runs',
+                      steps[:1] == [['precedent.json', 'landing_branch pre-staging '
+                                     '-> staging: pre-staging is retired for '
+                                     'everyone']]
+                      and len(steps) == 2 and steps[1][0] == 'pre-staging',
+                      str(steps)[:300]))
+        cases.append(('the waiting work is brought into staging, with main\'s '
+                      'direct work', on(waiting, 'staging') and on(direct, 'staging'),
+                      out[-400:]))
+        cases.append(('nothing dropped: main and pre-staging did not move',
+                      tip('main') == main_before and tip('pre-staging') == ps_before))
+        cases.append(('the block says what was merged into staging',
+                      any(l.startswith('merged into staging') for l in retired)
+                      and any('ps.txt' in l for l in retired), str(retired)[:400]))
+        cases.append(('and offers pre-staging for deletion with the filtered '
+                      'link', any(l.endswith(link) for l in retired),
+                      str(retired)[-300:]))
+        now = text('AGENTS.md')
+        cases.append(('a clear instruction is repointed',
+                      'Work lands on `staging` and waits there.' in now
+                      and 'Open a pull request into staging.' in now, now))
+        cases.append(('a prompt quoted as an indented code block is left as '
+                      'it was, and listed as code',
+                      '    2. **Push to `pre-staging` (Booked) refused.**' in now
+                      and any('AGENTS.md:21 (code block)' in l for l in retired),
+                      str(retired)[:600]))
+        cases.append(('an indented line that continues a list item is still '
+                      'reworded', '    continued: push to `staging`.' in now, now))
+        cases.append(('a sentence dated on its first line is history on every '
+                      'line it wraps onto', 'follows: Push to `pre-staging` (Booked) '
+                      'was refused.' in now
+                      and any('AGENTS.md:27 (dated sentence, history)' in l
+                              for l in retired), str(retired)[:700]))
+        cases.append(('a phrase inside double quotes is a quotation, left as '
+                      'it was', '"Push to `pre-staging` (Booked) refused"' in now
+                      and any('AGENTS.md:29 (quotation, history)' in l
+                              for l in retired), str(retired)[:700]))
+        cases.append(('a link to this repo\'s pre-staging tree is repointed',
+                      'https://github.com/o/r/tree/staging/docs' in now, now))
+        cases.append(('a dated line, a Story section, a mention that is no '
+                      'instruction and another repository\'s link are left',
+                      '2026-10-01: we chose to push to pre-staging first.' in now
+                      and 'Sessions push to pre-staging here.' in now
+                      and 'Promote pre-staging into staging' in now
+                      and 'github.com/x/y/tree/pre-staging' in now, now))
+        cases.append(('each change and each mention left is listed, file:line',
+                      any('reworded to staging: AGENTS.md:3 (instruction)' in l
+                          for l in retired)
+                      and any('AGENTS.md:5 (dated line, history)' in l
+                              for l in retired)
+                      and any('AGENTS.md:7 (link into another repository)' in l
+                              for l in retired), str(retired)[:600]))
+        cases.append(('a copy of another source\'s practice is left as it is, '
+                      'and named with its source',
+                      text('practices/borrowed.md') == borrowed
+                      and any('practices/borrowed.md (from precedent-individual)' in l
+                              for l in retired), str(retired)[:600]))
+        cases.append(('the run that switched says precedent.json\'s comment '
+                      'still describes pre-staging',
+                      any(l.startswith('precedent.json: landing_branch is now staging')
+                          for l in retired), str(retired)[:600]))
+        cases.append(('a gotcha is left alone, counted as history',
+                      text(gotcha) == '# Trap\n\nPush to pre-staging failed.\n'
+                      and any(l.startswith('left as history: 1 mention')
+                              for l in retired), str(retired)[-300:]))
+        res, out = call('offers')
+        cases.append(('fully merged: never_offered drops pre-staging and keeps '
+                      'staging and main', 'pre-staging' not in res.get('never', ['pre-staging'])
+                      and {'staging', 'main'} <= set(res.get('never', []))
+                      and 'pre-staging' not in res.get('vdc', ['pre-staging']),
+                      out[-300:]))
+        # The stale-branch lister treats it as any branch since 2026-10-17:
+        # offered once main has its work. Until then the step's own link
+        # (above) is the offer.
+        cases.append(('the stale-branch lister never offers staging or main',
+                      not {'staging', 'main'} & set(res.get('stale', [])),
+                      out[-300:]))
+
+        # --- a second run: nothing changes; it says retired, with the link ---
+        before, docs = tips(), now
+        res, out = call('step')
+        retired = res.get('retired') or []
+        cases.append(('a second run changes nothing',
+                      tips() == before and text('AGENTS.md') == docs
+                      and not any(l.startswith(('merged into', 'reworded'))
+                                  for l in retired), str(retired)[:300]))
+        cases.append(('and still says it is retired, with the link',
+                      any(l.endswith(link) for l in retired), str(retired)[-300:]))
+        cases.append(('and does not ask about precedent.json\'s comment again',
+                      not any(l.startswith('precedent.json:') for l in retired),
+                      str(retired)[:300]))
+
+        # --- a conflict: nothing moves, nothing is reworded, no offer ---
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'reworded')
+        git(work, 'push', '-q', 'origin', 'HEAD:main')
+        commit_on('pre-staging', 'list.txt', 'from pre-staging\n')
+        commit_on('staging', 'list.txt', 'from staging\n')
+        (work / 'more.md').write_text('Push it to pre-staging.\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'more')
+        before = tips()
+        res, out = call('step')
+        cases.append(('a conflict stops: nothing moved',
+                      tips() == before, out[-300:]))
+        cases.append(('nothing reworded, and no delete offer',
+                      text('more.md') == 'Push it to pre-staging.\n'
+                      and not res.get('retired'), str(res)[:300]))
+        cases.append(('it says what to do, naming --land',
+                      any(w == 'pre-staging' and '--land' in why
+                          and 'Nothing moved' in why
+                          for w, why in res.get('left', [])), str(res)[:400]))
+
+        # --- after the run that moved it, a new mention is deliberate ---
+        # (2026-10-09, reported by another session: a note quoting the old
+        # instruction was reworded on the update after the move.)
+        import precedent_update as _pu_direct
+        cases.append(('once the switch to staging is committed, later runs '
+                      'reword nothing', not _pu_direct.rewords_this_run(work, False, False)))
+        cases.append(('the run that switches, or brings pre-staging\'s work '
+                      'in, rewords', _pu_direct.rewords_this_run(work, True, False)
+                      and _pu_direct.rewords_this_run(work, False, True)))
+
+        # --- once it is gone: never made again, and nothing said ---
+        git(bare, 'update-ref', '-d', 'refs/heads/pre-staging')
+        git(work, 'fetch', '-q', '--prune', 'origin')
+        res, out = call('tiers')
+        cases.append(('ensure_tiers does not make pre-staging again for them',
+                      res.get('rc') == 0 and not tip('pre-staging'), out[-300:]))
+        res, out = call('step')
+        cases.append(('and the step says nothing at all',
+                      res == {'steps': [], 'left': [], 'retired': []}, out[-300:]))
+    # Where it runs: inside update(), before the views are regenerated, so
+    # they render the reworded sources.
+    import inspect
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as _pu
+        src = inspect.getsource(_pu.update)
+    except Exception as e:                                   # noqa: BLE001
+        src = f'{type(e).__name__}: {e}'
+    finally:
+        sys.path.pop(0)
+    step = src.find('retire_pre_staging_step(repo, rep)')
+    views = src.find("sync = repo / 'tools' / 'precedent_sync_views.py'")
+    cases.append(('update() runs the step before it regenerates the views',
+                  0 <= step < views, src[:120] if step < 0 else ''))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
@@ -83632,6 +84132,8 @@ def main():
     check_stop_hook_says_each_state_once()
     check_promote_into_main_exits_nonzero_until_main_moves()
     check_landing_on_staging_run_tests_and_fast_move_into_main()
+    check_debut_judges_the_change_against_main_too()
+    check_update_vendors_retires_pre_staging()
     check_install_by_a_staging_person_makes_no_pre_staging()
     check_promote_ends_with_its_result_line()
     check_reply_gate_refreshes_the_landing_branch()
