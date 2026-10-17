@@ -221,7 +221,7 @@ Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared shared/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
-import collections, datetime, io, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.parse
+import collections, contextlib, datetime, io, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -3434,6 +3434,12 @@ def _session_load(repo_dir):
                 continue
             n = bv._approx_tokens(f.read_text(encoding='utf-8',
                                               errors='replace'))
+        if rel == _SESSION_FILE:
+            # Charged as session-load-budget charges it, without the sets
+            # the person brings: measured whole, this reported an
+            # individual set OVER TARGET at ~4,011 against 4,000 on
+            # 2026-10-17 while the repo's own share was ~3,614.
+            n = _charged_session_file(root, n)[0]
         if n <= ceiling:
             continue
         over.append(
@@ -3466,6 +3472,12 @@ def _session_load(repo_dir):
                 continue
             n = bv._approx_tokens(f.read_text(encoding='utf-8',
                                               errors='replace'))
+        if rel == _SESSION_FILE:
+            # Charged as session-load-budget charges it, without the sets
+            # the person brings: measured whole, this reported an
+            # individual set OVER TARGET at ~4,011 against 4,000 on
+            # 2026-10-17 while the repo's own share was ~3,614.
+            n = _charged_session_file(root, n)[0]
         if n <= target:
             continue
         over.append(
@@ -3535,6 +3547,367 @@ def _session_load(repo_dir):
     # Ceilings lead: a section flagged for review is a question, and a surface
     # over a number somebody chose is work.
     return rows, over + findings
+
+
+# --- token budgets, shown even when they pass (practice: very-deep-check) --
+#
+# WHY (Morgan, 2026-10-17, strength: decided). The ceilings had gone quiet
+# for weeks -- no refusal, no warning -- and quiet reads two ways: fixed, or
+# not being checked. He asked a session to tell them apart, it measured every
+# surface against its limit in all four repos and then planted an overage in
+# a throwaway copy of each to see the checks go red, and he asked for that
+# same analysis in every very deep check: "even if they all pass, share the
+# exact numbers, the limits, the chart, and any other details", in the run's
+# own write-up. _session_load above speaks only when a surface is over, so a
+# clean run said nothing a person could read the distance to the wall from.
+#
+# SO TWO HALVES. The table: every budget in force in every repo measured,
+# with its number, its limit, the share used and the max the person
+# approved -- measured the way the enforcing check measures it (the session
+# file is charged without the sets the person brings, precedent_session_
+# practices.charged_to_repo, exactly as session-load-budget charges it).
+# And the fire test: each repo's OWN precedent_check.py, run in a detached
+# worktree of that repo with a budget planted under what it measures, must
+# report the violation -- after the same check, unplanted, reported none. A
+# check that passes on a planted overage is the "not being checked" case,
+# and is the finding this section exists for.
+
+_SESSION_FILE = '.precedent/SESSION_PRACTICES.md'
+_RESIDENT_HEAD = re.compile(
+    r'^## Resident block \(~([\d,]+) of ([\d,]+) token budget', re.M)
+
+
+def _charged_session_file(repo_dir, n):
+    """-> (charged, brought, [brought set names]) for a session file
+    measuring `n`: what that repo's ceiling pays, read through the one
+    definition every enforcing reader uses. Falls back to `n` charged whole,
+    with nothing brought, when the renderer cannot run here."""
+    try:
+        import precedent_session_practices as _psp
+        charged, brought, names, _person = _psp.charged_to_repo(
+            pathlib.Path(repo_dir), n)
+        return charged, brought, list(names or [])
+    except Exception:                                    # noqa: BLE001
+        return n, 0, []
+
+
+def _occasion_index_tokens(agents_text):
+    """-> tokens of the occasion index as the committed block carries it,
+    measured as build_views measures it (the fenced text under the heading),
+    or None when the file has no index."""
+    if '## Occasion index' not in agents_text:
+        return None
+    parts = agents_text.split('## Occasion index', 1)[1].split('```')
+    return bv._approx_tokens(parts[1]) if len(parts) > 2 else None
+
+
+def budget_rows(repo_dir, label=None):
+    """-> [row] for every token budget in force in `repo_dir`, passing or
+    not. A row is a dict: repo, what, measured (None when it cannot be
+    measured here), limit, kind ('ceiling', 'target', 'cap', 'allowance'),
+    approved (the person's max, or None), note."""
+    root = pathlib.Path(repo_dir)
+    label = label or root.name
+    reg_path = root / 'tools' / 'session_load_budgets.json'
+    try:
+        reg = json.loads(reg_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    approved = {k: v.get('max') for k, v in
+                (reg.get('approved_budgets') or {}).items()
+                if isinstance(v, dict)}
+    try:
+        force = bv.effective_budgets(root, registry=reg_path)
+    except Exception:                                    # noqa: BLE001
+        force = {}
+    rows = []
+
+    def row(what, measured, limit, kind, key, note=''):
+        rows.append({'repo': label, 'what': what, 'measured': measured,
+                     'limit': limit, 'kind': kind, 'approved': approved.get(key),
+                     'note': note})
+
+    agents = root / 'AGENTS.md'
+    agents_text = (agents.read_text(encoding='utf-8', errors='replace')
+                   if agents.is_file() else '')
+    for rel, entry in sorted((reg.get('surfaces') or {}).items()):
+        if rel.startswith('_') or not isinstance(entry, dict):
+            continue
+        f = root / rel
+        n, note = None, ''
+        if f.is_file():
+            n = bv._approx_tokens(f.read_text(encoding='utf-8',
+                                              errors='replace'))
+            if rel == _SESSION_FILE:
+                n, brought, names = _charged_session_file(root, n)
+                if brought:
+                    note = (f'plus ~{brought:,} of {", ".join(names)}, which '
+                            f'the person brings and their own budget pays')
+        else:
+            note = 'not on disk here, so not measured'
+        limit = force.get(f'surfaces/{rel}', entry.get('ceiling'))
+        if isinstance(limit, int):
+            row(rel, n, limit, 'ceiling', f'surfaces/{rel}', note)
+        target = force.get(f'surfaces/{rel}/target', entry.get('target'))
+        if isinstance(target, int):
+            row(rel, n, target, 'target', f'surfaces/{rel}/target',
+                'over it warns every session; never refuses')
+    m = _RESIDENT_HEAD.search(agents_text)
+    res_cap = force.get('resident_block_tokens')
+    if isinstance(res_cap, int):
+        row('resident block', int(m.group(1).replace(',', '')) if m else None,
+            res_cap, 'cap', 'resident_block_tokens',
+            '' if m else 'no resident block in AGENTS.md')
+    occ_cap = force.get('occasion_index')
+    if isinstance(occ_cap, int):
+        row('occasion index', _occasion_index_tokens(agents_text), occ_cap,
+            'cap', 'occasion_index')
+    share = force.get('occasion_share_tokens')
+    if isinstance(share, int):
+        try:
+            mine = bv.occasion_share(bv.load_practices(root / 'practices'))
+        except Exception:                                # noqa: BLE001
+            mine = None
+        row("this set's share of a consumer's occasion index", mine, share,
+            'allowance', 'occasion_share_tokens')
+    brought_budget = force.get('brought_sets_tokens')
+    if isinstance(brought_budget, int):
+        row('sets the person brings (their own budget)', None, brought_budget,
+            'allowance', 'brought_sets_tokens',
+            'measured per repo: the "plus" on each session-file row')
+    return rows
+
+
+def _budget_status(r, floor_pct=5):
+    """-> 'OVER', 'near', 'ok' or 'not measured' for one row; plus
+    ', NOT APPROVED' when the limit in force is above the person's max."""
+    n, lim = r['measured'], r['limit']
+    if n is None:
+        s = 'not measured'
+    elif n > lim:
+        s = 'over target' if r['kind'] == 'target' else 'OVER'
+    elif lim and n >= lim * (100 - floor_pct) / 100:
+        s = 'near'
+    else:
+        s = 'ok'
+    if r['approved'] is None and r['kind'] != 'allowance':
+        s += ', no approval recorded'
+    elif r['approved'] is not None and lim > r['approved']:
+        s += ', NOT APPROVED'
+    return s
+
+
+# Each plant: (what is planted, the check that must report it, a registry
+# edit). Every edit puts a limit UNDER what the repo measures, or a raise
+# OVER what the person approved, so the check has a real violation to find.
+_FIRE_PLANTS = (
+    ('AGENTS.md ceiling lowered under its size', 'session-load-budget',
+     lambda d: d['surfaces']['AGENTS.md'].__setitem__('ceiling', 1)),
+    ('session-file ceiling lowered under its size', 'session-load-budget',
+     lambda d: d['surfaces'][_SESSION_FILE].__setitem__('ceiling', 1)),
+    ('AGENTS.md ceiling raised 5,000 with no approval', 'budget-within-approval',
+     lambda d: d['surfaces']['AGENTS.md'].__setitem__(
+         'ceiling', d['surfaces']['AGENTS.md']['ceiling'] + 5000)),
+    ('resident-block cap lowered under its size', 'loader-within-caps',
+     lambda d: d.__setitem__('resident_block_tokens', 1)),
+)
+_VIOLATED = re.compile(r'precedent_check: \d+ passed, (\d+) violated')
+
+
+def budget_fire_test(repo_dir, label=None, timeout=180):
+    """-> [(repo, plant, check, verdict, detail)]: verdict 'fired', 'DID
+    NOT FIRE', or 'not run' with the reason in detail.
+
+    Runs the repo's own engine in a detached worktree of its HEAD, so the
+    checkout itself is never touched (practice: repair-cannot-discard-work),
+    with the untracked session file copied in. Each check runs once
+    unplanted first: a check already red there proves nothing by going red
+    again, and is reported 'not run'."""
+    root = pathlib.Path(repo_dir)
+    label = label or root.name
+    reg_rel = pathlib.Path('tools') / 'session_load_budgets.json'
+    engine = pathlib.Path('tools') / 'precedent_check.py'
+    if not (root / reg_rel).is_file() or not (root / engine).is_file():
+        return [(label, '-', '-', 'not run',
+                 'no budget registry or no precedent_check.py here')]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-budget-fire-'))
+    wt = tmp / 'wt'
+    out = []
+    try:
+        add = subprocess.run(['git', '-C', str(root), 'worktree', 'add',
+                              '--detach', '--quiet', str(wt), 'HEAD'],
+                             capture_output=True, text=True)
+        if add.returncode != 0:
+            return [(label, '-', '-', 'not run',
+                     f'git worktree add failed: {add.stderr.strip()[:120]}')]
+        if (root / _SESSION_FILE).is_file():
+            (wt / '.precedent').mkdir(exist_ok=True)
+            shutil.copy2(root / _SESSION_FILE, wt / _SESSION_FILE)
+        clean = (wt / reg_rel).read_text(encoding='utf-8')
+
+        def run(slug):
+            try:
+                p = subprocess.run([sys.executable, str(wt / engine), '--only',
+                                    slug], cwd=str(wt), capture_output=True,
+                                   text=True, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                return None, f'timed out after {timeout}s'
+            m = _VIOLATED.search(p.stdout + p.stderr)
+            if not m:
+                return None, 'printed no summary line'
+            return int(m.group(1)), ''
+
+        baseline = {}
+        for slug in sorted({p[1] for p in _FIRE_PLANTS}):
+            baseline[slug] = run(slug)
+        for what, slug, edit in _FIRE_PLANTS:
+            data = json.loads(clean)
+            try:
+                edit(data)
+            except (KeyError, TypeError):
+                out.append((label, what, slug, 'not run',
+                            'nothing to plant: the registry declares no such budget'))
+                continue
+            if what.startswith('session-file') and not (wt / _SESSION_FILE).is_file():
+                out.append((label, what, slug, 'not run',
+                            'no session file on disk here to measure'))
+                continue
+            base_n, base_why = baseline[slug]
+            if base_n is None or base_n:
+                out.append((label, what, slug, 'not run',
+                            base_why or f'already {base_n} violated unplanted'))
+                continue
+            (wt / reg_rel).write_text(json.dumps(data, indent=2),
+                                      encoding='utf-8')
+            n, why = run(slug)
+            (wt / reg_rel).write_text(clean, encoding='utf-8')
+            if n is None:
+                out.append((label, what, slug, 'not run', why))
+            else:
+                out.append((label, what, slug,
+                            'fired' if n else 'DID NOT FIRE',
+                            f'{n} violated' if n else
+                            'passed with the overage planted'))
+    finally:
+        subprocess.run(['git', '-C', str(root), 'worktree', 'remove',
+                        '--force', str(wt)], capture_output=True)
+        shutil.rmtree(tmp, ignore_errors=True)
+    return out
+
+
+def _fmt_n(n):
+    return '-' if n is None else f'{n:,}'
+
+
+def render_budget_markdown(rows, fires, totals, date=None):
+    """-> the `## Token budgets` block of the run's write-up: every budget
+    with its number, whether or not any is over."""
+    lines = [f'Measured {date}.' if date else '', '']
+    bad = [r for r in rows if _budget_status(r).split(',')[0] in
+           ('OVER', 'over target') or 'APPROVED' in _budget_status(r)
+           or 'no approval' in _budget_status(r)]
+    dead = [f for f in fires if f[3] == 'DID NOT FIRE']
+    unrun = [f for f in fires if f[3] == 'not run']
+    if not bad and not dead:
+        lines.append('**Every budget is under its limit and approved, and '
+                     'every check fired on a planted overage'
+                     + (f' ({len(unrun)} plant(s) could not run, listed '
+                        'below).**' if unrun else '.**'))
+    else:
+        lines.append(f'**{len(bad)} budget(s) over or unapproved; '
+                     f'{len(dead)} check(s) did not fire on a planted '
+                     'overage.**')
+    lines += ['', '| Repo | Budget | Measured | Limit | Used | Approved max '
+              '| Status |', '|---|---|---:|---:|---:|---:|---|']
+    for r in rows:
+        used = ('-' if r['measured'] is None or not r['limit'] else
+                f"{100 * r['measured'] / r['limit']:.0f}%")
+        what = r['what'] + (f" ({r['kind']})" if r['kind'] != 'ceiling' else '')
+        st = _budget_status(r) + (f"; {r['note']}" if r['note'] else '')
+        lines.append(f"| {r['repo']} | {what} | {_fmt_n(r['measured'])} | "
+                     f"{_fmt_n(r['limit'])} | {used} | {_fmt_n(r['approved'])} "
+                     f"| {st} |")
+    if totals:
+        lines += ['', 'What a session rooted in each repo loads before any '
+                  'work, its own instructions plus the session file: '
+                  + '; '.join(f'{k} ~{v:,}' for k, v in totals) + '.']
+    lines += ['', '**Do the checks fire?** Each repo\'s own check, run on a '
+              'throwaway copy with the budget planted under what it measures '
+              '(each one clean first):', '',
+              '| Repo | Planted | Check | Result |', '|---|---|---|---|']
+    for repo, what, slug, verdict, detail in fires:
+        lines.append(f'| {repo} | {what} | `{slug}` | {verdict}'
+                     + (f' -- {detail}' if detail and verdict != 'fired' else '')
+                     + ' |')
+    lines += ['', 'Rough tokens (words x 1.3). "near" is within the '
+              "registry's `headroom_floor_pct` of the limit."]
+    return '\n'.join(lines).strip('\n')
+
+
+def token_budgets_section(targets, repo_root, fire=True, out=None):
+    """Print the TOKEN BUDGETS section for every (label, path) in `targets`
+    and write its block into the run's write-up. -> (rows, fires)."""
+    out = out or sys.stdout
+    rows, fires, totals, private = [], [], [], {}
+    for label, path in targets:
+        if not pathlib.Path(path).is_dir():
+            continue
+        if pathlib.Path(path).resolve() == pathlib.Path(repo_root).resolve():
+            label = pathlib.Path(path).resolve().name
+        try:
+            man = json.loads((pathlib.Path(path) / 'precedent-source.json')
+                             .read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            man = {}
+        if isinstance(man, dict) and man.get('visibility') != 'public' \
+                and pathlib.Path(path).resolve() != pathlib.Path(repo_root).resolve():
+            private[man.get('name') or label] = (
+                f"a private {man.get('level') or 'practice'} set")
+            private[label] = private[man.get('name') or label]
+        # build_views narrates every deduplicated practice it skips; that is
+        # its own business, not this table's.
+        with contextlib.redirect_stderr(io.StringIO()):
+            r = budget_rows(path, label)
+        rows.extend(r)
+        loaded = [x['measured'] for x in r
+                  if x['kind'] == 'ceiling' and x['measured'] is not None
+                  and x['what'] in ('AGENTS.md', _SESSION_FILE)]
+        if loaded:
+            totals.append((label, sum(loaded)))
+        if fire:
+            fires.extend(budget_fire_test(path, label))
+    width = max([len(f"{x['repo']} {x['what']}") for x in rows] or [20])
+    for r in rows:
+        name = f"{r['repo']} {r['what']}" + (
+            f" ({r['kind']})" if r['kind'] != 'ceiling' else '')
+        used = ('' if r['measured'] is None or not r['limit'] else
+                f"{100 * r['measured'] / r['limit']:4.0f}%")
+        print(f"  {name[:width + 12]:<{width + 12}} {_fmt_n(r['measured']):>7} / "
+              f"{_fmt_n(r['limit']):>7} {used:>5}  {_budget_status(r)}",
+              file=out)
+    if not rows:
+        print('  no repo here declares tools/session_load_budgets.json -- '
+              'nothing to measure.', file=out)
+    if fires:
+        print('\n  Do the checks fire? Each repo\'s own check, on a throwaway '
+              'copy with a budget planted:', file=out)
+        for repo, what, slug, verdict, detail in fires:
+            print(f"  {verdict:<13} {repo}: {what} -> {slug}"
+                  + (f" ({detail})" if verdict != 'fired' and detail else ''),
+                  file=out)
+    md = render_budget_markdown(rows, fires, totals,
+                                date=datetime.date.today().isoformat())
+    # The write-up is tracked: in a public repo a private source is named
+    # only in general terms (practice: private-repo-scrub). The console
+    # above keeps the real names; it is not a publication.
+    if bv.repo_is_public(repo_root):
+        for name in sorted(private, key=len, reverse=True):
+            md = md.replace(name, private[name])
+    written = _write_embed_block(repo_root, TOKEN_BUDGETS_EMBED,
+                                 '## Token budgets', md)
+    if written:
+        print(f'\n  Table written to {written}.', file=out)
+    return rows, fires
 
 
 # --- gotcha currency (practice: very-deep-check) ------------------------
@@ -8322,25 +8695,36 @@ def _warnings_doc_path(repo_root):
 
 
 def _write_warnings_block(repo_root, markdown):
-    """Rewrite the warnings block in the run's write-up, appending a
-    `## Warnings` section that carries it when the write-up has none: the
-    session rewrites that file every run, and a block it dropped must come
-    back rather than silently stop being written. -> the path written, or
-    None."""
+    """Rewrite the warnings block in the run's write-up. -> the path
+    written, or None."""
+    return _write_embed_block(repo_root, WARNINGS_EMBED, '## Warnings',
+                              markdown, 'WARNINGS section; refresh with '
+                              '--refresh-warnings')
+
+
+TOKEN_BUDGETS_EMBED = 'token-budgets'
+
+
+def _write_embed_block(repo_root, name, heading, markdown,
+                       source='TOKEN BUDGETS section'):
+    """Rewrite the `name` block in the run's write-up, appending a `heading`
+    section that carries it when the write-up has none: the session rewrites
+    that file every run, and a block it dropped must come back rather than
+    silently stop being written. -> the path written, or None."""
     path = _warnings_doc_path(repo_root)
     if path is None:
         return None
     text = path.read_text(encoding='utf-8')
-    pattern = _vdc_embed_re(WARNINGS_EMBED)
+    pattern = _vdc_embed_re(name)
     if pattern.search(text):
         new_text = pattern.sub(lambda m: m.group(1) + markdown + m.group(2),
                                text, count=1)
     else:
-        new_text = (text.rstrip('\n') + '\n\n## Warnings\n\n'
-                    + '<!--vdc-embed:' + WARNINGS_EMBED + ': never hand-edit '
-                    '-- written by tools/very_deep_check.py\'s WARNINGS section; '
-                    'refresh with --refresh-warnings -->\n' + markdown
-                    + '\n<!--/vdc-embed:' + WARNINGS_EMBED + '-->\n')
+        new_text = (text.rstrip('\n') + '\n\n' + heading + '\n\n'
+                    + '<!--vdc-embed:' + name + ': never hand-edit '
+                    '-- written by tools/very_deep_check.py\'s ' + source
+                    + ' -->\n' + markdown
+                    + '\n<!--/vdc-embed:' + name + '-->\n')
     if new_text != text:
         path.write_text(new_text, encoding='utf-8')
     return path
@@ -10139,6 +10523,19 @@ def _main(box):
         print()
     if led:
         led.end(findings=len(_sl) + len(_gc_msgs if _gc_rows else []) + _todo_n)
+        led.start('TOKEN BUDGETS')
+
+    print("TOKEN BUDGETS -- every limit in every repo in force, with its "
+          "number, passing or not\n")
+    _tb_rows, _tb_fires = token_budgets_section(_sl_targets, repo_root)
+    print()
+    if led:
+        led.end(items=len(_tb_rows),
+                findings=sum(1 for _r in _tb_rows
+                             if _budget_status(_r).split(',')[0] in
+                             ('OVER', 'over target')
+                             or 'APPROVED' in _budget_status(_r))
+                + sum(1 for _f in _tb_fires if _f[3] == 'DID NOT FIRE'))
         led.start('TIER PLACEMENT', kind='read')
 
     print("TIER PLACEMENT -- which practices are loaded from turn one\n")

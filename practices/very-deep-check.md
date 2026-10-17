@@ -292,7 +292,7 @@ pass is recorded, the session rewrites the checked repo's own
 ([BestPractice's](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md))
 for this run: scope, a short version, then each pass in order with what it
 found, what was fixed and in which commit, the warnings judged (Pass 2's
-question 24), what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
+question 24), the token budgets with their numbers, what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
 previous run to one row in the run record above, commits both, and
 links the account in the reply that reports the run. A run is not done
 until the account is there, and the deep check enforces it
@@ -1588,6 +1588,22 @@ first so this pass spends its attention on what they cannot see.
   FILE — which that one is. It surfaced because somebody ran
   [tools/session_load_trend.py](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_trend.py) by hand,
   which is not a mechanism.)*
+  **Its "TOKEN BUDGETS" section prints every budget in force in every repo
+  measured, with its number, its limit, the share used and the max the
+  person approved, whether or not any is over** -- each surface's ceiling and
+  target, the resident and occasion-index caps, a set's occasion share and
+  the person's budget for the sets they bring, the session file charged the
+  way `session-load-budget` charges it. It then proves the checks fire: in a
+  throwaway worktree of each repo, that repo's own [precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) must
+  report a ceiling lowered under what it measures, a raise nobody approved
+  and a resident cap set too low, after reporting each clean unplanted. A
+  check that passes a planted overage is the finding. The table and the fire
+  test go into the run's write-up as its `## Token budgets` block, rewritten
+  every run. *(Morgan, 2026-10-17, strength: decided, after weeks without a
+  budget warning raised the question of whether they were still checked:
+  "even if they all pass, share the exact numbers, the limits, the chart,
+  and any other details. These should all go into the very deep check
+  document.")*
   Its "GOTCHA CURRENCY" sub-pass reads the other direction — **the tree
   against each entry, rather than the entry against itself** — because the
   settled-marker flag can only find an entry honest enough to say it is
@@ -2759,6 +2775,7 @@ it landed and still unreviewed.
 - **Extended 2026-10-11, Morgan (strength: decided)**, so the check runs whole in a consumer or a practice set, and hands its upstream findings upstream: "in the vendored in repo ... it should test all the unique code and also the best practice code that is vendored in", and "for every problem it finds, before it fixes it, it should ask itself, is this an upstream problem or not", the upstream ones compiled into one Prompt Please kept in the run record and given in the session, followed by "do you want me to implement band-aids until it's fixed upstream?". The tool's UPSTREAM section came with it. The first run in a consumer, the same day, found three sections that broke outside BestPractice (BOOTSTRAP DRIFT, GENERATED FILES, CONTRIBUTOR BOUNDARY), all fixed upstream in the same change.
 - **Extended 2026-10-11, Morgan (strength: decided)**, with Pass 2's question 24 and the WARNINGS section: every warning the routine checks print is collected and judged, fixed or excluded permanent or temporary with a reason, by the session, which asks only when in doubt -- "I like reviewing warnings to see if we can get rid of them or explicitly exclude them and so on to over time eliminate warnings", then, on the plan put to him, "the decision to make there is from you, the agent", and "this warning information should be printed in the ... doc that details what happened with this very deep check." CHECK COVERAGE prints each repo's advisory count, which it had read and dropped.
 - **Extended again 2026-10-11, Morgan (strength: decided)**, so the run's full account in [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md) is mandatory, and checked: "when I ran very deep check last night, it did not create the document that it always does detailing what happened. Until I asked it to. Let's update very deep check to make that document mandatory." Its check refuses a push once all four passes are recorded and the account is still an earlier run's; `--record-pass` says the account is owed when it records the fourth.
+- **Extended 2026-10-17, Morgan (strength: decided)**, with the TOKEN BUDGETS section: every session-load budget in every repo in force is printed with its number, limit, share used and approved max even when all pass, the session file charged as `session-load-budget` charges it, and each repo's own budget checks are shown to fire on an overage planted in a throwaway worktree; the table and fire test go into the run's write-up. A session had just checked this by hand after weeks with no budget warning: "please see if this same analysis ... is done in very deep check. If not, add it ... even if they all pass, share the exact numbers, the limits, the chart, and any other details." The same change stopped SESSION LOAD charging the session file whole, which had reported an individual set over its target at about 4,011 against 4,000 when the share the check charges was about 3,614.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
