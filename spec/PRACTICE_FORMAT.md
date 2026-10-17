@@ -766,9 +766,10 @@ harness. Failing the other way would load a rule nobody here can vouch for.
 why it stays at `**` and which channel reaches it instead (the occasion
 index, a gate, a check). `gates_why`, optional, says why the practice fires
 at the moment it names. `precedent_check.py --only routing-reason` refuses
-an on-demand practice with no `applies_to_why`, file by file, so the refusal
-comes at the quick tier: `pre-staging`, or `staging` for a person who lands
-there.
+an on-demand practice with no `applies_to_why`, file by file. Since
+2026-10-16 the refusal comes in the full check, at the Debut, not before a
+push: the quick tier runs no practice check
+([quick-tier-is-closed](../practices/quick-tier-is-closed.md)).
 
 **Until 2026-09-29 these reasons lived in a second file**,
 `tools/routing_scope.json`, which had to list every practice by hand. That
@@ -1060,7 +1061,7 @@ rather than a sentence.
 when a clause you wrote or changed is over the limit, and names the file and
 its length. That is where a writer finds out. A session had extended one
 clause to 81 characters, and the tool rendered it without a word. The only
-check that knew the limit was the harness, and a push to `pre-staging` does
+check that knew the limit was the harness, and a push to `pre-staging` did
 not run it. Clauses a practice set already carried over the limit before
 that date are not refused until someone edits them. Derivation stays as a fallback so a newly added
 practice renders something before its clause is written.

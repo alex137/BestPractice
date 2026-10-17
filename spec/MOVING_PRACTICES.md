@@ -189,11 +189,11 @@ hand-done one against:
      ([`precedent_candidate.py`](../tools/precedent_candidate.py), [`precedent_land.py`](../tools/precedent_land.py)) is not the way to
      move an existing practice**: it carries a rule and an observation,
      not a file, and the rehearsal above lists what it drops.
-   - **To universal**: a pull request (PR) against `precedent-beta-v01`,
-     merged once its own deep check passes — no second sign-off required,
-     same as any other PR into that branch
-     ([merge-target-is-beta-branch](../local/practices/merge-target-is-beta-branch.md))
-     and same as any new universal practice. The tool drafts the file; the
+   - **To universal**: a pull request (PR) against BestPractice's landing
+     branch (`staging`; `python3 tools/precedent_branches.py --landing`
+     says which), merged once its own deep check passes — no second
+     sign-off required, same as any other PR into that branch (AGENTS.md's
+     opening paragraph) and same as any new universal practice. The tool drafts the file; the
      merge is the approval.
 
    **Re-point any link to a sibling practice that does not move with it:

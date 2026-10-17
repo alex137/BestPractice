@@ -289,12 +289,17 @@ push to any other branch runs the basic tier -- the lint, the leak gate
 and the commit author, date and trailer checks, and in a consumer the
 practice audit's scrub-gate and practice-export-loop (2026-10-02), seconds
 -- unless the person's
-`branch_push_checks` says `full`. A push or pull request into
-`pre-staging` also checks the files it changes, and what it breaks
-elsewhere (a tree check's finding the push caused, since 2026-10-07), in
-seconds (`checks-follow-the-tier`). **Since 2026-10-09 so does a push or
-pull request into `staging` by a person who lands there** (`promote_only`
-on, `landing_branch` `staging`): staging is that person's quick tier. For
+`branch_push_checks` says `full`. **Since 2026-10-09 a push or pull
+request into `staging` by a person who lands there** (`promote_only` on,
+`landing_branch` `staging`) takes the quick tier too: staging is that
+person's quick tier (`checks-follow-the-tier`; `pre-staging`, which had
+it first, was retired on 2026-10-14). **Since 2026-10-16 the quick tier
+runs no test and no practice check** (Morgan: "all the testing EXCEPT THE
+BARE ESSENTIAL AND LEAK GATES SHOULD GO INTO DEBUT"): only the basic
+checks and per-file checks of what the push changes; the practice checks
+and every test run in the full tier, at the Debut and around Produce
+([spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md](TESTS_RUN_AT_THE_DEBUT_PLAN.md),
+[quick-tier-is-closed](../practices/quick-tier-is-closed.md)). For
 them the full suite is asked for, not paid on every landing:
 `python3 tools/precedent_branches.py --run-tests [BRANCH]` (default: the
 landing branch) runs the full local suite on the branch composed with

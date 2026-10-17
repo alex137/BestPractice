@@ -203,6 +203,7 @@ Run:
       the ledger, and exit. `findings`, `tokens` and `note` are each
       optional; an absent one is recorded as absent, never estimated.
   python3 tools/very_deep_check.py --record-read 'tools/verify_harness.py,by=...,note=...'
+      (note= comes last and runs to the end, commas included)
       -- record that somebody read that file END TO END today, in
       record/holistic-reads.json, and exit. The ACCRETION section ranks by
       commits since a file's last recorded read, so this is what moves a
@@ -1521,7 +1522,13 @@ def _record_read(value, repo=None):
     memory gets wrong, and a prose note about it drifts from the tree the
     moment either moves."""
     repo_root = pathlib.Path(repo or ROOT).resolve()
-    parts = [x.strip() for x in value.split(',')]
+    # The note is the rest of the value, commas and all: split on every
+    # comma, a note saying what the read found kept only its first clause
+    # (two of the first four rows, 2026-10-11 and 2026-10-17).
+    head, has_note, note = value.partition(',note=')
+    if value.startswith('note='):
+        head, has_note, note = '', True, value[len('note='):]
+    parts = [x.strip() for x in head.split(',')]
     path = parts[0]
     if not path:
         sys.exit("very deep check FAIL: --record-read needs a path, e.g. "
@@ -1531,6 +1538,8 @@ def _record_read(value, repo=None):
         k, _, v = part.partition('=')
         if k.strip() in ('by', 'note') and v:
             fields[k.strip()] = v.strip()
+    if has_note and note.strip():
+        fields['note'] = note.strip()
     if not (repo_root / path).exists():
         # Refused rather than recorded: a read recorded against a path that
         # is not there is a claim about nothing, and it would sit in the
