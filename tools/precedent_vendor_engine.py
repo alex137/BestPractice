@@ -809,6 +809,10 @@ ENGINE_FILES = [
     # routine checks print, matched against the repo's own
     # tools/warning_exclusions.json, which a consumer starts without.
     'warning_review.py',
+    # Its TEST WORTH section imports this (2026-10-17): every test the repo
+    # owns, its time and its leads, against its own tools/test_verdicts.json,
+    # which a consumer starts without.
+    'test_review.py',
     'parse_check.py',
     'precedent_bootstrap_source.py',
     # THE ONE CHECK THAT LOOKS OUTWARD (2026-09-21). Every other check in
