@@ -63666,6 +63666,13 @@ def check_branch_cleanup_page_merges_the_saved_page():
     cases.append(('...says the kept rows are as last checked, and counts both',
                   'as listed when last checked, 11 Oct 2026, 10:00 UTC' in page
                   and '3 branches' in page, ''))
+    kept = _sb.carried_over([{'owner': 'o', 'repo': 'D', 'checked': '',
+                              'branches': [['precedent-promote-lock', '2026-10-01'],
+                                           ['precedent-check-receipts', '2026-10-01'],
+                                           ['d-done', '2026-10-01']]}], [])
+    cases.append(('a carried row never offers a branch the engine keeps, '
+                  'whoever listed it', [[b for b, _d in r] for _o, _n, r, _c in kept]
+                  == [['d-done']], kept))
     legacy = _sb._DATA.sub('', old)
     cases.append(('a page built before the JSON block is read from its sections',
                   [(r['repo'], [b for b, _d in r['branches']], r['checked'][:16])
