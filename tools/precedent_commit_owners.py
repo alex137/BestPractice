@@ -19,8 +19,8 @@ someone else merged. What neither rule settles is listed with its session
 link, for the session to check. Merge commits are left out by the callers:
 merging is not the work, and the merged commits are counted on their own.
 
-Moved out of tools/precedent_others_did.py on 2026-10-17, when that report
-moved into the set that ships it (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md
+Moved out of the others-did report's engine tool on 2026-10-17, when that
+report moved into the set that ships it (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md
 part 3).
 """
 import re
