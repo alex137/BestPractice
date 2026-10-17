@@ -11281,6 +11281,88 @@ def check_engine_carries_no_branch_naming_enforcement():
           not failed, '; '.join(failed))
 
 
+def check_fix_sweep_judges_in_force_by_the_targets_resolver():
+    """FIX SWEEP decides whether a new detector's practice is in force in a
+    repository by that repository's own resolver, not by a practices/<slug>.md
+    in its copy (2026-10-17 very deep check: in each set 17 of 18 rows read
+    SKIPPED, "not in force here", though every set declares universal).
+
+    Stated cases: a practice the set's resolver puts in force from universal
+    is run against the set's copy, not skipped; the real set is left as it
+    was; one cause behind most skips is said once, ONE CAUSE, the way CHECK
+    COVERAGE says it, and a spread of causes is not."""
+    import shutil, tempfile
+    import very_deep_check as _vdc
+    import precedent_vendor_engine as pve
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-fix-sweep-'))
+    try:
+        s = tmp / 'zz-set'
+        (s / 'practices').mkdir(parents=True)
+        (s / 'tools').mkdir()
+        for name in pve.ENGINE_FILES:
+            src = ROOT / 'tools' / name
+            if src.is_file() and name != 'verify_harness.py':
+                shutil.copy2(src, s / 'tools' / name)
+        (s / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'source', 'files': []}), encoding='utf-8')
+        (s / 'precedent-source.json').write_text(
+            json.dumps({'name': 'zz-set', 'level': 'shared'}), encoding='utf-8')
+        (s / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'base_branch': 'main', 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]}),
+            encoding='utf-8')
+        (s / 'practices' / 'zz-own.md').write_text(
+            '---\nslug: zz-own\ntitle: Fixture\ntier: on-demand\nseverity: default\n'
+            'applies_to: ["**"]\noccasion: "x"\nindex_clause: "x"\nstatus: active\n'
+            '---\n## Rule\nx\n\n## Story\nx\n', encoding='utf-8')
+        for a in (['init', '-q', '-b', 'main'], ['add', '-A'],
+                  ['-c', 'user.email=h@example.com', '-c', 'user.name=h',
+                   'commit', '-qm', 'fixture']):
+            subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C', str(s), *a],
+                           capture_output=True)
+        saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'none.json')
+        # The sweep as the run calls it, with its detector list planted.
+        real_added = _vdc._detectors_added
+        _vdc._detectors_added = lambda *_a, **_k: (['one-python'], '', '')
+        try:
+            _since, _slugs, rows, _note, _cav = _vdc._fix_sweep(
+                ROOT, [('zz-set', str(s))], since='2026-01-01')
+        finally:
+            _vdc._detectors_added = real_added
+            if saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved
+        label, verdicts, why = rows[0] if rows else ('zz-set', None, 'no row')
+        got = verdicts[0] if verdicts else (None, None, why)
+        cases.append(('a practice the set resolves from universal is run on the '
+                      'copy, not skipped', got[1] not in (None, 'SKIPPED')
+                      and 'in force here by its resolver' in (got[2] or ''),
+                      repr(got)))
+        status = subprocess.run(['git', '-C', str(s), 'status', '--porcelain',
+                                 '--untracked-files=all'],
+                                capture_output=True, text=True).stdout
+        cases.append(('the real set is left as it was', status.strip() == ''
+                      and not (s / 'process').exists(), status))
+        _one_cause = getattr(_vdc, '_one_skip_cause', lambda v: '')
+        one = _one_cause([('a', 'SKIPPED', 'no file'),
+                                    ('b', 'SKIPPED', 'no file'),
+                                    ('c', 'clean', '')])
+        spread = _one_cause([('a', 'SKIPPED', 'x'), ('b', 'SKIPPED', 'y'),
+                                       ('c', 'clean', '')])
+        cases.append(('one cause behind most skips is said once, ONE CAUSE; a '
+                      'spread of causes is not', one.startswith('ONE CAUSE 2 of 3')
+                      and spread == '', repr((one, spread))))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the fix sweep judges a detector in force by the target repository\'s '
+          f'resolver ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:600]}' for n, d in bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -82555,6 +82637,7 @@ def main():
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
+    check_fix_sweep_judges_in_force_by_the_targets_resolver()
     check_engine_carries_no_branch_naming_enforcement()
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
