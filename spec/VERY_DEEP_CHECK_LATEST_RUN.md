@@ -142,3 +142,22 @@ Everything not fixed, with where its fix lives, is in
 the writing set's stale-count check, the shared sets' old bootstrap hook,
 updates that stop on untouched template text, the migration and move
 guides, and a few install gaps that need a design call.
+
+## Warnings
+
+<!--vdc-embed:warnings: never hand-edit -- written by tools/very_deep_check.py's WARNINGS section; refresh with --refresh-warnings -->
+Measured 2026-10-17: **2282 warning(s), 2282 still open** (neither fixed nor excluded).
+
+| Source | Kind | Warnings | Open | Excluded for good | Excluded until a date |
+|---|---|---|---|---|---|
+| doc_lint | unlinked file reference | 2189 | 2189 | 0 | 0 |
+| doc_lint | open item naming no blocker | 65 | 65 | 0 | 0 |
+| precedent_check | enforcement-lives-with-its-practice | 24 | 24 | 0 | 0 |
+| doc_lint | process residue | 2 | 2 | 0 | 0 |
+| doc_lint | open item waiting on an upstream fix | 1 | 1 | 0 | 0 |
+| precedent_session_check | undetermined | 1 | 1 | 0 | 0 |
+
+**Exclusions decided this run: 0.**
+
+Exclusions live in [tools/warning_exclusions.json](../tools/warning_exclusions.json); [tools/warning_review.py](../tools/warning_review.py) lists every open group.
+<!--/vdc-embed:warnings-->
