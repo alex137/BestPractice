@@ -1807,9 +1807,8 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
     if ahead and not dry_run:
         print("precedent_materialize: shipped file(s) LEFT UNTOUCHED, not "
               "replaced -- this repository committed its own version after "
-              "the set's copy, so the set's copy is the older one. Carry this "
-              "repository's version to the set that ships it; to take the "
-              "set's copy instead, delete the file and sync again: "
+              "the set's copy. It is drift until it has its answer (practice: "
+              "upstream-bug-stops-here) -- " + _three_answers() + ": "
               + ', '.join(ahead), file=sys.stderr)
 
     rstats = pr.resident_stats(res)
@@ -1831,6 +1830,27 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
             'adapters': adapters_written, 'rstats': rstats,
             'ships': ships_written, 'declined_ships': declined_rows,
             'ships_kept': ships_kept}
+
+
+def _three_answers():
+    """The three answers an edited upstream-owned file needs, in the words
+    tools/upstream_edits.py gives them -- one wording, wherever it is said."""
+    try:
+        import upstream_edits
+        return upstream_edits.THREE_ANSWERS
+    except ImportError:
+        return ('answer it under "upstream_edits" in precedent.json: '
+                'take the set\'s copy, carry the fix upstream, or record a '
+                'local need with the person\'s approval')
+
+
+def _answered_upstream_edits(out_dir):
+    """-> the paths that carry a valid answer under "upstream_edits"."""
+    try:
+        import upstream_edits
+        return set(upstream_edits.registry(out_dir)[0])
+    except ImportError:
+        return set()
 
 
 def _ship_keep_reason(out_dir, rel, data, delivered_before):
@@ -2086,8 +2106,15 @@ def drift(sources, res, out_dir, withheld=None):
         dest = out_dir / f['path']
         label = f"shipped by {f['practice']}, {f['source']}"
         if kept.get(f['path']) == 'ahead':
-            # This repository committed its own newer version; a sync keeps
-            # it too, so a fresh sync would write nothing different here.
+            # This repository committed its own version after the set's. A
+            # sync keeps it (practice: repair-cannot-discard-work), and it is
+            # still drift until it has its answer (practice:
+            # upstream-bug-stops-here, 2026-10-17): usually the fix belongs
+            # in the set, or the set already has another one.
+            if f['path'] not in _answered_upstream_edits(out_dir):
+                found.append(f"{f['path']} was committed here after the set's "
+                              f"copy ({label}), so a sync keeps it -- "
+                              f"{_three_answers()}")
             continue
         if kept.get(f['path']) == 'unsaved':
             found.append(f"{f['path']} holds changes no git commit has, so a "

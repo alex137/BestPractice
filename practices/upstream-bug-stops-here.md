@@ -10,14 +10,14 @@ gates:       ["review"]
 gates_why:   "`review` is the moment a fix is chosen, before the edit, which is the only moment this rule can still stop a local patch to an upstream bug."
 index_clause: "never patch an upstream bug here; its upstream PR is the ask"
 index_required: false
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-28"
-approved_by: "Morgan, 2026-09-28; amended by S. Alexander Jacobson, 2026-10-06, in his words: \"Yes. Opening a pr counts as asking.\" (strength: decided); landed on Morgan's word, 2026-10-11: \"On Alex's fix: approved.\""
+approved_by: "Morgan, 2026-09-28; amended by S. Alexander Jacobson, 2026-10-06, in his words: \"Yes. Opening a pr counts as asking.\" (strength: decided); landed on Morgan's word, 2026-10-11: \"On Alex's fix: approved.\"; enforced on Morgan's word, 2026-10-17: \"Is there a way to make the rule stronger or force it to be enforced?\", then \"Act\" on the plan (strength: decided)"
 strength:    decided
 ---
 ## Rule
@@ -42,6 +42,19 @@ it back.
 goes in as a labelled band-aid beside the upstream pull request.
 
 ## Detail
+**Enforced since 2026-10-17, in two places.** Before the edit: in Claude
+Code, the edit-time hook refuses an edit to a file this repository
+received from upstream until the change has its answer. After it: the
+full check (this rule's check in
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)) fails while any such file
+differs from what was delivered without one. **The three answers:**
+upstream already fixed it, so take its copy; it belongs upstream, so carry
+it there and record `owed-upstream` with the link; or it is a local need,
+met some other way, and only where that is impossible recorded as
+`local-need` with how it is met and the person's quoted, dated approval.
+The answers live under `upstream_edits` in `precedent.json`, and
+[tools/upstream_edits.py](https://github.com/alex137/BestPractice/blob/staging/tools/upstream_edits.py) lists every edit and its answer.
+
 **This repository may BE upstream.** In BestPractice, its engine and templates
 are the origin; in a practice set, its own checks and practices are. Editing
 the origin is the fix this rule asks for, not the thing it stops. The test is
