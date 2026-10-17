@@ -137,7 +137,7 @@ in the same ENGINE_MANIFEST.json (see the HOOK_SOURCE_DIR block below for
 why they are a second, smaller mechanism rather than folded into
 ENGINE_FILES). Before this date they were installed once by
 precedent_install.py and never refreshed, so a fix landing in a hook script
--- the freshness-guard.sh shallow-clone false-positive, record/GOTCHAS.md#g12,
+-- the freshness-guard.sh shallow-clone false-positive, gotchas/gotcha-2026-09-13-on-a-shallow-clone-git-merge-base-between-two-different-bran.md,
 is the incident that prompted this -- never reached an already-vendored
 repo no matter how many times it ran `refresh`. .claude/settings.json itself
 is still never touched by this tool, on purpose; see that block.
@@ -555,6 +555,9 @@ ENGINE_FILES = [
     # them on every gate, and precedent_check.py registers them.
     'check_commit_author.py',
     'check_commit_dates.py',
+    # What those two share, in one copy beside them (2026-10-17): both
+    # import it at load.
+    'commit_checks_common.py',
     # Whether this session's person is one of the repository's code owners,
     # so a practice marked `visible_to: code-owners` reaches only them
     # (2026-10-05). Beside precedent_identity.py, which it reads, and in
@@ -871,6 +874,10 @@ ENGINE_FILES = [
     # check, it fails to import.
     'doc_lint.py',
     'frontmatter_yaml.py',
+    # The one declared-base-branch helper (2026-10-17): doc_lint.py,
+    # parse_check.py, precedent_check.py, very_deep_check.py, routing_audit.py
+    # and checkin.py import it at load, where each used to carry a copy.
+    'declared_base_branch.py',
     # The one "is this line inside a generated block?" (added 2026-09-29).
     # doc_lint.py, doc_sync.py and precedent_check.py import it at module
     # level, and a practice source's own checks are meant to import it from
@@ -1176,7 +1183,7 @@ _CARRIED_LEFT_ENV = 'PRECEDENT_REFRESH_LEFT_FOR_YOU'
 # tools/precedent_close_detect.py (see this file's docstring above): a fix
 # that lands upstream and never reaches an already-vendored repo because
 # nothing carries it there. The freshness-guard.sh shallow-clone false-
-# positive (record/GOTCHAS.md#g12) is the concrete incident this closes --
+# positive (gotchas/gotcha-2026-09-13-on-a-shallow-clone-git-merge-base-between-two-different-bran.md) is the concrete incident this closes --
 # every consumer that vendored before that fix landed would otherwise keep
 # hitting it, forever, no matter how many times it ran "Update Vendors".
 #

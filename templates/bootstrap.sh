@@ -231,7 +231,7 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
   }
   if [ -n "$git_dir" ] && [ -f "$git_dir/shallow" ]; then
     # TODO.md's shallow-clone-self-heal-hardening item (BestPractice
-    # record/GOTCHAS.md#g37, third occurrence): one bounded attempt used to
+    # gotchas/gotcha-2026-09-14-a-shallow-clone-makes-a-merely-behind-checkout-read-as-diver.md, third occurrence): one bounded attempt used to
     # be the whole mechanism, and a failure here surfaced as nothing more
     # than a WARN line. A second, independently-bounded attempt costs
     # nothing when the first succeeds; a marker file left behind on total

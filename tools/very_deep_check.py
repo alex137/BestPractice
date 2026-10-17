@@ -675,27 +675,9 @@ def report_freshness(label, verdict, out=None):
     return False
 
 
-def _declared_base_branch(repo_dir):
-    """The branch a repo DECLARES its work is measured against, in its own
-    precedent.json `base_branch` -- not inferred from `origin/HEAD`.
-
-    Those are two different questions with usually the same answer, which is
-    why asking the wrong one survives so long. `origin/HEAD` answers "what
-    does GitHub show first"; callers here mean "what lineage does this work
-    belong to". They diverge the moment a repo pins its work to a branch
-    that is not the configured default -- this repo's own
-    `precedent-beta-v01` -- and then every inference is quietly wrong with
-    nothing failing. Returns None when undeclared or unreadable, so callers
-    fall back to the old inference rather than breaking (practice: fail-gracefully).
-    Enforced by precedent_check.py's `declared-base-branch`.
-    """
-    try:
-        import json as _json, pathlib as _pathlib
-        v = _json.loads((_pathlib.Path(repo_dir) / 'precedent.json')
-                        .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 def _second_practice_lists(repo_dir, threshold=0.8):
     """-> [(rel, named, total)] for every tracked, hand-kept file that names
@@ -872,6 +854,12 @@ def _named_anywhere_else(shipped, root):
                         f"'{stem}'"]
         needles += ['/'.join(parts[i:-1]) + '/'
                     for i in range(0, len(parts) - 2)]
+        # The folder AS A CONSUMER SEES IT is a reader too (2026-10-17):
+        # environment-gotchas tells every session in a consumer to grep
+        # `process/upstream/gotchas/`, and a grep names no file, so every
+        # retired gotcha read as shipped to nobody.
+        if '/' in dest:
+            needles.append(dest.rsplit('/', 1)[0] + '/')
         if not any(n in text for other, text in texts.items()
                    if other != dest for n in needles):
             unnamed.append(dest)
@@ -8293,10 +8281,23 @@ def _record_pass(value, path=None, repo=None):
               f"complete (newest {runs[-1].get('run_id')}); this pass is "
               f"recorded against the last completed run instead.",
               file=sys.stderr)
-    target.setdefault('passes', []).append(entry)
+    # ONE ENTRY PER PASS PER RUN (2026-10-17). Recording a pass again --
+    # its findings recounted, its note corrected -- used to append a second
+    # entry beside the first, so the run carried two answers for one pass
+    # and every reader took whichever it met first. The newer one replaces
+    # the older, in place.
+    passes = target.setdefault('passes', [])
+    same = [i for i, p in enumerate(passes) if str(p.get('pass')) == name]
+    if same:
+        passes[same[0]] = entry
+        for i in reversed(same[1:]):
+            del passes[i]
+    else:
+        passes.append(entry)
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     print(f"recorded: pass {name} = {status or '(no status)'} against the run "
-          f"of {target.get('run_id')} in {path}.")
+          f"of {target.get('run_id')} in {path}"
+          + (", replacing the entry already recorded for it." if same else "."))
     # The run's full account is owed the moment its last pass is in, and the
     # deep check refuses a push without it (practice: very-deep-check;
     # Morgan, 2026-10-11, after a run left it out until he asked).

@@ -43,7 +43,7 @@ work, but it is not nothing either: archiving the container kills it, and
 one that waits forever keeps running until then. On 2026-09-28 two wait
 loops ran for five hours after the script they waited on had finished,
 because `pgrep -f <name>` matched the loop's own command line
-(gotchas/gotcha-2026-09-28-a-wait-loop-on-pgrep-f-finds-itself-and-never-ends.md),
+(gotchas/gotcha-2026-10-01-a-wait-loop-on-pgrep-f-waits-on-itself.md),
 while this tool said the container was clean. So a scan that discovers its
 checkouts also lists every shell the agent running this session started
 that is still running and is not part of this check. It finds that agent

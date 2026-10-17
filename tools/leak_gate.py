@@ -957,7 +957,7 @@ def local_clone_refs(root):
     # alone found four of the five repositories on this disk and missed the
     # private one -- so its name was never auto-blocklisted and never
     # reported as uncovered, which is the exact shape of the bug this
-    # session was handed in record/GOTCHAS.md#g40 (the session-start
+    # session was handed in gotchas/gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md (the session-start
     # identity block, same wrong assumption, same missed repository).
     #
     # Asked of the resolver, which is what knows where the declared sources

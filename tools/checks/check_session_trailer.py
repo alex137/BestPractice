@@ -39,8 +39,10 @@ Two kinds of commit are exempt besides merges:
     a merge, squash or revert button, a web edit) -- no session wrote it,
     and there is nowhere to add a trailer;
   - a revert (`Revert "..."` / `This reverts commit <sha>.`), but only where
-    `revert-needs-no-trailer` (universal since 2026-10-05) is in force.
-    Where it is not in force, a revert still needs the trailer.
+    `session-trailer` is in force, whose Detail carries the exemption since
+    2026-10-17 -- or `revert-needs-no-trailer`, the universal practice that
+    carried it from 2026-10-05 until then, for a repository on an older
+    catalogue. Where neither is in force, a revert still needs the trailer.
 
 Exit 0 and print nothing when clean. Exit 1 and print the practice's own
 Rule text (never a paraphrase) plus the specific finding(s) on a violation.
@@ -238,11 +240,16 @@ def _is_merge(sha: str) -> bool:
 
 WEB_FLOW_COMMITTER = "noreply@github.com"
 REVERT_RE = re.compile(r"^Revert \"|^This reverts commit [0-9a-f]{7,40}\b", re.M)
-REVERT_PRACTICE = "revert-needs-no-trailer"
+# The practices that carry the revert exemption: session-trailer's Detail
+# since 2026-10-17, when revert-needs-no-trailer was folded into it and
+# deduplicated (a deduplicated practice is never in the resolved set, so
+# asking for the old slug alone would have started refusing every revert);
+# the old slug still counts where an older catalogue has it active.
+REVERT_PRACTICES = ("session-trailer", "revert-needs-no-trailer")
 
 
 def revert_exemption_in_force() -> bool:
-    """True when `revert-needs-no-trailer` resolves in force for ROOT.
+    """True when a practice in REVERT_PRACTICES resolves in force for ROOT.
 
     Asked through the engine's own resolver, which every repository this
     script runs in carries under tools/, so "in force" means exactly what it
@@ -260,7 +267,8 @@ def revert_exemption_in_force() -> bool:
                     contextlib.redirect_stderr(io.StringIO()):
                 import precedent_resolve as pr
                 res = pr.resolve(pr.load_config(str(ROOT)))
-            return REVERT_PRACTICE in (res.get("practices") or {})
+            practices = res.get("practices") or {}
+            return any(slug in practices for slug in REVERT_PRACTICES)
         except (Exception, SystemExit):
             return False
         finally:

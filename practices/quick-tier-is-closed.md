@@ -11,7 +11,7 @@ gates_why:   "Where a new test runs is chosen while the change is being designed
 index_clause: "new tests go in the full check; before a push only on their words and time"
 index_required: false
 checked_by:  null
-defines:     []
+defines:     ["quick tier", "quick checks"]
 status:      active
 in_force_at: null
 supersedes:  []
@@ -23,8 +23,9 @@ strength:    decided
 ## Rule
 **A new test or check runs in the full check, never before a push**: the
 full run on the landing branch when it is asked for, and around the move
-into `main`. Before a push only the bare essentials run: the leak gate, the
-commit checks and the per-file checks.
+into `main`. **The quick tier**, whose checks are **the quick checks**, is
+what runs before a push: only the bare essentials, the leak gate, the commit
+checks and the per-file checks.
 
 **Putting one before a push takes the person's own words asking for that
 check, and its time.** Before asking, measure what it takes, tell them in
@@ -68,6 +69,12 @@ Morgan moved every test to the Debut and around Produce, closed the quick
 tier, and asked that any new entry come with his words, its time, and a
 case for the Debut first. The record is
 [spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md).
+
+
+**2026-10-17: the Rule names its terms.** "Quick tier" and "quick checks"
+were used across the engine with no glossary entry; the Rule's sentence on
+what runs before a push now names them, and `defines:` lists them. The
+wording was chosen by the session under Morgan's delegation of 2026-10-17: "Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."
 
 ## Install
 Nothing to install: it ships with the engine. A repository whose own push

@@ -47,7 +47,7 @@ workflows. **So a container missing them is telling you the hook never ran**,
 which is a much larger fact than two absent packages: the same session had
 neither the generated session-practices file the private sources write, nor
 the commit backstop. That session
-was rooted one directory ABOVE this repository — see [g17](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g17) — so none of
+was rooted one directory ABOVE this repository — see [g17](gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo.md) — so none of
 its hooks fired, silently. [`python3 tools/precedent_session_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py) reports
 all of those guarantees at once, and its packages row now names `pip install`
 as the remedy rather than `--apply`, because `--apply` re-runs the hook that

@@ -1178,8 +1178,8 @@ def main():
     # and somebody remembering to run it. On 2026-09-14 a session read that
     # banner, did not run it, and spent hours with four guarantees down --
     # noticing only when two uninstalled packages surfaced as three
-    # unrelated-looking verify_harness failures (record/GOTCHAS.md#g1,
-    # #g17). Guidance a session can skip is not a mechanism. A gate is
+    # unrelated-looking verify_harness failures (gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md,
+    # gotchas/gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo.md). Guidance a session can skip is not a mechanism. A gate is
     # something it runs at a named moment, so the gate is where this belongs.
     #
     # Offline, so it costs a tenth of a second and never fetches; silent

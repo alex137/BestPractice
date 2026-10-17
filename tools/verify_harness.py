@@ -8843,6 +8843,12 @@ def check_very_deep_check_warnings_are_judged_not_just_counted():
     cases.append(('an advisory check\'s findings group by check and file, and its rule text is not one',
                   [(g['kind'], g['path'], g['count']) for g in pcg] == [('some-check', 'practices/a.md', 2)],
                   repr(pcg)))
+    cases.append(('the session check\'s `??` rows are not collected: they '
+                  'change from session to session, so an exclusion of one '
+                  'goes stale',
+                  not any(src[0] == 'precedent_session_check'
+                          for src in wr.LINE_SOURCES),
+                  [src[0] for src in wr.LINE_SOURCES]))
     lg = wr.line_groups('build_views', 'WARNING', 'build_views WARNING: 3 over\nbuild_views WARNING: 4 over\nok\n',
                         re.compile(r'\bWARNING:\s*(.+)'))
     cases.append(('WARNING lines differing only in a number are one group',
@@ -9524,6 +9530,13 @@ def check_session_trailer_check_ships_with_the_engine():
         repo = fx / 'repo'
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
         git('remote', 'add', 'origin', str(origin))
+        # A consumer of this engine's universal catalogue and nothing else,
+        # so "in force" is the catalogue's answer, not the person's sets.
+        env['PRECEDENT_USER_CONFIG'] = str(fx / 'no-user-config.json')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]}),
+            encoding='utf-8')
+        git('add', 'precedent.json')
         commit('a', 'first\n\nSession: https://claude.ai/code/session_x')
         git('push', '-q', 'origin', 'main')
         commit('b', 'no trailer at all')
@@ -9539,6 +9552,17 @@ def check_session_trailer_check_ships_with_the_engine():
         git('push', '-q', 'origin', 'main')
         cases.append(('a commit origin already has is not judged again',
                       check_says() == 0))
+        # The revert exemption lives in session-trailer's Detail since
+        # 2026-10-17, its old practice deduplicated to it: the check must
+        # still skip a revert, which it stopped doing when it asked only
+        # for the old slug.
+        sha = git('rev-parse', 'HEAD').stdout.strip()
+        commit('c', f'Revert "no trailer again"\n\nThis reverts commit {sha}.')
+        cases.append(('THE CASE: a revert with no trailer passes where '
+                      'session-trailer is in force', check_says() == 0))
+        git('commit', '-q', '--amend', '-m', 'undo the last change by hand')
+        cases.append(('CONTROL: an undo made by hand, with its own message, '
+                      'still needs the trailer', check_says() == 1))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
     bad = [n for n, ok in cases if not ok]
@@ -9569,7 +9593,8 @@ def check_bot_authored_commits_are_warned_where_no_person_is_declared():
             'is WARNED about, never refused, where no person is declared')
     script = ROOT / 'tools' / 'check_commit_author.py'
     need = [script, ROOT / 'tools' / 'precedent_session_check.py',
-            ROOT / 'tools' / 'precedent_identity.py']
+            ROOT / 'tools' / 'precedent_identity.py',
+            ROOT / 'tools' / 'commit_checks_common.py']
     absent = [str(p.relative_to(ROOT)) for p in need if not p.exists()]
     if absent:
         not_applicable(name, f'not in this tree: {absent}')
@@ -16236,7 +16261,7 @@ def check_update_vendors_declined_catalogue_copy_is_upstreams():
         aud = repo / '.audit' / 'tools'
         aud.mkdir(parents=True)
         for n in ('practice_audit.py', 'generated_blocks.py', 'checkin.py',
-                  'precedent_time.py'):
+                  'precedent_time.py', 'declared_base_branch.py'):
             shutil.copy(ROOT / 'tools' / n, aud / n)
         with open(repo / '.git' / 'info' / 'exclude', 'a', encoding='utf-8') as f:
             f.write('.audit/\n')
@@ -18228,7 +18253,8 @@ def check_lint_runs_the_hosts_shim():
         repo = pathlib.Path(td)
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
         (repo / 'tools').mkdir()
-        for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py'):
+        for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py',
+                  'declared_base_branch.py'):
             shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
         (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}\n')
         (repo / 'host').mkdir()
@@ -18323,6 +18349,7 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
         (repo / 'tools').mkdir(parents=True)
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
         for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py',
+                  'declared_base_branch.py',
                   'precedent_engine_freshness.py', 'precedent_resolve.py'):
             shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
         (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
@@ -18418,6 +18445,7 @@ def check_lint_refuses_an_open_item_that_names_no_blocker():
         (repo / 'tools').mkdir(parents=True)
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
         for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py',
+                  'declared_base_branch.py',
                   'precedent_engine_freshness.py', 'precedent_resolve.py',
                   'title_case.py'):
             shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
@@ -28875,10 +28903,19 @@ def check_gate_channel():
     # called precedent_gate.py at all. Checked in both the template a
     # dependent repo installs and this repo's own instantiated copy, so
     # neither can drift back to cited-only without this case catching it.
+    # Since 2026-10-17 this repo's own .claude/hooks/ copy is the engine
+    # stub, which runs tools/<same name>; its wiring is the script it runs.
+    def _hook_text(hook):
+        text = hook.read_text(errors='ignore') if hook.exists() else ''
+        if 'PRECEDENT HOOK STUB' in text:
+            real = ROOT / 'tools' / hook.name
+            return real.read_text(errors='ignore') if real.exists() else ''
+        return text
+
     for stop_hook in (ROOT / 'tools' / 'stop-reply-check.sh',
                       ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'the reply gate is wired into {stop_hook.relative_to(ROOT)}',
-                      stop_hook.exists() and 'precedent_gate' in stop_hook.read_text(errors='ignore')))
+                      stop_hook.exists() and 'precedent_gate' in _hook_text(stop_hook)))
 
     # 2026-09-13: the reply gate gained a second invocation point and a
     # blocking half, and both are wiring claims that can drift back to
@@ -28907,7 +28944,7 @@ def check_gate_channel():
                       ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'the BLOCKING reply check is called from '
                       f'{stop_hook.relative_to(ROOT)}',
-                      'precedent_reply_check' in stop_hook.read_text(errors='ignore')))
+                      'precedent_reply_check' in _hook_text(stop_hook)))
 
     # 2026-09-15: the Stop hook's own advisory print of the reply gate went
     # unbriefed for over a year -- `precedent_gate.py reply` with no
@@ -28921,7 +28958,7 @@ def check_gate_channel():
                       ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'{stop_hook.relative_to(ROOT)} calls the reply gate '
                       f'--brief, not the full Rules, on every Stop',
-                      'precedent_gate.py" reply --brief' in stop_hook.read_text(errors='ignore')))
+                      'precedent_gate.py" reply --brief' in _hook_text(stop_hook)))
 
     # --brief is the per-turn form, and its promise is that it is CHEAP. A
     # regression that printed full Rules there would not fail any case above.
@@ -28939,7 +28976,7 @@ def check_gate_channel():
     # SessionStart hooks never ran reads instructions it cannot satisfy, and
     # tools/precedent_session_check.py has been able to say so since
     # 2026-09-08 -- via AGENTS.md's banner, which a session can skip, and did
-    # (record/GOTCHAS.md#g1). The gate is the route it cannot skip, so these
+    # (gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md). The gate is the route it cannot skip, so these
     # cases assert the PRINTED TEXT in both directions rather than the call
     # (practice: control-asserts-which-failure).
     spec_c = importlib.util.spec_from_file_location(
@@ -39569,8 +39606,14 @@ def check_push_check_gate():
         files = git(hub, 'ls-tree', '-r', '--name-only',
                     'precedent-check-receipts').stdout.split()
         cases.append(('a full pass is published to origin as a receipt',
-                      'shared with every checkout' in ran
-                      and any(f.startswith('receipts/') for f in files)))
+                      any(f.startswith('receipts/') for f in files)))
+        # The run says the push plainly (2026-10-17): no document said a
+        # check writes to origin, and the old line ("receipt shared with
+        # every checkout") never said it pushed, or where.
+        cases.append(('the run says in plain words that it pushed a pass '
+                      'receipt, to which branch, on origin, and how to stop it',
+                      'pushed a pass receipt to precedent-check-receipts on '
+                      'origin' in ran and 'PRECEDENT_NO_SHARED_PASS=1' in ran))
         other = tmp / 'other'
         git(tmp, 'clone', '-q', f'file://{hub}', str(other))
         got = run_check(other, '--gate', '--tier', 'full')
@@ -40838,6 +40881,8 @@ def check_history_checks_never_ride_a_reused_pass():
                        GIT_AUTHOR_EMAIL='noreply@anthropic.com')
         work, bare = _engine_commit_fixture(tmp, 'work', 'consumer', person_git)
         _shutil.copy2(author_check, work / 'tools' / author_check.name)
+        _shutil.copy2(ROOT / 'tools' / 'commit_checks_common.py',
+                      work / 'tools' / 'commit_checks_common.py')
 
         def git(cwd, *args, env=person_git):
             return subprocess.run(['git', '-C', str(cwd), *args],
@@ -46805,7 +46850,7 @@ def check_commit_identity_copies_are_identical():
     # individual set at $HOME while everything else sits under another
     # parent -- so the glob is UNIONED with what the resolver declares
     # rather than trusted on its own. Same assumption, same failure shape as
-    # record/GOTCHAS.md#g40, which is what sent somebody looking for the
+    # gotchas/gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md, which is what sent somebody looking for the
     # rest of them.
     team_dirs = list(ROOT.parent.glob('precedent-team-*'))
     try:
@@ -46910,6 +46955,8 @@ def check_update_refuses_while_a_branch_is_pinned():
         # did not say what it should have" rather than "the tool never ran".
         _shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
                       repo / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
+        _shutil.copy2(ROOT / 'tools' / 'declared_base_branch.py',
+                      repo / 'process' / 'upstream' / 'tools' / 'declared_base_branch.py')
         return repo
 
     def _run(repo, clone, override=False, flag=False):
@@ -47014,7 +47061,8 @@ def check_carry_check_never_counts_upstream_deletions():
         _git(d, 'config', 'commit.gpgsign', 'false')
 
     tools = {n: (ROOT / 'tools' / n).read_text(encoding='utf-8')
-             for n in ('checkin.py', 'precedent_time.py')}
+             for n in ('checkin.py', 'precedent_time.py',
+                       'declared_base_branch.py')}
     # Upstream history: A, then B ADDS "gamma", then C DELETES "beta" and
     # "gamma" -- upstream's own deletions -- and adds "delta".
     history = [
@@ -47057,7 +47105,8 @@ def check_carry_check_never_counts_upstream_deletions():
             if vend.exists():
                 _shutil.rmtree(vend)
             (vend / 'tools').mkdir(parents=True)
-            for rel in ('notes.md', 'tools/checkin.py', 'tools/precedent_time.py'):
+            for rel in ('notes.md', 'tools/checkin.py', 'tools/precedent_time.py',
+                        'tools/declared_base_branch.py'):
                 (vend / rel).write_text(_git(clone, 'show', f'{ref}:{rel}').stdout,
                                         encoding='utf-8')
 
@@ -47244,6 +47293,8 @@ def check_leftover_pack_is_flagged_after_migration():
         # fixture-owns-its-state: precedent_check.py imports precedent_time at
         # module scope (practice: timestamps-carry-offset).
         _shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
+                      base / 'process' / 'upstream' / 'tools')
+        _shutil.copy2(ROOT / 'tools' / 'declared_base_branch.py',
                       base / 'process' / 'upstream' / 'tools')
         _shutil.copy2(ROOT / 'tools' / 'generated_blocks.py',
                       base / 'process' / 'upstream' / 'tools')
@@ -56282,6 +56333,8 @@ def check_checkin_update_never_mutates_the_clone():
         # shape that never ships.
         shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
                      consumer / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
+        shutil.copy2(ROOT / 'tools' / 'declared_base_branch.py',
+                     consumer / 'process' / 'upstream' / 'tools' / 'declared_base_branch.py')
         # push hands its work to send (2026-09-29); the real vendored tree
         # carries both, since the mirror brings the whole tools/ at once.
         shutil.copy2(ROOT / 'tools' / 'precedent_local_edits.py',
@@ -56404,6 +56457,8 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
         'tools/checkin.py': (ROOT / 'tools' / 'checkin.py').read_text(encoding='utf-8'),
         'tools/precedent_time.py': (ROOT / 'tools' / 'precedent_time.py'
                                     ).read_text(encoding='utf-8'),
+        'tools/declared_base_branch.py': (ROOT / 'tools' / 'declared_base_branch.py'
+                                          ).read_text(encoding='utf-8'),
         # push hands the work to send (2026-09-29), from the same directory.
         'tools/precedent_local_edits.py': (ROOT / 'tools' / 'precedent_local_edits.py'
                                            ).read_text(encoding='utf-8'),
@@ -59369,6 +59424,22 @@ def check_very_deep_check_refuses_unknown_flags_before_the_ledger():
                       and not runs[1].get('passes')
                       and 'did not complete' in r.stderr,
                       f'exit {r.returncode}; {runs}; {r.stderr[-300:]}'))
+        # Recording the same pass on the same run again replaces it
+        # (2026-10-17): it used to append a second entry for pass 3.
+        for arg in ('3=done,findings=5,note=recounted', '2=done'):
+            r = subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+                 '--ledger', str(good), '--record-pass', arg],
+                capture_output=True, text=True, cwd=str(tmp), timeout=120)
+        passes = json.loads(good.read_text(encoding='utf-8'))['runs'][0].get(
+            'passes') or []
+        threes = [p for p in passes if p.get('pass') == '3']
+        cases.append(('THE CASE: the same pass recorded again on the same run '
+                      'replaces its entry, and a different pass is added',
+                      len(threes) == 1 and threes[0].get('findings') == 5
+                      and threes[0].get('note') == 'recounted'
+                      and [p.get('pass') for p in passes] == ['3', '2'],
+                      f'{passes}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -59697,9 +59768,268 @@ def check_ci_fleet_audit_counts_each_workflow_past_the_sample():
              '.github/workflows/busy.yml', ''),
          f'{n_small} calls; {small_t}'),
     ]
+
+    # GitHub's filtered listing stops counting (2026-10-17): BestPractice's
+    # repository total read 2500 while two workflows' own counts were 1027
+    # and 2394. A count at the cap is "at least", and parts that add up to
+    # more than the whole are said. Planted, no API call.
+    def capped(path):
+        o = 'repos/o/r'
+        if path.startswith(f'{o}/actions/workflows/7/runs'):
+            return {'total_count': 1027, 'workflow_runs': []}, None
+        if path.startswith(f'{o}/actions/workflows/8/runs'):
+            return {'total_count': cfa.LISTING_CAP, 'workflow_runs': []}, None
+        return fake(path, total=cfa.LISTING_CAP)
+    big = cfa.audit_repo('o/r', call=capped, today=today)
+    texts = [t for _v, t in big['rows']]
+    big_t = {t.split(' [')[0]: t for t in texts if ' [' in t}
+    cases += [
+        ('THE CASE: a repository total at the listing cap is "at least"',
+         any(t.startswith(f'at least {cfa.LISTING_CAP} runs in') for t in texts),
+         texts),
+        ('so is a workflow\'s own count at the cap',
+         f'at least {cfa.LISTING_CAP} runs' in big_t.get(
+             '.github/workflows/other.yml', ''), big_t),
+        ('per-workflow counts that add up to more than the total are named',
+         any(f'add up to {1027 + cfa.LISTING_CAP} runs' in t for t in texts),
+         texts),
+        ('CONTROL: counts under the cap that add up are left as numbers',
+         not any('add up to' in t or t.startswith('at least')
+                 for _v, t in small['rows']), small['rows']),
+    ]
     bad = [c[0] + ' -- ' + str(c[2])[:300] for c in cases if not c[1]]
     check(f'ci_fleet_audit counts each workflow past the 300-run sample '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_bestpractice_engine_hooks_are_stubs():
+    """BestPractice's own .claude/hooks/reply-gate.sh, stop-git-check.sh and
+    stop-reply-check.sh were hand copies of the engine scripts that had
+    drifted from tools/<same>.sh -- two of them lacked the
+    .precedent/python-bin PATH block -- while the dogfooded-hooks check
+    called them repo-specific and left them out (2026-10-17 very deep
+    check). Each is now the one engine stub, the check names it, and the
+    stub still does the hook's job when Claude Code runs it: planted in a
+    fixture repository with a dirty tree, the stop hook blocks the stop,
+    and lets it go when Claude Code says a stop hook is already active."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    names = ('reply-gate.sh', 'stop-git-check.sh', 'stop-reply-check.sh')
+    stub = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' /
+            'doc-lint-gate.sh').read_bytes()
+    cases = []
+    for n in names:
+        live = ROOT / '.claude' / 'hooks' / n
+        cases.append((f'.claude/hooks/{n} is the engine stub',
+                      live.is_file() and live.read_bytes() == stub, n))
+        cases.append((f'the dogfooded-hooks check names {n}',
+                      n in pc.DOGFOODED_HOOKS_MATCH_TEMPLATE, n))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='bp-hook-stub-'))
+    try:
+        repo = tmp / 'repo'
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        shutil.copy(ROOT / '.claude' / 'hooks' / 'stop-git-check.sh',
+                    repo / '.claude' / 'hooks' / 'stop-git-check.sh')
+        shutil.copy(ROOT / 'tools' / 'stop-git-check.sh',
+                    repo / 'tools' / 'stop-git-check.sh')
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        g('add', '-A')
+        g('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit',
+          '-qm', 'base')
+        g('remote', 'add', 'origin', str(tmp / 'none.git'))
+        (repo / 'tools' / 'stop-git-check.sh').write_text(
+            (repo / 'tools' / 'stop-git-check.sh').read_text() + '\n',
+            encoding='utf-8')
+        env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo))
+
+        def stop(payload):
+            return subprocess.run(
+                ['bash', str(repo / '.claude' / 'hooks' / 'stop-git-check.sh')],
+                cwd=repo, input=payload, capture_output=True, text=True,
+                env=env, timeout=60)
+        r = stop('{"session_id": "h1", "stop_hook_active": false}')
+        cases.append(('THE CASE: the stub runs the engine stop hook, which '
+                      'blocks a stop over a dirty tree',
+                      r.returncode == 2 and 'Uncommitted changes' in r.stderr,
+                      f'rc={r.returncode} {r.stderr[:200]}'))
+        r = stop('{"session_id": "h1", "stop_hook_active": true}')
+        cases.append(('CONTROL: a stop hook already active is let through',
+                      r.returncode == 0, f'rc={r.returncode} {r.stderr[:200]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + ' -- ' + str(c[2])[:300] for c in cases if not c[1]]
+    check(f'BestPractice\'s reply and stop hooks are the engine stub, checked '
+          f'as dogfooded, and still run ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_shared_helpers_have_one_copy():
+    """The declared-base-branch helper and the commit checks' shared helpers
+    each live in one file and are imported (2026-10-17 very deep check: nine
+    tools carried `_declared_base_branch` in three wordings, and the two
+    commit-identity checks five helpers verbatim, under a comment calling it
+    forced that had been stale since both became engine files on 2026-10-10).
+    THE CASE: the declared-base-branch check names a tool that defines its
+    own copy again. CONTROLS: a tool that imports the helper, and doc_html.py
+    (which runs alone in a host repository), are not named."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='one-helper-'))
+    real_root = pc.ROOT
+    try:
+        tools = tmp / 'tools'
+        tools.mkdir()
+        shutil.copy(ROOT / 'tools' / 'declared_base_branch.py', tools)
+        copy = ("def _declared_base_branch(root):\n"
+                "    import json, pathlib\n"
+                "    return json.loads((pathlib.Path(root) / 'precedent.json')"
+                ".read_text()).get('base_branch')\n")
+        (tools / 'own_copy.py').write_text(copy, encoding='utf-8')
+        (tools / 'doc_html.py').write_text(copy, encoding='utf-8')
+        (tools / 'imports_it.py').write_text(
+            "from declared_base_branch import declared_base_branch as "
+            "_declared_base_branch\n\n"
+            "def branch(root):\n"
+            "    return _declared_base_branch(root) or 'refs/remotes/origin/HEAD'\n",
+            encoding='utf-8')
+        pc.ROOT = tmp
+        try:
+            found = {f.where for f in pc._declared_base_branch_is_read(None)}
+        finally:
+            pc.ROOT = real_root
+        cases.append(('THE CASE: a tool defining its own copy of the helper is '
+                      'named', 'tools/own_copy.py' in found, sorted(found)))
+        cases.append(('CONTROL: a tool importing the helper, and doc_html.py, '
+                      'are not', not ({'tools/imports_it.py', 'tools/doc_html.py',
+                                       'tools/declared_base_branch.py'} & found),
+                      sorted(found)))
+        here = [f.where for f in pc._declared_base_branch_is_read(None)]
+        cases.append(('this tree: no tool carries a copy, and none infers '
+                      'unguarded', not here, here))
+    finally:
+        pc.ROOT = real_root
+        shutil.rmtree(tmp, ignore_errors=True)
+    for name in ('check_commit_author.py', 'check_commit_dates.py'):
+        text = (ROOT / 'tools' / name).read_text(encoding='utf-8')
+        cases.append((f'{name} imports the shared helpers and carries none of '
+                      f'their bodies',
+                      'import commit_checks_common' in text
+                      and 'for name in ("precedent_identity", "precedent_resolve")'
+                      not in text
+                      and 'def _git_ok(' not in text
+                      and 'grandfathered_commit_shas entry for' not in text,
+                      name))
+    bad = [c[0] + ' -- ' + str(c[2])[:300] for c in cases if not c[1]]
+    check(f'the declared-base-branch helper and the commit checks\' helpers '
+          f'each have one copy, imported ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_retired_team_level_spares_ordinary_english():
+    """The retired "team (as a level)" word must not catch "team" meaning a
+    group of people, which its own registry entry says is not retired: its
+    pattern matched "at the team level" (2026-10-17 very deep check). THE
+    CASE: ordinary English passes. CONTROLS: the level sense is still
+    caught, hyphenated or not."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import our_language as ol
+    retired = [r for r in ol.load_retired() if r[0] == 'team (as a level)']
+    pats = retired[0][2] if retired else []
+    hit = lambda t: any(p.search(t) for p in pats)
+    cases = [
+        ('the retired word is registered', bool(pats), ''),
+        ('THE CASE: "decided at the team level" is ordinary English',
+         not hit('decided at the team level'), ''),
+        ('nor "on a team level"', not hit('work on a team level'), ''),
+        ('CONTROL: "a team-level practice" is still caught',
+         hit('a team-level practice'), ''),
+        ('CONTROL: "kept at team level" and "the team level needs a rule" '
+         'are still caught', hit('kept at team level')
+         and hit('the team level needs a rule'), ''),
+    ]
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'the retired team-level word spares ordinary English '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_build_views_says_what_it_decides():
+    """build_views told a public repository that a public shared set was "a
+    private source", when it decides by level, not visibility; and its --help
+    recommended --agents-only for a practice set, which every set's own
+    instructions forbid (2026-10-17 very deep check). THE CASE: the note
+    for a shared set excluded from a public repository's block says it is
+    kept out by level and calls no set private. CONTROL: --help no longer
+    recommends --agents-only for a set."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as bv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='bv-wording-'))
+    try:
+        (tmp / 'precedent.json').write_text(
+            json.dumps({'visibility': 'public', 'sources': []}), encoding='utf-8')
+        declared = [{'name': 'a-public-set', 'level': 'shared',
+                     'path': str(tmp / 'a-public-set')}]
+        _t, deferred, notes = bv._split_declared(tmp, declared)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    note = ' '.join(notes)
+    helptext = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                               '--help'], capture_output=True, text=True).stdout
+    cases = [
+        ('the shared set is kept out of a public repository\'s block',
+         [s['name'] for s in deferred] == ['a-public-set'], note),
+        ('THE CASE: the note says it is kept out by level, and calls no '
+         'set private', 'by level' in note and 'a private source' not in note,
+         note),
+        ('CONTROL: --help does not recommend --agents-only for a set',
+         'does NOT use it' in helptext
+         and 'source repo\n      # vendoring' not in helptext, ''),
+    ]
+    bad = [c[0] + ' -- ' + str(c[2])[:300] for c in cases if not c[1]]
+    check(f'build_views says what it decides: by level, and the full command '
+          f'for a set ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_vendored_surplus_counts_a_folder_a_consumer_is_told_to_search():
+    """VENDORED SURPLUS named every retired gotcha as shipped to nobody, but
+    environment-gotchas tells a session in a consumer to grep
+    `process/upstream/gotchas/`: a search is a reader, and it names no file
+    (2026-10-17 very deep check). THE CASE: a file in a folder a shipped
+    file names by its consumer path is not UNNAMED. CONTROL: a file in a
+    folder nothing names still is."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-surplus-'))
+    try:
+        for rel, text in {
+                'practices/env.md': 'grep `process/upstream/gotchas/` first\n',
+                'gotchas/gotcha-old.md': 'a retired trap\n',
+                'misc/stray.md': 'nobody names me\n'}.items():
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        shipped = {f'process/upstream/{r}': (r, 'copy')
+                   for r in ('practices/env.md', 'gotchas/gotcha-old.md',
+                             'misc/stray.md')}
+        unnamed = vdc._named_anywhere_else(shipped, tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    cases = [
+        ('THE CASE: a gotcha in the folder a practice tells consumers to grep '
+         'is not unnamed',
+         'process/upstream/gotchas/gotcha-old.md' not in unnamed, unnamed),
+        ('CONTROL: a file in a folder nothing names is still unnamed',
+         'process/upstream/misc/stray.md' in unnamed, unnamed),
+    ]
+    bad = [c[0] + ' -- ' + str(c[2]) for c in cases if not c[1]]
+    check(f'VENDORED SURPLUS counts a folder consumers are told to search as '
+          f'read ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_very_deep_check_runs_other_sources_checks_here():
@@ -64702,6 +65032,7 @@ def check_source_supplied_checks_run():
         # without it does not degrade -- every case here dies on the import.
         shutil.copy(ROOT / 'tools' / 'precedent_time.py', repo / 'tools')
         shutil.copy(ROOT / 'tools' / 'generated_blocks.py', repo / 'tools')
+        shutil.copy(ROOT / 'tools' / 'declared_base_branch.py', repo / 'tools')
         (repo / 'AGENTS.md').write_text('# fixture\n', encoding='utf-8')
         subprocess.run(['git', 'init', '-q'], cwd=repo, capture_output=True)
 
@@ -83349,7 +83680,7 @@ def check_access_probe_separates_refusal_from_silence():
           f'({len(results)} stated cases, including a negative control that '
           f'flips the verdict)',
           not failed, '; '.join(failed) if failed else '')
-# practice: environment-gotchas -- the trap this guards is record/GOTCHAS.md#g1.
+# practice: environment-gotchas -- the trap this guards is gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md.
 #
 # Several checks below need a package that is not in the standard library:
 # doc_lint's strikethrough case suite and the `doc-references-are-links`
@@ -83359,7 +83690,7 @@ def check_access_probe_separates_refusal_from_silence():
 # missing -- on 2026-09-14 that read as "3 failed" on a tree whose diff was
 # two markdown files, and cost two full re-runs to attribute. The packages
 # are installed by .claude/hooks/session-start.sh and by both CI workflows;
-# a session whose hooks never ran (record/GOTCHAS.md#g17) has neither.
+# a session whose hooks never ran (gotchas/gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo.md) has neither.
 DOC_PACKAGES = ('cmarkgfm', 'markdown')
 
 
@@ -83375,7 +83706,7 @@ def _report_missing_doc_packages(where):
     print(f'verify_harness {where}: {", ".join(missing)} not installed. '
           f'Checks that need them FAIL for that reason alone, not because of '
           f'anything in the tree -- install with: pip install '
-          f'{" ".join(missing)}  (record/GOTCHAS.md#g1)')
+          f'{" ".join(missing)}  (gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md)')
     print('  and run: python3 tools/precedent_session_check.py -- these '
           'packages are installed by the SessionStart hook, so missing ones '
           'usually mean NO hook ran, and the hooks guarantee more than this')
@@ -84808,6 +85139,11 @@ def main():
     check_very_deep_check_catalogue_loads_are_quiet()
     check_moved_claims_skips_narrated_deletions_and_templates()
     check_ci_fleet_audit_counts_each_workflow_past_the_sample()
+    check_bestpractice_engine_hooks_are_stubs()
+    check_shared_helpers_have_one_copy()
+    check_retired_team_level_spares_ordinary_english()
+    check_build_views_says_what_it_decides()
+    check_vendored_surplus_counts_a_folder_a_consumer_is_told_to_search()
     check_very_deep_check_runs_other_sources_checks_here()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()

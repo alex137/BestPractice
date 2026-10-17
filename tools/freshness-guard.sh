@@ -524,7 +524,7 @@ _behind_base_count() {
 # on 2026-09-13: a session ran a whole thread against a day-old tree, applying
 # rules that had been superseded, and only found out when an unrelated command
 # was blocked. Deepen once and recount before believing the counts.
-# practice: upstream-fix. See record/GOTCHAS.md#g12 for the merge-base shape of
+# practice: upstream-fix. See gotchas/gotcha-2026-09-13-on-a-shallow-clone-git-merge-base-between-two-different-bran.md for the merge-base shape of
 # the same false negative.
 _deepen_if_shallow() {
   _is_shallow || return 1
@@ -897,7 +897,7 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
   # either has written it, and both fall through to `_pre_write_one`, which
   # runs `git fetch`/`--deepen` against the same `.git` directory at once.
   # Reproduced 2026-09-15: one of two parallel Bash calls blocked on a
-  # false "diverged" reading (a shallow-clone artifact, record/GOTCHAS.md#g37)
+  # false "diverged" reading (a shallow-clone artifact, gotchas/gotcha-2026-09-14-a-shallow-clone-makes-a-merely-behind-checkout-read-as-diver.md)
   # while its sibling call, racing the same checkout, read the correct
   # counts and passed clean -- same session, same instant, two different
   # verdicts, because nothing serialized them. flock turns the race into a

@@ -125,7 +125,7 @@ sentence; the sweep costs minutes of waiting and a large pile of tokens.
 ## Story
 **2026-09-14.** Morgan was refused by GitHub with a rate-limit error and
 asked what in normal usage was causing it. The measuring
-([github-api-budget](github-api-budget.md), and `record/GOTCHAS.md#g41` for
+([github-api-budget](github-api-budget.md), and [its gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-14-ratelimit-lies-from-inside-a-session-it-reports-a-pristine-w.md) for
 the trap it nearly fell into) cleared the obvious suspects: the account's
 ordinary REST pool was at 133 of 15,000 in the window, with three sessions
 live, and the workflow runs — 75 in the busiest hour on the upstream repo —

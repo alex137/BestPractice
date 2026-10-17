@@ -445,7 +445,7 @@ commands — produced three failure shapes and no successes:
   `precedent_vendor_engine`), and one bare traceback (`doc_html`, which
   read the flag as a document path).
 
-**And [tools/resplit_sections.py](../tools/resplit_sections.py) answered by
+**And `tools/resplit_sections.py` answered by
 rewriting 46 tracked practice files.** Its default action was to WRITE:
 any argument it did not recognise fell through to the write branch, so
 `--help` silently reverted every edit made to `practices/*.md` since the

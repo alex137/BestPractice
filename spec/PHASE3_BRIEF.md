@@ -91,9 +91,9 @@ if you find yourself wanting to disable a rule to make progress, that is the
 rule working.
 
 **3. The `## Detail` split is cheap — use the machinery, do not hand-edit.**
-[tools/resplit_sections.py](../tools/resplit_sections.py) moves text **by
+`tools/resplit_sections.py` moves text **by
 reference**, from decisions recorded as data in
-[tools/section_split.json](../tools/section_split.json). Retyping a sentence
+`tools/section_split.json`. Retyping a sentence
 is not something the mechanism can do. Add a `"detail"` key alongside
 `"rule"`, extend `SECTIONS`, and the content-preservation checks
 (sentence-for-sentence against `PRACTICES.md`, source order, list structure)

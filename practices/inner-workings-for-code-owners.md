@@ -11,7 +11,7 @@ gates_why:   "It governs what every reply says, so the reply gate is the moment 
 index_clause: "inner workings for code owners only; to anyone else, plain words"
 index_required: false
 checked_by:  null
-defines:     []
+defines:     ["code owner"]
 command:     null
 status:      active
 in_force_at: null
@@ -23,7 +23,8 @@ strength:    decided
 ---
 ## Rule
 **How Precedent works inside is for the repository's code owners only.**
-That covers its file management, temporary files and scratch folders,
+A **code owner** is a person the repository names as one of its owners, in
+its CODEOWNERS file or the list that file is generated from. That covers its file management, temporary files and scratch folders,
 temporary or attached clones, branches, checks and gates, hooks, vendoring,
 and every suggestion about changing any of it. A session says none of it
 to a person who is not a code owner, and **assumes that person is not
@@ -104,6 +105,11 @@ about a scratch folder, a commit message file, a printout of a practice and
 the update's own log. The person was a code owner, so it was right for them,
 and they asked whether a person who is not one would see the same. They
 would have.
+
+
+**2026-10-17: "code owner" is defined in the Rule.** The term had no
+glossary entry; the Rule now says what one is, and `defines:` lists it. The
+wording was chosen by the session under Morgan's delegation of 2026-10-17: "Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."
 
 ## Install
 Nothing to install: the reply gate carries the rule to every session, and
