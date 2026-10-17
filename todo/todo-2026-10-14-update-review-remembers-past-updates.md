@@ -16,9 +16,8 @@ closed:            null
 ---
 ## What
 
-Make the upstream review that Update Vendors prints
-([tools/precedent_upstream_review.py](../tools/precedent_upstream_review.py))
-remember warnings judged at earlier updates, not only the commits the
+Make the upstream review that Update Vendors prints (the ladder set's
+step review since 2026-10-17, when it left the engine) remember warnings judged at earlier updates, not only the commits the
 current update lands. Today a warning judged last week is shown again this
 week. With the memory, each warning is reviewed once, the first time it
 appears, and again only if its wording changes.

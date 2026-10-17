@@ -9596,6 +9596,51 @@ def _landing_ref():
     return None
 
 
+def base_dependent_slugs():
+    """-> every check whose answer depends on the branch a change is
+    measured against: the change-scope ones, and each tree-scope one whose
+    function reaches _published_default_branch, directly or through a
+    helper. --base-dependent runs these alone.
+
+    WHY (2026-10-17). A Debut judged staging against staging, so a file
+    staging deleted while a page still named it passed, and main went red
+    when GitHub judged the same tree against main. Judging against main as
+    well costs a second pass, and the whole suite twice would double the
+    Debut (Morgan, 2026-10-17: "will this do a second pass always, to go
+    from like 12 min to 24 min each time? It should NOT"); these are the only
+    checks a different base can change (4 s on staging, measured
+    2026-10-17, against 56 s for the full sweep). The set is
+    read from the code, so a new check that reads the base joins it with no
+    list to keep. Blind to a check script from a practice source that reads
+    git's base on its own, and to a tree check that reads the change
+    through ctx without calling a helper that names the resolver."""
+    import inspect, types
+    g = globals()
+    funcs = {n: f for n, f in g.items() if isinstance(f, types.FunctionType)
+             and f.__module__ == __name__}
+    src = {}
+    for n, f in funcs.items():
+        try:
+            src[n] = inspect.getsource(f)
+        except (OSError, TypeError):
+            src[n] = ''
+    reads = {'_published_default_branch'}
+    grew = True
+    while grew:
+        grew = False
+        for n in funcs:
+            if n not in reads and any(
+                    re.search(r'(?<![\w.])' + re.escape(d) + r'\(', src[n])
+                    for d in reads):
+                reads.add(n)
+                grew = True
+    direct = re.compile(r'\bctx\.(changed|added|range|base)\b')
+    return sorted(s for s, c in CHECKS.items()
+                  if c['scope'] == 'change'
+                  or getattr(c['fn'], '__name__', '') in reads
+                  or direct.search(src.get(getattr(c['fn'], '__name__', ''), '')))
+
+
 def _published_default_branch():
     """The branch a change is measured against: where this person's work
     lands, then the declared base branch, then origin's default.
@@ -9604,7 +9649,19 @@ def _published_default_branch():
     route lands on main while precedent.json still declares staging, days
     behind it; a push check judged a branch against staging and blamed it
     for a rename already on main. A change is what it adds to the branch
-    it will land on (checks-read-only-the-work)."""
+    it will land on (checks-read-only-the-work).
+
+    WHAT THE CALLER SAYS THE CHANGE IS MEASURED FROM COMES BEFORE THAT
+    (2026-10-17). The push check sets PRECEDENT_CHANGED_SINCE for every
+    check it runs -- a Produce sets it to main's tip -- and this resolver
+    ignored it: a Produce's quick check judged rename-updates-links against
+    staging, found nothing, and main went red on GitHub's test, which diffs
+    the pull request against main. A Debut sets it to main's tip for its
+    second pass (--base-dependent)."""
+    since = os.environ.get('PRECEDENT_CHANGED_SINCE', '').strip()
+    if since and _git('rev-parse', '--verify', '--quiet',
+                      f'{since}^{{commit}}').returncode == 0:
+        return since
     landing = _landing_ref()
     if landing:
         return landing
@@ -13937,7 +13994,10 @@ def main():
         # tree-scope check run every time can always reach that state,
         # on purpose, with a reason to type: --full-sweep, or --all
         # (which already means "treat everything as changed" for ctx).
-        if '--full-sweep' in flags or '--all' in flags:
+        if '--base-dependent' in flags:
+            slugs = base_dependent_slugs()
+            results = run(slugs, ctx, scopes, exempt=exempt)
+        elif '--full-sweep' in flags or '--all' in flags:
             slugs = sorted(set(other_slugs) | set(tree_slugs))
             results = run(slugs, ctx, scopes, exempt=exempt)
         else:

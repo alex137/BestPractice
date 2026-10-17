@@ -3344,6 +3344,14 @@ def _promote_to_main(root, say=print, work=None, fast=False,
         say(f'checking {len(batch)} commit(s) from {staging} with the full push check...')
         t0 = time.monotonic()
         ok, out = _check(root, wt, FULL, dest=MAIN)
+        if ok:
+            # What GitHub's test of the pull request into main will judge
+            # against main, judged here first (a few seconds; 2026-10-17).
+            against = _against_main(root, wt, staging, mtip, say)
+            if against:
+                ok = False
+                out += '\n' + '\n'.join(f'  {f["check"]}: {f["line"]}'
+                                         for f in against)
         took = time.monotonic() - t0
     review = _upstream_review(root, None, 'produce', out, f'{mtip}..{stip}')[0] \
         if ok else []
@@ -3706,6 +3714,14 @@ def _promote_to_main_fast(root, say=print, work=None, despite_failed_tests=False
             f'checks -- the full local suite is not run on a fast move...')
         t0 = time.monotonic()
         ok, out = _check(root, wt, BASIC, dest=MAIN, since=mtip)
+        if ok:
+            # What GitHub's test of the pull request into main will judge
+            # against main, judged here first (a few seconds; 2026-10-17).
+            against = _against_main(root, wt, staging, mtip, say)
+            if against:
+                ok = False
+                out += '\n' + '\n'.join(f'  {f["check"]}: {f["line"]}'
+                                         for f in against)
         took = time.monotonic() - t0
     review = _upstream_review(root, None, 'produce', out, f'{mtip}..{stip}')[0] \
         if ok else []
@@ -4159,9 +4175,58 @@ def _failed_checks(out):
     return found
 
 
+_VIOLATION_LINE = re.compile(r'^VIOLATION  (\S+)')
+
+
+def _against_main(root, wt, branch, mtip, say):
+    """-> [{check, line}]: what the checks that depend on the base find in
+    `wt` when its change is measured from main's tip `mtip`, the way
+    GitHub's test of the pull request into main measures it. [] when it is
+    clean, when `branch` is main, or when main is unknown here.
+
+    WHY (2026-10-17). The full suite measured staging against staging, so a
+    Debut passed a tree that removed a file another page still named, and
+    main went red after the Produce. Only these checks can answer
+    differently against main, so only they run again
+    (precedent_check.py's base_dependent_slugs): a few seconds, never a
+    second suite (Morgan: "It should NOT")."""
+    if branch == MAIN or not mtip:
+        return []
+    tool = pathlib.Path(wt) / 'tools' / 'precedent_check.py'
+    if not tool.is_file():
+        return []
+    _run(root, 'fetch', '-q', 'origin', MAIN)
+    if not _git(wt, 'rev-parse', '--verify', '--quiet', f'{mtip}^{{commit}}'):
+        # The checks would quietly measure from staging instead.
+        return [{'check': f'checks against {MAIN}', 'line':
+                 f'{MAIN}\'s tip {mtip[:12]} could not be read here, so the '
+                 f'change could not be judged against it'}]
+    say(f'judging the change against {MAIN} too, the way the pull request '
+        f'into {MAIN} will be judged (only the checks a base can change)...')
+    env = dict(os.environ, PRECEDENT_CHANGED_SINCE=mtip)
+    p = subprocess.run([sys.executable, str(tool), '--base-dependent'],
+                       cwd=wt, capture_output=True, text=True, env=env)
+    if p.returncode == 0:
+        return []
+    out = (p.stdout + p.stderr).splitlines()
+    found = []
+    for i, line in enumerate(out):
+        m = _VIOLATION_LINE.match(line)
+        if m:
+            first = next((l.strip() for l in out[i + 1:i + 2]
+                          if l.startswith('    ')), '')
+            found.append({'check': f'{m.group(1)} (against {MAIN})',
+                          'line': first[:200]})
+    if not found:
+        last = next((l.strip() for l in reversed(out) if l.strip()), 'no output')
+        found.append({'check': f'checks against {MAIN}', 'line': last[:200]})
+    return found
+
+
 def run_tests(root, branch=None, say=print):
     """Run the full local suite on `branch` (default: the landing branch)
-    composed with main's direct work, record the result, move nothing, and
+    composed with main's direct work, judge the checks a base can change
+    against main too (_against_main), record the result, move nothing, and
     end with one RUN TESTS RESULT line. -> 0 passed, 1 failed, 2 no such
     branch."""
     branch = branch or landing_branch(root)[0]
@@ -4208,6 +4273,10 @@ def _run_tests(root, branch, say):
         else:
             ok, out = _check(root, wt, FULL, dest=staging)
             failed = [] if ok else _failed_checks(out)
+            against = _against_main(root, wt, branch, mtip, say)
+            if against:
+                ok = False
+                failed += against
     took = time.monotonic() - t0
     entry = {'branch': branch, 'commit': tip, 'tested': tested, 'main': mtip,
              'result': 'passed' if ok else 'failed', 'failed': failed,

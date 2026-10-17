@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       ask
 remind_on:         null
-blocked_on:        "a design call on what a Debut compares against; out of scope for the Produce that found it"
+blocked_on:        "the workflow half: a change to deep-check.yml, which needs Morgan's approval pinned to its content (ci-workflow-approved)"
 batch:             null
 decision:          null
 decision_strength: null
@@ -43,3 +43,21 @@ open step.
 ## Notes
 
 2026-10-17: found by the session that ran "Debut then produce" for Morgan.
+
+2026-10-17: Morgan picked judging against main ("yes act"), and asked that it
+not double the Debut: "will this do a second pass always, to go from like
+12 min to 24 min each time? It should NOT". Built on
+`2026-10-17-themorgan-debut-checks-against-main-fgx2q-k2ocr` (BestPractice),
+not yet landed. The practice checks now take the base from
+`PRECEDENT_CHANGED_SINCE` when it names a commit; the push check already set
+it, to main's tip on a Produce, and nothing read it; that reaches a
+consumer, whose quick tier runs rename-updates-links. This repository's
+quick tier runs no rename check, so the Debut and both Produce routes add
+one pass of `precedent_check.py --base-dependent` with main's tip as the
+base: only the checks a base can change, found from the code. It took 4 s on staging,
+measured, against 56 s for the full sweep of practice checks. Its first run
+on staging found the same kind of break this item describes: two open items
+still linked `tools/precedent_upstream_review.py`, which moved to the ladder
+set that day, and the branch repoints them. Case:
+`check_debut_judges_the_change_against_main_too`. The workflow half is not
+done.

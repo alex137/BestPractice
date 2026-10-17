@@ -68946,7 +68946,8 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
         # installed, so the move into main has one to name.
         (work / 'tools' / 'precedent_check.py').write_text(
             'import os, pathlib, sys\n'
-            'if not {"--changed-files-only", "--only"} & set(sys.argv):\n'
+            'if not {"--changed-files-only", "--only", "--base-dependent"}'
+            ' & set(sys.argv):\n'
             '    open(os.environ["RUNS"], "a").write("run\\n")\n'
             '    if pathlib.Path("FAIL").exists():\n'
             '        print("precedent_check: 1 violated")\n'
@@ -69283,6 +69284,135 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
             ('a fast-move flag on the move into staging is a usage error',
              pa(['--to', 'staging', '--full']) is None
              and pa(['--to', 'staging', '--no-full-after']) is None)]
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_debut_judges_the_change_against_main_too():
+    """A Debut judges what depends on the base against main as well as
+    staging, so a green Debut cannot be followed by a red main (2026-10-17).
+
+    That day a Debut passed on staging and Produce turned main red: staging
+    had deleted a file a page still named, the full suite measured the
+    change from staging (where nothing was deleted), and GitHub's test of
+    the pull request into main measured it from main. Three pieces:
+
+    - precedent_check.py takes the base from PRECEDENT_CHANGED_SINCE first,
+      when it names a commit (the push check already set it, and nothing
+      read it), and falls back as before when it does not;
+    - --base-dependent selects only the checks a base can change -- every
+      change-scope check and each tree check reaching the resolver -- so the
+      second pass is seconds, never a second suite (Morgan: "It should
+      NOT");
+    - --run-tests runs that pass with main's tip as the base, and fails,
+      naming the check, when it finds what main would; so does Produce,
+      before it pushes the copy, since a Debut is optional and the quick
+      tier of an upstream repository runs no rename check."""
+    import tempfile, importlib.util as _u
+    name = 'the Debut judges the change against main too'
+    pc_path = ROOT / 'tools' / 'precedent_check.py'
+    if not (ROOT / 'tools' / 'precedent_branches.py').exists() or not pc_path.exists():
+        not_applicable(name, 'precedent_branches.py or precedent_check.py is absent')
+        return
+    cases = []
+    saved = sys.argv
+    sys.argv = ['precedent_check.py']
+    try:
+        spec = _u.spec_from_file_location('_vh_pc_base', pc_path)
+        pc = _u.module_from_spec(spec)
+        spec.loader.exec_module(pc)
+    finally:
+        sys.argv = saved
+    old = os.environ.pop('PRECEDENT_CHANGED_SINCE', None)
+    try:
+        plain = pc._published_default_branch()
+        head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True).stdout.strip()
+        os.environ['PRECEDENT_CHANGED_SINCE'] = head
+        named = pc._published_default_branch()
+        os.environ['PRECEDENT_CHANGED_SINCE'] = 'no-such-ref-anywhere'
+        bogus = pc._published_default_branch()
+    finally:
+        os.environ.pop('PRECEDENT_CHANGED_SINCE', None)
+        if old is not None:
+            os.environ['PRECEDENT_CHANGED_SINCE'] = old
+    cases.append(('PRECEDENT_CHANGED_SINCE naming a commit is the base',
+                  bool(head) and named == head, f'{named!r}'))
+    cases.append(('one naming nothing falls back to the usual base',
+                  bogus == plain, f'{bogus!r} vs {plain!r}'))
+    picks = getattr(pc, 'base_dependent_slugs', lambda: [])()
+    change = {s for s, c in pc.CHECKS.items() if c['scope'] == 'change'}
+    cases.append(('--base-dependent takes every change-scope check',
+                  bool(picks) and change <= set(picks),
+                  ', '.join(sorted(change - set(picks)))[:200]))
+    cases.append(('...and the tree checks that read the base, through a '
+                  'helper too (rename-updates-links, change-updates-its-docs)',
+                  {'rename-updates-links', 'change-updates-its-docs'} <= set(picks)))
+    cases.append(('...and not the rest: a check that never reads the base '
+                  '(light-check) is not run twice',
+                  'light-check' not in picks and len(picks) < len(pc.CHECKS) / 2,
+                  f'{len(picks)} of {len(pc.CHECKS)}'))
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        work, git, branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging'))
+        # The stub judges the way rename-updates-links does: a file the
+        # change deleted, measured from the base it is given.
+        (work / 'tools' / 'precedent_check.py').write_text(
+            'import os, subprocess, sys\n'
+            'if "--base-dependent" in sys.argv:\n'
+            '    base = os.environ.get("PRECEDENT_CHANGED_SINCE") or "origin/staging"\n'
+            '    d = subprocess.run(["git", "diff", "--name-status", base, "HEAD"],\n'
+            '                       capture_output=True, text=True).stdout\n'
+            '    if "D\\tgone.py" in d:\n'
+            '        print("VIOLATION  rename-updates-links")\n'
+            '        print("    doc.md:1: still references \'gone.py\', which this branch deleted")\n'
+            '        print("precedent_check: 0 passed, 1 violated")\n'
+            '        sys.exit(1)\n'
+            'print("precedent_check: 3 passed, 0 violated")\n', encoding='utf-8')
+        (work / 'gone.py').write_text('x = 1\n', encoding='utf-8')
+        (work / 'doc.md').write_text('See gone.py.\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'stub, a file and a page naming it')
+        git(work, 'push', '-q', 'origin', 'HEAD:main', 'HEAD:staging')
+        # Staging deletes the file and leaves the page, already landed.
+        git(work, 'rm', '-q', 'gone.py')
+        git(work, 'commit', '-q', '-m', 'delete gone.py')
+        git(work, 'push', '-q', 'origin', 'HEAD:staging')
+        rc, out = branches('--run-tests')
+        cases.append(('a Debut of staging that deleted a file main still has '
+                      'fails, naming the check and main',
+                      rc == 1 and 'rename-updates-links (against main)' in out,
+                      out[-300:]))
+        cases.append(('...and the RUN TESTS RESULT line names it',
+                      'RUN TESTS RESULT: staging: FAILED' in out
+                      and 'against main' in out.split('RUN TESTS RESULT')[-1],
+                      out[-200:]))
+        before = tip('main')
+        rc, out = branches('--promote', '--to', 'main')
+        cases.append(('a Produce right after that failed Debut asks first '
+                      '(exit 4)', rc == 4, out[-200:]))
+        # Past the question, Produce's own pass refuses it too, as it would
+        # with no Debut at all.
+        rc, out = branches('--promote', '--to', 'main', '--despite-failed-tests')
+        cases.append(('a Produce of the same staging is refused before it '
+                      'pushes anything, naming the check and main',
+                      rc == 1 and 'PROMOTE REFUSED' in out
+                      and 'rename-updates-links (against main)' in out,
+                      out[-300:]))
+        cases.append(('...and main did not move', tip('main') == before))
+        # Main catches up: the same tree now passes.
+        git(work, 'push', '-q', 'origin', 'HEAD:main')
+        rc, out = branches('--run-tests')
+        cases.append(('once main has the deletion too, the Debut passes',
+                      rc == 0 and 'against main)' not in out, out[-300:]))
+        rc, out = branches('--run-tests', 'main')
+        cases.append(('a Debut of main itself takes no second pass',
+                      rc == 0 and 'judging the change against main' not in out,
+                      out[-300:]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
@@ -83995,6 +84125,7 @@ def main():
     check_stop_hook_says_each_state_once()
     check_promote_into_main_exits_nonzero_until_main_moves()
     check_landing_on_staging_run_tests_and_fast_move_into_main()
+    check_debut_judges_the_change_against_main_too()
     check_update_vendors_retires_pre_staging()
     check_install_by_a_staging_person_makes_no_pre_staging()
     check_promote_ends_with_its_result_line()
