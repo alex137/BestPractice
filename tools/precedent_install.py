@@ -806,6 +806,21 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     say(f'  code owners: ' + (f'named {", ".join("@" + o for o in _owners)} in '
                               f'precedent.json\'s maintainers ({_how})'
                               if _owners else f'none written: {_how}'))
+    # The administrator is the account running this (SETUP.md, question 1),
+    # so --admin also says who "you" are in this clone. Kept in its git
+    # config, never in a tracked file, so it names nobody else's clone; an
+    # answer already kept there wins (2026-10-17: with no individual set,
+    # nothing else told the engine, and the code-owner practices stayed
+    # hidden from the administrator who had just installed them).
+    if admin_named:
+        try:
+            import precedent_audience as _pa
+            if _pa.remember_login(dest, admin_named,
+                                  'named as the administrator at install (--admin)'):
+                say(f'  you: @{admin_named.lstrip("@")}, kept in this clone\'s git '
+                    f'config ({_pa.LOGIN_CONFIG_KEY}) so its sessions know who you are')
+        except Exception:                                     # noqa: BLE001
+            pass
     # The owner's own zone for what runs where no identity reaches, offered
     # and never written (2026-10-08; precedent_vendor_engine.timezone_offer).
     try:

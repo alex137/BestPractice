@@ -140,6 +140,15 @@ here rather than leaving to be discovered at the link.
   can resolve a zone, so the author-date check drops from enforced to
   guessed and wrong-offset commits reach the remote.
   [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
+- **The practices about running a repository are shown to its code owners
+  only**, so the engine has to know who you are. It takes your GitHub
+  username from `PRECEDENT_GITHUB_USER`, your individual set's
+  `identity.json`, the `--admin` you gave the installer (kept in the
+  clone's git config), or the account your GitHub token belongs to, in that
+  order. With none of them, Update Vendors and the rest of those practices
+  are hidden, and the session says why; `export
+  PRECEDENT_GITHUB_USER=<your username>` fixes it
+  ([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)).
 - **A repo attached mid-session runs none of its own hooks**, so every
   guarantee the install wired up is absent while you work in it — and the
   failure looks like a broken tool rather than an unrun hook. The

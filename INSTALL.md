@@ -136,6 +136,17 @@ already-documented case —
 [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md),
 not this section.
 
+**What it assumes, and what it changes outside the project** (2026-10-17):
+
+- **Who you are.** The practices about running a repository (GitHub,
+  branches, CI, vendoring, installs; Update Vendors is one) are shown only
+  to its code owners. The engine knows you by `PRECEDENT_GITHUB_USER`, else
+  your individual set's `identity.json`, else the `--admin` handle given
+  to the installer (kept in this clone's git config as
+  `precedent.githubLogin`), else the GitHub account your token belongs to.
+  With none of them those practices stay hidden; set
+  `PRECEDENT_GITHUB_USER` ([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)).
+
 1. **Vendor the universal source.** Clone Precedent (on `main`, as
    above) and
    copy two things into this repo as ordinary tracked files: its

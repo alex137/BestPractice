@@ -30073,6 +30073,81 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_a_person_with_no_individual_set_can_be_a_code_owner():
+    """A person with no individual set is known by the administrator the
+    installer was told (--admin), or by the GitHub account the session's
+    token belongs to, so the practices for code owners reach them.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: with no
+    individual set, viewer() knew only PRECEDENT_GITHUB_USER (documented
+    nowhere an adopter reads), so the administrator who had just installed
+    the project was a code owner nowhere and 28 practices stayed hidden,
+    Update Vendors among them; --admin did not help. Decision chosen by the
+    session under Morgan's delegation of 2026-10-17 ("Fix the other issues
+    you found including the checks that never run. Tell me what you decide.
+    I will be offline so don't wait for me. Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: on the code before the fix, the
+    git-config and token cases below fail (not a code owner), and the
+    nothing-known control fails only on naming PRECEDENT_GITHUB_USER.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-viewer-'))
+    cases = []
+    try:
+        env = {**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        for k in ('PRECEDENT_GITHUB_USER', 'PRECEDENT_COMMIT_EMAIL'):
+            env.pop(k, None)
+        nobody = tmp / 'github-knows-nobody.json'
+        nobody.write_text('{}', encoding='utf-8')
+        env['PRECEDENT_GITHUB_USER_URL'] = nobody.as_uri()
+
+        def repo(name):
+            d = tmp / name
+            subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+            (d / 'precedent.json').write_text(json.dumps(
+                {'maintainers': [{'github': 'dana'}]}), encoding='utf-8')
+            return d
+
+        def audience(d, **extra):
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_audience.py'),
+                                '--repo', str(d)], capture_output=True, text=True,
+                               env=dict(env, **extra))
+            return r.stdout.strip()
+
+        a = repo('nothing-known')
+        out = audience(a)
+        cases.append(('CONTROL: nothing known about the person -- in doubt, hidden, '
+                      'and PRECEDENT_GITHUB_USER is named as a way to say who you are',
+                      out.startswith('not a code owner:') and 'PRECEDENT_GITHUB_USER' in out,
+                      out))
+        b = repo('admin-recorded')
+        subprocess.run(['git', '-C', str(b), 'config', 'precedent.githubLogin', 'dana'],
+                       capture_output=True)
+        out = audience(b)
+        cases.append(("the login the installer kept in the clone's git config (--admin) "
+                      'makes the administrator a code owner', out.startswith('code owner:'), out))
+        c = repo('token-account')
+        me = tmp / 'github-says-dana.json'
+        me.write_text(json.dumps({'login': 'dana', 'id': 7}), encoding='utf-8')
+        out = audience(c, PRECEDENT_GITHUB_USER_URL=me.as_uri())
+        cases.append(("the account the session's token belongs to makes its owner a code owner",
+                      out.startswith('code owner:'), out))
+        kept = subprocess.run(['git', '-C', str(c), 'config', '--get', 'precedent.githubLogin'],
+                              capture_output=True, text=True).stdout.strip()
+        out = audience(c)
+        cases.append(('...and it is kept, so the next session needs no lookup',
+                      kept == 'dana' and out.startswith('code owner:'), f'{kept!r}: {out}'))
+        out = audience(c, PRECEDENT_GITHUB_USER='someone-else')
+        cases.append(('CONTROL: a declared username still outranks what was kept',
+                      out.startswith('not a code owner:'), out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_code_owners_only_practices_reach_only_code_owners():
     """A practice marked `visible_to: code-owners` reaches only a person the
     repository names as a code owner, and a stale-branch listing never names
@@ -70216,6 +70291,13 @@ def check_installer_produces_a_clean_install():
                  '--admin', 'dana'], ROOT)
         out = r.stdout + r.stderr
         cases.append(('the installer exits 0 on a fresh project', r.returncode == 0, out[-1500:]))
+        _who = subprocess.run(['git', '-C', str(proj), 'config', '--local', '--get',
+                               'precedent.githubLogin'], capture_output=True, text=True)
+        cases.append(("--admin is kept in the clone's git config as who \"you\" are, so "
+                      'the code-owner practices reach the administrator with no '
+                      'individual set (2026-10-17)',
+                      _who.stdout.strip() == 'dana' and '@dana, kept in this clone' in out,
+                      _who.stdout + out[-400:]))
         cases.append(('it says the light check on the files it wrote passed',
                       'the light check on the written files: OK' in out, out[-800:]))
         cases.append(('it names the placeholders it left rather than pretending there are none',
@@ -82109,6 +82191,8 @@ def main():
           *check_reply_check_keeps_quiet_while_a_batch_runs())
     check('a code-owners-only practice reaches only code owners',
           *check_code_owners_only_practices_reach_only_code_owners())
+    check('a person with no individual set is known by --admin or their GitHub account',
+          *check_a_person_with_no_individual_set_can_be_a_code_owner())
     check_endgame_merge_finds_the_silent_drop()
     check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
           *check_moved_claims_says_when_it_could_not_read_the_tree())
