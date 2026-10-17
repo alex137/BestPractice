@@ -1,7 +1,7 @@
 ---
 title:         The views check reads a shared set at the commit it was synced at
 kind:          proposal
-status:        drafted
+status:        executed
 opened:        2026-10-05
 closed:        null
 superseded_by: null
@@ -10,6 +10,13 @@ audience:      contributor
 summary:       "A consumer's views check compared its views against whatever branch a shared set's clone had checked out, so a set change Booked and not yet Produced refused every push, and the suggested sync rolled it back. Every sync now records the commit it read each set at; the check reads the set there, holds a push to the set's matching rung, and a sync refuses to roll a set back."
 ---
 # The views check reads a shared set at the commit it was synced at
+
+**Executed** (status set 2026-10-17): every sync records the commit it
+read each set at, through
+[`precedent_source_pins.py`](../tools/precedent_source_pins.py), and
+`precedent_sync_views.py --check` reads each shared set there; the
+harness case `check_views_check_reads_a_set_at_the_commit_it_was_synced_at`
+holds it.
 
 **2026-10-09: what changed since this was written.** A person can now land
 straight on `staging` instead of `pre-staging`: with `promote_only` on and

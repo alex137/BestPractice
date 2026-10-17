@@ -302,6 +302,14 @@
       "go_to": "[tools/precedent_practice_refs.py](tools/precedent_practice_refs.py) (`--changed-since BASE`, `--withdrawn`, `--handoff`); the rule is [practice-change-propagates](practices/practice-change-propagates.md)"
     },
     {
+      "looking_for": "Why a renamed, retired or reworded practice's citations are found and fixed everywhere it is cited: the plan",
+      "go_to": "[spec/PRACTICE_CHANGE_PROPAGATION_PLAN.md](spec/PRACTICE_CHANGE_PROPAGATION_PLAN.md)"
+    },
+    {
+      "looking_for": "Why a consumer's views check reads each shared set at the commit it was synced at, not at whatever its clone has checked out (executed)",
+      "go_to": "[spec/VIEWS_CHECK_AT_THE_PIN.md](spec/VIEWS_CHECK_AT_THE_PIN.md)"
+    },
+    {
       "looking_for": "Whether every declared practice-source repository is still CALLED what this repo calls it — a rename redirects forever, so git never notices",
       "go_to": "[tools/precedent_source_names.py](tools/precedent_source_names.py), run at [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 8; `UNVERIFIED` is not a pass"
     },
