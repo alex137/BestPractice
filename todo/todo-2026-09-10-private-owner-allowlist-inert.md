@@ -3,16 +3,16 @@ slug:              todo-2026-09-10-private-owner-allowlist-inert
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "Morgan: whether the allow line for his individual set stays (2026-10-17 very deep check asks)"
+waiting_on:        null
 noted:             2026-09-10
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -106,3 +106,5 @@ closed:            null
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
 
 2026-10-17, very deep check pass 4 (ambiguous, asked of the person): the armed gate now runs against this tree and is clean (leak_gate.py 2026-10-17: 21 patterns, individual list included); what is left is whether to remove the `allow themorgan/precedent-individual` line, which is Morgan's and sits beside later allow lines he added on the same "a name is not private" reasoning. Would close it as decided by those lines.
+
+2026-10-17, closed by the session under Morgan's delegation of 2026-10-17 ("Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."), which settled the very deep check's question the way that run said it would. What met it: the armed gate runs against this tree and is clean (leak_gate.py, 2026-10-17, the individual list included), and the one question left -- whether the allow line for the individual set stays -- is decided by the later allow lines Morgan added on the same "a name is not private" reasoning. The line stays.

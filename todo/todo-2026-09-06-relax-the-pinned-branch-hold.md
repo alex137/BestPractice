@@ -3,16 +3,16 @@ slug:              todo-2026-09-06-relax-the-pinned-branch-hold
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "the fix surviving real sync cycles rather than only its own tests, and then Morgan saying so. What it needs then: put `checkin.py update` back as the remedy `_warn_catalogue_skew` names, and drop the hold paragraph from the migration document."
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "Morgan"
+waiting_on:        null
 noted:             2026-09-06
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -95,3 +95,5 @@ before. Still open on its own
 condition: Morgan saying the fix has held.
 
 2026-10-17, very deep check pass 4 (ambiguous, asked of the person): SOURCE_BRANCH became 'main' (5afd766f, 2026-09-25), so installs on their default branch no longer trip _pinned_branch_hold, and Update Vendors (precedent_update.py) replaced checkin.py update as the channel; closing needs Morgan's "the fix has held". Would ask him to close it on that.
+
+2026-10-17, closed by the session under Morgan's delegation of 2026-10-17 ("Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."), which settled the very deep check's question the way that run said it would. What met it: the fix has held through real sync cycles -- `SOURCE_BRANCH` has been `main` since 2026-09-25 (5afd766f), so an install on its default branch no longer trips `_pinned_branch_hold`, and Update Vendors ([`precedent_update.py`](../tools/precedent_update.py)) replaced [`checkin.py`](../tools/checkin.py) `update` as the channel, so the remedy the hold named is no longer the route anyone takes. Nothing is left to put back.
