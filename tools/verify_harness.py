@@ -39517,12 +39517,15 @@ def check_push_check_gate():
 
         (work / 'FAIL').write_text('zero', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'a run that checks nothing')
-        denied, out = gate('git push origin main')
+        # Pushed to staging, the one branch still fully checked before the
+        # push for a person who does not land there: since 2026-10-17 a push
+        # to main takes the quick checks and the full suite runs after it.
+        denied, out = gate('git push origin HEAD:staging')
         cases.append(('a precedent_check run that passed ZERO checks is '
                       'refused although it exits 0', denied and 'ZERO' in out))
         (work / 'FAIL').write_text('deep_check', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'break the deep check suite')
-        denied, out = gate('git push origin main')
+        denied, out = gate('git push origin HEAD:staging')
         cases.append(("a repo's own deep-check suite (tools/checks/tests/"
                       "run_all.sh) runs, and its failure refuses the push",
                       denied and 'deep_check' in out))
@@ -39565,13 +39568,15 @@ def check_push_check_gate():
             cases.append(('nor does a push to a working branch', not denied))
             (work / 'FAIL').write_text('precedent_check', encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'back to a full-only failure')
-            denied, out = gate('git push origin main')
-            cases.append(('the same tree pushed to main is refused by the full '
-                          'check -- the basic pass just recorded does not '
-                          'satisfy it', denied and 'precedent_check' in out))
-            denied, out = gate('git push origin feature main')
-            cases.append(('one push naming a working branch and main is checked '
-                          'fully', denied and 'precedent_check' in out))
+            denied, out = gate('git push origin HEAD:staging')
+            cases.append(('the same tree pushed to a fully checked branch '
+                          '(staging, for a person who does not land there) is '
+                          'refused by the full check -- the basic pass just '
+                          'recorded does not satisfy it',
+                          denied and 'precedent_check' in out))
+            denied, out = gate('git push origin feature HEAD:staging')
+            cases.append(('one push naming a working branch and a fully checked '
+                          'one is checked fully', denied and 'precedent_check' in out))
             (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'break the leak gate again')
             denied, out = gate('git push origin feature')
