@@ -72127,8 +72127,46 @@ def check_update_vendors_reports_dropped_template_wording():
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
                 step(repo, rep, rev)
-            cases.append(('...and listed again once the template has changed since',
-                          len(rep.left) == 3, str(rep.left)))
+            # ONE QUESTION FOR A FILE KEPT WHOLE (2026-10-17, a consuming
+            # repository): its kept rewrite was left as one item per line,
+            # each saying "or drop the line"; and a line the update carried
+            # in by itself went unsaid.
+            cases.append(('...and asked again once the template has changed '
+                          'since: one item for the file, never one per line',
+                          sorted(dict(rep.left)) == ['TODO.md'], str(rep.left)))
+            v1_sha = hashlib.sha256(git(src, 'show', f'{rev}~1:templates/'
+                                        'TODO.md.template').stdout.encode()).hexdigest()
+            (repo / 'precedent.json').write_text(json.dumps({
+                pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                    'reason': 'kept on purpose', 'template_sha256': v1_sha}}}),
+                encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            said = ' '.join(dict(rep.left).values()) + ' ' + ' '.join(
+                rep.details.get('TODO.md', []))
+            cases.append(('...which never says to drop a line, shows what the '
+                          'template changed, and the hash to record',
+                          'drop the line' not in said
+                          and 'what changed in templates/TODO.md.template' in said
+                          and hashlib.sha256(tmpl.read_bytes()).hexdigest() in said,
+                          said[:400]))
+            git(repo, 'init', '-q')
+            git(repo, 'add', 'TODO.md')
+            git(repo, 'commit', '-qm', 'kept rewrite')
+            (repo / 'TODO.md').write_text(
+                body + 'A bullet the update carried in from the template.\n',
+                encoding='utf-8')
+            rep = pu.Report()
+            rep.before = set()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            said = ' '.join(rep.details.get('TODO.md', []))
+            cases.append(('...and says what this update already carried into it',
+                          'already carried 1 line(s)' in said
+                          and 'A bullet the update carried in' in said, said[:400]))
+            git(repo, 'checkout', '-q', '--', 'TODO.md')
+            shutil.rmtree(repo / '.git', ignore_errors=True)
 
             # A file that is, byte for byte, an older version of its
             # template was never made the repository's own: it takes the
