@@ -292,7 +292,8 @@ pass is recorded, the session rewrites the checked repo's own
 ([BestPractice's](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md))
 for this run: scope, a short version, then each pass in order with what it
 found, what was fixed and in which commit, the warnings judged (Pass 2's
-question 24), the checks by stage (question 25), the token budgets with their numbers, what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
+question 24), the checks by stage (question 25), set independence
+(question 26), the token budgets with their numbers, what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
 previous run to one row in the run record above, commits both, and
 links the account in the reply that reports the run. A run is not done
 until the account is there, and the deep check enforces it
@@ -1366,6 +1367,38 @@ confidently.
     checks that are done after each, and the same for debut ... and then
     also flag it and fix it if before the pushes it has any checks other
     than the minimum essential urgent check and the leak gate check.")*
+
+26. **Does each practice set stand on its own?** A shared or individual
+    set's rules, its checks and the tests for those checks live in the
+    set. BestPractice knows how to run a set's checks and never what one
+    set's rule is: no set's name or practice slug in its code, in its tests
+    or in a universal practice's rule. On 2026-10-16 BestPractice held a
+    set's practice names in its logic and its tests, and taking them out
+    was a night's work. The tool's `SET INDEPENDENCE` section runs the
+    inventory, `python3 tools/precedent_check.py --only
+    enforcement-lives-with-its-practice`
+    ([enforcement-lives-with-its-practice](enforcement-lives-with-its-practice.md)),
+    which reads every Python file under `tools/` (docstrings and comments
+    aside, which may name a set), BestPractice's test scripts, each
+    universal practice's Rule and Detail, and each set on disk: a set's
+    `checked_by` or `ships:` that is an engine file, and a set check
+    `tools/checks/check_<x>.py` with no `tools/checks/tests/test_<x>.sh`
+    beside it in the set. It sets apart what
+    [the plan of record](https://github.com/alex137/BestPractice/blob/staging/spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md)'s
+    part 3 holds in the engine until the person says go, and lists it
+    without fixing it.
+
+    **Fix everything else in this pass**: move the rule, check or test into
+    the set that owns it, or give an engine test a made-up name in place
+    of a set's real one. A fix in a set this session cannot land in is a
+    [prompt-please](prompt-please.md) block. A name the engine keeps on
+    purpose goes in the inventory's `_SET_NAMES_KEPT`, with the person's
+    words. The section writes a `## Set independence` block into the run's
+    write-up. *(Morgan, 2026-10-17: "The practice sets should be more
+    independent as practices and the test for the practices in the
+    practice sets ... add to a very deep check a review for that to make
+    sure that is how it works. And fix it if it's not, if you find it
+    otherwise at any point.")*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
@@ -2819,6 +2852,7 @@ it landed and still unreviewed.
 - **Extended again 2026-10-11, Morgan (strength: decided)**, so the run's full account in [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md) is mandatory, and checked: "when I ran very deep check last night, it did not create the document that it always does detailing what happened. Until I asked it to. Let's update very deep check to make that document mandatory." Its check refuses a push once all four passes are recorded and the account is still an earlier run's; `--record-pass` says the account is owed when it records the fourth.
 - **Extended 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 25 and the CHECKS BY STAGE section: every run lists what runs before and after Booked, Produce and the Debut, flags any check before a push beyond the bare essentials and the leak gate, fixes it, and writes it into the account: "Please add to very deep check, an explicit check for that", "It should list this ... in the result, the detailed doc you create after every very deep check", and "flag it and fix it if before the pushes it has any checks other than the minimum essential urgent check and the leak gate check." Its first reading found a consumer's own workflow checks running before every push, outside the closed quick tier; they moved to the full tier in the same change.
 - **Extended 2026-10-17, Morgan (strength: decided)**, with the TOKEN BUDGETS section: every session-load budget in every repo in force is printed with its number, limit, share used and approved max even when all pass, the session file charged as `session-load-budget` charges it, and each repo's own budget checks are shown to fire on an overage planted in a throwaway worktree; the table and fire test go into the run's write-up. A session had just checked this by hand after weeks with no budget warning: "please see if this same analysis ... is done in very deep check. If not, add it ... even if they all pass, share the exact numbers, the limits, the chart, and any other details." The same change stopped SESSION LOAD charging the session file whole, which had reported an individual set over its target at about 4,011 against 4,000 when the share the check charges was about 3,614.
+- **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 26 and the SET INDEPENDENCE section: every run checks that each practice set keeps its own rules, checks and tests, and fixes what it finds -- "The practice sets should be more independent as practices and the test for the practices in the practice sets", "add to a very deep check a review for that", and "fix it if it's not, if you find it otherwise at any point." The inventory behind it widened the same day to BestPractice's tests and universal rules; its first reading found three engine tests using a set's real practice names as sample data, which now use made-up ones.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope

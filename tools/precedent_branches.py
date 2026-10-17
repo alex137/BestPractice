@@ -2447,6 +2447,35 @@ def _generator_of(wt, rel):
     return None
 
 
+TIMES_FILE = 'tools/harness_check_times.json'
+
+
+def _merge_times_file(wt):
+    """Write the union of both sides of a conflicted harness timing list
+    into worktree `wt`. -> True when written, False when either side does
+    not read as one (then it stops like any other conflict)."""
+    def side(n):
+        r = subprocess.run(['git', '-C', str(wt), 'show', f':{n}:{TIMES_FILE}'],
+                           capture_output=True, text=True)
+        try:
+            d = json.loads(r.stdout) if r.returncode == 0 else None
+        except ValueError:
+            return None
+        return d if isinstance(d, dict) and isinstance(d.get('seconds'), dict) else None
+    ours, theirs = side(2), side(3)
+    if ours is None or theirs is None:
+        return False
+    merged = dict(theirs)
+    merged['seconds'] = dict(sorted({**theirs['seconds'], **ours['seconds']}.items()))
+    notes = [str(theirs.get('measured') or '')]
+    notes += [n for n in str(ours.get('measured') or '').split('; ')
+              if n and n not in notes[0]]
+    merged['measured'] = '; '.join(x for x in notes if x)
+    (pathlib.Path(wt) / TIMES_FILE).write_text(
+        json.dumps(merged, indent=1) + '\n', encoding='utf-8')
+    return True
+
+
 HAND_WRITTEN = 'the same lines of hand-written text changed on both sides'
 
 
@@ -2458,6 +2487,14 @@ def _resolve_by_regenerating(wt, say):
     a refusal never calls a generated file hand-written."""
     conflicted = [l for l in _run(wt, 'diff', '--name-only', '--diff-filter=U')
                   .stdout.splitlines() if l.strip()]
+    # The harness timing list is a record every session adds to: two that
+    # each add tests conflict on its one "measured" line, every time (twice
+    # on 2026-10-17). Both sides' times are kept, and the notes joined.
+    if TIMES_FILE in conflicted and _merge_times_file(wt):
+        _run(wt, 'add', '--', TIMES_FILE)
+        conflicted.remove(TIMES_FILE)
+        if not conflicted:
+            return True, [TIMES_FILE], ''
     gens = {rel: _generator_of(wt, rel) for rel in conflicted}
     hand = sorted(rel for rel, g in gens.items() if not g)
     if hand or not conflicted:
