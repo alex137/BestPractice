@@ -78,8 +78,10 @@ run the BestPractice clone's own copy -- never a vendored one:
 
 **The clone is any checkout whose origin is `alex137/BestPractice`**, at
 whatever path it sits: `../BestPractice` beside the repo, or where the
-attach tool cloned it, often a lowercase `<owner>/<repo>` path such as
-`../alex137/bestpractice`. Run that clone's
+attach tool cloned it, often lowercase: `../bestpractice` beside the repo
+(2026-10-17, a consumer's session, where `../BestPractice` did not exist), or
+an `<owner>/<repo>` path such as `../alex137/bestpractice`. Look before
+typing the path: `ls -d ../[Bb]est[Pp]ractice ../*/[Bb]est[Pp]ractice`. Run that clone's
 [tools/precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py);
 [precedent_merge_vendors.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_merge_vendors.py)
 and the update's own refusal of a vendored copy find it by its origin the
