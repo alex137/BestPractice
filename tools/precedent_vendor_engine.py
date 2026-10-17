@@ -2012,9 +2012,18 @@ def received_paths(dest_root):
     except (OSError, ValueError, AttributeError):
         pass
     try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr               # the one level reader
+        level = _pr.declared_level
+    except Exception:                              # practice: fail-gracefully
+        def level(s):
+            return s.get('level')
+    finally:
+        sys.path.pop(0)
+    try:
         cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
         for src in cfg.get('sources') or []:
-            if isinstance(src, dict) and src.get('level') == 'universal' \
+            if isinstance(src, dict) and level(src) == 'universal' \
                     and isinstance(src.get('path'), str) and src['path'].strip('/.'):
                 prefixes.append(src['path'].strip('/') + '/')
     except (OSError, ValueError, AttributeError):

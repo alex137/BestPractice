@@ -26505,6 +26505,10 @@ def check_precedent_check_fires():
             nothing to do with what is being tested."""
             import json as _vj
             names = {q.name for q in (repo / '.claude' / 'hooks').glob('*.sh')}
+            # ...and the hooks this repo ships, which the check also reads
+            # as mechanisms since 2026-10-17.
+            names |= {q.name for q in (repo / 'templates' / 'harness' /
+                                       'claude-code' / 'hooks').glob('*.sh')}
             for sp in sorted((repo / '.claude').glob('settings*.json')):
                 try:
                     doc = _vj.loads(sp.read_text(encoding='utf-8'))
@@ -32322,6 +32326,24 @@ def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
                       'reply, when the container is the unsafe one',
                       'You can archive this session' in r8.stdout,
                       r8.stdout[-250:]))
+
+        # An advisory block that EXITS must not end the gate (2026-10-17).
+        # The session check imports the scanner on one path -- a clone ahead
+        # of its base -- and this test's stub scanner exits as it loads, so
+        # in a container in that state the gate died before the verdict
+        # above, and the case failed only there. Planted directly: a session
+        # check whose remind() exits.
+        exiting = tmp / 'engine_exiting'
+        shutil.copytree(unsafe_engine.parent.parent, exiting)
+        (exiting / 'tools' / 'precedent_session_check.py').write_text(
+            'import sys\n'
+            'def remind(prefix=None):\n'
+            '    sys.exit(1)\n', encoding='utf-8')
+        r8b = gate(exiting / 'tools' / 'precedent_reply_check.py')
+        cases.append(('an advisory block that exits does not end the gate: '
+                      'the verdict is still printed',
+                      'You can archive this session' in r8b.stdout,
+                      r8b.stdout[-250:]))
 
         # A clean container at turn start is a snapshot, not the answer at
         # the end of the turn (2026-10-16: a consumer's closing turn wrote

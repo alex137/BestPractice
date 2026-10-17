@@ -1192,7 +1192,9 @@ def main():
         block = psck.remind(prefix='precedent gate')
         if block:
             print(f"{block}\n")
-    except Exception:
+    except (Exception, SystemExit):
+        # SystemExit too: something this imports exiting is still only an
+        # advisory block failing, and must not end the gate (2026-10-17).
         # This tool reads git config and the filesystem; on a repo shape it
         # does not expect it may raise, and a gate that dies because its
         # ADVISORY block failed would be worse than one that stays quiet.

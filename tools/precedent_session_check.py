@@ -1335,7 +1335,12 @@ def _clone_behind(path, fetch=True, branch=None):
                                  capture_output=True, text=True).stdout.strip()
             if cur and cur != branch:
                 _pcs.fetch_missing_tracking_ref(path, cur)
-        except ImportError:
+        except (Exception, SystemExit):
+            # SystemExit too (2026-10-17): this runs inside other tools --
+            # the reply gate's advisory step among them -- and a module that
+            # exits as it loads (a test's stub scanner did) took the whole
+            # gate down with it, before it printed the archive-line verdict.
+            # An advisory lookup never ends its caller (fail-gracefully).
             pass
         r = subprocess.run(['git', '-C', str(path), 'rev-list', '--count',
                             '--no-merges', 'HEAD', '--not', '--remotes=origin',
