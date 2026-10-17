@@ -892,13 +892,15 @@ def carried_over(previous, seen, done=None):
     run did not check, with the rows it last listed for them, less any the
     person ticked on the page (`done`, read_done). A repository this run
     checked is never carried: its fresh rows, or their absence, replace the
-    old ones."""
+    old ones. A branch in NEVER is dropped too, whoever listed it: on
+    2026-10-17 a saved page carried one repository's precedent-promote-lock
+    and precedent-check-receipts as deletable, and every refresh kept them."""
     checked_now = {_key(o, n) for o, n in seen}
     done = done or {}
     out = []
     for r in previous:
         rows = [(b, d) for b, d in r.get('branches') or []
-                if done_key(r['repo'], b) not in done]
+                if done_key(r['repo'], b) not in done and b not in NEVER]
         if rows and _key(r['owner'], r['repo']) not in checked_now:
             out.append((r['owner'], r['repo'], rows, r.get('checked') or ''))
     return out
