@@ -82,7 +82,9 @@ can fix it, and a line buried in a log nobody opens doesn't.
 Precedent, or any practice set your project uses, has moved on since your
 project last took an update, and tells you right away.** Nothing updates
 behind your back: taking the update is your call, with the phrase
-*"Update Vendors"*.
+*"Update Vendors"*. If you use Precedent in several projects,
+*"Update All Vendors"* takes the update in every one of them, one after
+another, from the conversation you are in.
 
 **If it couldn't check, it says so.** "I couldn't check" never gets reported
 as "you're up to date". The same goes for a practice set that didn't load:
