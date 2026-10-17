@@ -347,11 +347,42 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # check failed on them. It judges only what this branch renamed or deleted
 # against its base -- a finding no push but this branch's could bring --
 # and takes seconds.
-BASIC_CHECKS = {'doc_lint', 'leak_gate', 'leak_gate_commits', 'commit_author', 'commit_dates',
-                'session_trailer', 'ci_workflows', 'light_check', 'build_views',
-                'views_sync',
-                'scrub_gate', 'practice_export_loop', 'generated_files',
-                'rename_links'}
+#
+# THE BASIC TIER IS CLOSED (Morgan, 2026-10-16, strength: decided: "LET'S
+# BAN ALL NEW TESTS BEFOREHAND EXCEPT WHEN EXPLICITLY DIRECTLY VERBALLY
+# AUTHORIZED"; spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md; practice:
+# quick-tier-is-closed). Everything that runs before a push is listed here
+# as (the words that let it in, its time in seconds), and
+# check_quick_tier_is_closed fails the moment BASIC_CHECKS and its list
+# differ, an entry carries no quoted words and date, or a new entry carries
+# no time. A new entry needs the person's own words asking for THIS check
+# before a push, given after they were told its time and urged to put it
+# at the Debut instead -- never a session's judgment that it is cheap.
+# The fourteen below were in force when the tier was closed; a time is the
+# one measured on 2026-10-16 or the one its own note above gives, and None
+# where neither exists.
+_IN_FORCE_AT_CLOSING = ('in force when Morgan closed the tier, 2026-10-16: '
+                        '"all the testing EXCEPT THE BARE ESSENTIAL AND LEAK '
+                        'GATES SHOULD GO INTO DEBUT"')
+_LEAKS = 'Morgan, 2026-09-25: "Good on nothing private going out"'
+_WORKFLOWS = 'Morgan, 2026-09-25: "we need to absolutely put a hard stop to this"'
+BASIC_CHECKS_APPROVED = {
+    'leak_gate': (_LEAKS, 16),
+    'leak_gate_commits': (_LEAKS, 4),
+    'ci_workflows': (_WORKFLOWS, None),
+    'light_check': (_WORKFLOWS, None),
+    'doc_lint': (_IN_FORCE_AT_CLOSING, 1),
+    'commit_author': (_IN_FORCE_AT_CLOSING, 0),
+    'commit_dates': (_IN_FORCE_AT_CLOSING, 0),
+    'session_trailer': (_IN_FORCE_AT_CLOSING, 0),
+    'build_views': (_IN_FORCE_AT_CLOSING, 1),
+    'generated_files': (_IN_FORCE_AT_CLOSING, 2),
+    'views_sync': (_IN_FORCE_AT_CLOSING, None),
+    'scrub_gate': (_IN_FORCE_AT_CLOSING, None),
+    'practice_export_loop': (_IN_FORCE_AT_CLOSING, None),
+    'rename_links': (_IN_FORCE_AT_CLOSING, None),
+}
+BASIC_CHECKS = set(BASIC_CHECKS_APPROVED)
 BASIC, FULL = 'basic', 'full'
 # The commits a push would publish: everything HEAD has that no remote
 # ref does (leak_gate.py's own documented form for a new branch).
@@ -1123,8 +1154,6 @@ def _cap_warning_last(tier=None):
               f'first (a Reduction pass). Tell the person.')
 
 
-CHANGED_PRACTICE_CHECK = ('changed_practice',
-                          'the practice checks, on the files this push changes')
 
 
 # The file-level checks on the same changed files (Morgan, 2026-09-27,
@@ -1135,12 +1164,8 @@ CHANGED_PRACTICE_CHECK = ('changed_practice',
 #   - a changed Python file compiles;
 #   - a changed shell script parses (bash -n);
 #   - a changed JSON file parses;
-#   - a changed check (tools/checks/check_x.py), or its test, has that
-#     test (tools/checks/tests/test_x.sh) run -- once, the materialized
-#     copy where there is one -- and every other test there that names it;
-#   - where the harness lives, a changed Python file under tools/ runs the
-#     harness tests the change reaches, within a minute, naming the rest
-#     (verify_harness.py --for-change);
+#   - a changed check's tests are named, and run at the Debut (TESTS RUN
+#     AT THE DEBUT, below), never here;
 #   - a new check has that test, and defines SOURCE_ROOT;
 #   - in BestPractice, a change to the check registry or the harness leaves
 #     every registered check with a planted case (a text read, no harness
@@ -1233,6 +1258,69 @@ def _front_matter_changed(root, since, rel):
     return head(before) != head(now)
 
 
+_CHECK_PAIR_RE = re.compile(
+    r'(?:(.*)/)?tools/checks/(?:check_(\w+)\.py|tests/test_(\w+)\.sh)$')
+
+
+def _check_script_tests(root, files):
+    """-> the tests/test_*.sh a change to `files` runs: each changed check's
+    or test's own, and every test that names a changed check."""
+    tests = []
+    for rel in files:
+        m = _CHECK_PAIR_RE.match(rel)
+        if not m:
+            continue
+        base = f'{m.group(1)}/' if m.group(1) else ''
+        name = m.group(2) or m.group(3)
+        test = f'{base}tools/checks/tests/test_{name}.sh'
+        materialized = f'tools/checks/tests/test_{name}.sh'
+        if base and (root / materialized).is_file():
+            test = materialized
+        if test not in tests and (root / test).is_file():
+            tests.append(test)
+        # A TEST THAT NAMES THE CHECK RUNS TOO (2026-10-11). Two scripts can
+        # share one test -- the philosophy pair shares
+        # test_philosophy_scoping.sh -- and pairing by file name alone ran
+        # no test for either. A check's test must name it (check_deep_check.py),
+        # so reading the tests for that name finds every one, with no map
+        # to keep.
+        if m.group(2):
+            for other in sorted((root / f'{base}tools/checks/tests').glob('test_*.sh')):
+                if f'check_{name}.py' not in other.read_text(encoding='utf-8',
+                                                             errors='replace'):
+                    continue
+                found = f'{base}tools/checks/tests/{other.name}'
+                if base and (root / f'tools/checks/tests/{other.name}').is_file():
+                    found = f'tools/checks/tests/{other.name}'
+                if found not in tests:
+                    tests.append(found)
+    return tests
+
+
+def _new_tests_have_times(root, since, files, problems):
+    """A harness test this change adds carries its recorded time (Morgan,
+    2026-10-16: "The new heavy tests should be in the batch of tests as they
+    land on the branch"). A text read of the diff and the timing list --
+    no test runs here; the command it names times only the new ones."""
+    if 'tools/verify_harness.py' not in files:
+        return
+    diff = git(root, 'diff', '-U0', f'{since}...HEAD', '--',
+               'tools/verify_harness.py') or ''
+    added = re.findall(r'^\+def (check_\w+)\(', diff, re.M)
+    try:
+        known = json.loads((root / 'tools' / 'harness_check_times.json')
+                           .read_text(encoding='utf-8')).get('seconds') or {}
+    except (OSError, ValueError):
+        known = {}
+    missing = [n for n in added if n not in known]
+    if missing:
+        problems.append(
+            f'tools/verify_harness.py adds {len(missing)} test(s) with no '
+            f'recorded time ({", ".join(missing)}) -- run `python3 '
+            f'tools/verify_harness.py --record-new-times` and commit '
+            f'tools/harness_check_times.json with them')
+
+
 def changed_files_check(root, since):
     """-> 0 when every file the change touches is sound, 1 with each
     problem named. Reads nothing but the changed files, and the views a
@@ -1270,11 +1358,11 @@ def changed_files_check(root, since):
     # failed from the other -- only here, never in run_all.sh, which runs the
     # materialized copy alone (a consumer report, 2026-09-28). The
     # materialized copy is what the deep check runs, so it is what runs here.
-    tests = []
+    tests = _check_script_tests(root, files)
     added = set(_changed_paths(root, since, 'A'))
     judged = set()
     for rel in files:
-        m = re.match(r'(?:(.*)/)?tools/checks/(?:check_(\w+)\.py|tests/test_(\w+)\.sh)$', rel)
+        m = _CHECK_PAIR_RE.match(rel)
         if not m:
             continue
         base = f'{m.group(1)}/' if m.group(1) else ''
@@ -1283,24 +1371,6 @@ def changed_files_check(root, since):
         materialized = f'tools/checks/tests/test_{name}.sh'
         if base and (root / materialized).is_file():
             test = materialized
-        if test not in tests and (root / test).is_file():
-            tests.append(test)
-        # A TEST THAT NAMES THE CHECK RUNS TOO (2026-10-11). Two scripts can
-        # share one test -- the philosophy pair shares
-        # test_philosophy_scoping.sh -- and pairing by file name alone ran
-        # no test for either. A check's test must name it (check_deep_check.py),
-        # so reading the tests for that name finds every one, with no map
-        # to keep.
-        if m.group(2):
-            for other in sorted((root / f'{base}tools/checks/tests').glob('test_*.sh')):
-                if f'check_{name}.py' not in other.read_text(encoding='utf-8',
-                                                             errors='replace'):
-                    continue
-                found = f'{base}tools/checks/tests/{other.name}'
-                if base and (root / f'tools/checks/tests/{other.name}').is_file():
-                    found = f'tools/checks/tests/{other.name}'
-                if found not in tests:
-                    tests.append(found)
         # A NEW CHECK SHIPS WITH ITS TEST. check_deep_check.py (the deep-check
         # practice) refuses a check with no tests/test_x.sh, or one that does
         # not define SOURCE_ROOT -- but it judges the whole tree, so the
@@ -1348,65 +1418,6 @@ def changed_files_check(root, since):
                 f'tools/verify_harness.py, planting the violation it exists '
                 f'to catch; the harness refuses a check without one, and '
                 f'the next full check runs it')
-    # GITHUB AND A SESSION RUN ONE SPLIT (2026-10-07). The workflow runs the
-    # suite with `verify_harness.py --as-ci`, the command a session runs;
-    # until then each kept its own copy of the split, and only the local one
-    # got faster, so GitHub ran on one core for a week
-    # (gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy).
-    # The two checks that hold that together take about a second, so every
-    # push touching either side runs them here, not only the full tier.
-    if (root / 'tools' / 'verify_harness.py').is_file() and any(
-            rel in ('tools/verify_harness.py', 'tools/harness_check_times.json')
-            or rel.startswith('.github/workflows/') for rel in files):
-        sync = ('check_as_ci_shards_match_the_workflow,'
-                'check_as_ci_parts_partition_the_suite')
-        r = subprocess.run([sys.executable, 'tools/verify_harness.py'], cwd=root,
-                           capture_output=True, text=True, timeout=300,
-                           env=dict(os.environ, PRECEDENT_CHECK_ONLY=sync))
-        if r.returncode != 0:
-            said = [l for l in r.stdout.splitlines() if l.startswith('FAIL:')]
-            said = said or (r.stdout + r.stderr).strip().splitlines()[-1:]
-            problems.append('GitHub\'s test and --as-ci no longer run one '
-                            'split: ' + (' | '.join(said) or 'the sync checks '
-                                         'failed')[:600])
-    # A CHANGED CHECK RUNS ITS OWN HARNESS TESTS (2026-10-11). a243d9c0
-    # made practice-file-shape stricter; the harness test that feeds it a
-    # good sample still had the old shape, and staging went red, because
-    # nothing here ran a precedent_check.py check's harness tests. The
-    # harness works out which tests a change reaches -- a check, what it
-    # uses, a tools/ module it imports, a check script, a harness test --
-    # and runs what fits a minute, naming the rest
-    # (spec/CHANGED_CHECK_RUNS_ITS_TESTS_PLAN.md). Only where the harness
-    # lives: a consuming repo carries this line and never runs it.
-    if (root / 'tools' / 'verify_harness.py').is_file() and any(
-            rel.endswith('.py') and rel.startswith(('tools/', 'local/tools/'))
-            for rel in files):
-        try:
-            r = subprocess.run([sys.executable, 'tools/verify_harness.py',
-                                '--for-change', since], cwd=root,
-                               capture_output=True, text=True, timeout=600)
-            # On stderr: the gate streams it, and drops a passing step's
-            # stdout -- a note about tests not run here must be seen.
-            for line in r.stdout.splitlines():
-                if line.startswith('for-change:'):
-                    print(line[:500], file=sys.stderr, flush=True)
-            if r.returncode != 0:
-                said = [l for l in r.stdout.splitlines() if l.startswith('FAIL')]
-                said = said or (r.stdout + r.stderr).strip().splitlines()[-1:]
-                problems.append('a harness test this change reaches failed -- '
-                                + ' | '.join(said)[:800])
-        except subprocess.TimeoutExpired:
-            problems.append('the harness tests this change reaches did not '
-                            'finish within 10 minutes')
-    for test in tests:
-        try:
-            r = subprocess.run(['bash', test], cwd=root, capture_output=True,
-                               text=True, timeout=600)
-            if r.returncode != 0:
-                tail_ = (r.stdout + r.stderr).strip().splitlines()[-3:]
-                problems.append(f'{test}: failed -- ' + ' | '.join(tail_)[:400])
-        except subprocess.TimeoutExpired:
-            problems.append(f'{test}: did not finish within 10 minutes')
     practice = [f for f in files if f.endswith('.md')
                 and (f.startswith('practices/') or '/practices/' in f)]
     build = root / 'tools' / 'build_views.py'
@@ -1468,16 +1479,31 @@ def changed_files_check(root, since):
                 f'what tools/catalogue_stats.py computes -- update the '
                 f'sentence and the anchor in catalogue_stats.py together. '
                 + ' | '.join(fails)[:500])
+    _new_tests_have_times(root, since, files, problems)
     for line in problems:
         print(f'  {line}')
     if tests:
-        print(f'changed_files: ran {len(tests)} test(s) of changed checks: '
-              + ', '.join(tests))
+        print(f'changed_files: {len(tests)} test(s) of changed checks run '
+              f'at the Debut, not here: ' + ', '.join(tests))
     print(f'changed_files: {len(files)} changed file(s) checked, '
           f'{len(problems)} problem(s).')
     return 1 if problems else 0
 
 
+# TESTS RUN AT THE DEBUT, NEVER BEFORE A PUSH (Morgan, 2026-10-16,
+# strength: decided: "all the testing EXCEPT THE BARE ESSENTIAL AND LEAK
+# GATES SHOULD GO INTO DEBUT, AND THE GITHUB TEST AFTER THE NEXT PRODUCE,
+# AND THE MAIN TEST AFTER THE NEXT PRODUCE IN THE CASES WHERE THE GITHUB ONE
+# IS NOT RUN"). A landing's quick check had grown to minutes: the practice
+# checks on the changed files (precedent_check.py --changed-files-only,
+# about 40 s, many of them reading the whole repository) and, from
+# 2026-10-11, the harness tests a change reaches plus each changed check
+# script's test_x.sh (a minute by a timing list a hundred tests out of
+# date, two in fact). None of it is about publication -- the leak gate and
+# the commit checks are, and stay -- and the full tier runs all of it: the
+# Debut (--run-tests) on staging, then GitHub's test after Produce, or the
+# full local suite on main where that test is not due. `verify_harness.py
+# --for-change REF` still says, and runs, what a change reaches, by hand.
 def _changed_since(root, argv):
     """-> the ref a push's change is measured from, or None. `--changed-since
     REF` names it (the merge gate passes the pull request's base); otherwise
@@ -2178,11 +2204,8 @@ def main(argv):
             os.environ.pop(_name, None)
     if since and kind is not None:
         rel = HERE.relative_to(root) if HERE.is_relative_to(root) else HERE
-        checks.append((CHANGED_PRACTICE_CHECK[0],
-                       [sys.executable, str(rel / 'precedent_check.py'),
-                        '--full-sweep', '--range', f'{since}...HEAD',
-                        '--changed-files-only'],
-                       CHANGED_PRACTICE_CHECK[1]))
+        # Only the per-file checks: the practice checks and every test run
+        # at the Debut and around Produce (TESTS RUN AT THE DEBUT, below).
         checks.append((CHANGED_FILES_CHECK[0],
                        [sys.executable, str(rel / 'precedent_push_check.py'),
                         '--changed-files-check', since],
