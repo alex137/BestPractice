@@ -380,6 +380,7 @@
   "check_owned_paths_previews_the_boundary": 0.9,
   "check_parallel_artifact_ledger_fires": 1.0,
   "check_parallels_table_holds_a_shipped_hook_this_repo_does_not_run": 0.0,
+  "check_past_template_text_is_taken_over_a_stale_record": 0.0,
   "check_person_zone_wins_in_a_shared_rooted_session": 1.4,
   "check_philosophy_citations_run_both_ways": 0.1,
   "check_philosophy_readme_lists_every_file": 0.0,

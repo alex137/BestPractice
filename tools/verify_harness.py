@@ -51496,6 +51496,90 @@ def check_update_seeds_budgets_on_the_run_that_reports_done():
           f'reports DONE ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_past_template_text_is_taken_over_a_stale_record():
+    """A section or template copy identical to a past version of its
+    template is taken, whatever hash the manifest records for it. 2026-10-17,
+    a consuming repo's Update Vendors: AGENTS.md "### Merging a thread
+    branch" carried the loader template's own earlier step 0b word for word,
+    but its recorded hash did not match, so the plan said 'diverged' without
+    looking at the template's history and the run stopped LEFT FOR YOU on a
+    call the person had already made (take upstream; keep only what is the
+    repo's own).
+
+    Discriminating cases: the stale record must now plan 'adopt' (the fix);
+    a matching record still plans 'refresh'; text no template ever had still
+    plans 'diverged'; and a section precedent.json records as kept on
+    purpose stays 'diverged', so the fix never overwrites a decision. The
+    same four for tools/bootstrap.sh, whose plan had the same order."""
+    import precedent_vendor_engine as pve
+    cases = []
+    tmp = pathlib.Path(_tempfile_for_env.mkdtemp(prefix='precedent-stale-record-'))
+    try:
+        key = '### Merging a thread branch'
+        old = f'{key}\n\n0b. There is no local check-in mirror yet.'
+        new = f'{key}\n\n0b. Send it with tools/checkin.py push.'
+        tpl = tmp / 'tpl'
+        (tpl / 'templates').mkdir(parents=True)
+        (tpl / 'templates/AGENTS.md.loader.template').write_text(
+            f'# AGENTS\n\n{new}\n', encoding='utf-8')
+        (tpl / pve._AGENTS_MD_HISTORY_NAME).write_text(
+            json.dumps({key: [old, new]}), encoding='utf-8')
+        boot_old, boot_new = '#!/bin/sh\necho old\n', '#!/bin/sh\necho new\n'
+        (tpl / 'templates/bootstrap.sh').write_text(boot_new, encoding='utf-8')
+        (tpl / pve._TEMPLATE_HISTORY_NAME).write_text(json.dumps(
+            {'templates/bootstrap.sh': [pve._git_blob_id(boot_old.encode()),
+                                        pve._git_blob_id(boot_new.encode())]}),
+            encoding='utf-8')
+
+        def plan(name, section, boot, record, kept=False):
+            c = tmp / name
+            (c / 'tools').mkdir(parents=True)
+            (c / 'AGENTS.md').write_text(f'# AGENTS\n\n{section}\n',
+                                         encoding='utf-8')
+            (c / 'tools/bootstrap.sh').write_text(boot, encoding='utf-8')
+            cfg = {'base_branch': 'main'}
+            if kept:
+                cfg[pve.KEPT_DIVERGENCES_KEY] = {
+                    f'AGENTS.md {key}': {'reason': 'ours', 'template_sha256': 'x'},
+                    'tools/bootstrap.sh': {'reason': 'ours', 'template_sha256': 'x'}}
+            (c / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+            manifest = {pve.AGENTS_MD_SECTIONS_KEY: {key: record(section)},
+                        pve.TEMPLATE_INSTANCES_KEY: {
+                            'tools/bootstrap.sh': record(boot, file=True)}}
+            a = [p[3] for p in pve._agents_md_plan(c, 'consumer', tpl, manifest)
+                 if p[0] == key]
+            b = [p[2] for p in pve._template_instance_plan(c, 'consumer', tpl,
+                                                            manifest)]
+            return a, b
+
+        def stale(text, file=False):
+            return '0' * 64
+
+        def matching(text, file=False):
+            if file:
+                return hashlib.sha256(text.encode()).hexdigest()
+            return pve._sha_text(text)
+
+        got = plan('control', old, boot_old, matching)
+        cases.append(('CONTROL: a past version matching its record is refreshed',
+                      got == (['refresh'], ['refresh']), got))
+        got = plan('stale', old, boot_old, stale)
+        cases.append(('THE FIX: a past version under a stale record is adopted',
+                      got == (['adopt'], ['adopt']), got))
+        got = plan('own', f'{key}\n\nOur own words.', '#!/bin/sh\necho ours\n',
+                   stale)
+        cases.append(('text no template version had is still diverged',
+                      got == (['diverged'], ['diverged']), got))
+        got = plan('kept', old, boot_old, stale, kept=True)
+        cases.append(('a past version recorded as kept on purpose stays diverged',
+                      got == (['diverged'], ['diverged']), got))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n}: got {d}' for n, ok, d in cases if not ok]
+    check('a past template version is taken over a stale recorded hash',
+          not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def check_kept_agents_md_divergence_is_recorded():
     """An AGENTS.md section a repo words its own way ON PURPOSE can be
     recorded, and then Update Vendors finishes: DONE, exit 0 -- until
@@ -84851,6 +84935,7 @@ def main():
     check_split_projection_is_costed_and_ordered()
     check('duplicate detection ignores a run of lines with no word in it',
           *check_duplicate_runs_skip_wordless_lines())
+    check_past_template_text_is_taken_over_a_stale_record()
     check_kept_agents_md_divergence_is_recorded()
     check_agents_templates_repeat_no_practice_text()
     check_agents_templates_conventions_point_to_practices()
