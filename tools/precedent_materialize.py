@@ -1396,7 +1396,8 @@ def deliver_session_ships(repo, practices, dry_run=False):
         except ValueError:
             return ['?']
     if not any(_ships(fm) for fm, _f in practices) \
-            and not (repo / SESSION_SHIPS_RECORD).is_file():
+            and not (repo / SESSION_SHIPS_RECORD).is_file() \
+            and not (repo / SESSION_HOOKS_FILE).is_file():
         return out                 # nothing to deliver and nothing delivered
     if _exclude_file(repo) is None:
         out['notes'].append(f'{repo} is not a git work tree, so the files a '
@@ -1422,7 +1423,11 @@ def deliver_session_ships(repo, practices, dry_run=False):
             out['notes'].append(f'{slug}: {e} -- nothing of it delivered')
             continue
         root = pfile.resolve().parent.parent
-        mine = set()
+        # `here`: shipped files this repository already holds as its own --
+        # a set's own practice, or an engine file it vendors. Nothing is
+        # delivered for them, and their hooks are still registered: a set's
+        # own `hooks:` never ran in a session rooted in it (2026-10-17).
+        mine, here = set(), set()
         for rel in paths:
             why = pr.bv.ship_path_problem(rel)
             if why:
@@ -1430,7 +1435,10 @@ def deliver_session_ships(repo, practices, dry_run=False):
                 continue
             dest_rel = pathlib.PurePosixPath(rel).as_posix()
             src, dest = root / rel, repo / dest_rel
-            if dest_rel in declined or dest_rel in tracked_ships:
+            if dest_rel in declined:
+                continue
+            if dest_rel in tracked_ships:
+                here.add(dest_rel)
                 continue
             if dest_rel in owner and owner[dest_rel] != str(root):
                 out['notes'].append(f'{dest_rel} is shipped by two sets; the '
@@ -1441,6 +1449,7 @@ def deliver_session_ships(repo, practices, dry_run=False):
                                     f'{root} -- a stale clone; not delivered')
                 continue
             if src.resolve() == dest.resolve() or _git_tracks(repo, dest_rel):
+                here.add(dest_rel)
                 continue           # the repository's own file
             owner[dest_rel] = str(root)
             data = src.read_bytes()
@@ -1461,7 +1470,7 @@ def deliver_session_ships(repo, practices, dry_run=False):
                                'set': root.name}
             mine.add(dest_rel)
         for h in hooks:
-            if h['run'] in mine:
+            if h['run'] in mine or h['run'] in here:
                 hook_rows.append((h['event'], h['matcher'], pr.bv.hook_command(h)))
     for dest_rel, row in sorted(prior.items()):
         if dest_rel in files or dest_rel in tracked_ships:
@@ -2269,6 +2278,14 @@ def _refuse_direct_run(repo, sources, res, allow_missing=False):
     unreachable it said "Materializing WITHOUT it" and rewrote practices/
     anyway. Refusing here, rather than duplicating the wrapper's withholding,
     keeps one implementation of it (judgment-check-or-tool)."""
+    if pr.bv.repo_is_practice_source(pathlib.Path(repo)):
+        # A set carries this module for its session file (2026-10-17), never
+        # to materialize into: its practices/ is its own, and a write here
+        # replaces it with every source it resolves.
+        return (f"refusing to materialize into {repo}, which is a practice "
+                f"set: its practices/ is its own catalogue, and materializing "
+                f"would replace it with every source it resolves. The sets' "
+                f"session file is tools/precedent_session_practices.py")
     route = (f"Sync through tools/precedent_sync_views.py --repo {repo} "
              f"instead: it is the route a consuming repo syncs by")
     if pr.bv.repo_is_public(pathlib.Path(repo)):

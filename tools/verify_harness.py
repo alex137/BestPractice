@@ -67821,6 +67821,89 @@ def check_a_set_in_a_linked_worktree_does_not_load_itself_twice():
           '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
+def check_a_sets_own_hooks_are_registered_in_a_session_rooted_in_it():
+    """A practice set's own `hooks:` run in a session rooted in the set
+    (2026-10-17 very deep check: precedent_materialize was not in the source
+    engine's file list, so the session file printed "No module named
+    'precedent_materialize'", and only a consumer's sync ever wrote
+    process/practice_hooks.json, so no set registered its own hooks).
+
+    Stated cases: a set's engine carries precedent_materialize.py and the
+    module it imports; the session file run in a set registers the set's own
+    practice hook in .precedent/practice_hooks.json; an engine without the
+    module gets one plain sentence, never a ModuleNotFoundError."""
+    import contextlib, io, shutil, tempfile
+    import precedent_vendor_engine as pve
+    import precedent_session_practices as psp_mod
+    cases = [('a practice set\'s engine carries precedent_materialize.py and '
+              'precedent_source_pins.py',
+              {'precedent_materialize.py', 'precedent_source_pins.py'}
+              <= set(pve.ENGINE_FILES), '')]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-set-hooks-'))
+    try:
+        s = tmp / 'zz-set'
+        (s / 'practices').mkdir(parents=True)
+        (s / 'tools').mkdir()
+        (s / '.claude').mkdir()
+        (s / '.claude' / 'settings.json').write_text('{"hooks": {}}', encoding='utf-8')
+        (s / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'source', 'files': []}), encoding='utf-8')
+        (s / 'tools' / 'zz_hook.py').write_text('print("hi")\n', encoding='utf-8')
+        (s / 'precedent-source.json').write_text(
+            json.dumps({'name': 'zz-set', 'level': 'shared'}), encoding='utf-8')
+        (s / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'base_branch': 'main', 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]}),
+            encoding='utf-8')
+        (s / 'practices' / 'zz-hooked.md').write_text(
+            '---\nslug: zz-hooked\ntitle: Fixture\ntier: on-demand\n'
+            'severity: default\napplies_to: ["**"]\noccasion: "x"\n'
+            'index_clause: "x"\nstatus: active\n'
+            'ships: ["tools/zz_hook.py"]\n'
+            'hooks: [{"event": "SessionStart", "run": "tools/zz_hook.py"}]\n'
+            '---\n## Rule\nx\n\n## Story\nx\n', encoding='utf-8')
+        for a in (['init', '-q', '-b', 'main'], ['add', '-A'],
+                  ['-c', 'user.email=h@example.com', '-c', 'user.name=h',
+                   'commit', '-qm', 'fixture']):
+            subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C', str(s), *a],
+                           capture_output=True)
+        env = dict(os.environ, PRECEDENT_USER_CONFIG=str(tmp / 'none.json'),
+                   HOME=str(tmp / 'home'))
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' /
+                                                'precedent_session_practices.py'),
+                            '--repo', str(s), '--quiet'], capture_output=True,
+                           text=True, env=env, cwd=str(s))
+        hooks_f = s / '.precedent' / 'practice_hooks.json'
+        listed = hooks_f.read_text(encoding='utf-8') if hooks_f.is_file() else ''
+        cases.append(('the session file in a set registers the set\'s own practice '
+                      'hook in .precedent/practice_hooks.json',
+                      'tools/zz_hook.py' in listed and '"SessionStart"' in listed,
+                      (r.stdout + r.stderr)[-600:] + listed))
+
+        saved = sys.modules.get('precedent_materialize')
+        sys.modules['precedent_materialize'] = None      # import now fails
+        err = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(err):
+                psp_mod.deliver_ships(str(s), [])
+        finally:
+            if saved is None:
+                sys.modules.pop('precedent_materialize', None)
+            else:
+                sys.modules['precedent_materialize'] = saved
+        said = err.getvalue()
+        cases.append(('an engine without the module gets one plain sentence, not '
+                      'a ModuleNotFoundError', 'ModuleNotFoundError' not in said
+                      and 'does not carry tools/precedent_materialize.py' in said,
+                      said))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a practice set\'s own hooks are registered in a session rooted in '
+          f'it ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:600]}' for n, d in bad))
+
+
 def check_stale_render_heal_never_overwrites_with_less():
     """A read-only check must not replace a complete session file with an
     emptier one (2026-10-17 very deep check: in an isolated clone with no
@@ -76305,11 +76388,16 @@ def check_declared_identity_has_a_passing_state_in_a_shared_repo():
     # path at all. What is left of the consumer-only boundary is the
     # materializing pair, so that is what this case now asserts: a set
     # materializes nothing and must not be handed the tools that do.
+    # precedent_materialize.py joined ENGINE_FILES on 2026-10-17: a set's
+    # session file delivers ships and registers hooks with it. Its writer is
+    # refused in a set (check_materialize_run_directly_refuses_what_the_sync_
+    # withholds), so the boundary that matters is the sync, still a
+    # consumer's alone.
     cases.append(('a seeded practice set does NOT receive '
-                  'precedent_materialize.py or precedent_sync_views.py -- '
-                  'the consumer-only boundary that survives the resolver '
-                  'moving into ENGINE_FILES',
-                  not (seeded / 'precedent_materialize.py').is_file()
+                  'precedent_sync_views.py -- the consumer-only boundary that '
+                  'survives the resolver moving into ENGINE_FILES -- and does '
+                  'receive precedent_materialize.py for its session file',
+                  (seeded / 'precedent_materialize.py').is_file()
                   and not (seeded / 'precedent_sync_views.py').is_file(),
                   str(sorted(f.name for f in seeded.iterdir()))))
     cases.append(('and DOES receive precedent_resolve.py and '
@@ -78971,6 +79059,19 @@ def check_materialize_run_directly_refuses_what_the_sync_withholds():
         rc, out = run(gone, empty_cfg, '--allow-missing-sources')
         cases.append(('--allow-missing-sources proceeds past it',
                       rc == 0 and (gone / 'practices' / 'uni-rule.md').is_file(), out))
+
+        # A set carries this module for its session file since 2026-10-17;
+        # materializing into one would replace its own catalogue.
+        aset = consumer('aset', 'private')
+        (aset / 'tools').mkdir()
+        (aset / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'source', 'files': []}), encoding='utf-8')
+        practice(aset, 'own-rule', 'THE-SETS-OWN-TEXT')
+        rc, out = run(aset, empty_cfg)
+        cases.append(('a practice set refuses, and keeps its own practices/',
+                      rc != 0 and 'practice set' in out
+                      and (aset / 'practices' / 'own-rule.md').is_file()
+                      and not (aset / 'practices' / 'uni-rule.md').exists(), out))
 
         priv = consumer('priv', 'private')
         rc, out = run(priv, user_cfg)
@@ -82993,6 +83094,7 @@ def main():
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
     check_stale_render_heal_never_overwrites_with_less()
+    check_a_sets_own_hooks_are_registered_in_a_session_rooted_in_it()
     check_a_set_in_a_linked_worktree_does_not_load_itself_twice()
     check_attached_sets_sources_are_synced()
     check_attached_sets_sync_is_safe_for_everyone()

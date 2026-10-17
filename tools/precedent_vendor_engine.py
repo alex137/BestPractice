@@ -72,11 +72,13 @@ ENGINE_FILES / CONSUMER_ENGINE_FILES both name this script itself last, on
 purpose: it travels WITH the engine it defines, so a future improvement to
 the vendoring mechanism itself reaches every already-vendored repo the same
 way an improvement to build_views.py does — not a second, undocumented gap
-one layer up from the one this tool closes. precedent_materialize.py and
-precedent_sync_views.py are never in ENGINE_FILES (source) — a source set
-has no process/upstream/ and materializes nothing — but they ARE in
-CONSUMER_ENGINE_FILES, where resolving four sources into one materialized
-tree is the entire point.
+one layer up from the one this tool closes. precedent_sync_views.py is
+never in ENGINE_FILES (source) — a source set has no process/upstream/ and
+materializes nothing — but it IS in CONSUMER_ENGINE_FILES, where resolving
+four sources into one materialized tree is the entire point.
+precedent_materialize.py was consumer-only beside it until 2026-10-17; a
+set now carries it for its session file's ships and hooks, and its writer
+refuses to materialize into a set.
 
 precedent_resolve.py WAS in that consumer-only group until 2026-09-13, on
 the reasoning that a source set has "nothing to resolve against more than
@@ -583,8 +585,9 @@ ENGINE_FILES = [
     # THE DOCSTRING ABOVE SAYS THESE ARE NEVER IN ENGINE_FILES, on the
     # reasoning that "a source set has no process/upstream/ and nothing to
     # resolve against more than one tree". The first half is still true --
-    # precedent_materialize.py and precedent_sync_views.py stay consumer-only,
-    # because a set materializes nothing. The second half was the mistake: a
+    # precedent_sync_views.py stays consumer-only, because a set materializes
+    # nothing (precedent_materialize.py joined below on 2026-10-17, for the
+    # session file's ships and hooks). The second half was the mistake: a
     # set has exactly one other tree to resolve against, universal's, and
     # resolving it is how the rules reach the session. Costed in
     # spec/SOURCE_SET_PROSE_GAP.md, approved 2026-09-13 as shape 3.
@@ -954,6 +957,14 @@ ENGINE_FILES = [
     # through a new settings.json entry (precedent_hooks.py says why).
     'precedent_hooks.py',
     'hook_wiring.json',
+    # What precedent_session_practices.py delivers a practice's `ships:` and
+    # registers its `hooks:` with (deliver_session_ships), and the module it
+    # imports at load. Consumer-only until 2026-10-17, so in a session rooted
+    # in a set the session file printed "No module named
+    # 'precedent_materialize'" and no practice's hooks ran there -- not the
+    # set's own, nor those of the sets it resolves.
+    'precedent_materialize.py',
+    'precedent_source_pins.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -968,12 +979,11 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # here until 2026-09-13 and are now in ENGINE_FILES, so a practice set
     # gets them too -- see their entry there. Repeating them here is refused
     # by the duplicate guard below, which is how this was caught.
-    'precedent_materialize.py',
+    # precedent_materialize.py and precedent_source_pins.py (the commit
+    # each live source was synced at, 2026-10-05) joined them there on
+    # 2026-10-17: a set's session file needs the first, which imports the
+    # second.
     'precedent_sync_views.py',
-    # The commit each live source was synced at, and reading a source back
-    # at it, so the views check stops depending on the branch a set's clone
-    # has checked out (2026-10-05). Imported by the two above.
-    'precedent_source_pins.py',
     # Whether each declared source repository is still CALLED what this repo
     # calls it (added 2026-09-11). CONSUMER-only for the same reason
     # precedent_resolve.py is -- it reads a multi-source config, which a

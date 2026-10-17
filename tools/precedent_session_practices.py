@@ -634,6 +634,15 @@ def deliver_ships(repo, extra):
     session start (practice: fail-gracefully)."""
     try:
         import precedent_materialize as pm
+    except ImportError:
+        # Said plainly, not as a traceback's last line (2026-10-17: a set's
+        # session printed "No module named 'precedent_materialize'").
+        print('precedent session practices: this repository\'s engine does '
+              'not carry tools/precedent_materialize.py, so the files and hooks '
+              'the practices in force here ship were not set up. Update '
+              'Vendors brings it.', file=sys.stderr)
+        return None
+    try:
         r = pm.deliver_session_ships(repo, [(fm, f) for fm, _s, f in extra])
     except Exception as e:                                   # noqa: BLE001
         print(f'precedent session practices: the files the practices below '
@@ -654,6 +663,21 @@ def deliver_ships(repo, extra):
               f'tool\'s copies or edited since: {", ".join(r["left"])}',
               file=sys.stderr)
     return r
+
+
+def own_practices(repo):
+    """-> a practice set's own practices in force, in collect()'s shape, so
+    the session file registers their `hooks:` too; [] anywhere else. In a
+    consuming repository the sync registers them in process/practice_hooks.json;
+    a set has no sync, so until 2026-10-17 a set's own hooks never ran in a
+    session rooted in it."""
+    root = pathlib.Path(repo)
+    if not bv.repo_is_practice_source(root) or not (root / 'practices').is_dir():
+        return []
+    try:
+        return bv.load_practices(root / 'practices', announce=False)
+    except Exception:                                        # noqa: BLE001
+        return []
 
 
 def attach_first(repo):
@@ -738,7 +762,7 @@ def main(argv=None):
     lead = attach_first(repo)
     if lead:
         print(lead)
-    deliver_ships(repo, extra)
+    deliver_ships(repo, extra + own_practices(repo))
     text = _with_target_warning(repo, text, brought=brought_share(repo)[0])
     out_dir = pathlib.Path(repo) / OUT_DIR
     try:
