@@ -200,6 +200,12 @@ def main(argv):
     found = findings()
     for line in found:
         print(line)
+    # Owed upstream is answered, not finished: named on every run until the
+    # upstream fix lands and the file matches again, when the entry is stale
+    # and the check asks for it to go.
+    for rel, e in sorted(registry()[0].items()):
+        if e['answer'] == 'owed-upstream':
+            print(f'owed upstream: {rel} -- {e.get("detail", "")}')
     if not found:
         print('upstream_edits: every upstream-owned file matches what was '
               'delivered, or carries its recorded answer.')

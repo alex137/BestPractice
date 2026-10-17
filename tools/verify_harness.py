@@ -12423,16 +12423,26 @@ def record_new_times():
     if not missing:
         print('verify_harness: every test already has a recorded time.')
         return 0
+    # ONE BASIS (2026-10-17). The list is recorded by `--as-ci
+    # --record-times`, on CI's parts; this times tests in one process on
+    # whatever machine it runs on. Three tests the list already names run
+    # beside the new ones, and the new times are scaled by how the two
+    # compare, so the deal into GitHub's parts stays even.
+    calib = sorted(n for n, t in times.items() if 1.0 <= t <= 5.0
+                   and n in names)[:3]
     print(f'verify_harness: timing {len(missing)} test(s) with no recorded '
           f'time: ' + ', '.join(missing), flush=True)
     with tempfile.TemporaryDirectory() as td:
         out = pathlib.Path(td) / 'times.json'
         r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'verify_harness.py')],
                            cwd=ROOT, env=dict(os.environ,
-                                              PRECEDENT_CHECK_ONLY=','.join(missing),
+                                              PRECEDENT_CHECK_ONLY=','.join(missing + calib),
                                               PRECEDENT_HARNESS_TIMES_OUT=str(out)))
         got = json.loads(out.read_text(encoding='utf-8')) if out.is_file() else {}
-    got = {n: dt for n, dt in got.items() if n in missing}
+    here = sum(got.get(n, 0) for n in calib)
+    there = sum(times[n] for n in calib if n in got)
+    scale = min(max(there / here, 0.25), 4.0) if here > 0 and there > 0 else 1.0
+    got = {n: dt * scale for n, dt in got.items() if n in missing}
     if not got:
         print('verify_harness: the run recorded no times; nothing written.')
         return r.returncode or 1
@@ -12443,7 +12453,8 @@ def record_new_times():
         before = ''
     _write_check_times({**times, **got},
                        f'{before}; {len(got)} added {time.strftime("%Y-%m-%d")} '
-                       f'by --record-new-times'.lstrip('; '))
+                       f'by --record-new-times, scaled by {scale:.2f} to it'
+                       .lstrip('; '))
     print(f'verify_harness: recorded {len(got)} time(s) in '
           f'{HARNESS_CHECK_TIMES.relative_to(ROOT)}; commit it with the tests.')
     return r.returncode
@@ -37424,6 +37435,129 @@ def check_upstream_edits_need_an_answer():
     check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_a_pushed_branch_in_a_shallow_clone_is_safe():
+    """A branch pushed from a shallow, single-branch clone is safe, and both
+    checks that ask say so (2026-10-17, the root issues of a session).
+
+    `git clone --depth 1` -- what attaching a repository mid-session runs --
+    fetches the default branch only, so `git push -u` of a feature branch
+    leaves no refs/remotes/origin/<branch>. precedent_container_safe and
+    precedent_session_check both reported the pushed commit as on no
+    remote, and the archive line was held over work that was safe. The
+    control: a commit that really is unpushed is still reported.
+    """
+    import shutil, tempfile
+    name = 'a branch pushed from a shallow clone is not reported as unpushed'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_container_safe as pcs
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shallow-push-'))
+    cases = []
+    try:
+        seed, origin, clone = tmp / 'seed', tmp / 'origin.git', tmp / 'clone'
+        fixture_git(tmp, 'init', '-q', '-b', 'main', str(seed))
+        fixture_git(seed, 'config', 'user.email', 'fixture@example.com')
+        fixture_git(seed, 'config', 'user.name', 'fixture')
+        (seed / 'a.txt').write_text('a\n', encoding='utf-8')
+        fixture_git(seed, 'add', '-A')
+        fixture_git(seed, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'base')
+        fixture_git(tmp, 'clone', '-q', '--bare', str(seed), str(origin))
+        fixture_git(tmp, 'clone', '-q', '--depth', '1', f'file://{origin}', str(clone))
+        fixture_git(clone, 'config', 'user.email', 'fixture@example.com')
+        fixture_git(clone, 'config', 'user.name', 'fixture')
+        fixture_git(clone, 'checkout', '-q', '-b', 'feature')
+        (clone / 'b.txt').write_text('b\n', encoding='utf-8')
+        fixture_git(clone, 'add', '-A')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'work')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'push', '-q', '-u',
+                    'origin', 'feature')
+        cases.append(('the fixture reproduces it: no tracking ref after the push',
+                      fixture_git(clone, 'rev-parse', '--verify', '-q',
+                                  'refs/remotes/origin/feature',
+                                  allow_failure=True).returncode != 0, ''))
+        got = pcs.scan_one(clone)
+        cases.append(('the pushed commit is not reported as on no remote',
+                      not any('on no remote' in u for u in got['unsafe']),
+                      str(got['unsafe'])))
+        (clone / 'c.txt').write_text('c\n', encoding='utf-8')
+        fixture_git(clone, 'add', '-A')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'more')
+        got = pcs.scan_one(clone)
+        cases.append(('control: a commit that is really unpushed is reported',
+                      any('1 commit(s) on no remote' in u for u in got['unsafe']),
+                      str(got['unsafe'])))
+    except FixtureSetupError as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_push_check_list_is_never_refused():
+    """`precedent_push_check.py --list` runs nothing and pushes nothing, so
+    the refusals about what a push may carry never stop it (2026-10-17).
+
+    It was refused whenever main had commits staging lacked, and the harness
+    test that reads its list went red at the Debut for a reason unrelated to
+    any change. The control: the same refusal still stops a real check run.
+    """
+    import contextlib, io
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    name = 'the push check\'s --list is never refused'
+    saved = (ppc._promote_only_refusal, ppc._full_tier_refusal)
+    ppc._promote_only_refusal = lambda root, argv: 'main has 6 commit(s) staging lacks'
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc_list = ppc.main(['--list'])
+        listed = out.getvalue()
+        out2, err2 = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out2), contextlib.redirect_stderr(err2):
+            rc_run = ppc.main(['--tier', 'basic'])
+    finally:
+        ppc._promote_only_refusal, ppc._full_tier_refusal = saved
+    cases = [
+        ('--list prints the list while the refusal holds',
+         rc_list == 0 and 'tools/leak_gate.py' in listed
+         and 'REFUSED' not in err.getvalue(), err.getvalue()[-200:]),
+        ('control: the refusal still stops a check run',
+         rc_run == 1 and 'REFUSED -- main has 6 commit(s)' in err2.getvalue(), ''),
+    ]
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_caused_by_this_push_reads_advisory_findings():
+    """The "this push caused them" note compares with the tree before the
+    push, and reads that run's findings under ADVISORY as well as VIOLATION;
+    a check the earlier tree could not run is never held against the push
+    (2026-10-17: an advisory check had 24 to 38 findings in untouched files
+    named as caused by every push, because the earlier run's ADVISORY block
+    read as empty).
+    """
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    name = 'the caused-by-this-push note reads the earlier run fairly'
+    adv = ('ADVISORY   zz-slug — findings below do not fail this run\n'
+           '    a/b.md: an old finding\n  the rule:\n    text\n')
+    vio = ('VIOLATION  zz-slug\n    a/b.md:12: an old finding\n  the rule:\n')
+    skip = 'SKIPPED    zz-slug — no record here\n'
+    other = 'VIOLATION  zz-slug-longer\n    x.md: not this one\n  the rule:\n'
+    cases = [
+        ('an advisory block\'s findings are read', pc._findings_in_output(adv, 'zz-slug')
+         == {'a/b.md: an old finding'}),
+        ('a violation block\'s are, with line numbers dropped',
+         pc._findings_in_output(vio, 'zz-slug') == {'a/b.md: an old finding'}),
+        ('a skipped check is unknown, not empty', pc._findings_in_output(skip, 'zz-slug')
+         is None),
+        ('control: a longer slug that starts the same is not read as this one',
+         pc._findings_in_output(other, 'zz-slug') == set()),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_quick_tier_is_closed():
     """Nothing joins the checks run before a push without the person's own
     words (Morgan, 2026-10-16, strength: decided: "LET'S BAN ALL NEW TESTS
@@ -49076,6 +49210,15 @@ def check_vendor_engine_consumer_case():
         (consumer / 'tools' / 'build_codeowners.py').unlink()
         head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
                               capture_output=True, text=True).stdout.strip()
+        # `seed` copies the working tree and records HEAD; this case needs
+        # the two to be the same engine ("the recorded commit already
+        # matches"). With an engine edit not yet committed they are not, the
+        # refresh takes the ordinary upstream-moved path, and the case used
+        # to fail with nothing saying why (2026-10-17). Said instead.
+        dirty_engine = subprocess.run(
+            ['git', '-C', str(ROOT), 'status', '--porcelain', '--', 'tools/',
+             '.claude/hooks/', 'templates/'], capture_output=True,
+            text=True).stdout.strip()
         r_conv = subprocess.run(
             [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
              'refresh', str(ROOT), '--from-ref', head],
@@ -49089,7 +49232,10 @@ def check_vendor_engine_consumer_case():
                       out_conv[:500]))
         cases.append(('and says why it refreshed rather than claiming nothing to do',
                       'missing' in out_conv and 'nothing to do' not in out_conv,
-                      out_conv[:500]))
+                      ('COULD NOT BE JUDGED: this checkout has uncommitted engine '
+                       'changes, so the seeded copy is not the recorded commit -- '
+                       'commit them and run again: ' + dirty_engine[:200])
+                      if dirty_engine else out_conv[:500]))
 
         # A MISSING file is a finding, not a crash. This read_bytes() used to
         # be unguarded, so a refresh that failed earlier in the fixture took
@@ -81571,6 +81717,9 @@ def main():
     check_for_change_adds_what_the_reach_ledger_picks()
     check_changed_files_runs_the_harness_tests_a_change_reaches()
     check_quick_tier_is_closed()
+    check_caused_by_this_push_reads_advisory_findings()
+    check_push_check_list_is_never_refused()
+    check_a_pushed_branch_in_a_shallow_clone_is_safe()
     check_upstream_edits_need_an_answer()
     check_a_new_test_lands_with_its_time()
     check_boildown_contradiction_spares_work_waiting_upstream()

@@ -1319,6 +1319,18 @@ def _clone_behind(path, fetch=True, branch=None):
     # it, and never by itself makes the clone stale.
     unpushed, on_origin, carrier = ahead, '0', ''
     if ahead != '0':
+        # The checked-out branch may be pushed with no tracking ref here
+        # (precedent_container_safe.fetch_missing_tracking_ref): one tool,
+        # one answer, for both checks.
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import precedent_container_safe as _pcs
+            cur = subprocess.run(['git', '-C', str(path), 'branch', '--show-current'],
+                                 capture_output=True, text=True).stdout.strip()
+            if cur and cur != branch:
+                _pcs.fetch_missing_tracking_ref(path, cur)
+        except ImportError:
+            pass
         r = subprocess.run(['git', '-C', str(path), 'rev-list', '--count',
                             '--no-merges', 'HEAD', '--not', '--remotes=origin',
                             '--', '.'], capture_output=True, text=True)

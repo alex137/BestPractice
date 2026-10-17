@@ -2177,7 +2177,12 @@ def main(argv):
     except Exception:                                        # noqa: BLE001
         pass
     argv = _default_destination(root, argv)
-    refused = _full_tier_refusal(root, argv)
+    # --list runs nothing and pushes nothing, so no refusal about what a
+    # push may carry applies to it. It used to be refused whenever main had
+    # commits staging lacked, which turned the harness test that reads it
+    # red for a reason unrelated to any change (2026-10-17).
+    listing = '--list' in argv
+    refused = None if listing else _full_tier_refusal(root, argv)
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1
@@ -2186,7 +2191,7 @@ def main(argv):
         print(f'precedent_push_check: running as asked, because: '
               f'{argv[i + 1] if i + 1 < len(argv) else "(no reason given)"}',
               flush=True)
-    refused = _promote_only_refusal(root, argv)
+    refused = None if listing else _promote_only_refusal(root, argv)
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1

@@ -75,6 +75,28 @@ except Exception:                     # a source-config problem is that
     _refresh = None                   # tool's to report; never fatal here
 
 
+def fetch_missing_tracking_ref(repo, branch):
+    """Fetch origin's `branch` into refs/remotes/origin/<branch> when this
+    clone has no such ref and origin has the branch. -> True when it fetched.
+
+    A SHALLOW, SINGLE-BRANCH CLONE NEVER LEARNS ITS OWN PUSHES (2026-10-17).
+    `git clone --depth 1` (what attaching a repository mid-session runs)
+    sets a fetch refspec for the default branch only, so `git push -u` of a
+    feature branch creates no refs/remotes/origin/<branch>. Every check
+    asking "is HEAD on a remote?" through --remotes then reported a pushed
+    commit as "on no remote", and held the archive line over work that was
+    safe. Making the ref exist is the repair: the question is then answered
+    the ordinary way, here and by every later check."""
+    if not branch or _git(repo, 'rev-parse', '--verify', '-q',
+                          f'refs/remotes/origin/{branch}')[0]:
+        return False
+    ok, out = _git(repo, 'ls-remote', '--heads', 'origin', branch)
+    if not ok or not out.strip():
+        return False
+    return _git(repo, 'fetch', '-q', 'origin',
+                f'+refs/heads/{branch}:refs/remotes/origin/{branch}')[0]
+
+
 def _git(repo, *args):
     """(ok, stdout). Never raises: a checkout that cannot answer is reported
     as unknown, which is not the same as safe and is not the same as a crash
@@ -310,6 +332,8 @@ def scan_one(repo):
     # not exist yet is exactly the work most likely to be lost, and
     # comparing against one named remote branch cannot see it.
     ok, out = _git(repo, 'rev-list', '--count', 'HEAD', '--not', '--remotes')
+    if ok and out.isdigit() and int(out) > 0 and fetch_missing_tracking_ref(repo, branch):
+        ok, out = _git(repo, 'rev-list', '--count', 'HEAD', '--not', '--remotes')
     # Commits that change no file -- a merge, an empty commit -- lose nothing
     # when the container goes, so they are never reported as work at risk
     # (Morgan, 2026-09-27, strength: decided). Proven by content: HEAD's
