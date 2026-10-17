@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.64 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.22 to it",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.64 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.22 to it; 1 added 2026-10-17 by --record-new-times, scaled by 1.46 to it",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -458,6 +458,7 @@
   "check_retired_branch_name_does_not_ship": 0.0,
   "check_retired_practices_leave_the_views": 0.1,
   "check_retired_sets_are_dropped_only_when_nothing_is_lost": 0.1,
+  "check_retired_team_level_spares_ordinary_english": 0.0,
   "check_retired_words_are_found_and_history_is_left": 0.0,
   "check_retirement_record_is_not_a_stranded_link": 11.3,
   "check_review_page_carries_every_source_and_is_never_committed": 0.9,

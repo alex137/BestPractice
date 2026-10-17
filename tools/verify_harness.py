@@ -59160,6 +59160,33 @@ def check_shared_helpers_have_one_copy():
           not bad, '; '.join(bad))
 
 
+def check_retired_team_level_spares_ordinary_english():
+    """The retired "team (as a level)" word must not catch "team" meaning a
+    group of people, which its own registry entry says is not retired: its
+    pattern matched "at the team level" (2026-10-17 very deep check). THE
+    CASE: ordinary English passes. CONTROLS: the level sense is still
+    caught, hyphenated or not."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import our_language as ol
+    retired = [r for r in ol.load_retired() if r[0] == 'team (as a level)']
+    pats = retired[0][2] if retired else []
+    hit = lambda t: any(p.search(t) for p in pats)
+    cases = [
+        ('the retired word is registered', bool(pats), ''),
+        ('THE CASE: "decided at the team level" is ordinary English',
+         not hit('decided at the team level'), ''),
+        ('nor "on a team level"', not hit('work on a team level'), ''),
+        ('CONTROL: "a team-level practice" is still caught',
+         hit('a team-level practice'), ''),
+        ('CONTROL: "kept at team level" and "the team level needs a rule" '
+         'are still caught', hit('kept at team level')
+         and hit('the team level needs a rule'), ''),
+    ]
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'the retired team-level word spares ordinary English '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_very_deep_check_runs_other_sources_checks_here():
     """A declared source's own check script whose practice is IN FORCE in
     this repo, and which this repo's precedent_check.py never discovers, is
@@ -82794,6 +82821,7 @@ def main():
     check_ci_fleet_audit_counts_each_workflow_past_the_sample()
     check_bestpractice_engine_hooks_are_stubs()
     check_shared_helpers_have_one_copy()
+    check_retired_team_level_spares_ordinary_english()
     check_very_deep_check_runs_other_sources_checks_here()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()
