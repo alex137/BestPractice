@@ -645,6 +645,8 @@ _session_start_one() {
   if [ "$fetched" -eq 0 ] && _branch_absent_from_origin "$branch"; then
     fetched=1
     echo "NOTE: freshness-guard: '$branch' does not exist on origin yet -- nothing to be behind. Checking it against the base branch only." >&2
+  elif [ "$fetched" -eq 0 ] && ! _git remote get-url origin >/dev/null 2>&1; then
+    echo "WARN: freshness-guard: this repository has no origin yet, so there is nothing to fetch and its freshness is NOT verified. Give it one: git remote add origin <its GitHub URL>, then push." >&2
   elif [ "$fetched" -eq 0 ]; then
     echo "WARN: freshness-guard: could not fetch origin/$branch -- freshness NOT verified. Everything below is measured against a possibly stale remote-tracking ref; a silent result here means 'not checked', never 'in sync'." >&2
   fi
@@ -983,6 +985,9 @@ _pre_write_one() {
   if ! _git fetch --quiet origin "$branch" 2>/dev/null; then
     if _branch_absent_from_origin "$branch"; then
       echo "NOTE: freshness-guard: '$branch' does not exist on origin yet -- nothing to be behind, so this call is not blocked on it. The base-branch check below still runs." >&2
+    elif ! _git remote get-url origin >/dev/null 2>&1; then
+      # No origin at all: "git fetch origin" is no remedy (2026-10-17).
+      _pw_block "this repository has no origin yet, so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Give it one: git remote add origin <its GitHub URL>, then push $branch"
     else
       _pw_block "could not fetch origin/$branch, so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Run: git fetch origin $branch"
     fi

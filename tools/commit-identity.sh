@@ -142,6 +142,27 @@ DEFAULT_TZ="America/New_York"
 ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
+# A LOCAL SESSION (2026-10-17): Claude Code on a person's own machine, told
+# apart the way session-start.sh tells it -- CLAUDE_CODE_REMOTE is not
+# "true" -- and marked the same way, PRECEDENT_LOCAL_SESSION=1, which any
+# harness can set (0 says "a container", whatever else holds). There this
+# hook writes THIS checkout's git config and its own .git/hooks only: the
+# global identity, the global core.hooksPath and the system clock are a
+# container's to set, and on a laptop they are the developer's own -- a
+# global core.hooksPath silences every other repository's .git/hooks. Until
+# that day the first local session rewrote all three, and no document said
+# so (very deep check, 2026-10-17). A cloud container is unchanged: a
+# session rooted above its repositories depends on the global identity.
+local_session=0
+case "${PRECEDENT_LOCAL_SESSION:-}" in
+  1) local_session=1 ;;
+  0) local_session=0 ;;
+  *) if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
+       local_session=1
+     fi ;;
+esac
+local_skipped=""
+
 name="" email="" zone="" source=""
 # Whether the identity came from something a PERSON DECLARED (an explicit
 # override, or an identity.json) rather than from something inferred about
@@ -503,6 +524,10 @@ _set_system_timezone() {
   if [ "$zone_is_guess" -eq 1 ] && [ -n "$cur" ] && [ "$cur" != "+0000" ]; then
     return 0
   fi
+  if [ "$local_session" -eq 1 ]; then
+    local_skipped="${local_skipped:+$local_skipped, }the system clock (commits need TZ=\"$zone\" here)"
+    return 0
+  fi
   if ln -sf "$want" "$target" 2>/dev/null; then
     if [ "$zone_is_guess" -eq 1 ]; then
       echo "NOTE: commit-identity: the system timezone was $cur; set to $zone ($(TZ="$zone" date +%z)) -- the DECLARED FALLBACK, because no timezone was found for this person. Every commit and every generated date in this session now carries a real offset instead of the container's +0000, so records from different people can be ordered. Declare a timezone in your individual source's identity.json (or set PRECEDENT_COMMIT_TZ) and it becomes yours, and enforced." >&2
@@ -579,6 +604,11 @@ _global_config_writable() {
 
 _set_global_identity() {
   [ "$declared" -eq 1 ] || [ "$authenticated" -eq 1 ] || return 0
+  if [ "$local_session" -eq 1 ]; then
+    [ -n "$email" ] && [ "$(git config --global --get user.email 2>/dev/null || true)" != "$email" ] && \
+      local_skipped="${local_skipped:+$local_skipped, }the global git identity"
+    return 0
+  fi
   if ! _global_config_writable; then
     echo "NOTE: commit-identity: GIT_CONFIG_GLOBAL is $GIT_CONFIG_GLOBAL, which is not a regular file, so the global identity is left alone (writing it would replace that file)." >&2
     return 0
@@ -1092,6 +1122,11 @@ fi
 # override this block exists to avoid.
 _install_global_backstop() {
   [ "$declared" -eq 1 ] || [ "$authenticated" -eq 1 ] || return 0
+  if [ "$local_session" -eq 1 ]; then
+    [ -z "$(git config --global --get core.hooksPath 2>/dev/null || true)" ] && \
+      local_skipped="${local_skipped:+$local_skipped, }a global core.hooksPath"
+    return 0
+  fi
   local dir existing
   dir="${PRECEDENT_GLOBAL_HOOKS:-$HOME/.config/precedent/git-hooks}"
   existing="$(git config --global --get core.hooksPath 2>/dev/null || true)"
@@ -1381,6 +1416,11 @@ PREPUSH
 }
 
 _install_global_backstop
+# Said only when it held something back, so a laptop whose global identity
+# already matches hears nothing.
+if [ -n "$local_skipped" ]; then
+  echo "NOTE: commit-identity: local session -- the identity is set for this checkout only; left alone: $local_skipped (a container's to set, your own here)." >&2
+fi
 
 # The applied fallback is said out loud even when it changed nothing this
 # session, because "your commits are stamped -0300" is a fact about somebody

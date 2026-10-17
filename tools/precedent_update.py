@@ -3003,7 +3003,14 @@ CATALOGUE_SYNC_NAME = 'CATALOGUE_SYNC.json'
 # universal refused all fourteen of its rules as lost in every repository
 # that vendors the catalogue this way (2026-10-04); the process/upstream/
 # mirror already carried it (checkin.py's VENDORED_DESPITE_DIR).
-CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md')
+# close_detect.json is universal's declaration for its own the-boildown, which
+# precedent_close_detect.py reads at <universal source>/close_detect.json; it
+# never travelled, so "it notices and offers a rule" did nothing on a fresh
+# install (very deep check, 2026-10-17). It is universal's rule, so it goes
+# where universal's practices go -- what stays home is a team's or a
+# person's own declaration (precedent_vendor_engine's note on the detector).
+CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md',
+                        'close_detect.json')
 
 
 def _blob_id(data):

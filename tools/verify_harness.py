@@ -236,6 +236,15 @@ FAILED = []
 # check_attached_sets_*, check_ladder_off_*).
 os.environ.setdefault('PRECEDENT_ASSUME_LADDER', '1')
 
+# THE HARNESS IS A CONTAINER, NOT A LAPTOP (2026-10-17). commit-identity.sh
+# leaves the global git identity, the global core.hooksPath and the system
+# clock alone in a local session -- CLAUDE_PROJECT_DIR set and
+# CLAUDE_CODE_REMOTE not "true", as a fixture running the hook looks on a
+# CI runner. The cases about those writes test the container; the one about
+# the laptop (check_commit_identity_leaves_a_laptops_global_config_alone)
+# says so itself.
+os.environ.setdefault('PRECEDENT_LOCAL_SESSION', '0')
+
 # THE HARNESS SEEDS FROM THE COMMIT UNDER TEST (2026-10-02), which main
 # does not contain on any working branch or pull request. seed() and the
 # bootstrap refuse that unless told it is on purpose (--off-main); every
@@ -30238,6 +30247,632 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_install_rehearsal_small_findings_2026_10_17():
+    """The small findings of the 2026-10-17 install rehearsal, one stated
+    case each: the installer leaves a template comment that NAMES a
+    placeholder as written and does not list it as one to adapt; the
+    README entry block goes under a title's description, not between the
+    two; practice_audit's not-applicable line in a consumer does not call
+    it the upstream repo; the access check does not count the vendored
+    universal catalogue as another repository; the CI cadence row never
+    says "every push runs CI"; and the freshness guard tells a repository
+    with no origin to add one, not to fetch from it.
+
+    Decisions chosen by the session under Morgan's delegation of 2026-10-17
+    ("Fix the other issues you found including the checks that never run.
+    Tell me what you decide. I will be offline so don't wait for me.
+    Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: every case fails on the code
+    before the fix.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+        import precedent_access_check as pac
+        import precedent_session_check as psck
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rehearsal-small-'))
+    genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    try:
+        # 1. Placeholders named inside a comment.
+        tpl = ('<!-- `<upstream-docs>` IS ONE OF THOSE PLACEHOLDERS.\n'
+               '     Replace <angle-bracket> placeholders. -->\n'
+               '[A](<upstream-docs>/x.md) and <their city>\n')
+        try:
+            out = pi._substitute(tpl, {'<upstream-docs>': 'https://u'}, outside_comments=True)
+        except TypeError:                 # an installer with no such switch
+            out = pi._substitute(tpl, {'<upstream-docs>': 'https://u'})
+        cases.append(('a comment naming a placeholder keeps its words; the text outside is filled',
+                      '`<upstream-docs>` IS ONE OF' in out and '[A](https://u/x.md)' in out,
+                      out))
+        d = tmp / 'ph'
+        d.mkdir()
+        (d / 'A.md').write_text(out, encoding='utf-8')
+        left = pi._placeholders_left(d, ['A.md'])
+        cases.append(('a placeholder named inside a comment is not listed as one to adapt',
+                      left == ['A.md:3: <their city>'], str(left)))
+        # 2. README block under the description.
+        r = tmp / 'readme'
+        r.mkdir()
+        (r / 'README.md').write_text('# Bird Notes\n\nA newsletter about birds.\n',
+                                     encoding='utf-8')
+        pi._readme(r, 'Bird Notes', None)
+        text = (r / 'README.md').read_text(encoding='utf-8')
+        cases.append(('the README entry block goes under the description, not between it '
+                      'and the title',
+                      text.index('A newsletter about birds.') < text.index('bestpractice-agent-entry'),
+                      text[:200]))
+        # 3. practice_audit's not-applicable line in a consumer.
+        pa = tmp / 'consumer' / 'tools'
+        shutil.copytree(ROOT / 'tools', pa, ignore=shutil.ignore_patterns(
+            '__pycache__', 'verify_harness.py', '*.json'))
+        ra = subprocess.run([sys.executable, str(pa / 'practice_audit.py')], capture_output=True,
+                            text=True, cwd=str(pa.parent), timeout=120)
+        said = ra.stdout + ra.stderr
+        cases.append(("practice_audit's not-applicable line does not call a consumer the "
+                      'upstream repo', 'NOT APPLICABLE' in said
+                      and 'upstream repo itself' not in said
+                      and 'installed onto the loader' in said, said[-300:]))
+        # 4. The access check's targets.
+        c = tmp / 'access'
+        subprocess.run(['git', 'init', '-q', str(c)], capture_output=True)
+        (c / 'precedent' / 'universal' / 'practices').mkdir(parents=True)
+        shared = tmp / 'shared-set'
+        (shared / 'practices').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(shared)], capture_output=True)
+        (c / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'},
+            {'level': 'shared', 'name': 'shared-set', 'path': '../shared-set'},
+            {'level': 'repo-local', 'name': 'local', 'path': 'local'}]}), encoding='utf-8')
+        _saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+        try:
+            got = [label for label, _p in pac.targets(str(c))]
+        finally:
+            if _saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = _saved
+        cases.append(('the vendored universal catalogue is this checkout, not one more repo '
+                      'to answer for; a sibling set still is',
+                      'this checkout' in got and "shared source 'shared-set'" in got
+                      and not any(l.startswith('universal') for l in got), str(got)))
+        # 5. The CI cadence row's words.
+        q = tmp / 'cadence'
+        subprocess.run(['git', 'init', '-q', str(q)], capture_output=True)
+        (q / 'precedent.json').write_text(json.dumps({'base_branch': 'main'}), encoding='utf-8')
+        saved_root, saved_cfg = psck.ROOT, os.environ.get('PRECEDENT_USER_CONFIG')
+        try:
+            psck.ROOT = q
+            os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+            row = psck._ci_cadence_row()
+        finally:
+            psck.ROOT = saved_root
+            if saved_cfg is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
+        cases.append(('the CI cadence row says what it decides ([skip ci]), never that every '
+                      'push runs CI', 'every push runs CI' not in row[2]
+                      and '[skip ci]' in row[2], str(row)))
+        # 6. The freshness guard in a repository with no origin.
+        g = tmp / 'no-origin'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(g)], capture_output=True)
+        subprocess.run(['git', '-C', str(g), 'commit', '-q', '--allow-empty', '-m', 'i'],
+                       capture_output=True, env=genv)
+        sent = tmp / 'sentinels'
+        sent.mkdir()
+        rg = subprocess.run(['bash', str(ROOT / 'tools' / 'freshness-guard.sh'), 'pre-write', 'main'],
+                            input=json.dumps({'session_id': 'no-origin-fixture',
+                                              'tool_name': 'Write',
+                                              'tool_input': {'command': ''}}),
+                            env=dict(genv, TMPDIR=str(sent), CLAUDE_PROJECT_DIR=str(g)),
+                            capture_output=True, text=True, cwd=str(g), timeout=120)
+        cases.append(('the freshness guard tells a repository with no origin to add one, not '
+                      'to fetch from it', 'no origin yet' in rg.stderr
+                      and 'git remote add origin' in rg.stderr
+                      and 'Run: git fetch origin' not in rg.stderr, rg.stderr[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_leak_gate_note_says_when_no_private_list_is_declared():
+    """With no private blocklist declared anywhere -- no individual set in
+    the user config, no requireVocabulary, no private source in
+    precedent.json -- the leak gate's allowlist note says none is declared
+    and that nothing is missing; with one declared but unreadable, it still
+    says that list was not reachable.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: a new
+    person with no individual set was told their "private blocklist ... was
+    not reachable" and to set PRECEDENT_GIT_TOKEN, sending them to look for
+    a list they never had. Decision chosen by the session under Morgan's
+    delegation of 2026-10-17 ("Fix the other issues you found including the
+    checks that never run. Tell me what you decide. I will be offline so
+    don't wait for me. Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: before the fix both runs print
+    the not-reachable note.
+    """
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-leak-none-'))
+    genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    try:
+        repo = tmp / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'leak_gate.py', repo / 'tools' / 'leak_gate.py')
+        shutil.copy(ROOT / 'tools' / 'leak-blocklist.default.txt',
+                    repo / 'tools' / 'leak-blocklist.default.txt')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        (repo / 'ok.md').write_text('nothing sensitive here\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], capture_output=True, env=genv)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'base'],
+                       capture_output=True, env=genv)
+
+        def gate(home):
+            e = {k: v for k, v in genv.items()
+                 if k not in ('PRECEDENT_LEAK_BLOCKLIST', 'PRECEDENT_USER_CONFIG')}
+            e['HOME'] = str(home)
+            r = subprocess.run([sys.executable, str(repo / 'tools' / 'leak_gate.py')],
+                               capture_output=True, text=True, cwd=str(repo), env=e,
+                               timeout=300)
+            return r.returncode, r.stdout + r.stderr
+        new = tmp / 'new-person'
+        new.mkdir()
+        rc, out = gate(new)
+        cases.append(('nothing declared: the note says none is declared, nothing is missing, '
+                      'and asks for no token',
+                      rc == 0 and 'no private blocklist is declared here' in out
+                      and 'not reachable' not in out and 'PRECEDENT_GIT_TOKEN' not in out,
+                      out[-500:]))
+        old = tmp / 'has-a-set'
+        (old / '.config' / 'precedent').mkdir(parents=True)
+        (old / '.config' / 'precedent' / 'config.json').write_text(json.dumps(
+            {'individual': {'path': str(tmp / 'absent-individual')}}), encoding='utf-8')
+        rc, out = gate(old)
+        cases.append(('CONTROL: an individual set is named but its list is not on disk: '
+                      'still "not reachable", with the remedy',
+                      'not reachable in this session' in out, out[-500:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_bootstrap_says_the_python_warning_once():
+    """In a local session, both bootstrap.sh copies run the Python check
+    once, so a machine whose python3 is not the declared version hears the
+    warning once per session start, not twice.
+
+    Found 2026-10-17 by the very deep check's install rehearsal, on Python
+    3.13: `check >/dev/null || check` ran the check again on failure, and
+    the warning, on stderr both times, printed twice. Decision chosen by the
+    session under Morgan's delegation of 2026-10-17 ("Fix the other issues
+    you found including the checks that never run. Tell me what you decide.
+    I will be offline so don't wait for me. Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: both copies before the fix run
+    the stub twice.
+    """
+    import tempfile
+    cases = []
+    for rel in ('tools/bootstrap.sh', 'templates/bootstrap.sh'):
+        with tempfile.TemporaryDirectory() as td:
+            d = pathlib.Path(td)
+            (d / 'tools').mkdir()
+            shutil.copy(ROOT / rel, d / 'tools' / 'bootstrap.sh')
+            (d / 'tools' / 'precedent_python.py').write_text(
+                'import pathlib, sys\n'
+                'f = pathlib.Path(__file__).with_name("calls")\n'
+                'f.write_text(f.read_text() + "x" if f.exists() else "x")\n'
+                'print("precedent_python: python3 here is 3.13", file=sys.stderr)\n'
+                'sys.exit(1)\n', encoding='utf-8')
+            r = subprocess.run(['bash', 'tools/bootstrap.sh'], cwd=str(d), capture_output=True,
+                               text=True, timeout=120,
+                               env=dict(os.environ, PRECEDENT_LOCAL_SESSION='1'))
+            calls = (d / 'tools' / 'calls').read_text() if (d / 'tools' / 'calls').exists() else ''
+            cases.append((f'{rel}: the check runs once and its warning prints once',
+                          calls == 'x' and r.stderr.count('python3 here is 3.13') == 1,
+                          f'{len(calls)} call(s); {r.stderr[-300:]}'))
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_individual_skeleton_ci_comment_is_true():
+    """The individual-set skeleton keeps "github_ci_workflows": "disabled",
+    and its comment says what is true: that an absent key means enabled
+    (ci_preference's default since 2026-09-25), which workflows the key
+    governs, and why the skeleton ships disabled -- naming no template that
+    no longer exists.
+
+    Found 2026-10-17 by the very deep check: the comment said an absent
+    key means disabled and named two templates retired 2026-09-21. Decision
+    chosen by the session under Morgan's delegation of 2026-10-17 ("Fix the
+    other issues you found including the checks that never run. Tell me what
+    you decide. I will be offline so don't wait for me. Approved, act, and
+    Booked."): keep "disabled", the cautious start, and make the comment
+    true.
+
+    Negative control, measured 2026-10-17: the comment before the fix fails
+    the absent-means and named-template cases.
+    """
+    import re as _re
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_identity as pid
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    tpl = ROOT / 'templates' / 'practice-set-individual' / 'identity.json.template'
+    doc = json.loads(tpl.read_text(encoding='utf-8'))
+    comment = ' '.join(doc.get('_github_ci_workflows_comment') or [])
+    named = set(_re.findall(r'[\w.-]+\.yml(?:\.template)?', comment))
+    shipped = {pathlib.Path(rel).name for _t, rel in pve.CI_WORKFLOW_TEMPLATES['consumer']}
+    shipped |= {t for t, _rel in pve.CI_WORKFLOW_TEMPLATES['consumer']}
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        ind = pathlib.Path(td)
+        (ind / 'identity.json').write_text(json.dumps({'email': 'a@example.com'}),
+                                           encoding='utf-8')
+        absent_enabled = pid.ci_preference(ind)['enabled']
+    cases = [
+        ('the skeleton still ships "disabled"', doc.get('github_ci_workflows') == 'disabled',
+         repr(doc.get('github_ci_workflows'))),
+        ('the comment says absent means enabled, as ci_preference does',
+         absent_enabled and 'ABSENT MEANS ENABLED' in comment, comment[:300]),
+        ('it says why the skeleton ships disabled', 'ON PURPOSE' in comment, comment[:300]),
+        ('every workflow it names is one the engine ships',
+         bool(named) and named <= shipped, f'{sorted(named)} vs {sorted(shipped)}'),
+    ]
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_installer_no_terminal_tests_every_push_to_main():
+    """An install for an assistant with no terminal (--no-terminal) writes
+    precedent.json's "github_ci_main_test": "always", so the light check
+    it writes tests every push to main in a private repository too; an
+    install without it leaves the template's private-repository skip as it
+    is.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: off the
+    ladder, a private repository's light check ran on no pull request (its
+    `if:` admits only branches Promote named), so an assistant with no
+    terminal got no check anywhere, though SETUP.md's fifth question says
+    that workflow is the only place a check can run for one. Decision chosen
+    by the session under Morgan's delegation of 2026-10-17 ("Fix the other
+    issues you found including the checks that never run. Tell me what you
+    decide. I will be offline so don't wait for me. Approved, act, and
+    Booked."): the existing "always" setting, written by the installer when
+    the answers say no terminal.
+
+    Negative control, measured 2026-10-17: on the code before the fix the
+    installer refuses --no-terminal as an unknown argument.
+    """
+    import tempfile
+    tool = str(ROOT / 'tools' / 'precedent_install.py')
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-no-terminal-'))
+    env = dict(os.environ, PRECEDENT_USER_CONFIG=str(tmp / 'no-config.json'),
+               GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    env.pop('PRECEDENT_GITHUB_USER', None)
+    try:
+        def install(name, *extra):
+            proj = tmp / name
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(proj)], capture_output=True)
+            (proj / 'README.md').write_text('# Notes\n\nA newsletter.\n', encoding='utf-8')
+            subprocess.run(['git', '-C', str(proj), 'add', '-A'], capture_output=True, env=env)
+            subprocess.run(['git', '-C', str(proj), 'commit', '-qm', 'before'],
+                           capture_output=True, env=env)
+            r = subprocess.run([sys.executable, tool, str(proj), '--project-name', 'Notes',
+                                '--visibility', 'private', *extra], cwd=str(ROOT),
+                               capture_output=True, text=True, env=env)
+            cfg = proj / 'precedent.json'
+            doc = json.loads(cfg.read_text(encoding='utf-8')) if cfg.is_file() else {}
+            wf = proj / '.github' / 'workflows' / 'light-check.yml'
+            return r, doc, wf.read_text(encoding='utf-8') if wf.is_file() else ''
+        r, doc, wf = install('chatgpt', '--no-terminal')
+        cases.append(('--no-terminal installs, writes "always" and says so',
+                      r.returncode == 0 and doc.get('github_ci_main_test') == 'always'
+                      and "main's GitHub test: always" in r.stdout,
+                      (r.stdout + r.stderr)[-600:]))
+        cases.append(('...and the light check it writes tests a private push to main',
+                      "'main-test:always' == 'main-test:always'" in wf, wf[:200]))
+        r, doc, wf = install('claude-code')
+        cases.append(('CONTROL: without it, nothing is written and the template keeps its skip',
+                      r.returncode == 0 and 'github_ci_main_test' not in doc
+                      and "'main-test:individual' == 'main-test:always'" in wf,
+                      (r.stdout + r.stderr)[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_installer_visibility_defaults_to_public_and_says_why():
+    """The installer's visibility: --visibility when given, then an existing
+    precedent.json, then GitHub's answer for a GitHub origin, and public
+    when none of those can be read -- the direction a wrong answer can be
+    undone from -- always with the reason.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: an absent
+    --visibility silently meant private, which renders private-level sets
+    into the tracked AGENTS.md, though precedent.json's own comment says an
+    absent key counts as public. Decision chosen by the session under
+    Morgan's delegation of 2026-10-17 ("Fix the other issues you found
+    including the checks that never run. Tell me what you decide. I will be
+    offline so don't wait for me. Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: on the code before the fix there
+    is no _visibility and main() defaults the flag to 'private'.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+        import github_budget as gb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    vis = getattr(pi, '_visibility', None)
+    if vis is None:
+        return False, '1 stated case', 'precedent_install has no _visibility: an absent flag means private'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-visibility-'))
+    real_call = gb.call
+    try:
+        def repo(name, url=None):
+            d = tmp / name
+            subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+            if url:
+                subprocess.run(['git', '-C', str(d), 'remote', 'add', 'origin', url],
+                               capture_output=True)
+            return d
+        got = vis(repo('no-origin'), None)
+        cases.append(('no origin: public, and says how to say private',
+                      got[0] == 'public' and '--visibility private' in got[1], str(got)))
+        got = vis(repo('elsewhere', str(tmp / 'bare.git')), None)
+        cases.append(('an origin not on GitHub: public', got[0] == 'public', str(got)))
+        got = vis(repo('given'), 'private')
+        cases.append(('CONTROL: --visibility private is taken as given', got[0] == 'private', str(got)))
+        d = repo('reinstall')
+        (d / 'precedent.json').write_text(json.dumps({'visibility': 'private'}), encoding='utf-8')
+        got = vis(d, None)
+        cases.append(('a --force reinstall keeps what precedent.json declares',
+                      got[0] == 'private', str(got)))
+        gh = repo('on-github', 'https://github.com/someone/notes.git')
+        gb.call = lambda path, **k: ({'private': True}, None) if path == 'repos/someone/notes' else (None, 'x')
+        got = vis(gh, None)
+        cases.append(("GitHub says private: private, and says it read GitHub",
+                      got == ('private', 'read from GitHub: someone/notes is private'), str(got)))
+        gb.call = lambda path, **k: (None, 'Not Found')
+        got = vis(gh, None)
+        cases.append(("GitHub cannot say: public, naming what GitHub answered",
+                      got[0] == 'public' and 'Not Found' in got[1], str(got)))
+    finally:
+        gb.call = real_call
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_installer_base_branch_asks_origin_before_the_current_branch():
+    """With origin/HEAD unset -- which is how `git remote add origin` and a
+    push leave it -- the installer asks origin for its default branch, then
+    looks for origin's main, before taking the branch checked out; and it
+    never says "(no origin)" about a repository that has one.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: a project
+    given its origin that way, installed from a feature branch, recorded the
+    feature branch as its base branch. Decision chosen by the session under
+    Morgan's delegation of 2026-10-17 ("Fix the other issues you found
+    including the checks that never run. Tell me what you decide. I will be
+    offline so don't wait for me. Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: on the code before the fix the
+    first three cases answer the feature branch, "(no origin)".
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-base-branch-'))
+    genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], capture_output=True,
+                              text=True, env=genv)
+
+    def project(name, origin_head='main'):
+        bare = tmp / f'{name}.git'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', origin_head, str(bare)],
+                       capture_output=True)
+        d = tmp / name
+        subprocess.run(['git', 'init', '-q', '-b', origin_head, str(d)], capture_output=True)
+        git(d, 'commit', '-q', '--allow-empty', '-m', 'init')
+        git(d, 'remote', 'add', 'origin', str(bare))
+        git(d, 'push', '-q', 'origin', origin_head)
+        git(d, 'switch', '-q', '-c', 'feature/install-precedent')
+        return d, bare
+
+    try:
+        d, _ = project('plain')
+        unset = git(d, 'symbolic-ref', '-q', 'refs/remotes/origin/HEAD').returncode != 0
+        got = pi._base_branch(d, None)
+        cases.append(('origin/HEAD unset after remote add + push: origin is asked, and '
+                      'its default is the base branch, not the feature branch',
+                      unset and got[0] == 'main' and 'no origin' not in got[1], str(got)))
+        d, _ = project('trunk', origin_head='trunk')
+        got = pi._base_branch(d, None)
+        cases.append(("origin's own default answers, whatever it is called",
+                      got[0] == 'trunk', str(got)))
+        d, _ = project('offline')
+        git(d, 'fetch', '-q', 'origin')
+        git(d, 'remote', 'set-url', 'origin', str(tmp / 'gone.git'))
+        got = pi._base_branch(d, None)
+        cases.append(("origin unreachable: origin's main, already fetched, answers",
+                      got[0] == 'main' and 'no origin' not in got[1], str(got)))
+        d = tmp / 'no-origin'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(d)], capture_output=True)
+        git(d, 'commit', '-q', '--allow-empty', '-m', 'init')
+        git(d, 'switch', '-q', '-c', 'feature')
+        got = pi._base_branch(d, None)
+        cases.append(('CONTROL: no origin at all: the branch checked out, said as such',
+                      got == ('feature', 'inferred from the branch checked out now (no origin)'),
+                      str(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_installer_vendors_the_catalogue_companions():
+    """The universal catalogue's companions -- its manifest, its withdrawal
+    record and its close_detect.json -- travel with practices/ on install,
+    the same list Update Vendors copies, so precedent_close_detect.py
+    --explain finds universal's declaration in a consumer.
+
+    Found 2026-10-17 by the very deep check's install rehearsal:
+    BestPractice's root close_detect.json (for the universal the-boildown)
+    was never vendored, since INSTALL.md section 0 step 1 copies only
+    practices/, so "it notices and offers a rule" did nothing on a fresh
+    install. Decision chosen by the session under Morgan's delegation of
+    2026-10-17 ("Fix the other issues you found including the checks that
+    never run. Tell me what you decide. I will be offline so don't wait for
+    me. Approved, act, and Booked."): vendor it, the findings item's pick.
+
+    Negative control, measured 2026-10-17: on the code before the fix the
+    installer had no list to compare, and --explain in the vendored copy
+    said no source declares a close_detect.json.
+    """
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-companions-'))
+    try:
+        cases.append(("the installer copies the same companions Update Vendors does",
+                      getattr(pi, 'CATALOGUE_COMPANIONS', None) == pu.CATALOGUE_COMPANIONS
+                      and 'close_detect.json' in pu.CATALOGUE_COMPANIONS,
+                      f'{getattr(pi, "CATALOGUE_COMPANIONS", None)} vs {pu.CATALOGUE_COMPANIONS}'))
+        proj = tmp / 'proj'
+        proj.mkdir()
+        pi._vendor_catalogue(proj)
+        (proj / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': pi.UNIVERSAL_PATH}]}),
+            encoding='utf-8')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_close_detect.py'),
+                            '--explain', '--repo', str(proj)], capture_output=True, text=True)
+        cases.append(("--explain in the vendored copy finds universal's close_detect.json",
+                      (proj / pi.UNIVERSAL_PATH / 'close_detect.json').is_file()
+                      and 'universal/precedent: ready-to-archive' in r.stdout
+                      and 'no source declares' not in r.stdout, r.stdout + r.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_a_person_with_no_individual_set_can_be_a_code_owner():
+    """A person with no individual set is known by the administrator the
+    installer was told (--admin), or by the GitHub account the session's
+    token belongs to, so the practices for code owners reach them.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: with no
+    individual set, viewer() knew only PRECEDENT_GITHUB_USER (documented
+    nowhere an adopter reads), so the administrator who had just installed
+    the project was a code owner nowhere and 28 practices stayed hidden,
+    Update Vendors among them; --admin did not help. Decision chosen by the
+    session under Morgan's delegation of 2026-10-17 ("Fix the other issues
+    you found including the checks that never run. Tell me what you decide.
+    I will be offline so don't wait for me. Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: on the code before the fix, the
+    git-config and token cases below fail (not a code owner), and the
+    nothing-known control fails only on naming PRECEDENT_GITHUB_USER.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-viewer-'))
+    cases = []
+    try:
+        env = {**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        for k in ('PRECEDENT_GITHUB_USER', 'PRECEDENT_COMMIT_EMAIL'):
+            env.pop(k, None)
+        nobody = tmp / 'github-knows-nobody.json'
+        nobody.write_text('{}', encoding='utf-8')
+        env['PRECEDENT_GITHUB_USER_URL'] = nobody.as_uri()
+
+        def repo(name):
+            d = tmp / name
+            subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+            (d / 'precedent.json').write_text(json.dumps(
+                {'maintainers': [{'github': 'dana'}]}), encoding='utf-8')
+            return d
+
+        def audience(d, **extra):
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_audience.py'),
+                                '--repo', str(d)], capture_output=True, text=True,
+                               env=dict(env, **extra))
+            return r.stdout.strip()
+
+        a = repo('nothing-known')
+        out = audience(a)
+        cases.append(('CONTROL: nothing known about the person -- in doubt, hidden, '
+                      'and PRECEDENT_GITHUB_USER is named as a way to say who you are',
+                      out.startswith('not a code owner:') and 'PRECEDENT_GITHUB_USER' in out,
+                      out))
+        b = repo('admin-recorded')
+        subprocess.run(['git', '-C', str(b), 'config', 'precedent.githubLogin', 'dana'],
+                       capture_output=True)
+        out = audience(b)
+        cases.append(("the login the installer kept in the clone's git config (--admin) "
+                      'makes the administrator a code owner', out.startswith('code owner:'), out))
+        c = repo('token-account')
+        me = tmp / 'github-says-dana.json'
+        me.write_text(json.dumps({'login': 'dana', 'id': 7}), encoding='utf-8')
+        out = audience(c, PRECEDENT_GITHUB_USER_URL=me.as_uri())
+        cases.append(("the account the session's token belongs to makes its owner a code owner",
+                      out.startswith('code owner:'), out))
+        kept = subprocess.run(['git', '-C', str(c), 'config', '--get', 'precedent.githubLogin'],
+                              capture_output=True, text=True).stdout.strip()
+        out = audience(c)
+        cases.append(('...and it is kept, so the next session needs no lookup',
+                      kept == 'dana' and out.startswith('code owner:'), f'{kept!r}: {out}'))
+        out = audience(c, PRECEDENT_GITHUB_USER='someone-else')
+        cases.append(('CONTROL: a declared username still outranks what was kept',
+                      out.startswith('not a code owner:'), out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_code_owners_only_practices_reach_only_code_owners():
     """A practice marked `visible_to: code-owners` reaches only a person the
     repository names as a code owner, and a stale-branch listing never names
@@ -38142,6 +38777,92 @@ def check_boildown_contradiction_spares_work_waiting_upstream():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
           '; '.join(failed) + ('' if not failed else f' -- {up.stderr[:300]}'))
+
+
+def check_commit_identity_leaves_a_laptops_global_config_alone():
+    """On a local session (Claude Code on a person's own machine), the
+    commit-identity hook sets the identity for this checkout only and leaves
+    the global git identity, the global core.hooksPath and the system clock
+    alone, saying so; in a cloud container it writes all three as before.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: the first
+    session on a local machine rewrote the developer's global identity and
+    set a global core.hooksPath, which silences every other repository's
+    .git/hooks, and no document said so. Decision chosen by the session
+    under Morgan's delegation of 2026-10-17 ("Fix the other issues you found
+    including the checks that never run. Tell me what you decide. I will be
+    offline so don't wait for me. Approved, act, and Booked."): repo-local
+    config only on a local session, cloud unchanged.
+
+    Hermetic: a scratch HOME and global config, a scratch clock file
+    (PRECEDENT_LOCALTIME), TZ pinned -- the machine's own clock and config
+    are never touched. Negative control, measured 2026-10-17: on the code
+    before the fix the local run wrote the global identity, core.hooksPath
+    and the clock file.
+    """
+    import tempfile
+    hook = ROOT / 'tools' / 'commit-identity.sh'
+    zone = 'Asia/Tokyo'
+    if not pathlib.Path('/usr/share/zoneinfo', zone).exists():
+        return True, f'not applicable: no zoneinfo for {zone}', ''
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        def run(name, **extra):
+            repo = tmp / name / 'repo'
+            home = tmp / name / 'home'
+            home.mkdir(parents=True)
+            subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+            gcfg = home / '.gitconfig'
+            gcfg.write_text('', encoding='utf-8')
+            e = {k: v for k, v in os.environ.items()
+                 if k not in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LOCAL_SESSION',
+                              'PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
+                              'PRECEDENT_COMMIT_TZ')}
+            e.update(HOME=str(home), GIT_CONFIG_GLOBAL=str(gcfg), TZ='UTC',
+                     CLAUDE_PROJECT_DIR=str(repo),
+                     PRECEDENT_LOCALTIME=str(tmp / name / 'localtime'),
+                     PRECEDENT_GLOBAL_HOOKS=str(home / 'git-hooks'),
+                     PRECEDENT_USER_CONFIG=str(home / 'no-config.json'),
+                     PRECEDENT_COMMIT_NAME='Dana Dev',
+                     PRECEDENT_COMMIT_EMAIL='dana@example.com',
+                     PRECEDENT_COMMIT_TZ=zone, **extra)
+            r = subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                               timeout=120, env=e)
+
+            def gget(key, where):
+                return subprocess.run(['git', 'config', '--file', str(where), '--get', key],
+                                      capture_output=True, text=True).stdout.strip()
+            return {'local_email': gget('user.email', repo / '.git' / 'config'),
+                    'global_email': gget('user.email', gcfg),
+                    'hooks_path': gget('core.hooksPath', gcfg),
+                    'clock': os.path.lexists(tmp / name / 'localtime'),
+                    'err': r.stderr}
+
+        lap = run('laptop')
+        cases.append(('a local session sets the identity for this checkout',
+                      lap['local_email'] == 'dana@example.com', str(lap)[:400]))
+        cases.append(('...and leaves the global identity, core.hooksPath and the clock alone',
+                      not lap['global_email'] and not lap['hooks_path'] and not lap['clock'],
+                      str(lap)[:600]))
+        cases.append(('...and says what it left alone',
+                      'local session -- the identity is set for this checkout only' in lap['err']
+                      and 'global git identity' in lap['err']
+                      and 'core.hooksPath' in lap['err'], lap['err'][-600:]))
+        cloud = run('cloud', CLAUDE_CODE_REMOTE='true')
+        cases.append(('CONTROL: a cloud container still writes the global identity, '
+                      'core.hooksPath and the clock',
+                      cloud['global_email'] == 'dana@example.com' and bool(cloud['hooks_path'])
+                      and cloud['clock'] and 'local session' not in cloud['err'],
+                      str(cloud)[:600]))
+        marked = run('marked', CLAUDE_CODE_REMOTE='true', PRECEDENT_LOCAL_SESSION='1')
+        cases.append(('PRECEDENT_LOCAL_SESSION=1 marks a local session for any harness',
+                      not marked['global_email'] and not marked['hooks_path'],
+                      str(marked)[:400]))
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
 def check_commit_identity_prevents_the_wrong_offset():
@@ -70532,14 +71253,26 @@ def check_installer_produces_a_clean_install():
                  '--admin', 'dana'], ROOT)
         out = r.stdout + r.stderr
         cases.append(('the installer exits 0 on a fresh project', r.returncode == 0, out[-1500:]))
+        _who = subprocess.run(['git', '-C', str(proj), 'config', '--local', '--get',
+                               'precedent.githubLogin'], capture_output=True, text=True)
+        cases.append(("--admin is kept in the clone's git config as who \"you\" are, so "
+                      'the code-owner practices reach the administrator with no '
+                      'individual set (2026-10-17)',
+                      _who.stdout.strip() == 'dana' and '@dana, kept in this clone' in out,
+                      _who.stdout + out[-400:]))
         cases.append(('it says the light check on the files it wrote passed',
                       'the light check on the written files: OK' in out, out[-800:]))
         cases.append(('it names the placeholders it left rather than pretending there are none',
                       'placeholder(s) to adapt' in out, out[-800:]))
         pj = proj / 'precedent.json'
         doc = json.loads(pj.read_text(encoding='utf-8')) if pj.is_file() else {}
-        cases.append(('precedent.json declares the base branch and the visibility explicitly',
-                      doc.get('base_branch') == 'main' and doc.get('visibility') == 'private',
+        # No origin, so nothing can say whether it is private: public, the
+        # safe direction, and the output says why (2026-10-17; until then
+        # an absent --visibility silently meant private).
+        cases.append(('precedent.json declares the base branch and the visibility explicitly, '
+                      'and the output says why that visibility',
+                      doc.get('base_branch') == 'main' and doc.get('visibility') == 'public'
+                      and 'visibility: public (it has no origin yet' in out,
                       str(doc)[:300]))
         _map = (proj / 'MAP.md').read_text(encoding='utf-8') if (proj / 'MAP.md').is_file() else ''
         _src = (proj / 'MAP.source.md').read_text(encoding='utf-8') if (proj / 'MAP.source.md').is_file() else ''
@@ -70556,9 +71289,12 @@ def check_installer_produces_a_clean_install():
         cases.append(('AGENTS.md carries the generated loader block with the resident set in it',
                       bv.BEGIN_MARKER in agents and 'verify-postcondition' in agents, agents[:300]))
         gs = (proj / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj / 'GETTING_STARTED.md').is_file() else ''
+        # Outside comments: a comment that NAMES the placeholder keeps its
+        # words since 2026-10-17 (precedent_install._substitute).
         cases.append(('GETTING_STARTED.md has the project name and the administrator filled in, '
                       'and no dead upstream-docs placeholder',
-                      'Field Notes' in gs and '@dana' in gs and '<upstream-docs>' not in gs,
+                      'Field Notes' in gs and '@dana' in gs
+                      and '<upstream-docs>' not in re.sub(r'<!--.*?-->', '', gs, flags=re.S),
                       gs[:400]))
         # No individual source resolves here (PRECEDENT_USER_CONFIG points at
         # a file that does not exist), so ci_preference() has nothing to read
@@ -83577,6 +84313,26 @@ def main():
           *check_reply_check_keeps_quiet_while_a_batch_runs())
     check('a code-owners-only practice reaches only code owners',
           *check_code_owners_only_practices_reach_only_code_owners())
+    check('a person with no individual set is known by --admin or their GitHub account',
+          *check_a_person_with_no_individual_set_can_be_a_code_owner())
+    check("the universal catalogue's close_detect.json travels with it on install and update",
+          *check_installer_vendors_the_catalogue_companions())
+    check('the installer asks origin for the base branch before taking the current one',
+          *check_installer_base_branch_asks_origin_before_the_current_branch())
+    check('the installer defaults visibility to public when it cannot be read, and says why',
+          *check_installer_visibility_defaults_to_public_and_says_why())
+    check('an install for an assistant with no terminal has GitHub test every push to main',
+          *check_installer_no_terminal_tests_every_push_to_main())
+    check("the individual-set skeleton's CI comment says what is true",
+          *check_individual_skeleton_ci_comment_is_true())
+    check('bootstrap.sh says a wrong-Python warning once, not twice',
+          *check_bootstrap_says_the_python_warning_once())
+    check('the leak gate says no private list is declared when none is',
+          *check_leak_gate_note_says_when_no_private_list_is_declared())
+    check("the 2026-10-17 install rehearsal's small findings stay fixed",
+          *check_install_rehearsal_small_findings_2026_10_17())
+    check("a local session's commit identity leaves the laptop's global git config alone",
+          *check_commit_identity_leaves_a_laptops_global_config_alone())
     check_endgame_merge_finds_the_silent_drop()
     check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
           *check_moved_claims_says_when_it_could_not_read_the_tree())

@@ -785,7 +785,9 @@ def audit(update=False, only=None, entries=None):
         if not (ROOT / 'process').is_dir():
             print("practice_audit NOT APPLICABLE: this repo vendors no practice "
                   "layer (no process/ directory), so there is no export loop to "
-                  "audit. This is the expected state in the upstream repo itself.")
+                  "audit. This is the expected state in Precedent itself and in "
+                  "any project installed onto the loader (INSTALL.md section 0), "
+                  "which vendors its catalogue at precedent/universal/ instead.")
             return 0
         print("practice_audit FAIL: process/ exists but there is no manifest at "
               "process/manifest*.json — a vendored tree with no manifest is "
