@@ -599,6 +599,27 @@ def brought_sets_step(rep, fetch=None, repo=None):
                   f'and run this again')
 
 
+_HOOK_NOT_HERE = re.compile(
+    r'precedent_sync_views: (\S+): its (\S+) hook runs (\S+), which is not '
+    r'in this repository yet')
+
+
+def hooks_not_here_step(rep, out):
+    """Say each hook a practice in force declares whose script this
+    repository does not have yet (precedent_sync_views notes it).
+
+    WHY (2026-10-17, the session moving enforcement into the sets). The
+    engine dropped a refusal that a practice set now ships as its own hook;
+    a repository that took the engine half without that set's files lost the
+    old refusal before it had the new one, and nothing said so."""
+    for slug, event, run in _HOOK_NOT_HERE.findall(out or ''):
+        rep.step('a check not here yet',
+                 f'WARNING: {slug} declares a {event} hook running {run}, which '
+                 f'this repository does not have yet, so that check is off here. '
+                 f'Take its source\'s sync in this same update (the sets layer), '
+                 f'or the engine half lands without the check that replaced it')
+
+
 def removed_links_step(rep, out):
     """List, for the person, each link in this repo's own files that the
     sync reported dangling: to a practice the sync removed, or an earlier
@@ -1422,6 +1443,33 @@ def _without_duplicate_permissions(text):
     return json.dumps(data, indent=indent, ensure_ascii=False) + '\n'
 
 
+def names_full_path(line, path):
+    """True when `line` names `path` the way rename-updates-links reads a
+    line: the whole path, or with ./ or ../ in front, never as the tail of a
+    longer path and never by its file name alone.
+
+    WHY (2026-10-17, a document project's Update Vendors): the first run
+    left precedent.json lines that the same run had already repointed from
+    tools/checks/check_commit_author.py to tools/check_commit_author.py, and
+    the engine manifest's bare "check_commit_author.py" at its new home, as
+    still naming the old path: this matched the file name alone. Nothing
+    refuses those lines, and the next run, with no edit, did not list
+    them."""
+    start = 0
+    while True:
+        i = line.find(path, start)
+        if i < 0:
+            return False
+        start = i + 1
+        k = i
+        while k > 0 and (line[k - 1].isalnum() or line[k - 1] in '._-/'):
+            k -= 1
+        prefix = line[k:i]
+        if not prefix or (prefix.endswith('/') and all(
+                seg in ('.', '..') for seg in prefix[:-1].split('/'))):
+            return True
+
+
 def retired_mentions(repo, engine_out):
     """-> [(where, gone)] for each file that still names something the
     engine refresh deleted, and still does now that the rest of the update
@@ -1468,9 +1516,8 @@ def retired_mentions(repo, engine_out):
             text = (repo / path).read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             continue
-        base = pathlib.PurePosixPath(gone).name
         hit = next((n for n, l in enumerate(text.splitlines(), 1)
-                    if gone in l or base in l), None)
+                    if names_full_path(l, gone)), None)
         if hit is not None and (f'{path}:{hit}', gone) not in out:
             out.append((f'{path}:{hit}', gone))
     return out
@@ -2286,6 +2333,9 @@ def dropped_template_lines_step(repo, rep, rev):
             rep.step('kept on purpose', f'{rel} keeps wording {tmpl} dropped, '
                      f'as precedent.json records -- "{reason}"')
             continue
+        if verdict == 'stale':
+            kept_file_question(repo, rep, rel, tmpl, sha, reason, old, rev)
+            continue
         if verdict in (None, 'unreasoned'):
             left = refresh_template_comment(repo, rel, tmpl, rev, hits)
             if left is not None:
@@ -2309,19 +2359,74 @@ def dropped_template_lines_step(repo, rep, rev):
                 f'purpose? record "{rel}" in precedent.json\'s '
                 f'{pve.KEPT_DIVERGENCES_KEY} with a reason and template_sha256 '
                 f'{sha}']
-        if verdict == 'stale':
-            change = (pve._template_change(old, _source_text(rev, tmpl) or '')
-                      if old is not None else [])
-            shown = ['  ' + (l if len(l) <= 160 else l[:157] + '...')
-                     for l in change[:20]]
-            if len(change) > 20:
-                shown.append(f'  ... and {len(change) - 20} more line(s)')
-            note[:0] = [f'recorded as kept ("{reason}"), but {tmpl} has changed '
-                        f'since -- ' + ('what changed:' if shown else
-                                        'read it again')] + shown
-        elif verdict == 'unreasoned':
+        if verdict == 'unreasoned':
             note.insert(0, 'recorded as kept with no reason, so not honoured')
         rep.details.setdefault(first, []).extend(note)
+
+
+def _lines_this_update_added(repo, rel, rep):
+    """-> [line] the file `rel` has now and had at HEAD, which this run
+    wrote: only when the file was clean when the run started writing, so a
+    person's own uncommitted edit is never called the update's."""
+    if rep.before is None or rel in rep.before:
+        return []
+    committed = _git_show(repo, f'HEAD:{rel}')
+    if committed is None:
+        return []
+    try:
+        now = (repo / rel).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return []
+    import difflib
+    return [l[1:] for l in difflib.unified_diff(
+                committed.splitlines(), now.splitlines(), lineterm='', n=0)
+            if l.startswith('+') and not l.startswith('+++') and l[1:].strip()]
+
+
+def kept_file_question(repo, rep, rel, tmpl, sha, reason, old, rev):
+    """ONE question for a file kept whole on purpose whose template has
+    changed since that was recorded: what changed in the template, what
+    this update already carried into the file, and the one edit that
+    records it as still kept.
+
+    WHY (2026-10-17, a consuming repository's Update Vendors): its
+    GETTING_STARTED.md is rewritten on purpose and recorded as kept. The
+    template gained a bullet and a reworded line. The update carried the
+    bullet into the file itself, said nothing about it, and then left ten
+    items, one per line of the repository's own rewrite, each saying "bring
+    it in line with templates/GETTING_STARTED.md, or drop the line". A
+    session doing what it was told would have cut lines from a file the
+    repository keeps on purpose. The lines are the repository's; the
+    question is only whether the decision still holds."""
+    change = (pve._template_change(old, _source_text(rev, tmpl) or '')
+              if old is not None else [])
+    carried = _lines_this_update_added(repo, rel, rep)
+
+    def clip(line):
+        return '  ' + (line if len(line) <= 160 else line[:157] + '...')
+    rep.leave(rel, f'kept on purpose ("{reason}"), and {tmpl} has changed '
+              f'since that was recorded: is it still kept as it is? Its own '
+              f'lines are this repository\'s; none of them is to be dropped '
+              f'for this question')
+    note = []
+    if change:
+        note.append(f'what changed in {tmpl} since the recorded version:')
+        note += [clip(l) for l in change[:20]]
+        if len(change) > 20:
+            note.append(f'  ... and {len(change) - 20} more line(s)')
+    else:
+        note.append(f'the recorded version of {tmpl} could not be found in '
+                    f'its history, so read the current template against the '
+                    f'file')
+    if carried:
+        note.append(f'this update already carried {len(carried)} line(s) of '
+                    f'it into {rel}, uncommitted:')
+        note += [clip(l) for l in carried[:10]]
+    note.append(f'still kept? in precedent.json, set '
+                f'{pve.KEPT_DIVERGENCES_KEY}["{rel}"].template_sha256 to {sha} '
+                f'and run again; not kept? bring {rel} in line with {tmpl} by '
+                f'hand, then remove its entry')
+    rep.details.setdefault(rel, []).extend(note)
 
 
 def budget_note_key(tool):
@@ -3600,7 +3705,96 @@ def harness_approval(paths, last=False, cases=None):
     return f'Commit the {files} {kind} change'
 
 
-def harness_ask(paths, last=False, cases=None, gates=None):
+ENGINE_MANIFEST_REL = 'tools/ENGINE_MANIFEST.json'
+
+
+def _head_json(repo, rel):
+    text = _git_show(repo, f'HEAD:{rel}')
+    try:
+        return json.loads(text) if text else None
+    except ValueError:
+        return None
+
+
+def hold_hook_hashes(repo, paths, approved):
+    """-> [hook names] whose hash in tools/ENGINE_MANIFEST.json this call set.
+
+    WHY (2026-10-17, a document project's update). The refresh writes the
+    NEW hooks' hashes into the engine manifest at once, while the hooks
+    themselves wait on the person's words. Committed without the hooks, as
+    the question invited, the manifest named content the files did not
+    have, and the next run called the 14 old hooks "your local edit" and
+    would not replace them. So while the words are missing, a held hook's
+    hash goes back to the one HEAD records (or out, for a hook HEAD did not
+    have); the run that has the words records each staged hook's own hash.
+    Either way the manifest is re-staged, so what is committed agrees with
+    itself."""
+    import hashlib
+    hooks = sorted({pathlib.PurePosixPath(p).name for p in paths
+                    if p.startswith('.claude/hooks/')})
+    mf = pathlib.Path(repo) / ENGINE_MANIFEST_REL
+    if not hooks or not mf.is_file():
+        return []
+    try:
+        data = json.loads(mf.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    hashes = dict(data.get('hooks_sha256') or {})
+    head = (_head_json(repo, ENGINE_MANIFEST_REL) or {}).get('hooks_sha256') or {}
+    done = []
+    for name in hooks:
+        if name not in hashes and name not in head:
+            continue
+        if approved:
+            f = pathlib.Path(repo) / '.claude' / 'hooks' / name
+            want = hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else None
+        else:
+            want = head.get(name)
+        if hashes.get(name) == want:
+            continue
+        if want is None:
+            hashes.pop(name, None)
+        else:
+            hashes[name] = want
+        done.append(name)
+    if done:
+        data['hooks_sha256'] = hashes
+        mf.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                      encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '--', ENGINE_MANIFEST_REL],
+                       capture_output=True, text=True)
+    return done
+
+
+def harness_baselines(repo, paths):
+    """-> ([path], [path]): the held .claude/ paths that have a recorded
+    baseline (a synced entry in process/manifest.json, or a hook's hash in
+    the engine manifest), and those that have none -- so the question says
+    what the go-ahead run records, never a baseline that does not exist
+    (2026-10-17: a consumer's .claude/settings.json had none, and the
+    question promised one)."""
+    repo = pathlib.Path(repo)
+    entries = set()
+    try:
+        data = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+        entries = {str(e.get('local_path') or '') for e in data.get('entries') or []
+                   if e.get('status') == 'synced' and e.get('local_sha256')}
+    except (OSError, ValueError):
+        pass
+    try:
+        hooks = set((json.loads((repo / ENGINE_MANIFEST_REL).read_text(
+            encoding='utf-8')).get('hooks_sha256') or {}))
+    except (OSError, ValueError):
+        hooks = set()
+    has, none = [], []
+    for p in paths:
+        named = p in entries or (p.startswith('.claude/hooks/')
+                                 and pathlib.PurePosixPath(p).name in hooks)
+        (has if named else none).append(p)
+    return has, none
+
+
+def harness_ask(paths, last=False, cases=None, gates=None, baselines=None):
     """The question for the person when an update changes hooks or settings.
     `last`: this is the update that turns the hooks into permanent stubs, so
     the question says, in plain words, that it is the last one. `cases`:
@@ -3615,14 +3809,26 @@ def harness_ask(paths, last=False, cases=None, gates=None):
                f'run before, and each can refuse what it names: '
                + '; '.join(f'{n} ({e}): {w}' for n, e, w in gates) + '. ')
     say = harness_approval(paths, last=last, cases=cases)
+    has, none = baselines if baselines is not None else (list(paths), [])
+    records = []
+    if has:
+        records.append(f'records the new baselines of {", ".join(has)}')
+    if none:
+        records.append(f'has no baseline to record for {", ".join(none)} '
+                       f'(none is kept for it)')
     approve = (f'Claude Code\'s auto mode lets this commit through only on the '
                f'person\'s words naming it, never on a bare yes, so tell them '
                f'what changes and give them the sentence, not a yes-or-no '
                f'question. To approve, say: "{say}". Then run this update '
                f'again with {HARNESS_GO_AHEAD}="<their words>": that run '
-               f'records these files\' new baselines, and until it does the '
-               f'manifest keeps the old ones, so committing everything else '
-               f'without them leaves nothing red. Left out, the change is '
+               f'{" and ".join(records) or "stages them"}. In auto mode the '
+               f'rerun can still be refused as self-modification even with their '
+               f'words; then the person approves the one permission prompt, or '
+               f'switches to default permissions for it -- the sentence alone '
+               f'is not always enough. Get the words before committing: '
+               f'committed without these files, the repository\'s push check '
+               f'can refuse the push, because the hooks the view sync writes '
+               f'no longer match the committed ones. Left out, the change is '
                f'offered again on the next update')
     if last:
         blocked = (new if gates else
@@ -4171,7 +4377,7 @@ def citations(repo, rev=None):
     except ValueError:
         return None
     stock = {}
-    for tmpl in (pve.AGENTS_MD_TEMPLATES.get('consumer') or ())[:1]:
+    for tmpl in (pve.agents_md_templates(repo, 'consumer') or ())[:1]:
         text = _source_text(rev, tmpl) if rev else None
         if text:
             stock['AGENTS.md'] = {l.strip() for l in text.splitlines() if l.strip()}
@@ -4745,13 +4951,17 @@ def source_commit(follow, tip, take=None):
             out['commit'] = sha
             if skipped:
                 n = len(skipped)
-                fix = _attach_remedy(unknown) if any(
-                    st == 'unmarked' for _s, st in skipped) else ''
-                out['step'] = (f"took {follow} @ {sha[:12]}, {n} commit"
+                # No attach advice here (2026-10-17, a consumer's session):
+                # the commit taken is the newest with a recorded pass, which
+                # is right, and the advice pushed a read-only session toward
+                # a push grant only to read a public check's status.
+                unread = any(st == 'unmarked' for _s, st in skipped)
+                out['step'] = (f"took {follow} @ {sha[:12]}"
+                               + (", the newest with a recorded pass" if unread else '')
+                               + f", {n} commit"
                                f"{'s' if n != 1 else ''} behind the newest {follow}, "
                                f"{tip[:12]}, because {_why_not_newer(skipped)}. This "
-                               f"repo gets the newer ones once their test passes"
-                               + (f" -- or now: {fix}" if fix else ''))
+                               f"repo gets the newer ones once their test passes")
             return out
         if state == 'unknown':
             if not skipped:
@@ -5237,6 +5447,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                 rep)
         in_force_nowhere_step(repo, rep, out)
         removed_links_step(rep, out)
+        hooks_not_here_step(rep, out)
         if rc != 0:
             # A declared source whose clone answers to another name is a
             # call about this repo's own precedent.json, so it is left for
@@ -5371,14 +5582,22 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     harness = harness_changes(repo)
     if harness:
         words = os.environ.get(HARNESS_GO_AHEAD, '').strip()
+        rehashed = hold_hook_hashes(repo, harness, approved=bool(words))
         if words:
             rep.step('hooks and settings', f'{", ".join(harness)} changed, with '
-                     f'the person\'s go-ahead: "{words}"')
+                     f'the person\'s go-ahead: "{words}"'
+                     + (f'; recorded the hash of {", ".join(rehashed)} in '
+                        f'{ENGINE_MANIFEST_REL}' if rehashed else ''))
         else:
+            if rehashed:
+                rep.step('hooks and settings', f'{ENGINE_MANIFEST_REL} keeps '
+                         f'the committed hash of {", ".join(rehashed)} until the '
+                         f'run with the person\'s words')
             rep.ask('hooks and settings',
                     harness_ask(harness, last=migrates_to_stubs(repo, harness),
                                 cases=harness_cases(repo, harness),
-                                gates=harness_new_gates(repo, harness)))
+                                gates=harness_new_gates(repo, harness),
+                                baselines=harness_baselines(repo, harness)))
 
     # 4b. Files that still name what the refresh deleted: the full check's
     # rename-updates-links refuses each one at the Promote, so they are

@@ -2033,6 +2033,25 @@ def received_paths(dest_root):
     return paths, tuple(dict.fromkeys(prefixes))
 
 
+GENERATED_REGISTRY = 'tools/generated_files.json'
+
+
+def wholly_generated_files(dest_root):
+    """-> {path} of each file this repository's generated-files registry
+    says a generator writes whole (an entry with no `part`). Never raises:
+    no registry is no generated file."""
+    try:
+        entries = json.loads((pathlib.Path(dest_root) / GENERATED_REGISTRY)
+                             .read_text(encoding='utf-8')).get('files') or []
+    except (OSError, ValueError, AttributeError):
+        return set()
+    whole = {str(e.get('path')) for e in entries
+             if isinstance(e, dict) and e.get('path') and not e.get('part')}
+    partial = {str(e.get('path')) for e in entries
+               if isinstance(e, dict) and e.get('path') and e.get('part')}
+    return whole - partial
+
+
 def dependents_of(dest_root, rels, cap=8):
     """-> {rel: [(referring path, line number, the line)]} for files that
     are about to stop existing, or just have.
@@ -2082,6 +2101,14 @@ def dependents_of(dest_root, rels, cap=8):
     # upstream does, and the next refresh rewrites it: counting it made every
     # row in a consumer a finding (2026-10-17, very deep check).
     received, received_under = received_paths(dest_root)
+    # A WHOLE FILE A GENERATOR WRITES (2026-10-17, a consuming repository's
+    # Update Vendors): MAP.md was warned about for naming two engine tools
+    # the refresh had just removed, and the update's own view rebuild a
+    # moment later dropped both lines. A generated view names what its
+    # sources and the tree name; a source that still names the file is
+    # warned about itself, and the view is rebuilt from them. A file only
+    # partly generated (AGENTS.md's blocks) is still read.
+    generated = wholly_generated_files(dest_root)
     needles = {}
     for rel in rels:
         base = pathlib.PurePosixPath(rel).name
@@ -2096,6 +2123,8 @@ def dependents_of(dest_root, rels, cap=8):
         if rel_here in rels:
             continue                      # the file being deleted itself
         if rel_here in received or rel_here.startswith(received_under):
+            continue
+        if rel_here in generated:
             continue
         try:
             text = f.read_text(encoding='utf-8')
@@ -2261,9 +2290,11 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
         'source_repo': SOURCE_REPO,
         'source_branch': followed_branch(dest_tools.parent),
         'source_commit': source_commit,
-        # Only when seed was told --off-main: the branch the engine really
-        # came from. source_branch stays what refresh follows; links and
-        # the universal clone are built from it. A refresh drops this.
+        # Only when seed was told --off-main, or a refresh --from-ref took a
+        # commit the followed branch lacks (from_ref_off_branch): where the
+        # engine really came from. source_branch stays what refresh follows;
+        # links and the universal clone are built from it. A refresh from
+        # the followed branch drops this.
         **({'seeded_from_branch': seeded_from} if seeded_from else {}),
         'files': files + ['routing_scope.json'],
         'sha256': hashes,
@@ -6187,6 +6218,16 @@ AGENTS_MD_TEMPLATES = {
                  'templates/AGENTS.md.template'),
     'source': (),
 }
+# A DOCUMENT PROJECT IS ITS OWN KIND OF AGENTS.md (2026-10-17, issue #1172).
+# A repo made from templates/document-project/AGENTS.md was compared with
+# the loader template: seven of its sections read as DIVERGED and four
+# loader-only ones as MISSING, while real drift from its own template (its
+# Contributor access rewrite) was never reported. agents_md_templates() picks
+# this family when precedent.json declares `"agents_md_template":
+# "document-project"`, or when AGENTS.md carries the headings only that
+# template has.
+DOCUMENT_PROJECT_AGENTS_MD = ('templates/document-project/AGENTS.md',)
+_DOCUMENT_PROJECT_HEADINGS = ('Document workflow', 'Contributor access')
 AGENTS_MD_SECTIONS_KEY = 'agents_md_sections_sha256'
 _AGENTS_MD_HISTORY_NAME = 'agents-md-history.json'
 _GENERATED_BEGIN = '<!-- BEGIN GENERATED'
@@ -6340,6 +6381,36 @@ def _sha_text(text):
     return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
 
+def is_document_project(dest_root):
+    """True when this repository's AGENTS.md comes from the document-project
+    template: declared in precedent.json (`agents_md_template`), else read
+    from AGENTS.md's own headings."""
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = {}
+    declared = cfg.get('agents_md_template') if isinstance(cfg, dict) else None
+    if isinstance(declared, str) and declared.strip():
+        return declared.strip() in ('document-project', DOCUMENT_PROJECT_AGENTS_MD[0])
+    try:
+        text = (root / AGENTS_MD).read_text(encoding='utf-8')
+    except OSError:
+        return False
+    heads = {re.sub(r'^#+\s*', '', l).strip() for l in text.splitlines()
+             if _MD_HEADING_RE.match(l)}
+    return all(h in heads for h in _DOCUMENT_PROJECT_HEADINGS)
+
+
+def agents_md_templates(dest_root, kind):
+    """-> the AGENTS.md templates `dest_root` is compared with, first the one
+    a refresh writes from: AGENTS_MD_TEMPLATES[kind], or the document-project
+    template for a document project."""
+    if kind == 'consumer' and is_document_project(dest_root):
+        return DOCUMENT_PROJECT_AGENTS_MD
+    return AGENTS_MD_TEMPLATES.get(kind, ())
+
+
 def _read_agents_md_sources(clone, commit, kind, out_dir):
     """Write the current AGENTS.md template at `commit` into
     out_dir/<its path>, and every section text either template has ever
@@ -6348,8 +6419,14 @@ def _read_agents_md_sources(clone, commit, kind, out_dir):
     `clone`. `--follow`, because the classic template began as
     templates/CLAUDE.md.template."""
     history = {}
-    for n, src_rel in enumerate(AGENTS_MD_TEMPLATES.get(kind, ())):
-        if n == 0:
+    # Each family's head is written, so the plan can compare a document
+    # project with its own template (agents_md_templates).
+    families = [AGENTS_MD_TEMPLATES.get(kind, ())]
+    if kind == 'consumer':
+        families.append(DOCUMENT_PROJECT_AGENTS_MD)
+    reads = [(n == 0, src) for fam in families for n, src in enumerate(fam)]
+    for head, src_rel in reads:
+        if head:
             blob = subprocess.run(['git', '-C', str(clone), 'show',
                                    f'{commit}:{src_rel}'], capture_output=True)
             if blob.returncode == 0:
@@ -6385,7 +6462,7 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
     of the current template, in template order -- see the block comment
     above for the actions. `span` is (first, end) in AGENTS.md, or None.
     Empty when there is no AGENTS.md or no template to compare with."""
-    srcs = AGENTS_MD_TEMPLATES.get(kind, ())
+    srcs = agents_md_templates(dest_root, kind)
     path = dest_root / AGENTS_MD
     if not srcs or not (templates_dir / srcs[0]).is_file() or not path.is_file():
         return []
@@ -6854,8 +6931,55 @@ def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
     return True
 
 
+# WHAT A SECOND PASS ALREADY ASKED AGAIN, KEPT ACROSS RE-RUNS OF ONE UPDATE
+# (2026-10-17, a document project's Update Vendors). A second pass whose
+# first pass ran an engine older than the hand-over asks again about every
+# section recorded as left out (reask_absent). The first pass runs the
+# repository's own committed engine, which an unfinished update has not
+# committed yet, so every re-run asked the same sections again and the run
+# never reached DONE until the engine was committed mid-update. A section
+# asked again once in this update, and still left out on the next run, is
+# the person's answer: it is not asked a third time for the same source
+# commit. Kept in the git directory, never committed; another source commit
+# starts a fresh record.
+REASKED_FILE = 'precedent-refresh-reasked.json'
+
+
+def _reasked_path(dest_root):
+    out = _git(dest_root, 'rev-parse', '--git-path', REASKED_FILE)
+    if not out:
+        return None
+    path = pathlib.Path(out)
+    return path if path.is_absolute() else pathlib.Path(dest_root) / path
+
+
+def reasked_sections(dest_root, commit):
+    """-> {section key} a second pass of this same update (`commit`)
+    already asked about again."""
+    path = _reasked_path(dest_root)
+    try:
+        data = json.loads(path.read_text(encoding='utf-8')) if path else {}
+    except (OSError, ValueError):
+        return set()
+    if not isinstance(data, dict) or data.get('commit') != commit:
+        return set()
+    return {str(k) for k in data.get('sections') or []}
+
+
+def record_reasked(dest_root, commit, keys):
+    path = _reasked_path(dest_root)
+    if not path or not commit:
+        return
+    keys = set(keys) | reasked_sections(dest_root, commit)
+    try:
+        path.write_text(json.dumps({'commit': commit, 'sections': sorted(keys)},
+                                   indent=1) + '\n', encoding='utf-8')
+    except OSError:
+        pass
+
+
 def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
-                      name_absent=False):
+                      name_absent=False, commit=None):
     """Print what refresh (or status) found in AGENTS.md's template
     sections, and put what needs a person on the Left-for-you list. Every
     run, the early exit included, for the reason
@@ -6881,6 +7005,8 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
     lines = (dest_root / AGENTS_MD).read_text(encoding='utf-8').split('\n')
     template_text = None
     complete = []
+    asked_before = reasked_sections(dest_root, commit) if reask_absent and commit else set()
+    asked_now = []
     for key, src_rel, line_no, action, span in plan:
         # This pass judges the section on today's state, so what the first
         # pass of a self-replacing refresh said about it no longer stands:
@@ -6895,9 +7021,15 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
             _CARRIED_LEFT[:] = [(i, w) for i, w in _CARRIED_LEFT
                                 if i != f'{AGENTS_MD} "{key}"']
         if action == 'absent' and reask_absent:
+            if key in asked_before:
+                print(f"  NOTE: {AGENTS_MD} \"{key}\" is recorded as left out, "
+                      f"and an earlier run of this same update already asked "
+                      f"about it again -- not asked a third time.")
+                continue
             print(f"  NOTE: {AGENTS_MD} \"{key}\" is recorded as left out, but "
                   f"possibly only by the first pass of this refresh, whose "
                   f"older engine did not hand its list over -- asking again.")
+            asked_now.append(key)
             action = 'missing'
         if action == 'missing':
             print(f"MISSING: {AGENTS_MD} has no \"{key}\" section; upstream's "
@@ -6962,6 +7094,8 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
               f'{len(lacks)} of its blocks (listed above) -- copy each in by '
               f'hand, keeping this repo\'s own text, or record it as kept on '
               f'purpose (vendor-update-runbook step 10(d))')
+    if asked_now:
+        record_reasked(dest_root, commit, asked_now)
     if complete:
         print(f"DIVERGED, nothing to copy in: {AGENTS_MD} "
               f"{', '.join(repr(k) for k in complete)} carr"
@@ -7055,7 +7189,7 @@ def record_agents_md_sections(dest_root, kind, source_root):
     AGENTS.md kept from before the install) is left unrecorded, for the next
     refresh to judge from history."""
     manifest_path = dest_root / 'tools' / MANIFEST_NAME
-    srcs = AGENTS_MD_TEMPLATES.get(kind, ())
+    srcs = agents_md_templates(dest_root, kind)
     if not srcs or not manifest_path.is_file() \
             or not (source_root / srcs[0]).is_file() \
             or not (dest_root / AGENTS_MD).is_file():
@@ -7376,6 +7510,23 @@ def off_source_branch(repo_dir, commit):
     r = subprocess.run(['git', '-C', str(repo_dir), 'symbolic-ref', '--short',
                         '-q', 'HEAD'], capture_output=True, text=True)
     return r.stdout.strip() or 'a detached HEAD'
+
+
+def from_ref_off_branch(clone, commit):
+    """-> what the manifest's seeded_from_branch says for a refresh
+    --from-ref of `commit` that FOLLOWED_BRANCH, as `clone` knows it, does
+    not contain; None when it does, or when that cannot be told.
+
+    WHY (2026-10-17, a practice set). A refresh --from-ref of a BestPractice
+    feature-branch commit recorded source_branch main over a commit main did
+    not have -- the same false provenance off_source_branch already stops at
+    seed (practice: generated-artifact-provenance)."""
+    tip = _rev(clone, f'origin/{FOLLOWED_BRANCH}') or _rev(clone, FOLLOWED_BRANCH)
+    if not tip or not commit or commit == 'unknown':
+        return None
+    if not engine_is_ahead(clone, commit, tip):
+        return None
+    return f'--from-ref {commit[:12]}, a commit {FOLLOWED_BRANCH} lacks'
 
 
 def seed_off_main_allowed():
@@ -8438,6 +8589,12 @@ def refresh(clone, force=False, ref=None):
 
     new_commit, engine_dir = _source_tools_at(clone, kind, ref=ref,
                                               fetch=ref is None)
+    off_branch = from_ref_off_branch(clone, new_commit) if ref is not None else None
+    if off_branch:
+        print(f"NOTICE: precedent_vendor_engine refresh: {new_commit[:12]} is not "
+              f"on {FOLLOWED_BRANCH}; the manifest records that "
+              f"(seeded_from_branch), so it never claims {FOLLOWED_BRANCH} for a "
+              f"commit {FOLLOWED_BRANCH} lacks.")
     recorded = str(manifest.get('source_commit') or '')
     if (ref is None and not force and recorded and recorded != new_commit
             and engine_is_ahead(clone, recorded, new_commit)):
@@ -8576,7 +8733,7 @@ def refresh(clone, force=False, ref=None):
         agents_plan = _agents_md_plan(ROOT, kind, engine_dir / 'templates', manifest)
         agents_pending = _agents_md_pending(agents_plan, manifest)
         _report_agents_md(ROOT, engine_dir / 'templates', agents_plan,
-                          reask_absent=not handed_over)
+                          reask_absent=not handed_over, commit=new_commit)
 
         # Before the early exit, so a repo whose engine is already current
         # but whose catalogue pin is not -- the state a half-finished update
@@ -8668,7 +8825,8 @@ def refresh(clone, force=False, ref=None):
 
         self_before = _sha256(HERE) if HERE.is_file() else None
         before = _previous_manifest(ROOT, manifest)
-        written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
+        written = _write_engine_files(dest_tools, engine_dir, new_commit, kind,
+                                      seeded_from=off_branch)
         if catalogue_repointed:
             written.append(catalogue_repointed)
         # AFTER the write, and using the manifest as it was BEFORE it:

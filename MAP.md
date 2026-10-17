@@ -240,11 +240,13 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/github_budget.py](tools/github_budget.py) | What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session |
 | [tools/harness_reach.py](tools/harness_reach.py) | Change-scoped harness runs: which verify_harness checks a change can reach, from a ledger a full run records |
 | [tools/harness_reach_hook.py](tools/harness_reach_hook.py) | Records what each verify_harness check reaches: the code it runs and the files it reads (engine for harness_reach.py) |
+| [tools/harness_times_merge.py](tools/harness_times_merge.py) | Git merge driver for tools/harness_check_times.json: a three-way merge of |
 | [tools/land_next.py](tools/land_next.py) | The lander as one command: land every queued branch on the trunk, oldest first, or say exactly why not |
 | [tools/land_queue.py](tools/land_queue.py) | The landing queue: branches waiting for the lander to merge them into the trunk, one record per branch on the coord branch |
 | [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |
 | [tools/lease_board.py](tools/lease_board.py) | The lease board -- work in flight across sessions, one JSON file per lease on a coordination branch, push as the lock |
 | [tools/migration_retire_pre_staging.py](tools/migration_retire_pre_staging.py) | Update Vendors' migration off a retired branch tier: brings work still waiting there into staging, rewords this repository's instructions and links to it, and offers the old branch for deletion |
+| [tools/migration_todo_kind_synonyms.py](tools/migration_todo_kind_synonyms.py) | Update Vendors' migration of open items filed with a kind build_todo_index.py does not know (task, todo, action, chore) to `manual`, saying which |
 | [tools/model_audit.py](tools/model_audit.py) | Runs each computing script's own self-assertions and checks the figures it recites |
 | [tools/move_paths.py](tools/move_paths.py) | Moves tracked files or directories and repoints every reference to them in the same change — relative links, path strings, globs, blob URLs; immutable files reported, never rewritten |
 | [tools/open_failures.py](tools/open_failures.py) | Failures an unattended job could not report anywhere else, kept as open blocker items in todo/ and listed at session start |

@@ -11069,6 +11069,55 @@ def check_update_hands_the_engine_refresh_the_followed_tip():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_refresh_from_ref_off_the_branch_is_recorded():
+    """A refresh --from-ref of a commit the followed branch lacks records
+    that in the manifest (seeded_from_branch), as seed --off-main does, so
+    the manifest never claims main for a commit main does not have
+    (2026-10-17: a practice set's manifest said source_branch main over a
+    BestPractice feature-branch commit, refreshed with --from-ref).
+
+    Negative control: on staging's code there is no from_ref_off_branch and
+    refresh writes no seeded_from_branch."""
+    import inspect, tempfile
+    name = 'a refresh --from-ref off the followed branch is recorded'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    cases = []
+    fn = getattr(pve, 'from_ref_off_branch', None)
+    cases.append(('the engine can tell an off-branch commit', callable(fn)))
+    if callable(fn):
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                       GIT_AUTHOR_EMAIL='t@example.invalid',
+                       GIT_COMMITTER_EMAIL='t@example.invalid')
+
+            def g(*a):
+                return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True).stdout.strip()
+            g('init', '-q', '-b', pve.FOLLOWED_BRANCH)
+            g('commit', '-q', '--allow-empty', '-m', 'on the branch')
+            on = g('rev-parse', 'HEAD')
+            g('checkout', '-q', '-b', 'feature')
+            g('commit', '-q', '--allow-empty', '-m', 'only on a feature branch')
+            off = g('rev-parse', 'HEAD')
+            got = fn(repo, off)
+            cases.append(('a feature-branch commit is named as off the branch',
+                          bool(got) and off[:12] in got
+                          and pve.FOLLOWED_BRANCH in got, got))
+            cases.append(('CONTROL: a commit on the branch is not',
+                          fn(repo, on) is None, fn(repo, on)))
+    src = inspect.getsource(pve.refresh) if hasattr(pve, 'refresh') else ''
+    cases.append(('refresh writes it into the manifest',
+                  'seeded_from=off_branch' in src))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d)[:200] + ')' if d else ''}" for n, d in bad))
+
+
 def check_refresh_never_says_nothing_to_do_after_removing_a_file():
     """A refresh whose recorded commit already matches still removes an
     engine file the kind no longer includes, and then said "engine already
@@ -12583,9 +12632,11 @@ def _check_times(path=None):
     return times, (float(default) if isinstance(default, (int, float)) else None)
 
 
-def _write_check_times(seconds, measured, path=None):
+def _write_check_times(seconds, measured, path=None, default=None):
     """Rewrite HARNESS_CHECK_TIMES from {check name: seconds}. Every check is
-    named, so default_seconds covers only checks added since."""
+    named, so default_seconds covers only checks added since. `default`
+    keeps the recorded one: only a whole re-record moves it (2026-10-17,
+    harness_times_merge.py says why)."""
     vals = sorted(seconds.values())
     rec = {
         'about': ('What each verify_harness check took, read by --as-ci to '
@@ -12594,7 +12645,8 @@ def _write_check_times(seconds, measured, path=None):
                   "--record-times --because '<why>'. A check missing here "
                   'counts as default_seconds.'),
         'measured': measured,
-        'default_seconds': round(vals[len(vals) // 2], 2) if vals else 1.0,
+        'default_seconds': (default if default is not None else
+                            round(vals[len(vals) // 2], 2) if vals else 1.0),
         'seconds': {k: round(v, 1) for k, v in sorted(seconds.items())},
     }
     pathlib.Path(path or HARNESS_CHECK_TIMES).write_text(
@@ -12615,12 +12667,32 @@ def record_new_times():
     of the push check refuses a new test whose time is not recorded
     (precedent_push_check.changed_files_check), naming this command."""
     import tempfile
-    times, _ = _check_times()
+    times, default = _check_times()
     names = sorted(n for n, v in globals().items()
                    if n.startswith('check_') and callable(v))
     missing = [n for n in names if n not in times]
+    # A TEST THAT IS GONE LEAVES THE LIST HERE (2026-10-17). Before, only a
+    # whole --as-ci --record-times run, about fourteen minutes, cleared a
+    # removed test's time, and the --as-ci partition case refused the list
+    # until then. The run's other fields stay as recorded, so two branches
+    # that each record a test touch only their own lines.
+    stale = sorted(n for n in times if n not in set(names))
+    if stale:
+        times = {n: t for n, t in times.items() if n not in set(stale)}
+        print(f'verify_harness: dropped {len(stale)} time(s) for test(s) that no '
+              f'longer exist: ' + ', '.join(stale))
+    try:
+        before = json.loads(HARNESS_CHECK_TIMES.read_text(encoding='utf-8')).get(
+            'measured', '')
+    except (OSError, ValueError):
+        before = ''
     if not missing:
-        print('verify_harness: every test already has a recorded time.')
+        if stale:
+            _write_check_times(times, before, default=default)
+            print(f'verify_harness: wrote {HARNESS_CHECK_TIMES.relative_to(ROOT)}; '
+                  f'commit it.')
+        else:
+            print('verify_harness: every test already has a recorded time.')
         return 0
     # ONE BASIS (2026-10-17). The list is recorded by `--as-ci
     # --record-times`, on CI's parts; this times tests in one process on
@@ -12645,15 +12717,9 @@ def record_new_times():
     if not got:
         print('verify_harness: the run recorded no times; nothing written.')
         return r.returncode or 1
-    try:
-        before = json.loads(HARNESS_CHECK_TIMES.read_text(encoding='utf-8')).get(
-            'measured', '')
-    except (OSError, ValueError):
-        before = ''
-    _write_check_times({**times, **got},
-                       f'{before}; {len(got)} added {time.strftime("%Y-%m-%d")} '
-                       f'by --record-new-times, scaled by {scale:.2f} to it'
-                       .lstrip('; '))
+    _write_check_times({**times, **got}, before, default=default)
+    print(f'verify_harness: {len(got)} added by --record-new-times, scaled by '
+          f'{scale:.2f} to the recorded basis.')
     print(f'verify_harness: recorded {len(got)} time(s) in '
           f'{HARNESS_CHECK_TIMES.relative_to(ROOT)}; commit it with the tests.')
     return r.returncode
@@ -13671,7 +13737,8 @@ def check_as_ci_shards_match_the_workflow():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
-def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None):
+def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None,
+                         named=None):
     """-> (set of slugs to run, one-line reason). Never raises: a
     selector that cannot decide runs everything, because the failure
     of a scheduler must not be silently less coverage.
@@ -13691,7 +13758,29 @@ def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None):
     -- which prescribes --all, ran it, and turned the suite red on its first
     outing. A scheduler that cannot be exercised in the state it is not
     currently in is the same untestable scheduler this signature already
-    exists to avoid."""
+    exists to avoid.
+
+    `named` picks cases by slug: normally PRECEDENT_HARNESS_CASES, a
+    comma-separated list (2026-10-17). A session that changed one planted
+    case could run the whole family or none of it; --all and
+    PRECEDENT_HARNESS_ALL only force everything. The named cases run with
+    the pinned ones, which later assertions read back, so nothing else
+    breaks for lack of them. A name that is not a case is said, never
+    silently dropped; when none is, every case runs."""
+    if named is None:
+        named = os.environ.get('PRECEDENT_HARNESS_CASES', '')
+    wanted = {w.strip() for w in str(named or '').split(',') if w.strip()}
+    if wanted:
+        known = wanted & set(all_slugs)
+        unknown = sorted(wanted - known)
+        note = f'; not a planted case: {", ".join(unknown)}' if unknown else ''
+        if not known:
+            return set(all_slugs), ('all (PRECEDENT_HARNESS_CASES names no '
+                                    f'planted case{note})')
+        pinned = _deep_assertion_slugs() or set()
+        return known | (pinned & set(all_slugs)), (
+            f'{len(known)} named in PRECEDENT_HARNESS_CASES, with the '
+            f'{len(pinned & set(all_slugs))} pinned{note}')
     if forced is None:
         forced = ('--all' in sys.argv
                   or os.environ.get('PRECEDENT_HARNESS_ALL') == '1')
@@ -16571,10 +16660,13 @@ def check_update_vendors_takes_only_a_main_that_passed():
                       and 'left no passed marker, and GitHub could not be asked, on '
                           f'{c0[:12]}' in steps(text)[0]
                       and 'WARNING' not in steps(text)[0], (handed, steps(text))))
-        cases.append(('(g2) ...and that line names the fix: attach the source with '
-                      'add_repo, access "push" (2026-10-10, a consumer that had to '
-                      'work it out)',
-                      len(steps(text)) == 1 and 'add_repo, access "push"' in steps(text)[0],
+        cases.append(('(g2) ...and that line says it took the newest commit with a '
+                      'recorded pass, with no advice to attach the source for push '
+                      '(2026-10-17, a consumer: the advice pushed a read-only '
+                      'session toward a push grant only to read a public check)',
+                      len(steps(text)) == 1
+                      and 'the newest with a recorded pass' in steps(text)[0]
+                      and 'add_repo' not in steps(text)[0],
                       steps(text)))
         text, handed, _held, _a = run_update('marked-red', {
             c0: ('failed', 'url')}, marks=[tree(c1)])
@@ -22784,6 +22876,36 @@ def check_planted_case_rotation_never_narrows_silently():
                                      forced=False)
     cases.append(('an empty slice runs everything rather than nothing',
                   'empty' in why or empty == set(), why))
+
+    # One case by name (PRECEDENT_HARNESS_CASES, 2026-10-17), with the
+    # pinned ones the later assertions read back.
+    loose = sorted(set(slugs) - (_deep_assertion_slugs() or set()))
+    if loose:
+        one = loose[0]
+        try:
+            sel, why = _selected_case_slugs(slugs, touched={'README.md'},
+                                            count=0, forced=False, named=one)
+        except TypeError as e:
+            sel, why = set(), f'no selector by name: {e}'
+        cases.append((f'a case named alone runs ({one}), with the pinned ones '
+                      f'and nothing else',
+                      one in sel and sel == {one} | (pinned & set(slugs)), why))
+        try:
+            sel, why = _selected_case_slugs(slugs, touched={'README.md'},
+                                            count=0, forced=False,
+                                            named=f'{one},no-such-case')
+        except TypeError as e:
+            sel, why = set(), str(e)
+        cases.append(('a name that is no case is said, not silently dropped',
+                      one in sel and 'no-such-case' in why, why))
+        try:
+            sel, why = _selected_case_slugs(slugs, touched={'README.md'},
+                                            count=0, forced=False,
+                                            named='no-such-case')
+        except TypeError as e:
+            sel, why = set(), str(e)
+        cases.append(('naming no real case runs every case, never none',
+                      sel == set(slugs), why))
 
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
@@ -34256,6 +34378,9 @@ def check_shipped_tests_name_their_owner_and_fail_at_home():
                       and merged.get('GIT_CONFIG_KEY_0') == 'a.b'
                       and merged.get('GIT_CONFIG_KEY_1') == 'core.excludesFile'
                       and merged.get('GIT_CONFIG_VALUE_1') == '/x/ignore'))
+        cases.append(('every test runs with no bytecode cache, set once here, '
+                      'so no test needs its own PYTHONDONTWRITEBYTECODE',
+                      merged.get('PYTHONDONTWRITEBYTECODE') == '1'))
 
         names = {kind: [n for n, _a, _r in ppc.PUSH_CHECKS[kind]]
                  for kind in ppc.PUSH_CHECKS}
@@ -38818,7 +38943,10 @@ def check_quick_tier_is_closed():
 def check_boildown_contradiction_spares_work_waiting_upstream():
     """"Still waiting upstream" beside "You can archive this session" is not
     a contradiction: the work sits in another repository's queue, not this
-    session's. The shipped reply_check.json refused exactly that reply
+    session's. Nor is a due reminder's own line asking for an answer
+    (2026-10-17, from a consuming repo: the reminder lives in todo/, so
+    archiving loses nothing, and the two universal practices' required
+    texts collided). The shipped reply_check.json refused exactly that reply
     (2026-09-28). Read from the real file, so the test is of the pattern that
     ships; the control is "still waiting" about this session's own work,
     which must still be refused.
@@ -38865,6 +38993,16 @@ def check_boildown_contradiction_spares_work_waiting_upstream():
                             'is.\n\nYou can archive this session.\n')
         mine = replycheck('## The Boildown\n\n- This session is blocked on '
                           'your answer.\n\nYou can archive this session.\n')
+        # 2026-10-17: a due reminder's line (todo-reminder) asks the person
+        # something, but the item lives in todo/: archiving loses nothing.
+        due = replycheck('## The Boildown\n\n- A reminder you asked for, due '
+                         'since 2026-10-15: [Renew the domain](todo/x.md). Is it '
+                         'done, does it get a new date, or is it dropped? It '
+                         'still needs your answer.\n\nYou can archive this '
+                         'session.\n')
+        ask = replycheck('## The Boildown\n\n- The merge still needs your '
+                         'approval. It is waiting on you.\n\nYou can archive '
+                         'this session.\n')
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     cases = [
@@ -38877,6 +39015,10 @@ def check_boildown_contradiction_spares_work_waiting_upstream():
          theirs.returncode == 0),
         ('control: "this session is blocked on" is still refused',
          mine.returncode == 2 and 'cannot both be true' in mine.stderr),
+        ('a due reminder\'s line ("A reminder you asked for ... still needs '
+         'your answer") beside the archive sentence passes', due.returncode == 0),
+        ('control: "needs your approval" on any other line is still refused',
+         ask.returncode == 2 and 'cannot both be true' in ask.stderr),
     ]
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
@@ -44156,6 +44298,20 @@ def check_session_check_adopts_a_detached_start():
         ok, detail = row()
         cases.append(('a branch that strands the detached commit still fails',
                       ok is False and c2[:12] in detail, detail))
+
+        # Detached at a commit origin already has (main's tip, a Produce merge)
+        # and work cut from staging, which lacks it: nothing is stranded
+        # (2026-10-17, a false warning at every turn).
+        git('update-ref', 'refs/remotes/origin/main', 'main')
+        _, c_main_tip, _ = git('rev-parse', 'main')
+        stamp.write_text(f'HEAD\n{c_main_tip}\n')
+        git('checkout', '-q', '-B', 'claude/from-staging', 'staging')
+        ok, detail = row()
+        cases.append(('a detached start at a commit origin has, then a branch '
+                      'cut from staging that lacks it, passes',
+                      ok is True and 'already has' in detail, detail))
+        git('checkout', '-q', 'main')
+        git('update-ref', '-d', 'refs/remotes/origin/main')
 
         # An older one-line stamp recording HEAD is adopted, not failed.
         stamp.write_text('HEAD\n')
@@ -52220,6 +52376,39 @@ def check_refresh_sources_leaves_the_base_branch_clean():
                       not [b for b in g('branch', '--format=%(refname:short)').split()
                            if '-engine-refresh-99999999-' in b]
                       and g('branch', '--show-current') == 'main', str(steps)))
+
+        # SUPERSEDED REFRESH BRANCHES GO, AND THE RUN SAYS SO (2026-10-17).
+        # A commit with the tool's own subject, as apply_to really writes it.
+        def real_apply(e, commit=False, branch=None, body='newer\n'):
+            (repo / 'engine.txt').write_text(body, encoding='utf-8')
+            g('checkout', '-q', '-B', branch)
+            g('add', '-A')
+            subprocess.run(['git', '-C', str(repo), 'commit', '-qm',
+                            prs.REFRESH_SUBJECT + e['tip'][:8]],
+                           capture_output=True, text=True, env=env)
+            return [('refresh', True, ''), ('commit', True, 'committed')]
+        prs.apply_to = lambda e, commit=False, branch=None: real_apply(e, commit, branch, 'v1\n')
+        prs.apply_on_its_own_branch({'repo': repo, 'tip': '1111111112345'}, 'main')
+        older = [b for b in g('branch', '--format=%(refname:short)').split()
+                 if '-engine-refresh-11111111-' in b]
+        g('checkout', '-q', '-b', 'keep-engine-refresh-mine', 'main')
+        (repo / 'mine.txt').write_text('work\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', prs.REFRESH_SUBJECT + 'x')
+        (repo / 'mine2.txt').write_text('more\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'my own work')
+        g('checkout', '-q', 'main')
+        prs.apply_to = lambda e, commit=False, branch=None: real_apply(e, commit, branch, 'v2\n')
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': '2222222212345'}, 'main')
+        now = g('branch', '--format=%(refname:short)').split()
+        said = ' '.join(d for _s, _ok, d in steps)
+        cases.append(('a newer refresh removes the older refresh-only branch',
+                      bool(older) and older[0] not in now
+                      and any('-engine-refresh-22222222-' in b for b in now),
+                      f'{now} {steps}'))
+        cases.append(('...and names it in what the run reports',
+                      bool(older) and older[0] in said and 'removed 1' in said, said[:300]))
+        cases.append(('...and never a branch carrying work of its own',
+                      'keep-engine-refresh-mine' in now, str(now)))
     finally:
         prs.apply_to = saved
         shutil.rmtree(tmp, ignore_errors=True)
@@ -59797,10 +59986,17 @@ def check_runner_drops_findings_on_received_files():
         # Built, never spelled: the check scans this very file.
         (repo / 'tools' / 'zzz_engine.py').write_text(
             'X = ROOT / ' + "'tools' / 'zzz_missing.json'\n", encoding='utf-8')
+        # The harness asserts files are gone by name, and ships nowhere
+        # (2026-10-17): what it names is never a stranded companion.
+        (repo / 'tools' / 'verify_harness.py').write_text(
+            'Y = ROOT / ' + "'tools' / 'zzz_retired.sh'\n", encoding='utf-8')
         out = run('vendored-engine-file-refs-resolve')
         if 'tools/zzz_engine.py' not in out:
             bad.append(f'vendored-engine-file-refs-resolve went quiet on a '
                        f'received engine file: {out[-400:]}')
+        if 'zzz_retired.sh' in out:
+            bad.append(f'vendored-engine-file-refs-resolve refused the '
+                       f'harness naming a file it asserts is gone: {out[-400:]}')
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     check('findings on files a repo received are dropped once by the runner '
@@ -60677,8 +60873,22 @@ def check_practice_declared_hooks_are_wired():
               declined == [], repr(declined))
         (repo / 'precedent.json').unlink()
         (repo / 'tools' / 'dated_name.py').unlink()
-        absent, _n = psv._declared_practice_hooks(repo, practices)
+        absent, gone_notes = psv._declared_practice_hooks(repo, practices)
         check('a script not on disk gets no hook', absent == [], repr(absent))
+        # 2026-10-17: never in silence -- a check the engine stopped carrying,
+        # now a set's hook, was off in a repo that lacked the set's files.
+        check('...and says so: the check is off here until the script arrives',
+              any('planted-download-names' in n and 'not in this repository yet' in n
+                  for n in gone_notes), repr(gone_notes))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_update as _pu
+        _rep = _pu.Report()
+        if hasattr(_pu, 'hooks_not_here_step'):
+            _pu.hooks_not_here_step(_rep, '\n'.join(
+                f'precedent_sync_views: {n}' for n in gone_notes))
+        _said = repr(getattr(_rep, '__dict__', {}))
+        check('...and Update Vendors carries it into its report as a warning',
+              'tools/dated_name.py' in _said and 'WARNING' in _said, _said[-300:])
         bad, notes = psv._declared_practice_hooks(
             repo, {'x': {'fm': {**good, 'hooks': '[{"event": "Stop"}]'}}})
         check('a declaration that does not parse is a note, never a guess',
@@ -60855,6 +61065,99 @@ def check_update_asks_before_changing_hooks():
               'and the question is printed ahead of the commit',
               rc == pu.DONE and 'QUESTIONS FOR THE PERSON' in buf.getvalue()
               and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
+
+
+def check_update_keeps_hook_hashes_with_the_held_hooks():
+    """While the hooks-and-settings question waits on the person's words,
+    the engine manifest keeps the committed hooks' hashes, and the question
+    only promises what the go-ahead run really records.
+
+    WHY (2026-10-17, two consumers' updates). The refresh wrote the NEW
+    hooks' hashes into tools/ENGINE_MANIFEST.json at once; committed
+    without the held hooks, as the question invited, the next run called
+    the old hooks "your local edit" and would not replace them. The
+    question also said the go-ahead run "records these files' new
+    baselines" for a .claude/settings.json that had none, and that
+    committing without them "leaves nothing red", when the push check
+    refused the push. And auto mode refused the rerun even with the
+    person's sentence.
+
+    Negative control: on staging's code there is no hold_hook_hashes or
+    harness_baselines, and the question carries the old claims."""
+    import tempfile, hashlib, json as _json
+    name = 'an update keeps hook hashes with the held hooks'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    hold = getattr(pu, 'hold_hook_hashes', None)
+    base = getattr(pu, 'harness_baselines', None)
+    cases.append(('the updater has the hold and the baseline reader',
+                  callable(hold) and callable(base)))
+    if callable(hold) and callable(base):
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                       GIT_AUTHOR_EMAIL='t@example.invalid',
+                       GIT_COMMITTER_EMAIL='t@example.invalid')
+
+            def g(*a):
+                return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+            g('init', '-q')
+            (repo / '.claude' / 'hooks').mkdir(parents=True)
+            (repo / 'tools').mkdir()
+            hook = repo / '.claude' / 'hooks' / 'h.sh'
+            hook.write_text('old\n', encoding='utf-8')
+            old = hashlib.sha256(b'old\n').hexdigest()
+            mf = repo / 'tools' / 'ENGINE_MANIFEST.json'
+            mf.write_text(_json.dumps({'hook_files': ['h.sh'],
+                                       'hooks_sha256': {'h.sh': old}}), encoding='utf-8')
+            (repo / '.claude' / 'settings.json').write_text('{}\n', encoding='utf-8')
+            g('add', '-A')
+            g('commit', '-q', '-m', 'base')
+            # The refresh: new hook, new hash, a settings change; all staged.
+            hook.write_text('new\n', encoding='utf-8')
+            new = hashlib.sha256(b'new\n').hexdigest()
+            mf.write_text(_json.dumps({'hook_files': ['h.sh'],
+                                       'hooks_sha256': {'h.sh': new}}), encoding='utf-8')
+            (repo / '.claude' / 'settings.json').write_text('{"a": 1}\n', encoding='utf-8')
+            g('add', '-A')
+            paths = pu.harness_changes(repo)
+            done = hold(repo, paths, approved=False)
+            staged = _json.loads(g('show', ':tools/ENGINE_MANIFEST.json').stdout or '{}')
+            cases.append(('without the words, the staged manifest keeps the '
+                          'committed hook\'s hash',
+                          done == ['h.sh']
+                          and (staged.get('hooks_sha256') or {}).get('h.sh') == old,
+                          (done, staged)))
+            done = hold(repo, paths, approved=True)
+            staged = _json.loads(g('show', ':tools/ENGINE_MANIFEST.json').stdout or '{}')
+            cases.append(('with the words, it records the staged hook\'s own hash',
+                          done == ['h.sh']
+                          and (staged.get('hooks_sha256') or {}).get('h.sh') == new,
+                          (done, staged)))
+            has, none = base(repo, paths)
+            cases.append(('settings.json, with no recorded baseline, is said to '
+                          'have none; the hook has one',
+                          has == ['.claude/hooks/h.sh']
+                          and none == ['.claude/settings.json'], (has, none)))
+            ask = pu.harness_ask(paths, baselines=(has, none))
+            cases.append(('the question promises no baseline that does not exist',
+                          'records the new baselines of .claude/hooks/h.sh' in ask
+                          and 'has no baseline to record for .claude/settings.json' in ask,
+                          ask))
+            cases.append(('...never says committing without them leaves nothing '
+                          'red, and says to get the words first',
+                          'leaves nothing red' not in ask
+                          and 'Get the words before committing' in ask, ask))
+            cases.append(('...and says auto mode may still need the one permission '
+                          'prompt approved', 'permission prompt' in ask, ask))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d)[:200] + ')' if d else ''}" for n, d in bad))
 
 
 def check_update_asks_for_words_that_name_the_commit():
@@ -62722,6 +63025,72 @@ def check_branch_cleanup_page_merges_the_saved_page():
           f'stated cases)', not bad, '; '.join(bad))
 
 
+def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
+    """The page never offers main, staging or a live data- branch, from any
+    path, and an engine branch's old name is offered only from this run's
+    own check, marked as the moved name it is; its runtime version is left
+    where it was published.
+
+    WHY (2026-10-17, from two consuming repos' sessions). The page listed
+    precedent-promote-lock and precedent-check-receipts as deletable, and
+    its intro said the engine's own branches are never listed. Both were
+    old names whose data- copies held their whole history -- listed on
+    purpose since 2026-10-13 -- but nothing on the page said so, and two
+    sessions reported them as engine branches offered by mistake. The
+    intro also still described pre-staging, which retired that day. A
+    republish reported an older runtime version, and nothing said whether
+    to move it.
+
+    Planted through render_html: a fresh repository carrying main, a live
+    data- branch, a moved old name and an ordinary branch; a carried one
+    whose saved rows hold an old engine name and an ordinary branch."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_stale_branches as _sb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    page = _sb.render_html(
+        [('o', 'fresh', [('main', '2026-10-01'), ('data-promote-lock', '2026-10-02'),
+                         ('precedent-promote-lock', '2026-10-03'),
+                         ('feat-a', '2026-10-04')])],
+        carried=[('o', 'saved', [('precedent-check-receipts', '2026-10-05'),
+                                 ('feat-b', '2026-10-06')],
+                  '2026-10-16T12:00:00+00:00')])
+    offered = set(re.findall(r'data-k="([^"]+)"', page))
+    cases.append(('main is never offered', 'fresh/main' not in offered, sorted(offered)))
+    cases.append(('a live data- branch is never offered',
+                  'fresh/data-promote-lock' not in offered))
+    cases.append(('an ordinary branch is, fresh or carried',
+                  {'fresh/feat-a', 'saved/feat-b'} <= offered))
+    row = page.split('fresh/precedent-promote-lock', 1)[-1].split('</li>', 1)[0]
+    cases.append(('a moved old name from this run\'s own check is offered, marked '
+                  'as the data- branch\'s old name',
+                  'fresh/precedent-promote-lock' in offered
+                  and 'data-promote-lock' in row and 'Nothing reads this one' in row,
+                  row[:200]))
+    cases.append(('an old engine name carried from a saved page is not offered',
+                  'saved/precedent-check-receipts' not in offered))
+    lede = page.split('class="lede"', 1)[-1].split('</p>', 1)[0]
+    cases.append(('the intro says how an old engine name appears, and no '
+                  'longer describes pre-staging',
+                  'says so' in lede and 'pre-staging' not in lede, lede[:300]))
+    cases.append(('the count is of what is offered (3)',
+                  '>3 branches,' in page or '3 branches, all' in page))
+    cases.append(('one list of engine branch names, from the data-branch module',
+                  getattr(_sb, 'ENGINE_BRANCHES', frozenset()) >= {
+                      'precedent-promote-lock', 'precedent-check-receipts'}
+                  and getattr(_sb, 'ENGINE_BRANCHES', frozenset()) <= _sb.NEVER))
+    src = (ROOT / 'tools' / 'precedent_stale_branches.py').read_text(encoding='utf-8')
+    cases.append(('the publish line says to leave the runtime version as it is',
+                  'omit `contract`' in getattr(_sb, 'PAGE_RUNTIME_LINE', '')
+                  and '+ PAGE_RUNTIME_LINE' in src))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the cleanup page never offers main and marks moved engine names '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d) + ')' if d else ''}" for n, d in bad))
+
+
 def check_branch_cleanup_page_lists_staging_waiting_to_go_live():
     """The branch-cleanup page lists each repository whose staging carries a
     change main lacks, and merges that list across sessions the way it
@@ -63439,6 +63808,61 @@ def check_refresh_adds_read_only_allow_rules():
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the refresh adds read-only Precedent tool allow rules ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
+def check_document_project_agents_md_is_compared_with_its_own_template():
+    """A repo made from templates/document-project/AGENTS.md is compared with
+    that template, never the loader template (2026-10-17, issue #1172: a
+    document project's update showed seven of its sections as DIVERGED and
+    four loader-only sections as MISSING, and never reported real drift from
+    its own template). Declared in precedent.json, or read from the headings
+    only that template has; any other consumer is compared as before.
+
+    Negative control: on staging's code there is no agents_md_templates, and
+    the plan is the loader template's."""
+    import tempfile, shutil
+    name = 'a document project\'s AGENTS.md is compared with its own template'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    cases = []
+    pick = getattr(pve, 'agents_md_templates', None)
+    cases.append(('the engine picks a template per repository', callable(pick)))
+    doc = ROOT / 'templates' / 'document-project' / 'AGENTS.md'
+    loader = ROOT / 'templates' / 'AGENTS.md.loader.template'
+    if callable(pick) and doc.is_file() and loader.is_file():
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            src = td / 'src'
+            src.mkdir()
+            pve._read_agents_md_sources(ROOT, 'HEAD', 'consumer', src)
+            dest = td / 'repo'
+            (dest / 'tools').mkdir(parents=True)
+            shutil.copy(doc, dest / 'AGENTS.md')
+            plan = pve._agents_md_plan(dest, 'consumer', src, {})
+            used = {p[1] for p in plan}
+            keys = {p[0] for p in plan}
+            cases.append(('a document project is planned against its own template',
+                          used == {'templates/document-project/AGENTS.md'}, used))
+            cases.append(('...so no loader-only section is reported MISSING',
+                          not any('Working in parallel' in k for k in keys)
+                          and not any(p[3] == 'missing' for p in plan),
+                          [(p[0], p[3]) for p in plan if p[3] != 'current']))
+            shutil.copy(loader, dest / 'AGENTS.md')
+            (dest / 'precedent.json').write_text(
+                json.dumps({'agents_md_template': 'document-project'}), encoding='utf-8')
+            cases.append(('declared in precedent.json, it is a document project '
+                          'whatever its headings',
+                          pick(dest, 'consumer') == ('templates/document-project/AGENTS.md',)))
+            (dest / 'precedent.json').unlink()
+            cases.append(('CONTROL: any other consumer is compared with the loader '
+                          'template, as before',
+                          pick(dest, 'consumer')[0] == 'templates/AGENTS.md.loader.template'))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d)[:300] + ')' if d else ''}" for n, d in bad))
 
 
 def check_repin_kept_records_the_persons_words():
@@ -72019,6 +72443,120 @@ def check_install_and_update_offer_the_owners_zone():
           f'fallback ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_a_reasked_left_out_section_is_not_asked_every_rerun():
+    """A section recorded as left out, which a second pass asks about again
+    (its first pass ran an engine older than the hand-over), is asked once
+    per update, not on every re-run of it (2026-10-17, a document project's
+    Update Vendors: the first pass runs the repository's committed engine,
+    which an unfinished update has not committed, so every re-run asked the
+    same four sections again and the run could not reach DONE until the
+    engine was committed mid-update). The record is per source commit, in
+    the git directory: another update asks again."""
+    import contextlib, io, tempfile
+    import precedent_vendor_engine as pve
+    name = 'a re-asked left-out section is not asked on every re-run'
+    if not hasattr(pve, '_report_agents_md'):
+        not_applicable(name, '_report_agents_md is absent')
+        return
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='reasked-'))
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+        (tmp / 'AGENTS.md').write_text('# Notes\n', encoding='utf-8')
+        plan = [('## Session setup', 'AGENTS.md.loader.template', 12, 'absent', None)]
+
+        def run(commit):
+            saved = list(pve._LEFT_FOR_YOU)
+            pve._LEFT_FOR_YOU[:] = []
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    try:
+                        pve._report_agents_md(tmp, tmp, plan, reask_absent=True,
+                                              commit=commit)
+                    except TypeError:
+                        pve._report_agents_md(tmp, tmp, plan, reask_absent=True)
+                left = list(pve._LEFT_FOR_YOU)
+            finally:
+                pve._LEFT_FOR_YOU[:] = saved
+            return left, buf.getvalue()
+
+        left, out = run('c1')
+        cases.append(('the first re-run of an update asks again, as before',
+                      any('Session setup' in i for i, _w in left), out[-200:]))
+        left, out = run('c1')
+        cases.append(('the next re-run of the same update does not ask a '
+                      'third time, and says why',
+                      not left and 'not asked a third time' in out, out[-300:]))
+        left, out = run('c2')
+        cases.append(('an update to another source commit asks again',
+                      any('Session setup' in i for i, _w in left), out[-200:]))
+        tracked = subprocess.run(['git', '-C', str(tmp), 'status', '--porcelain',
+                                  '--untracked-files=all'],
+                                 capture_output=True, text=True).stdout
+        cases.append(('the record lives in the git directory, never in the tree',
+                      'reasked' not in tracked, tracked))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_update_vendors_maps_a_task_kind_to_manual():
+    """An open item filed as `kind: task` (or todo, action, chore) is moved
+    to `manual` by Update Vendors' migration, and the report names it, so
+    the update's generated-files step never stops on build_todo_index.py's
+    refusal (2026-10-17, a document project's Update Vendors: it failed half
+    way on "A `task` is usually `manual`"). A done item, and a kind that is
+    already legal, are left alone; the update runs the migration unnamed."""
+    import importlib.util, inspect, tempfile
+    name = 'Update Vendors moves an open item\'s `task` kind to `manual`'
+    path = ROOT / 'tools' / 'migration_todo_kind_synonyms.py'
+    if not path.is_file():
+        check(name, False, 'tools/migration_todo_kind_synonyms.py is missing')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        spec = importlib.util.spec_from_file_location('_vh_mig_kinds', path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    finally:
+        sys.path.pop(0)
+    pu, _pve, _pr = _update_tools()
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-task-kind-'))
+    try:
+        (tmp / 'todo').mkdir()
+
+        def item(slug, kind, status):
+            (tmp / 'todo' / f'todo-{slug}.md').write_text(
+                f'---\nslug:              todo-{slug}\nkind:              {kind}\n'
+                f'status:            {status}\n---\n## What\n\nBody `kind: task`.\n',
+                encoding='utf-8')
+        item('a', 'task', 'open')
+        item('b', 'chore', 'done')
+        item('c', 'verify', 'open')
+        rep = pu.Report()
+        mod.migrate(tmp, rep, pu)
+        a = (tmp / 'todo' / 'todo-a.md').read_text(encoding='utf-8')
+        cases.append(('an open `task` item becomes `manual`, frontmatter only',
+                      'kind:              manual\n' in a and 'Body `kind: task`.' in a, a))
+        cases.append(('a done item and a legal kind are untouched',
+                      'kind:              chore' in (tmp / 'todo' / 'todo-b.md').read_text()
+                      and 'kind:              verify' in (tmp / 'todo' / 'todo-c.md').read_text()))
+        said = ' '.join(o for n, o in rep.steps if n == 'open items')
+        cases.append(('the report names the file and what it was',
+                      'todo/todo-a.md (was `task`)' in said, said))
+        cases.append(('Update Vendors runs every migration file unnamed',
+                      "glob('migration_*.py')" in inspect.getsource(pu.migrations_step)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_update_vendors_reports_dropped_template_wording():
     """An install-once file still carrying wording its template has since
     dropped is left for the person, by file and line -- and nothing else is.
@@ -72127,8 +72665,46 @@ def check_update_vendors_reports_dropped_template_wording():
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
                 step(repo, rep, rev)
-            cases.append(('...and listed again once the template has changed since',
-                          len(rep.left) == 3, str(rep.left)))
+            # ONE QUESTION FOR A FILE KEPT WHOLE (2026-10-17, a consuming
+            # repository): its kept rewrite was left as one item per line,
+            # each saying "or drop the line"; and a line the update carried
+            # in by itself went unsaid.
+            cases.append(('...and asked again once the template has changed '
+                          'since: one item for the file, never one per line',
+                          sorted(dict(rep.left)) == ['TODO.md'], str(rep.left)))
+            v1_sha = hashlib.sha256(git(src, 'show', f'{rev}~1:templates/'
+                                        'TODO.md.template').stdout.encode()).hexdigest()
+            (repo / 'precedent.json').write_text(json.dumps({
+                pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                    'reason': 'kept on purpose', 'template_sha256': v1_sha}}}),
+                encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            said = ' '.join(dict(rep.left).values()) + ' ' + ' '.join(
+                rep.details.get('TODO.md', []))
+            cases.append(('...which never says to drop a line, shows what the '
+                          'template changed, and the hash to record',
+                          'drop the line' not in said
+                          and 'what changed in templates/TODO.md.template' in said
+                          and hashlib.sha256(tmpl.read_bytes()).hexdigest() in said,
+                          said[:400]))
+            git(repo, 'init', '-q')
+            git(repo, 'add', 'TODO.md')
+            git(repo, 'commit', '-qm', 'kept rewrite')
+            (repo / 'TODO.md').write_text(
+                body + 'A bullet the update carried in from the template.\n',
+                encoding='utf-8')
+            rep = pu.Report()
+            rep.before = set()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            said = ' '.join(rep.details.get('TODO.md', []))
+            cases.append(('...and says what this update already carried into it',
+                          'already carried 1 line(s)' in said
+                          and 'A bullet the update carried in' in said, said[:400]))
+            git(repo, 'checkout', '-q', '--', 'TODO.md')
+            shutil.rmtree(repo / '.git', ignore_errors=True)
 
             # A file that is, byte for byte, an older version of its
             # template was never made the repository's own: it takes the
@@ -72620,6 +73196,100 @@ def check_refresh_names_an_in_place_hook_no_engine_path_keeps():
     check(f'refresh names an in-place hook no engine_paths entry keeps current '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_retired_mentions_match_the_full_path_only():
+    """A file is left as still naming a deleted or moved path only when it
+    names the whole path, the way rename-updates-links reads it: never by
+    its file name alone, and never as the tail of a longer path.
+
+    2026-10-17, a document project's Update Vendors: precedent.json lines
+    the same run had repointed to tools/check_commit_author.py, and the
+    engine manifest's bare check_commit_author.py at its new home, were left
+    as still naming tools/checks/check_commit_author.py, because the scan
+    matched the file name. The next run, with no edit, listed none."""
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    name = 'a mention of a deleted path is the whole path, not its file name'
+    if not hasattr(pu, 'retired_mentions'):
+        not_applicable(name, 'retired_mentions is absent')
+        return
+    gone = 'tools/checks/check_commit_author.py'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-full-path-'))
+    cases = []
+    try:
+        files = {
+            'repointed.json': '{"run": "python3 tools/check_commit_author.py"}\n',
+            'bare.md': 'The check is check_commit_author.py now.\n',
+            'longer.md': 'A pack ships process/pack/tools/checks/check_commit_author.py.\n',
+            'old.md': f'Run `{gone}` before pushing.\n',
+            'relative/doc.md': f'See [it](../{gone}).\n',
+        }
+        for rel, text in files.items():
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        planted = '\n'.join(
+            f"WARN: precedent_vendor_engine: {gone} was moved, and {rel}:1 "
+            f"still names it -- 'x'. Nothing here refuses."
+            for rel in files)
+        got = sorted(w for w, _g in pu.retired_mentions(tmp, planted))
+        cases.append(('the whole path, and one written with ../ in front, are '
+                      'left for the person',
+                      'old.md:1' in got and 'relative/doc.md:1' in got, str(got)))
+        cases.append(('a line already repointed, a bare file name, and a longer '
+                      'path ending in it are not',
+                      got == ['old.md:1', 'relative/doc.md:1'], str(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_dependents_warning_skips_a_wholly_generated_view():
+    """The refresh's "still names it" warning leaves out a file a generator
+    writes whole, which the update rebuilds from its sources a moment later,
+    and still reads a file only partly generated (2026-10-17, a consuming
+    repository's Update Vendors: MAP.md was warned about for naming two
+    engine tools the refresh had removed, and the view rebuild then dropped
+    both lines). A source still naming the tool is warned about as before."""
+    import contextlib, io, tempfile
+    import precedent_vendor_engine as pve
+    name = 'the dependents warning skips a wholly generated view'
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-generated-dependents-'))
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    gone = 'tools/retired_words.py'
+    try:
+        def put(rel, text):
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        put('MAP.md', f'| `{gone}` | a tool |\n')
+        put('AGENTS.md', f'Run `{gone}` by hand.\n')
+        put('docs/HOWTO.md', f'Use `{gone}`.\n')
+        put('tools/generated_files.json', json.dumps({'files': [
+            {'path': 'MAP.md', 'generated_by': 'tools/build_views.py'},
+            {'path': 'AGENTS.md', 'part': '<!-- BEGIN GENERATED: x -->',
+             'generated_by': 'tools/build_views.py'}]}))
+        subprocess.run(['git', 'init', '-q', str(tmp)], env=env, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], env=env, check=True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            pve._warn_about_dependents(tmp, [gone], 'removed from this kind\'s engine set')
+        warned = err.getvalue()
+        cases.append(('a wholly generated MAP.md naming the removed tool is not '
+                      'warned about', 'MAP.md:' not in warned, warned[:400]))
+        cases.append(('...while a hand-written doc and a partly generated '
+                      'AGENTS.md still are',
+                      'docs/HOWTO.md:1' in warned and 'AGENTS.md:1' in warned,
+                      warned[:400]))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
 def check_retired_mentions_skip_what_the_repo_receives():
@@ -73413,7 +74083,7 @@ def check_kept_pin_moves_across_a_comment_only_template_change():
         shown = '\n'.join(l for v in rep.details.values() for l in v)
         cases.append(('CONTROL: a change a reader sees is still asked, and the '
                       'question shows the changed line',
-                      bool(rep.left) and 'what changed:' in shown
+                      bool(rep.left) and 'what changed in templates/' in shown
                       and '+One file for each item under todo/.' in shown, shown))
     except (OSError, ValueError, KeyError) as e:
         cases.append((f'fixture could not be built ({e})', False, ''))
@@ -77164,6 +77834,109 @@ def check_codeowners_stamp_hashes_only_the_registry():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_harness_times_merge_without_a_conflict():
+    """Two branches that each record a test, one of them deleting another,
+    merge tools/harness_check_times.json with no conflict, and the deleted
+    test stays deleted (2026-10-17). That day the file conflicted on nearly
+    every merge -- one shared "measured" line every recording appended to,
+    default_seconds rewritten each time, neighbouring inserts -- and a
+    union resolve brought back five timings #1180 had removed, turning the
+    --as-ci partition case red. Now: .gitattributes names a merge driver,
+    tools/bootstrap.sh configures it in the clone at session start, and
+    --record-new-times leaves the shared fields alone and drops a removed
+    test's time itself. Fails on the old code: no driver, so git leaves
+    the conflict."""
+    import tempfile, json as _json, shutil as _shutil, re as _re
+    name = 'the harness times file merges without a conflict'
+    script = ROOT / 'tools' / 'harness_times_merge.py'
+    boot = ROOT / 'tools' / 'bootstrap.sh'
+    attrs = ROOT / '.gitattributes'
+    cases = []
+    attr_ok = attrs.is_file() and 'tools/harness_check_times.json merge=precedent-harness-times' \
+        in attrs.read_text(encoding='utf-8')
+    cases.append(('.gitattributes names the driver for the times file', attr_ok))
+    btext = boot.read_text(encoding='utf-8') if boot.is_file() else ''
+    m = _re.search(r"merge\.precedent-harness-times\.driver \\\s*\n\s*'([^']+)'", btext)
+    cases.append(('bootstrap.sh configures it', bool(m) and script.is_file(),
+                  'no driver line in tools/bootstrap.sh'))
+    driver = m.group(1) if m else ''
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'r'
+        env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                   GIT_AUTHOR_EMAIL='t@example.invalid',
+                   GIT_COMMITTER_EMAIL='t@example.invalid',
+                   GIT_CONFIG_GLOBAL=str(pathlib.Path(td) / 'gc'),
+                   GIT_CONFIG_NOSYSTEM='1')
+
+        def git(*a, cwd=repo):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def times(seconds, measured='2026-10-09, 4 cores', default=0.3):
+            (repo / 'tools' / 'harness_check_times.json').write_text(_json.dumps(
+                {'about': 'x', 'measured': measured, 'default_seconds': default,
+                 'seconds': dict(sorted(seconds.items()))}, indent=1) + '\n',
+                encoding='utf-8')
+
+        (repo / 'tools').mkdir(parents=True)
+        git('init', '-q', '-b', 'main', str(repo), cwd=td)
+        if script.is_file():
+            _shutil.copy2(script, repo / 'tools' / script.name)
+        if attrs.is_file():
+            _shutil.copy2(attrs, repo / '.gitattributes')
+        if driver:
+            git('config', 'merge.precedent-harness-times.driver', driver)
+        base = {'check_a': 1.0, 'check_b': 2.0, 'check_c': 3.0}
+        times(base)
+        git('add', '-A')
+        git('commit', '-q', '-m', 'base')
+        git('checkout', '-q', '-b', 'ours')
+        times({**base, 'check_ca': 4.0}, measured='2026-10-09, 4 cores; 1 added',
+              default=0.5)
+        git('commit', '-q', '-am', 'ours records check_ca')
+        git('checkout', '-q', '-b', 'theirs', 'main')
+        rest = {k: v for k, v in base.items() if k != 'check_c'}
+        times({**rest, 'check_cb': 5.0}, measured='2026-10-09, 4 cores; 2 added',
+              default=0.4)
+        git('commit', '-q', '-am', 'theirs deletes check_c, records check_cb')
+        git('checkout', '-q', 'ours')
+        r = git('merge', '--no-edit', 'theirs')
+        cases.append(('merging the two branches leaves no conflict', r.returncode == 0,
+                      (r.stdout + r.stderr)[-200:]))
+        try:
+            got = _json.loads((repo / 'tools' / 'harness_check_times.json')
+                              .read_text(encoding='utf-8'))['seconds']
+        except (OSError, ValueError, KeyError):
+            got = {}
+        cases.append(('both new tests are kept, and the test one side deleted '
+                      'stays deleted',
+                      got == {'check_a': 1.0, 'check_b': 2.0, 'check_ca': 4.0,
+                              'check_cb': 5.0}, str(got)))
+        # A worktree shares the clone's config, as the stages' merges use.
+        wt = pathlib.Path(td) / 'wt'
+        git('branch', '-q', 'later', 'main')
+        git('worktree', 'add', '-q', str(wt), 'later')
+        (wt / 'tools' / 'harness_check_times.json').write_text(_json.dumps(
+            {'about': 'x', 'measured': '2026-10-09, 4 cores', 'default_seconds': 0.3,
+             'seconds': {**base, 'check_cc': 6.0}}, indent=1) + '\n', encoding='utf-8')
+        git('commit', '-q', '-am', 'later records check_cc', cwd=wt)
+        r = git('merge', '--no-edit', 'ours', cwd=wt)
+        cases.append(('a merge in a worktree uses the same driver', r.returncode == 0,
+                      (r.stdout + r.stderr)[-200:]))
+    path = pathlib.Path(tempfile.mkdtemp()) / 't.json'
+    try:
+        _write_check_times({'check_a': 9.0}, 'm', path=path, default=0.3)
+        kept = _json.loads(path.read_text(encoding='utf-8')).get('default_seconds')
+    except TypeError:
+        kept = None
+    finally:
+        _shutil.rmtree(path.parent, ignore_errors=True)
+    cases.append(('recording keeps default_seconds as recorded', kept == 0.3, str(kept)))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_as_ci_parts_partition_the_suite():
     """`--as-ci` runs its shards side by side and deals CI's rest shard into
     parts (_as_ci_runs). Whatever the job count, every check must run in
@@ -77229,7 +78002,8 @@ def check_as_ci_parts_partition_the_suite():
     rec = _check_times()[0]
     stale = sorted(set(rec) - set(names))
     cases.append(('the committed record names only checks that exist',
-                  not stale, f'stale: {stale[:3]} (rerun --as-ci --record-times)'))
+                  not stale, f'stale: {stale[:3]} (python3 tools/verify_harness.py '
+                             f'--record-new-times drops them, in seconds)'))
     failed = [(n, d) for n, ok, d in cases if not ok]
     check(f'--as-ci parts partition the suite ({len(cases)} stated cases)',
           not failed, '; '.join(f'{n}: {d}' for n, d in failed))
@@ -83583,6 +84357,7 @@ def main():
     check_bare_all_runs_across_the_cores()
     check_full_run_asks_first()
     check_refresh_never_says_nothing_to_do_after_removing_a_file()
+    check_refresh_from_ref_off_the_branch_is_recorded()
     check_upholds_is_a_listed_field()
     check_generated_files_candidates_are_repo_rooted_claims()
     check_incident_coverage_reads_what_the_gotcha_names()
@@ -84076,6 +84851,7 @@ def main():
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
     check_update_asks_for_words_that_name_the_commit()
+    check_update_keeps_hook_hashes_with_the_held_hooks()
     check_update_question_names_new_gates()
     check_promote_branches_are_named_like_session_branches()
     check_data_branches_are_named_for_the_ladder()
@@ -84105,6 +84881,7 @@ def main():
     check_branch_cleanup_page_is_one_page_updated_in_place()
     check_branch_cleanup_page_merges_the_saved_page()
     check_branch_cleanup_page_lists_staging_waiting_to_go_live()
+    check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names()
     check_branch_cleanup_merge_warns_on_a_stale_copy()
     check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
@@ -84116,6 +84893,7 @@ def main():
     check('a kept section re-pins by itself when upstream\'s change misses what it kept',
           *check_kept_section_repins_a_change_that_misses_the_kept_lines())
     check_repin_kept_records_the_persons_words()
+    check_document_project_agents_md_is_compared_with_its_own_template()
     check_refresh_adds_read_only_allow_rules()
     check_leak_gate_reads_the_written_private_repo_list()
     check_session_hooks_allow_read_only_tools_at_user_level()
@@ -84232,6 +85010,8 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_update_vendors_maps_a_task_kind_to_manual()
+    check_a_reasked_left_out_section_is_not_asked_every_rerun()
     check_update_vendors_refreshes_a_template_own_comment()
     check_update_vendors_dropped_wording_reads_a_views_source()
     check_kept_pin_moves_across_a_comment_only_template_change()
@@ -84250,6 +85030,8 @@ def main():
     check_refresh_replaces_a_past_individual_hook_rendering()
     check_refresh_names_an_in_place_hook_no_engine_path_keeps()
     check_retired_mentions_skip_what_the_repo_receives()
+    check_dependents_warning_skips_a_wholly_generated_view()
+    check_retired_mentions_match_the_full_path_only()
     check_second_pass_drops_a_first_pass_unshipped_workflow_call()
     check_update_says_once_that_commands_moved_to_an_undeclared_set()
     check_retired_words_reads_past_the_decommission_ledger()
@@ -84266,6 +85048,7 @@ def main():
     check_codeowners_stamp_hashes_only_the_registry()
     check_as_ci_says_why_a_shard_failed()
     check_as_ci_parts_partition_the_suite()
+    check_harness_times_merge_without_a_conflict()
     check_move_fixes_mentions_of_the_moved_practice()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()

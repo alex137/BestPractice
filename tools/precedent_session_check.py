@@ -277,6 +277,21 @@ def _session_branch_row(stamp, git):
     if started == 'HEAD' and cur != 'HEAD':
         carried = (not start_sha
                    or git('merge-base', '--is-ancestor', start_sha, 'HEAD')[0] == 0)
+        # A START COMMIT ORIGIN ALREADY HAS IS NOT STRANDED (2026-10-17). The
+        # harness checks a cloud session out detached at main's tip, a
+        # Produce merge staging lacks; the session's work is cut from
+        # origin/staging, so every turn said it "does NOT contain that
+        # commit" -- of a commit that is on origin and can be lost by
+        # nobody. Only a start commit no remote branch has is a finding.
+        published = bool(start_sha) and bool(git(
+            'for-each-ref', '--contains', start_sha, '--format=%(refname)',
+            'refs/remotes')[1])
+        if not carried and published:
+            write()
+            return (name, True, f'started detached at {start_sha[:12]}, which '
+                                f'a branch on origin already has, and moved onto '
+                                f'{cur!r} -- nothing made detached is stranded; '
+                                f'{cur!r} is now the baseline')
         if carried:
             write()
             return (name, True, f'started detached at '
