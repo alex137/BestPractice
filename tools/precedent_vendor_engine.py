@@ -8013,6 +8013,86 @@ def _individual_hook_plan(dest_root, kind):
     return not present, not wired
 
 
+_HOOK_VALUE_RE = re.compile(r'(\{\{[A-Z_]+\}\})')
+
+
+def is_past_rendering(template_text, text):
+    """True when `text` is `template_text` with each `{{VALUE}}` filled in
+    (the same value wherever one name recurs) and nothing else changed --
+    a rendering of that version nobody edited afterwards."""
+    pat, seen = '', set()
+    for part in _HOOK_VALUE_RE.split(template_text):
+        m = re.fullmatch(r'\{\{([A-Z_]+)\}\}', part)
+        if not m:
+            pat += re.escape(part)
+        elif m.group(1) in seen:
+            pat += f'(?P={m.group(1)})'
+        else:
+            seen.add(m.group(1))
+            pat += f'(?P<{m.group(1)}>[^\n]*?)'
+    return re.fullmatch(pat, text, re.S) is not None
+
+
+def individual_hook_copy_state(dest_root, clone, commit):
+    """-> (state, current rendering) for the individual-set hook a repo
+    carries at .claude/hooks/: 'current', 'past' (a rendering of an older
+    version of the template, nobody's edit in it), 'edited', or None when
+    there is no copy, it is declined, or the template cannot be read.
+
+    WHY (2026-10-17, very deep check). A copy rendered before 2026-10-07,
+    when the template became a stub, never became the stub: the refresh
+    wrote the file only when it was missing, and only in a consumer, while
+    two practice sets and BestPractice itself carried a copy of their own
+    rendered from the old template. Any kind of repo is read here."""
+    root = pathlib.Path(dest_root)
+    path = root / HOOK_DEST_DIR / INDIVIDUAL_HOOK
+    if not path.is_file() or INDIVIDUAL_HOOK in _declined_hook_names(root):
+        return None, None
+    rel = f'{HOOK_SOURCE_DIR}/{INDIVIDUAL_HOOK_TEMPLATE}'
+    ok, tmpl = _git_read(clone, 'show', f'{commit}:{rel}')
+    if not ok or not tmpl.strip():
+        return None, None
+    current = render_individual_hook(tmpl)
+    try:
+        text = path.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return None, None
+    if text == current:
+        return 'current', current
+    ok, shas = _git_read(clone, 'log', '--format=%H', commit, '--', rel)
+    for sha in (shas.split() if ok else []):
+        ok, old = _git_read(clone, 'show', f'{sha}:{rel}')
+        if ok and old.strip() and is_past_rendering(old, text):
+            return 'past', current
+    return 'edited', current
+
+
+def _replace_past_individual_hook(dest_root, clone, commit):
+    """Bring a past rendering of the individual-set hook onto the current
+    stub; leave an edited one where it is, for the person (practice:
+    repair-cannot-discard-work). -> [paths written]"""
+    state, current = individual_hook_copy_state(dest_root, clone, commit)
+    dest = pathlib.Path(dest_root) / HOOK_DEST_DIR / INDIVIDUAL_HOOK
+    rel = f'{HOOK_DEST_DIR}/{INDIVIDUAL_HOOK}'
+    if state == 'past':
+        dest.write_text(current, encoding='utf-8')
+        dest.chmod(0o755)
+        print(f"precedent_vendor_engine refresh: {rel} was a rendering of an "
+              f"older {HOOK_SOURCE_DIR}/{INDIVIDUAL_HOOK_TEMPLATE} with no edit "
+              f"of this repository's own, so it now carries the current stub "
+              f"(its logic is in tools/individual-source-bootstrap.sh).")
+        return [dest]
+    if state == 'edited':
+        _left(rel, f'differs from every rendering of {HOOK_SOURCE_DIR}/'
+                   f'{INDIVIDUAL_HOOK_TEMPLATE} -- edited here, so it is left as '
+                   f'it is. Its logic now lives in tools/individual-source-'
+                   f'bootstrap.sh; to take the stub, replace the file with '
+                   f'the template rendered (precedent_bootstrap_source.py '
+                   f'--write-session-hook), or decline it in precedent.json\'s '
+                   f'declined_adapters with the reason')
+    return []
+
+
 def _apply_individual_hook(dest_root, kind, clone, commit):
     """Write the hook from the template at `commit` when it is missing and
     wire it FIRST in SessionStart when it is not wired: it writes the user
@@ -8353,7 +8433,9 @@ def refresh(clone, force=False, ref=None):
         gitignore_tmpl = (_gitignore_template_text(clone, new_commit)
                           if kind in GITIGNORE_KINDS else None)
         gitignore_pending = _gitignore_missing(ROOT, gitignore_tmpl)
-        individual_pending = any(_individual_hook_plan(ROOT, kind))
+        individual_pending = (any(_individual_hook_plan(ROOT, kind))
+                              or individual_hook_copy_state(
+                                  ROOT, clone, new_commit)[0] == 'past')
         allow_pending = (manifest.get('kind') == 'consumer' and bool(_read_only_allow_missing(
             ROOT, read_only_allow_rules(_template_settings_text(clone, new_commit)))))
 
@@ -8385,6 +8467,9 @@ def refresh(clone, force=False, ref=None):
             _warn_legacy_status_records(ROOT)
             _report_retired_branch_names(ROOT)
             _judge_deferred_workflows()
+            # An edited copy of the individual-set hook is said on every run,
+            # this one included (a past rendering made this pass not early).
+            _replace_past_individual_hook(ROOT, clone, new_commit)
             print_left_for_you()
             return 0
 
@@ -8462,6 +8547,7 @@ def refresh(clone, force=False, ref=None):
         if _merge_gitignore(ROOT, gitignore_tmpl):
             written.append(ROOT / '.gitignore')
         written += _apply_individual_hook(ROOT, kind, clone, new_commit)
+        written += _replace_past_individual_hook(ROOT, clone, new_commit)
         ci_refreshed, ci_catchup, ci_replaced = _refresh_ci_workflow_files(
             ROOT, kind, engine_dir / 'ci-workflows', manifest)
         written += [ROOT / rel for rel in ci_refreshed + ci_replaced]

@@ -71904,6 +71904,111 @@ def check_update_takes_an_untouched_install_copy():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_refresh_replaces_a_past_individual_hook_rendering():
+    """A copy of the individual-set hook that is a rendering of an older
+    version of its template becomes the current stub, in any kind of repo;
+    an edited copy is left as it is and reported; and BestPractice's own
+    copy is the current stub.
+
+    2026-10-17, very deep check: copies rendered before 2026-10-07, when the
+    template became a stub, never became it -- the refresh wrote the file
+    only when missing, and only for a consumer -- and BestPractice ran a
+    stale 181-line copy of its own from precedent_resolve's self-heal.
+    Decision (the session's, under Morgan's delegation of 2026-10-17):
+    replace a copy matching any past rendering in the template's git
+    history; never overwrite a hand-edited one (repair-cannot-discard-work).
+    Planted: a source clone whose template has a long version 1 and a stub
+    version 2; a repo with a version-1 rendering; one with that rendering
+    plus a line of its own."""
+    import contextlib, inspect, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    name = 'refresh replaces a past individual-hook rendering with the stub, never an edited copy'
+    state_of = getattr(pve, 'individual_hook_copy_state', None)
+    replace = getattr(pve, '_replace_past_individual_hook', None)
+    if state_of is None or replace is None:
+        check(name, False, 'precedent_vendor_engine has no individual_hook_copy_state / '
+              '_replace_past_individual_hook: a stale copy is only ever written when missing')
+        return
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-individual-hook-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+
+    cases = []
+    try:
+        src = tmp / 'source'
+        tdir = src / pve.HOOK_SOURCE_DIR
+        tdir.mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        t = tdir / pve.INDIVIDUAL_HOOK_TEMPLATE
+        v1 = ('#!/bin/bash\n# all the logic, the old way\n'
+              'NAME="{{SOURCE_NAME}}"\nURL="{{SOURCE_REPO_URL}}"\n'
+              'if [ "{{SOURCE_REPO_URL_SUBSTITUTED}}" != yes ]; then exit 0; fi\n'
+              'clone "$HOME/{{SOURCE_NAME}}"\n')
+        t.write_text(v1, encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v1')
+        v2 = ('#!/bin/bash\n# stub\nexport N="{{SOURCE_NAME}}"\n'
+              'exec bash tools/individual-source-bootstrap.sh\n')
+        t.write_text(v2, encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v2')
+        head = git(src, 'rev-parse', 'HEAD').stdout.strip()
+        old = (v1.replace('{{SOURCE_NAME}}', 'precedent-individual')
+                 .replace('{{SOURCE_REPO_URL}}', 'https://example.com/someone/set')
+                 .replace('{{SOURCE_REPO_URL_SUBSTITUTED}}', 'yes'))
+
+        def repo_with(text):
+            r = tmp / f'repo-{len(cases)}'
+            (r / pve.HOOK_DEST_DIR).mkdir(parents=True)
+            (r / pve.HOOK_DEST_DIR / pve.INDIVIDUAL_HOOK).write_text(text, encoding='utf-8')
+            return r, r / pve.HOOK_DEST_DIR / pve.INDIVIDUAL_HOOK
+
+        r, f = repo_with(old)
+        cases.append(('a version-1 rendering reads as a past rendering',
+                      state_of(r, src, head)[0] == 'past', str(state_of(r, src, head)[0])))
+        saved = list(pve._LEFT_FOR_YOU)
+        with contextlib.redirect_stdout(io.StringIO()):
+            wrote = replace(r, src, head)
+        cases.append(('...and becomes the current stub, rendered',
+                      wrote and f.read_text(encoding='utf-8')
+                      == pve.render_individual_hook(v2), f.read_text(encoding='utf-8')[:200]))
+        r, f = repo_with(old + 'echo "a line of our own"\n')
+        pve._LEFT_FOR_YOU[:] = []
+        with contextlib.redirect_stdout(io.StringIO()):
+            wrote = replace(r, src, head)
+        left = list(pve._LEFT_FOR_YOU)
+        pve._LEFT_FOR_YOU[:] = saved
+        cases.append(('an edited copy is never written, and is left for you',
+                      not wrote and 'a line of our own' in f.read_text(encoding='utf-8')
+                      and any(i.endswith(pve.INDIVIDUAL_HOOK) for i, _w in left),
+                      str(left)))
+        cases.append(('the refresh runs it, on its early exit too',
+                      inspect.getsource(pve.refresh).count('_replace_past_individual_hook(') >= 2
+                      and 'individual_hook_copy_state(' in inspect.getsource(pve.refresh), ''))
+        own = ROOT / pve.HOOK_DEST_DIR / pve.INDIVIDUAL_HOOK
+        tmpl_text = (ROOT / pve.HOOK_SOURCE_DIR / pve.INDIVIDUAL_HOOK_TEMPLATE).read_text(
+            encoding='utf-8')
+        cases.append(('BestPractice\'s own copy is the current stub',
+                      own.is_file() and own.read_text(encoding='utf-8')
+                      == pve.render_individual_hook(tmpl_text), str(own)))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -82681,6 +82786,7 @@ def main():
     check_update_repoints_moved_engine_commands()
     check_update_vendors_dropped_wording_reads_placeholders_filled()
     check_update_takes_an_untouched_install_copy()
+    check_refresh_replaces_a_past_individual_hook_rendering()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
