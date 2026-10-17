@@ -39519,6 +39519,30 @@ def check_push_check_gate():
                                env=dict(env, CLAUDE_PROJECT_DIR=str(project)))
             return '"deny"' in p.stdout, p.stdout
 
+        # No branch is fully checked before a push by default any more
+        # (main since 2026-10-17, staging since pre-staging retired the same
+        # day): the full check before a push is for a person whose
+        # branch_push_checks says full.
+        full_person = tmp / 'full-person'
+        full_person.mkdir()
+        (full_person / 'identity.json').write_text(_json.dumps(
+            {'email': 'full@example.com', 'branch_push_checks': 'full'}),
+            encoding='utf-8')
+        full_cfg = tmp / 'full-config.json'
+        full_cfg.write_text(_json.dumps(
+            {'individual': {'path': str(full_person)}}), encoding='utf-8')
+
+        def full_gate(command):
+            saved = env.get('PRECEDENT_USER_CONFIG')
+            env['PRECEDENT_USER_CONFIG'] = str(full_cfg)
+            try:
+                return gate(command)
+            finally:
+                if saved is None:
+                    env.pop('PRECEDENT_USER_CONFIG')
+                else:
+                    env['PRECEDENT_USER_CONFIG'] = saved
+
         denied, out_main = gate('git push origin main')
         record = work / '.git' / 'precedent-push-check.json'
         cases.append(('a clean tree passing every check is let through',
@@ -39584,15 +39608,13 @@ def check_push_check_gate():
 
         (work / 'FAIL').write_text('zero', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'a run that checks nothing')
-        # Pushed to staging, the one branch still fully checked before the
-        # push for a person who does not land there: since 2026-10-17 a push
-        # to main takes the quick checks and the full suite runs after it.
-        denied, out = gate('git push origin HEAD:staging')
+        # Pushed to staging by a person whose pushes are fully checked.
+        denied, out = full_gate('git push origin HEAD:staging')
         cases.append(('a precedent_check run that passed ZERO checks is '
                       'refused although it exits 0', denied and 'ZERO' in out))
         (work / 'FAIL').write_text('deep_check', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'break the deep check suite')
-        denied, out = gate('git push origin HEAD:staging')
+        denied, out = full_gate('git push origin HEAD:staging')
         cases.append(("a repo's own deep-check suite (tools/checks/tests/"
                       "run_all.sh) runs, and its failure refuses the push",
                       denied and 'deep_check' in out))
@@ -39619,31 +39641,31 @@ def check_push_check_gate():
             denied, _ = gate('git push -u origin feature')
             cases.append(('a push to a working branch gets the basic check: a '
                           'failing full-only check does not refuse it', not denied))
-            denied, _ = gate('git push origin HEAD:pre-staging')
-            cases.append(('so does a push to pre-staging', not denied))
+            denied, _ = gate('git push origin HEAD:staging')
+            cases.append(('so does a push to staging, where work lands', not denied))
             # The practice checks on the changed files run at the Debut and
             # around Produce, never before a push (Morgan, 2026-10-16): a
             # landing push no longer runs them, so their failure refuses
             # neither it nor a working branch's push.
             (work / 'FAIL').write_text('changed_practice', encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'break the changed-files practice run')
-            denied, out = gate('git push origin HEAD:pre-staging')
-            cases.append(('a push to pre-staging does not run the practice checks '
+            denied, out = gate('git push origin HEAD:staging')
+            cases.append(('a push to staging does not run the practice checks '
                           'on the files it changes -- they wait for the Debut',
                           not denied and 'changed_practice' not in out))
             denied, _ = gate('git push -u origin feature')
             cases.append(('nor does a push to a working branch', not denied))
             (work / 'FAIL').write_text('precedent_check', encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'back to a full-only failure')
-            denied, out = gate('git push origin HEAD:staging')
-            cases.append(('the same tree pushed to a fully checked branch '
-                          '(staging, for a person who does not land there) is '
-                          'refused by the full check -- the basic pass just '
-                          'recorded does not satisfy it',
+            denied, out = full_gate('git push origin HEAD:staging')
+            cases.append(('the same tree pushed by a person whose '
+                          'branch_push_checks says full is refused by the full '
+                          'check -- the basic pass just recorded does not '
+                          'satisfy it', denied and 'precedent_check' in out))
+            denied, out = full_gate('git push origin main feature')
+            cases.append(('one push naming main and a branch that person '
+                          'checks fully is checked fully',
                           denied and 'precedent_check' in out))
-            denied, out = gate('git push origin feature HEAD:staging')
-            cases.append(('one push naming a working branch and a fully checked '
-                          'one is checked fully', denied and 'precedent_check' in out))
             (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'break the leak gate again')
             denied, out = gate('git push origin feature')
@@ -39651,7 +39673,7 @@ def check_push_check_gate():
                           denied and 'leak_gate' in out))
             git(work, 'rm', '-q', 'FAIL')
             git(work, 'commit', '-q', '-m', 'fix it again')
-            denied, _ = gate('git push origin main')
+            denied, _ = full_gate('git push origin main')
             again = subprocess.run(
                 [sys.executable, 'tools/precedent_push_check.py', '--gate',
                  '--push-command', 'origin feature'],
@@ -39674,7 +39696,10 @@ def check_push_check_gate():
                                    *a], cwd=cwd, capture_output=True, text=True,
                                   env=env).stdout
 
-        ran = run_check(work, '--tier', 'full')
+        # Staging, the landing branch, takes the quick check since
+        # pre-staging retired, so asking for the full suite says why.
+        ran = run_check(work, '--tier', 'full', '--because',
+                        'the shared-receipt test needs a full pass')
         files = git(hub, 'ls-tree', '-r', '--name-only',
                     'precedent-check-receipts').stdout.split()
         cases.append(('a full pass is published to origin as a receipt',
@@ -39935,19 +39960,18 @@ def check_global_backstop_runs_person_fixer():
 
 
 def check_branch_tiers():
-    """The three branch tiers (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
-    strength: decided): a push to staging or main is checked fully; a push
-    to pre-staging or any other branch gets the basic check unless the
-    person's `branch_push_checks` says full. tools/precedent_branches.py
+    """The branch tiers (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
+    since narrowed): every push gets the basic check unless the person's
+    `branch_push_checks` says full -- main since 2026-10-17 (its full suite
+    runs after the push), and staging since pre-staging retired the same
+    day (its full suite runs at the Debut). tools/precedent_branches.py
     holds the rule; this pins what it answers.
 
     The cases that matter are the ones that would land unchecked work: a
-    push whose destination cannot be read must come out FULL, a typo in the
-    setting must come out FULL, and nothing the setting says may lower
-    staging or main. A branch the repository still calls by its pre-rename
-    name (`base_branch`) is staging and must be full too."""
+    push whose destination cannot be read must come out FULL, and a typo in
+    the setting must come out FULL."""
     import tempfile, json as _json
-    name = 'branch tiers: main and a landing staging take the quick checks, other branches basic by default'
+    name = 'branch tiers: every branch takes the quick checks unless the person asks for full'
     tool = ROOT / 'tools' / 'precedent_branches.py'
     if not tool.exists():
         not_applicable(name, 'tools/precedent_branches.py is absent')
@@ -39981,13 +40005,18 @@ def check_branch_tiers():
         def tier(branch, user_config=nocfg):
             return pb.tier_for_branch(repo, branch, user_config)[0]
 
-        cases.append(('pre-staging is basic by default', tier('pre-staging') == 'basic'))
+        cases.append(('a leftover pre-staging is an ordinary branch: basic by '
+                      'default', tier('pre-staging') == 'basic'))
         cases.append(('a working branch is basic by default', tier('claude/x') == 'basic'))
         cases.append(('main takes the quick checks; its full suite runs after '
                       'the push (2026-10-17)', tier('main') == 'basic'))
-        cases.append(('staging is full', tier('staging') == 'full'))
-        cases.append(("the repo's declared base_branch (staging before the "
-                      "rename) is full", tier('precedent-beta-v01') == 'full'))
+        cases.append(('staging under its new name takes the quick checks too, '
+                      'like any branch (pre-staging retired 2026-10-17)',
+                      tier('staging') == 'basic'))
+        cases.append(("the repo's declared base_branch, its staging tier under "
+                      "the old name, takes the quick checks: work lands there, "
+                      "for everyone since pre-staging retired (2026-10-17)",
+                      tier('precedent-beta-v01') == 'basic'))
         cases.append(('staging_branch() names the declared branch until the '
                       'rename', pb.staging_branch(repo) == 'precedent-beta-v01'))
 
@@ -39995,6 +40024,8 @@ def check_branch_tiers():
             {'email': 'p@example.com', 'branch_push_checks': 'full'}), encoding='utf-8')
         cases.append(("the person's identity.json can raise other branches to "
                       "full", tier('claude/x', str(cfg)) == 'full'))
+        cases.append(("...staging among them",
+                      tier('precedent-beta-v01', str(cfg)) == 'full'))
         (indiv / 'identity.json').write_text(_json.dumps(
             {'email': 'p@example.com', 'branch_push_checks': 'bassic'}), encoding='utf-8')
         cases.append(('a value that is neither basic nor full is checked fully',
@@ -40015,7 +40046,7 @@ def check_branch_tiers():
                       'branch it does not have -- and a person with no '
                       'landing_branch lands there too (pre-staging is opt-in '
                       'since 2026-09-26)', pb.staging_branch(repo) == 'main'
-                      and tier('staging') == 'full'
+                      and tier('staging') == 'basic'
                       and pb.landing_branch(repo, nocfg)[0] == 'main'))
 
         # Morgan, 2026-09-27 (strength: decided): the person's own
@@ -40116,9 +40147,8 @@ def check_merge_check_gate():
 
     The fixture is a local "origin" carrying refs/pull/N/head and
     refs/pull/N/merge the way GitHub does. The cases that matter are the
-    ones that would land unchecked work: a pull request into a fully checked
-    branch (staging, for a person who does not land there) must get the full
-    check; a base that cannot be matched must get it too; and a base branch
+    ones that would land unchecked work: a pull request into staging, for a
+    person whose branch_push_checks says full, must get the full check; a base that cannot be matched must get it too; and a base branch
     sitting at the same commit as that branch -- exactly how
     AGENTS.md's merge-target rule began, and how this check's first live
     run misread a real pull request -- must not be mistaken for the
@@ -40167,7 +40197,7 @@ def check_merge_check_gate():
                 # precedent_check.py also answers as the basic tier's
                 # ci_workflows (--only ci-workflow-approved), a check of
                 # its own: fail it only when FAIL names that one.
-                # ...and as pre-staging's changed_practice (--changed-files-only).
+                # ...and as the changed-files run (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
@@ -40180,14 +40210,19 @@ def check_merge_check_gate():
                    if t == 'precedent_check' else f'name = "{t}"\n')
                 + 'sys.exit(1 if name in body else 0)\n',
                 encoding='utf-8')
+        # The tiers exist here, so a landing into staging holds it still.
+        (work / 'precedent.json').write_text(
+            _json.dumps({'landing_branch': 'staging'}), encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
         git(work, 'push', '-q', 'origin', 'main')
         # Since 2026-10-17 a pull request into main takes the quick checks
         # and its full suite runs after the merge (Morgan: "the full tests
-        # should happen after that"); staging, for a person who does not
-        # land on it, is the fully checked base these cases use.
+        # should happen after that"), and so does one into staging since
+        # pre-staging retired: the full check before a merge is for a
+        # person whose branch_push_checks says full, and staging is the
+        # base these cases use for one.
         git(work, 'checkout', '-q', '-b', 'staging')
         (work / 'staging.txt').write_text('staging', encoding='utf-8')
         git(work, 'add', 'staging.txt')
@@ -40200,13 +40235,14 @@ def check_merge_check_gate():
         git(work, 'add', 'fb.txt')
         git(work, 'commit', '-q', '-m', 'fb')
         git(work, 'push', '-q', 'origin', 'fb')
-        # The tiers exist here, so a landing into main holds it still: a
-        # pre-staging of its own, at no other branch's commit.
-        git(work, 'checkout', '-q', '-b', 'ps', 'main')
-        (work / 'ps.txt').write_text('ps', encoding='utf-8')
-        git(work, 'add', 'ps.txt')
-        git(work, 'commit', '-q', '-m', 'ps')
-        git(work, 'push', '-q', 'origin', 'ps:pre-staging')
+        full_person = tmp / 'full-person'
+        full_person.mkdir()
+        (full_person / 'identity.json').write_text(_json.dumps(
+            {'email': 'full@example.com', 'branch_push_checks': 'full'}),
+            encoding='utf-8')
+        full_cfg = tmp / 'full-config.json'
+        full_cfg.write_text(_json.dumps(
+            {'individual': {'path': str(full_person)}}), encoding='utf-8')
 
         def pull(number, base, fail):
             """Publish pull request `number` into `base` whose head plants
@@ -40253,25 +40289,33 @@ def check_merge_check_gate():
         cases.append(('a pull request into main gets the quick check, so a '
                       'full-only failure is let through for the full suite '
                       'after the merge', not denied and '(basic)' in out))
+        lock_log = lambda: git(bare, 'log', '--format=%s', 'precedent-promote-lock').stdout
         denied, out = mcp(7)
-        cases.append(('a pull request into staging gets the full check, and a '
+        cases.append(('a pull request into staging gets the quick check like '
+                      'any other, so a full-only failure is let through for '
+                      'the Debut', not denied and '(basic)' in out))
+        before = lock_log()
+        denied, out = mcp(8)
+        cases.append(('a pull request into a working branch gets the basic '
+                      'check, so the same failure is let through', not denied))
+        cases.append(('...and holds nothing still, since a working branch is '
+                      'not a tier anyone else lands on', lock_log() == before))
+        denied, out = mcp(9)
+        cases.append(('the basic check still refuses a failing leak gate',
+                      denied and 'leak_gate' in out))
+        # From here on, a person whose pushes are fully checked.
+        env['PRECEDENT_USER_CONFIG'] = str(full_cfg)
+        denied, out = mcp(7)
+        cases.append(('a pull request into staging, for a person whose '
+                      'branch_push_checks says full, gets the full check, and a '
                       'failing full-only check refuses the merge',
                       denied and 'merge check REFUSED' in out
                       and 'precedent_check' in out))
-        lock_log = lambda: git(bare, 'log', '--format=%s', 'precedent-promote-lock').stdout
         held_log = lock_log()
         cases.append(('...staging was held still while that check ran: the gate '
                       'claimed the Promote lock for the landing and freed it '
                       'after', 'landing pull request #7 into' in held_log
                       and held_log.splitlines()[0] == 'free [skip ci]'))
-        denied, out = mcp(8)
-        cases.append(('a pull request into a working branch gets the basic '
-                      'check, so the same failure is let through', not denied))
-        cases.append(('...and holds nothing still, since a working branch is '
-                      'not a tier anyone else lands on', lock_log() == held_log))
-        denied, out = mcp(9)
-        cases.append(('the basic check still refuses a failing leak gate',
-                      denied and 'leak_gate' in out))
         denied, out = mcp(10)
         cases.append(('a base that matches no branch on origin is checked '
                       'fully', denied and 'unmatched base' in out))
@@ -40293,13 +40337,14 @@ def check_merge_check_gate():
         denied, out = mcp(7, owner='nobody')
         cases.append(('no checkout of the repository: let through, and said',
                       not denied and 'NOTE: merge-check-gate' in out))
-        git(work, 'push', '-q', 'origin', ':pre-staging')
+        tiers_file = (work / 'precedent.json').read_text(encoding='utf-8')
+        (work / 'precedent.json').unlink()
         before = lock_log()
         mcp(7)
-        cases.append(('a repository without the tiers holds nothing still: no '
-                      'pre-staging, so the lock branch is not touched',
+        cases.append(('a repository without the tiers holds nothing still: '
+                      'no tier declared, so the lock branch is not touched',
                       lock_log() == before))
-        git(work, 'push', '-q', 'origin', 'ps:pre-staging')
+        (work / 'precedent.json').write_text(tiers_file, encoding='utf-8')
 
         # Another window holds main still (a Promote, or its own landing):
         # a fresh claim on the lock branch, made the way Promote makes one.
@@ -41069,7 +41114,7 @@ def check_empty_commits_are_never_counted():
     Morgan, 2026-09-27 (strength: decided): "let's have the system stop
     describing and/or reporting and/or mentioning empty merges", and the
     branch lines count "the number of commits ahead/behind that made changes
-    to the repo". Every Promote into main leaves merge commits pre-staging
+    to the repo". Every Promote into main leaves merge commits staging
     lacks, so a count by lineage is never zero and never means anything."""
     import tempfile, shutil as _shutil
     name = 'commits that change no file are never counted or reported'
@@ -41098,29 +41143,29 @@ def check_empty_commits_are_never_counted():
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        for b in ('staging', 'pre-staging'):
+        for b in ('main', 'staging'):
             git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{b}')
 
-        # pre-staging gains an empty commit and an empty merge.
-        git(work, 'checkout', '-q', '-b', 'pre-staging')
+        # staging gains an empty commit and an empty merge.
+        git(work, 'checkout', '-q', '-b', 'staging')
         git(work, 'commit', '-q', '--allow-empty', '-m', 'empty')
         git(work, 'checkout', '-q', '-b', 'side', 'HEAD~1')
         git(work, 'commit', '-q', '--allow-empty', '-m', 'side empty')
-        git(work, 'checkout', '-q', 'pre-staging')
+        git(work, 'checkout', '-q', 'staging')
         git(work, 'merge', '-q', '--no-ff', '-m', 'empty merge', 'side')
-        git(work, 'push', '-q', 'origin', 'pre-staging')
+        git(work, 'push', '-q', 'origin', 'staging')
         git(work, 'fetch', '-q', 'origin')
 
-        cases.append(('an empty commit and an empty merge on pre-staging: the '
+        cases.append(('an empty commit and an empty merge on staging: the '
                       'Boildown line counts nothing waiting',
-                      _pg._unpromoted(work, 'staging', out) == 0))
+                      _pg._unpromoted(work, 'main', out) == 0))
         cases.append(('and Promote finds nothing waiting to move',
-                      _pb._new_commits(work, 'origin/staging',
-                                       'origin/pre-staging') == []))
+                      _pb._new_commits(work, 'origin/main',
+                                       'origin/staging') == []))
 
         # A stop with only empty commits unpushed is not blocked.
         hook = ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'
-        git(work, 'checkout', '-q', '-b', 'feature', 'origin/pre-staging')
+        git(work, 'checkout', '-q', '-b', 'feature', 'origin/staging')
         git(work, 'push', '-q', '-u', 'origin', 'feature')
         git(work, 'commit', '-q', '--allow-empty', '-m', 'nothing')
 
@@ -41140,13 +41185,13 @@ def check_empty_commits_are_never_counted():
         cases.append(('one real commit among empty ones: the stop hook blocks '
                       'and says 1, not 3', r.returncode == 2
                       and '1 unpushed commit(s)' in r.stderr))
-        git(work, 'push', '-q', 'origin', 'feature:pre-staging')
+        git(work, 'push', '-q', 'origin', 'feature:staging')
         git(work, 'fetch', '-q', 'origin')
         cases.append(('and the Boildown line counts that one real commit',
-                      _pg._unpromoted(work, 'staging', out) == 1))
+                      _pg._unpromoted(work, 'main', out) == 1))
         cases.append(('Promote sees exactly that one commit',
-                      len(_pb._new_commits(work, 'origin/staging',
-                                           'origin/pre-staging')) == 1))
+                      len(_pb._new_commits(work, 'origin/main',
+                                           'origin/staging')) == 1))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -41156,16 +41201,15 @@ def check_promote_only_and_tier_branches():
 
     `promote_only`, a per-person opt-in: with it on, staging and main take
     work only by promotion. That day five changes reached a practice
-    source's main without passing pre-staging, and nothing refused any of
-    them. The cases that matter: it is OFF unless a person turns it on
+    source's main without passing the tier below it, and nothing refused
+    any of them. The cases that matter: it is OFF unless a person turns it on
     (Morgan asked for it as his own rule, not everyone's), a direct push or
     an off-tier pull request is refused with the way round named, and the
-    promotion routes themselves -- pre-staging into staging, staging into
-    main -- are never refused. An ambiguous base is not refused either,
+    promotion route itself -- staging into main -- is never refused. An ambiguous base is not refused either,
     since two branches at one commit is the normal state right after
     Promote.
 
-    `--ensure-tiers`, the migration step that gives a repository all three
+    `--ensure-tiers`, the migration step that gives a repository both tier
     branches. A repo whose staging tier was main gains a real `staging`
     branch and a `staging_branch` key, and keeps `base_branch` -- which also
     pins a practice source's session clone -- exactly as it was."""
@@ -41213,7 +41257,7 @@ def check_promote_only_and_tier_branches():
         # promote_only means something only where there are tiers to
         # promote through (Morgan, 2026-10-02, strength: decided).
         (work / 'precedent.json').write_text(_json.dumps(
-            {'base_branch': 'main', 'landing_branch': 'pre-staging'}),
+            {'base_branch': 'main', 'landing_branch': 'staging'}),
             encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
@@ -41250,14 +41294,13 @@ def check_promote_only_and_tier_branches():
         person(promote_only=True)
         why = push_refused('origin main') or ''
         cases.append(('on: a push to main is refused, naming the setting and the '
-                      'way round', 'promote_only is on' in why
-                      and 'HEAD:pre-staging' in why and 'Promote' in why, why))
+                      'way round: with no staging branch yet, make one and '
+                      'land there', 'promote_only is on' in why
+                      and '--ensure-tiers --apply' in why and 'Promote' in why, why))
         cases.append(('on: a refspec onto main is refused too',
                       push_refused('origin HEAD:main') is not None))
         cases.append(('on: a push to staging is refused',
                       push_refused('origin staging') is not None))
-        cases.append(('on: a push to pre-staging goes through',
-                      push_refused('origin pre-staging') is None))
         # The first landing (promote-only's first-install exception, Morgan,
         # 2026-10-08): a push into a remote holding no branch at all creates
         # main and goes through; the remote above, which has main, refuses.
@@ -41270,23 +41313,21 @@ def check_promote_only_and_tier_branches():
                       push_refused('nosuchremote main') is not None))
         cases.append(('on: a push to a working branch goes through',
                       push_refused('origin claude/x') is None))
-        cases.append(('on: pre-staging into staging is the promotion route, '
-                      'never refused', merge_refused(['staging'], ['pre-staging']) is None))
         cases.append(('on: staging into main is the promotion route, never refused',
                       merge_refused(['main'], ['staging']) is None))
         # A to-main- copy left behind when staging moved (2026-10-06): the
         # refusal says it is out of date and to make a fresh one, never to
-        # retarget it at pre-staging.
+        # retarget it.
         why = merge_refused(['main'], ['to-main-20261006T090733-0300']) or ''
         cases.append(('on: a stale to-main copy into main is refused as out of '
                       'date, with a fresh Produce as the remedy',
-                      'out of date' in why and 'Never retarget' in why
-                      and 'Retarget it at pre-staging' not in why, why))
+                      'out of date' in why and 'Never retarget' in why, why))
         why = merge_refused(['staging'], ['claude/x']) or ''
-        cases.append(('on: a working branch into staging is refused, saying to '
-                      'retarget at pre-staging', 'Retarget it at pre-staging' in why, why))
-        cases.append(('on: pre-staging straight into main is refused (it skips '
-                      'staging)', merge_refused(['main'], ['pre-staging']) is not None))
+        cases.append(('on: a working branch into staging is refused while there '
+                      'is no staging branch, saying to make one',
+                      '--ensure-tiers --apply' in why, why))
+        cases.append(('on: a working branch straight into main is refused',
+                      merge_refused(['main'], ['claude/x']) is not None))
         # promote-only's red-main exception (Morgan, 2026-10-11, assented):
         # a fix built on main's tip goes straight in while main's own GitHub
         # test is red; green, or not built on main, it is refused as before.
@@ -41322,7 +41363,7 @@ def check_promote_only_and_tier_branches():
             sys.path.pop(0)
         base_tip = git(work, 'rev-parse', 'main').stdout.strip()
         (work / 'precedent.json').write_text(_json.dumps(
-            {'base_branch': 'main', 'landing_branch': 'pre-staging',
+            {'base_branch': 'main', 'landing_branch': 'staging',
              'content_paths': ['content/']}), encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'declare content')
@@ -41351,7 +41392,7 @@ def check_promote_only_and_tier_branches():
                                                str(cfg), head_sha=sha) is not None))
             git(work, 'reset', '-q', '--hard', decl_tip)
             (work / 'precedent.json').write_text(_json.dumps(
-                {'base_branch': 'main', 'landing_branch': 'pre-staging',
+                {'base_branch': 'main', 'landing_branch': 'staging',
                  'content_paths': ['content/', 'notes.md']}), encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'widen content')
             cases.append(('on: widening content_paths in the same change is refused',
@@ -41360,9 +41401,9 @@ def check_promote_only_and_tier_branches():
             git(work, 'push', '-q', '-f', 'origin', f'{base_tip}:refs/heads/main')
             git(work, 'reset', '-q', '--hard', base_tip)
             git(work, 'fetch', '-q', 'origin')
-        cases.append(('on: an ambiguous base (pre-staging and staging at one '
-                      'commit) is not refused',
-                      merge_refused(['pre-staging', 'staging'], ['claude/x']) is None))
+        cases.append(('on: an ambiguous base (a working branch and staging at '
+                      'one commit) is not refused',
+                      merge_refused(['claude/y', 'staging'], ['claude/x']) is None))
         (work / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'main', 'promote_only': False}), encoding='utf-8')
         cases.append(("a repository's own precedent.json overrides the person, "
@@ -43924,7 +43965,7 @@ def check_session_check_stamps_at_session_start():
 
         git('init', '-q', '-b', 'main')
         commit('one')
-        git('branch', 'pre-staging')
+        git('branch', 'staging')
         git('checkout', '-q', '-b', '2026-10-09-feature-abcde')
         stamp = psc.session_stamp_path(git)
         stamp.write_text('somewhere-else\n0000\n')
@@ -43934,12 +43975,12 @@ def check_session_check_stamps_at_session_start():
                       and stamp.read_text().split()[0] == '2026-10-09-feature-abcde',
                       stamp.read_text()))
         commit('feature work', 'g')
-        # Promoted: merged into pre-staging (and origin's copy), and main
+        # Promoted: merged into staging (and origin's copy), and main
         # takes the same content as a commit of its own, not a merge.
-        git('checkout', '-q', 'pre-staging')
+        git('checkout', '-q', 'staging')
         git('-c', 'user.name=t', '-c', 'user.email=t@t', 'merge', '-q', '--no-ff',
             '-m', 'land', '2026-10-09-feature-abcde')
-        git('update-ref', 'refs/remotes/origin/pre-staging', 'pre-staging')
+        git('update-ref', 'refs/remotes/origin/staging', 'staging')
         git('checkout', '-q', 'main')
         commit('feature work, copied onto main', 'g')
         r = psc._session_branch_row(stamp, git)
@@ -44065,27 +44106,27 @@ def check_session_check_adopts_a_detached_start():
                       stamp.read_text()))
 
         # The ladder's move: the session starts on main and branches from
-        # pre-staging, which lacks main's newest commit (2026-10-01).
+        # staging, which lacks main's newest commit (2026-10-01).
         git('checkout', '-q', 'main')
-        git('branch', '-f', 'pre-staging', 'HEAD')
+        git('branch', '-f', 'staging', 'HEAD')
         git('branch', '-f', 'side', 'HEAD')
-        commit('main moves on: a Produce merge pre-staging lacks')
+        commit('main moves on: a Produce merge staging lacks')
         _, c_main, _ = git('rev-parse', 'HEAD')
         stamp.write_text(f'main\n{c_main}\n')
         os.utime(stamp, (_time.time() - 60, _time.time() - 60))
-        git('checkout', '-q', '-b', 'claude/ladder', 'pre-staging')
+        git('checkout', '-q', '-b', 'claude/ladder', 'staging')
         ok, detail = row()
-        cases.append(('a new branch made from pre-staging, which lacks the '
+        cases.append(('a new branch made from staging, which lacks the '
                       'start commit, passes', ok is True, detail))
         # The same move as a cloud session makes it, from origin's copy
-        # (`git checkout -b feat origin/pre-staging`).
+        # (`git checkout -b feat origin/staging`).
         git('checkout', '-q', 'main')
-        git('update-ref', 'refs/remotes/origin/pre-staging', 'pre-staging')
+        git('update-ref', 'refs/remotes/origin/staging', 'staging')
         stamp.write_text(f'main\n{c_main}\n')
         os.utime(stamp, (_time.time() - 60, _time.time() - 60))
-        git('checkout', '-q', '-b', 'claude/ladder-origin', 'origin/pre-staging')
+        git('checkout', '-q', '-b', 'claude/ladder-origin', 'origin/staging')
         ok, detail = row()
-        cases.append(('...and so does one made from origin/pre-staging',
+        cases.append(('...and so does one made from origin/staging',
                       ok is True, detail))
         git('checkout', '-q', 'main')
         stamp.write_text(f'main\n{c_main}\n')
@@ -46280,15 +46321,17 @@ def check_tier_branches_are_never_a_pull_requests_source():
         import precedent_merge_check as pmc
     finally:
         sys.path.pop(0)
-    tiers = ['main', 'staging', 'pre-staging', 'precedent-beta-v01']
+    tiers = ['main', 'staging', 'precedent-beta-v01']
     cases = [
         ('a pull request FROM staging, same repository, is refused',
          bool(pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers))),
         ('...and the refusal says how: a throwaway copy',
          'promote-to-main' in (pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers) or '')
          or 'refs/heads/to-main-' in (pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers) or '')),
-        ('so is one from pre-staging or main',
-         all(pmc.tier_source_refusal(b, 'o/r', 'o', 'r', tiers) for b in ('pre-staging', 'main'))),
+        ('so is one from main',
+         bool(pmc.tier_source_refusal('main', 'o/r', 'o', 'r', tiers))),
+        ('a leftover pre-staging is an ordinary branch, not refused',
+         pmc.tier_source_refusal('pre-staging', 'o/r', 'o', 'r', tiers) is None),
         ("a fork's branch named staging is not refused",
          pmc.tier_source_refusal('staging', 'someone/r', 'o', 'r', tiers) is None),
         ('an ordinary working branch is not refused',
@@ -46340,24 +46383,25 @@ def check_tier_branches_are_never_a_pull_requests_source():
         r = ensure()
         # Retired 2026-10-11 (todo-2026-09-26-retire-precedent-beta-v01): the
         # old name is never a source any more, even when it is ahead.
-        cases.append(('a deleted staging is rebuilt from pre-staging, never from '
+        cases.append(('a deleted staging is rebuilt from main, never from '
                       'the retired old name',
-                      tip('staging') == tip('pre-staging') != want,
+                      tip('staging') == tip('main') != want,
                       (r.stdout + r.stderr)[-300:]))
         git(work, 'push', '-q', 'origin', ':staging', ':precedent-beta-v01')
         r = ensure()
         cases.append(('with no old name either, it is rebuilt from main',
                       tip('staging') == tip('main') != '', (r.stdout + r.stderr)[-300:]))
-        # Morgan, 2026-09-27: a missing staging is copied from pre-staging
-        # when pre-staging exists, and from main only when neither does.
+        # A leftover pre-staging is never a source either, even ahead of
+        # main (Morgan, 2026-10-17: "WE SHOULD DELETE PRE-STAGING
+        # EVERYWHERE").
         (work / 'f').write_text('3', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'three')
         git(work, 'push', '-q', 'origin', 'HEAD:pre-staging')
         git(work, 'push', '-q', 'origin', ':staging')
         r = ensure()
-        cases.append(('with pre-staging ahead of main and no old name, staging is '
-                      'copied from pre-staging',
-                      tip('staging') == tip('pre-staging') != tip('main'),
+        cases.append(('with a leftover pre-staging ahead of main, staging is '
+                      'still rebuilt from main',
+                      tip('staging') == tip('main') != tip('pre-staging'),
                       (r.stdout + r.stderr)[-300:]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
@@ -52990,7 +53034,7 @@ def check_push_check_records_over_its_own_ledgers():
                                cwd=work, capture_output=True, text=True, env=env)
             return p.stdout + p.stderr
 
-        out = run_check('--tier', 'full')
+        out = run_check('--tier', 'full', '--because', 'the ledger test')
         dirty = git('status', '--porcelain', '--untracked-files=no')
         cases.append(('the run dirtied its own tree with the ledger (the bug\'s '
                       'precondition)', dirty.endswith('audit_ledger.jsonl')))
@@ -53009,7 +53053,7 @@ def check_push_check_records_over_its_own_ledgers():
         # or after a ledger refresh, and the gate does not reuse the pass.
         record.unlink(missing_ok=True)
         (work / 'notes.txt').write_text('b\n', encoding='utf-8')
-        out = run_check('--tier', 'full')
+        out = run_check('--tier', 'full', '--because', 'the ledger test')
         cases.append(('an edited tracked file still blocks the record',
                       'NOT recorded' in out and not record.is_file()))
         out = run_check('--gate', '--tier', 'full')
@@ -53017,7 +53061,7 @@ def check_push_check_records_over_its_own_ledgers():
                       'already passed' not in out))
         git('checkout', '--', 'notes.txt')
         git('commit', '-q', '-am', 'commit the ledger')
-        out = run_check('--tier', 'full')
+        out = run_check('--tier', 'full', '--because', 'the ledger test')
         cases.append(('a run over a committed ledger records as before',
                       'recorded for tree' in out))
     bad = [c for c, ok in cases if not ok]
@@ -62134,8 +62178,8 @@ def check_update_done_names_the_branch_to_commit_on():
             line = _pu.feature_branch_line(repo) or ''
             cases.append(('on main, DONE prints the switch command',
                           _pu.SWITCH_COMMAND in line, line))
-            subprocess.run(g + ['switch', '-q', '-c', 'pre-staging'], check=True)
-            cases.append(('...and on pre-staging',
+            subprocess.run(g + ['switch', '-q', '-c', 'staging'], check=True)
+            cases.append(('...and on staging',
                           _pu.SWITCH_COMMAND in (_pu.feature_branch_line(repo) or ''),
                           ''))
             subprocess.run(g + ['switch', '-q', '-c',
@@ -65401,9 +65445,9 @@ def check_landed_reduction_quiets_the_reduction_ask():
     branch is reported as waiting on a Promote, not as needing another pass.
 
     Found 2026-10-01 in a reduction-pass session: the reply gate kept
-    requiring a Reduction pass after the pass had landed on pre-staging,
+    requiring a Reduction pass after the pass had landed on the tier below main,
     because the file it measures is built from main. The rule under test:
-    AGENTS.md smaller on origin/pre-staging than on origin/main marks the
+    AGENTS.md smaller on origin/staging than on origin/main marks the
     over-target line; the same size, or no landing branch, leaves it as
     the plain ask. Driven against a throwaway repository."""
     import tempfile
@@ -65428,27 +65472,27 @@ def check_landed_reduction_quiets_the_reduction_ask():
         git('add', '-A')
         git('commit', '-q', '-m', 'big')
         git('remote', 'add', 'origin', f'file://{bare}')
-        git('push', '-q', 'origin', 'HEAD:main', 'HEAD:pre-staging')
+        git('push', '-q', 'origin', 'HEAD:main', 'HEAD:staging')
         git('fetch', '-q', 'origin')
 
         got = pg._over_target(work, siblings=False)
-        cases.append(('over target, same size on pre-staging: the plain ask',
+        cases.append(('over target, same size on staging: the plain ask',
                       len(got) == 1 and pg.LANDED_REDUCTION_MARK not in got[0],
                       repr(got)))
-        git('checkout', '-q', '-b', 'pre-staging', 'origin/pre-staging')
+        git('checkout', '-q', '-b', 'staging', 'origin/staging')
         (work / 'AGENTS.md').write_text('# A\n' + 'word ' * 200, encoding='utf-8')
         git('commit', '-qam', 'reduction pass')
-        git('push', '-q', 'origin', 'pre-staging')
+        git('push', '-q', 'origin', 'staging')
         git('fetch', '-q', 'origin')
         git('checkout', '-q', 'main')
         got = pg._over_target(work, siblings=False)
-        cases.append(('a smaller AGENTS.md on pre-staging marks the line as '
+        cases.append(('a smaller AGENTS.md on staging marks the line as '
                       'waiting on a Promote, with both sizes',
                       len(got) == 1 and pg.LANDED_REDUCTION_MARK in got[0]
-                      and 'on main' in got[0] and 'on pre-staging' in got[0],
+                      and 'on main' in got[0] and 'on staging' in got[0],
                       repr(got)))
         # Off the ladder: the same fact, with no tier and no ladder word
-        # (found 2026-10-03, the line named pre-staging to such a person).
+        # (found 2026-10-03, the line named the landing tier to such a person).
         saved = {k: os.environ.pop(k, None) for k in
                  ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG')}
         os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
@@ -65462,7 +65506,7 @@ def check_landed_reduction_quiets_the_reduction_ask():
                       len(got) == 1 and pg.LANDED_REDUCTION_MARK_PLAIN in got[0]
                       and 'on main' in got[0]
                       and not _owned_word_hits(got[0]), repr(got)))
-        git('push', '-q', 'origin', '--delete', 'pre-staging')
+        git('push', '-q', 'origin', '--delete', 'staging')
         git('fetch', '-q', '--prune', 'origin')
         cases.append(('no landing branch on origin: no mark',
                       pg._landed_reduction(work) is None,
@@ -69140,9 +69184,9 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
         cases.append(('...and --land is their route (never exit 2)',
                       rc != 2 and 'LAND RESULT' in out, out[-200:]))
         person(landing_branch='staging')
-        cases.append(('default: landing on staging without promote_only is '
-                      'fully checked, as before',
-                      pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'full'))
+        cases.append(('default: landing on staging without promote_only takes '
+                      'the quick checks too, since pre-staging retired',
+                      pb.tier_for_branch(work, 'staging', str(cfg))[0] == 'basic'))
 
         # --- landing straight on staging ---
         person(landing_branch='staging', promote_only=True)
@@ -69165,8 +69209,8 @@ def check_landing_on_staging_run_tests_and_fast_move_into_main():
                                 git(work, 'rev-parse', 'HEAD').stdout.strip()) is None))
         why = merge_why(['main'], ['level']) or ''
         cases.append(('a working branch into main is still refused, saying to '
-                      'retarget at staging, their landing branch',
-                      'Retarget it at staging' in why, why[:200]))
+                      'land it on staging, their landing branch',
+                      'Land the branch on staging' in why, why[:200]))
 
         # A commit made directly on main, then work cut from staging.
         direct = commit_on('main', 'hotfix', 'direct.txt', 'd\n', push_to='main')
@@ -69548,59 +69592,6 @@ def check_debut_judges_the_change_against_main_too():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
-def check_install_by_a_staging_person_makes_no_pre_staging():
-    """A new install by a person who has retired pre-staging lands on
-    staging and makes no pre-staging on origin (2026-10-11).
-
-    WHY. The very deep check's install rehearsal, run as Morgan, got
-    landing_branch "pre-staging" written into precedent.json and a
-    pre-staging branch pushed to origin -- the tier he had retired from
-    every repository two days earlier. The next Update Vendors would then
-    have moved it back and offered the branch for deletion."""
-    import tempfile
-    import precedent_branches as pb
-
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp = pathlib.Path(tmp)
-        results = {}
-        for landing in ('staging', 'pre-staging'):
-            bare, repo = tmp / f'{landing}.git', tmp / f'{landing}-repo'
-            fixture_git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
-            fixture_git(tmp, 'init', '-q', '-b', 'main', str(repo))
-            fixture_git(repo, 'config', 'user.email', 'h@example.com')
-            fixture_git(repo, 'config', 'user.name', 'H')
-            (repo / 'precedent.json').write_text(json.dumps(
-                {'base_branch': 'staging', 'landing_branch': landing}) + '\n')
-            fixture_git(repo, 'add', '-A')
-            fixture_git(repo, 'commit', '-qm', 'install')
-            fixture_git(repo, 'remote', 'add', 'origin', str(bare))
-            fixture_git(repo, 'push', '-q', 'origin', 'main')
-            real = (pb.ladder_in_force, pb.pre_staging_unused)
-            pb.ladder_in_force = lambda *a, **k: True
-            pb.pre_staging_unused = lambda *a, **k: (False, None)
-            try:
-                rc = pb.ensure_tiers(repo, apply=True, say=lambda *a: None,
-                                     new_install=True)
-            finally:
-                pb.ladder_in_force, pb.pre_staging_unused = real
-            heads = subprocess.run(['git', '-C', str(bare), 'branch',
-                                    '--format=%(refname:short)'],
-                                   capture_output=True, text=True).stdout.split()
-            results[landing] = (rc, sorted(heads))
-    cases = [
-        ('an install landing on staging gets staging and no pre-staging',
-         results['staging'] == (0, ['main', 'staging'])),
-        # Since 2026-10-14 pre-staging is retired for everyone: even a
-        # precedent.json still naming it gets no pre-staging made.
-        ('an install whose precedent.json still names pre-staging makes no '
-         'pre-staging either, since it is retired for everyone',
-         results['pre-staging'] == (0, ['main', 'staging'])),
-    ]
-    failed = [n for n, ok in cases if not ok]
-    check(f'an install on staging makes no pre-staging ({len(cases)} stated '
-          f'cases)', not failed, '; '.join(failed) + f' -- {results}')
-
-
 def check_update_vendors_retires_pre_staging():
     """The upgrade off pre-staging, for anyone on the ladder since it was
     retired for everyone on 2026-10-14 (Morgan, 2026-10-09: "make sure we have a smooth upgrade process
@@ -69755,18 +69746,10 @@ def check_update_vendors_retires_pre_staging():
                           res == {'steps': [], 'left': [], 'retired': []}
                           and tips() == before and text('AGENTS.md') == agents,
                           out[-300:]))
-        person(promote_only=True)
-        res, out = call('offers')
-        cases.append(('while it holds work staging lacks, with no landing '
-                      'branch of their own: it is never offered',
-                      'pre-staging' in res.get('never', [])
-                      and 'pre-staging' not in res.get('stale', ['x']), out[-300:]))
-        person(landing_branch='pre-staging', promote_only=True)
-        res, out = call('offers')
-        cases.append(('...nor landing on pre-staging',
-                      'pre-staging' in res.get('never', [])
-                      and 'pre-staging' not in res.get('stale', ['x'])
-                      and 'pre-staging' in res.get('vdc', []), out[-300:]))
+        # No case here protects pre-staging from deletion while it holds
+        # work: the step above brings that work into staging first, and
+        # nothing else in the engine treats pre-staging as a tier (Morgan,
+        # 2026-10-17: "WE SHOULD DELETE PRE-STAGING EVERYWHERE").
 
         # --- the repository still makes pre-staging others' landing branch ---
         person(landing_branch='staging', promote_only=True, github='p-user')
@@ -69818,11 +69801,6 @@ def check_update_vendors_retires_pre_staging():
         git(work, 'commit', '-q', '-m', 'a practice copied from a source')
 
         # --- the person who lands on staging, work waiting on pre-staging ---
-        res, out = call('offers')
-        cases.append(('while it holds work staging lacks, pre-staging is never '
-                      'offered', 'pre-staging' in res.get('never', [])
-                      and 'pre-staging' not in res.get('stale', ['x'])
-                      and 'pre-staging' in res.get('vdc', []), out[-300:]))
         main_before, ps_before = tip('main'), tip('pre-staging')
         res, out = call('step')
         retired = res.get('retired') or []
@@ -69903,9 +69881,11 @@ def check_update_vendors_retires_pre_staging():
                       and {'staging', 'main'} <= set(res.get('never', []))
                       and 'pre-staging' not in res.get('vdc', ['pre-staging']),
                       out[-300:]))
-        cases.append(('the stale-branch lister offers it, never staging or main',
-                      'pre-staging' in res.get('stale', [])
-                      and not {'staging', 'main'} & set(res.get('stale', [])),
+        # The stale-branch lister treats it as any branch since 2026-10-17:
+        # offered once main has its work. Until then the step's own link
+        # (above) is the offer.
+        cases.append(('the stale-branch lister never offers staging or main',
+                      not {'staging', 'main'} & set(res.get('stale', [])),
                       out[-300:]))
 
         # --- a second run: nothing changes; it says retired, with the link ---
@@ -69980,6 +69960,58 @@ def check_update_vendors_retires_pre_staging():
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_install_by_a_staging_person_makes_no_pre_staging():
+    """A new install by a person who has retired pre-staging lands on
+    staging and makes no pre-staging on origin (2026-10-11).
+
+    WHY. The very deep check's install rehearsal, run as Morgan, got
+    landing_branch "pre-staging" written into precedent.json and a
+    pre-staging branch pushed to origin -- the tier he had retired from
+    every repository two days earlier. The next Update Vendors would then
+    have moved it back and offered the branch for deletion."""
+    import tempfile
+    import precedent_branches as pb
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        results = {}
+        for landing in ('staging', 'pre-staging'):
+            bare, repo = tmp / f'{landing}.git', tmp / f'{landing}-repo'
+            fixture_git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+            fixture_git(tmp, 'init', '-q', '-b', 'main', str(repo))
+            fixture_git(repo, 'config', 'user.email', 'h@example.com')
+            fixture_git(repo, 'config', 'user.name', 'H')
+            (repo / 'precedent.json').write_text(json.dumps(
+                {'base_branch': 'staging', 'landing_branch': landing}) + '\n')
+            fixture_git(repo, 'add', '-A')
+            fixture_git(repo, 'commit', '-qm', 'install')
+            fixture_git(repo, 'remote', 'add', 'origin', str(bare))
+            fixture_git(repo, 'push', '-q', 'origin', 'main')
+            real = pb.ladder_in_force
+            pb.ladder_in_force = lambda *a, **k: True
+            try:
+                rc = pb.ensure_tiers(repo, apply=True, say=lambda *a: None,
+                                     new_install=True)
+            finally:
+                pb.ladder_in_force = real
+            heads = subprocess.run(['git', '-C', str(bare), 'branch',
+                                    '--format=%(refname:short)'],
+                                   capture_output=True, text=True).stdout.split()
+            results[landing] = (rc, sorted(heads))
+    cases = [
+        ('an install landing on staging gets staging and no pre-staging',
+         results['staging'] == (0, ['main', 'staging'])),
+        # Since 2026-10-14 pre-staging is retired for everyone: even a
+        # precedent.json still naming it gets no pre-staging made.
+        ('an install whose precedent.json still names pre-staging makes no '
+         'pre-staging either, since it is retired for everyone',
+         results['pre-staging'] == (0, ['main', 'staging'])),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'an install on staging makes no pre-staging ({len(cases)} stated '
+          f'cases)', not failed, '; '.join(failed) + f' -- {results}')
 
 
 def check_promote_ends_with_its_result_line():
@@ -78338,8 +78370,10 @@ def check_endgame_merge_finds_the_silent_drop():
 
 
 def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
-    """The very deep check never offers pre-staging, staging, main, staging's
-    old name or Promote's lock branch for deletion, merged or not.
+    """The very deep check never offers staging, main, staging's old name or
+    Promote's lock branch for deletion, merged or not. A leftover pre-staging
+    is no tier since it retired, and is listed like any other branch
+    (Morgan, 2026-10-17: "WE SHOULD DELETE PRE-STAGING EVERYWHERE").
 
     WHY. Morgan, 2026-09-28 (strength: decided): "it needs to never never
     offer to delete pre-staging nor staging." Every Promote fast-forwards the
@@ -78355,8 +78389,7 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
     import very_deep_check as vdc
 
     _git = fixture_git
-    tiers = ['main', 'staging', 'pre-staging', 'precedent-beta-v01',
-             'precedent-promote-lock']
+    tiers = ['main', 'staging', 'precedent-beta-v01', 'precedent-promote-lock']
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
@@ -78368,7 +78401,7 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
         _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
         # Right after a Promote: every tier at one commit, so the ancestor
         # test calls every one of them "merged" into every other.
-        for b in tiers[1:]:
+        for b in tiers[1:] + ['pre-staging']:
             _git(up, 'branch', b)
         _git(up, 'branch', 'claude/finished-work')
         (up / 'precedent.json').write_text(json.dumps(
@@ -78403,6 +78436,8 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
         results = [
             ('no tier branch appears in any list of the sweep',
              not [b for b in tiers if b in listed]),
+            ('a leftover pre-staging is an ordinary branch: listed',
+             'pre-staging' in listed),
             ('a finished feature branch in the same fixture IS listed '
              '(discriminating: an empty sweep would pass the case above)',
              'claude/finished-work' in listed),
@@ -78411,8 +78446,7 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
             ('the feature branch still gets its delete link',
              bool(gh_url['claude/finished-work'])),
             ('a filter that would also show a tier row says so on the row',
-             '`staging`' in warn and '`pre-staging`' in warn
-             and 'never delete' in warn),
+             '`staging`' in warn and 'never delete' in warn),
         ]
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check never offers a tier branch for deletion '
@@ -78515,15 +78549,14 @@ def check_upstream_review_only_for_a_code_owner_on_the_ladder():
 
 def check_very_deep_check_walks_every_tier_pair():
     """The drift scan and the merge rehearsal ask about every tier pair
-    origin carries: staging and main INTO pre-staging, and each merge a
-    Promote makes (pre-staging into staging, staging into main).
+    origin carries: main into staging, and the merge a Promote makes
+    (staging into main). A pre-staging still on origin is in no pair: it
+    retired, and its code was deleted on 2026-10-17 (2026-10-11: a run told
+    the person to sync 66 commits into a branch awaiting deletion).
 
     WHY. Until 2026-09-28 both asked about one pair only, the declared base
-    against the default branch -- staging against main -- while work landed
-    on pre-staging. A fix pushed straight to main was then invisible to the
-    one section built to find it, and the merge that happens every day was
-    never rehearsed. Asserted by WHICH commit comes back for WHICH pair, so a
-    scan that returned nothing everywhere fails."""
+    against the default branch. Asserted by WHICH commit comes back for
+    WHICH pair, so a scan that returned nothing everywhere fails."""
     import tempfile
     import very_deep_check as vdc
 
@@ -78545,41 +78578,16 @@ def check_very_deep_check_walks_every_tier_pair():
         subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
                        capture_output=True, text=True)
         _git(work, 'fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*')
-        # Where pre-staging is not retired -- off the ladder, since it was
-        # retired for everyone on it on 2026-10-14 -- a leftover one is
-        # still walked until Update Vendors moves the repository off it.
-        import precedent_branches as _pb
-        _real_unused = _pb.pre_staging_unused
-        _pb.pre_staging_unused = lambda root, user_config=None: (False, None)
-        try:
-            pairs = vdc.tier_pairs(work)
-        finally:
-            _pb.pre_staging_unused = _real_unused
-        d = vdc.base_branch_drift(work, 'pre-staging', 'main') or {}
+        pairs = vdc.tier_pairs(work)
+        d = vdc.base_branch_drift(work, 'staging', 'main') or {}
         subjects = [c['subject'] for c in d.get('commits') or []]
-        e = vdc.endgame_merge(work, 'pre-staging', 'staging') or {}
-        # The same origin where pre-staging is retired -- everyone on the
-        # ladder since 2026-10-14 -- so no pair may name it (2026-10-11: a
-        # run told the person to sync 66 commits into a branch awaiting
-        # deletion).
-        _pb.pre_staging_unused = lambda root, user_config=None: (True, None)
-        try:
-            retired_pairs = vdc.tier_pairs(work)
-        finally:
-            _pb.pre_staging_unused = _real_unused
+        e = vdc.endgame_merge(work, 'staging', 'main') or {}
         results = [
-            ('a retired pre-staging is in no pair; staging into main still is',
-             retired_pairs.get('drift') == [('staging', 'main')]
-             and retired_pairs.get('endgame') == [('staging', 'main')]),
-            ('the drift pairs are staging and main into pre-staging, and main '
-             'into staging',
-             pairs.get('drift') == [('pre-staging', 'staging'),
-                                    ('pre-staging', 'main'),
-                                    ('staging', 'main')]),
-            ('the rehearsals are the two merges a Promote makes, in order',
-             pairs.get('endgame') == [('pre-staging', 'staging'),
-                                      ('staging', 'main')]),
-            ('the fix pushed straight to main is found missing from pre-staging',
+            ('a leftover pre-staging is in no pair; main into staging is',
+             pairs.get('drift') == [('staging', 'main')]),
+            ('the rehearsal is the merge a Promote makes, staging into main',
+             pairs.get('endgame') == [('staging', 'main')]),
+            ('the fix pushed straight to main is found missing from staging',
              'hotfix straight to main' in subjects),
             ('the Promote merge is actually rehearsed, not skipped',
              e.get('status') in ('clean', 'findings')),
@@ -78587,8 +78595,7 @@ def check_very_deep_check_walks_every_tier_pair():
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check walks every tier pair ({len(results)} '
               f'stated cases)', not failed,
-              '; '.join(failed) + f' -- pairs {pairs}, retired '
-              f'{retired_pairs}, drift {subjects}, '
+              '; '.join(failed) + f' -- pairs {pairs}, drift {subjects}, '
               f'endgame {e.get("status")} {e.get("note")}')
 
 

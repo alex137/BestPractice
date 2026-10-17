@@ -16,15 +16,14 @@ deleting it loses nothing.
 A branch is STALE when its tip is already in `origin/main`, or when it carries
 no change `main` lacks (a Promote's fix branch or copy of staging whose merge commits
 changed nothing). NEVER LISTED, whatever their state: `main`, `staging`,
-`pre-staging`, staging's old name `precedent-beta-v01`, and the engine's own
+staging's old name `precedent-beta-v01`, and the engine's own
 branches (`precedent-check-receipts`, `precedent-promote-lock`) and any
 branch starting `data-`, the ladder's name for a live record
 (precedent_data_branches.py, 2026-10-11) -- Morgan,
-2026-10-05: "(And never pre-staging or staging)". ONE EXCEPTION, 2026-10-09:
-for a person who lands straight on staging, `pre-staging` is retired, and once
-it holds nothing staging lacks it is listed like any finished branch
-(precedent_branches.never_offered; Morgan: "telling he can delete
-pre-staging"). Staging and main are never listed, for anyone. A SECOND
+2026-10-05: "(And never pre-staging or staging)". Pre-staging has since
+retired, and since 2026-10-17 a branch still called that is an ordinary
+branch, listed like any other once main has it (Morgan: "WE SHOULD DELETE
+PRE-STAGING EVERYWHERE"). Staging and main are never listed, for anyone. ONE
 EXCEPTION, 2026-10-13: an engine branch's old name is listed once its `data-`
 copy is on origin and holds the old branch's whole history. The engine then
 reads only the `data-` one, and the old name is checked for nothing but a
@@ -195,7 +194,7 @@ PAGE_FORMAT = 3
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(_ENGINE_DIR))
 
-NEVER = {'main', 'master', 'staging', 'pre-staging', 'precedent-beta-v01',
+NEVER = {'main', 'master', 'staging', 'precedent-beta-v01',
          'precedent-check-receipts', 'precedent-promote-lock', 'HEAD'}
 DATA_PREFIX = 'data-'
 _GH = re.compile(r'github\.com[:/]+([^/]+)/([^/\s]+?)(?:\.git)?/*$')
@@ -251,17 +250,6 @@ def _repos(found=None):
             seen.add(key)
             out.append((pathlib.Path(repo), slug))
     return out
-
-
-def _retired_pre_staging(repo):
-    """True when `repo`'s pre-staging is retired for this person and holds
-    nothing staging lacks (precedent_branches.never_offered, the one rule).
-    False whenever that cannot be read: it then stays never listed."""
-    try:
-        import precedent_branches as pb
-        return pb.PRE_STAGING not in pb.never_offered(repo)
-    except Exception:                                        # noqa: BLE001
-        return False
 
 
 _MERGED_PR = re.compile(r'^Merge pull request #(\d+) from [^/\s]+/(\S+)')
@@ -330,18 +318,12 @@ def stale_in(repo, fetch=False):
               _git(repo, 'branch', '-r', '--merged', 'origin/main',
                    '--format=%(refname:short)').stdout.splitlines()}
     out = []
-    retired = 'pre-staging' in names and _retired_pre_staging(repo)
     reverted = reverted_branches(repo)
     moved = _moved_data_branches(repo, names)
     for b in sorted(set(names)):
         if b in reverted:
             continue
         if b in moved:
-            date = _git(repo, 'log', '-1', '--format=%cs', f'origin/{b}').stdout.strip()
-            out.append((b, date))
-            continue
-        if b == 'pre-staging' and retired:
-            # Measured against staging, where its work went, not main.
             date = _git(repo, 'log', '-1', '--format=%cs', f'origin/{b}').stdout.strip()
             out.append((b, date))
             continue

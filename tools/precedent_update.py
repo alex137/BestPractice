@@ -81,8 +81,8 @@ THE STEPS, with no question in between:
      repo's own citations of any practice the update withdrew or reworded
      (a withdrawn one's pointer is a call left for you; a bare mention of
      one, and a reworded one's citation, are listed to read)
-  4a. a missing staging made on origin: from a leftover pre-staging, else
-     from main
+  4a. a missing staging made on origin, from main (a leftover pre-staging's
+     work was brought in at 3c)
   5. the repo's own check at its landing branch's tier -- into staging,
      the quick checks on what changed; the full check waits for Debut or Produce
      (--skip-check to leave it out) -- run against a temporary commit of
@@ -1483,9 +1483,8 @@ def retired_mentions(repo, engine_out):
 # engine, "make sure we have a smooth upgrade process for each. Merging the
 # branches, telling he can delete pre-staging, updating previous mentions/
 # links within each repo, etc etc." Since 2026-10-14 that is everyone on
-# the ladder (precedent_branches.pre_staging_unused;
-# spec/PRE_STAGING_RETIREMENT_PLAN.md), and while origin still has
-# pre-staging:
+# the ladder (_pre_staging_unused below; spec/PRE_STAGING_RETIREMENT_PLAN.md),
+# and while origin still has pre-staging:
 #   1. work waiting on pre-staging is brought into staging by --land's own
 #      composition (precedent_branches.land: staging, then main's direct
 #      work, then pre-staging, by merge commits, the quick checks, a push
@@ -1500,6 +1499,57 @@ def retired_mentions(repo, engine_out):
 #      other mention is listed with why it was left.
 # It runs before the views are regenerated, so they render the reworded
 # sources. Off the ladder it does nothing and says nothing.
+# The engine's branch code knows nothing of pre-staging since 2026-10-17
+# (Morgan: "WE SHOULD DELETE PRE-STAGING EVERYWHERE"); this upgrade is the
+# one place that still does, because a repository whose vendors have not
+# been updated still has it, and updating them is what takes it away
+# (Morgan, 2026-10-17: "there is no pre-staging IN REPOS WHERE WE HAVE
+# UPDATED THE VENDORS that is the goal").
+PRE_STAGING = 'pre-staging'
+RETIRED_WAITING = 'waiting'
+RETIRED_MERGED = 'merged'
+
+
+def _pre_staging_unused(repo):
+    """-> (unused, waits): unused is True for a person on the ladder, unless
+    this repository's precedent.json still names pre-staging, when `waits`
+    says so and this step switches it. Off the ladder nobody ever landed on
+    pre-staging: (False, None)."""
+    if not pb.ladder_in_force(repo):
+        return False, None
+    if pb.precedent_json(repo).get(pb.LANDING_SETTING) == PRE_STAGING:
+        return False, (f'precedent.json still names {PRE_STAGING} as the '
+                       f'landing branch; it is retired, and work already '
+                       f'lands on {pb.STAGING}. Update Vendors switches it')
+    return True, None
+
+
+def _pre_staging_retired(repo, fetch=False):
+    """-> (state, tip) for origin's pre-staging: None when it is not retired
+    here or origin has none; RETIRED_WAITING when it holds work staging
+    lacks; RETIRED_MERGED when merging it would change no file. Never
+    raises."""
+    try:
+        if not _pre_staging_unused(repo)[0]:
+            return None, None
+        staging = pb.staging_branch(repo)
+        if fetch:
+            if not pb._remote_tip(repo, PRE_STAGING):
+                return None, None
+            pb._run(repo, 'fetch', '-q', 'origin', PRE_STAGING, staging)
+        ptip = pb._git(repo, 'rev-parse', '--verify', '-q',
+                       f'refs/remotes/origin/{PRE_STAGING}^{{commit}}')
+        if not ptip:
+            return None, None
+        stip = pb._git(repo, 'rev-parse', '--verify', '-q',
+                       f'refs/remotes/origin/{staging}^{{commit}}')
+        if stip and pb._brings_nothing(repo, stip, ptip):
+            return RETIRED_MERGED, ptip
+        return RETIRED_WAITING, ptip
+    except Exception:                                       # noqa: BLE001
+        return None, None
+
+
 RETIRE_PRE_STAGING_HEADER = 'PRE-STAGING IS RETIRED -- your work lands on staging now:'
 
 # A clear instruction: a verb that sends work somewhere, then the branch.
@@ -1699,7 +1749,7 @@ def reword_pre_staging(text, slug):
 # still land there; since pre-staging was retired for everyone
 # (spec/PRE_STAGING_RETIREMENT_PLAN.md) nobody does.
 _REPO_LANDS_ON_PRE_STAGING = re.compile(
-    r'("' + re.escape(pb.LANDING_SETTING) + r'"\s*:\s*)"' + re.escape(pb.PRE_STAGING) + '"')
+    r'("' + re.escape(pb.LANDING_SETTING) + r'"\s*:\s*)"' + re.escape(PRE_STAGING) + '"')
 
 
 def rewords_this_run(repo, switched, merged_now):
@@ -1759,8 +1809,8 @@ def retire_pre_staging_step(repo, rep):
     the ladder, and once origin has no pre-staging."""
     repo = pathlib.Path(repo)
     # A precedent.json still naming pre-staging is switched first
-    # (precedent_branches.pre_staging_unused says it waits until then).
-    unused, waits = pb.pre_staging_unused(repo)
+    # (_pre_staging_unused says it waits until then).
+    unused, waits = _pre_staging_unused(repo)
     switched = False
     if waits:
         if not committed_engine_lands_on_staging(repo):
@@ -1775,57 +1825,57 @@ def retire_pre_staging_step(repo, rep):
         elif ('precedent.json' not in set(rep.before or ())
                 and switch_repo_landing_to_staging(repo)):
             switched = True
-            rep.step('precedent.json', f'{pb.LANDING_SETTING} {pb.PRE_STAGING} '
+            rep.step('precedent.json', f'{pb.LANDING_SETTING} {PRE_STAGING} '
                      f'-> {pb.STAGING}: pre-staging is retired for everyone')
-            unused, waits = pb.pre_staging_unused(repo)
+            unused, waits = _pre_staging_unused(repo)
         else:
             rep.step('pre-staging', f'kept, not retired: {waits}')
     if not unused:
         return
-    state, _ptip = pb.pre_staging_retired(repo, fetch=True)
+    state, _ptip = _pre_staging_retired(repo, fetch=True)
     if state is None:
         return
     staging = pb.staging_branch(repo)
     block = []
-    if state == pb.RETIRED_WAITING:
+    if state == RETIRED_WAITING:
         said = []
-        rc = pb.land(repo, work=f'origin/{pb.PRE_STAGING}', say=said.append)
+        rc = pb.land(repo, work=f'origin/{PRE_STAGING}', say=said.append)
         text = '\n'.join(said)
         result = next((l for l in reversed(said)
                        if l.startswith(pb.LAND_RESULT)), '')
         if rc != 0:
             rep.step('pre-staging', f'not brought into {staging}; nothing moved')
             if 'conflicts with' in result:
-                why = (f'{pb.PRE_STAGING} holds work {staging} lacks, and it does '
+                why = (f'{PRE_STAGING} holds work {staging} lacks, and it does '
                        f'not merge cleanly: the same lines changed on both sides. '
                        f'Nothing moved, and nothing was dropped')
             elif 'quick checks failed' in result:
-                why = (f'{pb.PRE_STAGING} holds work {staging} lacks, and the quick '
+                why = (f'{PRE_STAGING} holds work {staging} lacks, and the quick '
                        f'checks failed on {staging} with it merged in. Nothing moved')
             else:
-                why = (f'{pb.PRE_STAGING} holds work {staging} lacks, and it could '
+                why = (f'{PRE_STAGING} holds work {staging} lacks, and it could '
                        f'not be brought in ({result or "see the lines below"}). '
                        f'Nothing moved')
-            rep.leave(pb.PRE_STAGING, why + '. To bring it in: '
+            rep.leave(PRE_STAGING, why + '. To bring it in: '
                       f'`git switch --no-track -c "$(python3 tools/precedent_branch_name.py '
-                      f'merge pre-staging)" origin/{pb.PRE_STAGING}`, then '
+                      f'merge pre-staging)" origin/{PRE_STAGING}`, then '
                       f'`git merge origin/{staging} origin/{pb.MAIN}`, fix what '
                       f'it names and commit, `git push -u origin HEAD`, then '
                       f'`python3 tools/precedent_branches.py --land '
                       f'"$(git branch --show-current)"`, and run Update Vendors '
                       f'again')
-            rep.details[pb.PRE_STAGING] = [l for l in text.splitlines()
+            rep.details[PRE_STAGING] = [l for l in text.splitlines()
                                            if l.strip()][-12:]
             return
         moved = [l.split('   <- ', 1)[0].rstrip() for l in text.splitlines()
                  if l.startswith(('LANDED ', 'BROUGHT IN ', 'REBUILT ', '  '))]
         block.append(f'merged into {staging}, with the quick checks:')
         block += [f'  {l}' for l in moved]
-        state, _ptip = pb.pre_staging_retired(repo, fetch=True)
-        if state != pb.RETIRED_MERGED:
+        state, _ptip = _pre_staging_retired(repo, fetch=True)
+        if state != RETIRED_MERGED:
             rep.step('pre-staging', f'its work brought into {staging}; it gained '
                      f'more meanwhile')
-            block.append(f'{pb.PRE_STAGING} gained work while this ran; run Update '
+            block.append(f'{PRE_STAGING} gained work while this ran; run Update '
                          f'Vendors again to bring that in too.')
             rep.retired = block
             return
@@ -1903,8 +1953,8 @@ def retire_pre_staging_step(repo, rep):
                      '_landing_branch_comment still describes pre-staging; '
                      'reword it in this same commit')
     link = (f'https://github.com/{slug}/branches/all?query='
-            + urllib.parse.quote(pb.PRE_STAGING, safe='')) if slug else None
-    block.append(f'{pb.PRE_STAGING} holds nothing {staging} lacks and is no '
+            + urllib.parse.quote(PRE_STAGING, safe='')) if slug else None
+    block.append(f'{PRE_STAGING} holds nothing {staging} lacks and is no '
                  f'longer used, so it is safe to delete: '
                  + (link or "GitHub's branches page, with its trash icon"))
     rep.retired = block
@@ -5733,8 +5783,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # main (pre-staging before it until 2026-10-14), so a missing tier is
     # made here rather than reported (Morgan, 2026-09-27, strength: decided:
     # "Can we make sure update vendors checks for this and if they don't
-    # exist create it"). ensure_tiers makes staging from a leftover
-    # pre-staging (or the old staging name), else from main. It
+    # exist create it"). ensure_tiers makes staging from the old
+    # staging name if one is left, else from main. It
     # is the one thing this command pushes: a new branch at a commit origin
     # already has, never a change to one that exists.
     tiers_step(repo, rep)
