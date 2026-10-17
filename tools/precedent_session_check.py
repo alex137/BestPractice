@@ -152,7 +152,7 @@ def _own_new_branch(git, cur, start_sha, stamp):
             and git('merge-base', '--is-ancestor', start_sha, 'HEAD')[0] == 0)
 
 
-_TIER_NAMES = ('main', 'staging', 'pre-staging', 'precedent-beta-v01')
+_TIER_NAMES = ('main', 'staging', 'precedent-beta-v01')
 
 
 def _is_tier_ref(git, ref):

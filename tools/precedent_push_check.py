@@ -119,7 +119,7 @@ Run:
                                   # the full suite; refused without a reason
                                   # where the landing branch is the quick tier
   python3 tools/precedent_push_check.py --gate           # skip if this tree passed
-  python3 tools/precedent_push_check.py --gate --push-command 'origin pre-staging'
+  python3 tools/precedent_push_check.py --gate --push-command 'origin staging'
                                   # the tier that push needs (what the hook runs)
   python3 tools/precedent_push_check.py --list           # what would run, and why
 
@@ -1563,10 +1563,8 @@ def _changed_since(root, argv):
     targets = precedent_branches.push_targets(root, cmd) or []
     since_for = getattr(precedent_branches, 'changed_since_for', None)
     if since_for:
-        # pre-staging, or staging for a person who lands straight on it.
+        # staging, for a person who lands straight on it.
         return since_for(root, targets)
-    if precedent_branches.PRE_STAGING in targets:
-        return f'origin/{precedent_branches.PRE_STAGING}'
     return None
 
 
@@ -1640,24 +1638,18 @@ def _full_tier_refusal(root, argv):
         sys.path.pop(0)
     if tier != BASIC:
         return None
-    if landing != precedent_branches.PRE_STAGING:
-        # A person who lands straight on staging asks for the full suite
-        # with --run-tests, which records it for the move into main.
-        return (f'--tier full asks for the ~12-minute suite, and your landing '
-                f'branch, {landing}, takes the quick check: run this bare. The '
-                f'full suite is `python3 tools/precedent_branches.py --run-tests`, '
-                f'which records its result for the move into main. If you really '
-                f'mean this, say why: --tier full --because "<reason>".')
+    # A person who lands straight on staging asks for the full suite with
+    # --run-tests, which records it for the move into main.
     return (f'--tier full asks for the ~12-minute suite, and your landing '
-            f'branch, {landing}, takes the quick check: run this bare, which '
-            f'is what Booked needs. The full check is the Debut\'s, and it '
-            f'runs it for you. If you really mean it, say why: '
-            f'--tier full --because "<reason>".')
+            f'branch, {landing}, takes the quick check: run this bare. The '
+            f'full suite is `python3 tools/precedent_branches.py --run-tests`, '
+            f'which records its result for the move into main. If you really '
+            f'mean this, say why: --tier full --because "<reason>".')
 
 
 # Highest first: a push writing to several branches is judged by the one
 # that needs the most.
-_RUNG_ORDER = ('main', 'staging', 'precedent-beta-v01', 'pre-staging')
+_RUNG_ORDER = ('main', 'staging', 'precedent-beta-v01')
 
 
 def _destination(root, argv):
@@ -2231,7 +2223,7 @@ def main(argv):
     if '--changed-files-check' in argv:
         i = argv.index('--changed-files-check')
         return changed_files_check(root, argv[i + 1] if i + 1 < len(argv)
-                                   else 'origin/pre-staging')
+                                   else 'origin/staging')
     since = _changed_since(root, argv) if tier == BASIC else None
     # Where the push goes and what it changes, for the checks this runs: a
     # practice set's own check may judge a push by its destination -- the

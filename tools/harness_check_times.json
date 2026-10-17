@@ -684,7 +684,6 @@
   "check_update_vendors_resolves_a_catalogue_edit": 25.2,
   "check_update_vendors_resolves_hook_and_engine_path_edits": 49.0,
   "check_update_vendors_resolves_local_edits": 50.2,
-  "check_update_vendors_retires_pre_staging": 2.9,
   "check_update_vendors_retires_the_team_level_word": 0.0,
   "check_update_vendors_second_consumer_findings": 0.3,
   "check_update_vendors_survives_an_upstream_deletion": 53.3,

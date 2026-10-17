@@ -559,9 +559,9 @@ def main(argv):
     if pb:
         root_guess = find_checkout(search, owner, repo)
         tiers = pb.tier_branches(root_guess) if root_guess else [
-            pb.MAIN, pb.STAGING, pb.PRE_STAGING, pb.LEGACY_STAGING]
+            pb.MAIN, pb.STAGING, pb.LEGACY_STAGING]
     else:
-        tiers = ['main', 'staging', 'pre-staging', 'precedent-beta-v01']
+        tiers = ['main', 'staging', 'precedent-beta-v01']
     head_ref, head_repo, declared_base, head_sha = pull_head(owner, repo, number)
     why_not = tier_source_refusal(head_ref, head_repo, owner, repo, tiers)
     if why_not:
@@ -614,13 +614,11 @@ def main(argv):
         print(f'precedent_merge_check: pull request #{number} of '
               f'{owner}/{repo} into {base} -- '
               f'{tier} check of {what} ({sha[:12]}); {why}.', flush=True)
-        # A pull request into pre-staging is judged by the per-file checks
-        # on the files it changes (precedent_push_check.CHANGED_FILES_CHECK).
+        # A pull request into the landing branch is judged by the per-file
+        # checks on the files it changes (precedent_push_check.CHANGED_FILES_CHECK).
         extra = ()
         since_for = getattr(pb, 'changed_since_for', None) if pb else None
-        since = (since_for(root, bases) if since_for else
-                 f'origin/{pb.PRE_STAGING}' if pb and pb.PRE_STAGING in bases
-                 else None)
+        since = since_for(root, bases) if since_for else None
         if tier == 'basic' and pb and pb.MAIN in bases:
             since = f'origin/{pb.MAIN}'
         if tier == 'basic' and since:
@@ -632,9 +630,10 @@ def main(argv):
         hold = getattr(pb, 'hold_for_landing', None) if pb else None
         # Only where the tiers exist: a repository that never promotes has
         # no lock, and must not grow a branch because a merge was checked.
+        # (A pre-staging branch on origin was the sign until it retired.)
         if hold and tier == 'full' and bases \
                 and set(bases) & set(pb.full_branches(root)) \
-                and pb._remote_tip(root, pb.PRE_STAGING):
+                and pb.repo_has_tiers(root):
             state, info = hold(root, f'landing pull request #{number} into {base}')
             if state == 'busy':
                 print(f'precedent_merge_check: REFUSED pull request #{number} '

@@ -1141,11 +1141,11 @@ def _github_slug(repo_dir):
 # Why it bites at all: every Promote fast-forwards the lower tiers, so an
 # ancestor test calls pre-staging and precedent-beta-v01 "merged" right after
 # one -- and staging itself was deleted from a merge page on 2026-09-26.
-# The one exception, 2026-10-09, is in _never_deletable: a pre-staging
-# retired for a person who lands on staging, once it holds nothing staging
-# lacks. Staging and main stay here for everyone.
+# Pre-staging left this list on 2026-10-17: it retired, and a branch still
+# called that is an ordinary branch (Morgan: "WE SHOULD DELETE PRE-STAGING
+# EVERYWHERE"). Staging and main stay here for everyone.
 NEVER_DELETE_BRANCHES = frozenset({
-    'main', 'master', 'staging', 'pre-staging', 'precedent-beta-v01',
+    'main', 'master', 'staging', 'precedent-beta-v01',
     'precedent-promote-lock', 'precedent-check-receipts',
     'data-promote-lock', 'data-check-receipts'})
 
@@ -1176,11 +1176,6 @@ def _never_deletable(repo_dir):
         import precedent_branches as _pb
         names |= set(_pb.tier_branches(pathlib.Path(repo_dir)))
         names.add(_pb.LOCK_BRANCH)
-        # The one exception (2026-10-09): pre-staging retired for a person
-        # who lands on staging, holding nothing staging lacks, is offered
-        # like any finished branch (precedent_branches.never_offered).
-        if _pb.PRE_STAGING not in _pb.never_offered(pathlib.Path(repo_dir)):
-            names.discard(_pb.PRE_STAGING)
     except Exception:                                            # noqa: BLE001
         pass
     if repo_dir:
@@ -6300,16 +6295,13 @@ def tier_pairs(repo_dir, target=None):
     try:
         import precedent_branches as _pb
         staging = _pb.staging_branch(repo_dir)
-        pre = _pb.PRE_STAGING
-        # A pre-staging retired for this person (they land on staging) is
-        # no tier: nothing reaches it, so "staging carries what pre-staging
-        # never took" is true forever and calls for no sync. Listing it
-        # told the 2026-10-11 run to bring 66 commits down into a branch
-        # waiting to be deleted.
-        if _pb.pre_staging_unused(repo_dir)[0]:
-            pre = None
+        # Pre-staging retired for everyone (2026-10-14; its code deleted
+        # 2026-10-17): a branch still named that is awaiting deletion, not a
+        # tier, so it is in no pair. Listing it told the 2026-10-11 run to
+        # bring 66 commits down into such a branch.
+        pre = None
     except Exception:                                            # noqa: BLE001
-        staging, pre = declared, 'pre-staging'
+        staging, pre = declared, None
     main = default or 'main'
 
     def _on_origin(b):
@@ -9071,22 +9063,6 @@ def stage_checks(tree):
                                  f'fast move\'s copy, read tier_for_branch) '
                                  f'-- only the quick tier may run before a push '
                                  f'to {branch}'))
-        if staging != pb.MAIN and gates.get(staging, {}).get('tier') == 'basic' \
-                and hasattr(pb, 'lands_on_staging'):
-            real = pb.lands_on_staging
-            pb.lands_on_staging = lambda *a, **k: (False, None)
-            try:
-                tier, why = pb.tier_for_branch(tree, staging)
-            finally:
-                pb.lands_on_staging = real
-            gates['for a person who still promotes from pre-staging'] = {
-                'tier': tier, 'why': why, 'branch': staging}
-            if tier == 'full':
-                findings.append(('RETIRED', f'a push to {staging} still runs the '
-                                 f'full tier for a person who does not land on '
-                                 f'it, which only the retired pre-staging route '
-                                 f'left anyone doing ({why}); delete it with the '
-                                 f'pre-staging code ({_PRE_STAGING_ITEM})'))
     staging = pb.staging_branch(tree) if pb is not None and hasattr(
         pb, 'staging_branch') else 'staging'
     return {'kind': kind, 'quick': quick, 'untimed': untimed,
@@ -11832,35 +11808,15 @@ def _main(box):
                 if drift.get('truncated'):
                     print(f"      ... and {drift['truncated']} older commit(s) "
                           f"not detailed (--json for the full list)")
-                if drift['target'] == 'pre-staging':
-                    # A tier below its own upper tiers: everything above is
-                    # meant to come down. Staging's is copied by the sync;
-                    # main's only inside a Promote into staging, composed and
-                    # fully checked with the rest (precedent_branches.py,
-                    # DRIFT FROM ABOVE and _promote_unlocked).
-                    take = ('`python3 tools/precedent_branches.py --promote '
-                            '--to staging`, which composes it with\n  staging '
-                            'and pre-staging and checks it'
-                            if drift['base'] == 'main' else
-                            '`python3 tools/precedent_branches.py '
-                            '--sync-pre-staging --check`\n  (it runs the '
-                            'checks staging\'s work still lacks first)')
-                    print(f"\n  TIER DRIFT, not a choice: everything on "
-                          f"origin/{drift['base']} belongs on pre-staging, "
-                          f"and the next\n  Promote brings it in. To take it "
-                          f"now: {take}. A row listed here that nobody\n  "
-                          f"wants is a revert owed on origin/{drift['base']}, "
-                          f"not a row to skip.\n")
-                else:
-                    print(f"\n  ASK, DO NOT IMPLEMENT. None of this is applied "
-                          f"automatically, by this tool or by\n  the session reading "
-                          f"it: put the list to the person, say for each row whether "
-                          f"it\n  belongs on this branch, and take only what they "
-                          f"say to take (practice: very-deep-check).")
-                    print(f"  Some rows will be deliberately not-carried. A row "
-                          f"declined once is still listed the\n  next run -- this "
-                          f"scan has no memory of a decision; the run record is "
-                          f"where that lives.\n")
+                print(f"\n  ASK, DO NOT IMPLEMENT. None of this is applied "
+                      f"automatically, by this tool or by\n  the session reading "
+                      f"it: put the list to the person, say for each row whether "
+                      f"it\n  belongs on this branch, and take only what they "
+                      f"say to take (practice: very-deep-check).")
+                print(f"  Some rows will be deliberately not-carried. A row "
+                      f"declined once is still listed the\n  next run -- this "
+                      f"scan has no memory of a decision; the run record is "
+                      f"where that lives.\n")
             if drift['shallow']:
                 print(f"  CAVEAT: this clone is shallow, so the merge base may "
                       f"not be the real one. Deepen\n  "
