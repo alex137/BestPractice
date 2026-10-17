@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.69 to it; 7 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 5 added 2026-10-17 by --record-new-times",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.69 to it; 7 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 5 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times, scaled by 1.83 to it",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -468,6 +468,7 @@
   "check_reply_check_wants_a_prompt_block_to_name_both_ends": 0.0,
   "check_reply_gate_counts_staging_as_a_landing_branch": 0.3,
   "check_reply_gate_names_work_not_yet_landed": 2.9,
+  "check_reply_gate_prints_a_note_from_a_set_tool": 0.1,
   "check_reply_gate_refreshes_the_landing_branch": 0.5,
   "check_reply_gate_reports_only_this_sessions_flow": 0.5,
   "check_reply_gate_sees_every_source": 1.9,
