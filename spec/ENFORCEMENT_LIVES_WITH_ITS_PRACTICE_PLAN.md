@@ -79,7 +79,7 @@ The ladder's stages run on engine code today, and the inventory names it:
 | Engine file | What is the ladder's |
 |---|---|
 | [`precedent_branches.py`](../tools/precedent_branches.py) | `--land`, `--promote`, `--run-tests`, the tier branches, promote-only, the Debut and Produce steps |
-| [`ladder_words.py`](../tools/ladder_words.py) | the stage words and every ladder practice slug |
+| `ladder_words.py` (moved 2026-10-17: the words are the set's own data now, read by the engine's [`set_words.py`](../tools/set_words.py)) | the stage words and every ladder practice slug |
 | [`precedent_others_did.py`](../tools/precedent_others_did.py) | the `others-did` reply block |
 | [`precedent_stale_branches.py`](../tools/precedent_stale_branches.py), [`precedent_gate.py`](../tools/precedent_gate.py) | the `stale-branch-cleanup` page and its reply requirement |
 | [`precedent_upstream_review.py`](../tools/precedent_upstream_review.py) | Debut and Produce wording |
@@ -93,7 +93,7 @@ that predates this practice. The move, in outline:
    landing branch, a lock, composing a merge in a worktree, pushing it)
    and what only the ladder needs (staging, pre-staging, Promote, Debut,
    Produce). The first stays; the second ships from the ladder set.
-2. [`ladder_words.py`](../tools/ladder_words.py), [`precedent_others_did.py`](../tools/precedent_others_did.py) and the stale-branch page
+2. `ladder_words.py`, [`precedent_others_did.py`](../tools/precedent_others_did.py) and the stale-branch page
    ship from the ladder set as they are.
 3. The reply gate learns its ladder requirements from the set (its
    `reply_check.json` already exists), instead of from engine code.
@@ -111,7 +111,7 @@ with the plan. Booked." Read here as: the builder stays, and the engine's
 own steps use its dated names only when a person's config turns them on.
 
 Measured on staging at `8e122175`: the inventory names 23 ladder names
-in engine code -- 16 in [`ladder_words.py`](../tools/ladder_words.py), 2 each in
+in engine code -- 16 in `ladder_words.py`, 2 each in
 [`precedent_branches.py`](../tools/precedent_branches.py) and [`precedent_upstream_review.py`](../tools/precedent_upstream_review.py), 1 each in
 [`precedent_gate.py`](../tools/precedent_gate.py), [`precedent_others_did.py`](../tools/precedent_others_did.py) and [`verify_harness.py`](../tools/verify_harness.py).
 [`precedent_branches.py`](../tools/precedent_branches.py) is about 5,000 lines, imported by 19 engine
@@ -144,7 +144,7 @@ half loses nothing.
 | # | Piece | Set gets | Engine keeps | Names gone |
 |---|---|---|---|---|
 | 0 | Delete pre-staging (Morgan, 2026-10-17, decided; [its open item](../todo/todo-2026-10-14-delete-pre-staging-code.md)) | -- | nothing of it: `--sync-pre-staging`, Promote's pre-staging path, the retirement step and the full tier for staging all go, and every mention reads it as retired | 0, but less to move |
-| 1 | Stage words | `tools/ladder/ladder_words.py`; the check `ladder-words-stay-in-the-ladder-set` (today in [`precedent_check.py`](../tools/precedent_check.py)) becomes the set's `tools/checks/check_ladder_words_stay.py` with its test | nothing | 16 |
+| 1 | Stage words (built 2026-10-17) | its words as data: `owned_words` in its precedent-source.json, each pattern with the examples it must and must never match | a general check, `set-words-stay-in-their-set`, and its matcher [`set_words.py`](../tools/set_words.py): every set is held to the words the other sets in force declare. The ladder's own check would have guarded the ladder set, the one place its words are allowed | 16 |
 | 2 | others-did | `tools/ladder/others_did.py`, run by a `SessionStart` hook the `others-did` practice declares | nothing; the gate stops importing it | 1 |
 | 3 | Branch-cleanup page | `tools/ladder/stale_branches.py`, and its reply requirement as a rule in the set's `reply_check.json` | a generic reply-check rule kind: "in the closing reply, require what this set tool prints" | 1 |
 | 4 | Debut and Produce wording | `tools/ladder/upstream_review.py` | nothing | 2 |

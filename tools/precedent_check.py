@@ -1391,17 +1391,15 @@ def _retired_branch_name_ships(ctx):
 
 
 
-# ---- the ladder stays opt-in (spec/LADDER_OPT_IN_PLAN.md D7) ---------------
-def _individual_set_brings_the_ladder(_pr):
-    """-> why this check stands aside, when ROOT is an individual set whose
-    person brings a set that provides the ladder; '' otherwise.
+# ---- a set's own words stay in that set (spec/LADDER_OPT_IN_PLAN.md D7) ----
+def _individual_set_brings(_pr, path):
+    """-> why this check stands aside for the set at `path`, when ROOT is an
+    individual set whose person brings it; '' otherwise.
 
-    An individual set is read by one person only. When that person brings
-    the ladder, its words in their own set are theirs, the same as in the
-    set that provides it -- and refusing them refused that person's own next
-    Update Vendors (found rehearsing a Produce, 2026-10-03). A brought set
-    that is not cloned beside the individual set cannot say what it
-    provides, so it does not count: the check still runs."""
+    An individual set is read by one person only. When that person brings a
+    set, its words in their own set are theirs, the same as in the set that
+    owns them -- and refusing them refused that person's own next Update
+    Vendors (found rehearsing a Produce, 2026-10-03)."""
     try:
         man = json.loads((ROOT / 'precedent-source.json').read_text(
             encoding='utf-8'))
@@ -1410,67 +1408,72 @@ def _individual_set_brings_the_ladder(_pr):
     if not isinstance(man, dict) or _pr.normalize_level(
             man.get('level')) != 'individual':
         return ''
+    want = pathlib.Path(path).resolve()
     for b in _pr.brought_sources(ROOT, warn=False):
-        if _pr.LADDER_CAPABILITY in _pr.source_provides(b['path']):
+        if pathlib.Path(b['path']).resolve() == want:
             return (f"this is one person's individual set and it brings "
-                    f"{b['name']}, which provides the ladder, so its words "
-                    f"are that person's own")
+                    f"{b['name']}, so its words are that person's own")
     return ''
 
 
-@check('ladder-words-stay-in-the-ladder-set', 'tree',
-       'a practice set that does not provide the five-stage ladder carries '
-       'none of its words -- step labels, numbered Promotes, its commands '
-       'written as commands, the tier branch names, links to the practices '
-       'that moved into the ladder set -- in a practice, a template, a '
-       'person-facing document, the reply rules or the word list '
-       '(tools/ladder_words.py, the one matcher)',
+@check('set-words-stay-in-their-set', 'tree',
+       "a practice set carries none of another set's own words -- the ones "
+       'that set declares in its precedent-source.json owned_words -- in a '
+       'practice, a template, a person-facing document, the reply rules or '
+       'the word list; and each set\'s declared words match its own examples '
+       '(tools/set_words.py, the one matcher)',
        'records: todo/, record/, spec/, gotcha and practice Stories, ledgers, '
        'git history, and the dated approved_by and *_why fields -- they say '
-       'what happened in the words of the day. Ordinary English: "consider", '
-       '"act", lowercase "promote" and "booked" never match. Engine OUTPUT is '
-       'held by verify_harness instead, which runs the tools off the ladder. '
-       "An individual set whose person brings the ladder: one person reads "
-       'it, and the words are theirs.',
+       'what happened in the words of the day. A practice that requires a '
+       'capability the owning set provides. Engine OUTPUT is held by '
+       'verify_harness instead. An individual set whose person brings the '
+       'owning set: one person reads it, and the words are theirs. A set not '
+       'cloned on this machine cannot say what its words are.',
        practice_backed=False, binds_publishers=True,
        selects_on=('practices/*.md', 'local/practices/*.md',
                    'templates/**/*.md', 'documentation/*.md', '*.md',
                    'reply_check.json', 'tools/our_language.json',
-                   'tools/ladder_words.py'))
-def _ladder_words_stay_in_the_ladder_set(ctx):
-    """A person off the ladder reads the universal set and the shared sets
-    their repositories declare. Every ladder word in those is a word they
-    meet for a method they never chose -- which is the whole problem the
-    opt-in fixed (2026-10-02: 638 hits in this repository before the move,
-    0 after). Only a set that provides the ladder may say them."""
+                   'precedent-source.json', 'tools/set_words.py'))
+def _set_words_stay_in_their_set(ctx):
+    """A person who does not bring a set reads the universal set and the
+    shared sets their repositories declare. Every word of that set in those
+    is a word they meet for a method they never chose (2026-10-02: 638 hits
+    of the ladder's in this repository before its words moved, 0 after).
+    Only the set that owns the words may say them; the engine knows none of
+    them -- each set declares its own (part 3 of
+    spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md, 2026-10-17)."""
     if not (ROOT / 'precedent-source.json').is_file():
         raise NotApplicable('not a practice set: a repository that consumes '
                             'practices writes its own documents in its own '
                             'words')
     try:
         import precedent_resolve as _pr
-        if _pr.LADDER_CAPABILITY in _pr.source_provides(ROOT):
-            raise NotApplicable('this set provides the ladder, so its words '
-                                'are its own')
-        brought = _individual_set_brings_the_ladder(_pr)
-        if brought:
-            raise NotApplicable(brought)
-    except ImportError:
-        pass
-    try:
-        import ladder_words
-    except ImportError:
-        raise NotApplicable('tools/ladder_words.py did not import')
+        import set_words as _sw
+    except ImportError as e:
+        raise NotApplicable(f'{e.name}.py did not import')
     out = []
-    for path in ladder_words.scoped_files(ROOT):
-        rel = str(path.relative_to(ROOT))
-        if _foreign_practice(rel):
+    own = _sw.words_of(ROOT)
+    for problem in (own.problems if own else []):
+        out.append(Finding('precedent-source.json', problem))
+    owners = _sw.sets_with_words(ROOT)
+    judged = 0
+    for name, path, words, provides in owners:
+        if _individual_set_brings(_pr, path):
             continue
-        for n, kind, text in ladder_words.file_hits(path):
-            out.append(Finding(
-                f'{rel}:{n}', f'{kind}, {text!r}: a person off the ladder '
-                f'reads this. Say it plainly, or move the rule into the set '
-                f'that provides the ladder'))
+        judged += 1
+        for path_ in _sw.scoped_files(ROOT):
+            rel = str(path_.relative_to(ROOT))
+            if _foreign_practice(rel):
+                continue
+            for n, kind, text in _sw.file_hits(path_, words, provides):
+                out.append(Finding(
+                    f'{rel}:{n}', f'{kind}, {text!r}: a word of {name}, and a '
+                    f'person who does not bring {name} reads this. Say it '
+                    f'plainly, or move the rule into {name}'))
+    if not out and not judged:
+        raise NotApplicable('no other set in force here declares words of its '
+                            'own' if not owners else 'every set that declares '
+                            'words of its own is brought by this set\'s person')
     return out
 
 

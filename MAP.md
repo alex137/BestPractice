@@ -237,7 +237,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/github_budget.py](tools/github_budget.py) | What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session |
 | [tools/harness_reach.py](tools/harness_reach.py) | Change-scoped harness runs: which verify_harness checks a change can reach, from a ledger a full run records |
 | [tools/harness_reach_hook.py](tools/harness_reach_hook.py) | Records what each verify_harness check reaches: the code it runs and the files it reads (engine for harness_reach.py) |
-| [tools/ladder_words.py](tools/ladder_words.py) | The one matcher for the five-stage ladder's own words -- step labels, the release commands, the branch tiers, links to the ladder set's practices -- used by the check that keeps them out of everything outside that set and by the tests that hold engine output to the same (spec/LADDER_OPT_IN_PLAN.md D7) |
 | [tools/land_next.py](tools/land_next.py) | The lander as one command: land every queued branch on the trunk, oldest first, or say exactly why not |
 | [tools/land_queue.py](tools/land_queue.py) | The landing queue: branches waiting for the lander to merge them into the trunk, one record per branch on the coord branch |
 | [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |
@@ -323,6 +322,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/routing_eval_synthetic.py](tools/routing_eval_synthetic.py) | Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits |
 | [tools/routing_reasons.py](tools/routing_reasons.py) | Every on-demand practice's routing choice on one page, built from each practice's applies_to_why and gates_why into spec/ROUTING_REASONS.md |
 | [tools/session_load_trend.py](tools/session_load_trend.py) | How much room every always-loaded surface has left and how fast it is going -- headroom, the hand-written/generated split, and the growth rate; its headroom_notice() is what the merge and push gates print |
+| [tools/set_words.py](tools/set_words.py) | The one matcher for a practice set's own words -- the ones a set declares in its precedent-source.json `owned_words`, which belong in that set and nowhere a person who does not bring it reads -- used by the check that holds every other set to them and by the tests that hold engine output to the same (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md part 3) |
 | [tools/split_practices.py](tools/split_practices.py) | PRACTICES.md ↔ practices/ converter |
 | [tools/summary_text.py](tools/summary_text.py) | Turns prose into a summary field: links out first, then the cut — run bare to self-check |
 | [tools/table_fmt.py](tools/table_fmt.py) | One formatter per quantity kind — the engine |

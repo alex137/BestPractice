@@ -4,7 +4,7 @@ kind:              manual
 domain:            engine
 severity:          null
 status:            open
-disposition:       do
+disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null

@@ -23125,16 +23125,35 @@ def check_precedent_check_fires():
         cases.append(('light-check: a link inside a code span is not read as a link',
                       'not-a-link.md' not in _lc))
 
-        # ladder-words-stay-in-the-ladder-set: a ladder command and step
-        # label planted in a universal practice's Rule. The clean copy is
-        # this repository, which carries none.
-        def _plant_ladder_words(repo):
+        # set-words-stay-in-their-set: a made-up set declared beside the copy
+        # owns the words "Zorpify" and "phase N of 9"; one is planted in a
+        # universal practice's Rule. No person's config is read, so only the
+        # made-up set's words are judged.
+        def _owner_set(repo):
+            owner = repo.parent / (repo.name + '-zz-owner-set')
+            (owner / 'practices').mkdir(parents=True, exist_ok=True)
+            (owner / 'precedent-source.json').write_text(json.dumps({
+                'name': 'zz-owner-set', 'level': 'shared', 'provides': ['zz-cap'],
+                'owned_words': {'patterns': [
+                    {'kind': 'a zz command', 'regex': r'\bZorpify\b',
+                     'matches': ['Zorpify'], 'never_matches': ['zorpify']},
+                    {'kind': 'a zz step', 'regex': r'\bphase [1-9] of 9\b'}]}}),
+                encoding='utf-8')
+            git(owner, 'init', '-q')
+            cfg_path = repo / 'precedent.json'
+            cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+            cfg.setdefault('sources', []).append(
+                {'name': 'zz-owner-set', 'level': 'shared', 'path': str(owner)})
+            cfg_path.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+
+        def _plant_set_words(repo):
             f = repo / 'practices' / 'park-it.md'
             body = f.read_text(encoding='utf-8')
-            f.write_text(body.replace('## Rule\n', '## Rule\n\nSay "Booked" '
-                                      'to land it, step 3 of 5.\n', 1),
+            f.write_text(body.replace('## Rule\n', '## Rule\n\nSay '
+                                      '"Zorpify" at phase 3 of 9.\n', 1),
                          encoding='utf-8')
-        case('ladder-words-stay-in-the-ladder-set', _plant_ladder_words)
+        case('set-words-stay-in-their-set', _plant_set_words, setup=_owner_set,
+             env_extra={'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
 
         # ladder-set-is-brought-not-declared: precedent.json declares a
         # sibling set whose precedent-source.json provides the ladder.
@@ -65341,7 +65360,6 @@ def check_landed_reduction_quiets_the_reduction_ask():
                       repr(got)))
         # Off the ladder: the same fact, with no tier and no ladder word
         # (found 2026-10-03, the line named pre-staging to such a person).
-        import ladder_words as lw
         saved = {k: os.environ.pop(k, None) for k in
                  ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG')}
         os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
@@ -65354,7 +65372,7 @@ def check_landed_reduction_quiets_the_reduction_ask():
                       'ladder word',
                       len(got) == 1 and pg.LANDED_REDUCTION_MARK_PLAIN in got[0]
                       and 'on main' in got[0]
-                      and not lw.output_hits(got[0]), repr(got)))
+                      and not _owned_word_hits(got[0]), repr(got)))
         git('push', '-q', 'origin', '--delete', 'pre-staging')
         git('fetch', '-q', '--prune', 'origin')
         cases.append(('no landing branch on origin: no mark',
@@ -74953,18 +74971,36 @@ def check_show_follows_a_deduplicated_slug_across_sources():
             '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
 
 
+def _owned_word_hits(text, owners=None):
+    """-> hits in printed `text` of the words every set on this machine
+    declares as its own (tools/set_words.py), each run as that set's
+    output patterns; [] where no such set is cloned here."""
+    import set_words as sw
+    owners = sw.sets_with_words(ROOT) if owners is None else owners
+    return [h for _n, _p, words, _prov in owners
+            for h in sw.output_hits(text, words)]
+
+
 def check_ladder_off_engine_says_no_ladder_words():
     """spec/LADDER_OPT_IN_PLAN.md assertion B, on the engine's own output: a
     person with no practice set of their own -- the ladder not in force --
     runs the tools a session runs, in this repository, and none of them
-    prints a ladder word (tools/ladder_words.py's output matcher). Measured
-    2026-10-02 before the change: about 450 such words across these outputs.
+    prints a word some set declares as its own (tools/set_words.py; the
+    words are each set's, read from the sets cloned on this machine).
+    Measured 2026-10-02 before the change: about 450 such words across
+    these outputs.
 
     `PRECEDENT_ASSUME_LADDER` (the harness default) is cleared for every run
     here: this is the off-ladder world, as a person off the ladder meets it.
     One phrase is excused by name, the ordinary English "staging document"."""
-    import ladder_words as lw
+    import set_words as sw
     import tempfile
+    owners = sw.sets_with_words(ROOT)
+    if not owners:
+        not_applicable('off the ladder, the engine prints no set\'s own words',
+                       'no set that declares words of its own is cloned on this '
+                       'machine, so there is nothing to hold the output to')
+        return
     env = {k: v for k, v in os.environ.items()
            if k not in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS')}
     env['PRECEDENT_USER_CONFIG'] = str(pathlib.Path(tempfile.gettempdir())
@@ -75002,7 +75038,7 @@ def check_ladder_off_engine_says_no_ladder_words():
                  if not any(x in l for x in excused)
                  and not re.match(r'\s+[0-9a-f]{7,40} \S', l)
                  and not re.match(r'\s+pid \d+, running [\d:-]+: ', l)]
-        found = lw.output_hits('\n'.join(lines))
+        found = _owned_word_hits('\n'.join(lines), owners)
         # The lines themselves, not only the words: a hit that appeared only
         # inside a Debut (2026-10-03) could not be found from the words.
         said = [lines[n - 1][:300] for n in sorted({h[0] for h in found})][:3]
@@ -75022,9 +75058,11 @@ def check_ladder_test_session_and_the_two_ladder_checks():
 
     - A No ladders session pushes and merges nothing: the push gate and the
       merge check refuse, by name; without the variable neither refuses.
-    - ladder-words-stay-in-the-ladder-set finds a ladder word planted in a
-      practice set that does not provide the ladder, passes the same text
-      in one that does, and passes a Story.
+    - set-words-stay-in-their-set finds a made-up set's words planted in
+      a practice set that declares that set, passes the owning set itself,
+      an individual set whose person brings it, a Story, and a practice
+      that requires the owner's capability; and finds a set whose words do
+      not match its own examples.
     - ladder-set-is-brought-not-declared finds a precedent.json that
       declares a set providing the ladder, and passes one that declares an
       ordinary set: the ladder is each person's to bring, and a repository
@@ -75059,78 +75097,115 @@ def check_ladder_test_session_and_the_two_ladder_checks():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ladder-checks-'))
     saved_root = pc.ROOT
+    saved_cfg = os.environ.get('PRECEDENT_USER_CONFIG')
     try:
+        # set-words-stay-in-their-set, with made-up words: zz-owner owns
+        # "Zorpify" and "phase N of 9". Each set below is judged against the
+        # sets in force for it -- its precedent.json and its person's config.
         plain, ladder = tmp / 'plain-set', tmp / 'ladder-set'
-        # Three individual sets beside them (2026-10-03, found rehearsing a
-        # Produce: the check refused the individual set of a person who
-        # brings the ladder, and with it their own next Update Vendors).
-        ind_lad, ind_plain, ind_gone = (tmp / 'ind-brings-ladder',
+        owner = tmp / 'zz-owner'
+        ind_own, ind_plain, ind_gone = (tmp / 'ind-brings-owner',
                                         tmp / 'ind-brings-plain',
                                         tmp / 'ind-brings-uncloned')
-        for d, man in ((plain, {'level': 'shared', 'provides': []}),
-                       (ladder, {'level': 'shared', 'provides': ['ladder']}),
-                       (ind_lad, {'level': 'individual', 'brings': [
-                           {'name': 'ladder-set', 'repo_url': 'https://example.com/l.git'}]}),
-                       (ind_plain, {'level': 'individual', 'brings': [
-                           {'name': 'plain-set', 'repo_url': 'https://example.com/p.git'}]}),
-                       (ind_gone, {'level': 'individual', 'brings': [
-                           {'name': 'not-cloned-set', 'repo_url': 'https://example.com/n.git'}]})):
-            (d / 'practices').mkdir(parents=True)
-            (d / 'precedent-source.json').write_text(json.dumps(
-                dict(name=d.name, **man)))
-            (d / 'practices' / 'x.md').write_text(
-                '---\nslug: x\nstatus: active\n---\n\n## Rule\n\n'
-                'Say "Booked" at step 3 of 5.\n\n## Story\n\n'
-                'On the day, we said Promote 2.\n')
-        for root, want, what in ((plain, 2, 'a set without the ladder'),
-                                 (ladder, None, 'the set that provides it'),
-                                 (ind_lad, None, 'an individual set that brings it'),
-                                 (ind_plain, 2, 'an individual set that brings only an ordinary set'),
-                                 (ind_gone, 2, 'an individual set whose brought set is not cloned')):
-            pc.ROOT = root
-            why = ''
-            try:
-                got = pc._ladder_words_stay_in_the_ladder_set(None)
-                n = len(got)
-            except pc.NotApplicable as e:
-                n, why = None, str(e)
-            # A skip says why, so a skip for another reason fails here.
-            because = {ladder: 'provides the ladder',
-                       ind_lad: 'brings ladder-set'}.get(root, '')
-            cases.append((f'Check E in {what}: '
-                          f'{"skipped" if want is None else f"{want}+ finding(s), none in the Story"}',
-                          (n is None and because in why) if want is None else
-                          (n is not None and n >= want and all(':9:' not in str(f) and ':10:' not in str(f) for f in got)),
-                          f'got {n} {why!r}: {[str(f) for f in (got if n else [])][:4]}'))
-        # The same individual set checked from a linked worktree elsewhere
-        # (2026-10-04): a Debut or Produce checks the set in a throwaway
-        # worktree under the temp directory, where nothing sits beside it.
-        # The ladder set it brings is found beside the main checkout, so the
-        # check still stands aside -- before, the set's own Debut was refused.
+        words = {'patterns': [
+            {'kind': 'a zz command', 'regex': r'(?:\*\*|")Zorpify(?:\*\*|")',
+             'matches': ['"Zorpify"'], 'never_matches': ['zorpify']},
+            {'kind': 'a zz step', 'regex': r'\bphase [1-9] of 9\b'}]}
+        declares_owner = {'sources': [{'name': 'zz-owner', 'level': 'shared',
+                                       'path': str(owner)}]}
         _genv = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
                      GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
                      GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
-        subprocess.run(['git', 'init', '-q', str(ind_lad)], env=_genv, check=True)
-        subprocess.run(['git', '-C', str(ind_lad), 'add', '-A'], env=_genv, check=True)
-        subprocess.run(['git', '-C', str(ind_lad), 'commit', '-qm', 'x', '--no-verify'],
+        for d, man, cfg in (
+                (plain, {'level': 'shared', 'provides': []}, declares_owner),
+                (ladder, {'level': 'shared', 'provides': ['ladder']}, None),
+                (owner, {'level': 'shared', 'provides': ['zz-cap'],
+                         'owned_words': words}, None),
+                (ind_own, {'level': 'individual', 'brings': [
+                    {'name': 'zz-owner', 'repo_url': 'https://example.com/z.git'}]}, None),
+                (ind_plain, {'level': 'individual', 'brings': [
+                    {'name': 'plain-set', 'repo_url': 'https://example.com/p.git'}]},
+                 declares_owner),
+                (ind_gone, {'level': 'individual', 'brings': [
+                    {'name': 'not-cloned-set', 'repo_url': 'https://example.com/n.git'}]},
+                 declares_owner)):
+            (d / 'practices').mkdir(parents=True)
+            (d / 'precedent-source.json').write_text(json.dumps(
+                dict(name=d.name, **man)))
+            if cfg:
+                (d / 'precedent.json').write_text(json.dumps(cfg))
+            (d / 'practices' / 'x.md').write_text(
+                '---\nslug: x\nstatus: active\n---\n\n## Rule\n\n'
+                'Say "Zorpify" at phase 3 of 9.\n\n## Story\n\n'
+                'On the day, we said "Zorpify" at phase 2 of 9.\n')
+            subprocess.run(['git', 'init', '-q', str(d)], env=_genv, check=True)
+        # A practice that requires the owner's capability is its own.
+        (plain / 'practices' / 'y.md').write_text(
+            '---\nslug: y\nstatus: active\nrequires: ["zz-cap"]\n---\n\n'
+            '## Rule\n\nSay "Zorpify".\n')
+        no_cfg = tmp / 'no-config.json'
+
+        def judge(root, individual=None):
+            cfg = tmp / f'cfg-{root.name}.json'
+            if individual:
+                cfg.write_text(json.dumps({'individual': {'path': str(individual)}}))
+            os.environ['PRECEDENT_USER_CONFIG'] = str(cfg if individual else no_cfg)
+            pc.ROOT = root
+            try:
+                got = pc._set_words_stay_in_their_set(None)
+                return len(got), got, ''
+            except pc.NotApplicable as e:
+                return None, [], str(e)
+
+        for root, ind, want, because, what in (
+                (plain, None, 2, '', 'a set that declares the owner'),
+                (owner, None, None, 'declares words of its own', 'the owning set itself'),
+                (ind_own, ind_own, None, 'brought by this set', 'an individual set that brings it'),
+                (ind_plain, ind_plain, 2, '', 'an individual set that brings only an ordinary set'),
+                (ind_gone, ind_gone, 2, '', 'an individual set whose other brought set is not cloned')):
+            n, got, why = judge(root, ind)
+            # A skip says why, so a skip for another reason fails here.
+            cases.append((f'set words in {what}: '
+                          f'{"skipped" if want is None else f"{want} finding(s), none in the Story or a practice that requires the capability"}',
+                          (n is None and because in why) if want is None else
+                          (n == want and all('x.md:8:' in str(f) for f in got)),
+                          f'got {n} {why!r}: {[str(f) for f in got][:4]}'))
+        # A set whose declared words do not match their own examples.
+        (owner / 'precedent-source.json').write_text(json.dumps(dict(
+            name='zz-owner', level='shared', owned_words={'patterns': [
+                {'kind': 'a zz command', 'regex': r'\bZorpify\b',
+                 'matches': ['Zorpify'], 'never_matches': ['Zorpify!']}]})))
+        n, got, why = judge(owner)
+        cases.append(('a set whose words match what it says they never should: '
+                      'one finding, on its own precedent-source.json',
+                      n == 1 and 'precedent-source.json' in str(got[0]),
+                      f'got {n} {why!r}: {[str(f) for f in got]}'))
+        (owner / 'precedent-source.json').write_text(json.dumps(dict(
+            name='zz-owner', level='shared', provides=['zz-cap'], owned_words=words)))
+        # The same individual set checked from a linked worktree elsewhere
+        # (2026-10-04): a Debut or Produce checks the set in a throwaway
+        # worktree under the temp directory, where nothing sits beside it.
+        # The set it brings is found beside the main checkout, so the check
+        # still stands aside -- before, the set's own Debut was refused.
+        subprocess.run(['git', '-C', str(ind_own), 'add', '-A'], env=_genv, check=True)
+        subprocess.run(['git', '-C', str(ind_own), 'commit', '-qm', 'x', '--no-verify'],
                        env=_genv, check=True)
         _elsewhere = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ladder-wt-'))
         _wt = _elsewhere / 'wt'
-        subprocess.run(['git', '-C', str(ind_lad), 'worktree', 'add', '-q', '--detach',
+        subprocess.run(['git', '-C', str(ind_own), 'worktree', 'add', '-q', '--detach',
                         str(_wt)], env=_genv, check=True)
         try:
-            pc.ROOT = _wt
-            why = ''
-            try:
-                n = len(pc._ladder_words_stay_in_the_ladder_set(None))
-            except pc.NotApplicable as e:
-                n, why = None, str(e)
-            cases.append(('Check E in an individual set that brings it, checked '
-                          'from a linked worktree elsewhere: skipped',
-                          n is None and 'brings ladder-set' in why,
+            n, got, why = judge(_wt, ind_own)
+            cases.append(('set words in an individual set that brings the owner, '
+                          'checked from a linked worktree elsewhere: skipped',
+                          n is None and 'brought by this set' in why,
                           f'got {n} {why!r}'))
         finally:
             shutil.rmtree(_elsewhere, ignore_errors=True)
+            if saved_cfg is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
         repo = tmp / 'repo'
         repo.mkdir()
         for declared, want, what in (('ladder-set', 1, 'declares the ladder set'),

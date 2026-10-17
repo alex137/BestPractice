@@ -629,9 +629,10 @@ ENGINE_FILES = [
     # 2026-10-11). precedent_branches and precedent_update import it in
     # every kind of repo; without it they simply print no review.
     'precedent_upstream_review.py',
-    # The one matcher for the ladder's own words (D7), which precedent_check's
-    # ladder-words-stay-in-the-ladder-set imports in every practice set.
-    'ladder_words.py',
+    # The one matcher for a set's own words, which precedent_check's
+    # set-words-stay-in-their-set imports in every practice set; the words
+    # are each set's own, in its precedent-source.json (2026-10-17).
+    'set_words.py',
     # Which upstream-owned files were edited here, and each one's recorded
     # answer (practice: upstream-bug-stops-here, 2026-10-17). precedent_check
     # imports it in every kind of repository, the edit-time hook
@@ -1144,6 +1145,9 @@ RETIRED_ENGINE_FILES = {
     'precedent_retire_path.py':
         'renamed to precedent_decommission.py, 2026-09-07 '
         '(the mechanism sense of "retire" became "decommission")',
+    'ladder_words.py':
+        'replaced by set_words.py, 2026-10-17: the words are each set\'s own, '
+        'declared in its precedent-source.json',
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 _WAS_COMMIT_ENV = 'PRECEDENT_REFRESH_WAS_COMMIT'  # the pre-refresh source_commit, for a second pass
