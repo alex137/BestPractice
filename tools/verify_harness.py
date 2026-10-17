@@ -3410,6 +3410,18 @@ def check_worktree_snapshot_needs_no_git_identity():
     cases.append(('the push check\'s report picks a failed shard and its reason',
                   out[0] in found and out[3] in found and out[2] not in found,
                   str(found), ))
+    # A shard that died before any verdict names its traceback instead.
+    out = ['  SHARD FAILED (exit 1)', '  last 3 line(s) of its stderr:',
+           '    SKIP (filtered out by PRECEDENT_CHECK_ONLY/SKIP): check_x',
+           '    Traceback (most recent call last):',
+           '    KeyError: \'shard_probe\'',
+           '=== here, the not-applicable slice ===',
+           '  unrelated tail line']
+    found = ppc._finding_lines(out)
+    cases.append(('...and a shard with no FAIL: line is reported by its stderr',
+                  out[4] in found and out[3] in found and out[2] not in found
+                  and out[6] not in found,
+                  str(found), ))
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the working-tree snapshot needs no git identity ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
