@@ -16571,10 +16571,13 @@ def check_update_vendors_takes_only_a_main_that_passed():
                       and 'left no passed marker, and GitHub could not be asked, on '
                           f'{c0[:12]}' in steps(text)[0]
                       and 'WARNING' not in steps(text)[0], (handed, steps(text))))
-        cases.append(('(g2) ...and that line names the fix: attach the source with '
-                      'add_repo, access "push" (2026-10-10, a consumer that had to '
-                      'work it out)',
-                      len(steps(text)) == 1 and 'add_repo, access "push"' in steps(text)[0],
+        cases.append(('(g2) ...and that line says it took the newest commit with a '
+                      'recorded pass, with no advice to attach the source for push '
+                      '(2026-10-17, a consumer: the advice pushed a read-only '
+                      'session toward a push grant only to read a public check)',
+                      len(steps(text)) == 1
+                      and 'the newest with a recorded pass' in steps(text)[0]
+                      and 'add_repo' not in steps(text)[0],
                       steps(text)))
         text, handed, _held, _a = run_update('marked-red', {
             c0: ('failed', 'url')}, marks=[tree(c1)])
@@ -60857,6 +60860,99 @@ def check_update_asks_before_changing_hooks():
               and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
 
 
+def check_update_keeps_hook_hashes_with_the_held_hooks():
+    """While the hooks-and-settings question waits on the person's words,
+    the engine manifest keeps the committed hooks' hashes, and the question
+    only promises what the go-ahead run really records.
+
+    WHY (2026-10-17, two consumers' updates). The refresh wrote the NEW
+    hooks' hashes into tools/ENGINE_MANIFEST.json at once; committed
+    without the held hooks, as the question invited, the next run called
+    the old hooks "your local edit" and would not replace them. The
+    question also said the go-ahead run "records these files' new
+    baselines" for a .claude/settings.json that had none, and that
+    committing without them "leaves nothing red", when the push check
+    refused the push. And auto mode refused the rerun even with the
+    person's sentence.
+
+    Negative control: on staging's code there is no hold_hook_hashes or
+    harness_baselines, and the question carries the old claims."""
+    import tempfile, hashlib, json as _json
+    name = 'an update keeps hook hashes with the held hooks'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    hold = getattr(pu, 'hold_hook_hashes', None)
+    base = getattr(pu, 'harness_baselines', None)
+    cases.append(('the updater has the hold and the baseline reader',
+                  callable(hold) and callable(base)))
+    if callable(hold) and callable(base):
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                       GIT_AUTHOR_EMAIL='t@example.invalid',
+                       GIT_COMMITTER_EMAIL='t@example.invalid')
+
+            def g(*a):
+                return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+            g('init', '-q')
+            (repo / '.claude' / 'hooks').mkdir(parents=True)
+            (repo / 'tools').mkdir()
+            hook = repo / '.claude' / 'hooks' / 'h.sh'
+            hook.write_text('old\n', encoding='utf-8')
+            old = hashlib.sha256(b'old\n').hexdigest()
+            mf = repo / 'tools' / 'ENGINE_MANIFEST.json'
+            mf.write_text(_json.dumps({'hook_files': ['h.sh'],
+                                       'hooks_sha256': {'h.sh': old}}), encoding='utf-8')
+            (repo / '.claude' / 'settings.json').write_text('{}\n', encoding='utf-8')
+            g('add', '-A')
+            g('commit', '-q', '-m', 'base')
+            # The refresh: new hook, new hash, a settings change; all staged.
+            hook.write_text('new\n', encoding='utf-8')
+            new = hashlib.sha256(b'new\n').hexdigest()
+            mf.write_text(_json.dumps({'hook_files': ['h.sh'],
+                                       'hooks_sha256': {'h.sh': new}}), encoding='utf-8')
+            (repo / '.claude' / 'settings.json').write_text('{"a": 1}\n', encoding='utf-8')
+            g('add', '-A')
+            paths = pu.harness_changes(repo)
+            done = hold(repo, paths, approved=False)
+            staged = _json.loads(g('show', ':tools/ENGINE_MANIFEST.json').stdout or '{}')
+            cases.append(('without the words, the staged manifest keeps the '
+                          'committed hook\'s hash',
+                          done == ['h.sh']
+                          and (staged.get('hooks_sha256') or {}).get('h.sh') == old,
+                          (done, staged)))
+            done = hold(repo, paths, approved=True)
+            staged = _json.loads(g('show', ':tools/ENGINE_MANIFEST.json').stdout or '{}')
+            cases.append(('with the words, it records the staged hook\'s own hash',
+                          done == ['h.sh']
+                          and (staged.get('hooks_sha256') or {}).get('h.sh') == new,
+                          (done, staged)))
+            has, none = base(repo, paths)
+            cases.append(('settings.json, with no recorded baseline, is said to '
+                          'have none; the hook has one',
+                          has == ['.claude/hooks/h.sh']
+                          and none == ['.claude/settings.json'], (has, none)))
+            ask = pu.harness_ask(paths, baselines=(has, none))
+            cases.append(('the question promises no baseline that does not exist',
+                          'records the new baselines of .claude/hooks/h.sh' in ask
+                          and 'has no baseline to record for .claude/settings.json' in ask,
+                          ask))
+            cases.append(('...never says committing without them leaves nothing '
+                          'red, and says to get the words first',
+                          'leaves nothing red' not in ask
+                          and 'Get the words before committing' in ask, ask))
+            cases.append(('...and says auto mode may still need the one permission '
+                          'prompt approved', 'permission prompt' in ask, ask))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d)[:200] + ')' if d else ''}" for n, d in bad))
+
+
 def check_update_asks_for_words_that_name_the_commit():
     """The hooks-and-settings question Update Vendors puts to the person,
     and the merge step's take-back of the same change, hand the session the
@@ -84076,6 +84172,7 @@ def main():
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
     check_update_asks_for_words_that_name_the_commit()
+    check_update_keeps_hook_hashes_with_the_held_hooks()
     check_update_question_names_new_gates()
     check_promote_branches_are_named_like_session_branches()
     check_data_branches_are_named_for_the_ladder()
