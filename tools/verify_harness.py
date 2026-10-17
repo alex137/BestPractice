@@ -67744,6 +67744,83 @@ def check_individual_source_bootstrap_self_heals():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_a_set_in_a_linked_worktree_does_not_load_itself_twice():
+    """A set the individual set brings is left out when it IS the repository
+    being resolved -- in a linked worktree of it too (2026-10-17 very deep
+    check: precedent_resolve compared paths only, so the ladder set in a
+    worktree loaded itself a second time from its main checkout, 3,801
+    words of session load against 3,399 in the clone; --land and the merge
+    gate check in throwaway worktrees).
+
+    Stated cases: in the clone the brought copy is left out (control); in a
+    linked worktree of the same set it is left out too; a different set
+    beside it is still brought."""
+    import shutil, tempfile
+    import precedent_resolve as pr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-wt-self-'))
+    cases = []
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C',
+                               str(repo), *a], capture_output=True, text=True)
+
+    def practice(d, slug):
+        (d / 'practices').mkdir(parents=True, exist_ok=True)
+        (d / 'practices' / f'{slug}.md').write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+            f'severity: default\napplies_to: ["**"]\noccasion: "x"\n'
+            f'index_clause: "x"\nstatus: active\n---\n## Rule\nx\n\n## Story\nx\n',
+            encoding='utf-8')
+
+    try:
+        ind, ladder, other = tmp / 'zz-ind', tmp / 'zz-ladder', tmp / 'zz-other'
+        practice(ind, 'zz-ind-rule')
+        (ind / 'precedent-source.json').write_text(json.dumps({
+            'name': 'zz-ind', 'level': 'individual', 'brings': [
+                {'name': 'zz-ladder', 'repo_url': 'https://example.com/zz-ladder'},
+                {'name': 'zz-other', 'repo_url': 'https://example.com/zz-other'}]}),
+            encoding='utf-8')
+        for s in (ladder, other):
+            practice(s, f'{s.name}-rule')
+            (s / 'precedent-source.json').write_text(json.dumps(
+                {'name': s.name, 'level': 'shared'}), encoding='utf-8')
+            (s / 'precedent.json').write_text(json.dumps({
+                'format_version': 1, 'base_branch': 'main', 'sources': [
+                    {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]}),
+                encoding='utf-8')
+            git(s, 'init', '-q', '-b', 'main')
+            git(s, 'add', '-A')
+            git(s, '-c', 'user.email=h@example.com', '-c', 'user.name=h',
+                'commit', '-qm', 'fixture')
+        wt = tmp / 'elsewhere' / 'zz-ladder-wt'
+        wt.parent.mkdir()
+        git(ladder, 'worktree', 'add', '-q', '-b', 'wt', str(wt))
+        user = tmp / 'user.json'
+        user.write_text(json.dumps({'format_version': 1, 'individual': {
+            'name': 'zz-ind', 'path': str(ind)}}), encoding='utf-8')
+
+        def brought(repo):
+            os.environ[pr.SELF_HEAL_RENDER_ENV] = '1'   # no render from a fixture
+            try:
+                srcs = pr.load_config(str(repo), str(user))
+            finally:
+                os.environ.pop(pr.SELF_HEAL_RENDER_ENV, None)
+            return sorted(s['name'] for s in srcs if s.get('brought'))
+
+        got_clone, got_wt = brought(ladder), brought(wt)
+        cases.append(('control: in the clone, the set does not bring itself',
+                      got_clone == ['zz-other'], repr(got_clone)))
+        cases.append(('in a linked worktree of the set, it does not bring itself '
+                      'from its main checkout either', got_wt == ['zz-other'],
+                      repr(got_wt)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a set resolved in a linked worktree of itself does not load itself '
+          f'twice ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_stale_render_heal_never_overwrites_with_less():
     """A read-only check must not replace a complete session file with an
     emptier one (2026-10-17 very deep check: in an isolated clone with no
@@ -82916,6 +82993,7 @@ def main():
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
     check_stale_render_heal_never_overwrites_with_less()
+    check_a_set_in_a_linked_worktree_does_not_load_itself_twice()
     check_attached_sets_sources_are_synced()
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()

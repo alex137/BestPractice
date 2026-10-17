@@ -759,6 +759,45 @@ def _diagnose_no_individual(why, heal, user_cfg_path, repo_root):
                         f"a definite answer; declare one there to change it.")}
 
 
+def _git_common_dir(path):
+    """-> the resolved git common directory of the checkout whose top level
+    is `path` (the same for a clone and every linked worktree of it), or
+    None -- also for a directory INSIDE a checkout, which is not a
+    repository of its own."""
+    r = subprocess.run(['git', '-C', str(path), 'rev-parse', '--show-toplevel',
+                        '--git-common-dir'], capture_output=True, text=True)
+    lines = r.stdout.strip().splitlines() if r.returncode == 0 else []
+    if len(lines) != 2:
+        return None
+    top, common = pathlib.Path(lines[0]), pathlib.Path(lines[1])
+    try:
+        if top.resolve() != pathlib.Path(path).resolve():
+            return None
+    except OSError:
+        return None
+    return (common if common.is_absolute() else pathlib.Path(path) / common).resolve()
+
+
+def _same_repository(a, b):
+    """True when `a` and `b` are the same repository: the same path, or two
+    checkouts (a clone and a linked worktree of it) sharing one git common
+    directory. A set brought by the individual set is skipped when it IS the
+    repository being resolved; comparing paths alone missed a linked
+    worktree of the set, which then loaded itself twice -- measured
+    2026-10-17 at 3,801 words of session load in a worktree against 3,399 in
+    the clone, and --land and the merge gate check in throwaway worktrees."""
+    try:
+        pa, pb = pathlib.Path(a).resolve(), pathlib.Path(b).resolve()
+    except OSError:
+        return False
+    if pa == pb:
+        return True
+    if not (pa.is_dir() and pb.is_dir()):
+        return False
+    ca, cb = _git_common_dir(pa), _git_common_dir(pb)
+    return ca is not None and ca == cb
+
+
 def _main_checkout(repo_root):
     """-> the main checkout of `repo_root` when it is a LINKED git worktree,
     else None.
@@ -1334,7 +1373,7 @@ def load_config(repo, user_config=None):
                 # everybody there reads.
                 if b['name'] in have:
                     continue
-                if pathlib.Path(b['path']).resolve() == repo_root:
+                if _same_repository(b['path'], repo_root):
                     continue
                 sources.append(b)
     gone = deleted_sets(entry['path'] if entry is not None else None,
