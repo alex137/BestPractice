@@ -19,6 +19,12 @@
       "date": "2026-10-11",
       "by": "",
       "note": "read whole 2026-10-11; two claims are stale (refused \"by CI\": it is the deep check; AGENTS.md gotcha index \"hand-kept"
+    },
+    {
+      "path": "spec/LOADER.md",
+      "date": "2026-10-17",
+      "by": "p3-coherence (very deep check)",
+      "note": "read whole 2026-10-17; fixed the resident cap (registry"
     }
   ]
 }
