@@ -52,3 +52,9 @@ item closes.
   session doing the enforcement plan's part 3, which is splitting the same
   file (precedent_branches.py): deleting pre-staging first leaves less to
   move.
+- 2026-10-17, checked every repository Precedent is used in. A leftover
+  `pre-staging` branch, already contained in `staging`: four repositories.
+  Still landing on `pre-staging`, with two commits not in `staging`: one
+  private repository, last touched 2026-09-28. Its work moves into its `staging` before the
+  retirement step is deleted; that merge waits on Morgan's word, since it
+  writes to another repository.

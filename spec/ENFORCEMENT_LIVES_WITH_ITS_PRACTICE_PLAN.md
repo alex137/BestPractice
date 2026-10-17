@@ -103,7 +103,12 @@ that predates this practice. The move, in outline:
 This is a restructuring of its own, several sessions long. Morgan gave
 the go-ahead on 2026-10-17 (strength: decided).
 
-### 3a. The step-by-step (proposed 2026-10-17, waiting on Morgan's go-ahead)
+### 3a. The step-by-step (Morgan's go-ahead 2026-10-17)
+
+Morgan, 2026-10-17, strength: decided: "Keep the branch name builder in
+the engine (only activated if configure). Push access approved. Go ahead
+with the plan. Booked." Read here as: the builder stays, and the engine's
+own steps use its dated names only when a person's config turns them on.
 
 Measured on staging at `8e122175`: the inventory names 23 ladder names
 in engine code -- 16 in [`ladder_words.py`](../tools/ladder_words.py), 2 each in
@@ -138,6 +143,7 @@ half loses nothing.
 
 | # | Piece | Set gets | Engine keeps | Names gone |
 |---|---|---|---|---|
+| 0 | Delete pre-staging (Morgan, 2026-10-17, decided; [its open item](../todo/todo-2026-10-14-delete-pre-staging-code.md)) | -- | nothing of it: `--sync-pre-staging`, Promote's pre-staging path, the retirement step and the full tier for staging all go, and every mention reads it as retired | 0, but less to move |
 | 1 | Stage words | `tools/ladder/ladder_words.py`; the check `ladder-words-stay-in-the-ladder-set` (today in [`precedent_check.py`](../tools/precedent_check.py)) becomes the set's `tools/checks/check_ladder_words_stay.py` with its test | nothing | 16 |
 | 2 | others-did | `tools/ladder/others_did.py`, run by a `SessionStart` hook the `others-did` practice declares | nothing; the gate stops importing it | 1 |
 | 3 | Branch-cleanup page | `tools/ladder/stale_branches.py`, and its reply requirement as a rule in the set's `reply_check.json` | a generic reply-check rule kind: "in the closing reply, require what this set tool prints" | 1 |
@@ -147,16 +153,24 @@ half loses nothing.
 | 5c | Their tests | the ladder tests from [`verify_harness.py`](../tools/verify_harness.py), beside the code | engine tests against a planted policy with made-up names | 1 |
 | 6 | Close | -- | part 3's files off the held-on-purpose list; the inventory reads clean | -- |
 
-**One deviation, for Morgan to decide:** [`precedent_branch_name.py`](../tools/precedent_branch_name.py)
+**Kept in the engine (Morgan, 2026-10-17, decided, "only activated if
+configured"):** [`precedent_branch_name.py`](../tools/precedent_branch_name.py)
 stays in the engine. It enforces nothing and names no set's practice;
 Update Vendors and the source bootstrap, which every repository runs,
 name their branches with it. The ladder already ships the guard that
 enforces the naming (part 1). It comes off the held list in piece 6.
 
-**Left alone on purpose.** The push-check level each tier gets moves as
-it is. Whether three of those spots should run only the quick checks is
-Morgan's open question in another session; if his answer lands first, it
-is carried through 5b.
+**The push-check levels.** Morgan answered on 2026-10-17 (decided): a push
+to `main` runs the quick checks and the full suite runs after (built on
+staging at `71bbcc47`); pre-staging's own spot goes with piece 0. 5b
+carries both as they stand.
+
+**Before piece 0 deletes the step that moves a repository off
+pre-staging**, every repository was checked on 2026-10-17. Four still
+have a `pre-staging` branch, all of it already in their `staging`.
+One of Morgan's private repositories still declares `landing_branch:
+pre-staging` and has two commits only there; they move into its
+`staging` first.
 
 **Small calls, noted.** The set's tests for a tool that is not a check
 go in `tools/checks/tests/` beside the rest, since that is where the set's
