@@ -135,7 +135,7 @@ in the same ENGINE_MANIFEST.json (see the HOOK_SOURCE_DIR block below for
 why they are a second, smaller mechanism rather than folded into
 ENGINE_FILES). Before this date they were installed once by
 precedent_install.py and never refreshed, so a fix landing in a hook script
--- the freshness-guard.sh shallow-clone false-positive, record/GOTCHAS.md#g12,
+-- the freshness-guard.sh shallow-clone false-positive, gotchas/gotcha-2026-09-13-on-a-shallow-clone-git-merge-base-between-two-different-bran.md,
 is the incident that prompted this -- never reached an already-vendored
 repo no matter how many times it ran `refresh`. .claude/settings.json itself
 is still never touched by this tool, on purpose; see that block.
@@ -1166,7 +1166,7 @@ _CARRIED_LEFT_ENV = 'PRECEDENT_REFRESH_LEFT_FOR_YOU'
 # tools/precedent_close_detect.py (see this file's docstring above): a fix
 # that lands upstream and never reaches an already-vendored repo because
 # nothing carries it there. The freshness-guard.sh shallow-clone false-
-# positive (record/GOTCHAS.md#g12) is the concrete incident this closes --
+# positive (gotchas/gotcha-2026-09-13-on-a-shallow-clone-git-merge-base-between-two-different-bran.md) is the concrete incident this closes --
 # every consumer that vendored before that fix landed would otherwise keep
 # hitting it, forever, no matter how many times it ran "Update Vendors".
 #

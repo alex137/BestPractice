@@ -894,7 +894,7 @@ def repair_hooks(repo):
     # and hook-INSTALL were on two different lists, so one --apply wired a
     # hook into SessionStart while leaving the file absent from
     # .claude/hooks/. That is a declared-but-missing hook, which the harness
-    # reports as nothing at all (record/GOTCHAS.md's own entry on it) -- the
+    # reports as nothing at all (gotchas/gotcha-2026-09-13-the-absence-of-claude-hooks-is-not-evidence-that-a-repo-s-ho.md) -- the
     # exact failure this tool exists to catch, shipped by the tool itself.
     #
     # Doing all three in one function is what makes them impossible to get

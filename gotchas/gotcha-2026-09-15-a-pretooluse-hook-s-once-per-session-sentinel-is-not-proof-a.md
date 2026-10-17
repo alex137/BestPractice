@@ -21,7 +21,7 @@ either has written it, and both fall through to `_pre_write_one`, which runs
 `git fetch`/`--deepen` against the same `.git` directory at once.
 
 **What was measured.** One of two parallel calls this session blocked with a
-false "diverged" reading — `record/GOTCHAS.md#g37`'s shallow-clone artifact
+false "diverged" reading — [the shallow-clone gotcha](gotcha-2026-09-14-a-shallow-clone-makes-a-merely-behind-checkout-read-as-diver.md)'s artifact
 — while its sibling call, touching the same checkout at the same instant,
 read the correct counts and passed clean. Same session, same moment, two
 different verdicts, because nothing serialized them. Confirmed with an

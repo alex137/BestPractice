@@ -30,7 +30,7 @@ clone is deepened at session start, before anything reads history, bounded by
 Measured against this remote: 2.7 MB of history before, 9.5 MB after, 4
 seconds. **What it does NOT cover is every case this entry is about** — a
 sibling attached mid-session runs none of its own hooks
-([g15](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g15)), a CI checkout is its own shallow clone, and a source set has no
+([g15](gotcha-2026-09-13-a-repo-attached-mid-session-never-runs-its-own-sessionstart-.md)), a CI checkout is its own shallow clone, and a source set has no
 such hook at all. In any of those, the manual fetch above is still the fix, and
 a tool reporting a suspiciously clean result is still the symptom.
 

@@ -28765,7 +28765,7 @@ def check_gate_channel():
     # SessionStart hooks never ran reads instructions it cannot satisfy, and
     # tools/precedent_session_check.py has been able to say so since
     # 2026-09-08 -- via AGENTS.md's banner, which a session can skip, and did
-    # (record/GOTCHAS.md#g1). The gate is the route it cannot skip, so these
+    # (gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md). The gate is the route it cannot skip, so these
     # cases assert the PRINTED TEXT in both directions rather than the call
     # (practice: control-asserts-which-failure).
     spec_c = importlib.util.spec_from_file_location(
@@ -46136,7 +46136,7 @@ def check_commit_identity_copies_are_identical():
     # individual set at $HOME while everything else sits under another
     # parent -- so the glob is UNIONED with what the resolver declares
     # rather than trusted on its own. Same assumption, same failure shape as
-    # record/GOTCHAS.md#g40, which is what sent somebody looking for the
+    # gotchas/gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md, which is what sent somebody looking for the
     # rest of them.
     team_dirs = list(ROOT.parent.glob('precedent-team-*'))
     try:
@@ -81146,7 +81146,7 @@ def check_access_probe_separates_refusal_from_silence():
           f'({len(results)} stated cases, including a negative control that '
           f'flips the verdict)',
           not failed, '; '.join(failed) if failed else '')
-# practice: environment-gotchas -- the trap this guards is record/GOTCHAS.md#g1.
+# practice: environment-gotchas -- the trap this guards is gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md.
 #
 # Several checks below need a package that is not in the standard library:
 # doc_lint's strikethrough case suite and the `doc-references-are-links`
@@ -81156,7 +81156,7 @@ def check_access_probe_separates_refusal_from_silence():
 # missing -- on 2026-09-14 that read as "3 failed" on a tree whose diff was
 # two markdown files, and cost two full re-runs to attribute. The packages
 # are installed by .claude/hooks/session-start.sh and by both CI workflows;
-# a session whose hooks never ran (record/GOTCHAS.md#g17) has neither.
+# a session whose hooks never ran (gotchas/gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo.md) has neither.
 DOC_PACKAGES = ('cmarkgfm', 'markdown')
 
 
@@ -81172,7 +81172,7 @@ def _report_missing_doc_packages(where):
     print(f'verify_harness {where}: {", ".join(missing)} not installed. '
           f'Checks that need them FAIL for that reason alone, not because of '
           f'anything in the tree -- install with: pip install '
-          f'{" ".join(missing)}  (record/GOTCHAS.md#g1)')
+          f'{" ".join(missing)}  (gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md)')
     print('  and run: python3 tools/precedent_session_check.py -- these '
           'packages are installed by the SessionStart hook, so missing ones '
           'usually mean NO hook ran, and the hooks guarantee more than this')

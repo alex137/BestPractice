@@ -43,7 +43,7 @@ THE THIRD ROUTE EXISTS BECAUSE THE FIRST TWO ARE SKIPPABLE, 2026-09-14. A
 session read that banner, did not run this tool, and worked for hours with
 four guarantees down -- no session-practices file, no commit backstop, two
 uninstalled packages -- noticing only when the packages surfaced as three
-unrelated-looking verify_harness failures (record/GOTCHAS.md#g1). Guidance a
+unrelated-looking verify_harness failures (gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md). Guidance a
 session can skip is not a mechanism; a gate it runs at a named moment is.
 
 Exit 0 when every guarantee holds, 1 otherwise, so it can gate a run.
@@ -481,7 +481,7 @@ def checks(offline=False):
     # applies commit-identity.sh to a LIST of repositories, and until
     # 2026-09-14 that list was the primary repo plus its siblings -- which
     # silently excluded an individual set cloned somewhere else, i.e. the one
-    # repository the block reads the identity FROM (record/GOTCHAS.md#g40).
+    # repository the block reads the identity FROM (gotchas/gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md).
     # Nothing reported it, because nothing had ever asked the question of any
     # repo but this one, and a normal session never commits to a source set.
     #
@@ -505,7 +505,7 @@ def checks(offline=False):
                 'be a wrong-author commit, and the global backstop will refuse '
                 'it. The session-start identity block is meant to have covered '
                 'it; a source outside the primary repo\'s own parent directory '
-                'is how it gets missed (record/GOTCHAS.md#g40)'))
+                'is how it gets missed (gotchas/gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md)'))
 
     # 4. The global backstop reaches repositories attached later.
     #

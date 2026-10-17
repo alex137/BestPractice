@@ -379,7 +379,7 @@ says so, both from the vendored tree under `process/upstream/`.
    (`hook_files`/`hooks_sha256`) — before that date the hook scripts were
    copied once at initial install and never refreshed again, so a fix
    landing in one (the `freshness-guard.sh` shallow-clone false-positive,
-   `record/GOTCHAS.md#g12`, is the incident that prompted this) never
+   [its gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-13-on-a-shallow-clone-git-merge-base-between-two-different-bran.md), is the incident that prompted this) never
    reached an already-vendored repo no matter how many times "Update
    Vendors" ran. A repo vendored before this date has no `hook_files` in
    its manifest yet; its first refresh after taking this change prints a

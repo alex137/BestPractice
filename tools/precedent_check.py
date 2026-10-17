@@ -11992,8 +11992,8 @@ def _todo_gotcha_stale_reference(ctx):
         if rel not in BARE_GOTCHA_ANCHOR_EXEMPT_FILES:
             checks.append(
                 (BARE_GOTCHA_ANCHOR_RE, 'links to a bare `#gN` anchor with no '
-                 'file -- qualify it (record/GOTCHAS.md#gN, or the item\'s own '
-                 'gotchas/*.md file)'))
+                 'file -- link the trap\'s own gotchas/*.md '
+                 'file instead'))
         for pat, label in checks:
             for m in pat.finditer(text):
                 line_no = text.count('\n', 0, m.start()) + 1

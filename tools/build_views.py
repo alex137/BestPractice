@@ -1931,7 +1931,7 @@ def _same_repository(path, root):
     reason this project already had written down: an individual source
     resolves through ~/.config/precedent/config.json, which names an absolute
     path, and that is routinely a SECOND clone rather than the checkout being
-    edited (record/GOTCHAS.md's entry on it). So a session working IN an
+    edited (gotchas/gotcha-2026-09-13-the-individual-source-resolves-to-a-clone-you-are-probably-n.md). So a session working IN an
     individual set, whose config named another clone of that same set, saw its
     own practices treated as somebody else's tree: deferred out of the tracked
     block and duplicated into .precedent/SESSION_PRACTICES.md, where they were
@@ -1943,7 +1943,7 @@ def _same_repository(path, root):
     repository at all. Normalized for the differences that are not
     differences: a trailing .git, a trailing slash, and case, since a clone
     URL is routinely lowercased by the harness while the canonical spelling
-    is not (record/GOTCHAS.md's entry on the lowercased clone URL).
+    is not (gotchas/gotcha-2026-09-13-a-repository-attached-mid-session-clones-single-branch-so-ev.md).
 
     Only trusts the origin URL for a directory that is itself a repository
     ROOT. `git -C <dir> remote get-url origin` does not stop at `<dir>` --

@@ -306,7 +306,8 @@ def _rev_parse_quiet(clone, ref):
 #   It is NOT what spec/DOCUMENT_LIFECYCLE.md's still-unexecuted migration
 #   proposal describes (that would move BestPractice's own phase briefs
 #   here; none of that has landed). What actually lives in record/ today is
-#   record/GOTCHAS.md and record/GOTCHAS_ARCHIVE.md -- the pre-migration,
+#   record/GOTCHAS.md (superseded by gotchas/INDEX.md since 2026-10-17, its
+#   citations repointed to gotchas/*.md) and record/GOTCHAS_ARCHIVE.md -- the pre-migration,
 #   monolithic predecessor to the current gotchas/*.md per-file split, kept
 #   as the fuller story text and cited by #gN anchor from several resident
 #   practices (session-text.md, very-deep-check.md, grep-before-search.md,
