@@ -69597,7 +69597,7 @@ def check_update_vendors_retires_pre_staging():
     retired for everyone on 2026-10-14 (Morgan, 2026-10-09: "make sure we have a smooth upgrade process
     for each. Merging the branches, telling he can delete pre-staging,
     updating previous mentions/links within each repo"). Update Vendors'
-    retire_pre_staging_step, on a local bare origin:
+    migration (tools/migration_retire_pre_staging.py), on a local bare origin:
 
     - work on pre-staging that staging lacks is brought into staging by
       --land's composition, with main's direct work; nothing is dropped and
@@ -69676,13 +69676,14 @@ def check_update_vendors_retires_pre_staging():
             f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
             'import precedent_update as pu, precedent_branches as pb\n'
             'import precedent_stale_branches as sb\n'
+            'import migration_retire_pre_staging as m\n'
             'repo = pathlib.Path(sys.argv[2])\n'
             'if sys.argv[1] == "step":\n'
             '    rep = pu.Report(); rep.before = set()\n'
-            '    pu.retire_pre_staging_step(repo, rep)\n'
-            '    rep._retired_block()\n'
+            '    m.migrate(repo, rep, pu)\n'
+            '    rep._migration_notes()\n'
             '    print("RESULT " + json.dumps({"steps": rep.steps, '
-            '"left": rep.left, "retired": rep.retired}))\n'
+            '"left": rep.left, "retired": rep.migration_notes.get(m.HEADER, [])}))\n'
             'elif sys.argv[1] == "offers":\n'
             '    import very_deep_check as v\n'
             '    print("RESULT " + json.dumps({"never": pb.never_offered(repo), '
@@ -69927,6 +69928,9 @@ def check_update_vendors_retires_pre_staging():
         # (2026-10-09, reported by another session: a note quoting the old
         # instruction was reworded on the update after the move.)
         import precedent_update as _pu_direct
+        import migration_retire_pre_staging as _pu_direct_m
+        _pu_direct_m.pu = _pu_direct
+        _pu_direct = _pu_direct_m
         cases.append(('once the switch to staging is committed, later runs '
                       'reword nothing', not _pu_direct.rewords_this_run(work, False, False)))
         cases.append(('the run that switches, or brings pre-staging\'s work '
@@ -69942,21 +69946,27 @@ def check_update_vendors_retires_pre_staging():
         res, out = call('step')
         cases.append(('and the step says nothing at all',
                       res == {'steps': [], 'left': [], 'retired': []}, out[-300:]))
-    # Where it runs: inside update(), before the views are regenerated, so
-    # they render the reworded sources.
+    # Where it runs: a migration, which update() runs without naming it,
+    # before the views are regenerated, so they render the reworded sources.
     import inspect
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
         import precedent_update as _pu
         src = inspect.getsource(_pu.update)
+        runner = inspect.getsource(_pu.migrations_step)
     except Exception as e:                                   # noqa: BLE001
-        src = f'{type(e).__name__}: {e}'
+        src = runner = f'{type(e).__name__}: {e}'
     finally:
         sys.path.pop(0)
-    step = src.find('retire_pre_staging_step(repo, rep)')
+    step = src.find('migrations_step(repo, rep)')
     views = src.find("sync = repo / 'tools' / 'precedent_sync_views.py'")
-    cases.append(('update() runs the step before it regenerates the views',
-                  0 <= step < views, src[:120] if step < 0 else ''))
+    cases.append(('update() runs the migrations before it regenerates the '
+                  'views', 0 <= step < views, src[:120] if step < 0 else ''))
+    cases.append(('update() names no migration, and the runner finds this one '
+                  'by its file name alone', 'pre_staging' not in src + runner
+                  and "glob('migration_*.py')" in runner
+                  and (ROOT / 'tools' / 'migration_retire_pre_staging.py').is_file(),
+                  runner[:200]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
