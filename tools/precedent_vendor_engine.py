@@ -3944,6 +3944,14 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
                                     f'once it does')
         return {}
     shipped = {rel for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())}
+    # A FIRST PASS JUDGES BY ITS OWN, OLDER LIST (2026-10-17, very deep
+    # check). An update rerun after a failed one puts the earlier run's
+    # engine back to HEAD's, so the first pass is the old engine, and it
+    # called precedent-branch-cleanup.yml -- written by the earlier run's
+    # new engine, so still uncommitted -- a workflow upstream does not ship,
+    # left for the person. Whatever this engine ships is not that, whoever
+    # said it first.
+    _CARRIED_LEFT[:] = [(i, w) for i, w in _CARRIED_LEFT if i not in shipped]
     try:
         approved = json.loads((dest_root / 'precedent.json').read_text(
             encoding='utf-8')).get(GITHUB_CI_APPROVED_KEY) or {}

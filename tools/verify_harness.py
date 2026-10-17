@@ -72147,6 +72147,62 @@ def check_retired_mentions_skip_what_the_repo_receives():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_second_pass_drops_a_first_pass_unshipped_workflow_call():
+    """A workflow the running engine ships is never left for the person as
+    one "upstream does not ship", even when an older first pass said so.
+
+    2026-10-17, very deep check: an Update Vendors rerun after a failed run
+    puts the earlier run's engine files back to HEAD's, so the refresh's
+    first pass is the old engine; it judged precedent-branch-cleanup.yml --
+    written by the earlier run's new engine, so uncommitted -- by its own
+    older list, and its "upstream does not ship it ... it has uncommitted
+    edits" reached Left for you through the hand-over to the second pass.
+    Reproduced on a scratch install from 2026-10-01: run, a failing basic
+    check, a fixed rerun. Planted: that hand-over, carrying the call about a
+    workflow this engine ships and one about a workflow it does not."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-carried-wf-'))
+    cases = []
+    saved = list(pve._CARRIED_LEFT), list(pve._LEFT_FOR_YOU)
+    try:
+        shipped = sorted(rel for _t, rel in pve.CI_WORKFLOW_TEMPLATES.get('consumer', ()))
+        rel = next(r for r in shipped if 'branch-cleanup' in r) if any(
+            'branch-cleanup' in r for r in shipped) else shipped[0]
+        other = '.github/workflows/our-own.yml'
+        dest = tmp / 'dest'
+        (dest / '.github' / 'workflows').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(dest)], capture_output=True)
+        (dest / rel).write_text('on: workflow_dispatch\njobs: {}\n', encoding='utf-8')
+        (dest / 'precedent.json').write_text('{}\n', encoding='utf-8')
+        why = ('upstream does not ship it and nobody approved it, so it goes, but '
+               'it was not removed: it has uncommitted edits')
+        pve._CARRIED_LEFT[:] = [(rel, why), (other, why)]
+        pve._LEFT_FOR_YOU[:] = []
+        with contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            pve._remove_unapproved_workflows(dest, {}, 'consumer', None)
+        carried = [i for i, _w in pve._CARRIED_LEFT]
+        cases.append((f'the first pass\'s call about {rel}, which this engine ships, '
+                      f'is dropped', rel not in carried, str(pve._CARRIED_LEFT)))
+        cases.append(('...and one about a workflow it does not ship is kept',
+                      other in carried, str(pve._CARRIED_LEFT)))
+        cases.append(('the shipped workflow is left where it is', (dest / rel).is_file(), ''))
+    except (OSError, StopIteration, IndexError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        pve._CARRIED_LEFT[:], pve._LEFT_FOR_YOU[:] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a second pass drops a first pass\'s call that a shipped workflow is '
+          f'unshipped ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -82927,6 +82983,7 @@ def main():
     check_refresh_replaces_a_past_individual_hook_rendering()
     check_refresh_names_an_in_place_hook_no_engine_path_keeps()
     check_retired_mentions_skip_what_the_repo_receives()
+    check_second_pass_drops_a_first_pass_unshipped_workflow_call()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
