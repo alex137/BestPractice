@@ -119,6 +119,16 @@
 
 set -uo pipefail
 
+# THE DECLARED PYTHON (2026-10-16, practice one-python). Claude Code starts
+# a hook with its own PATH, so a bare `python3` here is the image's default,
+# not the Python precedent.json declares, and lacks the packages setup put
+# there. Setup links the declared one at .precedent/python-bin; it goes
+# first on PATH here. The same block sits in every hook that starts python3;
+# verify_harness keeps the copies identical. No link: python3 as before,
+# never a refusal.
+_precedent_pybin="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)/.precedent/python-bin" || true
+if [ -x "$_precedent_pybin/python3" ]; then PATH="$_precedent_pybin:$PATH"; fi
+
 BOT_EMAIL="noreply@anthropic.com"
 # The declared fallback for a person whose zone could not be resolved.
 # Morgan, 2026-09-09 -- see the TIMEZONE section above for why a real
@@ -830,7 +840,7 @@ target="$hooks_dir/pre-commit"
 marker="# precedent:commit-identity"
 # The version of the global hooks below (see _install_global_backstop):
 # the date their text last changed.
-GLOBAL_HOOKS_VERSION=20261011
+GLOBAL_HOOKS_VERSION=20261016
 
 # Never clobber a pre-commit hook somebody else put here. Ours is
 # recognised by its marker; anything else is left alone, out loud.
@@ -1344,6 +1354,21 @@ if [ -n "\$_top" ] && [ -f "\$_gate" ] && command -v python3 >/dev/null 2>&1 \\
       echo "push refused: the leak gate found the above in a commit this push would publish. Rewrite that commit (it is not on any remote yet), then push again." >&2
       exit 1
     fi
+  fi
+fi
+# The pre-push hooks the practices in force here declare (practice_hooks.json,
+# event "pre-push"), run by the repository's own tools/precedent_hooks.py,
+# which also refuses while a practice source this repository declares or its
+# person brings did not load: a hook in a set that never loaded would
+# otherwise be skipped without a word. An engine older than that runs
+# nothing for "--git" and lets the push through.
+_hooks="\$_top/tools/precedent_hooks.py"
+if [ -n "\$_top" ] && [ -f "\$_hooks" ] && command -v python3 >/dev/null 2>&1; then
+  if [ "\${PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS:-}" = 1 ]; then
+    echo "pre-push: the practices' pre-push hooks SKIPPED for this push (PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS=1)" >&2
+  elif ! printf '%s\\n' "\$_input" | (cd "\$_top" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR python3 "\$_hooks" --git pre-push "\$@"); then
+    echo "push refused: a practice in force here refused it, above. PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS=1 lets one push through." >&2
+    exit 1
   fi
 fi
 if [ -n "\$_common" ] && [ -x "\$_own" ] && ! grep -q "$marker" "\$_own" 2>/dev/null; then

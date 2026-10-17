@@ -602,6 +602,31 @@ def deliver_ships(repo, extra):
     return r
 
 
+def attach_first(repo):
+    """-> the block that opens a session whose practice sources did not all
+    load: the add_repo call for each, before anything else, or '' when every
+    one is here. On 2026-10-16 the line saying so sat in the middle of the
+    session-start output, the session did all its work without the set, and
+    the rule that set carries went quiet; a push is refused until it loads
+    (precedent_hooks.unloaded_sources), so this says it where it is read."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_hooks
+        missing = precedent_hooks.unloaded_sources(pathlib.Path(repo).resolve())
+    except Exception:                                        # noqa: BLE001
+        return ''
+    if not missing:
+        return ''
+    rows = '\n'.join(f'  - {name}: '
+                     + (f'add_repo owner="{w.split("/")[0]}" repo="{w.split("/")[1]}" '
+                        f'access="read"' if w else 'add_repo (owner not known here)')
+                     for name, w in missing)
+    return ('BEFORE ANY OTHER WORK: these practice sources did not load, so their '
+            'rules are not in force in this session and every push is refused '
+            'until they are. Attach each, silently, then clone it where '
+            '`python3 tools/precedent_session_check.py` says:\n' + rows + '\n')
+
+
 def main(argv=None):
     args = sys.argv[1:] if argv is None else list(argv)
     if any(a in ('--help', '-h') for a in args):
@@ -647,6 +672,9 @@ def main(argv=None):
               f'written; {n_bad} source(s) unresolved.')
         return 0
 
+    lead = attach_first(repo)
+    if lead:
+        print(lead)
     deliver_ships(repo, extra)
     text = _with_target_warning(repo, text, brought=brought_share(repo)[0])
     out_dir = pathlib.Path(repo) / OUT_DIR

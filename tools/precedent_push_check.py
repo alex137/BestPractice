@@ -140,6 +140,10 @@ RECORD = 'precedent-push-check.json'
 # The variable fact_ledger.py reads to report each ledger it saves
 # (fact_ledger.WRITTEN_ENV; practice: gate-ledger).
 LEDGER_WRITES_ENV = 'FACT_LEDGER_WRITTEN'
+# Set for every check a push check runs: the branch the push goes to, and
+# the commit its change is measured from (the quick tier only).
+PUSH_DESTINATION_ENV = 'PRECEDENT_PUSH_DESTINATION'
+CHANGED_SINCE_ENV = 'PRECEDENT_CHANGED_SINCE'
 # The shared receipts live on one branch -- a cloud session's git proxy
 # lets it push branches and nothing else, so a hidden ref namespace was
 # refused with a 403 (measured 2026-09-25). One small file per pass,
@@ -267,6 +271,7 @@ PUSH_TIME_SINCE = {'session_trailer': '--all-history'}
 # they stand aside and the push gate judges the real commit. An engine too
 # old to know the variable ignores it and behaves as before.
 STANDIN_COMMIT_ENV = 'PRECEDENT_STANDIN_COMMIT'
+IDENTITY_NAMES = ('commit_author', 'commit_dates')
 IDENTITY_CHECKS = (
     ('commit_author', ['{engine}/check_commit_author.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
@@ -275,12 +280,24 @@ IDENTITY_CHECKS = (
     ('session_trailer', ['{engine}/checks/check_session_trailer.py'],
      'nothing -- the trailer was judged only inside a full sweep'),
 )
-# The practice each identity check enforces, for not_binding: the two
-# engine copies in tools/ cite no practice (theirs live in a person's own
-# set), so the slug is written here rather than read from a `# practice:`
-# line; check_session_trailer.py, materialized, carries its own.
-IDENTITY_SLUGS = {'commit_author': 'commit-author',
-                  'commit_dates': 'buenos-aires-dates'}
+
+
+def identity_slug(name, root):
+    """-> the practice the identity check `name` enforces here, for
+    not_binding: the practice in force whose checked_by names the engine's
+    tools/check_<name>.py. The engine's two copies cite no practice -- theirs
+    live in a person's own set, whose practice names the engine never
+    carries (Morgan, 2026-10-16, strength: decided: "sets practice names
+    should NOT be in BestPractice") -- and check_session_trailer.py,
+    materialized, carries its own `# practice:` line."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_identity
+        return precedent_identity.practice_checked_by(f'check_{name}.py', root)[0]
+    except Exception:                                        # noqa: BLE001
+        return None
+    finally:
+        sys.path.pop(0)
 # Every workflow file is the engine's own untouched copy or carries the
 # person's approval pinned to its content (practice: ci-workflow-approved).
 # Every file a tool writes is current with its tool: basic tier
@@ -1016,73 +1033,6 @@ def publish_pass(root, rec):
         why = p.stderr.strip()[:200] if p is not None else 'timed out'
     print(f'precedent_push_check: NOTE -- could not share the receipt with '
           f'other checkouts ({why}); they will run the suite themselves.')
-
-
-def _branch_name_refusal(root, argv):
-    """-> why a push that CREATES a session branch with a hand-made name is
-    refused, or None. Only a branch origin does not have yet is judged, so
-    a branch already pushed, a tier branch and every other name pass; an
-    engine copy without the naming tool refuses nothing (Morgan,
-    2026-10-06: always use the new format for temporary branches)."""
-    if '--push-command' not in argv:
-        return None
-    i = argv.index('--push-command')
-    cmd = argv[i + 1] if i + 1 < len(argv) else ''
-    sys.path.insert(0, str(HERE))
-    try:
-        import precedent_branches
-        import precedent_branch_name
-    except ImportError:
-        return None
-    finally:
-        sys.path.pop(0)
-    judge = getattr(precedent_branch_name, 'name_refusal', None)
-    if judge is None:
-        return None
-    # The naming rule is the ladder's: off it, nothing is judged (Morgan,
-    # 2026-10-11: "in force for people who use ladders, not everyone else").
-    if not getattr(precedent_branch_name, 'conventions_in_force',
-                   lambda r: True)(root):
-        return None
-    for name in precedent_branches.push_targets(root, cmd) or []:
-        if subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', '-q',
-                           f'refs/remotes/origin/{name}'],
-                          capture_output=True).returncode == 0:
-            continue
-        why = judge(name)
-        if why:
-            return why
-    return None
-
-
-
-def _branch_name_notes(root, argv):
-    """-> what to say about the branch names a push targets, never a
-    refusal: today, a push to the branch the harness named when the session
-    opened (precedent_branch_name.harness_name_note). Every push is judged,
-    not only the one that creates the branch, since that is where a session
-    that forgot act's naming keeps pushing. push-check-gate.sh hands each
-    NOTE line to the session; an engine copy without the note says nothing."""
-    if '--push-command' not in argv:
-        return []
-    i = argv.index('--push-command')
-    cmd = argv[i + 1] if i + 1 < len(argv) else ''
-    sys.path.insert(0, str(HERE))
-    try:
-        import precedent_branches
-        import precedent_branch_name
-    except ImportError:
-        return []
-    finally:
-        sys.path.pop(0)
-    note = getattr(precedent_branch_name, 'harness_name_note', None)
-    if note is None:
-        return []
-    if not getattr(precedent_branch_name, 'conventions_in_force',
-                   lambda r: True)(root):
-        return []
-    return [n for n in (note(name) for name in
-                        precedent_branches.push_targets(root, cmd) or []) if n]
 
 
 def _promote_only_refusal(root, argv):
@@ -1941,7 +1891,7 @@ def run(root, checks, landed=None, reported=None):
             print(f'[{i}/{len(checks)}] {name}: not here -- this repo has no '
                   f'{argv[1]}', flush=True)
             continue
-        slug = IDENTITY_SLUGS.get(name) or (
+        slug = (identity_slug(name, root) if name in IDENTITY_NAMES else None) or (
             _practice_of(script) if script.is_file() and
             'checks' in Path(argv[1]).parts else None)
         if slug and slug in not_binding():
@@ -2195,12 +2145,6 @@ def main(argv):
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1
-    refused = _branch_name_refusal(root, argv)
-    if refused:
-        print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
-        return 1
-    for note in _branch_name_notes(root, argv):
-        print(f'precedent_push_check: NOTE -- {note}', flush=True)
     if '--tier' in argv:
         i = argv.index('--tier')
         value = argv[i + 1] if i + 1 < len(argv) else ''
@@ -2221,6 +2165,17 @@ def main(argv):
         return changed_files_check(root, argv[i + 1] if i + 1 < len(argv)
                                    else 'origin/pre-staging')
     since = _changed_since(root, argv) if tier == BASIC else None
+    # Where the push goes and what it changes, for the checks this runs: a
+    # practice set's own check may judge a push by its destination -- the
+    # ladder's go-update refuses a high-risk change landing with no pull
+    # request -- and the engine says only where, never what any set's rule
+    # is (practice: enforcement-lives-with-its-practice, 2026-10-16).
+    _dest = _destination(root, argv)
+    for _name, _value in ((PUSH_DESTINATION_ENV, _dest), (CHANGED_SINCE_ENV, since)):
+        if _value:
+            os.environ[_name] = _value
+        else:
+            os.environ.pop(_name, None)
     if since and kind is not None:
         rel = HERE.relative_to(root) if HERE.is_relative_to(root) else HERE
         checks.append((CHANGED_PRACTICE_CHECK[0],

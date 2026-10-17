@@ -2512,7 +2512,7 @@ def check_session_check_suggests_anchored_also_list():
     saved = (psc.ROOT, os.environ.get('HOME'), os.environ.get('CLAUDE_PROJECT_DIR'))
     try:
         home, work = tmp / 'home', tmp / 'work'
-        for d in (home / 'precedent-individual', work / 'precedent-shared-writing',
+        for d in (home / 'precedent-individual', work / 'precedent-shared-acme',
                   work / 'project'):
             (d / '.git').mkdir(parents=True)
         psc.ROOT = (work / 'project').resolve()
@@ -2523,13 +2523,13 @@ def check_session_check_suggests_anchored_also_list():
                       '~/precedent-individual' in got, str(got)))
         cases.append(('a shared set beside the project is written '
                       '$CLAUDE_PROJECT_DIR/../<name>',
-                      '$CLAUDE_PROJECT_DIR/../precedent-shared-writing' in got, str(got)))
+                      '$CLAUDE_PROJECT_DIR/../precedent-shared-acme' in got, str(got)))
         cases.append(('no absolute path is suggested',
                       not any(p.startswith('/') for p in got), str(got)))
         back = pathlib.Path(psc._expand_source_path(
-            '$CLAUDE_PROJECT_DIR/../precedent-shared-writing')).resolve()
+            '$CLAUDE_PROJECT_DIR/../precedent-shared-acme')).resolve()
         cases.append(('the anchored form expands to the real clone',
-                      back == (work / 'precedent-shared-writing').resolve(), str(back)))
+                      back == (work / 'precedent-shared-acme').resolve(), str(back)))
     finally:
         psc.ROOT = saved[0]
         for k, val in (('HOME', saved[1]), ('CLAUDE_PROJECT_DIR', saved[2])):
@@ -6925,7 +6925,7 @@ def check_sync_says_which_copy_of_a_claimed_check_runs():
 
     THE INCIDENT (2026-10-08). Every sync in a consumer warned that nothing
     claimed universal's tools/checks/check_commit_author.py and
-    check_buenos_aires_dates.py, while commit-author and buenos-aires-dates
+    check_buenos_aires_dates.py, while planted-author-rule and planted-dates-rule
     were in force there from the person's individual set, which ships and
     claims its own copies.
 
@@ -6963,7 +6963,7 @@ def check_sync_says_which_copy_of_a_claimed_check_runs():
                    {'name': 'precedent-individual', 'path': str(ind),
                     'level': 'individual'}]
         res = {'practices': {
-            'commit-author': practice('commit-author', 'commit_author',
+            'planted-author-rule': practice('planted-author-rule', 'commit_author',
                                       'precedent-individual'),
             'solo': practice('solo', 'solo', 'precedent-individual')}}
         err = io.StringIO()
@@ -6984,7 +6984,7 @@ def check_sync_says_which_copy_of_a_claimed_check_runs():
                       and 'solo' not in orphan, f'{got} {orphan}'))
         cases.append(('4: CONTROL: a check nothing claims is still reported',
                       'check_lost.py (precedent)' in orphan, orphan))
-        res['practices']['commit-author-u'] = practice('commit-author', 'commit_author',
+        res['practices']['commit-author-u'] = practice('planted-author-rule', 'commit_author',
                                                        'precedent')
         try:
             with contextlib.redirect_stderr(io.StringIO()):
@@ -7050,7 +7050,7 @@ def check_session_start_charges_brought_sets_to_the_person():
     saved = (psp._brought_renders, psp.brought_budget)
     cases = []
     try:
-        psp._brought_renders = lambda repo=None: (1500, 900, ['precedent-shared-ladder'])
+        psp._brought_renders = lambda repo=None: (1500, 900, ['acme-shared-ladder'])
         psp.brought_budget = lambda repo=None: (700, '/ind')
         n, note, over = psc._charge_brought_share(1500)
         cases.append(('the brought share leaves the repository\'s count',
@@ -7811,7 +7811,7 @@ def check_stale_view_names_its_real_cause():
             a[0] if a else [], 1,
             stdout='build_views --check FAIL: hand-edited or stale, drifted from '
                    'regeneration: MAP.md\n',
-            stderr='build_views: precedent-shared-ladder deferred to '
+            stderr='build_views: acme-shared-ladder deferred to '
                    '.precedent/SESSION_PRACTICES.md -- brought by the person working '
                    'here, not declared by this repository.\n')
         try:
@@ -7844,11 +7844,11 @@ def check_tracked_views_read_the_same_whoever_regenerates():
         (root / 'precedent.json').write_text('{"sources": []}', encoding='utf-8')
         try:
             bv.sources_for_tracked_block = lambda r, d: (
-                [], [{'name': 'precedent-shared-ladder', 'brought': True}], [])
+                [], [{'name': 'acme-shared-ladder', 'brought': True}], [])
             only_brought = bv.defers_any_source(root)
             bv.sources_for_tracked_block = lambda r, d: (
-                [], [{'name': 'precedent-shared-ladder', 'brought': True},
-                     {'name': 'precedent-shared-writing'}], [])
+                [], [{'name': 'acme-shared-ladder', 'brought': True},
+                     {'name': 'acme-shared-writing'}], [])
             declared_too = bv.defers_any_source(root)
         finally:
             bv.sources_for_tracked_block = real
@@ -8914,7 +8914,7 @@ def check_legacy_status_migration():
     never had one, which is exactly why nothing here would otherwise
     exercise this. So the fixtures below reproduce both real cases:
 
-      bestpractice-sync   the surviving copy has the SAME slug, in another
+      planted-sync-rule   the surviving copy has the SAME slug, in another
                           source -- mechanically determinable.
       header-caps         the surviving rule is `headline-capitalization`
                           at universal -- a RENAMED successor, which nothing
@@ -8946,22 +8946,22 @@ def check_legacy_status_migration():
             (d / f'{slug}.md').write_text(x, encoding='utf-8')
             return d / f'{slug}.md'
 
-        team_sync = make('team', 'bestpractice-sync', 'retired',
+        team_sync = make('team', 'planted-sync-rule', 'retired',
                          'Moved to the individual set.', legacy=True)
         team_caps = make('team', 'header-caps', 'retired',
                          'The universal catalogue carries this now.', legacy=True)
-        make('individual', 'bestpractice-sync')
+        make('individual', 'planted-sync-rule')
         make('universal', 'headline-capitalization')
         against = [str(tmp / 'individual'), str(tmp / 'universal')]
 
         recs = pms.legacy_records(tmp / 'team' / 'practices')
         cases.append(('a legacy record (non-active, no in_force_at) is found',
                       {fm.get('slug') for _f, fm, _s in recs}
-                      == {'bestpractice-sync', 'header-caps'}))
+                      == {'planted-sync-rule', 'header-caps'}))
 
         live = pms.active_slugs(against)
         cases.append(('only ACTIVE slugs count as a surviving copy',
-                      'bestpractice-sync' in live and 'headline-capitalization' in live))
+                      'planted-sync-rule' in live and 'headline-capitalization' in live))
 
         # report-only must never write
         before = team_sync.read_text(encoding='utf-8')
@@ -8981,7 +8981,7 @@ def check_legacy_status_migration():
         sync_after = team_sync.read_text(encoding='utf-8')
         cases.append(('...while the same-slug case IS migrated, to deduplicated',
                       'status:      deduplicated' in sync_after
-                      and 'in_force_at: bestpractice-sync' in sync_after))
+                      and 'in_force_at: planted-sync-rule' in sync_after))
 
         # an explicitly named target that is not in force is refused
         pms.report(str(tmp / 'team'), against, {'header-caps': 'no-such-slug'}, True)
@@ -11073,298 +11073,73 @@ def check_debut_waits_for_an_open_produce_pull_request():
           not failed, '; '.join(failed))
 
 
-def check_push_refuses_a_hand_made_session_branch_name():
-    """A push that creates a session branch whose name
-    tools/precedent_branch_name.py did not make is refused, naming the
-    rename. Morgan, 2026-10-06: "how can we make sure that you always use the
-    new format for temporary branches?" -- a session and its agents had typed
-    date-and-topic names that lead back to no session. Planted: the tool's
-    own names (and its clash form) pass; the harness-given name is refused
-    on the ladder (2026-10-16), and passes off it; a
-    hand-typed name is refused, end to end through precedent_push_check; a
-    branch origin already has is not judged again; a tier branch is not a
-    session branch."""
-    import shutil as _sh
+def check_engine_carries_no_branch_naming_enforcement():
+    """The branch-naming rule is the ladder set's act, and so is every check
+    of it: its tools/branch_name_guard.py refuses at git's pre-push and
+    notes the first commit (Morgan, 2026-10-16, strength: decided:
+    "Enforcement should live in the same support repo where the practice
+    is"). Until then the refusal and both notes lived here, switched on only
+    when the ladder loaded, and went quiet when it failed to clone. Pinned:
+    the engine's naming tool builds names and judges none; the push check
+    refuses no name; no engine hook notes a commit; and the engine's
+    pre-push hook point runs a practice's declared hook, refusing on its
+    failure, and refuses outright while a source did not load."""
+    import json as _json
     import tempfile as _tf
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_branch_name as _bn
-    cases = []
-    tail = 'ab1cd'
-    cases.append(('a name the tool builds passes',
-                  _bn.name_refusal(_bn.build(['some', 'work'], tail=tail, user='')[0],
-                                   tail=tail, user='') is None))
-    cases.append(('...and with a username, which goes right after the date '
-                  '(Morgan, 2026-10-11)',
-                  _bn.build(['some', 'work'], date='2026-10-07', tail=tail,
-                            rand='x9y8z', user='octo')[0]
-                  == f'2026-10-07-octo-some-work-{tail}-x9y8z'
-                  and _bn.name_refusal(f'2026-10-07-octo-some-work-{tail}-x9y8z',
-                                       tail=tail, user='octo') is None))
-    cases.append(('where a username is declared, a name without it is refused',
-                  'username' in (_bn.name_refusal(
-                      f'2026-10-07-some-work-{tail}-x9y8z', tail=tail,
-                      user='octo') or '')
-                  or 'octo-' in (_bn.name_refusal(
-                      f'2026-10-07-some-work-{tail}-x9y8z', tail=tail,
-                      user='octo') or '')))
-    cases.append(('...and so is another person\'s',
-                  bool(_bn.name_refusal(f'2026-10-07-alice-some-work-{tail}-x9y8z',
-                                        tail=tail, user='octo'))))
-    cases.append(('the tool\'s shape, session part then random part, passes',
-                  _bn.name_refusal('2026-10-06-some-work-ab1cd-x9y8z',
-                                   tail=tail, user='') is None))
-    cases.append(('the older shape that ends at the session part is refused '
-                  '(Morgan, 2026-10-11)',
-                  'five random characters' in (_bn.name_refusal(
-                      f'2026-10-06-some-work-{tail}', tail=tail, user='') or '')))
-    # Refused since 2026-10-16: the note alone left five such branches on
-    # one consumer's origin in a day (Morgan, 2026-10-15, decided).
-    cases.append(('a harness-given name is refused, naming the rename command',
-                  'precedent_branch_name.py' in (_bn.name_refusal(
-                      'claude/peaceful-ritchie-3u31td', tail=tail, user='') or '')))
-    cases.append(('...and the refusal grants the sister-branch permission',
-                  _bn.SISTER_BRANCH_PERMISSION in (_bn.name_refusal(
-                      'claude/peaceful-ritchie-3u31td', tail=tail, user='') or '')))
-    cases.append(('a hand-typed date-and-topic name is refused',
-                  bool(_bn.name_refusal('2026-10-06-vdc-fixes', tail=tail, user=''))))
-    cases.append(('a name ending in another session\'s id is refused',
-                  bool(_bn.name_refusal('2026-10-06-some-work-zzzzz-x9y8z', tail=tail, user=''))))
-    cases.append(('the retired claude/ prefix is refused (Morgan, 2026-10-07)',
-                  bool(_bn.name_refusal(f'claude/2026-10-06-some-work-{tail}-x9y8z',
-                                        tail=tail, user=''))))
-    cases.append(('a name the tool builds has no prefix',
-                  _bn.build(['some', 'work'], date='2026-10-07', tail=tail,
-                            rand='x9y8z', user='')[0]
-                  == f'2026-10-07-some-work-{tail}-x9y8z'))
-    cases.append(('a tier branch is not judged',
-                  _bn.name_refusal('pre-staging', tail=tail, user='') is None))
-    # The harness's own name is let through, and SAID (2026-10-11: a whole
-    # build went up under claude/amazing-lamport-l5eivc with no word).
-    cases.append(('a push to the harness-given name gets a note naming the tool',
-                  'precedent_branch_name.py' in (_bn.harness_name_note(
-                      'claude/peaceful-ritchie-3u31td') or '')))
-    # ...and says that leaving it needs no permission, which the session's
-    # opening instructions otherwise demand (Morgan, 2026-10-11, decided).
-    cases.append(('the harness-name note grants the sister-branch permission',
-                  _bn.SISTER_BRANCH_PERMISSION in (_bn.harness_name_note(
-                      'claude/peaceful-ritchie-3u31td') or '')))
-    cases.append(('...and only that name: a tool-made name, a tier and a '
-                  'hand-typed name get none',
-                  _bn.harness_name_note(f'2026-10-06-some-work-{tail}-x9y8z') is None
-                  and _bn.harness_name_note('staging') is None
-                  and _bn.harness_name_note('2026-10-06-vdc-fixes') is None))
-    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-branchname-'))
-    # No user-level config, so no individual set: no declared username, and
-    # the ladder in force only because the fixture says so.
-    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
-               CLAUDE_CODE_REMOTE_SESSION_ID='cse_' + 'x' * 20 + tail,
-               PRECEDENT_USER_CONFIG=os.devnull, PRECEDENT_ASSUME_LADDER='1')
-    env.pop('PRECEDENT_GITHUB_USER', None)
-    env.pop('PRECEDENT_COMMIT_EMAIL', None)
-    env.pop('PRECEDENT_NO_LADDERS', None)
-    try:
-        repo = fx / 'repo'
-        shutil.copytree(ROOT / 'tools', repo / 'tools',
-                        ignore=shutil.ignore_patterns('__pycache__'))
-        subprocess.run(['git', 'init', '-q', str(repo)], env=env, check=True)
-        sys.path.insert(0, str(ROOT / 'tools'))
-        import precedent_push_check as _ppc
-
-        def refused(cmd, extra=None):
-            saved = dict(os.environ)
-            os.environ.clear()
-            os.environ.update(env, **(extra or {}))
-            try:
-                return _ppc._branch_name_refusal(repo, ['--gate', '--push-command', cmd])
-            finally:
-                os.environ.clear()
-                os.environ.update(saved)
-        cases.append(('end to end: a push creating a hand-named branch is refused',
-                      bool(refused('origin HEAD:refs/heads/2026-10-06-vdc-fixes'))))
-        cases.append(('...and the refusal names the rename command',
-                      'precedent_branch_name.py' in (refused(
-                          'origin HEAD:refs/heads/2026-10-06-vdc-fixes') or '')))
-        cases.append(('end to end: a tool-made name is let through',
-                      refused(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}-x9y8z')
-                      is None))
-        subprocess.run(['git', '-C', str(repo), 'update-ref',
-                        'refs/remotes/origin/2026-10-06-vdc-fixes',
-                        subprocess.run(['git', '-C', str(repo), 'hash-object', '-t',
-                                        'commit', '--stdin', '-w'], input=b'tree '
-                                       + subprocess.run(['git', '-C', str(repo),
-                                                         'hash-object', '-t', 'tree',
-                                                         '-w', '--stdin'], input=b'',
-                                                        capture_output=True).stdout.strip()
-                                       + b'\nauthor a <a@b> 0 +0000\ncommitter a <a@b> 0 +0000\n\nx\n',
-                                       capture_output=True).stdout.strip().decode()],
-                       env=env, capture_output=True)
-        cases.append(('a branch origin already has is not judged again',
-                      refused('origin HEAD:refs/heads/2026-10-06-vdc-fixes') is None))
-
-        def notes(cmd, extra=None):
-            saved = dict(os.environ)
-            os.environ.clear()
-            os.environ.update(env, **(extra or {}))
-            try:
-                return _ppc._branch_name_notes(repo, ['--gate', '--push-command', cmd])
-            finally:
-                os.environ.clear()
-                os.environ.update(saved)
-        cases.append(('end to end: a push creating the harness-given name is '
-                      'refused, naming the rename (Morgan, 2026-10-15)',
-                      'precedent_branch_name.py' in (refused(
-                          'origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
-                          or '')))
-        cases.append(('...and a push to it that origin already has is noted, '
-                      'so work pushed before 2026-10-16 is never stranded',
-                      len(notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td'))
-                      == 1))
-        cases.append(('...and a push to a tool-made name is not',
-                      notes(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}-x9y8z')
-                      == []))
-        # The rule is the ladder's (Morgan, 2026-10-11): off it, the push
-        # check neither refuses a name nor notes the harness's.
-        off = {'PRECEDENT_NO_LADDERS': '1'}
-        cases.append(('off the ladder, a hand-named branch is not refused',
-                      refused('origin HEAD:refs/heads/2026-10-06-other-fixes', off)
-                      is None))
-        cases.append(('...nor the harness-given name',
-                      refused('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td', off)
-                      is None))
-        cases.append(('...and a push to the harness-given name is not noted',
-                      notes('origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td',
-                            off) == []))
-    finally:
-        _sh.rmtree(fx, ignore_errors=True)
-    bad = [n for n, ok in cases if not ok]
-    check(f'a push refuses a hand-made session branch name ({len(cases)} stated cases)',
-          not bad, '; '.join(bad))
-
-
-def check_first_commit_on_the_harness_branch_is_noted():
-    """A session that commits on the branch the harness named when it opened
-    is told, once per branch, how to make its named one -- never refused.
-    2026-10-11: in a consumer a session took "Great" as its go-ahead, never
-    loaded act, and built, pushed and landed a feature on
-    claude/eager-volta-hfk5k3. Planted, through the real hook script: the
-    note's own words on a harness-named branch with a session ID on the
-    ladder; nothing the second time, on a tool-made branch, on main, with no
-    session ID, or off the ladder. Also: --set-github writes the username
-    the person agreed to into identity.json, and the hook is wired for both
-    kinds of repository."""
-    import shutil as _sh
-    import tempfile as _tf
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_branch_name as _bn
-    cases = []
-    tail = 'ab1cd'
-    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-commitnote-'))
-    base = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
-                PRECEDENT_USER_CONFIG=os.devnull, PRECEDENT_ASSUME_LADDER='1',
-                CLAUDE_CODE_REMOTE_SESSION_ID='cse_' + 'x' * 20 + tail)
-    for k in ('PRECEDENT_NO_LADDERS', 'PRECEDENT_GITHUB_USER', 'CLAUDE_CODE_SESSION_ID'):
-        base.pop(k, None)
-    try:
-        repo = fx / 'repo'
-        _sh.copytree(ROOT / 'tools', repo / 'tools',
-                     ignore=_sh.ignore_patterns('__pycache__'))
-        subprocess.run(['git', 'init', '-q', '-b', 'claude/eager-volta-hfk5k3',
-                        str(repo)], env=base, check=True)
-
-        def hook(env, command='git commit -m "some work"'):
-            payload = json.dumps({'tool_name': 'Bash', 'cwd': str(repo),
-                                  'tool_input': {'command': command}})
-            r = subprocess.run(['bash', str(repo / 'tools' / 'branch-name-commit-note.sh')],
-                               input=payload, capture_output=True, text=True,
-                               env=dict(env, CLAUDE_PROJECT_DIR=str(repo)), timeout=60)
-            try:
-                return (json.loads(r.stdout)['hookSpecificOutput']
-                        ['additionalContext'] if r.stdout.strip() else '')
-            except (ValueError, KeyError, TypeError):
-                return f'unreadable: {r.stdout[:200]}'
-
-        def clear():
-            _sh.rmtree(repo / '.git' / getattr(_bn, 'COMMIT_NOTE_MARKS', 'x'),
-                       ignore_errors=True)
-
-        def switch(name):
-            subprocess.run(['git', '-C', str(repo), 'symbolic-ref', 'HEAD',
-                            f'refs/heads/{name}'], env=base, check=True)
-
-        first = hook(base)
-        cases.append(('the first commit on the harness\'s branch is noted, '
-                      'naming the tool and the branch',
-                      'precedent_branch_name.py' in first
-                      and 'claude/eager-volta-hfk5k3' in first
-                      and 'goes ahead' in first))
-        cases.append(('...once per branch: the second commit is not',
-                      hook(base) == ''))
-        clear()
-        cases.append(('a quoted mention of git commit is not a commit',
-                      hook(base, 'echo "git commit"') == ''))
-        cases.append(('off the ladder, nothing is said (Morgan, 2026-10-11)',
-                      hook(dict(base, PRECEDENT_NO_LADDERS='1')) == ''))
-        no_id = dict(base)
-        no_id.pop('CLAUDE_CODE_REMOTE_SESSION_ID')
-        cases.append(('with no session ID, nothing is said',
-                      hook(no_id) == ''))
-        cases.append(('the task-words harness shape is noted too',
-                      (switch('claude/branch-naming-enforcement-cjm44t')
-                       or 'precedent_branch_name.py' in hook(base))))
-        switch(f'2026-10-11-octo-some-work-{tail}-x9y8z')
-        cases.append(('a tool-made branch gets nothing', hook(base) == ''))
-        switch('main')
-        cases.append(('main gets nothing', hook(base) == ''))
-        switch('staging')
-        cases.append(('staging gets nothing', hook(base) == ''))
-
-        # --set-github: the username the person agreed to, into the
-        # identity.json of this repository (here an individual set).
-        (repo / 'identity.json').write_text(json.dumps(
-            {'name': 'A', 'email': 'a@example.com'}, indent=2) + '\n')
-        r = subprocess.run([sys.executable, str(repo / 'tools' / 'precedent_branch_name.py'),
-                            '--set-github', '@Octo', '--repo', str(repo)],
-                           capture_output=True, text=True, env=base, timeout=60)
-        written = json.loads((repo / 'identity.json').read_text())
-        cases.append(('--set-github writes the username, lowercased, and keeps '
-                      'the rest', r.returncode == 0 and written.get('github') == 'octo'
-                      and written.get('email') == 'a@example.com'))
-        r = subprocess.run([sys.executable, str(repo / 'tools' / 'precedent_branch_name.py'),
-                            '--set-github', 'not a name!', '--repo', str(repo)],
-                           capture_output=True, text=True, env=base, timeout=60)
-        cases.append(('...and refuses something that is not a username',
-                      r.returncode == 1
-                      and json.loads((repo / 'identity.json').read_text())
-                      .get('github') == 'octo'))
-        cases.append(('the declared username is what the tool reads back',
-                      getattr(_bn, 'github_user', lambda r: '')(repo) == 'octo'))
-        cases.append(('with none declared, the note says how to record it',
-                      '--set-github octo' in getattr(
-                          _bn, 'missing_user_note', lambda l: '')('octo')))
-    finally:
-        _sh.rmtree(fx, ignore_errors=True)
-    wiring = json.loads((ROOT / 'tools' / 'hook_wiring.json').read_text(encoding='utf-8'))
-    for kind in ('consumer', 'source'):
-        cases.append((f'the hook is wired for a {kind}',
-                      any(e.get('script') == 'branch-name-commit-note.sh'
-                          and e.get('event') == 'PreToolUse'
-                          for e in wiring.get(kind) or [])))
-    # Promote's own branches come from build() too, so a username between
-    # the date and the slug must not hide them from Promote (2026-10-11).
-    import precedent_branches as _pbr
-    cases.append(('Promote still knows its copy with a username in the name',
-                  _pbr.is_main_copy(f'2026-10-11-octo-promote-to-main-{tail}-x9y8z')
-                  and _pbr._promote_made(
-                      f'2026-10-11-octo-promote-to-main-not-due-{tail}-x9y8z')
-                  == 'promote-to-main-not-due'
-                  and _pbr.is_main_copy(f'2026-10-11-promote-to-main-{tail}-x9y8z')
-                  and not _pbr.is_main_copy(f'2026-10-11-octo-other-work-{tail}-x9y8z')))
+    import precedent_push_check as _ppc
     import precedent_vendor_engine as _pve
-    cases.append(('the hook ships with the engine',
-                  'branch-name-commit-note.sh' in _pve.HOOK_SCRIPT_FILES))
-    bad = [n for n, ok in cases if not ok]
-    check(f'the first commit on the harness\'s branch is noted, once '
-          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+    import precedent_hooks as _ph
+    cases = [
+        ('precedent_branch_name.py judges no name',
+         not any(hasattr(_bn, n) for n in ('name_refusal', 'harness_name_note',
+                                            'commit_note', 'is_harness_name'))),
+        ('the push check refuses and notes no branch name',
+         not any(hasattr(_ppc, n) for n in ('_branch_name_refusal',
+                                             '_branch_name_notes'))),
+        ('no engine hook notes a commit',
+         not any(n.startswith('branch-name-commit-note') for n in _pve.HOOK_SCRIPT_FILES)
+         and not any(p.name.startswith('branch-name-commit-note')
+                     for p in (ROOT / 'tools').iterdir())
+         and 'branch-name-commit-note' not in
+         (ROOT / 'tools' / 'hook_wiring.json').read_text(encoding='utf-8')),
+        ('the global pre-push runs the practices\' pre-push hooks',
+         'precedent_hooks.py' in (ROOT / 'tools' / 'commit-identity.sh').read_text(
+             encoding='utf-8') and '--git pre-push' in
+         (ROOT / 'tools' / 'commit-identity.sh').read_text(encoding='utf-8')),
+    ]
+    with _tf.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'process').mkdir()
+        (root / 'tools').mkdir()
+        (root / 'tools' / 'refuse.py').write_text(
+            'import sys\nsys.exit(1 if "bad" in sys.stdin.read() else 0)\n',
+            encoding='utf-8')
+        (root / 'process' / 'practice_hooks.json').write_text(_json.dumps({
+            'hooks': [{'event': 'pre-push', 'matcher': None,
+                       'command': 'python3 $CLAUDE_PROJECT_DIR/tools/refuse.py'}]}),
+            encoding='utf-8')
+        saved = _ph.unloaded_sources
+        try:
+            _ph.unloaded_sources = lambda *_a, **_k: []
+            cases.append(('a declared pre-push hook that passes lets the push through',
+                          _ph.run_git_hook('pre-push', ['origin', 'u'],
+                                           'refs/heads/ok\n', root=root) == 0))
+            cases.append(('...and one that fails refuses it',
+                          _ph.run_git_hook('pre-push', ['origin', 'u'],
+                                           'refs/heads/bad\n', root=root) == 1))
+            _ph.unloaded_sources = lambda *_a, **_k: [('some-set', 'acme/some-set')]
+            cases.append(('a source that did not load refuses the push before any hook',
+                          _ph.run_git_hook('pre-push', [], 'refs/heads/ok\n',
+                                           root=root) == 1))
+        finally:
+            _ph.unloaded_sources = saved
+    sys.path.pop(0)
+    failed = [n for n, ok in cases if not ok]
+    check(f'the engine carries no branch-naming enforcement, and its pre-push '
+          f'hook point runs the practices\' hooks ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
 
 
 def check_fix_sweep_copy_keeps_its_neighbours():
@@ -11890,10 +11665,10 @@ def check_not_binding_cannot_be_abused():
                       pr.load_not_binding(tmp) == {}))
 
         cfg({**base, "not_binding": [
-            {"slug": "commit-author", "reason": "about a repo one person authors alone"}]})
+            {"slug": "planted-author-rule", "reason": "about a repo one person authors alone"}]})
         cases.append(('a well-formed exemption is read, reason and all',
                       pr.load_not_binding(tmp) ==
-                      {"commit-author": "about a repo one person authors alone"}))
+                      {"planted-author-rule": "about a repo one person authors alone"}))
 
         def refuses(obj):
             cfg(obj)
@@ -11915,7 +11690,7 @@ def check_not_binding_cannot_be_abused():
         cases.append(('a `not_binding` that is not a list is refused',
                       refuses({**base, "not_binding": {"x": "y"}})))
         cases.append(('a non-object entry is refused',
-                      refuses({**base, "not_binding": ["commit-author"]})))
+                      refuses({**base, "not_binding": ["planted-author-rule"]})))
 
         # Through the REAL check function, with its ROOT pointed at a
         # fixture repo. Driven in-process rather than by subprocess because
@@ -20124,8 +19899,8 @@ def check_update_vendors_asks_about_a_rule_in_force_nowhere():
 
     2026-09-28, a consumer's update: the sync warned that a deduplicated
     practice's forwarding address named a set this consumer does not
-    declare, then in the same run said "name-the-branch ... now in force as
-    name-the-branch", and Update Vendors said DONE with the warning nowhere
+    declare, then in the same run said "planted-branch-rule ... now in force as
+    planted-branch-rule", and Update Vendors said DONE with the warning nowhere
     in its report. Whether that deduplication is acceptable is the person's
     call; this pins only that the question reaches them."""
     import io, contextlib, tempfile
@@ -20138,19 +19913,19 @@ def check_update_vendors_asks_about_a_rule_in_force_nowhere():
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
         repo, team, user, write = _sync_views_fixture(
-            tmp, {'name-the-branch': '', 'keeper-u': ''}, {'keeper-t': ''})
+            tmp, {'planted-branch-rule': '', 'keeper-u': ''}, {'keeper-t': ''})
         _sync_views_run(repo, user, commit=True)
-        write(repo / 'precedent' / 'universal', 'name-the-branch',
-              'status: deduplicated\nin_force_at: name-the-branch\n')
+        write(repo / 'precedent' / 'universal', 'planted-branch-rule',
+              'status: deduplicated\nin_force_at: planted-branch-rule\n')
         r = _sync_views_run(repo, user)
         out = r.stdout + r.stderr
         cases.append(('the fixture reaches IN FORCE NOWHERE',
-                      'IN FORCE NOWHERE' in out and 'name-the-branch' in out))
+                      'IN FORCE NOWHERE' in out and 'planted-branch-rule' in out))
         cases.append(('the sync no longer claims the rule is in force as itself',
-                      'now in force as name-the-branch' not in out))
+                      'now in force as planted-branch-rule' not in out))
         found = getattr(pu, 'in_force_nowhere', lambda o: [])(out)
         cases.append(('Update Vendors picks the warning out of the sync\'s output',
-                      any('name-the-branch' in f for f in found)))
+                      any('planted-branch-rule' in f for f in found)))
         rep = pu.Report()
         for f in found:
             getattr(rep, 'ask', rep.leave)('IN FORCE NOWHERE', f)
@@ -20160,7 +19935,7 @@ def check_update_vendors_asks_about_a_rule_in_force_nowhere():
         text = buf.getvalue()
         cases.append(('...and its report asks the person, without holding the update',
                       rc == pu.DONE and 'QUESTION' in text
-                      and 'name-the-branch' in text))
+                      and 'planted-branch-rule' in text))
     failed = [name for name, ok in cases if not ok]
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
@@ -21447,10 +21222,10 @@ def check_legacy_leftovers_retired_by_content():
 
         # 7. Stale source paths, and a hardcoded identity.
         pj = {'sources': [
-            {'name': 'precedent-shared-writing',
-             'path': '../precedent-team-writing', 'level': 'shared'},
-            {'name': 'precedent-shared-working-style',
-             'path': '../precedent-shared-working-style', 'level': 'shared'}]}
+            {'name': 'precedent-shared-acme',
+             'path': '../precedent-team-acme', 'level': 'shared'},
+            {'name': 'precedent-shared-other',
+             'path': '../precedent-shared-other', 'level': 'shared'}]}
         r7 = make('paths', {'precedent.json': json.dumps(pj),
                             'tools/bootstrap.sh':
                                 'git config user.name "A Person"\n'
@@ -21464,12 +21239,12 @@ def check_legacy_leftovers_retired_by_content():
         paths7 = [s['path'] for s in json.loads(
             (r7 / 'precedent.json').read_text(encoding='utf-8'))['sources']]
         cases.append(('a stale ../precedent-team-* source path is repointed',
-                      paths7 == ['../precedent-shared-writing',
-                                 '../precedent-shared-working-style']
-                      and not any('writing' in i for i in flagged),
+                      paths7 == ['../precedent-shared-acme',
+                                 '../precedent-shared-other']
+                      and not any('acme' in i for i in flagged),
                       f'{paths7} {flagged}'))
         cases.append(('NEGATIVE: a current ../precedent-shared-* path is not',
-                      not any('working-style' in i for i in flagged),
+                      not any('other' in i for i in flagged),
                       str(flagged)))
         ids = [i for i, _w in left if i.startswith('tools/bootstrap.sh')]
         cases.append(('a literal git identity is reported; one read from a '
@@ -26141,6 +25916,44 @@ def check_precedent_check_fires():
              _plant_vocabulary_reaches,
              setup=_setup_vocabulary_reaches)
 
+        # enforcement-lives-with-its-practice (2026-10-16). An individual set
+        # of the fixture's own, found through a user config it brings
+        # (relative, so the planted and clean trees each read their own).
+        # Setup: the set's practice is checked by its own tools/checks/
+        # script. Plant: by an engine file instead. Advisory until the moves
+        # in spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md land.
+        def _set_practice(checked_by):
+            return ('---\nslug:        zzz-planted-set-rule\ntitle:       Planted\n'
+                    'tier:        on-demand\nseverity:    default\n'
+                    'applies_to:  ["**"]\noccasion:    "testing"\n'
+                    'index_clause: "planted"\n'
+                    f'checked_by:  {checked_by}\n'
+                    'defines:     []\nstatus:      active\nsupersedes:  []\n'
+                    'overrides:   null\nadded:       null\napproved_by: "h"\n'
+                    '---\n\n## Rule\nDo it.\n\n## Story\nPlanted.\n')
+
+        def _setup_enforcement_lives(repo):
+            ind = repo / '_planted_individual'
+            (ind / 'practices').mkdir(parents=True, exist_ok=True)
+            (ind / 'tools' / 'checks').mkdir(parents=True, exist_ok=True)
+            (ind / 'tools' / 'checks' / 'check_zzz.py').write_text('', encoding='utf-8')
+            (ind / 'practices' / 'zzz-planted-set-rule.md').write_text(
+                _set_practice('tools/checks/check_zzz.py'), encoding='utf-8')
+            (repo / '.planted-user-config.json').write_text(_pj_e.dumps({
+                'format_version': 1, 'individual': {
+                    'name': 'zzz-planted-set', 'path': '_planted_individual'}}),
+                encoding='utf-8')
+
+        def _plant_enforcement_lives(repo):
+            (repo / '_planted_individual' / 'practices' / 'zzz-planted-set-rule.md'
+             ).write_text(_set_practice('tools/leak_gate.py'), encoding='utf-8')
+
+        import json as _pj_e
+        case('enforcement-lives-with-its-practice',
+             _plant_enforcement_lives, setup=_setup_enforcement_lives,
+             advisory=True,
+             env_extra={'PRECEDENT_USER_CONFIG': '.planted-user-config.json'})
+
         # wired-hooks-can-reach-a-consumer (2026-09-21). The check reads a
         # repo's own .claude/settings.json against the REAL HOOK_SOURCE_DIR
         # imported from precedent_vendor_engine, so the fixture supplies
@@ -27092,6 +26905,66 @@ def check_one_python():
                       'Python hooks run' in why and 'python3.13' in why, why))
     finally:
         pp.install = saved_install
+
+    # Which Python a hook's python3 IS (2026-10-16). Claude Code starts a hook
+    # with its own PATH, so each tools/*.sh that starts python3 (and the
+    # bootstrap template a consumer's own copy comes from) carries one
+    # block putting <checkout>/.precedent/python-bin first, and setup leaves
+    # that link. Run the real block, cut from a real gate, with a PATH that
+    # has no shim on it: with the link its python3 is the declared one,
+    # without it python3 is whatever PATH gave (never a refusal).
+    start, end = '# THE DECLARED PYTHON (', 'PATH="$_precedent_pybin:$PATH"; fi\n'
+    blocks = {}
+    for f in sorted((ROOT / 'tools').glob('*.sh')) + [ROOT / 'templates' / 'bootstrap.sh']:
+        text = f.read_text(encoding='utf-8')
+        if 'python3 ' not in text:
+            continue
+        a = text.find(start)
+        b = text.find(end, a)
+        first_py = min((m.start() for m in re.finditer(r'python3 ', text)
+                        if not text[text.rfind('\n', 0, m.start()) + 1:m.start()].lstrip().startswith('#')),
+                       default=-1)
+        blocks[str(f.relative_to(ROOT))] = text[a:b + len(end)] if 0 <= a < b and (first_py < 0 or b < first_py) else None
+    missing = sorted(n for n, v in blocks.items() if v is None)
+    cases.append(('every hook script that starts python3 puts the declared Python first, '
+                  'before its first python3, in one identical block',
+                  not missing and len({v for v in blocks.values()}) == 1,
+                  f'missing or after the first python3 in {missing}' if missing
+                  else f'{len(set(blocks.values()))} different copies'))
+    block = blocks.get('tools/push-check-gate.sh') or ''
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-one-python-hook-'))
+    try:
+        (tmp / 'tools').mkdir()
+        probe = tmp / 'tools' / 'probe.sh'
+        probe.write_text('#!/usr/bin/env bash\nset -euo pipefail\n' + block
+                         + 'command -v python3 || echo none\n')
+        shims = tmp / 'shims'
+        shims.mkdir()
+        (shims / 'python3').write_text('#!/bin/sh\necho declared\n')
+        (shims / 'python3').chmod(0o755)
+        bare_path = '/usr/local/bin:/usr/bin:/bin'
+        run = lambda: subprocess.run(['bash', str(probe)], cwd='/', capture_output=True, text=True,
+                                     env={'PATH': bare_path, 'HOME': str(tmp)})
+        r = run()
+        cases.append(('...with no link, a hook keeps the python3 PATH gave it and runs on',
+                      r.returncode == 0 and str(tmp) not in r.stdout, (r.stdout, r.stderr[-300:])))
+        cases.append(('...setup links the declared Python for the hooks',
+                      pp.link_for_hooks(shims, tmp) == ''
+                      and os.readlink(tmp / '.precedent' / 'python-bin') == str(shims),
+                      sorted(str(x) for x in tmp.rglob('*'))))
+        r = run()
+        cases.append(('...and then a hook started with no shim on its PATH, from another '
+                      'directory, runs the declared python3',
+                      r.returncode == 0 and r.stdout.strip() == str(tmp / '.precedent' / 'python-bin' / 'python3'),
+                      (r.stdout, r.stderr[-300:])))
+        other = tmp / 'other'
+        other.mkdir()
+        cases.append(('...and setup run again for another version repoints the link',
+                      pp.link_for_hooks(other, tmp) == ''
+                      and os.readlink(tmp / '.precedent' / 'python-bin') == str(other),
+                      os.readlink(tmp / '.precedent' / 'python-bin')))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(n, det) for n, ok, det in cases if not ok]
     check(f'one Python: tools start Python with sys.executable, workflows match the '
@@ -30279,11 +30152,64 @@ def check_branch_cleanup_button():
     cases.append(('the workflow\'s only trigger is a person\'s click',
                   on is not None and on.group(1).split() == ['workflow_dispatch:'],
                   on.group(1) if on else 'no on:'))
-    starters = [f.name for f in (ROOT / 'tools').glob('*.py')
-                if f.name != 'verify_harness.py'
-                and sb.CLEANUP_WORKFLOW in (txt := f.read_text(encoding='utf-8', errors='ignore'))
-                and 'dispatches' in txt]
+    # The one call that starts it is the page's all-public button, run by a
+    # person's click through their own GitHub connector; Python never does.
+    starts = re.compile(r'actions_run_trigger|run_workflow|/dispatches|workflow run\b')
+    starters = []
+    for f in (ROOT / 'tools').glob('*.py'):
+        if f.name == 'verify_harness.py':
+            continue
+        txt = f.read_text(encoding='utf-8', errors='ignore')
+        if f.name == 'precedent_stale_branches.py':
+            # Its prose and the page it renders may name the call; its
+            # Python may not make it.
+            import ast as _ast
+            lines = txt.splitlines(keepends=True)
+            for node in reversed(_ast.parse(txt).body):
+                names = [t.id for t in getattr(node, 'targets', [])
+                         if isinstance(t, _ast.Name)]
+                if (names and names[0] in ('_PAGE', 'PAGE_CAPABILITIES')) or (
+                        isinstance(node, _ast.Expr) and isinstance(
+                            getattr(node, 'value', None), _ast.Constant)):
+                    del lines[node.lineno - 1:node.end_lineno]
+            txt = ''.join(lines)
+        if sb.CLEANUP_WORKFLOW in txt and ('dispatches' in txt or starts.search(txt)):
+            starters.append(f.name)
     cases.append(('no engine tool can start it', starters == [], starters))
+    script = sb._PAGE
+    click = script.find("all.addEventListener('click'")
+    cases.append(('the page starts it only from the all-public button\'s click',
+                  script.count("method:'run_workflow'") == 1 and click != -1
+                  and script.index("method:'run_workflow'") > click, ''))
+    cases.append(('the page may call one GitHub tool and nothing else',
+                  sb.PAGE_CAPABILITIES['mcp']['servers']
+                  == [{'server': sb.GITHUB_CONNECTOR, 'tools': ['actions_run_trigger']}],
+                  sb.PAGE_CAPABILITIES))
+
+    pub = dict(st(False, ''), repo='pub')
+    groups = [('o', 'pub', [('p1', '2026-10-01'), ('p2', '2026-10-02')]),
+              ('o', 'r', [('x', '2026-10-01')]),
+              ('o', 'unknown', [('u', '2026-10-01')])]
+    keyed = {('o', 'pub'): pub, ('o', 'r'): st(True, ''),
+             ('o', 'unknown'): dict(st(None, ''), repo='unknown')}
+    got = sb.public_cleanup(groups, [('o', 'gone', [('g', '2026-10-01')], '')],
+                            {**keyed, ('o', 'gone'): dict(st(False, ''), repo='gone')})
+    cases.append(('the all-public button covers public repositories, carried ones too, '
+                  'and never a private or unknown one',
+                  got == [('o', 'pub', 2), ('o', 'gone', 1)], got))
+    cases.append(('CONTROL: a public repository without the workflow is left out',
+                  sb.public_cleanup(groups[:1], [], {('o', 'pub'): dict(pub, installed=False)})
+                  == [], ''))
+    page = sb.render_html(groups, now=now, cleanup=keyed)
+    cases.append(('the page carries the all-public button, counting its rows',
+                  'id="del-public"' in page and 'all 1 public repository (2 listed)' in page
+                  and page.count('data-public="1"') == 1, ''))
+    cases.append(('CONTROL: with no public repository there is no all-public button',
+                  'id="del-public"' not in sb.render_html(
+                      groups[1:], now=now, cleanup=keyed), ''))
+    cases.append(('any cleanup click checks off that repository\'s rows',
+                  "function started(p)" in script and "started(p); save()" in script
+                  and "pub.forEach(started)" in script, ''))
 
     with tempfile.TemporaryDirectory() as td:
         dest = pathlib.Path(td)
@@ -30748,7 +30674,7 @@ def check_archive_guard_refuses_work_left_on_a_feature_branch():
                       clean == [], f'{clean}'))
 
         rc._stranded_branches = lambda *a, **k: [('this checkout', 'claude/fixture-abc123')]
-        req = [{'practice': 'ladder-required', '_source': 'individual/fixture',
+        req = [{'practice': 'planted-ladder-rule', '_source': 'individual/fixture',
                 'require_landed_if_says': ['You can archive this session']}]
         kinds = lambda text: [v['kind'] for v in rc.violations(text, req)]
         cases += [
@@ -31652,15 +31578,168 @@ print(repr(pb._resolve_by_regenerating({str(r)!r}, say=lambda *a: None)))
                              text=True)
         cases.append(('resolving it does not crash', out.returncode == 0
                       and 'Traceback' not in out.stderr, out.stderr[-500:]))
-        cases.append(("...and reports the binary file as the hand-written "
-                      "conflict that stops the merge",
-                      out.stdout.strip() == "(False, ['out.docx'])",
+        cases.append(("...and reports the binary file as the conflict that "
+                      "stops the merge, saying nothing here rebuilds it",
+                      out.stdout.strip().startswith("(False, ['out.docx'], ")
+                      and 'no generator here rebuilds it' in out.stdout,
                       out.stdout.strip()[-300:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'a Promote names a binary merge conflict ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_land_rebuilds_generated_content_without_a_header():
+    """A land's conflict in generated content with no `generated_by:` header
+    is rebuilt, and a refusal never calls generated content hand-written.
+
+    2026-10-16: a land in a repository writing a book conflicted on a
+    doc_sync block (<!--gen:word-count-->) inside its manuscript and on a
+    generated .docx. Neither carries a header, so _generator_of missed both,
+    and the land stopped saying "the same lines of hand-written text
+    changed on both sides". Now: a conflict entirely inside gen blocks is
+    resolved hunk by hunk to one side and doc_sync --write rewrites the
+    block, keeping the other side's clean prose edits; a file the
+    repository declares under "generated" in precedent.json is rebuilt by
+    the command it names; and each refusal says which kind of stop it is.
+    """
+    import ast, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-gen-conflict-'))
+    cases = []
+
+    def repo(name, files, ours, theirs, extra=None):
+        r = tmp / name
+        r.mkdir()
+        def git(*a, **kw):
+            return fixture_git(r, *a, **kw)
+        git('init', '-q')
+        git('config', 'user.email', 'fixture@example.com')
+        git('config', 'user.name', 'fixture')
+        for rel, data in {**files, **(extra or {})}.items():
+            f = r / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_bytes(data if isinstance(data, bytes) else data.encode())
+        git('add', '-A')
+        git('commit', '-qm', 'base')
+        git('checkout', '-qb', 'other')
+        for rel, data in theirs.items():
+            (r / rel).write_bytes(data if isinstance(data, bytes) else data.encode())
+        git('commit', '-qam', 'theirs')
+        git('checkout', '-q', '-')
+        for rel, data in ours.items():
+            (r / rel).write_bytes(data if isinstance(data, bytes) else data.encode())
+        git('commit', '-qam', 'ours')
+        merged = git('merge', '-q', 'other', allow_failure=True)
+        return r, merged.returncode != 0
+
+    def resolve(r):
+        script = tmp / f'run-{r.name}.py'
+        script.write_text(f"""
+import sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+import precedent_branches as pb
+print(repr(pb._resolve_by_regenerating({str(r)!r}, say=lambda *a: None)))
+""", encoding='utf-8')
+        out = subprocess.run([sys.executable, str(script)], capture_output=True,
+                             text=True)
+        try:
+            got = ast.literal_eval(out.stdout.strip())
+        except (ValueError, SyntaxError):
+            return None, out.stdout + out.stderr
+        # An older return shape reads as a named failure, never an IndexError.
+        return (got if isinstance(got, tuple) and len(got) == 3 else None,
+                out.stdout + out.stderr)
+
+    # A stand-in doc_sync: rewrites every word-count block with the count of
+    # the words outside it, and records that it ran with --write.
+    doc_sync = (
+        "import pathlib, re, sys\n"
+        "assert '--write' in sys.argv\n"
+        "p = pathlib.Path(sys.argv[sys.argv.index('--only') + 1])\n"
+        "t = p.read_text()\n"
+        "words = len(re.sub(r'<!--gen:word-count-->.*?<!--/gen:word-count-->',"
+        " '', t, flags=re.S).split())\n"
+        "p.write_text(re.sub(r'(<!--gen:word-count-->\\n).*?(<!--/gen:word-count-->)',"
+        " lambda m: m.group(1) + f'words: {words}\\n' + m.group(2), t, flags=re.S))\n")
+    prose = ['Chapter one.'] + [f'Line {i} of the story.' for i in range(12)]
+
+    def manuscript(count, first='Chapter one.', last='The end.'):
+        body = [first] + prose[1:]
+        return ('\n'.join(body[:6]) + '\n<!--gen:word-count-->\n'
+                f'words: {count}\n<!--/gen:word-count-->\n'
+                + '\n'.join(body[6:]) + f'\n{last}\n')
+
+    try:
+        # --- a conflict only inside a gen block --------------------------
+        r, conflicted = repo('block', {'MANUSCRIPT.md': manuscript(10),
+                                       'tools/doc_sync.py': doc_sync},
+                             ours={'MANUSCRIPT.md': manuscript(11)},
+                             theirs={'MANUSCRIPT.md': manuscript(
+                                 12, last='The end, revised.')})
+        cases.append(('the fixture merge conflicts inside the gen block',
+                      conflicted, ''))
+        got, err = resolve(r)
+        text = (r / 'MANUSCRIPT.md').read_text(encoding='utf-8')
+        cases.append(('a conflict only inside a doc_sync block is resolved, '
+                      'not refused', got is not None and got[0] is True
+                      and got[1] == ['MANUSCRIPT.md'], f'{got} {err[-300:]}'))
+        cases.append(("...keeping the other side's clean edit to the prose, "
+                      'with no conflict markers left',
+                      'The end, revised.' in text and '<<<<<<<' not in text,
+                      text[-200:]))
+        cases.append(('...and doc_sync --write rewrote the block afresh',
+                      f'words: {len(re.sub(r"<!--gen:word-count-->.*?<!--/gen:word-count-->", "", text, flags=re.S).split())}' in text,
+                      text[-200:]))
+
+        # --- the same file, but a hunk in the prose -----------------------
+        r, conflicted = repo('prose', {'MANUSCRIPT.md': manuscript(10),
+                                       'tools/doc_sync.py': doc_sync},
+                             ours={'MANUSCRIPT.md': manuscript(11, first='Ours.')},
+                             theirs={'MANUSCRIPT.md': manuscript(12, first='Theirs.')})
+        got, err = resolve(r)
+        cases.append(('a hunk in the prose around a gen block still stops, as '
+                      'hand-written text', conflicted and got is not None
+                      and got[0] is False and got[1] == ['MANUSCRIPT.md']
+                      and 'hand-written' in got[2], f'{got} {err[-300:]}'))
+
+        # --- an output the repository declares ----------------------------
+        decl = json.dumps({'generated': [{'paths': ['output/*.docx'],
+                                          'rebuild': ['tools/build_book.py']}]})
+        build = ("import pathlib\n"
+                 "pathlib.Path('output/book.docx').write_bytes(b'PK\\x03\\x04rebuilt')\n")
+        r, conflicted = repo('declared', {'output/book.docx': b'PK\x03\x04\x85base',
+                                          'precedent.json': decl,
+                                          'tools/build_book.py': build},
+                             ours={'output/book.docx': b'PK\x03\x04\x85ours'},
+                             theirs={'output/book.docx': b'PK\x03\x04\x85theirs'})
+        got, err = resolve(r)
+        cases.append(('a declared generated .docx that conflicts is rebuilt by '
+                      'the command precedent.json names',
+                      conflicted and got is not None and got[0] is True
+                      and (r / 'output' / 'book.docx').read_bytes()
+                      == b'PK\x03\x04rebuilt', f'{got} {err[-300:]}'))
+
+        # --- a declared rebuild that fails says so -----------------------
+        r, conflicted = repo('failing', {'output/book.docx': b'PK\x03\x04\x85base',
+                                         'precedent.json': decl,
+                                         'tools/build_book.py': 'raise SystemExit(3)\n'},
+                             ours={'output/book.docx': b'PK\x03\x04\x85ours'},
+                             theirs={'output/book.docx': b'PK\x03\x04\x85theirs'})
+        got, err = resolve(r)
+        cases.append(('a rebuild that fails stops the land and says the rebuild '
+                      'failed -- never "hand-written"',
+                      conflicted and got is not None and got[0] is False
+                      and 'could not rebuild' in got[2]
+                      and 'hand-written' not in got[2], f'{got} {err[-300:]}'))
+    except FixtureSetupError as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a land rebuilds generated content that carries no header '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 
 def check_produce_sees_main_changes_staging_carries():
     """A red main whose tip changes nothing staging lacks does not hold Produce.
@@ -33344,13 +33423,21 @@ def check_materialize_carries_harness_adapters():
                       'copies would still owe',
                       any('.claude/hooks/guard.sh differs' in x for x in found)))
 
-        # --- adopting an unrecorded copy is loud ---------------------------
+        # --- an edit no commit holds is kept, and said so -----------------
+        # practice: repair-cannot-discard-work -- this consumer is not a git
+        # checkout, so replacing the hand-edit would lose it for good.
         rc, out = run()
-        cases.append(('replacing content this tree never recorded as '
-                      'materialized -- a hand-copy being adopted, or a local '
-                      'edit reverted -- says so and names the file',
-                      rc == 0 and 'REPLACED' in out
-                      and '.claude/hooks/guard.sh' in out))
+        cases.append(('a hand-edit no git commit holds is LEFT UNTOUCHED, '
+                      'said so, and the file named',
+                      rc == 0 and 'LEFT UNTOUCHED' in out
+                      and 'REPLACED' not in out
+                      and '.claude/hooks/guard.sh' in out, out[-300:]))
+        (consumer / '.claude' / 'hooks' / 'guard.sh').unlink()
+        rc, out = run()
+        cases.append(('deleting it and syncing again installs the source\'s '
+                      'copy', rc == 0
+                      and (consumer / '.claude' / 'hooks' / 'guard.sh').is_file()
+                      and 'LEFT UNTOUCHED' not in out))
 
         # --- an adapter no source declares any more is reported, not deleted
         declare(uni, [])
@@ -33411,8 +33498,8 @@ def check_materialize_carries_harness_adapters():
     check(f'precedent_materialize.py carries a source\'s harness adapters '
           f'({len(cases)} stated cases: installed executable and recorded in '
           f'the manifest, a source change reaching the consumer with no '
-          f'hand-copy, a hand-edit reported by drift(), an unrecorded copy '
-          f'adopted loudly and an ordinary update quietly, an undeclared one '
+          f'hand-copy, a hand-edit reported by drift(), an edit no commit '
+          f'holds kept loudly and an ordinary update quietly, an undeclared one '
           f'reported rather than deleted, and five refusals -- destination '
           f'collision, settings.json, "..", a wiped directory, and an '
           f'unreadable source config)',
@@ -33627,6 +33714,9 @@ def check_practice_ships_its_files():
             return json.loads(mf.read_text(encoding='utf-8')) if mf.is_file() else {}
 
         def drift():
+            return _drift_at(consumer)
+
+        def _drift_at(where):
             sys.path.insert(0, str(ROOT / 'tools'))
             import precedent_resolve as _pr, precedent_materialize as _pm
             # The fixture owns the whole environment the resolver reads, not
@@ -33642,8 +33732,8 @@ def check_practice_ships_its_files():
                 # config path from the real HOME when it was first imported.
                 user_cfg = tmp / 'user-config.json'
                 user_cfg.write_text('{}', encoding='utf-8')
-                srcs = _pr.load_config(str(consumer), str(user_cfg))
-                return _pm.drift(srcs, _pr.resolve(srcs), consumer)
+                srcs = _pr.load_config(str(where), str(user_cfg))
+                return _pm.drift(srcs, _pr.resolve(srcs), where)
             finally:
                 os.environ.pop('HOME', None)
                 os.environ.update(saved)
@@ -33683,13 +33773,91 @@ def check_practice_ships_its_files():
                       rc == 0 and 'v2' in text_of(delivered)
                       and 'REPLACED' not in out))
 
+        # practice: repair-cannot-discard-work. This consumer is not a git
+        # checkout, so a hand-edit here exists nowhere else: it is kept.
         put(delivered, 'print("hand edited")\n')
-        cases.append(('a hand-edit to a delivered file is drift',
-                      any('tools/helper.py differs' in x for x in drift())))
+        cases.append(('a hand-edit no commit holds is drift, named as unsaved',
+                      any('tools/helper.py holds changes no git commit has' in x
+                          for x in drift())))
         rc, out = run()
-        cases.append(('replacing an unrecorded copy says so, and names the way '
-                      'to keep one', rc == 0 and 'REPLACED' in out
-                      and 'tools/helper.py' in out and 'declined_ships' in out))
+        cases.append(('a sync leaves a hand-edit no commit holds untouched, and '
+                      'says how to keep it or take the set\'s copy',
+                      rc == 0 and 'hand edited' in text_of(delivered)
+                      and 'LEFT UNTOUCHED' in out and 'REPLACED' not in out
+                      and 'tools/helper.py' in out, out[-300:]))
+        delivered.unlink()
+        rc, out = run()
+        cases.append(('deleting it and syncing again takes the set\'s copy',
+                      rc == 0 and 'v2' in text_of(delivered)))
+
+        # --- git: the 2026-10-16 incident, the origin case, an adoption ----
+        gconsumer = tmp / 'gconsumer'
+        shutil.copytree(consumer, gconsumer)
+        gdelivered = gconsumer / 'tools' / 'helper.py'
+
+        def grun():
+            r = subprocess.run([sys.executable, tool, '--out', str(gconsumer),
+                                '--repo', str(gconsumer)],
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        def ggit(*a):
+            return fixture_git(gconsumer, *a)
+        ggit('init', '-q')
+        ggit('config', 'user.email', 'fixture@example.com')
+        ggit('config', 'user.name', 'fixture')
+        ggit('add', '-A')
+        ggit('commit', '-qm', 'synced')
+        put(gdelivered, 'print("uncommitted")\n')
+        rc, out = grun()
+        cases.append(('an uncommitted edit to a delivered, committed file is '
+                      'left untouched -- the incident: it used to be replaced '
+                      'and `git diff` showed nothing',
+                      rc == 0 and 'uncommitted' in text_of(gdelivered)
+                      and 'LEFT UNTOUCHED' in out and 'no git commit has' in out,
+                      out[-300:]))
+        ggit('commit', '-qam', 'our own newer helper')
+        rc, out = grun()
+        cases.append(('once committed, the repository\'s own newer version is '
+                      'kept, and the set is named as the one behind',
+                      rc == 0 and 'uncommitted' in text_of(gdelivered)
+                      and 'the set\'s copy is the older one' in out, out[-300:]))
+        cases.append(('...and is not drift: it needs no declined_ships entry',
+                      not any('tools/helper.py' in x for x in
+                              _drift_at(gconsumer))))
+        # The origin case before any delivery is recorded: this file's own
+        # history holds the set's exact bytes, then moved on.
+        mf = gconsumer / 'MANIFEST.json'
+        m = json.loads(mf.read_text(encoding='utf-8'))
+        m.pop('ships', None)
+        mf.write_text(json.dumps(m), encoding='utf-8')
+        put(gdelivered, 'print("v2")\n')
+        ggit('commit', '-qam', 'the copy the set later took')
+        put(gdelivered, 'print("origin, newer")\n')
+        ggit('commit', '-qam', 'the origin moves on')
+        rc, out = grun()
+        cases.append(('a repository whose history holds the set\'s copy keeps '
+                      'its newer one, with no delivery on record',
+                      rc == 0 and 'origin, newer' in text_of(gdelivered)
+                      and 'the set\'s copy is the older one' in out, out[-300:]))
+        # A committed hand-copy the set never came from is still adopted: git
+        # keeps what goes.
+        m = json.loads(mf.read_text(encoding='utf-8'))
+        m.pop('ships', None)
+        mf.write_text(json.dumps(m), encoding='utf-8')
+        shutil.rmtree(gconsumer / '.git')
+        put(gdelivered, 'print("hand copy")\n')
+        ggit('init', '-q')
+        ggit('config', 'user.email', 'fixture@example.com')
+        ggit('config', 'user.name', 'fixture')
+        ggit('add', '-A')
+        ggit('commit', '-qm', 'a hand copy')
+        rc, out = grun()
+        cases.append(('a committed hand-copy whose history never held the '
+                      'set\'s copy is replaced, and the way to keep one named',
+                      rc == 0 and 'v2' in text_of(gdelivered)
+                      and 'REPLACED' in out and 'declined_ships' in out,
+                      out[-300:]))
 
         # --- decline --------------------------------------------------------
         config({'declined_ships': {'tools/helper.py': 'we have our own'}})
@@ -37639,16 +37807,12 @@ def check_push_check_gate():
                       not denied))
         cases.append(('and the pass is recorded against the tree',
                       record.is_file()))
-        # A push that would create the harness-given branch name is refused
-        # on the ladder, naming the rename (Morgan, 2026-10-15, decided; it
-        # went ahead with a note from 2026-10-11 until 2026-10-16). This
-        # fixture has no origin, so the push would create the branch.
-        _shutil.copy2(ROOT / 'tools' / 'precedent_branch_name.py',
-                      work / 'tools' / 'precedent_branch_name.py')
+        # A harness-given branch name is the ladder set's to refuse, at
+        # git's pre-push (its branch_name_guard, 2026-10-16); this gate
+        # judges no name.
         denied, out = gate('git push origin HEAD:refs/heads/claude/peaceful-ritchie-3u31td')
-        cases.append(('a push creating the harness-given branch name is refused, '
-                      'naming the command that renames it',
-                      denied and 'precedent_branch_name.py' in out))
+        cases.append(('the push gate judges no branch name: the ladder set\'s '
+                      'own pre-push guard does', not denied))
         cases.append(('a push with nothing to note hands the session nothing',
                       '"additionalContext"' not in out_main))
 
@@ -51411,7 +51575,7 @@ def check_refresh_sources_lists_a_linked_tree_once():
                       got.count(declared.resolve()) == 1, str(got)))
         cases.append(('...and the checkout itself is not listed',
                       checkout.resolve() not in got, str(got)))
-        other = work / 'precedent-shared-writing'
+        other = work / 'acme-shared-writing'
         other.mkdir()
         got = [p.resolve() for p in prs.candidate_dirs()]
         cases.append(('CONTROL: a separate sibling tree is still listed',
@@ -52255,8 +52419,8 @@ def check_stale_source_paths_accepts_the_universal_pair():
     try:
         (tmp / 'precedent.json').write_text(_j.dumps({'sources': [
             {'level': 'universal', 'name': 'precedent', 'path': '../BestPractice'},
-            {'level': 'shared', 'name': 'precedent-shared-writing',
-             'path': '../precedent-shared-writing'},
+            {'level': 'shared', 'name': 'acme-shared-writing',
+             'path': '../acme-shared-writing'},
             {'level': 'shared', 'name': 'precedent-shared-x',
              'path': '../precedent-team-x'}]}), encoding='utf-8')
         got = [n for n, _p, _w in pve.stale_source_paths(tmp)]
@@ -54900,13 +55064,13 @@ def _push_gate_fixture(tmp, real_modules=()):
     (tools / 'check_commit_author.py').write_text(
         '#!/usr/bin/env python3\n'
         '"""Stand-in: every commit reachable from HEAD, as older copies read."""\n'
-        '# practice: commit-author\n'
+        '# practice: planted-author-rule\n'
         'import subprocess, sys\n'
         'log = subprocess.run(["git", "log", "--format=%H|%an"], '
         'capture_output=True, text=True).stdout.split()\n'
         'bad = [l.split("|")[0] for l in log if l.endswith("|Mallory")]\n'
         'if bad:\n'
-        '    print("VIOLATION: commit-author")\n'
+        '    print("VIOLATION: planted-author-rule")\n'
         '    for sha in bad:\n'
         '        print(f"  commit {sha[:12]}: author is \'Mallory\', expected \'T\'")\n'
         '    print("\\nthe rule:\\n  commits carry the declared author")\n'
@@ -55172,7 +55336,7 @@ def check_push_check_honours_not_binding():
     precedent_check.py does, by asking precedent_check's own
     load_exemptions().
 
-    2026-09-28, a consumer: its precedent.json declared commit-author not
+    2026-09-28, a consumer: its precedent.json declared planted-author-rule not
     binding, precedent_check reported it EXEMPT, and the push check ran
     tools/checks/check_commit_author.py directly anyway and refused a push
     over two old commits already on main."""
@@ -55184,6 +55348,13 @@ def check_push_check_honours_not_binding():
         # The real engine modules, so the exemption is read by
         # precedent_check itself.
         work, env, git = _push_gate_fixture(tmp, real_modules='*')
+        # The practice the author check enforces is found by its checked_by,
+        # never by a name the engine carries (2026-10-16).
+        (work / 'practices').mkdir(exist_ok=True)
+        (work / 'practices' / 'planted-author-rule.md').write_text(
+            '---\nslug:        planted-author-rule\n'
+            'checked_by:  tools/check_commit_author.py\n---\n## Rule\nx\n',
+            encoding='utf-8')
         (work / 'm.txt').write_text('x\n', encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'a commit by someone else',
@@ -55200,10 +55371,10 @@ def check_push_check_honours_not_binding():
                       rc == 1 and 'commit_author' in out))
         reason = 'many people commit here, so no one author binds it'
         (work / 'precedent.json').write_text(_json.dumps(
-            {'not_binding': [{'slug': 'commit-author', 'reason': reason}]}),
+            {'not_binding': [{'slug': 'planted-author-rule', 'reason': reason}]}),
             encoding='utf-8')
         git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'declare commit-author not binding')
+        git(work, 'commit', '-q', '-m', 'declare planted-author-rule not binding')
         pc = subprocess.run([sys.executable, '-c',
                              'import sys; sys.path.insert(0, "tools"); '
                              'import precedent_check as pc; '
@@ -55211,7 +55382,7 @@ def check_push_check_honours_not_binding():
                             cwd=work, capture_output=True, text=True, env=env)
         cases.append(("precedent_check's own load_exemptions() reads it as "
                       "exempt (the fixture is real)",
-                      "['commit-author']" in pc.stdout))
+                      "['planted-author-rule']" in pc.stdout))
         rc, out = push_check()
         cases.append((f'declared not binding, the push check skips it, says '
                       f'EXEMPT with the reason, and passes (exit {rc})',
@@ -59155,7 +59326,7 @@ def check_promote_branches_are_named_like_session_branches():
             check('a Promote\'s fix branch is named <date>-promote-fix-<id>-<random>, '
                   'which the naming rule accepts',
                   re.fullmatch(f'{day}-promote-fix-abcde-[a-z0-9]{{5}}', fix)
-                  and pbn.name_refusal(fix) is None and pb.is_fix_branch(fix), fix)
+                  and pb.is_fix_branch(fix), fix)
             have_tests = bool(pb.github_tests(repo, pb._remote_tip(repo, pb.staging_branch(repo))))
             copy, not_due = pb._to_main_copy(repo), pb._to_main_copy(repo, due=False)
             check('its copies of staging too, where the GitHub test knows the new names',
@@ -59199,7 +59370,7 @@ def check_practice_declared_hooks_are_wired():
     """A practice's `hooks:` declaration is parsed in one place, refused when
     it reaches past what the practice ships, and wired add-only by the sync.
 
-    WHY. 2026-10-06: the writing set's dated-download-names shipped its
+    WHY. 2026-10-06: the writing set's planted-download-names shipped its
     script and a check requiring a SendUserFile hook, and said the hook was
     wired by hand. Nothing wired it, so a consumer failed that check right
     after a clean sync."""
@@ -59239,7 +59410,7 @@ def check_practice_declared_hooks_are_wired():
         repo = pathlib.Path(td)
         (repo / 'tools').mkdir()
         (repo / 'tools' / 'dated_name.py').write_text('', encoding='utf-8')
-        practices = {'dated-download-names': {'fm': good}}
+        practices = {'planted-download-names': {'fm': good}}
         entries, notes = psv._declared_practice_hooks(repo, practices)
         check('no settings.json: nothing is written, and none is created',
               pve.add_practice_hooks(repo, entries) == []
@@ -60086,7 +60257,7 @@ def check_update_takes_a_removal_its_source_decommissioned():
                                 f'(from precedent)'), at) == []))
         cases.append(('from a set, not the universal source: refused',
                       pu.decommissioned_removals(refusal.format(
-                          items=f'{gone} (from precedent-shared-writing)'),
+                          items=f'{gone} (from acme-shared-writing)'),
                           at) == []))
         cases.append(('at a commit before the record says so: refused',
                       pu.decommissioned_removals(refusal.format(
@@ -60782,29 +60953,19 @@ def check_update_done_names_the_branch_to_commit_on():
                                 '2026-10-09-some-work-abcde-q7m2x'], check=True)
             cases.append(('on a session branch it prints nothing',
                           _pu.feature_branch_line(repo) is None, ''))
-            # 2026-10-12, a consumer: an update landed under the harness's
-            # own name, the first-commit note read as outweighed. On the
-            # ladder DONE says the rename; off it, nothing.
+            # The harness's own name is the ladder's to refuse, at pre-push
+            # (its branch_name_guard, 2026-10-16); the engine says nothing.
             subprocess.run(g + ['switch', '-q', '-c', 'claude/sleepy-shannon-1nilys'],
                            check=True)
-            saved_cif = _pbn.conventions_in_force
-            try:
-                _pbn.conventions_in_force = lambda *_a, **_k: True
-                line = _pu.feature_branch_line(repo) or ''
-                cases.append(('on the harness\'s own name, on the ladder, DONE '
-                              'prints the switch command', _pu.SWITCH_COMMAND in line
-                              and 'claude/sleepy-shannon-1nilys' in line, line))
-                _pbn.conventions_in_force = lambda *_a, **_k: False
-                cases.append(('...and off the ladder, nothing',
-                              _pu.feature_branch_line(repo) is None, ''))
-            finally:
-                _pbn.conventions_in_force = saved_cif
+            cases.append(('on the harness\'s own name the engine says nothing',
+                          _pu.feature_branch_line(repo) is None, ''))
         name = subprocess.run([sys.executable, str(ROOT / 'tools' /
                                                    'precedent_branch_name.py'),
                                '--no-check', 'update-vendors'],
                               capture_output=True, text=True).stdout.strip()
-        cases.append(('the name the command makes is one the push check accepts',
-                      bool(name) and _pbn.name_refusal(name) is None, name))
+        cases.append(('the command makes a <date>-...-<session>-<random> name',
+                      bool(re.fullmatch(r'\d{4}-\d{2}-\d{2}-[a-z0-9-]+-[a-z0-9]{5}-[a-z0-9]{5}',
+                                        name)), name))
         done = inspect.getsource(_pu.Report.close)
         cases.append(('DONE calls it, and says nothing of "Go update"',
                       'feature_branch_line(' in done and 'Go update' not in done, ''))
@@ -69614,12 +69775,12 @@ def check_update_in_force_nowhere_asks_once():
     pu, _pve, _pr = _update_tools()
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-nowhere-'))
     cases = []
-    out = ('precedent_sync_views: IN FORCE NOWHERE -- doc-link-text '
+    out = ('precedent_sync_views: IN FORCE NOWHERE -- planted-link-text '
            '(precedent-shared-repo-maintenance): status: deduplicated names '
-           'in_force_at: doc-link-text, but nothing resolves it\n'
+           'in_force_at: planted-link-text, but nothing resolves it\n'
            'precedent_sync_views: IN FORCE NOWHERE -- old-rule (precedent): '
            'withdrawn from universal on 2026-09-20; in force in '
-           '`precedent-shared-writing` -- declare that set to keep it\n')
+           '`acme-shared-writing` -- declare that set to keep it\n')
     try:
         repo = tmp / 'consumer'
         repo.mkdir()
@@ -69638,13 +69799,13 @@ def check_update_in_force_nowhere_asks_once():
                       len(rep.asks) == 2 and all('not_in_force_here' in q
                                                  for _w, q in rep.asks), str(rep.asks)))
         cases.append(('...naming the set when the finding knows it',
-                      any('`precedent-shared-writing`' in q for _w, q in rep.asks),
+                      any('`acme-shared-writing`' in q for _w, q in rep.asks),
                       str(rep.asks)))
         cases.append(('the header no longer contradicts itself',
                       'blocks the update' not in text and 'before Go update'
                       not in text and 'QUESTIONS FOR THE PERSON' in text, text[-600:]))
-        rep, _ = run({'not_in_force_here': {'doc-link-text': 'we dropped that set',
-                                            'precedent-shared-writing': 'dropped'}})
+        rep, _ = run({'not_in_force_here': {'planted-link-text': 'we dropped that set',
+                                            'acme-shared-writing': 'dropped'}})
         cases.append(('recorded by slug and by set, nothing is asked',
                       not rep.asks, str(rep.asks)))
         cases.append(('...and they are said in one step line',
@@ -70961,12 +71122,19 @@ def check_session_start_hook_runs_bootstrap_locally():
             (work / '.claude' / 'hooks').mkdir(parents=True)
             (work / '.claude' / 'hooks' / 'commit-identity.sh').write_text(
                 f'#!/bin/sh\necho identity >> "{calls}"\n', encoding='utf-8')
+            # A copy inside the fixture, never ROOT's own: the script puts
+            # its checkout's .precedent/python-bin first on PATH, and this
+            # checkout's real one would shadow the fake pip
+            # (practice: fixture-owns-its-state).
+            (work / 'tools').mkdir()
+            script = work / 'tools' / 'bootstrap.sh'
+            shutil.copy2(ROOT / rel, script)
             for local in (True, False):
                 calls.unlink(missing_ok=True)
                 extra = {'PATH': path}
                 if local:
                     extra['PRECEDENT_LOCAL_SESSION'] = '1'
-                r = run(ROOT / rel, work, **extra)
+                r = run(script, work, **extra)
                 did = calls.read_text(encoding='utf-8').split() if calls.exists() else []
                 if local:
                     cases.append((f'{rel}, local: no pip install and no '
@@ -74383,7 +74551,7 @@ def check_as_ci_says_why_a_shard_failed():
 
 
 def check_declared_identity_has_a_passing_state_in_a_shared_repo():
-    """`commit-author` and `buenos-aires-dates` have to be able to PASS in
+    """`planted-author-rule` and `planted-dates-rule` have to be able to PASS in
     a repo many people commit to.
 
     Both computed the expected author from an `identity.json` at the
@@ -74499,8 +74667,8 @@ def check_declared_identity_has_a_passing_state_in_a_shared_repo():
         if src.is_file():
             shutil.copy2(src, seeded / name)
     cases.append(('a practice set seeded from ENGINE_FILES receives '
-                  'precedent_identity.py, so its own commit-author and '
-                  'buenos-aires-dates checks can import it',
+                  'precedent_identity.py, so its own planted-author-rule and '
+                  'planted-dates-rule checks can import it',
                   (seeded / 'precedent_identity.py').is_file(),
                   str(sorted(f.name for f in seeded.iterdir()))))
     # This asserted `not (seeded / 'precedent_resolve.py').is_file()` until
@@ -80368,8 +80536,7 @@ def main():
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
-    check_push_refuses_a_hand_made_session_branch_name()
-    check_first_commit_on_the_harness_branch_is_noted()
+    check_engine_carries_no_branch_naming_enforcement()
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
     check_install_records_the_commit_its_catalogue_came_from()
@@ -80655,6 +80822,7 @@ def main():
     check_compaction_offer_owed_printed_at_turn_start()
     check_killed_promote_releases_its_lock()
     check_promote_names_a_binary_conflict()
+    check_land_rebuilds_generated_content_without_a_header()
     check_produce_sees_main_changes_staging_carries()
     check_gate_drops_a_practice_another_source_replaced()
     check_container_check_lists_commands_still_running()

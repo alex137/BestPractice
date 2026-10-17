@@ -66,7 +66,7 @@ pre-staging commit can never become staging's head and silence the GitHub
 test on the pull request into main (plan, hole 3). It rebuilds the
 generated files main's work left stale, runs the FULL push check on that
 tree once, and only if it passes moves staging AND pre-staging to that same
-commit in one atomic push. A failure or a conflict in hand-written text
+commit in one atomic push. A failure or a conflict nothing here rebuilds
 moves neither: the tree goes to a local DATE-promote-fix-ID branch
 (named like every temporary branch since 2026-10-06; promote-fix-DATE
 before, still recognized), to be fixed
@@ -157,6 +157,7 @@ CLI:
                                             staging branch on origin -- the migration step
 """
 import calendar
+import fnmatch
 import json
 import os
 import pathlib
@@ -2316,6 +2317,92 @@ _GENERATED_BY_RE = re.compile(r'^generated_by:\s*["\']?(tools/[\w./-]+\.py)', re
 REBUILT_BARE = ('tools/build_views.py', 'tools/build_gotcha_index.py',
                 'tools/build_todo_index.py', 'tools/doc_html.py')
 
+# Two more kinds of generated content carry no header (2026-10-16: a land
+# in a repository writing a book stopped on both, and called them
+# hand-written):
+#
+# * a doc_sync block -- <!--gen:NAME--> ... <!--/gen:NAME--> -- inside a
+#   document that is otherwise hand-written. A conflict that sits entirely
+#   inside such blocks is generated: either side is taken and
+#   `tools/doc_sync.py --write` writes the block afresh.
+# * an output the repository declares itself, in its precedent.json:
+#
+#   "generated": [{"paths": ["book/output/*.docx"],
+#                  "rebuild": ["tools/build_book.py", "--all"]}]
+#
+#   `paths` are globs (fnmatch, repo-relative); `rebuild` is a tools/ script
+#   and its arguments, run with this Python from the worktree's root.
+GENERATED_KEY = 'generated'
+_GEN_OPEN_RE = re.compile(r'<!--gen:[\w-]+-->')
+_GEN_CLOSE_RE = re.compile(r'<!--/gen:[\w-]+-->')
+DOC_SYNC = 'tools/doc_sync.py'
+
+
+def _declared_generated(wt):
+    """-> [(globs, argv)] from worktree `wt`'s precedent.json `generated`
+    list; malformed entries are skipped, so a conflict in their files is
+    still named rather than rebuilt by something nobody could read."""
+    rows = precedent_json(wt).get(GENERATED_KEY)
+    out = []
+    for row in rows if isinstance(rows, list) else ():
+        if not isinstance(row, dict):
+            continue
+        globs, argv = row.get('paths'), row.get('rebuild')
+        if (isinstance(globs, list) and globs
+                and all(isinstance(g, str) and g for g in globs)
+                and isinstance(argv, list) and argv
+                and all(isinstance(a, str) for a in argv)
+                and argv[0].startswith('tools/') and argv[0].endswith('.py')
+                and '..' not in pathlib.PurePosixPath(argv[0]).parts):
+            out.append((tuple(globs), tuple(argv)))
+    return out
+
+
+def _conflict_only_in_gen_blocks(wt, rel):
+    """True when every conflict hunk in worktree `wt`'s `rel` sits inside a
+    doc_sync gen block, with no block boundary inside any hunk."""
+    try:
+        text = (pathlib.Path(wt) / rel).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return False
+    inside, in_hunk, hunks = False, False, 0
+    for line in text.splitlines():
+        if line.startswith('<<<<<<<'):
+            if not inside or in_hunk:
+                return False
+            in_hunk, hunks = True, hunks + 1
+        elif line.startswith('>>>>>>>'):
+            in_hunk = False
+        elif in_hunk:
+            if _GEN_OPEN_RE.search(line) or _GEN_CLOSE_RE.search(line):
+                return False
+        elif _GEN_OPEN_RE.search(line):
+            inside = True
+        elif _GEN_CLOSE_RE.search(line):
+            inside = False
+    return hunks > 0 and not in_hunk
+
+
+def _take_ours_in_hunks(wt, rel):
+    """Resolve each conflict hunk in worktree `wt`'s `rel` to our side, in
+    place, keeping everything git merged cleanly around them. A document
+    with gen blocks is hand-written outside them, so `git checkout --ours`
+    on the whole file would drop the other side's edits to its prose."""
+    path = pathlib.Path(wt) / rel
+    out, side = [], None
+    for line in path.read_text(encoding='utf-8').splitlines(keepends=True):
+        if line.startswith('<<<<<<<'):
+            side = 'ours'
+        elif side and line.startswith('|||||||'):
+            side = 'base'
+        elif side and line.startswith('======='):
+            side = 'theirs'
+        elif side and line.startswith('>>>>>>>'):
+            side = None
+        elif side in (None, 'ours'):
+            out.append(line)
+    path.write_text(''.join(out), encoding='utf-8')
+
 
 def _doc_html_in_use(wt):
     """True where tools/doc_html.py is in force in worktree `wt` -- the one
@@ -2332,8 +2419,8 @@ def _doc_html_in_use(wt):
 
 
 def _generator_of(wt, rel):
-    """-> the repo-relative tool that writes `rel` in worktree `wt`, or None
-    when `rel` is hand-written. Read from our side of a conflicted file
+    """-> the command (a tools/ script and its arguments, as a tuple) that
+    writes `rel` in worktree `wt`, or None when nothing here rebuilds it. Read from our side of a conflicted file
     (index stage 2), so a conflict hunk cannot hide the header. Read as
     bytes: a conflicted file can be binary (a Word file), which carries no
     header and so counts as hand-written -- the Promote stops and names it,
@@ -2344,50 +2431,76 @@ def _generator_of(wt, rel):
             if ours.returncode == 0 else '')
     m = _GENERATED_BY_RE.search(head)
     if m and m.group(1) in REBUILT_BARE and (pathlib.Path(wt) / m.group(1)).is_file():
-        return m.group(1)
+        return (m.group(1),)
     if rel.endswith('.html') and _doc_html_in_use(wt):
         src = rel[:-len('.html')] + '.md'
         reg = (pathlib.Path(wt) / 'tools' / 'doc_html.py').read_text(encoding='utf-8')
         if re.search(r"\(\s*['\"]" + re.escape(src) + r"['\"]", reg):
-            return 'tools/doc_html.py'
+            return ('tools/doc_html.py',)
+    for globs, argv in _declared_generated(wt):
+        if (any(fnmatch.fnmatchcase(rel, g) for g in globs)
+                and (pathlib.Path(wt) / argv[0]).is_file()):
+            return argv
+    if ((pathlib.Path(wt) / DOC_SYNC).is_file()
+            and _conflict_only_in_gen_blocks(wt, rel)):
+        return (DOC_SYNC, '--write', '--full', '--only', rel)
     return None
+
+
+HAND_WRITTEN = 'the same lines of hand-written text changed on both sides'
 
 
 def _resolve_by_regenerating(wt, say):
     """After a merge stopped on conflicts in `wt`: when every conflicted file
     is generated, take our side, run each one's generator over the merged
-    sources, and stage the result. -> (True, [regenerated]) or (False, [the
-    hand-written files that conflict])."""
+    sources, and stage the result. -> (True, [regenerated], '') or (False,
+    [the files that stop it], why) -- `why` says what kind of stop it is, so
+    a refusal never calls a generated file hand-written."""
     conflicted = [l for l in _run(wt, 'diff', '--name-only', '--diff-filter=U')
                   .stdout.splitlines() if l.strip()]
     gens = {rel: _generator_of(wt, rel) for rel in conflicted}
     hand = sorted(rel for rel, g in gens.items() if not g)
     if hand or not conflicted:
-        return False, hand
+        return False, hand, (
+            HAND_WRITTEN + ' -- no generator here rebuilds '
+            + ('it' if len(hand) == 1 else 'them') + ' (a generated file '
+            f'carries a `generated_by:` header, sits inside a doc_sync '
+            f'<!--gen:--> block, or is declared under "{GENERATED_KEY}" in '
+            f'precedent.json)')
     for rel in conflicted:
-        _run(wt, 'checkout', '--ours', '--', rel)
-    for tool in sorted(set(gens.values())):
-        r = subprocess.run([sys.executable, tool], cwd=str(wt),
+        if gens[rel][0] == DOC_SYNC:
+            _take_ours_in_hunks(wt, rel)
+        else:
+            _run(wt, 'checkout', '--ours', '--', rel)
+    for cmd in sorted(set(gens.values())):
+        made = sorted(k for k, v in gens.items() if v == cmd)
+        r = subprocess.run([sys.executable, *cmd], cwd=str(wt),
                            capture_output=True, text=True)
         if r.returncode != 0:
-            say(f'{tool} could not rebuild {", ".join(sorted(k for k, v in gens.items() if v == tool))}: '
-                f'{(r.stdout + r.stderr).strip()[-300:]}')
-            return False, []
+            tail = (r.stdout + r.stderr).strip()[-300:]
+            say(f'{" ".join(cmd)} could not rebuild {", ".join(made)}: {tail}')
+            return False, made, (f'generated files changed on both sides, and '
+                                 f'`{" ".join(cmd)}` could not rebuild them')
     for rel in conflicted:
         text = (pathlib.Path(wt) / rel).read_text(encoding='utf-8', errors='replace')
         if '<<<<<<<' in text or '>>>>>>>' in text:
-            return False, [rel]
+            return False, [rel], ('generated, but its rebuild left conflict '
+                                  'markers in it')
     _drop_stamp_only_changes(wt)
     _run(wt, 'add', '-A', '--', *conflicted)
     _run(wt, 'add', '-u')
-    return True, sorted(conflicted)
+    return True, sorted(conflicted), ''
 
 
 def _stamp_only(wt, rel):
     """True when the only lines `rel` changed in worktree `wt` are a
     render's build stamp: doc_html writes the time it ran into every page it
     renders, so a rebuild of an unchanged page differs by that line alone."""
-    diff = _run(wt, 'diff', '-U0', '--', rel).stdout.splitlines()
+    # Bytes, decoded leniently: a generated binary file git does not
+    # recognise as binary would otherwise crash the decode (2026-10-16).
+    diff = subprocess.run(['git', '-C', str(wt), 'diff', '-U0', '--', rel],
+                          capture_output=True).stdout.decode(
+                              'utf-8', errors='replace').splitlines()
     changed = [l for l in diff if l[:1] in '+-' and not l.startswith(('+++', '---'))]
     return bool(changed) and all('class="renderstamp"' in l for l in changed)
 
@@ -2518,14 +2631,15 @@ def sync_pre_staging(root, say=print, check=False):
             m = _run(wt, 'merge', '--no-ff', '-q', '-m',
                      f'Merge {branch} into {PRE_STAGING}', tip, env=_merge_env(root))
             if m.returncode != 0:
-                done, files = _resolve_by_regenerating(wt, say)
+                done, files, why = _resolve_by_regenerating(wt, say)
                 if done:
                     c = _run(wt, 'commit', '-q', '--no-edit', env=_merge_env(root))
                     done = c.returncode == 0
+                    why = 'the merge of the rebuilt files could not be committed'
                 if not done:
                     _run(wt, 'merge', '--abort')
-                    say(f'{branch} does not merge cleanly into {PRE_STAGING} -- the '
-                        f'same lines changed on both'
+                    say(f'{branch} does not merge cleanly into {PRE_STAGING} -- '
+                        f'{why}'
                         + (f' ({", ".join(files)})' if files else '')
                         + f'. Nothing was pushed. Merge {branch} into {PRE_STAGING} '
                         f'by hand, resolve it, and push to {PRE_STAGING}.')
@@ -3934,9 +4048,9 @@ def _compose(root, wt, parts, staging, say):
     """Merge each (label, sha, message) in `parts` into worktree `wt`'s HEAD,
     in order, by merge commits. One already in HEAD is skipped; a conflict
     only in generated files is rebuilt (_resolve_by_regenerating).
-    -> (None, merged labels) or ((label, sha, files), merged) on a conflict
-    in hand-written text, the merge aborted and HEAD left as it was before
-    it."""
+    -> (None, merged labels) or ((label, sha, files, why), merged) on a
+    conflict nothing here rebuilds, the merge aborted and HEAD left as it
+    was before it; `why` is _resolve_by_regenerating's."""
     env = _merge_env(root)
     merged = []
     for label, sha, message in parts:
@@ -3944,12 +4058,13 @@ def _compose(root, wt, parts, staging, say):
             continue
         m = _run(wt, 'merge', '--no-ff', '-q', '-m', message, sha, env=env)
         if m.returncode != 0:
-            done, files = _resolve_by_regenerating(wt, say)
+            done, files, why = _resolve_by_regenerating(wt, say)
             if done:
                 done = _run(wt, 'commit', '-q', '--no-edit', env=env).returncode == 0
+                why = why or 'the merge of the rebuilt files could not be committed'
             if not done:
                 _run(wt, 'merge', '--abort')
-                return (label, sha, files), merged
+                return (label, sha, files, why), merged
             say(f'{label} and the rest both changed {", ".join(files)}; generated, '
                 f'so rebuilt from the merged sources rather than either side taken.')
         merged.append(label)
@@ -4064,11 +4179,10 @@ def _promote_unlocked(root, say=print, work=None):
                                                   above, last, say)
         new = _git(wt, 'rev-parse', 'HEAD')
         if conflict:
-            label, sha, files = conflict
+            label, sha, files, why = conflict
             return _not_finished(root, say, new, staging, (
                 f'{label} ({sha[:12]}) does not merge cleanly into '
-                f'{" + ".join([staging] + merged)}: the same lines of hand-written '
-                f'text changed on both sides'
+                f'{" + ".join([staging] + merged)}: {why}'
                 + (f' ({", ".join(files)})' if files else '') + '.'),
                 f'merge {label} into it -- git merge {sha} -- and resolve it')
         say(f'checking the composition -- {staging}'
@@ -4321,10 +4435,10 @@ def _land_composed(root, sha, label, staging, why, say):
         conflict, merged, rebuilt = _compose_onto(root, wt, staging, (), above,
                                                   last, say)
         if conflict:
-            clabel, csha, files = conflict
+            clabel, csha, files, why = conflict
             say(f'LAND REFUSED, and {staging} did not move: {clabel} ({csha[:12]}) '
                 f'does not merge cleanly into {" + ".join([staging] + merged)} -- '
-                f'the same lines of hand-written text changed on both sides'
+                f'{why}'
                 + (f' ({", ".join(files)})' if files else '') + '. Merge '
                 f'origin/{staging} and origin/{MAIN} into {label}, resolve it '
                 f'there, push it, and land again.')
@@ -4487,8 +4601,8 @@ def _run_tests(root, branch, say):
             ok, out = False, ''
             failed = [{'check': 'merge with main', 'line':
                        f'{conflict[0]} ({conflict[1][:12]}) does not merge cleanly '
-                       f'into {branch}' + (f': {", ".join(conflict[2])}'
-                                           if conflict[2] else '')}]
+                       f'into {branch}: {conflict[3]}'
+                       + (f' ({", ".join(conflict[2])})' if conflict[2] else '')}]
         else:
             ok, out = _check(root, wt, FULL, dest=staging)
             failed = [] if ok else _failed_checks(out)
