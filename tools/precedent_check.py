@@ -6810,6 +6810,11 @@ _VDC_LEDGER = 'record/very-deep-check-ledger.json'
 _VDC_WRITE_UP = 'spec/VERY_DEEP_CHECK_LATEST_RUN.md'
 _VDC_PASSES = {'1', '2', '3', '4'}
 _VDC_RULE_DATE = '2026-10-11'
+# From 2026-10-17 the account also lists what runs before and after each
+# move (Morgan: "It should list this ... the push to staging, the push to
+# main ... and the same for debut"), written by the CHECKS BY STAGE section.
+_VDC_STAGES_HEADING = re.compile(r'^## Checks by stage\s*$', re.M)
+_VDC_STAGES_DATE = '2026-10-17'
 
 
 @check('very-deep-check', 'tree',
@@ -6817,7 +6822,8 @@ _VDC_RULE_DATE = '2026-10-11'
        "record/very-deep-check-ledger.json has all four passes recorded, "
        "spec/VERY_DEEP_CHECK_LATEST_RUN.md exists and its `opened:` date is "
        "that run's date or later -- the run's full account was written, not "
-       "left for the person to ask for",
+       "left for the person to ask for -- and, for a run from 2026-10-17 on, "
+       "it carries a `## Checks by stage` section",
        "whether the account is any GOOD: a file with the right date and "
        "nothing in it passes. It also cannot see a run whose passes were "
        "never recorded with --record-pass, which is the other half of the "
@@ -6855,6 +6861,14 @@ def _very_deep_check_write_up(ctx):
             f'still for the run opened {opened or "(no opened: date)"} -- '
             f'rewrite it for this run, with `opened: {date}`, before the run '
             f'is called done (practices/very-deep-check.md)'))]
+    if date >= _VDC_STAGES_DATE and not _VDC_STAGES_HEADING.search(
+            path.read_text(encoding='utf-8', errors='ignore')):
+        return [Finding(_VDC_WRITE_UP, (
+            f'{where} has no `## Checks by stage` section -- what runs before '
+            f'and after Booked, Produce and the Debut. Its CHECKS BY STAGE '
+            f'section writes it; re-run python3 tools/very_deep_check.py, or '
+            f'restore the block if the rewrite dropped it '
+            f'(practices/very-deep-check.md, Pass 2 question 25)'))]
     return []
 
 

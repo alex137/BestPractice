@@ -8867,6 +8867,104 @@ def check_very_deep_check_warnings_are_judged_not_just_counted():
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
+def check_very_deep_check_token_budgets_are_shown_and_fire_tested():
+    """very_deep_check.py's TOKEN BUDGETS section: every budget gets a row
+    with its number whether or not it is over; a limit above the person's
+    approved max is NOT APPROVED; a repo's own check that reports a planted
+    overage is 'fired', one that passes it is 'DID NOT FIRE', one already
+    red unplanted is 'not run'; and the write-up gets one `## Token budgets`
+    block that a second write replaces.
+
+    Added 2026-10-17 with the section (Morgan: "even if they all pass,
+    share the exact numbers, the limits ... in the very deep check
+    document"). The fixture repo and its stand-in precedent_check.py are
+    built here (practice: fixture-owns-its-state); each case asserts the
+    tool's own words (practice: control-asserts-which-failure)."""
+    import io, shutil, subprocess, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+
+    honest = (
+        "import json, pathlib, sys\n"
+        "root = pathlib.Path(__file__).resolve().parent.parent\n"
+        "reg = json.loads((root / 'tools' / 'session_load_budgets.json').read_text())\n"
+        "n = int(len((root / 'AGENTS.md').read_text().split()) * 1.3)\n"
+        "slug = sys.argv[sys.argv.index('--only') + 1]\n"
+        "bad = {'session-load-budget': n > reg['surfaces']['AGENTS.md']['ceiling'],\n"
+        "       'budget-within-approval': reg['surfaces']['AGENTS.md']['ceiling'] >\n"
+        "           reg['approved_budgets']['surfaces/AGENTS.md']['max'],\n"
+        "       'loader-within-caps': reg.get('resident_block_tokens', 9) < 5}.get(slug, False)\n"
+        "print(f'precedent_check: {0 if bad else 1} passed, {1 if bad else 0} violated, 0 advisory')\n")
+    blind = "print('precedent_check: 1 passed, 0 violated, 0 advisory')\n"
+    red = "print('precedent_check: 0 passed, 1 violated, 0 advisory')\n"
+
+    def make(tmp, engine, ceiling=100, approved=100):
+        (tmp / 'tools').mkdir(parents=True)
+        (tmp / 'spec').mkdir()
+        (tmp / 'AGENTS.md').write_text(' '.join(['word'] * 40) + '\n', encoding='utf-8')
+        (tmp / 'tools' / 'session_load_budgets.json').write_text(json.dumps({
+            'resident_block_tokens': 100,
+            'surfaces': {'AGENTS.md': {'ceiling': ceiling}},
+            'approved_budgets': {'surfaces/AGENTS.md': {'max': approved}}}), encoding='utf-8')
+        (tmp / 'tools' / 'precedent_check.py').write_text(engine, encoding='utf-8')
+        (tmp / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md').write_text('# Run\n\nBody.\n', encoding='utf-8')
+        for cmd in (['init', '-q'], ['add', '-A'],
+                    ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'x']):
+            subprocess.run(['git', '-C', str(tmp)] + cmd, check=True, capture_output=True)
+
+    cases, tmps = [], []
+    try:
+        def fresh():
+            t = pathlib.Path(tempfile.mkdtemp(prefix='vdc-budgets-')) / 'r'
+            tmps.append(t.parent)
+            return t
+        a = fresh(); make(a, honest)
+        rows = vdc.budget_rows(a, 'a')
+        agents = [r for r in rows if r['what'] == 'AGENTS.md']
+        cases.append(('a passing budget still gets its row, number and limit',
+                      len(agents) == 1 and agents[0]['measured'] == 52 and agents[0]['limit'] == 100
+                      and vdc._budget_status(agents[0]) == 'ok', repr(rows)))
+        cases.append(('within the headroom floor is near',
+                      vdc._budget_status(dict(agents[0], measured=97)) == 'near', ''))
+        cases.append(('over the limit is OVER',
+                      vdc._budget_status(dict(agents[0], measured=101)).startswith('OVER'), ''))
+        cases.append(('a limit above the approved max is NOT APPROVED',
+                      'NOT APPROVED' in vdc._budget_status(dict(agents[0], limit=150)), ''))
+        fires = {f[1]: f[3] for f in vdc.budget_fire_test(a, 'a')}
+        cases.append(('an honest check fires on every plant it can carry',
+                      fires.get('AGENTS.md ceiling lowered under its size') == 'fired'
+                      and fires.get('AGENTS.md ceiling raised 5,000 with no approval') == 'fired'
+                      and fires.get('resident-block cap lowered under its size') == 'fired', repr(fires)))
+        cases.append(('a plant with no budget to plant on is not run, never fired',
+                      fires.get('session-file ceiling lowered under its size') == 'not run', repr(fires)))
+        wt = subprocess.run(['git', '-C', str(a), 'worktree', 'list'], capture_output=True, text=True).stdout
+        cases.append(('the throwaway worktree is gone afterwards', wt.count('\n') == 1, wt))
+        b = fresh(); make(b, blind)
+        fires_b = {f[1]: f[3] for f in vdc.budget_fire_test(b, 'b')}
+        cases.append(('a check that passes a planted overage is DID NOT FIRE',
+                      fires_b.get('AGENTS.md ceiling lowered under its size') == 'DID NOT FIRE', repr(fires_b)))
+        c = fresh(); make(c, red)
+        fires_c = {f[1]: (f[3], f[4]) for f in vdc.budget_fire_test(c, 'c')}
+        got = fires_c.get('AGENTS.md ceiling lowered under its size')
+        cases.append(('a check already red unplanted proves nothing: not run',
+                      got and got[0] == 'not run' and 'unplanted' in got[1], repr(fires_c)))
+        vdc.token_budgets_section([('a', a)], a, fire=False, out=io.StringIO())
+        vdc.token_budgets_section([('a', a)], a, fire=False, out=io.StringIO())
+        body = (a / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md').read_text(encoding='utf-8')
+        cases.append(('the write-up gets one ## Token budgets block with the numbers, even all passing',
+                      body.count('## Token budgets') == 1 and '| 52 | 100 | 52% |' in body
+                      and body.startswith('# Run\n\nBody.\n'), body))
+    finally:
+        for t in tmps:
+            shutil.rmtree(t, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'very_deep_check.py\'s TOKEN BUDGETS shows every number and proves the checks fire '
+          f'({len(cases)} stated cases: rows, near, over, unapproved, fired, not run, '
+          f'did not fire, cleanup, write-up block)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
 def check_build_views_summary_matches_what_it_wrote():
     """build_views.py's summary line reports the block it actually wrote.
 
@@ -37514,6 +37612,82 @@ def check_a_pushed_branch_in_a_shallow_clone_is_safe():
     check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_very_deep_check_lists_checks_by_stage():
+    """The very deep check's CHECKS BY STAGE reads, from a repository's own
+    push check and branch tool, what runs before and after Booked, Produce
+    and the Debut, and flags anything but the closed quick tier before a
+    push (Morgan, 2026-10-17, strength: decided; practice: very-deep-check,
+    Pass 2's question 25).
+
+    WHY. Checks crept into the pushes twice: by 2026-10-16 a landing's quick
+    check took 218 s (spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md). The quick tier's
+    own test sees BASIC_CHECKS; it could not see a move that called the full
+    tier before pushing, or a repository's workflow checks that ran at every
+    tier outside that set.
+
+    Planted cases, on a copy of tools/: Booked's land made to run the full
+    tier, and doc_sync slipped into the quick tier without an approval. The
+    control: this repository's own tools flag neither."""
+    import tempfile
+    vdc = ROOT / 'tools' / 'very_deep_check.py'
+    name = 'the very deep check lists the checks by stage and flags extra ones before a push'
+
+    def read(tree):
+        p = subprocess.run([sys.executable, str(vdc), '--stage-checks-json', str(tree)],
+                           capture_output=True, text=True, timeout=120)
+        try:
+            return json.loads(p.stdout)
+        except ValueError:
+            return {'error': (p.stderr or p.stdout)[-400:]}
+    cases = []
+    real = read(ROOT)
+    tiers = {r.get('fn'): r.get('tier') for r in real.get('routes') or []}
+    texts = [t for _l, t in real.get('findings') or []]
+    cases.append(('Booked lands with the quick tier, and the Debut runs the full one',
+                  tiers.get('_land_composed') == 'basic'
+                  and tiers.get('_run_tests') == 'full', real.get('error') or tiers))
+    cases.append(('every move that runs a check is named by a stage',
+                  not any('no stage names it' in t for t in texts), texts))
+    cases.append(('control: the real quick tier holds nothing unapproved',
+                  all(q.get('approved') for q in real.get('quick') or [])
+                  and real.get('quick'), real.get('quick')))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-stages-'))
+    try:
+        shutil.copytree(ROOT / 'tools', tmp / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        pb = tmp / 'tools' / 'precedent_branches.py'
+        src = pb.read_text(encoding='utf-8')
+        land = "ok, out = _check(root, wt, BASIC, dest=staging, since=stip)"
+        cases.append(('the planted line is still where Booked lands', land in src, ''))
+        pb.write_text(src.replace(land, "ok, out = _check(root, wt, FULL, dest=staging)", 1),
+                      encoding='utf-8')
+        ppc = tmp / 'tools' / 'precedent_push_check.py'
+        src = ppc.read_text(encoding='utf-8')
+        basic = 'BASIC_CHECKS = set(BASIC_CHECKS_APPROVED)'
+        cases.append(('the planted line is still where the quick tier is built',
+                      basic in src, ''))
+        ppc.write_text(src.replace(basic, basic + " | {'doc_sync'}", 1), encoding='utf-8')
+        planted = read(tmp)
+        texts = [t for lvl, t in planted.get('findings') or [] if lvl == 'VIOLATION']
+        cases.append(('a land onto staging that runs the full tier is a violation',
+                      any(t.startswith('Booked') and 'full' in t for t in texts),
+                      planted.get('error') or texts))
+        cases.append(('a check in the quick tier with no approval is a violation',
+                      any(t.startswith('doc_sync runs before every push') for t in texts),
+                      texts))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as v
+    trig = v._workflow_triggers(
+        'on:\n  push:\n    branches: [main]\n  pull_request:\n    branches:\n'
+        '      - main\n      - "release/*"\n  schedule:\n    - cron: x\njobs:\n')
+    cases.append(('a workflow\'s push and pull-request branches are read',
+                  trig == {'push': ['main'], 'pull_request': ['main', 'release/*']}, trig))
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_push_check_list_is_never_refused():
     """`precedent_push_check.py --list` runs nothing and pushes nothing, so
     the refusals about what a push may carry never stop it (2026-10-17).
@@ -55649,8 +55823,8 @@ def check_push_gate_judges_only_what_a_working_branch_brings():
 
 def check_push_check_runs_approved_workflow_steps():
     """The push check runs each plain `python3 tools/<x>.py` step of a
-    workflow the repo keeps in precedent.json's github_ci_approved, at every
-    tier; never a workflow the engine installs, a step calling an engine
+    workflow the repo keeps in precedent.json's github_ci_approved, in its
+    full tier and never before a push (since 2026-10-17); never a workflow the engine installs, a step calling an engine
     file, or a tool its own list already runs; and names each other step
     once.
 
@@ -55704,6 +55878,19 @@ def check_push_check_runs_approved_workflow_steps():
         argvs = [c[1][1:] for c in checks]
         cases.append(('a plain step, with its arguments, is a check',
                       ['tools/check_docs.py', '--strict'] in argvs, argvs))
+        # They are tests, so the full tier runs them and the quick tier never
+        # does (2026-10-17: they had run at every tier, outside BASIC_CHECKS).
+        man = repo / 'tools' / 'ENGINE_MANIFEST.json'
+        kept = man.read_text(encoding='utf-8')
+        man.write_text(json.dumps(dict(json.loads(kept), kind='consumer')),
+                       encoding='utf-8')
+        _k, full_plan = ppc.plan(repo, engine=repo / 'tools', tier=ppc.FULL)
+        _k, basic_plan = ppc.plan(repo, engine=repo / 'tools', tier=ppc.BASIC)
+        man.write_text(kept, encoding='utf-8')
+        cases.append(('a workflow check runs in the full tier, never before a push',
+                      any(n.startswith('workflow ') for n, _a, _r in full_plan)
+                      and not any(n.startswith('workflow ') for n, _a, _r in basic_plan),
+                      ([n for n, _a, _r in full_plan], [n for n, _a, _r in basic_plan])))
         cases.append(("each line of a block step is its own check",
                       ['tools/build_a.py', '--check'] in argvs
                       and ['tools/build_b.py', '--check'] in argvs, argvs))
@@ -81029,6 +81216,7 @@ def main():
     check_boundary_check_never_passes_unread()
     check_very_deep_check_boundary_audit_reads_the_setting()
     check_very_deep_check_warnings_are_judged_not_just_counted()
+    check_very_deep_check_token_budgets_are_shown_and_fire_tested()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
@@ -81741,6 +81929,7 @@ def main():
     check_caused_by_this_push_reads_advisory_findings()
     check_push_check_list_is_never_refused()
     check_a_pushed_branch_in_a_shallow_clone_is_safe()
+    check_very_deep_check_lists_checks_by_stage()
     check_upstream_edits_need_an_answer()
     check_a_new_test_lands_with_its_time()
     check_boildown_contradiction_spares_work_waiting_upstream()

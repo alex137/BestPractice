@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -690,6 +690,7 @@
   "check_very_deep_check_finds_vendored_surplus": 0.1,
   "check_very_deep_check_fixes_a_renamed_repository": 0.3,
   "check_very_deep_check_honours_not_binding_for_other_sources_checks": 0.0,
+  "check_very_deep_check_lists_checks_by_stage": 1.1,
   "check_very_deep_check_never_offers_a_tier_branch_for_deletion": 0.9,
   "check_very_deep_check_reads_live_and_names_landing_work": 0.9,
   "check_very_deep_check_records_its_components": 4.0,
@@ -697,6 +698,7 @@
   "check_very_deep_check_runs_other_sources_checks_here": 0.1,
   "check_very_deep_check_walks_every_tier_pair": 0.9,
   "check_very_deep_check_warnings_are_judged_not_just_counted": 0.0,
+  "check_very_deep_check_token_budgets_are_shown_and_fire_tested": 1.0,
   "check_very_deep_check_workflow_liveness_scan": 0.0,
   "check_views_check_reads_a_set_at_the_commit_it_was_synced_at": 9.9,
   "check_views_drift_gate_reaches_a_source_set": 3.5,
