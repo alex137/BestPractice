@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.69 to it; 7 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 5 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times, scaled by 1.83 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.00 to it",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.69 to it; 7 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 5 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times, scaled by 1.83 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.00 to it; 1 added 2026-10-17 by --record-new-times, scaled by 1.93 to it",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -690,7 +690,7 @@
   "check_update_vendors_resolves_a_catalogue_edit": 25.2,
   "check_update_vendors_resolves_hook_and_engine_path_edits": 49.0,
   "check_update_vendors_resolves_local_edits": 50.2,
-  "check_update_vendors_retires_pre_staging": 2.9,
+  "check_update_vendors_retires_pre_staging": 7.9,
   "check_update_vendors_retires_the_team_level_word": 0.0,
   "check_update_vendors_second_consumer_findings": 0.3,
   "check_update_vendors_survives_an_upstream_deletion": 53.3,

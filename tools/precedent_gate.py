@@ -289,15 +289,14 @@ def _branches_module():
 
 # How _unlanded_work marks a repo whose pre-staging batch another window is
 # already promoting; the reply gate turns it into a "say nothing" line.
-PROMOTE_RUNNING_MARK = 'another window is already promoting pre-staging'
+PROMOTE_RUNNING_MARK = 'another window is already promoting'
 
 
-def _unpromoted(repo, staging, _git, lower='pre-staging'):
+def _unpromoted(repo, staging, _git, lower='staging'):
     """-> how many commits origin/<lower> carries that origin/<staging>
     (the tier above it) does not, when their content differs; 0 otherwise.
     Content, not just lineage, for the reason _unlanded_work gives below.
-    `lower` is the landing branch: pre-staging, or staging once pre-staging
-    is retired (2026-10-10)."""
+    `lower` is the landing branch (staging; pre-staging until it retired)."""
     if not _git(repo, 'rev-parse', '--verify', '-q', f'refs/remotes/origin/{lower}'):
         return 0
     # Only commits that change a file: an empty commit or a merge is never
@@ -470,7 +469,7 @@ def _landed_reduction(repo, plain=False):
     main = show('origin/main')
     if main is None:
         return None
-    for landing in ('pre-staging', 'staging'):
+    for landing in ('staging',):
         text = show(f'origin/{landing}')
         if text is None:
             continue
@@ -626,10 +625,9 @@ def _unlanded_work(root, siblings=True, records=None):
                 # is on main, whatever branch the repository's own
                 # contributors work on (spec/LADDER_OPT_IN_PLAN.md D3).
                 base = pb.MAIN
-            # The tier a landed batch moves up to next: pre-staging into
-            # staging, staging into main.
-            above = staging if landing == pb.PRE_STAGING else \
-                pb.MAIN if landing and landing == staging and landing != pb.MAIN else None
+            # The tier a landed batch moves up to next: staging into main.
+            above = pb.MAIN if landing and landing == staging \
+                and landing != pb.MAIN else None
             pending = _unpromoted(repo, above, _git, lower=landing) \
                 if above else None
             if pending and not _range_is_this_sessions(
