@@ -149,11 +149,12 @@ widening what sessions may run
    hundreds of files the current tree never ships (about 950 in one real
    rehearsal, 2026-09-28). Run
    `python3 process/upstream/tools/checkin.py update ../BestPractice` a
-   second time: the freshly mirrored copy names the excluded content an
-   older copy brought in. Remove it with
-   `rm -rf <the paths it names> && git add -A process/upstream` — the
-   `git rm -r` it prints fails on paths that were never committed, which is
-   what a first update leaves.
+   second time: the freshly mirrored copy removes the excluded content an
+   older copy brought in by itself, and says how many files it removed
+   (1,089 in a rehearsal on 2026-10-17, from a 2026-09-10 install). Then
+   `git add -A process/upstream` stages the removal. The first update after
+   step 7 seeds the engine removes a further batch, `process/upstream/tools/`
+   among it, because the engine now lives in `tools/`.
 
 2. **Confirm the second tree's source has actually split**, and where each
    half landed, before touching anything local. Read that source's own
@@ -719,11 +720,17 @@ widening what sessions may run
    [templates/AGENTS.md.loader.template](../templates/AGENTS.md.loader.template)
    — the loader template, not the classic `AGENTS.md.template`, which has
    no markers — keeping the same `<!-- BEGIN GENERATED: precedent-loader -->` /
-   `<!-- END GENERATED -->` markers this repo's own `AGENTS.md` uses. Before
-   running it, vendor the whole engine at the consuming repo's own `tools/`
-   — not nested under `process/upstream/tools/`, which stays reserved for
-   the audit/sync tools that operate on the vendored universal tree itself
-   — with
+   `<!-- END GENERATED -->` markers this repo's own `AGENTS.md` uses. Fill
+   in two of its placeholders as you copy it, `<default-branch>` (the
+   `base_branch` from step 3) and `<precedent upstream URL>`
+   (`https://github.com/alex137/BestPractice`), and write it before the
+   refresh below: the refresh compares each template section with those two
+   filled in, so a copy that leaves them reads to it as a local edit, and a
+   classic `AGENTS.md` still in place comes back as missing sections.
+   Vendor the whole engine at the consuming repo's own `tools/` — not
+   nested under `process/upstream/tools/`, which the first update after
+   this step removes, because the engine lives in `tools/` from then on —
+   with
    `python3 tools/precedent_vendor_engine.py seed <consuming repo> --kind consumer`,
    run from a Precedent (BestPractice) clone, rather than copying files by
    hand. It writes a tracked `tools/ENGINE_MANIFEST.json` (the exact commit
@@ -801,8 +808,11 @@ widening what sessions may run
    run needs, beyond the sync**: a plain `python3 tools/precedent_check.py`
    on a migrated repo is red for reasons no step above creates and none
    warns about (measured 2026-09-14: five violations on a by-the-book
-   rehearsal). Each has a one-line declaration: instantiate `MAP.md` from
-   its template (`orientation-map`); instantiate `tools/bootstrap.sh` from
+   rehearsal). Each has a one-line declaration: move a classic `MAP.md` and
+   `GLOSSARY.md` into `MAP.source.md` and `GLOSSARY.source.md` with
+   `python3 tools/precedent_migrate_views.py --repo .`, since both views are
+   generated now (`orientation-map`, `generated-artifact-provenance`);
+   instantiate `tools/bootstrap.sh` from
    [templates/bootstrap.sh](../templates/bootstrap.sh), which invokes the
    access probe (`access-probe-is-wired`); either wire or decline each
    harness adapter the universal source installs into `.claude/hooks/` —
@@ -839,7 +849,12 @@ widening what sessions may run
    tools/build_todo_index.py` if `TODO.md` is still the old single-file
    format — no `todo/` directory, no `# TODO has moved` stub heading — now
    that the migration is vendored into every migrated repo, not only
-   consumers (`todo-migrate-available-but-unused`). Then: `python3
+   consumers (`todo-migrate-available-but-unused`). The tool writes the
+   items and leaves `TODO.md` as it was, so then replace `TODO.md` with
+   [templates/TODO.md.template](../templates/TODO.md.template), the pointer
+   a fresh install gets; left as the old list, the same check fires again
+   whenever `todo/` holds no item file, as it does when the only migrated
+   item was the template's own example and is removed. Then: `python3
    tools/precedent_sync_views.py --repo .` from the consuming repo, with
    its `precedent.json` and a real user-level individual config in place.
    Last, since 2026-09-25: `python3 tools/precedent_branches.py
