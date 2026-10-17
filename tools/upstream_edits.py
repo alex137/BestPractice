@@ -184,6 +184,9 @@ def guard(path, root=ROOT):
 
 
 def main(argv):
+    if '--help' in argv or '-h' in argv:
+        print(__doc__)
+        return 0
     if '--guard' in argv:
         i = argv.index('--guard')
         if i + 1 >= len(argv):
