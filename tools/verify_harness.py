@@ -31813,6 +31813,27 @@ print(repr(pb._resolve_by_regenerating({str(r)!r}, say=lambda *a: None)))
                       and (r / 'output' / 'book.docx').read_bytes()
                       == b'PK\x03\x04rebuilt', f'{got} {err[-300:]}'))
 
+        # --- a builder that writes dated names -------------------------
+        # It deletes the conflicted file and writes today's: the new file
+        # must be staged, or the land commits the deletion and loses the
+        # rebuilt document (2026-10-17).
+        dated = ("import pathlib\n"
+                 "for f in pathlib.Path('output').glob('*.docx'):\n"
+                 "    f.unlink()\n"
+                 "pathlib.Path('output/book-2099-01-01.docx').write_bytes(b'PK\\x03\\x04dated')\n")
+        r, conflicted = repo('dated', {'output/book-2026-10-16.docx': b'PK\x03\x04\x85base',
+                                       'precedent.json': decl,
+                                       'tools/build_book.py': dated},
+                             ours={'output/book-2026-10-16.docx': b'PK\x03\x04\x85ours'},
+                             theirs={'output/book-2026-10-16.docx': b'PK\x03\x04\x85theirs'})
+        got, err = resolve(r)
+        staged = fixture_git(r, 'diff', '--cached', '--name-status').stdout
+        cases.append(('a builder that writes a dated name: the new file is staged '
+                      'and the old one removed, never the deletion alone',
+                      conflicted and got is not None and got[0] is True
+                      and 'output/book-2099-01-01.docx' in staged
+                      and 'conflict markers' not in str(got), f'{got} {staged} {err[-300:]}'))
+
         # --- a declared rebuild that fails says so -----------------------
         r, conflicted = repo('failing', {'output/book.docx': b'PK\x03\x04\x85base',
                                          'precedent.json': decl,
