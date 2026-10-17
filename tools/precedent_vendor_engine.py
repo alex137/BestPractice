@@ -553,6 +553,9 @@ ENGINE_FILES = [
     # them on every gate, and precedent_check.py registers them.
     'check_commit_author.py',
     'check_commit_dates.py',
+    # What those two share, in one copy beside them (2026-10-17): both
+    # import it at load.
+    'commit_checks_common.py',
     # Whether this session's person is one of the repository's code owners,
     # so a practice marked `visible_to: code-owners` reaches only them
     # (2026-10-05). Beside precedent_identity.py, which it reads, and in
