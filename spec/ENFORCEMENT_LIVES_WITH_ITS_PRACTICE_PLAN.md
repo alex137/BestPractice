@@ -23,6 +23,15 @@ enforcement-lives-with-its-practice`, is the inventory this plan works
 from. It warns, without refusing, until the moves below land
 (`revisit: 2026-11-16`).
 
+**Every very deep check reads it again** (from 2026-10-17): its `SET
+INDEPENDENCE` section runs the inventory, lists part 3's files as held on
+purpose, and has the session fix the rest in the same pass
+([very-deep-check](../practices/very-deep-check.md), Pass 2's question
+26). The inventory reads every Python file under `tools/`, the harness
+and BestPractice's own checks included, plus test scripts, universal
+practices' rules, and whether each set check has its test in the set.
+Names kept on purpose are in its `_SET_NAMES_KEPT`.
+
 ## 1. Built: the ladder's branch-naming rule
 
 The ladder set's `act` now ships its enforcement:

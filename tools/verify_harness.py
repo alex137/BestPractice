@@ -290,7 +290,7 @@ AMENDED_POST_CONVERSION = {
     'convention-to-audit', 'deliverables-look-like-output', 'docs-track-models',
     'engine-plus-host-shims', 'environment-gotchas', 'frame-from-audience-question',
     'generated-artifact-provenance', 'index-remembers-past',
-    'merge-authorization-keyword', 'merge-runbook', 'mistakes-become-rules',
+    'merge-runbook', 'mistakes-become-rules',
     'no-rewrite-for-warnings', 'one-formatter-per-quantity',
     'outward-summary-discipline', 'parallel-artifact-ledger',
     'permutation-frontier-column', 'practice-export-loop', 'readers-vocabulary',
@@ -26129,6 +26129,10 @@ def check_precedent_check_fires():
             (ind / 'practices').mkdir(parents=True, exist_ok=True)
             (ind / 'tools' / 'checks').mkdir(parents=True, exist_ok=True)
             (ind / 'tools' / 'checks' / 'check_zzz.py').write_text('', encoding='utf-8')
+            # A set's check is tested in the set (2026-10-17).
+            (ind / 'tools' / 'checks' / 'tests').mkdir(exist_ok=True)
+            (ind / 'tools' / 'checks' / 'tests' / 'test_zzz.sh').write_text(
+                '#!/bin/bash\nexit 0\n', encoding='utf-8')
             (ind / 'practices' / 'zzz-planted-set-rule.md').write_text(
                 _set_practice('tools/checks/check_zzz.py'), encoding='utf-8')
             (repo / '.planted-user-config.json').write_text(_pj_e.dumps({
@@ -37550,6 +37554,52 @@ def check_upstream_edits_need_an_answer():
                           'own file through', rc == 0 and 'deny' not in out, out[:300]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_set_independence_reads_tests_and_rules():
+    """The set-independence inventory (precedent_check.py's
+    enforcement-lives-with-its-practice) reads BestPractice's tests and
+    universal rules for a set's names, not only the engine's code, and
+    leaves comments alone (Morgan, 2026-10-17: "we had lots of tests for
+    them and rules regarding them in best practice. And it should never be
+    like that").
+
+    Planted inputs straight into its scanners: a test's string literal
+    naming a set's practice, a docstring naming one (a comment: not a
+    finding), a universal rule linking one, a set named inside a message,
+    and a name kept on purpose."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    name = 'the set-independence inventory reads tests and universal rules, not comments'
+    set_only = {'zz-set-rule': 'zz-set'}
+    names = {'zz-set'}
+    wanted = set(set_only) | names
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        f = pathlib.Path(td) / 'test_like.py'
+        f.write_text('"""A docstring naming zz-set-rule and zz-set."""\n'
+                     'def t():\n    """zz-set-rule in a docstring."""\n'
+                     "    return 'zz-set-rule'\n", encoding='utf-8')
+        hits = pc._set_names_in_strings(f, wanted, set_only, names)
+        cases.append(('a string literal naming a set\'s practice is found',
+                      hits == {'zz-set-rule'}, hits))
+        f.write_text('"""Only a docstring: zz-set-rule, zz-set."""\n', encoding='utf-8')
+        hits = pc._set_names_in_strings(f, wanted, set_only, names)
+        cases.append(('control: a docstring is a comment, never a finding', not hits, hits))
+        f.write_text("MSG = 'install zz-set first'\nOK = 'zz-settings'\n", encoding='utf-8')
+        hits = pc._set_names_in_strings(f, wanted, set_only, names)
+        cases.append(('a set named as a whole word inside a message is found, '
+                      'and a longer word is not', hits == {'zz-set'}, hits))
+    text = 'Do it as [the rule](zz-set-rule.md) says; see practices/other.md.'
+    hits = pc._set_names_in_text(text, set_only, names)
+    cases.append(('a universal rule linking a set\'s practice is found',
+                  hits == {'zz-set-rule'}, hits))
+    cases.append(('a name kept on purpose carries the words that kept it',
+                  all('Morgan, 20' in w for w in pc._SET_NAMES_KEPT.values()),
+                  pc._SET_NAMES_KEPT))
     bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
@@ -70158,15 +70208,15 @@ def check_update_vendors_rehearsal_findings():
             (repo / 'tools' / 'build_views.py').write_text(
                 'import pathlib\n'
                 'p = pathlib.Path("GLOSSARY.md")\n'
-                'p.write_text(p.read_text().replace("[Plan it](practices/plan-it.md)",'
+                'p.write_text(p.read_text().replace("[Plan it](practices/planted-withdrawn.md)",'
                 ' ""))\n', encoding='utf-8')
             (repo / 'GLOSSARY.md').write_text(
-                header + '# Glossary\n\n[Plan it](practices/plan-it.md)\n',
+                header + '# Glossary\n\n[Plan it](practices/planted-withdrawn.md)\n',
                 encoding='utf-8')
             git(repo, 'add', '-A')
             git(repo, 'commit', '-qm', 'views')
             rc, text = run_update(repo)
-            linked = 'practices/plan-it.md' in (repo / 'GLOSSARY.md').read_text()
+            linked = 'practices/planted-withdrawn.md' in (repo / 'GLOSSARY.md').read_text()
             if header:
                 cases.append(('a consumer\'s generated GLOSSARY.md is rebuilt by the '
                               'update, so a withdrawn practice is no longer linked',
@@ -74141,9 +74191,9 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
     try:
         practices = tmp / 'set' / 'practices'
         practices.mkdir(parents=True)
-        (practices / 'debut.md').write_text(
+        (practices / 'planted-stage.md').write_text(
             '---\n'
-            'slug: debut\n'
+            'slug: planted-stage\n'
             'title: Debut\n'
             'tier: on-demand\n'
             'status: active\n'
@@ -74156,7 +74206,7 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
         repo = tmp / 'consumer'
         repo.mkdir()
         psp.collect = lambda r, skip_brought=False: (
-            extra, {'debut': 'shared'},
+            extra, {'planted-stage': 'shared'},
             [('deferred', 'a brought set, deferred to this file')])
 
         def run(*flags):
@@ -74172,7 +74222,7 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
             return out.getvalue(), (written.read_text(encoding='utf-8')
                                     if written.is_file() else '')
         said, written = run()
-        line = '"Debut" -> debut: stage 4'
+        line = '"Debut" -> planted-stage: stage 4'
         cases.append(('1. the session-start write prints the file, spoken trigger and all',
                       line in said and line in written))
         (repo / '.precedent' / 'SESSION_PRACTICES.md').unlink()
@@ -74245,12 +74295,12 @@ def check_session_file_says_each_command_once():
                  'every audit, plus a full read', {'Deep check': 'Check it all.'})
         practice(own, 'install', 'installing Precedent into a repo',
                  'precedent_install.py, declare the set')
-        practice(brought, 'debut', 'a person says \\"Debut\\"',
+        practice(brought, 'planted-stage', 'a person says \\"Debut\\"',
                  'stage 4: pre-staging into staging', {'Debut': 'Stage 4.'})
         bare = bv.load_practices(own)
         full = bare + bv.load_practices(brought)
         levels = {'deep-check': 'universal', 'install': 'universal',
-                  'debut': 'shared'}
+                  'planted-stage': 'shared'}
         repo = tmp / 'consumer'
         repo.mkdir()
         text = psp.render(full, levels, [], repo=str(repo))
@@ -74262,18 +74312,18 @@ def check_session_file_says_each_command_once():
                       first == head))
         cases.append(('1. ...and they list every practice that defines one',
                       '- "Deep check" -> deep-check: every audit' in text
-                      and '- "Debut" -> debut: stage 4' in text))
+                      and '- "Debut" -> planted-stage: stage 4' in text))
         index = text.split('## Occasion index', 1)[-1]
         cases.append(('2. the file\'s occasion index has no line for a command practice',
                       '## Occasion index' in text
-                      and 'deep-check —' not in index and 'debut —' not in index))
+                      and 'deep-check —' not in index and 'planted-stage —' not in index))
         cases.append(('2. ...and keeps the line of a practice that defines none',
                       'install — precedent_install.py' in index))
         tracked, _t, _n = bv.build_loader_block(full)
         cases.append(('3. the tracked AGENTS.md block still lists the command '
                       'practices in its index',
                       'deep-check — every audit' in tracked
-                      and 'debut — stage 4' in tracked and head not in tracked))
+                      and 'planted-stage — stage 4' in tracked and head not in tracked))
 
         notes = [('deferred', 'a brought set, deferred to this file')]
         bare_levels = {k: v for k, v in levels.items() if v != 'shared'}
@@ -74284,7 +74334,7 @@ def check_session_file_says_each_command_once():
             psp.main(['--repo', str(repo)])
         said = out.getvalue()
         cases.append(('4. main() prints the commands once, at the top of the file',
-                      said.count(head) == 1 and said.count('"Debut" -> debut') == 1
+                      said.count(head) == 1 and said.count('"Debut" -> planted-stage') == 1
                       and said.lstrip().startswith('<!-- GENERATED')))
 
         psp.pr.load_config = lambda r: [
@@ -74300,7 +74350,7 @@ def check_session_file_says_each_command_once():
                       f'share {share}'))
         cases.append(("5. ...though the brought set's command is in the full file "
                       "and not in that one",
-                      '"Debut" -> debut' in text and '"Debut"' not in bare_text))
+                      '"Debut" -> planted-stage' in text and '"Debut"' not in bare_text))
         # 2026-10-09: the file on disk was written by an older engine at
         # session start and measured 190 tokens more than this engine's
         # render, and n less the share charged all 190 to the repository.
@@ -81930,6 +81980,7 @@ def main():
     check_push_check_list_is_never_refused()
     check_a_pushed_branch_in_a_shallow_clone_is_safe()
     check_very_deep_check_lists_checks_by_stage()
+    check_set_independence_reads_tests_and_rules()
     check_upstream_edits_need_an_answer()
     check_a_new_test_lands_with_its_time()
     check_boildown_contradiction_spares_work_waiting_upstream()
