@@ -183,6 +183,35 @@ def guard(path, root=ROOT):
             f'recorded, this edit is allowed.')
 
 
+KEPT_TEMPLATES_KEY = 'kept_template_divergences'
+
+
+def kept_template_answers(root=ROOT):
+    """-> one line per section or file made from a template that this
+    repository keeps different on purpose (precedent.json's
+    kept_template_divergences), with who decided it.
+
+    ONE LIST OF ANSWERS (2026-10-17). A template instance is filled in
+    locally by design, so its kept differences are answered by the
+    template's own mechanism (precedent_vendor_engine.py repin-kept): the
+    person's words for a close call, or the standing rule for a difference
+    that is plainly this repository's own (Morgan, 2026-10-14, strength:
+    decided: "Let repin-kept re-pin repo-specific differences without asking
+    me"). Listed here beside the upstream_edits answers, so one command
+    names every place this repository differs from upstream on purpose."""
+    data = _read_json(pathlib.Path(root) / 'precedent.json').get(KEPT_TEMPLATES_KEY)
+    out = []
+    for item, e in sorted((data or {}).items()) if isinstance(data, dict) else []:
+        if not isinstance(e, dict):
+            continue
+        who = ('by the standing rule' if e.get('decided_by') == 'rule' else
+               f'confirmed: "{e["confirmed"]}"' if e.get('confirmed') else
+               'no decision recorded -- re-pin it with repin-kept')
+        out.append(f'kept from a template: {item} -- {str(e.get("reason") or "").strip()} '
+                   f'({who})')
+    return out
+
+
 def main(argv):
     if '--help' in argv or '-h' in argv:
         print(__doc__)
@@ -206,6 +235,8 @@ def main(argv):
     for rel, e in sorted(registry()[0].items()):
         if e['answer'] == 'owed-upstream':
             print(f'owed upstream: {rel} -- {e.get("detail", "")}')
+    for line in kept_template_answers():
+        print(line)
     if not found:
         print('upstream_edits: every upstream-owned file matches what was '
               'delivered, or carries its recorded answer.')

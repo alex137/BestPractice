@@ -4117,13 +4117,63 @@ def _compose_onto(root, wt, staging, first, above, last, say):
         parts.append((branch, tip, f'Bring {branch} into {staging}: {len(commits)} '
                       f'commit(s) made there directly'))
     parts += list(last)
+    start = _git(wt, 'rev-parse', 'HEAD')
     conflict, merged = _compose(root, wt, parts, staging, say)
     rebuilt = []
+    if not conflict and start:
+        rebuilt += _commit_declared_rebuilt(root, wt, start, say)
     if not conflict and above:
         from_above = '; '.join(f'{b}\'s {len(c)} commit(s)' for b, _, c in above)
         rebuilt = _commit_rebuilt(root, wt, say, f'after {from_above} '
                                   f'made directly')
     return conflict, merged, rebuilt
+
+
+def _commit_declared_rebuilt(root, wt, start, say):
+    """Run every output a repository declares under "generated" whose files
+    the composition since `start` touched, stage what it wrote -- dated
+    names, deletions and all -- and commit it. -> the files rebuilt.
+
+    TWO DAYS, TWO COPIES (2026-10-17). A builder that writes dated names
+    (practice: dated-download-names) gives two branches that rebuilt on
+    different days two different files, so their merge never conflicts and
+    keeps both. Rebuilding after the composition leaves one, from the merged
+    sources. Only when the land touched a declared output: a land that
+    changes nothing generated rebuilds nothing."""
+    declared = _declared_generated(wt)
+    if not declared:
+        return []
+    touched = [l for l in (_git(wt, 'diff', '--name-only', f'{start}..HEAD') or '')
+               .splitlines() if l]
+    globs = []
+    for pats, argv in declared:
+        if not any(fnmatch.fnmatchcase(t, g) for t in touched for g in pats):
+            continue
+        if not (pathlib.Path(wt) / argv[0]).is_file():
+            continue
+        r = subprocess.run([sys.executable, *argv], cwd=str(wt),
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            say(f'NOTE: {" ".join(argv)} could not rebuild its declared output '
+                f'over the composed tree, so it was left as merged and the full '
+                f'check judges it: {(r.stdout + r.stderr).strip()[-300:]}')
+            continue
+        globs += pats
+    if not globs:
+        return []
+    paths = set((_git(wt, 'ls-files') or '').splitlines()) | set(
+        (_git(wt, 'ls-files', '--others', '--exclude-standard') or '').splitlines())
+    mine = sorted(p for p in paths if p and any(fnmatch.fnmatchcase(p, g)
+                                                 for g in globs))
+    if mine:
+        _run(wt, 'add', '-A', '--', *mine)
+    changed = [l for l in (_git(wt, 'diff', '--cached', '--name-only') or '')
+               .splitlines() if l]
+    if changed:
+        _run(wt, 'commit', '-q', '-m', 'Rebuild declared generated files over '
+             'the composed tree\n\n' + '\n'.join(changed) + '\n\n'
+             + _session_trailer(), env=_merge_env(root))
+    return changed
 
 
 def _commit_rebuilt(root, wt, say, why):
