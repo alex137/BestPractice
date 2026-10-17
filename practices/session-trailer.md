@@ -17,13 +17,17 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-28"
-approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, migrated from RepoPersonalPreferences by the private-set migration session; push gate, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
+approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, migrated from RepoPersonalPreferences by the private-set migration session; push gate, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05); revert-needs-no-trailer folded into Detail 2026-10-17, chosen by the session under Morgan's delegation of 2026-10-17 (\"Approved, act, and Booked.\")"
 ---
 ## Rule
 A `Session: <url>` trailer on every commit -- for Claude Code, `https://claude.ai/code/session_<ID>`. `Claude-Session: <url>` is also accepted -- the key Claude Code Remote's own harness actually emits as of 2026-09, functionally the same trailer under a different name. For unattended automation with no chat session behind it, the workflow run's own URL stands in. If there is no link to give -- a person committed without an AI assistant, a tool has no shareable link, or the session's own link is hidden from it -- the trailer says so explicitly (`Session: none available (<tool or reason>)`) rather than being silently omitted.
 
 ## Detail
-A commit GitHub makes with its own buttons -- a merge, squash or revert button, an edit made on the website -- needs no trailer: no session wrote it, and there is nowhere to put one. A revert needs none either ([revert-needs-no-trailer](revert-needs-no-trailer.md)). A practice set may exempt more; what it exempts applies only where that set is declared.
+A commit GitHub makes with its own buttons -- a merge, squash or revert button, an edit made on the website -- needs no trailer: no session wrote it, and there is nowhere to put one.
+
+**A revert commit may leave out the trailer.** A revert is `Revert "<subject>"` with `This reverts commit <sha>.` in its body -- what `git revert` and GitHub's revert button write. Its reason is the commit it names, whose own trailer already leads back to the session that made the change being undone, and asking for a second link adds friction at the moment someone is backing out of a mistake quickly. Adding the trailer is still welcome; it is simply not required. The exemption covers reverts only: a commit that undoes something by hand, with its own message, is new work and still carries the trailer.
+
+A practice set may exempt more; what it exempts applies only where that set is declared.
 
 ## Why
 So a reviewer can tell "considered and skipped" from "forgotten" at a glance, and can trace a change back to the conversation that reasoned it through.
@@ -56,6 +60,17 @@ that with an exception of if somehow you can't access it (maybe a user
 didn't use an LLM for example, or somehow hid the URL from you)"*. The
 check moved into the engine, and the Rule names both cases.
 
+**The revert exemption folded in, 2026-10-17.** It was its own practice,
+`revert-needs-no-trailer`, from 2026-09-29 (Morgan, while approving the
+change that made the trailer check judge only what a push carries: *"I
+think we should update the 'Session' trailer rule to say that it is okay if
+reverts don't have it"*), first in a shared set a team declares by choice
+and universal from 2026-10-05. Once universal it was a one-line exception
+to this rule, and the 2026-10-17 very deep check's review of practices that
+read alike named it the one merge candidate. Its rule is the revert
+paragraph in Detail above; the old slug resolves here. The merge was
+chosen by the session under Morgan's delegation of 2026-10-17: "Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."
+
 ## Install
 **The mechanical check ships with the engine:**
 [tools/checks/check_session_trailer.py](https://github.com/alex137/BestPractice/blob/staging/tools/checks/check_session_trailer.py)
@@ -70,4 +85,6 @@ no longer has to exempt its existing history first: old commits are never
 judged, and every new one is judged at the first push that carries it. It
 checks presence only, never that the URL resolves to a real session --
 which is exactly the "considered and skipped" versus "forgotten" distinction
-the Why names.
+the Why names. It skips a revert wherever this practice resolves in force
+(or, for a repository still on an older catalogue, the
+`revert-needs-no-trailer` practice that carried the exemption before).

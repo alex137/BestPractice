@@ -12,8 +12,8 @@ index_clause: "a revert commit may leave out the Session: trailer"
 index_required: false
 checked_by:  null
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: session-trailer
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
@@ -52,6 +52,13 @@ include that."* So the exemption lives in this set, which a team declares
 by choice, rather than in the universal rule everyone gets.
 
 **Push gate, and off the occasion index, from 2026-10-01.** The reduction pass for precedent-individual's session-start file counted this among the lines a mechanical check already covers at push: `check_session_trailer.py` skips reverts while this practice is in force, so the line in every session's index bought nothing. Morgan (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
+
+**Folded into session-trailer, 2026-10-17.** Universal since 2026-10-05,
+this was a one-line exception to [session-trailer](session-trailer.md), and
+the very deep check of 2026-10-17 named it the one merge candidate among the
+practices that read alike. Its Rule is now a paragraph of session-trailer's
+Detail, this copy is deduplicated to it, and the trailer check skips a
+revert wherever session-trailer is in force. The merge was chosen by the session under Morgan's delegation of 2026-10-17: "Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."
 
 ## Install
 No check of its own: the trailer check reads whether this practice is in

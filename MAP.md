@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 175 practice files (6 resident, 169 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 174 practice files (6 resident, 168 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -137,7 +137,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
 | [report-up-the-chain](practices/report-up-the-chain.md) | on-demand | finishing a task a session was spawned or triggered to do |
-| [revert-needs-no-trailer](practices/revert-needs-no-trailer.md) | on-demand | committing a revert, or a trailer check flags one |
 | [review-against-a-contract](practices/review-against-a-contract.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [root-issues](practices/root-issues.md) | on-demand | a person says "Root issues", or asks what this session found or fixed that should go back upstream |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether practices that should have fired for recent work did |
@@ -192,7 +191,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## Withdrawn practices
 
-11 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+12 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
 
 | Practice | Status | Now in force at | Why it was withdrawn |
 |---|---|---|---|
@@ -204,6 +203,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [merged-session-offers-a-practice](practices/merged-session-offers-a-practice.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Morgan, 2026-09-14, on the practice engine he had been feeding by hand for weeks: *"I love the methodology of turning what we decide into Practices to be followed or enforced, but it seems like I'm always the one making the suggestions. |
 | [next-steps-after-commit](practices/next-steps-after-commit.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Raised by Morgan as a standing personal preference, rather than in response to a specific missed handoff, and it lived in his individual set from 2026-09-04 to 2026-09-14. |
 | [response-please](practices/response-please.md) | retired | — (nowhere) | **Retired 2026-09-30.** Morgan: *"Response please probably doesn't need a phrase, because it doesn't really add anything so we can remove."* A pasted message from another session is weighed from context, and Prompt Please still hands work on. |
+| [revert-needs-no-trailer](practices/revert-needs-no-trailer.md) | deduplicated | [session-trailer](practices/session-trailer.md) | 2026-09-29, Morgan, while approving the change that made the trailer check judge only what a push carries: *"I think we should update the 'Session' trailer rule to say that it is okay if reverts don't have it ... |
 | [second-pass-capture](practices/second-pass-capture.md) | deduplicated | [capture-gate](practices/capture-gate.md) | **An owner-prompted sweep found two real gaps in a single day's work.** Somebody asked "did we miss capturing anything?" of work that had already been drafted, reviewed and considered finished, and the answer was yes twice: a cross-artifact transfer that had been waved off, and a competitor-inspired idea noted in passing but never landed anywhere durable. |
 | [session-text](practices/session-text.md) | deduplicated | [prompt-please](practices/prompt-please.md) | **Coined by Morgan, 2026-09-11**, in his own words: *"When you give me what I need to do, first look to see if it should be in a different session, and that includes most importantly checking for cross repo issues first. |
 | [wide-search-needs-asking](practices/wide-search-needs-asking.md) | deduplicated | [grep-before-search](practices/grep-before-search.md) | **2026-09-28.** A session fixed the Boildown so it stopped asking which repositories to add or remove. |

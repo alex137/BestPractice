@@ -9499,6 +9499,13 @@ def check_session_trailer_check_ships_with_the_engine():
         repo = fx / 'repo'
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
         git('remote', 'add', 'origin', str(origin))
+        # A consumer of this engine's universal catalogue and nothing else,
+        # so "in force" is the catalogue's answer, not the person's sets.
+        env['PRECEDENT_USER_CONFIG'] = str(fx / 'no-user-config.json')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]}),
+            encoding='utf-8')
+        git('add', 'precedent.json')
         commit('a', 'first\n\nSession: https://claude.ai/code/session_x')
         git('push', '-q', 'origin', 'main')
         commit('b', 'no trailer at all')
@@ -9514,6 +9521,17 @@ def check_session_trailer_check_ships_with_the_engine():
         git('push', '-q', 'origin', 'main')
         cases.append(('a commit origin already has is not judged again',
                       check_says() == 0))
+        # The revert exemption lives in session-trailer's Detail since
+        # 2026-10-17, its old practice deduplicated to it: the check must
+        # still skip a revert, which it stopped doing when it asked only
+        # for the old slug.
+        sha = git('rev-parse', 'HEAD').stdout.strip()
+        commit('c', f'Revert "no trailer again"\n\nThis reverts commit {sha}.')
+        cases.append(('THE CASE: a revert with no trailer passes where '
+                      'session-trailer is in force', check_says() == 0))
+        git('commit', '-q', '--amend', '-m', 'undo the last change by hand')
+        cases.append(('CONTROL: an undo made by hand, with its own message, '
+                      'still needs the trailer', check_says() == 1))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
     bad = [n for n, ok in cases if not ok]
