@@ -32,8 +32,8 @@ session with the errors and warnings given - yes let's rebuild it but only
 in ladders and also only when the user is a code owner. And on the July
 one: close it". Both workflows are pinned in `github_ci_approved`; Alex's
 `upstream-bug-stops-here` amendment landed; `upstream-review` was rebuilt
-(the ladder set's practice, the engine's
-[precedent_upstream_review.py](../tools/precedent_upstream_review.py));
+(the ladder set's practice, run then by an engine tool that left the
+engine for the ladder set on 2026-10-17);
 the `share/` spec branch is to be deleted.
 
 - **The two retired sets can finish retiring.** No repository declares

@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.69 to it; 7 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 5 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times, scaled by 1.83 to it",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.69 to it; 7 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 5 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times, scaled by 1.83 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.00 to it",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -141,6 +141,7 @@
   "check_cross_source_resident_budget": 0.5,
   "check_data_branches_are_named_for_the_ladder": 0.6,
   "check_date_check_skips_commits_github_made": 0.2,
+  "check_debut_judges_the_change_against_main_too": 5.6,
   "check_debut_waits_for_an_open_produce_pull_request": 0.1,
   "check_decision_records_not_inline": 0.0,
   "check_decision_records_not_inline_fires": 3.8,
