@@ -118,6 +118,13 @@ def consumer_env(ignore_file, base=None):
     env[f'GIT_CONFIG_KEY_{n}'] = 'core.excludesFile'
     env[f'GIT_CONFIG_VALUE_{n}'] = str(ignore_file)
     env['GIT_CONFIG_COUNT'] = str(n + 1)
+    # NO BYTECODE CACHE, ONCE, FOR EVERY TEST (2026-10-17). A test that
+    # rewrites a stub module within the same second at the same size is
+    # read from the stale .pyc instead; the ladder set's
+    # test_branch_page_note.sh failed now and then for that reason and set
+    # this inside itself. Every set's tests run through here, so it is set
+    # here and no test needs its own copy.
+    env['PYTHONDONTWRITEBYTECODE'] = '1'
     return env
 
 
