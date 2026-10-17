@@ -68,24 +68,49 @@ and `tools/precedent_review_page.py`.
 ## Current run
 
 **The full account of this run, pass by pass: [VERY_DEEP_CHECK_LATEST_RUN.md](VERY_DEEP_CHECK_LATEST_RUN.md).**
+What is left: [todo-2026-10-17-very-deep-check-findings](../todo/todo-2026-10-17-very-deep-check-findings.md).
 
-**2026-10-11, on the phrase, scoped by Morgan to BestPractice and the sets it
-declares** ("In best practice only (not in all attached repos)"). All four
-passes, about 35 minutes, four agents in scratch directories. The full
-harness passed on `main` first.
+**2026-10-17, on the phrase, scoped by Morgan to BestPractice and then each
+of the three sets it declares** ("Very deep check for best practice then
+very deep check for each of the three practice sets attached"). All four
+passes in BestPractice, and each set checked whole as a repo with an
+upstream. Nine helpers in scratch worktrees. The full harness passed on
+`main` first, and again on the finished branch.
 
 | Pass | Status | Date | Notes |
 |---|---|---|---|
-| 1 — adopter installs | done, gaps named | 2026-10-11 | Five rehearsals: guided install, developer install, a week-old update, a migration, practice moves. Six fixed. Unfixed: [todo-2026-10-11-very-deep-check-findings](../todo/todo-2026-10-11-very-deep-check-findings.md) |
-| 2 — mechanisms | done, gaps named | 2026-10-11 | Five of the check's own sections fixed, two API budgets moved with measurements, one exemption tried and taken back. |
-| 3 — coherence read | done | 2026-10-11 | Install documents brought in line with the installer; four documents registered; two dead links; TODO.md read end to end. |
-| 4 — catalogue, backlog, branches | done | 2026-10-11 | Eight unlanded branches judged, 30 pairs judged and kept; Morgan's three branch calls and two workflow approvals answered the same day. |
+| 1 — adopter installs | done, gaps named | 2026-10-17 | Six rehearsals: guided install, developer install, from-scratch install, a two-week-old update, a migration, practice moves. Fixed: an origin with no URL written by the freshness guard, a sync taking an uncommitted practice, install, migration and move documents. No real consumer attached (asked, unanswered). |
+| 2 — mechanisms | done, gaps named | 2026-10-17 | All 24 questions answered or marked partly attempted. Fixed: the identity check's silent half, the boundary section, seven faults in the very deep check itself, warnings judged for the first time. |
+| 3 — coherence read | done | 2026-10-17 | spec/LOADER.md read whole; the deep check's tier, the resident cap, the TODO.md stub and the move guide corrected. |
+| 4 — catalogue, backlog, branches | done | 2026-10-17 | 39 items closed, 15 gotchas retired, 10 items asked; 30 pairs judged (one merge candidate); every branch judged, five unlanded ones recommended for deletion. |
+
+### Quiet sections, answered
+
+Five sections have found nothing in every recorded run. All five are kept,
+as cheap guards: MACHINE-READABLE FILES (about 20 tokens; a malformed
+precedent.json would stop the whole run), REPOS IN FORCE (an archived
+source refuses every push and reads like a live one), WITHIN-SOURCE
+CONFLICTS (about 35 tokens), DELETIONS PENDING (it fired on this run's
+planted update fixture, so it works; real repos had nothing pending) and
+RETIRED SETS (three runs old). None is worth cheapening further.
+
+### Open items: ambiguous
+
+Settled 2026-10-17 under Morgan's delegation of that day ("Approved, act, and Booked."), each as listed here before: six closed and two parked in [todo/](../todo/), one closed in each of the individual and writing sets' own `todo/`; every item's last note says what met it.
+
+### Gotchas: ambiguous
+
+None. The one the backlog pass could not settle, a cross-owner clone that
+cannot be pushed, was settled by this run's own pushes: a session that holds
+both owners' repositories as sources pushes to both, and a clone that is not
+a session source still cannot. It stays live.
 
 ## Runs so far
 
 | Run | Passes completed | What it changed |
 |---|---|---|
-| 2026-10-11 | 1, 2, 3, 4 | Described under "Current run" above until the next run replaces it. |
+| 2026-10-17 | 1, 2, 3, 4 | Described under "Current run" above until the next run replaces it. |
+| 2026-10-11 | 1, 2, 3, 4 | BestPractice and its three sets, scoped by Morgan; four agents, about 35 minutes. Eleven fixes with planted cases; install documents brought in line with the installer; Morgan's four calls answered the same day. Findings: `todo-2026-10-11-very-deep-check-findings`. |
 | 2026-10-05 | 1, 2, 3, 4 | All four passes across BestPractice and three sets, on the phrase; it started with the tool alone and did the harness and passes after Morgan asked. Five mechanism fixes, wording across 18 practices and four pages. Findings: `todo-2026-10-05-very-deep-check-pass-{1,2,3,4}-findings`. |
 | 2026-09-28 | 1, 2, 3, 4 | All four passes across five repos plus the first real consumer; ten sub-agents; the first full sequential catalogue judgment (216 practices). Findings: `todo-2026-09-28-very-deep-check-pass-{1,2,3,4}-findings`. |
 | 2026-09-22 | mechanical only | A tool run with no passes recorded in the ledger and no row here until 2026-09-28; nothing in this file says what, if anything, it read. |

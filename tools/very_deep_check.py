@@ -203,6 +203,7 @@ Run:
       the ledger, and exit. `findings`, `tokens` and `note` are each
       optional; an absent one is recorded as absent, never estimated.
   python3 tools/very_deep_check.py --record-read 'tools/verify_harness.py,by=...,note=...'
+      (note= comes last and runs to the end, commas included)
       -- record that somebody read that file END TO END today, in
       record/holistic-reads.json, and exit. The ACCRETION section ranks by
       commits since a file's last recorded read, so this is what moves a
@@ -221,7 +222,7 @@ Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared shared/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
-import collections, datetime, io, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.parse
+import collections, contextlib, datetime, fnmatch, io, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -464,8 +465,18 @@ def freshness(repo_dir, fetch=True):
         return out
     rc, branch, _ = _run_git(repo_dir, 'rev-parse', '--abbrev-ref', 'HEAD')
     if rc != 0 or not branch or branch == 'HEAD':
+        # A DETACHED HEAD THAT CARRIES ORIGIN'S BASE IS CURRENT (2026-10-17).
+        # A cloud session hands every attached repo over detached at its
+        # main, so this refused the very state the harness creates, before
+        # anybody had touched it. Detached is a refusal only when HEAD does
+        # not contain origin's declared base branch -- the same test a
+        # local-only branch gets below.
+        if fetch and _contains_origin_base(repo_dir, out):
+            return out
         out['status'] = 'detached'
-        out['remedy'] = 'git checkout <branch>  # HEAD is detached, so there is no upstream to compare against'
+        out['remedy'] = ('git checkout <branch>  # HEAD is detached and does '
+                         'not contain origin\'s base branch, so nothing says '
+                         'it is current')
         return out
     out['branch'] = branch
     if fetch:
@@ -501,13 +512,18 @@ def freshness(repo_dir, fetch=True):
                     # prove nothing (2026-09-28).
                     return out
                 else:
+                    # Local-only AND missing origin's base: the branch is
+                    # behind, and pushing it would prove nothing. Until
+                    # 2026-10-17 this said "push it", which a run followed
+                    # straight into a second refusal; the base had moved
+                    # under the branch while it sat here.
+                    _base = _declared_base_branch(repo_dir) or 'main'
                     out['status'] = 'branch-not-on-origin'
                     out['remedy'] = (
-                        f'git -C {repo_dir} push -u origin {branch}   '
-                        f'# or switch this source to its integration branch. '
-                        f'origin has no {branch}: the network is fine, the '
-                        f'branch is local-only, so nothing can say whether '
-                        f'its content is current')
+                        f'git -C {repo_dir} merge origin/{_base}   '
+                        f'# origin has no {branch}, and it does not contain '
+                        f'origin/{_base}: it is behind the base branch, so '
+                        f'bring that in (or check out {_base}) and re-run')
                 return out
             out['status'] = 'fetch-failed'
             # Name WHICH failure. "no credential", "credential refused" and
@@ -602,11 +618,30 @@ def _contains_origin_base(repo_dir, out):
     ref = f'origin/{base}'
     if _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, 'HEAD')[0] != 0:
         return False
-    rc, n, _ = _run_git(repo_dir, 'rev-list', '--count', f'{ref}..HEAD')
+    # What no origin ref has, never what the base lacks: a branch cut from
+    # origin/main in a repo whose base is staging carries main's merge
+    # commits, which are on origin, and read as "3 unpushed" (2026-10-17).
+    rc, n, _ = _run_git(repo_dir, 'rev-list', '--count', 'HEAD', '--not',
+                        '--remotes=origin')
     out['status'] = 'ahead'
     out['behind'] = 0
     out['ahead'] = int(n.strip()) if rc == 0 and n.strip().isdigit() else 0
     return True
+
+
+def _own_checkout(repo_dir):
+    """True when `repo_dir` is the top of a git work tree of its own -- a
+    clone or a linked worktree. A repo-local source inside its parent's
+    checkout is not: its branches are the parent's.
+
+    Until 2026-10-17 the branch scan and the live-session sweep asked
+    whether `.git` is a directory, which a linked worktree's is not (it is a
+    file naming the shared git directory), so a run from a worktree skipped
+    the checkout's own branches and sessions and said "not its own git
+    checkout". Three helpers of that day's very deep check hit it."""
+    rc, top, _ = _run_git(repo_dir, 'rev-parse', '--show-toplevel')
+    return rc == 0 and bool(top.strip()) and \
+        pathlib.Path(top.strip()).resolve() == pathlib.Path(repo_dir).resolve()
 
 
 def report_freshness(label, verdict, out=None):
@@ -631,8 +666,8 @@ def report_freshness(label, verdict, out=None):
                           f"{verdict['ahead']} ahead",
               'no-upstream': 'no origin/<branch> ref -- freshness unprovable',
               'fetch-failed': 'could not reach origin -- freshness unprovable',
-              'branch-not-on-origin': 'this branch exists only locally -- '
-                                      'freshness unprovable',
+              'branch-not-on-origin': 'this branch exists only locally and '
+                                      'lacks origin\'s base branch -- behind',
               'no-shared-history': 'cannot compare against origin',
               'detached': 'HEAD is detached'}[s]
     print(f"  STALE: {label} ({verdict['branch'] or '-'}): {detail}", file=out)
@@ -640,27 +675,9 @@ def report_freshness(label, verdict, out=None):
     return False
 
 
-def _declared_base_branch(repo_dir):
-    """The branch a repo DECLARES its work is measured against, in its own
-    precedent.json `base_branch` -- not inferred from `origin/HEAD`.
-
-    Those are two different questions with usually the same answer, which is
-    why asking the wrong one survives so long. `origin/HEAD` answers "what
-    does GitHub show first"; callers here mean "what lineage does this work
-    belong to". They diverge the moment a repo pins its work to a branch
-    that is not the configured default -- this repo's own
-    `precedent-beta-v01` -- and then every inference is quietly wrong with
-    nothing failing. Returns None when undeclared or unreadable, so callers
-    fall back to the old inference rather than breaking (fail-gracefully).
-    Enforced by precedent_check.py's `declared-base-branch`.
-    """
-    try:
-        import json as _json, pathlib as _pathlib
-        v = _json.loads((_pathlib.Path(repo_dir) / 'precedent.json')
-                        .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 def _second_practice_lists(repo_dir, threshold=0.8):
     """-> [(rel, named, total)] for every tracked, hand-kept file that names
@@ -837,6 +854,12 @@ def _named_anywhere_else(shipped, root):
                         f"'{stem}'"]
         needles += ['/'.join(parts[i:-1]) + '/'
                     for i in range(0, len(parts) - 2)]
+        # The folder AS A CONSUMER SEES IT is a reader too (2026-10-17):
+        # environment-gotchas tells every session in a consumer to grep
+        # `process/upstream/gotchas/`, and a grep names no file, so every
+        # retired gotcha read as shipped to nobody.
+        if '/' in dest:
+            needles.append(dest.rsplit('/', 1)[0] + '/')
         if not any(n in text for other, text in texts.items()
                    if other != dest for n in needles):
             unnamed.append(dest)
@@ -1521,7 +1544,13 @@ def _record_read(value, repo=None):
     memory gets wrong, and a prose note about it drifts from the tree the
     moment either moves."""
     repo_root = pathlib.Path(repo or ROOT).resolve()
-    parts = [x.strip() for x in value.split(',')]
+    # The note is the rest of the value, commas and all: split on every
+    # comma, a note saying what the read found kept only its first clause
+    # (two of the first four rows, 2026-10-11 and 2026-10-17).
+    head, has_note, note = value.partition(',note=')
+    if value.startswith('note='):
+        head, has_note, note = '', True, value[len('note='):]
+    parts = [x.strip() for x in head.split(',')]
     path = parts[0]
     if not path:
         sys.exit("very deep check FAIL: --record-read needs a path, e.g. "
@@ -1531,6 +1560,8 @@ def _record_read(value, repo=None):
         k, _, v = part.partition('=')
         if k.strip() in ('by', 'note') and v:
             fields[k.strip()] = v.strip()
+    if has_note and note.strip():
+        fields['note'] = note.strip()
     if not (repo_root / path).exists():
         # Refused rather than recorded: a read recorded against a path that
         # is not there is a claim about nothing, and it would sit in the
@@ -1897,7 +1928,7 @@ def _link_siblings(src, scratch):
             continue
 
 
-def _scratch_tree(src, dest, engine_src):
+def _scratch_tree(src, dest, engine_src, extra=None):
     """Copy `src`'s tracked tree to `dest`, give it a one-commit history, and
     drop THIS checkout's precedent_check.py in as its engine.
 
@@ -1930,6 +1961,17 @@ def _scratch_tree(src, dest, engine_src):
         except OSError:
             continue
     shutil.copy2(engine_src, pathlib.Path(dest) / 'tools' / 'precedent_check.py')
+    # Practice files in force in `src` from another source, placed where a
+    # received catalogue sits (process/upstream/practices/), so a check
+    # whose practice the repository's resolver puts in force runs on the
+    # copy instead of skipping for want of a local file (_in_force_files).
+    for rel, s in (extra or {}).items():
+        d = pathlib.Path(dest) / rel
+        d.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(s, d)
+        except OSError:
+            continue
     for args in (['init', '-q'], ['add', '-A'],
                  ['-c', 'user.email=sweep@localhost', '-c', 'user.name=sweep',
                   'commit', '-qm', 'fix sweep scratch']):
@@ -1938,6 +1980,48 @@ def _scratch_tree(src, dest, engine_src):
         if r.returncode != 0 and args[0] != '-c':
             return f'could not git {args[0]} the copy'
     return ''
+
+
+# Where precedent_check._practice_file finds a practice file, in its order.
+_PRACTICE_LAYOUTS = ('practices', 'local/practices', 'process/upstream/practices')
+
+
+def _in_force_files(path, slugs):
+    """-> ({slug: practice file}, note) for each of `slugs` the repository at
+    `path` puts in force, as ITS OWN resolver reads its declared sources,
+    with no local practice file of its own; note is '' or why the resolver
+    could not be asked.
+
+    THE GAP (2026-10-17 very deep check). FIX SWEEP decided "in force" by a
+    practices/<slug>.md in the copy, so in each set 17 of 18 new detectors
+    reported SKIPPED, "not in force here", though every set declares
+    universal and resolves those practices. The resolver's answer is the one
+    the repository lives by."""
+    path = pathlib.Path(path)
+    have = {s for s in slugs
+            if any((path / lay / f'{s}.md').is_file() for lay in _PRACTICE_LAYOUTS)}
+    want = [s for s in slugs if s not in have]
+    if not want:
+        return {}, ''
+    saved = os.environ.get(pr.SELF_HEAL_RENDER_ENV)
+    os.environ[pr.SELF_HEAL_RENDER_ENV] = '1'       # a sweep renders nothing
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            res = pr.resolve(pr.load_config(str(path)))
+    except Exception as exc:                                 # noqa: BLE001
+        return {}, f'its resolver could not be read ({type(exc).__name__})'
+    finally:
+        if saved is None:
+            os.environ.pop(pr.SELF_HEAL_RENDER_ENV, None)
+        else:
+            os.environ[pr.SELF_HEAL_RENDER_ENV] = saved
+    out = {}
+    for s in want:
+        p = (res.get('practices') or {}).get(s)
+        f = pathlib.Path(p['file']) if p and p.get('file') else None
+        if f and f.is_file():
+            out[s] = f
+    return out, ''
 
 
 def _fix_sweep(repo_root, targets, since=None, timeout=300):
@@ -1970,74 +2054,99 @@ def _fix_sweep(repo_root, targets, since=None, timeout=300):
     if not slugs:
         return since, [], [], '', caveat
     engine = pathlib.Path(repo_root) / 'tools' / 'precedent_check.py'
-    rows = []
-    for label, path in targets:
-        if not path or not pathlib.Path(path).is_dir():
-            rows.append((label, None, 'not on this disk -- cannot be swept'))
-            continue
-        if pathlib.Path(path).resolve() == pathlib.Path(repo_root).resolve():
-            rows.append((label, None, 'the origin of the fix -- swept by its '
-                                      'own gate, not here'))
-            continue
-        # The copy sits at <scratch>/<its own name>, beside links to the
-        # real repo's siblings: a check that finds a source cloned beside the
-        # repo (a set an individual set brings, say) otherwise finds nothing
-        # there, and the ladder-words check reported the individual set in
-        # violation of a rule it is exempt from (very deep check, 2026-10-05).
-        scratch = pathlib.Path(tempfile.mkdtemp(prefix='fix-sweep-'))
-        tmp = scratch / pathlib.Path(path).resolve().name
-        tmp.mkdir()
-        _link_siblings(path, scratch)
-        try:
-            bad = _scratch_tree(path, tmp, engine)
-            if bad:
-                rows.append((label, None, bad))
-                continue
-            verdicts = []
-            for slug in slugs:
-                try:
-                    proc = subprocess.run(
-                        [sys.executable, str(tmp / 'tools' /
-                                             'precedent_check.py'),
-                         '--only', slug, '--full-sweep'],
-                        cwd=str(tmp), capture_output=True, text=True,
-                        timeout=timeout)
-                except (OSError, subprocess.SubprocessError) as exc:
-                    verdicts.append((slug, 'ERRORED', type(exc).__name__))
-                    continue
-                body = (proc.stdout or '') + (proc.stderr or '')
-                why = ''
-                for line in body.splitlines():
-                    if line.startswith(('SKIPPED', 'VIOLATION', 'ADVISORY')):
-                        for sep in ('\u2014', '--'):
-                            if sep in line:
-                                why = line.split(sep, 1)[1].strip()
-                                break
-                        break
-                m = re.search(r'precedent_check: (\d+) passed, (\d+) violated,'
-                              r' (\d+) advisory, (\d+) errored, (\d+) skipped',
-                              body)
-                if not m:
-                    verdicts.append((slug, 'UNREADABLE', 'no summary line'))
-                elif int(m.group(2)):
-                    verdicts.append((slug, 'VIOLATION', why))
-                elif int(m.group(3)):
-                    # An advisory check reports here, not in "passed";
-                    # reading only passed/skipped called it "did not run".
-                    verdicts.append((slug, 'ADVISORY', why))
-                elif int(m.group(4)):
-                    verdicts.append((slug, 'ERRORED', why))
-                elif int(m.group(1)):
-                    verdicts.append((slug, 'clean', ''))
-                elif int(m.group(5)):
-                    verdicts.append((slug, 'SKIPPED', why))
-                else:
-                    verdicts.append((slug, 'did not run', ''))
-            rows.append((label, verdicts, ''))
-        finally:
-            # rmtree unlinks the sibling links; it never follows them.
-            shutil.rmtree(scratch, ignore_errors=True)
+    rows = [_sweep_target(label, path, slugs, engine, repo_root, timeout)
+            for label, path in targets]
     return since, slugs, rows, '', caveat
+
+
+def _one_skip_cause(verdicts):
+    """-> 'ONE CAUSE n of m skip(s): <cause>' when one reason is behind most
+    of a repository's sweep verdicts, else ''. Said the way CHECK COVERAGE
+    says it: one cause behind most of the skips is the finding, not the
+    skips (2026-10-17: 17 of 18 in each set, all one cause, read as 17
+    separate lines)."""
+    causes = collections.Counter(d or 'no reason given'
+                                 for _s, v, d in verdicts if v == 'SKIPPED')
+    for cause, n in causes.most_common(1):
+        if n >= 2 and n * 2 > len(verdicts):
+            return f'ONE CAUSE {n} of {len(verdicts)} skip(s): {cause[:96]}'
+    return ''
+
+
+def _sweep_target(label, path, slugs, engine, repo_root, timeout=300):
+    """-> (label, verdicts or None, why): `slugs` run with `engine` against a
+    copy of the repository at `path`, each judged in force or not by that
+    repository's resolver (_in_force_files)."""
+    if not path or not pathlib.Path(path).is_dir():
+        return (label, None, 'not on this disk -- cannot be swept')
+    if pathlib.Path(path).resolve() == pathlib.Path(repo_root).resolve():
+        return (label, None, 'the origin of the fix -- swept by its '
+                             'own gate, not here')
+    in_force, rnote = _in_force_files(path, slugs)
+    # The copy sits at <scratch>/<its own name>, beside links to the
+    # real repo's siblings: a check that finds a source cloned beside the
+    # repo (a set an individual set brings, say) otherwise finds nothing
+    # there, and the ladder-words check reported the individual set in
+    # violation of a rule it is exempt from (very deep check, 2026-10-05).
+    scratch = pathlib.Path(tempfile.mkdtemp(prefix='fix-sweep-'))
+    tmp = scratch / pathlib.Path(path).resolve().name
+    tmp.mkdir()
+    _link_siblings(path, scratch)
+    try:
+        bad = _scratch_tree(path, tmp, engine, extra={
+            f'process/upstream/practices/{s}.md': f
+            for s, f in in_force.items()})
+        if bad:
+            return (label, None, bad)
+        verdicts = []
+        for slug in slugs:
+            try:
+                proc = subprocess.run(
+                    [sys.executable, str(tmp / 'tools' /
+                                         'precedent_check.py'),
+                     '--only', slug, '--full-sweep'],
+                    cwd=str(tmp), capture_output=True, text=True,
+                    timeout=timeout)
+            except (OSError, subprocess.SubprocessError) as exc:
+                verdicts.append((slug, 'ERRORED', type(exc).__name__))
+                continue
+            body = (proc.stdout or '') + (proc.stderr or '')
+            why = ''
+            for line in body.splitlines():
+                if line.startswith(('SKIPPED', 'VIOLATION', 'ADVISORY')):
+                    for sep in ('\u2014', '--'):
+                        if sep in line:
+                            why = line.split(sep, 1)[1].strip()
+                            break
+                    break
+            m = re.search(r'precedent_check: (\d+) passed, (\d+) violated,'
+                          r' (\d+) advisory, (\d+) errored, (\d+) skipped',
+                          body)
+            if not m:
+                verdicts.append((slug, 'UNREADABLE', 'no summary line'))
+            elif int(m.group(2)):
+                verdicts.append((slug, 'VIOLATION', why))
+            elif int(m.group(3)):
+                # An advisory check reports here, not in "passed";
+                # reading only passed/skipped called it "did not run".
+                verdicts.append((slug, 'ADVISORY', why))
+            elif int(m.group(4)):
+                verdicts.append((slug, 'ERRORED', why))
+            elif int(m.group(1)):
+                verdicts.append((slug, 'clean', ''))
+            elif int(m.group(5)):
+                verdicts.append((slug, 'SKIPPED', why
+                                 + (f' (resolver: {rnote})' if rnote else '')))
+            else:
+                verdicts.append((slug, 'did not run', ''))
+            if slug in in_force and verdicts[-1][1] != 'SKIPPED':
+                s_, v_, d_ = verdicts[-1]
+                verdicts[-1] = (s_, v_, (d_ + ' ' if d_ else '')
+                                + '(in force here by its resolver)')
+        return (label, verdicts, '')
+    finally:
+        # rmtree unlinks the sibling links; it never follows them.
+        shutil.rmtree(scratch, ignore_errors=True)
 
 def _pending_deletions(repo_dir):
     """-> (rows, note) for files the NEXT refresh would delete here, each
@@ -3434,6 +3543,12 @@ def _session_load(repo_dir):
                 continue
             n = bv._approx_tokens(f.read_text(encoding='utf-8',
                                               errors='replace'))
+        if rel == _SESSION_FILE:
+            # Charged as session-load-budget charges it, without the sets
+            # the person brings: measured whole, this reported an
+            # individual set OVER TARGET at ~4,011 against 4,000 on
+            # 2026-10-17 while the repo's own share was ~3,614.
+            n = _charged_session_file(root, n)[0]
         if n <= ceiling:
             continue
         over.append(
@@ -3466,6 +3581,12 @@ def _session_load(repo_dir):
                 continue
             n = bv._approx_tokens(f.read_text(encoding='utf-8',
                                               errors='replace'))
+        if rel == _SESSION_FILE:
+            # Charged as session-load-budget charges it, without the sets
+            # the person brings: measured whole, this reported an
+            # individual set OVER TARGET at ~4,011 against 4,000 on
+            # 2026-10-17 while the repo's own share was ~3,614.
+            n = _charged_session_file(root, n)[0]
         if n <= target:
             continue
         over.append(
@@ -3535,6 +3656,367 @@ def _session_load(repo_dir):
     # Ceilings lead: a section flagged for review is a question, and a surface
     # over a number somebody chose is work.
     return rows, over + findings
+
+
+# --- token budgets, shown even when they pass (practice: very-deep-check) --
+#
+# WHY (Morgan, 2026-10-17, strength: decided). The ceilings had gone quiet
+# for weeks -- no refusal, no warning -- and quiet reads two ways: fixed, or
+# not being checked. He asked a session to tell them apart, it measured every
+# surface against its limit in all four repos and then planted an overage in
+# a throwaway copy of each to see the checks go red, and he asked for that
+# same analysis in every very deep check: "even if they all pass, share the
+# exact numbers, the limits, the chart, and any other details", in the run's
+# own write-up. _session_load above speaks only when a surface is over, so a
+# clean run said nothing a person could read the distance to the wall from.
+#
+# SO TWO HALVES. The table: every budget in force in every repo measured,
+# with its number, its limit, the share used and the max the person
+# approved -- measured the way the enforcing check measures it (the session
+# file is charged without the sets the person brings, precedent_session_
+# practices.charged_to_repo, exactly as session-load-budget charges it).
+# And the fire test: each repo's OWN precedent_check.py, run in a detached
+# worktree of that repo with a budget planted under what it measures, must
+# report the violation -- after the same check, unplanted, reported none. A
+# check that passes on a planted overage is the "not being checked" case,
+# and is the finding this section exists for.
+
+_SESSION_FILE = '.precedent/SESSION_PRACTICES.md'
+_RESIDENT_HEAD = re.compile(
+    r'^## Resident block \(~([\d,]+) of ([\d,]+) token budget', re.M)
+
+
+def _charged_session_file(repo_dir, n):
+    """-> (charged, brought, [brought set names]) for a session file
+    measuring `n`: what that repo's ceiling pays, read through the one
+    definition every enforcing reader uses. Falls back to `n` charged whole,
+    with nothing brought, when the renderer cannot run here."""
+    try:
+        import precedent_session_practices as _psp
+        charged, brought, names, _person = _psp.charged_to_repo(
+            pathlib.Path(repo_dir), n)
+        return charged, brought, list(names or [])
+    except Exception:                                    # noqa: BLE001
+        return n, 0, []
+
+
+def _occasion_index_tokens(agents_text):
+    """-> tokens of the occasion index as the committed block carries it,
+    measured as build_views measures it (the fenced text under the heading),
+    or None when the file has no index."""
+    if '## Occasion index' not in agents_text:
+        return None
+    parts = agents_text.split('## Occasion index', 1)[1].split('```')
+    return bv._approx_tokens(parts[1]) if len(parts) > 2 else None
+
+
+def budget_rows(repo_dir, label=None):
+    """-> [row] for every token budget in force in `repo_dir`, passing or
+    not. A row is a dict: repo, what, measured (None when it cannot be
+    measured here), limit, kind ('ceiling', 'target', 'cap', 'allowance'),
+    approved (the person's max, or None), note."""
+    root = pathlib.Path(repo_dir)
+    label = label or root.name
+    reg_path = root / 'tools' / 'session_load_budgets.json'
+    try:
+        reg = json.loads(reg_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    approved = {k: v.get('max') for k, v in
+                (reg.get('approved_budgets') or {}).items()
+                if isinstance(v, dict)}
+    try:
+        force = bv.effective_budgets(root, registry=reg_path)
+    except Exception:                                    # noqa: BLE001
+        force = {}
+    rows = []
+
+    def row(what, measured, limit, kind, key, note=''):
+        rows.append({'repo': label, 'what': what, 'measured': measured,
+                     'limit': limit, 'kind': kind, 'approved': approved.get(key),
+                     'note': note})
+
+    agents = root / 'AGENTS.md'
+    agents_text = (agents.read_text(encoding='utf-8', errors='replace')
+                   if agents.is_file() else '')
+    for rel, entry in sorted((reg.get('surfaces') or {}).items()):
+        if rel.startswith('_') or not isinstance(entry, dict):
+            continue
+        f = root / rel
+        n, note = None, ''
+        if f.is_file():
+            n = bv._approx_tokens(f.read_text(encoding='utf-8',
+                                              errors='replace'))
+            if rel == _SESSION_FILE:
+                n, brought, names = _charged_session_file(root, n)
+                if brought:
+                    note = (f'plus ~{brought:,} of {", ".join(names)}, which '
+                            f'the person brings and their own budget pays')
+        else:
+            note = 'not on disk here, so not measured'
+        limit = force.get(f'surfaces/{rel}', entry.get('ceiling'))
+        if isinstance(limit, int):
+            row(rel, n, limit, 'ceiling', f'surfaces/{rel}', note)
+        target = force.get(f'surfaces/{rel}/target', entry.get('target'))
+        if isinstance(target, int):
+            row(rel, n, target, 'target', f'surfaces/{rel}/target',
+                'over it warns every session; never refuses')
+    m = _RESIDENT_HEAD.search(agents_text)
+    res_cap = force.get('resident_block_tokens')
+    if isinstance(res_cap, int):
+        row('resident block', int(m.group(1).replace(',', '')) if m else None,
+            res_cap, 'cap', 'resident_block_tokens',
+            '' if m else 'no resident block in AGENTS.md')
+    occ_cap = force.get('occasion_index')
+    if isinstance(occ_cap, int):
+        row('occasion index', _occasion_index_tokens(agents_text), occ_cap,
+            'cap', 'occasion_index')
+    share = force.get('occasion_share_tokens')
+    if isinstance(share, int):
+        try:
+            mine = bv.occasion_share(bv.load_practices(root / 'practices'))
+        except Exception:                                # noqa: BLE001
+            mine = None
+        row("this set's share of a consumer's occasion index", mine, share,
+            'allowance', 'occasion_share_tokens')
+    brought_budget = force.get('brought_sets_tokens')
+    if isinstance(brought_budget, int):
+        row('sets the person brings (their own budget)', None, brought_budget,
+            'allowance', 'brought_sets_tokens',
+            'measured per repo: the "plus" on each session-file row')
+    return rows
+
+
+def _budget_status(r, floor_pct=5):
+    """-> 'OVER', 'near', 'ok' or 'not measured' for one row; plus
+    ', NOT APPROVED' when the limit in force is above the person's max."""
+    n, lim = r['measured'], r['limit']
+    if n is None:
+        s = 'not measured'
+    elif n > lim:
+        s = 'over target' if r['kind'] == 'target' else 'OVER'
+    elif lim and n >= lim * (100 - floor_pct) / 100:
+        s = 'near'
+    else:
+        s = 'ok'
+    if r['approved'] is None and r['kind'] != 'allowance':
+        s += ', no approval recorded'
+    elif r['approved'] is not None and lim > r['approved']:
+        s += ', NOT APPROVED'
+    return s
+
+
+# Each plant: (what is planted, the check that must report it, a registry
+# edit). Every edit puts a limit UNDER what the repo measures, or a raise
+# OVER what the person approved, so the check has a real violation to find.
+_FIRE_PLANTS = (
+    ('AGENTS.md ceiling lowered under its size', 'session-load-budget',
+     lambda d: d['surfaces']['AGENTS.md'].__setitem__('ceiling', 1)),
+    ('session-file ceiling lowered under its size', 'session-load-budget',
+     lambda d: d['surfaces'][_SESSION_FILE].__setitem__('ceiling', 1)),
+    ('AGENTS.md ceiling raised 5,000 with no approval', 'budget-within-approval',
+     lambda d: d['surfaces']['AGENTS.md'].__setitem__(
+         'ceiling', d['surfaces']['AGENTS.md']['ceiling'] + 5000)),
+    ('resident-block cap lowered under its size', 'loader-within-caps',
+     lambda d: d.__setitem__('resident_block_tokens', 1)),
+)
+_VIOLATED = re.compile(r'precedent_check: \d+ passed, (\d+) violated')
+
+
+def budget_fire_test(repo_dir, label=None, timeout=180):
+    """-> [(repo, plant, check, verdict, detail)]: verdict 'fired', 'DID
+    NOT FIRE', or 'not run' with the reason in detail.
+
+    Runs the repo's own engine in a detached worktree of its HEAD, so the
+    checkout itself is never touched (practice: repair-cannot-discard-work),
+    with the untracked session file copied in. Each check runs once
+    unplanted first: a check already red there proves nothing by going red
+    again, and is reported 'not run'."""
+    root = pathlib.Path(repo_dir)
+    label = label or root.name
+    reg_rel = pathlib.Path('tools') / 'session_load_budgets.json'
+    engine = pathlib.Path('tools') / 'precedent_check.py'
+    if not (root / reg_rel).is_file() or not (root / engine).is_file():
+        return [(label, '-', '-', 'not run',
+                 'no budget registry or no precedent_check.py here')]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-budget-fire-'))
+    wt = tmp / 'wt'
+    out = []
+    try:
+        add = subprocess.run(['git', '-C', str(root), 'worktree', 'add',
+                              '--detach', '--quiet', str(wt), 'HEAD'],
+                             capture_output=True, text=True)
+        if add.returncode != 0:
+            return [(label, '-', '-', 'not run',
+                     f'git worktree add failed: {add.stderr.strip()[:120]}')]
+        if (root / _SESSION_FILE).is_file():
+            (wt / '.precedent').mkdir(exist_ok=True)
+            shutil.copy2(root / _SESSION_FILE, wt / _SESSION_FILE)
+        clean = (wt / reg_rel).read_text(encoding='utf-8')
+
+        def run(slug):
+            try:
+                p = subprocess.run([sys.executable, str(wt / engine), '--only',
+                                    slug], cwd=str(wt), capture_output=True,
+                                   text=True, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                return None, f'timed out after {timeout}s'
+            m = _VIOLATED.search(p.stdout + p.stderr)
+            if not m:
+                return None, 'printed no summary line'
+            return int(m.group(1)), ''
+
+        baseline = {}
+        for slug in sorted({p[1] for p in _FIRE_PLANTS}):
+            baseline[slug] = run(slug)
+        for what, slug, edit in _FIRE_PLANTS:
+            data = json.loads(clean)
+            try:
+                edit(data)
+            except (KeyError, TypeError):
+                out.append((label, what, slug, 'not run',
+                            'nothing to plant: the registry declares no such budget'))
+                continue
+            if what.startswith('session-file') and not (wt / _SESSION_FILE).is_file():
+                out.append((label, what, slug, 'not run',
+                            'no session file on disk here to measure'))
+                continue
+            base_n, base_why = baseline[slug]
+            if base_n is None or base_n:
+                out.append((label, what, slug, 'not run',
+                            base_why or f'already {base_n} violated unplanted'))
+                continue
+            (wt / reg_rel).write_text(json.dumps(data, indent=2),
+                                      encoding='utf-8')
+            n, why = run(slug)
+            (wt / reg_rel).write_text(clean, encoding='utf-8')
+            if n is None:
+                out.append((label, what, slug, 'not run', why))
+            else:
+                out.append((label, what, slug,
+                            'fired' if n else 'DID NOT FIRE',
+                            f'{n} violated' if n else
+                            'passed with the overage planted'))
+    finally:
+        subprocess.run(['git', '-C', str(root), 'worktree', 'remove',
+                        '--force', str(wt)], capture_output=True)
+        shutil.rmtree(tmp, ignore_errors=True)
+    return out
+
+
+def _fmt_n(n):
+    return '-' if n is None else f'{n:,}'
+
+
+def render_budget_markdown(rows, fires, totals, date=None):
+    """-> the `## Token budgets` block of the run's write-up: every budget
+    with its number, whether or not any is over."""
+    lines = [f'Measured {date}.' if date else '', '']
+    bad = [r for r in rows if _budget_status(r).split(',')[0] in
+           ('OVER', 'over target') or 'APPROVED' in _budget_status(r)
+           or 'no approval' in _budget_status(r)]
+    dead = [f for f in fires if f[3] == 'DID NOT FIRE']
+    unrun = [f for f in fires if f[3] == 'not run']
+    if not bad and not dead:
+        lines.append('**Every budget is under its limit and approved, and '
+                     'every check fired on a planted overage'
+                     + (f' ({len(unrun)} plant(s) could not run, listed '
+                        'below).**' if unrun else '.**'))
+    else:
+        lines.append(f'**{len(bad)} budget(s) over or unapproved; '
+                     f'{len(dead)} check(s) did not fire on a planted '
+                     'overage.**')
+    lines += ['', '| Repo | Budget | Measured | Limit | Used | Approved max '
+              '| Status |', '|---|---|---:|---:|---:|---:|---|']
+    for r in rows:
+        used = ('-' if r['measured'] is None or not r['limit'] else
+                f"{100 * r['measured'] / r['limit']:.0f}%")
+        what = r['what'] + (f" ({r['kind']})" if r['kind'] != 'ceiling' else '')
+        st = _budget_status(r) + (f"; {r['note']}" if r['note'] else '')
+        lines.append(f"| {r['repo']} | {what} | {_fmt_n(r['measured'])} | "
+                     f"{_fmt_n(r['limit'])} | {used} | {_fmt_n(r['approved'])} "
+                     f"| {st} |")
+    if totals:
+        lines += ['', 'What a session rooted in each repo loads before any '
+                  'work, its own instructions plus the session file: '
+                  + '; '.join(f'{k} ~{v:,}' for k, v in totals) + '.']
+    lines += ['', '**Do the checks fire?** Each repo\'s own check, run on a '
+              'throwaway copy with the budget planted under what it measures '
+              '(each one clean first):', '',
+              '| Repo | Planted | Check | Result |', '|---|---|---|---|']
+    for repo, what, slug, verdict, detail in fires:
+        lines.append(f'| {repo} | {what} | `{slug}` | {verdict}'
+                     + (f' -- {detail}' if detail and verdict != 'fired' else '')
+                     + ' |')
+    lines += ['', 'Rough tokens (words x 1.3). "near" is within the '
+              "registry's `headroom_floor_pct` of the limit."]
+    return '\n'.join(lines).strip('\n')
+
+
+def token_budgets_section(targets, repo_root, fire=True, out=None):
+    """Print the TOKEN BUDGETS section for every (label, path) in `targets`
+    and write its block into the run's write-up. -> (rows, fires)."""
+    out = out or sys.stdout
+    rows, fires, totals, private = [], [], [], {}
+    for label, path in targets:
+        if not pathlib.Path(path).is_dir():
+            continue
+        if pathlib.Path(path).resolve() == pathlib.Path(repo_root).resolve():
+            label = pathlib.Path(path).resolve().name
+        try:
+            man = json.loads((pathlib.Path(path) / 'precedent-source.json')
+                             .read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            man = {}
+        if isinstance(man, dict) and man.get('visibility') != 'public' \
+                and pathlib.Path(path).resolve() != pathlib.Path(repo_root).resolve():
+            private[man.get('name') or label] = (
+                f"a private {man.get('level') or 'practice'} set")
+            private[label] = private[man.get('name') or label]
+        # build_views narrates every deduplicated practice it skips; that is
+        # its own business, not this table's.
+        with contextlib.redirect_stderr(io.StringIO()):
+            r = budget_rows(path, label)
+        rows.extend(r)
+        loaded = [x['measured'] for x in r
+                  if x['kind'] == 'ceiling' and x['measured'] is not None
+                  and x['what'] in ('AGENTS.md', _SESSION_FILE)]
+        if loaded:
+            totals.append((label, sum(loaded)))
+        if fire:
+            fires.extend(budget_fire_test(path, label))
+    width = max([len(f"{x['repo']} {x['what']}") for x in rows] or [20])
+    for r in rows:
+        name = f"{r['repo']} {r['what']}" + (
+            f" ({r['kind']})" if r['kind'] != 'ceiling' else '')
+        used = ('' if r['measured'] is None or not r['limit'] else
+                f"{100 * r['measured'] / r['limit']:4.0f}%")
+        print(f"  {name[:width + 12]:<{width + 12}} {_fmt_n(r['measured']):>7} / "
+              f"{_fmt_n(r['limit']):>7} {used:>5}  {_budget_status(r)}",
+              file=out)
+    if not rows:
+        print('  no repo here declares tools/session_load_budgets.json -- '
+              'nothing to measure.', file=out)
+    if fires:
+        print('\n  Do the checks fire? Each repo\'s own check, on a throwaway '
+              'copy with a budget planted:', file=out)
+        for repo, what, slug, verdict, detail in fires:
+            print(f"  {verdict:<13} {repo}: {what} -> {slug}"
+                  + (f" ({detail})" if verdict != 'fired' and detail else ''),
+                  file=out)
+    md = render_budget_markdown(rows, fires, totals,
+                                date=precedent_time.today(repo_root))
+    # The write-up is tracked: in a public repo a private source is named
+    # only in general terms (practice: private-repo-scrub). The console
+    # above keeps the real names; it is not a publication.
+    if bv.repo_is_public(repo_root):
+        for name in sorted(private, key=len, reverse=True):
+            md = md.replace(name, private[name])
+    written = _write_run_block(repo_root, TOKEN_BUDGETS_EMBED,
+                               'Token budgets', 'TOKEN BUDGETS', md)
+    if written:
+        print(f'\n  Table written to {written}.', file=out)
+    return rows, fires
 
 
 # --- gotcha currency (practice: very-deep-check) ------------------------
@@ -5351,7 +5833,7 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     STALE_DAYS_DEFAULT. Each merged entry is a _merged_row dict, never a
     bare name -- see that function for why the deletion list needs dates."""
     repo_dir = pathlib.Path(repo_dir)
-    if not (repo_dir / '.git').is_dir():
+    if not _own_checkout(repo_dir):
         return None
     if stale_days is None:
         stale_days = _declared_stale_days(repo_dir) or STALE_DAYS_DEFAULT
@@ -5540,7 +6022,7 @@ def recent_activity(repo_dir, days):
     A mechanical half that pretended to the whole thing would be the
     "sample reads as clean" failure pass 2 question 14 is about."""
     repo_dir = pathlib.Path(repo_dir)
-    if not (repo_dir / '.git').is_dir():
+    if not _own_checkout(repo_dir):
         return None
     out = {'days': days, 'shallow': False, 'commits': [], 'branches': [],
            'note': None}
@@ -7049,6 +7531,20 @@ def boundary_audit(repo_root, sources=(), skip_api=False, out=None):
             print(f'  FINDING    {label} -- {line}', file=out)
         else:
             print(f'  current    {label} -- {line}', file=out)
+        if not draws and ask_github:
+            # A SET'S BOUNDARY IS A SETTING TOO (2026-10-17). approvers.json
+            # and the CODEOWNERS made from it bind only where GitHub requires
+            # code-owner review on the base branch, and precedent_boundary_
+            # check judges protection against a document project's plan
+            # (required approvals 0), so it is not asked here. Until this
+            # note, a current CODEOWNERS printed the section's "current and
+            # on" with the setting never read.
+            notes.append(f'{label}: whether GitHub requires code-owner '
+                         f'review is not read for a set drawn by '
+                         f'approvers.json -- not a pass')
+            print(f'  not asked  {label} -- protection: a set drawn by '
+                  f'approvers.json is not asked about', file=out)
+            continue
         if not draws or not ask_github:
             continue
         if skip_api:
@@ -7785,10 +8281,23 @@ def _record_pass(value, path=None, repo=None):
               f"complete (newest {runs[-1].get('run_id')}); this pass is "
               f"recorded against the last completed run instead.",
               file=sys.stderr)
-    target.setdefault('passes', []).append(entry)
+    # ONE ENTRY PER PASS PER RUN (2026-10-17). Recording a pass again --
+    # its findings recounted, its note corrected -- used to append a second
+    # entry beside the first, so the run carried two answers for one pass
+    # and every reader took whichever it met first. The newer one replaces
+    # the older, in place.
+    passes = target.setdefault('passes', [])
+    same = [i for i, p in enumerate(passes) if str(p.get('pass')) == name]
+    if same:
+        passes[same[0]] = entry
+        for i in reversed(same[1:]):
+            del passes[i]
+    else:
+        passes.append(entry)
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     print(f"recorded: pass {name} = {status or '(no status)'} against the run "
-          f"of {target.get('run_id')} in {path}.")
+          f"of {target.get('run_id')} in {path}"
+          + (", replacing the entry already recorded for it." if same else "."))
     # The run's full account is owed the moment its last pass is in, and the
     # deep check refuses a push without it (practice: very-deep-check;
     # Morgan, 2026-10-11, after a run left it out until he asked).
@@ -8307,6 +8816,7 @@ def _update_spec_doc_block(repo_root, name, markdown):
 # warning information should be printed in the ... doc that details what
 # happened with this very deep check."
 WARNINGS_EMBED = 'warnings'
+TOKEN_BUDGETS_EMBED = 'token-budgets'
 LATEST_RUN_RELPATH = pathlib.Path('spec') / 'VERY_DEEP_CHECK_LATEST_RUN.md'
 
 
@@ -8322,8 +8832,15 @@ def _warnings_doc_path(repo_root):
 
 
 def _write_warnings_block(repo_root, markdown):
-    """Rewrite the warnings block in the run's write-up, appending a
-    `## Warnings` section that carries it when the write-up has none: the
+    """Rewrite the warnings block in the run's write-up (_write_run_block).
+    -> the path written, or None."""
+    return _write_run_block(repo_root, WARNINGS_EMBED, 'Warnings', 'WARNINGS',
+                            markdown, 'refresh with --refresh-warnings')
+
+
+def _write_run_block(repo_root, embed, heading, section, markdown, how=''):
+    """Rewrite the `embed` block in the run's write-up, appending a
+    `## <heading>` section that carries it when the write-up has none: the
     session rewrites that file every run, and a block it dropped must come
     back rather than silently stop being written. -> the path written, or
     None."""
@@ -8331,19 +8848,510 @@ def _write_warnings_block(repo_root, markdown):
     if path is None:
         return None
     text = path.read_text(encoding='utf-8')
-    pattern = _vdc_embed_re(WARNINGS_EMBED)
+    pattern = _vdc_embed_re(embed)
     if pattern.search(text):
         new_text = pattern.sub(lambda m: m.group(1) + markdown + m.group(2),
                                text, count=1)
     else:
-        new_text = (text.rstrip('\n') + '\n\n## Warnings\n\n'
-                    + '<!--vdc-embed:' + WARNINGS_EMBED + ': never hand-edit '
-                    '-- written by tools/very_deep_check.py\'s WARNINGS section; '
-                    'refresh with --refresh-warnings -->\n' + markdown
-                    + '\n<!--/vdc-embed:' + WARNINGS_EMBED + '-->\n')
+        new_text = (text.rstrip('\n') + f'\n\n## {heading}\n\n'
+                    + '<!--vdc-embed:' + embed + ': never hand-edit '
+                    f'-- written by tools/very_deep_check.py\'s {section} section'
+                    + (f'; {how}' if how else '') + ' -->\n' + markdown
+                    + '\n<!--/vdc-embed:' + embed + '-->\n')
     if new_text != text:
         path.write_text(new_text, encoding='utf-8')
     return path
+
+
+# CHECKS BY STAGE (practice: very-deep-check, Pass 2's question 25; Morgan,
+# 2026-10-17, strength: decided). Before a push to staging or main only the
+# bare essentials and the leak gate run; every other check runs at the Debut
+# and after Produce (GitHub's test, or the full local suite on main where
+# that is not due). Checks crept the other way twice -- the quick check took
+# 218 s by 2026-10-16 (spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md) -- so every run
+# lists what runs before and after each move, read from the code that runs
+# it, and flags anything before a push that the closed quick tier does not
+# name.
+STAGES_EMBED = 'checks-by-stage'
+# The function in precedent_branches.py that calls _check(), -> (the move,
+# when its check runs, where the move goes). 'before': the move runs it
+# before it pushes or merges, so only the quick tier may run there.
+# 'asked': a route taken only on the person's own words. 'after': a check of
+# work already on the branch. 'moves-nothing': the Debut. 'retired': a route
+# of pre-staging, retired for everyone 2026-10-14 (spec/
+# PRE_STAGING_RETIREMENT_PLAN.md), whose code waits to be deleted.
+_PRE_STAGING_ITEM = 'todo/todo-2026-10-14-delete-pre-staging-code.md'
+STAGE_ROUTES = {
+    '_land_composed': ('Booked: the land onto staging', 'before', 'staging'),
+    '_promote_to_main_fast': ('Produce: the fast move into main (the default)',
+                              'before', 'main'),
+    '_promote_to_main': ('Produce: the --full route, on the person\'s own words',
+                         'asked', 'main'),
+    '_promote_unlocked': ('Promote from pre-staging into staging', 'retired',
+                          'staging'),
+    'sync_pre_staging': ('Sync into pre-staging', 'retired', 'pre-staging'),
+    '_check_tier': ('Drift sync: work that reached staging or main from '
+                    'above, checked before it is copied down', 'after',
+                    'pre-staging'),
+    '_run_tests': ('Debut', 'moves-nothing', None),
+}
+# What a check started from the per-file step must never be: a test, the
+# harness or the practice checks (verify_harness.check_quick_tier_is_closed
+# scans for the same; this is the copy a very deep check reads every run).
+_TEST_RUNNERS = ('verify_harness.py', 'precedent_check.py', 'run_all.sh')
+
+
+def _workflow_triggers(text):
+    """-> {event: [branch, ...] or None (every branch)} for the push and
+    pull_request events a workflow's `on:` names."""
+    out, event, inside, in_branches = {}, None, False, False
+    for line in text.splitlines():
+        body = line.split(' #', 1)[0].rstrip()
+        if not body.strip() or body.lstrip().startswith('#'):
+            continue
+        ind = len(body) - len(body.lstrip(' '))
+        if ind == 0:
+            m = re.match(r'["\']?on["\']?:\s*(.*)$', body)
+            inside = bool(m) and not m.group(1).strip()
+            if m and m.group(1).strip():
+                for ev in re.findall(r'[\w-]+', m.group(1)):
+                    if ev in ('push', 'pull_request'):
+                        out[ev] = None
+            continue
+        if not inside:
+            continue
+        if ind == 2:
+            m = re.match(r'\s*([\w-]+)\s*:', body)
+            event = m.group(1) if m and m.group(1) in ('push', 'pull_request') else None
+            if event:
+                out[event] = None
+            in_branches = False
+            continue
+        if event is None:
+            continue
+        m = re.match(r'\s*branches\s*:\s*(.*)$', body)
+        if m:
+            listed = re.findall(r'[\w./*-]+', m.group(1))
+            out[event] = listed or []
+            in_branches = not listed
+            continue
+        m = re.match(r'\s*-\s*["\']?([\w./*-]+)', body)
+        if in_branches and m:
+            out[event].append(m.group(1))
+        elif not m:
+            in_branches = False
+    return out
+
+
+def _gh_after(tree, branch):
+    """-> ['<workflow> (<event>)', ...]: the GitHub workflows in `tree` that
+    run after a push to `branch`, or on a pull request into it."""
+    found = []
+    for wf in sorted((pathlib.Path(tree) / '.github' / 'workflows').glob('*.y*ml')):
+        try:
+            trig = _workflow_triggers(wf.read_text(encoding='utf-8', errors='replace'))
+        except OSError:
+            continue
+        for ev, branches in sorted(trig.items()):
+            if branches is None or any(fnmatch.fnmatchcase(branch, b)
+                                       for b in branches):
+                found.append(f'{wf.name} ({"push" if ev == "push" else "pull request into it"})')
+    return found
+
+
+def stage_checks(tree):
+    """-> what runs before and after each move in the repository at `tree`,
+    read from that tree's own push check and branch tool: a dict, or one
+    with 'skip' saying why nothing could be read. Run in a process of its
+    own (--stage-checks-json), so a vendored copy is read, not this one."""
+    tree = pathlib.Path(tree).resolve()
+    tools = tree / 'tools'
+    if not (tools / 'precedent_push_check.py').is_file():
+        return {'skip': 'carries no tools/precedent_push_check.py, so no check '
+                        'runs before its pushes but its own hooks'}
+    import ast, inspect, textwrap
+    for name, mod in list(sys.modules.items()):
+        f = getattr(mod, '__file__', None) or ''
+        if f and pathlib.Path(f).resolve().parent == ROOT / 'tools' and name != '__main__':
+            del sys.modules[name]
+    sys.path.insert(0, str(tools))
+    import precedent_push_check as ppc
+    try:
+        import precedent_branches as pb
+    except ImportError:
+        pb = None
+    kind, full = ppc.plan(tree, engine=tools, tier=ppc.FULL)
+    _k, basic = ppc.plan(tree, engine=tools, tier=ppc.BASIC)
+    approved = getattr(ppc, 'BASIC_CHECKS_APPROVED', None) or {
+        n: (None, None) for n in getattr(ppc, 'BASIC_CHECKS', ())}
+    quick = []
+    for name, _argv, _r in basic:
+        words, secs = approved.get(name, (None, None))
+        quick.append({'name': name, 'words': words, 'secs': secs,
+                      'approved': name in approved})
+    basic_names = {n for n, _a, _r in basic}
+    full_only = [n for n, _a, _r in full if n not in basic_names]
+    findings = []
+    for q in quick:
+        if not q['approved']:
+            findings.append(('VIOLATION', f"{q['name']} runs before every push "
+                             f"and is not in BASIC_CHECKS_APPROVED -- move it to "
+                             f"the full tier (the Debut and after Produce); only "
+                             f"the person's own words, after being told its time "
+                             f"and urged to leave it to the Debut, let it in "
+                             f"(practice: quick-tier-is-closed)"))
+        elif not (q['words'] and re.search(r'\b20\d\d-\d\d-\d\d\b', q['words'])
+                  and '"' in q['words']):
+            findings.append(('VIOLATION', f"{q['name']}: its approval quotes no "
+                             f"one's words with a date"))
+    untimed = [q['name'] for q in quick if q['approved'] and q['secs'] is None]
+    # The per-file step a landing adds: it must start no test.
+    per_file = ''
+    for fn in ('changed_files_check', '_check_script_tests'):
+        if hasattr(ppc, fn):
+            per_file += textwrap.dedent(inspect.getsource(getattr(ppc, fn))) + '\n'
+    if per_file:
+        for node in ast.walk(ast.parse(per_file)):
+            if isinstance(node, ast.Call) and getattr(node.func, 'attr', '') in (
+                    'run', 'Popen', 'check_output', 'call'):
+                words = [n.value for n in ast.walk(node)
+                         if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+                if any(w.endswith(_TEST_RUNNERS) or w == '--changed-files-only'
+                       for w in words):
+                    findings.append(('VIOLATION', 'the per-file step a landing '
+                                     'adds starts a test or the practice checks: '
+                                     + (ast.get_source_segment(per_file, node) or
+                                        'a call')[:120]))
+    routes = []
+    pb_path = tools / 'precedent_branches.py'
+    if pb_path.is_file():
+        src = pb_path.read_text(encoding='utf-8')
+        for fn in ast.walk(ast.parse(src)):
+            if not isinstance(fn, ast.FunctionDef):
+                continue
+            for node in ast.walk(fn):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                        and node.func.id == '_check' and len(node.args) >= 3
+                        and isinstance(node.args[2], ast.Name)):
+                    tier = {'BASIC': 'basic', 'FULL': 'full'}.get(node.args[2].id,
+                                                                 node.args[2].id)
+                    move, when, dest = STAGE_ROUTES.get(
+                        fn.name, (None, None, None))
+                    routes.append({'fn': fn.name, 'line': node.lineno,
+                                   'tier': tier, 'move': move, 'when': when,
+                                   'dest': dest})
+                    if move is None:
+                        findings.append(('FINDING', f'precedent_branches.py:'
+                                         f'{node.lineno}: {fn.name} runs the '
+                                         f'{tier} check and no stage names it '
+                                         f'-- add it to STAGE_ROUTES in '
+                                         f'tools/very_deep_check.py, saying '
+                                         f'whether it runs before a push'))
+                    elif when == 'retired':
+                        findings.append(('RETIRED', f'{move} is pre-staging '
+                                         f'code still present (precedent_'
+                                         f'branches.py:{node.lineno}, {fn.name})'
+                                         f' -- pre-staging was retired '
+                                         f'2026-10-14; delete it as '
+                                         f'{_PRE_STAGING_ITEM} says'))
+                    elif when == 'before' and tier != 'basic' and dest in (
+                            'staging', 'main'):
+                        findings.append(('VIOLATION', f'{move} runs the {tier} '
+                                         f'check before it pushes '
+                                         f'(precedent_branches.py:{node.lineno},'
+                                         f' {fn.name}) -- only the quick tier '
+                                         f'may run before a push to {dest}'))
+    gates = {}
+    if pb is not None and hasattr(pb, 'tier_for_branch'):
+        staging = pb.staging_branch(tree) if hasattr(pb, 'staging_branch') else 'staging'
+        for branch in dict.fromkeys((staging, pb.MAIN)):
+            try:
+                tier, why = pb.tier_for_branch(tree, branch)
+            except Exception as exc:                             # noqa: BLE001
+                tier, why = None, f'could not be read: {type(exc).__name__}'
+            gates[branch] = {'tier': tier, 'why': why}
+            if tier == 'full':
+                findings.append(('VIOLATION', f'a push to {branch} runs the full '
+                                 f'tier before it goes ({why}; the pre-push gate, '
+                                 f'and the merge gate for any pull request but a '
+                                 f'fast move\'s copy, read tier_for_branch) '
+                                 f'-- only the quick tier may run before a push '
+                                 f'to {branch}'))
+        if staging != pb.MAIN and gates.get(staging, {}).get('tier') == 'basic' \
+                and hasattr(pb, 'lands_on_staging'):
+            real = pb.lands_on_staging
+            pb.lands_on_staging = lambda *a, **k: (False, None)
+            try:
+                tier, why = pb.tier_for_branch(tree, staging)
+            finally:
+                pb.lands_on_staging = real
+            gates['for a person who still promotes from pre-staging'] = {
+                'tier': tier, 'why': why, 'branch': staging}
+            if tier == 'full':
+                findings.append(('RETIRED', f'a push to {staging} still runs the '
+                                 f'full tier for a person who does not land on '
+                                 f'it, which only the retired pre-staging route '
+                                 f'left anyone doing ({why}); delete it with the '
+                                 f'pre-staging code ({_PRE_STAGING_ITEM})'))
+    staging = pb.staging_branch(tree) if pb is not None and hasattr(
+        pb, 'staging_branch') else 'staging'
+    return {'kind': kind, 'quick': quick, 'untimed': untimed,
+            'full_only': full_only, 'routes': routes, 'gates': gates,
+            'staging': staging,
+            'gh_after': {'staging': _gh_after(tree, staging),
+                         'main': _gh_after(tree, 'main')},
+            'full_after': bool(pb is not None and hasattr(pb, 'full_check_after')),
+            'findings': findings}
+
+
+# SET INDEPENDENCE (practice: very-deep-check, Pass 2's question 26;
+# Morgan, 2026-10-17, strength: decided). A practice set's rules, checks and
+# tests live in the set; BestPractice runs them and never says what one
+# set's rule is. On 2026-10-16 BestPractice held a set's practice names in
+# its logic and its tests, and it took a night's work to take them out. The
+# inventory is precedent_check.py's enforcement-lives-with-its-practice; this
+# section runs it, sets apart what the plan of record holds back on purpose,
+# and writes the result into the run's account.
+SETS_EMBED = 'set-independence'
+_SETS_PLAN = pathlib.Path('spec') / 'ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md'
+
+
+def _waiting_files(repo_root):
+    """-> the tools/ files the plan's part 3 holds in the engine until the
+    person says go: read from the plan, which is the record."""
+    try:
+        text = (pathlib.Path(repo_root) / _SETS_PLAN).read_text(encoding='utf-8')
+    except OSError:
+        return set()
+    m = re.search(r'^## 3\..*?(?=^## \d)', text, re.S | re.M)
+    return set(re.findall(r'tools/([\w.-]+\.py)', m.group(0))) if m else set()
+
+
+def set_independence(repo_root):
+    """-> (fix, waiting, note): the inventory's findings as (file, text),
+    split into those to fix now and those the plan holds back; `note` says
+    why nothing could be read."""
+    p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                        'enforcement-lives-with-its-practice'],
+                       cwd=repo_root, capture_output=True, text=True, timeout=600)
+    out = p.stdout + p.stderr
+    if re.search(r'^\s*(SKIPPED|NOT APPLICABLE)\b', out, re.M) or \
+            ' 1 skipped' in out:
+        why = re.search(r'^\s*SKIPPED\s+\S+\s+[-—]+\s*(.*)$', out, re.M)
+        return [], [], (why.group(1).strip() if why else 'the inventory did not run here')
+    rows = []
+    for line in out.splitlines():
+        m = re.match(r'^\s{2,}((?:tools|practices)/\S+|[\w.-]+/(?:practices|tools)/\S+)'
+                     r': (.*)$', line)
+        if m:
+            rows.append((m.group(1), m.group(2)))
+    waiting_files = _waiting_files(repo_root)
+    held = {f for f, _t in rows if pathlib.PurePosixPath(f).name in waiting_files}
+    held_slugs = {s for f, t in rows if f in held
+                  for s in re.findall(r"practice ([\w-]+)", t)}
+    fix, waiting = [], []
+    for f, t in rows:
+        named = re.findall(r"practice ([\w-]+)", t)
+        if f in held or (f.startswith('tools/') and ' in a test' in t
+                         and named and set(named) <= held_slugs):
+            waiting.append((f, t))
+        else:
+            fix.append((f, t))
+    return fix, waiting, None
+
+
+def set_independence_section(repo_root):
+    """Print SET INDEPENDENCE, write its block into the run's write-up, and
+    -> the number of findings to fix now."""
+    fix, waiting, note = set_independence(repo_root)
+    md = ['Read by this run from `python3 tools/precedent_check.py --only '
+          'enforcement-lives-with-its-practice` (`tools/very_deep_check.py`, '
+          'SET INDEPENDENCE). A practice set\'s rules, checks and tests live '
+          'in the set; BestPractice runs them and never names one set\'s '
+          'rule in its code, its tests or a universal practice.', '']
+    if note:
+        print(f'  not read here: {note}.')
+        md.append(f'Not read here: {note}.')
+    else:
+        print(f'  TO FIX IN THIS PASS ({len(fix)}): move it into the set that '
+              f'owns it -- its check, its test, its rule -- or plant a made-up '
+              f'name in an engine test. A set this session cannot land in gets '
+              f'a Prompt Please.')
+        for f, t in fix:
+            print(f'    {f}: {t}')
+        if not fix:
+            print('    none -- every set keeps its own rules, checks and tests.')
+        print(f'\n  HELD IN THE ENGINE ON PURPOSE ({len(waiting)}): the plan of '
+              f'record\'s part 3, waiting on the person\'s go-ahead '
+              f'({_SETS_PLAN.as_posix()}). Listed, not fixed.')
+        by_file = collections.Counter(f for f, _t in waiting)
+        for f, n in sorted(by_file.items()):
+            print(f'    {f}: {n} name(s)')
+        md += [f'**To fix in this pass: {len(fix)}.**', '']
+        md += [f'- `{f}`: {t}' for f, t in fix] or ['None: every set keeps its '
+                                                    'own rules, checks and tests.']
+        md += ['', f'**Held in the engine on purpose: {len(waiting)}** (the plan '
+               f'of record\'s part 3, [{_SETS_PLAN.name}]'
+               f'({_SETS_PLAN.name}), waiting on the person\'s go-ahead): '
+               + (', '.join(f'`{f}` ({n})' for f, n in sorted(by_file.items()))
+                  or 'none') + '.']
+    written = _write_run_block(repo_root, SETS_EMBED, 'Set independence',
+                               'SET INDEPENDENCE', '\n'.join(md))
+    if written:
+        print(f'\n  written into {pathlib.Path(written).relative_to(repo_root)}, '
+              f'its `## Set independence` block.')
+    return len(fix)
+
+
+def _stage_lines(name, r):
+    """-> the CHECKS BY STAGE lines for one repository's stage_checks()."""
+    if r.get('skip'):
+        return [f'  {name}: {r["skip"]}.']
+    q = r['quick']
+    secs = sum(x['secs'] or 0 for x in q)
+    out = [f'  {name} ({r["kind"]}):',
+           f'    THE QUICK TIER -- all that may run before a push to '
+           f'{r["staging"]} or main: {len(q)} check(s), {secs} s measured'
+           + (f', {len(r["untimed"])} never timed' if r['untimed'] else '')]
+    for x in q:
+        t = f'{x["secs"]} s' if x['secs'] is not None else 'untimed'
+        why = x['words'] if x['approved'] else 'NOT APPROVED'
+        out.append(f'      {x["name"]:<22} {t:>8}  {why}')
+    out.append(f'    THE FULL TIER ADDS (the Debut, and after Produce): '
+               + (', '.join(r['full_only']) or 'nothing'))
+
+    def by(fn):
+        return [x for x in r['routes'] if x['fn'] == fn]
+
+    def tiers(fn):
+        return ', '.join(f'{x["tier"]} tier (precedent_branches.py:{x["line"]})'
+                         for x in by(fn)) or 'no check found'
+    st, gates = r['staging'], r['gates']
+
+    def gate(b):
+        g = gates.get(b)
+        return f'{g["tier"]} tier -- {g["why"]}' if g else 'not read'
+    gh_s = ', '.join(r['gh_after']['staging']) or 'none'
+    gh_m = ', '.join(r['gh_after']['main']) or 'none'
+    out += [f'    BOOKED (step 3 of 5), onto {st}:',
+            f'      before: {tiers("_land_composed")}; a plain push to {st}: '
+            f'{gate(st)}',
+            f'      after:  nothing automatic; GitHub: {gh_s}. The full tier '
+            f'runs at the Debut, when asked.',
+            f'    PRODUCE (step 5 of 5), {st} into main:',
+            f'      before: {tiers("_promote_to_main_fast")}; the --full route, '
+            f'only on the person\'s own words: {tiers("_promote_to_main")}; a '
+            f'plain push to main, or a pull request into it that is not a '
+            f'fast move\'s copy: {gate("main")}',
+            f'      after:  GitHub: {gh_m}, when due'
+            + ('; where it is not due or none is installed, the full local '
+               'suite on main (--run-tests main), unless only prose changed, '
+               'a Debut passed on the same pair, or the person asked for none'
+               if r['full_after'] else '') + '.',
+            f'    DEBUT (step 4 of 5), on {st}:',
+            f'      before: nothing. It IS the full tier: {tiers("_run_tests")}.',
+            f'      after:  nothing -- it moves nothing.']
+    other = [x for x in r['routes'] if x['fn'] not in (
+        '_land_composed', '_promote_to_main_fast', '_promote_to_main', '_run_tests')]
+    if other or any(k.startswith('for a person') for k in gates):
+        out.append('    OTHER MOVES:')
+        for x in other:
+            out.append(f'      {x["move"] or x["fn"]}: {x["tier"]} tier, '
+                       f'{x["when"] or "unclassified"} '
+                       f'(precedent_branches.py:{x["line"]})')
+        for k, g in gates.items():
+            if k.startswith('for a person'):
+                out.append(f'      a push to {g["branch"]}, {k}: {g["tier"]} tier')
+    for level, text in r['findings']:
+        out.append(f'    {level}: {text}')
+    if not r['findings']:
+        out.append('    clean -- nothing but the quick tier runs before a push.')
+    return out
+
+
+def _stage_markdown(results):
+    """-> the `## Checks by stage` block for the run's write-up."""
+    md = ['Read from each repository\'s own push check and branch tool by '
+          'this run (`tools/very_deep_check.py`, CHECKS BY STAGE). Before a '
+          'push to staging or main only the quick tier may run: the bare '
+          'essentials and the leak gate (Morgan, 2026-10-16 and 2026-10-17).',
+          '']
+    for name, r in results:
+        md.append(f'### {name}')
+        md.append('')
+        if r.get('skip'):
+            md += [f'{r["skip"][0].upper()}{r["skip"][1:]}.', '']
+            continue
+        st = r['staging']
+        q = r['quick']
+
+        def tier(fn):
+            return ', '.join(sorted({x['tier'] for x in r['routes']
+                                     if x['fn'] == fn})) or 'none'
+        g = {b: (v['tier'] or 'unread') for b, v in r['gates'].items()}
+        gh_s = ', '.join(r['gh_after']['staging']) or 'none'
+        gh_m = ', '.join(r['gh_after']['main']) or 'none'
+        md += ['| Stage | Before | After |', '|---|---|---|',
+               f'| Booked, onto {st} | {tier("_land_composed")} tier '
+               f'(a plain push: {g.get(st, "unread")}) | nothing automatic; '
+               f'GitHub: {gh_s} |',
+               f'| Produce, into main | {tier("_promote_to_main_fast")} tier '
+               f'(`--full` on request: {tier("_promote_to_main")}; a plain '
+               f'push, or a pull request that is not a fast move\'s copy: '
+               f'{g.get("main", "unread")}) | '
+               f'GitHub: {gh_m}'
+               + ('; else the full local suite on main' if r['full_after'] else '')
+               + ' |',
+               f'| Debut, on {st} | nothing | nothing (it is the '
+               f'{tier("_run_tests")} tier and moves nothing) |', '',
+               f'The quick tier ({len(q)}): '
+               + ', '.join(f'`{x["name"]}`' + (f' {x["secs"]} s' if x['secs']
+                                                is not None else ' untimed')
+                           for x in q) + '.', '',
+               'The full tier adds: '
+               + (', '.join(f'`{n}`' for n in r['full_only']) or 'nothing')
+               + '.', '']
+        if r['findings']:
+            md += [f'- **{lvl}**: {t}' for lvl, t in r['findings']] + ['']
+        else:
+            md += ['Clean: nothing but the quick tier runs before a push.', '']
+    return '\n'.join(md).rstrip('\n')
+
+
+def checks_by_stage_section(targets, repo_root):
+    """Print CHECKS BY STAGE for every repository in `targets` [(name,
+    path)], write its block into the run's write-up, and -> the number of
+    findings."""
+    results = []
+    for name, path in targets:
+        if not pathlib.Path(path).is_dir():
+            continue
+        p = subprocess.run([sys.executable, str(pathlib.Path(__file__).resolve()),
+                            '--stage-checks-json', str(path)],
+                           capture_output=True, text=True, timeout=120)
+        try:
+            r = json.loads(p.stdout)
+        except ValueError:
+            r = {'skip': 'could not be read: ' + ((p.stderr or p.stdout).strip()
+                                                  .splitlines() or ['no output'])[-1]}
+        results.append((name, r))
+    for name, r in results:
+        for line in _stage_lines(name, r):
+            print(line)
+        print()
+    n = sum(1 for _n, r in results for lvl, _t in r.get('findings') or []
+            if lvl != 'RETIRED')
+    if n:
+        print(f'  {n} finding(s). Fix each in this pass: move the check to the '
+              f'full tier, or change the move so it runs the quick tier '
+              f'before it pushes. Only the person\'s own words keep a check '
+              f'before a push (practice: quick-tier-is-closed).')
+    written = _write_run_block(repo_root, STAGES_EMBED, 'Checks by stage',
+                               'CHECKS BY STAGE', _stage_markdown(results))
+    if written:
+        print(f'  written into {pathlib.Path(written).relative_to(repo_root)}, '
+              f'its `## Checks by stage` block.')
+    return n
 
 
 def _warnings_open_history(repo_root):
@@ -8389,7 +9397,8 @@ def warnings_section(repo_root, precedent_check_output=None, refresh=False,
           'block.', file=out)
     written = _write_warnings_block(
         repo_root, wr.render_markdown(result, problems, notes,
-                                      previous=previous, start=start))
+                                      previous=previous, start=start,
+                                      repo_root=repo_root))
     if written:
         print(f'  Summary written to '
               f'{written.relative_to(pathlib.Path(repo_root).resolve()) if written.is_absolute() else written}.',
@@ -8584,6 +9593,63 @@ def _write_branch_report(branch_scans, out_path, repo_root, held_back=(),
     return out_path
 
 
+# What this tool writes into the repository it checks, and asks to have
+# committed with the run, as that repository's generated-files registry
+# must list it. The entries are this repository's own for the same files.
+RUN_OUTPUT_ENTRIES = [
+    {
+        "path": "record/stale_branches.md",
+        "generated_by": "tools/very_deep_check.py",
+        "edit_instead": None,
+        "regenerate": "python3 tools/very_deep_check.py",
+        "check": None,
+        "why_no_check": "a snapshot of live branches, rewritten by each very deep check run; nothing offline can say what it should read now"
+    },
+    {
+        "path": "record/very-deep-check-ledger.json",
+        "generated_by": "tools/very_deep_check.py",
+        "edit_instead": None,
+        "regenerate": "python3 tools/very_deep_check.py",
+        "check": None,
+        "why_no_check": "an append-only log each run adds itself to; there is nothing to regenerate it from"
+    }
+]
+
+
+def register_run_outputs(repo_root):
+    """List this run's record files in the checked repository's
+    tools/generated_files.json, when it keeps one and they are missing.
+    -> the paths added.
+
+    WHY THE WRITER REGISTERS (2026-10-17). In all three practice sets the
+    commit of the run record this tool asks for failed
+    generated-files-registered, because a set's registry, written at
+    bootstrap, lists only its views -- and it cannot list these two in
+    advance, since the check refuses an entry for a file that does not
+    exist yet. The tool that creates a file is the one place that knows,
+    at the moment it exists, that it must be listed. A repo with no
+    registry is left alone; an entry already there is never rewritten."""
+    path = pathlib.Path(repo_root) / 'tools' / 'generated_files.json'
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except ValueError:
+        return []
+    files = data.get('files')
+    if not isinstance(files, list):
+        return []
+    listed = {e.get('path') for e in files if isinstance(e, dict)}
+    added = [dict(e) for e in RUN_OUTPUT_ENTRIES
+             if e['path'] not in listed
+             and (pathlib.Path(repo_root) / e['path']).is_file()]
+    if added:
+        data['files'] = files + added
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                        encoding='utf-8')
+    return [e['path'] for e in added]
+
+
 def _exit(message):
     print(message, file=sys.stderr)
     return 1
@@ -8604,6 +9670,11 @@ def main():
         led = box.get('ledger')
         if led is not None:
             led.finish(completed=box['completed'])
+            if led.saved:
+                for rel in register_run_outputs(led.repo or ROOT):
+                    print(f"  note: listed {rel} in tools/generated_files.json, "
+                          f"so committing it passes generated-files-registered",
+                          file=sys.stderr)
 
 
 # Every flag _main reads. A flag outside these two sets used to fall
@@ -8615,7 +9686,7 @@ def main():
 # recorded.
 VALUED_FLAGS = ('--repo', '--user-config', '--target', '--stale-days',
                 '--session-days', '--record-pass', '--record-read',
-                '--ledger', '--branch-report', '--emit')
+                '--ledger', '--branch-report', '--emit', '--stage-checks-json')
 BOOLEAN_FLAGS = ('--json', '--allow-missing-sources', '--skip-branch-scan',
                  '--skip-practice-catalogue', '--catalogue-include-private',
                  '--checklist', '--with-harness', '--skip-visibility',
@@ -8648,6 +9719,15 @@ def _main(box):
               f"anything ran, so the ledger is untouched.\n\n"
               f"{(__doc__ or '').strip()}", file=sys.stderr)
         return 2
+    if '--stage-checks-json' in args:
+        # One repository's CHECKS BY STAGE, in a process of its own so that
+        # repository's vendored tools are the ones imported: no ledger, no
+        # freshness gate, no other section.
+        i = args.index('--stage-checks-json')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --stage-checks-json needs a value.")
+        print(json.dumps(stage_checks(args[i + 1])))
+        return 0
     repo, user_config, checkout_target, stale_days = None, None, None, None
     session_days = None
     for flag, dest in (('--repo', 'repo'), ('--user-config', 'user_config'),
@@ -8837,22 +9917,34 @@ def _main(box):
                  f"precedent.json to enumerate its own scope, so it cannot "
                  f"report anything else while one of them is malformed.")
 
+    def _planted_section():
+        # CHEAP BEFORE EXPENSIVE (2026-10-17, practice: gates-fail-fast).
+        # With --with-harness this section is the whole suite, about half an
+        # hour, and it used to run here, before the declared sources'
+        # freshness gate; a run spent 27 minutes on it and was then refused
+        # in seconds for a stale source. Without --with-harness it only
+        # reads the rotation's state, so it still prints here; with it, it
+        # waits until every gate below has passed.
+        if led:
+            led.start('PLANTED CASE COVERAGE')
+        _pc_status, _pc_lines = planted_case_coverage(_root, run=with_harness)
+        if not as_json:
+            print("PLANTED CASE COVERAGE -- the push gate's rotation, settled "
+                  "or still owed\n")
+            for _l in _pc_lines:
+                print(f"  {_l}")
+            print()
+        if led:
+            # An owed rotation is a finding: the promise "covered within 10
+            # commits" is the thing this section exists to stop taking on
+            # trust. 'n/a' is unmeasurable, never clean.
+            led.end(findings=None if _pc_status == 'n/a'
+                    else (0 if _pc_status == 'ran' and not any(
+                        l.startswith('FAIL') for l in _pc_lines) else 1))
+
+    if not with_harness:
+        _planted_section()
     if led:
-        led.start('PLANTED CASE COVERAGE')
-    _pc_status, _pc_lines = planted_case_coverage(_root, run=with_harness)
-    if not as_json:
-        print("PLANTED CASE COVERAGE -- the push gate's rotation, settled "
-              "or still owed\n")
-        for _l in _pc_lines:
-            print(f"  {_l}")
-        print()
-    if led:
-        # An owed rotation is a finding: the promise "covered within 10
-        # commits" is the thing this section exists to stop taking on
-        # trust. 'n/a' is unmeasurable, never clean.
-        led.end(findings=None if _pc_status == 'n/a'
-                else (0 if _pc_status == 'ran' and not any(
-                    l.startswith('FAIL') for l in _pc_lines) else 1))
         led.start('VENDORED SURPLUS')
     _vs_n = _vendored_surplus_section(_root, as_json)
     if led:
@@ -8933,6 +10025,8 @@ def _main(box):
                      f"pure artifact -- a convention 'not rolled out' that "
                      f"was rolled out last week. Run each remedy above, or "
                      f"--freshen, and start again.")
+    if with_harness:
+        _planted_section()
 
     # Still THERE, not only still current. The freshness gate above proves
     # each repo in force matches its origin; it cannot see that the origin
@@ -9994,6 +11088,10 @@ def _main(box):
                     _fs_findings += 1
                 _tail = f" -- {_detail}" if _detail else ''
                 print(f"      {_label}: {_slug} -> {_verdict}{_tail}")
+            _one = _one_skip_cause(_verdicts)
+            if _one:
+                _fs_findings += 1
+                print(f"      {_label}: {_one}")
         print("\n  A VIOLATION here is the case this exists for: the fix "
               "landed where the bug was\n  found, the detector came with "
               "it, and the repo that still has the bug has not\n  vendored "
@@ -10139,6 +11237,19 @@ def _main(box):
         print()
     if led:
         led.end(findings=len(_sl) + len(_gc_msgs if _gc_rows else []) + _todo_n)
+        led.start('TOKEN BUDGETS')
+
+    print("TOKEN BUDGETS -- every limit in every repo in force, with its "
+          "number, passing or not\n")
+    _tb_rows, _tb_fires = token_budgets_section(_sl_targets, repo_root)
+    print()
+    if led:
+        led.end(items=len(_tb_rows),
+                findings=sum(1 for _r in _tb_rows
+                             if _budget_status(_r).split(',')[0] in
+                             ('OVER', 'over target')
+                             or 'APPROVED' in _budget_status(_r))
+                + sum(1 for _f in _tb_fires if _f[3] == 'DID NOT FIRE'))
         led.start('TIER PLACEMENT', kind='read')
 
     print("TIER PLACEMENT -- which practices are loaded from turn one\n")
@@ -10293,6 +11404,22 @@ def _main(box):
     print()
     if led:
         led.end(items=_w_groups, findings=_w_open)
+        led.start('CHECKS BY STAGE')
+
+    print("CHECKS BY STAGE -- what runs before and after Booked, Produce and "
+          "the Debut; before a push, only the quick tier\n")
+    _cbs_findings = checks_by_stage_section(_orph_targets, repo_root)
+    print()
+    if led:
+        led.end(findings=_cbs_findings)
+        led.start('SET INDEPENDENCE')
+
+    print("SET INDEPENDENCE -- a practice set's rules, checks and tests live "
+          "in the set, never in BestPractice\n")
+    _si_findings = set_independence_section(repo_root)
+    print()
+    if led:
+        led.end(findings=_si_findings)
         led.start('CROSS-REPO LINKS')
 
     print("CROSS-REPO LINKS -- do absolute github.com links into a repo "

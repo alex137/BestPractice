@@ -110,8 +110,13 @@ python3 tools/precedent_install.py <project path> --project-name "<name>" \
     [--about "<one sentence, for a README that does not exist yet>"] \
     [--visibility private|public] [--base-branch main] \
     [--output-paths docs,site] [--content-paths notes/,TODO.md] \
-    [--admin <github handle>] [--team NAME=PATH]
+    [--admin <github handle>] [--team NAME=PATH] [--no-terminal]
 ```
+
+`--no-terminal` is for a project whose assistant has no terminal (ChatGPT
+connected to GitHub): it writes `"github_ci_main_test": "always"`, so the
+light check runs on every push to `main`, private repositories included,
+since off the ladder no pull request in a private repository gets one.
 
 [tools/precedent_install.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_install.py) does steps 1, 2,
 4, 5 and 6 below exactly as written, lints the files it wrote, and prints
@@ -136,11 +141,45 @@ already-documented case —
 [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md),
 not this section.
 
+**What it assumes, and what it changes outside the project** (2026-10-17):
+
+- **Who you are.** The practices about running a repository (GitHub,
+  branches, CI, vendoring, installs; Update Vendors is one) are shown only
+  to its code owners. The engine knows you by `PRECEDENT_GITHUB_USER`, else
+  your individual set's `identity.json`, else the `--admin` handle given
+  to the installer (kept in this clone's git config as
+  `precedent.githubLogin`), else the GitHub account your token belongs to.
+  With none of them those practices stay hidden; set
+  `PRECEDENT_GITHUB_USER` ([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)).
+- **Your git configuration.** Every session start runs the
+  [tools/commit-identity.sh](https://github.com/alex137/BestPractice/blob/staging/tools/commit-identity.sh) hook, which makes commits carry the person's name,
+  email and time zone. On your own machine (a local Claude Code session,
+  or any harness that sets `PRECEDENT_LOCAL_SESSION=1`) it writes **this
+  checkout's** git config and `.git/hooks/pre-commit` only, and leaves your
+  global identity, your global `core.hooksPath` and the system clock alone,
+  saying so in one line when it held one back. In a cloud container it also
+  sets the global identity, a global `core.hooksPath` backstop under
+  `~/.config/precedent/git-hooks` and the system time zone, because a
+  container's defaults are its own bot account and UTC, and a session
+  rooted above several repositories depends on them.
+- **Python 3.12.** The engine runs on Python 3.12, the version its GitHub
+  checks use ([tools/precedent_python.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_python.py)'s
+  default; a project can declare another in `precedent.json`'s
+  `"python": {"version": ...}`). A hosted session sets it up at session
+  start; on your own machine `python3` should be 3.12, and when it is not,
+  every session start says so once and the tools run on what you have.
+  Run them as `python3.12` to match.
+
 1. **Vendor the universal source.** Clone Precedent (on `main`, as
    above) and
    copy two things into this repo as ordinary tracked files: its
    `practices/` tree, into a tracked path of your choosing (recommended:
-   `precedent/universal/practices/`), and the loader engine itself.
+   `precedent/universal/practices/`), with the three source files that
+   travel beside it ([precedent-source.json](precedent-source.json),
+   [record/WITHDRAWN_FROM_UNIVERSAL.md](record/WITHDRAWN_FROM_UNIVERSAL.md),
+   and [close_detect.json](close_detect.json), which is
+   what lets a closing session offer a rule it noticed), and the loader
+   engine itself.
    **Don't hand-copy the engine files** — from the Precedent clone, run
    `python3 tools/precedent_vendor_engine.py seed <this repo's path> --kind consumer`
    to write the engine into this repo's own `tools/`: the loader, the
@@ -152,7 +191,7 @@ not this section.
    was written and the seed wrote thirty-one by 2026-09-14). **What does
    not travel this way**: the harness adapters this repo's `precedent.json`
    declares are copied by the sync only from a source's `precedent.json`,
-   and step 1 copies `practices/` alone — so a §0 install gets its hooks
+   and step 1 copies only `practices/` and its three companions — so a §0 install gets its hooks
    from step 5's harness adapter, which the installer writes
    (`.claude/settings.json` and every hook script it wires), and the sync reports
    `0 harness adapter(s)`; that is expected, not a failure. See "Keep the vendored engine current (consumer repos)" under §2
@@ -190,7 +229,10 @@ not this section.
    one. **`visibility`** (`"public"` or `"private"`) says whether this
    repo's tracked files are a publication; omitting it counts as public,
    so a private repo that omits it silently loses its shared and individual
-   practices from the materialized tree. **`internal_paths`** is a list of
+   practices from the materialized tree. The installer always writes it:
+   `--visibility` when given, else what GitHub says about the origin, else
+   `public`, and its output names which and why (2026-10-17; until then an
+   absent flag silently meant private). **`internal_paths`** is a list of
    repo-relative path prefixes — a directory (`"notes"`), a nested one
    (`"docs/drafts"`), or a single file (`"ROADMAP.md"`) — that are this
    project managing itself rather than documents published to anyone. It
@@ -255,11 +297,13 @@ not this section.
    in a later conversation), the README
    agent-entry block, `.gitignore` (merged into an existing one), the
    harness adapter(s) (for Claude Code, `.claude/settings.json`, its hook
-   scripts and `CLAUDE.md`), `tools/bootstrap.sh`, the two workflows
-   rendered from `templates/github-actions/` (`leak-gate.yml.template` and
-   `light-check.yml.template`, written as `.github/workflows/leak-gate.yml`
-   and `light-check.yml`, unless a source declares
-   `github_ci_workflows: disabled`), the PR template. **Skip**
+   scripts and `CLAUDE.md`), `tools/bootstrap.sh`, the three workflows
+   rendered from `templates/github-actions/` (`leak-gate.yml.template`,
+   `light-check.yml.template` and `branch-cleanup.yml.template`, written as
+   `.github/workflows/leak-gate.yml`, `light-check.yml` and
+   `precedent-branch-cleanup.yml`, unless a source declares
+   `github_ci_workflows: disabled`; the cleanup one runs only when someone
+   clicks Run workflow), the PR template. **Skip**
    `process/manifest.json` and `process/scrub_blocklist.txt` — those are
    §1's own bookkeeping for a model this path doesn't use.
 
@@ -274,7 +318,7 @@ not this section.
    |---|---|
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
    | [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Mentions `process/upstream/` in prose, as a review-grouping hint. Harmless, but names a directory your repo does not have, so a reader follows a dead path. Reword or drop the line. (`templates/local-practices/project-voice.md.template` has no such mention — it is a repo-local practice under `local/`, not a `process/upstream/`-adjacent document.) |
-   | [templates/TODO.md.template](templates/TODO.md.template), [templates/MAP.md.template](templates/MAP.md.template) | Each names `process/` or `process/upstream/` once (a recurring check-in item, a map row). Same treatment: reword or drop the line. |
+   | [templates/MAP.md.template](templates/MAP.md.template) | Names `process/` once, in a map row. Same treatment: reword or drop the line. |
    | [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json) | Its permission allowlist names the `tools/…` forms, which is where the engine lives in every install since 2026-09-30. An older copy may still carry `process/upstream/tools/…` entries: harmless (they match nothing), but replace them with the `tools/…` forms. |
 
    **Then, from this repo, run
@@ -489,10 +533,11 @@ design and not oversight:
   `Update Vendors` ([tools/precedent_migrate_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_migrate_views.py), which puts
   everything back rather than lose a word).
 - **The creation pipeline isn't wired into a fresh install yet.**
-  Candidates, promotion, and approval routing
-  (`tools/precedent_candidate.py` and friends) exist in Precedent's own
-  `tools/` and in the private shared/individual repos, not in what this
-  section vendors. `templates/AGENTS.md.loader.template`'s own
+  `tools/precedent_candidate.py` and `tools/precedent_promote.py` do arrive
+  with the vendored engine, because the rule detector imports them, but
+  `tools/precedent_land.py`, which lands an approved candidate, does not,
+  so candidates, promotion and approval routing do not run end to end in a
+  consuming repo. `templates/AGENTS.md.loader.template`'s own
   merge-runbook export-gate step says so explicitly and names the real
   mechanism until it is wired in: an ordinary pull request against the
   vendored source's own upstream repo.

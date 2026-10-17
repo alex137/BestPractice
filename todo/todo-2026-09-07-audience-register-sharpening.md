@@ -3,7 +3,7 @@ slug:              todo-2026-09-07-audience-register-sharpening
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "his approval of the new wording. It is his rule about how he is spoken to, and a session rewriting that unilaterally is the same overreach the rule exists to correct."
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-07
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -65,3 +65,7 @@ Not open until: his approval of the new wording. It is his rule about how he is 
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): Morgan's own 2026-09-22 rewrite of the individual audience-register delivered change 1 (plain is the default); change 2 (gloss every time) and change 3 (record each miss in its Story) were not adopted. Would close as superseded by his rewrite.
+
+2026-10-17, closed by the session under Morgan's delegation of 2026-10-17 ("Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."), which settled the very deep check's question the way that run said it would. What met it: superseded. Morgan's own 2026-09-22 rewrite of the individual register rule delivered change 1 (plain is the default); changes 2 and 3 were never adopted, and the wording this item waited on his approval of is now his own.

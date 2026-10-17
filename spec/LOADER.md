@@ -25,22 +25,22 @@ implementation note, not a restatement.
 | Standing instruction | Same generated block, one sentence per live channel | Built. Assembled from the channels this source actually fills, not from the channels the engine has — see [Empty channels, and why the block stays silent about them](#empty-channels-and-why-the-block-stays-silent-about-them). |
 | Path-triggered | [tools/precedent_paths.py](../tools/precedent_paths.py) + [templates/harness/claude-code/hooks/precedent-paths.sh](../templates/harness/claude-code/hooks/precedent-paths.sh) | **Built and wired (2026-09-03)** — a `PreToolUse` hook, matching `Edit\|Write\|NotebookEdit`, is now templated in [templates/harness/claude-code/settings.json](../templates/harness/claude-code/settings.json); a fresh install of the Claude Code adapter gets it automatically, closing the consumer-repo-integration gap this row named. See [The PreToolUse hook, and what is confirmed versus assumed](#the-pretooluse-hook-and-what-is-confirmed-versus-assumed) below for what the harness actually proves. Its glob matcher was rewritten after the first phase-2 pass shipped a broken one — see [Where this channel was silently broken](#where-this-channel-was-silently-broken-and-what-it-cost--the-numbers) below. |
 | Gate-triggered | [tools/precedent_gate.py](../tools/precedent_gate.py) | Built later than this document's other rows (see the file's own docstring for why and what it does and does not promise); this row was left saying "Not built" long after that landed. Caught and fixed by the 2026-09-04 gate audit — the same drift class this row itself is an instance of. |
-| Enforced (`checked_by`) | Already exists from phase 1 (8 of 52 practices carry one, naming 4 distinct scripts) | Unchanged by phase 2; phase 4 is "convert checkable practices to scripts." |
+| Enforced (`checked_by`) | Existed from phase 1 (8 of 52 practices then, naming 4 distinct scripts); today's count is in [The catalogue as it stands](#the-catalogue-as-it-stands) below | Unchanged by phase 2; phase 4 converted checkable practices to scripts. |
 | "One code path" (`precedent show`) | [tools/precedent_show.py](../tools/precedent_show.py) (phase 1) | Unchanged; [`precedent_paths.py`](../tools/precedent_paths.py) calls the same file reader (`split_practices._read_practice_file`), not a second extractor. |
 | Generated views | [tools/build_views.py](../tools/build_views.py) → AGENTS.md's loader block, [MAP.md](../MAP.md), [GLOSSARY.md](../GLOSSARY.md) | Built. All three fail tools/verify_harness.py if hand-edited or stale. |
-| Resident budget, hard-capped | `RESIDENT_BUDGET_TOKENS = 2000` in tools/build_views.py; the build exits nonzero over budget | Built. Current size is in [The catalogue as it stands](#the-catalogue-as-it-stands) below, generated. |
+| Resident budget, hard-capped | `resident_block_tokens` in [tools/session_load_budgets.json](../tools/session_load_budgets.json) (2,000 from phase 2 until 2026-10-02), read by tools/build_views.py as `RESIDENT_BUDGET_TOKENS`; the build exits nonzero over budget | Built. Current size is in [The catalogue as it stands](#the-catalogue-as-it-stands) below, generated. |
 | Premise measured, not assumed | [tools/behavioral_replay.py](../tools/behavioral_replay.py) | Built. See "What the replay measures" below — it is honest about what it can and cannot prove. |
 
-**Generated views are no longer this-repo-only (2026-09-03).** A team or
-individual source repo (e.g. `precedent-shared-repo-maintenance`,
-`precedent-individual`) vendors the same [tools/build_views.py](../tools/build_views.py)
-and runs `python3 tools/build_views.py --agents-only` on its own
-`practices/`, getting the identical resident-block/occasion-index/standing-
-instruction treatment this repo's own `AGENTS.md` gets — `--agents-only`
-skips `render_map_md()`/`render_glossary_md()`, which assume this repo's own
-structure (its engine table, "this repo is BestPractice itself" prose)
-and aren't meaningful for a practice-set repo with a different `tools/`
-layout.
+**Generated views are no longer this-repo-only (2026-09-03).** A shared or
+individual source repo vendors the same [tools/build_views.py](../tools/build_views.py)
+and runs it on its own `practices/`, getting the identical
+resident-block/occasion-index/standing-instruction treatment this repo's own
+`AGENTS.md` gets. It first ran with `--agents-only`, which skips
+`render_map_md()`/`render_glossary_md()`; since bootstrap began writing a
+set's `AGENTS.md` and generating its views (2026-09-14), a set runs the full
+command,
+and the `AGENTS.md` bootstrap writes for it says never to use
+`--agents-only`.
 
 **The cross-source case is also built now (2026-09-03, same day).** A
 consuming repo — universal + team + individual + repo-local, all resolved
@@ -58,8 +58,8 @@ hand-authored content to [`precedent_materialize.py`](../tools/precedent_materia
 and now why repo-local's recommended `path` is a subdirectory, not `"."`).
 Built and tested against a real four-source fixture
 (`check_sync_views_cross_source` in
-[tools/verify_harness.py](../tools/verify_harness.py)); not yet exercised
-against a real consumer repo with real content — that's the next test.
+[tools/verify_harness.py](../tools/verify_harness.py)), and run since by
+every consuming repo's view sync.
 
 ## The PreToolUse hook, and what is confirmed versus assumed
 
@@ -122,7 +122,7 @@ Every section of the generated block is emitted only if this source fills the
 channel it describes. That was not true until 2026-09-06, and the way it broke
 is worth keeping.
 
-[`precedent-team-tms`](https://github.com/themorgan/precedent-team-tms), as the set was named at the time, deleted
+A shared set deleted
 its bootstrap placeholder, which left it with one resident practice and no
 on-demand ones. The block it generated still carried an occasion index —
 rendered as an empty ``` ``` box — and a standing instruction telling every
@@ -356,7 +356,9 @@ reads and acts on an occasion-index line for a given piece of work is not a
 fact recoverable from a git diff. That gap is the plan's own named weak
 point (see "The Deep Check Audits Routing, Not Content"), and remains one
 after phase 2 — the periodic deep check, not this replay, is what the plan
-assigns to catch it, and that check is not built yet (phase 5 territory).
+assigns to catch it. That check was not built when this was written; it is
+now [routing-audit](../practices/routing-audit.md), run by
+[tools/routing_audit.py](../tools/routing_audit.py).
 
 ## Re-run after the routing pass — v5, and it is a negative result
 

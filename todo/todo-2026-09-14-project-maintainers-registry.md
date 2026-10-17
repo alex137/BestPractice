@@ -3,7 +3,7 @@ slug:              todo-2026-09-14-project-maintainers-registry
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "item `generated-views-are-owned-paths` — the owned-path list is what the generator would write, and it is still being decided. **BUILT 2026-09-14, the same day, once item 108 was decided**: [tools/build_codeowners.py](../tools/build_codeowners.py) reads `maintainers` and `owned_paths` from a project's "
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-14
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -48,3 +48,7 @@ Not open until: item `generated-views-are-owned-paths` — the owned-path list i
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Its own text says "BUILT 2026-09-14 ... done, kept for the record"; tools/build_codeowners.py reads maintainers/owned_paths.

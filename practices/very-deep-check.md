@@ -292,7 +292,8 @@ pass is recorded, the session rewrites the checked repo's own
 ([BestPractice's](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md))
 for this run: scope, a short version, then each pass in order with what it
 found, what was fixed and in which commit, the warnings judged (Pass 2's
-question 24), what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
+question 24), the checks by stage (question 25), set independence
+(question 26), the token budgets with their numbers, what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
 previous run to one row in the run record above, commits both, and
 links the account in the reply that reports the run. A run is not done
 until the account is there, and the deep check enforces it
@@ -560,7 +561,9 @@ method"). Build the fixtures.
   page offers (individual → shared, shared → individual, shared → universal,
   and universal → shared/individual, both halves — the initial duplicate
   landing and the deliberate `--dedupe-only --accept-reach-loss`
-  withdrawal), with `tools/precedent_move.py` and, separately, by hand
+  withdrawal), and `--withdraw-from-universal` (added 2026-10-17, the day
+  a rehearsal found the page never named it), with
+  `tools/precedent_move.py` and, separately, by hand
   against the page's two steps — then the copy-and-delete the page
   forbids, to see which check names it. **And read what the move left
   behind elsewhere**: since 2026-09-28 the run that withdraws the source
@@ -872,7 +875,7 @@ confidently.
     forever, tracked by nothing. That was found on 2026-09-21 by asking,
     and fixed the same day.
 
-    **The answers as of 2026-09-21, updated 2026-09-28** — a rule about a mechanism carries its
+    **The answers as of 2026-09-21, updated 2026-09-28 and 2026-10-17** — a rule about a mechanism carries its
     date ([volatile-rules-carry-dates](volatile-rules-carry-dates.md)), and
     each cell is a claim to re-verify in the code rather than to inherit:
 
@@ -880,8 +883,9 @@ confidently.
     |---|---|---|---|
     | Engine files (`tools/`) | yes | yes | **yes** — manifest diff |
     | CI workflow files | yes | yes | **yes**, since 2026-09-21 — manifest diff, with tombstones kept for what a diff cannot express (a rename) |
-    | Hooks (`.claude/hooks/`) | **yes**, since 2026-09-25 — `HOOK_WIRING` adds the `settings.json` entry for a hook the repo's kind gets (add-only; a repo may decline it in `precedent.json`) | yes | **yes**, since 2026-09-22 — the third removal path, keyed on what upstream ships; it read the already-rewritten manifest and removed nothing until 2026-09-28, when it began reading the record from before the update |
-    | `settings.json` itself | yes, add-only hook entries, since 2026-09-25 | no | no |
+    | Hooks (`.claude/hooks/`) | **yes** — since 2026-10-07 every hook file is one permanent stub that runs `tools/<its name>`, and the script is an engine file (`HOOK_SCRIPT_FILES`); a hook added since then is listed in `tools/hook_wiring.json` and run by the one fixed `precedent-hooks.sh` entry per event. Before that, `HOOK_WIRING` added a `settings.json` entry (2026-09-25), and it takes no new hook | yes — the script, by the engine manifest; the stub never changes | **yes** — the script by the engine manifest diff; a stub upstream stops shipping by `_remove_dropped_hook_files` (since 2026-09-22; it removed nothing until 2026-09-28, when it began reading the record from before the update) |
+    | Practice-declared hooks (`process/practice_hooks.json`) | yes, since 2026-10-07 — the sync writes the `hooks:` of the practices in force | yes | yes — the file is regenerated whole |
+    | `settings.json` itself | yes, add-only hook entries, 2026-09-25 to 2026-10-07; since then nothing a new hook needs touches it | no | no |
     | The practice catalogue | yes — materialized per session | yes | yes |
     | Skeleton / bootstrap templates | only into a newly created set | only into a new set | only into a new set — existing sets drift, which `BOOTSTRAP DRIFT` reports |
     | Vocabulary | yes — derived at render time | yes | yes |
@@ -1325,6 +1329,86 @@ confidently.
     the only ones any section showed; the advisory count was read and
     dropped, and no section collected any other tool's warnings.)*
 
+25. **What runs before each push, and what runs after it?** Before a push
+    to staging or main only the bare essentials and the leak gate run;
+    every other check runs at the full test run on staging, and after the
+    move into main: GitHub's test,
+    or the full local suite on `main` where that test is not due. Checks
+    crept the other way twice, a step at a time, each one cheap on its own,
+    until a landing's quick check took 218 seconds
+    ([spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md)).
+    The tool's `CHECKS BY STAGE` section reads it, for every repo in force,
+    from that repo's own push check and branch tool: for the land onto
+    staging, the move from staging into main, and the full test run,
+    the checks before and the checks after, the quick tier with each
+    check's approval and seconds, and what the full tier adds. It flags,
+    as a violation, any check in the quick tier that
+    `BASIC_CHECKS_APPROVED` does not name, any move that runs the full tier
+    before it pushes to staging or main (a route taken only on the
+    person's own words, like Produce's `--full`, is listed and not
+    flagged), a plain push to either that the push gate checks fully, and a
+    per-file step that starts a test. A route through the old tier below
+    staging, retired for everyone on 2026-10-14, is reported as retired
+    code to delete, and so is any mention of that tier the run finds: it
+    is fixed to assume the retirement (Morgan, 2026-10-17, of that tier:
+    "any mention of [it] it finds should be fixed to assume its
+    deprecation").
+
+    **Fix each violation in this pass**: move the check to the full tier,
+    or make the move run the quick tier before it pushes. Only the person's
+    own words keep a check before a push, given after they were told its
+    time and urged to leave it to the full test run on staging
+    ([quick-tier-is-closed](quick-tier-is-closed.md)). A fix that changes
+    how a tier works for everyone, not just one check, is put to the person
+    with your pick first.
+
+    **The result goes into the run's write-up.** The section writes a
+    `## Checks by stage` block into
+    [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md)
+    (or the run record, where a repo has only that): a table per repo of
+    the three stages, before and after, the quick tier, the full tier's
+    additions, and the findings. Say in the account what each finding
+    became. The deep check refuses an account for a run from 2026-10-17 on
+    without that section. *(Morgan, 2026-10-17: "Please add to very deep
+    check, an explicit check for that ... It should list this, which is for
+    the push to staging, the push to main. What are the checks listed? ...
+    what are the checks that are done before each, and then what are the
+    checks that are done after each, and the same for debut ... and then
+    also flag it and fix it if before the pushes it has any checks other
+    than the minimum essential urgent check and the leak gate check.")*
+
+26. **Does each practice set stand on its own?** A shared or individual
+    set's rules, its checks and the tests for those checks live in the
+    set. BestPractice knows how to run a set's checks and never what one
+    set's rule is: no set's name or practice slug in its code, in its tests
+    or in a universal practice's rule. On 2026-10-16 BestPractice held a
+    set's practice names in its logic and its tests, and taking them out
+    was a night's work. The tool's `SET INDEPENDENCE` section runs the
+    inventory, `python3 tools/precedent_check.py --only
+    enforcement-lives-with-its-practice`
+    ([enforcement-lives-with-its-practice](enforcement-lives-with-its-practice.md)),
+    which reads every Python file under `tools/` (docstrings and comments
+    aside, which may name a set), BestPractice's test scripts, each
+    universal practice's Rule and Detail, and each set on disk: a set's
+    `checked_by` or `ships:` that is an engine file, and a set check
+    `tools/checks/check_<x>.py` with no `tools/checks/tests/test_<x>.sh`
+    beside it in the set. It sets apart what
+    [the plan of record](https://github.com/alex137/BestPractice/blob/staging/spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md)'s
+    part 3 holds in the engine until the person says go, and lists it
+    without fixing it.
+
+    **Fix everything else in this pass**: move the rule, check or test into
+    the set that owns it, or give an engine test a made-up name in place
+    of a set's real one. A fix in a set this session cannot land in is a
+    [prompt-please](prompt-please.md) block. A name the engine keeps on
+    purpose goes in the inventory's `_SET_NAMES_KEPT`, with the person's
+    words. The section writes a `## Set independence` block into the run's
+    write-up. *(Morgan, 2026-10-17: "The practice sets should be more
+    independent as practices and the test for the practices in the
+    practice sets ... add to a very deep check a review for that to make
+    sure that is how it works. And fix it if it's not, if you find it
+    otherwise at any point.")*
+
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
 first so this pass spends its attention on what they cannot see.
@@ -1588,6 +1672,22 @@ first so this pass spends its attention on what they cannot see.
   FILE — which that one is. It surfaced because somebody ran
   [tools/session_load_trend.py](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_trend.py) by hand,
   which is not a mechanism.)*
+  **Its "TOKEN BUDGETS" section prints every budget in force in every repo
+  measured, with its number, its limit, the share used and the max the
+  person approved, whether or not any is over** -- each surface's ceiling and
+  target, the resident and occasion-index caps, a set's occasion share and
+  the person's budget for the sets they bring, the session file charged the
+  way `session-load-budget` charges it. It then proves the checks fire: in a
+  throwaway worktree of each repo, that repo's own [precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) must
+  report a ceiling lowered under what it measures, a raise nobody approved
+  and a resident cap set too low, after reporting each clean unplanted. A
+  check that passes a planted overage is the finding. The table and the fire
+  test go into the run's write-up as its `## Token budgets` block, rewritten
+  every run. *(Morgan, 2026-10-17, strength: decided, after weeks without a
+  budget warning raised the question of whether they were still checked:
+  "even if they all pass, share the exact numbers, the limits, the chart,
+  and any other details. These should all go into the very deep check
+  document.")*
   Its "GOTCHA CURRENCY" sub-pass reads the other direction — **the tree
   against each entry, rather than the entry against itself** — because the
   settled-marker flag can only find an entry honest enough to say it is
@@ -1619,8 +1719,9 @@ first so this pass spends its attention on what they cannot see.
 - **Whether each practice's TIER is still right.** The question above asks
   what the loaded text costs; this one asks which practices should be in it
   at all, and nothing else in Precedent ever asks it. `tier: resident` is
-  governed only by [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)'s hard
-  2,000-token cap, which fails the build outright — so the trade is forced
+  governed only by the resident block's hard cap (`resident_block_tokens` in
+  [tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_budgets.json), which
+  [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py) enforces), which fails the build outright — so the trade is forced
   once, at the moment somebody adds a resident practice, and the set is never
   revisited afterwards. Read it in both directions. **Demote** a resident
   practice whose occasions turn out to be narrow enough that the path or
@@ -2759,6 +2860,9 @@ it landed and still unreviewed.
 - **Extended 2026-10-11, Morgan (strength: decided)**, so the check runs whole in a consumer or a practice set, and hands its upstream findings upstream: "in the vendored in repo ... it should test all the unique code and also the best practice code that is vendored in", and "for every problem it finds, before it fixes it, it should ask itself, is this an upstream problem or not", the upstream ones compiled into one Prompt Please kept in the run record and given in the session, followed by "do you want me to implement band-aids until it's fixed upstream?". The tool's UPSTREAM section came with it. The first run in a consumer, the same day, found three sections that broke outside BestPractice (BOOTSTRAP DRIFT, GENERATED FILES, CONTRIBUTOR BOUNDARY), all fixed upstream in the same change.
 - **Extended 2026-10-11, Morgan (strength: decided)**, with Pass 2's question 24 and the WARNINGS section: every warning the routine checks print is collected and judged, fixed or excluded permanent or temporary with a reason, by the session, which asks only when in doubt -- "I like reviewing warnings to see if we can get rid of them or explicitly exclude them and so on to over time eliminate warnings", then, on the plan put to him, "the decision to make there is from you, the agent", and "this warning information should be printed in the ... doc that details what happened with this very deep check." CHECK COVERAGE prints each repo's advisory count, which it had read and dropped.
 - **Extended again 2026-10-11, Morgan (strength: decided)**, so the run's full account in [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md) is mandatory, and checked: "when I ran very deep check last night, it did not create the document that it always does detailing what happened. Until I asked it to. Let's update very deep check to make that document mandatory." Its check refuses a push once all four passes are recorded and the account is still an earlier run's; `--record-pass` says the account is owed when it records the fourth.
+- **Extended 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 25 and the CHECKS BY STAGE section: every run lists what runs before and after Booked, Produce and the Debut, flags any check before a push beyond the bare essentials and the leak gate, fixes it, and writes it into the account: "Please add to very deep check, an explicit check for that", "It should list this ... in the result, the detailed doc you create after every very deep check", and "flag it and fix it if before the pushes it has any checks other than the minimum essential urgent check and the leak gate check." Its first reading found a consumer's own workflow checks running before every push, outside the closed quick tier; they moved to the full tier in the same change.
+- **Extended 2026-10-17, Morgan (strength: decided)**, with the TOKEN BUDGETS section: every session-load budget in every repo in force is printed with its number, limit, share used and approved max even when all pass, the session file charged as `session-load-budget` charges it, and each repo's own budget checks are shown to fire on an overage planted in a throwaway worktree; the table and fire test go into the run's write-up. A session had just checked this by hand after weeks with no budget warning: "please see if this same analysis ... is done in very deep check. If not, add it ... even if they all pass, share the exact numbers, the limits, the chart, and any other details." The same change stopped SESSION LOAD charging the session file whole, which had reported an individual set over its target at about 4,011 against 4,000 when the share the check charges was about 3,614.
+- **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 26 and the SET INDEPENDENCE section: every run checks that each practice set keeps its own rules, checks and tests, and fixes what it finds -- "The practice sets should be more independent as practices and the test for the practices in the practice sets", "add to a very deep check a review for that", and "fix it if it's not, if you find it otherwise at any point." The inventory behind it widened the same day to BestPractice's tests and universal rules; its first reading found three engine tests using a set's real practice names as sample data, which now use made-up ones.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope

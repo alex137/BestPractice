@@ -68,7 +68,7 @@
     },
     {
       "word": "primary branch",
-      "meaning": "The one shared branch regular work lands on. (A branch is a separate line of work in a repository.)"
+      "meaning": "The repository's trunk: the branch its settings name as the base, usually main, where finished work ends up. (A branch is a separate line of work in a repository.)"
     },
     {
       "word": "landing branch",
@@ -87,7 +87,8 @@
       "why": "A set of practices is shared by whoever declares it, not owned by a team: one person can use several, and one set serves people on many teams. \"team\" meaning a group of people is still ordinary English and is not retired.",
       "decided": "Morgan, 2026-09-28 (plan spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md, Part 3); the code rename 2026-09-18",
       "patterns": [
-        "\\bteam[- ](?:set|sets|source|sources|repo|repos|repository|repositories|practice|practices|level|levels|library|libraries|clone|clones|rung|candidate|candidates|copy|catalogue|layer)\\b",
+        "\\bteam[- ](?:set|sets|source|sources|repo|repos|repository|repositories|practice|practices|library|libraries|clone|clones|rung|candidate|candidates|copy|catalogue|layer)\\b",
+        "(?<!at the )(?<!on the )(?<!at a )(?<!on a )\\bteam[- ]levels?\\b",
         "--level team\\b",
         "\"level\":\\s*\"team\"",
         "\\bnamed team\\b",

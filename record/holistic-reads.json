@@ -19,6 +19,12 @@
       "date": "2026-10-11",
       "by": "",
       "note": "read whole 2026-10-11; two claims are stale (refused \"by CI\": it is the deep check; AGENTS.md gotcha index \"hand-kept"
+    },
+    {
+      "path": "spec/LOADER.md",
+      "date": "2026-10-17",
+      "by": "p3-coherence (very deep check)",
+      "note": "read whole 2026-10-17; fixed the resident cap (registry, 1750), the --agents-only advice for sets, the deep check called unbuilt, the view sync never run on a consumer, a phase-1 count read as current, an old private set link; the v2-v5 eval history is sound but long"
     }
   ]
 }

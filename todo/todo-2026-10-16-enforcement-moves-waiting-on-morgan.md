@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "Morgan: when the ladder restructuring (plan part 3) starts"
+waiting_on:        null
 noted:             2026-10-16
 closed:            null
 ---
@@ -59,4 +59,12 @@ All three are decided, and what was decided is built or parked.
   with `"github_branch_rules": true` in identity.json or the user-level
   config; `--apply` then touches only repositories the person's own
   account owns. Nobody has opted in yet; nothing is applied.
-
+- 2026-10-17, Morgan, on part 3, strength: decided: "let's spawn a new
+  session to continue with the enforcement lives plan including starting
+  with section 3 now". A new session rooted in BestPractice and the ladder
+  set does it, planning each step first and landing each piece on staging.
+- 2026-10-17: the step-by-step for part 3 is written into the plan
+  ([section 3a](../spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md)):
+  six pieces, each set half first, then the engine half. Waiting on
+  Morgan's go-ahead for it, and on his call to keep
+  [`precedent_branch_name.py`](../tools/precedent_branch_name.py) in the engine.

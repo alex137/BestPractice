@@ -160,11 +160,18 @@ assume a session has:
   needs: the `~/.config/precedent/config.json` `individual` block, or the
   consuming project's `precedent.json` `"sources"` entry.
 
-**It never touches a git remote or any hosting API.** Creating the actual
-repository — `gh repo create`, or a few clicks on GitHub — needs
+**It never writes to a git remote or calls any hosting API, and it reads
+nothing off the machine unless `--network true` asks it to.** Creating the
+actual repository — `gh repo create`, or a few clicks on GitHub — needs
 credentials or a platform capability this tool can't assume any given
 session has, and guessing wrong there is worse than asking. That step
-stays explicit, below.
+stays explicit, below. Without the flag, its check that this clone is
+current compares with the origin ref the clone already has, and the tools
+it runs in the new set (its view build among them) run with
+`PRECEDENT_NO_SELF_HEAL` set, so none of them clones anything or writes a
+user config. Until 2026-10-17 that was not true: bootstrapping a shared
+set in a scratch home cloned the operator's private individual set into
+it, because the new set's view build ran the resolver's self-heal.
 
 ## The vendored engine
 

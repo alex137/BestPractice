@@ -5,8 +5,9 @@ WARNINGS section (practice: very-deep-check).
 
 WHY THIS EXISTS. A warning is the class of finding nothing gates on, so
 nothing ever reads it twice: doc_lint's warning classes, a check registered
-advisory, a tool's `WARNING:` line, a session-check row it could not
-determine. Each was built to be seen in passing and then, by design, let
+advisory, a tool's `WARNING:` line. (A session-check row it could not
+determine was one too until 2026-10-17; it describes one session, not the
+repository, and is no longer gathered: see LINE_SOURCES.) Each was built to be seen in passing and then, by design, let
 through. Left alone they pile up until the next one is invisible behind the
 ones before it. Morgan, 2026-10-11 (strength: decided): "with the checks
 that we do that are not urgent ... I like reviewing warnings to see if we
@@ -65,11 +66,14 @@ LINE_SOURCES = (
      re.compile(r'^WARN:\s*(.+)')),
     ('doc_lifecycle', 'WARNING', ['tools/doc_lifecycle.py', '--warn-only'],
      re.compile(r'^\s*WARN(?:ING)?:\s*(.+)')),
-    # `??` is the session check's own word for a guarantee it could not
-    # determine: not a failure, and not a pass either.
-    ('precedent_session_check', 'undetermined',
-     ['tools/precedent_session_check.py'], re.compile(r'^\s*\?\?\s+(.+)')),
 )
+# NOT COLLECTED: precedent_session_check's `??` rows (2026-10-17). `??` is
+# that check's word for a guarantee it could not determine in THIS session --
+# which clones are attached, which hooks ran, what the environment carries --
+# so the rows change from one session to the next, and an exclusion written
+# against one session's row goes stale in the next. They are a fact about a
+# session, not a warning about the repository, and the session check reports
+# them where they belong. The very deep check of 2026-10-17 found it.
 
 
 def _run(repo_root, argv, timeout):
@@ -300,7 +304,7 @@ def render_text(result, problems, notes, previous=None, limit=40):
 
 
 def render_markdown(result, problems, notes, previous=None, start=None,
-                    to_root='../'):
+                    to_root='../', repo_root=None):
     """The block the run record embeds: what the run saw, what it decided,
     and what is left -- by source and kind, never every file, so the record
     stays readable at 2,000 warnings."""
@@ -355,11 +359,19 @@ def render_markdown(result, problems, notes, previous=None, start=None,
     for n in notes:
         lines.append(f'- Not read: {n}')
     # Linked, not backticked: a bare path here would be an unlinked-reference
-    # warning of its own, written by the section that counts them.
-    lines += ['', f'Exclusions live in [{REGISTRY_RELPATH}]'
-                  f'({to_root}{REGISTRY_RELPATH}); '
-                  f'[tools/warning_review.py]({to_root}tools/warning_review.py) '
-                  f'lists every open group.']
+    # warning of its own, written by the section that counts them. But only
+    # when the registry is there: a set with no exclusions yet has no such
+    # file, the link was dead, and the light check refused the run record
+    # the tool had just asked to be committed (2026-10-17, very deep check).
+    has_registry = repo_root is None or \
+        (pathlib.Path(repo_root) / REGISTRY_RELPATH).is_file()
+    where = (f'Exclusions live in [{REGISTRY_RELPATH}]'
+             f'({to_root}{REGISTRY_RELPATH}); ' if has_registry else
+             'No exclusion is decided here yet; the first one creates '
+             'the registry under tools/. ')
+    lines += ['', where +
+              f'[tools/warning_review.py]({to_root}tools/warning_review.py) '
+              f'lists every open group.']
     return '\n'.join(lines)
 
 

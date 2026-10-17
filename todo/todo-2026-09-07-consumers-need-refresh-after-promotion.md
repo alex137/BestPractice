@@ -3,7 +3,7 @@ slug:              todo-2026-09-07-consumers-need-refresh-after-promotion
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "the refresh itself belongs in each consumer, run under that repo's own gates — that consumer has an open session and its own deep check, and doing it from here would be the unreviewed cross-repo change this run has been finding all day. The engine-side guard is blocked on a design call (which baseli"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-07
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -132,3 +132,7 @@ Not open until: the refresh itself belongs in each consumer, run under that repo
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): the engine-side guard the item asked for was built the same day (a sync refuses to drop a practice the committed MANIFEST.json records while its source is still declared, with a 7-case harness test), so what is left is the one consumer's own refresh, which this session cannot see. A vendored process/upstream copy is still a live layout (gotcha-2026-10-08-a-vendored-copy-can-claim-a-commit-it-does-not-hold), so the class is real. Would close it on the guard, since that consumer's 2026-09-07 pin predates every Update Vendors since.
+
+2026-10-17, closed by the session under Morgan's delegation of 2026-10-17 ("Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."), which settled the very deep check's question the way that run said it would. What met it: the engine-side guard the item asked for was built the same day -- a sync refuses to drop a practice the committed MANIFEST.json records while its source is still declared, with a harness test -- and the one consumer's 2026-09-07 pin predates every Update Vendors since. That consumer's own refresh is its own session's work, which this repository cannot see.

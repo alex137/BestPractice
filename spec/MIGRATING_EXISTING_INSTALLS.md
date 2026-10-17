@@ -149,11 +149,12 @@ widening what sessions may run
    hundreds of files the current tree never ships (about 950 in one real
    rehearsal, 2026-09-28). Run
    `python3 process/upstream/tools/checkin.py update ../BestPractice` a
-   second time: the freshly mirrored copy names the excluded content an
-   older copy brought in. Remove it with
-   `rm -rf <the paths it names> && git add -A process/upstream` — the
-   `git rm -r` it prints fails on paths that were never committed, which is
-   what a first update leaves.
+   second time: the freshly mirrored copy removes the excluded content an
+   older copy brought in by itself, and says how many files it removed
+   (1,089 in a rehearsal on 2026-10-17, from a 2026-09-10 install). Then
+   `git add -A process/upstream` stages the removal. The first update after
+   step 7 seeds the engine removes a further batch, `process/upstream/tools/`
+   among it, because the engine now lives in `tools/`.
 
 2. **Confirm the second tree's source has actually split**, and where each
    half landed, before touching anything local. Read that source's own
@@ -244,9 +245,14 @@ widening what sessions may run
    already, for this reason alone if for no other. **If `VOICE.md` is still
    the shipped default** -- a version of the retired `templates/VOICE.md.template` as it
    shipped, its header comment aside -- it carries no decision: delete it
-   and drop its `process/manifest.json` entry, and convert nothing. Update
-   Vendors does this itself and says so in one line (2026-10-01; converting
-   one produced a practice file of `<undecided>` sections). Otherwise:
+   and drop its `process/manifest.json` entry, and convert nothing. Then
+   write `local/practices/project-voice.md` from
+   [templates/local-practices/project-voice.md.template](../templates/local-practices/project-voice.md.template)
+   as an install does, with `<install date>` filled in: the visual-identity
+   practice step 3b installs links it, so deleting the default without it
+   leaves a link to nothing. Update Vendors does all three itself and says
+   so in one line (2026-10-01; converting one produced a practice file of
+   `<undecided>` sections; the third since 2026-10-17). Otherwise:
    1. Read the existing `VOICE.md` once. Carry the decisions actually
       made — a filled-in Voice Target, a real Overrides entry, a genuine
       Words table row — not what merely shipped with the template
@@ -616,6 +622,10 @@ widening what sessions may run
    check, the link checks and the writing checks all read it, so a record
    is declared once (2026-10-10; before that it was named in both lists,
    and Update Vendors now moves such an entry over).
+   `process/decommissioned_paths.json`, the ledger the audit above writes,
+   names the retired pack by construction; like the vocabulary file itself,
+   it is exempt without being listed (2026-10-17: a migration that followed
+   this step to the letter failed `retired-words` on it).
    — then run `python3 process/upstream/tools/precedent_check.py --only retired-words` (the terms) and `... --only migration-scrubs-vocabulary` (a leftover pack), and don't call this step done until both pass. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
 
    **A `/`-suffixed `exempt_files` entry exempts a whole directory**, not
@@ -719,11 +729,17 @@ widening what sessions may run
    [templates/AGENTS.md.loader.template](../templates/AGENTS.md.loader.template)
    — the loader template, not the classic `AGENTS.md.template`, which has
    no markers — keeping the same `<!-- BEGIN GENERATED: precedent-loader -->` /
-   `<!-- END GENERATED -->` markers this repo's own `AGENTS.md` uses. Before
-   running it, vendor the whole engine at the consuming repo's own `tools/`
-   — not nested under `process/upstream/tools/`, which stays reserved for
-   the audit/sync tools that operate on the vendored universal tree itself
-   — with
+   `<!-- END GENERATED -->` markers this repo's own `AGENTS.md` uses. Fill
+   in two of its placeholders as you copy it, `<default-branch>` (the
+   `base_branch` from step 3) and `<precedent upstream URL>`
+   (`https://github.com/alex137/BestPractice`), and write it before the
+   refresh below: the refresh compares each template section with those two
+   filled in, so a copy that leaves them reads to it as a local edit, and a
+   classic `AGENTS.md` still in place comes back as missing sections.
+   Vendor the whole engine at the consuming repo's own `tools/` — not
+   nested under `process/upstream/tools/`, which the first update after
+   this step removes, because the engine lives in `tools/` from then on —
+   with
    `python3 tools/precedent_vendor_engine.py seed <consuming repo> --kind consumer`,
    run from a Precedent (BestPractice) clone, rather than copying files by
    hand. It writes a tracked `tools/ENGINE_MANIFEST.json` (the exact commit
@@ -801,8 +817,11 @@ widening what sessions may run
    run needs, beyond the sync**: a plain `python3 tools/precedent_check.py`
    on a migrated repo is red for reasons no step above creates and none
    warns about (measured 2026-09-14: five violations on a by-the-book
-   rehearsal). Each has a one-line declaration: instantiate `MAP.md` from
-   its template (`orientation-map`); instantiate `tools/bootstrap.sh` from
+   rehearsal). Each has a one-line declaration: move a classic `MAP.md` and
+   `GLOSSARY.md` into `MAP.source.md` and `GLOSSARY.source.md` with
+   `python3 tools/precedent_migrate_views.py --repo .`, since both views are
+   generated now (`orientation-map`, `generated-artifact-provenance`);
+   instantiate `tools/bootstrap.sh` from
    [templates/bootstrap.sh](../templates/bootstrap.sh), which invokes the
    access probe (`access-probe-is-wired`); either wire or decline each
    harness adapter the universal source installs into `.claude/hooks/` —
@@ -839,16 +858,30 @@ widening what sessions may run
    tools/build_todo_index.py` if `TODO.md` is still the old single-file
    format — no `todo/` directory, no `# TODO has moved` stub heading — now
    that the migration is vendored into every migrated repo, not only
-   consumers (`todo-migrate-available-but-unused`). Then: `python3
+   consumers (`todo-migrate-available-but-unused`). The tool writes the
+   items and leaves `TODO.md` as it was, so then replace `TODO.md` with
+   [templates/TODO.md.template](../templates/TODO.md.template), the pointer
+   a fresh install gets; left as the old list, the same check fires again
+   whenever `todo/` holds no item file, as it does when the only migrated
+   item was the template's own example and is removed. The loader
+   template's `AGENTS.md` links [gotchas/](../gotchas/), so start that
+   directory the way an install does: copy
+   [templates/gotchas/stale-checkout.md.template](../templates/gotchas/stale-checkout.md.template)
+   to `gotchas/gotcha-2026-09-01-a-stale-checkout-looks-complete-with-no-error.md`,
+   or the link check fails on a link to nothing. Bring `GETTING_STARTED.md`
+   onto the current
+   [templates/GETTING_STARTED.md](../templates/GETTING_STARTED.md) too:
+   the classic one describes the old layout, so carry over anything this
+   repository wrote into it and fill in the template's placeholders as an
+   install does. Then: `python3
    tools/precedent_sync_views.py --repo .` from the consuming repo, with
    its `precedent.json` and a real user-level individual config in place.
-   Last, since 2026-09-25: `python3 tools/precedent_branches.py
-   --ensure-tiers --apply`, so the migrated repo has `pre-staging` and a
-   `staging` branch of its own on origin -- since 2026-09-27 Update
-   Vendors makes them too, even on a repo it sends to this migration, so
-   this is a check that they exist -- and commit the
-   `"staging_branch": "staging"` it writes into `precedent.json` when the
-   repo's staging tier had been `main`.
+   Only for a repository that declares the ladder set (the optional
+   practice set that puts a `staging` branch between a feature branch and
+   `main`): run `python3 tools/precedent_branches.py --ensure-tiers
+   --apply`, which makes `staging` on origin if it is missing, and commit
+   the `"staging_branch": "staging"` it writes into `precedent.json`. A
+   repository without that set skips this and works against `main`.
    Check the reported precedence, any `overridden`/`blocked` entries, the
    combined resident-block budget, and that the generated `AGENTS.md`
    actually names practices from every source that's supposed to be in
@@ -880,6 +913,14 @@ widening what sessions may run
    pass, and do not consider the migration finished until it passes —
    the same requirement step 5 already states, restated at the one point
    in this pattern that claims the migration is actually validated.
+
+   **Then finish with an Update Vendors run**, from the sibling
+   BestPractice clone: `python3 ../BestPractice/tools/precedent_update.py
+   --repo .`. The engine step 7 seeded is a snapshot; the update brings
+   the engine, the catalogue and every file an install writes from a
+   template to the current commit, says what it changed, and runs the
+   check the landing branch takes. The migration is done when it reports
+   DONE ([vendor-update-runbook](../practices/vendor-update-runbook.md)).
 
 9. **Backfill every `## Story` the conversion left empty, before calling the
    migration done.** This is the step most likely to be skipped, because

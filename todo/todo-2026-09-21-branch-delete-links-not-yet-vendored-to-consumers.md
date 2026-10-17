@@ -3,16 +3,16 @@ slug:              todo-2026-09-21-branch-delete-links-not-yet-vendored-to-consu
 kind:              manual
 domain:            engine
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "an \"Update Vendors\" run per consuming repo -- this session is scoped to BestPractice alone and cannot reach them"
+waiting_on:        null
 noted:             2026-09-21
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -50,3 +50,9 @@ Every consuming repo's `process/upstream/practices/` holds the three practice
 files at their current content, and its `tools/ENGINE_MANIFEST.json` records
 [very_deep_check.py](../tools/very_deep_check.py) as synced rather than
 diverged.
+
+## Notes
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): its condition names every consumer's process/upstream/practices/, which this session cannot read; four weeks of Update Vendors and Update All Vendors have run since, and a consumer that resolves universal live never needed the copy. Would close it as overtaken; unverifiable from here.
+
+2026-10-17, closed by the session under Morgan's delegation of 2026-10-17 ("Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."), which settled the very deep check's question the way that run said it would. What met it: overtaken. Four weeks of Update Vendors and Update All Vendors have run since, which is the per-consumer run this item waited on, and a consumer that resolves the universal catalogue live never needed the vendored copy. A consumer's own tree is unreadable from here, so this is closed on the mechanism, not on a look at each one.

@@ -1391,17 +1391,15 @@ def _retired_branch_name_ships(ctx):
 
 
 
-# ---- the ladder stays opt-in (spec/LADDER_OPT_IN_PLAN.md D7) ---------------
-def _individual_set_brings_the_ladder(_pr):
-    """-> why this check stands aside, when ROOT is an individual set whose
-    person brings a set that provides the ladder; '' otherwise.
+# ---- a set's own words stay in that set (spec/LADDER_OPT_IN_PLAN.md D7) ----
+def _individual_set_brings(_pr, path):
+    """-> why this check stands aside for the set at `path`, when ROOT is an
+    individual set whose person brings it; '' otherwise.
 
-    An individual set is read by one person only. When that person brings
-    the ladder, its words in their own set are theirs, the same as in the
-    set that provides it -- and refusing them refused that person's own next
-    Update Vendors (found rehearsing a Produce, 2026-10-03). A brought set
-    that is not cloned beside the individual set cannot say what it
-    provides, so it does not count: the check still runs."""
+    An individual set is read by one person only. When that person brings a
+    set, its words in their own set are theirs, the same as in the set that
+    owns them -- and refusing them refused that person's own next Update
+    Vendors (found rehearsing a Produce, 2026-10-03)."""
     try:
         man = json.loads((ROOT / 'precedent-source.json').read_text(
             encoding='utf-8'))
@@ -1410,67 +1408,72 @@ def _individual_set_brings_the_ladder(_pr):
     if not isinstance(man, dict) or _pr.normalize_level(
             man.get('level')) != 'individual':
         return ''
+    want = pathlib.Path(path).resolve()
     for b in _pr.brought_sources(ROOT, warn=False):
-        if _pr.LADDER_CAPABILITY in _pr.source_provides(b['path']):
+        if pathlib.Path(b['path']).resolve() == want:
             return (f"this is one person's individual set and it brings "
-                    f"{b['name']}, which provides the ladder, so its words "
-                    f"are that person's own")
+                    f"{b['name']}, so its words are that person's own")
     return ''
 
 
-@check('ladder-words-stay-in-the-ladder-set', 'tree',
-       'a practice set that does not provide the five-stage ladder carries '
-       'none of its words -- step labels, numbered Promotes, its commands '
-       'written as commands, the tier branch names, links to the practices '
-       'that moved into the ladder set -- in a practice, a template, a '
-       'person-facing document, the reply rules or the word list '
-       '(tools/ladder_words.py, the one matcher)',
+@check('set-words-stay-in-their-set', 'tree',
+       "a practice set carries none of another set's own words -- the ones "
+       'that set declares in its precedent-source.json owned_words -- in a '
+       'practice, a template, a person-facing document, the reply rules or '
+       'the word list; and each set\'s declared words match its own examples '
+       '(tools/set_words.py, the one matcher)',
        'records: todo/, record/, spec/, gotcha and practice Stories, ledgers, '
        'git history, and the dated approved_by and *_why fields -- they say '
-       'what happened in the words of the day. Ordinary English: "consider", '
-       '"act", lowercase "promote" and "booked" never match. Engine OUTPUT is '
-       'held by verify_harness instead, which runs the tools off the ladder. '
-       "An individual set whose person brings the ladder: one person reads "
-       'it, and the words are theirs.',
+       'what happened in the words of the day. A practice that requires a '
+       'capability the owning set provides. Engine OUTPUT is held by '
+       'verify_harness instead. An individual set whose person brings the '
+       'owning set: one person reads it, and the words are theirs. A set not '
+       'cloned on this machine cannot say what its words are.',
        practice_backed=False, binds_publishers=True,
        selects_on=('practices/*.md', 'local/practices/*.md',
                    'templates/**/*.md', 'documentation/*.md', '*.md',
                    'reply_check.json', 'tools/our_language.json',
-                   'tools/ladder_words.py'))
-def _ladder_words_stay_in_the_ladder_set(ctx):
-    """A person off the ladder reads the universal set and the shared sets
-    their repositories declare. Every ladder word in those is a word they
-    meet for a method they never chose -- which is the whole problem the
-    opt-in fixed (2026-10-02: 638 hits in this repository before the move,
-    0 after). Only a set that provides the ladder may say them."""
+                   'precedent-source.json', 'tools/set_words.py'))
+def _set_words_stay_in_their_set(ctx):
+    """A person who does not bring a set reads the universal set and the
+    shared sets their repositories declare. Every word of that set in those
+    is a word they meet for a method they never chose (2026-10-02: 638 hits
+    of the ladder's in this repository before its words moved, 0 after).
+    Only the set that owns the words may say them; the engine knows none of
+    them -- each set declares its own (part 3 of
+    spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md, 2026-10-17)."""
     if not (ROOT / 'precedent-source.json').is_file():
         raise NotApplicable('not a practice set: a repository that consumes '
                             'practices writes its own documents in its own '
                             'words')
     try:
         import precedent_resolve as _pr
-        if _pr.LADDER_CAPABILITY in _pr.source_provides(ROOT):
-            raise NotApplicable('this set provides the ladder, so its words '
-                                'are its own')
-        brought = _individual_set_brings_the_ladder(_pr)
-        if brought:
-            raise NotApplicable(brought)
-    except ImportError:
-        pass
-    try:
-        import ladder_words
-    except ImportError:
-        raise NotApplicable('tools/ladder_words.py did not import')
+        import set_words as _sw
+    except ImportError as e:
+        raise NotApplicable(f'{e.name}.py did not import')
     out = []
-    for path in ladder_words.scoped_files(ROOT):
-        rel = str(path.relative_to(ROOT))
-        if _foreign_practice(rel):
+    own = _sw.words_of(ROOT)
+    for problem in (own.problems if own else []):
+        out.append(Finding('precedent-source.json', problem))
+    owners = _sw.sets_with_words(ROOT)
+    judged = 0
+    for name, path, words, provides in owners:
+        if _individual_set_brings(_pr, path):
             continue
-        for n, kind, text in ladder_words.file_hits(path):
-            out.append(Finding(
-                f'{rel}:{n}', f'{kind}, {text!r}: a person off the ladder '
-                f'reads this. Say it plainly, or move the rule into the set '
-                f'that provides the ladder'))
+        judged += 1
+        for path_ in _sw.scoped_files(ROOT):
+            rel = str(path_.relative_to(ROOT))
+            if _foreign_practice(rel):
+                continue
+            for n, kind, text in _sw.file_hits(path_, words, provides):
+                out.append(Finding(
+                    f'{rel}:{n}', f'{kind}, {text!r}: a word of {name}, and a '
+                    f'person who does not bring {name} reads this. Say it '
+                    f'plainly, or move the rule into {name}'))
+    if not out and not judged:
+        raise NotApplicable('no other set in force here declares words of its '
+                            'own' if not owners else 'every set that declares '
+                            'words of its own is brought by this set\'s person')
     return out
 
 
@@ -4806,7 +4809,10 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
     'freshness-guard.sh',
     'precedent-paths.sh',
     'push-check-gate.sh',
+    'reply-gate.sh',
     'seeded-prompt-gate.sh',
+    'stop-git-check.sh',
+    'stop-reply-check.sh',
     'wait-loop-gate.sh',
 )
 
@@ -4815,10 +4821,12 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
        'each hook in DOGFOODED_HOOKS_MATCH_TEMPLATE is byte-identical '
        'between .claude/hooks/ and templates/harness/claude-code/hooks/',
        'a hook this repo deliberately customizes (session-start.sh, '
-       'stop-git-check.sh, stop-reply-check.sh, reply-gate.sh -- each '
-       'carries real repo-specific content and is correctly not in the '
-       'list); whether either copy is actually correct, only that the '
-       'two agree',
+       'which carries real repo-specific content and is correctly not in '
+       'the list; reply-gate.sh and the two stop hooks were listed here '
+       'too until 2026-10-17, but they were drifted hand copies of the '
+       'engine scripts, not customizations, and are stubs now); an engine '
+       'hook stub left off the list; whether either copy is actually '
+       'correct, only that the two agree',
        practice_backed=False,
        # Both sides of every pair it compares. Touch either copy of a
        # dogfooded hook and this runs, instead of waiting for its rotation
@@ -4920,8 +4928,9 @@ def _parallels_rows(text):
 
 
 @check('claude-only-surface-has-a-parallel', 'tree',
-       'every hook in .claude/hooks/, and every hook .claude/settings*.json '
-       'wires, is named in a row of templates/harness/PARALLELS.md, and '
+       'every hook in .claude/hooks/, every hook .claude/settings*.json '
+       'wires, and every hook templates/harness/claude-code/hooks/ ships, is '
+       'named in a row of templates/harness/PARALLELS.md, and '
        'every row of that table carries a non-empty verdict for each of '
        + ', '.join(_PARALLEL_COLUMNS),
        'whether a recorded verdict is still TRUE -- a `none because the '
@@ -4955,7 +4964,13 @@ def _claude_only_surface_has_a_parallel(ctx):
             'Claude-only surface here for the other adapters to parallel. '
             'A repo with its own such surface still needs the answer; '
             'finding that surface is not something this check can do')
-    surface = _claude_surface(ctx.root)
+    # A hook the claude-code adapter SHIPS is a mechanism too, run here or
+    # not: artifact-publish-gate.sh reaches every consumer and BestPractice
+    # runs none of it, so it had no row, and this check refused adding one
+    # as naming a hook that does not exist (2026-10-17, very deep check;
+    # decision the session's, under Morgan's delegation of that day).
+    surface = _claude_surface(ctx.root) | {
+        p.name for p in (family / 'claude-code' / 'hooks').glob('*.sh')}
     if not surface:
         raise NotApplicable('.claude/ here wires and ships no hooks at all')
     path = family / 'PARALLELS.md'
@@ -5001,8 +5016,9 @@ def _claude_only_surface_has_a_parallel(ctx):
             if tok not in surface:
                 findings.append(Finding(
                     rel,
-                    f'names {tok}, which is neither in .claude/hooks/ nor '
-                    f'wired by any .claude/settings*.json -- a row left '
+                    f'names {tok}, which is neither in .claude/hooks/, '
+                    f'wired by any .claude/settings*.json, nor shipped from '
+                    f'templates/harness/claude-code/hooks/ -- a row left '
                     f'behind by a deleted hook reads as coverage. Drop it'))
     return findings
 
@@ -5456,7 +5472,10 @@ def _declared_sources_are_cloned(ctx):
        'every hook script this repo ships (templates/harness/claude-code/'
        'hooks/*.sh) is on a repo kind\'s list in precedent_vendor_engine.py\'s '
        'HOOK_WIRING, or in HOOKS_NO_KIND with the reason no kind gets it; '
-       'nothing is listed that is not shipped; and each kind\'s template -- '
+       'nothing is listed that is not shipped; each shipped stub\'s script is '
+       'in tools/ and HOOK_SCRIPT_FILES; every tools/hook_wiring.json entry '
+       'names a script in HOOK_SCRIPT_FILES at an event the fixed '
+       'precedent-hooks.sh entry covers; and each kind\'s template -- '
        'the consumer settings.json and the set payload '
        'precedent_bootstrap_source.py writes -- wires exactly its list',
        'whether a hook is on the RIGHT kind\'s list: that is a judgment this '
@@ -5808,7 +5827,8 @@ def _engine_plus_host_shims(ctx):
         raise NotApplicable('this repo vendors no upstream tree at '
                             'process/upstream/, so there is no engine/shim '
                             'boundary to hold. This is the expected state in '
-                            'the upstream repo itself')
+                            'Precedent itself and in any project installed '
+                            'onto the loader (INSTALL.md section 0)')
     # A copy the ENGINE MANIFEST records is not a fork. This check's whole
     # concern is a duplicate that drifts unnoticed, and
     # precedent_vendor_engine.py exists to make exactly these copies
@@ -6513,9 +6533,9 @@ def _one_python(ctx):
        '`utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` '
        '-- every one of those resolves to whatever zone the machine is on, '
        'which in a container is UTC and in a record is unrecoverable. And '
-       'the ENGINE\'s fallback zone is the SAME string in all three engine '
-       'files that hold it: the time engine and both copies of the commit '
-       'hook',
+       'the ENGINE\'s fallback zone is the SAME string in both engine files '
+       'that hold it: the time engine and the commit hook\'s script in '
+       'tools/ (the hook files themselves are stubs since 2026-10-07)',
        'a stamp that carries an offset but the WRONG one -- a zone declared '
        'incorrectly in somebody\'s identity.json is a true statement about a '
        'false fact, and nothing mechanical can tell where a person actually '
@@ -6530,8 +6550,9 @@ def _one_python(ctx):
        'session zone is set, which is the hook\'s job, not this one\'s.')
 def _timestamps_carry_offset(ctx):
     """Two properties, one practice: nothing writes a naive moment, and the
-    ENGINE's fallback zone cannot drift between the three engine files that
-    name it (NOT precedent.json, which is the rung that overrides them --
+    ENGINE's fallback zone cannot drift between the two engine files that
+    name it (three until 2026-10-07, when both hook copies became stubs;
+    NOT precedent.json, which is the rung that overrides them --
     see the comment at the second half).
 
     AST, NOT GREP. The first draft grepped, and matched its own explanatory
@@ -6592,7 +6613,7 @@ def _timestamps_carry_offset(ctx):
                 f'({"today()" if fn.attr == "today" else "stamp(), utc_iso() or from_unix()"}), '
                 f'which resolves the person\'s zone and always carries the offset'))
 
-    # ---- the ENGINE's fallback zone, in the three engine files that hold it
+    # ---- the ENGINE's fallback zone, in the engine files that hold it
     #
     # precedent.json IS NOT IN THIS SET, and putting it here was a real bug
     # (found 2026-09-14 by the first real §0 install into a project with
@@ -6810,6 +6831,11 @@ _VDC_LEDGER = 'record/very-deep-check-ledger.json'
 _VDC_WRITE_UP = 'spec/VERY_DEEP_CHECK_LATEST_RUN.md'
 _VDC_PASSES = {'1', '2', '3', '4'}
 _VDC_RULE_DATE = '2026-10-11'
+# From 2026-10-17 the account also lists what runs before and after each
+# move (Morgan: "It should list this ... the push to staging, the push to
+# main ... and the same for debut"), written by the CHECKS BY STAGE section.
+_VDC_STAGES_HEADING = re.compile(r'^## Checks by stage\s*$', re.M)
+_VDC_STAGES_DATE = '2026-10-17'
 
 
 @check('very-deep-check', 'tree',
@@ -6817,7 +6843,8 @@ _VDC_RULE_DATE = '2026-10-11'
        "record/very-deep-check-ledger.json has all four passes recorded, "
        "spec/VERY_DEEP_CHECK_LATEST_RUN.md exists and its `opened:` date is "
        "that run's date or later -- the run's full account was written, not "
-       "left for the person to ask for",
+       "left for the person to ask for -- and, for a run from 2026-10-17 on, "
+       "it carries a `## Checks by stage` section",
        "whether the account is any GOOD: a file with the right date and "
        "nothing in it passes. It also cannot see a run whose passes were "
        "never recorded with --record-pass, which is the other half of the "
@@ -6855,6 +6882,14 @@ def _very_deep_check_write_up(ctx):
             f'still for the run opened {opened or "(no opened: date)"} -- '
             f'rewrite it for this run, with `opened: {date}`, before the run '
             f'is called done (practices/very-deep-check.md)'))]
+    if date >= _VDC_STAGES_DATE and not _VDC_STAGES_HEADING.search(
+            path.read_text(encoding='utf-8', errors='ignore')):
+        return [Finding(_VDC_WRITE_UP, (
+            f'{where} has no `## Checks by stage` section -- what runs before '
+            f'and after Booked, Produce and the Debut. Its CHECKS BY STAGE '
+            f'section writes it; re-run python3 tools/very_deep_check.py, or '
+            f'restore the block if the rewrite dropped it '
+            f'(practices/very-deep-check.md, Pass 2 question 25)'))]
     return []
 
 
@@ -7025,7 +7060,8 @@ def _unguarded_branch_inferences(text):
         for n in ast.walk(fn):
             if isinstance(n, ast.Call):
                 f = n.func
-                if isinstance(f, ast.Name) and f.id == '_declared_base_branch':
+                if isinstance(f, ast.Name) and f.id in (
+                        '_declared_base_branch', 'declared_base_branch'):
                     return True
                 if isinstance(f, ast.Attribute) and f.attr == 'get' and n.args \
                         and isinstance(n.args[0], ast.Constant) \
@@ -7754,13 +7790,16 @@ def _vocabulary_reaches_the_consumer(ctx):
 
 @check('enforcement-lives-with-its-practice', 'tree',
        "every shared and individual practice set on disk keeps its own "
-       "enforcement: no practice's checked_by or ships resolves to an engine "
-       "file, and no string in the engine's code names a set or one of its "
-       "practice slugs",
-       "a set not on disk here (it is not read), engine code that encodes "
-       "a set's rule without naming it, and comments: only string literals "
-       "in engine .py files are read, so a rule spelled out in prose, or "
-       "logic keyed on a value no slug matches, is invisible to it",
+       "enforcement and its own tests: no practice's checked_by or ships "
+       "resolves to an engine file, no string in BestPractice's code or tests "
+       "(docstrings aside) names a set or one of its practice slugs, no "
+       "universal practice's rule names one, and each set check "
+       "tools/checks/check_<x>.py has its tests/test_<x>.sh in the set",
+       "a set not on disk here (it is not read), code that encodes a set's "
+       "rule without naming it, and comments: only string literals in "
+       "tools/ .py files, test scripts' non-comment lines and universal "
+       "practices' Rule and Detail are read, so logic keyed on a value no "
+       "slug matches is invisible to it",
        advisory=True,
        advisory_term={'term': 'temporary',
                       'waiting_for': 'the moves in '
@@ -7768,6 +7807,7 @@ def _vocabulary_reaches_the_consumer(ctx):
                       'owner': 'Morgan',
                       'revisit': '2026-11-16'},
        selects_on=('practices/*.md', 'tools/*.py', 'tools/*.sh',
+                   'tools/checks/*.py', 'tools/checks/tests/*.sh',
                    'tools/precedent_vendor_engine.py'))
 def _enforcement_lives_with_its_practice(ctx):
     """The inventory behind spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md.
@@ -7852,34 +7892,144 @@ def _enforcement_lives_with_its_practice(ctx):
                         f'the engine\'s file lists'))
     # The default individual set name is a convention every person shares,
     # not one set's rule (Morgan, 2026-10-16: "keep the default name").
-    wanted = (names | set(slugs)) - {_pr.DEFAULT_INDIVIDUAL_NAME}
-    for name in sorted(engine):
-        path = ctx.root / 'tools' / name
-        if not name.endswith('.py') or not path.is_file():
+    names = names - {_pr.DEFAULT_INDIVIDUAL_NAME}
+    wanted = (names | set(slugs)) - {_pr.DEFAULT_INDIVIDUAL_NAME} - set(_SET_NAMES_KEPT)
+    set_only = {s: n for s, n in slugs.items()
+                if s not in universal and s not in _SET_NAMES_KEPT}
+    # EVERY .py under tools/, not only the engine's file lists (2026-10-17):
+    # the harness and BestPractice's own checks are never vendored, so the
+    # lists missed the tests that held a set's rules -- the problem fixed the
+    # night before (Morgan: "we had lots of tests for them and rules
+    # regarding them in best practice. And it should never be like that").
+    # A docstring or bare string statement is a comment, and comments may
+    # name a set (Morgan, 2026-10-16).
+    # A file git ignores here is a copy some set ships, delivered by the
+    # sync (tools/ladder/ and the like): that set's own code, in the place
+    # it is meant to run, never this repository's (2026-10-17: the ladder
+    # set's others_did.py, shipped into BestPractice, read as engine code).
+    every = [p for p in sorted((ctx.root / 'tools').rglob('*.py'))
+             if '__pycache__' not in p.parts]
+    shipped_here = set()
+    try:
+        r = subprocess.run(['git', '-C', str(ctx.root), 'check-ignore', '--stdin'],
+                           input='\n'.join(p.relative_to(ctx.root).as_posix()
+                                           for p in every),
+                           capture_output=True, text=True, timeout=60)
+        shipped_here = set(r.stdout.split())
+    except (OSError, subprocess.SubprocessError):
+        pass
+    for path in every:
+        rel = path.relative_to(ctx.root).as_posix()
+        if rel in shipped_here:
             continue
-        try:
-            toks = _tok.generate_tokens(_io.StringIO(
-                path.read_text(encoding='utf-8')).readline)
-            hits = set()
-            for tk in toks:
-                if tk.type != _tok.STRING:
-                    continue
-                try:
-                    value = ast.literal_eval(tk.string)
-                except (ValueError, SyntaxError):
-                    continue
-                if isinstance(value, str) and value in wanted:
-                    hits.add(value)
-        except (_tok.TokenError, SyntaxError, UnicodeDecodeError):
-            continue
+        hits = _set_names_in_strings(path, wanted, set_only, names)
+        test = rel == 'tools/verify_harness.py' or '/tests/' in rel \
+            or pathlib.PurePosixPath(rel).name.startswith('test_')
         for h in sorted(hits):
             what = (f'the set {h}' if h in names else
                     f'{slugs[h]}\'s practice {h}')
-            findings.append(Finding(
-                f'tools/{name}',
-                f'names {what} in code: the engine knows how to run a set\'s '
-                f'checks, never what one set\'s rule is'))
+            if path.name in engine and rel.count('/') == 1:
+                why = ('in code: the engine knows how to run a set\'s checks, '
+                       'never what one set\'s rule is')
+            elif test:
+                why = ('in a test: a set\'s practices are tested in the set, '
+                       'beside the check; an engine test uses a planted name')
+            else:
+                why = ('in code BestPractice keeps for itself: a set\'s rule '
+                       'lives in the set')
+            findings.append(Finding(rel, f'names {what} {why}'))
+    for path in sorted((ctx.root / 'tools').rglob('*.sh')):
+        if '__pycache__' in path.parts or '/tests/' not in path.as_posix():
+            continue
+        text = '\n'.join(l for l in path.read_text(encoding='utf-8', errors='ignore')
+                         .splitlines() if not l.lstrip().startswith('#'))
+        for h in sorted(_set_names_in_text(text, set_only, names)):
+            what = f'the set {h}' if h in names else f'{slugs[h]}\'s practice {h}'
+            findings.append(Finding(path.relative_to(ctx.root).as_posix(),
+                                    f'names {what} in a test: a set\'s practices '
+                                    f'are tested in the set, beside the check'))
+    # A RULE ABOUT ONE SET in a universal practice, where its Rule or Detail
+    # points at a set's practice, or names the set. Its Story and approval
+    # history are the record, and may.
+    for f in sorted((ctx.root / 'practices').glob('*.md')):
+        text = f.read_text(encoding='utf-8', errors='ignore')
+        text = re.split(r'^## Story\b|^### Approval history\b', text, 1, flags=re.M)[0]
+        text = re.sub(r'^---\n.*?\n---\n', '', text, 1, flags=re.S)
+        for h in sorted(_set_names_in_text(text, set_only, names)):
+            what = f'the set {h}' if h in names else f'{slugs[h]}\'s practice {h}'
+            findings.append(Finding(f'practices/{f.name}', (
+                f'its rule names {what}: a universal practice carries no rule '
+                f'about one set -- the set adds to it in a practice of its own')))
+    # EACH SET TESTS ITS OWN CHECKS: tools/checks/check_<x>.py ships with
+    # tools/checks/tests/test_<x>.sh in the same set.
+    for root, level, name in sets:
+        own = _set_own_files(root)
+        for check_py in sorted((root / 'tools' / 'checks').glob('check_*.py')):
+            stem = check_py.stem[len('check_'):]
+            if check_py.name in own or not (ctx.root / 'tools' / 'checks' /
+                                            check_py.name).is_file():
+                if not (root / 'tools' / 'checks' / 'tests' /
+                        f'test_{stem}.sh').is_file():
+                    up = ctx.root / 'tools' / 'checks' / 'tests' / f'test_{stem}.sh'
+                    findings.append(Finding(
+                        f'{name}/tools/checks/{check_py.name}',
+                        f'has no test in {name} (tools/checks/tests/test_{stem}.sh)'
+                        + (f'; BestPractice carries one, which belongs in {name}'
+                           if up.is_file() else '')
+                        + ': a set\'s checks are tested in the set'))
     return findings
+
+
+def _docstring_nodes(tree):
+    """-> the ids of every string constant that is a docstring or a bare
+    string statement: a comment, not code."""
+    ids = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) \
+                and isinstance(node.value.value, str):
+            ids.add(id(node.value))
+    return ids
+
+
+def _set_names_in_text(text, set_only, names):
+    """-> the set names and set-only practice slugs `text` names: a link or
+    path to the practice's file, or the set's name as a whole word."""
+    hits = {m for m in re.findall(r'(?:practices/|\]\()([\w-]+)\.md', text)
+            if m in set_only}
+    hits |= {n for n in names if re.search(
+        r'(?<![\w-])' + re.escape(n) + r'(?![\w-])', text)}
+    return hits
+
+
+def _set_names_in_strings(path, wanted, set_only, names):
+    """-> what the string literals in Python file `path` name, docstrings
+    left out: a value that IS a set or slug, or text naming one."""
+    try:
+        tree = ast.parse(path.read_text(encoding='utf-8'))
+    except (SyntaxError, UnicodeDecodeError, ValueError, OSError):
+        return set()
+    skip = _docstring_nodes(tree)
+    hits = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) \
+                and id(node) not in skip:
+            v = node.value
+            if v in wanted:
+                hits.add(v)
+            elif len(v) > len(min(wanted, key=len, default='')):
+                hits |= _set_names_in_text(v, set_only, names)
+    return hits
+
+
+# Names the engine keeps on purpose though a set also uses them, each with
+# the words that kept it (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md,
+# part 4). A new entry needs the person's words, as these have.
+_SET_NAMES_KEPT = {
+    'go-merge': 'Morgan, 2026-10-16: a name BestPractice itself retired, '
+                'used by the tests of retirement',
+    'go-update': 'Morgan, 2026-10-16: go-merge\'s successor, the other half '
+                 'of the same retirement tests',
+}
 
 
 def _set_own_files(root):
@@ -8471,10 +8621,21 @@ def _derived_file_marker(ctx):
     return out
 
 
+# The one helper (tools/declared_base_branch.py) and the one tool allowed a
+# copy of its own: doc_html.py is meant to be dropped into a host repository
+# alone and imports nothing from the engine (its own _default_branch says so).
+_BASE_BRANCH_HELPER = 'declared_base_branch.py'
+_BASE_BRANCH_COPY_OK = {
+    'doc_html.py': 'meant to be dropped into a host repository on its own, '
+                   'so it imports nothing from the engine',
+}
+
+
 @check('declared-base-branch', 'tree',
        "every tool that resolves the repo's branch reads precedent.json's "
        "declared `base_branch` before falling back to inferring one from "
-       "`refs/remotes/origin/HEAD`",
+       "`refs/remotes/origin/HEAD`, and reads it through the one helper, "
+       "tools/declared_base_branch.py, rather than a copy of its own",
        "whether the declared value is CORRECT, whether a tool that needs a "
        "base branch resolves one at all (a tool that hardcodes 'main' as a "
        "string and never touches origin/HEAD is invisible here), and every "
@@ -8500,18 +8661,32 @@ def _declared_base_branch_is_read(ctx):
     `doc_html._link_base()` emitted `/blob/main/` for content that exists
     only on the beta branch: every generated link dead.
 
-    The duplication is deliberate and stays -- doc_lint.py and doc_html.py
-    are meant to be droppable into a host repo alone, and doc_html.py's own
-    docstring says so. So this does not demand a shared import. It demands
-    that each copy ask the declared question first. Without a check the
+    It demands that each tool ask the declared question first, and since
+    2026-10-17 that it ask it through the one helper. The copies had been
+    left deliberate on the reasoning that doc_lint.py and doc_html.py are
+    droppable into a host repo alone; by then doc_lint.py imported two
+    engine modules at load, and nine tools carried the helper in three
+    wordings. Each now imports tools/declared_base_branch.py, and a tool
+    that defines its own copy again is a finding, except doc_html.py
+    (_BASE_BRANCH_COPY_OK), which really does run alone. Without a check the
     next tool copies the nearest existing resolver, inherits the bug, and
-    tests clean again: that is precisely how this reached six copies.
+    tests clean again: that is precisely how this reached six copies, and
+    then nine.
     """
     findings = []
     for path in _tools_py(ROOT / 'tools'):
+        text = path.read_text(encoding='utf-8', errors='ignore')
+        if path.name != _BASE_BRANCH_HELPER \
+                and path.name not in _BASE_BRANCH_COPY_OK \
+                and re.search(r'^\s*def _?declared_base_branch\(', text, re.M):
+            findings.append(Finding(
+                f'tools/{path.name}',
+                'defines its own copy of the declared-base-branch helper -- '
+                'import the one in tools/declared_base_branch.py instead '
+                '(`from declared_base_branch import declared_base_branch`), '
+                'so a fix to it reaches every tool'))
         if path.name in _BASE_BRANCH_INFERENCE_OK:
             continue
-        text = path.read_text(encoding='utf-8', errors='ignore')
         for fn in _unguarded_branch_inferences(text):
             findings.append(Finding(
                 f'tools/{path.name}',
@@ -8519,7 +8694,8 @@ def _declared_base_branch_is_read(ctx):
                 "DECLARED branch being read first, so under this repo's "
                 "branch pin it measures against a lineage the work never "
                 "touched -- read precedent.json's `base_branch` (the "
-                "`_declared_base_branch` helper the other resolvers carry), "
+                "helper in tools/declared_base_branch.py the other resolvers "
+                "import), "
                 "or the manifest's `upstream.branch` if the question is "
                 "which branch a vendored copy tracks"))
     return findings
@@ -9397,27 +9573,9 @@ def _two_check_level_names():
 
 
 
-def _declared_base_branch(root):
-    """The branch this repo's work is measured against, as DECLARED in
-    precedent.json's `base_branch` -- not inferred from `origin/HEAD`.
-
-    Those are two different questions with usually the same answer, which is
-    why asking the wrong one survives so long. `origin/HEAD` answers "what
-    does GitHub show first"; callers here mean "what lineage does this work
-    belong to". They diverge the moment a repo pins its work to a branch
-    that is not the configured default -- BestPractice's own
-    `precedent-beta-v01` -- and then every inference is quietly wrong with
-    nothing failing. Returns None when undeclared or unreadable, so callers
-    fall back to the old inference rather than breaking (fail-gracefully).
-    Enforced by precedent_check.py's `declared-base-branch`.
-    """
-    try:
-        import json as _json, pathlib as _pathlib
-        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
-                        .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 def _landing_ref():
     """-> origin/<the branch this person's work lands on>, when
@@ -10190,7 +10348,13 @@ def _repo_retired_terms(cfg_path, _ol):
     # it -- so this scrub reads it as well, and a record is declared once.
     # exempt_files stays for what is not a record (a materialized tree, a
     # generated index), and still works for a record listed there before.
-    exempt_files = [RETIRED_VOCAB_CONFIG] + exempt_files + _declared_record_paths()
+    # The decommission tool's own ledger names every retired path by
+    # construction, the retired pack's among them, exactly as this config
+    # names every retired term: a migration that followed step 5 to the
+    # letter failed here on the record step 5 makes (2026-10-17, very deep
+    # check's migration rehearsal).
+    exempt_files = ([RETIRED_VOCAB_CONFIG, DECOMMISSIONED_PATHS_REGISTRY]
+                    + exempt_files + _declared_record_paths())
     retired = [(t, 'this repository\'s current wording', [_retired_term_re(t)])
                for t in terms]
     out = []
@@ -10304,6 +10468,89 @@ def _pending_approval_outlives_its_merge(ctx):
                  f'--diff-filter=A {base} -- {rel}` names the commit that '
                  f'added it; its pull request is the one that carried that '
                  f'commit'))
+    return out
+
+
+# What precedent_move.py --dedupe-only --accept-reach-loss writes into the
+# universal copy's ## Story (and precedent_resolve.withdrawn_from_universal
+# reads back): "Withdrawn from universal on <date>, deliberately, with
+# --accept-reach-loss ...: ... in force only from the <level> set `<name>`".
+_ACCEPT_REACH_LOSS_FLAG = '--accept-reach-loss'
+
+
+@check('universal-dedup-lands-in-universal', 'tree',
+       "no universal practice is deduplicated to a slug that is not active in "
+       "the universal catalogue, unless its ## Story carries the line "
+       "precedent_move.py --dedupe-only --accept-reach-loss writes ("
+       "'Withdrawn from universal on <date>, deliberately, with "
+       "--accept-reach-loss')",
+       "whether the withdrawal was a good idea, or whether the set it went to "
+       "is one the consumers that matter declare -- only that the reach loss "
+       "was accepted on the record. A deduplication into another universal "
+       "practice is judged by following its in_force_at, one hop at a time.",
+       practice_backed=False,
+       selects_on=('practices/*.md',))
+def _universal_dedup_lands_in_universal(ctx):
+    """2026-10-17 very deep check: a universal practice deduplicated by hand
+    to a slug that only a set carries passed every check. The only signal
+    was the view sync's stderr, IN FORCE NOWHERE, followed by a line that
+    called the removal correct. Universal is the one level every consumer
+    resolves, so such a stub leaves the rule in force nowhere for a consumer
+    that declares universal alone. The move tool refuses that shape without
+    --accept-reach-loss; this check refuses the same shape made by hand."""
+    if _engine_manifest() or not (ctx.root / 'tools' / 'verify_harness.py').is_file():
+        raise NotApplicable('not the engine\'s own repository')
+    practices_dir = ctx.root / 'practices'
+    if not practices_dir.is_dir():
+        raise NotApplicable('no practices/ directory')
+    parsed = {}
+    for f in sorted(practices_dir.glob('*.md')):
+        try:
+            fm, sections = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue          # an unparseable file is another check's finding
+        parsed[(fm.get('slug') or f.stem).strip()] = (f, fm, sections)
+
+    def status(fm):
+        return (fm.get('status') or 'active').strip().strip('"\'')
+
+    def target(fm):
+        return (fm.get('in_force_at') or '').strip().strip('"\'')
+
+    def lands(slug):
+        seen = set()
+        while slug in parsed and slug not in seen:
+            seen.add(slug)
+            fm = parsed[slug][1]
+            if status(fm) == 'active':
+                return True
+            if status(fm) != 'deduplicated':
+                return False
+            slug = target(fm)
+        return False
+
+    out = []
+    for slug, (f, fm, sections) in parsed.items():
+        if status(fm) != 'deduplicated':
+            continue
+        to = target(fm)
+        if to in ('', 'null', 'none', 'engine') or lands(to):
+            continue
+        story = sections.get('story') or ''
+        import precedent_resolve as pr
+        if (_ACCEPT_REACH_LOSS_FLAG in story
+                and pr.withdrawn_from_universal(sections)):
+            continue
+        out.append(Finding(
+            f'practices/{f.name}',
+            f'deduplicated to `{to}`, which is not an active practice in the '
+            f'universal catalogue, so a consumer that declares only universal '
+            f'gets this rule from nowhere. Either point in_force_at at the '
+            f'universal practice that carries it, put it back to active, or '
+            f'withdraw it on the record: tools/precedent_move.py --slug {slug} '
+            f'--from universal --from-path . --to <level> --to-path <set> '
+            f'--dedupe-only --accept-reach-loss --approved-by <name> writes '
+            f'the Story line this check reads.'))
     return out
 
 
@@ -11184,11 +11431,12 @@ CODE_CITE_SKIP_FILES = {'verify_harness.py'}
        "own Rule already forbids as \"a bare mention of the practice's "
        "subject with no way to look it up\", and which no scanner can tell "
        "from ordinary hyphenated prose. That blindness is not theoretical: "
-       "five citations of `fail-gracefully` sit in this repo's own tools/ in "
-       "exactly that form, naming a slug that resolves nowhere here, and the "
-       "anchored form would make this check FAIL rather than fix them, "
-       "because the practice lives in a private shared set. See TODO.md's "
-       "`universal-code-cites-team-slug`.")
+       "this repo's own tools/ still cite `fail-gracefully` in exactly that "
+       "form in many places, written while the practice lived in a private "
+       "set and the anchored form would have failed here. It is universal "
+       "since 2026-10-05, so `practice: fail-gracefully` now resolves; "
+       "todo/todo-2026-09-07-universal-code-cites-team-slug.md tracks the "
+       "anchoring.")
 def _code_cites_practice(ctx):
     known = {}
     for d in ((ROOT / 'practices'), (ROOT / 'local' / 'practices')):
@@ -11871,8 +12119,8 @@ def _todo_gotcha_stale_reference(ctx):
         if rel not in BARE_GOTCHA_ANCHOR_EXEMPT_FILES:
             checks.append(
                 (BARE_GOTCHA_ANCHOR_RE, 'links to a bare `#gN` anchor with no '
-                 'file -- qualify it (record/GOTCHAS.md#gN, or the item\'s own '
-                 'gotchas/*.md file)'))
+                 'file -- link the trap\'s own gotchas/*.md '
+                 'file instead'))
         for pat, label in checks:
             for m in pat.finditer(text):
                 line_no = text.count('\n', 0, m.start()) + 1
@@ -13252,10 +13500,30 @@ def _finding_key(f):
     return _LINE_NO_RE.sub('', str(f)).strip()
 
 
+def _findings_in_output(stdout, slug):
+    """-> the finding keys `slug` printed in a precedent_check run's output,
+    or None when that run could not judge it (skipped, errored).
+
+    An advisory check prints its findings under ADVISORY, never VIOLATION:
+    reading only the latter made every advisory finding look new, and "this
+    push caused them" named findings no push had touched (2026-10-17). A
+    check the earlier tree could not run says nothing about before, so none
+    of its findings is held against the push."""
+    m = re.search(rf'^(?:VIOLATION|ADVISORY)\s+{re.escape(slug)}(?=\s)', stdout, re.M)
+    if m is None and re.search(rf'^(?:SKIPPED|ERRORED)\s+{re.escape(slug)}(?=\s)',
+                               stdout, re.M):
+        return None
+    lines = (stdout[m.end():].split('  the rule:', 1)[0].splitlines()
+             if m else [])
+    return {_LINE_NO_RE.sub('', l).strip() for l in lines
+            if l.startswith('    ') and l.strip()}
+
+
 def _findings_before(rng, slugs):
-    """-> {slug: {finding key}} for each check in `slugs`, run with this
-    commit's rules on the tree at the start of `rng` (A...B or A..B), or
-    None when that tree could not be laid out."""
+    """-> {slug: {finding key} or None} for each check in `slugs`, run with
+    this commit's rules on the tree at the start of `rng` (A...B or A..B),
+    None for a check that tree could not run; or None when that tree could
+    not be laid out."""
     import shutil
     import tempfile
     start = rng.split('...')[0] if '...' in rng else rng.split('..')[0]
@@ -13282,11 +13550,7 @@ def _findings_before(rng, slugs):
             r = subprocess.run([sys.executable, str(here), '--only', slug,
                                 '--full-sweep'], cwd=str(wt),
                                capture_output=True, text=True, timeout=300)
-            block = r.stdout.split(f'VIOLATION  {slug}', 1)
-            lines = (block[1].split('  the rule:', 1)[0].splitlines()
-                     if len(block) == 2 else [])
-            out[slug] = {_LINE_NO_RE.sub('', l).strip() for l in lines
-                         if l.startswith('    ') and l.strip()}
+            out[slug] = _findings_in_output(r.stdout, slug)
         return out
     except (OSError, subprocess.TimeoutExpired, ValueError):
         return None
@@ -13323,8 +13587,10 @@ def _caused_by_this_push(results, in_change, gone_in_change, rng):
     before = _findings_before(rng, sorted(outside))
     if before is None:
         return {}
-    return {slug: keys - before.get(slug, set())
-            for slug, keys in outside.items() if keys - before.get(slug, set())}
+    return {slug: keys - (before.get(slug) or set())
+            for slug, keys in outside.items()
+            if before.get(slug, set()) is not None
+            and keys - (before.get(slug) or set())}
 
 
 def _removed_files():

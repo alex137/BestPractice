@@ -282,7 +282,10 @@ def run_git_hook(event, git_args, payload, root=ROOT):
     """-> exit status for git: 0 lets it through, 1 refuses. Runs every
     practice hook listed for `event`, in turn, with git's arguments and
     stdin; refuses first, without running any, while a source that would
-    list one did not load (unloaded_sources)."""
+    list one did not load (unloaded_sources). A landing's push
+    (precedent_branches.py --land) also names the branch it lands in
+    PRECEDENT_LANDING_SOURCE, which every hook gets unchanged: git's own
+    lines show only the commit and where it goes."""
     missing = unloaded_sources(root)
     if missing:
         lines = [f'  {name}: ' + (f'add_repo {where} (read access)'

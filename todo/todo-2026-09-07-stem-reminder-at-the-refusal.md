@@ -4,7 +4,7 @@ kind:              analysis
 domain:            null
 severity:          null
 status:            open
-disposition:       wait
+disposition:       parked
 remind_on:         null
 blocked_on:        null
 batch:             null
@@ -30,6 +30,8 @@ closed:            null
   caught at push time rather than on request. Worth doing if that case ever
   actually bites.
 
+**Disposition:** parked (2026-10-17, the session, under Morgan's delegation of 2026-10-17 ("Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."); "drop it" is Morgan's word, not his here)
+
 ## How It Closes
 
 (not yet stated by the migration -- a session filling this in should read ## What and say what has to be true for `status` to become `done`.)
@@ -37,3 +39,7 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): a deliberate deferral "worth doing if that case ever bites"; nothing shows it has. Would drop it.
+
+2026-10-17, parked by the session under Morgan's delegation of 2026-10-17 ("Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."), the way the very deep check said it would settle it: a deliberate deferral whose revisit condition never came. It is not raised again unprompted.

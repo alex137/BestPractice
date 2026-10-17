@@ -3,7 +3,7 @@ slug:              todo-2026-09-08-small-calls-vs-brainstorm
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-08
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -54,3 +54,7 @@ closed:            null
 2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).
 
 2026-10-06: re-triaged; no longer blocked. The only blocker was read access to a private set, which a session now normally has (the private sources arrive at session start, or by `add_repo`). And `small-calls` itself has been universal since 2026-10-05 ([practices/small-calls.md](../practices/small-calls.md)), so the clause is an edit in this repository. It does not mention the brainstorm state yet. The disposition stays `wait`: changing it is the owner's call.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Universal small-calls (8964bf51, 2026-09-19) now says "Making a call is never authorization to write it into the repository. Where the work is still exploratory ... just do not commit them", which is the clause asked for; the individual set has no rule of the same shape (grep for brainstorm/exploratory finds none).

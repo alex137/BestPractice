@@ -76,6 +76,14 @@ MAX_BRANCHES = 40
 # seven days, not 14 days", strength: decided).
 ACTIVE_DAYS = 7
 RUN_PAGES = 3
+# GITHUB'S FILTERED RUN LISTING STOPS COUNTING (measured 2026-10-17). The
+# repository-wide listing, filtered to the window, reported a total_count
+# of exactly 2500 for BestPractice while two of its workflows' own counts
+# over the same window were 1027 and 2394: GitHub caps what a filtered
+# listing reports, so a count at this value is a floor, never the number.
+# Any count at or over it is printed as "at least N" (practice:
+# quote-discipline).
+LISTING_CAP = 2500
 
 
 def _default_call(path):
@@ -278,8 +286,10 @@ def _runs_words(by_event, complete=True, exact=None):
         return f'{n} run{"s" if n != 1 else ""} ({parts})' + tail
     read = f'the newest {RUN_PAGES * 100} read'
     if exact is not None:
-        return (f'{exact} run{"s" if exact != 1 else ""} (GitHub\'s own '
-                f'count; by event in {read}: {parts or "none"})' + tail)
+        floor = 'at least ' if exact >= LISTING_CAP else ''
+        return (f'{floor}{exact} run{"s" if exact != 1 else ""} (GitHub\'s own '
+                f'count{", which stops counting there" if floor else ""}; '
+                f'by event in {read}: {parts or "none"})' + tail)
     return (f'at least {n} run{"s" if n != 1 else ""} (of {read}'
             + (f': {parts}' if parts else '') + ')' + tail)
 
@@ -354,6 +364,7 @@ def audit_repo(slug, call=_default_call, days=DAYS,
     runs, total, complete = _runs(call, slug, since.isoformat())
 
     blobs = {}
+    exacts = {}
     base = _workflow_listing(call, slug, default)
     if base is None:
         rows.append(('UNVERIFIED', f'could not list {WF_DIR} on {default}'))
@@ -373,10 +384,11 @@ def audit_repo(slug, call=_default_call, days=DAYS,
         else:
             # The repo-wide read stopped short, so ask this workflow's own
             # count: one call, and only in a repo busy enough to need it.
-            ran = _runs_words(runs.get(path, {}), complete=False,
-                              exact=_workflow_run_total(
-                                  call, slug, ids.get(path),
-                                  since.isoformat()))
+            exact = _workflow_run_total(call, slug, ids.get(path),
+                                        since.isoformat())
+            if exact is not None:
+                exacts[path] = exact
+            ran = _runs_words(runs.get(path, {}), complete=False, exact=exact)
         state = states.get(path)
         state_s = f', {state}' if state and state != 'active' else ''
         entry = approved.get(path)
@@ -474,11 +486,26 @@ def audit_repo(slug, call=_default_call, days=DAYS,
                                         ' (none in the last 7, so it has '
                                         'stopped)')))
         if not complete:
-            rows.append(('NOTE', f'{total} runs in {days} days; only the '
+            capped = total >= LISTING_CAP
+            rows.append(('NOTE', f'{"at least " if capped else ""}{total} '
+                                 f'runs in {days} days'
+                                 f'{" (GitHub stops counting there)" if capped else ""}'
+                                 f'; only the '
                                  f'newest {RUN_PAGES * 100} were read, so '
                                  f'each workflow above carries GitHub\'s own '
                                  f'count where it could be asked and "at '
                                  f'least" where it could not'))
+        # THE PARTS MUST NOT EXCEED THE WHOLE (2026-10-17): two workflows'
+        # own counts, 1027 and 2394, beside a repository total of 2500. When
+        # they do, the total is the capped one, and saying so is the only
+        # honest reading of either number.
+        summed = sum(exacts.values())
+        if summed > total:
+            rows.append(('NOTE', f'the workflows\' own counts add up to '
+                                 f'{summed} runs, more than the repository\'s '
+                                 f'{total}: GitHub\'s filtered listing '
+                                 f'stopped counting, so the repository total '
+                                 f'is a floor, not a count'))
     return out
 
 

@@ -3,7 +3,7 @@ slug:              todo-2026-09-11-provenance-check-skips-in-a-source-set
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-11
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -115,3 +115,7 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Binds_publishers shipped (#261) and reached the sets; the item itself hands its only remainder (the other 41 checks) to the still-open todo-2026-09-12-coverage-report-for-registered-checks.

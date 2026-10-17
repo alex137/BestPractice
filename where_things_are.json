@@ -302,6 +302,14 @@
       "go_to": "[tools/precedent_practice_refs.py](tools/precedent_practice_refs.py) (`--changed-since BASE`, `--withdrawn`, `--handoff`); the rule is [practice-change-propagates](practices/practice-change-propagates.md)"
     },
     {
+      "looking_for": "Why a renamed, retired or reworded practice's citations are found and fixed everywhere it is cited: the plan",
+      "go_to": "[spec/PRACTICE_CHANGE_PROPAGATION_PLAN.md](spec/PRACTICE_CHANGE_PROPAGATION_PLAN.md)"
+    },
+    {
+      "looking_for": "Why a consumer's views check reads each shared set at the commit it was synced at, not at whatever its clone has checked out (executed)",
+      "go_to": "[spec/VIEWS_CHECK_AT_THE_PIN.md](spec/VIEWS_CHECK_AT_THE_PIN.md)"
+    },
+    {
       "looking_for": "Whether every declared practice-source repository is still CALLED what this repo calls it — a rename redirects forever, so git never notices",
       "go_to": "[tools/precedent_source_names.py](tools/precedent_source_names.py), run at [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 8; `UNVERIFIED` is not a pass"
     },
@@ -343,7 +351,7 @@
     },
     {
       "looking_for": "What other people landed here since your own last commit, once a day",
-      "go_to": "[tools/precedent_others_did.py](tools/precedent_others_did.py) — one line at session start; the report itself opens the first reply after 07:00 in your own timezone, through the reply gate. It counts from your own last commit here and stores nothing on origin; a note in the container's `.precedent/` stops it repeating within one container (2026-10-10)"
+      "go_to": "the ladder set's `tools/ladder/others_did.py`, run by that set's own hooks for whoever brings it (since 2026-10-17) -- the report opens the first reply after 07:00 in your own timezone. Who made each commit is [tools/precedent_commit_owners.py](tools/precedent_commit_owners.py), which Update Vendors' upstream note reads too"
     },
     {
       "looking_for": "Practices that fire at a moment rather than in a file",
@@ -424,10 +432,6 @@
     {
       "looking_for": "The leak gate (push-time; both layers live)",
       "go_to": "[tools/leak_gate.py](tools/leak_gate.py) — `--explain` for what it does and does not check"
-    },
-    {
-      "looking_for": "The editorial section split, as reviewable data",
-      "go_to": "[tools/section_split.json](tools/section_split.json), applied by [tools/resplit_sections.py](tools/resplit_sections.py)"
     },
     {
       "looking_for": "The converted practice files (phase 1)",
@@ -542,7 +546,7 @@
     },
     {
       "looking_for": "Upstream open items / roadmap",
-      "go_to": "[todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub and a pull request touching it is refused by the deep check.",
+      "go_to": "[todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub, and a new item added to it is refused by the deep check.",
       "quick": 11
     },
     {

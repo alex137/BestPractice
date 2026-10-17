@@ -77,7 +77,7 @@ Run:
 
 NOTE on `build --diff`: it used to be expected to come back empty, and
 verify_harness.py gated on that. It no longer is. The phase-1.5 editorial
-re-split (tools/resplit_sections.py) moves text between Rule/Why/Story/
+re-split (its tool since decommissioned) moved text between Rule/Why/Story/
 Install, which moves where this command re-emits each "**Why.**" label, so
 a non-empty diff is now the normal output and shows the re-split rather than
 a defect. What proves the practice files still hold exactly BestPractice's
@@ -329,7 +329,8 @@ def cmd_split(force=False):
         # Empty at split time, exactly as ## Story is: the mechanical converter
         # routes by the source's own bold labels, and BestPractice's catalogue
         # has no "Detail." label to route on. Filling it is the editorial pass
-        # (tools/resplit_sections.py), which moves text by reference.
+        # (a one-off re-split, its tool since decommissioned, which moved
+        # text by reference).
         out.append('\n## Detail\n')
         out.append('\n## Why\n')
         out.append((p['why'] + '\n') if p['why'] else '')

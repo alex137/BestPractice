@@ -40,8 +40,11 @@ with an origin on GitHub, where this session's person is a code owner
 (precedent_audience.py). Branch management is a code owner's business; a
 repository where you are not one is left out, and the listing says so.
 
-Read-only: it deletes nothing, and never could -- a remote branch is the
-person's to delete (practice: never-delete-a-remote-branch). Each row's link
+Read-only from a session: it deletes nothing there, and never could -- a
+remote branch is the person's to delete (practice:
+never-delete-a-remote-branch). The one route that deletes, `--delete-merged`
+(2026-10-16), refuses to run anywhere but the precedent-branch-cleanup
+workflow a person starts on GitHub, which a session never starts. Each row's link
 is GitHub's branch list filtered to that one branch, where the trash icon
 deletes it (practice: branch-delete-links). The ladder set's
 `stale-branch-cleanup` practice puts the page in the closing Boildown.

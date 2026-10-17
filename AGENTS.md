@@ -98,7 +98,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 150 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 149 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -332,7 +332,7 @@ never in either table.
 | What each practice is and why — **the live catalogue** | [practices/](practices/), indexed by [MAP.md](MAP.md); one rule at a time with `python3 tools/precedent_show.py SLUG` |
 | Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with [`tools/build_views.py`](tools/build_views.py), never hand-edit |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
-| Upstream open items / roadmap | [todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub and a pull request touching it is refused by the deep check. |
+| Upstream open items / roadmap | [todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub, and a new item added to it is refused by the deep check. |
 | The full story behind any environment trap, and the generated overview of all of them | [gotchas/](gotchas/), [gotchas/INDEX.md](gotchas/INDEX.md) |
 | Anything else — the full index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
 <!-- END GENERATED: where-things-are -->
@@ -370,6 +370,11 @@ place — nothing is ever deleted, and nothing moves.
   table — [GEMINI.md](GEMINI.md) at the root already says so for Gemini
   CLI, and [templates/harness/codex/README.md](templates/harness/codex/README.md)
   covers Codex.
+- **Schedules in force: one.**
+  [deep-check.yml](.github/workflows/deep-check.yml) runs the whole suite
+  daily at 07:17 UTC (`cron: '17 7 * * *'`, Alex, 2026-10-12: "yes on daily
+  run"); its header says why. Nothing else here runs on a clock. A commit
+  that adds, changes, pauses or removes a schedule updates this line.
 - **Work lands on your landing branch** (the opening paragraph;
   `python3 tools/precedent_branches.py --landing`).
 - **Some changes arrive as check-in PRs from dependent repos** (INSTALL.md
@@ -382,7 +387,7 @@ place — nothing is ever deleted, and nothing moves.
 - **Direct edits are fine** for content about this repo itself (README,
   practice wording, engine code); abstracted lessons still only enter via
   a scrubbed check-in from where they were learned.
-- **A pull request touching [`TODO.md`](TODO.md) after the 2026-09-16 todo/gotcha
+- **A new item added to [`TODO.md`](TODO.md) after the 2026-09-16 todo/gotcha
   migration is refused by the deep check** (`precedent_check.py --only
   todo-gotcha-stale-reference`). File the item under `todo/` instead
   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)).
@@ -393,9 +398,12 @@ place — nothing is ever deleted, and nothing moves.
 - **Two check levels** ([two-check-levels](practices/two-check-levels.md)):
   **light check** is `python3 tools/doc_lint.py` on the markdown you touched,
   before every commit; **deep check** is `python3 tools/precedent_push_check.py`,
-  before push or merge, **always run bare**: it checks at the tier the
-  branch you push to gets -- seconds for a working branch, the full suite
-  for `main`. What matters is `0 failed` and `0 violated`. Which one a push gets, `--as-ci`, and failing tests a
+  before push or merge, **always run bare**: it checks at the tier a push
+  to your landing branch gets -- seconds for `staging` when you land there,
+  the full suite for `main`. What matters is `0 failed` and `0 violated`.
+  **A pass pushes to origin:** a small receipt (file hashes, no content)
+  on the receipt branch, so other checkouts skip those files;
+  `PRECEDENT_NO_SHARED_PASS=1` turns that off. Which one a push gets, `--as-ci`, and failing tests a
   source shipped:
   [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#two-check-levels).
 

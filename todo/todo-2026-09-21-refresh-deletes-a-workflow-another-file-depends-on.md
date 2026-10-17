@@ -73,3 +73,7 @@ this session cannot push to — the git proxy refuses a credential for that owne
 (403, measured 2026-09-21). The right home for them is that repository's own
 push gate rather than any workflow: a local gate costs no Actions minutes and
 so survives `source-sets-run-no-ci` unchanged, which the CI fold did not.
+
+## Notes
+
+2026-10-17, very deep check pass 4 (still live, narrowed): the affected repo's half is done (the individual set's tools/commit-identity-push-gate.sh runs check_commit_author.py and check_commit_dates.py at push); the engine half (warn, before deleting a retired workflow, about files that name it) is not built.

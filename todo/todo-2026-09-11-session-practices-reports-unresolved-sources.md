@@ -50,3 +50,5 @@ Not open until: a fresh session to reproduce the ordering, since the failure onl
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (still live): did not reproduce on 2026-10-17 (this session's .precedent/SESSION_PRACTICES.md, written 06:45, lists no unresolved source), but one clean start does not prove the ordering fixed.

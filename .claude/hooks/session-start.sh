@@ -95,7 +95,8 @@ fi
 # from "the files changed against the base branch" to "the files not
 # committed yet", and precedent_check.py's `scope: tree` checks read an empty
 # `git log` as `0 violated` rather than as "could not check"
-# (record/GOTCHAS.md#g6, #g8). Git itself is not immune: a branch that is
+# (gotchas/gotcha-2026-09-13-this-repo-is-normally-cloned-depth-1-and-several-tools-degra.md,
+# gotchas/gotcha-2026-09-13-a-scope-tree-check-in-tools-precedentcheck-py-can-silently-r.md). Git itself is not immune: a branch that is
 # merely BEHIND reads as diverged when the two truncated stretches do not
 # overlap, which cost a whole session on 2026-09-14 (#g37) before the
 # freshness guard learned to deepen before believing its own counts.
@@ -303,7 +304,7 @@ fi
 if [ -n "$_ident_script" ]; then
   _here="$(pwd -P)"
   # `$_indiv` IS IN THIS LIST, and leaving it out was a real bug (2026-09-14,
-  # record/GOTCHAS.md#g40). An individual set does not have to be a sibling of
+  # gotchas/gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md). An individual set does not have to be a sibling of
   # the primary repo -- `~/.config/precedent/config.json` puts it wherever it
   # was cloned, which on this container is `$HOME/precedent-individual` while
   # the primary repo and every shared-set clone sit under a different parent. The
@@ -397,16 +398,6 @@ _hook_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 # hiccup cannot block a session start (practice: fail-gracefully).
 python3 "$_hook_repo/tools/precedent_engine_freshness.py" --quiet || \
   echo "WARN: engine freshness did not run -- whether this repo's vendored engine is current is unknown this session" >&2
-
-# Once a day, what other people landed here since this person was last told
-# (the others-did practice, in the ladder set). This prints one status line; the report itself is
-# left for the reply gate, which hands it to the session on the first prompt
-# -- a list printed here can sit past what the harness shows of this
-# hook's output, which is how the check this replaced went unseen.
-if [ -f "$_hook_repo/tools/precedent_others_did.py" ]; then
-  python3 "$_hook_repo/tools/precedent_others_did.py" || \
-    echo "WARN: the others-did check did not run -- what other people landed here is unknown this session" >&2
-fi
 
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` above would otherwise let a non-zero last command take the

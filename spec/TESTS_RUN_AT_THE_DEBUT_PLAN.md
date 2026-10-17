@@ -80,3 +80,18 @@ reaches, when someone asks for it.
   list, and names `python3 tools/verify_harness.py --record-new-times`,
   which times only the missing tests. The hundred missing on 2026-10-16
   were filled in that way, in under two minutes.
+- **Every very deep check reads it again.** From 2026-10-17 its
+  `CHECKS BY STAGE` section lists, for every repo in force, what runs
+  before and after Booked, Produce and the Debut, read from that repo's
+  own code, flags anything before a push that the closed quick tier does
+  not name, and writes the table into the run's account
+  ([very-deep-check](../practices/very-deep-check.md), Pass 2's question
+  25). Its first reading found a consumer's own approved workflow checks
+  running before every push, outside `BASIC_CHECKS` where the closing
+  could not see them; they moved to the full tier the same day.
+- **A push to main takes the quick checks too** (Morgan, 2026-10-17,
+  strength: decided: "remove, the full tests should happen after that").
+  The pre-push gate and the merge gate for a pull request into main run
+  the basic tier; the full suite runs after, as GitHub's test or
+  `--run-tests main` where that is not due. Produce's `--full` route still
+  runs it first, on the person's own words.

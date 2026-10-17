@@ -58,9 +58,11 @@ THE STEPS, with no question in between:
      beside it; and where there is neither, a line saying so
      then a root VOICE.md or STYLEGUIDE.md left for you to convert, and
      any line templates/gitignore.template gained appended to .gitignore,
-     and each line of an install-once file (the PR template, TODO.md, MAP.md
-     ...) that is still, verbatim, wording its template has since dropped,
-     left for you -- reported, never rewritten
+     and each install-once file (the PR template, TODO.md, MAP.md ...)
+     still exactly as an install wrote it brought onto the current
+     template; in one the repository edited, each line that is still,
+     verbatim, wording its template has since dropped, left for you --
+     reported, never rewritten
      then, where precedent.json names no landing_branch, staging
   3c. for anyone on the ladder -- pre-staging is retired for everyone since
      2026-10-14 -- a precedent.json naming pre-staging switched to staging,
@@ -1051,7 +1053,8 @@ def approved_workflows_step(repo, rep):
         return
     if checks:
         rep.step('approved workflows', f'{len(checks)} step(s) of this repo\'s '
-                 f'own approved workflows run in the push check too: '
+                 f'own approved workflows run in the push check\'s full tier '
+                 f'(the Debut and around Produce, never before a push): '
                  + ', '.join(n.split(': ', 1)[-1] for n, _a, _r in checks))
     if unrun:
         # One line, said once (2026-10-10: one line per step, each printed
@@ -1438,8 +1441,9 @@ def retired_mentions(repo, engine_out):
     Read from the WARN lines rather than asked of the engine because the
     deletion usually happens in the first pass, which is the consumer's own
     older copy. A file this repo receives rather than writes -- the
-    vendored tree, practices/, tools/checks/ -- is skipped: the check skips
-    it too, and the next sync overwrites it."""
+    vendored tree, practices/, tools/checks/, the engine's own files and
+    hooks -- is skipped: the check skips it too, and the next sync or
+    refresh overwrites it."""
     try:
         tree = str(json.loads((repo / 'process' / 'manifest.json').read_text(
             encoding='utf-8')).get('upstream', {}).get('vendored_at')
@@ -1452,10 +1456,17 @@ def retired_mentions(repo, engine_out):
     rel = universal_catalogue_path(repo)
     if rel:
         received += (rel.rstrip('/') + '/',)
+    # So is the engine itself, and whatever else another tool writes here
+    # (pve.received_paths): until 2026-10-17 this told a session to edit
+    # tools/precedent_vendor_engine.py, precedent_bootstrap_source.py and
+    # very_deep_check.py, vendored files the full check refuses to see
+    # edited, because they name the file they just retired.
+    files, under = pve.received_paths(repo)
+    received += under
     out = []
     for line in engine_out.splitlines():
         m = _MENTION.match(line.strip())
-        if not m or m.group('path').startswith(received):
+        if not m or m.group('path').startswith(received) or m.group('path') in files:
             continue
         gone, path = m.group('gone'), m.group('path')
         try:
@@ -2090,6 +2101,41 @@ def retire_shipped_root_doc(repo, old):
     return True
 
 
+def instantiate_local_practice(repo, rel, rev):
+    """Write repo-local practice `rel` (local/practices/project-voice.md ...)
+    from its template at `rev`, exactly as an install writes it, when it is
+    missing and precedent.json declares the repo-local source it belongs
+    to. -> whether it was written.
+
+    WHY (2026-10-17, very deep check's migration rehearsal). Deleting a
+    default VOICE.md left no project-voice.md at all, while
+    local/practices/project-visual-identity.md -- installed or converted
+    from STYLEGUIDE.md -- links it, so the repo carried a link to nothing.
+    An install always writes both."""
+    import precedent_install as pi
+    import precedent_time
+    tmpl = pi.LOCAL_PRACTICE_FILES.get(rel)
+    target = pathlib.Path(repo) / rel
+    if not tmpl or not rev or target.exists():
+        return False
+    try:
+        sources = json.loads((pathlib.Path(repo) / 'precedent.json').read_text(
+            encoding='utf-8')).get('sources') or []
+    except (OSError, ValueError, AttributeError):
+        return False
+    root = pathlib.PurePosixPath(rel).parts[0]
+    if not any(isinstance(src, dict) and src.get('level') == 'repo-local'
+               and str(src.get('path', '')).strip('/') == root for src in sources):
+        return False
+    text = _source_text(rev, f'templates/{tmpl}')
+    if text is None:
+        return False
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(pi._substitute(text, {'<install date>': precedent_time.today(SOURCE)}),
+                      encoding='utf-8')
+    return True
+
+
 def legacy_root_docs(repo, rev=None, rep=None):
     """-> [(old, why)] for each root document LEGACY_ROOT_DOCS names that is
     still here: to convert when its practice file is missing, to delete when
@@ -2101,10 +2147,14 @@ def legacy_root_docs(repo, rev=None, rep=None):
         if not (repo / old).is_file():
             continue
         if rev and shipped_unchanged(repo, old, rev):
-            if retire_shipped_root_doc(repo, old) and rep is not None:
-                rep.step(old, f'deleted: it was the shipped default, unchanged, '
-                              f'so it carried no decision to convert into {new}; '
-                              f'its process/manifest.json entry went with it')
+            if retire_shipped_root_doc(repo, old):
+                made = instantiate_local_practice(repo, new, rev)
+                if rep is not None:
+                    rep.step(old, f'deleted: it was the shipped default, unchanged, '
+                                  f'so it carried no decision to convert into {new}; '
+                                  f'its process/manifest.json entry went with it'
+                             + (f'; {new} was written from its template, as an '
+                                f'install writes it' if made else ''))
             continue
         where = f'spec/MIGRATING_EXISTING_INSTALLS.md step {step}'
         if (repo / new).is_file():
@@ -2330,42 +2380,144 @@ def _hand_kept_files(repo, rel):
     return [target]
 
 
-_COPY_VERBATIM = re.compile(r'\bcopy verbatim\b', re.IGNORECASE)
+# The key precedent_install.per_file_substitutions() gives each install-once
+# file under, where it is not the file's own name: the install writes the
+# map's text to MAP.source.md, which MAP.md is generated from.
+_INSTALL_KEYS = {'MAP.md': 'MAP.source.md', 'GLOSSARY.md': 'GLOSSARY.source.md'}
 
 
-def _still_an_old_template(repo, rel, tmpl, rev):
-    """Write the current `tmpl` (at `rev`) over install-once file `rel` when
-    the template says it is copied verbatim and `rel`, at the path the
-    template installs to, is byte for byte a version `tmpl` had in the
-    source's history: the repository never made it its own, so there is
-    nothing of its to lose, and the older text stays in the source's
-    history. -> whether it was written. A file with any edit of its own, a
-    template meant to be adapted (TODO.md, MAP.md, GETTING_STARTED.md: a copy
-    left as installed there is still read and reported), and a view's source
-    file are never touched: the lines are left for the person as before
-    (practice: repair-cannot-discard-work).
+def _template_versions(rev, tmpl, limit=200):
+    """-> [text] each version `tmpl` had in the source's history up to
+    `rev`, newest first, `--follow`ed through renames, each text once."""
+    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--follow', f'-{limit}',
+                        '--format=%x00%H', '--name-only', rev, '--', tmpl],
+                       capture_output=True, text=True, errors='replace')
+    seen, out = set(), []
+    for chunk in (r.stdout.split('\0')[1:] if r.returncode == 0 else []):
+        lines = [l for l in chunk.splitlines() if l.strip()]
+        if len(lines) < 2:
+            continue
+        text = _source_text(lines[0], lines[-1])
+        if text is not None and text not in seen:
+            seen.add(text)
+            out.append(text)
+    return out
 
-    2026-10-13, a consuming repository: its pull request template matched
-    the old template exactly, the template's only change was one comment
-    line, and the update still left it for a person to copy in by hand."""
-    import hashlib
+
+def _placeholder_values(template, filled):
+    """-> {placeholder: value} read off `filled`, an install's copy of
+    `template`, or None when `filled` is not one. The two are aligned line
+    by line; every line that differs must be its template line with each
+    placeholder filled in, a placeholder reading the same wherever it
+    recurs. Lines with one placeholder are read first, so a line with
+    several splits on values already known. A placeholder the install left
+    as it was reads back as itself, by matching its line unchanged."""
+    import difflib
+    t_lines, f_lines = template.splitlines(), filled.splitlines()
+    pairs = []
+    sm = difflib.SequenceMatcher(None, t_lines, f_lines, autojunk=False)
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == 'equal':
+            continue
+        if tag != 'replace' or i2 - i1 != j2 - j1:
+            return None
+        pairs += list(zip(t_lines[i1:i2], f_lines[j1:j2]))
+    values = {}
+    pairs.sort(key=lambda tc: len(set(_PLACEHOLDER_RE.findall(tc[0]))))
+    for t, c in pairs:
+        t = _render(t, values)
+        found = _PLACEHOLDER_RE.findall(t)
+        if not found:
+            if t != c:
+                return None
+            continue
+        parts = _PLACEHOLDER_RE.split(t)
+        groups, pat = {}, re.escape(parts[0])
+        for name, part in zip(found, parts[1:]):
+            if name in groups:
+                pat += f'(?P={groups[name]})'
+            else:
+                groups[name] = f'g{len(groups)}'
+                pat += f'(?P<{groups[name]}>.+?)'
+            pat += re.escape(part)
+        m = re.fullmatch(pat, c)
+        if not m:
+            return None
+        for name, g in groups.items():
+            values[name] = m.group(g)
+    return values
+
+
+def _render(text, values):
+    for name, value in values.items():
+        text = text.replace(name, value)
+    return text
+
+
+def untouched_install_copy(repo, rel, tmpl, rev, committed=None):
+    """Write the current `tmpl` (at `rev`), filled in as the install filled
+    it, over install-once file `rel` when `rel` is still exactly what an
+    install wrote from some version of `tmpl` in the source's history -- the
+    version at the commit the install recorded among them: the same
+    placeholders filled with the same values (read off the file itself) and
+    the same per-file text precedent_install.per_file_substitutions() puts
+    in. -> whether it was written. A file with any edit of the repository's
+    own matches no version, and is left for the person as before (practice:
+    repair-cannot-discard-work); so is a view's source in the directory
+    form, which no install writes. `committed`, when given, is the text the
+    file had before this update wrote anything (HEAD's, for a file that was
+    clean when the run started), and is what is judged: the engine refresh
+    adds its own disclosures to GETTING_STARTED.md first, and those are the
+    current template's, not the repository's.
+
+    WHY (2026-10-17, very deep check, an update of a two-week-old install).
+    An install that nobody had touched stopped on seven LEFT FOR YOU lines,
+    every one of them upstream rewording GETTING_STARTED.md, MAP.md or
+    local/practices/project-voice.md, because only a template copied
+    verbatim was recognised as unedited, and these three have placeholders
+    an install fills. That narrower test (2026-10-13: a consumer's pull
+    request template matched an old template exactly and was still left for
+    a person to copy in by hand) is the case of this one with no
+    placeholders, and was folded into it. Morgan's rule of 2026-10-14
+    is to take upstream's version by default; the decision to compare with
+    the template as installed was the session's, under Morgan's delegation
+    of 2026-10-17 ("Fix the other issues you found including the checks
+    that never run. Tell me what you decide. I will be offline so don't
+    wait for me. Approved, act, and Booked.")."""
+    import precedent_install as pi
     target = pathlib.Path(repo) / rel
-    if (rel, tmpl) not in INSTALL_ONCE_TEMPLATES or _hand_kept_files(repo, rel) != [target]:
+    key = _INSTALL_KEYS.get(rel, rel)
+    if rel == 'README.md' or rel not in (
+            {r for r, _t in INSTALL_ONCE_TEMPLATES} | set(_INSTALL_KEYS.values())):
         return False
-    current = _source_text(rev, tmpl)
-    if current is None or not _COPY_VERBATIM.search(current):
+    if rel in _INSTALL_KEYS and _hand_kept_files(repo, rel) != [target]:
+        return False
+    current = _source_text(rev, tmpl) if rev else None
+    if current is None:
         return False
     try:
-        data = target.read_bytes()
-    except OSError:
+        now = target.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
         return False
-    if data == current.encode('utf-8'):
-        return False
-    if pve.template_text_at(SOURCE, rev, tmpl,
-                            hashlib.sha256(data).hexdigest()) is None:
-        return False
-    target.write_text(current, encoding='utf-8')
-    return True
+    ours = now if committed is None else committed
+    variants = []
+    for ci in (True, False):
+        subs = pi.per_file_substitutions(ci).get(key, {})
+        if subs not in variants:
+            variants.append(subs)
+    versions = _template_versions(rev, tmpl)
+    for subs in variants:
+        for old in versions:
+            base = pi._substitute(old, subs)
+            values = _placeholder_values(base, ours)
+            if values is None or _render(base, values) != ours:
+                continue
+            new = _render(pi._substitute(current, subs), values)
+            if new == now:
+                return False
+            target.write_text(new, encoding='utf-8')
+            return True
+    return False
 
 
 # The template's own instruction comment: the first HTML comment that opens
@@ -2430,6 +2582,84 @@ def refresh_template_comment(repo, rel, tmpl, rev, hits):
     return [(n + shift if n > b else n, l) for n, l in hits if not a < n <= b]
 
 
+# A command line of the generated occasion index, and the slug lines under it.
+_COMMAND_OCCASION = re.compile(r'^When a (?:person|message) says (.+):\s*$')
+_INDEX_SLUG = re.compile(r'^\s+([a-z0-9][a-z0-9-]*) — ')
+_WITHDRAWN_TO_SET = re.compile(r'`([a-z0-9][a-z0-9-]*)` withdrawn from universal, '
+                               r'deliberately; in force only from the shared set '
+                               r'`([\w.-]+)`')
+WITHDRAWN_RECORD = 'record/WITHDRAWN_FROM_UNIVERSAL.md'
+_RESIDENT_SLUG = re.compile(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*')
+
+
+def _listed_commands(agents_text):
+    """-> {slug: [phrase]} for each standing command an AGENTS.md's occasion
+    index lists: the quoted phrases of a `When a person says "..."` line,
+    under each slug that line introduces."""
+    out, phrases = {}, None
+    for line in (agents_text or '').splitlines():
+        m = _COMMAND_OCCASION.match(line)
+        if m:
+            phrases = re.findall(r'"([^"]+)"', m.group(1))
+            continue
+        m = _INDEX_SLUG.match(line)
+        if m and phrases:
+            out.setdefault(m.group(1), list(phrases))
+        elif not m:
+            phrases = None
+    return out
+
+
+def moved_commands_step(repo, rep, old_agents, rev):
+    """Say, in one line, how many standing-command phrases this repository's
+    AGENTS.md listed before the update that are in force nowhere here now,
+    because upstream moved their practices to an optional set this
+    repository does not declare -- without the phrases themselves.
+
+    WHY (2026-10-17, very deep check): an update of an install from before
+    2026-10-02 removed every ladder command from its instructions, silently.
+    By design for a repository off the ladder, so nothing is put back; the
+    decision (the session's, under Morgan's delegation of 2026-10-17) is
+    that the update says so once, and never prints the words, which a
+    person off the ladder has no use for. Where they went is read from
+    upstream's record/WITHDRAWN_FROM_UNIVERSAL.md at the commit taken."""
+    before = _listed_commands(old_agents)
+    if not before or not rev:
+        return
+    try:
+        now = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return
+    # In force here: an occasion-index entry or a resident-block rule of the
+    # new AGENTS.md, which lists every source this repository declares.
+    listed = {m.group(1) for line in now.splitlines()
+              for m in (_INDEX_SLUG.match(line), _RESIDENT_SLUG.match(line)) if m}
+    gone = set(before) - listed
+    if not gone:
+        return
+    moved = dict(_WITHDRAWN_TO_SET.findall(_source_text(rev, WITHDRAWN_RECORD) or ''))
+    try:
+        declared = {str(src.get('name')) for src in json.loads(
+            (repo / 'precedent.json').read_text(encoding='utf-8')).get('sources') or []
+            if isinstance(src, dict)}
+    except (OSError, ValueError, AttributeError):
+        declared = set()
+    by_set = {}
+    for slug in sorted(gone):
+        where = moved.get(slug)
+        if where and where not in declared:
+            by_set.setdefault(where, []).extend(before[slug])
+    for where, phrases in sorted(by_set.items()):
+        n = len(dict.fromkeys(phrases))
+        rep.step('standing commands', f'{n} command phrase(s) this '
+                 f'repository\'s AGENTS.md listed before this update are no '
+                 f'longer in force here: upstream moved them to {where}, an '
+                 f'optional practice set this repository does not declare '
+                 f'({WITHDRAWN_RECORD} upstream). Nothing to do unless '
+                 f'someone here uses them; declaring that set in '
+                 f'precedent.json brings them back')
+
+
 def dropped_template_lines_step(repo, rep, rev):
     """Put each line dropped_template_lines finds on the Left-for-you list.
     A file precedent.json's kept_template_divergences records as kept on
@@ -2443,7 +2673,29 @@ def dropped_template_lines_step(repo, rep, rev):
     was inside an HTML comment, which no reader of the file sees. When the
     pinned text can be found in the template's history and differs from
     today's only in comments, the pin is moved and said once; otherwise the
-    question shows what changed, so it is answered on the change."""
+    question shows what changed, so it is answered on the change.
+
+    AN UNTOUCHED COPY TAKES UPSTREAM'S VERSION FIRST (2026-10-17): each
+    install-once file still exactly as an install wrote it is brought onto
+    the current template before any line is read (untouched_install_copy),
+    so only a file the repository edited can leave a line for the person."""
+    taken = []
+    kept = set(pve.kept_template_divergences(repo)) if rev else set()
+    for rel, tmpl in INSTALL_ONCE_TEMPLATES if rev else ():
+        files = _hand_kept_files(repo, rel)
+        if len(files) != 1 or not files[0].is_file():
+            continue
+        own = files[0].relative_to(repo).as_posix()
+        committed = (_git_show(repo, f'HEAD:{own}')
+                     if rep.before is not None and own not in rep.before else None)
+        if own not in kept and untouched_install_copy(repo, own, tmpl, rev,
+                                                      committed):
+            taken.append(own)
+    if taken:
+        rep.step('templates taken', f'{", ".join(taken)}: still exactly as '
+                 f'the install wrote them from an older template, with no edit '
+                 f'of this repository\'s own, so each now carries the current '
+                 f'template, filled in with the same values')
     for rel, tmpl, sha, hits in dropped_template_lines(repo, rev):
         verdict, reason = pve._kept_divergence(repo, rel, sha)
         old = None
@@ -2462,11 +2714,6 @@ def dropped_template_lines_step(repo, rep, rev):
         if verdict == 'kept':
             rep.step('kept on purpose', f'{rel} keeps wording {tmpl} dropped, '
                      f'as precedent.json records -- "{reason}"')
-            continue
-        if verdict is None and _still_an_old_template(repo, rel, tmpl, rev):
-            rep.step('refreshed', f'{rel} was, word for word, an older version '
-                     f'of {tmpl} with no edits of this repository\'s own, so it '
-                     f'now carries the current template')
             continue
         if verdict in (None, 'unreasoned'):
             left = refresh_template_comment(repo, rel, tmpl, rev, hits)
@@ -2618,10 +2865,10 @@ def upstream_by_others(repo, old, new, clone=None):
     takes now, made by anyone but the person running the update; None when
     it cannot be read (no identity, or a commit the clone lacks). `clone`
     is the source's checkout, BestPractice's (SOURCE) when not given.
-    The same sorting the morning report uses (precedent_others_did.classify):
+    The same sorting a set's daily report uses (precedent_commit_owners):
     a commit signed only by Claude counts as its session's owner's."""
     import precedent_identity as pi
-    import precedent_others_did as od
+    import precedent_commit_owners as od
     clone = clone or SOURCE
     if not old or not new or old == new:
         return [], []
@@ -2634,7 +2881,7 @@ def upstream_by_others(repo, old, new, clone=None):
     code, out = od.git(clone, 'log', '--no-merges', od.LOG_FORMAT, f'{old}..{new}')
     if code != 0:
         return None
-    return od.classify(clone, od._records(out), me.get('email'), {'new': new})
+    return od.classify(clone, od.records(out), me.get('email'), {'new': new})
 
 
 def set_pins(repo):
@@ -2662,6 +2909,16 @@ def sets_moved(before, after):
             if name in before and before[name][1] != after[name][1]]
 
 
+def _off_ladder(repo):
+    """True for a person off the ladder, whose Update Vendors report carries
+    no note of what others changed upstream (the ladder set turns it on)."""
+    try:
+        import precedent_ladder
+        return precedent_ladder.ladder_in_force(repo) is False
+    except Exception:                                             # noqa: BLE001
+        return False
+
+
 def upstream_changes_block(repo, old, new, sets=()):
     """-> the block Update Vendors' report carries about what OTHER people
     changed upstream in what this update brings in -- BestPractice's range
@@ -2677,8 +2934,8 @@ def upstream_changes_block(repo, old, new, sets=()):
     practice, in the ladder set, which is what turns both on). The shared
     and individual sets came the same evening (Morgan: "yes extend it"):
     their changes reach a repository by the same update."""
-    import precedent_others_did as od
-    if od.off_ladder(repo):
+    import precedent_commit_owners as od
+    if _off_ladder(repo):
         return ''
     sections, unread, total = [], [], 0
     for name, clone, a, b in [(SOURCE.name, SOURCE, old, new), *sets]:
@@ -2746,7 +3003,14 @@ CATALOGUE_SYNC_NAME = 'CATALOGUE_SYNC.json'
 # universal refused all fourteen of its rules as lost in every repository
 # that vendors the catalogue this way (2026-10-04); the process/upstream/
 # mirror already carried it (checkin.py's VENDORED_DESPITE_DIR).
-CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md')
+# close_detect.json is universal's declaration for its own the-boildown, which
+# precedent_close_detect.py reads at <universal source>/close_detect.json; it
+# never travelled, so "it notices and offers a rule" did nothing on a fresh
+# install (very deep check, 2026-10-17). It is universal's rule, so it goes
+# where universal's practices go -- what stays home is a team's or a
+# person's own declaration (precedent_vendor_engine's note on the detector).
+CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md',
+                        'close_detect.json')
 
 
 def _blob_id(data):
@@ -3018,6 +3282,7 @@ class Report:
         self.pin = None      # (repo, commit, branch): the commit reruns take
         self.pin_repo = None # whose pin a DONE drops, --from-ref runs included
         self.before = None   # what was uncommitted when the run started writing
+        self.old_agents = None   # HEAD's AGENTS.md, read before anything writes
         self.earlier = set() # of `before`, what an earlier run staged, unchanged
         self.retired = []    # retire_pre_staging_step's block, every outcome
         self.commit_note = None  # a --take-anyway: said in the commit message
@@ -3465,6 +3730,17 @@ def in_force_nowhere_step(repo, rep, out):
             quiet.append(slug)
             continue
         key = where or slug
+        if 'an individual set' in found:
+            # An individual set comes from a person's own user config; no
+            # repository declares one, so "Declare it in precedent.json" was
+            # advice nobody could take (2026-10-17).
+            rep.ask('IN FORCE NOWHERE',
+                    f'{found} -- it binds nowhere in this repo, and only for '
+                    f'the person whose individual set carries it; no '
+                    f'precedent.json can declare that set. Record that it does '
+                    f'not apply here: "{NOT_IN_FORCE_KEY}": {{"{slug}": "<why>"}}, '
+                    f'or ask for it to come back to universal')
+            continue
         rep.ask('IN FORCE NOWHERE',
                 f'{found} -- it binds nowhere in this repo. Declare '
                 + (f'`{where}`' if where else 'the set it forwards to')
@@ -4293,10 +4569,14 @@ def _engine_owned(repo):
             | {f'.claude/hooks/{f}' for f in mf.get('hook_files') or []})
 
 
-def citations(repo):
+def citations(repo, rev=None):
     """-> ([(where, why)] to fix, [where] to read), or None when the lookup
     could not run. Asks the SOURCE clone's copy of the lookup, for the same
-    reason every other step here does: it is the current code."""
+    reason every other step here does: it is the current code. With `rev`,
+    a line that is word for word a line of the current AGENTS.md template
+    (at `rev`) is left out: it is upstream's wording, which the refresh
+    keeps, not this repository's (2026-10-17, very deep check: every
+    consumer's update listed two such lines to read)."""
     refs = SOURCE / 'tools' / 'precedent_practice_refs.py'
     if not refs.is_file():
         return None
@@ -4312,16 +4592,48 @@ def citations(repo):
         data = json.loads(r.stdout)
     except ValueError:
         return None
-    return citation_findings(data, _engine_owned(repo))
+    stock = {}
+    for tmpl in (pve.AGENTS_MD_TEMPLATES.get('consumer') or ())[:1]:
+        text = _source_text(rev, tmpl) if rev else None
+        if text:
+            stock['AGENTS.md'] = {l.strip() for l in text.splitlines() if l.strip()}
+    return citation_findings(data, _engine_owned(repo),
+                             stock=_stock_line_test(repo, stock))
 
 
-def citation_findings(data, engine=frozenset()):
+def _stock_line_test(repo, stock):
+    """-> is_stock(file, line_no): whether that line of the repo's `file`
+    is, stripped, one of the template lines `stock` holds for it."""
+    cache = {}
+
+    def is_stock(rel, n):
+        lines = stock.get(rel)
+        if not lines:
+            return False
+        if rel not in cache:
+            try:
+                cache[rel] = (pathlib.Path(repo) / rel).read_text(
+                    encoding='utf-8').splitlines()
+            except (OSError, UnicodeDecodeError):
+                cache[rel] = []
+        text = cache[rel]
+        try:
+            return 0 < int(n) <= len(text) and text[int(n) - 1].strip() in lines
+        except (TypeError, ValueError):
+            return False
+    return is_stock
+
+
+def citation_findings(data, engine=frozenset(), stock=None):
     """-> ([(where, why)] to fix, [where] to read) from
-    precedent_practice_refs.py's JSON, leaving out the paths in `engine`."""
+    precedent_practice_refs.py's JSON, leaving out the paths in `engine`
+    and every line `stock(file, line)` says is upstream's template wording."""
     fix, read = [], []
     slugs, successors = data.get('slugs', {}), data.get('successors', {})
     for h in data.get('hits', []):
         if h.get('source') != 'this repository' or h.get('kind') != 'live':
+            continue
+        if stock is not None and stock(h.get('file'), h.get('line')):
             continue
         # A file the engine owns is not this repo's to edit: the next
         # refresh rewrites it, and its citations are upstream's to keep
@@ -4957,6 +5269,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                  f'and your other changes to it stay')
     before = dirty_paths(repo)
     rep.before = before
+    # Read before anything writes: the commands it listed (moved_commands_step).
+    rep.old_agents = _git_show(repo, 'HEAD:AGENTS.md')
     rep.earlier = earlier_runs_output(repo, before, wrote)
     engine_tool = repo / 'tools' / 'precedent_vendor_engine.py'
     if not (repo / 'tools' / pve.MANIFEST_NAME).is_file() or not engine_tool.is_file():
@@ -5380,6 +5694,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                      + ', '.join(built) + ', which build_views.py generates here)')
         else:
             rep.step('views', 'regenerated')
+    moved_commands_step(repo, rep, rep.old_agents, head.strip() if head_ok else None)
 
     # After the views, because the view sync writes harness adapters too.
     rebased = rebaseline_vendored_entries(
@@ -5501,7 +5816,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # longest: its AGENTS.md and docs were written against the name it had
     # then, and nothing the refresh touches rewrites them.
     # practice: practice-change-propagates
-    cited = citations(repo)
+    cited = citations(repo, head.strip() if head_ok else None)
     if cited is None:
         rep.step('citations', 'could not be looked up -- run '
                  'tools/precedent_practice_refs.py --withdrawn before pushing')

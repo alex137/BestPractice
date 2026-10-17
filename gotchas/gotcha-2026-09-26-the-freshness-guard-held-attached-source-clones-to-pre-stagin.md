@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-26-the-freshness-guard-held-attached-source-clones-to-pre-stagin
-status:          live
+status:          retired
 noted:           2026-09-26
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    every practice set and consumer has refreshed its vendored freshness-guard.sh past the commit that lets a declared base win for attached repositories
 ---
 ## Symptom
@@ -44,3 +44,7 @@ source, so the person's landing branch says nothing about it. The project
 directory keeps the landing override, since work written there does land
 on pre-staging. Both halves are asserted in
 `check_freshness_guard_checks_attached_repositories`.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed the same day (an attached repository's declared base wins), and pre-staging itself was retired for everyone on 2026-10-14; no repo here lands on pre-staging any more.

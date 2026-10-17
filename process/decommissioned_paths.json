@@ -155,10 +155,22 @@
       "path": "practices/retired-set-takes-only-its-retirement.md",
       "reason": "A temporary rule whose expires: condition came true on 2026-10-11: no repository declares precedent-shared-repo-maintenance or precedent-shared-working-style, and both are archived on GitHub. Morgan, 2026-10-11: \"Go remove it\". Its two guards (the push check refusal and the promote hold), the gate reminder suppression, retirement_on_any_tier and its harness test went in the same change.",
       "decommissioned_at": "2026-10-11"
+    },
+    {
+      "path": "tools/resplit_sections.py",
+      "reason": "A spent phase-1.5 migration tool and its data: the editorial Rule/Detail/Why/Story/Install split it applied was done long ago, its list named practices that have since moved to the ladder set, so --check could never pass, and nothing called it. Decommissioned by the session under Morgan's delegation of 2026-10-17 (\"Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked.\").",
+      "decommissioned_at": "2026-10-17"
+    },
+    {
+      "path": "tools/section_split.json",
+      "reason": "A spent phase-1.5 migration tool and its data: the editorial Rule/Detail/Why/Story/Install split it applied was done long ago, its list named practices that have since moved to the ladder set, so --check could never pass, and nothing called it. Decommissioned by the session under Morgan's delegation of 2026-10-17 (\"Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked.\").",
+      "decommissioned_at": "2026-10-17"
     }
   ],
   "exempt_files": [
     "philosophy/README.md",
+    "spec/PHASE3_BRIEF.md",
+    "spec/PRACTICE_ENGINE_PLAN.md",
     "INSTALL.md",
     "practices/no-invented-specifics.md",
     "practices/write-like-a-human.md",

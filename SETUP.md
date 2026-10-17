@@ -70,23 +70,28 @@ nothing to choose here — this page installs §0, always.
      does not. If it is Claude Code, ask in the same breath for the
      go-ahead to commit its hooks and settings (`.claude/`): its auto mode
      holds that commit until they say yes, so ask now rather than stall at
-     the end.
-   - *Should the vendored GitHub Actions workflow be on or off?* **Default
+     the end. Ask for it as a sentence they say, such as "Commit the
+     `.claude/` hooks and settings", never a bare yes: auto mode clears an
+     action only on words that name it.
+   - *Should the vendored GitHub Actions workflows be on or off?* **Default
      on, since 2026-09-25**: one light check that runs only on a pull
      request into `main` (about one billed minute per merge into `main`),
-     plus a leak gate that runs only in a public repository. In a private
-     repository the light check runs only on the pull request a Produce
-     opens (a branch named `to-main-…` or `…-promote-to-main-…`); any
-     other pull request shows it as skipped. For an AI
+     plus a leak gate that runs only in a public repository, and a
+     branch-cleanup workflow that runs only when someone clicks it. In a
+     private repository the light check runs only on a pull request from a
+     branch named `to-main-…` or `…-promote-to-main-…`; any other pull
+     request shows it as skipped. For an AI
      Assistant with no terminal access (ChatGPT, or anything else with no
      local shell) it is the only place any check can run at all, so say
-     so. Say the default out loud and let them override it. If they want
-     it off, it takes `"github_ci_workflows": "disabled"` in an individual
+     so, and say that the install then has GitHub check every change that
+     reaches `main` instead (`--no-terminal`, step 3). Say the default
+     out loud and let them override it. If they want it off, it takes `"github_ci_workflows": "disabled"` in an individual
      or shared source's `identity.json`
      ([documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md));
      if they answered "no" to the third question there is nowhere this
      install can record that yet, so say plainly that it stays on until a
-     source declares it. **What "declares" means, concretely**: this is
+     source declares it, or until they switch Actions off for the
+     repository itself (step 7, item 5). **What "declares" means, concretely**: this is
      a standing field in `identity.json` — the person's individual (or
      team) source, never `precedent.json` — so activating it is either
      something you do right now, if this session can reach that source,
@@ -112,11 +117,16 @@ nothing to choose here — this page installs §0, always.
        --visibility <private or public, read from the repository, never asked> \
        --output-paths <the published folders from their first answer, comma-separated> \
        --content-paths <their own material from their first answer, comma-separated> \
-       --admin <the administrator's GitHub handle>
+       --admin <the administrator's GitHub handle> \
+       [--no-terminal]
    ```
 
    Leave `--output-paths` out when they said "none yet", and
-   `--content-paths` when they said "none". If they said yes
+   `--content-paths` when they said "none". Add `--no-terminal` when the
+   assistant they named has no terminal (ChatGPT connected to GitHub, or
+   anything else with no local shell): GitHub then checks every push to
+   `main`, in a private repository too, which is the only check such an
+   assistant gets. If they said yes
    to a shared set (the writing set, say), clone it beside the project
    first and add `--team <name>=../<name>` for each one: the name must be
    the set's own `name` in its `precedent-source.json`
@@ -129,8 +139,8 @@ nothing to choose here — this page installs §0, always.
    `GLOSSARY.source.md` (the sync generates `MAP.md` and `GLOSSARY.md`
    from those two), `GETTING_STARTED.md`, `local/practices/project-voice.md` and
    `local/practices/project-visual-identity.md`, the README entry
-   block, the Claude Code hooks, `tools/bootstrap.sh`, the Actions check
-   and the pull-request template, runs the sync, lints what it wrote, and
+   block, the Claude Code hooks, `tools/bootstrap.sh`, the Actions
+   workflows and the pull-request template, runs the sync, lints what it wrote, and
    then prints **the placeholders it left** — each is a `<…>` in a file it
    names, to be filled with the project's own subject matter from their
    first answer where they asked for that now, else left as placeholders
@@ -204,8 +214,8 @@ nothing to choose here — this page installs §0, always.
    the pull-request link and tell them exactly what to press.
 6. **Verify the automatic checks, while Actions is on.** On the pull
    request into `main`, confirm `light-check` appears and passes. In a
-   private repository it runs only when the branch is named for a Produce
-   (`to-main-…`), so an install's pull request from any other branch shows
+   private repository it runs only when the branch is named `to-main-…`
+   (or `…-promote-to-main-…`), so an install's pull request from any other branch shows
    it as skipped: that is the design, not a fault, and the local checks in
    step 3 are what this install was judged by. Nothing runs after the
    merge in a private repository either. If the repository or organization has Actions disabled,
@@ -291,8 +301,9 @@ nothing to choose here — this page installs §0, always.
       [CLOUD_SETUP.md](documentation/CLOUD_SETUP.md); the full list of every variable and
       what each does is [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md).
 
-   Put the same six into `GETTING_STARTED.md` so they are findable after
-   this conversation closes.
+   The installed `GETTING_STARTED.md` already carries the same six, under
+   "Settings Only You Can Turn On": check they are there, so they stay
+   findable after this conversation closes.
 8. **Hand them the keys.** Close by telling them three things: members are
    onboarded by saying **"Add project members"** to the project's agent
    (the installed instructions file teaches every future session how to

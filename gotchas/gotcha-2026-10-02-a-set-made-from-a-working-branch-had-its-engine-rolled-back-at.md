@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-02-a-set-made-from-a-working-branch-had-its-engine-rolled-back-at
-status:          live
+status:          retired
 noted:           2026-10-02
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -46,3 +46,7 @@ Two halves, both in [tools/precedent_vendor_engine.py](https://github.com/alex13
 Until that reaches the sets you work in: if a set's `tools/` changed at
 session start, run `git -C <set> checkout -- tools/` before anything
 else there.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed: precedent_vendor_engine.engine_is_ahead() (line 8062) leaves a newer engine alone, and seed refuses an off-main source without --off-main.

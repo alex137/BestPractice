@@ -3,16 +3,16 @@ slug:              todo-2026-09-19-revisit-examples-vendoring
 kind:              decision
 domain:            content
 severity:          notable
-status:            open
+status:            done
 disposition:       ask
 remind_on:         2026-10-19
 blocked_on:        null
 batch:             null
-decision:          null
+decision:          "keep vendoring documentation/examples/practice-set/: the measured friction was too minor to act on (close b)"
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-19
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -102,3 +102,7 @@ relayed "a consumer keeps deleting this" without checking whether the path
 they named still exists upstream. That is worth its own note wherever
 relayed findings are handled, and is why this item asks for friction to be
 MEASURED in a real consumer rather than reported.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): the revisit month has passed; the 2026-09-21 sighting measured the friction as a one-time stale process/upstream/examples/ left from before the move, with a remedy already printed by checkin.py, which is the item's own close (b): friction too minor to act on, the 2026-09-17/19 calls stand. Would close it on (b); it is Morgan's ask.
+
+2026-10-17, closed by the session under Morgan's delegation of 2026-10-17 ("Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."), which settled the very deep check's question the way that run said it would. What met it: the item's own close (b). The 2026-09-21 measurement found the friction to be a one-time stale `process/upstream/examples/` left from before the move, with a remedy [`checkin.py`](../tools/checkin.py) already printed -- too minor to act on -- so the 2026-09-17 and 2026-09-19 calls stand.

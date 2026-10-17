@@ -105,3 +105,5 @@ Not open until: a session that can resolve the private sources — see [`attach-
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (still live, blocker stale): not_binding still empty in precedent.json; the blocker (a session that resolves the private sources) is now the normal case (this run resolved all of them), so it is doable judgment work.

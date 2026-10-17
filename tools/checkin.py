@@ -306,7 +306,8 @@ def _rev_parse_quiet(clone, ref):
 #   It is NOT what spec/DOCUMENT_LIFECYCLE.md's still-unexecuted migration
 #   proposal describes (that would move BestPractice's own phase briefs
 #   here; none of that has landed). What actually lives in record/ today is
-#   record/GOTCHAS.md and record/GOTCHAS_ARCHIVE.md -- the pre-migration,
+#   record/GOTCHAS.md (superseded by gotchas/INDEX.md since 2026-10-17, its
+#   citations repointed to gotchas/*.md) and record/GOTCHAS_ARCHIVE.md -- the pre-migration,
 #   monolithic predecessor to the current gotchas/*.md per-file split, kept
 #   as the fuller story text and cited by #gN anchor from several resident
 #   practices (session-text.md, very-deep-check.md, grep-before-search.md,
@@ -1160,24 +1161,9 @@ def _stamp_synced_from(commit):
                     encoding='utf-8')
 
 
-def _declared_base_branch(root):
-    """The branch a repo DECLARES its work is measured against, in its own
-    precedent.json `base_branch` -- not inferred from `origin/HEAD`.
-
-    Those are two different questions with usually the same answer, which is
-    why asking the wrong one survives so long. `origin/HEAD` answers "what
-    does GitHub show first"; callers mean "what lineage does this work
-    belong to". Returns None when undeclared or unreadable, so callers fall
-    back to the old inference rather than breaking (fail-gracefully).
-    Enforced by precedent_check.py's `declared-base-branch`.
-    """
-    try:
-        import json as _json, pathlib as _pathlib
-        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
-                        .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 
 def _default_branch(clone):

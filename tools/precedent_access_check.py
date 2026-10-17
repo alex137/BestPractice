@@ -163,6 +163,12 @@ def can_land_here(repo_dir):
     return 'unknown', first[:160]
 
 
+def _toplevel(path):
+    """-> the resolved top of the git repository holding `path`, or ''."""
+    code, out, _ = _run_git(path, 'rev-parse', '--show-toplevel')
+    return str(pathlib.Path(out).resolve()) if code == 0 and out else ''
+
+
 def targets(repo_root):
     """-> [(label, path)] for this checkout and every source in force."""
     out = [('this checkout', str(pathlib.Path(repo_root).resolve()))]
@@ -188,6 +194,7 @@ def targets(repo_root):
               file=sys.stderr)
         return out
     seen = {out[0][1]}
+    here = _toplevel(out[0][1])
     for s in sources or ():
         path = s.get('path')
         if not path:
@@ -201,6 +208,13 @@ def targets(repo_root):
         if resolved in seen:
             continue
         seen.add(resolved)
+        # Nor any other source inside this checkout's own repository -- the
+        # universal catalogue an install vendors at precedent/universal/ is
+        # this checkout too, and was counted as one more repo left
+        # unanswered (2026-10-17, install rehearsal). A clone of its own
+        # that happens to sit inside is a different toplevel and stays.
+        if here and _toplevel(resolved) == here:
+            continue
         out.append((f"{s.get('level')} source {s.get('name')!r}", resolved))
     return out
 

@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-02-a-config-named-for-a-test-reset-the-real-individual-clone
-status:          live
+status:          retired
 noted:           2026-10-02
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -42,3 +42,7 @@ still healed, in its own home
 you: commit or push your work on the individual clone before running the
 harness, and check `git -C ~/precedent-individual branch --show-current`
 before anything that reads it.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed: precedent_resolve._self_heal_individual_source() (line 123) no longer runs the hook when PRECEDENT_USER_CONFIG names a file outside $HOME.

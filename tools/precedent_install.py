@@ -9,7 +9,17 @@ Run from a clone of Precedent (this repository), pointed at the project:
       [--about "one sentence, used only if the project has no README yet"] \\
       [--base-branch main] [--visibility private|public] \\
       [--output-paths docs,site] [--content-paths notes/,TODO.md] \\
-      [--admin github-handle] [--team NAME=PATH ...] [--force]
+      [--admin github-handle] [--team NAME=PATH ...] [--no-terminal] [--force]
+
+--no-terminal says the assistant that will work here has no terminal
+(ChatGPT connected to GitHub, say): precedent.json gets
+"github_ci_main_test": "always", so GitHub checks every push to main, in a
+private repository too -- the only check such an assistant gets.
+
+--visibility, when not given, is read from GitHub for a GitHub origin, and
+is public when it cannot be read: the safe direction, since a private repo
+installed as public only keeps its private-level practices out of the
+tracked AGENTS.md (2026-10-17). The output says which it chose and why.
 
 --content-paths names the person's own material kept in the project (a
 personal to-do list, notes, a manuscript): precedent.json `content_paths`,
@@ -45,11 +55,12 @@ the shared/individual question is a conversation with the administrator
 first. And it does not run the freshness guard or any session hook -- those
 run in the project's own sessions from then on.
 
-IT INSTALLS TWO GITHUB ACTIONS WORKFLOWS BY DEFAULT, since 2026-09-25:
+IT INSTALLS THREE GITHUB ACTIONS WORKFLOWS BY DEFAULT, since 2026-09-25:
 leak-gate.yml and light-check.yml -- one light check on a pull request into
-main, and a leak gate that never runs in a private repository. An individual
-or shared source whose identity.json declares `"github_ci_workflows":
-"disabled"` switches both off (the old key `ci_workflows` is still read).
+main, and a leak gate that never runs in a private repository -- and, since
+2026-10-16, precedent-branch-cleanup.yml, which runs only when someone
+clicks Run workflow. An individual or shared source whose identity.json
+declares `"github_ci_workflows": "disabled"` switches all three off (the old key `ci_workflows` is still read).
 From 2026-09-15 to 2026-09-25 nothing declared meant disabled. The tool names
 the reason in its output and in the project's own GETTING_STARTED.md. See
 documentation/GITHUB_ACTIONS.md.
@@ -77,6 +88,12 @@ TEMPLATES = ROOT / 'templates'
 UPSTREAM_URL = 'https://github.com/alex137/BestPractice'
 UPSTREAM_DOCS = f'{UPSTREAM_URL}/blob/main'
 UNIVERSAL_PATH = 'precedent/universal'
+MAIN_TEST_KEY = precedent_vendor_engine.MAIN_TEST_KEY
+# Mirrors precedent_update.CATALOGUE_COMPANIONS (asserted equal by
+# check_installer_vendors_the_catalogue_companions); not imported, since
+# precedent_update is a far heavier import than this list.
+CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md',
+                        'close_detect.json')
 
 # What section 0 instantiates at the project root, and the template each
 # comes from. GETTING_STARTED.md is a template that keeps a plain .md name
@@ -144,16 +161,9 @@ def _remote_owner_repo(dest):
     return (m.group(1), m.group(2)) if m else (None, None)
 
 
-def _declared_base_branch(root):
-    """precedent.json's `base_branch`, or None -- the same helper every other
-    resolver in the engine carries, so the `declared-base-branch` check sees
-    the declaration read before any inference below."""
-    try:
-        v = json.loads((pathlib.Path(root) / 'precedent.json')
-                       .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 
 def _base_branch(dest, declared):
@@ -170,11 +180,72 @@ def _base_branch(dest, declared):
         return already, 'declared in the existing precedent.json'
     rc, ref, _ = _git(dest, 'symbolic-ref', '-q', 'refs/remotes/origin/HEAD')
     if rc == 0 and ref.startswith('refs/remotes/origin/'):
-        return ref.rsplit('/', 1)[1], "inferred from origin's default branch"
+        return ref[len('refs/remotes/origin/'):], "inferred from origin's default branch"
+    # origin/HEAD is unset after `git remote add origin` and a push, which is
+    # how a new project gets its origin -- and the current branch is then
+    # often a feature branch, which became the base branch (very deep check,
+    # 2026-10-17). So ask origin itself, then look for its main, before
+    # falling back to the branch checked out.
+    has_origin = _git(dest, 'remote', 'get-url', 'origin')[0] == 0
+    if has_origin:
+        try:
+            r = subprocess.run(['git', 'ls-remote', '--symref', 'origin', 'HEAD'],
+                               cwd=str(dest), capture_output=True, text=True, timeout=20,
+                               env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'})
+            m = re.search(r'^ref: refs/heads/(\S+)\s+HEAD$', r.stdout, re.M)
+        except (OSError, subprocess.TimeoutExpired):
+            m = None
+        if m:
+            return m.group(1), "inferred from origin's default branch (asked origin)"
+        if _git(dest, 'rev-parse', '--verify', '-q', 'refs/remotes/origin/main')[0] == 0:
+            return 'main', "inferred from origin's main (origin names no default branch)"
     rc, cur, _ = _git(dest, 'rev-parse', '--abbrev-ref', 'HEAD')
     if rc == 0 and cur and cur != 'HEAD':
-        return cur, 'inferred from the branch checked out now (no origin)'
+        return cur, ('inferred from the branch checked out now (origin named no '
+                     'default branch and has no main)' if has_origin else
+                     'inferred from the branch checked out now (no origin)')
     return 'main', 'assumed; the repository has no branch yet'
+
+
+def _visibility(dest, given):
+    """-> (visibility, how). Given with --visibility wins; then a
+    precedent.json already on disk (a --force reinstall); then what GitHub
+    says about the origin; and when none of those can be read, PUBLIC.
+
+    Public is the direction a wrong answer can be undone from: a private
+    repository installed as public only leaves its private-level practices
+    out of the tracked AGENTS.md, while a public one installed as private
+    publishes them on its first push. Until 2026-10-17 an absent flag meant
+    private, silently, though precedent.json's own comment says an absent
+    key counts as public for exactly that reason (very deep check)."""
+    if given:
+        return given, 'given with --visibility'
+    try:
+        v = json.loads((pathlib.Path(dest) / 'precedent.json')
+                       .read_text(encoding='utf-8')).get('visibility')
+        if v in ('public', 'private'):
+            return v, 'declared in the existing precedent.json'
+    except Exception:                                        # noqa: BLE001
+        pass
+    rc, url, _ = _git(dest, 'remote', 'get-url', 'origin')
+    owner, repo = _remote_owner_repo(dest)
+    if rc == 0 and owner and re.search(r'github\.com[:/]', url):
+        try:
+            import github_budget
+            data, err = github_budget.call(f'repos/{owner}/{repo}', timeout=10)
+        except Exception as e:                                # noqa: BLE001
+            data, err = None, str(e)
+        if isinstance(data, dict) and isinstance(data.get('private'), bool):
+            vis = 'private' if data['private'] else 'public'
+            return vis, f'read from GitHub: {owner}/{repo} is {vis}'
+        why = f'GitHub did not say whether {owner}/{repo} is private ({err or "no answer"})'
+    elif rc == 0:
+        why = 'its origin is not on GitHub, so nothing could say'
+    else:
+        why = 'it has no origin yet, so nothing could say'
+    return 'public', (f'{why}; public is the safe direction -- private-level '
+                      f'practices stay out of the tracked AGENTS.md. Pass '
+                      f'--visibility private if the repository is private')
 
 
 def _vendor_catalogue(dest):
@@ -182,11 +253,15 @@ def _vendor_catalogue(dest):
     if target.exists():
         shutil.rmtree(target)
     shutil.copytree(ROOT / 'practices', target)
-    # The source's own manifest travels with its catalogue: a consumer's
-    # occasion-index cap sums what each source declares there (2026-09-29).
-    if (ROOT / 'precedent-source.json').is_file():
-        shutil.copy2(ROOT / 'precedent-source.json',
-                     dest / UNIVERSAL_PATH / 'precedent-source.json')
+    # The source's own files travel with its catalogue, the same list Update
+    # Vendors copies (precedent_update.CATALOGUE_COMPANIONS): its manifest,
+    # which a consumer's occasion-index cap sums (2026-09-29), its withdrawal
+    # record, and its close_detect.json, without which "it notices and
+    # offers a rule" did nothing on a fresh install (2026-10-17).
+    for comp in CATALOGUE_COMPANIONS:
+        if (ROOT / comp).is_file():
+            (dest / UNIVERSAL_PATH / comp).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / comp, dest / UNIVERSAL_PATH / comp)
     # The same sync record Update Vendors writes, naming the commit this copy
     # came from -- only when that is true, i.e. this clone's practices/ is
     # exactly its HEAD. Without it a fresh install's every session start said
@@ -194,7 +269,7 @@ def _vendor_catalogue(dest):
     # "absent this session" (2026-10-11 install rehearsal).
     head = _run(['git', 'rev-parse', 'HEAD'], ROOT)
     dirty = _run(['git', 'status', '--porcelain', '--', 'practices',
-                  'precedent-source.json'], ROOT)
+                  *CATALOGUE_COMPANIONS], ROOT)
     if head.returncode == 0 and dirty.returncode == 0 and not dirty.stdout.strip():
         (dest / UNIVERSAL_PATH / 'CATALOGUE_SYNC.json').write_text(json.dumps({
             'source_commit': head.stdout.strip(),
@@ -237,7 +312,7 @@ def _seed_engine(dest):
 
 
 def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, force,
-                          content_paths=None):
+                          content_paths=None, no_terminal=False):
     path = dest / 'precedent.json'
     if path.exists() and not force:
         raise InstallRefused(f'{path} already exists -- this project looks '
@@ -262,11 +337,27 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
             'public: this repository\'s tracked files are a publication, so the',
             'generated loader block leaves out every PRIVATE-level source (team,',
             'individual). private: they are rendered in. Omitting the key counts',
-            'as public, which is the direction that cannot be undone -- so it is',
-            'always written explicitly here.',
+            'as public, the safe direction (a wrong "public" only leaves those',
+            'out; a wrong "private" publishes them) -- and it is always written',
+            'explicitly here.',
         ],
         'sources': sources,
     }
+    # AN ASSISTANT WITH NO TERMINAL GETS ITS CHECK ON GITHUB (2026-10-17). A
+    # private repository's light check runs on a pull request only from a
+    # branch Promote named, so off the ladder it ran on none, and an
+    # assistant that cannot run the local check got no check anywhere --
+    # though SETUP.md's fifth question says that workflow is the only place
+    # one can run for it. "always" tests every push to main from any route,
+    # once, after it lands (precedent_vendor_engine.render_ci_workflow).
+    if no_terminal:
+        doc[MAIN_TEST_KEY] = 'always'
+        doc['_' + MAIN_TEST_KEY + '_comment'] = [
+            'The assistant working here has no terminal, so the local check never',
+            'runs; GitHub tests every push to main instead, once it lands, in a',
+            'private repository too. Written by tools/precedent_install.py',
+            '(--no-terminal). "individual" hands the choice back to Promote.',
+        ]
     # The tiered default only when the person installing is on the ladder
     # (spec/LADDER_OPT_IN_PLAN.md D3): for anyone else a repository has its
     # main branch, and its precedent.json says nothing about tiers.
@@ -313,10 +404,32 @@ def _ci_preference(dest):
     return False, f"github_ci_workflows: {shown} ({pref['source']})"
 
 
-def _substitute(text, subs):
+_HTML_COMMENT = re.compile(r'<!--.*?-->', re.S)
+
+
+def _substitute(text, subs, outside_comments=False):
+    """Replace each placeholder. With outside_comments, text inside an
+    HTML comment is left as written: a template's comment that NAMES a
+    placeholder ("`<upstream-docs>` IS ONE OF THOSE PLACEHOLDERS") is
+    explaining itself to the installer, and filled in it read as nonsense
+    (very deep check, 2026-10-17)."""
+    if outside_comments:
+        parts, last = [], 0
+        for m in _HTML_COMMENT.finditer(text):
+            parts.append(_substitute(text[last:m.start()], subs))
+            parts.append(m.group(0))
+            last = m.end()
+        parts.append(_substitute(text[last:], subs))
+        return ''.join(parts)
     for old, new in subs.items():
         text = text.replace(old, new)
     return text
+
+
+def _blank_comments(text):
+    """-> `text` with every HTML comment's content blanked, line breaks
+    kept, so a line number still points at the same line."""
+    return _HTML_COMMENT.sub(lambda m: re.sub(r'[^\n]', ' ', m.group(0)), text)
 
 
 _CI_PARAGRAPH_ON = (
@@ -324,8 +437,9 @@ _CI_PARAGRAPH_ON = (
     "  Actions workflow `light-check.yml`, on the pull request into `main`). In a\n"
     "  public repository it checks again after a push to `main` that brings\n"
     "  anything it has not already passed. Every other push is checked on your own machine before it leaves. In a\n"
-    "  public repository a leak check (`leak-gate.yml`) also runs on every push\n"
-    "  and refuses anything that would publish something private. Neither needs\n"
+    "  public repository a leak check (`leak-gate.yml`) also runs on every pull\n"
+    "  request, and the same check runs on your own machine before every push,\n"
+    "  refusing anything that would publish something private. Neither needs\n"
     "  maintenance. If they don't appear on a pull request's checks, GitHub\n"
     "  Actions may be disabled for this repository — an administrator can turn\n"
     "  it on at repository **Settings → Actions**.\n"
@@ -356,19 +470,13 @@ def _ci_paragraph_off():
     )
 
 
-def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_enabled, force):
-    written, skipped = [], []
-    today = precedent_time.today(ROOT)  # practice: timestamps-carry-offset
-    common = {
-        '<project name>': project,
-        '<OWNER/REPOSITORY>': owner_repo or '<OWNER/REPOSITORY>',
-        '<administrator contact>': f'@{admin}' if admin else '<administrator contact>',
-        '<install date>': today,
-        '<upstream-docs>': UPSTREAM_DOCS,
-        '<precedent upstream URL>': UPSTREAM_URL,
-        '<default-branch>': base_branch,
-    }
-    per_file = {
+def per_file_substitutions(ci_enabled=True):
+    """-> {root file: {text: replacement}}: what an install writes into a
+    template beyond its `<placeholder>`s, file by file. One table, read by
+    _instantiate_root_files and by precedent_update.py, which re-renders an
+    older template the same way to tell an install's untouched copy from
+    one the repository edited (2026-10-17)."""
+    return {
         # The classic model's manifest bookkeeping has no place here; what a
         # loader install does instead is the standing `Update Vendors` run.
         'TODO.md': {
@@ -385,13 +493,28 @@ def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_en
         },
         'GETTING_STARTED.md': {} if ci_enabled else {_CI_PARAGRAPH_ON: _ci_paragraph_off()},
     }
+
+
+def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_enabled, force):
+    written, skipped = [], []
+    today = precedent_time.today(ROOT)  # practice: timestamps-carry-offset
+    common = {
+        '<project name>': project,
+        '<OWNER/REPOSITORY>': owner_repo or '<OWNER/REPOSITORY>',
+        '<administrator contact>': f'@{admin}' if admin else '<administrator contact>',
+        '<install date>': today,
+        '<upstream-docs>': UPSTREAM_DOCS,
+        '<precedent upstream URL>': UPSTREAM_URL,
+        '<default-branch>': base_branch,
+    }
+    per_file = per_file_substitutions(ci_enabled)
     for name, tmpl in ROOT_FILES.items():
         target = dest / name
         if target.exists() and not force:
             skipped.append(name)
             continue
         text = (TEMPLATES / tmpl).read_text(encoding='utf-8')
-        text = _substitute(text, common)
+        text = _substitute(text, common, outside_comments=True)
         text = _substitute(text, per_file.get(name, {}))
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding='utf-8')
@@ -432,10 +555,19 @@ def _readme(dest, project, about):
         # After the first heading and the paragraph under it, so a reader
         # learns what the project is before how it is maintained
         # (practice: lead-with-what-it-is). No heading: at the top.
+        # The blank line under the title is skipped first: stopping at it
+        # put the block between a title and its description, the common
+        # shape of a README (2026-10-17, install rehearsal). A second
+        # heading right under the title has no paragraph to wait for.
         insert_at = 0
         if lines and lines[0].startswith('#'):
             insert_at = 1
-            while insert_at < len(lines) and lines[insert_at].strip():
+            while insert_at < len(lines) and not lines[insert_at].strip():
+                insert_at += 1
+            if insert_at < len(lines) and lines[insert_at].startswith('#'):
+                insert_at = 1
+            while insert_at < len(lines) and lines[insert_at].strip() \
+                    and not lines[insert_at].startswith('#'):
                 insert_at += 1
         new = ''.join(lines[:insert_at]) + '\n' + block + '\n' + ''.join(lines[insert_at:])
         readme.write_text(new, encoding='utf-8')
@@ -644,7 +776,10 @@ def _placeholders_left(dest, names):
         p = dest / name
         if not p.is_file():
             continue
-        for n, line in enumerate(p.read_text(encoding='utf-8').splitlines(), 1):
+        # Not inside a comment: a comment that names a placeholder
+        # ("Replace <angle-bracket> placeholders ...") renders nowhere and
+        # is not one to adapt (2026-10-17).
+        for n, line in enumerate(_blank_comments(p.read_text(encoding='utf-8')).splitlines(), 1):
             for m in _PLACEHOLDER.finditer(line):
                 tok = m.group(0)
                 if _HTML_LIKE.match(tok) or tok in ('<undecided>',):
@@ -752,9 +887,9 @@ def _tiers(dest):
                                else 'staging and main both present')
 
 
-def install(dest, project, about=None, base_branch=None, visibility='private',
+def install(dest, project, about=None, base_branch=None, visibility=None,
             output_paths=None, admin=None, teams=(), force=False, quiet=False,
-            content_paths=None):
+            content_paths=None, no_terminal=False):
     dest = pathlib.Path(dest).resolve()
     say = (lambda *a: None) if quiet else print
     rc, top, _ = _git(dest, 'rev-parse', '--show-toplevel')
@@ -784,15 +919,21 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
 
     say(f'installing Precedent into {dest}')
     say(f'  base branch: {branch} ({how})')
-    say(f'  visibility: {visibility}'
+    visibility, vis_how = _visibility(dest, visibility)
+    say(f'  visibility: {visibility} ({vis_how})'
         + ('' if visibility == 'private' else ' -- private-level practices will NOT render into AGENTS.md'))
     n = _vendor_catalogue(dest)
     say(f'  vendored {n} practice(s) to {UNIVERSAL_PATH}/practices/')
     for line in _seed_engine(dest):
         say(f'  {line}')
     _write_precedent_json(dest, branch, visibility, output_paths, teams, force,
-                          content_paths=content_paths)
+                          content_paths=content_paths, no_terminal=no_terminal)
     say('  wrote precedent.json')
+    if no_terminal:
+        say(f'  main\'s GitHub test: always ({MAIN_TEST_KEY}) -- the assistant here has no '
+            f'terminal, so GitHub checks every push to main once it lands'
+            + ('' if ci_enabled else f'; but no workflow is written ({ci_note}), so '
+               f'nothing will run until a source enables them'))
     # Its code owners, from who can edit it now (Morgan, 2026-10-06): a
     # starting default, never rewritten once set.
     try:
@@ -804,6 +945,21 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     say(f'  code owners: ' + (f'named {", ".join("@" + o for o in _owners)} in '
                               f'precedent.json\'s maintainers ({_how})'
                               if _owners else f'none written: {_how}'))
+    # The administrator is the account running this (SETUP.md, question 1),
+    # so --admin also says who "you" are in this clone. Kept in its git
+    # config, never in a tracked file, so it names nobody else's clone; an
+    # answer already kept there wins (2026-10-17: with no individual set,
+    # nothing else told the engine, and the code-owner practices stayed
+    # hidden from the administrator who had just installed them).
+    if admin_named:
+        try:
+            import precedent_audience as _pa
+            if _pa.remember_login(dest, admin_named,
+                                  'named as the administrator at install (--admin)'):
+                say(f'  you: @{admin_named.lstrip("@")}, kept in this clone\'s git '
+                    f'config ({_pa.LOGIN_CONFIG_KEY}) so its sessions know who you are')
+        except Exception:                                     # noqa: BLE001
+            pass
     # The owner's own zone for what runs where no identity reaches, offered
     # and never written (2026-10-08; precedent_vendor_engine.timezone_offer).
     try:
@@ -888,14 +1044,16 @@ def main(argv=None):
         return 0
     dest = argv[0]
     opts = {'--project-name': None, '--about': None, '--base-branch': None,
-            '--visibility': 'private', '--output-paths': None, '--admin': None,
+            '--visibility': None, '--output-paths': None, '--admin': None,
             '--content-paths': None}
-    teams, force = [], False
+    teams, force, no_terminal = [], False, False
     i = 1
     while i < len(argv):
         a = argv[i]
         if a == '--force':
             force = True
+        elif a == '--no-terminal':
+            no_terminal = True
         elif a == '--team':
             i += 1
             name, _, path = argv[i].partition('=')
@@ -914,7 +1072,7 @@ def main(argv=None):
         print('precedent_install FAIL: --project-name is required (it names the '
               'Getting Started page and the README opening)', file=sys.stderr)
         return 1
-    if opts['--visibility'] not in ('public', 'private'):
+    if opts['--visibility'] not in (None, 'public', 'private'):
         print('precedent_install FAIL: --visibility is public or private', file=sys.stderr)
         return 1
     paths = [p.strip() for p in (opts['--output-paths'] or '').split(',') if p.strip()]
@@ -923,7 +1081,8 @@ def main(argv=None):
         ok = install(dest, opts['--project-name'], about=opts['--about'],
                      base_branch=opts['--base-branch'], visibility=opts['--visibility'],
                      output_paths=paths or None, admin=opts['--admin'],
-                     teams=teams, force=force, content_paths=content or None)
+                     teams=teams, force=force, content_paths=content or None,
+                     no_terminal=no_terminal)
     except InstallRefused as e:
         print(f'precedent_install FAIL: {e}', file=sys.stderr)
         return 1

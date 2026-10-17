@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-17-a-stale-vendored-bootstrap-copy-reproduced-a-bug-already-fi
-status:          live
+status:          retired
 noted:           2026-09-17
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -78,3 +78,7 @@ distribution copy, `diff` it against
 [`templates/harness/claude-code/hooks/`](../templates/harness/claude-code/hooks/)
 in a current BestPractice clone; don't assume a copy is current just
 because it exists on disk.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. The distribution gap it left open is closed: since 6ed8e53f (2026-10-07) the individual set's bootstrap/commit-identity.sh is a 31-line stub that runs the engine's tools/commit-identity.sh, which Update Vendors keeps current (checked 2026-10-17).

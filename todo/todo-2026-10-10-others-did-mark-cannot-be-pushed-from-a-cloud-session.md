@@ -18,7 +18,7 @@ closed:            2026-10-10
 
 **From a cloud session, the others-did mark cannot be pushed to where it
 lives, so the daily "what others landed" report may never fire there.**
-[tools/precedent_others_did.py](../tools/precedent_others_did.py) keeps each
+[tools/precedent_others_did.py](https://github.com/themorgan/precedent-shared-ladder/blob/staging/tools/ladder/others_did.py) keeps each
 person's mark on origin's `refs/precedent/others-did`, a ref outside every
 branch. Measured 2026-10-10 in a consuming repository: the session's git
 proxy answers that push with HTTP 403, while branch pushes to the same
@@ -78,7 +78,7 @@ stderr. That was fixed beside this item the same day; the push itself is
 gone now, and its test with it.
 
 **Decided 2026-10-10, Morgan: "Go with option 1" (strength: decided).**
-Built the same day: [tools/precedent_others_did.py](../tools/precedent_others_did.py)
+Built the same day: [tools/precedent_others_did.py](https://github.com/themorgan/precedent-shared-ladder/blob/staging/tools/ladder/others_did.py)
 counts what landed on the shared branches after the person's own last
 commit, by when it landed rather than by each commit's own date, so a
 colleague's older commit merged later is still reported. It pushes

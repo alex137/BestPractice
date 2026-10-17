@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        null
+waiting_on:        "Morgan: whether very-deep-check's Rule moves its incidents to Story, and whether a very deep check or Update Vendors takes a lease"
 noted:             2026-09-28
 closed:            null
 ---
@@ -47,3 +47,7 @@ the full catalogue judgment completed, all the same day.
     the mechanism to Detail.
   - Whether a very deep check or an Update Vendors should take a lease
     (lease-in-flight-work) is a judgment call.
+
+## Notes
+
+2026-10-17, very deep check pass 4 (still live, narrowed): done since: claude/graduate-synonym's two synonyms are in force ("Graduate" in the ladder's promote, "Spec it out" in write-it-up) and the branch is gone; deep-check.yml now has 2 jobs; doc-link-text was folded into rule-links; blank-blocklist and new-rule-placement no longer exist in any source. Left: very-deep-check's Rule is still about 3,700 words, and the lease question is unanswered.

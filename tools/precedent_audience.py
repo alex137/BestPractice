@@ -10,9 +10,11 @@ installs, repo audits. Morgan, 2026-10-05 (strength: decided): "for this new
 rule *as well as other rules related to repo maintenance*, they should NOT be
 shown to a user who is NOT a CODEOWNER".
 
-WHO THE PERSON IS comes from a declaration only: the `github` username in
-their identity.json (precedent_identity.declared_identity), or
-PRECEDENT_GITHUB_USER. Their email also counts, since a CODEOWNERS line may
+WHO THE PERSON IS: PRECEDENT_GITHUB_USER, else the `github` username in
+their identity.json (precedent_identity.declared_identity), else the login
+this clone's git config keeps (the installer's --admin, or an earlier
+lookup), else the GitHub account the session's token belongs to (2026-10-17; see
+viewer_and_source). Their email also counts, since a CODEOWNERS line may
 name an address.
 
 WHO OWNS THE REPOSITORY is its CODEOWNERS file, in the three places GitHub
@@ -151,20 +153,97 @@ def owners(repo):
     return out, str(f.relative_to(repo)) if f.is_relative_to(repo) else f.name
 
 
-def viewer(repo):
-    """-> (github_username, email) declared for this session's person; either
-    may be ''."""
+# The person's GitHub login as this clone last learned it, in the clone's
+# own git config (untracked, never pushed, never seen by another clone or a
+# test fixture): written by the installer's --admin, or by the first lookup
+# of the account the session's token belongs to.
+LOGIN_CONFIG_KEY = 'precedent.githubLogin'
+LOGIN_FROM_KEY = 'precedent.githubLoginFrom'
+
+
+def _git_config(repo, *args):
+    import subprocess
+    try:
+        r = subprocess.run(['git', '-C', str(repo), 'config', '--local', *args],
+                           capture_output=True, text=True, timeout=10)
+    except Exception:                                        # noqa: BLE001
+        return None
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def _cached_login(repo):
+    """-> (login, where) kept in this clone's git config, or ('', '')."""
+    login = _git_config(repo, '--get', LOGIN_CONFIG_KEY) or ''
+    if not re.fullmatch(r'[A-Za-z0-9-]+', login):
+        return '', ''
+    why = _git_config(repo, '--get', LOGIN_FROM_KEY) or ''
+    return login, f'this clone\'s git config ({LOGIN_CONFIG_KEY}{", " + why if why else ""})'
+
+
+def remember_login(repo, login, why, replace=False):
+    """Keep `login` in `repo`'s git config as the person working in it,
+    unless one is kept already (or `replace`). -> True when written. Never
+    raises."""
+    login = str(login or '').strip().lstrip('@')
+    if not re.fullmatch(r'[A-Za-z0-9-]+', login):
+        return False
+    if not replace and _cached_login(repo)[0]:
+        return False
+    if _git_config(repo, LOGIN_CONFIG_KEY, login) is None:
+        return False
+    _git_config(repo, LOGIN_FROM_KEY, why)
+    return True
+
+
+def viewer_and_source(repo, lookup=True):
+    """-> (github_username, email, where the username came from). Either
+    value may be ''.
+
+    WHO "YOU" ARE, in order: PRECEDENT_GITHUB_USER; the `github` in a
+    declared identity.json (this repo's own, or the individual set's); the
+    login kept in this clone's git config (the installer's --admin, or an
+    earlier lookup); and last the account the session's
+    token belongs to -- the same api.github.com/user answer
+    commit-identity.sh's fifth rung reads, with the same
+    PRECEDENT_GITHUB_USER_URL override -- kept after the first lookup so it
+    is asked once per clone.
+
+    Until 2026-10-17 only the first two counted, so a person with no
+    individual set was a code owner nowhere: the very deep check of that
+    day installed a project as its only administrator, with --admin, and
+    was shown none of the 28 practices for code owners, Update Vendors
+    among them."""
     gh = os.environ.get('PRECEDENT_GITHUB_USER', '').strip()
+    where = 'PRECEDENT_GITHUB_USER' if gh else ''
     email = ''
     try:
         sys.path.insert(0, str(_ENGINE_DIR))
         import precedent_identity as pid
         ident = pid.declared_identity(repo)
-        gh = gh or (ident.get('github') or '').strip()
+        if not gh and (ident.get('github') or '').strip():
+            gh, where = ident['github'].strip(), ident.get('source') or 'identity.json'
         email = (ident.get('email') or '').strip()
     except Exception:                                        # noqa: BLE001
         pass
-    return gh.lstrip('@'), email
+    if not gh:
+        gh, where = _cached_login(repo)
+    if not gh and lookup:
+        try:
+            import precedent_source_credentials as psc
+            gh = psc.token_account(timeout=5)
+        except Exception:                                    # noqa: BLE001
+            gh = ''
+        if gh:
+            where = 'the GitHub account this session is authenticated as'
+            remember_login(repo, gh, where)
+    return gh.lstrip('@'), email, where
+
+
+def viewer(repo):
+    """-> (github_username, email) for this session's person; either may be
+    ''. See viewer_and_source for where each comes from."""
+    gh, email, _where = viewer_and_source(repo)
+    return gh, email
 
 
 def is_code_owner(repo):
@@ -178,9 +257,12 @@ def is_code_owner(repo):
                        'stand in')
     gh, email = viewer(repo)
     if not gh and not email:
-        return False, ('no GitHub username is declared for you: add '
-                       '"github": "<your username>" to the identity.json in '
-                       'your individual practice set')
+        return False, ('no GitHub username is known for you: none was '
+                       'recorded at install (--admin), the account this '
+                       'session\'s GitHub token belongs to could not be read, '
+                       'and none is declared -- set PRECEDENT_GITHUB_USER='
+                       '<your username>, or add "github": "<your username>" '
+                       'to the identity.json in your individual practice set')
     if gh and f'@{gh.lower()}' in names:
         return True, f'@{gh} is named in {where}'
     if email and email.lower() in names:

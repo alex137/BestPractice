@@ -673,25 +673,9 @@ def make_current(repo, branch):
     return True, note
 
 
-def _declared_base_branch(root):
-    """The branch a source set's work is measured against, as DECLARED in
-    its own precedent.json `base_branch` -- not inferred from origin/HEAD.
-
-    Same helper, same reasoning, as doc_lint.py's: origin/HEAD answers "what
-    does GitHub show first", and every caller here means "what lineage does
-    this work belong to". This repo is itself the standing counterexample --
-    its default branch is main and its work is on precedent-beta-v01 -- and
-    wiring a source set's freshness guard to the wrong one of those makes it
-    compare against a lineage that set never touches, silently. Returns None
-    when undeclared or unreadable, so the caller falls back rather than
-    breaking (practice: fail-gracefully). Enforced by precedent_check.py's
-    `declared-base-branch`."""
-    try:
-        v = json.loads((pathlib.Path(root) / 'precedent.json')
-                       .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 
 def _pinned_branch(repo):
@@ -894,7 +878,7 @@ def repair_hooks(repo):
     # and hook-INSTALL were on two different lists, so one --apply wired a
     # hook into SessionStart while leaving the file absent from
     # .claude/hooks/. That is a declared-but-missing hook, which the harness
-    # reports as nothing at all (record/GOTCHAS.md's own entry on it) -- the
+    # reports as nothing at all (gotchas/gotcha-2026-09-13-the-absence-of-claude-hooks-is-not-evidence-that-a-repo-s-ho.md) -- the
     # exact failure this tool exists to catch, shipped by the tool itself.
     #
     # Doing all three in one function is what makes them impossible to get
@@ -1059,6 +1043,31 @@ def _refresh_branch_for(repo, tip):
     return next((b for b in (out or '').split() if mark in b), None) if ok else None
 
 
+REFRESH_SUBJECT = 'Refresh the vendored engine to BestPractice '
+
+
+def refresh_only_branches(repo, base):
+    """-> the local branches in `repo` that carry nothing but this tool's own
+    refresh commits beyond `base` and no remote has: engine output, which
+    the next refresh writes again from the engine as it then is.
+
+    precedent_container_safe asks this to leave them out of "work only
+    here", and apply_on_its_own_branch to clear the superseded ones."""
+    ok, out = _git('for-each-ref', '--format=%(refname:short)', 'refs/heads',
+                   cwd=repo)
+    mark = f'-{"-".join(REFRESH_BRANCH_WORDS)}-'
+    found = []
+    for b in (out or '').split() if ok else []:
+        if mark not in b:
+            continue
+        ok2, subjects = _git('log', '--format=%s', b, '--not', base,
+                             '--remotes', cwd=repo)
+        lines = [l for l in (subjects or '').splitlines() if l.strip()]
+        if ok2 and lines and all(l.startswith(REFRESH_SUBJECT) for l in lines):
+            found.append(b)
+    return found
+
+
 def apply_on_its_own_branch(entry, base):
     """apply_to(), committed on a new local branch named for the engine tip,
     then back to `base` with the working tree clean. -> the same steps list."""
@@ -1086,6 +1095,16 @@ def apply_on_its_own_branch(entry, base):
     ok, out = _git('checkout', '-q', base, cwd=repo)
     if ok and 'changed nothing' in last[2]:
         _git('branch', '-D', name, cwd=repo)
+    # SUPERSEDED REFRESH BRANCHES GO (2026-10-17). Every session start that
+    # found the engine moved left one more local branch, never pushed, and a
+    # set's clone held three, from three different engine commits, that no
+    # check could see. Each held only a refresh commit, which this run just
+    # wrote again from a newer engine, so the older ones carry nothing to
+    # lose (practice: repair-cannot-discard-work).
+    if ok:
+        for old in refresh_only_branches(repo, base):
+            if old != name:
+                _git('branch', '-D', old, cwd=repo)
     clean_ok, dirt = _git('status', '--porcelain', cwd=repo)
     ok = ok and clean_ok and not dirt
     steps.append(('back on base', ok,

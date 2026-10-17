@@ -4,7 +4,7 @@ kind:              analysis
 domain:            null
 severity:          null
 status:            open
-disposition:       wait
+disposition:       parked
 remind_on:         null
 blocked_on:        "nothing external, but it was not worth the complexity at the measured numbers — with the throttle the ≈500ms lands so rarely that backgrounding buys little. It also rests on an unverified assumption that a process detached from a hook survives the hook returning rather than being reaped with it, whi"
 batch:             null
@@ -41,6 +41,8 @@ closed:            null
     measurements and the two rejected alternatives:
     [this thread](https://claude.ai/code/session_01NQCKsA4otmeujdrbCGrqR3).
 
+**Disposition:** parked (2026-10-17, the session, under Morgan's delegation of 2026-10-17 ("Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."); "drop it" is Morgan's word, not his here)
+
 ## How It Closes
 
 Not open until: nothing external, but it was not worth the complexity at the measured numbers — with the throttle the ≈500ms lands so rarely that backgrounding buys little. It also rests on an unverified assumption that a process detached from a hook survives the hook returning rather than being reaped with it, whi
@@ -48,3 +50,7 @@ Not open until: nothing external, but it was not worth the complexity at the mea
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): a deliberate deferral with a revisit trigger (throttle interval dropping) that has not fired; it is a declined idea, not blocked work. Would drop it (status: dropped) as decided-not-to-build; Morgan's call.
+
+2026-10-17, parked by the session under Morgan's delegation of 2026-10-17 ("Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."), the way the very deep check said it would settle it: a deliberate deferral whose revisit condition never came. It is not raised again unprompted.
