@@ -130,10 +130,6 @@ sys.path.insert(0, str(HERE.parent))
 import precedent_vendor_engine as pve  # noqa: E402
 import precedent_branches as pb  # noqa: E402
 import precedent_local_edits as le  # noqa: E402
-try:
-    import precedent_upstream_review as ur  # noqa: E402
-except ImportError:     # an engine copy from before 2026-10-11
-    ur = None
 
 # Everything the steps' commands printed, for the upstream review at DONE
 # (the ladder set's upstream-review practice): a warning a step met and
@@ -3382,7 +3378,13 @@ class Report:
         # otherwise, and nothing is printed). A local edit still local or
         # merged is an item: it is the fix that belongs upstream. Printed on
         # DONE only -- a LEFT or FAILED update runs again.
-        if ur is None or self.pin_repo is None:
+        if self.pin_repo is None:
+            return
+        # The review is a set's (step_review in its precedent-source.json,
+        # 2026-10-17); with no set providing one there is nothing to show.
+        import precedent_resolve as _pr
+        ur = _pr.load_set_tool(self.pin_repo, 'step_review')
+        if ur is None:
             return
         extra = [f'local edit {outcome}: {rel} -- {text}'
                  for outcome, rel, text in self.edits

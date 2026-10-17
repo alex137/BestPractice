@@ -1384,7 +1384,10 @@ def _upstream_review(root, wt, stage, out, batch_range):
     sees nothing. `wt` is None where nothing is recorded (Produce: main
     moves by a pull request). Never refuses a stage: on any error the review
     is simply not shown."""
-    ur = _sibling('precedent_upstream_review')
+    # The review is a set's (step_review in its precedent-source.json); the
+    # engine only writes its lines into the commit (2026-10-17).
+    pr = _sibling('precedent_resolve')
+    ur = pr.load_set_tool(root, 'step_review') if pr is not None else None
     if ur is None:
         return [], False
     try:

@@ -630,11 +630,6 @@ ENGINE_FILES = [
     # set as much as a consumer, and the hooks call its --in-force exit code.
     # It imports precedent_resolve, which is in this list too.
     'precedent_ladder.py',
-    # The upstream review Booked, Debut, Produce and Update Vendors print for
-    # a code owner on the ladder (the ladder set's upstream-review practice,
-    # 2026-10-11). precedent_branches and precedent_update import it in
-    # every kind of repo; without it they simply print no review.
-    'precedent_upstream_review.py',
     # The one matcher for a set's own words, which precedent_check's
     # set-words-stay-in-their-set imports in every practice set; the words
     # are each set's own, in its precedent-source.json (2026-10-17).
@@ -1165,6 +1160,9 @@ RETIRED_ENGINE_FILES = {
     'precedent_others_did.py':
         'moved to the ladder set as tools/ladder/others_did.py, 2026-10-17; '
         'its commit sorting stayed, as precedent_commit_owners.py',
+    'precedent_upstream_review.py':
+        'moved to the ladder set as tools/ladder/upstream_review.py, 2026-10-17; '
+        'the engine finds a set\'s step_review through precedent_resolve.load_set_tool',
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 _WAS_COMMIT_ENV = 'PRECEDENT_REFRESH_WAS_COMMIT'  # the pre-refresh source_commit, for a second pass
