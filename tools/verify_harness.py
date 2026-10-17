@@ -30082,6 +30082,73 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_installer_visibility_defaults_to_public_and_says_why():
+    """The installer's visibility: --visibility when given, then an existing
+    precedent.json, then GitHub's answer for a GitHub origin, and public
+    when none of those can be read -- the direction a wrong answer can be
+    undone from -- always with the reason.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: an absent
+    --visibility silently meant private, which renders private-level sets
+    into the tracked AGENTS.md, though precedent.json's own comment says an
+    absent key counts as public. Decision chosen by the session under
+    Morgan's delegation of 2026-10-17 ("Fix the other issues you found
+    including the checks that never run. Tell me what you decide. I will be
+    offline so don't wait for me. Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: on the code before the fix there
+    is no _visibility and main() defaults the flag to 'private'.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+        import github_budget as gb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    vis = getattr(pi, '_visibility', None)
+    if vis is None:
+        return False, '1 stated case', 'precedent_install has no _visibility: an absent flag means private'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-visibility-'))
+    real_call = gb.call
+    try:
+        def repo(name, url=None):
+            d = tmp / name
+            subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+            if url:
+                subprocess.run(['git', '-C', str(d), 'remote', 'add', 'origin', url],
+                               capture_output=True)
+            return d
+        got = vis(repo('no-origin'), None)
+        cases.append(('no origin: public, and says how to say private',
+                      got[0] == 'public' and '--visibility private' in got[1], str(got)))
+        got = vis(repo('elsewhere', str(tmp / 'bare.git')), None)
+        cases.append(('an origin not on GitHub: public', got[0] == 'public', str(got)))
+        got = vis(repo('given'), 'private')
+        cases.append(('CONTROL: --visibility private is taken as given', got[0] == 'private', str(got)))
+        d = repo('reinstall')
+        (d / 'precedent.json').write_text(json.dumps({'visibility': 'private'}), encoding='utf-8')
+        got = vis(d, None)
+        cases.append(('a --force reinstall keeps what precedent.json declares',
+                      got[0] == 'private', str(got)))
+        gh = repo('on-github', 'https://github.com/someone/notes.git')
+        gb.call = lambda path, **k: ({'private': True}, None) if path == 'repos/someone/notes' else (None, 'x')
+        got = vis(gh, None)
+        cases.append(("GitHub says private: private, and says it read GitHub",
+                      got == ('private', 'read from GitHub: someone/notes is private'), str(got)))
+        gb.call = lambda path, **k: (None, 'Not Found')
+        got = vis(gh, None)
+        cases.append(("GitHub cannot say: public, naming what GitHub answered",
+                      got[0] == 'public' and 'Not Found' in got[1], str(got)))
+    finally:
+        gb.call = real_call
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_installer_base_branch_asks_origin_before_the_current_branch():
     """With origin/HEAD unset -- which is how `git remote add origin` and a
     push leave it -- the installer asks origin for its default branch, then
@@ -70526,8 +70593,13 @@ def check_installer_produces_a_clean_install():
                       'placeholder(s) to adapt' in out, out[-800:]))
         pj = proj / 'precedent.json'
         doc = json.loads(pj.read_text(encoding='utf-8')) if pj.is_file() else {}
-        cases.append(('precedent.json declares the base branch and the visibility explicitly',
-                      doc.get('base_branch') == 'main' and doc.get('visibility') == 'private',
+        # No origin, so nothing can say whether it is private: public, the
+        # safe direction, and the output says why (2026-10-17; until then
+        # an absent --visibility silently meant private).
+        cases.append(('precedent.json declares the base branch and the visibility explicitly, '
+                      'and the output says why that visibility',
+                      doc.get('base_branch') == 'main' and doc.get('visibility') == 'public'
+                      and 'visibility: public (it has no origin yet' in out,
                       str(doc)[:300]))
         _map = (proj / 'MAP.md').read_text(encoding='utf-8') if (proj / 'MAP.md').is_file() else ''
         _src = (proj / 'MAP.source.md').read_text(encoding='utf-8') if (proj / 'MAP.source.md').is_file() else ''
@@ -82419,6 +82491,8 @@ def main():
           *check_installer_vendors_the_catalogue_companions())
     check('the installer asks origin for the base branch before taking the current one',
           *check_installer_base_branch_asks_origin_before_the_current_branch())
+    check('the installer defaults visibility to public when it cannot be read, and says why',
+          *check_installer_visibility_defaults_to_public_and_says_why())
     check("a local session's commit identity leaves the laptop's global git config alone",
           *check_commit_identity_leaves_a_laptops_global_config_alone())
     check_endgame_merge_finds_the_silent_drop()

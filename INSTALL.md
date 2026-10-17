@@ -217,7 +217,10 @@ not this section.
    one. **`visibility`** (`"public"` or `"private"`) says whether this
    repo's tracked files are a publication; omitting it counts as public,
    so a private repo that omits it silently loses its shared and individual
-   practices from the materialized tree. **`internal_paths`** is a list of
+   practices from the materialized tree. The installer always writes it:
+   `--visibility` when given, else what GitHub says about the origin, else
+   `public`, and its output names which and why (2026-10-17; until then an
+   absent flag silently meant private). **`internal_paths`** is a list of
    repo-relative path prefixes — a directory (`"notes"`), a nested one
    (`"docs/drafts"`), or a single file (`"ROADMAP.md"`) — that are this
    project managing itself rather than documents published to anyone. It

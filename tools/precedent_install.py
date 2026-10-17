@@ -11,6 +11,11 @@ Run from a clone of Precedent (this repository), pointed at the project:
       [--output-paths docs,site] [--content-paths notes/,TODO.md] \\
       [--admin github-handle] [--team NAME=PATH ...] [--force]
 
+--visibility, when not given, is read from GitHub for a GitHub origin, and
+is public when it cannot be read: the safe direction, since a private repo
+installed as public only keeps its private-level practices out of the
+tracked AGENTS.md (2026-10-17). The output says which it chose and why.
+
 --content-paths names the person's own material kept in the project (a
 personal to-do list, notes, a manuscript): precedent.json `content_paths`,
 which the checks about session work skip. A path ending in "/" is a folder.
@@ -201,6 +206,47 @@ def _base_branch(dest, declared):
                      'default branch and has no main)' if has_origin else
                      'inferred from the branch checked out now (no origin)')
     return 'main', 'assumed; the repository has no branch yet'
+
+
+def _visibility(dest, given):
+    """-> (visibility, how). Given with --visibility wins; then a
+    precedent.json already on disk (a --force reinstall); then what GitHub
+    says about the origin; and when none of those can be read, PUBLIC.
+
+    Public is the direction a wrong answer can be undone from: a private
+    repository installed as public only leaves its private-level practices
+    out of the tracked AGENTS.md, while a public one installed as private
+    publishes them on its first push. Until 2026-10-17 an absent flag meant
+    private, silently, though precedent.json's own comment says an absent
+    key counts as public for exactly that reason (very deep check)."""
+    if given:
+        return given, 'given with --visibility'
+    try:
+        v = json.loads((pathlib.Path(dest) / 'precedent.json')
+                       .read_text(encoding='utf-8')).get('visibility')
+        if v in ('public', 'private'):
+            return v, 'declared in the existing precedent.json'
+    except Exception:                                        # noqa: BLE001
+        pass
+    rc, url, _ = _git(dest, 'remote', 'get-url', 'origin')
+    owner, repo = _remote_owner_repo(dest)
+    if rc == 0 and owner and re.search(r'github\.com[:/]', url):
+        try:
+            import github_budget
+            data, err = github_budget.call(f'repos/{owner}/{repo}', timeout=10)
+        except Exception as e:                                # noqa: BLE001
+            data, err = None, str(e)
+        if isinstance(data, dict) and isinstance(data.get('private'), bool):
+            vis = 'private' if data['private'] else 'public'
+            return vis, f'read from GitHub: {owner}/{repo} is {vis}'
+        why = f'GitHub did not say whether {owner}/{repo} is private ({err or "no answer"})'
+    elif rc == 0:
+        why = 'its origin is not on GitHub, so nothing could say'
+    else:
+        why = 'it has no origin yet, so nothing could say'
+    return 'public', (f'{why}; public is the safe direction -- private-level '
+                      f'practices stay out of the tracked AGENTS.md. Pass '
+                      f'--visibility private if the repository is private')
 
 
 def _vendor_catalogue(dest):
@@ -783,7 +829,7 @@ def _tiers(dest):
                                else 'staging and main both present')
 
 
-def install(dest, project, about=None, base_branch=None, visibility='private',
+def install(dest, project, about=None, base_branch=None, visibility=None,
             output_paths=None, admin=None, teams=(), force=False, quiet=False,
             content_paths=None):
     dest = pathlib.Path(dest).resolve()
@@ -815,7 +861,8 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
 
     say(f'installing Precedent into {dest}')
     say(f'  base branch: {branch} ({how})')
-    say(f'  visibility: {visibility}'
+    visibility, vis_how = _visibility(dest, visibility)
+    say(f'  visibility: {visibility} ({vis_how})'
         + ('' if visibility == 'private' else ' -- private-level practices will NOT render into AGENTS.md'))
     n = _vendor_catalogue(dest)
     say(f'  vendored {n} practice(s) to {UNIVERSAL_PATH}/practices/')
@@ -934,7 +981,7 @@ def main(argv=None):
         return 0
     dest = argv[0]
     opts = {'--project-name': None, '--about': None, '--base-branch': None,
-            '--visibility': 'private', '--output-paths': None, '--admin': None,
+            '--visibility': None, '--output-paths': None, '--admin': None,
             '--content-paths': None}
     teams, force = [], False
     i = 1
@@ -960,7 +1007,7 @@ def main(argv=None):
         print('precedent_install FAIL: --project-name is required (it names the '
               'Getting Started page and the README opening)', file=sys.stderr)
         return 1
-    if opts['--visibility'] not in ('public', 'private'):
+    if opts['--visibility'] not in (None, 'public', 'private'):
         print('precedent_install FAIL: --visibility is public or private', file=sys.stderr)
         return 1
     paths = [p.strip() for p in (opts['--output-paths'] or '').split(',') if p.strip()]
