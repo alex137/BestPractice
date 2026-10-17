@@ -393,9 +393,9 @@ place — nothing is ever deleted, and nothing moves.
 - **Two check levels** ([two-check-levels](practices/two-check-levels.md)):
   **light check** is `python3 tools/doc_lint.py` on the markdown you touched,
   before every commit; **deep check** is `python3 tools/precedent_push_check.py`,
-  before push or merge, **always run bare**: it checks at the tier the
-  branch you push to gets -- seconds for a working branch, the full suite
-  for `main`. What matters is `0 failed` and `0 violated`. Which one a push gets, `--as-ci`, and failing tests a
+  before push or merge, **always run bare**: it checks at the tier a push
+  to your landing branch gets -- seconds for `staging` when you land there,
+  the full suite for `main`. What matters is `0 failed` and `0 violated`. Which one a push gets, `--as-ci`, and failing tests a
   source shipped:
   [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#two-check-levels).
 
