@@ -152,7 +152,7 @@ not this section.
   With none of them those practices stay hidden; set
   `PRECEDENT_GITHUB_USER` ([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)).
 - **Your git configuration.** Every session start runs the
-  [tools/commit-identity.sh](tools/commit-identity.sh) hook, which makes commits carry the person's name,
+  [tools/commit-identity.sh](https://github.com/alex137/BestPractice/blob/staging/tools/commit-identity.sh) hook, which makes commits carry the person's name,
   email and time zone. On your own machine (a local Claude Code session,
   or any harness that sets `PRECEDENT_LOCAL_SESSION=1`) it writes **this
   checkout's** git config and `.git/hooks/pre-commit` only, and leaves your
@@ -163,7 +163,7 @@ not this section.
   container's defaults are its own bot account and UTC, and a session
   rooted above several repositories depends on them.
 - **Python 3.12.** The engine runs on Python 3.12, the version its GitHub
-  checks use ([tools/precedent_python.py](tools/precedent_python.py)'s
+  checks use ([tools/precedent_python.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_python.py)'s
   default; a project can declare another in `precedent.json`'s
   `"python": {"version": ...}`). A hosted session sets it up at session
   start; on your own machine `python3` should be 3.12, and when it is not,
