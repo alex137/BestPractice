@@ -10310,7 +10310,13 @@ def _repo_retired_terms(cfg_path, _ol):
     # it -- so this scrub reads it as well, and a record is declared once.
     # exempt_files stays for what is not a record (a materialized tree, a
     # generated index), and still works for a record listed there before.
-    exempt_files = [RETIRED_VOCAB_CONFIG] + exempt_files + _declared_record_paths()
+    # The decommission tool's own ledger names every retired path by
+    # construction, the retired pack's among them, exactly as this config
+    # names every retired term: a migration that followed step 5 to the
+    # letter failed here on the record step 5 makes (2026-10-17, very deep
+    # check's migration rehearsal).
+    exempt_files = ([RETIRED_VOCAB_CONFIG, DECOMMISSIONED_PATHS_REGISTRY]
+                    + exempt_files + _declared_record_paths())
     retired = [(t, 'this repository\'s current wording', [_retired_term_re(t)])
                for t in terms]
     out = []

@@ -2101,6 +2101,41 @@ def retire_shipped_root_doc(repo, old):
     return True
 
 
+def instantiate_local_practice(repo, rel, rev):
+    """Write repo-local practice `rel` (local/practices/project-voice.md ...)
+    from its template at `rev`, exactly as an install writes it, when it is
+    missing and precedent.json declares the repo-local source it belongs
+    to. -> whether it was written.
+
+    WHY (2026-10-17, very deep check's migration rehearsal). Deleting a
+    default VOICE.md left no project-voice.md at all, while
+    local/practices/project-visual-identity.md -- installed or converted
+    from STYLEGUIDE.md -- links it, so the repo carried a link to nothing.
+    An install always writes both."""
+    import precedent_install as pi
+    import precedent_time
+    tmpl = pi.LOCAL_PRACTICE_FILES.get(rel)
+    target = pathlib.Path(repo) / rel
+    if not tmpl or not rev or target.exists():
+        return False
+    try:
+        sources = json.loads((pathlib.Path(repo) / 'precedent.json').read_text(
+            encoding='utf-8')).get('sources') or []
+    except (OSError, ValueError, AttributeError):
+        return False
+    root = pathlib.PurePosixPath(rel).parts[0]
+    if not any(isinstance(src, dict) and src.get('level') == 'repo-local'
+               and str(src.get('path', '')).strip('/') == root for src in sources):
+        return False
+    text = _source_text(rev, f'templates/{tmpl}')
+    if text is None:
+        return False
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(pi._substitute(text, {'<install date>': precedent_time.today(SOURCE)}),
+                      encoding='utf-8')
+    return True
+
+
 def legacy_root_docs(repo, rev=None, rep=None):
     """-> [(old, why)] for each root document LEGACY_ROOT_DOCS names that is
     still here: to convert when its practice file is missing, to delete when
@@ -2112,10 +2147,14 @@ def legacy_root_docs(repo, rev=None, rep=None):
         if not (repo / old).is_file():
             continue
         if rev and shipped_unchanged(repo, old, rev):
-            if retire_shipped_root_doc(repo, old) and rep is not None:
-                rep.step(old, f'deleted: it was the shipped default, unchanged, '
-                              f'so it carried no decision to convert into {new}; '
-                              f'its process/manifest.json entry went with it')
+            if retire_shipped_root_doc(repo, old):
+                made = instantiate_local_practice(repo, new, rev)
+                if rep is not None:
+                    rep.step(old, f'deleted: it was the shipped default, unchanged, '
+                                  f'so it carried no decision to convert into {new}; '
+                                  f'its process/manifest.json entry went with it'
+                             + (f'; {new} was written from its template, as an '
+                                f'install writes it' if made else ''))
             continue
         where = f'spec/MIGRATING_EXISTING_INSTALLS.md step {step}'
         if (repo / new).is_file():

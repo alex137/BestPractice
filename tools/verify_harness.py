@@ -3256,6 +3256,9 @@ def check_update_deletes_a_shipped_voice_md():
             (r / 'process' / 'manifest.json').write_text(json.dumps({'entries': [
                 {'practice': 'voice', 'local_path': 'VOICE.md'},
                 {'practice': 'other', 'local_path': 'X.md'}]}), encoding='utf-8')
+            (r / 'precedent.json').write_text(json.dumps({'sources': [
+                {'level': 'repo-local', 'name': 'local', 'path': 'local'}]}),
+                encoding='utf-8')
             subprocess.run(['git', 'init', '-q', str(r)], env=env)
             subprocess.run(['git', '-C', str(r), 'add', '-A'], env=env)
             subprocess.run(['git', '-C', str(r), 'commit', '-qm', 'i'], env=env)
@@ -3269,6 +3272,19 @@ def check_update_deletes_a_shipped_voice_md():
                       not (same / 'VOICE.md').exists() and left == [], str(left)))
         cases.append(('...and its manifest entry goes, the rest stay',
                       [e['practice'] for e in entries] == ['other'], str(entries)))
+        # 2026-10-17, very deep check's migration rehearsal: the visual
+        # identity practice links project-voice.md, so deleting the default
+        # without writing the practice an install writes left a dead link.
+        voice = same / 'local' / 'practices' / 'project-voice.md'
+        tmpl = (ROOT / 'templates' / 'local-practices' /
+                'project-voice.md.template').read_text(encoding='utf-8')
+        cases.append(('...and local/practices/project-voice.md is written from '
+                      'its template, as an install writes it',
+                      voice.is_file() and re.fullmatch(
+                          re.escape(tmpl).replace(re.escape('<install date>'),
+                                                  r'\d{4}-\d\d-\d\d'),
+                          voice.read_text(encoding='utf-8')) is not None,
+                      str(voice)))
         edited = repo('edited', body.replace('a sharp colleague typing quickly',
                                              'a calm, formal narrator'))
         left = pu.legacy_root_docs(edited, rev)
@@ -72288,6 +72304,59 @@ def check_update_says_once_that_commands_moved_to_an_undeclared_set():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_retired_words_reads_past_the_decommission_ledger():
+    """A repository's own retired terms are never refused in
+    process/decommissioned_paths.json, the decommission tool's own ledger,
+    which names every retired path by construction -- the same exemption
+    the vocabulary config itself has. A live file naming the term still is.
+
+    2026-10-17, very deep check's migration rehearsal: step 5 of
+    spec/MIGRATING_EXISTING_INSTALLS.md, followed to the letter, retires the
+    old pack through the audit (which writes the ledger) and declares the
+    pack's name retired, and then retired-words failed on the ledger.
+    Planted: the config, the ledger naming the retired pack, a live file."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ledger-words-'))
+    saved = pc.ROOT
+    cases = []
+    try:
+        (tmp / 'process').mkdir()
+        cfg = tmp / pc.RETIRED_VOCAB_CONFIG
+        cfg.write_text(json.dumps({'terms': ['oldpackname'], 'exempt_files': []}),
+                       encoding='utf-8')
+        (tmp / pc.DECOMMISSIONED_PATHS_REGISTRY).write_text(json.dumps({
+            'decommissioned': [{'path': 'process/oldpackname',
+                                'reason': 'migrated into the sets'}]}), encoding='utf-8')
+        (tmp / 'NOTES.md').write_text('We still read oldpackname here.\n',
+                                      encoding='utf-8')
+        pc.ROOT = tmp
+        pc._vendored_engine_files.cache_clear()
+        try:
+            import our_language as _ol
+        except ImportError:
+            _ol = None
+        where = [f.where for f in pc._repo_retired_terms(cfg, _ol)]
+        cases.append(('the ledger is not refused for naming the retired pack',
+                      not any(w.startswith(pc.DECOMMISSIONED_PATHS_REGISTRY) for w in where),
+                      str(where)))
+        cases.append(('...and a live file naming it still is',
+                      any(w.startswith('NOTES.md') for w in where), str(where)))
+    except OSError as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        pc.ROOT = saved
+        pc._vendored_engine_files.cache_clear()
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'retired-words reads past the decommission ledger ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -83070,6 +83139,7 @@ def main():
     check_retired_mentions_skip_what_the_repo_receives()
     check_second_pass_drops_a_first_pass_unshipped_workflow_call()
     check_update_says_once_that_commands_moved_to_an_undeclared_set()
+    check_retired_words_reads_past_the_decommission_ledger()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
