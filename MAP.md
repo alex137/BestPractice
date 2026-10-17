@@ -245,6 +245,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |
 | [tools/lease_board.py](tools/lease_board.py) | The lease board -- work in flight across sessions, one JSON file per lease on a coordination branch, push as the lock |
 | [tools/migration_retire_pre_staging.py](tools/migration_retire_pre_staging.py) | Update Vendors' migration off pre-staging: brings work waiting there into staging, rewords this repository's instructions and links to it, and offers the branch for deletion |
+| [tools/migration_todo_kind_synonyms.py](tools/migration_todo_kind_synonyms.py) | Update Vendors' migration of open items filed with a kind build_todo_index.py does not know (task, todo, action, chore) to `manual`, saying which |
 | [tools/model_audit.py](tools/model_audit.py) | Runs each computing script's own self-assertions and checks the figures it recites |
 | [tools/move_paths.py](tools/move_paths.py) | Moves tracked files or directories and repoints every reference to them in the same change — relative links, path strings, globs, blob URLs; immutable files reported, never rewritten |
 | [tools/open_failures.py](tools/open_failures.py) | Failures an unattended job could not report anywhere else, kept as open blocker items in todo/ and listed at session start |

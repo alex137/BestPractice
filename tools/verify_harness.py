@@ -72079,6 +72079,60 @@ def check_a_reasked_left_out_section_is_not_asked_every_rerun():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_update_vendors_maps_a_task_kind_to_manual():
+    """An open item filed as `kind: task` (or todo, action, chore) is moved
+    to `manual` by Update Vendors' migration, and the report names it, so
+    the update's generated-files step never stops on build_todo_index.py's
+    refusal (2026-10-17, a document project's Update Vendors: it failed half
+    way on "A `task` is usually `manual`"). A done item, and a kind that is
+    already legal, are left alone; the update runs the migration unnamed."""
+    import importlib.util, inspect, tempfile
+    name = 'Update Vendors moves an open item\'s `task` kind to `manual`'
+    path = ROOT / 'tools' / 'migration_todo_kind_synonyms.py'
+    if not path.is_file():
+        check(name, False, 'tools/migration_todo_kind_synonyms.py is missing')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        spec = importlib.util.spec_from_file_location('_vh_mig_kinds', path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    finally:
+        sys.path.pop(0)
+    pu, _pve, _pr = _update_tools()
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-task-kind-'))
+    try:
+        (tmp / 'todo').mkdir()
+
+        def item(slug, kind, status):
+            (tmp / 'todo' / f'todo-{slug}.md').write_text(
+                f'---\nslug:              todo-{slug}\nkind:              {kind}\n'
+                f'status:            {status}\n---\n## What\n\nBody `kind: task`.\n',
+                encoding='utf-8')
+        item('a', 'task', 'open')
+        item('b', 'chore', 'done')
+        item('c', 'verify', 'open')
+        rep = pu.Report()
+        mod.migrate(tmp, rep, pu)
+        a = (tmp / 'todo' / 'todo-a.md').read_text(encoding='utf-8')
+        cases.append(('an open `task` item becomes `manual`, frontmatter only',
+                      'kind:              manual\n' in a and 'Body `kind: task`.' in a, a))
+        cases.append(('a done item and a legal kind are untouched',
+                      'kind:              chore' in (tmp / 'todo' / 'todo-b.md').read_text()
+                      and 'kind:              verify' in (tmp / 'todo' / 'todo-c.md').read_text()))
+        said = ' '.join(o for n, o in rep.steps if n == 'open items')
+        cases.append(('the report names the file and what it was',
+                      'todo/todo-a.md (was `task`)' in said, said))
+        cases.append(('Update Vendors runs every migration file unnamed',
+                      "glob('migration_*.py')" in inspect.getsource(pu.migrations_step)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_update_vendors_reports_dropped_template_wording():
     """An install-once file still carrying wording its template has since
     dropped is left for the person, by file and line -- and nothing else is.
@@ -84378,6 +84432,7 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_update_vendors_maps_a_task_kind_to_manual()
     check_a_reasked_left_out_section_is_not_asked_every_rerun()
     check_update_vendors_refreshes_a_template_own_comment()
     check_update_vendors_dropped_wording_reads_a_views_source()
