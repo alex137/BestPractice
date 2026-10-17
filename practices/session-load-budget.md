@@ -32,8 +32,8 @@ per-repo cap that is green in each repo separately says nothing about what
 any session actually pays.
 
 **A cap on one part is not a cap on the whole, and reading it as one is the
-failure this exists to prevent.** The resident block's 2,000-token cap
-governs the resident block. It governed about 4% of this repository's own
+failure this exists to prevent.** The resident block's cap governs the
+resident block. It governed about 4% of this repository's own
 session load while the rest went unmeasured for weeks.
 
 **Then reduce — and reduce by moving, never by deleting.** The question for

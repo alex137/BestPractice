@@ -1619,8 +1619,9 @@ first so this pass spends its attention on what they cannot see.
 - **Whether each practice's TIER is still right.** The question above asks
   what the loaded text costs; this one asks which practices should be in it
   at all, and nothing else in Precedent ever asks it. `tier: resident` is
-  governed only by [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)'s hard
-  2,000-token cap, which fails the build outright — so the trade is forced
+  governed only by the resident block's hard cap (`resident_block_tokens` in
+  [tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_budgets.json), which
+  [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py) enforces), which fails the build outright — so the trade is forced
   once, at the moment somebody adds a resident practice, and the set is never
   revisited afterwards. Read it in both directions. **Demote** a resident
   practice whose occasions turn out to be narrow enough that the path or
