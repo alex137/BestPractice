@@ -11205,63 +11205,6 @@ def check_fresh_install_links_its_file_names():
           '; '.join(f'{n}: {x}' for n, x in bad))
 
 
-def check_debut_waits_for_an_open_produce_pull_request():
-    """A move from pre-staging into staging waits while a pull request into
-    main from a to-main- copy of staging is open (2026-10-06: a second Debut
-    ran while a Produce pull request waited on its GitHub test, the copy
-    went out of date, and the Produce had to be made again). Planted with a
-    stand-in for the GitHub call: an open to-main- pull request holds, with
-    the remedy; one from another branch, none at all, or GitHub unreachable
-    does not; and promote() asks before a pre-staging move."""
-    import inspect
-    import tempfile as _tf
-    sys.path.insert(0, str(ROOT / 'tools'))
-    try:
-        import precedent_branches as _pb
-    finally:
-        sys.path.pop(0)
-
-    class _GH:
-        def __init__(self, answer):
-            self.answer, self.asked = answer, []
-
-        def call(self, path, cache=True, **_kw):
-            self.asked.append(path)
-            return self.answer, None
-
-    cases = []
-    with _tf.TemporaryDirectory() as td:
-        repo = pathlib.Path(td) / 'repo'
-        subprocess.run(['git', 'init', '-q', str(repo)], check=True)
-        subprocess.run(['git', '-C', str(repo), 'remote', 'add', 'origin',
-                        'https://github.com/example/repo.git'], check=True)
-        gh = _GH([{'number': 913, 'head': {'ref': 'to-main-20261006T093345-0300'}}])
-        why = _pb.produce_waiting_hold(repo, gh=gh) or ''
-        cases.append(('an open to-main- pull request into main holds the move, '
-                      'naming it and the remedy',
-                      '#913' in why and 'PROMOTE REFUSED' in why
-                      and '--wait-main-test' in why))
-        cases.append(('...asking GitHub for open pull requests into main only',
-                      any('state=open' in a and 'base=main' in a for a in gh.asked)))
-        cases.append(('an open pull request from another branch does not hold',
-                      _pb.produce_waiting_hold(repo, gh=_GH([
-                          {'number': 5, 'head': {'ref': 'claude/x'}}])) is None))
-        cases.append(('no open pull request does not hold',
-                      _pb.produce_waiting_hold(repo, gh=_GH([])) is None))
-        cases.append(('GitHub unreachable does not hold (the merge check still '
-                      'refuses a stale copy)',
-                      _pb.produce_waiting_hold(repo, gh=_GH(None)) is None))
-    # promote() wraps _promote_run() since 2026-10-08, to end every run with
-    # its PROMOTE RESULT line; the order is read where the moves are made.
-    src = inspect.getsource(getattr(_pb, '_promote_run', _pb.promote))
-    cases.append(('promote() asks before moving pre-staging into staging',
-                  'produce_waiting_hold(root)' in src
-                  and src.index('if step == STAGING:') < src.index('produce_waiting_hold(root)')))
-    failed = [n for n, ok in cases if not ok]
-    check(f'a Debut waits for an open Produce pull request ({len(cases)} stated cases)',
-          not failed, '; '.join(failed))
-
-
 def check_engine_carries_no_branch_naming_enforcement():
     """The branch-naming rule is the ladder set's act, and so is every check
     of it: its tools/branch_name_guard.py refuses at git's pre-push and
@@ -32676,17 +32619,16 @@ def check_killed_promote_releases_its_lock():
 import sys, time, pathlib
 sys.path.insert(0, {str(ROOT / 'tools')!r})
 import precedent_branches as pb
-pb.promotion_step = lambda root, to, work: (pb.STAGING, 'fixture')
+pb.promotion_step = lambda root, to, work: (pb.MAIN, 'fixture')
 pb.staging_branch = lambda root: pb.STAGING
 pb.repo_has_tiers = lambda root: True
-pb._drifted_from_above = lambda root: []
 pb._lock_claim = lambda root, say: ('held', 'fixture-commit')
 pb._lock_release = lambda root, held, say: pathlib.Path({str(marker)!r}).write_text(held)
 def _run(root, say):
     pathlib.Path({str(started)!r}).write_text('1')
     time.sleep(60)
     return 0
-pb._promote_unlocked = _run
+pb._promote_to_main = _run
 sys.exit(pb.promote('.', say=lambda *a: None))
 """, encoding='utf-8')
         for sig_name in ('SIGTERM', 'SIGHUP'):
@@ -40429,319 +40371,6 @@ def check_merge_check_gate():
 
 
 @_without_session_id
-def check_promote_pre_staging():
-    """Promote moves pre-staging into staging (spec/BRANCH_TIERS_PLAN.md),
-    and is the one route by which the batch gets its full check.
-
-    The cases that matter would land unchecked work or lose work: a batch
-    failing a full-only check must leave staging exactly where it was; a
-    promotion must be a merge commit, never a fast-forward, so no
-    pre-staging commit's `[skip ci]` line becomes staging's head (hole 3);
-    and pre-staging must pick up what was pushed to staging directly
-    (hole 2) -- by a merge, and not at all when that merge conflicts."""
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_branches as pb  # is_fix_branch / is_main_copy: new names and old
-    import tempfile, json as _json, shutil as _shutil
-    name = 'Promote: pre-staging into staging, fully checked, by a merge commit'
-    tool = ROOT / 'tools' / 'precedent_branches.py'
-    if not tool.exists():
-        not_applicable(name, 'tools/precedent_branches.py is absent')
-        return
-    cases = []
-    with tempfile.TemporaryDirectory() as td:
-        tmp = pathlib.Path(td)
-        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
-                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
-                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
-                   PRECEDENT_USER_CONFIG=str(tmp / 'config.json'))
-
-        def git(cwd, *a):
-            return subprocess.run(['git', '-C', str(cwd), *a],
-                                  capture_output=True, text=True, env=env)
-
-        bare = tmp / 'origin.git'
-        git(tmp, 'init', '-q', '--bare', '-b', 'beta', str(bare))
-        work = tmp / 'work'
-        (work / 'tools').mkdir(parents=True)
-        git(tmp, 'init', '-q', '-b', 'beta', str(work))
-        for f in ('precedent_push_check.py', 'precedent_branches.py'):
-            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
-        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
-            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
-        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
-            (work / 'tools' / f'{t}.py').write_text(
-                'import pathlib, sys\n'
-                'f = pathlib.Path("FAIL")\n'
-                'body = f.read_text() if f.exists() else ""\n'
-                + ('print("precedent_check: 3 passed, 0 violated")\n'
-                   if t == 'precedent_check' else '')
-                # precedent_check.py also answers as the basic tier's
-                # ci_workflows (--only ci-workflow-approved), a check of
-                # its own: fail it only when FAIL names that one.
-                # ...and as pre-staging's changed_practice (--changed-files-only).
-                + ('name = ("ci_workflows" if "ci-workflow-approved" in '
-                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
-                   '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "rename_links" if '
-                   '"rename-updates-links" in sys.argv else '
-                   '"generated_files" if '
-                   '"generated-files-registered" in '
-                   'sys.argv else "changed_practice" if "--changed-files-only" '
-                   'in sys.argv else "precedent_check")\n'
-                   if t == 'precedent_check' else f'name = "{t}"\n')
-                # PROMOTE_RACE: a command the stub runs mid-check, standing
-                # in for another window promoting the same batch meanwhile.
-                + ('import os, subprocess\n'
-                   'if os.environ.get("PROMOTE_RACE"):\n'
-                   '    subprocess.run(os.environ["PROMOTE_RACE"], shell=True)\n'
-                   if t == 'precedent_check' else '')
-                + 'sys.exit(1 if name in body else 0)\n',
-                encoding='utf-8')
-        # A repo whose staging still goes by its pre-rename name.
-        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'beta'}),
-                                             encoding='utf-8')
-        (work / 'list.txt').write_text('a\nb\nc\n', encoding='utf-8')
-        git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'init')
-        git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        git(work, 'push', '-q', 'origin', 'beta')
-
-        def branches(*a, extra=None):
-            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
-                               cwd=work, capture_output=True, text=True,
-                               env=dict(env, **(extra or {})))
-            return p.returncode, p.stdout + p.stderr
-
-        def tip(b):
-            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
-
-        rc, out = branches('--landing')
-        # The tiered route is opt-in since 2026-09-26 (Morgan: "mandatory for
-        # me, but not necessarily anyone else"): with no landing_branch set,
-        # Go update lands on the repository's own staging branch.
-        cases.append(("Go update lands on the repo's staging branch by default "
-                      "-- pre-staging is opt-in", out.split('\n')[0] == 'beta'))
-        indiv = tmp / 'indiv'
-        indiv.mkdir()
-        (tmp / 'config.json').write_text(_json.dumps({'individual': {'path': str(indiv)}}),
-                                         encoding='utf-8')
-        (indiv / 'identity.json').write_text(_json.dumps(
-            {'email': 'p@example.com', 'landing_branch': 'staging'}), encoding='utf-8')
-        rc, out = branches('--landing')
-        cases.append(("a person's landing_branch can send it to staging (the "
-                      "declared base, still named beta here)",
-                      out.split('\n')[0] == 'beta'))
-        (indiv / 'identity.json').write_text(_json.dumps(
-            {'email': 'p@example.com', 'landing_branch': 'main'}), encoding='utf-8')
-        rc, out = branches('--landing')
-        cases.append(("a person's landing_branch can send it straight to main",
-                      out.split('\n')[0] == 'main'))
-        (indiv / 'identity.json').write_text(_json.dumps(
-            {'email': 'p@example.com', 'landing_branch': 'somewhere'}), encoding='utf-8')
-        rc, out = branches('--landing')
-        cases.append(('an unreadable landing_branch lands on staging, never somewhere new',
-                      out.split('\n')[0] == 'beta'))
-
-        rc, out = branches('--sync-pre-staging')
-        cases.append(('pre-staging is created at staging when origin has none',
-                      rc == 0 and tip('pre-staging') == tip('beta')))
-        rc, out = branches('--promote')
-        cases.append(('nothing on pre-staging: nothing to promote, staging unmoved',
-                      rc == 0 and 'nothing to promote' in out))
-
-        def commit_to(branch, path, text, msg):
-            git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
-            (work / path).write_text(text, encoding='utf-8')
-            git(work, 'add', path)
-            git(work, 'commit', '-q', '-m', msg)
-            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-
-        commit_to('pre-staging', 'list.txt', 'A\nb\nc\n', 'rename a [skip ci]')
-        commit_to('beta', 'other.txt', 'direct\n', 'pushed straight to staging')
-        pre_before = tip('pre-staging')
-        rc, out = branches('--sync-pre-staging')
-        cases.append(('a push made straight to staging with no full check on '
-                      'record is held by the quick sync, which names --check',
-                      rc == 0 and 'NOT COPIED YET' in out and '--check' in out
-                      and tip('pre-staging') == pre_before))
-        rc, out = branches('--sync-pre-staging', '--check')
-        git(work, 'fetch', '-q', 'origin')
-        cases.append(('a push made straight to staging is checked, then merged into pre-staging',
-                      rc == 0 and git(work, 'merge-base', '--is-ancestor',
-                                      'origin/beta', 'origin/pre-staging').returncode == 0))
-
-        before = tip('beta')
-        commit_to('pre-staging', 'FAIL', 'precedent_check', 'break a full-only check')
-        pre_before = tip('pre-staging')
-        rc, out = branches('--promote')
-        fixes = [b for b in git(work, 'for-each-ref', '--format=%(refname:short)',
-                                'refs/heads/').stdout.split() if pb.is_fix_branch(b)]
-        cases.append(('a batch failing a full-only check is not finished: neither '
-                      'staging nor pre-staging moves, and it says what failed',
-                      rc == 1 and 'PROMOTE NOT FINISHED' in out
-                      and 'precedent_check' in out and tip('beta') == before
-                      and tip('pre-staging') == pre_before))
-        cases.append(('...and the composition it checked is on a local fix '
-                      'branch, with the command that finishes it', len(fixes) == 1
-                      and f'--work {fixes[0]}' in out and git(
-                          work, 'merge-base', '--is-ancestor', pre_before,
-                          f'refs/heads/{fixes[0]}').returncode == 0))
-
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'w-fix', 'origin/pre-staging')
-        git(work, 'rm', '-q', 'FAIL')
-        git(work, 'commit', '-q', '-m', 'fix it')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
-        promoted = tip('pre-staging')
-        rc, out = branches('--promote')
-        git(work, 'fetch', '-q', 'origin')
-        parents = git(work, 'rev-list', '--parents', '-n', '1', 'origin/beta').stdout.split()
-        msg = git(work, 'log', '-1', '--format=%B', 'origin/beta').stdout
-        cases.append(('a passing batch is promoted', rc == 0 and 'PROMOTED' in out))
-        cases.append(('as a merge commit whose second parent is the pre-staging '
-                      'it promoted', len(parents) == 3 and parents[2] == promoted))
-        cases.append(('...and pre-staging moves to that same commit, level with '
-                      'staging', tip('pre-staging') == tip('beta')
-                      and 'both at' in out))
-        cases.append(("and staging's head carries no [skip ci], though a "
-                      "promoted commit did", '[skip ci]' not in msg))
-        cases.append(('and it says the full check ran, rather than leaving a '
-                      'person to guess', 'check ran on the batch and passed' in out
-                      and 'NOT re-run' not in out))
-
-        # Same files, already fully checked: Promote says it did not re-run
-        # the suite, and when the earlier run was (Morgan, 2026-09-25: "it
-        # should not run the full suite again if nothing has changed").
-        commit_to('pre-staging', 'list.txt', 'Z\nb\nc\n', 'another edit')
-        subprocess.run([sys.executable, 'tools/precedent_push_check.py',
-                        '--tier', 'full', '--because', 'harness case'], cwd=work, capture_output=True,
-                       text=True, env=env)
-        rc, out = branches('--promote')
-        cases.append(('a batch whose exact files already passed the full check '
-                      'is promoted without re-running it, and says so, with '
-                      'when it passed', rc == 0 and 'PROMOTED' in out
-                      and 'NOT re-run' in out and 'already passed the full '
-                      'check at' in out))
-
-        # Another window promotes the same batch while this one checks it.
-        # The push is refused, and Promote must say the work is already on
-        # staging -- not send the person round again with "Promote again".
-        commit_to('pre-staging', 'list.txt', 'W\nb\nc\n', 'raced edit')
-        race = tmp / 'race'
-        git(tmp, 'clone', '-q', f'file://{bare}', str(race))
-        rc, out = branches('--promote', extra={'PROMOTE_RACE': (
-            f'git -C {race} fetch -q origin && '
-            f'git -C {race} checkout -q -B r origin/beta && '
-            f'git -C {race} merge -q --no-ff -m other-window origin/pre-staging && '
-            f'git -C {race} push -q origin HEAD:refs/heads/beta')})
-        cases.append(('a batch another window promoted mid-check is reported '
-                      'as already on staging, not as "Promote again"',
-                      rc == 0 and 'another window promoted this batch' in out
-                      and 'Promote again' not in out
-                      and git(work, 'log', '-1', '--format=%s',
-                              tip('beta')).stdout.strip() == 'other-window'))
-
-        # The Promote lock: a branch that only moves forward, whose newest
-        # commit says who holds it. Every Promote above claimed and released
-        # it, so it reads free now.
-        def lock_subject():
-            git(work, 'fetch', '-q', 'origin')
-            return git(work, 'log', '-1', '--format=%s',
-                       'origin/precedent-promote-lock').stdout.strip()
-        cases.append(('after a Promote the lock branch exists and reads free, '
-                      'with [skip ci] so no workflow runs for it',
-                      lock_subject() == 'free [skip ci]'))
-
-        def hold(age_seconds):
-            when = f'@{int(time.time()) - age_seconds} -0300'
-            made = subprocess.run(
-                ['git', '-C', str(work), 'commit-tree',
-                 '4b825dc642cb6eb9a060e54bf8d69288fbee4904', '-p',
-                 'origin/precedent-promote-lock', '-m',
-                 'held by another window [skip ci]'], capture_output=True,
-                text=True, env=dict(env, GIT_COMMITTER_DATE=when,
-                                    GIT_AUTHOR_DATE=when)).stdout.strip()
-            git(work, 'push', '-q', 'origin',
-                f'{made}:refs/heads/precedent-promote-lock')
-
-        commit_to('pre-staging', 'list.txt', 'V\nb\nc\n', 'waits for the lock')
-        before = tip('beta')
-        hold(60)
-        rc, out = branches('--promote')
-        cases.append(('a Promote that finds the lock freshly held by another '
-                      'window does nothing, says who has it, and says not to '
-                      'Promote again', rc == 0
-                      and 'another window is promoting or landing right now' in out
-                      and 'held by another window' in out
-                      and tip('beta') == before
-                      and lock_subject() == 'held by another window [skip ci]'))
-        hold(3 * 3600)
-        rc, out = branches('--promote')
-        cases.append(('a claim left behind by a window that died is taken over '
-                      'once it is stale, and the Promote goes ahead',
-                      rc == 0 and 'PROMOTED' in out and tip('beta') != before
-                      and lock_subject() == 'free [skip ci]'))
-
-        commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
-        commit_to('beta', 'list.txt', 'Y\nb\nc\n', 'staging edits line 1 too')
-        pre_before = tip('pre-staging')
-        rc, out = branches('--sync-pre-staging', '--check')
-        cases.append(('a conflicting direct push to staging stops the sync and '
-                      'pushes nothing', rc == 1 and 'does not merge cleanly' in out
-                      and tip('pre-staging') == pre_before))
-        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
-        cases.append(('no worktree is left behind', len(wts) == 1))
-
-        # The Boildown's reminder (precedent_gate.py's _unlanded_work): work
-        # on pre-staging has landed for a person who lands there, and what
-        # it still owes is a Promote.
-        (indiv / 'identity.json').write_text(_json.dumps(
-            {'email': 'p@example.com', 'landing_branch': 'pre-staging'}), encoding='utf-8')
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'w-landed', 'origin/pre-staging')
-        def unlanded():
-            sys.path.insert(0, str(ROOT / 'tools'))
-            saved = os.environ.get('PRECEDENT_USER_CONFIG')
-            os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'config.json')
-            try:
-                import precedent_gate as pg
-                return pg, pg._unlanded_work(work, siblings=False)
-            finally:
-                sys.path.pop(0)
-                if saved is None:
-                    os.environ.pop('PRECEDENT_USER_CONFIG', None)
-                else:
-                    os.environ['PRECEDENT_USER_CONFIG'] = saved
-        # Since 2026-10-14 pre-staging is retired for everyone: a landing
-        # branch of pre-staging reads as staging, so nothing waits on
-        # pre-staging for a Promote and no reminder offers one. Until then
-        # this asked that the reminder was gentle, gave way to a running
-        # Promote's lock, came back once the lock was stale, and did not
-        # call a branch already on pre-staging unlanded.
-        pg, got = unlanded()
-        cases.append(("a landing branch of pre-staging, now retired, gets no "
-                      "reminder to promote pre-staging",
-                      not any(l.startswith("this checkout: pre-staging is ")
-                              for l in got)
-                      and not any('a Promote can move them' in l for l in got)))
-        # Only the flow this session worked on (Morgan, 2026-09-29): with a
-        # session id set and no commit in the batch carrying it, the batch
-        # is another session's and gets no line.
-        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01FixtureNotInAnyCommit'
-        try:
-            pg, got = unlanded()
-        finally:
-            os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
-        cases.append(("a pre-staging batch this session made none of gets no "
-                      "Promote line",
-                      not any('a Promote can move them' in l for l in got)
-                      and not any(pg.PROMOTE_RUNNING_MARK in l for l in got)))
-    failed = [n for n, ok in cases if not ok]
-    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
-
-
 def _engine_commit_fixture(tmp, name, kind, git_env):
     """A repository with an origin, the REAL engine files the engine-commit
     checks exercise, and stubs for the gates they do not. -> (work, bare).
@@ -40837,6 +40466,10 @@ def check_engine_commits_state_their_author():
     real run in a source, because consumer_shape would not run in the linked
     worktree Promote always checks in.
 
+    Since pre-staging retired (2026-10-17) the commits are the ones the move
+    into main makes: the copy of staging merged with main that its pull
+    request comes from, and the Promote lock's.
+
     The fixture reproduces that session exactly -- bot global identity, no
     user config, a TZ that is not the person's -- and asserts on the commits
     Promote actually pushed. THE CONTROL: the same Promote with nobody
@@ -40871,13 +40504,31 @@ def check_engine_commits_state_their_author():
                                   capture_output=True, text=True,
                                   env=person_git).stdout.strip()
 
-        def to_pre_staging(work, path, text, msg):
+        def to_staging(work, path, text, msg):
+            # main holds what beta had, then beta gains an edit and a commit
+            # main also gained, so the copy is a real merge the engine makes.
             git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', 'w', 'origin/pre-staging')
+            git(work, 'push', '-q', 'origin', 'origin/beta:refs/heads/main')
+            git(work, 'checkout', '-q', '-B', 'm', 'origin/beta')
+            (work / 'main-only.txt').write_text('m\n', encoding='utf-8')
+            git(work, 'add', 'main-only.txt')
+            git(work, 'commit', '-q', '-m', 'a change made on main')
+            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+            git(work, 'checkout', '-q', '-B', 'w', 'origin/beta')
             (work / path).write_text(text, encoding='utf-8')
             git(work, 'add', path)
             git(work, 'commit', '-q', '-m', msg)
-            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/beta')
+
+        def copy_head(work):
+            git(work, 'fetch', '-q', 'origin')
+            # The copy's name: the session-branch format, or the dated
+            # to-main- name where no workflow knows the new one (a fixture).
+            refs = [r for r in git(work, 'for-each-ref', '--format=%(refname:short)',
+                                   'refs/remotes/origin/').split()
+                    if 'promote-to-main' in r or '/to-main-' in r]
+            return git(work, 'log', '-1', '--format=%an|%ae|%ad|%s',
+                       '--date=format:%z', refs[-1]) if refs else ''
 
         def head_of(work, branch):
             git(work, 'fetch', '-q', 'origin')
@@ -40887,42 +40538,34 @@ def check_engine_commits_state_their_author():
         # 1. Declared by PRECEDENT_COMMIT_* alone, in a practice SOURCE --
         #    so the full check includes consumer_shape.
         work, _ = _engine_commit_fixture(tmp, 'work', 'source', person_git)
-        run_in(work, person, '--sync-pre-staging')
-        to_pre_staging(work, 'list.txt', 'b\n', 'an edit to promote')
-        mark = tmp / 'cs-mark'
-        rc, out = run_in(work, dict(person, CS_MARK=str(mark)), '--promote')
-        cases.append((f'the Promote in a hookless session succeeds (rc={rc}, '
+        to_staging(work, 'list.txt', 'b\n', 'an edit to promote')
+        rc, out = run_in(work, person, '--promote', '--to', 'main')
+        cases.append((f'the move into main in a hookless session gets as far as '
+                      f'its pull request (rc={rc}, '
                       f'{out.strip().splitlines()[-1][:160] if out.strip() else ""!r})',
-                      rc == 0 and 'PROMOTED' in out))
-        got = head_of(work, 'beta')
-        cases.append((f'its merge commit is authored by the declared person, '
-                      f'not git\'s global bot identity (got {got!r})',
+                      'READY FOR MAIN' in out))
+        got = copy_head(work)
+        cases.append((f'the merge commit it makes is authored by the declared '
+                      f'person, not git\'s global bot identity (got {got!r})',
                       got.startswith('Pat Person|pat@example.com|')
-                      and '|Promote pre-staging into beta' in got))
+                      and '|Promote beta into main' in got))
         cases.append((f'and dated in the declared zone (+0530), not the '
                       f'ambient TZ (got {got!r})', '|+0530|Promote' in got))
         lock = head_of(work, 'precedent-promote-lock')
         cases.append((f'the Promote lock commits are authored the same way '
                       f'(got {lock!r})',
                       lock.startswith('Pat Person|pat@example.com|')))
-        ran = mark.read_text(encoding='utf-8') if mark.exists() else ''
-        cases.append((f"Promote's full check ran consumer_shape to a pass in "
-                      f"its linked worktree, in a copy named after the real "
-                      f"checkout (marker: {ran.strip()!r})",
-                      'ran in work' in ran and 'check ran on the batch and '
-                      'passed' in out))
 
         # 2. THE CONTROL: nobody declared, a shared repository.
         work2, _ = _engine_commit_fixture(tmp, 'shared', 'consumer', person_git)
-        run_in(work2, ambient, '--sync-pre-staging')
-        to_pre_staging(work2, 'list.txt', 'c\n', 'another edit')
-        rc, out = run_in(work2, ambient, '--promote')
-        got = head_of(work2, 'beta')
+        to_staging(work2, 'list.txt', 'c\n', 'another edit')
+        rc, out = run_in(work2, ambient, '--promote', '--to', 'main')
+        got = copy_head(work2)
         cases.append((f'control: with nobody declared, the same Promote still '
                       f'authors as git\'s global identity -- the bot this '
                       f'fixture set, so case 1 is not passing by accident '
                       f'(rc={rc}, got {got!r})',
-                      rc == 0 and got.startswith('Claude|noreply@anthropic.com|')))
+                      got.startswith('Claude|noreply@anthropic.com|')))
 
         # 3. An individual source nobody can be read out of: refused.
         work3, _ = _engine_commit_fixture(tmp, 'indiv', 'source', person_git)
@@ -40931,16 +40574,15 @@ def check_engine_commits_state_their_author():
         git(work3, 'add', 'identity.json')
         git(work3, 'commit', '-q', '-m', 'an unreadable declaration')
         git(work3, 'push', '-q', 'origin', 'beta')
-        run_in(work3, ambient, '--sync-pre-staging')
-        to_pre_staging(work3, 'list.txt', 'd\n', 'an edit')
-        before = head_of(work3, 'beta')
-        rc, out = run_in(work3, ambient, '--promote')
+        to_staging(work3, 'list.txt', 'd\n', 'an edit')
+        before = head_of(work3, 'main')
+        rc, out = run_in(work3, ambient, '--promote', '--to', 'main')
         cases.append((f'an individual source with no resolvable author '
                       f'REFUSES the commit and moves nothing (rc={rc}, '
                       f'{out.strip()[-160:]!r})',
                       rc == 1 and 'REFUSED: no commit was made' in out
                       and 'identity.json' in out
-                      and head_of(work3, 'beta') == before))
+                      and head_of(work3, 'main') == before and not copy_head(work3)))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -41174,22 +40816,20 @@ def check_identity_mechanism_check_reaches_a_stubbed_hook():
 
 
 def check_promote_picks_its_step():
-    """Promote picks pre-staging -> staging or staging -> main, and says
-    which before anything else (Morgan, 2026-09-26, strength: decided: it
-    "should decide based on the context and ... what branch we were just
-    working on", and print "Now promoting from pre-staging to staging or now
-    promoting staging to main").
+    """Promote moves staging into main, and says so before anything else
+    (Morgan, 2026-09-26: print "now promoting staging to main"). Its step
+    into staging went when pre-staging retired (Morgan, 2026-10-17,
+    strength: decided): asked for, it moves nothing and says work reaches
+    staging by Booked.
 
-    The cases that matter: waiting work on pre-staging always goes first
-    when nothing says otherwise; staging moves into main only through a
-    throwaway copy, main itself untouched by the script; the work the
-    session names (--work) decides over the tiers' own order, except that
-    both steps waiting is ambiguous and goes pre-staging first; and nothing
-    waiting prints no "Now promoting" line at all."""
+    The cases that matter: staging moves into main only through a throwaway
+    copy, main itself untouched by the script; the work the session names
+    (--work) must be on staging already; and nothing waiting prints no "Now
+    promoting" line at all."""
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_branches as pb  # is_fix_branch / is_main_copy: new names and old
     import tempfile, json as _json, shutil as _shutil
-    name = 'Promote picks pre-staging->staging or staging->main, and says which'
+    name = 'Promote moves staging into main, and says so first'
     tool = ROOT / 'tools' / 'precedent_branches.py'
     if not tool.exists():
         not_applicable(name, 'tools/precedent_branches.py is absent')
@@ -41228,7 +40868,7 @@ def check_promote_picks_its_step():
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        for b in ('main', 'staging', 'pre-staging'):
+        for b in ('main', 'staging'):
             git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{b}')
 
         def branches(*a):
@@ -41257,19 +40897,20 @@ def check_promote_picks_its_step():
         cases.append(('an unknown --to is refused with the usage line',
                       rc == 2 and 'usage:' in out))
 
-        commit_to('pre-staging', 'one.txt', '1\n')
-        rc, out = branches('--promote')
-        cases.append(('work on pre-staging goes first, and the first line says '
-                      'so in those words', rc == 0 and out.startswith(
-                          'Now promoting from pre-staging to staging')
-                      and 'PROMOTED' in out))
+        commit_to('staging', 'one.txt', '1\n')
+        staging_before = tip('staging')
+        rc, out = branches('--promote', '--to', 'staging')
+        cases.append(('the retired step into staging moves nothing and says work '
+                      'reaches staging by Booked', rc == 0
+                      and 'no step into staging' in out and 'Now promoting' not in out
+                      and tip('staging') == staging_before))
 
         main_before = tip('main')
         rc, out = branches('--promote')
         copies = [r for r in (l.split('\t')[1] for l in git(
             work, 'ls-remote', 'origin', 'refs/heads/*').stdout.splitlines())
             if pb.is_main_copy(r[len('refs/heads/'):])]
-        cases.append(('with pre-staging empty, staging goes into main, said in '
+        cases.append(('staging goes into main, said in '
                       'those words, exiting 3 since main has not moved yet',
                       rc == 3 and out.startswith(
                           'Now promoting from staging to main')
@@ -41330,12 +40971,11 @@ def check_promote_picks_its_step():
         git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
 
         on_staging = commit_to('staging', 'two.txt', '2\n')
-        commit_to('pre-staging', 'three.txt', '3\n')
         seen = set(all_copies())
         rc, out = branches('--promote', '--to', 'main', '--full', '--because', 'test the long way', '--work', on_staging)
         # The long way's first line names the person's words; the step comes
         # next.
-        cases.append(('both steps waiting, and the step named: --to main wins',
+        cases.append(('the step named: --to main, the long way when asked for',
                       rc == 3 and out.startswith('the full route into main, '
                                                  'because the person asked')
                       and out.splitlines()[1].startswith(
@@ -41363,21 +41003,17 @@ def check_promote_picks_its_step():
                       'refused', why != '', why))
         git(work, 'push', '-q', 'origin', ':refs/heads/to-main-20991231T000000-0300')
         rc, out = branches('--promote', '--work', on_staging)
-        cases.append(('both steps waiting and none named is ambiguous: '
-                      'pre-staging into staging, even with the work just done '
-                      'already on staging (Morgan, 2026-09-26)',
-                      rc == 0 and out.startswith(
-                          'Now promoting from pre-staging to staging')
-                      and 'ambiguous' in out))
-        rc, out = branches('--promote', '--work', on_staging)
-        cases.append(('with pre-staging empty again, the work just done on '
-                      'staging goes into main', rc == 3 and out.startswith(
-                          'Now promoting from staging to main')))
-        commit_to('pre-staging', 'four.txt', '4\n')
-        rc, out = branches('--promote', '--work', 'w-pre-staging')
-        cases.append(('work only on pre-staging goes into staging',
-                      rc == 0 and out.startswith(
-                          'Now promoting from pre-staging to staging')))
+        cases.append(('the work just done, on staging, goes into main',
+                      rc == 3 and out.startswith('Now promoting from staging to main')))
+        git(work, 'checkout', '-q', '-B', 'w-feature', 'origin/staging')
+        (work / 'four.txt').write_text('4\n', encoding='utf-8')
+        git(work, 'add', 'four.txt')
+        git(work, 'commit', '-q', '-m', 'not landed')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/w-feature')
+        rc, out = branches('--promote', '--work', 'w-feature')
+        cases.append(('work not on staging yet is not promoted: Book it first',
+                      rc == 0 and 'not on staging yet' in out
+                      and 'Now promoting' not in out))
         rc, out = branches('--promote', '--work', 'no-such-thing')
         cases.append(('a --work it cannot see chooses nothing and says why',
                       rc == 0 and 'is not a branch or commit' in out
@@ -41775,77 +41411,6 @@ def check_promote_only_and_tier_branches():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
-def check_promote_leaves_the_retired_old_name_alone():
-    """precedent-beta-v01 was renamed staging on 2026-09-25 and kept in step
-    by every Promote until Morgan retired it on 2026-10-11
-    (todo-2026-09-26-retire-precedent-beta-v01). A Promote now leaves it
-    exactly where it is and says nothing about it, so the branch can be
-    deleted without the next Promote reaching for it."""
-    import tempfile, json as _json, shutil as _shutil
-    name = 'Promote leaves the retired precedent-beta-v01 where it is'
-    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
-        not_applicable(name, 'tools/precedent_branches.py is absent')
-        return
-    cases = []
-    with tempfile.TemporaryDirectory() as td:
-        tmp = pathlib.Path(td)
-        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
-                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
-                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
-                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
-
-        def git(cwd, *a):
-            return subprocess.run(['git', '-C', str(cwd), *a],
-                                  capture_output=True, text=True, env=env)
-        bare = tmp / 'origin.git'
-        git(tmp, 'init', '-q', '--bare', '-b', 'staging', str(bare))
-        work = tmp / 'work'
-        (work / 'tools').mkdir(parents=True)
-        git(tmp, 'init', '-q', '-b', 'staging', str(work))
-        for f in ('precedent_push_check.py', 'precedent_branches.py'):
-            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
-        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
-            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
-        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
-            (work / 'tools' / f'{t}.py').write_text(
-                ('print("precedent_check: 3 passed, 0 violated")\n'
-                 if t == 'precedent_check' else '') + 'pass\n', encoding='utf-8')
-        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'staging'}),
-                                             encoding='utf-8')
-        git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'init')
-        git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        git(work, 'push', '-q', 'origin', 'staging', 'staging:precedent-beta-v01')
-
-        def tip(b):
-            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
-
-        def branches(*a):
-            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
-                               cwd=work, capture_output=True, text=True, env=env)
-            return p.returncode, p.stdout + p.stderr
-
-        def commit_to(branch, path, msg):
-            git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
-            (work / path).write_text(msg, encoding='utf-8')
-            git(work, 'add', path)
-            git(work, 'commit', '-q', '-m', msg)
-            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-
-        branches('--sync-pre-staging')
-        old = tip('precedent-beta-v01')
-        commit_to('pre-staging', 'new.txt', 'window work')
-        rc, out = branches('--promote')
-        cases.append(('Promote moves staging and leaves the old name where it was',
-                      rc == 0 and tip('staging') != old
-                      and tip('precedent-beta-v01') == old
-                      and 'precedent-beta-v01' not in out))
-    failed = [n for n, ok in cases if not ok]
-    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
-
-
 def _gh_if(expr, event_name, private, head_ref=''):
     """Evaluate a GitHub Actions job `if:` the way GitHub does, for the few
     operators the light check uses (&&, ||, !, ==, !=, startsWith, contains,
@@ -42107,7 +41672,6 @@ def check_main_test_minutes_rule():
         os.environ.update(env)
         pb2 = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(pb2)
-        pb2.sync_pre_staging = lambda root, say=print, check=False, **_kw: True
         pb2._check = lambda root, wt, tier, dest=None: (True, 'this exact tree already passed')
         pb2._slug = lambda root: 'o/r'
         pb2.USER_CONFIG_ENV = '_PB_TEST_UNUSED'
@@ -42899,807 +42463,6 @@ def _write_generator_fixture(work):
         encoding='utf-8')
     if not (work / 'src.txt').exists():
         (work / 'src.txt').write_text('a\nb\nc\n', encoding='utf-8')
-
-
-def check_sync_copies_work_from_above_once_checked():
-    """What reached staging or main without climbing through pre-staging --
-    a workflow's bot commit on main, a web edit, a direct push -- is copied
-    down into pre-staging, and only once its tier's checks have passed
-    (spec/BRANCH_TIERS_PLAN.md, holes 4 and 5; Morgan, 2026-09-26).
-
-    The failures that matter: a copy of work that failed its checks, which
-    spreads it; a silent refusal, which hides it; and noise about the two
-    merge commits every ordinary pull request into main leaves behind, which
-    trains a person to ignore the note that one day matters."""
-    import tempfile, json as _json, shutil as _shutil
-    name = 'the sync copies work from staging or main down once it has its checks'
-    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
-        not_applicable(name, 'tools/precedent_branches.py is absent')
-        return
-    cases = []
-    with tempfile.TemporaryDirectory() as td:
-        tmp = pathlib.Path(td)
-        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
-                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
-                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
-                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
-        env.pop('PRECEDENT_NO_SHARED_PASS', None)
-
-        def git(cwd, *a):
-            return subprocess.run(['git', '-C', str(cwd), *a],
-                                  capture_output=True, text=True, env=env)
-
-        def make(label, base, workflows=False):
-            bare = tmp / f'{label}.git'
-            git(tmp, 'init', '-q', '--bare', '-b', base, str(bare))
-            work = tmp / label
-            (work / 'tools').mkdir(parents=True)
-            git(tmp, 'init', '-q', '-b', base, str(work))
-            for f in ('precedent_push_check.py', 'precedent_branches.py'):
-                _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
-            (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
-                _json.dumps({'kind': 'consumer'}), encoding='utf-8')
-            for t in ('precedent_check', 'leak_gate', 'doc_lint'):
-                (work / 'tools' / f'{t}.py').write_text(
-                    'import pathlib, sys\n'
-                    'f = pathlib.Path("FAIL")\n'
-                    'body = f.read_text() if f.exists() else ""\n'
-                    + ('print("precedent_check: 3 passed, 0 violated")\n'
-                       'name = ("ci_workflows" if "ci-workflow-approved" in '
-                       'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
-                       '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "rename_links" if '
-                   '"rename-updates-links" in sys.argv else '
-                   '"generated_files" if '
-                   '"generated-files-registered" in '
-                       'sys.argv else "precedent_check")\n'
-                       if t == 'precedent_check' else f'name = "{t}"\n')
-                    + 'sys.exit(1 if name in body else 0)\n', encoding='utf-8')
-            if workflows:
-                (work / '.github' / 'workflows').mkdir(parents=True)
-                (work / '.github' / 'workflows' / 'light-check.yml').write_text(
-                    'name: Light check\non:\n  pull_request:\n    branches: [main]\n'
-                    '  workflow_dispatch:\njobs: {}\n', encoding='utf-8')
-            (work / 'precedent.json').write_text(_json.dumps({'base_branch': base}),
-                                                 encoding='utf-8')
-            (work / 'list.txt').write_text('a\nb\nc\n', encoding='utf-8')
-            git(work, 'add', '-A')
-            git(work, 'commit', '-q', '-m', 'init')
-            git(work, 'remote', 'add', 'origin', f'file://{bare}')
-            refs = [base] + ([f'{base}:main'] if base != 'main' else [])
-            git(work, 'push', '-q', 'origin', *refs)
-            return work
-
-        def tools(work):
-            def branches(*a):
-                p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
-                                   cwd=work, capture_output=True, text=True, env=env)
-                return p.returncode, p.stdout + p.stderr
-
-            def tip(b):
-                return git(work, 'ls-remote', 'origin',
-                           f'refs/heads/{b}').stdout.split('\t')[0]
-
-            def commit_to(branch, path, text, msg):
-                git(work, 'fetch', '-q', 'origin')
-                git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
-                (work / path).write_text(text, encoding='utf-8')
-                git(work, 'add', path)
-                git(work, 'commit', '-q', '-m', msg)
-                git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-
-            def has(upper):
-                git(work, 'fetch', '-q', 'origin')
-                return git(work, 'merge-base', '--is-ancestor', f'origin/{upper}',
-                           'origin/pre-staging').returncode == 0
-            return branches, tip, commit_to, has
-
-        work = make('tiers', 'staging')
-        branches, tip, commit_to, has = tools(work)
-        branches('--sync-pre-staging')
-
-        # The ordinary route: pre-staging -> staging -> main by merge commits.
-        # Main ends up ahead only by merges whose files pre-staging has.
-        commit_to('pre-staging', 'list.txt', 'A\nb\nc\n', 'ordinary work')
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'st', 'origin/staging')
-        git(work, 'merge', '-q', '--no-ff', '-m', 'Promote', 'origin/pre-staging')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
-        git(work, 'checkout', '-q', '-B', 'mn', 'origin/main')
-        git(work, 'merge', '-q', '--no-ff', '-m', 'Merge pull request', 'st')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
-        # ...and pre-staging moves on past main, so the two tips differ even
-        # though main brings nothing: a plain diff of the tips calls that
-        # drift, and it is not.
-        commit_to('pre-staging', 'later.txt', 'later\n', 'later window work')
-        before = tip('pre-staging')
-        rc, report = branches('--drift')
-        rc2, out = branches('--sync-pre-staging', '--check')
-        cases.append(('merge commits that change no file are not drift: no note, '
-                      'no check, no copy', rc == 0 and report.strip() == ''
-                      and rc2 == 0 and out.strip() == ''
-                      and tip('pre-staging') == before))
-
-        # A bot commit straight onto main, with no check on record. Main's
-        # work is never copied by the sync (D10, Morgan 2026-10-03): it comes
-        # down only composed and fully checked in a Promote into staging --
-        # check_promote_composes_main_and_moves_both_tiers.
-        commit_to('main', 'state.json', '{"n": 1}\n', 'bot: weekly sync')
-        rc, report = branches('--drift')
-        cases.append(('the session-start note names main, the count, and '
-                      '"unchecked", and names the Promote into staging that '
-                      'brings it in', 'origin/main is 1 commit(s) ahead' in report
-                      and '(unchecked)' in report
-                      and '--promote --to staging' in report
-                      and '--sync-pre-staging' not in report
-                      and 'origin/staging' not in report))
-        before = tip('pre-staging')
-        rc, out = branches('--sync-pre-staging')
-        rc2, out2 = branches('--sync-pre-staging', '--check')
-        cases.append(('the sync leaves main\'s work for that Promote, with or '
-                      'without --check, and says so',
-                      rc == 0 and rc2 == 0 and 'LEFT FOR THE NEXT PROMOTE' in out
-                      and 'LEFT FOR THE NEXT PROMOTE' in out2
-                      and not has('main') and tip('pre-staging') == before))
-
-        # A commit whose tree has a full-check receipt on origin.
-        commit_to('main', 'state.json', '{"n": 1.5}\n', 'bot: a checked commit')
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '--detach', 'origin/main')
-        subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--tier', 'full',
-                        '--because', 'harness case'],
-                       cwd=work, capture_output=True, text=True, env=env)
-        rc, report = branches('--drift')
-        cases.append(('a commit whose tree has a published full-check receipt '
-                      'reads "(checked)"', '(checked)' in report
-                      and '--check' not in report))
-        rc, out = branches('--sync-pre-staging')
-        cases.append(('...and even checked, main\'s work is left for the Promote: '
-                      'pre-staging takes only compositions that passed',
-                      rc == 0 and 'LEFT FOR THE NEXT PROMOTE' in out
-                      and not has('main')))
-
-        # Both sides changed a GENERATED file (2026-10-03: two tiers each
-        # rebuilt spec/PREFORK_AUDIT.html): rebuilt from the merged sources by
-        # its own generator, never one side taken. Staging's direct push is
-        # the upper side here; the Promote's composition with main is
-        # check_promote_composes_main_and_moves_both_tiers's.
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'gen', 'origin/pre-staging')
-        git(work, 'merge', '-q', '--no-ff', '-m', 'level the two', 'origin/staging')
-        _write_generator_fixture(work)
-        subprocess.run([sys.executable, 'tools/build_todo_index.py'], cwd=work, env=env)
-        git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'a generated file')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging',
-            'HEAD:refs/heads/staging')
-        for branch, text in (('pre-staging', 'x\nb\nc\n'), ('staging', 'a\nb\nz\n')):
-            git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', f'g-{branch}', f'origin/{branch}')
-            (work / 'src.txt').write_text(text, encoding='utf-8')
-            subprocess.run([sys.executable, 'tools/build_todo_index.py'], cwd=work, env=env)
-            git(work, 'add', '-A')
-            git(work, 'commit', '-q', '-m', f'{branch} edits the source and rebuilds')
-            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-        rc, out = branches('--sync-pre-staging', '--check')
-        git(work, 'fetch', '-q', 'origin')
-        merged = git(work, 'show', 'origin/pre-staging:OUT.md').stdout
-        cases.append(('a conflict only in a generated file is rebuilt from the '
-                      'merged sources, not stopped and not one side taken',
-                      rc == 0 and has('staging') and 'rebuilt from the merged sources' in out
-                      and 'X\nB\nZ' in merged and '<<<<<<<' not in merged))
-        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
-        cases.append(('no worktree is left behind', len(wts) == 1))
-
-        # A repository whose staging tier IS main: main is the staging tier,
-        # so it gets the staging tier's check -- no GitHub test -- even with
-        # a pull-request workflow installed.
-        one = make('one', 'main', workflows=True)
-        branches1, tip1, commit_to1, has1 = tools(one)
-        branches1('--sync-pre-staging')
-        commit_to1('main', 'state.json', '{"n": 1}\n', 'bot commit')
-        rc, out = branches1('--sync-pre-staging', '--check')
-        cases.append(('where main is the staging tier, work on it is copied down '
-                      'on the local check alone', rc == 0 and has1('main')
-                      and 'GitHub test' not in out))
-
-        # No GitHub test installed, main a tier of its own: said out loud.
-        two = make('two', 'staging')
-        branches2, tip2, commit_to2, has2 = tools(two)
-        branches2('--sync-pre-staging')
-        commit_to2('main', 'state.json', '{"n": 1}\n', 'bot commit')
-        import importlib.util as _ilu
-        sys.path.insert(0, str(two / 'tools'))
-        try:
-            # A private copy under its own name: the stand-ins patched onto it
-            # below must never reach a module another check imported.
-            spec = _ilu.spec_from_file_location('_pb_drift_fixture',
-                                                two / 'tools' / 'precedent_branches.py')
-            pb = _ilu.module_from_spec(spec)
-            spec.loader.exec_module(pb)
-            cases.append(("a pull-request workflow into main with a button is read "
-                          "as main's GitHub test, and dispatchable",
-                          pb.github_tests(one, 'HEAD')
-                          == [('.github/workflows/light-check.yml', True)]))
-            wfd = two / '.github' / 'workflows'
-            wfd.mkdir(parents=True)
-            (wfd / 'x.yml').write_text(
-                'name: X\non:\n  # pull_request:\n  #   branches: [main]\n'
-                '  push:\n    branches: [main]\n  workflow_dispatch:\njobs: {}\n',
-                encoding='utf-8')
-            git(two, 'add', '-A')
-            git(two, 'commit', '-q', '-m', 'a workflow with its pull_request trigger commented out')
-            cases.append(('a commented-out pull_request trigger is not a GitHub test',
-                          pb.github_tests(two, 'HEAD') == []))
-
-            # A `paths:` filter (2026-10-04): a Produce whose diff did not touch
-            # a docs check's paths never ran it, rightly, and the wait said
-            # "Do not merge" for good. Required only when the diff reaches it.
-            (wfd / 'docs.yml').write_text(
-                'name: Docs\non:\n  pull_request:\n    branches: [main]\n    paths:\n'
-                '      - "docs/**"\n      - README.md\n  workflow_dispatch:\njobs: {}\n',
-                encoding='utf-8')
-            (wfd / 'lint.yml').write_text(
-                'name: Lint\non:\n  pull_request:\n    branches:\n      - main\n'
-                '    paths-ignore: [\'notes/**\']\njobs: {}\n', encoding='utf-8')
-            (two / 'tools' / 'touched.py').write_text('x = 1\n', encoding='utf-8')
-            git(two, 'add', '-A')
-            git(two, 'commit', '-q', '-m', 'two path-filtered workflows, a tool change')
-            got = [p for p, _ in pb.github_tests(two, 'HEAD')]
-            cases.append(('a workflow whose paths: the diff into main does not reach '
-                          'is not required; one whose paths-ignore: it gets past is, '
-                          'with its branches given as a list',
-                          '.github/workflows/docs.yml' not in got
-                          and '.github/workflows/lint.yml' in got))
-            (two / 'README.md').write_text('changed\n', encoding='utf-8')
-            git(two, 'add', '-A')
-            git(two, 'commit', '-q', '-m', 'README')
-            got = [p for p, _ in pb.github_tests(two, 'HEAD')]
-            cases.append(('CONTROL: once the diff touches one of its paths, it is '
-                          'required', '.github/workflows/docs.yml' in got))
-
-            # Merged first, waited after (2026-10-13): once main carries the
-            # Produce's copy, the copy's own diff against the main it merged
-            # onto still decides, never an empty diff from main's new tip.
-            git(two, 'fetch', '-q', 'origin')
-            here = git(two, 'rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
-            head = git(two, 'rev-parse', 'HEAD').stdout.strip()
-            main_was = git(two, 'rev-parse', 'origin/main').stdout.strip()
-            with_wf = git(two, 'rev-parse', 'HEAD~1').stdout.strip()   # the two workflows
-            def merged_copy(fname):
-                git(two, 'push', '-q', '-f', 'origin', f'{with_wf}:refs/heads/main')
-                git(two, 'checkout', '-q', '-B', 'w-side', with_wf)
-                (two / fname).parent.mkdir(parents=True, exist_ok=True)
-                (two / fname).write_text('side\n', encoding='utf-8')
-                git(two, 'add', '-A')
-                git(two, 'commit', '-q', '-m', f'side touches {fname}')
-                git(two, 'checkout', '-q', '-B', 'w-copy', with_wf)
-                git(two, 'merge', '-q', '--no-ff', '-m', 'copy: side into main', 'w-side')
-                copy = git(two, 'rev-parse', 'HEAD').stdout.strip()
-                git(two, 'push', '-q', '-f', 'origin', 'HEAD:refs/heads/main')
-                return copy
-            try:
-                copy = merged_copy('tools/other.py')
-                got = [p for p, _ in pb.github_tests(two, copy)]
-                cases.append(('with main already carrying the copy, a workflow whose '
-                              'paths: the copy\'s own diff misses is still not required',
-                              '.github/workflows/docs.yml' not in got
-                              and '.github/workflows/lint.yml' in got))
-                copy = merged_copy('docs/page.md')
-                got = [p for p, _ in pb.github_tests(two, copy)]
-                cases.append(('CONTROL: ...and one the copy\'s diff reaches is still '
-                              'required, though main\'s tip now holds it',
-                              '.github/workflows/docs.yml' in got))
-            finally:
-                git(two, 'push', '-q', '-f', 'origin', f'{main_was}:refs/heads/main')
-                git(two, 'fetch', '-q', 'origin')
-                git(two, 'checkout', '-q', *(['--detach', head] if here == 'HEAD'
-                                             else ['-B', here, head]))
-            git(two, 'reset', '-q', '--hard', 'HEAD~2')
-            said = []
-            saved = dict(os.environ)
-            os.environ.update({k: v for k, v in env.items()
-                               if k.startswith(('GIT_', 'PRECEDENT_'))})
-            try:
-                git(two, 'fetch', '-q', 'origin')
-                ok, detail = pb._check_tier(two, 'main', tip2('main'), said.append)
-            finally:
-                os.environ.clear()
-                os.environ.update(saved)
-            cases.append(('with no GitHub test installed, main gets the local check '
-                          'and the detail says there is no GitHub test',
-                          ok and 'no GitHub test is installed' in detail))
-
-            # main's GitHub test, read and started through a stand-in for
-            # github_budget.py -- no request leaves this process.
-            class GH:
-                def __init__(self, runs, pulls=(), pr_runs=()):
-                    self.runs, self.pulls, self.pr_runs = list(runs), list(pulls), list(pr_runs)
-                    self.posted = []
-
-                def call(self, path, cache=True):
-                    if path == 'repos/o/r':
-                        return {'full_name': 'o/r'}, None
-                    if '/pulls' in path:
-                        return self.pulls, None
-                    if 'head_sha=HEAD' in path:
-                        return {'workflow_runs': self.pr_runs}, None
-                    return {'workflow_runs': self.runs}, None
-
-                def post(self, path, payload):
-                    self.posted.append((path, payload))
-                    self.runs.append({'path': '.github/workflows/light-check.yml',
-                                      'status': 'completed', 'conclusion': 'success',
-                                      'created_at': '2026-09-26T12:00:00Z'})
-                    return True, None
-            tests = [('.github/workflows/light-check.yml', True)]
-            pb._slug = lambda root: 'o/r'
-            ok_run = {'path': tests[0][0], 'status': 'completed', 'conclusion': 'success',
-                      'created_at': '2026-09-26T10:00:00Z'}
-            st, why = pb.github_test_state(two, 'SHA', tests, GH([]))
-            cases.append(('no run on the commit or its pull request reads "none"',
-                          st == 'none'))
-
-            # 2026-10-04: after a rename, the OLD name's run list answered with
-            # no runs and no error, and this said "never ran" on a test that
-            # had passed. Asked under the name GitHub gives now, it reads the
-            # run; when GitHub cannot name the repository, it is unknown.
-            class RenamedGH(GH):
-                def __init__(self, runs, named=True):
-                    super().__init__(runs)
-                    self.named = named
-
-                def call(self, path, cache=True):
-                    if path == 'repos/old/r':
-                        return ({'full_name': 'new/r'}, None) if self.named \
-                            else (None, 'HTTP 404')
-                    if path.startswith('repos/old/r/'):
-                        return ({'workflow_runs': []} if 'actions' in path else []), None
-                    return super().call(path, cache)
-            pb._slug = lambda root: 'old/r'
-            pb._CURRENT_SLUG.clear()
-            st, why = pb.github_test_state(two, 'SHA', tests, RenamedGH([ok_run]))
-            cases.append(('a repository renamed since origin was set is asked under '
-                          'its new name, and the old one is said',
-                          st == 'passed' and 'new/r' in why and 'old name' in why))
-            pb._CURRENT_SLUG.clear()
-            st, why = pb.github_test_state(two, 'SHA', tests, RenamedGH([ok_run], named=False))
-            cases.append(('when GitHub cannot name the repository, no run reads '
-                          '"unknown", never "none"', st == 'unknown'))
-            pb._slug = lambda root: 'o/r'
-            pb._CURRENT_SLUG.clear()
-            st, why = pb.github_test_state(two, 'SHA', tests, GH(
-                [], pulls=[{'number': 7, 'base': {'ref': 'main'},
-                            'head': {'sha': 'HEAD'}}], pr_runs=[ok_run]))
-            cases.append(('a pull-request run on the head that brought the commit '
-                          'in counts, and says which pull request',
-                          st == 'passed' and 'pull request #7' in why))
-            st, why = pb.github_test_state(two, 'SHA', tests, GH(
-                [dict(ok_run, conclusion='failure', html_url='U')]))
-            cases.append(('a failed run reads "failed", with its link', st == 'failed'
-                          and 'U' in why))
-
-            # 2026-09-30: the run list FILTERED by head_sha stayed empty for a
-            # whole wait while the test ran; the unfiltered list had it.
-            class LaggingGH(GH):
-                def call(self, path, cache=True):
-                    if 'head_sha=' in path:
-                        return {'workflow_runs': []}, None
-                    return super().call(path, cache)
-            going = dict(ok_run, status='in_progress', conclusion=None,
-                         head_sha='SHA')
-            st, why = pb.github_test_state(two, 'SHA', tests, LaggingGH([going]))
-            cases.append(('a run the filtered list leaves out, but the recent '
-                          'runs show on this commit, reads "running", not '
-                          '"none"', st == 'running'))
-            other = dict(ok_run, head_sha='SOMETHING-ELSE')
-            st, why = pb.github_test_state(two, 'SHA', tests, LaggingGH([other]))
-            cases.append(('...while a recent run on another commit does not '
-                          'count', st == 'none'))
-            gh = GH([])
-            pb.GITHUB_POLL_SECONDS = 0
-            pb._remote_tip = lambda root, branch: 'SHA'
-            pb._check = lambda root, wt, tier, dest=None: (True, 'this exact tree already passed')
-            pb._Worktree = type('W', (), {'__init__': lambda s, *a: None,
-                                          '__enter__': lambda s: None,
-                                          '__exit__': lambda s, *e: False})
-            pb.github_tests = lambda root, sha: tests
-            said = []
-            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh)
-            cases.append(('a commit with no GitHub test run gets one started by its '
-                          'workflow_dispatch trigger on main, and passes on its result',
-                          ok and gh.posted and gh.posted[0][1] == {'ref': 'main'}
-                          and gh.posted[0][0].endswith('/light-check.yml/dispatches')
-                          and any('started the GitHub test' in s for s in said)))
-            gh = GH([])
-            pb.github_tests = lambda root, sha: [(tests[0][0], False)]
-            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh)
-            cases.append(('a GitHub test with no workflow_dispatch trigger cannot be '
-                          'started, and that holds the copy and is said',
-                          not ok and not gh.posted and 'no workflow_dispatch' in detail))
-
-            # A Produce refuses while main's own test is failing, and lets a
-            # passed or absent one through (D10).
-            failed = dict(ok_run, conclusion='failure', html_url='U')
-            held = pb.main_test_holds_produce(two, said.append, GH([failed]))
-            cases.append(('a Produce is held while main\'s own GitHub test is failing',
-                          bool(held) and 'failing' in held and 'U' in held))
-            cases.append(('...and goes ahead once it passed, or where none ran',
-                          pb.main_test_holds_produce(two, said.append, GH([ok_run])) is None
-                          and pb.main_test_holds_produce(two, said.append, GH([])) is None))
-            # ...but not while staging already carries main's failing tip:
-            # that Produce is what repairs main (Morgan, 2026-10-03).
-            import types as _types
-            real_run = pb._run
-            pb._run = lambda r, *a, **k: (
-                _types.SimpleNamespace(returncode=0, stdout='', stderr='')
-                if a[:2] == ('merge-base', '--is-ancestor') else real_run(r, *a, **k))
-            said = []
-            real_receipt = pb._receipt
-            try:
-                pb._receipt = lambda root, sha: None
-                held3 = pb.main_test_holds_produce(two, said.append, GH([failed]))
-                pb._receipt = lambda root, sha: {'at': 'now'}
-                held2 = pb.main_test_holds_produce(two, said.append, GH([failed]))
-            finally:
-                pb._run, pb._receipt = real_run, real_receipt
-            cases.append(('a failing main whose tip staging carries, on a staging tip '
-                          'with no full check on record, still holds the Produce -- '
-                          'checked first, never taken on trust',
-                          bool(held3) and 'no full local check on record' in held3
-                          and 'Debut first' in held3))
-            cases.append(('...and once that tip has passed the full check, the '
-                          'Produce that repairs main goes ahead, and says so',
-                          held2 is None and any('this Produce goes ahead' in x for x in said)))
-            cases.append(('...while one staging does not carry yet still holds it, '
-                          'naming the Debut', bool(held) and 'Debut first' in held))
-
-            # --wait-main-test: the wait a Promote into main hands the session.
-            pb.github_tests = lambda root, sha: tests
-            said = []
-            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([ok_run]))
-            cases.append(('--wait-main-test exits 0 and says PASSED once the '
-                          'GitHub test passed', rc == 0 and 'PASSED' in said[-1]))
-            said = []
-            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH(
-                [dict(ok_run, conclusion='failure', html_url='U')]))
-            cases.append(('--wait-main-test exits 1 and says "Do not merge" on a '
-                          'failed test', rc == 1 and 'Do not merge' in said[-1]))
-            pb.GITHUB_START_WAIT_SECONDS = 0
-            said = []
-            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([]))
-            cases.append(('--wait-main-test stops on a test that never started '
-                          'rather than waiting the full half hour',
-                          rc == 1 and 'NONE' in said[-1]))
-            pb.github_tests = lambda root, sha: []
-            said = []
-            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([]))
-            cases.append(('--wait-main-test with no GitHub test installed exits 0 '
-                          'and says so', rc == 0 and 'no GitHub test' in said[-1]))
-        finally:
-            sys.path.pop(0)
-    failed = [n for n, ok in cases if not ok]
-    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
-
-
-def check_promote_composes_main_and_moves_both_tiers():
-    """The Promote into staging -- the ladder's Debut -- composes one tree:
-    staging, then a fix branch it is handed, then work made directly on main,
-    then pre-staging; rebuilds what main left stale; runs the full check on
-    it once; and only then moves staging AND pre-staging to that commit
-    (spec/LADDER_OPT_IN_PLAN.md D10, Morgan 2026-10-03, strength: decided).
-
-    The failures that matter: a tier moving on a tree that failed, or one
-    tier moving without the other; main's work left out, or taken into
-    pre-staging unchecked; a failure or conflict that ends with nowhere to
-    fix it; the fix route not finishing; a generator run that is not safe to
-    run, or a rebuild that churns every render's stamp."""
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_branches as pb  # is_fix_branch / is_main_copy: new names and old
-    import tempfile, json as _json, shutil as _shutil
-    name = 'the Promote into staging composes main and pre-staging, checks once, moves both'
-    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
-        not_applicable(name, 'tools/precedent_branches.py is absent')
-        return
-    cases = []
-    with tempfile.TemporaryDirectory() as td:
-        tmp = pathlib.Path(td)
-        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
-                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
-                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
-                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
-        env.pop('PRECEDENT_NO_SHARED_PASS', None)
-
-        def git(cwd, *a):
-            return subprocess.run(['git', '-C', str(cwd), *a],
-                                  capture_output=True, text=True, env=env)
-
-        bare = tmp / 'origin.git'
-        git(tmp, 'init', '-q', '--bare', '-b', 'staging', str(bare))
-        work = tmp / 'work'
-        (work / 'tools').mkdir(parents=True)
-        git(tmp, 'init', '-q', '-b', 'staging', str(work))
-        for f in ('precedent_push_check.py', 'precedent_branches.py'):
-            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
-        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
-            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
-        # Stubs: each fails when the FAIL file names it; precedent_check also
-        # counts its full runs, and runs PROMOTE_RACE mid-check.
-        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
-            (work / 'tools' / f'{t}.py').write_text(
-                'import os, pathlib, subprocess, sys\n'
-                'f = pathlib.Path("FAIL")\n'
-                'body = f.read_text() if f.exists() else ""\n'
-                + ('print("precedent_check: 3 passed, 0 violated")\n'
-                   'name = ("ci_workflows" if "ci-workflow-approved" in '
-                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
-                   '"practice_export_loop" if "practice-export-loop" in '
-                   'sys.argv else "rename_links" if '
-                   '"rename-updates-links" in sys.argv else '
-                   '"generated_files" if '
-                   '"generated-files-registered" in '
-                   'sys.argv else "changed_practice" if "--changed-files-only" '
-                   'in sys.argv else "precedent_check")\n'
-                   'if name == "precedent_check" and os.environ.get("RUNS"):\n'
-                   '    open(os.environ["RUNS"], "a").write("run\\n")\n'
-                   'if os.environ.get("PROMOTE_RACE"):\n'
-                   '    subprocess.run(os.environ["PROMOTE_RACE"], shell=True)\n'
-                   if t == 'precedent_check' else f'name = "{t}"\n')
-                + 'sys.exit(1 if name in body else 0)\n', encoding='utf-8')
-        _write_generator_fixture(work)
-        # A render whose generator writes the time it ran: rebuilding it
-        # changes that line and nothing else.
-        (work / 'tools' / 'doc_html.py').write_text(
-            'import datetime, pathlib\n'
-            'now = datetime.datetime.now().isoformat()\n'
-            'pathlib.Path("PAGE.html").write_text('
-            '"<h1>Page</h1>\\n<time class=\\"renderstamp\\" datetime=\\"" + now'
-            ' + "\\">x</time>\\n" + pathlib.Path("src.txt").read_text())\n',
-            encoding='utf-8')
-        # A file whose header names a generator that is NOT safe to run bare:
-        # running it leaves a marker, which must never appear.
-        ran_very_deep = tmp / 'RAN_VERY_DEEP'
-        (work / 'tools' / 'very_deep_check.py').write_text(
-            f'import pathlib\npathlib.Path({str(ran_very_deep)!r}).write_text("x")\n',
-            encoding='utf-8')
-        (work / 'STALE.md').write_text(
-            '---\ngenerated_by: tools/very_deep_check.py\n---\nold\n', encoding='utf-8')
-        (work / '.gitignore').write_text('__pycache__/\n', encoding='utf-8')
-        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'staging'}),
-                                             encoding='utf-8')
-        (work / 'list.txt').write_text('a\nb\nc\n', encoding='utf-8')
-        for tool in ('build_todo_index', 'doc_html'):
-            subprocess.run([sys.executable, f'tools/{tool}.py'], cwd=work, env=env)
-        git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'init')
-        git(work, 'remote', 'add', 'origin', f'file://{bare}')
-        git(work, 'push', '-q', 'origin', 'staging', 'staging:main')
-        runs = tmp / 'runs'
-
-        def branches(*a, extra=None):
-            runs.write_text('')
-            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
-                               cwd=work, capture_output=True, text=True,
-                               env=dict(env, RUNS=str(runs), **(extra or {})))
-            return p.returncode, p.stdout + p.stderr
-
-        def full_runs():
-            return runs.read_text().count('run')
-
-        def tip(b):
-            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
-
-        def show(b, path):
-            git(work, 'fetch', '-q', 'origin')
-            return git(work, 'show', f'origin/{b}:{path}').stdout
-
-        def commit_to(branch, files, msg):
-            git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
-            for path, text in files.items():
-                (work / path).write_text(text, encoding='utf-8')
-            git(work, 'add', '-A')
-            git(work, 'commit', '-q', '-m', msg)
-            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-            return git(work, 'rev-parse', 'HEAD').stdout.strip()
-
-        def on(sha, branch):
-            git(work, 'fetch', '-q', 'origin')
-            return git(work, 'merge-base', '--is-ancestor', sha,
-                       f'origin/{branch}').returncode == 0
-
-        def fixes():
-            # Local since 2026-10-06: a refused Promote leaves its fix branch
-            # in the clone, and only a pushed fix puts it on origin.
-            return sorted(b for b in git(work, 'for-each-ref', '--format=%(refname:short)',
-                                         'refs/heads/').stdout.split()
-                          if pb.is_fix_branch(b))
-
-        def fixes_on_origin():
-            return sorted(b for b in (l.split()[-1][len('refs/heads/'):] for l in git(
-                work, 'ls-remote', 'origin', 'refs/heads/*'
-            ).stdout.splitlines()) if pb.is_fix_branch(b))
-
-        def on_local(sha, branch):
-            return git(work, 'merge-base', '--is-ancestor', sha,
-                       f'refs/heads/{branch}').returncode == 0
-
-        def level():
-            return tip('staging') == tip('pre-staging')
-
-        branches('--sync-pre-staging')
-
-        # 1. The ordinary case with main's direct work: one composition, one
-        # check, both tiers to the same commit, main's work in it.
-        own = commit_to('pre-staging', {'mine.txt': 'mine\n'}, 'ladder work')
-        bot = commit_to('main', {'state.json': '{"n": 1}\n'}, 'bot: made on main')
-        rc, out = branches('--promote', '--to', 'staging')
-        subjects = git(work, 'log', '--format=%s', 'origin/staging', '-4').stdout
-        cases.append(('main\'s direct work and pre-staging\'s are composed and '
-                      'both tiers move to the same commit',
-                      rc == 0 and level() and on(bot, 'staging') and on(own, 'staging')
-                      and 'BROUGHT IN 1 commit(s) made directly on main' in out
-                      and 'PROMOTED 1 commit(s)' in out))
-        cases.append(('...main first, then pre-staging, each by a merge commit, '
-                      'checked once', 'Bring main into staging' in subjects
-                      and subjects.startswith('Promote pre-staging into staging')
-                      and full_runs() == 1))
-        cases.append(('...and a generator that is not safe to run bare is never '
-                      'run', not ran_very_deep.exists()))
-        cases.append(('...and a render that only changed its build stamp is left '
-                      'alone', 'Rebuild generated files' not in subjects
-                      and 'REBUILT' not in out))
-
-        # 2. Main edits a source and does not rebuild what is generated from
-        # it -- the commonest off-ladder slip. The Promote rebuilds it.
-        commit_to('main', {'src.txt': 'a\nb\nm\n'}, 'edit a source on main, no rebuild')
-        commit_to('pre-staging', {'more.txt': 'more\n'}, 'more ladder work')
-        rc, out = branches('--promote', '--to', 'staging')
-        cases.append(('what main left stale is rebuilt before the check, and said',
-                      rc == 0 and level() and 'REBUILT' in out and 'OUT.md' in out
-                      and 'A\nB\nM' in show('staging', 'OUT.md')
-                      and 'a\nb\nm' in show('staging', 'PAGE.html')))
-
-        # 3. Main breaks a check. Neither tier moves; the composition goes to
-        # a fix branch; the report says main brought it.
-        s0, p0 = tip('staging'), tip('pre-staging')
-        commit_to('main', {'FAIL': 'precedent_check'}, 'a web edit that breaks a check')
-        commit_to('pre-staging', {'third.txt': '3\n'}, 'third ladder work')
-        p1 = tip('pre-staging')
-        rc, out = branches('--promote', '--to', 'staging')
-        f = fixes() or ['no-fix-branch']
-        cases.append(('a composition failing the full check moves neither tier',
-                      rc == 1 and 'PROMOTE NOT FINISHED' in out
-                      and tip('staging') == s0 and tip('pre-staging') == p1))
-        cases.append(('...puts it on a LOCAL fix branch holding main\'s work and '
-                      'pre-staging\'s, not pushed, and names the command that '
-                      'finishes it', len(f) == 1 and on_local(tip('main'), f[0])
-                      and on_local(p1, f[0]) and f'--work {f[0]}' in out
-                      and fixes_on_origin() == [] and 'not pushed' in out))
-        cases.append(('...and names main\'s commits as where to look first, from '
-                      'staging\'s recorded pass, without a second full check or a '
-                      'verdict', 'Look there first' in out
-                      and 'a web edit that breaks a check' in out
-                      and 'own tip passed the full check' in out
-                      and full_runs() == 1 and 'came from main' not in out))
-        # The session fixes it on that branch and runs the Promote again.
-        git(work, 'checkout', '-q', '-B', 'fixing', f[0])
-        (work / 'FAIL').write_text('', encoding='utf-8')
-        git(work, 'commit', '-q', '-am', 'fix what main broke')
-        git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{f[0]}')
-        fixed = tip(f[0])
-        rc, out = branches('--promote', '--to', 'staging', '--work', f[0])
-        cases.append(('the fix branch, handed back with --work, is taken in and '
-                      'both tiers move level', rc == 0 and level()
-                      and on(fixed, 'staging') and on(p1, 'staging')
-                      and show('staging', 'FAIL') == '' and 'TOOK IN' in out))
-
-        # 4. Pre-staging breaks it, while main brought harmless work: the
-        # report says main's work alone passes.
-        commit_to('main', {'state.json': '{"n": 2}\n'}, 'bot: harmless')
-        commit_to('pre-staging', {'FAIL': 'precedent_check'}, 'ladder work that breaks')
-        rc, out = branches('--promote', '--to', 'staging')
-        cases.append(('a failure from pre-staging\'s own work is still not finished, '
-                      'and main is named only as a place to look, never as the cause',
-                      rc == 1 and 'PROMOTE NOT FINISHED' in out
-                      and 'Look there first' in out and 'came from main' not in out))
-        on_origin_before = fixes_on_origin()
-        commit_to('pre-staging', {'FAIL': ''}, 'ladder fixes its own break')
-        rc, out = branches('--promote', '--to', 'staging')
-        cases.append(('...and a fix pushed to pre-staging finishes it too',
-                      rc == 0 and level() and on(tip('main'), 'staging')))
-        cases.append(('...leaving no fix branch on origin for a person to delete '
-                      '(2026-10-06: one consumer had four in a day)',
-                      fixes_on_origin() == on_origin_before))
-
-        # 5. Hand-written text changed on both sides: not finished, the
-        # composition so far on a fix branch, resolved there, then finished.
-        n = len(fixes())
-        commit_to('main', {'list.txt': 'MAIN\nb\nc\n'}, 'main edits line 1')
-        commit_to('pre-staging', {'list.txt': 'LADDER\nb\nc\n'}, 'ladder edits line 1')
-        s0, p0 = tip('staging'), tip('pre-staging')
-        rc, out = branches('--promote', '--to', 'staging')
-        f = fixes() or ['no-fix-branch']
-        cases.append(('a conflict in hand-written text moves neither tier and '
-                      'says which merge to make on the fix branch',
-                      rc == 1 and 'does not merge cleanly' in out
-                      and tip('staging') == s0 and tip('pre-staging') == p0
-                      and len(f) == n + 1 and f'git merge {p0}' in out))
-        newest = [b for b in f if on_local(tip('main'), b)
-                  and not on_local(p0, b)] or ['no-fix-branch']
-        git(work, 'checkout', '-q', '-B', 'resolving', newest[0])
-        git(work, 'merge', '-q', p0)
-        (work / 'list.txt').write_text('BOTH\nb\nc\n', encoding='utf-8')
-        git(work, 'commit', '-q', '-am', 'resolve line 1')
-        git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{newest[0]}')
-        rc, out = branches('--promote', '--to', 'staging', '--work', newest[0])
-        cases.append(('...and, resolved there, the Promote with --work finishes, '
-                      'level, with the resolution',
-                      rc == 0 and level() and show('staging', 'list.txt') == 'BOTH\nb\nc\n'))
-
-        # 6. A generated file both sides rebuilt: rebuilt from the merged
-        # sources, not a conflict.
-        for branch, text in (('pre-staging', 'x\nb\nm\n'), ('main', 'a\nb\nz\n')):
-            git(work, 'fetch', '-q', 'origin')
-            git(work, 'checkout', '-q', '-B', f'g-{branch}', f'origin/{branch}')
-            (work / 'src.txt').write_text(text, encoding='utf-8')
-            subprocess.run([sys.executable, 'tools/build_todo_index.py'], cwd=work, env=env)
-            git(work, 'add', '-A')
-            git(work, 'commit', '-q', '-m', f'{branch} edits the source and rebuilds')
-            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
-        rc, out = branches('--promote', '--to', 'staging')
-        merged = show('staging', 'OUT.md')
-        cases.append(('a conflict only in a generated file is rebuilt from the '
-                      'merged sources', rc == 0 and level()
-                      and 'X\nB\nZ' in merged and '<<<<<<<' not in merged))
-
-        # 7. Nothing waits on pre-staging, but main has work: a bare Promote
-        # still composes it and moves both. Main first takes staging, as a
-        # Produce's pull request would, so no step is waiting.
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'mn', 'origin/main')
-        git(work, 'merge', '-q', '--no-ff', '-m', 'Merge pull request', 'origin/staging')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
-        bot = commit_to('main', {'state.json': '{"n": 3}\n'}, 'bot: a third week')
-        rc, out = branches('--promote')
-        cases.append(('with nothing on pre-staging, a Promote still brings main\'s '
-                      'work into both tiers', rc == 0 and 'Nothing waits to be promoted' in out
-                      and level() and on(bot, 'pre-staging')))
-
-        # 8. Pre-staging gains work while the check runs: nothing moves, and
-        # never one tier without the other.
-        commit_to('pre-staging', {'race.txt': '1\n'}, 'work being promoted')
-        s0 = tip('staging')
-        race = tmp / 'race'
-        git(tmp, 'clone', '-q', f'file://{bare}', str(race))
-        rc, out = branches('--promote', '--to', 'staging', extra={'PROMOTE_RACE': (
-            f'git -C {race} fetch -q origin && '
-            f'git -C {race} checkout -q -B r origin/pre-staging && '
-            f'git -C {race} commit -q --allow-empty -m booked-meanwhile && '
-            f'git -C {race} push -q origin HEAD:refs/heads/pre-staging')})
-        cases.append(('work booked onto pre-staging mid-check: nothing moves, '
-                      'not staging alone either, and it says so',
-                      rc == 1 and tip('staging') == s0
-                      and 'gained work while the check ran' in out))
-
-        # 9. --work naming a branch that is not on pre-staging and is not a
-        # fix branch: said, and never carried past Booked.
-        git(work, 'checkout', '-q', '-B', 'feature', 'origin/pre-staging')
-        (work / 'feature.txt').write_text('f\n', encoding='utf-8')
-        git(work, 'add', '-A')
-        git(work, 'commit', '-q', '-m', 'unbooked feature work')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/feature')
-        feature = tip('feature')
-        rc, out = branches('--promote', '--to', 'staging', '--work', 'feature')
-        cases.append(('work that is not on pre-staging is named, and not carried '
-                      'into staging', 'is not on pre-staging' in out
-                      and not on(feature, 'staging')))
-        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
-        cases.append(('no worktree is left behind', len(wts) == 1))
-    failed = [n for n, ok in cases if not ok]
-    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_github_ci_setting_names():
@@ -61623,11 +60386,6 @@ def check_promote_branches_are_named_like_session_branches():
             run('git', 'push', '-q', 'origin', 'staging', cwd=repo)
             run('git', 'fetch', '-q', 'origin', cwd=repo)
             day, _m = pb._day_and_moment(repo)
-            fix = pb._fix_branch(repo)
-            check('a Promote\'s fix branch is named <date>-promote-fix-<id>-<random>, '
-                  'which the naming rule accepts',
-                  re.fullmatch(f'{day}-promote-fix-abcde-[a-z0-9]{{5}}', fix)
-                  and pb.is_fix_branch(fix), fix)
             have_tests = bool(pb.github_tests(repo, pb._remote_tip(repo, pb.staging_branch(repo))))
             copy, not_due = pb._to_main_copy(repo), pb._to_main_copy(repo, due=False)
             check('its copies of staging too, where the GitHub test knows the new names',
@@ -70080,13 +68838,12 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
         tmp = pathlib.Path(td)
         env = _stale_ref_fixture_env(tmp)
         work, git, branches, tip = _promote_fixture(
-            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
+            tmp, env, 'staging', ('main', 'staging'))
         git(work, 'checkout', '-q', '-b', 'session-work', 'origin/staging')
         (work / 'two.txt').write_text('2\n', encoding='utf-8')
         git(work, 'add', 'two.txt')
         git(work, 'commit', '-q', '-m', 'work')
         git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
         before = git(work, 'rev-parse', 'HEAD').stdout.strip()
         main_before = tip('main')
         rc, out = branches('--promote', '--to', 'main', '--full', '--because', 'test the long way', '--work', 'session-work')
@@ -70101,25 +68858,26 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
                       == 'session-work'
                       and git(work, 'rev-parse', 'HEAD').stdout.strip() == before))
 
-    # A repository whose staging tier IS main: Promote moves pre-staging
-    # straight into main, so exit 0 there does mean main moved.
+    # A repository whose staging tier IS main: work lands there directly,
+    # so a Promote has nothing to move and says so (its step from
+    # pre-staging went with that tier, 2026-10-17).
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
         env = _stale_ref_fixture_env(tmp)
         work, git, branches, tip = _promote_fixture(
-            tmp, env, 'main', ('main', 'pre-staging'))
-        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+            tmp, env, 'main', ('main',))
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/main')
         (work / 'three.txt').write_text('3\n', encoding='utf-8')
         git(work, 'add', 'three.txt')
         git(work, 'commit', '-q', '-m', 'work')
         git(work, 'push', '-q', '-u', 'origin', 'session-work')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
         before = git(work, 'rev-parse', 'HEAD').stdout.strip()
         main_before = tip('main')
         rc, out = branches('--promote', '--work', 'session-work')
-        cases.append(('no staging branch: pre-staging into main exits 0 and '
-                      f'main moved (got {rc})',
-                      rc == 0 and tip('main') not in ('', main_before)))
+        cases.append(('no staging branch: nothing to promote, exit 0, main '
+                      f'untouched (got {rc})',
+                      rc == 0 and 'nothing to promote' in out
+                      and tip('main') == main_before))
         cases.append(('and the checked-out branch is where it was, pointing at '
                       'what its own remote copy holds',
                       git(work, 'branch', '--show-current').stdout.strip()
@@ -71004,27 +69762,21 @@ def check_promote_ends_with_its_result_line():
         env = dict(_stale_ref_fixture_env(tmp), PRECEDENT_GITHUB_USER='')
         work, git, _branches, tip = _promote_fixture(
             tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
-        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/staging')
         (work / 'two.txt').write_text('2\n', encoding='utf-8')
         git(work, 'add', 'two.txt')
         git(work, 'commit', '-q', '-m', 'work')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
 
+        # The step into staging is gone with pre-staging (2026-10-17): asked
+        # for, it moves nothing and says why, still on its result line.
+        before = tip('staging')
         rc, last, out = run(work, env, '--promote', '--to', 'staging')
-        moved = tip('staging')
-        cases.append((f'a Debut that moves ends "PROMOTE RESULT: staging <- '
-                      f'pre-staging: PROMOTED at <full sha>" (rc={rc}, last: {last!r})',
-                      rc == 0 and last.startswith(
-                          'PROMOTE RESULT: staging <- pre-staging: PROMOTED at ')
-                      and bool(moved) and moved in sha40.findall(last)
-                      and one_result(out)))
-
-        rc, last, out = run(work, env, '--promote', '--to', 'staging')
-        cases.append((f'a Debut with nothing to move says so last (rc={rc}, '
-                      f'last: {last!r})',
-                      rc == 0 and last.startswith(
-                          'PROMOTE RESULT: staging <- pre-staging: NOTHING TO PROMOTE')
-                      and one_result(out)))
+        cases.append((f'the retired step into staging ends NOTHING TO PROMOTE and '
+                      f'says why (rc={rc}, last: {last!r})',
+                      rc == 0 and last.startswith('PROMOTE RESULT:')
+                      and 'NOTHING TO PROMOTE' in last and 'no step into staging' in last
+                      and tip('staging') == before and one_result(out)))
 
         rc, last, out = run(work, env, '--promote', '--to', 'main', '--full', '--because', 'test the long way')
         copy = next((l.split('pull request from ', 1)[1].split()[0]
@@ -71045,21 +69797,20 @@ def check_promote_ends_with_its_result_line():
         env = dict(_stale_ref_fixture_env(tmp), PRECEDENT_GITHUB_USER='')
         work, git, _branches, tip = _promote_fixture(
             tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
-        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/staging')
         (work / 'tools' / 'precedent_check.py').write_text(
             'import sys\nprint("precedent_check: 0 passed, 1 violated")\n'
             'sys.exit(1)\n', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'a check that fails')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
-        before = tip('staging')
-        rc, last, out = run(work, env, '--promote', '--to', 'staging')
-        cases.append((f'a refused Debut ends PROMOTE REFUSED, with a reason and '
-                      f'the fix branch\'s full commit (rc={rc}, last: {last!r})',
-                      rc == 1 and tip('staging') == before
-                      and last.startswith(
-                          'PROMOTE RESULT: staging <- pre-staging: PROMOTE REFUSED: ')
-                      and 'full check failed' in last
-                      and bool(sha40.search(last)) and one_result(out)))
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
+        before = tip('main')
+        rc, last, out = run(work, env, '--promote', '--to', 'main', '--full',
+                            '--because', 'test the long way')
+        cases.append((f'a refused Produce ends PROMOTE REFUSED, with a reason, '
+                      f'and main does not move (rc={rc}, last: {last!r})',
+                      rc == 1 and tip('main') == before
+                      and last.startswith('PROMOTE RESULT: main <- staging: PROMOTE REFUSED: ')
+                      and one_result(out)))
 
         # An error mid-run still ends on the line, after the run's own output.
         sys.path.insert(0, str(work / 'tools'))
@@ -84552,7 +83303,6 @@ def main():
     check_install_records_the_commit_its_catalogue_came_from()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
-    check_debut_waits_for_an_open_produce_pull_request()
     check_bare_all_runs_across_the_cores()
     check_full_run_asks_first()
     check_refresh_never_says_nothing_to_do_after_removing_a_file()
@@ -84909,7 +83659,6 @@ def main():
     check_branch_tiers()
     check_merge_check_gate()
     check_refresh_sources_lists_a_linked_tree_once()
-    check_promote_pre_staging()
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()
     check_identity_mechanism_check_reaches_a_stubbed_hook()
@@ -84918,9 +83667,6 @@ def main():
     check_empty_commits_are_never_counted()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
-    check_promote_leaves_the_retired_old_name_alone()
-    check_sync_copies_work_from_above_once_checked()
-    check_promote_composes_main_and_moves_both_tiers()
     check_main_test_cadence()
     check_main_test_minutes_rule()
     check_main_test_repo_setting()
