@@ -38835,7 +38835,10 @@ def check_quick_tier_is_closed():
 def check_boildown_contradiction_spares_work_waiting_upstream():
     """"Still waiting upstream" beside "You can archive this session" is not
     a contradiction: the work sits in another repository's queue, not this
-    session's. The shipped reply_check.json refused exactly that reply
+    session's. Nor is a due reminder's own line asking for an answer
+    (2026-10-17, from a consuming repo: the reminder lives in todo/, so
+    archiving loses nothing, and the two universal practices' required
+    texts collided). The shipped reply_check.json refused exactly that reply
     (2026-09-28). Read from the real file, so the test is of the pattern that
     ships; the control is "still waiting" about this session's own work,
     which must still be refused.
@@ -38882,6 +38885,16 @@ def check_boildown_contradiction_spares_work_waiting_upstream():
                             'is.\n\nYou can archive this session.\n')
         mine = replycheck('## The Boildown\n\n- This session is blocked on '
                           'your answer.\n\nYou can archive this session.\n')
+        # 2026-10-17: a due reminder's line (todo-reminder) asks the person
+        # something, but the item lives in todo/: archiving loses nothing.
+        due = replycheck('## The Boildown\n\n- A reminder you asked for, due '
+                         'since 2026-10-15: [Renew the domain](todo/x.md). Is it '
+                         'done, does it get a new date, or is it dropped? It '
+                         'still needs your answer.\n\nYou can archive this '
+                         'session.\n')
+        ask = replycheck('## The Boildown\n\n- The merge still needs your '
+                         'approval. It is waiting on you.\n\nYou can archive '
+                         'this session.\n')
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     cases = [
@@ -38894,6 +38907,10 @@ def check_boildown_contradiction_spares_work_waiting_upstream():
          theirs.returncode == 0),
         ('control: "this session is blocked on" is still refused',
          mine.returncode == 2 and 'cannot both be true' in mine.stderr),
+        ('a due reminder\'s line ("A reminder you asked for ... still needs '
+         'your answer") beside the archive sentence passes', due.returncode == 0),
+        ('control: "needs your approval" on any other line is still refused',
+         ask.returncode == 2 and 'cannot both be true' in ask.stderr),
     ]
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
@@ -62786,6 +62803,72 @@ def check_branch_cleanup_page_merges_the_saved_page():
           f'stated cases)', not bad, '; '.join(bad))
 
 
+def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
+    """The page never offers main, staging or a live data- branch, from any
+    path, and an engine branch's old name is offered only from this run's
+    own check, marked as the moved name it is; its runtime version is left
+    where it was published.
+
+    WHY (2026-10-17, from two consuming repos' sessions). The page listed
+    precedent-promote-lock and precedent-check-receipts as deletable, and
+    its intro said the engine's own branches are never listed. Both were
+    old names whose data- copies held their whole history -- listed on
+    purpose since 2026-10-13 -- but nothing on the page said so, and two
+    sessions reported them as engine branches offered by mistake. The
+    intro also still described pre-staging, which retired that day. A
+    republish reported an older runtime version, and nothing said whether
+    to move it.
+
+    Planted through render_html: a fresh repository carrying main, a live
+    data- branch, a moved old name and an ordinary branch; a carried one
+    whose saved rows hold an old engine name and an ordinary branch."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_stale_branches as _sb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    page = _sb.render_html(
+        [('o', 'fresh', [('main', '2026-10-01'), ('data-promote-lock', '2026-10-02'),
+                         ('precedent-promote-lock', '2026-10-03'),
+                         ('feat-a', '2026-10-04')])],
+        carried=[('o', 'saved', [('precedent-check-receipts', '2026-10-05'),
+                                 ('feat-b', '2026-10-06')],
+                  '2026-10-16T12:00:00+00:00')])
+    offered = set(re.findall(r'data-k="([^"]+)"', page))
+    cases.append(('main is never offered', 'fresh/main' not in offered, sorted(offered)))
+    cases.append(('a live data- branch is never offered',
+                  'fresh/data-promote-lock' not in offered))
+    cases.append(('an ordinary branch is, fresh or carried',
+                  {'fresh/feat-a', 'saved/feat-b'} <= offered))
+    row = page.split('fresh/precedent-promote-lock', 1)[-1].split('</li>', 1)[0]
+    cases.append(('a moved old name from this run\'s own check is offered, marked '
+                  'as the data- branch\'s old name',
+                  'fresh/precedent-promote-lock' in offered
+                  and 'data-promote-lock' in row and 'Nothing reads this one' in row,
+                  row[:200]))
+    cases.append(('an old engine name carried from a saved page is not offered',
+                  'saved/precedent-check-receipts' not in offered))
+    lede = page.split('class="lede"', 1)[-1].split('</p>', 1)[0]
+    cases.append(('the intro says how an old engine name appears, and no '
+                  'longer describes pre-staging',
+                  'says so' in lede and 'pre-staging' not in lede, lede[:300]))
+    cases.append(('the count is of what is offered (3)',
+                  '>3 branches,' in page or '3 branches, all' in page))
+    cases.append(('one list of engine branch names, from the data-branch module',
+                  getattr(_sb, 'ENGINE_BRANCHES', frozenset()) >= {
+                      'precedent-promote-lock', 'precedent-check-receipts'}
+                  and getattr(_sb, 'ENGINE_BRANCHES', frozenset()) <= _sb.NEVER))
+    src = (ROOT / 'tools' / 'precedent_stale_branches.py').read_text(encoding='utf-8')
+    cases.append(('the publish line says to leave the runtime version as it is',
+                  'omit `contract`' in getattr(_sb, 'PAGE_RUNTIME_LINE', '')
+                  and '+ PAGE_RUNTIME_LINE' in src))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the cleanup page never offers main and marks moved engine names '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d) + ')' if d else ''}" for n, d in bad))
+
+
 def check_branch_cleanup_page_lists_staging_waiting_to_go_live():
     """The branch-cleanup page lists each repository whose staging carries a
     change main lacks, and merges that list across sessions the way it
@@ -84273,6 +84356,7 @@ def main():
     check_branch_cleanup_page_is_one_page_updated_in_place()
     check_branch_cleanup_page_merges_the_saved_page()
     check_branch_cleanup_page_lists_staging_waiting_to_go_live()
+    check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names()
     check_branch_cleanup_merge_warns_on_a_stale_copy()
     check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()

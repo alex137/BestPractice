@@ -194,8 +194,22 @@ PAGE_FORMAT = 3
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(_ENGINE_DIR))
 
-NEVER = {'main', 'master', 'staging', 'precedent-beta-v01',
-         'precedent-check-receipts', 'precedent-promote-lock', 'HEAD'}
+# The engine's own data branches' old names, from the one module that names
+# them (precedent_data_branches.LEGACY); the two it had on 2026-10-17 when
+# that module cannot load. A branch here is listed only once its `data-`
+# copy holds its whole history (_moved_data_branches), and then marked so.
+try:
+    import precedent_data_branches as _pdb
+    ENGINE_BRANCHES = frozenset(_pdb.legacy_name(w) for w in _pdb.LEGACY)
+except Exception:                                            # noqa: BLE001
+    ENGINE_BRANCHES = frozenset({'precedent-check-receipts', 'precedent-promote-lock'})
+# Never listed, whatever their state. Applied where branches are gathered,
+# where a saved page is carried over, and again where the page is drawn
+# (_listable), so no path can offer one (2026-10-17: two sessions saw a
+# lock and a receipt branch on the page and took them for engine branches
+# offered by mistake; they were moved old names, unmarked).
+ALWAYS_KEPT = frozenset({'main', 'master', 'staging', 'precedent-beta-v01', 'HEAD'})
+NEVER = ALWAYS_KEPT | ENGINE_BRANCHES
 DATA_PREFIX = 'data-'
 _GH = re.compile(r'github\.com[:/]+([^/]+)/([^/\s]+?)(?:\.git)?/*$')
 
@@ -442,6 +456,17 @@ CLEANUP_PATH = '.github/workflows/' + CLEANUP_WORKFLOW
 GITHUB_CONNECTOR = 'github'
 PAGE_CAPABILITIES = {'artifact': {}, 'mcp': {'servers': [
     {'server': GITHUB_CONNECTOR, 'tools': ['actions_run_trigger']}]}}
+# THE PAGE'S RUNTIME VERSION STAYS WHERE IT IS (2026-10-17, decided by the
+# session under Morgan's "use your judgment on what to fix"). A republish
+# reported "contract 0.2.76 (newest 0.2.84)" and nothing said whether to
+# move. A refresh changes the page's data, never its code, so it keeps the
+# version the page was published on: omit `contract`. Move it with
+# `contract: "latest"` only when the page needs something a newer runtime
+# adds, or a runtime bug shows on it, and say so to the person in that
+# reply. The "newest" note is information, not a task.
+PAGE_RUNTIME_LINE = ('Leave its runtime version as it is (omit `contract`): a '
+                     'refresh changes the data, not the code. The "newest" note '
+                     'is not a task.')
 # A run in one of these states has been started and may still delete: it
 # counts as a run, so a second click is not invited while it works.
 _RUN_STARTED = {'queued', 'in_progress', 'waiting', 'requested', 'pending'}
@@ -950,12 +975,31 @@ def _waiting_section(waiting, carried, tz):
             f'<ul>{"".join(lis)}</ul></section>')
 
 
+def _listable(rows, fresh=True):
+    """-> `rows` less any branch the page must never offer: main, staging
+    and the rest of ALWAYS_KEPT, a live `data-` branch, and -- on a row not
+    from this run's own check -- an engine branch's old name, which only a
+    fresh check can show is safe (its `data-` copy holds its whole history)."""
+    return [(b, d) for b, d in rows
+            if b not in ALWAYS_KEPT and not b.startswith(DATA_PREFIX)
+            and (fresh or b not in ENGINE_BRANCHES)]
+
+
+def _moved_note(b):
+    if b not in ENGINE_BRANCHES:
+        return ''
+    return (' <span class="carried">The engine\'s old name for '
+            f'<code>{html.escape(DATA_PREFIX + b.split("-", 1)[1])}</code>, '
+            'which now holds its whole history. Nothing reads this one.</span>')
+
+
 def _section(owner, name, rows, note='', cleanup=''):
     lis = '\n'.join(
         f'<li><label class="row"><input type="checkbox" '
         f'id="{html.escape(name + "/" + b)}" data-k="{html.escape(name + "/" + b)}">'
         f'<a href="{link(owner, name, b)}" target="_blank" rel="noopener">'
-        f'{html.escape(b)}</a><span class="date">{html.escape(d)}</span></label></li>'
+        f'{html.escape(b)}</a><span class="date">{html.escape(d)}</span>'
+        f'{_moved_note(b)}</label></li>'
         for b, d in rows)
     return (f'<section class="repo"><h2>{html.escape(name)} '
             f'<span class="count">{len(rows)}</span></h2>'
@@ -976,6 +1020,8 @@ def render_html(groups, now=None, tz='', carried=(), waiting=(), carried_wait=()
     {(owner, name) key: state} from merge_cleanup, each section's delete-all
     line; None or a missing key leaves that section without one."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
+    groups = [(o, n, _listable(rows)) for o, n, rows in groups]
+    carried = [(o, n, _listable(rows, fresh=False), c) for o, n, rows, c in carried]
     total = sum(len(r) for *_x, r in groups) + sum(len(c[2]) for c in carried)
     cleanup = cleanup or {}
     secs = [_public_line(public_cleanup(groups, carried, cleanup)),
@@ -1068,7 +1114,7 @@ li + li { border-top:1px solid var(--line); }
 <header>
 <h1>Branch cleanup</h1>
 <p class="built">{{BUILT}}</p>
-<p class="lede">{{TOTAL}} branches, all already in <code>main</code> (a retired <code>pre-staging</code>: already in <code>staging</code>), so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, <code>pre-staging</code> while it is in use, and the engine's own branches. Checking a branch off, or opening its link, saves the checkmark into this page, so the next refresh leaves it off a repository it cannot check.</p>
+<p class="lede">{{TOTAL}} branches, all already in <code>main</code>, so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, and the engine's live <code>data-</code> branches. An engine branch's old name shows up only once its <code>data-</code> copy holds its whole history, and says so. Checking a branch off, or opening its link, saves the checkmark into this page, so the next refresh leaves it off a repository it cannot check.</p>
 </header>
 <div class="bar"><span class="progress" id="progress">0 of {{TOTAL}} done</span><button type="button" id="clear">Clear checkmarks</button></div>
 {{SECTIONS}}
@@ -1318,7 +1364,8 @@ def main(argv):
         caps = json.dumps(PAGE_CAPABILITIES)
         print(f'Publish it to the saved page, in place: {url}, with '
               f'capabilities {caps} so the page can save its own checkmarks and '
-              f'its all-public button can start the cleanup runs' if url else
+              f'its all-public button can start the cleanup runs. '
+              + PAGE_RUNTIME_LINE if url else
               f'No saved page yet: publish it as a new page with capabilities '
               f'{caps}, so it can save its own checkmarks and start the cleanup '
               'runs, then save its '
