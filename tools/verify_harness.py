@@ -76390,6 +76390,68 @@ def check_branch_scan_sees_every_branch():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_freshness_guard_writes_no_origin_into_a_repo_without_one():
+    """The freshness guard widens a single-branch clone's refspec, and must
+    leave a repository with NO origin exactly as it found it.
+
+    THE INCIDENT (very deep check, 2026-10-17, pass 1). A fresh install has
+    no origin until its first push, and INSTALL.md section 0 step 8 tells the
+    person to give it one. The guard's `_widen_refspec` ran `git config --add
+    remote.origin.fetch ...` unconditionally, which on such a repository
+    creates a [remote "origin"] section with no URL -- after which the
+    ordinary `git remote add origin URL` fails with "remote origin already
+    exists". tools/bootstrap.sh had carried the same guard since 2026-09-14;
+    the freshness guard did not. The positive control keeps the widening
+    itself: a single-branch clone must still be widened."""
+    import tempfile
+    guard = ROOT / 'tools' / 'freshness-guard.sh'
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        env = {k: v for k, v in os.environ.items()
+               if not k.startswith('PRECEDENT_')}
+
+        def run_guard(repo):
+            subprocess.run(['bash', str(guard), 'session-start', 'main'],
+                           cwd=repo, input='', capture_output=True, text=True,
+                           env={**env, 'CLAUDE_PROJECT_DIR': str(repo)},
+                           timeout=120)
+
+        bare_repo = tmp / 'no-origin'
+        fixture_git(tmp, 'init', '-q', '-b', 'main', str(bare_repo))
+        run_guard(bare_repo)
+        remotes = fixture_git(bare_repo, 'config', '--get-regexp',
+                              r'^remote\.', allow_failure=True).stdout.strip()
+        cases.append((f'a repository with no origin gets no remote section '
+                      f'(got {remotes!r})', not remotes))
+        added = fixture_git(bare_repo, 'remote', 'add', 'origin',
+                            str(tmp / 'somewhere.git'), allow_failure=True)
+        cases.append(('`git remote add origin` still works afterwards',
+                      added.returncode == 0))
+
+        up = tmp / 'up'
+        fixture_git(tmp, 'init', '-q', '-b', 'main', str(up))
+        fixture_git(up, 'config', 'user.email', 'harness@example.com')
+        fixture_git(up, 'config', 'user.name', 'Harness')
+        (up / 'f.txt').write_text('x\n')
+        fixture_git(up, 'add', '-A')
+        fixture_git(up, 'commit', '-qm', 'base')
+        narrow = tmp / 'narrow'
+        subprocess.run(['git', 'clone', '-q', '--single-branch', '--branch',
+                        'main', f'file://{up}', str(narrow)],
+                       capture_output=True, text=True)
+        run_guard(narrow)
+        spec = fixture_git(narrow, 'config', '--get-all',
+                           'remote.origin.fetch').stdout
+        cases.append(('a single-branch clone is still widened',
+                      'refs/heads/*' in spec))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the freshness guard writes no origin into a repository without '
+          f'one, and still widens a single-branch clone ({len(cases)} cases)',
+          not failed, '; '.join(failed) if failed else '')
+
+
 def check_public_tree_bakes_in_no_owner_account():
     """No EXECUTABLE tracked file in a `visibility: public` repo carries a
     private owner's account (practice: scrub-gate, source-naming).
@@ -80792,6 +80854,7 @@ def main():
     check_gemini_settings_template_keeps_stdout_clean()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
+    check_freshness_guard_writes_no_origin_into_a_repo_without_one()
     check_branch_name_follows_the_convention()
     check_base_branch_drift_ignores_carried_work()
     check_very_deep_check_never_offers_a_tier_branch_for_deletion()

@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -190,6 +190,7 @@
   "check_freshness_guard_never_tells_a_tier_branch_to_merge": 1.9,
   "check_freshness_guard_user_prompt_never_resets_mid_session": 0.0,
   "check_freshness_guard_waves_through_a_branch_origin_never_saw": 1.6,
+  "check_freshness_guard_writes_no_origin_into_a_repo_without_one": 0.6,
   "check_freshness_quiet_says_when_a_source_is_unverified": 0.2,
   "check_freshness_reads_a_private_source_through_its_clone": 0.0,
   "check_freshness_reads_a_section0_catalogues_own_sync": 0.0,
