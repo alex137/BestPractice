@@ -46386,7 +46386,8 @@ def check_carry_check_never_counts_upstream_deletions():
         _git(d, 'config', 'commit.gpgsign', 'false')
 
     tools = {n: (ROOT / 'tools' / n).read_text(encoding='utf-8')
-             for n in ('checkin.py', 'precedent_time.py')}
+             for n in ('checkin.py', 'precedent_time.py',
+                       'declared_base_branch.py')}
     # Upstream history: A, then B ADDS "gamma", then C DELETES "beta" and
     # "gamma" -- upstream's own deletions -- and adds "delta".
     history = [
@@ -46429,7 +46430,8 @@ def check_carry_check_never_counts_upstream_deletions():
             if vend.exists():
                 _shutil.rmtree(vend)
             (vend / 'tools').mkdir(parents=True)
-            for rel in ('notes.md', 'tools/checkin.py', 'tools/precedent_time.py'):
+            for rel in ('notes.md', 'tools/checkin.py', 'tools/precedent_time.py',
+                        'tools/declared_base_branch.py'):
                 (vend / rel).write_text(_git(clone, 'show', f'{ref}:{rel}').stdout,
                                         encoding='utf-8')
 
