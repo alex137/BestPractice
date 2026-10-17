@@ -40,10 +40,15 @@ already on disk, the bootstrap and the session check report both and touch
 neither: carry any work out of one into the other, remove the emptied one,
 and re-run the bootstrap, which links its path instead of cloning again.
 
-**A shared set is the other way round:** its clone lives at the path the
-repo's `precedent.json` resolves (`../<name>`, beside the repo). If that path
-already holds a working clone — `git -C <path> rev-parse HEAD` succeeds —
-use it. If not, clone it there, and do so even when the attach tool attached
+**A shared set is the other way round:** its clone lives at the path
+`python3 tools/precedent_resolve.py --declared-paths` prints for it --
+`../<name>` beside the repo for a set the repo declares, and beside the
+individual set for one the person brings. If that path already holds a
+working clone — `git -C <path> rev-parse HEAD` succeeds — use it; where the
+attach tool's reply names another path, link that path to it (`ln -s`)
+rather than following the reply's clone command (2026-10-17: a session
+cloned a brought set beside the repo while session start had it beside the
+individual set, and the two copies diverged). If not, clone it there, and do so even when the attach tool attached
 nothing, which is what it does for a public set. **The one exception is a
 deleted set** (listed in `tools/deleted_sets.json` or in your individual
 set's `deleted_sets`): it is never cloned, by session start or by hand, and

@@ -13365,10 +13365,30 @@ def _finding_key(f):
     return _LINE_NO_RE.sub('', str(f)).strip()
 
 
+def _findings_in_output(stdout, slug):
+    """-> the finding keys `slug` printed in a precedent_check run's output,
+    or None when that run could not judge it (skipped, errored).
+
+    An advisory check prints its findings under ADVISORY, never VIOLATION:
+    reading only the latter made every advisory finding look new, and "this
+    push caused them" named findings no push had touched (2026-10-17). A
+    check the earlier tree could not run says nothing about before, so none
+    of its findings is held against the push."""
+    m = re.search(rf'^(?:VIOLATION|ADVISORY)\s+{re.escape(slug)}(?=\s)', stdout, re.M)
+    if m is None and re.search(rf'^(?:SKIPPED|ERRORED)\s+{re.escape(slug)}(?=\s)',
+                               stdout, re.M):
+        return None
+    lines = (stdout[m.end():].split('  the rule:', 1)[0].splitlines()
+             if m else [])
+    return {_LINE_NO_RE.sub('', l).strip() for l in lines
+            if l.startswith('    ') and l.strip()}
+
+
 def _findings_before(rng, slugs):
-    """-> {slug: {finding key}} for each check in `slugs`, run with this
-    commit's rules on the tree at the start of `rng` (A...B or A..B), or
-    None when that tree could not be laid out."""
+    """-> {slug: {finding key} or None} for each check in `slugs`, run with
+    this commit's rules on the tree at the start of `rng` (A...B or A..B),
+    None for a check that tree could not run; or None when that tree could
+    not be laid out."""
     import shutil
     import tempfile
     start = rng.split('...')[0] if '...' in rng else rng.split('..')[0]
@@ -13395,11 +13415,7 @@ def _findings_before(rng, slugs):
             r = subprocess.run([sys.executable, str(here), '--only', slug,
                                 '--full-sweep'], cwd=str(wt),
                                capture_output=True, text=True, timeout=300)
-            block = r.stdout.split(f'VIOLATION  {slug}', 1)
-            lines = (block[1].split('  the rule:', 1)[0].splitlines()
-                     if len(block) == 2 else [])
-            out[slug] = {_LINE_NO_RE.sub('', l).strip() for l in lines
-                         if l.startswith('    ') and l.strip()}
+            out[slug] = _findings_in_output(r.stdout, slug)
         return out
     except (OSError, subprocess.TimeoutExpired, ValueError):
         return None
@@ -13436,8 +13452,10 @@ def _caused_by_this_push(results, in_change, gone_in_change, rng):
     before = _findings_before(rng, sorted(outside))
     if before is None:
         return {}
-    return {slug: keys - before.get(slug, set())
-            for slug, keys in outside.items() if keys - before.get(slug, set())}
+    return {slug: keys - (before.get(slug) or set())
+            for slug, keys in outside.items()
+            if before.get(slug, set()) is not None
+            and keys - (before.get(slug) or set())}
 
 
 def _removed_files():
