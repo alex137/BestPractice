@@ -77,7 +77,7 @@ NO PREFIX (Morgan, 2026-10-07, strength: decided: "many of your temp github
 eliminate that prefix"). Until then a name began `claude/` under Claude Code
 and `session/` elsewhere, on the theory that a harness might only let a
 session push to its own prefix. Claude Code's cloud harness does not: a
-Promote has pushed `to-main-DATE`, `pre-staging` and `staging` from it all
+Promote has pushed `to-main-DATE` and `staging` from it all
 along. The date leads, so a branch list sorts by day. --prefix still adds
 one, for a harness that does restrict pushes.
 

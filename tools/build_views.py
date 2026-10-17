@@ -1104,7 +1104,7 @@ def over_long_index_clauses(practices, root):
     word. The limit was a constant here and a sentence in
     spec/PRACTICE_FORMAT.md, and nothing put it in front of the writer at
     the moment of writing. Only verify_harness.py compared the two, and a
-    push to pre-staging does not run it, so the next session to run the full
+    quick-check push does not run it, so the next session to run the full
     check inherited the failure. A model cannot count characters by eye
     either, so the limit has to be measured by the tool the writer already
     runs (practice: checkable-gets-checked).
@@ -2422,8 +2422,8 @@ BUDGETS_NOT_VERIFIED = 'build_views --budgets NOT VERIFIED'
 
 
 def _over_cap_warning(msg):
-    """Say that a loader cap is exceeded, and that it is allowed onto
-    pre-staging but not staging (see render_agents_md)."""
+    """Say that a loader cap is exceeded, and that the quick check lets it
+    through but the full check does not (see render_agents_md)."""
     print(f"build_views WARNING: {msg} Written anyway: the quick check lets "
           f"it through, but the full check refuses it (loader-within-caps), "
           f"so bring it under the cap before it goes further. Tell the "
@@ -2449,15 +2449,11 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
     # always this engine's own ROOT: `--repo DIR` renders another repo's
     # AGENTS.md, and a resident Rule's sibling citation has to be repointed
     # for that repo's root, not this one's.
-    # OVER A CAP, THE BLOCK IS STILL WRITTEN, with a warning (Morgan,
-    # 2026-09-30, strength: decided: "remove that limit for pre-staging and
-    # instead just have it give the session user a warning, including
-    # telling the user that it needs to be fixed before it can get onto
-    # staging; but no change for the rules for staging"). This used to exit
-    # here, so the block could not be regenerated, and the pre-staging
-    # check then refused the push as "views not regenerated": branch after
-    # branch stopped short of pre-staging on the same cap. The refusal now
-    # belongs to the full check, which runs at the Debut: its
+    # OVER A CAP, THE BLOCK IS STILL WRITTEN, with a warning that tells the
+    # person it must be fixed before it goes further (Morgan, 2026-09-30,
+    # strength: decided). This used to exit here, so the block could not be
+    # regenerated, and the quick check then refused the push as "views not
+    # regenerated". The refusal belongs to the full check: its
     # loader-within-caps check runs `build_views.py --budgets`, which is
     # the one caller still stopped here (STRICT_BUDGETS).
     resident_budget = None

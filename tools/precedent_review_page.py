@@ -7,8 +7,8 @@ Writes one self-contained HTML page with two lists, for the person who asked
 for the check:
 
   1. Branches they can delete: every remote branch, in this checkout and in
-     every practice source it resolves, whose work is already on `main`,
-     `staging` or `pre-staging` (or whose commits cancel out), each with a
+     every practice source it resolves, whose work is already on `main`
+     or `staging` (or whose commits cancel out), each with a
      link that opens GitHub's branch list filtered to it. Rows a session
      recommends deleting for another reason come from --recommend.
   2. Every active practice, by source: universal first, then this repo's
@@ -73,12 +73,12 @@ DEFAULT_OUT = pathlib.Path('.precedent') / 'very-deep-check-review.html'
 # Never offered for deletion: the tiers, staging's old name, and the two
 # branches Promote and the push-check receipts live on
 # (practice: branch-delete-links, "Never a tier branch").
-KEEP = {'HEAD', 'main', 'staging', 'pre-staging', 'precedent-beta-v01',
+KEEP = {'HEAD', 'main', 'staging', 'precedent-beta-v01',
         'precedent-promote-lock', 'precedent-check-receipts'}
 # Any data- branch is a live record, never finished work (2026-10-11,
 # precedent_data_branches.py).
 DATA_PREFIX = 'data-'
-BASES = ('main', 'staging', 'pre-staging')
+BASES = ('main', 'staging')
 LEVEL_ORDER = {'universal': 0, 'repo-local': 1, 'individual': 2, 'shared': 3}
 LEVEL_LABEL = {'universal': 'Universal', 'repo-local': 'This repo only',
                'individual': 'Individual', 'shared': 'Shared'}

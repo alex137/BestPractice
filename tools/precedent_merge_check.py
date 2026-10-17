@@ -248,9 +248,9 @@ def choose_bases(declared_base, tip_bases):
 
     The base GitHub declares, when it could be read. Only without it, every
     branch whose tip is the test merge's first parent, whose strictest
-    decides. 2026-09-28: an update had just made pre-staging and staging at
-    main's commit, so a pull request into pre-staging matched all three by
-    tip, and the merge gate announced "main is a fully checked branch" --
+    decides. 2026-09-28: an update had just put staging at main's commit,
+    so a pull request into staging matched both by tip, and the merge gate
+    announced "main is a fully checked branch" --
     while the same call that reads the pull request's head had returned its
     real base all along, unread."""
     return [declared_base] if declared_base else list(tip_bases)
@@ -443,7 +443,7 @@ def landed(argv, pb, search):
             print(f'precedent_merge_check: the merge commit {sha[:12]} of pull '
                   f'request #{number} could not be fetched, so it was NOT checked.')
             return 2
-        full = pb.full_branches(root) if pb else {'main', 'staging'}
+        full = set(pb.tier_branches(root)) if pb else {'main', 'staging'}
         if not base:
             # Without GitHub's word: the fully checked branch at the merge,
             # else one whose history holds it (it may have moved on since).
@@ -630,9 +630,8 @@ def main(argv):
         hold = getattr(pb, 'hold_for_landing', None) if pb else None
         # Only where the tiers exist: a repository that never promotes has
         # no lock, and must not grow a branch because a merge was checked.
-        # (A pre-staging branch on origin was the sign until it retired.)
         if hold and tier == 'full' and bases \
-                and set(bases) & set(pb.full_branches(root)) \
+                and set(bases) & set(pb.tier_branches(root)) \
                 and pb.repo_has_tiers(root):
             state, info = hold(root, f'landing pull request #{number} into {base}')
             if state == 'busy':

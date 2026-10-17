@@ -852,8 +852,7 @@ def _unlinked_outside_generated(dest, lint_out):
 
 
 def _tiers(dest):
-    """Give the new repository staging on origin when it can (pre-staging
-    too until 2026-10-14, when it was retired for everyone)
+    """Give the new repository staging on origin when it can
     (Morgan, 2026-09-27: these branches are essential to the process, so a
     missing one is made, never only reported). A repository installed before
     it has an origin, or before origin has its main, gets them from its first

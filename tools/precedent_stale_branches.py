@@ -19,11 +19,8 @@ changed nothing). NEVER LISTED, whatever their state: `main`, `staging`,
 staging's old name `precedent-beta-v01`, and the engine's own
 branches (`precedent-check-receipts`, `precedent-promote-lock`) and any
 branch starting `data-`, the ladder's name for a live record
-(precedent_data_branches.py, 2026-10-11) -- Morgan,
-2026-10-05: "(And never pre-staging or staging)". Pre-staging has since
-retired, and since 2026-10-17 a branch still called that is an ordinary
-branch, listed like any other once main has it (Morgan: "WE SHOULD DELETE
-PRE-STAGING EVERYWHERE"). Staging and main are never listed, for anyone. ONE
+(precedent_data_branches.py, 2026-10-11). Staging and main are never
+listed, for anyone (Morgan, 2026-10-05). ONE
 EXCEPTION, 2026-10-13: an engine branch's old name is listed once its `data-`
 copy is on origin and holds the old branch's whole history. The engine then
 reads only the `data-` one, and the old name is checked for nothing but a

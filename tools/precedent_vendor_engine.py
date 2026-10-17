@@ -321,8 +321,7 @@ def find_source_clones(near):
 # a consumer session: "Let's do option 2" -- the per-repo choice, offered
 # because a change took about 25 minutes to reach main and only a few to
 # reach staging (strength: decided). Staging has passed every local check
-# and lacks only GitHub's clean-environment test; pre-staging has had
-# seconds of checking, so it is not on the list. Nothing else changes for
+# and lacks only GitHub's clean-environment test. Nothing else changes for
 # a repo that names nothing: it follows main, as decided 2026-09-25.
 # spec/BRANCH_TIERS_PLAN.md, "Installs take their updates from main".
 UPSTREAM_BRANCH_KEY = 'upstream_branch'
@@ -919,8 +918,8 @@ ENGINE_FILES = [
     # get; push-check-gate.sh runs it before a session's `git push`. Every
     # kind needs it, and it reads its own kind back from ENGINE_MANIFEST.json.
     'precedent_push_check.py',
-    # The three branch tiers (spec/BRANCH_TIERS_PLAN.md, 2026-09-25): which
-    # branch is pre-staging, staging and main in this repository, and which
+    # The branch tiers (spec/BRANCH_TIERS_PLAN.md, 2026-09-25): which
+    # branch is staging and main in this repository, and which
     # tier of the push check a push to each one gets. precedent_push_check.py
     # asks it whenever the push gate names the push; every kind pushes.
     'precedent_branches.py',

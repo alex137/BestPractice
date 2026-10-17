@@ -1137,13 +1137,10 @@ def _github_slug(repo_dir):
 # still pinned to it take their update from it) and Promote's lock branch.
 # Spelled out here as well as read from precedent_branches.py, so the
 # guarantee holds even where that import fails. Morgan, 2026-09-28 (strength:
-# decided): "it needs to never never offer to delete pre-staging nor staging."
+# decided): it must "never never offer to delete ... staging."
 # Why it bites at all: every Promote fast-forwards the lower tiers, so an
-# ancestor test calls pre-staging and precedent-beta-v01 "merged" right after
+# ancestor test calls staging and precedent-beta-v01 "merged" right after
 # one -- and staging itself was deleted from a merge page on 2026-09-26.
-# Pre-staging left this list on 2026-10-17: it retired, and a branch still
-# called that is an ordinary branch (Morgan: "WE SHOULD DELETE PRE-STAGING
-# EVERYWHERE"). Staging and main stay here for everyone.
 NEVER_DELETE_BRANCHES = frozenset({
     'main', 'master', 'staging', 'precedent-beta-v01',
     'precedent-promote-lock', 'precedent-check-receipts',
@@ -5846,7 +5843,7 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     # (main) sitting around -- never report it as a deletion candidate just
     # because it happens not to be an ancestor of the *other* protected
     # branch.
-    # Every tier branch too (pre-staging, staging, its old name, main) and
+    # Every tier branch too (staging, its old name, main) and
     # Promote's lock: an ancestor test calls each of them "merged" right
     # after a Promote, and none may ever be offered for deletion
     # (NEVER_DELETE_BRANCHES).
@@ -6267,41 +6264,24 @@ def tier_pairs(repo_dir, target=None):
     """-> {'drift': [(lower, upper), ...], 'endgame': [(lower, upper), ...]}
     for the branch tiers origin actually carries here.
 
-    Until 2026-09-28 the drift scan and the endgame rehearsal each asked
-    about ONE pair: the declared base branch against the default one
-    (staging against main). Work now lands on pre-staging and reaches
-    staging and main only by Promote (spec/BRANCH_TIERS_PLAN.md), so the
-    questions a run owes are one tier wider:
+    Work lands on staging and reaches main only by Promote
+    (spec/BRANCH_TIERS_PLAN.md), so a run asks:
 
       drift   -- what an upper tier carries that a lower one never took:
-                 staging -> pre-staging, main -> pre-staging, main -> staging.
-                 The first two are what precedent_branches.py --drift and a
-                 Promote's own sync copy down; a run lists them before the
-                 Promote rather than after.
-      endgame -- each merge a Promote actually makes: pre-staging into
-                 staging, staging into main. The silent-drop check is as
-                 true of the first as of the second, and the first is the one
-                 that happens every day.
+                 main -> staging.
+      endgame -- each merge a Promote actually makes: staging into main.
 
-    A pair is listed only when both branches exist on origin (a repo with no
-    pre-staging has the old single pair and nothing else), never twice, and
-    never a branch against itself. A pre-staging retired for this person
-    (precedent_branches.pre_staging_unused) is in no pair: it is a branch
-    awaiting deletion, not a tier. `target` overrides the declared base, as
-    the --target flag always has."""
+    A pair is listed only when both branches exist on origin, never twice,
+    and never a branch against itself. `target` overrides the declared
+    base, as the --target flag always has."""
     repo_dir = pathlib.Path(repo_dir)
     default = _default_remote_branch(repo_dir)
     declared = target or _declared_base_branch(repo_dir)
     try:
         import precedent_branches as _pb
         staging = _pb.staging_branch(repo_dir)
-        # Pre-staging retired for everyone (2026-10-14; its code deleted
-        # 2026-10-17): a branch still named that is awaiting deletion, not a
-        # tier, so it is in no pair. Listing it told the 2026-10-11 run to
-        # bring 66 commits down into such a branch.
-        pre = None
     except Exception:                                            # noqa: BLE001
-        staging, pre = declared, None
+        staging = declared
     main = default or 'main'
 
     def _on_origin(b):
@@ -6323,7 +6303,7 @@ def tier_pairs(repo_dir, target=None):
 
     # The tiered chain first, in the order a Promote walks it -- only for a
     # person on the ladder: anyone else has no tiers, and a pass naming
-    # pre-staging and staging would be the ladder's words in their audit
+    # staging would be the ladder's words in their audit
     # (spec/LADDER_OPT_IN_PLAN.md D4).
     try:
         import precedent_ladder as _pl
@@ -6331,10 +6311,7 @@ def tier_pairs(repo_dir, target=None):
     except Exception:                                            # noqa: BLE001
         _tiers = True
     if _tiers:
-        _add(drift, pre, staging)
-        _add(drift, pre, main)
         _add(drift, staging, main)
-        _add(endgame, pre, staging)
         _add(endgame, staging, main)
     # The pair every earlier run asked about, when the declared base is not
     # one of the tiers above (a repo pinned to some other integration branch).
@@ -7704,7 +7681,7 @@ def _live_vs_landing(repo_dir, live='main'):
     actually running, which is `main`, and changes it only by the ordinary
     route -- a working branch landed on the person's landing branch by
     `Go update`, then a Promote. Until then a run read whatever the harness
-    had checked out: `main` in one repo and `pre-staging` in four others,
+    had checked out: `main` in one repo and a lower tier in four others,
     the same afternoon, with nothing saying so.
 
     The landing branch half exists because reading `main` alone would
@@ -8869,10 +8846,7 @@ STAGES_EMBED = 'checks-by-stage'
 # when its check runs, where the move goes). 'before': the move runs it
 # before it pushes or merges, so only the quick tier may run there.
 # 'asked': a route taken only on the person's own words. 'after': a check of
-# work already on the branch. 'moves-nothing': the Debut. 'retired': a route
-# of pre-staging, retired for everyone 2026-10-14 (spec/
-# PRE_STAGING_RETIREMENT_PLAN.md), whose code waits to be deleted.
-_PRE_STAGING_ITEM = 'todo/todo-2026-10-14-delete-pre-staging-code.md'
+# work already on the branch. 'moves-nothing': the Debut.
 STAGE_ROUTES = {
     '_land_composed': ('Booked: the land onto staging', 'before', 'staging'),
     '_promote_to_main_fast': ('Produce: the fast move into main (the default)',
@@ -9033,13 +9007,6 @@ def stage_checks(tree):
                                          f'-- add it to STAGE_ROUTES in '
                                          f'tools/very_deep_check.py, saying '
                                          f'whether it runs before a push'))
-                    elif when == 'retired':
-                        findings.append(('RETIRED', f'{move} is pre-staging '
-                                         f'code still present (precedent_'
-                                         f'branches.py:{node.lineno}, {fn.name})'
-                                         f' -- pre-staging was retired '
-                                         f'2026-10-14; delete it as '
-                                         f'{_PRE_STAGING_ITEM} says'))
                     elif when == 'before' and tier != 'basic' and dest in (
                             'staging', 'main'):
                         findings.append(('VIOLATION', f'{move} runs the {tier} '
@@ -9309,8 +9276,7 @@ def checks_by_stage_section(targets, repo_root):
         for line in _stage_lines(name, r):
             print(line)
         print()
-    n = sum(1 for _n, r in results for lvl, _t in r.get('findings') or []
-            if lvl != 'RETIRED')
+    n = sum(len(r.get('findings') or []) for _n, r in results)
     if n:
         print(f'  {n} finding(s). Fix each in this pass: move the check to the '
               f'full tier, or change the move so it runs the quick tier '
@@ -10239,8 +10205,8 @@ def _main(box):
             activity[f"{s_['level']} source {s_['name']}"] = recent_activity(
                 s_['path'], _win)
 
-    # One entry per tier pair (tier_pairs): pre-staging -> staging -> main
-    # where the tiers exist, else the single declared-base pair as before.
+    # One entry per tier pair (tier_pairs): staging -> main where the tiers
+    # exist, else the single declared-base pair.
     _pairs = (tier_pairs(repo_root, checkout_target)
               if not (skip_endgame and skip_base_drift)
               else {'drift': [], 'endgame': []})
