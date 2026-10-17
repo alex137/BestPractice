@@ -31936,6 +31936,24 @@ print(repr(pb._resolve_by_regenerating({str(r)!r}, say=lambda *a: None)))
                       and 'output/book-2099-01-01.docx' in staged
                       and 'conflict markers' not in str(got), f'{got} {staged} {err[-300:]}'))
 
+        # --- the harness timing list: both sides' times kept -------------
+        tj = lambda secs, note: json.dumps({'measured': note, 'seconds': secs},
+                                           indent=1) + '\n'
+        r, conflicted = repo('times', {'tools/harness_check_times.json':
+                                       tj({'check_a': 1.0}, 'base')},
+                             ours={'tools/harness_check_times.json':
+                                   tj({'check_a': 1.0, 'check_b': 2.0}, 'base; ours')},
+                             theirs={'tools/harness_check_times.json':
+                                     tj({'check_a': 1.0, 'check_c': 3.0}, 'base; theirs')})
+        got, err = resolve(r)
+        merged = json.loads((r / 'tools' / 'harness_check_times.json')
+                            .read_text(encoding='utf-8'))
+        cases.append(('a conflicted harness timing list keeps both sides\' times',
+                      conflicted and got is not None and got[0] is True
+                      and set(merged['seconds']) == {'check_a', 'check_b', 'check_c'}
+                      and 'ours' in merged['measured'] and 'theirs' in merged['measured'],
+                      f'{got} {merged} {err[-300:]}'))
+
         # --- a declared rebuild that fails says so -----------------------
         r, conflicted = repo('failing', {'output/book.docx': b'PK\x03\x04\x85base',
                                          'precedent.json': decl,
@@ -37800,6 +37818,114 @@ def check_caused_by_this_push_reads_advisory_findings():
          pc._findings_in_output(other, 'zz-slug') == set()),
     ]
     bad = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_a_land_rebuilds_dated_outputs_two_days_left():
+    """Two branches that rebuilt a dated document on different days merge
+    without a conflict and leave two copies; the land rebuilds the declared
+    output over the composed tree and keeps one (2026-10-17). The control:
+    a land that touched no declared output rebuilds nothing.
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    name = 'a land leaves one dated copy of a declared output, not two'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dated-land-'))
+    cases = []
+    try:
+        r = tmp / 'r'
+        fixture_git(tmp, 'init', '-q', '-b', 'main', str(r))
+        fixture_git(r, 'config', 'user.email', 'fixture@example.com')
+        fixture_git(r, 'config', 'user.name', 'fixture')
+        (r / 'tools').mkdir()
+        (r / 'output').mkdir()
+        (r / 'tools' / 'build_book.py').write_text(
+            "import pathlib\n"
+            "for f in pathlib.Path('output').glob('*.docx'):\n"
+            "    f.unlink()\n"
+            "pathlib.Path('output/book-2099-01-01.docx').write_bytes(b'built')\n",
+            encoding='utf-8')
+        (r / 'precedent.json').write_text(json.dumps({'generated': [{
+            'paths': ['output/*.docx'], 'rebuild': ['tools/build_book.py']}]}),
+            encoding='utf-8')
+        (r / 'output' / 'book-2026-10-15.docx').write_bytes(b'older')
+        (r / 'notes.md').write_text('x\n', encoding='utf-8')
+        fixture_git(r, 'add', '-A')
+        fixture_git(r, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'base')
+        start = fixture_git(r, 'rev-parse', 'HEAD').stdout.strip()
+        (r / 'notes.md').write_text('y\n', encoding='utf-8')
+        fixture_git(r, '-c', 'core.hooksPath=/dev/null', 'commit', '-qam', 'prose only')
+        got = pb._commit_declared_rebuilt(r, r, start, say=lambda *a: None)
+        cases.append(('control: a land that touched no declared output rebuilds '
+                      'nothing', got == [], str(got)))
+        start = fixture_git(r, 'rev-parse', 'HEAD').stdout.strip()
+        (r / 'output' / 'book-2026-10-16.docx').write_bytes(b'one day')
+        (r / 'output' / 'book-2026-10-17.docx').write_bytes(b'the next')
+        fixture_git(r, 'add', '-A')
+        fixture_git(r, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm',
+                    'two branches, two days, merged')
+        got = pb._commit_declared_rebuilt(r, r, start, say=lambda *a: None)
+        tree = sorted(fixture_git(r, 'ls-tree', '-r', '--name-only', 'HEAD',
+                                  'output').stdout.split())
+        cases.append(('the composed tree keeps one copy, the rebuilt one',
+                      tree == ['output/book-2099-01-01.docx'], f'{tree} {got}'))
+    except FixtureSetupError as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_container_check_sees_other_local_branches():
+    """Work on a local branch that is not checked out is work only here; a
+    branch holding nothing but session start's engine refresh is engine
+    output the next refresh writes again (2026-10-17: a set's clone held
+    three such branches and the check, reading HEAD alone, saw none).
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_container_safe as pcs
+    name = 'the container check sees work on branches that are not checked out'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-other-branches-'))
+    cases = []
+    try:
+        seed, origin, clone = tmp / 'seed', tmp / 'origin.git', tmp / 'clone'
+        fixture_git(tmp, 'init', '-q', '-b', 'main', str(seed))
+        for d in (seed,):
+            fixture_git(d, 'config', 'user.email', 'fixture@example.com')
+            fixture_git(d, 'config', 'user.name', 'fixture')
+        (seed / 'a.txt').write_text('a\n', encoding='utf-8')
+        fixture_git(seed, 'add', '-A')
+        fixture_git(seed, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'base')
+        fixture_git(tmp, 'clone', '-q', '--bare', str(seed), str(origin))
+        fixture_git(tmp, 'clone', '-q', str(origin), str(clone))
+        fixture_git(clone, 'config', 'user.email', 'fixture@example.com')
+        fixture_git(clone, 'config', 'user.name', 'fixture')
+
+        def branch_with(name_, subject):
+            fixture_git(clone, 'checkout', '-q', '-b', name_)
+            (clone / f'{name_}.txt').write_text('x\n', encoding='utf-8')
+            fixture_git(clone, 'add', '-A')
+            fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', subject)
+            fixture_git(clone, 'checkout', '-q', 'main')
+        branch_with('2026-10-17-x-engine-refresh-abcd1234-zz',
+                    'Refresh the vendored engine to BestPractice abcd1234ef56')
+        got = pcs.scan_one(clone)
+        cases.append(('a branch holding only an engine refresh is not work at risk',
+                      not any('other local branches' in u for u in got['unsafe']),
+                      str(got['unsafe'])))
+        branch_with('half-done', 'real work, never pushed')
+        got = pcs.scan_one(clone)
+        cases.append(('a branch with real unpushed work is named',
+                      any('other local branches no remote has: half-done (1)' in u
+                          for u in got['unsafe']), str(got['unsafe'])))
+    except FixtureSetupError as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
@@ -81976,6 +82102,8 @@ def main():
     check_for_change_adds_what_the_reach_ledger_picks()
     check_changed_files_runs_the_harness_tests_a_change_reaches()
     check_quick_tier_is_closed()
+    check_a_land_rebuilds_dated_outputs_two_days_left()
+    check_container_check_sees_other_local_branches()
     check_caused_by_this_push_reads_advisory_findings()
     check_push_check_list_is_never_refused()
     check_a_pushed_branch_in_a_shallow_clone_is_safe()

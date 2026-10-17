@@ -2447,6 +2447,35 @@ def _generator_of(wt, rel):
     return None
 
 
+TIMES_FILE = 'tools/harness_check_times.json'
+
+
+def _merge_times_file(wt):
+    """Write the union of both sides of a conflicted harness timing list
+    into worktree `wt`. -> True when written, False when either side does
+    not read as one (then it stops like any other conflict)."""
+    def side(n):
+        r = subprocess.run(['git', '-C', str(wt), 'show', f':{n}:{TIMES_FILE}'],
+                           capture_output=True, text=True)
+        try:
+            d = json.loads(r.stdout) if r.returncode == 0 else None
+        except ValueError:
+            return None
+        return d if isinstance(d, dict) and isinstance(d.get('seconds'), dict) else None
+    ours, theirs = side(2), side(3)
+    if ours is None or theirs is None:
+        return False
+    merged = dict(theirs)
+    merged['seconds'] = dict(sorted({**theirs['seconds'], **ours['seconds']}.items()))
+    notes = [str(theirs.get('measured') or '')]
+    notes += [n for n in str(ours.get('measured') or '').split('; ')
+              if n and n not in notes[0]]
+    merged['measured'] = '; '.join(x for x in notes if x)
+    (pathlib.Path(wt) / TIMES_FILE).write_text(
+        json.dumps(merged, indent=1) + '\n', encoding='utf-8')
+    return True
+
+
 HAND_WRITTEN = 'the same lines of hand-written text changed on both sides'
 
 
@@ -2458,6 +2487,14 @@ def _resolve_by_regenerating(wt, say):
     a refusal never calls a generated file hand-written."""
     conflicted = [l for l in _run(wt, 'diff', '--name-only', '--diff-filter=U')
                   .stdout.splitlines() if l.strip()]
+    # The harness timing list is a record every session adds to: two that
+    # each add tests conflict on its one "measured" line, every time (twice
+    # on 2026-10-17). Both sides' times are kept, and the notes joined.
+    if TIMES_FILE in conflicted and _merge_times_file(wt):
+        _run(wt, 'add', '--', TIMES_FILE)
+        conflicted.remove(TIMES_FILE)
+        if not conflicted:
+            return True, [TIMES_FILE], ''
     gens = {rel: _generator_of(wt, rel) for rel in conflicted}
     hand = sorted(rel for rel, g in gens.items() if not g)
     if hand or not conflicted:
@@ -4117,13 +4154,63 @@ def _compose_onto(root, wt, staging, first, above, last, say):
         parts.append((branch, tip, f'Bring {branch} into {staging}: {len(commits)} '
                       f'commit(s) made there directly'))
     parts += list(last)
+    start = _git(wt, 'rev-parse', 'HEAD')
     conflict, merged = _compose(root, wt, parts, staging, say)
     rebuilt = []
+    if not conflict and start:
+        rebuilt += _commit_declared_rebuilt(root, wt, start, say)
     if not conflict and above:
         from_above = '; '.join(f'{b}\'s {len(c)} commit(s)' for b, _, c in above)
         rebuilt = _commit_rebuilt(root, wt, say, f'after {from_above} '
                                   f'made directly')
     return conflict, merged, rebuilt
+
+
+def _commit_declared_rebuilt(root, wt, start, say):
+    """Run every output a repository declares under "generated" whose files
+    the composition since `start` touched, stage what it wrote -- dated
+    names, deletions and all -- and commit it. -> the files rebuilt.
+
+    TWO DAYS, TWO COPIES (2026-10-17). A builder that writes dated names
+    (practice: dated-download-names) gives two branches that rebuilt on
+    different days two different files, so their merge never conflicts and
+    keeps both. Rebuilding after the composition leaves one, from the merged
+    sources. Only when the land touched a declared output: a land that
+    changes nothing generated rebuilds nothing."""
+    declared = _declared_generated(wt)
+    if not declared:
+        return []
+    touched = [l for l in (_git(wt, 'diff', '--name-only', f'{start}..HEAD') or '')
+               .splitlines() if l]
+    globs = []
+    for pats, argv in declared:
+        if not any(fnmatch.fnmatchcase(t, g) for t in touched for g in pats):
+            continue
+        if not (pathlib.Path(wt) / argv[0]).is_file():
+            continue
+        r = subprocess.run([sys.executable, *argv], cwd=str(wt),
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            say(f'NOTE: {" ".join(argv)} could not rebuild its declared output '
+                f'over the composed tree, so it was left as merged and the full '
+                f'check judges it: {(r.stdout + r.stderr).strip()[-300:]}')
+            continue
+        globs += pats
+    if not globs:
+        return []
+    paths = set((_git(wt, 'ls-files') or '').splitlines()) | set(
+        (_git(wt, 'ls-files', '--others', '--exclude-standard') or '').splitlines())
+    mine = sorted(p for p in paths if p and any(fnmatch.fnmatchcase(p, g)
+                                                 for g in globs))
+    if mine:
+        _run(wt, 'add', '-A', '--', *mine)
+    changed = [l for l in (_git(wt, 'diff', '--cached', '--name-only') or '')
+               .splitlines() if l]
+    if changed:
+        _run(wt, 'commit', '-q', '-m', 'Rebuild declared generated files over '
+             'the composed tree\n\n' + '\n'.join(changed) + '\n\n'
+             + _session_trailer(), env=_merge_env(root))
+    return changed
 
 
 def _commit_rebuilt(root, wt, say, why):

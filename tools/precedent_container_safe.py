@@ -352,6 +352,31 @@ def scan_one(repo):
         if ok2 and subjects:
             detail['unpushed_head'] = subjects.splitlines()
 
+    # Commits on OTHER local branches no remote can reach (2026-10-17): the
+    # count above reads HEAD alone, so work left on a branch that is not
+    # checked out was invisible. A branch carrying nothing but the engine
+    # refresh session start commits (precedent_refresh_sources) is engine
+    # output the next refresh writes again, and is left out.
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_refresh_sources as _prs
+        regenerable = set(_prs.refresh_only_branches(repo, 'HEAD'))
+    except Exception:                                        # noqa: BLE001
+        regenerable = set()
+    ok_b, heads = _git(repo, 'for-each-ref', '--format=%(refname:short)', 'refs/heads')
+    others = []
+    for b in (heads or '').split() if ok_b else []:
+        if b == branch or b in regenerable:
+            continue
+        fetch_missing_tracking_ref(repo, b)
+        ok_n, n = _git(repo, 'rev-list', '--count', '--no-merges', b, '--not',
+                       '--remotes', 'HEAD')
+        if ok_n and n.isdigit() and int(n) > 0:
+            others.append(f'{b} ({n})')
+    if others:
+        unsafe.append(f'commits on other local branches no remote has: '
+                      + ', '.join(others))
+        detail['other_branches'] = others
     return {'repo': str(repo), 'branch': branch, 'unsafe': unsafe, 'detail': detail}
 
 
