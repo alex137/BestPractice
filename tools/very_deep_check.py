@@ -8741,16 +8741,19 @@ STAGES_EMBED = 'checks-by-stage'
 # when its check runs, where the move goes). 'before': the move runs it
 # before it pushes or merges, so only the quick tier may run there.
 # 'asked': a route taken only on the person's own words. 'after': a check of
-# work already on the branch. 'moves-nothing': the Debut.
+# work already on the branch. 'moves-nothing': the Debut. 'retired': a route
+# of pre-staging, retired for everyone 2026-10-14 (spec/
+# PRE_STAGING_RETIREMENT_PLAN.md), whose code waits to be deleted.
+_PRE_STAGING_ITEM = 'todo/todo-2026-10-14-delete-pre-staging-code.md'
 STAGE_ROUTES = {
     '_land_composed': ('Booked: the land onto staging', 'before', 'staging'),
     '_promote_to_main_fast': ('Produce: the fast move into main (the default)',
                               'before', 'main'),
     '_promote_to_main': ('Produce: the --full route, on the person\'s own words',
                          'asked', 'main'),
-    '_promote_unlocked': ('Promote from pre-staging into staging', 'before',
+    '_promote_unlocked': ('Promote from pre-staging into staging', 'retired',
                           'staging'),
-    'sync_pre_staging': ('Sync into pre-staging', 'before', 'pre-staging'),
+    'sync_pre_staging': ('Sync into pre-staging', 'retired', 'pre-staging'),
     '_check_tier': ('Drift sync: work that reached staging or main from '
                     'above, checked before it is copied down', 'after',
                     'pre-staging'),
@@ -8908,6 +8911,13 @@ def stage_checks(tree):
                                          f'-- add it to STAGE_ROUTES in '
                                          f'tools/very_deep_check.py, saying '
                                          f'whether it runs before a push'))
+                    elif when == 'retired':
+                        findings.append(('RETIRED', f'{move} is pre-staging '
+                                         f'code still present (precedent_'
+                                         f'branches.py:{node.lineno}, {fn.name})'
+                                         f' -- pre-staging was retired '
+                                         f'2026-10-14; delete it as '
+                                         f'{_PRE_STAGING_ITEM} says'))
                     elif when == 'before' and tier != 'basic' and dest in (
                             'staging', 'main'):
                         findings.append(('VIOLATION', f'{move} runs the {tier} '
@@ -8939,12 +8949,14 @@ def stage_checks(tree):
                 tier, why = pb.tier_for_branch(tree, staging)
             finally:
                 pb.lands_on_staging = real
-            gates['for a person who promotes from pre-staging'] = {
+            gates['for a person who still promotes from pre-staging'] = {
                 'tier': tier, 'why': why, 'branch': staging}
             if tier == 'full':
-                findings.append(('VIOLATION', f'for a person who promotes from '
-                                 f'pre-staging, a push to {staging} runs the full '
-                                 f'tier before it goes ({why})'))
+                findings.append(('RETIRED', f'a push to {staging} still runs the '
+                                 f'full tier for a person who does not land on '
+                                 f'it, which only the retired pre-staging route '
+                                 f'left anyone doing ({why}); delete it with the '
+                                 f'pre-staging code ({_PRE_STAGING_ITEM})'))
     staging = pb.staging_branch(tree) if pb is not None and hasattr(
         pb, 'staging_branch') else 'staging'
     return {'kind': kind, 'quick': quick, 'untimed': untimed,
@@ -9191,7 +9203,8 @@ def checks_by_stage_section(targets, repo_root):
         for line in _stage_lines(name, r):
             print(line)
         print()
-    n = sum(len(r.get('findings') or []) for _n, r in results)
+    n = sum(1 for _n, r in results for lvl, _t in r.get('findings') or []
+            if lvl != 'RETIRED')
     if n:
         print(f'  {n} finding(s). Fix each in this pass: move the check to the '
               f'full tier, or change the move so it runs the quick tier '
