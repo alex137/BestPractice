@@ -27,6 +27,16 @@ waiter's own command line contained the text it was searching for. So
 was still running. The same session had already killed its own shell once
 the same way, with `pkill -f` on the same pattern.
 
+**2026-09-28, the first time it was written down** (folded in here on
+2026-10-17 from [its own file](gotcha-2026-09-28-a-wait-loop-on-pgrep-f-finds-itself-and-never-ends.md), now retired). A fix agent in
+a very deep check started two loops,
+`until ! pgrep -f scratchpad/x/runcases.py >/dev/null; do sleep 5; done`,
+to wait for its own test script, then finished its work and reported back.
+Both loops ran for five more hours. Nothing reported it: the container
+check said the container was clean, because it looked only at git
+checkouts. Morgan asked why two tasks were still running, and a look at
+the process list found them.
+
 **2026-10-12, again.** A session stopping a stale recorded harness run with
 `pkill -f "harness_reach.py record"` killed its own shell twice, the second
 time taking an edit in the same command down with it; the edit silently
@@ -43,5 +53,12 @@ Nothing needs to poll.
 its process ID (PID), `cmd & pid=$!`, and use `wait "$pid"` in the same shell, or
 `tail --pid="$pid" -f /dev/null` from another. Never `pgrep -f` or
 `pkill -f` with a pattern that also appears in the command running them.
+
+If a name search is unavoidable, the bracket trick keeps it from matching
+itself: `pgrep -f '[r]uncases.py'`.
+
+**Listed since 2026-09-28**: `tools/precedent_container_safe.py` lists any
+shell the session's agent started that is still running, so a loop like
+this shows up at the next reply gate.
 
 **Refused since 2026-10-01**: the Claude Code hook [`wait-loop-gate.sh`](../templates/harness/claude-code/hooks/wait-loop-gate.sh) stops any command that runs `pgrep -f` or `pkill -f`, and says the above.
