@@ -3466,6 +3466,17 @@ def in_force_nowhere_step(repo, rep, out):
             quiet.append(slug)
             continue
         key = where or slug
+        if 'an individual set' in found:
+            # An individual set comes from a person's own user config; no
+            # repository declares one, so "Declare it in precedent.json" was
+            # advice nobody could take (2026-10-17).
+            rep.ask('IN FORCE NOWHERE',
+                    f'{found} -- it binds nowhere in this repo, and only for '
+                    f'the person whose individual set carries it; no '
+                    f'precedent.json can declare that set. Record that it does '
+                    f'not apply here: "{NOT_IN_FORCE_KEY}": {{"{slug}": "<why>"}}, '
+                    f'or ask for it to come back to universal')
+            continue
         rep.ask('IN FORCE NOWHERE',
                 f'{found} -- it binds nowhere in this repo. Declare '
                 + (f'`{where}`' if where else 'the set it forwards to')

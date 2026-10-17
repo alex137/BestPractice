@@ -72898,7 +72898,9 @@ def check_move_tool_covers_every_direction_and_team_removals():
         cases.append(('the team copy\'s Story line names who approved the removal, and sits '
                       'in ## Story -- not after ## Install, where nothing reads a Story',
                       'removal from `precedent-team-fixture` approved by Fixture Approver'
-                      in story and 'Moved to the individual set' in story
+                      # An individual set is named only as one outside it
+                      # (2026-10-17).
+                      in story and 'Moved to an individual set' in story
                       and src.rstrip().endswith('Nothing to install.'), src[-700:]))
 
         # -- --dedupe-only from a team needs --approved-by at all --
@@ -72922,11 +72924,14 @@ def check_move_tool_covers_every_direction_and_team_removals():
                 '--to', 'individual', '--to-path', str(indiv), '--dedupe-only',
                 '--accept-reach-loss', '--approved-by', 'Owner')
         u = text(uclone / 'practices' / 'zz-out.md')
+        # The universal clone is public: the individual set is named only as
+        # one there (2026-10-17), and still reads back as a withdrawal.
         cases.append(('universal -> individual withdraws with --accept-reach-loss, and the '
-                      'Story line names the set and who approved it',
+                      'Story line says where (an individual set, unnamed) and who approved it',
                       r.returncode == 0 and 'status:      deduplicated' in u
                       and '--accept-reach-loss (approved by Owner)' in u
-                      and 'from the individual set `precedent-individual`' in u,
+                      and 'in force only from an individual set now' in u
+                      and 'precedent-individual' not in u,
                       (r.stdout + r.stderr)[-500:]))
 
         # -- individual -> universal: a draft, given the ## Install it lacked --
@@ -73003,6 +73008,225 @@ def check_move_tool_covers_every_direction_and_team_removals():
     failed = [c for c in cases if not c[1]]
     check(f'tools/precedent_move.py runs the remaining directions and asks a team\'s own '
           f'approver before removing its practice ({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
+def check_move_tool_names_sets_truly_and_keeps_approvals_current():
+    """tools/precedent_move.py names each set as the set declares itself,
+    never names an individual set outside it, keeps every approved_by true
+    after the step that changes it, and says when a move puts a set over
+    its ceiling (2026-10-17 very deep check, findings on the move tool).
+
+    Stated cases, each against the defect it pins:
+      - a set checked out under another directory name is named by its
+        precedent-source.json, in Story and in approval;
+      - after --dedupe-only --accept-reach-loss the set copy's approved_by
+        no longer says a universal copy "stays active";
+      - shared -> individual takes the individual owner's yes (checked
+        against identity.json) and a shared approver's for the removal
+        (--removal-approved-by), and writes no individual set's name into
+        the shared set, its Story or its mentions;
+      - an individual -> universal draft does not name the individual set;
+      - the --dedupe-only after a move into universal rewrites the
+        "pending PR review" approval when git shows the merge, and says
+        what to write when it does not;
+      - "`x` lives in universal, which ..." is named for a person, a link
+        repointed inside "... is the universal copy" is too, and a prose
+        rewrite on a line with no link gets no "its link now points" note;
+      - a move that puts a set over its declared ceiling says so;
+      - a universal rule withdrawn to an individual set is never told to
+        "declare that set"."""
+    import shutil, tempfile
+    import precedent_resolve as pr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-move-names-'))
+    env = _move_fixture_env(tmp)
+    cases = []
+
+    def run(*args):
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_move.py'),
+                            *args], cwd=str(ROOT), capture_output=True, text=True,
+                           env=env)
+        return r, r.stdout + r.stderr
+
+    def text(p):
+        return p.read_text(encoding='utf-8') if p.is_file() else ''
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C',
+                               str(repo), *a], capture_output=True, text=True)
+
+    def commit_all(repo, msg='fixture'):
+        git(repo, 'add', '-A')
+        git(repo, '-c', 'user.email=h@example.com', '-c', 'user.name=h',
+            'commit', '-qm', msg)
+
+    try:
+        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        # The shared set's checkout directory is NOT its name.
+        shared, indiv = tmp / 'shared-two-checkout', tmp / 'zz-person-set'
+        subprocess.run([sys.executable, boot, '--level', 'shared', '--name',
+                        'precedent-shared-real', '--dest', str(shared),
+                        '--approver', 'Fixture Approver:fixture-gh'],
+                       capture_output=True, text=True, env=env)
+        subprocess.run([sys.executable, boot, '--level', 'individual', '--name',
+                        'zz-person-set', '--dest', str(indiv)],
+                       capture_output=True, text=True, env=env)
+        ident = json.loads(text(indiv / 'identity.json') or '{}')
+        ident.update(name='Pat Owner', github='pat-owner')
+        (indiv / 'identity.json').write_text(json.dumps(ident), encoding='utf-8')
+        uclone = tmp / 'BestPractice'
+        (uclone / 'practices').mkdir(parents=True)
+        (uclone / 'docs').mkdir()
+        P = _move_fixture_practice
+        (uclone / 'practices' / 'zz-out.md').write_text(P('zz-out'), encoding='utf-8')
+        (uclone / 'docs' / 'notes.md').write_text(
+            '# Notes\n\n`zz-out` lives in universal, which every consumer '
+            'resolves.\n', encoding='utf-8')
+        (shared / 'practices' / 'zz-down.md').write_text(P('zz-down'), encoding='utf-8')
+        (shared / 'NOTES.md').write_text(
+            '# Notes\n\n'
+            '- `zz-down` (precedent-shared-real) is the rule we pair with.\n\n'
+            '- [zz-out](https://github.com/example/BestPractice/blob/main/'
+            'practices/zz-out.md) is the universal copy we lean on.\n\n'
+            '- `zz-hab` (zz-person-set) is the habit rule this set leans on.\n',
+            encoding='utf-8')
+        (indiv / 'practices' / 'zz-up.md').write_text(P('zz-up'), encoding='utf-8')
+        (indiv / 'practices' / 'zz-hab.md').write_text(P('zz-hab'), encoding='utf-8')
+        for repo in (shared, indiv, uclone):
+            git(repo, 'init', '-q', '-b', 'main')
+            commit_all(repo)
+
+        # -- universal -> shared, then the deliberate withdrawal --
+        r, out = run('--slug', 'zz-out', '--from', 'universal', '--from-path',
+                     str(uclone), '--to', 'shared', '--to-path', str(shared),
+                     '--approved-by', 'Fixture Approver')
+        commit_all(shared)
+        commit_all(uclone)
+        r, out = run('--slug', 'zz-out', '--from', 'universal', '--from-path',
+                     str(uclone), '--to', 'shared', '--to-path', str(shared),
+                     '--dedupe-only', '--accept-reach-loss', '--approved-by',
+                     'Fixture Approver')
+        u, s = text(uclone / 'practices' / 'zz-out.md'), text(shared / 'practices' / 'zz-out.md')
+        cases.append(('a set checked out under another directory is named by its '
+                      'precedent-source.json in the universal Story',
+                      r.returncode == 0 and '`precedent-shared-real`' in u
+                      and 'shared-two-checkout' not in u, out[-600:]))
+        cases.append(('after --dedupe-only --accept-reach-loss the set copy no longer '
+                      'says a universal copy stays active',
+                      'where a copy stays active' not in s
+                      and 'deduplicated there on' in s, s[:900]))
+        cases.append(('"`x` lives in universal, which ..." is named for a person, '
+                      'not passed over', 'could not fix: BestPractice/docs/notes.md:3'
+                      in out, out[-900:]))
+        cases.append(('a link repointed inside "... is the universal copy we lean on" '
+                      'is named for rewording', 'shared-two-checkout/NOTES.md:5' in out
+                      and 'still calls it the universal copy' in out, out[-900:]))
+
+        # -- shared -> individual: two approvals, and no individual name in the shared set --
+        r, out = run('--slug', 'zz-down', '--from', 'shared', '--from-path', str(shared),
+                     '--to', 'individual', '--to-path', str(indiv),
+                     '--approved-by', 'Somebody Else',
+                     '--removal-approved-by', 'Fixture Approver')
+        cases.append(('landing in an individual set by a name its identity.json does '
+                      'not declare is refused', r.returncode == 1
+                      and 'not the owner' in out, out[-500:]))
+        r, out = run('--slug', 'zz-down', '--from', 'shared', '--from-path', str(shared),
+                     '--to', 'individual', '--to-path', str(indiv),
+                     '--approved-by', 'Pat Owner',
+                     '--removal-approved-by', 'Fixture Approver')
+        sd, notes = text(shared / 'practices' / 'zz-down.md'), text(shared / 'NOTES.md')
+        cases.append(('shared -> individual takes the owner for the landing and a '
+                      'shared approver for the removal (--removal-approved-by)',
+                      r.returncode == 0 and 'status:      deduplicated' in sd
+                      and 'removal from `precedent-shared-real` approved by Fixture '
+                      'Approver' in sd, out[-600:]))
+        cases.append(('the shared stub and the shared set\'s mentions never name the '
+                      'individual set', 'zz-person-set' not in sd
+                      and 'Moved to an individual set' in sd
+                      and '`zz-down` (an individual set)' in notes
+                      and 'zz-down` (zz-person-set)' not in notes, sd[-500:] + notes))
+
+        # -- individual -> shared: a prose rewrite with no link gets no link note --
+        r, out = run('--slug', 'zz-hab', '--from', 'individual', '--from-path', str(indiv),
+                     '--to', 'shared', '--to-path', str(shared),
+                     '--approved-by', 'Fixture Approver')
+        cases.append(('a prose rewrite on a line with no link gets no "its link now '
+                      'points" note', r.returncode == 0
+                      and 'NOTES.md:7 -- its link' not in out
+                      and '`zz-hab` (precedent-shared-real)' in text(shared / 'NOTES.md'),
+                      out[-600:]))
+
+        # -- individual -> universal: the draft names no individual set --
+        r, out = run('--slug', 'zz-up', '--from', 'individual', '--from-path', str(indiv),
+                     '--to', 'universal', '--to-path', str(uclone), '--approved-by', 'Pat Owner')
+        d = text(uclone / 'practices' / 'zz-up.md')
+        cases.append(('an individual -> universal draft says "moved from an individual '
+                      'set", never its name', r.returncode == 0
+                      and 'moved from an individual set' in d and 'zz-person-set' not in d,
+                      d[:700]))
+        r, out = run('--slug', 'zz-up', '--from', 'individual', '--from-path', str(indiv),
+                     '--to', 'universal', '--to-path', str(uclone), '--dedupe-only')
+        cases.append(('its --dedupe-only before the merge says the placeholder must be '
+                      'rewritten, and leaves it', r.returncode == 0
+                      and 'still says approved_by "pending PR review"' in out
+                      and 'pending PR review' in text(uclone / 'practices' / 'zz-up.md'),
+                      out[-600:]))
+        # Merged: origin/main has the draft.
+        (indiv / 'practices' / 'zz-up2.md').write_text(P('zz-up2'), encoding='utf-8')
+        run('--slug', 'zz-up2', '--from', 'individual', '--from-path', str(indiv),
+            '--to', 'universal', '--to-path', str(uclone), '--approved-by', 'Pat Owner')
+        bare = tmp / 'origin.git'
+        subprocess.run(['git', 'init', '-q', '--bare', str(bare)], capture_output=True)
+        commit_all(uclone, 'Draft zz-up2 (#41)')
+        git(uclone, 'remote', 'add', 'origin', str(bare))
+        git(uclone, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+        git(uclone, 'fetch', '-q', 'origin')
+        r, out = run('--slug', 'zz-up2', '--from', 'individual', '--from-path', str(indiv),
+                     '--to', 'universal', '--to-path', str(uclone), '--dedupe-only')
+        d2 = text(uclone / 'practices' / 'zz-up2.md')
+        cases.append(('its --dedupe-only after the merge rewrites the placeholder from '
+                      'git', r.returncode == 0 and 'pending PR review' not in d2
+                      and 'merged in PR #41' in d2 and 'drafted' in d2, d2[:800]))
+
+        # -- a move that puts a set over its declared ceiling says so --
+        reg_f = shared / 'tools' / 'session_load_budgets.json'
+        reg = json.loads(text(reg_f) or '{"surfaces": {}}')
+        reg.setdefault('surfaces', {}).setdefault('AGENTS.md', {})['ceiling'] = 10
+        reg_f.write_text(json.dumps(reg), encoding='utf-8')
+        (indiv / 'practices' / 'zz-big.md').write_text(P('zz-big'), encoding='utf-8')
+        r, out = run('--slug', 'zz-big', '--from', 'individual', '--from-path', str(indiv),
+                     '--to', 'shared', '--to-path', str(shared),
+                     '--approved-by', 'Fixture Approver')
+        cases.append(('a move that leaves a set over its declared ceiling warns, naming '
+                      'the set and the ceiling',
+                      'WARNING: precedent-shared-real: AGENTS.md is now' in out
+                      and 'ceiling of 10' in out, out[-600:]))
+
+        # -- withdrawn to an individual set: never "declare that set" --
+        (uclone / 'practices' / 'zz-gone.md').write_text(P('zz-gone'), encoding='utf-8')
+        commit_all(uclone)
+        run('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+            '--to', 'individual', '--to-path', str(indiv), '--approved-by', 'Pat Owner')
+        r, out = run('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+                     '--to', 'individual', '--to-path', str(indiv), '--dedupe-only',
+                     '--accept-reach-loss', '--approved-by', 'Pat Owner')
+        g = text(uclone / 'practices' / 'zz-gone.md')
+        res = pr.resolve([{'level': 'universal', 'name': 'precedent',
+                           'path': str(uclone)}])
+        why = ' '.join(d_.get('why', '') for d_ in res.get('dangling', ())
+                       if d_.get('slug') == 'zz-gone')
+        cases.append(('a universal rule withdrawn to an individual set names no set '
+                      'in the public clone, and is never told to "declare that set"',
+                      r.returncode == 0 and 'zz-person-set' not in g
+                      and 'user config' in why and 'declare that set' not in why,
+                      why or g[-500:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [c for c in cases if not c[1]]
+    check(f'tools/precedent_move.py names sets as they declare themselves, keeps '
+          f'an individual set\'s name inside it, keeps approvals true and warns '
+          f'on a ceiling ({len(cases)} stated cases)', not failed,
           '; '.join(f'{n}: {d}' for n, _ok, d in failed))
 
 
@@ -82810,6 +83034,7 @@ def main():
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
+    check_move_tool_names_sets_truly_and_keeps_approvals_current()
     check_move_withdrawal_from_universal_leaves_universal_green()
     check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix()
     check_bootstrapped_shared_set_carries_current_codeowners()

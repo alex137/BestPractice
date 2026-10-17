@@ -1867,7 +1867,17 @@ def resolve(sources, context=()):
             # -- the rule does not bind here, and whether that is fine is
             # this repo's call.
             gone = withdrawn_from_universal(practice.get('sections'))
-            if gone:
+            if gone and withdrawn_to_level(practice.get('sections')) == 'individual':
+                # An individual set is a person's, from their own user
+                # config: no repository declares one, so "declare that set"
+                # was advice nobody could take (2026-10-17).
+                entry.update(withdrawn_on=gone[0], withdrawn_to=gone[1],
+                             why=(f"withdrawn from universal on {gone[0]}; in "
+                                  f"force only in {set_ref(gone[1])}, which a "
+                                  f"person brings in their own user config -- "
+                                  f"no repository declares it, so only that "
+                                  f"person's sessions get it"))
+            elif gone:
                 entry.update(withdrawn_on=gone[0], withdrawn_to=gone[1],
                              why=(f"withdrawn from universal on {gone[0]}; in "
                                   f"force in `{gone[1]}` -- declare that set "
@@ -1907,9 +1917,13 @@ def resolve(sources, context=()):
 # now." Read back rather than stored as a new frontmatter field: a field
 # would change the practice-file format every set and consumer vendors, and
 # this sentence is already on every such stub.
+# How a file outside an individual set names it: never by its name, which is
+# its owner's (precedent_move.py, 2026-10-17). Read back as the set's "name"
+# by the readers below, so a withdrawal to one still reads as a withdrawal.
+AN_INDIVIDUAL_SET = 'an individual set'
 _WITHDRAWN_RE = re.compile(
     r'Withdrawn from universal on (\d{4}-\d\d-\d\d)\b.*?'
-    r'in force only from the \w+ set `([^`]+)`', re.S)
+    r'in force only from (?:the (\w+) set `([^`]+)`|(an individual set))', re.S)
 
 
 def withdrawn_from_universal(sections):
@@ -1918,7 +1932,27 @@ def withdrawn_from_universal(sections):
     wins, the way the latest Story line is the current record."""
     story = (sections or {}).get('story') or ''
     found = _WITHDRAWN_RE.findall(story)
-    return tuple(found[-1]) if found else None
+    if not found:
+        return None
+    date, _level, name, unnamed = found[-1]
+    return (date, name or unnamed)
+
+
+def set_ref(name):
+    """A set as a sentence names it: `name` in backticks, or 'an individual
+    set' as it stands."""
+    return name if name == AN_INDIVIDUAL_SET else f'`{name}`'
+
+
+def withdrawn_to_level(sections):
+    """-> the level of the set a universal stub's ## Story says the rule was
+    withdrawn to ('individual' for one named only as an individual set), or
+    None."""
+    found = _WITHDRAWN_RE.findall((sections or {}).get('story') or '')
+    if not found:
+        return None
+    _d, level, _n, unnamed = found[-1]
+    return 'individual' if unnamed else normalize_level(level)
 
 
 # The committed record precedent_move.py --withdraw-from-universal keeps of
@@ -1939,22 +1973,25 @@ def withdrawn_from_universal(sections):
 WITHDRAWN_RECORD = 'record/WITHDRAWN_FROM_UNIVERSAL.md'
 _WITHDRAWN_LINE_RE = re.compile(
     r'^- (\d{4}-\d\d-\d\d): `([^`]+)`(?: \([^)\n]*\))? withdrawn from '
-    r'universal\b[^\n]*?(in force only from|kept as history in) the \w+ set '
-    r'`([^`]+)`', re.M)
+    r'universal\b[^\n]*?(in force only from|kept as history in) '
+    r'(?:the \w+ set `([^`]+)`|(an individual set))', re.M)
 _WITHDRAWN_HISTORY = 'kept as history in'
 
 
 def withdrawn_record_line(date, slug, level, name, approved_by, forwarded_to=None):
     """The record line for one withdrawal, newline included: a rule's shape,
     or, with `forwarded_to`, a retired name's. The one writer of the shapes
-    _WITHDRAWN_LINE_RE reads."""
+    _WITHDRAWN_LINE_RE reads. An individual set is named only as one: the
+    record is in the public universal clone."""
+    where = (AN_INDIVIDUAL_SET if normalize_level(level) == 'individual'
+             else f'the {level} set `{name}`')
     if forwarded_to:
         return (f'- {date}: `{slug}` (a retired name that forwarded to '
                 f'`{forwarded_to}`) withdrawn from universal, deliberately; '
-                f'kept as history in the {level} set `{name}`, beside the rule '
+                f'kept as history in {where}, beside the rule '
                 f'it forwards to. Approved by {approved_by}.\n')
     return (f'- {date}: `{slug}` withdrawn from universal, deliberately; in '
-            f'force only from the {level} set `{name}`, for the people who '
+            f'force only from {where}, for the people who '
             f'bring or declare it. Approved by {approved_by}. Its full text '
             f'and Story are there.\n')
 
@@ -1962,8 +1999,9 @@ def withdrawn_record_line(date, slug, level, name, approved_by, forwarded_to=Non
 def withdrawn_record_entries(text):
     """-> [(date, slug, set name, is_history)] for every line of a withdrawal
     record's text that this module can read, in file order."""
-    return [(date, slug, name, how == _WITHDRAWN_HISTORY)
-            for date, slug, how, name in _WITHDRAWN_LINE_RE.findall(text or '')]
+    return [(date, slug, name or unnamed, how == _WITHDRAWN_HISTORY)
+            for date, slug, how, name, unnamed
+            in _WITHDRAWN_LINE_RE.findall(text or '')]
 
 
 def _withdrawn_entries(source_path):

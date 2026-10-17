@@ -6,7 +6,8 @@ precedent_move.py -- move an existing practice from one level to another.
   python3 tools/precedent_move.py --slug SLUG \\
       --from individual|team|universal --from-path PATH \\
       --to individual|team|universal --to-path PATH \\
-      --approved-by NAME [--strength decided|assented] [--story TEXT] [--dry-run]
+      --approved-by NAME [--removal-approved-by NAME]
+      [--strength decided|assented] [--story TEXT] [--dry-run]
       [--dedupe-only [--accept-reach-loss]] [--mentions-only]
       [--withdraw-from-universal]
 
@@ -146,6 +147,7 @@ reason on stderr and nothing written.
 """
 
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -204,6 +206,62 @@ def _check_team_approver(repo, name, removing=False):
     if name not in names:
         raise MoveRefused(f'{name!r} is not in {f} ({sorted(n for n in names if n)}) '
                           f'-- {what} needs a listed approver')
+
+
+# How an individual set is named anywhere outside it: never by its name,
+# which is its owner's (2026-10-17 very deep check: a shared-to-individual
+# mention fix wrote "`slug` (<the individual set's name>)" into the shared
+# set, and an individual-to-universal draft's approved_by named the
+# individual set in the public clone).
+AN_INDIVIDUAL_SET = _pr.AN_INDIVIDUAL_SET
+
+
+def _set_name(path, level=None):
+    """A set's name as its own precedent-source.json declares it, which is
+    the name every consumer declares; the checkout directory's name when it
+    declares none. A set checked out under another directory name had its
+    mentions missed and the directory name written into Story and
+    approved_by (2026-10-17). Universal keeps its checkout name: that is
+    how its own documents name it."""
+    root = pathlib.Path(path).resolve()
+    if _pr.normalize_level(level) != 'universal':
+        try:
+            name = json.loads((root / 'precedent-source.json').read_text(
+                encoding='utf-8')).get('name')
+        except (OSError, ValueError, AttributeError):
+            name = None
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    return root.name
+
+
+def _set_words(level, name, ticks=True):
+    """'the shared set `x`' -- or 'an individual set', for a file outside it."""
+    if _pr.normalize_level(level) == 'individual':
+        return AN_INDIVIDUAL_SET
+    return f'the {level} set `{name}`' if ticks else f'the {level} set {name}'
+
+
+def _check_individual_owner(repo, name):
+    """Landing in an individual set needs its owner's own yes: `name` must be
+    the `name` or `github` its identity.json declares (or the first word of
+    that name). -> a note when the set declares no identity yet, so nothing
+    can be verified; raises MoveRefused on a mismatch."""
+    f = pathlib.Path(repo) / 'identity.json'
+    try:
+        ident = json.loads(f.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        ident = {}
+    owner = [str(ident.get(k) or '').strip() for k in ('name', 'github')]
+    owner = [o for o in owner if o and '{{' not in o]
+    if not owner:
+        return (f'{f} declares no owner yet, so --approved-by {name!r} could '
+                f'not be checked against it')
+    want = {o.lower() for o in owner} | {owner[0].split()[0].lower()}
+    if (name or '').strip().lower() not in want:
+        raise MoveRefused(f'{name!r} is not the owner {f} declares -- landing '
+                          f'in an individual set needs its owner\'s own yes')
+    return None
 
 
 def _universal_citations(clone, slug):
@@ -325,6 +383,68 @@ def _raw_field(text, key):
     elif len(v) >= 2 and v[0] == v[-1] == "'":
         v = v[1:-1].replace("''", "'")
     return '' if v == 'null' else v
+
+
+# What a duplicate move out of universal writes into the set copy's
+# approved_by, and what a later deduplication of the universal copy makes
+# false.
+_STAYS_ACTIVE = ', where a copy stays active'
+_PENDING_RE = re.compile(r'pending PR review -- drafted (\S+) by (.+?), (moved from .+)$')
+
+
+def _settle_pending_approval(dest, universal_path):
+    """-> (new text or None, note) for a universal draft whose approved_by
+    is still the "pending PR review" placeholder, or None when it is not.
+
+    When the universal clone's base branch (or origin/main) already has the
+    file, its pull request has merged: the placeholder is rewritten from git
+    -- the commit that added the file, and the pull request number when its
+    subject or the merge carrying it names one. Otherwise nothing is
+    rewritten and the note says what to write once it merges."""
+    text = dest.read_text(encoding='utf-8')
+    was = _raw_field(text, 'approved_by')
+    if 'pending PR review' not in was:
+        return None
+    rel = f'practices/{dest.name}'
+    repo = pathlib.Path(universal_path).resolve()
+
+    def git(*a):
+        r = subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                           text=True)
+        return r.stdout.strip() if r.returncode == 0 else ''
+
+    try:
+        base = json.loads((repo / 'precedent.json').read_text(
+            encoding='utf-8')).get('base_branch') or ''
+    except (OSError, ValueError):
+        base = ''
+    for ref in dict.fromkeys(r for r in (f'origin/{base}' if base else '',
+                                         'origin/main') if r):
+        added = git('log', '--diff-filter=A', '--format=%h %cs %s', ref, '--', rel)
+        if not added:
+            continue
+        sha, date, subject = (added.splitlines()[-1].split(' ', 2) + ['', ''])[:3]
+        pr_no = re.search(r'#(\d+)', subject)
+        if not pr_no:
+            merge = git('log', '--merges', '--ancestry-path', '--reverse',
+                        '--format=%s', f'{sha}..{ref}').splitlines()
+            pr_no = re.search(r'pull request #(\d+)', merge[0]) if merge else None
+        where = (f'merged in PR #{pr_no.group(1)} on {date}' if pr_no
+                 else f'landed on {ref.split("/", 1)[1]} in {sha} on {date}')
+        m = _PENDING_RE.search(was)
+        head = (f'{m.group(2)}, drafted {m.group(1)}, {m.group(3)}' if m
+                else was.replace('pending PR review', '').strip(' -;'))
+        new = _rewrite_frontmatter(text, {'approved_by': _quoted(f'{head}; {where}')})
+        return new, (f'REWROTE the universal copy\'s "pending PR review" '
+                     f'approved_by from git ({where}). Check it names who '
+                     f'approved it.')
+    return None, (f'THE UNIVERSAL COPY {dest} still says approved_by "pending PR '
+                  f'review", and its pull request has not reached '
+                  f'{("origin/" + base) if base else "origin/main"} here. Once '
+                  f'it merges, rewrite it to "<Name>, drafted <date>, moved '
+                  f'from the <level> set <name>; merged in PR #<n> on <date>": '
+                  f'pending-approval-outlives-its-merge refuses the placeholder '
+                  f'from then on.')
 
 
 def _quoted(s):
@@ -473,9 +593,13 @@ _LIST_ITEM_RE = re.compile(r'^\s*(?:\d+\.|[-*+])\s')
 # A level named AS a place ("the shared set", "universal's", "individual
 # practice") -- not the adjective inside a slug like tabular-shared-renderer,
 # which on the first run of this report was most of what it named.
+# Also a level named as where something is: "`x` lives in universal, which
+# ..." went neither fixed nor named (2026-10-17).
 _LEVEL_WORD_RE = re.compile(
     r"(?<![\w-])(?:individual|team|shared|universal)"
-    r"(?:'s\b|\s+(?:set|level|catalogue|practice|copy|source|rule)s?\b)", re.I)
+    r"(?:'s\b|\s+(?:set|level|catalogue|practice|copy|source|rule)s?\b)"
+    r"|\b(?:in|from|into)\s+(?:the\s+)?(?:individual|team|shared|universal)\b(?![\w-])",
+    re.I)
 
 
 def _mention_repos(from_path, to_path):
@@ -535,7 +659,7 @@ def _vendored(repo):
 
 
 def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
-                  say=print):
+                  say=print, from_level=None):
     """-> {repo root: [relative paths changed]}. Step 3 of the module
     docstring: after a move withdraws the source copy, nothing else in the
     repos in force should go on saying the practice lives there.
@@ -558,22 +682,26 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
     fenced code, and any paragraph that reads as history (_HISTORY_RE)."""
     from_root = pathlib.Path(from_path).resolve()
     to_root = pathlib.Path(to_path).resolve()
-    from_name, to_name = from_root.name, to_root.name
+    # The names precedent-source.json declares, which is what mentions use;
+    # a path or URL may still carry the checkout directory's (2026-10-17).
+    from_name, to_name = _set_name(from_root, from_level), _set_name(to_root, to_level)
+    from_names = sorted({from_name, from_root.name}, key=len, reverse=True)
     old_file = from_root / 'practices' / f'{slug}.md'
     new_file = to_root / 'practices' / f'{slug}.md'
     universal = _universal_url_base() if to_level == 'universal' else None
     slug_re = re.compile(r'(?<![\w-])' + re.escape(slug) + r'(?![\w-])')
-    name_re = re.compile(r'(?<![\w-])' + re.escape(from_name) + r'(?![\w-])')
-    url_re = re.compile(r'https?://github\.com/[^/\s)]+/' + re.escape(from_name)
+    alt = '(?:' + '|'.join(re.escape(n) for n in from_names) + ')'
+    name_re = re.compile(r'(?<![\w-])' + alt + r'(?![\w-])')
+    url_re = re.compile(r'https?://github\.com/[^/\s)]+/' + alt
                         + r'/(?:blob|tree)/[^/\s)]+/practices/' + re.escape(slug)
                         + r'\.md(#[^\s)]*)?')
-    path_re = re.compile(r'(?<![\w.-])((?:[\w.~-]+/)*)' + re.escape(from_name)
+    path_re = re.compile(r'(?<![\w.-])((?:[\w.~-]+/)*)' + alt
                          + r'/practices/' + re.escape(slug) + r'\.md')
     link_re = re.compile(r'(?<!!)\[([^\]]*)\]\(([^)\s]+)\)')
     # Where-it-lives phrasings, the name in group 'n' and nothing else
     # rewritten: "<set>'s `slug`", "`slug` (<set>)", "`slug` in/from <set>",
     # "`slug` is a <set> rule/practice".
-    q, sl, nm = '`?', re.escape(slug), re.escape(from_name)
+    q, sl, nm = '`?', re.escape(slug), alt
     home_re = re.compile(
         r"(?P<a>(?<![\w-]))(?P<n>" + q + nm + q + r")(?P<b>'s " + q + sl + q + r"(?![\w-]))"
         r"|(?P<c>(?<![\w-])" + q + sl + q + r" \()(?P<n2>" + q + nm + q + r")(?P<d>\))"
@@ -581,14 +709,23 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
         r"(?P<n3>" + q + nm + q + r")(?P<f>(?![\w-]))"
         r"|(?P<g>(?<![\w-])" + q + sl + q + r" is an? )(?P<n4>" + q + nm + q + r")"
         r"(?P<h> (?:rule|practice))")
-    to_label = 'universal' if to_level == 'universal' else to_name
     here_re = re.compile(r"\b(?:this|our) (?:repo|repository|set)(?:'s)?\b"
                          r"|\bin here\b", re.I)
+    # After a link is repointed, a sentence calling it the OLD level's copy
+    # ("[x](...) is the universal copy we lean on") is false, and no rewrite
+    # of the link fixes it (2026-10-17).
+    old_level_re = (re.compile(r"\b(?:the\s+)?" + re.escape(from_level)
+                               + r"(?:'s\b|\s+(?:copy|set|rule|practice|catalogue)\b)",
+                               re.I) if from_level and from_level != to_level else None)
     review, unfixed = [], []
+    label = {'to': to_name}
 
     def home_repl(m):
+        to_label = label['to']
+        bare = to_label == AN_INDIVIDUAL_SET
+
         def swap(n):
-            return n.replace(from_name, to_label)
+            return to_label if bare else name_re.sub(to_label, n)
         if m.group('n'):
             if to_level == 'universal':
                 return 'the universal' + m.group('b')[2:]
@@ -596,7 +733,10 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
         if m.group('n2'):
             return m.group('c') + swap(m.group('n2')) + m.group('d')
         if m.group('n3'):
-            return m.group('e') + swap(m.group('n3')) + (m.group('f') or '')
+            e = re.sub(r'the $', '', m.group('e')) if bare else m.group('e')
+            return e + swap(m.group('n3')) + (m.group('f') or '')
+        if bare:
+            return re.sub(r'an? $', '', m.group('g')) + 'an individual-set' + m.group('h')
         return m.group('g') + swap(m.group('n4')) + m.group('h')
 
     changed = {}
@@ -651,6 +791,12 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
             settle(para)
             out, story, dirty = [], False, False
             code = generated_blocks.code_mask(lines)
+            # Outside an individual set, it is named only as one.
+            inside_dest = str(f.resolve()).startswith(str(to_root) + os.sep)
+            label['to'] = ('universal' if to_level == 'universal'
+                           else AN_INDIVIDUAL_SET
+                           if to_level == 'individual' and not inside_dest
+                           else to_name)
             for i, line in enumerate(lines):
                 stripped = line.lstrip()
                 if code[i]:
@@ -688,8 +834,11 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
                 new = link_re.sub(link_repl, new)
                 new = url_re.sub(lambda m: (f'{universal}{slug}.md{m.group(1) or ""}'
                                             if universal else f'`{slug}`'), new)
-                new = path_re.sub(lambda m: f'{m.group(1)}{to_name}/practices/{slug}.md',
-                                  new)
+                new = path_re.sub(
+                    lambda m: (f'`{slug}`' if label['to'] == AN_INDIVIDUAL_SET
+                               else f'{m.group(1)}{to_name}/practices/{slug}.md'),
+                    new)
+                relinked = new != line
                 # Prose only in prose files (a code comment naming a set is
                 # nearly always the story of why the code is shaped so), and
                 # only the phrasings that SAY where the practice lives. A line
@@ -701,10 +850,19 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
                 if new != line:
                     dirty = True
                     # The link is right now; a sentence around it that says
-                    # the practice is HERE is not, and no rewrite of a link
-                    # can fix a sentence. Named for a person to reword.
-                    if here_re.search(new):
-                        review.append(f'{repo.name}/{rel}:{i + 1}')
+                    # the practice is HERE, or calls it the old level's copy,
+                    # is not, and no rewrite of a link can fix a sentence.
+                    # Named for a person to reword -- only when a LINK or
+                    # path moved: a prose rewrite has no link to blame
+                    # (2026-10-17, a spurious note on a line with none).
+                    if relinked and here_re.search(new):
+                        review.append((f'{repo.name}/{rel}:{i + 1}',
+                                       'the sentence still says it is in this '
+                                       'repository'))
+                    elif relinked and old_level_re and old_level_re.search(new):
+                        review.append((f'{repo.name}/{rel}:{i + 1}',
+                                       f'the sentence still calls it the '
+                                       f'{from_level} copy'))
                 # A current line that still names the old set beside the
                 # practice, or names a level beside it and was not touched,
                 # is a mention none of the rewrites above recognized. Named,
@@ -723,9 +881,9 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
         for rel in rels:
             say(f'{"would fix" if dry_run else "fixed"} a mention of `{slug}` '
                 f'in {repo.name}/{rel}')
-    for where in review:
+    for where, why in review:
         say(f'reword by hand: {where} -- its link now points where `{slug}` '
-            f'lives, and the sentence still says it is in this repository')
+            f'lives, and {why}')
     for where in unfixed:
         say(f'could not fix: {where} -- it mentions `{slug}` beside '
             f'{from_name} or a level, and no rewrite here recognized the '
@@ -755,6 +913,47 @@ def _append_story(text, line):
         return text.rstrip('\n') + '\n\n' + line + '\n'
     cut = m.end() + nxt.start()
     return text[:cut].rstrip('\n') + '\n\n' + line + '\n\n' + text[cut:]
+
+
+def _ceiling_warnings(root):
+    """-> one line per always-loaded tracked file in the repository at
+    `root` that is over the ceiling its tools/session_load_budgets.json
+    declares, and for a resident block over its token budget. Measured the
+    way the session-load-budget check measures (session_load_trend). The
+    untracked session file is left out: it is rewritten at the next session
+    start, not by a move."""
+    try:
+        import session_load_trend as slt
+    except Exception:                                        # noqa: BLE001
+        return []
+    root = pathlib.Path(root).resolve()
+    reg = slt._registry_at(root) or {}
+    out = []
+    for rel in slt.SURFACES:
+        if rel.startswith('.precedent/'):
+            continue
+        f = root / rel
+        entry = (reg.get('surfaces') or {}).get(rel) or {}
+        ceiling = entry.get('ceiling')
+        if not f.is_file() or not isinstance(ceiling, int):
+            continue
+        n = slt.charged_tokens(root, rel, f.read_text(encoding='utf-8',
+                                                      errors='replace'))
+        if n > ceiling:
+            out.append(f'{rel} is now ~{n:,} tokens, over the ceiling of '
+                       f'{ceiling:,} its tools/session_load_budgets.json '
+                       f'declares. Run the reduction pass there before '
+                       f'pushing; the session-load-budget check refuses it')
+    agents = root / 'AGENTS.md'
+    if agents.is_file():
+        m = slt.RESIDENT_HEADING.search(agents.read_text(encoding='utf-8',
+                                                         errors='replace'))
+        if m:
+            n, budget = (int(g.replace(',', '')) for g in m.groups())
+            if n > budget:
+                out.append(f'its resident block is ~{n:,} tokens, over its '
+                           f'{budget:,}-token budget')
+    return out
 
 
 def _regenerate_universal(clone):
@@ -816,9 +1015,14 @@ WITHDRAWN_RECORD_HEADER = (
 
 def move(slug, from_level, from_path, to_level, to_path, approved_by,
          strength=None, story=None, dry_run=False, dedupe_only=False,
-         accept_reach_loss=False, withdraw=False, say=print):
+         accept_reach_loss=False, withdraw=False, say=print,
+         removal_approved_by=None):
     from_level = _pr.normalize_level(from_level)
     to_level = _pr.normalize_level(to_level)
+    # Who approved REMOVING it from a shared set, when that is not who
+    # approved landing it (2026-10-17: shared -> individual needed one name
+    # that was both the individual owner and a shared approver).
+    removal_by = removal_approved_by or approved_by
     # --withdraw-from-universal (spec/LADDER_OPT_IN_PLAN.md step 4): the
     # reach loss is the POINT -- the rule is meant for the people who bring
     # the destination set, and nobody else. A deduplicated stub would print
@@ -864,7 +1068,7 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     if not approved_by and not dedupe_only:
         raise MoveRefused('--approved-by NAME is required: the destination level\'s own '
                           'approval is what makes this a move rather than a copy')
-    if not approved_by and from_level == 'shared':
+    if not removal_by and from_level == 'shared':
         raise MoveRefused('--approved-by NAME is required: removing a practice from a '
                           'shared set changes what the whole team is bound by, so it needs '
                           'one of that set\'s own approvers (spec/MOVING_PRACTICES.md, '
@@ -937,14 +1141,23 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                               f'the same rule, deduplicate the source with --dedupe-only')
         if to_level == 'shared':
             _check_team_approver(to_path, approved_by)
+        if to_level == 'individual':
+            owner_note = _check_individual_owner(to_path, approved_by)
+            if owner_note:
+                say(f'note: {owner_note}')
         _check_checked_by(fm, to_level, to_path)
         _check_ships(fm, to_path)
     if source_withdrawn and from_level == 'shared':
-        _check_team_approver(from_path, approved_by, removing=True)
+        _check_team_approver(from_path, removal_by, removing=True)
 
-    from_name = pathlib.Path(from_path).resolve().name
-    to_name = pathlib.Path(to_path).resolve().name
+    from_name = _set_name(from_path, from_level)
+    to_name = _set_name(to_path, to_level)
+    # How each is named in a file outside it.
+    from_words, to_words = (_set_words(from_level, from_name, ticks=False),
+                            _set_words(to_level, to_name))
+    to_ref = 'that set' if to_level == 'individual' else f'`{to_name}`'
     plan = []
+    pending_note = None
     rehomed = []
     install_added = False
     why_missing = False
@@ -966,8 +1179,7 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             approval = _quoted(f'{approved_by}, {today}, duplicated from the universal '
                                f'set {from_name}, where a copy stays active{there}')
         else:
-            approval = _quoted(f'{approved_by}, {today}, moved from the {from_level} '
-                               f'set {from_name}{there}')
+            approval = _quoted(f'{approved_by}, {today}, moved from {from_words}{there}')
         updates = {'status': 'active', 'in_force_at': 'null',
                    'added': f'"{today}"', 'approved_by': approval}
         if to_level == 'universal':
@@ -976,7 +1188,7 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             # pending-approval-outlives-its-merge refuses it until someone
             # writes who approved it and in which pull request.
             updates['approved_by'] = (f'"pending PR review -- drafted {today} by {approved_by}, '
-                                      f'moved from the {from_level} set {from_name}"')
+                                      f'moved from {from_words}"')
             # A set's check is a script under its own tools/checks/; in
             # universal the same slug is a registered check in
             # precedent_check.py, which _check_checked_by has just confirmed.
@@ -1014,13 +1226,13 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
 
     if source_withdrawn:
         src_text = src.read_text(encoding='utf-8')
-        line = f'Moved to the {to_level} set `{to_name}` on {today}'
+        line = f'Moved to {to_words} on {today}'
         if from_level == 'shared':
             # Who approved the REMOVAL is recorded nowhere else
             # (spec/MOVING_PRACTICES.md, step 2, "Team").
-            if not dedupe_only:
+            if not dedupe_only and approved_by:
                 line += f', approved there by {approved_by}'
-            line += (f'; its removal from `{from_name}` approved by {approved_by}, '
+            line += (f'; its removal from `{from_name}` approved by {removal_by}, '
                      f'one of that set\'s approvers')
         elif approved_by:
             line += f', approved there by {approved_by}'
@@ -1037,7 +1249,7 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                     f'--accept-reach-loss'
                     + (f' (approved by {approved_by})' if approved_by else '')
                     + f': deduplicated here; the rule is in force only '
-                    f'from the {to_level} set `{to_name}` now. A consumer resolving only '
+                    f'from {to_words} now. A consumer resolving only '
                     f'universal no longer gets it.')
         src_new = _rewrite_frontmatter(src_text, {'status': 'deduplicated',
                                                   'in_force_at': slug})
@@ -1062,25 +1274,50 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             plan.append(('decommission', pathlib.Path(from_path) / DECOMMISSION_REGISTRY,
                          {'path': f'practices/{slug}.md',
                           'reason': (f'withdrawn from universal with precedent_move.py '
-                                     f'--withdraw-from-universal; in force from the '
-                                     f'{to_level} set {to_name} for the people who '
-                                     f'bring or declare it; {WITHDRAWN_RECORD}'),
+                                     f'--withdraw-from-universal; in force from '
+                                     f'{_set_words(to_level, to_name, ticks=False)} '
+                                     f'for the people who bring or declare it; '
+                                     f'{WITHDRAWN_RECORD}'),
                           'decommissioned_at': today}))
         else:
             plan.append(('write', src, src_new))
+            # The same rewrite the withdraw path makes, on the stub path:
+            # the set copy's approval said a universal copy "stays active",
+            # and after this run none does (2026-10-17 very deep check).
+            if duplicate_from_universal and dest.is_file():
+                dest_text = dest.read_text(encoding='utf-8')
+                was = _raw_field(dest_text, 'approved_by')
+                if _STAYS_ACTIVE in was:
+                    by = f' (approved by {approved_by})' if approved_by else ''
+                    plan.append(('write', dest, _rewrite_frontmatter(
+                        dest_text, {'approved_by': _quoted(was.replace(
+                            _STAYS_ACTIVE,
+                            f', deduplicated there on {today} with '
+                            f'--accept-reach-loss{by}, so no copy stays '
+                            f'active there', 1))})))
+        # A draft moved INTO universal carries a "pending PR review"
+        # approval, which pending-approval-outlives-its-merge refuses once
+        # it is on the base branch. This run comes after that merge, so
+        # write the merge in when git shows it, or say what to write.
+        if to_level == 'universal' and dedupe_only and dest.is_file():
+            pending_fix = _settle_pending_approval(dest, to_path)
+            if pending_fix:
+                if pending_fix[0] is not None:
+                    plan.append(('write', dest, pending_fix[0]))
+                pending_note = pending_fix[1]
     elif duplicate_from_universal:
         src_text = src.read_text(encoding='utf-8')
-        line = (f'Also landed in the {to_level} set `{to_name}` on {today}'
+        line = (f'Also landed in {to_words} on {today}'
                 + (f', approved there by {approved_by}' if approved_by else '')
                 + f'. Kept ACTIVE here, not deduplicated: universal is the one level '
                   f'every Precedent consumer resolves, and a plain universal-only '
-                  f'consumer never resolves a pointer into `{to_name}` -- deduplicating '
+                  f'consumer never resolves a pointer into {to_ref} -- deduplicating '
                   f'this copy would leave the rule in force nowhere for them '
                   f'(the failure `verify_harness.py --as-ci`\'s consumer-fixture check '
                   f'exists to catch, and did, 2026-09-23). Both copies are genuinely in '
                   f'force; review both when editing either. Withdraw this copy later, '
                   f'deliberately, with `--dedupe-only --accept-reach-loss` once the '
-                  f'audience that matters has taken `{to_name}`.')
+                  f'audience that matters has taken {to_ref}.')
         src_new = _append_story(src_text, line)
         plan.append(('write', src, src_new))
 
@@ -1099,7 +1336,7 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             say(f'would drop `{slug}` from {from_name}/tools/routing_audit_state.json')
         if source_withdrawn:
             _fix_mentions(slug, from_path, to_level, to_path, dry_run=True,
-                          say=say)
+                          say=say, from_level=from_level)
         say('dry run: nothing written')
         return
 
@@ -1150,7 +1387,8 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     # (a universal draft, or the first landing out of universal) the old
     # copy is still in force and every mention of it is still true.
     if source_withdrawn:
-        _fix_mentions(slug, from_path, to_level, to_path, dry_run=False, say=say)
+        _fix_mentions(slug, from_path, to_level, to_path, dry_run=False, say=say,
+                      from_level=from_level)
 
     def _regen_for(level, path):
         if level == 'universal':
@@ -1159,8 +1397,10 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
 
     if to_level == 'universal' and not dedupe_only:
         say(f'  {_regen_for(to_level, to_path)}')
+        regenerated = [(to_level, to_path)]
     elif to_level == 'universal' and dedupe_only:
         say(f'  {_regen_for(from_level, from_path)}')
+        regenerated = [(from_level, from_path)]
     else:
         # to_level is shared/individual: the destination always changed.
         # The source did too -- either deduplicated (ordinary move, or the
@@ -1169,6 +1409,12 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         # and when it's universal, that regeneration needs doc_sync.py too.
         say(f'  {_regen_for(to_level, to_path)}')
         say(f'  {_regen_for(from_level, from_path)}')
+        regenerated = [(to_level, to_path), (from_level, from_path)]
+    # A move can push a set's always-loaded files over the ceiling its own
+    # registry declares, and nothing said so until a later push (2026-10-17).
+    for level, path in regenerated:
+        for warning in _ceiling_warnings(path):
+            say(f'WARNING: {_set_name(path, level)}: {warning}')
 
     # practice: disclose-landing
     if to_level == 'universal' and not dedupe_only:
@@ -1227,6 +1473,8 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     elif dedupe_only:
         say(f'DISCLOSE TO THE HUMAN: `{slug}` is now deduplicated in the {from_level} set '
             f'{from_name}; the rule is in force from the {to_level} set {to_name}.')
+    if pending_note:
+        say(pending_note)
     else:
         say(f'DISCLOSE TO THE HUMAN: `{slug}` now lives in the {to_level} set {to_name}, '
             f'approved by {approved_by}, and is in force from there; its copy in the '
@@ -1259,10 +1507,11 @@ def mentions_only(slug, from_level, from_path, to_level, to_path,
                               f'--mentions-only fixes mentions of a practice '
                               f'that has already left {from_path}')
     changed = _fix_mentions(slug, from_path, to_level, to_path,
-                            dry_run=dry_run, say=say)
+                            dry_run=dry_run, say=say,
+                            from_level=_pr.normalize_level(from_level))
     if not changed:
         say(f'nothing to fix: no current mention of `{slug}` still places it '
-            f'in {pathlib.Path(from_path).resolve().name}')
+            f'in {_set_name(from_path, from_level)}')
 
 
 def main(argv=None):
@@ -1271,7 +1520,8 @@ def main(argv=None):
         print(__doc__.strip())
         return 0
     opts = {'--slug': None, '--from': None, '--from-path': None, '--to': None,
-            '--to-path': None, '--approved-by': None, '--strength': None, '--story': None}
+            '--to-path': None, '--approved-by': None, '--strength': None, '--story': None,
+            '--removal-approved-by': None}
     flags = {'--dry-run': False, '--dedupe-only': False, '--accept-reach-loss': False,
              '--mentions-only': False, '--withdraw-from-universal': False}
     i = 0
@@ -1307,7 +1557,8 @@ def main(argv=None):
              story=opts['--story'], dry_run=flags['--dry-run'],
              dedupe_only=flags['--dedupe-only'],
              accept_reach_loss=flags['--accept-reach-loss'],
-             withdraw=flags['--withdraw-from-universal'])
+             withdraw=flags['--withdraw-from-universal'],
+             removal_approved_by=opts['--removal-approved-by'])
     except MoveRefused as e:
         print(f'precedent_move FAIL: {e}', file=sys.stderr)
         return 1

@@ -768,10 +768,11 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
                 gone = gone_to.get((s, src))
                 if gone and gone[2:3] == (True,):
                     return (f", a retired name withdrawn from universal on "
-                            f"{gone[0]}; kept as history in `{gone[1]}`")
+                            f"{gone[0]}; kept as history in {pr.set_ref(gone[1])}")
                 if gone:
                     return (f", withdrawn from universal on {gone[0]}; in force "
-                            f"in `{gone[1]}` for the people who bring or declare it")
+                            f"in {pr.set_ref(gone[1])} for the people who bring "
+                            f"or declare it")
                 return (f", forwarding to {target}, which is IN FORCE NOWHERE "
                         f"here -- see above")
 
@@ -797,8 +798,9 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
                       "deduplicated to a rule this repository does not load, "
                       "so the rule is LOST here, not moved: "
                       + '; '.join(f"{s} (from {src}{w})" for s, src, w in _nowhere)
-                      + ". Declare the set that carries it, or ask that "
-                      "source whether the reach loss was meant.",
+                      + ". Declare the set that carries it (an individual "
+                      "set is a person's own, from their user config), or "
+                      "ask that source whether the reach loss was meant.",
                       file=sys.stderr)
         if _lost.get('overridden'):
             print("precedent_sync_views: removing "
@@ -1147,11 +1149,12 @@ def _where_removed_went(repo, user_config, removed):
             for slug, (date, name) in pr.withdrawn_record(s['path']).items():
                 if slug in out and slug in history:
                     out[slug] = (None, f'a retired name, withdrawn from universal '
-                                       f'on {date}; kept as history in `{name}`')
+                                       f'on {date}; kept as history in '
+                                       f'{pr.set_ref(name)}')
                 elif slug in out:
                     out[slug] = (None, f'withdrawn from universal on {date}; in '
-                                       f'force in `{name}` for the people who '
-                                       f'bring or declare it')
+                                       f'force in {pr.set_ref(name)} for the people '
+                                       f'who bring or declare it')
         loaded, _why = pr.load_source(s)
         for slug, p in (loaded or {}).items():
             if slug not in out:

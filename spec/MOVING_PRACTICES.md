@@ -58,7 +58,8 @@ do not vendor it, and the paths are the sets':
 python3 tools/precedent_move.py --slug <slug> \
     --from individual|team --from-path <the set it lives in> \
     --to individual|team|universal --to-path <the set or Precedent clone> \
-    --approved-by "<name>" [--strength decided|assented] [--story "<text>"]
+    --approved-by "<name>" [--removal-approved-by "<name>"] \
+    [--strength decided|assented] [--story "<text>"]
 ```
 
 It lands the practice at the destination with its Rule, Detail, Why and
@@ -79,6 +80,13 @@ set's own approvers**, on every run that withdraws the shared-set copy,
 `--dedupe-only` included: `--approved-by` is checked against the source
 set's `approvers.json` too, and the name goes into the Story line (added
 2026-09-28, when a rehearsal found only the destination was ever checked).
+When the person approving the landing is not one of them -- shared to
+individual, where the landing is the individual set's owner's call --
+`--removal-approved-by` names the shared approver for the removal and
+`--approved-by` the owner, whom the tool checks against the individual
+set's `identity.json` (2026-10-17). **An individual set is never named
+outside it**: in a shared set, the public clone, a Story line or an
+`approved_by`, the tool writes "an individual set" (2026-10-17).
 **With `--to universal` it drafts only** — the file goes
 into the clone's `practices/`, the clone's own [`build_views.py`](../tools/build_views.py) and
 `doc_sync.py --write` run so the clone's generated files match the draft,
@@ -199,7 +207,8 @@ hand-done one against:
    to actually agree it belongs there, and the tool records that agreement
    in the landed file's `approved_by:`:
    - **To an individual set**: the person's own *"yes"* — `--approved-by`
-     their name, direct.
+     their name, direct, which the tool checks against that set's
+     `identity.json` once it declares one.
    - **To a shared set**: a listed approver of *that* set's own say-so —
      `--approved-by` a name in that set's `approvers.json`, which the tool
      checks. Someone who is not one raises it first, as an Issue on the
