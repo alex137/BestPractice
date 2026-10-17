@@ -67,7 +67,6 @@ as_of: 2026-10-17
 | [`todo-2026-09-06-additionalcontext-reaches-the-model`](todo-2026-09-06-additionalcontext-reaches-the-model.md) | Confirm `additionalContext` actually reaches the model, not just the transcript. | 41d | wait |  |
 | [`todo-2026-09-06-grok-workflow`](todo-2026-09-06-grok-workflow.md) | Verify a Grok workflow. | 41d | wait |  |
 | [`todo-2026-09-06-plain-chatgpt-write-support`](todo-2026-09-06-plain-chatgpt-write-support.md) | Re-verify plain-ChatGPT write support. | 41d | wait |  |
-| [`todo-2026-09-09-cross-owner-add-repo-push`](todo-2026-09-09-cross-owner-add-repo-push.md) | Measure whether `add_repo` refuses a cross-owner attachment in the REVERSE direction, with `access: "push"`. | 38d | wait | a session rooted under the other owner (a private practice-set repository), whic… |
 | [`todo-2026-09-09-whatsapp-bridge-research`](todo-2026-09-09-whatsapp-bridge-research.md) | Verify the chat bridge's platform claims against the platforms, or drop it. | 38d | wait | for the WhatsApp half, a Meta Business account, a business entity that clears ve… |
 | [`todo-2026-09-11-consuming-repo-clause-clears-on-vendor-update`](todo-2026-09-11-consuming-repo-clause-clears-on-vendor-update.md) | Confirm the consuming repo's `Source:` clause actually clears, rather than assuming it. | 36d | wait |  |
 

@@ -3,7 +3,7 @@ slug:              todo-2026-09-09-cross-owner-add-repo-push
 kind:              verify
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "a session rooted under the other owner (a private practice-set repository), which this repository's sessions cannot start for themselves."
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-09
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -57,3 +57,7 @@ up into `../` and its old-style `TODO.md`-anchor citations repointed to the
 real `todo/` files they now resolve to.
 
 2026-10-17, very deep check pass 4 (ambiguous, asked of the person): the split it measures looks gone (sessions working for Morgan push to BestPractice and to his sets; this run's session holds clones from both owners), but nothing here shows one session pushing to both owners, and the exact call it names (add_repo push for alex137/bestpractice from a set-rooted session) was not made. Same question as gotcha-2026-09-22-a-cross-owner-source-clone-fetches-fine-and-cannot-be-pushed: one answer from the main session about its own pushes settles both.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on what the item was for: whether one session can hold every private source and push here. It can. A cloud session created with this repository and three private practice sets of another owner as its sources pushed working branches to both owners on 2026-10-17 (this repository and the individual set), with no token work. The narrower `add_repo` measurement was never taken and no longer decides anything. The gotcha about a cross-owner clone that is not a session source still holds and stays live.
