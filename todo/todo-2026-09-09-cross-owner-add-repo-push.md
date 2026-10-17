@@ -55,3 +55,5 @@ for the full catalogue and root cause. Recreated verbatim from
 `git show 9a08363b^:TODO.md`, with its relative links repointed one level
 up into `../` and its old-style `TODO.md`-anchor citations repointed to the
 real `todo/` files they now resolve to.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): the split it measures looks gone (sessions working for Morgan push to BestPractice and to his sets; this run's session holds clones from both owners), but nothing here shows one session pushing to both owners, and the exact call it names (add_repo push for alex137/bestpractice from a set-rooted session) was not made. Same question as gotcha-2026-09-22-a-cross-owner-source-clone-fetches-fine-and-cannot-be-pushed: one answer from the main session about its own pushes settles both.

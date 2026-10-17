@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-15-a-pretooluse-hook-s-once-per-session-sentinel-is-not-proof-a
-status:          live
+status:          retired
 noted:           2026-09-15
 severity:        null
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -65,3 +65,7 @@ much as the fd does.
 ## Fix
 
 (migration could not isolate a distinct Fix paragraph -- read ## Story.)
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed with flock and a re-check after acquiring it (2026-09-15); tools/freshness-guard.sh, the file every stub now runs, carries the lock (5 flock lines).

@@ -90,3 +90,5 @@ Not open until: a session that can write to the private individual source, and a
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (still live, blocker stale): still nothing checks that a rename carries its allowlist entry; write access to the individual set is now normal, so only the "which home" decision remains.

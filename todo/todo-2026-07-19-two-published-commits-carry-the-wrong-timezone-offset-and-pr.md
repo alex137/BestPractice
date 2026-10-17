@@ -3,7 +3,7 @@ slug:              todo-2026-07-19-two-published-commits-carry-the-wrong-timezon
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "a decision about which layer carries it, since the hook demonstrably cannot. The engine-refresh commit's missing `Session:` trailer is a separate, smaller thing and is **blocked on nothing** — the trailer belongs in [tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py), which writ"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-07-19
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -59,3 +59,7 @@ Not open until: a decision about which layer carries it, since the hook demonstr
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Trailer half: session_trailer() in tools/precedent_refresh_sources.py (fe016c48, 2026-09-14); layer half decided and built: commit-identity.sh sets the system zone + global identity, commit-identity-once.sh for sessions rooted above the repo (a3691c0c, 2026-09-22); individual set's commits of 2026-10-16 carry -0300.

@@ -33,3 +33,10 @@ is fine right up until the merge writes the markers.
 ## Fix
 
 (migration could not isolate a distinct Fix paragraph -- read ## Story.)
+
+**Where the conflict lands now (2026-10-17, very deep check pass 4).**
+Since 2026-10-07 `.claude/hooks/freshness-guard.sh` is a stub that is never
+edited; it runs `tools/freshness-guard.sh`, so a merge that touches the guard
+now leaves its conflict markers there. The stub `exec`s it with bash, which
+still exits 2 on the parse error, so the lock-out above is unchanged: resolve
+`tools/freshness-guard.sh` first, by the same route.

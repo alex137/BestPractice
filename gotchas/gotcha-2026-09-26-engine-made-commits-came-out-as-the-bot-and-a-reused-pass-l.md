@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-26-engine-made-commits-came-out-as-the-bot-and-a-reused-pass-l
-status:          live
+status:          retired
 noted:           2026-09-26
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    every practice set and consumer has refreshed its vendored engine past the commit that routes engine commits through precedent_identity.commit_env()
 ---
 ## Symptom
@@ -86,3 +86,7 @@ Both modules already honour it. Without it, a shared set applies its
 
 Commits already published are not rewritten or grandfathered by this fix.
 Each repository deals with its own.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed in the engine 2026-09-26: precedent_identity.commit_env() (line 193) states the author for every engine commit, the push check always runs commit_author, and check_engine_commits_state_their_author holds it.

@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        null
+waiting_on:        "Morgan: keep the deferral, or drop it (2026-10-17 very deep check asks)"
 noted:             2026-09-07
 closed:            null
 ---
@@ -37,3 +37,5 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): a deliberate deferral "worth doing if that case ever bites"; nothing shows it has. Would drop it.

@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        null
+waiting_on:        "Morgan: whether the allow line for his individual set stays (2026-10-17 very deep check asks)"
 noted:             2026-09-10
 closed:            null
 ---
@@ -104,3 +104,5 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): the armed gate now runs against this tree and is clean (leak_gate.py 2026-10-17: 21 patterns, individual list included); what is left is whether to remove the `allow themorgan/precedent-individual` line, which is Morgan's and sits beside later allow lines he added on the same "a name is not private" reasoning. Would close it as decided by those lines.

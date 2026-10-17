@@ -3,7 +3,7 @@ slug:              todo-2026-09-06-wire-the-clone-free-engine-freshness-check-in
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "that hook lives in each private source repo (`precedent-individual/bootstrap/session-start.sh`), not here, and `templates/practice-set-*/` ships no equivalent for a new adopter to inherit. Doing it properly means generalizing that hook into the two templates first, so the fix reaches every set rathe"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-06
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -46,3 +46,7 @@ Not open until: that hook lives in each private source repo (`precedent-individu
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Overtaken by another channel: tools/precedent_engine_freshness.py (c490a5a7, 2026-09-21) reports a behind engine at every push and merge gate in any repo with a vendored engine, and precedent_session_check.py reports behind source clones; the "nobody is told" gap is closed by another channel.

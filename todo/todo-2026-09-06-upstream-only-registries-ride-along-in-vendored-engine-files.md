@@ -3,7 +3,7 @@ slug:              todo-2026-09-06-upstream-only-registries-ride-along-in-vendor
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "nothing but a deliberate pass — this touches the vendoring contract (does `precedent_vendor_engine.py` blank a registry on the way out, or does each file read its registry from a host-owned file?), and picking wrong makes every consumer's copy diverge from upstream's, which is the one thing that tre"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-06
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -44,3 +44,7 @@ Not open until: nothing but a deliberate pass — this touches the vendoring con
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Doc_sync.py reads a consumer's tools/doc_sync_pairs.json (77c66ef1, 2026-09-30) and model_audit.py reads tools/model_audit_host.json (53786a89, 2026-09-30) wherever tools/ENGINE_MANIFEST.json marks a vendored engine.

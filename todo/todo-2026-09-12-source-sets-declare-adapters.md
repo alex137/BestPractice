@@ -84,3 +84,5 @@ Not open until: two things, in order. Each set's vendored engine has to carry th
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (still live, blocker stale): the individual set still declares 3 of its bootstrap scripts (session-start.sh, precedent-universal-catalogue.sh undeclared); the cross-owner blocker no longer holds, so it is a one-repo decision.

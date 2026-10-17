@@ -3,7 +3,7 @@ slug:              todo-2026-09-13-universal-prose-does-not-reach-a-source-set
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-13
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -162,3 +162,7 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. The open remainder (the other sets) is done or moot: both live shared sets carry CLAUDE.md and wire precedent-universal-catalogue.sh in .claude/settings.json, and the other two sets it named were retired and deleted (tools/deleted_sets.json, 2026-10-08).

@@ -3,7 +3,7 @@ slug:              todo-2026-09-14-github-budget-into-the-source-sets
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "nothing, deliberately — refreshing four private repositories from here would open four pull requests for a file none of them can use yet, which is the opposite of what [cross-source-rollout](../practices/cross-source-rollout.md) is for. Close it when a refresh has landed in each set, or when one of the"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-14
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -47,3 +47,7 @@ Not open until: nothing, deliberately — refreshing four private repositories f
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Its stated condition is met: tools/github_budget.py is present in all three sets.

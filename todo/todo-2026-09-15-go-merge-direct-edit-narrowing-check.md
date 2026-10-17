@@ -3,7 +3,7 @@ slug:              todo-2026-09-15-go-merge-direct-edit-narrowing-check
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            dropped
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-15
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -38,3 +38,7 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Dropped 2026-10-17 by the very deep check, pass 4: overtaken, so its condition can no longer be met as written. The trivial/substantial fork it would narrow was replaced on 2026-09-20 by a push-by-default/high-risk split, and Go merge retired the same day (go-update's approved_by in the ladder set); landing now runs through Booked's --land gate.
