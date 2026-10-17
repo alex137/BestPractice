@@ -371,6 +371,8 @@ FOLLOWED_BRANCH = followed_branch(ROOT)
 # Moved out of templates/harness/claude-code/hooks/ on 2026-10-07; see the
 # note at their entry in ENGINE_FILES below.
 HOOK_SCRIPT_FILES = [
+    # Its logic is answer_first_gate.py, in ENGINE_FILES (2026-10-17).
+    'answer-first-gate.sh',
     'artifact-publish-gate.sh',
     'commit-identity-once.sh',
     'commit-identity-push-gate.sh',
@@ -395,6 +397,8 @@ HOOK_SCRIPT_FILES = [
 ]
 
 ENGINE_FILES = [
+    # What answer-first-gate.sh runs (HOOK_SCRIPT_FILES).
+    'answer_first_gate.py',
     'build_views.py',
     # The one place this engine asks GitHub anything, and the counter behind
     # precedent_check.py's github-api-budget check (added 2026-09-14). It

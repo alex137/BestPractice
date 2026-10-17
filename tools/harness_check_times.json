@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.69 to it; 7 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 5 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times, scaled by 1.83 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.00 to it",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.69 to it; 7 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 5 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times, scaled by 1.83 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.00 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.26 to it",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -31,6 +31,7 @@
   "check_agents_templates_repeat_no_practice_text": 0.4,
   "check_alerting_test_is_listed_as_a_test": 0.1,
   "check_all_workflows_disclosed": 0.0,
+  "check_answer_first_gate_holds_a_change_until_the_question_is_answered": 1.1,
   "check_archive_check_sees_work_left_in_a_scratch_folder": 0.8,
   "check_archive_gate_keeps_inner_workings_from_non_owners": 0.0,
   "check_archive_guard_refuses_work_left_on_a_feature_branch": 0.6,

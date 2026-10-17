@@ -112,7 +112,6 @@ as_of: 2026-10-17
 | [`todo-2026-10-14-delete-pre-staging-code`](todo-2026-10-14-delete-pre-staging-code.md) | Delete the engine code that only served the pre-staging tier, and its | 3d | ask |  |
 | [`todo-2026-10-14-update-review-remembers-past-updates`](todo-2026-10-14-update-review-remembers-past-updates.md) | Make the upstream review that Update Vendors prints (the ladder set's | 3d | parked |  |
 | [`todo-2026-10-16-enforcement-moves-waiting-on-morgan`](todo-2026-10-16-enforcement-moves-waiting-on-morgan.md) | Three calls left by | 1d | ask |  |
-| [`todo-2026-10-17-debut-misses-what-only-main-lacks`](todo-2026-10-17-debut-misses-what-only-main-lacks.md) | Two gaps the Produce of 2026-10-17 ran into, both on the way to main. | 0d | ask | the workflow half: a change to deep-check.yml, which needs Morgan's approval pin… |
 
 ## Decisions (the Person's Call)
 

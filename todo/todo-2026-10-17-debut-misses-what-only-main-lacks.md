@@ -3,16 +3,16 @@ slug:              todo-2026-10-17-debut-misses-what-only-main-lacks
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
-blocked_on:        "the workflow half: a change to deep-check.yml, which needs Morgan's approval pinned to its content (ci-workflow-approved)"
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-17
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -61,3 +61,10 @@ still linked `tools/precedent_upstream_review.py`, which moved to the ladder
 set that day, and the branch repoints them. Case:
 `check_debut_judges_the_change_against_main_too`. The workflow half is not
 done.
+
+2026-10-17: the workflow half, on Morgan's "yes to both, and booked". The
+step that closes the main-test-failed issue now also runs on a passing pull
+request into main, and closes only when main's head holds exactly the files
+that run tested. His approval is pinned to the file's content in
+`precedent.json`. Case: `check_main_test_pass_closes_the_issue`. Closed:
+both halves of How It Closes are built.
