@@ -1101,10 +1101,18 @@ def apply_on_its_own_branch(entry, base):
     # check could see. Each held only a refresh commit, which this run just
     # wrote again from a newer engine, so the older ones carry nothing to
     # lose (practice: repair-cannot-discard-work).
+    # Said, not done silently (2026-10-17, a consuming repo's Update Vendors:
+    # a session saw the branches vanish and could not tell why).
+    removed = []
     if ok:
         for old in refresh_only_branches(repo, base):
-            if old != name:
-                _git('branch', '-D', old, cwd=repo)
+            if old != name and _git('branch', '-D', old, cwd=repo)[0]:
+                removed.append(old)
+    if removed:
+        steps.append(('superseded', True,
+                      f'removed {len(removed)} older local refresh branch(es), '
+                      f'each holding only an engine refresh this run wrote again '
+                      f'from a newer engine: {", ".join(removed)}'))
     clean_ok, dirt = _git('status', '--porcelain', cwd=repo)
     ok = ok and clean_ok and not dirt
     steps.append(('back on base', ok,
