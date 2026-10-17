@@ -1266,8 +1266,38 @@ def _exclude_file(repo):
     return p if p.is_absolute() else pathlib.Path(repo) / p
 
 
+def _worktree_roots(repo):
+    """-> every work tree of the clone `repo` belongs to, main and linked."""
+    r = _git(repo, 'worktree', 'list', '--porcelain')
+    roots = [pathlib.Path(l[len('worktree '):]) for l in r.stdout.splitlines()
+             if l.startswith('worktree ')] if r.returncode == 0 else []
+    return roots or [pathlib.Path(repo)]
+
+
+def _still_shipped_elsewhere(repo, rel):
+    """True when another work tree of this clone still holds `rel`,
+    untracked: a ship delivered there, which this checkout did not deliver."""
+    here = pathlib.Path(repo).resolve()
+    for root in _worktree_roots(repo):
+        if root.resolve() == here or not (root / rel).is_file():
+            continue
+        if not _git_tracks(root, rel):
+            return True
+    return False
+
+
 def _set_excluded(repo, paths):
-    """Make the precedent block of info/exclude list exactly `paths`."""
+    """Make the precedent block of info/exclude list `paths`, plus any entry
+    another work tree of this clone still holds.
+
+    ONE LIST, MANY WORK TREES (2026-10-17). info/exclude lives in the common
+    git directory, so every linked worktree reads and writes the same file.
+    Writing exactly this checkout's ships dropped the others': a session
+    file built in a helper's worktree, where fewer sets resolved, took three
+    shipped tools off the list while they sat on disk in the main checkout,
+    one of them from a private repository -- a `git add -A` there would have
+    committed it. An entry now stays while some work tree still has its
+    file untracked, and goes once none does."""
     ex = _exclude_file(repo)
     if ex is None:
         return
@@ -1275,7 +1305,7 @@ def _set_excluded(repo, paths):
         old = ex.read_text(encoding='utf-8') if ex.is_file() else ''
     except OSError:
         return
-    keep, inside = [], False
+    keep, inside, listed = [], False, []
     for line in old.splitlines():
         if line == _EXCLUDE_BEGIN:
             inside = True
@@ -1283,8 +1313,12 @@ def _set_excluded(repo, paths):
         if inside:
             if line == _EXCLUDE_END:
                 inside = False
+            elif line.startswith('/'):
+                listed.append(line[1:])
             continue
         keep.append(line)
+    paths = set(paths) | {rel for rel in listed if rel not in paths
+                          and _still_shipped_elsewhere(repo, rel)}
     if paths:
         keep += [_EXCLUDE_BEGIN, *(f'/{p}' for p in sorted(paths)), _EXCLUDE_END]
     new = '\n'.join(keep) + ('\n' if keep else '')

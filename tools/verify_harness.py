@@ -23868,8 +23868,25 @@ def check_precedent_check_fires():
         def _vdc_stale_account(t):
             return re.sub(r'^opened:(\s*)\S+', r'opened:\g<1>2026-10-05',
                           t, count=1, flags=re.M)
-        case('very-deep-check',
-             lambda repo: rewrite(repo, _VDC_UP, _vdc_stale_account))
+        # The fixture owns the ledger state it asserts on: the last completed
+        # run gets all four passes and a date past the rule's. Inheriting the
+        # real ledger made this case fail during every real run -- between
+        # the tool's first run and the session's --record-pass the last
+        # completed run has no passes, so nothing was owed and nothing fired
+        # (2026-10-17; practice: fixture-owns-its-state).
+        def _vdc_four_passes(t):
+            d = json.loads(t)
+            done = [r for r in d['runs'] if r.get('completed', True)]
+            done[-1]['passes'] = [{'pass': str(n), 'status': 'done'}
+                                  for n in (1, 2, 3, 4)]
+            if str(done[-1].get('date') or '') < '2026-10-11':
+                done[-1]['date'] = '2026-10-11'
+            return json.dumps(d, indent=2) + '\n'
+
+        def _vdc_plant(repo):
+            rewrite(repo, 'record/very-deep-check-ledger.json', _vdc_four_passes)
+            rewrite(repo, _VDC_UP, _vdc_stale_account)
+        case('very-deep-check', _vdc_plant)
 
         # The other two states, by message and by silence
         # (control-asserts-which-failure, checks-plant-their-state): no
@@ -23877,6 +23894,7 @@ def check_precedent_check_fires():
         # not recorded yet is still in progress, so a stale account is not
         # owed and must not fail.
         _vdc_gone = fresh('very-deep-check-no-account')
+        rewrite(_vdc_gone, 'record/very-deep-check-ledger.json', _vdc_four_passes)
         (_vdc_gone / _VDC_UP).unlink()
         _rcg, _outg = run(_vdc_gone, 'very-deep-check')
         cases.append(('very-deep-check: four passes recorded and no account '
@@ -23890,6 +23908,7 @@ def check_precedent_check_fires():
                                   if str(p.get('pass')) != '4']
             return json.dumps(d, indent=2) + '\n'
         _vdc_mid = fresh('very-deep-check-mid-run')
+        rewrite(_vdc_mid, 'record/very-deep-check-ledger.json', _vdc_four_passes)
         rewrite(_vdc_mid, 'record/very-deep-check-ledger.json', _vdc_three_passes)
         rewrite(_vdc_mid, _VDC_UP, _vdc_stale_account)
         _rcm, _outm = run(_vdc_mid, 'very-deep-check')
@@ -34146,6 +34165,49 @@ def check_practice_ships_its_files():
     check(f'a practice\'s `ships:` files travel, are held at the source, and '
           f'a home-only dependency fails at home ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_session_ships_exclude_survives_another_worktree():
+    """The session-ships block of info/exclude keeps an entry another work
+    tree of the same clone still holds, and drops it once none does.
+
+    2026-10-17, very deep check: info/exclude is shared by every linked
+    worktree, and a session file built in a helper's worktree rewrote the
+    block with only that worktree's ships. Three shipped tools, one from a
+    private repository, went back to untracked in the main checkout, where a
+    `git add -A` would have committed them."""
+    import tempfile
+    import precedent_materialize as pm
+    _git = fixture_git
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        W = pathlib.Path(td)
+        main = W / 'main'
+        main.mkdir()
+        _git(main, 'init', '-q', '-b', 'main')
+        _git(main, 'config', 'user.email', 'harness@example.com')
+        _git(main, 'config', 'user.name', 'Harness')
+        (main / 'README.md').write_text('x\n')
+        _git(main, 'add', '-A'); _git(main, 'commit', '-qm', 'one')
+        _git(main, 'worktree', 'add', '-q', str(W / 'side'), '-b', 'side')
+        (main / 'tools').mkdir()
+        (main / 'tools' / 'private_tool.py').write_text('x = 1\n')
+        pm._set_excluded(main, {'tools/private_tool.py'})
+        untracked = lambda: _git(main, 'status', '--porcelain',
+                                 '--untracked-files=all').stdout
+        cases.append(('the main checkout\'s ship is hidden',
+                      'private_tool.py' not in untracked()))
+        pm._set_excluded(W / 'side', {'tools/other.py'})
+        cases.append(('a rewrite from another worktree keeps it hidden',
+                      'private_tool.py' not in untracked()))
+        (main / 'tools' / 'private_tool.py').unlink()
+        pm._set_excluded(W / 'side', {'tools/other.py'})
+        ex = pm._exclude_file(main).read_text()
+        cases.append(('once no worktree holds the file, its entry goes',
+                      '/tools/private_tool.py' not in ex and '/tools/other.py' in ex))
+    failed = [n for n, ok in cases if not ok]
+    check(f'session-ships exclude survives another worktree ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
 
 
 def check_brought_set_ships_reach_the_session_untracked():
@@ -81502,6 +81564,7 @@ def main():
     check_sync_keeps_a_hook_whose_stub_has_no_script()
     check_practice_ships_its_files()
     check_brought_set_ships_reach_the_session_untracked()
+    check_session_ships_exclude_survives_another_worktree()
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
     check_sync_refuses_to_lose_a_recorded_practice()

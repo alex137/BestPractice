@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -491,6 +491,7 @@
   "check_session_load_target_is_reported_each_reply": 0.2,
   "check_session_practices_drop_what_agents_md_carries": 0.0,
   "check_session_practices_load_without_publishing": 0.8,
+  "check_session_ships_exclude_survives_another_worktree": 0.2,
   "check_session_start_charges_brought_sets_to_the_person": 0.0,
   "check_session_start_hook_runs_bootstrap_locally": 0.3,
   "check_session_start_lists_a_red_main_first": 0.0,
