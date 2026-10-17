@@ -30082,6 +30082,57 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_individual_skeleton_ci_comment_is_true():
+    """The individual-set skeleton keeps "github_ci_workflows": "disabled",
+    and its comment says what is true: that an absent key means enabled
+    (ci_preference's default since 2026-09-25), which workflows the key
+    governs, and why the skeleton ships disabled -- naming no template that
+    no longer exists.
+
+    Found 2026-10-17 by the very deep check: the comment said an absent
+    key means disabled and named two templates retired 2026-09-21. Decision
+    chosen by the session under Morgan's delegation of 2026-10-17 ("Fix the
+    other issues you found including the checks that never run. Tell me what
+    you decide. I will be offline so don't wait for me. Approved, act, and
+    Booked."): keep "disabled", the cautious start, and make the comment
+    true.
+
+    Negative control, measured 2026-10-17: the comment before the fix fails
+    the absent-means and named-template cases.
+    """
+    import re as _re
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_identity as pid
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    tpl = ROOT / 'templates' / 'practice-set-individual' / 'identity.json.template'
+    doc = json.loads(tpl.read_text(encoding='utf-8'))
+    comment = ' '.join(doc.get('_github_ci_workflows_comment') or [])
+    named = set(_re.findall(r'[\w.-]+\.yml(?:\.template)?', comment))
+    shipped = {pathlib.Path(rel).name for _t, rel in pve.CI_WORKFLOW_TEMPLATES['consumer']}
+    shipped |= {t for t, _rel in pve.CI_WORKFLOW_TEMPLATES['consumer']}
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        ind = pathlib.Path(td)
+        (ind / 'identity.json').write_text(json.dumps({'email': 'a@example.com'}),
+                                           encoding='utf-8')
+        absent_enabled = pid.ci_preference(ind)['enabled']
+    cases = [
+        ('the skeleton still ships "disabled"', doc.get('github_ci_workflows') == 'disabled',
+         repr(doc.get('github_ci_workflows'))),
+        ('the comment says absent means enabled, as ci_preference does',
+         absent_enabled and 'ABSENT MEANS ENABLED' in comment, comment[:300]),
+        ('it says why the skeleton ships disabled', 'ON PURPOSE' in comment, comment[:300]),
+        ('every workflow it names is one the engine ships',
+         bool(named) and named <= shipped, f'{sorted(named)} vs {sorted(shipped)}'),
+    ]
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_installer_no_terminal_tests_every_push_to_main():
     """An install for an assistant with no terminal (--no-terminal) writes
     precedent.json's "github_ci_main_test": "always", so the light check
@@ -82558,6 +82609,8 @@ def main():
           *check_installer_visibility_defaults_to_public_and_says_why())
     check('an install for an assistant with no terminal has GitHub test every push to main',
           *check_installer_no_terminal_tests_every_push_to_main())
+    check("the individual-set skeleton's CI comment says what is true",
+          *check_individual_skeleton_ci_comment_is_true())
     check("a local session's commit identity leaves the laptop's global git config alone",
           *check_commit_identity_leaves_a_laptops_global_config_alone())
     check_endgame_merge_finds_the_silent_drop()
