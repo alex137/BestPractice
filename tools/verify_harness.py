@@ -72019,6 +72019,66 @@ def check_install_and_update_offer_the_owners_zone():
           f'fallback ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_a_reasked_left_out_section_is_not_asked_every_rerun():
+    """A section recorded as left out, which a second pass asks about again
+    (its first pass ran an engine older than the hand-over), is asked once
+    per update, not on every re-run of it (2026-10-17, a document project's
+    Update Vendors: the first pass runs the repository's committed engine,
+    which an unfinished update has not committed, so every re-run asked the
+    same four sections again and the run could not reach DONE until the
+    engine was committed mid-update). The record is per source commit, in
+    the git directory: another update asks again."""
+    import contextlib, io, tempfile
+    import precedent_vendor_engine as pve
+    name = 'a re-asked left-out section is not asked on every re-run'
+    if not hasattr(pve, '_report_agents_md'):
+        not_applicable(name, '_report_agents_md is absent')
+        return
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='reasked-'))
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+        (tmp / 'AGENTS.md').write_text('# Notes\n', encoding='utf-8')
+        plan = [('## Session setup', 'AGENTS.md.loader.template', 12, 'absent', None)]
+
+        def run(commit):
+            saved = list(pve._LEFT_FOR_YOU)
+            pve._LEFT_FOR_YOU[:] = []
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    try:
+                        pve._report_agents_md(tmp, tmp, plan, reask_absent=True,
+                                              commit=commit)
+                    except TypeError:
+                        pve._report_agents_md(tmp, tmp, plan, reask_absent=True)
+                left = list(pve._LEFT_FOR_YOU)
+            finally:
+                pve._LEFT_FOR_YOU[:] = saved
+            return left, buf.getvalue()
+
+        left, out = run('c1')
+        cases.append(('the first re-run of an update asks again, as before',
+                      any('Session setup' in i for i, _w in left), out[-200:]))
+        left, out = run('c1')
+        cases.append(('the next re-run of the same update does not ask a '
+                      'third time, and says why',
+                      not left and 'not asked a third time' in out, out[-300:]))
+        left, out = run('c2')
+        cases.append(('an update to another source commit asks again',
+                      any('Session setup' in i for i, _w in left), out[-200:]))
+        tracked = subprocess.run(['git', '-C', str(tmp), 'status', '--porcelain',
+                                  '--untracked-files=all'],
+                                 capture_output=True, text=True).stdout
+        cases.append(('the record lives in the git directory, never in the tree',
+                      'reasked' not in tracked, tracked))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_update_vendors_reports_dropped_template_wording():
     """An install-once file still carrying wording its template has since
     dropped is left for the person, by file and line -- and nothing else is.
@@ -84270,6 +84330,7 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_a_reasked_left_out_section_is_not_asked_every_rerun()
     check_update_vendors_refreshes_a_template_own_comment()
     check_update_vendors_dropped_wording_reads_a_views_source()
     check_kept_pin_moves_across_a_comment_only_template_change()
