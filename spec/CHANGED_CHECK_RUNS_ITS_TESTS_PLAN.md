@@ -1,7 +1,7 @@
 ---
 title:         A changed check runs its own tests at push time
 kind:          proposal
-status:        accepted
+status:        executed
 opened:        2026-10-11
 closed:        null
 superseded_by: null
@@ -11,6 +11,10 @@ summary:       "When a push changes a check in precedent_check.py, code a check 
 ---
 
 # A changed check runs its own tests at push time
+
+**Reversed on 2026-10-16:** these tests now run at the Debut and around
+Produce, never before a push -- see
+[TESTS_RUN_AT_THE_DEBUT_PLAN.md](TESTS_RUN_AT_THE_DEBUT_PLAN.md).
 
 **Approved by Morgan on 2026-10-11 ("Let's build"), after two review rounds
 with a second session.**

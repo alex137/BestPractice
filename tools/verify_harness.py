@@ -19,6 +19,9 @@ Run:  python3 tools/verify_harness.py
             then the tests that went not-applicable there, run here
       PRECEDENT_CHECK_ONLY=check_a,check_b python3 tools/verify_harness.py
                                                  # just the tests you name
+      python3 tools/verify_harness.py --record-new-times
+            time only the tests tools/harness_check_times.json does not
+            name, and add them -- commit it with a new test
       python3 tools/verify_harness.py --for-change origin/staging [--dry-run]
             just the tests a change since that ref reaches, within a
             60-second budget (--budget N); the push check runs this
@@ -3406,6 +3409,18 @@ def check_worktree_snapshot_needs_no_git_identity():
     found = ppc._finding_lines(out)
     cases.append(('the push check\'s report picks a failed shard and its reason',
                   out[0] in found and out[3] in found and out[2] not in found,
+                  str(found), ))
+    # A shard that died before any verdict names its traceback instead.
+    out = ['  SHARD FAILED (exit 1)', '  last 3 line(s) of its stderr:',
+           '    SKIP (filtered out by PRECEDENT_CHECK_ONLY/SKIP): check_x',
+           '    Traceback (most recent call last):',
+           '    KeyError: \'shard_probe\'',
+           '=== here, the not-applicable slice ===',
+           '  unrelated tail line']
+    found = ppc._finding_lines(out)
+    cases.append(('...and a shard with no FAIL: line is reported by its stderr',
+                  out[4] in found and out[3] in found and out[2] not in found
+                  and out[6] not in found,
                   str(found), ))
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the working-tree snapshot needs no git identity ({len(cases)} stated cases)',
@@ -12387,6 +12402,53 @@ def _write_check_times(seconds, measured, path=None):
         json.dumps(rec, indent=1) + '\n', encoding='utf-8')
 
 
+def record_new_times():
+    """--record-new-times: run only the tests HARNESS_CHECK_TIMES does not
+    name, and add what each took. -> the run's exit code.
+
+    A TEST'S TIME IS RECORDED WITH THE TEST (Morgan, 2026-10-16: "The new
+    heavy tests should be in the batch of tests as they land on the
+    branch"). The list was refreshed only by a whole --as-ci
+    --record-times run, about 13 minutes nobody remembered after
+    2026-10-09, so a hundred tests were dealt into CI's parts as
+    default_seconds -- the slowest of them took 17.8 s. This times only
+    the missing ones, in seconds to a few minutes, and the per-file step
+    of the push check refuses a new test whose time is not recorded
+    (precedent_push_check.changed_files_check), naming this command."""
+    import tempfile
+    times, _ = _check_times()
+    names = sorted(n for n, v in globals().items()
+                   if n.startswith('check_') and callable(v))
+    missing = [n for n in names if n not in times]
+    if not missing:
+        print('verify_harness: every test already has a recorded time.')
+        return 0
+    print(f'verify_harness: timing {len(missing)} test(s) with no recorded '
+          f'time: ' + ', '.join(missing), flush=True)
+    with tempfile.TemporaryDirectory() as td:
+        out = pathlib.Path(td) / 'times.json'
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'verify_harness.py')],
+                           cwd=ROOT, env=dict(os.environ,
+                                              PRECEDENT_CHECK_ONLY=','.join(missing),
+                                              PRECEDENT_HARNESS_TIMES_OUT=str(out)))
+        got = json.loads(out.read_text(encoding='utf-8')) if out.is_file() else {}
+    got = {n: dt for n, dt in got.items() if n in missing}
+    if not got:
+        print('verify_harness: the run recorded no times; nothing written.')
+        return r.returncode or 1
+    try:
+        before = json.loads(HARNESS_CHECK_TIMES.read_text(encoding='utf-8')).get(
+            'measured', '')
+    except (OSError, ValueError):
+        before = ''
+    _write_check_times({**times, **got},
+                       f'{before}; {len(got)} added {time.strftime("%Y-%m-%d")} '
+                       f'by --record-new-times'.lstrip('; '))
+    print(f'verify_harness: recorded {len(got)} time(s) in '
+          f'{HARNESS_CHECK_TIMES.relative_to(ROOT)}; commit it with the tests.')
+    return r.returncode
+
+
 def _deal_by_time(names, parts, times, default=None):
     """-> [[name, ...]] * parts: every name in exactly one part, the slowest
     dealt first, each to whichever part has the least time so far. A check
@@ -18933,14 +18995,13 @@ def check_changed_files_only_judges_the_change():
         git('add', 'tools/checks', 'tools/verify_harness.py')
         git('commit', '-qm', 'a check whose own test fails')
         rc, out = files_check(start)
-        failed_ok = rc == 1 and 'test_zzfixture.sh: failed' in out
-        (wt / 'tools' / 'checks' / 'tests' / 'test_zzfixture.sh').write_text(
-            'exit 0\n', encoding='utf-8')
-        git('commit', '-qam', 'its test passes now')
-        rc, out = files_check(start)
-        cases.append(("a changed check runs its own test: refused while the test fails, "
-                      "passes once it passes", failed_ok and rc == 0
-                      and 'ran 1 test(s)' in out, out[-400:]))
+        # Tests run at the Debut, never before a push (Morgan, 2026-10-16):
+        # the failing test is named, not run, and refuses nothing here.
+        cases.append(("a changed check's test is named for the Debut, not run "
+                      "before the push", rc == 0 and 'test_zzfixture.sh: failed'
+                      not in out and "1 test(s) of changed checks run at the "
+                      "Debut, not here: tools/checks/tests/test_zzfixture.sh" in out,
+                      out[-400:]))
     finally:
         subprocess.run(['git', '-C', str(ROOT), 'worktree', 'remove', '--force', str(wt)],
                        capture_output=True)
@@ -25660,6 +25721,28 @@ def check_precedent_check_fires():
 
         case('vendored-copy-matches-record', _plant_drifted_copy,
              setup=_setup_recorded_copy)
+
+        # upstream-bug-stops-here -- a file the sync's MANIFEST.json records
+        # as shipped here, edited after delivery with no recorded answer.
+        # The setup records it as delivered, so the clean tree matches.
+        def _setup_received_file(repo):
+            f = repo / 'planted_received.txt'
+            f.write_text('As the set shipped it.\n', encoding='utf-8')
+            (repo / 'MANIFEST.json').write_text(json.dumps({'ships': [{
+                'path': 'planted_received.txt', 'source': 'precedent-shared-x',
+                'sha256_16': hashlib.sha256(f.read_bytes()).hexdigest()[:16]}]}),
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'a received file and its record')
+
+        def _plant_edited_received_file(repo):
+            (repo / 'planted_received.txt').write_text(
+                'Fixed here instead of upstream.\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted local edit of a shipped file')
+
+        case('upstream-bug-stops-here', _plant_edited_received_file,
+             setup=_setup_received_file)
 
         # todo-migrate-available-but-unused -- a repo that has the migration
         # tool vendored (an ENGINE_MANIFEST.json declaring a kind, same as a
@@ -33818,13 +33901,27 @@ def check_practice_ships_its_files():
                       out[-300:]))
         ggit('commit', '-qam', 'our own newer helper')
         rc, out = grun()
-        cases.append(('once committed, the repository\'s own newer version is '
-                      'kept, and the set is named as the one behind',
+        cases.append(('once committed, the repository\'s own version is kept, '
+                      'and the sync asks for its answer',
                       rc == 0 and 'uncommitted' in text_of(gdelivered)
-                      and 'the set\'s copy is the older one' in out, out[-300:]))
-        cases.append(('...and is not drift: it needs no declined_ships entry',
+                      and 'upstream-bug-stops-here' in out
+                      and 'owed-upstream' in out, out[-300:]))
+        # practice: upstream-bug-stops-here (2026-10-17): kept is not
+        # answered. It is drift until precedent.json records its answer.
+        cases.append(('...and it is drift until it has its answer',
+                      any('tools/helper.py was committed here after the set'
+                          in x for x in _drift_at(gconsumer))))
+        gcfg = json.loads((gconsumer / 'precedent.json').read_text(encoding='utf-8'))
+        gcfg['upstream_edits'] = {'tools/helper.py': {
+            'answer': 'owed-upstream',
+            'detail': 'https://example.com/set/pull/1 carries it to the set'}}
+        (gconsumer / 'precedent.json').write_text(json.dumps(gcfg), encoding='utf-8')
+        cases.append(('...and is not drift once "owed-upstream" records the '
+                      'link that carries it up',
                       not any('tools/helper.py' in x for x in
                               _drift_at(gconsumer))))
+        gcfg.pop('upstream_edits')
+        (gconsumer / 'precedent.json').write_text(json.dumps(gcfg), encoding='utf-8')
         # The origin case before any delivery is recorded: this file's own
         # history holds the set's exact bytes, then moved on.
         mf = gconsumer / 'MANIFEST.json'
@@ -33839,7 +33936,8 @@ def check_practice_ships_its_files():
         cases.append(('a repository whose history holds the set\'s copy keeps '
                       'its newer one, with no delivery on record',
                       rc == 0 and 'origin, newer' in text_of(gdelivered)
-                      and 'the set\'s copy is the older one' in out, out[-300:]))
+                      and 'LEFT UNTOUCHED' in out
+                      and 'committed its own version after' in out, out[-300:]))
         # A committed hand-copy the set never came from is still adopted: git
         # keeps what goes.
         m = json.loads(mf.read_text(encoding='utf-8'))
@@ -36423,10 +36521,10 @@ def check_changed_files_runs_one_copy_of_a_repo_local_test():
                      '# check_zzsolo.py\nexit 0\n'})
         rc2, out2 = run2()
     cases = [
-        ('with both copies changed, only the materialized one runs, and passes',
-         rc == 0 and 'ran 1 test(s) of changed checks: '
-         'tools/checks/tests/test_zzloc.sh' in out),
-        ('control: with no materialized copy, the original runs',
+        ('with both copies changed, only the materialized one is named, for '
+         'the Debut', rc == 0 and '1 test(s) of changed checks run at the '
+         'Debut, not here: tools/checks/tests/test_zzloc.sh' in out),
+        ('control: with no materialized copy, the original is named',
          rc2 == 0 and 'local/tools/checks/tests/test_zzsolo.sh' in out2),
     ]
     failed = [n for n, ok in cases if not ok]
@@ -37117,9 +37215,11 @@ def check_for_change_adds_what_the_reach_ledger_picks():
                'mach': mach}, default=str)[:1500]))
 
 def check_changed_files_runs_the_harness_tests_a_change_reaches():
-    """The changed-files step runs `verify_harness.py --for-change` where the
-    harness lives, and a check script's change runs every test that names
-    it, not only test_<its name>.sh.
+    """The changed-files step never starts the harness, and a check script's
+    change NAMES every test that names it, for the Debut, without running
+    one (Morgan, 2026-10-16: tests run at the Debut and around Produce,
+    never before a push). It used to run `verify_harness.py --for-change`
+    (2026-10-11), which made a landing's quick check take minutes.
 
     The first half is the push side of check_for_change_runs_the_tests_a_
     change_reaches: a fake harness that fails is a refusal naming the
@@ -37130,7 +37230,7 @@ def check_changed_files_runs_the_harness_tests_a_change_reaches():
     never starts the harness.
     """
     import contextlib, io, tempfile
-    name = 'the changed-files check runs the harness tests a change reaches'
+    name = 'the changed-files check runs no test before a push'
     fake = ('import sys, pathlib\n'
             "if '--for-change' in sys.argv:\n"
             "    pathlib.Path('ran-for-change').write_text(' '.join(sys.argv[1:]))\n"
@@ -37146,6 +37246,7 @@ def check_changed_files_runs_the_harness_tests_a_change_reaches():
                                              {'tools/verify_harness.py': fake})
         commit({'tools/zzmod.py': 'X = 1\n', 'tools/fail': ''})
         rc, out = run()
+        ran1 = (pathlib.Path(td) / 'fails' / 'repo' / 'ran-for-change').is_file()
         commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'passes',
                                                {'tools/verify_harness.py': fake})
         commit2({'tools/zzmod.py': 'X = 2\n'})
@@ -37166,21 +37267,247 @@ def check_changed_files_runs_the_harness_tests_a_change_reaches():
         rc4, out4 = run4()
         ran4 = (pathlib.Path(td) / 'pair' / 'repo' / 'pair-test-ran').is_file()
     cases = [
-        ('a failing harness test the change reaches refuses, naming it',
-         rc == 1 and 'a harness test this change reaches failed -- FAIL: zz broke'
-         in out),
-        ('a passing run passes, and its notes are shown on stderr, which '
-         'the gate streams even when the step passes',
-         rc2 == 0 and ran2 and 'for-change: NOT RUN HERE' in err2.getvalue()),
-        ('control: a change with no Python under tools/ never starts it',
+        ('a change to Python under tools/ never starts the harness, even one '
+         'whose tests would fail', rc == 0 and not ran1
+         and 'FAIL: zz broke' not in out),
+        ('...nor a passing one', rc2 == 0 and not ran2),
+        ('control: a documents-only change never starts it either',
          rc3 == 0 and not ran3),
-        ('a check script runs the shared test that names it',
-         rc4 == 0 and ran4 and 'local/tools/checks/tests/test_zzpair.sh' in out4),
+        ('a check script names the shared test that names it, and runs none',
+         rc4 == 0 and not ran4 and 'local/tools/checks/tests/test_zzpair.sh'
+         in out4),
     ]
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
           '; '.join(failed) + ('' if not failed else
                               f' -- {out[-400:]} / {out2[-300:]} / {out4[-300:]}'))
+
+
+def check_a_new_test_lands_with_its_time():
+    """A commit that adds a harness test carries its recorded time, or the
+    per-file step refuses it, naming --record-new-times (Morgan, 2026-10-16:
+    "The new heavy tests should be in the batch of tests as they land on
+    the branch"). A hundred tests went unrecorded after 2026-10-09 and were
+    dealt as default_seconds. The control: with the time recorded, it
+    passes; and a change that adds no test is not asked.
+    """
+    import tempfile
+    name = 'a new harness test lands with its recorded time'
+    times = lambda names: json.dumps({'seconds': {n: 1.0 for n in names}})
+    with tempfile.TemporaryDirectory() as td:
+        base = {'tools/verify_harness.py': 'def check_old():\n    pass\n',
+                'tools/harness_check_times.json': times(['check_old'])}
+        commit, run = _changed_files_fixture(pathlib.Path(td) / 'bare', base)
+        commit({'tools/verify_harness.py': base['tools/verify_harness.py']
+                + 'def check_zz_new():\n    pass\n'})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'timed', base)
+        commit2({'tools/verify_harness.py': base['tools/verify_harness.py']
+                 + 'def check_zz_new():\n    pass\n',
+                 'tools/harness_check_times.json': times(['check_old', 'check_zz_new'])})
+        rc2, out2 = run2()
+        commit3, run3 = _changed_files_fixture(pathlib.Path(td) / 'edit', base)
+        commit3({'tools/verify_harness.py': 'def check_old():\n    return 1\n'})
+        rc3, out3 = run3()
+    cases = [
+        ('a new test with no recorded time is refused, naming the command',
+         rc == 1 and 'adds 1 test(s) with no recorded time (check_zz_new)' in out
+         and '--record-new-times' in out),
+        ('control: with its time recorded, it passes', rc2 == 0),
+        ('control: an edit that adds no test is not asked', rc3 == 0),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-300:]} / {out2[-300:]}'))
+
+
+def check_upstream_edits_need_an_answer():
+    """practice: upstream-bug-stops-here, enforced (Morgan, 2026-10-17,
+    "Act"). An upstream-owned file -- an engine file or hook
+    ENGINE_MANIFEST.json records, a shipped file MANIFEST.json records --
+    that differs from what was delivered is a finding until precedent.json
+    records its answer; the edit-time hook refuses the edit before it
+    happens, with the three answers in its reason.
+
+    Controls: an untouched delivery and this repository's own file are
+    never named; each malformed answer is named for what it lacks; an
+    answer for a file that matches again is stale; and the hook lets every
+    other edit through.
+    """
+    import shutil, tempfile
+    name = 'an edit to an upstream-owned file needs its recorded answer'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import upstream_edits as ue
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-upstream-edits-'))
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        engine_file = repo / 'tools' / 'engine_thing.py'
+        engine_file.write_text('X = 1\n', encoding='utf-8')
+        shipped = repo / 'tools' / 'shipped_thing.py'
+        shipped.write_text('Y = 1\n', encoding='utf-8')
+        own = repo / 'tools' / 'our_own.py'
+        own.write_text('Z = 1\n', encoding='utf-8')
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+            'sha256': {'engine_thing.py': hashlib.sha256(
+                engine_file.read_bytes()).hexdigest()}}), encoding='utf-8')
+        (repo / 'MANIFEST.json').write_text(json.dumps({'ships': [{
+            'path': 'tools/shipped_thing.py', 'source': 'precedent-shared-x',
+            'sha256_16': hashlib.sha256(shipped.read_bytes()).hexdigest()[:16]}]}),
+            encoding='utf-8')
+        cfg = repo / 'precedent.json'
+
+        def answers(entries):
+            cfg.write_text(json.dumps({'upstream_edits': entries} if entries
+                                      is not None else {}), encoding='utf-8')
+        answers(None)
+        cases.append(('control: an untouched delivery has no finding',
+                      ue.findings(repo) == [], str(ue.findings(repo))))
+        cases.append(('control: editing this repository\'s own file is allowed',
+                      ue.guard(own, repo) is None, ''))
+        why = ue.guard(shipped, repo) or ''
+        cases.append(('editing a shipped file is refused before the edit, with '
+                      'the three answers', 'upstream-bug-stops-here' in why
+                      and 'owed-upstream' in why and 'local-need' in why, why[:200]))
+        engine_file.write_text('X = 2\n', encoding='utf-8')
+        shipped.write_text('Y = 2\n', encoding='utf-8')
+        found = ue.findings(repo)
+        cases.append(('an edited engine file and an edited shipped file are '
+                      'each a finding until answered',
+                      len(found) == 2 and all('no recorded answer' in f
+                                              for f in found), str(found)[:400]))
+        answers({'tools/shipped_thing.py': {'answer': 'owed-upstream',
+                                            'detail': 'carried up later'}})
+        cases.append(('"owed-upstream" with no link is named for the link',
+                      any('needs the link' in f for f in ue.findings(repo)), ''))
+        answers({'tools/shipped_thing.py': {'answer': 'local-need',
+                                            'detail': 'this repo pins Y'}})
+        cases.append(('"local-need" with no quoted, dated approval is named for it',
+                      any('quoted, with the date' in f for f in ue.findings(repo)), ''))
+        answers({'tools/shipped_thing.py': {
+                    'answer': 'owed-upstream',
+                    'detail': 'https://example.com/set/pull/7'},
+                 'tools/engine_thing.py': {
+                    'answer': 'local-need', 'detail': 'X must be 2 here because ...',
+                    'approved': 'Morgan, 2026-10-17: "yes, keep it"'}})
+        cases.append(('with both answered, nothing is named',
+                      ue.findings(repo) == [], str(ue.findings(repo))))
+        cases.append(('...and the guard lets an answered file be edited',
+                      ue.guard(shipped, repo) is None, ''))
+        engine_file.write_text('X = 1\n', encoding='utf-8')
+        cases.append(('an answer for a file that matches again is stale',
+                      any('tools/engine_thing.py: has a "upstream_edits" entry '
+                          'but matches' in f for f in ue.findings(repo)), ''))
+        # The real hook, end to end, in the consumer.
+        answers(None)
+        shutil.copy2(ROOT / 'tools' / 'upstream_edits.py', repo / 'tools')
+        hook = ROOT / 'tools' / 'precedent-paths.sh'
+        if shutil.which('jq'):
+            def run_hook(target):
+                r = subprocess.run(['bash', str(hook)], capture_output=True,
+                                   text=True, timeout=60, input=json.dumps(
+                                       {'tool_input': {'file_path': str(target)}}),
+                                   env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+                return r.returncode, r.stdout
+            rc, out = run_hook(shipped)
+            cases.append(('the edit-time hook denies an edit to an unanswered '
+                          'shipped file, giving the reason',
+                          rc == 0 and '"permissionDecision": "deny"' in out
+                          and 'upstream-bug-stops-here' in out, out[:300]))
+            rc, out = run_hook(own)
+            cases.append(('control: the hook lets an edit to this repository\'s '
+                          'own file through', rc == 0 and 'deny' not in out, out[:300]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_quick_tier_is_closed():
+    """Nothing joins the checks run before a push without the person's own
+    words (Morgan, 2026-10-16, strength: decided: "LET'S BAN ALL NEW TESTS
+    BEFOREHAND EXCEPT WHEN EXPLICITLY DIRECTLY VERBALLY AUTHORIZED").
+
+    THE DRIFT IT STOPS: from 2026-10-11 every landing ran the harness tests
+    a change reaches, inside a minute's budget
+    (spec/CHANGED_CHECK_RUNS_ITS_TESTS_PLAN.md); with a timing list a
+    hundred tests out of date that minute became two, and the quick check
+    took over three (spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md). So:
+
+    * BASIC_CHECKS is exactly the names below. Changing this set is a
+      change to the quick tier -- make it only with the person's words
+      asking for that check before a push, quoted with their date in
+      precedent_push_check.BASIC_CHECKS_APPROVED;
+    * every approval quotes someone's words and carries a date, and one
+      added after the closing carries its time in seconds;
+    * the per-file step (changed_files_check) starts no test, harness or
+      practice check, and nothing in the push check runs the practice
+      checks limited to a change (--changed-files-only) before a push.
+    The control: the same scanner flags a planted test run.
+    """
+    import inspect
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    name = 'the quick tier is closed: nothing joins it without the person\'s words'
+    closed = {'build_views', 'ci_workflows', 'commit_author', 'commit_dates',
+              'doc_lint', 'generated_files', 'leak_gate', 'leak_gate_commits',
+              'light_check', 'practice_export_loop', 'rename_links',
+              'scrub_gate', 'session_trailer', 'views_sync'}
+    import ast, textwrap
+
+    def runs_tests(src):
+        """-> what each subprocess call in `src` starts that is a test or a
+        check run: a call's own arguments, never a comment or a message."""
+        found = []
+        for node in ast.walk(ast.parse(textwrap.dedent(src))):
+            if not (isinstance(node, ast.Call) and getattr(node.func, 'attr', '')
+                    in ('run', 'Popen', 'check_output', 'call')):
+                continue
+            words = [n.value for n in ast.walk(node) if isinstance(n, ast.Constant)
+                     and isinstance(n.value, str)]
+            names = [n.id for n in ast.walk(node) if isinstance(n, ast.Name)]
+            if any(w.endswith(('verify_harness.py', 'precedent_check.py',
+                               'run_all.sh')) or w == '--changed-files-only'
+                   for w in words) or ('bash' in words and 'test' in names):
+                found.append(ast.get_source_segment(textwrap.dedent(src), node)
+                             or 'a call')
+        return found
+    per_file = inspect.getsource(ppc.changed_files_check) \
+        + '\n' + inspect.getsource(ppc._check_script_tests)
+    whole = (ROOT / 'tools' / 'precedent_push_check.py').read_text(encoding='utf-8')
+    limited = [n for n in ast.walk(ast.parse(whole)) if isinstance(n, ast.Constant)
+               and n.value == '--changed-files-only']
+    unquoted = [k for k, (words, _s) in ppc.BASIC_CHECKS_APPROVED.items()
+                if not (re.search(r'\b20\d\d-\d\d-\d\d\b', words) and '"' in words)]
+    untimed = [k for k, (_w, secs) in ppc.BASIC_CHECKS_APPROVED.items()
+               if k not in closed and not isinstance(secs, (int, float))]
+    cases = [
+        ('the basic tier is exactly the closed list -- before adding one, '
+         'tell the person its time and urge the Debut instead; only their '
+         'own words asking for it before a push let it in, quoted with a '
+         'date and its seconds in BASIC_CHECKS_APPROVED and added here '
+         '(practice: quick-tier-is-closed)',
+         ppc.BASIC_CHECKS == closed,
+         f'added: {sorted(ppc.BASIC_CHECKS - closed)}, '
+         f'removed: {sorted(closed - ppc.BASIC_CHECKS)}'),
+        ('every entry quotes someone\'s words, with a date', not unquoted,
+         ', '.join(unquoted)),
+        ('every entry added after the closing carries its time in seconds',
+         not untimed, ', '.join(untimed)),
+        ('the per-file step starts no test, harness or practice check',
+         not runs_tests(per_file), ', '.join(runs_tests(per_file))),
+        ('nothing runs the change-limited practice checks before a push',
+         not limited, f'{len(limited)} use(s) of --changed-files-only'),
+        ('control: the scanner flags a planted harness run',
+         bool(runs_tests("subprocess.run([sys.executable, 'tools/verify_harness.py'])"))
+         and bool(runs_tests("subprocess.run(['bash', test], cwd=root)")), ''),
+        ('control: a comment or message naming a test runs nothing',
+         not runs_tests("x = 'add it to tools/verify_harness.py'  # run_all.sh\n"),
+         ''),
+    ]
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_boildown_contradiction_spares_work_waiting_upstream():
@@ -37900,16 +38227,18 @@ def check_push_check_gate():
                           'failing full-only check does not refuse it', not denied))
             denied, _ = gate('git push origin HEAD:pre-staging')
             cases.append(('so does a push to pre-staging', not denied))
-            # checks-follow-the-tier: pre-staging also runs the practice
-            # checks on the files the push changes; a working branch does not.
+            # The practice checks on the changed files run at the Debut and
+            # around Produce, never before a push (Morgan, 2026-10-16): a
+            # landing push no longer runs them, so their failure refuses
+            # neither it nor a working branch's push.
             (work / 'FAIL').write_text('changed_practice', encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'break the changed-files practice run')
             denied, out = gate('git push origin HEAD:pre-staging')
-            cases.append(('a push to pre-staging runs the practice checks on the '
-                          'files it changes, and their failure refuses it',
-                          denied and 'changed_practice' in out))
+            cases.append(('a push to pre-staging does not run the practice checks '
+                          'on the files it changes -- they wait for the Debut',
+                          not denied and 'changed_practice' not in out))
             denied, _ = gate('git push -u origin feature')
-            cases.append(('a push to a working branch does not run them', not denied))
+            cases.append(('nor does a push to a working branch', not denied))
             (work / 'FAIL').write_text('precedent_check', encoding='utf-8')
             git(work, 'commit', '-q', '-am', 'back to a full-only failure')
             denied, out = gate('git push origin main')
@@ -81241,6 +81570,9 @@ def main():
     check_for_change_runs_the_tests_a_change_reaches()
     check_for_change_adds_what_the_reach_ledger_picks()
     check_changed_files_runs_the_harness_tests_a_change_reaches()
+    check_quick_tier_is_closed()
+    check_upstream_edits_need_an_answer()
+    check_a_new_test_lands_with_its_time()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()
     check_leak_gate_reads_neighbour_blocklists()
@@ -81330,6 +81662,8 @@ if __name__ == '__main__':
         if '--budget' in _args and _args.index('--budget') + 1 < len(_args):
             _budget = float(_args[_args.index('--budget') + 1])
         sys.exit(run_for_change(_args[_i + 1], _budget, dry_run='--dry-run' in _args))
+    if '--record-new-times' in sys.argv[1:]:
+        sys.exit(record_new_times())
     os.environ.setdefault(FOR_CHANGE_LEDGER_OFF_ENV, '1')
     # A full run by hand is proposed first (HARNESS_ASKED_ENV, above).
     refusal = _full_run_refusal(sys.argv[1:], os.environ)

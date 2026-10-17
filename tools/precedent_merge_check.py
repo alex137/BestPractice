@@ -614,8 +614,8 @@ def main(argv):
         print(f'precedent_merge_check: pull request #{number} of '
               f'{owner}/{repo} into {base} -- '
               f'{tier} check of {what} ({sha[:12]}); {why}.', flush=True)
-        # A pull request into pre-staging is judged by the practice checks
-        # on the files it changes (precedent_push_check.CHANGED_PRACTICE_CHECK).
+        # A pull request into pre-staging is judged by the per-file checks
+        # on the files it changes (precedent_push_check.CHANGED_FILES_CHECK).
         extra = ()
         since_for = getattr(pb, 'changed_since_for', None) if pb else None
         since = (since_for(root, bases) if since_for else

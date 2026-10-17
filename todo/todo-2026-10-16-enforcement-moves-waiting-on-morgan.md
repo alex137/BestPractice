@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "Morgan: when the ladder restructuring (plan part 3) starts, and the shape of the GitHub branch ruleset opt-in"
+waiting_on:        "Morgan: when the ladder restructuring (plan part 3) starts"
 noted:             2026-10-16
 closed:            null
 ---
@@ -53,4 +53,10 @@ All three are decided, and what was decided is built or parked.
   sets' names out of its tests. The default name `precedent-individual`
   stays (Morgan, "keep the default name", strength: decided). The ladder's
   names in logic wait for part 3.
+- 2026-10-16, Morgan, strength: decided: the GitHub branch ruleset is
+  opt-in for anyone, "including Alex who may opt in, in one of their
+  precedent config files". Built in the ladder set (its PR #98): opt in
+  with `"github_branch_rules": true` in identity.json or the user-level
+  config; `--apply` then touches only repositories the person's own
+  account owns. Nobody has opted in yet; nothing is applied.
 

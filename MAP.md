@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 174 practice files (6 resident, 168 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 175 practice files (6 resident, 169 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -124,6 +124,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [prompt-please](practices/prompt-please.md) | on-demand | a person says "Prompt Please", or work belongs in a new session -- a repo this one lacks is asked to be attached here first |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
 | [quick-index](practices/quick-index.md) | on-demand | looking for where something lives, before searching |
+| [quick-tier-is-closed](practices/quick-tier-is-closed.md) | on-demand | adding a test or a check, or wiring one to run before a push |
 | [quote-discipline](practices/quote-discipline.md) | on-demand | computing, quoting or tabulating figures |
 | [reach-or-ask](practices/reach-or-ask.md) | on-demand | a tool, check or task cannot reach a repository, service, credential or file it needs |
 | [read-for-intent](practices/read-for-intent.md) | on-demand | reading what a message asks for, or writing one that a session or a check will read |
@@ -330,6 +331,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/todo_migrate.py](tools/todo_migrate.py) | One-time converter from the old TODO.md/gotchas-index format into spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's per-item todo/gotchas files, dry-run by default |
 | [tools/todo_progress.py](tools/todo_progress.py) | which open items a change may have moved, and which name a file that is gone -- reports a resemblance, never a verdict |
 | [tools/typography.py](tools/typography.py) | typography.py -- the one place plain Markdown typing becomes finished |
+| [tools/upstream_edits.py](tools/upstream_edits.py) | Files this repository received from upstream that were edited here, and |
 | [tools/upstream_fix.py](tools/upstream_fix.py) | Sets up the fix to a vendored file where it comes from -- names the source repository and the file's path there, and opens a branch in that source's clone off its landing branch; never edits the copy |
 | [tools/verify_harness.py](tools/verify_harness.py) | The verification harness — run before trusting any change here |
 | [tools/very_deep_check.py](tools/very_deep_check.py) | The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit |
