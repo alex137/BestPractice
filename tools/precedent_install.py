@@ -45,11 +45,12 @@ the shared/individual question is a conversation with the administrator
 first. And it does not run the freshness guard or any session hook -- those
 run in the project's own sessions from then on.
 
-IT INSTALLS TWO GITHUB ACTIONS WORKFLOWS BY DEFAULT, since 2026-09-25:
+IT INSTALLS THREE GITHUB ACTIONS WORKFLOWS BY DEFAULT, since 2026-09-25:
 leak-gate.yml and light-check.yml -- one light check on a pull request into
-main, and a leak gate that never runs in a private repository. An individual
-or shared source whose identity.json declares `"github_ci_workflows":
-"disabled"` switches both off (the old key `ci_workflows` is still read).
+main, and a leak gate that never runs in a private repository -- and, since
+2026-10-16, precedent-branch-cleanup.yml, which runs only when someone
+clicks Run workflow. An individual or shared source whose identity.json
+declares `"github_ci_workflows": "disabled"` switches all three off (the old key `ci_workflows` is still read).
 From 2026-09-15 to 2026-09-25 nothing declared meant disabled. The tool names
 the reason in its output and in the project's own GETTING_STARTED.md. See
 documentation/GITHUB_ACTIONS.md.
@@ -324,8 +325,9 @@ _CI_PARAGRAPH_ON = (
     "  Actions workflow `light-check.yml`, on the pull request into `main`). In a\n"
     "  public repository it checks again after a push to `main` that brings\n"
     "  anything it has not already passed. Every other push is checked on your own machine before it leaves. In a\n"
-    "  public repository a leak check (`leak-gate.yml`) also runs on every push\n"
-    "  and refuses anything that would publish something private. Neither needs\n"
+    "  public repository a leak check (`leak-gate.yml`) also runs on every pull\n"
+    "  request, and the same check runs on your own machine before every push,\n"
+    "  refusing anything that would publish something private. Neither needs\n"
     "  maintenance. If they don't appear on a pull request's checks, GitHub\n"
     "  Actions may be disabled for this repository — an administrator can turn\n"
     "  it on at repository **Settings → Actions**.\n"

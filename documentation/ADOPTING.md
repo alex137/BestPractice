@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-14 (Buenos Aires), correcting the precedence paragraph under "Sharing Practices With a Team" to the order the engine actually applies -->
+<!-- Last updated: 2026-10-17 (Buenos Aires), saying precedent.json starts with two libraries, the general one and the project's own -->
 
 # Precedent
 
@@ -54,8 +54,9 @@ three-step shape below is the idea, not a checklist to follow by hand.
    kept alongside everything else there. It becomes part of the project,
    rather than something fetched from elsewhere while you work.
 2. Add a small file at the top of the project — `precedent.json` — naming the
-   libraries that apply there. To begin with, that is one: the general one
-   you just copied. There is an example in
+   libraries that apply there. To begin with, that is two: the general one
+   you just copied, and a nearly empty one for rules that belong to this project
+   alone. There is an example in
    [precedent.json](../precedent.json) here, which is the one Precedent uses on
    itself.
 3. Tell your AI Assistant about it once, in whatever file it already reads when
