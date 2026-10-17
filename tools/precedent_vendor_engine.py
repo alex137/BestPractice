@@ -1801,23 +1801,76 @@ READ_ONLY_ALLOW_TOOLS = ('precedent_show.py', 'precedent_paths.py',
                          'routing_audit.py', 'practice_audit.py')
 DECLINED_ALLOW_KEY = 'declined_allow_rules'
 _ALLOW_RULE_RE = re.compile(r'^Bash\(python3 tools/([\w.-]+)( \*)?\)$')
+# EVERY ENGINE TOOL IS ALLOWED, AND THE ONES THAT MOVE WORK ASK (Morgan,
+# 2026-10-17: "why not include all on that list except a small list we
+# explicitly want to exclude from that list to get the session user's
+# permission", then "yes, build it"). One allow rule covers every
+# tools/precedent_*.py, so a new engine tool needs no settings change and no
+# approval in any repository; the template's permissions.ask names the
+# tools that land, produce, merge, update other repositories or send work
+# upstream. Claude Code applies ask before allow, auto mode included, so
+# those always ask. The allow rule is never written without every ask rule
+# beside it (permission_rules_to_add), or for one moment every one of them
+# would run unasked. precedent_check.py's risky-engine-tools-ask keeps the
+# ask list complete.
+ENGINE_ALLOW_RULE = 'Bash(python3 tools/precedent_*)'
+
+
+def _is_engine_ask_rule(rule):
+    """True for an ask rule the template ships: one naming an engine tool
+    (tools/precedent_*.py), or the GitHub merge."""
+    return isinstance(rule, str) and (
+        rule == 'mcp__github__merge_pull_request'
+        or bool(re.match(r'^Bash\(python3 \*?tools/precedent_[\w.-]+\.py\b', rule)))
 
 
 def is_read_only_allow_rule(rule):
     """True for `Bash(python3 tools/X)` or `Bash(python3 tools/X *)` where X
-    is one of READ_ONLY_ALLOW_TOOLS."""
+    is one of READ_ONLY_ALLOW_TOOLS, and for ENGINE_ALLOW_RULE."""
+    if rule == ENGINE_ALLOW_RULE:
+        return True
     m = _ALLOW_RULE_RE.match(rule) if isinstance(rule, str) else None
     return bool(m) and m.group(1) in READ_ONLY_ALLOW_TOOLS
 
 
 def read_only_allow_rules(template_text):
-    """-> the settings template's allow rules for a read-only engine tool,
-    in the template's order. [] for text that does not parse."""
+    """-> the settings template's allow rules for an engine tool (the read-only
+    ones by name, and ENGINE_ALLOW_RULE), in the template's order. [] for
+    text that does not parse."""
     try:
         rules = (json.loads(template_text).get('permissions') or {}).get('allow') or []
     except (ValueError, AttributeError, TypeError):
         return []
     return [r for r in rules if is_read_only_allow_rule(r)]
+
+
+def engine_ask_rules(template_text):
+    """-> the settings template's permissions.ask rules, in its order. []
+    for text that does not parse."""
+    try:
+        rules = (json.loads(template_text).get('permissions') or {}).get('ask') or []
+    except (ValueError, AttributeError, TypeError):
+        return []
+    return [r for r in rules if isinstance(r, str)]
+
+
+def permission_rules_to_add(perms, allow, ask, declined=()):
+    """-> (allow rules, ask rules) to add to a settings file whose
+    permissions are `perms`: those it does not already have, less `declined`.
+    ENGINE_ALLOW_RULE comes only with every rule of `ask` present after the
+    write, so the broad allow never stands without the asks beside it; a
+    repo that declines one ask rule keeps the tools allowed one by one."""
+    perms = perms if isinstance(perms, dict) else {}
+    have_allow = set(perms.get('allow') or []) | set(perms.get('deny') or [])
+    have_ask = set(perms.get('ask') or []) | set(perms.get('deny') or [])
+    declined = set(declined or ())
+    add_ask = [r for r in ask if r not in have_ask and r not in declined]
+    asks_complete = all(r in have_ask or r in add_ask for r in ask) and bool(ask)
+    add_allow = [r for r in allow if r not in have_allow and r not in declined
+                 and (r != ENGINE_ALLOW_RULE or asks_complete)]
+    if ENGINE_ALLOW_RULE not in add_allow and ENGINE_ALLOW_RULE not in have_allow:
+        add_ask = []          # the asks exist for the broad allow, never alone
+    return add_allow, add_ask
 
 
 def _template_settings_text(clone, commit):
@@ -1830,15 +1883,17 @@ def _template_settings_text(clone, commit):
     return r.stdout if r.returncode == 0 else ''
 
 
-def _read_only_allow_missing(dest_root, rules):
+def _read_only_allow_missing(dest_root, rules, ask=()):
     """-> the rules _apply_read_only_allow would add here now, without
-    writing anything: the refresh's early exit asks, so a change the person
-    has not committed yet is offered again on every run until it is
-    committed or declined (DECLINED_ALLOW_KEY), never left behind once the
-    engine is current (2026-10-16, a consumer's rerun reported DONE with the
-    approved allow-list change nowhere)."""
+    writing anything, as [(key, rule)] with key 'allow' or 'ask': the
+    refresh's early exit asks, so a change the person has not committed yet
+    is offered again on every run until it is committed or declined
+    (DECLINED_ALLOW_KEY), never left behind once the engine is current
+    (2026-10-16, a consumer's rerun reported DONE with the approved
+    allow-list change nowhere). An allow rule naming one tool counts only
+    where that tool is here."""
     settings_path = pathlib.Path(dest_root) / '.claude' / 'settings.json'
-    if not rules or not settings_path.is_file():
+    if not (rules or ask) or not settings_path.is_file():
         return []
     try:
         data = json.loads(settings_path.read_text(encoding='utf-8'))
@@ -1850,20 +1905,26 @@ def _read_only_allow_missing(dest_root, rules):
     if not isinstance(data, dict) or (perms is not None and not isinstance(perms, dict)):
         return []
     declined = set(cfg.get(DECLINED_ALLOW_KEY) or []) if isinstance(cfg, dict) else set()
-    have = set((perms or {}).get('allow') or []) | set((perms or {}).get('deny') or [])
-    return [r for r in rules if r not in have and r not in declined
-            and (pathlib.Path(dest_root) / 'tools' / _ALLOW_RULE_RE.match(r).group(1)).is_file()]
+
+    def here(rule):
+        m = _ALLOW_RULE_RE.match(rule)
+        return not m or (pathlib.Path(dest_root) / 'tools' / m.group(1)).is_file()
+    add_allow, add_ask = permission_rules_to_add(
+        perms, [r for r in rules if here(r)], list(ask), declined)
+    return [('allow', r) for r in add_allow] + [('ask', r) for r in add_ask]
 
 
-def _apply_read_only_allow(dest_root, rules):
-    """ADD each of `rules` (read_only_allow_rules) this repo's
-    .claude/settings.json does not already allow or deny, for a tool its
-    tools/ holds, unless precedent.json declines it. -> [added]. Add-only,
-    like _apply_hook_wiring: nothing already in the file is edited, moved or
-    removed. No settings file, or one that does not parse: nothing."""
+def _apply_read_only_allow(dest_root, rules, ask=()):
+    """ADD each of `rules` (read_only_allow_rules) and `ask`
+    (engine_ask_rules) this repo's .claude/settings.json does not already
+    have, for a tool its tools/ holds, unless precedent.json declines it,
+    the broad allow only with every ask rule (permission_rules_to_add).
+    -> [added]. Add-only, like _apply_hook_wiring: nothing already in the
+    file is edited, moved or removed. No settings file, or one that does not
+    parse: nothing."""
     dest_root = pathlib.Path(dest_root)
     settings_path = dest_root / '.claude' / 'settings.json'
-    if not rules or not settings_path.is_file():
+    if not (rules or ask) or not settings_path.is_file():
         return []
     try:
         data = json.loads(settings_path.read_text(encoding='utf-8'),
@@ -1875,20 +1936,29 @@ def _apply_read_only_allow(dest_root, rules):
     perms = data.get('permissions')
     if perms is not None and not isinstance(perms, dict):
         return []
-    add = _read_only_allow_missing(dest_root, rules)
+    add = _read_only_allow_missing(dest_root, rules, ask)
     if not add:
         return []
-    allow = data.setdefault('permissions', collections.OrderedDict()).setdefault('allow', [])
-    allow.extend(add)
+    perms = data.setdefault('permissions', collections.OrderedDict())
+    for key in ('ask', 'allow'):            # one write: both, or neither
+        more = [r for k, r in add if k == key]
+        if more:
+            perms.setdefault(key, []).extend(more)
     settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                              encoding='utf-8')
-    print(f"precedent_vendor_engine refresh: allowed {len(add)} read-only "
-          f"Precedent tool rule(s) in .claude/settings.json, from "
+    allowed = [r for k, r in add if k == 'allow']
+    asked = [r for k, r in add if k == 'ask']
+    print(f"precedent_vendor_engine refresh: in .claude/settings.json, from "
           f"{SETTINGS_TEMPLATE} -- added only, nothing already there was "
-          f"changed: {', '.join(add)}. They only read, so a session no longer "
-          f"waits on auto mode's check for them. To keep one out, list it in "
-          f"precedent.json's {DECLINED_ALLOW_KEY}.")
-    return add
+          f"changed: "
+          + (f"allowed {len(allowed)} Precedent tool rule(s) ({', '.join(allowed)})"
+             if allowed else '')
+          + ('; ' if allowed and asked else '')
+          + (f"{len(asked)} rule(s) that always ask the person first, for the "
+             f"tools that land, produce, merge or update other repositories "
+             f"({', '.join(asked)})" if asked else '')
+          + f". To keep one out, list it in precedent.json's {DECLINED_ALLOW_KEY}.")
+    return [r for _k, r in add]
 
 
 def settings_change_is_wiring_only(before_text, after_text):
@@ -1932,11 +2002,16 @@ def settings_change_is_wiring_only(before_text, after_text):
     bp, ap = before.get('permissions') or {}, after.get('permissions') or {}
     if not isinstance(bp, dict) or not isinstance(ap, dict):
         return False
-    if ({k: v for k, v in bp.items() if k != 'allow'}
-            != {k: v for k, v in ap.items() if k != 'allow'}):
+    if ({k: v for k, v in bp.items() if k not in ('allow', 'ask')}
+            != {k: v for k, v in ap.items() if k not in ('allow', 'ask')}):
         return False
     ba, aa = bp.get('allow') or [], ap.get('allow') or []
     if aa[:len(ba)] != ba or not all(is_read_only_allow_rule(r) for r in aa[len(ba):]):
+        return False
+    # The ask rules it writes beside ENGINE_ALLOW_RULE (2026-10-17) are its
+    # output too; anything else added to ask is a person's.
+    bk, ak = bp.get('ask') or [], ap.get('ask') or []
+    if ak[:len(bk)] != bk or not all(_is_engine_ask_rule(r) for r in ak[len(bk):]):
         return False
     bh, ah = before.get('hooks') or {}, after.get('hooks') or {}
     if not isinstance(bh, dict) or not isinstance(ah, dict):
@@ -8746,8 +8821,9 @@ def refresh(clone, force=False, ref=None):
         individual_pending = (any(_individual_hook_plan(ROOT, kind))
                               or individual_hook_copy_state(
                                   ROOT, clone, new_commit)[0] == 'past')
+        _tmpl = _template_settings_text(clone, new_commit)
         allow_pending = (manifest.get('kind') == 'consumer' and bool(_read_only_allow_missing(
-            ROOT, read_only_allow_rules(_template_settings_text(clone, new_commit)))))
+            ROOT, read_only_allow_rules(_tmpl), engine_ask_rules(_tmpl))))
 
         if new_commit == manifest.get('source_commit') and not force \
                 and not set_incomplete and not hooks_incomplete and not ci_incomplete \
@@ -8849,8 +8925,9 @@ def refresh(clone, force=False, ref=None):
         # _apply_hook_wiring leaves it (check_vendor_engine_wires_a_new_hook_
         # into_an_installed_repo's control, which main's test failed on
         # 2026-10-14 when this ran for every repo).
+        _tmpl = _template_settings_text(clone, new_commit)
         if manifest.get('kind') == 'consumer' and _apply_read_only_allow(
-                ROOT, read_only_allow_rules(_template_settings_text(clone, new_commit))):
+                ROOT, read_only_allow_rules(_tmpl), engine_ask_rules(_tmpl)):
             if ROOT / '.claude' / 'settings.json' not in written:
                 written.append(ROOT / '.claude' / 'settings.json')
         # Before the next session start, when a hook just wired may write a
