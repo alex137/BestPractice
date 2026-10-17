@@ -9562,7 +9562,8 @@ def check_bot_authored_commits_are_warned_where_no_person_is_declared():
             'is WARNED about, never refused, where no person is declared')
     script = ROOT / 'tools' / 'check_commit_author.py'
     need = [script, ROOT / 'tools' / 'precedent_session_check.py',
-            ROOT / 'tools' / 'precedent_identity.py']
+            ROOT / 'tools' / 'precedent_identity.py',
+            ROOT / 'tools' / 'commit_checks_common.py']
     absent = [str(p.relative_to(ROOT)) for p in need if not p.exists()]
     if absent:
         not_applicable(name, f'not in this tree: {absent}')
@@ -16147,7 +16148,7 @@ def check_update_vendors_declined_catalogue_copy_is_upstreams():
         aud = repo / '.audit' / 'tools'
         aud.mkdir(parents=True)
         for n in ('practice_audit.py', 'generated_blocks.py', 'checkin.py',
-                  'precedent_time.py'):
+                  'precedent_time.py', 'declared_base_branch.py'):
             shutil.copy(ROOT / 'tools' / n, aud / n)
         with open(repo / '.git' / 'info' / 'exclude', 'a', encoding='utf-8') as f:
             f.write('.audit/\n')
@@ -18139,7 +18140,8 @@ def check_lint_runs_the_hosts_shim():
         repo = pathlib.Path(td)
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
         (repo / 'tools').mkdir()
-        for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py'):
+        for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py',
+                  'declared_base_branch.py'):
             shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
         (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}\n')
         (repo / 'host').mkdir()
@@ -18234,6 +18236,7 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
         (repo / 'tools').mkdir(parents=True)
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
         for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py',
+                  'declared_base_branch.py',
                   'precedent_engine_freshness.py', 'precedent_resolve.py'):
             shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
         (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
@@ -18329,6 +18332,7 @@ def check_lint_refuses_an_open_item_that_names_no_blocker():
         (repo / 'tools').mkdir(parents=True)
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
         for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py',
+                  'declared_base_branch.py',
                   'precedent_engine_freshness.py', 'precedent_resolve.py',
                   'title_case.py'):
             shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
@@ -40187,6 +40191,8 @@ def check_history_checks_never_ride_a_reused_pass():
                        GIT_AUTHOR_EMAIL='noreply@anthropic.com')
         work, bare = _engine_commit_fixture(tmp, 'work', 'consumer', person_git)
         _shutil.copy2(author_check, work / 'tools' / author_check.name)
+        _shutil.copy2(ROOT / 'tools' / 'commit_checks_common.py',
+                      work / 'tools' / 'commit_checks_common.py')
 
         def git(cwd, *args, env=person_git):
             return subprocess.run(['git', '-C', str(cwd), *args],
@@ -46259,6 +46265,8 @@ def check_update_refuses_while_a_branch_is_pinned():
         # did not say what it should have" rather than "the tool never ran".
         _shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
                       repo / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
+        _shutil.copy2(ROOT / 'tools' / 'declared_base_branch.py',
+                      repo / 'process' / 'upstream' / 'tools' / 'declared_base_branch.py')
         return repo
 
     def _run(repo, clone, override=False, flag=False):
@@ -46593,6 +46601,8 @@ def check_leftover_pack_is_flagged_after_migration():
         # fixture-owns-its-state: precedent_check.py imports precedent_time at
         # module scope (practice: timestamps-carry-offset).
         _shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
+                      base / 'process' / 'upstream' / 'tools')
+        _shutil.copy2(ROOT / 'tools' / 'declared_base_branch.py',
                       base / 'process' / 'upstream' / 'tools')
         _shutil.copy2(ROOT / 'tools' / 'generated_blocks.py',
                       base / 'process' / 'upstream' / 'tools')
@@ -55624,6 +55634,8 @@ def check_checkin_update_never_mutates_the_clone():
         # shape that never ships.
         shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
                      consumer / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
+        shutil.copy2(ROOT / 'tools' / 'declared_base_branch.py',
+                     consumer / 'process' / 'upstream' / 'tools' / 'declared_base_branch.py')
         # push hands its work to send (2026-09-29); the real vendored tree
         # carries both, since the mirror brings the whole tools/ at once.
         shutil.copy2(ROOT / 'tools' / 'precedent_local_edits.py',
@@ -55746,6 +55758,8 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
         'tools/checkin.py': (ROOT / 'tools' / 'checkin.py').read_text(encoding='utf-8'),
         'tools/precedent_time.py': (ROOT / 'tools' / 'precedent_time.py'
                                     ).read_text(encoding='utf-8'),
+        'tools/declared_base_branch.py': (ROOT / 'tools' / 'declared_base_branch.py'
+                                          ).read_text(encoding='utf-8'),
         # push hands the work to send (2026-09-29), from the same directory.
         'tools/precedent_local_edits.py': (ROOT / 'tools' / 'precedent_local_edits.py'
                                            ).read_text(encoding='utf-8'),
@@ -59035,6 +59049,70 @@ def check_bestpractice_engine_hooks_are_stubs():
     bad = [c[0] + ' -- ' + str(c[2])[:300] for c in cases if not c[1]]
     check(f'BestPractice\'s reply and stop hooks are the engine stub, checked '
           f'as dogfooded, and still run ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_shared_helpers_have_one_copy():
+    """The declared-base-branch helper and the commit checks' shared helpers
+    each live in one file and are imported (2026-10-17 very deep check: nine
+    tools carried `_declared_base_branch` in three wordings, and the two
+    commit-identity checks five helpers verbatim, under a comment calling it
+    forced that had been stale since both became engine files on 2026-10-10).
+    THE CASE: the declared-base-branch check names a tool that defines its
+    own copy again. CONTROLS: a tool that imports the helper, and doc_html.py
+    (which runs alone in a host repository), are not named."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='one-helper-'))
+    real_root = pc.ROOT
+    try:
+        tools = tmp / 'tools'
+        tools.mkdir()
+        shutil.copy(ROOT / 'tools' / 'declared_base_branch.py', tools)
+        copy = ("def _declared_base_branch(root):\n"
+                "    import json, pathlib\n"
+                "    return json.loads((pathlib.Path(root) / 'precedent.json')"
+                ".read_text()).get('base_branch')\n")
+        (tools / 'own_copy.py').write_text(copy, encoding='utf-8')
+        (tools / 'doc_html.py').write_text(copy, encoding='utf-8')
+        (tools / 'imports_it.py').write_text(
+            "from declared_base_branch import declared_base_branch as "
+            "_declared_base_branch\n\n"
+            "def branch(root):\n"
+            "    return _declared_base_branch(root) or 'refs/remotes/origin/HEAD'\n",
+            encoding='utf-8')
+        pc.ROOT = tmp
+        try:
+            found = {f.where for f in pc._declared_base_branch_is_read(None)}
+        finally:
+            pc.ROOT = real_root
+        cases.append(('THE CASE: a tool defining its own copy of the helper is '
+                      'named', 'tools/own_copy.py' in found, sorted(found)))
+        cases.append(('CONTROL: a tool importing the helper, and doc_html.py, '
+                      'are not', not ({'tools/imports_it.py', 'tools/doc_html.py',
+                                       'tools/declared_base_branch.py'} & found),
+                      sorted(found)))
+        here = [f.where for f in pc._declared_base_branch_is_read(None)]
+        cases.append(('this tree: no tool carries a copy, and none infers '
+                      'unguarded', not here, here))
+    finally:
+        pc.ROOT = real_root
+        shutil.rmtree(tmp, ignore_errors=True)
+    for name in ('check_commit_author.py', 'check_commit_dates.py'):
+        text = (ROOT / 'tools' / name).read_text(encoding='utf-8')
+        cases.append((f'{name} imports the shared helpers and carries none of '
+                      f'their bodies',
+                      'import commit_checks_common' in text
+                      and 'for name in ("precedent_identity", "precedent_resolve")'
+                      not in text
+                      and 'def _git_ok(' not in text
+                      and 'grandfathered_commit_shas entry for' not in text,
+                      name))
+    bad = [c[0] + ' -- ' + str(c[2])[:300] for c in cases if not c[1]]
+    check(f'the declared-base-branch helper and the commit checks\' helpers '
+          f'each have one copy, imported ({len(cases)} stated cases)',
           not bad, '; '.join(bad))
 
 
@@ -64038,6 +64116,7 @@ def check_source_supplied_checks_run():
         # without it does not degrade -- every case here dies on the import.
         shutil.copy(ROOT / 'tools' / 'precedent_time.py', repo / 'tools')
         shutil.copy(ROOT / 'tools' / 'generated_blocks.py', repo / 'tools')
+        shutil.copy(ROOT / 'tools' / 'declared_base_branch.py', repo / 'tools')
         (repo / 'AGENTS.md').write_text('# fixture\n', encoding='utf-8')
         subprocess.run(['git', 'init', '-q'], cwd=repo, capture_output=True)
 
@@ -82670,6 +82749,7 @@ def main():
     check_moved_claims_skips_narrated_deletions_and_templates()
     check_ci_fleet_audit_counts_each_workflow_past_the_sample()
     check_bestpractice_engine_hooks_are_stubs()
+    check_shared_helpers_have_one_copy()
     check_very_deep_check_runs_other_sources_checks_here()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()

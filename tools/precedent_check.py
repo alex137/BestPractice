@@ -7051,7 +7051,8 @@ def _unguarded_branch_inferences(text):
         for n in ast.walk(fn):
             if isinstance(n, ast.Call):
                 f = n.func
-                if isinstance(f, ast.Name) and f.id == '_declared_base_branch':
+                if isinstance(f, ast.Name) and f.id in (
+                        '_declared_base_branch', 'declared_base_branch'):
                     return True
                 if isinstance(f, ast.Attribute) and f.attr == 'get' and n.args \
                         and isinstance(n.args[0], ast.Constant) \
@@ -8596,10 +8597,21 @@ def _derived_file_marker(ctx):
     return out
 
 
+# The one helper (tools/declared_base_branch.py) and the one tool allowed a
+# copy of its own: doc_html.py is meant to be dropped into a host repository
+# alone and imports nothing from the engine (its own _default_branch says so).
+_BASE_BRANCH_HELPER = 'declared_base_branch.py'
+_BASE_BRANCH_COPY_OK = {
+    'doc_html.py': 'meant to be dropped into a host repository on its own, '
+                   'so it imports nothing from the engine',
+}
+
+
 @check('declared-base-branch', 'tree',
        "every tool that resolves the repo's branch reads precedent.json's "
        "declared `base_branch` before falling back to inferring one from "
-       "`refs/remotes/origin/HEAD`",
+       "`refs/remotes/origin/HEAD`, and reads it through the one helper, "
+       "tools/declared_base_branch.py, rather than a copy of its own",
        "whether the declared value is CORRECT, whether a tool that needs a "
        "base branch resolves one at all (a tool that hardcodes 'main' as a "
        "string and never touches origin/HEAD is invisible here), and every "
@@ -8625,18 +8637,32 @@ def _declared_base_branch_is_read(ctx):
     `doc_html._link_base()` emitted `/blob/main/` for content that exists
     only on the beta branch: every generated link dead.
 
-    The duplication is deliberate and stays -- doc_lint.py and doc_html.py
-    are meant to be droppable into a host repo alone, and doc_html.py's own
-    docstring says so. So this does not demand a shared import. It demands
-    that each copy ask the declared question first. Without a check the
+    It demands that each tool ask the declared question first, and since
+    2026-10-17 that it ask it through the one helper. The copies had been
+    left deliberate on the reasoning that doc_lint.py and doc_html.py are
+    droppable into a host repo alone; by then doc_lint.py imported two
+    engine modules at load, and nine tools carried the helper in three
+    wordings. Each now imports tools/declared_base_branch.py, and a tool
+    that defines its own copy again is a finding, except doc_html.py
+    (_BASE_BRANCH_COPY_OK), which really does run alone. Without a check the
     next tool copies the nearest existing resolver, inherits the bug, and
-    tests clean again: that is precisely how this reached six copies.
+    tests clean again: that is precisely how this reached six copies, and
+    then nine.
     """
     findings = []
     for path in _tools_py(ROOT / 'tools'):
+        text = path.read_text(encoding='utf-8', errors='ignore')
+        if path.name != _BASE_BRANCH_HELPER \
+                and path.name not in _BASE_BRANCH_COPY_OK \
+                and re.search(r'^\s*def _?declared_base_branch\(', text, re.M):
+            findings.append(Finding(
+                f'tools/{path.name}',
+                'defines its own copy of the declared-base-branch helper -- '
+                'import the one in tools/declared_base_branch.py instead '
+                '(`from declared_base_branch import declared_base_branch`), '
+                'so a fix to it reaches every tool'))
         if path.name in _BASE_BRANCH_INFERENCE_OK:
             continue
-        text = path.read_text(encoding='utf-8', errors='ignore')
         for fn in _unguarded_branch_inferences(text):
             findings.append(Finding(
                 f'tools/{path.name}',
@@ -8644,7 +8670,8 @@ def _declared_base_branch_is_read(ctx):
                 "DECLARED branch being read first, so under this repo's "
                 "branch pin it measures against a lineage the work never "
                 "touched -- read precedent.json's `base_branch` (the "
-                "`_declared_base_branch` helper the other resolvers carry), "
+                "helper in tools/declared_base_branch.py the other resolvers "
+                "import), "
                 "or the manifest's `upstream.branch` if the question is "
                 "which branch a vendored copy tracks"))
     return findings
@@ -9522,27 +9549,9 @@ def _two_check_level_names():
 
 
 
-def _declared_base_branch(root):
-    """The branch this repo's work is measured against, as DECLARED in
-    precedent.json's `base_branch` -- not inferred from `origin/HEAD`.
-
-    Those are two different questions with usually the same answer, which is
-    why asking the wrong one survives so long. `origin/HEAD` answers "what
-    does GitHub show first"; callers here mean "what lineage does this work
-    belong to". They diverge the moment a repo pins its work to a branch
-    that is not the configured default -- BestPractice's own
-    `precedent-beta-v01` -- and then every inference is quietly wrong with
-    nothing failing. Returns None when undeclared or unreadable, so callers
-    fall back to the old inference rather than breaking (practice: fail-gracefully).
-    Enforced by precedent_check.py's `declared-base-branch`.
-    """
-    try:
-        import json as _json, pathlib as _pathlib
-        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
-                        .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 def _landing_ref():
     """-> origin/<the branch this person's work lands on>, when

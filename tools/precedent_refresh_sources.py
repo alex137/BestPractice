@@ -673,25 +673,9 @@ def make_current(repo, branch):
     return True, note
 
 
-def _declared_base_branch(root):
-    """The branch a source set's work is measured against, as DECLARED in
-    its own precedent.json `base_branch` -- not inferred from origin/HEAD.
-
-    Same helper, same reasoning, as doc_lint.py's: origin/HEAD answers "what
-    does GitHub show first", and every caller here means "what lineage does
-    this work belong to". This repo is itself the standing counterexample --
-    its default branch is main and its work is on precedent-beta-v01 -- and
-    wiring a source set's freshness guard to the wrong one of those makes it
-    compare against a lineage that set never touches, silently. Returns None
-    when undeclared or unreadable, so the caller falls back rather than
-    breaking (practice: fail-gracefully). Enforced by precedent_check.py's
-    `declared-base-branch`."""
-    try:
-        v = json.loads((pathlib.Path(root) / 'precedent.json')
-                       .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 
 def _pinned_branch(repo):

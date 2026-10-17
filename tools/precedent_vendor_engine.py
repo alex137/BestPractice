@@ -871,6 +871,10 @@ ENGINE_FILES = [
     # check, it fails to import.
     'doc_lint.py',
     'frontmatter_yaml.py',
+    # The one declared-base-branch helper (2026-10-17): doc_lint.py,
+    # parse_check.py, precedent_check.py, very_deep_check.py, routing_audit.py
+    # and checkin.py import it at load, where each used to carry a copy.
+    'declared_base_branch.py',
     # The one "is this line inside a generated block?" (added 2026-09-29).
     # doc_lint.py, doc_sync.py and precedent_check.py import it at module
     # level, and a practice source's own checks are meant to import it from

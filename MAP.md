@@ -224,7 +224,9 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/check_commit_dates.py](tools/check_commit_dates.py) | Each commit carries the declared person's time zone (practice buenos-aires-dates) |
 | [tools/checkin.py](tools/checkin.py) | Drives the periodic check-in (INSTALL.md §4) mechanically |
 | [tools/ci_fleet_audit.py](tools/ci_fleet_audit.py) | Every GitHub Actions workflow on every branch of every reachable repo, asked of GitHub: approval, triggers, schedules, 30 days of runs |
+| [tools/commit_checks_common.py](tools/commit_checks_common.py) | What the two commit-identity checks share: the identity module, the grandfather list, the log reader, the Rule text |
 | [tools/content_record.py](tools/content_record.py) | Hash a set of inputs now and say later whether they still hold and which moved, under frozen schemes: the hashing shared by the fact ledger and any drift check |
+| [tools/declared_base_branch.py](tools/declared_base_branch.py) | The branch a repository declares its work is measured against: precedent.json's base_branch |
 | [tools/doc_html.py](tools/doc_html.py) | The one sortable-table HTML renderer for repo documents |
 | [tools/doc_lifecycle.py](tools/doc_lifecycle.py) | The document status header — kind, status, supersession — checked across spec/ and record/ |
 | [tools/doc_lint.py](tools/doc_lint.py) | Markdown hygiene checks — strikethrough, links, acronyms |

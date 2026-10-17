@@ -145,16 +145,9 @@ def _remote_owner_repo(dest):
     return (m.group(1), m.group(2)) if m else (None, None)
 
 
-def _declared_base_branch(root):
-    """precedent.json's `base_branch`, or None -- the same helper every other
-    resolver in the engine carries, so the `declared-base-branch` check sees
-    the declaration read before any inference below."""
-    try:
-        v = json.loads((pathlib.Path(root) / 'precedent.json')
-                       .read_text(encoding='utf-8')).get('base_branch')
-        return v if isinstance(v, str) and v.strip() else None
-    except Exception:
-        return None
+# The one copy of this helper, imported (2026-10-17): nine tools carried
+# their own. precedent_check.py's `declared-base-branch` refuses a new one.
+from declared_base_branch import declared_base_branch as _declared_base_branch  # noqa: E402
 
 
 def _base_branch(dest, declared):
