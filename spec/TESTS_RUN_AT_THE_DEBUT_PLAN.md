@@ -69,7 +69,12 @@ reaches, when someone asks for it.
   `BASIC_CHECKS` differs from its list, when an approval carries no quoted
   words and date, or when the per-file step starts a test, the harness or
   the practice checks. A new entry needs the person's own words asking for
-  that check before a push.
+  that check before a push, and its time in seconds. Before asking, the
+  session tells them that time and urges them to leave the check to the
+  Debut instead (Morgan, 2026-10-16: "any new test beforehand needs to be
+  explicitly approved and also have a time estimate and you need to
+  strongly encourage the person to put it after and in debut etc"). The
+  rule is [quick-tier-is-closed](../practices/quick-tier-is-closed.md).
 - **A new test lands with its time.** The per-file step refuses a commit
   that adds a `check_` test to the harness without its entry in the timing
   list, and names `python3 tools/verify_harness.py --record-new-times`,

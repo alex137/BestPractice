@@ -337,27 +337,37 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 #
 # THE BASIC TIER IS CLOSED (Morgan, 2026-10-16, strength: decided: "LET'S
 # BAN ALL NEW TESTS BEFOREHAND EXCEPT WHEN EXPLICITLY DIRECTLY VERBALLY
-# AUTHORIZED"; spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md). Everything that runs
-# before a push is listed here with the
-# words that let it in, and check_quick_tier_is_closed fails the moment
-# BASIC_CHECKS and this list differ, or an entry carries no quoted words
-# and date. A new entry needs the person's own words asking for THIS check
-# before a push -- never a session's judgment that it is cheap. The
-# fourteen below were in force when the tier was closed.
+# AUTHORIZED"; spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md; practice:
+# quick-tier-is-closed). Everything that runs before a push is listed here
+# as (the words that let it in, its time in seconds), and
+# check_quick_tier_is_closed fails the moment BASIC_CHECKS and its list
+# differ, an entry carries no quoted words and date, or a new entry carries
+# no time. A new entry needs the person's own words asking for THIS check
+# before a push, given after they were told its time and urged to put it
+# at the Debut instead -- never a session's judgment that it is cheap.
+# The fourteen below were in force when the tier was closed; a time is the
+# one measured on 2026-10-16 or the one its own note above gives, and None
+# where neither exists.
 _IN_FORCE_AT_CLOSING = ('in force when Morgan closed the tier, 2026-10-16: '
                         '"all the testing EXCEPT THE BARE ESSENTIAL AND LEAK '
                         'GATES SHOULD GO INTO DEBUT"')
+_LEAKS = 'Morgan, 2026-09-25: "Good on nothing private going out"'
+_WORKFLOWS = 'Morgan, 2026-09-25: "we need to absolutely put a hard stop to this"'
 BASIC_CHECKS_APPROVED = {
-    'leak_gate': 'Morgan, 2026-09-25: "Good on nothing private going out"',
-    'leak_gate_commits': 'Morgan, 2026-09-25: "Good on nothing private going out"',
-    'ci_workflows': ('Morgan, 2026-09-25: "we need to absolutely put a hard '
-                     'stop to this"'),
-    'light_check': ('Morgan, 2026-09-25: "we need to absolutely put a hard '
-                    'stop to this"'),
-    **{name: _IN_FORCE_AT_CLOSING for name in (
-        'doc_lint', 'commit_author', 'commit_dates', 'session_trailer',
-        'build_views', 'views_sync', 'scrub_gate', 'practice_export_loop',
-        'generated_files', 'rename_links')},
+    'leak_gate': (_LEAKS, 16),
+    'leak_gate_commits': (_LEAKS, 4),
+    'ci_workflows': (_WORKFLOWS, None),
+    'light_check': (_WORKFLOWS, None),
+    'doc_lint': (_IN_FORCE_AT_CLOSING, 1),
+    'commit_author': (_IN_FORCE_AT_CLOSING, 0),
+    'commit_dates': (_IN_FORCE_AT_CLOSING, 0),
+    'session_trailer': (_IN_FORCE_AT_CLOSING, 0),
+    'build_views': (_IN_FORCE_AT_CLOSING, 1),
+    'generated_files': (_IN_FORCE_AT_CLOSING, 2),
+    'views_sync': (_IN_FORCE_AT_CLOSING, None),
+    'scrub_gate': (_IN_FORCE_AT_CLOSING, None),
+    'practice_export_loop': (_IN_FORCE_AT_CLOSING, None),
+    'rename_links': (_IN_FORCE_AT_CLOSING, None),
 }
 BASIC_CHECKS = set(BASIC_CHECKS_APPROVED)
 BASIC, FULL = 'basic', 'full'

@@ -37174,7 +37174,8 @@ def check_quick_tier_is_closed():
       change to the quick tier -- make it only with the person's words
       asking for that check before a push, quoted with their date in
       precedent_push_check.BASIC_CHECKS_APPROVED;
-    * every approval quotes someone's words and carries a date;
+    * every approval quotes someone's words and carries a date, and one
+      added after the closing carries its time in seconds;
     * the per-file step (changed_files_check) starts no test, harness or
       practice check, and nothing in the push check runs the practice
       checks limited to a change (--changed-files-only) before a push.
@@ -37212,16 +37213,23 @@ def check_quick_tier_is_closed():
     whole = (ROOT / 'tools' / 'precedent_push_check.py').read_text(encoding='utf-8')
     limited = [n for n in ast.walk(ast.parse(whole)) if isinstance(n, ast.Constant)
                and n.value == '--changed-files-only']
-    unquoted = [k for k, v in ppc.BASIC_CHECKS_APPROVED.items()
-                if not (re.search(r'\b20\d\d-\d\d-\d\d\b', v) and '"' in v)]
+    unquoted = [k for k, (words, _s) in ppc.BASIC_CHECKS_APPROVED.items()
+                if not (re.search(r'\b20\d\d-\d\d-\d\d\b', words) and '"' in words)]
+    untimed = [k for k, (_w, secs) in ppc.BASIC_CHECKS_APPROVED.items()
+               if k not in closed and not isinstance(secs, (int, float))]
     cases = [
-        ('the basic tier is exactly the closed list -- a new entry needs the '
-         'person\'s quoted words, here and in BASIC_CHECKS_APPROVED',
+        ('the basic tier is exactly the closed list -- before adding one, '
+         'tell the person its time and urge the Debut instead; only their '
+         'own words asking for it before a push let it in, quoted with a '
+         'date and its seconds in BASIC_CHECKS_APPROVED and added here '
+         '(practice: quick-tier-is-closed)',
          ppc.BASIC_CHECKS == closed,
          f'added: {sorted(ppc.BASIC_CHECKS - closed)}, '
          f'removed: {sorted(closed - ppc.BASIC_CHECKS)}'),
         ('every entry quotes someone\'s words, with a date', not unquoted,
          ', '.join(unquoted)),
+        ('every entry added after the closing carries its time in seconds',
+         not untimed, ', '.join(untimed)),
         ('the per-file step starts no test, harness or practice check',
          not runs_tests(per_file), ', '.join(runs_tests(per_file))),
         ('nothing runs the change-limited practice checks before a push',
