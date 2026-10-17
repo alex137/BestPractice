@@ -2543,6 +2543,84 @@ def refresh_template_comment(repo, rel, tmpl, rev, hits):
     return [(n + shift if n > b else n, l) for n, l in hits if not a < n <= b]
 
 
+# A command line of the generated occasion index, and the slug lines under it.
+_COMMAND_OCCASION = re.compile(r'^When a (?:person|message) says (.+):\s*$')
+_INDEX_SLUG = re.compile(r'^\s+([a-z0-9][a-z0-9-]*) — ')
+_WITHDRAWN_TO_SET = re.compile(r'`([a-z0-9][a-z0-9-]*)` withdrawn from universal, '
+                               r'deliberately; in force only from the shared set '
+                               r'`([\w.-]+)`')
+WITHDRAWN_RECORD = 'record/WITHDRAWN_FROM_UNIVERSAL.md'
+_RESIDENT_SLUG = re.compile(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*')
+
+
+def _listed_commands(agents_text):
+    """-> {slug: [phrase]} for each standing command an AGENTS.md's occasion
+    index lists: the quoted phrases of a `When a person says "..."` line,
+    under each slug that line introduces."""
+    out, phrases = {}, None
+    for line in (agents_text or '').splitlines():
+        m = _COMMAND_OCCASION.match(line)
+        if m:
+            phrases = re.findall(r'"([^"]+)"', m.group(1))
+            continue
+        m = _INDEX_SLUG.match(line)
+        if m and phrases:
+            out.setdefault(m.group(1), list(phrases))
+        elif not m:
+            phrases = None
+    return out
+
+
+def moved_commands_step(repo, rep, old_agents, rev):
+    """Say, in one line, how many standing-command phrases this repository's
+    AGENTS.md listed before the update that are in force nowhere here now,
+    because upstream moved their practices to an optional set this
+    repository does not declare -- without the phrases themselves.
+
+    WHY (2026-10-17, very deep check): an update of an install from before
+    2026-10-02 removed every ladder command from its instructions, silently.
+    By design for a repository off the ladder, so nothing is put back; the
+    decision (the session's, under Morgan's delegation of 2026-10-17) is
+    that the update says so once, and never prints the words, which a
+    person off the ladder has no use for. Where they went is read from
+    upstream's record/WITHDRAWN_FROM_UNIVERSAL.md at the commit taken."""
+    before = _listed_commands(old_agents)
+    if not before or not rev:
+        return
+    try:
+        now = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return
+    # In force here: an occasion-index entry or a resident-block rule of the
+    # new AGENTS.md, which lists every source this repository declares.
+    listed = {m.group(1) for line in now.splitlines()
+              for m in (_INDEX_SLUG.match(line), _RESIDENT_SLUG.match(line)) if m}
+    gone = set(before) - listed
+    if not gone:
+        return
+    moved = dict(_WITHDRAWN_TO_SET.findall(_source_text(rev, WITHDRAWN_RECORD) or ''))
+    try:
+        declared = {str(src.get('name')) for src in json.loads(
+            (repo / 'precedent.json').read_text(encoding='utf-8')).get('sources') or []
+            if isinstance(src, dict)}
+    except (OSError, ValueError, AttributeError):
+        declared = set()
+    by_set = {}
+    for slug in sorted(gone):
+        where = moved.get(slug)
+        if where and where not in declared:
+            by_set.setdefault(where, []).extend(before[slug])
+    for where, phrases in sorted(by_set.items()):
+        n = len(dict.fromkeys(phrases))
+        rep.step('standing commands', f'{n} command phrase(s) this '
+                 f'repository\'s AGENTS.md listed before this update are no '
+                 f'longer in force here: upstream moved them to {where}, an '
+                 f'optional practice set this repository does not declare '
+                 f'({WITHDRAWN_RECORD} upstream). Nothing to do unless '
+                 f'someone here uses them; declaring that set in '
+                 f'precedent.json brings them back')
+
+
 def dropped_template_lines_step(repo, rep, rev):
     """Put each line dropped_template_lines finds on the Left-for-you list.
     A file precedent.json's kept_template_divergences records as kept on
@@ -3148,6 +3226,7 @@ class Report:
         self.pin = None      # (repo, commit, branch): the commit reruns take
         self.pin_repo = None # whose pin a DONE drops, --from-ref runs included
         self.before = None   # what was uncommitted when the run started writing
+        self.old_agents = None   # HEAD's AGENTS.md, read before anything writes
         self.earlier = set() # of `before`, what an earlier run staged, unchanged
         self.retired = []    # retire_pre_staging_step's block, every outcome
         self.commit_note = None  # a --take-anyway: said in the commit message
@@ -5087,6 +5166,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                  f'and your other changes to it stay')
     before = dirty_paths(repo)
     rep.before = before
+    # Read before anything writes: the commands it listed (moved_commands_step).
+    rep.old_agents = _git_show(repo, 'HEAD:AGENTS.md')
     rep.earlier = earlier_runs_output(repo, before, wrote)
     engine_tool = repo / 'tools' / 'precedent_vendor_engine.py'
     if not (repo / 'tools' / pve.MANIFEST_NAME).is_file() or not engine_tool.is_file():
@@ -5510,6 +5591,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                      + ', '.join(built) + ', which build_views.py generates here)')
         else:
             rep.step('views', 'regenerated')
+    moved_commands_step(repo, rep, rep.old_agents, head.strip() if head_ok else None)
 
     # After the views, because the view sync writes harness adapters too.
     rebased = rebaseline_vendored_entries(

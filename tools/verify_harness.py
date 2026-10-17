@@ -72203,6 +72203,91 @@ def check_second_pass_drops_a_first_pass_unshipped_workflow_call():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_says_once_that_commands_moved_to_an_undeclared_set():
+    """When an update leaves standing commands the old AGENTS.md listed in
+    force nowhere here, because upstream moved their practices to an
+    optional set this repository does not declare, it says so in one line:
+    how many, and where -- never the phrases themselves.
+
+    2026-10-17, very deep check: an update of an install from before
+    2026-10-02 removed every ladder command from its instructions without a
+    word (17 phrases, measured on a scratch install at 2026-10-01 main).
+    By design for a repository off the ladder; the decision (the session's,
+    under Morgan's delegation of 2026-10-17) is one line, without the words,
+    which a person off the ladder never reads. Planted: an old index with
+    two commands, one of them withdrawn to a set in upstream's record."""
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    step = getattr(pu, 'moved_commands_step', None)
+    name = 'Update Vendors says once that commands moved to a set this repo does not declare'
+    if step is None:
+        check(name, False, 'precedent_update has no moved_commands_step: the commands '
+              'go without a word')
+        return
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-moved-commands-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    cases = []
+    saved = pu.SOURCE
+    try:
+        src = tmp / 'source'
+        (src / 'record').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(src)], env=env, capture_output=True)
+        (src / pu.WITHDRAWN_RECORD).write_text(
+            '- 2026-10-02: `zap-it` withdrawn from universal, deliberately; in force '
+            'only from the shared set `precedent-shared-zap`, for the people who '
+            'bring or declare it.\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(src), 'add', '-A'], env=env, capture_output=True)
+        subprocess.run(['git', '-C', str(src), 'commit', '-qm', 'r'], env=env,
+                       capture_output=True)
+        rev = subprocess.run(['git', '-C', str(src), 'rev-parse', 'HEAD'],
+                             capture_output=True, text=True).stdout.strip()
+        pu.SOURCE = src
+        old = ('## Occasion index\n\n```\n'
+               'When a person says "Zap" or "Zap twice":\n'
+               '  zap-it — do the zap\n'
+               'When a person says "Keep":\n'
+               '  keep-it — keep it\n```\n')
+        new = ('## Occasion index\n\n```\nWhen a person says "Keep":\n'
+               '  keep-it — keep it\n```\n')
+        repo = tmp / 'repo'
+        repo.mkdir()
+        (repo / 'AGENTS.md').write_text(new, encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'}]}),
+            encoding='utf-8')
+        rep = pu.Report()
+        step(repo, rep, old, rev)
+        said = [o for n, o in rep.steps if n == 'standing commands']
+        cases.append(('one line, with the count and the set',
+                      len(said) == 1 and said[0].startswith('2 command phrase(s)')
+                      and 'precedent-shared-zap' in said[0], str(rep.steps)))
+        cases.append(('...never the phrases themselves', said and 'Zap' not in said[0],
+                      str(said)))
+        cases.append(('nothing is left for the person', not rep.left, str(rep.left)))
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'precedent-shared-zap', 'path': '../zap'}]}),
+            encoding='utf-8')
+        rep = pu.Report()
+        step(repo, rep, old, rev)
+        cases.append(('silent where the repo declares that set',
+                      not [o for n, o in rep.steps if n == 'standing commands'],
+                      str(rep.steps)))
+        rep = pu.Report()
+        step(repo, rep, new, rev)
+        cases.append(('silent when nothing listed before is gone', not rep.steps,
+                      str(rep.steps)))
+    except OSError as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        pu.SOURCE = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -82984,6 +83069,7 @@ def main():
     check_refresh_names_an_in_place_hook_no_engine_path_keeps()
     check_retired_mentions_skip_what_the_repo_receives()
     check_second_pass_drops_a_first_pass_unshipped_workflow_call()
+    check_update_says_once_that_commands_moved_to_an_undeclared_set()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
