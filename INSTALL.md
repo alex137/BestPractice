@@ -162,6 +162,13 @@ not this section.
   `~/.config/precedent/git-hooks` and the system time zone, because a
   container's defaults are its own bot account and UTC, and a session
   rooted above several repositories depends on them.
+- **Python 3.12.** The engine runs on Python 3.12, the version its GitHub
+  checks use ([tools/precedent_python.py](tools/precedent_python.py)'s
+  default; a project can declare another in `precedent.json`'s
+  `"python": {"version": ...}`). A hosted session sets it up at session
+  start; on your own machine `python3` should be 3.12, and when it is not,
+  every session start says so once and the tools run on what you have.
+  Run them as `python3.12` to match.
 
 1. **Vendor the universal source.** Clone Precedent (on `main`, as
    above) and

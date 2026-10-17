@@ -149,6 +149,11 @@ here rather than leaving to be discovered at the link.
   globally too, on purpose; that difference is decided by
   `CLAUDE_CODE_REMOTE`, or `PRECEDENT_LOCAL_SESSION=1` for another harness
   ([INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)).
+- **The engine assumes Python 3.12**, the version its GitHub checks run on
+  ([tools/precedent_python.py](../tools/precedent_python.py)). A hosted
+  session installs and selects it; on your own machine, a `python3` that is
+  another version (3.13, say) gets one warning per session start, and the
+  tools run on it anyway. `python3.12 tools/...` matches what CI runs.
 - **The practices about running a repository are shown to its code owners
   only**, so the engine has to know who you are. It takes your GitHub
   username from `PRECEDENT_GITHUB_USER`, your individual set's

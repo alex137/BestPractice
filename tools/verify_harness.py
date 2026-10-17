@@ -30082,6 +30082,46 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_bootstrap_says_the_python_warning_once():
+    """In a local session, both bootstrap.sh copies run the Python check
+    once, so a machine whose python3 is not the declared version hears the
+    warning once per session start, not twice.
+
+    Found 2026-10-17 by the very deep check's install rehearsal, on Python
+    3.13: `check >/dev/null || check` ran the check again on failure, and
+    the warning, on stderr both times, printed twice. Decision chosen by the
+    session under Morgan's delegation of 2026-10-17 ("Fix the other issues
+    you found including the checks that never run. Tell me what you decide.
+    I will be offline so don't wait for me. Approved, act, and Booked.").
+
+    Negative control, measured 2026-10-17: both copies before the fix run
+    the stub twice.
+    """
+    import tempfile
+    cases = []
+    for rel in ('tools/bootstrap.sh', 'templates/bootstrap.sh'):
+        with tempfile.TemporaryDirectory() as td:
+            d = pathlib.Path(td)
+            (d / 'tools').mkdir()
+            shutil.copy(ROOT / rel, d / 'tools' / 'bootstrap.sh')
+            (d / 'tools' / 'precedent_python.py').write_text(
+                'import pathlib, sys\n'
+                'f = pathlib.Path(__file__).with_name("calls")\n'
+                'f.write_text(f.read_text() + "x" if f.exists() else "x")\n'
+                'print("precedent_python: python3 here is 3.13", file=sys.stderr)\n'
+                'sys.exit(1)\n', encoding='utf-8')
+            r = subprocess.run(['bash', 'tools/bootstrap.sh'], cwd=str(d), capture_output=True,
+                               text=True, timeout=120,
+                               env=dict(os.environ, PRECEDENT_LOCAL_SESSION='1'))
+            calls = (d / 'tools' / 'calls').read_text() if (d / 'tools' / 'calls').exists() else ''
+            cases.append((f'{rel}: the check runs once and its warning prints once',
+                          calls == 'x' and r.stderr.count('python3 here is 3.13') == 1,
+                          f'{len(calls)} call(s); {r.stderr[-300:]}'))
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_individual_skeleton_ci_comment_is_true():
     """The individual-set skeleton keeps "github_ci_workflows": "disabled",
     and its comment says what is true: that an absent key means enabled
@@ -82611,6 +82651,8 @@ def main():
           *check_installer_no_terminal_tests_every_push_to_main())
     check("the individual-set skeleton's CI comment says what is true",
           *check_individual_skeleton_ci_comment_is_true())
+    check('bootstrap.sh says a wrong-Python warning once, not twice',
+          *check_bootstrap_says_the_python_warning_once())
     check("a local session's commit identity leaves the laptop's global git config alone",
           *check_commit_identity_leaves_a_laptops_global_config_alone())
     check_endgame_merge_finds_the_silent_drop()
