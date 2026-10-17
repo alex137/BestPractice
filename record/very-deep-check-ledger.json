@@ -6613,6 +6613,138 @@
         }
       ],
       "completed": true
+    },
+    {
+      "run_id": "2026-10-17T06:45:44-03:00",
+      "date": "2026-10-17",
+      "repo": "/home/user/BestPractice",
+      "argv": [
+        "--with-harness"
+      ],
+      "seconds": 1745.64,
+      "components": [
+        {
+          "name": "FRESHNESS -- this checkout",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 1.69,
+          "status": "clean"
+        },
+        {
+          "name": "MACHINE-READABLE FILES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 20,
+          "seconds": 0.1,
+          "status": "clean"
+        },
+        {
+          "name": "PLANTED CASE COVERAGE",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 58,
+          "seconds": 1662.23,
+          "status": "clean"
+        },
+        {
+          "name": "VENDORED SURPLUS",
+          "kind": "mechanical",
+          "findings": 40,
+          "items": null,
+          "output_tokens": 1097,
+          "seconds": 1.06,
+          "status": "findings"
+        },
+        {
+          "name": "SECOND LISTS OF PRACTICES",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 76,
+          "seconds": 73.71,
+          "status": "findings"
+        },
+        {
+          "name": "FRESHNESS -- declared sources",
+          "kind": "mechanical",
+          "findings": 3,
+          "items": null,
+          "output_tokens": 219,
+          "seconds": 6.84,
+          "status": "findings"
+        }
+      ],
+      "passes": [],
+      "completed": false
+    },
+    {
+      "run_id": "2026-10-17T07:15:27-03:00",
+      "date": "2026-10-17",
+      "repo": "/home/user/BestPractice",
+      "argv": [],
+      "seconds": 60.8,
+      "components": [
+        {
+          "name": "FRESHNESS -- this checkout",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 1.57,
+          "status": "clean"
+        },
+        {
+          "name": "MACHINE-READABLE FILES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 20,
+          "seconds": 0.1,
+          "status": "clean"
+        },
+        {
+          "name": "PLANTED CASE COVERAGE",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 93,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "VENDORED SURPLUS",
+          "kind": "mechanical",
+          "findings": 40,
+          "items": null,
+          "output_tokens": 1097,
+          "seconds": 0.8,
+          "status": "findings"
+        },
+        {
+          "name": "SECOND LISTS OF PRACTICES",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 76,
+          "seconds": 57.89,
+          "status": "findings"
+        },
+        {
+          "name": "FRESHNESS -- declared sources",
+          "kind": "mechanical",
+          "findings": 3,
+          "items": null,
+          "output_tokens": 114,
+          "seconds": 0.02,
+          "status": "findings"
+        }
+      ],
+      "passes": [],
+      "completed": false
     }
   ]
 }
