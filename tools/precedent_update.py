@@ -1422,6 +1422,33 @@ def _without_duplicate_permissions(text):
     return json.dumps(data, indent=indent, ensure_ascii=False) + '\n'
 
 
+def names_full_path(line, path):
+    """True when `line` names `path` the way rename-updates-links reads a
+    line: the whole path, or with ./ or ../ in front, never as the tail of a
+    longer path and never by its file name alone.
+
+    WHY (2026-10-17, a document project's Update Vendors): the first run
+    left precedent.json lines that the same run had already repointed from
+    tools/checks/check_commit_author.py to tools/check_commit_author.py, and
+    the engine manifest's bare "check_commit_author.py" at its new home, as
+    still naming the old path: this matched the file name alone. Nothing
+    refuses those lines, and the next run, with no edit, did not list
+    them."""
+    start = 0
+    while True:
+        i = line.find(path, start)
+        if i < 0:
+            return False
+        start = i + 1
+        k = i
+        while k > 0 and (line[k - 1].isalnum() or line[k - 1] in '._-/'):
+            k -= 1
+        prefix = line[k:i]
+        if not prefix or (prefix.endswith('/') and all(
+                seg in ('.', '..') for seg in prefix[:-1].split('/'))):
+            return True
+
+
 def retired_mentions(repo, engine_out):
     """-> [(where, gone)] for each file that still names something the
     engine refresh deleted, and still does now that the rest of the update
@@ -1468,9 +1495,8 @@ def retired_mentions(repo, engine_out):
             text = (repo / path).read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             continue
-        base = pathlib.PurePosixPath(gone).name
         hit = next((n for n, l in enumerate(text.splitlines(), 1)
-                    if gone in l or base in l), None)
+                    if names_full_path(l, gone)), None)
         if hit is not None and (f'{path}:{hit}', gone) not in out:
             out.append((f'{path}:{hit}', gone))
     return out

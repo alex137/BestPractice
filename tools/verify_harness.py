@@ -72720,6 +72720,54 @@ def check_refresh_names_an_in_place_hook_no_engine_path_keeps():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_retired_mentions_match_the_full_path_only():
+    """A file is left as still naming a deleted or moved path only when it
+    names the whole path, the way rename-updates-links reads it: never by
+    its file name alone, and never as the tail of a longer path.
+
+    2026-10-17, a document project's Update Vendors: precedent.json lines
+    the same run had repointed to tools/check_commit_author.py, and the
+    engine manifest's bare check_commit_author.py at its new home, were left
+    as still naming tools/checks/check_commit_author.py, because the scan
+    matched the file name. The next run, with no edit, listed none."""
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    name = 'a mention of a deleted path is the whole path, not its file name'
+    if not hasattr(pu, 'retired_mentions'):
+        not_applicable(name, 'retired_mentions is absent')
+        return
+    gone = 'tools/checks/check_commit_author.py'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-full-path-'))
+    cases = []
+    try:
+        files = {
+            'repointed.json': '{"run": "python3 tools/check_commit_author.py"}\n',
+            'bare.md': 'The check is check_commit_author.py now.\n',
+            'longer.md': 'A pack ships process/pack/tools/checks/check_commit_author.py.\n',
+            'old.md': f'Run `{gone}` before pushing.\n',
+            'relative/doc.md': f'See [it](../{gone}).\n',
+        }
+        for rel, text in files.items():
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        planted = '\n'.join(
+            f"WARN: precedent_vendor_engine: {gone} was moved, and {rel}:1 "
+            f"still names it -- 'x'. Nothing here refuses."
+            for rel in files)
+        got = sorted(w for w, _g in pu.retired_mentions(tmp, planted))
+        cases.append(('the whole path, and one written with ../ in front, are '
+                      'left for the person',
+                      'old.md:1' in got and 'relative/doc.md:1' in got, str(got)))
+        cases.append(('a line already repointed, a bare file name, and a longer '
+                      'path ending in it are not',
+                      got == ['old.md:1', 'relative/doc.md:1'], str(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_retired_mentions_skip_what_the_repo_receives():
     """A mention of a file the refresh deleted is this repo's to fix only
     where the repo writes the file: never in the engine's own files or
@@ -84349,6 +84397,7 @@ def main():
     check_refresh_replaces_a_past_individual_hook_rendering()
     check_refresh_names_an_in_place_hook_no_engine_path_keeps()
     check_retired_mentions_skip_what_the_repo_receives()
+    check_retired_mentions_match_the_full_path_only()
     check_second_pass_drops_a_first_pass_unshipped_workflow_call()
     check_update_says_once_that_commands_moved_to_an_undeclared_set()
     check_retired_words_reads_past_the_decommission_ledger()
