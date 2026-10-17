@@ -7058,6 +7058,20 @@ def boundary_audit(repo_root, sources=(), skip_api=False, out=None):
             print(f'  FINDING    {label} -- {line}', file=out)
         else:
             print(f'  current    {label} -- {line}', file=out)
+        if not draws and ask_github:
+            # A SET'S BOUNDARY IS A SETTING TOO (2026-10-17). approvers.json
+            # and the CODEOWNERS made from it bind only where GitHub requires
+            # code-owner review on the base branch, and precedent_boundary_
+            # check judges protection against a document project's plan
+            # (required approvals 0), so it is not asked here. Until this
+            # note, a current CODEOWNERS printed the section's "current and
+            # on" with the setting never read.
+            notes.append(f'{label}: whether GitHub requires code-owner '
+                         f'review is not read for a set drawn by '
+                         f'approvers.json -- not a pass')
+            print(f'  not asked  {label} -- protection: a set drawn by '
+                  f'approvers.json is not asked about', file=out)
+            continue
         if not draws or not ask_github:
             continue
         if skip_api:

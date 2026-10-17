@@ -377,13 +377,31 @@ def tracked_mode(path: pathlib.Path) -> str | None:
     return line.split()[0] if line else None
 
 
+STUB_MARKER = "PRECEDENT HOOK STUB"
+
+
 def find_identity_script() -> pathlib.Path | None:
+    """-> the identity hook this repo actually wires, or None.
+
+    A STUB COUNTS BY WHAT IT RUNS (2026-10-17). Since 2026-10-07 every hook
+    in .claude/hooks/ is one byte-identical stub that runs tools/<its name>,
+    so MARKER is in tools/commit-identity.sh and in no hook file. Searching
+    the hook files for MARKER alone found nothing in BestPractice or in any
+    consumer, and this whole prevention half returned [] -- a pass -- without
+    running, for ten days (found by the very deep check, pass 2 question 15).
+    The stub is still the file to test: it is what settings.json wires, and
+    running it runs the real script beside it."""
     if PUBLISHER_IDENTITY.exists():
         return PUBLISHER_IDENTITY
     if CONSUMER_HOOKS_DIR.is_dir():
         for script in sorted(CONSUMER_HOOKS_DIR.glob("*.sh")):
             try:
-                if MARKER in script.read_text(encoding="utf-8"):
+                text = script.read_text(encoding="utf-8")
+                if MARKER in text:
+                    return script
+                real = ROOT / "tools" / script.name
+                if (STUB_MARKER in text and real.is_file()
+                        and MARKER in real.read_text(encoding="utf-8")):
                     return script
             except (UnicodeDecodeError, OSError):
                 continue

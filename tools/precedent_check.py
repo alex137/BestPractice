@@ -5456,7 +5456,10 @@ def _declared_sources_are_cloned(ctx):
        'every hook script this repo ships (templates/harness/claude-code/'
        'hooks/*.sh) is on a repo kind\'s list in precedent_vendor_engine.py\'s '
        'HOOK_WIRING, or in HOOKS_NO_KIND with the reason no kind gets it; '
-       'nothing is listed that is not shipped; and each kind\'s template -- '
+       'nothing is listed that is not shipped; each shipped stub\'s script is '
+       'in tools/ and HOOK_SCRIPT_FILES; every tools/hook_wiring.json entry '
+       'names a script in HOOK_SCRIPT_FILES at an event the fixed '
+       'precedent-hooks.sh entry covers; and each kind\'s template -- '
        'the consumer settings.json and the set payload '
        'precedent_bootstrap_source.py writes -- wires exactly its list',
        'whether a hook is on the RIGHT kind\'s list: that is a judgment this '
@@ -6513,9 +6516,9 @@ def _one_python(ctx):
        '`utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` '
        '-- every one of those resolves to whatever zone the machine is on, '
        'which in a container is UTC and in a record is unrecoverable. And '
-       'the ENGINE\'s fallback zone is the SAME string in all three engine '
-       'files that hold it: the time engine and both copies of the commit '
-       'hook',
+       'the ENGINE\'s fallback zone is the SAME string in both engine files '
+       'that hold it: the time engine and the commit hook\'s script in '
+       'tools/ (the hook files themselves are stubs since 2026-10-07)',
        'a stamp that carries an offset but the WRONG one -- a zone declared '
        'incorrectly in somebody\'s identity.json is a true statement about a '
        'false fact, and nothing mechanical can tell where a person actually '
@@ -6530,8 +6533,9 @@ def _one_python(ctx):
        'session zone is set, which is the hook\'s job, not this one\'s.')
 def _timestamps_carry_offset(ctx):
     """Two properties, one practice: nothing writes a naive moment, and the
-    ENGINE's fallback zone cannot drift between the three engine files that
-    name it (NOT precedent.json, which is the rung that overrides them --
+    ENGINE's fallback zone cannot drift between the two engine files that
+    name it (three until 2026-10-07, when both hook copies became stubs;
+    NOT precedent.json, which is the rung that overrides them --
     see the comment at the second half).
 
     AST, NOT GREP. The first draft grepped, and matched its own explanatory
@@ -6592,7 +6596,7 @@ def _timestamps_carry_offset(ctx):
                 f'({"today()" if fn.attr == "today" else "stamp(), utc_iso() or from_unix()"}), '
                 f'which resolves the person\'s zone and always carries the offset'))
 
-    # ---- the ENGINE's fallback zone, in the three engine files that hold it
+    # ---- the ENGINE's fallback zone, in the engine files that hold it
     #
     # precedent.json IS NOT IN THIS SET, and putting it here was a real bug
     # (found 2026-09-14 by the first real §0 install into a project with
@@ -11184,11 +11188,12 @@ CODE_CITE_SKIP_FILES = {'verify_harness.py'}
        "own Rule already forbids as \"a bare mention of the practice's "
        "subject with no way to look it up\", and which no scanner can tell "
        "from ordinary hyphenated prose. That blindness is not theoretical: "
-       "five citations of `fail-gracefully` sit in this repo's own tools/ in "
-       "exactly that form, naming a slug that resolves nowhere here, and the "
-       "anchored form would make this check FAIL rather than fix them, "
-       "because the practice lives in a private shared set. See TODO.md's "
-       "`universal-code-cites-team-slug`.")
+       "this repo's own tools/ still cite `fail-gracefully` in exactly that "
+       "form in many places, written while the practice lived in a private "
+       "set and the anchored form would have failed here. It is universal "
+       "since 2026-10-05, so `practice: fail-gracefully` now resolves; "
+       "todo/todo-2026-09-07-universal-code-cites-team-slug.md tracks the "
+       "anchoring.")
 def _code_cites_practice(ctx):
     known = {}
     for d in ((ROOT / 'practices'), (ROOT / 'local' / 'practices')):
