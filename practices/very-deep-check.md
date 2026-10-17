@@ -1331,14 +1331,15 @@ confidently.
 
 25. **What runs before each push, and what runs after it?** Before a push
     to staging or main only the bare essentials and the leak gate run;
-    every other check runs at the Debut, and after Produce: GitHub's test,
+    every other check runs at the full test run on staging, and after the
+    move into main: GitHub's test,
     or the full local suite on `main` where that test is not due. Checks
     crept the other way twice, a step at a time, each one cheap on its own,
     until a landing's quick check took 218 seconds
     ([spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md)).
     The tool's `CHECKS BY STAGE` section reads it, for every repo in force,
-    from that repo's own push check and branch tool: for **Booked** (the
-    land onto staging), **Produce** (staging into main) and the **Debut**,
+    from that repo's own push check and branch tool: for the land onto
+    staging, the move from staging into main, and the full test run,
     the checks before and the checks after, the quick tier with each
     check's approval and seconds, and what the full tier adds. It flags,
     as a violation, any check in the quick tier that

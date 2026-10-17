@@ -2532,7 +2532,8 @@ def _resolve_by_regenerating(wt, say):
             return False, made, (f'generated files changed on both sides, and '
                                  f'`{" ".join(cmd)}` could not rebuild them')
     for rel in conflicted:
-        # A builder that writes dated names (practice: dated-download-names)
+        # A builder that writes dated names (a dated download name, which a
+        # set's practice can ask for)
         # deletes the conflicted file and writes today's: a path gone is a
         # rebuild, not markers left in one.
         path = pathlib.Path(wt) / rel
@@ -4185,7 +4186,7 @@ def _commit_declared_rebuilt(root, wt, start, say):
     names, deletions and all -- and commit it. -> the files rebuilt.
 
     TWO DAYS, TWO COPIES (2026-10-17). A builder that writes dated names
-    (practice: dated-download-names) gives two branches that rebuilt on
+    (a dated download name, which a set's practice can ask for) gives two branches that rebuilt on
     different days two different files, so their merge never conflicts and
     keeps both. Rebuilding after the composition leaves one, from the merged
     sources. Only when the land touched a declared output: a land that
