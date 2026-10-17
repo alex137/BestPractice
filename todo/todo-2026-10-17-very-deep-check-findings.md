@@ -3,8 +3,8 @@ slug:              todo-2026-10-17-very-deep-check-findings
 kind:              analysis
 domain:            mechanism
 severity:          null
-status:            open
-disposition:       ask
+status:            done
+disposition:       null
 remind_on:         null
 blocked_on:        null
 batch:             null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-17
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -155,3 +155,67 @@ When every bullet above is fixed, decided, or moved to an item of its own.
 ## Notes
 
 2026-10-17: written by the very deep check that found these.
+
+## Closed
+
+Closed 2026-10-17 by the fix round that followed the check, on Morgan's
+words: "Fix the other issues you found including the checks that never
+run. Tell me what you decide. I will be offline so don't wait for me.
+Approved, act, and Booked." Every bullet above is fixed, decided, or moved
+to the one place that can act on it. Each decision below was made by the
+session under that delegation, and each commit message carries the quote.
+
+### The calls, decided
+
+- **The ladder's two checks that never ran now run at a landing and at a
+  Produce.** The ladder set ships both as `pre-push` hooks, and `--land`
+  now pushes from the person's checkout and tells the hooks which branch it
+  is landing. The engine judges nothing ladder-specific. Both are proved end
+  to end in a scratch consumer. **Consequence:** a landing in BestPractice
+  that touches the harness, the check engine, the leak gate or a check
+  under `tools/checks/` now goes by pull request into staging, as go-update
+  already said it should.
+- **prompt-please-on-the-ladder** says openly that it replaces universal's
+  "Where the work stops" bullet; it stays an addition, not an `overrides:`.
+- **Primary branch** means `base_branch`, in the ladder set and in this
+  repo's vocabulary.
+- **The retired set's repository is to be deleted, not kept archived.**
+  Only its owner can delete it; the individual set's open item on it waits
+  on that one click.
+- **A person with no individual set can be a code owner**: after the
+  environment and identity.json, the clone's own git config (written by the
+  installer's `--admin`), then the GitHub account the token belongs to.
+- **Universal's close_detect.json travels with the catalogue**, so a fresh
+  install notices habits and offers rules, as the pitch says.
+- **A local session writes repo-local git config only**; a cloud container
+  keeps its global identity, hooks path and clock.
+- **The individual-set skeleton keeps CI off** (`"disabled"`), with a
+  comment that is now true.
+- **An update that drops commands says so in one line**: how many, and which
+  optional set they went to, never the words themselves.
+- **The daily deep-check schedule is listed in AGENTS.md** as the one
+  schedule in force.
+- **The legacy session-start script and its two snippets are deleted** from
+  the individual set, and its bootstrap check guards the real hook.
+- **revert-needs-no-trailer is folded into session-trailer**, and the
+  trailer check still lets a revert through.
+- **The ten ambiguous open items** were closed or parked as the check said
+  it would.
+- **Band-aids: none.** The upstream fixes are made in BestPractice, and the
+  sets take them at their next Update Vendors.
+
+### The defects, fixed
+
+Every bullet under "Found, not fixed here" and "In the sets" above is fixed,
+each code change with a stated case that fails on the old code. One went
+against the pick: **the shipped gotchas keep shipping**, because a consumer
+session is told to search that folder, so the surplus audit was fixed to see
+the folder instead.
+
+### Left, and where
+
+- Deleting the retired set's repository: Morgan's click, linked from the
+  individual set's open item.
+- Nothing else. The full suite's four failures on the merged round were
+  fixed in it, one of them a real fault: an advisory step that exits took
+  the whole reply gate down before its archive-line verdict.
