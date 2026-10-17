@@ -63537,6 +63537,61 @@ def check_refresh_adds_read_only_allow_rules():
           not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
 
 
+def check_document_project_agents_md_is_compared_with_its_own_template():
+    """A repo made from templates/document-project/AGENTS.md is compared with
+    that template, never the loader template (2026-10-17, issue #1172: a
+    document project's update showed seven of its sections as DIVERGED and
+    four loader-only sections as MISSING, and never reported real drift from
+    its own template). Declared in precedent.json, or read from the headings
+    only that template has; any other consumer is compared as before.
+
+    Negative control: on staging's code there is no agents_md_templates, and
+    the plan is the loader template's."""
+    import tempfile, shutil
+    name = 'a document project\'s AGENTS.md is compared with its own template'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    cases = []
+    pick = getattr(pve, 'agents_md_templates', None)
+    cases.append(('the engine picks a template per repository', callable(pick)))
+    doc = ROOT / 'templates' / 'document-project' / 'AGENTS.md'
+    loader = ROOT / 'templates' / 'AGENTS.md.loader.template'
+    if callable(pick) and doc.is_file() and loader.is_file():
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            src = td / 'src'
+            src.mkdir()
+            pve._read_agents_md_sources(ROOT, 'HEAD', 'consumer', src)
+            dest = td / 'repo'
+            (dest / 'tools').mkdir(parents=True)
+            shutil.copy(doc, dest / 'AGENTS.md')
+            plan = pve._agents_md_plan(dest, 'consumer', src, {})
+            used = {p[1] for p in plan}
+            keys = {p[0] for p in plan}
+            cases.append(('a document project is planned against its own template',
+                          used == {'templates/document-project/AGENTS.md'}, used))
+            cases.append(('...so no loader-only section is reported MISSING',
+                          not any('Working in parallel' in k for k in keys)
+                          and not any(p[3] == 'missing' for p in plan),
+                          [(p[0], p[3]) for p in plan if p[3] != 'current']))
+            shutil.copy(loader, dest / 'AGENTS.md')
+            (dest / 'precedent.json').write_text(
+                json.dumps({'agents_md_template': 'document-project'}), encoding='utf-8')
+            cases.append(('declared in precedent.json, it is a document project '
+                          'whatever its headings',
+                          pick(dest, 'consumer') == ('templates/document-project/AGENTS.md',)))
+            (dest / 'precedent.json').unlink()
+            cases.append(('CONTROL: any other consumer is compared with the loader '
+                          'template, as before',
+                          pick(dest, 'consumer')[0] == 'templates/AGENTS.md.loader.template'))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d)[:300] + ')' if d else ''}" for n, d in bad))
+
+
 def check_repin_kept_records_the_persons_words():
     """`precedent_vendor_engine.py repin-kept` re-pins one kept AGENTS.md
     section against today's template and records who confirmed it and
@@ -84213,6 +84268,7 @@ def main():
     check('a kept section re-pins by itself when upstream\'s change misses what it kept',
           *check_kept_section_repins_a_change_that_misses_the_kept_lines())
     check_repin_kept_records_the_persons_words()
+    check_document_project_agents_md_is_compared_with_its_own_template()
     check_refresh_adds_read_only_allow_rules()
     check_leak_gate_reads_the_written_private_repo_list()
     check_session_hooks_allow_read_only_tools_at_user_level()

@@ -4272,7 +4272,7 @@ def citations(repo, rev=None):
     except ValueError:
         return None
     stock = {}
-    for tmpl in (pve.AGENTS_MD_TEMPLATES.get('consumer') or ())[:1]:
+    for tmpl in (pve.agents_md_templates(repo, 'consumer') or ())[:1]:
         text = _source_text(rev, tmpl) if rev else None
         if text:
             stock['AGENTS.md'] = {l.strip() for l in text.splitlines() if l.strip()}

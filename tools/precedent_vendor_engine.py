@@ -6187,6 +6187,16 @@ AGENTS_MD_TEMPLATES = {
                  'templates/AGENTS.md.template'),
     'source': (),
 }
+# A DOCUMENT PROJECT IS ITS OWN KIND OF AGENTS.md (2026-10-17, issue #1172).
+# A repo made from templates/document-project/AGENTS.md was compared with
+# the loader template: seven of its sections read as DIVERGED and four
+# loader-only ones as MISSING, while real drift from its own template (its
+# Contributor access rewrite) was never reported. agents_md_templates() picks
+# this family when precedent.json declares `"agents_md_template":
+# "document-project"`, or when AGENTS.md carries the headings only that
+# template has.
+DOCUMENT_PROJECT_AGENTS_MD = ('templates/document-project/AGENTS.md',)
+_DOCUMENT_PROJECT_HEADINGS = ('Document workflow', 'Contributor access')
 AGENTS_MD_SECTIONS_KEY = 'agents_md_sections_sha256'
 _AGENTS_MD_HISTORY_NAME = 'agents-md-history.json'
 _GENERATED_BEGIN = '<!-- BEGIN GENERATED'
@@ -6340,6 +6350,36 @@ def _sha_text(text):
     return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
 
+def is_document_project(dest_root):
+    """True when this repository's AGENTS.md comes from the document-project
+    template: declared in precedent.json (`agents_md_template`), else read
+    from AGENTS.md's own headings."""
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = {}
+    declared = cfg.get('agents_md_template') if isinstance(cfg, dict) else None
+    if isinstance(declared, str) and declared.strip():
+        return declared.strip() in ('document-project', DOCUMENT_PROJECT_AGENTS_MD[0])
+    try:
+        text = (root / AGENTS_MD).read_text(encoding='utf-8')
+    except OSError:
+        return False
+    heads = {re.sub(r'^#+\s*', '', l).strip() for l in text.splitlines()
+             if _MD_HEADING_RE.match(l)}
+    return all(h in heads for h in _DOCUMENT_PROJECT_HEADINGS)
+
+
+def agents_md_templates(dest_root, kind):
+    """-> the AGENTS.md templates `dest_root` is compared with, first the one
+    a refresh writes from: AGENTS_MD_TEMPLATES[kind], or the document-project
+    template for a document project."""
+    if kind == 'consumer' and is_document_project(dest_root):
+        return DOCUMENT_PROJECT_AGENTS_MD
+    return AGENTS_MD_TEMPLATES.get(kind, ())
+
+
 def _read_agents_md_sources(clone, commit, kind, out_dir):
     """Write the current AGENTS.md template at `commit` into
     out_dir/<its path>, and every section text either template has ever
@@ -6348,8 +6388,14 @@ def _read_agents_md_sources(clone, commit, kind, out_dir):
     `clone`. `--follow`, because the classic template began as
     templates/CLAUDE.md.template."""
     history = {}
-    for n, src_rel in enumerate(AGENTS_MD_TEMPLATES.get(kind, ())):
-        if n == 0:
+    # Each family's head is written, so the plan can compare a document
+    # project with its own template (agents_md_templates).
+    families = [AGENTS_MD_TEMPLATES.get(kind, ())]
+    if kind == 'consumer':
+        families.append(DOCUMENT_PROJECT_AGENTS_MD)
+    reads = [(n == 0, src) for fam in families for n, src in enumerate(fam)]
+    for head, src_rel in reads:
+        if head:
             blob = subprocess.run(['git', '-C', str(clone), 'show',
                                    f'{commit}:{src_rel}'], capture_output=True)
             if blob.returncode == 0:
@@ -6385,7 +6431,7 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
     of the current template, in template order -- see the block comment
     above for the actions. `span` is (first, end) in AGENTS.md, or None.
     Empty when there is no AGENTS.md or no template to compare with."""
-    srcs = AGENTS_MD_TEMPLATES.get(kind, ())
+    srcs = agents_md_templates(dest_root, kind)
     path = dest_root / AGENTS_MD
     if not srcs or not (templates_dir / srcs[0]).is_file() or not path.is_file():
         return []
@@ -7055,7 +7101,7 @@ def record_agents_md_sections(dest_root, kind, source_root):
     AGENTS.md kept from before the install) is left unrecorded, for the next
     refresh to judge from history."""
     manifest_path = dest_root / 'tools' / MANIFEST_NAME
-    srcs = AGENTS_MD_TEMPLATES.get(kind, ())
+    srcs = agents_md_templates(dest_root, kind)
     if not srcs or not manifest_path.is_file() \
             or not (source_root / srcs[0]).is_file() \
             or not (dest_root / AGENTS_MD).is_file():
