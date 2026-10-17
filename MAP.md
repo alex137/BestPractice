@@ -240,6 +240,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/github_budget.py](tools/github_budget.py) | What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session |
 | [tools/harness_reach.py](tools/harness_reach.py) | Change-scoped harness runs: which verify_harness checks a change can reach, from a ledger a full run records |
 | [tools/harness_reach_hook.py](tools/harness_reach_hook.py) | Records what each verify_harness check reaches: the code it runs and the files it reads (engine for harness_reach.py) |
+| [tools/harness_times_merge.py](tools/harness_times_merge.py) | Git merge driver for tools/harness_check_times.json: a three-way merge of |
 | [tools/land_next.py](tools/land_next.py) | The lander as one command: land every queued branch on the trunk, oldest first, or say exactly why not |
 | [tools/land_queue.py](tools/land_queue.py) | The landing queue: branches waiting for the lander to merge them into the trunk, one record per branch on the coord branch |
 | [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |

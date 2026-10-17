@@ -12583,9 +12583,11 @@ def _check_times(path=None):
     return times, (float(default) if isinstance(default, (int, float)) else None)
 
 
-def _write_check_times(seconds, measured, path=None):
+def _write_check_times(seconds, measured, path=None, default=None):
     """Rewrite HARNESS_CHECK_TIMES from {check name: seconds}. Every check is
-    named, so default_seconds covers only checks added since."""
+    named, so default_seconds covers only checks added since. `default`
+    keeps the recorded one: only a whole re-record moves it (2026-10-17,
+    harness_times_merge.py says why)."""
     vals = sorted(seconds.values())
     rec = {
         'about': ('What each verify_harness check took, read by --as-ci to '
@@ -12594,7 +12596,8 @@ def _write_check_times(seconds, measured, path=None):
                   "--record-times --because '<why>'. A check missing here "
                   'counts as default_seconds.'),
         'measured': measured,
-        'default_seconds': round(vals[len(vals) // 2], 2) if vals else 1.0,
+        'default_seconds': (default if default is not None else
+                            round(vals[len(vals) // 2], 2) if vals else 1.0),
         'seconds': {k: round(v, 1) for k, v in sorted(seconds.items())},
     }
     pathlib.Path(path or HARNESS_CHECK_TIMES).write_text(
@@ -12615,12 +12618,32 @@ def record_new_times():
     of the push check refuses a new test whose time is not recorded
     (precedent_push_check.changed_files_check), naming this command."""
     import tempfile
-    times, _ = _check_times()
+    times, default = _check_times()
     names = sorted(n for n, v in globals().items()
                    if n.startswith('check_') and callable(v))
     missing = [n for n in names if n not in times]
+    # A TEST THAT IS GONE LEAVES THE LIST HERE (2026-10-17). Before, only a
+    # whole --as-ci --record-times run, about fourteen minutes, cleared a
+    # removed test's time, and the --as-ci partition case refused the list
+    # until then. The run's other fields stay as recorded, so two branches
+    # that each record a test touch only their own lines.
+    stale = sorted(n for n in times if n not in set(names))
+    if stale:
+        times = {n: t for n, t in times.items() if n not in set(stale)}
+        print(f'verify_harness: dropped {len(stale)} time(s) for test(s) that no '
+              f'longer exist: ' + ', '.join(stale))
+    try:
+        before = json.loads(HARNESS_CHECK_TIMES.read_text(encoding='utf-8')).get(
+            'measured', '')
+    except (OSError, ValueError):
+        before = ''
     if not missing:
-        print('verify_harness: every test already has a recorded time.')
+        if stale:
+            _write_check_times(times, before, default=default)
+            print(f'verify_harness: wrote {HARNESS_CHECK_TIMES.relative_to(ROOT)}; '
+                  f'commit it.')
+        else:
+            print('verify_harness: every test already has a recorded time.')
         return 0
     # ONE BASIS (2026-10-17). The list is recorded by `--as-ci
     # --record-times`, on CI's parts; this times tests in one process on
@@ -12645,15 +12668,9 @@ def record_new_times():
     if not got:
         print('verify_harness: the run recorded no times; nothing written.')
         return r.returncode or 1
-    try:
-        before = json.loads(HARNESS_CHECK_TIMES.read_text(encoding='utf-8')).get(
-            'measured', '')
-    except (OSError, ValueError):
-        before = ''
-    _write_check_times({**times, **got},
-                       f'{before}; {len(got)} added {time.strftime("%Y-%m-%d")} '
-                       f'by --record-new-times, scaled by {scale:.2f} to it'
-                       .lstrip('; '))
+    _write_check_times({**times, **got}, before, default=default)
+    print(f'verify_harness: {len(got)} added by --record-new-times, scaled by '
+          f'{scale:.2f} to the recorded basis.')
     print(f'verify_harness: recorded {len(got)} time(s) in '
           f'{HARNESS_CHECK_TIMES.relative_to(ROOT)}; commit it with the tests.')
     return r.returncode
@@ -77164,6 +77181,109 @@ def check_codeowners_stamp_hashes_only_the_registry():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_harness_times_merge_without_a_conflict():
+    """Two branches that each record a test, one of them deleting another,
+    merge tools/harness_check_times.json with no conflict, and the deleted
+    test stays deleted (2026-10-17). That day the file conflicted on nearly
+    every merge -- one shared "measured" line every recording appended to,
+    default_seconds rewritten each time, neighbouring inserts -- and a
+    union resolve brought back five timings #1180 had removed, turning the
+    --as-ci partition case red. Now: .gitattributes names a merge driver,
+    tools/bootstrap.sh configures it in the clone at session start, and
+    --record-new-times leaves the shared fields alone and drops a removed
+    test's time itself. Fails on the old code: no driver, so git leaves
+    the conflict."""
+    import tempfile, json as _json, shutil as _shutil, re as _re
+    name = 'the harness times file merges without a conflict'
+    script = ROOT / 'tools' / 'harness_times_merge.py'
+    boot = ROOT / 'tools' / 'bootstrap.sh'
+    attrs = ROOT / '.gitattributes'
+    cases = []
+    attr_ok = attrs.is_file() and 'tools/harness_check_times.json merge=precedent-harness-times' \
+        in attrs.read_text(encoding='utf-8')
+    cases.append(('.gitattributes names the driver for the times file', attr_ok))
+    btext = boot.read_text(encoding='utf-8') if boot.is_file() else ''
+    m = _re.search(r"merge\.precedent-harness-times\.driver \\\s*\n\s*'([^']+)'", btext)
+    cases.append(('bootstrap.sh configures it', bool(m) and script.is_file(),
+                  'no driver line in tools/bootstrap.sh'))
+    driver = m.group(1) if m else ''
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'r'
+        env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                   GIT_AUTHOR_EMAIL='t@example.invalid',
+                   GIT_COMMITTER_EMAIL='t@example.invalid',
+                   GIT_CONFIG_GLOBAL=str(pathlib.Path(td) / 'gc'),
+                   GIT_CONFIG_NOSYSTEM='1')
+
+        def git(*a, cwd=repo):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def times(seconds, measured='2026-10-09, 4 cores', default=0.3):
+            (repo / 'tools' / 'harness_check_times.json').write_text(_json.dumps(
+                {'about': 'x', 'measured': measured, 'default_seconds': default,
+                 'seconds': dict(sorted(seconds.items()))}, indent=1) + '\n',
+                encoding='utf-8')
+
+        (repo / 'tools').mkdir(parents=True)
+        git('init', '-q', '-b', 'main', str(repo), cwd=td)
+        if script.is_file():
+            _shutil.copy2(script, repo / 'tools' / script.name)
+        if attrs.is_file():
+            _shutil.copy2(attrs, repo / '.gitattributes')
+        if driver:
+            git('config', 'merge.precedent-harness-times.driver', driver)
+        base = {'check_a': 1.0, 'check_b': 2.0, 'check_c': 3.0}
+        times(base)
+        git('add', '-A')
+        git('commit', '-q', '-m', 'base')
+        git('checkout', '-q', '-b', 'ours')
+        times({**base, 'check_ca': 4.0}, measured='2026-10-09, 4 cores; 1 added',
+              default=0.5)
+        git('commit', '-q', '-am', 'ours records check_ca')
+        git('checkout', '-q', '-b', 'theirs', 'main')
+        rest = {k: v for k, v in base.items() if k != 'check_c'}
+        times({**rest, 'check_cb': 5.0}, measured='2026-10-09, 4 cores; 2 added',
+              default=0.4)
+        git('commit', '-q', '-am', 'theirs deletes check_c, records check_cb')
+        git('checkout', '-q', 'ours')
+        r = git('merge', '--no-edit', 'theirs')
+        cases.append(('merging the two branches leaves no conflict', r.returncode == 0,
+                      (r.stdout + r.stderr)[-200:]))
+        try:
+            got = _json.loads((repo / 'tools' / 'harness_check_times.json')
+                              .read_text(encoding='utf-8'))['seconds']
+        except (OSError, ValueError, KeyError):
+            got = {}
+        cases.append(('both new tests are kept, and the test one side deleted '
+                      'stays deleted',
+                      got == {'check_a': 1.0, 'check_b': 2.0, 'check_ca': 4.0,
+                              'check_cb': 5.0}, str(got)))
+        # A worktree shares the clone's config, as the stages' merges use.
+        wt = pathlib.Path(td) / 'wt'
+        git('branch', '-q', 'later', 'main')
+        git('worktree', 'add', '-q', str(wt), 'later')
+        (wt / 'tools' / 'harness_check_times.json').write_text(_json.dumps(
+            {'about': 'x', 'measured': '2026-10-09, 4 cores', 'default_seconds': 0.3,
+             'seconds': {**base, 'check_cc': 6.0}}, indent=1) + '\n', encoding='utf-8')
+        git('commit', '-q', '-am', 'later records check_cc', cwd=wt)
+        r = git('merge', '--no-edit', 'ours', cwd=wt)
+        cases.append(('a merge in a worktree uses the same driver', r.returncode == 0,
+                      (r.stdout + r.stderr)[-200:]))
+    path = pathlib.Path(tempfile.mkdtemp()) / 't.json'
+    try:
+        _write_check_times({'check_a': 9.0}, 'm', path=path, default=0.3)
+        kept = _json.loads(path.read_text(encoding='utf-8')).get('default_seconds')
+    except TypeError:
+        kept = None
+    finally:
+        _shutil.rmtree(path.parent, ignore_errors=True)
+    cases.append(('recording keeps default_seconds as recorded', kept == 0.3, str(kept)))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_as_ci_parts_partition_the_suite():
     """`--as-ci` runs its shards side by side and deals CI's rest shard into
     parts (_as_ci_runs). Whatever the job count, every check must run in
@@ -77229,7 +77349,8 @@ def check_as_ci_parts_partition_the_suite():
     rec = _check_times()[0]
     stale = sorted(set(rec) - set(names))
     cases.append(('the committed record names only checks that exist',
-                  not stale, f'stale: {stale[:3]} (rerun --as-ci --record-times)'))
+                  not stale, f'stale: {stale[:3]} (python3 tools/verify_harness.py '
+                             f'--record-new-times drops them, in seconds)'))
     failed = [(n, d) for n, ok, d in cases if not ok]
     check(f'--as-ci parts partition the suite ({len(cases)} stated cases)',
           not failed, '; '.join(f'{n}: {d}' for n, d in failed))
@@ -84266,6 +84387,7 @@ def main():
     check_codeowners_stamp_hashes_only_the_registry()
     check_as_ci_says_why_a_shard_failed()
     check_as_ci_parts_partition_the_suite()
+    check_harness_times_merge_without_a_conflict()
     check_move_fixes_mentions_of_the_moved_practice()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()

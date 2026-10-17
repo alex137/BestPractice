@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.69 to it; 7 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 10 added 2026-10-17 by --record-new-times; 5 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times, scaled by 1.83 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.00 to it; 1 added 2026-10-17 by --record-new-times, scaled by 2.26 to it",
+ "measured": "2026-10-09, 4 cores, --as-ci; tests added since by --record-new-times, each scaled to this basis",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -232,6 +232,7 @@
   "check_gotcha_currency_signals_fire": 0.1,
   "check_harness_drops_inherited_git_repository_variables": 1.5,
   "check_harness_reach_selects_what_a_change_reaches": 0.6,
+  "check_harness_times_merge_without_a_conflict": 0.3,
   "check_heading_anchor_keeps_combining_marks": 0.4,
   "check_headroom_notice_watches_the_resident_block": 0.0,
   "check_history_checks_never_ride_a_reused_pass": 1.7,

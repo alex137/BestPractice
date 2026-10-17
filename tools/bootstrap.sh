@@ -203,6 +203,21 @@ if git rev-parse --git-dir >/dev/null 2>&1 && git remote get-url origin >/dev/nu
   timeout 30 git remote prune origin >/dev/null 2>&1 || true
 fi
 
+# A FILE THAT MERGES ITSELF (2026-10-17). Where .gitattributes names the
+# harness-times merge driver and its script is here, configure it in this
+# clone's own config, so a merge rebuilds tools/harness_check_times.json
+# three ways instead of leaving a conflict to patch by hand
+# (tools/harness_times_merge.py says why). Inert in a repository that does
+# not name it. Re-running it is a no-op.
+if grep -qs 'merge=precedent-harness-times' .gitattributes \
+    && [ -f tools/harness_times_merge.py ] \
+    && git rev-parse --git-dir >/dev/null 2>&1; then
+  git config merge.precedent-harness-times.name \
+    'three-way merge of the harness per-test times' 2>/dev/null
+  git config merge.precedent-harness-times.driver \
+    'python3 tools/harness_times_merge.py %O %A %B' 2>/dev/null
+fi
+
 # Is THIS checkout current with its own origin -- and if not, MAKE it current.
 # See the instructions file's gotchas section for the incidents. Three now,
 # each worse than a warning would suggest:
