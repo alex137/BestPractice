@@ -72822,6 +72822,52 @@ def check_retired_mentions_match_the_full_path_only():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_dependents_warning_skips_a_wholly_generated_view():
+    """The refresh's "still names it" warning leaves out a file a generator
+    writes whole, which the update rebuilds from its sources a moment later,
+    and still reads a file only partly generated (2026-10-17, a consuming
+    repository's Update Vendors: MAP.md was warned about for naming two
+    engine tools the refresh had removed, and the view rebuild then dropped
+    both lines). A source still naming the tool is warned about as before."""
+    import contextlib, io, tempfile
+    import precedent_vendor_engine as pve
+    name = 'the dependents warning skips a wholly generated view'
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-generated-dependents-'))
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    gone = 'tools/retired_words.py'
+    try:
+        def put(rel, text):
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        put('MAP.md', f'| `{gone}` | a tool |\n')
+        put('AGENTS.md', f'Run `{gone}` by hand.\n')
+        put('docs/HOWTO.md', f'Use `{gone}`.\n')
+        put('tools/generated_files.json', json.dumps({'files': [
+            {'path': 'MAP.md', 'generated_by': 'tools/build_views.py'},
+            {'path': 'AGENTS.md', 'part': '<!-- BEGIN GENERATED: x -->',
+             'generated_by': 'tools/build_views.py'}]}))
+        subprocess.run(['git', 'init', '-q', str(tmp)], env=env, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], env=env, check=True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            pve._warn_about_dependents(tmp, [gone], 'removed from this kind\'s engine set')
+        warned = err.getvalue()
+        cases.append(('a wholly generated MAP.md naming the removed tool is not '
+                      'warned about', 'MAP.md:' not in warned, warned[:400]))
+        cases.append(('...while a hand-written doc and a partly generated '
+                      'AGENTS.md still are',
+                      'docs/HOWTO.md:1' in warned and 'AGENTS.md:1' in warned,
+                      warned[:400]))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_retired_mentions_skip_what_the_repo_receives():
     """A mention of a file the refresh deleted is this repo's to fix only
     where the repo writes the file: never in the engine's own files or
@@ -84452,6 +84498,7 @@ def main():
     check_refresh_replaces_a_past_individual_hook_rendering()
     check_refresh_names_an_in_place_hook_no_engine_path_keeps()
     check_retired_mentions_skip_what_the_repo_receives()
+    check_dependents_warning_skips_a_wholly_generated_view()
     check_retired_mentions_match_the_full_path_only()
     check_second_pass_drops_a_first_pass_unshipped_workflow_call()
     check_update_says_once_that_commands_moved_to_an_undeclared_set()

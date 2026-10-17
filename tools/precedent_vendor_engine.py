@@ -2033,6 +2033,25 @@ def received_paths(dest_root):
     return paths, tuple(dict.fromkeys(prefixes))
 
 
+GENERATED_REGISTRY = 'tools/generated_files.json'
+
+
+def wholly_generated_files(dest_root):
+    """-> {path} of each file this repository's generated-files registry
+    says a generator writes whole (an entry with no `part`). Never raises:
+    no registry is no generated file."""
+    try:
+        entries = json.loads((pathlib.Path(dest_root) / GENERATED_REGISTRY)
+                             .read_text(encoding='utf-8')).get('files') or []
+    except (OSError, ValueError, AttributeError):
+        return set()
+    whole = {str(e.get('path')) for e in entries
+             if isinstance(e, dict) and e.get('path') and not e.get('part')}
+    partial = {str(e.get('path')) for e in entries
+               if isinstance(e, dict) and e.get('path') and e.get('part')}
+    return whole - partial
+
+
 def dependents_of(dest_root, rels, cap=8):
     """-> {rel: [(referring path, line number, the line)]} for files that
     are about to stop existing, or just have.
@@ -2082,6 +2101,14 @@ def dependents_of(dest_root, rels, cap=8):
     # upstream does, and the next refresh rewrites it: counting it made every
     # row in a consumer a finding (2026-10-17, very deep check).
     received, received_under = received_paths(dest_root)
+    # A WHOLE FILE A GENERATOR WRITES (2026-10-17, a consuming repository's
+    # Update Vendors): MAP.md was warned about for naming two engine tools
+    # the refresh had just removed, and the update's own view rebuild a
+    # moment later dropped both lines. A generated view names what its
+    # sources and the tree name; a source that still names the file is
+    # warned about itself, and the view is rebuilt from them. A file only
+    # partly generated (AGENTS.md's blocks) is still read.
+    generated = wholly_generated_files(dest_root)
     needles = {}
     for rel in rels:
         base = pathlib.PurePosixPath(rel).name
@@ -2096,6 +2123,8 @@ def dependents_of(dest_root, rels, cap=8):
         if rel_here in rels:
             continue                      # the file being deleted itself
         if rel_here in received or rel_here.startswith(received_under):
+            continue
+        if rel_here in generated:
             continue
         try:
             text = f.read_text(encoding='utf-8')
