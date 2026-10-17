@@ -632,6 +632,12 @@ ENGINE_FILES = [
     # The one matcher for the ladder's own words (D7), which precedent_check's
     # ladder-words-stay-in-the-ladder-set imports in every practice set.
     'ladder_words.py',
+    # Which upstream-owned files were edited here, and each one's recorded
+    # answer (practice: upstream-bug-stops-here, 2026-10-17). precedent_check
+    # imports it in every kind of repository, the edit-time hook
+    # (precedent-paths.sh) runs its --guard, and the sync asks it which
+    # edits are answered.
+    'upstream_edits.py',
     # Its second list, "Our language" (2026-09-29,
     # spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md step 2): the word list and the
     # loader precedent_vocabulary.py imports to read it. They travel with it

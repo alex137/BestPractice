@@ -11990,6 +11990,41 @@ def _vendored_copy_matches_record(ctx):
 OPEN_ITEM_FILE_RE = re.compile(r'(?:^|/)(todo|gotcha)-\d{4}-\d{2}-\d{2}-[^/]*\.md$')
 
 
+
+@check('upstream-bug-stops-here', 'tree',
+       'every file this repository received from upstream -- an engine file '
+       'or hook tools/ENGINE_MANIFEST.json records, a shipped file, adapter or '
+       'materialized check MANIFEST.json records -- is what was delivered, or '
+       'carries its answer under "upstream_edits" in precedent.json: '
+       '"owed-upstream" with the link that carries the fix up, or '
+       '"local-need" with how the need is met and the person\'s quoted, '
+       'dated approval. An answer for a file that matches again is stale',
+       'whether a fix belongs upstream: it can tell a file changed, never '
+       'which answer is right -- the recorded answer is a session\'s or the '
+       'person\'s. A file no delivery record names is this repository\'s own '
+       'and is not judged; neither is the vendored catalogue under '
+       'process/upstream/, which vendored-copy-matches-record compares',
+       judges_received=True,
+       selects_on=('MANIFEST.json', 'tools/ENGINE_MANIFEST.json',
+                   'precedent.json', '.claude/hooks/**'))
+def _upstream_bug_stops_here(ctx):
+    # 2026-10-17 (Morgan, "Act"): the rule had no check, so a session read it
+    # and edited a shipped copy anyway; the next sync put upstream's copy
+    # back, often over a different fix made upstream for the same problem.
+    # tools/upstream_edits.py is the one answer; the edit-time hook
+    # (tools/precedent-paths.sh) asks the same question before the edit.
+    try:
+        import upstream_edits
+    except Exception as e:                           # practice: fail-gracefully
+        raise NotApplicable(f'tools/upstream_edits.py could not be loaded '
+                            f'here ({e})')
+    if not upstream_edits.owned(ROOT):
+        raise NotApplicable('no delivery record here (tools/ENGINE_MANIFEST.json '
+                            'or MANIFEST.json) names a file received from '
+                            'upstream -- the expected state in a repository '
+                            'that is itself upstream')
+    return upstream_edits.findings(ROOT)
+
 @check('open-items-outside-todo', 'tree',
        'an open item (todo-<date>-*.md) or gotcha (gotcha-<date>-*.md) '
        'filed anywhere but the repository\'s root todo/ or gotchas/, where '

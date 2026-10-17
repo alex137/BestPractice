@@ -48,8 +48,10 @@ builder. It enforces nothing, and the engine's own ladder steps (a
 landing, a Promote, Update Vendors) name their branches with it. It moves
 with them in part 3.
 
-**Not applied anywhere:** the GitHub ruleset. Morgan says which
-repositories get it; for BestPractice the call is Alex's.
+**The GitHub ruleset is opt-in, per person** (Morgan, 2026-10-16): anyone
+turns it on in their own identity.json or user-level config, and
+`--apply` then touches only repositories their own account owns. Nobody
+has opted in yet, so it is applied nowhere.
 
 ## 2. Built: go-update's high-risk line
 
