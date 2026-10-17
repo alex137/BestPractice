@@ -293,7 +293,7 @@ pass is recorded, the session rewrites the checked repo's own
 for this run: scope, a short version, then each pass in order with what it
 found, what was fixed and in which commit, the warnings judged (Pass 2's
 question 24), the checks by stage (question 25), set independence
-(question 26), the token budgets with their numbers, what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
+(question 26), the test review (question 27), the token budgets with their numbers, what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
 previous run to one row in the run record above, commits both, and
 links the account in the reply that reports the run. A run is not done
 until the account is there, and the deep check enforces it
@@ -1408,6 +1408,70 @@ confidently.
     practice sets ... add to a very deep check a review for that to make
     sure that is how it works. And fix it if it's not, if you find it
     otherwise at any point.")*
+
+27. **Is every test still worth running?** Tests are added one at a time,
+    each for a real reason, and until this question nothing asked the
+    reverse: does a test still check something in use, and is its time
+    worth what it protects? On 2026-10-17 the harness still carried a pile
+    of tests about the tier below staging, three days after that tier was
+    retired for everyone. Each passed and each cost time on every full run.
+    The tool's `TEST WORTH` section, built on
+    [tools/test_review.py](https://github.com/alex137/BestPractice/blob/staging/tools/test_review.py),
+    lists every test each repo in force owns: every `check_*` in its own
+    harness with the seconds
+    [tools/harness_check_times.json](https://github.com/alex137/BestPractice/blob/staging/tools/harness_check_times.json)
+    records, and every test script. Beside each it prints its leads: a
+    retired thing the test still names (the registry's own `retired` list,
+    the retired words in `tools/our_language.json`, a decommissioned tool,
+    a retired or deduplicated practice) and a harness test with no recorded
+    time. Leads come first, then the slowest.
+
+    **The session judges every test it lists, and does what it decides in
+    this pass.** For each one, three questions: does it test something
+    still used and needed; was what it tests retired, replaced, or already
+    covered by another test; and is its time worth its importance. Then
+    one verdict. **Keep**, with its importance: high when a miss means
+    work lost, leaked, landed in the wrong place or a session blocked;
+    medium when a mechanism would be quietly wrong; low for wording,
+    formatting or a convenience. **Cheapen**, when it is worth keeping but
+    not at its price: make it cheaper now and record it again as keep with
+    its new time. **Retire**, when what it tests is gone or covered
+    elsewhere: delete it now
+    ([decommission-deletes-files](decommission-deletes-files.md)), its
+    recorded time with it. A lead is a question, not a verdict: a test of
+    a retirement names the retired thing on purpose. Verdicts go in that
+    repo's
+    [tools/test_verdicts.json](https://github.com/alex137/BestPractice/blob/staging/tools/test_verdicts.json)
+    with `"by": "agent"`; ask the person only where you are genuinely
+    unsure or suspect they would see it differently, and record their
+    answer with its strength ([decision-strength](decision-strength.md)).
+    A test in a repo this session cannot land in is a
+    [prompt-please](prompt-please.md) block.
+
+    **The first run judges all of them; later runs judge what changed.** A
+    test with no verdict, a keep whose time has more than doubled (and
+    grown by a second or more), and a keep that carries a lead it did not
+    have when judged come back. So does any verdict on a test that no
+    longer exists, to be deleted. When something is retired, add it to the
+    registry's `retired` list with the words a test still exercising it
+    would contain, so the next run finds those tests.
+
+    **The result goes into the run's write-up.** The section writes a
+    `## Test review` block into
+    [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md)
+    (or the run record, where a repo has only that): per repo, how many
+    tests and how long they take in all, how many are judged, the time
+    spent at each importance, the slowest fifteen against their
+    importance, what is owed and what carries a lead. After judging, run
+    `python3 tools/very_deep_check.py --refresh-tests` to rewrite it. In
+    the account, say what was retired, what was cheapened and how much time
+    each saved. The deep check refuses an account for a run from 2026-10-18
+    on without that section. *(Morgan, 2026-10-17, strength: decided:
+    "Update 'very deep check' to review all TESTS to see if all tests are
+    relevant and important. Do they test something still used and needed?
+    Was what it tests deprecated? ... does the amount of time it takes
+    worth it for its level of importance? Write all this in the result doc
+    you create." No earlier item asked for it; this question is the first.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
@@ -2863,6 +2927,7 @@ it landed and still unreviewed.
 - **Extended 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 25 and the CHECKS BY STAGE section: every run lists what runs before and after Booked, Produce and the Debut, flags any check before a push beyond the bare essentials and the leak gate, fixes it, and writes it into the account: "Please add to very deep check, an explicit check for that", "It should list this ... in the result, the detailed doc you create after every very deep check", and "flag it and fix it if before the pushes it has any checks other than the minimum essential urgent check and the leak gate check." Its first reading found a consumer's own workflow checks running before every push, outside the closed quick tier; they moved to the full tier in the same change.
 - **Extended 2026-10-17, Morgan (strength: decided)**, with the TOKEN BUDGETS section: every session-load budget in every repo in force is printed with its number, limit, share used and approved max even when all pass, the session file charged as `session-load-budget` charges it, and each repo's own budget checks are shown to fire on an overage planted in a throwaway worktree; the table and fire test go into the run's write-up. A session had just checked this by hand after weeks with no budget warning: "please see if this same analysis ... is done in very deep check. If not, add it ... even if they all pass, share the exact numbers, the limits, the chart, and any other details." The same change stopped SESSION LOAD charging the session file whole, which had reported an individual set over its target at about 4,011 against 4,000 when the share the check charges was about 3,614.
 - **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 26 and the SET INDEPENDENCE section: every run checks that each practice set keeps its own rules, checks and tests, and fixes what it finds -- "The practice sets should be more independent as practices and the test for the practices in the practice sets", "add to a very deep check a review for that", and "fix it if it's not, if you find it otherwise at any point." The inventory behind it widened the same day to BestPractice's tests and universal rules; its first reading found three engine tests using a set's real practice names as sample data, which now use made-up ones.
+- **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 27 and the TEST WORTH section: every run judges every test it lists -- keep with its importance, cheapen, or retire -- and does what it decides in the same pass, and the account carries a `## Test review` section from runs on 2026-10-18 on: "review all TESTS to see if all tests are relevant and important. Do they test something still used and needed? Was what it tests deprecated?" and "does the amount of time it takes worth it for its level of importance? Write all this in the result doc you create." Prompted by tests for the retired tier below staging that outlived it. Its first reading listed 772 tests in this checkout, about an hour of recorded time, none judged yet; one test still named that tier (the migration that moves a repository off it), and 51 named the retired "team" level.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope

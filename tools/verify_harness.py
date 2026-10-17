@@ -8923,6 +8923,116 @@ def check_very_deep_check_warnings_are_judged_not_just_counted():
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
+def check_very_deep_check_test_worth_judges_what_changed():
+    """very_deep_check.py's TEST WORTH section (tools/test_review.py): every
+    harness test and test script is listed with its recorded time; a test
+    naming a retired thing carries that lead; a test with no verdict is
+    new, a keep whose time more than doubled or that gained a lead comes
+    back, a cheapen or retire is owed, and a verdict for a test that is gone
+    is stale; a keep without its importance is a registry problem; and the
+    write-up gets one `## Test review` block that a second write replaces.
+
+    Added 2026-10-17 with the section (practice: very-deep-check, Pass 2's
+    question 27; Morgan: "review all TESTS to see if all tests are relevant
+    and important"). The repository is a temporary one the test builds
+    (practice: fixture-owns-its-state); each case asserts the tool's own
+    words or status (practice: control-asserts-which-failure)."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import test_review as tr
+    import very_deep_check as vdc
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vdc-tests-'))
+    try:
+        (tmp / 'tools' / 'tests').mkdir(parents=True)
+        (tmp / 'spec').mkdir()
+        (tmp / 'tools' / 'verify_harness.py').write_text(
+            'def check_quiet():\n    """Guards a thing still in use."""\n    return 1\n\n'
+            'def check_grew():\n    """Got slow."""\n    return 2\n\n'
+            'def check_old_tier():\n    """The tier."""\n    return "zz-gone-tier"\n\n'
+            'def check_owed():\n    """To retire."""\n    return 3\n\n'
+            'def helper():\n    return 4\n', encoding='utf-8')
+        (tmp / 'tools' / 'harness_check_times.json').write_text(json.dumps({'seconds': {
+            'check_quiet': 0.4, 'check_grew': 9.0, 'check_old_tier': 2.0,
+            'check_owed': 1.0}}), encoding='utf-8')
+        (tmp / 'tools' / 'tests' / 'test_thing.sh').write_text(
+            '#!/bin/sh\n# Two-direction test for the thing.\nexit 0\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(tmp)], check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], check=True)
+        keep = {'verdict': 'keep', 'importance': 'medium', 'why': 'w',
+                'date': '2026-10-17', 'by': 'agent'}
+        (tmp / 'tools' / 'test_verdicts.json').write_text(json.dumps({
+            'retired': [{'what': 'the zz tier', 'retired': '2026-10-14',
+                         'patterns': [r'\bzz-gone-tier\b']}],
+            'verdicts': {
+                'check_quiet': dict(keep, seconds=0.4),
+                'check_grew': dict(keep, seconds=2.0),
+                'check_owed': {'verdict': 'retire', 'why': 'covered elsewhere',
+                               'date': '2026-10-17', 'by': 'agent'},
+                'check_gone': dict(keep, seconds=1.0),
+                'tools/tests/test_thing.sh': {'verdict': 'keep', 'why': 'w',
+                                              'date': '2026-10-17', 'by': 'agent'}}}),
+            encoding='utf-8')
+        r = tr.review(tmp)
+        by = {t['name']: t for t in r['tests']}
+        cases.append(('every check_* and every test script is listed, a helper is not',
+                      sorted(by) == ['check_grew', 'check_old_tier', 'check_owed',
+                                     'check_quiet', 'tools/tests/test_thing.sh'],
+                      repr(sorted(by))))
+        cases.append(('a harness test carries its recorded time; a script is untimed',
+                      by['check_grew']['seconds'] == 9.0
+                      and by['tools/tests/test_thing.sh']['seconds'] is None, ''))
+        cases.append(('a test naming a retired thing carries that lead and is judged first',
+                      by['check_old_tier']['leads'] == ['names the zz tier (retired 2026-10-14)']
+                      and tr.to_judge(r)[0]['name'] == 'check_old_tier',
+                      repr(by['check_old_tier']['leads'])))
+        cases.append(('a test with no verdict is unjudged',
+                      by['check_old_tier']['status'] == 'unjudged', ''))
+        cases.append(('a keep whose time more than doubled is judged again, saying so',
+                      by['check_grew']['status'] == 'rejudge'
+                      and 'more than doubled' in ' '.join(by['check_grew']['why_rejudge']),
+                      repr(by['check_grew'])))
+        cases.append(('a current keep stays judged (the quiet half)',
+                      by['check_quiet']['status'] == 'judged', ''))
+        cases.append(('a retire verdict on a test still there is owed',
+                      by['check_owed']['status'] == 'owed', ''))
+        cases.append(('a verdict for a test that is gone is stale',
+                      r['stale'] == ['check_gone'], repr(r['stale'])))
+        cases.append(('a keep without its importance is a registry problem, '
+                      'and the test stays unjudged',
+                      any('tools/tests/test_thing.sh' in p and 'importance' in p
+                          for p in r['problems'])
+                      and by['tools/tests/test_thing.sh']['status'] == 'unjudged',
+                      repr(r['problems'])))
+        text = tr.render_text(r)
+        cases.append(('the text counts what is judged and what is to judge',
+                      'Judged 1; to judge: 2 never judged, 1 to judge again, 1 '
+                      'cheapen/retire owed.' in text, text))
+        md = tr.render_markdown([('fixture', r)])
+        cases.append(('the block gives time by importance and the slowest against it',
+                      '| medium | 2 | 9 |' in md and '| `check_grew` | 9.0 | keep | medium |' in md,
+                      md))
+        doc = tmp / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+        doc.write_text('# Run\n\nBody.\n', encoding='utf-8')
+        with contextlib.redirect_stdout(io.StringIO()):
+            vdc.test_worth_section([('fixture', tmp)], tmp)
+            (tmp / 'tools' / 'tests' / 'test_thing.sh').unlink()
+            vdc.test_worth_section([('fixture', tmp)], tmp)
+        body = doc.read_text(encoding='utf-8')
+        cases.append(('the write-up gets one ## Test review block, replaced on the second write',
+                      body.count('## Test review') == 1 and body.startswith('# Run\n\nBody.\n')
+                      and '4 test(s)' in body and '5 test(s)' not in body, body))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'very_deep_check.py\'s TEST WORTH lists every test and judges what changed '
+          f'({len(cases)} stated cases: inventory, time, leads, new, again, owed, '
+          f'stale, malformed, write-up block)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
 def check_very_deep_check_token_budgets_are_shown_and_fire_tested():
     """very_deep_check.py's TOKEN BUDGETS section: every budget gets a row
     with its number whether or not it is over; a limit above the person's
@@ -24402,6 +24512,29 @@ def check_precedent_check_fires():
         cases.append(('very-deep-check: a run with pass 4 not yet recorded '
                       'does not owe its account yet',
                       _rcm == 0 and 'VIOLATION' not in _outm))
+
+        # A run from 2026-10-18 on owes its test review too (Pass 2's
+        # question 27). The plant: a current account with every other
+        # section and no `## Test review`. The quiet half is the real tree,
+        # whose 2026-10-17 run predates the rule and passes above.
+        def _vdc_from_the_18th(t):
+            d = json.loads(_vdc_four_passes(t))
+            [r for r in d['runs'] if r.get('completed', True)][-1]['date'] = '2026-10-18'
+            return json.dumps(d, indent=2) + '\n'
+
+        def _vdc_no_test_review(t):
+            t = re.sub(r'^opened:(\s*)\S+', r'opened:\g<1>2026-10-18', t,
+                       count=1, flags=re.M)
+            t = re.sub(r'^## Test review\s*$', '## Tests', t, flags=re.M)
+            return t if re.search(r'^## Checks by stage\s*$', t, re.M) \
+                else t + '\n## Checks by stage\n\nPlanted.\n'
+        _vdc_tr = fresh('very-deep-check-no-test-review')
+        rewrite(_vdc_tr, 'record/very-deep-check-ledger.json', _vdc_from_the_18th)
+        rewrite(_vdc_tr, _VDC_UP, _vdc_no_test_review)
+        _rct, _outt = run(_vdc_tr, 'very-deep-check')
+        cases.append(('very-deep-check: a run from 2026-10-18 whose account '
+                      'has no test review fails, saying so',
+                      _rct == 1 and 'no `## Test review` section' in _outt))
 
         # heading-outline -- a heading demoted two levels at once, so it has
         # no parent. documentation/INSTALL.md is the plant because it is a
@@ -84461,6 +84594,7 @@ def main():
     check_boundary_check_never_passes_unread()
     check_very_deep_check_boundary_audit_reads_the_setting()
     check_very_deep_check_warnings_are_judged_not_just_counted()
+    check_very_deep_check_test_worth_judges_what_changed()
     check_very_deep_check_token_budgets_are_shown_and_fire_tested()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()

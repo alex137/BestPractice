@@ -198,6 +198,10 @@ Run:
       excluded what the run found: re-collects, prints the open groups
       against this run's start and the previous run, and rewrites the
       warnings block in the run's write-up. Nothing else runs.
+  python3 tools/very_deep_check.py --refresh-tests
+      -- the TEST WORTH section alone, after the session has judged the
+      tests it listed: re-reads tools/test_verdicts.json and rewrites the
+      test review block in the run's write-up. Nothing else runs.
   python3 tools/very_deep_check.py --record-pass '2=done,findings=3,tokens=120000,note=...'
       -- record a hand-worked pass's outcome against the most recent run in
       the ledger, and exit. `findings`, `tokens` and `note` are each
@@ -9140,6 +9144,61 @@ def set_independence_section(repo_root):
     return len(fix)
 
 
+# TEST WORTH (practice: very-deep-check, Pass 2's question 27; Morgan,
+# 2026-10-17, strength: decided). Tests are added one at a time and nothing
+# asked the reverse question until then: does each still test something in
+# use, and is it worth its time for how much it matters? The harness still
+# carried a pile of tests about the tier below staging three days after
+# that tier was retired. tools/test_review.py lists every test a repository
+# owns, with its recorded time and its leads; the session judges each and
+# records the verdict in that repository's tools/test_verdicts.json.
+TESTS_EMBED = 'test-review'
+
+
+def _test_targets(repo_root, user_config=None):
+    """-> [(name, path)]: this checkout and every shared and individual
+    source on disk -- the repositories the full run's TEST WORTH reads."""
+    out = [('this checkout', pathlib.Path(repo_root))]
+    for s in enumerate_scope(repo_root, user_config)['sources']:
+        if pr.declared_level(s) in FATAL_MISSING_LEVELS and s.get('path'):
+            out.append((s.get('name'), pathlib.Path(s['path'])))
+    return out
+
+
+def test_worth_section(targets, repo_root):
+    """Print TEST WORTH for every repository in `targets` [(name, path)],
+    write its block into the run's write-up, and -> the number of tests
+    still to judge."""
+    import test_review as tr
+    results = []
+    for name, path in targets:
+        if not pathlib.Path(path).is_dir():
+            continue
+        r = tr.review(path)
+        if not r['tests']:
+            print(f'  {name}: no tests of its own.')
+            continue
+        print(tr.render_text(r, label=f'{name}: '))
+        print()
+        results.append((name, r))
+    n = sum(len(tr.to_judge(r)) for _n, r in results)
+    if n:
+        print(f'  {n} test(s) to judge in this pass, slowest first: keep (with '
+              f'its importance), cheapen, or retire -- recorded in that '
+              f'repository\'s {tr.REGISTRY_RELPATH}, "by": "agent". Delete a '
+              f'retired test now; make a cheapened one cheaper now. Every test '
+              f'is listed with `python3 tools/test_review.py --all` (`--repo '
+              f'PATH` for another repository). Then `--refresh-tests` rewrites '
+              f'the write-up\'s block.')
+    written = _write_run_block(repo_root, TESTS_EMBED, 'Test review',
+                               'TEST WORTH', tr.render_markdown(results),
+                               'refresh with --refresh-tests')
+    if written:
+        print(f'  written into {pathlib.Path(written).relative_to(repo_root)}, '
+              f'its `## Test review` block.')
+    return n
+
+
 def _stage_lines(name, r):
     """-> the CHECKS BY STAGE lines for one repository's stage_checks()."""
     if r.get('skip'):
@@ -9628,7 +9687,8 @@ BOOLEAN_FLAGS = ('--json', '--allow-missing-sources', '--skip-branch-scan',
                  '--checklist', '--with-harness', '--skip-visibility',
                  '--skip-liveness', '--landable-only', '--skip-endgame-merge',
                  '--skip-base-drift', '--skip-session-sweep', '--allow-stale',
-                 '--freshen', '--refresh-warnings', '--help', '-h')
+                 '--freshen', '--refresh-warnings', '--refresh-tests', '--help',
+                 '-h')
 
 
 def _unknown_args(argv):
@@ -9736,6 +9796,12 @@ def _main(box):
         # After the session has fixed and excluded: the WARNINGS section
         # alone, against the same ledger, rewriting the write-up's block.
         warnings_section(pathlib.Path(repo or ROOT).resolve(), refresh=True)
+        return 0
+    if '--refresh-tests' in args:
+        # After the session has judged: the TEST WORTH section alone, for
+        # this checkout, rewriting the write-up's block.
+        root = pathlib.Path(repo or ROOT).resolve()
+        test_worth_section(_test_targets(root, user_config), root)
         return 0
 
     if '--emit' in args:
@@ -11356,6 +11422,14 @@ def _main(box):
     print()
     if led:
         led.end(findings=_si_findings)
+        led.start('TEST WORTH')
+
+    print("TEST WORTH -- does every test still test something in use, and is "
+          "it worth its time for how much it matters\n")
+    _tw_open = test_worth_section(_orph_targets, repo_root)
+    print()
+    if led:
+        led.end(findings=_tw_open)
         led.start('CROSS-REPO LINKS')
 
     print("CROSS-REPO LINKS -- do absolute github.com links into a repo "

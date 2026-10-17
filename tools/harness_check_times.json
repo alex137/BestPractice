@@ -744,6 +744,7 @@
   "check_very_deep_check_refuses_unknown_flags_before_the_ledger": 1.4,
   "check_very_deep_check_registers_its_own_records": 0.0,
   "check_very_deep_check_runs_other_sources_checks_here": 0.1,
+  "check_very_deep_check_test_worth_judges_what_changed": 0.1,
   "check_very_deep_check_token_budgets_are_shown_and_fire_tested": 1.0,
   "check_very_deep_check_walks_every_tier_pair": 0.9,
   "check_very_deep_check_warnings_are_judged_not_just_counted": 0.0,

@@ -330,6 +330,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/split_practices.py](tools/split_practices.py) | PRACTICES.md ↔ practices/ converter |
 | [tools/summary_text.py](tools/summary_text.py) | Turns prose into a summary field: links out first, then the cut — run bare to self-check |
 | [tools/table_fmt.py](tools/table_fmt.py) | One formatter per quantity kind — the engine |
+| [tools/test_review.py](tools/test_review.py) | Every test a repository runs, with what it costs and whether it still |
 | [tools/title_case.py](tools/title_case.py) | Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix |
 | [tools/todo_disposition.py](tools/todo_disposition.py) | records "Drop it" on a todo item in both places a park lives, in one go |
 | [tools/todo_migrate.py](tools/todo_migrate.py) | One-time converter from the old TODO.md/gotchas-index format into spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's per-item todo/gotchas files, dry-run by default |

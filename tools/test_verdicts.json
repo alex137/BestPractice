@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "Each test's verdict from the very deep check's TEST WORTH section (practice: very-deep-check, Pass 2's question 27; tools/test_review.py reads this file).",
+    "verdicts: test name (a harness check_* function, or a test script's path) -> {verdict, importance, why, date, by, seconds, leads}. verdict is keep, cheapen or retire. A keep says its importance: high (work lost, leaked, landed in the wrong place, or a session blocked), medium (a mechanism quietly wrong), low (wording, formatting, a convenience). seconds is the recorded time when judged, and leads the leads it carried then: a keep is judged again when its time more than doubles, or a new lead appears. cheapen and retire are owed in the same pass; a cheapened test is recorded again as keep with its new time, and a retired test is deleted with its entry.",
+    "by: \"agent\" for the session's own call; a person's name, with strength (decided or assented), when the person decided it (practice: decision-strength).",
+    "retired: things that are gone, with the patterns a test that still exercises them would contain. A test naming one is a lead for the session, never a verdict: a test OF the retirement names it on purpose. tools/our_language.json's retired words, decommissioned tools/ paths and retired or deduplicated practices are read as well, so they are not repeated here."
+  ],
+  "retired": [
+    {
+      "what": "the pre-staging tier below staging",
+      "retired": "2026-10-14",
+      "decided": "Morgan, 2026-10-14 (spec/PRE_STAGING_RETIREMENT_PLAN.md); its code deleted 2026-10-17 (todo/todo-2026-10-14-delete-pre-staging-code.md)",
+      "patterns": [
+        "\\bpre[-_ ]?staging\\b"
+      ]
+    }
+  ],
+  "verdicts": {}
+}

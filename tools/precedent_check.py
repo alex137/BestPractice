@@ -6836,6 +6836,13 @@ _VDC_RULE_DATE = '2026-10-11'
 # main ... and the same for debut"), written by the CHECKS BY STAGE section.
 _VDC_STAGES_HEADING = re.compile(r'^## Checks by stage\s*$', re.M)
 _VDC_STAGES_DATE = '2026-10-17'
+# From 2026-10-18 it also carries the test review (Morgan, 2026-10-17:
+# "review all TESTS to see if all tests are relevant and important ...
+# Write all this in the result doc"), written by the TEST WORTH section. A
+# day later than the rule, so the run already finished on 2026-10-17 is not
+# refused for a section nobody owed it.
+_VDC_TESTS_HEADING = re.compile(r'^## Test review\s*$', re.M)
+_VDC_TESTS_DATE = '2026-10-18'
 
 
 @check('very-deep-check', 'tree',
@@ -6844,7 +6851,8 @@ _VDC_STAGES_DATE = '2026-10-17'
        "spec/VERY_DEEP_CHECK_LATEST_RUN.md exists and its `opened:` date is "
        "that run's date or later -- the run's full account was written, not "
        "left for the person to ask for -- and, for a run from 2026-10-17 on, "
-       "it carries a `## Checks by stage` section",
+       "it carries a `## Checks by stage` section, and from 2026-10-18 on a "
+       "`## Test review` section",
        "whether the account is any GOOD: a file with the right date and "
        "nothing in it passes. It also cannot see a run whose passes were "
        "never recorded with --record-pass, which is the other half of the "
@@ -6890,6 +6898,15 @@ def _very_deep_check_write_up(ctx):
             f'section writes it; re-run python3 tools/very_deep_check.py, or '
             f'restore the block if the rewrite dropped it '
             f'(practices/very-deep-check.md, Pass 2 question 25)'))]
+    if date >= _VDC_TESTS_DATE and not _VDC_TESTS_HEADING.search(
+            path.read_text(encoding='utf-8', errors='ignore')):
+        return [Finding(_VDC_WRITE_UP, (
+            f'{where} has no `## Test review` section -- whether every test '
+            f'still tests something in use, and is worth its time for how '
+            f'much it matters. Its TEST WORTH section writes it; re-run '
+            f'python3 tools/very_deep_check.py --refresh-tests, or restore '
+            f'the block if the rewrite dropped it '
+            f'(practices/very-deep-check.md, Pass 2 question 27)'))]
     return []
 
 
