@@ -11,8 +11,9 @@ summary:       "Moves each practice set's enforcement out of Precedent's engine 
 ---
 # Enforcement lives with its practice: the move plan
 
-Status: plan, 2026-10-16. Parts 1, 2 and 4 are built; part 3 waits on
-Morgan's go-ahead ("not yet", 2026-10-16).
+Status: plan, 2026-10-16. Parts 1, 2 and 4 are built; part 3 started
+2026-10-17 on Morgan's go-ahead (strength: decided): "starting with
+section 3 now".
 
 The rule is
 [enforcement-lives-with-its-practice](../practices/enforcement-lives-with-its-practice.md):
@@ -22,6 +23,15 @@ rule is. Its check, `python3 tools/precedent_check.py --only
 enforcement-lives-with-its-practice`, is the inventory this plan works
 from. It warns, without refusing, until the moves below land
 (`revisit: 2026-11-16`).
+
+**Every very deep check reads it again** (from 2026-10-17): its `SET
+INDEPENDENCE` section runs the inventory, lists part 3's files as held on
+purpose, and has the session fix the rest in the same pass
+([very-deep-check](../practices/very-deep-check.md), Pass 2's question
+26). The inventory reads every Python file under `tools/`, the harness
+and BestPractice's own checks included, plus test scripts, universal
+practices' rules, and whether each set check has its test in the set.
+Names kept on purpose are in its `_SET_NAMES_KEPT`.
 
 ## 1. Built: the ladder's branch-naming rule
 
@@ -90,8 +100,82 @@ that predates this practice. The move, in outline:
 4. Each piece lands with its engine copy removed in the same release, so a
    consumer's Update Vendors takes both halves at once.
 
-This is a restructuring of its own, several sessions long. Nothing in it
-starts without Morgan's go-ahead.
+This is a restructuring of its own, several sessions long. Morgan gave
+the go-ahead on 2026-10-17 (strength: decided).
+
+### 3a. The step-by-step (Morgan's go-ahead 2026-10-17)
+
+Morgan, 2026-10-17, strength: decided: "Keep the branch name builder in
+the engine (only activated if configure). Push access approved. Go ahead
+with the plan. Booked." Read here as: the builder stays, and the engine's
+own steps use its dated names only when a person's config turns them on.
+
+Measured on staging at `8e122175`: the inventory names 23 ladder names
+in engine code -- 16 in [`ladder_words.py`](../tools/ladder_words.py), 2 each in
+[`precedent_branches.py`](../tools/precedent_branches.py) and [`precedent_upstream_review.py`](../tools/precedent_upstream_review.py), 1 each in
+[`precedent_gate.py`](../tools/precedent_gate.py), [`precedent_others_did.py`](../tools/precedent_others_did.py) and [`verify_harness.py`](../tools/verify_harness.py).
+[`precedent_branches.py`](../tools/precedent_branches.py) is about 5,000 lines, imported by 19 engine
+tools, and its tests are a few hundred references in [`verify_harness.py`](../tools/verify_harness.py).
+
+**Two facts shape the order.** A set's `ships:` path may not be an engine
+file (`build_views.ship_path_problem`), so the set copy takes a new path:
+everything lands under the set's own `tools/ladder/`. And BestPractice
+runs its own ladder steps from the copy it materializes out of the
+ladder set's clone, so the engine may drop a piece only once the set's
+copy is on the set's `main`.
+
+**So each piece goes in two halves, set first:**
+
+1. *Set half.* The new file under `tools/ladder/` plus its tests, in the
+   ladder set. Additive: nothing calls it yet, so a consumer that takes it
+   alone carries one unused file. Booked on the set's `staging`, then
+   Produce into its `main` on Morgan's word.
+2. *Engine half.* Callers switch to the set copy (or to a generic seam),
+   the engine copy is deleted, its tests leave [`verify_harness.py`](../tools/verify_harness.py), and the
+   inventory loses that file's names. Booked on BestPractice `staging`;
+   Produce on his word, never before the set half is on the set's `main`.
+
+A consumer that runs Update Vendors after both Produces takes both
+halves at once, as part 3's outline asks; one that takes only the set
+half loses nothing.
+
+**The pieces, smallest first:**
+
+| # | Piece | Set gets | Engine keeps | Names gone |
+|---|---|---|---|---|
+| 0 | Delete pre-staging (Morgan, 2026-10-17, decided; [its open item](../todo/todo-2026-10-14-delete-pre-staging-code.md)) | -- | nothing of it: `--sync-pre-staging`, Promote's pre-staging path, the retirement step and the full tier for staging all go, and every mention reads it as retired | 0, but less to move |
+| 1 | Stage words | `tools/ladder/ladder_words.py`; the check `ladder-words-stay-in-the-ladder-set` (today in [`precedent_check.py`](../tools/precedent_check.py)) becomes the set's `tools/checks/check_ladder_words_stay.py` with its test | nothing | 16 |
+| 2 | others-did | `tools/ladder/others_did.py`, run by a `SessionStart` hook the `others-did` practice declares | nothing; the gate stops importing it | 1 |
+| 3 | Branch-cleanup page | `tools/ladder/stale_branches.py`, and its reply requirement as a rule in the set's `reply_check.json` | a generic reply-check rule kind: "in the closing reply, require what this set tool prints" | 1 |
+| 4 | Debut and Produce wording | `tools/ladder/upstream_review.py` | nothing | 2 |
+| 5a | A seam, no behaviour change | -- | a branch-policy hook: a set that provides the `ladder` capability names a module, and the engine asks it for the tier branches, each one's check level and whether it is promote-only; with none, the landing branch and the trunk are all there is | 0 |
+| 5b | Promote, Debut, Produce, `--land`, `--run-tests`, the tiers | `tools/ladder/ladder_branches.py`, built on the engine core | landing branch, lock, composing a merge in a worktree, pushing it | 2 |
+| 5c | Their tests | the ladder tests from [`verify_harness.py`](../tools/verify_harness.py), beside the code | engine tests against a planted policy with made-up names | 1 |
+| 6 | Close | -- | part 3's files off the held-on-purpose list; the inventory reads clean | -- |
+
+**Kept in the engine (Morgan, 2026-10-17, decided, "only activated if
+configured"):** [`precedent_branch_name.py`](../tools/precedent_branch_name.py)
+stays in the engine. It enforces nothing and names no set's practice;
+Update Vendors and the source bootstrap, which every repository runs,
+name their branches with it. The ladder already ships the guard that
+enforces the naming (part 1). It comes off the held list in piece 6.
+
+**The push-check levels.** Morgan answered on 2026-10-17 (decided): a push
+to `main` runs the quick checks and the full suite runs after (built on
+staging at `71bbcc47`); pre-staging's own spot goes with piece 0. 5b
+carries both as they stand.
+
+**Before piece 0 deletes the step that moves a repository off
+pre-staging**, every repository was checked on 2026-10-17. Four still
+have a `pre-staging` branch, all of it already in their `staging`.
+One of Morgan's private repositories still declares `landing_branch:
+pre-staging` and has two commits only there; they move into its
+`staging` first.
+
+**Small calls, noted.** The set's tests for a tool that is not a check
+go in `tools/checks/tests/` beside the rest, since that is where the set's
+runner already looks; piece 1 confirms a consumer's sync skips a test
+with no check beside it instead of complaining about it.
 
 ## 4. Decided and built: the commit-identity checks stay in the engine
 

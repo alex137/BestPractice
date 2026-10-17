@@ -1051,7 +1051,8 @@ def approved_workflows_step(repo, rep):
         return
     if checks:
         rep.step('approved workflows', f'{len(checks)} step(s) of this repo\'s '
-                 f'own approved workflows run in the push check too: '
+                 f'own approved workflows run in the push check\'s full tier '
+                 f'(the Debut and around Produce, never before a push): '
                  + ', '.join(n.split(': ', 1)[-1] for n, _a, _r in checks))
     if unrun:
         # One line, said once (2026-10-10: one line per step, each printed

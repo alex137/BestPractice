@@ -6814,6 +6814,11 @@ _VDC_LEDGER = 'record/very-deep-check-ledger.json'
 _VDC_WRITE_UP = 'spec/VERY_DEEP_CHECK_LATEST_RUN.md'
 _VDC_PASSES = {'1', '2', '3', '4'}
 _VDC_RULE_DATE = '2026-10-11'
+# From 2026-10-17 the account also lists what runs before and after each
+# move (Morgan: "It should list this ... the push to staging, the push to
+# main ... and the same for debut"), written by the CHECKS BY STAGE section.
+_VDC_STAGES_HEADING = re.compile(r'^## Checks by stage\s*$', re.M)
+_VDC_STAGES_DATE = '2026-10-17'
 
 
 @check('very-deep-check', 'tree',
@@ -6821,7 +6826,8 @@ _VDC_RULE_DATE = '2026-10-11'
        "record/very-deep-check-ledger.json has all four passes recorded, "
        "spec/VERY_DEEP_CHECK_LATEST_RUN.md exists and its `opened:` date is "
        "that run's date or later -- the run's full account was written, not "
-       "left for the person to ask for",
+       "left for the person to ask for -- and, for a run from 2026-10-17 on, "
+       "it carries a `## Checks by stage` section",
        "whether the account is any GOOD: a file with the right date and "
        "nothing in it passes. It also cannot see a run whose passes were "
        "never recorded with --record-pass, which is the other half of the "
@@ -6859,6 +6865,14 @@ def _very_deep_check_write_up(ctx):
             f'still for the run opened {opened or "(no opened: date)"} -- '
             f'rewrite it for this run, with `opened: {date}`, before the run '
             f'is called done (practices/very-deep-check.md)'))]
+    if date >= _VDC_STAGES_DATE and not _VDC_STAGES_HEADING.search(
+            path.read_text(encoding='utf-8', errors='ignore')):
+        return [Finding(_VDC_WRITE_UP, (
+            f'{where} has no `## Checks by stage` section -- what runs before '
+            f'and after Booked, Produce and the Debut. Its CHECKS BY STAGE '
+            f'section writes it; re-run python3 tools/very_deep_check.py, or '
+            f'restore the block if the rewrite dropped it '
+            f'(practices/very-deep-check.md, Pass 2 question 25)'))]
     return []
 
 
@@ -7758,13 +7772,16 @@ def _vocabulary_reaches_the_consumer(ctx):
 
 @check('enforcement-lives-with-its-practice', 'tree',
        "every shared and individual practice set on disk keeps its own "
-       "enforcement: no practice's checked_by or ships resolves to an engine "
-       "file, and no string in the engine's code names a set or one of its "
-       "practice slugs",
-       "a set not on disk here (it is not read), engine code that encodes "
-       "a set's rule without naming it, and comments: only string literals "
-       "in engine .py files are read, so a rule spelled out in prose, or "
-       "logic keyed on a value no slug matches, is invisible to it",
+       "enforcement and its own tests: no practice's checked_by or ships "
+       "resolves to an engine file, no string in BestPractice's code or tests "
+       "(docstrings aside) names a set or one of its practice slugs, no "
+       "universal practice's rule names one, and each set check "
+       "tools/checks/check_<x>.py has its tests/test_<x>.sh in the set",
+       "a set not on disk here (it is not read), code that encodes a set's "
+       "rule without naming it, and comments: only string literals in "
+       "tools/ .py files, test scripts' non-comment lines and universal "
+       "practices' Rule and Detail are read, so logic keyed on a value no "
+       "slug matches is invisible to it",
        advisory=True,
        advisory_term={'term': 'temporary',
                       'waiting_for': 'the moves in '
@@ -7772,6 +7789,7 @@ def _vocabulary_reaches_the_consumer(ctx):
                       'owner': 'Morgan',
                       'revisit': '2026-11-16'},
        selects_on=('practices/*.md', 'tools/*.py', 'tools/*.sh',
+                   'tools/checks/*.py', 'tools/checks/tests/*.sh',
                    'tools/precedent_vendor_engine.py'))
 def _enforcement_lives_with_its_practice(ctx):
     """The inventory behind spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md.
@@ -7856,34 +7874,129 @@ def _enforcement_lives_with_its_practice(ctx):
                         f'the engine\'s file lists'))
     # The default individual set name is a convention every person shares,
     # not one set's rule (Morgan, 2026-10-16: "keep the default name").
-    wanted = (names | set(slugs)) - {_pr.DEFAULT_INDIVIDUAL_NAME}
-    for name in sorted(engine):
-        path = ctx.root / 'tools' / name
-        if not name.endswith('.py') or not path.is_file():
+    names = names - {_pr.DEFAULT_INDIVIDUAL_NAME}
+    wanted = (names | set(slugs)) - {_pr.DEFAULT_INDIVIDUAL_NAME} - set(_SET_NAMES_KEPT)
+    set_only = {s: n for s, n in slugs.items()
+                if s not in universal and s not in _SET_NAMES_KEPT}
+    # EVERY .py under tools/, not only the engine's file lists (2026-10-17):
+    # the harness and BestPractice's own checks are never vendored, so the
+    # lists missed the tests that held a set's rules -- the problem fixed the
+    # night before (Morgan: "we had lots of tests for them and rules
+    # regarding them in best practice. And it should never be like that").
+    # A docstring or bare string statement is a comment, and comments may
+    # name a set (Morgan, 2026-10-16).
+    for path in sorted((ctx.root / 'tools').rglob('*.py')):
+        if '__pycache__' in path.parts:
             continue
-        try:
-            toks = _tok.generate_tokens(_io.StringIO(
-                path.read_text(encoding='utf-8')).readline)
-            hits = set()
-            for tk in toks:
-                if tk.type != _tok.STRING:
-                    continue
-                try:
-                    value = ast.literal_eval(tk.string)
-                except (ValueError, SyntaxError):
-                    continue
-                if isinstance(value, str) and value in wanted:
-                    hits.add(value)
-        except (_tok.TokenError, SyntaxError, UnicodeDecodeError):
-            continue
+        rel = path.relative_to(ctx.root).as_posix()
+        hits = _set_names_in_strings(path, wanted, set_only, names)
+        test = rel == 'tools/verify_harness.py' or '/tests/' in rel \
+            or pathlib.PurePosixPath(rel).name.startswith('test_')
         for h in sorted(hits):
             what = (f'the set {h}' if h in names else
                     f'{slugs[h]}\'s practice {h}')
-            findings.append(Finding(
-                f'tools/{name}',
-                f'names {what} in code: the engine knows how to run a set\'s '
-                f'checks, never what one set\'s rule is'))
+            if path.name in engine and rel.count('/') == 1:
+                why = ('in code: the engine knows how to run a set\'s checks, '
+                       'never what one set\'s rule is')
+            elif test:
+                why = ('in a test: a set\'s practices are tested in the set, '
+                       'beside the check; an engine test uses a planted name')
+            else:
+                why = ('in code BestPractice keeps for itself: a set\'s rule '
+                       'lives in the set')
+            findings.append(Finding(rel, f'names {what} {why}'))
+    for path in sorted((ctx.root / 'tools').rglob('*.sh')):
+        if '__pycache__' in path.parts or '/tests/' not in path.as_posix():
+            continue
+        text = '\n'.join(l for l in path.read_text(encoding='utf-8', errors='ignore')
+                         .splitlines() if not l.lstrip().startswith('#'))
+        for h in sorted(_set_names_in_text(text, set_only, names)):
+            what = f'the set {h}' if h in names else f'{slugs[h]}\'s practice {h}'
+            findings.append(Finding(path.relative_to(ctx.root).as_posix(),
+                                    f'names {what} in a test: a set\'s practices '
+                                    f'are tested in the set, beside the check'))
+    # A RULE ABOUT ONE SET in a universal practice: its Rule or Detail
+    # points at a set's practice, or names the set. Its Story and approval
+    # history are the record, and may.
+    for f in sorted((ctx.root / 'practices').glob('*.md')):
+        text = f.read_text(encoding='utf-8', errors='ignore')
+        text = re.split(r'^## Story\b|^### Approval history\b', text, 1, flags=re.M)[0]
+        text = re.sub(r'^---\n.*?\n---\n', '', text, 1, flags=re.S)
+        for h in sorted(_set_names_in_text(text, set_only, names)):
+            what = f'the set {h}' if h in names else f'{slugs[h]}\'s practice {h}'
+            findings.append(Finding(f'practices/{f.name}', (
+                f'its rule names {what}: a universal practice carries no rule '
+                f'about one set -- the set adds to it in a practice of its own')))
+    # EACH SET TESTS ITS OWN CHECKS: tools/checks/check_<x>.py ships with
+    # tools/checks/tests/test_<x>.sh in the same set.
+    for root, level, name in sets:
+        own = _set_own_files(root)
+        for check_py in sorted((root / 'tools' / 'checks').glob('check_*.py')):
+            stem = check_py.stem[len('check_'):]
+            if check_py.name in own or not (ctx.root / 'tools' / 'checks' /
+                                            check_py.name).is_file():
+                if not (root / 'tools' / 'checks' / 'tests' /
+                        f'test_{stem}.sh').is_file():
+                    up = ctx.root / 'tools' / 'checks' / 'tests' / f'test_{stem}.sh'
+                    findings.append(Finding(
+                        f'{name}/tools/checks/{check_py.name}',
+                        f'has no test in {name} (tools/checks/tests/test_{stem}.sh)'
+                        + (f'; BestPractice carries one, which belongs in {name}'
+                           if up.is_file() else '')
+                        + ': a set\'s checks are tested in the set'))
     return findings
+
+
+def _docstring_nodes(tree):
+    """-> the ids of every string constant that is a docstring or a bare
+    string statement: a comment, not code."""
+    ids = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) \
+                and isinstance(node.value.value, str):
+            ids.add(id(node.value))
+    return ids
+
+
+def _set_names_in_text(text, set_only, names):
+    """-> the set names and set-only practice slugs `text` names: a link or
+    path to the practice's file, or the set's name as a whole word."""
+    hits = {m for m in re.findall(r'(?:practices/|\]\()([\w-]+)\.md', text)
+            if m in set_only}
+    hits |= {n for n in names if re.search(
+        r'(?<![\w-])' + re.escape(n) + r'(?![\w-])', text)}
+    return hits
+
+
+def _set_names_in_strings(path, wanted, set_only, names):
+    """-> what the string literals in Python file `path` name, docstrings
+    left out: a value that IS a set or slug, or text naming one."""
+    try:
+        tree = ast.parse(path.read_text(encoding='utf-8'))
+    except (SyntaxError, UnicodeDecodeError, ValueError, OSError):
+        return set()
+    skip = _docstring_nodes(tree)
+    hits = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) \
+                and id(node) not in skip:
+            v = node.value
+            if v in wanted:
+                hits.add(v)
+            elif len(v) > len(min(wanted, key=len, default='')):
+                hits |= _set_names_in_text(v, set_only, names)
+    return hits
+
+
+# Names the engine keeps on purpose though a set also uses them, each with
+# the words that kept it (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md,
+# part 4). A new entry needs the person's words, as these have.
+_SET_NAMES_KEPT = {
+    'go-merge': 'Morgan, 2026-10-16: a name BestPractice itself retired, '
+                'used by the tests of retirement',
+    'go-update': 'Morgan, 2026-10-16: go-merge\'s successor, the other half '
+                 'of the same retirement tests',
+}
 
 
 def _set_own_files(root):
@@ -13257,10 +13370,30 @@ def _finding_key(f):
     return _LINE_NO_RE.sub('', str(f)).strip()
 
 
+def _findings_in_output(stdout, slug):
+    """-> the finding keys `slug` printed in a precedent_check run's output,
+    or None when that run could not judge it (skipped, errored).
+
+    An advisory check prints its findings under ADVISORY, never VIOLATION:
+    reading only the latter made every advisory finding look new, and "this
+    push caused them" named findings no push had touched (2026-10-17). A
+    check the earlier tree could not run says nothing about before, so none
+    of its findings is held against the push."""
+    m = re.search(rf'^(?:VIOLATION|ADVISORY)\s+{re.escape(slug)}(?=\s)', stdout, re.M)
+    if m is None and re.search(rf'^(?:SKIPPED|ERRORED)\s+{re.escape(slug)}(?=\s)',
+                               stdout, re.M):
+        return None
+    lines = (stdout[m.end():].split('  the rule:', 1)[0].splitlines()
+             if m else [])
+    return {_LINE_NO_RE.sub('', l).strip() for l in lines
+            if l.startswith('    ') and l.strip()}
+
+
 def _findings_before(rng, slugs):
-    """-> {slug: {finding key}} for each check in `slugs`, run with this
-    commit's rules on the tree at the start of `rng` (A...B or A..B), or
-    None when that tree could not be laid out."""
+    """-> {slug: {finding key} or None} for each check in `slugs`, run with
+    this commit's rules on the tree at the start of `rng` (A...B or A..B),
+    None for a check that tree could not run; or None when that tree could
+    not be laid out."""
     import shutil
     import tempfile
     start = rng.split('...')[0] if '...' in rng else rng.split('..')[0]
@@ -13287,11 +13420,7 @@ def _findings_before(rng, slugs):
             r = subprocess.run([sys.executable, str(here), '--only', slug,
                                 '--full-sweep'], cwd=str(wt),
                                capture_output=True, text=True, timeout=300)
-            block = r.stdout.split(f'VIOLATION  {slug}', 1)
-            lines = (block[1].split('  the rule:', 1)[0].splitlines()
-                     if len(block) == 2 else [])
-            out[slug] = {_LINE_NO_RE.sub('', l).strip() for l in lines
-                         if l.startswith('    ') and l.strip()}
+            out[slug] = _findings_in_output(r.stdout, slug)
         return out
     except (OSError, subprocess.TimeoutExpired, ValueError):
         return None
@@ -13328,8 +13457,10 @@ def _caused_by_this_push(results, in_change, gone_in_change, rng):
     before = _findings_before(rng, sorted(outside))
     if before is None:
         return {}
-    return {slug: keys - before.get(slug, set())
-            for slug, keys in outside.items() if keys - before.get(slug, set())}
+    return {slug: keys - (before.get(slug) or set())
+            for slug, keys in outside.items()
+            if before.get(slug, set()) is not None
+            and keys - (before.get(slug) or set())}
 
 
 def _removed_files():

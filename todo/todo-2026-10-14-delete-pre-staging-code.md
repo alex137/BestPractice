@@ -4,13 +4,13 @@ kind:              manual
 domain:            engine
 severity:          null
 status:            open
-disposition:       wait
+disposition:       do
 remind_on:         null
-blocked_on:        "every repository Morgan uses Precedent in has run Update Vendors with the engine that retires pre-staging for everyone (spec/PRE_STAGING_RETIREMENT_PLAN.md), so none still carries a pre-staging branch or a landing_branch of pre-staging"
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        null
+waiting_on:        "the session doing the enforcement plan's part 3 (https://claude.ai/code/session_01LvW5EpniaTAEHqL8uii621), which does this first"
 noted:             2026-10-14
 closed:            null
 ---
@@ -38,3 +38,23 @@ Update All Vendors has run with that engine and no repository's origin
 has a `pre-staging` branch or a precedent.json `landing_branch` of
 `pre-staging`; then the code is deleted, the full suite passes, and this
 item closes.
+
+## Notes
+
+- 2026-10-17, Morgan, strength: decided: "pre-staging is deprecated so it
+  should no longer do this and any mention of pre-staging it finds should
+  be fixed to assume its deprecation." So the code goes now, and every
+  mention of pre-staging is rewritten to assume it is retired (history in
+  a `## Story` stays history). Before deleting the step that moves a
+  repository off pre-staging, check every repository Precedent is used in
+  for a leftover `pre-staging` branch or `landing_branch` and move any
+  work on it into `staging` first, so nothing is lost. Handed to the
+  session doing the enforcement plan's part 3, which is splitting the same
+  file (precedent_branches.py): deleting pre-staging first leaves less to
+  move.
+- 2026-10-17, checked every repository Precedent is used in. A leftover
+  `pre-staging` branch, already contained in `staging`: four repositories.
+  Still landing on `pre-staging`, with two commits not in `staging`: one
+  private repository, last touched 2026-09-28. Its work moves into its `staging` before the
+  retirement step is deleted; that merge waits on Morgan's word, since it
+  writes to another repository.

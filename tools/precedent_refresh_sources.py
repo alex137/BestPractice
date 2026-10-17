@@ -1059,6 +1059,31 @@ def _refresh_branch_for(repo, tip):
     return next((b for b in (out or '').split() if mark in b), None) if ok else None
 
 
+REFRESH_SUBJECT = 'Refresh the vendored engine to BestPractice '
+
+
+def refresh_only_branches(repo, base):
+    """-> the local branches in `repo` that carry nothing but this tool's own
+    refresh commits beyond `base` and no remote has: engine output, which
+    the next refresh writes again from the engine as it then is.
+
+    precedent_container_safe asks this to leave them out of "work only
+    here", and apply_on_its_own_branch to clear the superseded ones."""
+    ok, out = _git('for-each-ref', '--format=%(refname:short)', 'refs/heads',
+                   cwd=repo)
+    mark = f'-{"-".join(REFRESH_BRANCH_WORDS)}-'
+    found = []
+    for b in (out or '').split() if ok else []:
+        if mark not in b:
+            continue
+        ok2, subjects = _git('log', '--format=%s', b, '--not', base,
+                             '--remotes', cwd=repo)
+        lines = [l for l in (subjects or '').splitlines() if l.strip()]
+        if ok2 and lines and all(l.startswith(REFRESH_SUBJECT) for l in lines):
+            found.append(b)
+    return found
+
+
 def apply_on_its_own_branch(entry, base):
     """apply_to(), committed on a new local branch named for the engine tip,
     then back to `base` with the working tree clean. -> the same steps list."""
@@ -1086,6 +1111,16 @@ def apply_on_its_own_branch(entry, base):
     ok, out = _git('checkout', '-q', base, cwd=repo)
     if ok and 'changed nothing' in last[2]:
         _git('branch', '-D', name, cwd=repo)
+    # SUPERSEDED REFRESH BRANCHES GO (2026-10-17). Every session start that
+    # found the engine moved left one more local branch, never pushed, and a
+    # set's clone held three, from three different engine commits, that no
+    # check could see. Each held only a refresh commit, which this run just
+    # wrote again from a newer engine, so the older ones carry nothing to
+    # lose (practice: repair-cannot-discard-work).
+    if ok:
+        for old in refresh_only_branches(repo, base):
+            if old != name:
+                _git('branch', '-D', old, cwd=repo)
     clean_ok, dirt = _git('status', '--porcelain', cwd=repo)
     ok = ok and clean_ok and not dirt
     steps.append(('back on base', ok,
