@@ -8818,6 +8818,12 @@ def check_very_deep_check_warnings_are_judged_not_just_counted():
     cases.append(('an advisory check\'s findings group by check and file, and its rule text is not one',
                   [(g['kind'], g['path'], g['count']) for g in pcg] == [('some-check', 'practices/a.md', 2)],
                   repr(pcg)))
+    cases.append(('the session check\'s `??` rows are not collected: they '
+                  'change from session to session, so an exclusion of one '
+                  'goes stale',
+                  not any(src[0] == 'precedent_session_check'
+                          for src in wr.LINE_SOURCES),
+                  [src[0] for src in wr.LINE_SOURCES]))
     lg = wr.line_groups('build_views', 'WARNING', 'build_views WARNING: 3 over\nbuild_views WARNING: 4 over\nok\n',
                         re.compile(r'\bWARNING:\s*(.+)'))
     cases.append(('WARNING lines differing only in a number are one group',

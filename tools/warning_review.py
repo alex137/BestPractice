@@ -5,8 +5,9 @@ WARNINGS section (practice: very-deep-check).
 
 WHY THIS EXISTS. A warning is the class of finding nothing gates on, so
 nothing ever reads it twice: doc_lint's warning classes, a check registered
-advisory, a tool's `WARNING:` line, a session-check row it could not
-determine. Each was built to be seen in passing and then, by design, let
+advisory, a tool's `WARNING:` line. (A session-check row it could not
+determine was one too until 2026-10-17; it describes one session, not the
+repository, and is no longer gathered: see LINE_SOURCES.) Each was built to be seen in passing and then, by design, let
 through. Left alone they pile up until the next one is invisible behind the
 ones before it. Morgan, 2026-10-11 (strength: decided): "with the checks
 that we do that are not urgent ... I like reviewing warnings to see if we
@@ -65,11 +66,14 @@ LINE_SOURCES = (
      re.compile(r'^WARN:\s*(.+)')),
     ('doc_lifecycle', 'WARNING', ['tools/doc_lifecycle.py', '--warn-only'],
      re.compile(r'^\s*WARN(?:ING)?:\s*(.+)')),
-    # `??` is the session check's own word for a guarantee it could not
-    # determine: not a failure, and not a pass either.
-    ('precedent_session_check', 'undetermined',
-     ['tools/precedent_session_check.py'], re.compile(r'^\s*\?\?\s+(.+)')),
 )
+# NOT COLLECTED: precedent_session_check's `??` rows (2026-10-17). `??` is
+# that check's word for a guarantee it could not determine in THIS session --
+# which clones are attached, which hooks ran, what the environment carries --
+# so the rows change from one session to the next, and an exclusion written
+# against one session's row goes stale in the next. They are a fact about a
+# session, not a warning about the repository, and the session check reports
+# them where they belong. The very deep check of 2026-10-17 found it.
 
 
 def _run(repo_root, argv, timeout):
