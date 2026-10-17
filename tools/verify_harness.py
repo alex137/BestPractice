@@ -8749,6 +8749,24 @@ def check_very_deep_check_boundary_audit_reads_the_setting():
         f, n, out = run(project)
         cases.append(('an unprotected base branch is a finding naming it',
                       any('NOT protected' in x for x in f), out))
+
+        # A practice set draws its boundary with approvers.json, and the
+        # setting that makes it bind is not read: a note, so the section
+        # never prints "current and on" over it (2026-10-17).
+        aset = tmp / 'aset'
+        aset.mkdir()
+        (aset / 'approvers.json').write_text(json.dumps({
+            'format_version': 1,
+            'approvers': [{'name': 'A', 'github': 'approver'}]}), encoding='utf-8')
+        with contextlib.redirect_stdout(io.StringIO()):
+            bco.main(check_only=False, root=aset)
+        out = io.StringIO()
+        f, n = vdc.boundary_audit(aset, [], out=out)
+        out = out.getvalue()
+        cases.append(('a set drawn by approvers.json says protection was not '
+                      'read -- a note, never clean',
+                      not f and any('approvers.json' in x and 'not a pass' in x
+                                    for x in n) and 'current' in out, out))
     finally:
         pbc.fetch_protection = real_fetch
         for k, v in saved.items():
@@ -8761,7 +8779,8 @@ def check_very_deep_check_boundary_audit_reads_the_setting():
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'very_deep_check.py\'s CONTRIBUTOR BOUNDARY reads the setting, not the '
           f'document ({len(cases)} stated cases: missing file, no registry, '
-          f'hand-edited file, --skip-liveness, no token, PASS, unprotected)',
+          f'hand-edited file, --skip-liveness, no token, PASS, unprotected, a set\'s '
+          f'approvers.json)',
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
