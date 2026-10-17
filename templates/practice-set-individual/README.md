@@ -20,40 +20,31 @@ to everyone else who can read that project.
 
 | File | What it's for |
 |---|---|
+| `identity.json` | Who you are: your name, email address and time zone, for every tool that must not hardcode them. Bootstrap writes it with placeholders; fill it in before your first commit. The commit-identity hooks read it, and only a time zone declared here is enforced on your commits; one they have to guess earns a warning. |
 | [`config.json.sample`](config.json.sample) | Copy this to `~/.config/precedent/config.json` (or wherever `$PRECEDENT_USER_CONFIG` points) so your tools know where to find this repo. |
 | [`practices/example-starter-individual.md`](practices/example-starter-individual.md) | One real, minimal practice file, so you have something working to copy and edit. Delete it once you've written your own. |
 | [`leak-blocklist.txt`](leak-blocklist.txt) | The private-term blocklist for Precedent's leak gate — client names, code words, anything that must never reach a public repo. Fill it in; see the file's own header for the format and the two environment/git settings that switch it on. |
 | `tools/` | The vendored engine (`build_views.py`, `precedent_gate.py`, `precedent_paths.py`, `precedent_show.py`, `split_practices.py`, `routing_scope.json`, `precedent_vendor_engine.py`) — never hand-edit these; refresh them with `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>` (see `tools/ENGINE_MANIFEST.json` and [`spec/BOOTSTRAP_NEW_SOURCES.md`](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md#the-vendored-engine)'s "The vendored engine"). The engine files are named rather than linked because they arrive when the set is bootstrapped; nothing under `tools/` exists in this skeleton yet. |
-| `.github/workflows/` | The two CI gates this set gets at bootstrap. `precedent-check.yml` runs the whole check suite over your catalogue on every pull request. `views-drift.yml` fails a pull request whose `AGENTS.md` loader block, `MAP.md` or `GLOSSARY.md` has drifted from a fresh `python3 tools/build_views.py`. Refresh either from [`templates/github-actions/`](https://github.com/alex137/BestPractice/blob/staging/templates/github-actions) upstream. |
+| `AGENTS.md`, `MAP.md`, `GLOSSARY.md` | Written by bootstrap: the instructions every session here reads, with a generated loader block, and the two views generated from `practices/`. Regenerate all three with the full `python3 tools/build_views.py` after any practice change. A practice set runs no CI workflow ([`source-sets-run-no-ci`](https://github.com/alex137/BestPractice/blob/staging/practices/source-sets-run-no-ci.md)): the checks below run before the push, or not at all. |
 
 ## Before you push
 
 Run the checks:
 
 ```
-python3 tools/precedent_check.py
+python3 tools/precedent_check.py --full-sweep
 ```
+
+**Run it with `--full-sweep`.** Bare, it runs only the checks your change
+routes to plus a rotating slice, and nothing else runs it here: a practice
+set has no CI to catch what the slice missed.
 
 **`0 violated` is the thing to read.** A large `skipped` count is normal and
 expected here — most of Precedent's registered checks belong to practice
-levels a set like this one does not resolve, so they skip by design. A
-freshly bootstrapped set reports **7 passed, 42 skipped, 0 violated**, and
-once it has an `AGENTS.md` and generated views, **8 passed, 41 skipped** —
-both healthy results, not broken installs. What is never fine is a
-violation, or an `errored`.
-
-`.github/workflows/precedent-check.yml` runs exactly this on every pull
-request, so you can also just open one and read the result there. It refuses
-rather than passing quietly if the vendored engine is too old to check a
-practice set properly — if you see that, run
+levels a set like this one does not resolve, so they skip by design. What
+is never fine is a violation, or an `errored`. If the check refuses because
+the vendored engine is too old to check a practice set properly, run
 `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`.
-
-**One thing the checks cannot do yet in a brand-new set**: until you
-instantiate an `AGENTS.md` with a loader block (from
-[`templates/AGENTS.md.loader.template`](https://github.com/alex137/BestPractice/blob/staging/templates/AGENTS.md.loader.template)
-upstream) and run `python3 tools/build_views.py`, this set generates no views
-at all, and the drift gate reports `NOT CHECKED` in those words rather than a
-misleading green.
 
 ## Writing your own practices
 
