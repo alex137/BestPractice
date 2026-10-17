@@ -1,9 +1,18 @@
 ---
-checked_through: 2026-10-15
+checked_through: 2026-10-16
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Friday 2026-10-16: cleanup-in-one-click
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **The branch-cleanup page can now delete every merged branch in one click**, per repository or across every public repository at once, and checks off the rows a click covers (a new precedent-branch-cleanup.yml workflow, started only by that click through the person's own GitHub connector, so the page holds no credential).
+- **A practice's enforcement now lives in the same repository as the practice**, not in the engine (the new practice enforcement-lives-with-its-practice, whose check lists what still has to move; branch-name checking was the first to leave the engine, now shipped by the ladder set).
+- **The curly-quotes rule is now universal, and every page the engine builds gets finished typography** (typography.py became an engine file every repository receives); in the same spirit of cleanup, the Chief of Staff practice was retired, its one unique check, staging waiting to go into main, folded into the cleanup page.
+- **Hooks now start the repository's declared Python instead of the machine's default** (a link at .precedent/python-bin that every hook script puts first on its path; before, gates ran on 3.13 beside a declared 3.12), and a new plan proposes proving a Python change before it lands (spec/RUNTIME_CHANGE_CHECK_PLAN.md).
 
 ## Thursday 2026-10-15: one-python
 
