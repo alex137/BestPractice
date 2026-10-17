@@ -64,13 +64,8 @@ THE STEPS, with no question in between:
      verbatim, wording its template has since dropped, left for you --
      reported, never rewritten
      then, where precedent.json names no landing_branch, staging
-  3c. for anyone on the ladder -- pre-staging is retired for everyone since
-     2026-10-14 -- a precedent.json naming pre-staging switched to staging,
-     and, while origin still has pre-staging: its waiting work merged into staging (--land's
-     composition, quick checks), this repo's own instructions and links
-     that send work to pre-staging repointed, and the branch offered for
-     deletion as a link once it holds nothing staging lacks -- never
-     deleted. Silent off the ladder
+  3c. the migrations: each tools/migration_*.py moves the repository off
+     an arrangement the engine has dropped
   4. the views regenerated -- the loader block, and in a practice set
      MAP.md and GLOSSARY.md too; in a repository that uses Precedent, a
      hand-written MAP.md or GLOSSARY.md moved into MAP.source.md /
@@ -81,8 +76,7 @@ THE STEPS, with no question in between:
      repo's own citations of any practice the update withdrew or reworded
      (a withdrawn one's pointer is a call left for you; a bare mention of
      one, and a reworded one's citation, are listed to read)
-  4a. a missing staging made on origin, from main (a leftover pre-staging's
-     work was brought in at 3c)
+  4a. a missing staging made on origin, from main
   5. the repo's own check at its landing branch's tier -- into staging,
      the quick checks on what changed; the full check waits for Debut or Produce
      (--skip-check to leave it out) -- run against a temporary commit of
@@ -109,7 +103,7 @@ commit will hold, and leaves anything already uncommitted alone -- save the
 pinned engine a source refresh wrote ahead of it, which is the update's own
 and is staged as such when every file matches the manifest. It never
 leaves a commit behind, and never merges. The one thing it pushes is a
-missing branch tier (pre-staging or staging), made at a commit origin
+missing branch tier (staging), made at a commit origin
 already has; the deep check's temporary commit is undone before it
 reports. Those stay with the session, which lands the update the way the
 repository lands work, where the authorization already lives.
@@ -155,8 +149,8 @@ def rebaseline_vendored_entries(repo, rewritten=(), hold=()):
     its old hash is stale by construction, and practice_audit read that as
     DRIFT -- "changed since baseline" -- on a file upstream changed, not
     this repo (2026-09-28, a consumer's doc-lint entry at
-    process/upstream/tools/doc_lint.py). The pre-staging check does not run
-    the audit, so the update said done and the Promote would have gone red.
+    process/upstream/tools/doc_lint.py). The quick check does not run the
+    audit, so the update said done and the Promote would have gone red.
 
     A synced entry OUTSIDE the tree is re-recorded on one condition only:
     its file is now byte-for-byte its upstream_path in the vendored tree.
@@ -173,8 +167,8 @@ def rebaseline_vendored_entries(repo, rewritten=(), hold=()):
     re-recorded too: the update rewrote it on purpose, as a migration onto
     the loader rewrites AGENTS.md, .claude/settings.json and .gitignore, so
     its old hash is stale by construction exactly like the mirror's. Until
-    then such a file kept the classic install's baseline, the pre-staging
-    check never ran the audit, and the first Debut refused it as DRIFT.
+    then such a file kept the classic install's baseline, the quick check
+    never ran the audit, and the first Debut refused it as DRIFT.
 
     `hold` (2026-10-16): paths never re-recorded on this run, whatever else
     holds -- a .claude/ change still waiting on the person's words
@@ -297,7 +291,7 @@ def ensure_scrub_blocklist_decision(repo):
     """-> 'null' when it recorded `scrub_blocklist: null` for a public repo,
     'ask' when the repo has to decide, None when nothing is owed. 'ask' is
     not listed as left for the person here: the practice audit, which runs
-    at every pre-staging push of a consumer, refuses it with the remedy in
+    at every push of a consumer, refuses it with the remedy in
     its own words, so the update would only be saying it twice.
 
     practice_audit.py fails a manifest with no `scrub_blocklist` key whose
@@ -344,8 +338,8 @@ def ensure_headroom_floor(repo):
     session-load-budget check now requires of any registry that declares
     ceilings. -> True when it wrote one.
 
-    The check is full-tier only, so an update into pre-staging passed and
-    the Promote to staging went red on a key nothing had ever written
+    The check is full-tier only, so an update's quick check passed and
+    the full check went red on a key nothing had ever written
     (2026-09-28, a consumer's update). 5 is the value BestPractice declares
     and precedent_bootstrap_source.py seeds. A value already there, `false`
     included -- a deliberate decline -- is never touched (practice:
@@ -1476,8 +1470,8 @@ def retired_mentions(repo, engine_out):
     has run.
 
     The engine only WARNs about these, on stderr, and says nothing refuses
-    over a mention. The pre-staging check agreed; the full check at the
-    Promote to staging did not, and refused on them (practice:
+    over a mention. The quick check agreed; the full check did not, and
+    refused on them (practice:
     rename-updates-links; 2026-09-28: a retired bestpractice-docs.yml still
     named in a consumer's docs). So each one goes on Left for you, inside
     the update.
@@ -2886,7 +2880,7 @@ MERGE_HEAD_NOTE = (
 
 
 # THE BRANCH THE UPDATE IS COMMITTED ON (2026-10-09). An update run on a
-# tier branch -- main, staging, pre-staging -- ended "commit, then land it"
+# tier branch -- main or staging -- ended "commit, then land it"
 # without naming a branch, and a consumer's session made one by hand; the
 # push check refused it, since a session branch is named by
 # tools/precedent_branch_name.py. The update does not move the checkout
@@ -4798,7 +4792,7 @@ def tiers_step(repo, rep):
     tier_lines = []
     # Tiers are a ladder user's, in a repository that has them (D3). For
     # anyone else this step says nothing at all: a report line about
-    # pre-staging and staging is the ladder's words in their session.
+    # staging is the ladder's words in their session.
     ladder = pb.ladder_in_force(repo)
     if ladder is False or (ladder and not pb.repo_has_tiers(repo)):
         return
@@ -4817,7 +4811,6 @@ def tiers_step(repo, rep):
         rep.leave('branch tiers', 'staging could not be made on origin -- '
                   + ' '.join(tier_lines)[-400:])
     else:
-        # pre-staging is no tier since 2026-10-14, so it is not named.
         rep.step('branch tiers', '; '.join(made) if made else
                  'staging and main both present')
 
@@ -5389,8 +5382,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # Morgan, 2026-09-27 (strength: decided): every repository gets a
     # default, set on its first update after that day; a person's own
     # identity.json still wins, and a value already here is never changed.
-    # The default was pre-staging until pre-staging was retired for everyone
-    # (2026-10-14); it is staging now.
+    # The default is staging.
     if pb.ensure_repo_landing(repo):
         rep.step('landing branch', f'{pb.LANDING_SETTING} set to '
                  f'{pb.REPO_LANDING_DEFAULT} in precedent.json (the repository '
@@ -5530,7 +5522,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                  f'(the default; the full check requires the key)')
 
     # 4a. The branch tiers. A ladder repository works through staging ->
-    # main (pre-staging before it until 2026-10-14), so a missing tier is
+    # main, so a missing tier is
     # made here rather than reported (Morgan, 2026-09-27, strength: decided:
     # "Can we make sure update vendors checks for this and if they don't
     # exist create it"). ensure_tiers makes staging from the old
@@ -5893,10 +5885,7 @@ def closing_check(repo, rep, skip_check=False):
     # 5. The repo's own check, at the tier of the branch the update lands
     # on -- the gate before any push. Into staging, for a person who lands
     # there, that is the quick checks on what the update changed; the full
-    # suite is Debut's (--run-tests) and Produce's. Until 2026-10-14 the
-    # fast tier was pre-staging (Morgan, 2026-09-27, strength: decided:
-    # "The point of pre-staging is to move fast, so I want the 10 minute
-    # checks to happen at the staging level, not pre-staging." Practice:
+    # suite is Debut's (--run-tests) and Produce's (practice:
     # checks-follow-the-tier).
     check = repo / 'tools' / 'precedent_push_check.py'
     try:
@@ -5906,10 +5895,10 @@ def closing_check(repo, rep, skip_check=False):
     argv = [sys.executable, str(check)]
     if landing:
         argv += ['--push-command', f'origin HEAD:{landing}']
-    # DONE says which check it was. The basic tier is right for
-    # pre-staging, but "check for pre-staging: passed" read as the push
-    # gate's all-clear, and a consumer's full check then failed three ways
-    # on the same tree (2026-10-01, from a consumer's Update Vendors).
+    # DONE says which check it was: a bare "passed" from the basic tier
+    # read as the push gate's all-clear, and a consumer's full check then
+    # failed three ways on the same tree (2026-10-01, from a consumer's
+    # Update Vendors).
     tier = pb.FULL
     if landing:
         try:

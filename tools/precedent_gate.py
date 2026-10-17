@@ -287,7 +287,7 @@ def _branches_module():
         sys.path.pop(0)
 
 
-# How _unlanded_work marks a repo whose pre-staging batch another window is
+# How _unlanded_work marks a repo whose landed batch another window is
 # already promoting; the reply gate turns it into a "say nothing" line.
 PROMOTE_RUNNING_MARK = 'another window is already promoting'
 
@@ -296,7 +296,7 @@ def _unpromoted(repo, staging, _git, lower='staging'):
     """-> how many commits origin/<lower> carries that origin/<staging>
     (the tier above it) does not, when their content differs; 0 otherwise.
     Content, not just lineage, for the reason _unlanded_work gives below.
-    `lower` is the landing branch (staging; pre-staging until it retired)."""
+    `lower` is the landing branch (staging)."""
     if not _git(repo, 'rev-parse', '--verify', '-q', f'refs/remotes/origin/{lower}'):
         return 0
     # Only commits that change a file: an empty commit or a merge is never
@@ -450,7 +450,7 @@ def _landed_reduction(repo, plain=False):
 
     A practice set's clone is checked out at main, and the session-start
     file is built from those clones, so a reduction pass that has landed on
-    pre-staging changes nothing measured until a Promote carries it to main.
+    staging changes nothing measured until a Promote carries it to main.
     Until then the reply gate asked for another Reduction pass on every
     reply (2026-10-01, from a reduction-pass session). Each set's AGENTS.md
     carries its generated resident block and occasion index, the parts a
@@ -600,7 +600,7 @@ def _unlanded_work(root, siblings=True, records=None):
             ref = _git(repo, 'symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD')
             base = ref.rsplit('/', 1)[-1] if ref else 'main'
         # The branch tiers (spec/BRANCH_TIERS_PLAN.md): for a person whose
-        # `Go update` lands on pre-staging, work there HAS landed -- what it
+        # `Go update` lands on staging, work there HAS landed -- what it
         # still owes is a Promote, reported separately below.
         staging = base
         pb = _branches_module()
@@ -610,12 +610,10 @@ def _unlanded_work(root, siblings=True, records=None):
                 staging = pb.staging_branch(repo)
             except Exception:                                 # noqa: BLE001
                 landing = base
-            # Any landing branch below main is where work lands, staging
-            # included. Until 2026-10-10 only pre-staging counted, so in a
-            # repo whose pre-staging had retired, a branch merged into
-            # staging still read NOT YET LANDED against main, and the reply
-            # check refused "you can archive this session" for it (a
-            # consumer, the first day after its pre-staging retired).
+            # A landing branch below main is where work lands: a branch
+            # merged into staging that read NOT YET LANDED against main had
+            # the reply check refuse "you can archive this session" for it
+            # (a consumer, 2026-10-10).
             if landing and landing != pb.MAIN and _git(
                     repo, 'rev-parse', '--verify', '-q',
                     f'refs/remotes/origin/{landing}'):
@@ -649,7 +647,7 @@ def _unlanded_work(root, siblings=True, records=None):
                     out.append(f"{name}: {PROMOTE_RUNNING_MARK} ({running})")
                     pending = None
             if pending:
-                # Said gently, on purpose. A pre-staging batch waiting on a
+                # Said gently, on purpose. A landed batch waiting on a
                 # Promote is the normal state of the tiers, not a problem, and
                 # an urgent, bolded nudge every turn had several windows
                 # promoting at once and racing each other (Morgan,
@@ -666,8 +664,8 @@ def _unlanded_work(root, siblings=True, records=None):
             continue
         # origin/<base> is only as fresh as the last fetch, and a pull request
         # merged through the GitHub API -- how every cloud session merges --
-        # fetches nothing. Seen 2026-09-28: two turns of "NOT on pre-staging"
-        # for a pull request already merged, cleared only by a fetch. So
+        # fetches nothing. Seen 2026-09-28: two turns saying a pull request
+        # already merged had not landed, cleared only by a fetch. So
         # before saying so, refresh that one branch: bounded and quiet, and
         # only here, where there is something to report, so a turn with
         # nothing ahead pays nothing. Offline, the ref stays as it was and

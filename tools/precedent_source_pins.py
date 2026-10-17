@@ -6,8 +6,8 @@ THE PROBLEM THIS ANSWERS (2026-10-05, a consumer's push check). A consumer
 declares shared sets that live beside it as clones (`../precedent-shared-
 writing`). Its views check compared the committed views against whatever
 branch that clone had checked out, and session start leaves the clone on
-the set's `main`. The consumer's `pre-staging` takes a set's change as soon
-as it is Booked into the set's own `pre-staging`, so between a set's Booked
+the set's `main`. The consumer's `staging` takes a set's change as soon
+as it is Booked into the set's own `staging`, so between a set's Booked
 and its Produce every push in every consumer was refused for "drift" in
 files it never touched -- and the remedy the check printed, a plain sync,
 would have rolled the Booked changes back. It happened twice in one session.
@@ -23,7 +23,7 @@ and a hand-edited generated file still fails it on every branch.
 The two questions it used to blur are asked separately, each with a remedy
 that cannot destroy work:
 
-  * the rung (rung_refusals): a push to pre-staging, staging or main may
+  * the rung (rung_refusals): a push to staging or main may
     carry a set only at a commit that set has itself landed on the same
     rung -- the consumer's main never carries what the set has not
     Produced. The remedy is to promote the set, never to sync.
@@ -36,7 +36,7 @@ what this repository already carries.
 
 A MANIFEST WITHOUT PINS (written before this engine) gets its pin inferred:
 the candidate commit -- the clone's own checkout, then the set's
-pre-staging, staging and main -- whose practice files hash to what the
+staging and main -- whose practice files hash to what the
 manifest recorded taking (`source_sha256_16`). The first sync after Update
 Vendors writes real pins.
 
@@ -52,10 +52,10 @@ import shutil
 import subprocess
 import tempfile
 
-PRE_STAGING, STAGING, MAIN = 'pre-staging', 'staging', 'main'
+STAGING, MAIN = 'staging', 'main'
 # A consumer branch reads a set at the same rung; a set without that rung
 # falls back to the next one up, ending at main.
-RUNGS = (PRE_STAGING, STAGING, MAIN)
+RUNGS = (STAGING, MAIN)
 FETCH_TIMEOUT = 60
 # What a sync reads from a set, for saying whether a newer commit matters.
 SYNCED_PATHS = ('practices', 'tools', 'bootstrap', 'precedent-source.json')
@@ -177,7 +177,7 @@ def recorded(repo):
 
 def rung_for(branch):
     """-> the rung a consumer branch reads its sets at, or None for a
-    working branch (it is built on pre-staging, so its notes use that;
+    working branch (it is built on staging, so its notes use that;
     nothing is refused on it -- trying a set's unbooked work in a consumer
     is what a working branch is for)."""
     if branch in RUNGS:
@@ -362,7 +362,7 @@ def rollback_refusals(repo, sources, pinned=None):
 def landed(path, pin, rung):
     """True when `pin` is on the set's `rung` or any rung above it. Above
     counts: a set's main carries the pull-request merge commits that its
-    pre-staging never gets, and what reached main has passed every rung
+    staging never gets, and what reached main has passed every rung
     below it."""
     for b in RUNGS[RUNGS.index(rung):]:
         ref = f'refs/remotes/origin/{b}'
@@ -395,7 +395,7 @@ def rung_refusals(repo, sources, branch, pinned=None):
         if landed(s['path'], pin, rung):
             continue
         below = RUNGS[RUNGS.index(at) - 1] if RUNGS.index(at) else None
-        step = {PRE_STAGING: 'Book', STAGING: 'Debut', MAIN: 'Produce'}[at]
+        step = {STAGING: 'Book', MAIN: 'Produce'}[at]
         out.append(
             f"{s['name']}: this push puts {branch} on {s['name']} at "
             f"{pin[:10]}, which {s['name']}'s own {at} does not have yet. "
@@ -410,7 +410,7 @@ def newer_notes(repo, sources, branch, pinned=None):
     """-> [note] for each live source whose matching rung has commits this
     repository has not taken yet. Never a refusal: taking them is a
     decision, and the views are consistent without them."""
-    rung = rung_for(branch) or PRE_STAGING
+    rung = rung_for(branch) or STAGING
     pinned = pins(repo, sources) if pinned is None else pinned
     out = []
     for s in live(sources, repo):

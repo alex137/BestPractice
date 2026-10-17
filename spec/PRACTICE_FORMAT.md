@@ -1073,7 +1073,7 @@ rather than a sentence.
 when a clause you wrote or changed is over the limit, and names the file and
 its length. That is where a writer finds out. A session had extended one
 clause to 81 characters, and the tool rendered it without a word. The only
-check that knew the limit was the harness, and a push to `pre-staging` did
+check that knew the limit was the harness, and a push to the landing branch did
 not run it. Clauses a practice set already carried over the limit before
 that date are not refused until someone edits them. Derivation stays as a fallback so a newly added
 practice renders something before its clause is written.

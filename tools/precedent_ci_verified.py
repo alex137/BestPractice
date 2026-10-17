@@ -96,7 +96,7 @@ def expected_workflows(root, branch='', base=''):
 
     THE BASE WAS IGNORED until 2026-09-30: any `pull_request:` counted, so
     deep-check.yml (`pull_request: branches: [main]`) was expected on every
-    pull request into pre-staging, where it never fires, and the merge gate
+    pull request into staging, where it never fires, and the merge gate
     said "CI DID NOT RUN" and advised a workflow_dispatch run that would
     have spent Actions minutes for nothing. Both shapes
     are live in this repository: deep-check.yml is pull_request plus push on

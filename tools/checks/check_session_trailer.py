@@ -28,7 +28,7 @@ ran anywhere failed every later full sweep -- a consumer's Promote refused
 over one such commit already on main, which nothing a session could do
 would fix without rewriting published history. It now judges only what is
 not on origin yet (`HEAD --not --remotes=origin`): each commit is judged at
-the first push that carries it -- Booked into pre-staging included -- the
+the first push that carries it -- a working-branch push included -- the
 same way the author and date checks judge only what a push brings. Nothing
 already on origin needs grandfathering. `--range A..B` (or the
 PRECEDENT_CHECK_RANGE environment variable) judges exactly that range, and

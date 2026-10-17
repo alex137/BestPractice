@@ -276,7 +276,7 @@ HISTORY_CHECKS = {'commit_author', 'commit_dates', 'session_trailer',
 # two, and it judges only the commits origin does not have yet -- what this
 # push carries. Before, it ran only inside a full sweep, walked the whole
 # history, and refused a consumer's Promote over one old commit on main;
-# at pre-staging, --changed-files-only dropped its findings (they name no
+# at the basic tier, --changed-files-only dropped its findings (they name no
 # file), so nothing judged a commit at Booked at all.
 # A check a practice SET ships reaches a repository on the set's own
 # schedule, which is not the engine's (practice: vendor-rollout-disclosed,
@@ -340,8 +340,8 @@ CI_WORKFLOWS_CHECK = (
 # Entries a repo may simply not have: skipped with a note, never a failure.
 OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
             'light_check', 'views_sync'}
-# The BASIC tier: what a push to pre-staging or any other working branch
-# runs. Everything else in a kind's list is FULL-only. The leak gate is
+# The BASIC tier: what a push to a working branch runs. Everything else
+# in a kind's list is FULL-only. The leak gate is
 # here because a push IS publication in a public repository, and cannot
 # wait for promotion (Morgan, 2026-09-25: "Good on nothing private going
 # out", strength: assented). Each costs seconds.
@@ -351,14 +351,14 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # Morgan, 2026-09-25, "we need to absolutely put a hard stop to this").
 # build_views joins it for a practice set (2026-10-03, spec/
 # GENERATED_FILES_PLAN.md step 4): a stale or hand-edited view used to pass
-# the push to pre-staging and fail only at the Debut. It takes under a second.
+# every push and fail only at the Debut. It takes under a second.
 # The practice audit's two checks join it for a consumer (2026-10-02): a
 # classic install migrated onto the loader carried stale manifest baselines
-# and no scrub blocklist, both full-tier findings, so its pre-staging pushes
+# and no scrub blocklist, both full-tier findings, so its pushes
 # passed and the first Debut failed on both. They run in seconds.
 # generated_files joins a consumer's and a practice set's basic tier
 # (2026-10-04): an Update Vendors that refreshed build_todo_index.py left
-# todo/TODO.md stale, the push to pre-staging passed, and only the full
+# todo/TODO.md stale, the push passed, and only the full
 # check said so. Two seconds. Not upstream's: there precedent_check.py is
 # full-only by design, and BestPractice's commit backstop rebuilds these.
 # rename_links joins a consumer's and a practice set's basic tier
@@ -484,7 +484,7 @@ PUSH_CHECKS = {
         # (2026-10-03): a reduction pass retired practices in the shared sets,
         # a consumer's views were never re-synced, and nothing said so until a
         # Debut's full check -- whose message sent the session after missing
-        # sources. Basic tier, so the push to pre-staging says it; sources
+        # sources. Basic tier, so every push says it; sources
         # that cannot be resolved here are said and skipped, never failed.
         ('views_sync', ['{engine}/precedent_sync_views.py', '--repo', '.',
                         '--check', '--skip-unresolved'],
@@ -1123,20 +1123,17 @@ def _promote_only_refusal(root, argv):
     return refusal(root, cmd) if refusal else None
 
 
-# The practice checks, on the files a push into pre-staging CHANGES, and
+# The practice checks, on the files a push CHANGES, and
 # nothing else (Morgan, 2026-09-27, strength: decided: "ONLY for files that
 # changed (or were added) in that session ... NOT for every file in the
-# repo"). pre-staging is where work lands, and its tier was the quick one, so
-# a document whose title and first heading disagreed went straight onto it
-# and was caught only by the next Promote's full check. The practice checks
-# take seconds; the test suite, which is what makes the full check slow,
-# still waits for staging.
+# repo"). A push to the landing branch takes the quick tier, so a document
+# whose title and first heading disagreed went straight onto it and was
+# caught only by the next Promote's full check. The practice checks take
+# seconds; the test suite, which is what makes the full check slow, still
+# waits for the full tier.
 # What a step prints when a session-load size cap is exceeded but not
-# refused: precedent_check.py's pre-staging WARNING, build_views.py's.
+# refused: precedent_check.py's quick-check WARNING, build_views.py's.
 SIZE_CAP_WARNINGS = ('over a size cap. The quick check',
-                     # precedent_check.py's wording until 2026-10-02, kept
-                     # so a check vendored before then is still recognised
-                     'over a size cap. Allowed onto pre-staging',
                      'build_views WARNING:')
 CAP_WARNED = []           # the steps that printed one, this run
 CAP_DETAILS = []          # what each said: file, measure and limit
@@ -1172,8 +1169,8 @@ def _cap_details(text):
 
 def _cap_warning_last(tier=None):
     """Say it last, where the push gate's short tail of a pass shows it:
-    a size cap is over, allowed onto pre-staging, refused at the Debut
-    (Morgan, 2026-09-30: warn on pre-staging, no change for staging).
+    a size cap is over, allowed at the quick check, refused at the Debut
+    (Morgan, 2026-09-30: warn at the quick check, no change for staging).
     One line that carries the file, its size, the limit and the check that
     measured it, since Update Vendors repeats this line and nothing else."""
     if not CAP_WARNED:
@@ -1241,8 +1238,8 @@ def _is_engine_check(root, rel):
 # Every check precedent_check.py registers needs a planted case in
 # verify_harness.py's check_precedent_check_fires -- the harness asserts it
 # ("every registered check has a planted case here"), but only on a full
-# run, which pre-staging never does. On 2026-09-29 a new check went to
-# pre-staging without one, the session ran only the harness cases its
+# run, which a basic-tier push never does. On 2026-09-29 a new check
+# landed without one, the session ran only the harness cases its
 # change touched, and the Debut to staging failed 20 minutes in. This reads
 # the same two sets as text, in well under a second, whenever a change
 # touches either side. The cause itself -- a check's case living in a
@@ -1471,9 +1468,8 @@ def changed_files_check(root, since):
     # blocks (the catalogue count in spec/LOADER.md, the enforced count,
     # the routing table) move when a practice is added or its front matter
     # changes, and only the full tier ran doc_sync -- so
-    # stage-word-carries-its-step landed on pre-staging with three stale
-    # blocks and the Debut was the first to notice
-    # (todo-2026-09-29-pre-staging-tier-skips-doc-sync). The drift gate,
+    # stage-word-carries-its-step landed with three stale blocks and the
+    # Debut was the first to notice. The drift gate,
     # never --write; about half a second.
     sync = root / 'tools' / 'doc_sync.py'
     moved = [f for f in practice
@@ -1544,8 +1540,8 @@ def changed_files_check(root, since):
 def _changed_since(root, argv):
     """-> the ref a push's change is measured from, or None. `--changed-since
     REF` names it (the merge gate passes the pull request's base); otherwise
-    a push whose --push-command writes to pre-staging is measured from
-    origin/pre-staging."""
+    a push whose --push-command writes to staging, by a person who lands
+    there, is measured from origin/staging (changed_since_for)."""
     if '--changed-since' in argv:
         i = argv.index('--changed-since')
         return argv[i + 1] if i + 1 < len(argv) else None
@@ -1574,12 +1570,12 @@ def _default_destination(root, argv):
     was missing.
 
     Morgan, 2026-10-01, strength: assented. A session ran this bare before
-    every landing on pre-staging, as AGENTS.md's "before push or merge"
+    every landing, as AGENTS.md's "before push or merge"
     line read, and bare meant the full ~11-minute suite -- the check that
     belongs to the Debut into staging -- several times in one day, for work
     the push gate itself would have checked in seconds. Now the bare run
-    and the push agree: pre-staging gets its basic tier, and staging or
-    main, as a landing branch, still gets full. `--tier full` asks for the
+    and the push agree: a bare run gets the tier a push to the landing
+    branch gets. `--tier full` asks for the
     full check outright; the push gate, the merge gate and a Promote name
     their own destination or tier, so none of them is changed by this."""
     if any(a in argv for a in ('--tier', '--push-command', '--changed-files-check')):
@@ -1612,9 +1608,10 @@ def _full_tier_refusal(root, argv):
     Morgan, 2026-10-01, strength: decided ("Go, do both, then Booked"). The
     bare run already checks at the landing branch's tier (_default_destination),
     and on the same day a session still paid the ~12-minute suite three times
-    for work going to pre-staging -- by typing `--tier full` itself, and by
-    writing it into every helper's brief, because "deep check before push"
-    read as "the thorough one". Pre-staging is the quick tier on purpose; the
+    for work going to the landing branch -- by typing `--tier full` itself,
+    and by writing it into every helper's brief, because "deep check before
+    push" read as "the thorough one". A landing push is the quick tier on
+    purpose; the
     full check belongs to the Debut into staging, which runs it for you. So
     asking for full where the landing branch is the quick tier now needs a
     stated reason: `--because "<why>"`. A machine caller (`--gate`), a named
@@ -1678,8 +1675,8 @@ def _destination(root, argv):
 
 
 def _rung_refusal(root, kind, dest):
-    """-> the refusal text when this push would put `dest` (pre-staging,
-    staging or main) ahead of a shared set it takes from, else None.
+    """-> the refusal text when this push would put `dest` (staging
+    or main) ahead of a shared set it takes from, else None.
 
     Its own step, outside the recorded passes, on purpose: whether a set
     has landed a commit on a rung changes with no change to this tree, and
