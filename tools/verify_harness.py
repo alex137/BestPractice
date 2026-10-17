@@ -59225,6 +59225,42 @@ def check_build_views_says_what_it_decides():
           f'for a set ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_vendored_surplus_counts_a_folder_a_consumer_is_told_to_search():
+    """VENDORED SURPLUS named every retired gotcha as shipped to nobody, but
+    environment-gotchas tells a session in a consumer to grep
+    `process/upstream/gotchas/`: a search is a reader, and it names no file
+    (2026-10-17 very deep check). THE CASE: a file in a folder a shipped
+    file names by its consumer path is not UNNAMED. CONTROL: a file in a
+    folder nothing names still is."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-surplus-'))
+    try:
+        for rel, text in {
+                'practices/env.md': 'grep `process/upstream/gotchas/` first\n',
+                'gotchas/gotcha-old.md': 'a retired trap\n',
+                'misc/stray.md': 'nobody names me\n'}.items():
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        shipped = {f'process/upstream/{r}': (r, 'copy')
+                   for r in ('practices/env.md', 'gotchas/gotcha-old.md',
+                             'misc/stray.md')}
+        unnamed = vdc._named_anywhere_else(shipped, tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    cases = [
+        ('THE CASE: a gotcha in the folder a practice tells consumers to grep '
+         'is not unnamed',
+         'process/upstream/gotchas/gotcha-old.md' not in unnamed, unnamed),
+        ('CONTROL: a file in a folder nothing names is still unnamed',
+         'process/upstream/misc/stray.md' in unnamed, unnamed),
+    ]
+    bad = [c[0] + ' -- ' + str(c[2]) for c in cases if not c[1]]
+    check(f'VENDORED SURPLUS counts a folder consumers are told to search as '
+          f'read ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_very_deep_check_runs_other_sources_checks_here():
     """A declared source's own check script whose practice is IN FORCE in
     this repo, and which this repo's precedent_check.py never discovers, is
@@ -82861,6 +82897,7 @@ def main():
     check_shared_helpers_have_one_copy()
     check_retired_team_level_spares_ordinary_english()
     check_build_views_says_what_it_decides()
+    check_vendored_surplus_counts_a_folder_a_consumer_is_told_to_search()
     check_very_deep_check_runs_other_sources_checks_here()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()

@@ -854,6 +854,12 @@ def _named_anywhere_else(shipped, root):
                         f"'{stem}'"]
         needles += ['/'.join(parts[i:-1]) + '/'
                     for i in range(0, len(parts) - 2)]
+        # The folder AS A CONSUMER SEES IT is a reader too (2026-10-17):
+        # environment-gotchas tells every session in a consumer to grep
+        # `process/upstream/gotchas/`, and a grep names no file, so every
+        # retired gotcha read as shipped to nobody.
+        if '/' in dest:
+            needles.append(dest.rsplit('/', 1)[0] + '/')
         if not any(n in text for other, text in texts.items()
                    if other != dest for n in needles):
             unnamed.append(dest)
