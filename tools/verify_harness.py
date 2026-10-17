@@ -11069,6 +11069,55 @@ def check_update_hands_the_engine_refresh_the_followed_tip():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_refresh_from_ref_off_the_branch_is_recorded():
+    """A refresh --from-ref of a commit the followed branch lacks records
+    that in the manifest (seeded_from_branch), as seed --off-main does, so
+    the manifest never claims main for a commit main does not have
+    (2026-10-17: a practice set's manifest said source_branch main over a
+    BestPractice feature-branch commit, refreshed with --from-ref).
+
+    Negative control: on staging's code there is no from_ref_off_branch and
+    refresh writes no seeded_from_branch."""
+    import inspect, tempfile
+    name = 'a refresh --from-ref off the followed branch is recorded'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    cases = []
+    fn = getattr(pve, 'from_ref_off_branch', None)
+    cases.append(('the engine can tell an off-branch commit', callable(fn)))
+    if callable(fn):
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
+                       GIT_AUTHOR_EMAIL='t@example.invalid',
+                       GIT_COMMITTER_EMAIL='t@example.invalid')
+
+            def g(*a):
+                return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True).stdout.strip()
+            g('init', '-q', '-b', pve.FOLLOWED_BRANCH)
+            g('commit', '-q', '--allow-empty', '-m', 'on the branch')
+            on = g('rev-parse', 'HEAD')
+            g('checkout', '-q', '-b', 'feature')
+            g('commit', '-q', '--allow-empty', '-m', 'only on a feature branch')
+            off = g('rev-parse', 'HEAD')
+            got = fn(repo, off)
+            cases.append(('a feature-branch commit is named as off the branch',
+                          bool(got) and off[:12] in got
+                          and pve.FOLLOWED_BRANCH in got, got))
+            cases.append(('CONTROL: a commit on the branch is not',
+                          fn(repo, on) is None, fn(repo, on)))
+    src = inspect.getsource(pve.refresh) if hasattr(pve, 'refresh') else ''
+    cases.append(('refresh writes it into the manifest',
+                  'seeded_from=off_branch' in src))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d)[:200] + ')' if d else ''}" for n, d in bad))
+
+
 def check_refresh_never_says_nothing_to_do_after_removing_a_file():
     """A refresh whose recorded commit already matches still removes an
     engine file the kind no longer includes, and then said "engine already
@@ -83734,6 +83783,7 @@ def main():
     check_bare_all_runs_across_the_cores()
     check_full_run_asks_first()
     check_refresh_never_says_nothing_to_do_after_removing_a_file()
+    check_refresh_from_ref_off_the_branch_is_recorded()
     check_upholds_is_a_listed_field()
     check_generated_files_candidates_are_repo_rooted_claims()
     check_incident_coverage_reads_what_the_gotcha_names()

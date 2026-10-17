@@ -2261,9 +2261,11 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
         'source_repo': SOURCE_REPO,
         'source_branch': followed_branch(dest_tools.parent),
         'source_commit': source_commit,
-        # Only when seed was told --off-main: the branch the engine really
-        # came from. source_branch stays what refresh follows; links and
-        # the universal clone are built from it. A refresh drops this.
+        # Only when seed was told --off-main, or a refresh --from-ref took a
+        # commit the followed branch lacks (from_ref_off_branch): where the
+        # engine really came from. source_branch stays what refresh follows;
+        # links and the universal clone are built from it. A refresh from
+        # the followed branch drops this.
         **({'seeded_from_branch': seeded_from} if seeded_from else {}),
         'files': files + ['routing_scope.json'],
         'sha256': hashes,
@@ -7424,6 +7426,23 @@ def off_source_branch(repo_dir, commit):
     return r.stdout.strip() or 'a detached HEAD'
 
 
+def from_ref_off_branch(clone, commit):
+    """-> what the manifest's seeded_from_branch says for a refresh
+    --from-ref of `commit` that FOLLOWED_BRANCH, as `clone` knows it, does
+    not contain; None when it does, or when that cannot be told.
+
+    WHY (2026-10-17, a practice set). A refresh --from-ref of a BestPractice
+    feature-branch commit recorded source_branch main over a commit main did
+    not have -- the same false provenance off_source_branch already stops at
+    seed (practice: generated-artifact-provenance)."""
+    tip = _rev(clone, f'origin/{FOLLOWED_BRANCH}') or _rev(clone, FOLLOWED_BRANCH)
+    if not tip or not commit or commit == 'unknown':
+        return None
+    if not engine_is_ahead(clone, commit, tip):
+        return None
+    return f'--from-ref {commit[:12]}, a commit {FOLLOWED_BRANCH} lacks'
+
+
 def seed_off_main_allowed():
     """The test harness seeds from the commit under test by the dozen, which
     is the on-purpose case, so it sets PRECEDENT_SEED_OFF_MAIN=1 once
@@ -8484,6 +8503,12 @@ def refresh(clone, force=False, ref=None):
 
     new_commit, engine_dir = _source_tools_at(clone, kind, ref=ref,
                                               fetch=ref is None)
+    off_branch = from_ref_off_branch(clone, new_commit) if ref is not None else None
+    if off_branch:
+        print(f"NOTICE: precedent_vendor_engine refresh: {new_commit[:12]} is not "
+              f"on {FOLLOWED_BRANCH}; the manifest records that "
+              f"(seeded_from_branch), so it never claims {FOLLOWED_BRANCH} for a "
+              f"commit {FOLLOWED_BRANCH} lacks.")
     recorded = str(manifest.get('source_commit') or '')
     if (ref is None and not force and recorded and recorded != new_commit
             and engine_is_ahead(clone, recorded, new_commit)):
@@ -8714,7 +8739,8 @@ def refresh(clone, force=False, ref=None):
 
         self_before = _sha256(HERE) if HERE.is_file() else None
         before = _previous_manifest(ROOT, manifest)
-        written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
+        written = _write_engine_files(dest_tools, engine_dir, new_commit, kind,
+                                      seeded_from=off_branch)
         if catalogue_repointed:
             written.append(catalogue_repointed)
         # AFTER the write, and using the manifest as it was BEFORE it:
