@@ -96,19 +96,9 @@ RETIRED SETS (three runs old). None is worth cheapening further.
 
 ### Open items: ambiguous
 
-Asked of Morgan in the run's reply, 2026-10-17; each with what the session
-would do.
+Settled 2026-10-17 under Morgan's delegation of that day ("Approved, act, and Booked."), each as listed here before: six closed and two parked in [todo/](../todo/), one closed in each of the individual and writing sets' own `todo/`; every item's last note says what met it.
 
-- `todo-2026-09-06-background-freshness-fetch`: a deferral whose revisit trigger never fired. Would drop it. (needs: decision -- Morgan)
-- `todo-2026-09-06-relax-the-pinned-branch-hold`: the source branch has been `main` since 2026-09-25 and Update Vendors replaced the old update. Would close it on "the fix has held". (needs: decision -- Morgan)
-- `todo-2026-09-07-audience-register-sharpening`: change 1 delivered in Morgan's 2026-09-22 rewrite; 2 and 3 never adopted. Would close it as superseded. (needs: decision -- Morgan)
-- `todo-2026-09-07-consumers-need-refresh-after-promotion`: the engine guard was built the same day; the one consumer's refresh cannot be seen from here. Would close it. (needs: decision -- Morgan)
-- `todo-2026-09-07-stem-reminder-at-the-refusal`: "worth doing if it bites", and it has not. Would drop it. (needs: decision -- Morgan)
-- `todo-2026-09-10-private-owner-allowlist-inert`: the armed gate ran clean today; what is left is whether one `allow` line stays. Would close it as decided by the later allow lines. (needs: decision -- Morgan)
-- `todo-2026-09-19-revisit-examples-vendoring`: its revisit month has passed and the 2026-09-21 measurement meets its own close. Would close it. (needs: decision -- Morgan)
-- `todo-2026-09-21-branch-delete-links-not-yet-vendored-to-consumers`: about consumers' vendored trees, unreadable here. Would close it as overtaken by Update (All) Vendors. (needs: decision -- Morgan)
-- The individual set's `schedule-cross-source-budget-gate`: only a build-or-leave-manual call is left, and Morgan's crons rule says leave it manual. Would close it. (needs: decision -- Morgan)
-- The writing set's `engine-cases-need-a-bestpractice-clone`: the CI route is gone and the cases pass by hand today. Would close it. (needs: decision -- Morgan)### Gotchas: ambiguous
+### Gotchas: ambiguous
 
 None. The one the backlog pass could not settle, a cross-owner clone that
 cannot be pushed, was settled by this run's own pushes: a session that holds
