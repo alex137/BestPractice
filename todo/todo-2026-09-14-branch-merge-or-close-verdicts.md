@@ -98,3 +98,5 @@ PR #427 deferred, half already landed independently) and
 `spec/VERIFY_HARNESS_SCOPING_PLAN.md`) -- left for a human decision since
 merging someone else's un-reviewed branch is bigger than what this pass
 does on its own.
+
+2026-10-17, very deep check pass 4 (still live, narrowed): every deletion it waited on is done (philosophy-bidirectional-slugs, claude/sync-practices-54-55-x2w4n3, claude/team-sets-carry-code-x2w4n3 and the individual set's precedent/engine-refresh-c6c885033a9f are gone from origin). Only claude/file-sharing-service-spec-0m9c7p is left, and its call is made: Morgan, 2026-10-11, "on the July one: close it" (spec/VERY_DEEP_CHECK_LATEST_RUN.md: "Morgan deletes it from its link"). It is still on origin, so what remains is his click.

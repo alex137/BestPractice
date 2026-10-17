@@ -86,16 +86,21 @@ and says so: every universal practice carries the section.
 UNIVERSAL AS THE DESTINATION drafts only: the file is written into the
 Precedent clone's practices/ and the source is left ACTIVE, because the
 landing there is still the pull request merging -- a session may merge it
-directly once its deep check passes, same as any other PR into
-precedent-beta-v01 (spec/MOVING_PRACTICES.md, merge-target-is-beta-branch.md)
+directly once its deep check passes, same as any other PR into the landing
+branch (spec/MOVING_PRACTICES.md; AGENTS.md's opening paragraph)
 -- and a source deduplicated before that lands has a rule in force nowhere. The
 clone's own generated surfaces are regenerated (build_views.py, doc_sync.py
---write) so its deep check is green on the draft. Run this tool again with
+--write) so they match the draft; an on-demand draft still needs an
+applies_to_why before the clone's deep check passes, and the run says so.
+The draft's approved_by is a "pending PR review" placeholder that
+pending-approval-outlives-its-merge refuses once the practice is on the base
+branch: write the real approval in after the merge. Run this tool again with
 `--dedupe-only` once the PR has merged AND every repository consuming the
 source set has taken the new universal catalogue -- a consumer still
-vendoring the old one sees the rule in neither source, and its sync prints
-IN FORCE NOWHERE and drops it (exit 0) until it is refreshed (INSTALL.md
-\u00a72 step 0, "Update Vendors").
+vendoring the old one has no universal copy for the stub to point at, and
+its sync keeps the set's copy in force and says KEPT IN FORCE, ITS TARGET
+NOT HERE YET on every run until it is refreshed (INSTALL.md
+\u00a72 step 0, "Update Vendors"; precedent_resolve.py, 2026-10-16).
 
 UNIVERSAL AS THE SOURCE duplicates, never deduplicates, on landing.
 `--from universal --to shared|individual` writes the destination copy
@@ -115,8 +120,9 @@ passed every fast check and was only caught by \u2018verify_harness.py
 already been pushed.
 
 Both copies are then genuinely in force at once -- a deliberate, disclosed
-duplication, not a bug -- and a Story note in each says so and points at
-the other. Withdraw the universal copy later, on purpose, once the audience
+duplication, not a bug -- the universal copy's Story says so and names the
+destination, and the destination's approved_by names where it came from.
+Withdraw the universal copy later, on purpose, once the audience
 that matters has taken the destination: run this tool again with
 `--dedupe-only --accept-reach-loss`. `--accept-reach-loss` is required on
 that run and that run only, is refused without it, and is not needed for
@@ -1173,8 +1179,11 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             f'source copy only once the pull request has merged AND every repository '
             f'consuming {from_name} has taken the new universal catalogue (INSTALL.md '
             f'\u00a72 step 0, or "Update Vendors"): a consumer that still vendors the '
-            f'old catalogue sees the rule in neither source, and its next sync '
-            f'prints IN FORCE NOWHERE and drops it.')
+            f'old catalogue has no universal copy yet, and its sync keeps the set\'s '
+            f'copy in force there with a KEPT IN FORCE, ITS TARGET NOT HERE YET '
+            f'warning on every run until it updates. After the merge, replace the '
+            f'draft\'s "pending PR review" approved_by with who approved it and in '
+            f'which pull request.')
         if install_added:
             say(f'ADDED an empty ## Install to the draft: {src} had none, and every '
                 f'universal practice carries one. Fill it in the pull request -- what a '

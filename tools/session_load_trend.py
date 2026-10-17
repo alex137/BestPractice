@@ -631,8 +631,14 @@ def main():
                           f"because a reduction pass falls inside the window; "
                           f"the generated share is what nobody can trim back)")
         elif r['points'] < 2:
+            # Shallow is one cause; a file nobody committed in the window (or
+            # an untracked one) is the usual one, and naming only the first
+            # sent readers looking for a history problem that was not there.
+            shallow = _git('rev-parse', '--is-shallow-repository')[0].strip() == 'true'
+            why = ('shallow clone' if shallow else
+                   'no commit to it in the window to compare')
             print(f"    growth: not measurable here "
-                  f"({r['points']} commit(s) in window -- shallow clone?)")
+                  f"({r['points']} commit(s) in window -- {why})")
         print()
     print(f"  TOTAL {total_now:,} tokens against declared ceilings "
           f"summing to {total_ceiling:,}")

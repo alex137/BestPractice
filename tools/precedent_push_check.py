@@ -2255,9 +2255,26 @@ def main(argv):
         return 2
 
     if '--list' in argv:
+        # Which branches take the full list is precedent_branches' answer,
+        # not this sentence's: staging is a lander's quick tier (2026-10-09).
+        full_to, others = 'main', 'any other branch'
+        if not _ladder_off():
+            full_to = 'staging or main'
+            try:
+                sys.path.insert(0, str(HERE))
+                import precedent_branches
+                st = precedent_branches.staging_branch(root)
+                if precedent_branches.tier_for_branch(root, st)[0] != FULL:
+                    full_to = 'main'
+                    others = (f'any other branch, {st} included (your '
+                              f'landing branch),')
+            except Exception:                               # noqa: BLE001
+                pass                       # an older engine: the old wording
+            finally:
+                sys.path.pop(0)
         print(f'{root.name} is {"an" if kind[0] in "aeiou" else "a"} {kind} '
-              f'repository. Before a push to {"main" if _ladder_off() else "staging or main"} (full); a push '
-              f'to any other branch runs only the checks marked basic:')
+              f'repository. Before a push to {full_to} (full); a push '
+              f'to {others} runs only the checks marked basic:')
         for name, a, replaces in plan(root, tier=FULL)[1]:
             mark = 'basic' if name in BASIC_CHECKS else 'full '
             print(f'  {name:16} [{mark}] {shown_interpreter(a)} {" ".join(a[1:])}')

@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-03-a-file-carried-by-hand-to-match-upstream-held-every-refresh-up
-status:          live
+status:          retired
 noted:           2026-10-03
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -34,3 +34,7 @@ and CI workflows keep their own review. The planted case is part H of
 [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py).
 
 Until that reaches the set: an Update Vendors in it clears the refusal.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed: the refresh compares a drifted file with upstream's copy and passes an identical one (precedent_vendor_engine.py around line 8090), and the file in the story is now a stub that no longer carries content.

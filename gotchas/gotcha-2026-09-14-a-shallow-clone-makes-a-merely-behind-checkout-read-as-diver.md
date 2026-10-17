@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-14-a-shallow-clone-makes-a-merely-behind-checkout-read-as-diver
-status:          live
+status:          retired
 noted:           2026-09-14
 severity:        null
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -177,3 +177,7 @@ same recount runs in the pre-write mode. Verified against a fixture that
 reproduces the phantom: the old copy prints `has diverged ... NOT updating`
 and leaves `HEAD` behind; the patched copy deepens, recounts 3 rather than 1,
 and fast-forwards.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed 2026-09-13 and hardened 2026-09-15 (the deepen runs unconditionally, tools/freshness-guard.sh lines 653 and 987), and since 6ed8e53f (2026-10-07) every set's guard is a stub that runs that current file, so the "sets carry a pre-fix guard" half is gone too.

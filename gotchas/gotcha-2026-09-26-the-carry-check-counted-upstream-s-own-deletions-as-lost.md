@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost
-status:          live
+status:          retired
 noted:           2026-09-26
 severity:        notable
-retired:         null
+retired:         "2026-10-17"
 retires_when:    null
 ---
 ## Symptom
@@ -64,3 +64,7 @@ which fails five of its six original cases against the first fix, and its two ne
 **A consumer gets the fix on its next Update Vendors**; until then a
 refusal of this shape is almost certainly this bug, and running the new
 tool from an up-to-date clone confirms it.
+
+## Retired 2026-10-17
+
+Retired by the very deep check, pass 4: the trap can no longer fire as written. Fixed in checkin.py's _carry_check (2026-09-26, widened 2026-09-30), held by check_carry_check_never_counts_upstream_deletions; a consumer still vendoring process/upstream has had three weeks of Update Vendors to take it.

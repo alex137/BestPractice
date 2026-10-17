@@ -1,4 +1,42 @@
 {
   "_comment": "Warnings the very deep check's WARNINGS section has decided to stop showing, each with its reason (practice: very-deep-check; tool: tools/warning_review.py). One entry excludes one group: `source` (doc_lint, precedent_check, or a line source the tool names), `kind` (doc_lint's class, the check's slug, or the line source's own kind: WARNING, or undetermined for the session check), optional `path` (a glob over the file; absent means every file) and optional `match` (a substring of the warning text). `term` is permanent, or temporary with a `revisit` date after which the warning shows again. `decided` is the date; `by` is `agent` when the session judged it alone, or the person's name with a `strength` of decided or assented when it asked. An entry that matches nothing any more is reported stale and deleted, never kept.",
-  "exclusions": []
+  "exclusions": [
+    {
+      "source": "doc_lint",
+      "kind": "unlinked file reference",
+      "path": "decisions/*",
+      "term": "permanent",
+      "why": "A dated record: it says what was true when it was written, and the paths it names in backticks are named as they were. Relinking them is churn no reader gains from, and the history-aware checks (rename-updates-links, change-updates-its-docs, retired-words) already read this directory as history.",
+      "decided": "2026-10-17",
+      "by": "agent"
+    },
+    {
+      "source": "doc_lint",
+      "kind": "unlinked file reference",
+      "path": "record/*",
+      "term": "permanent",
+      "why": "A dated record: it says what was true when it was written, and the paths it names in backticks are named as they were. Relinking them is churn no reader gains from, and the history-aware checks (rename-updates-links, change-updates-its-docs, retired-words) already read this directory as history.",
+      "decided": "2026-10-17",
+      "by": "agent"
+    },
+    {
+      "source": "doc_lint",
+      "kind": "unlinked file reference",
+      "path": "evals/*",
+      "term": "permanent",
+      "why": "A dated record: it says what was true when it was written, and the paths it names in backticks are named as they were. Relinking them is churn no reader gains from, and the history-aware checks (rename-updates-links, change-updates-its-docs, retired-words) already read this directory as history.",
+      "decided": "2026-10-17",
+      "by": "agent"
+    },
+    {
+      "source": "precedent_check",
+      "kind": "enforcement-lives-with-its-practice",
+      "path": "tools/*",
+      "term": "temporary",
+      "revisit": "2026-11-16",
+      "why": "The check's own advisory term: temporary, waiting for the moves in spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md, revisit 2026-11-16. Each finding is one of those moves, already listed there.",
+      "decided": "2026-10-17",
+      "by": "agent"
+    }
+  ]
 }

@@ -561,7 +561,9 @@ method"). Build the fixtures.
   page offers (individual → shared, shared → individual, shared → universal,
   and universal → shared/individual, both halves — the initial duplicate
   landing and the deliberate `--dedupe-only --accept-reach-loss`
-  withdrawal), with `tools/precedent_move.py` and, separately, by hand
+  withdrawal), and `--withdraw-from-universal` (added 2026-10-17, the day
+  a rehearsal found the page never named it), with
+  `tools/precedent_move.py` and, separately, by hand
   against the page's two steps — then the copy-and-delete the page
   forbids, to see which check names it. **And read what the move left
   behind elsewhere**: since 2026-09-28 the run that withdraws the source
@@ -873,7 +875,7 @@ confidently.
     forever, tracked by nothing. That was found on 2026-09-21 by asking,
     and fixed the same day.
 
-    **The answers as of 2026-09-21, updated 2026-09-28** — a rule about a mechanism carries its
+    **The answers as of 2026-09-21, updated 2026-09-28 and 2026-10-17** — a rule about a mechanism carries its
     date ([volatile-rules-carry-dates](volatile-rules-carry-dates.md)), and
     each cell is a claim to re-verify in the code rather than to inherit:
 
@@ -881,8 +883,9 @@ confidently.
     |---|---|---|---|
     | Engine files (`tools/`) | yes | yes | **yes** — manifest diff |
     | CI workflow files | yes | yes | **yes**, since 2026-09-21 — manifest diff, with tombstones kept for what a diff cannot express (a rename) |
-    | Hooks (`.claude/hooks/`) | **yes**, since 2026-09-25 — `HOOK_WIRING` adds the `settings.json` entry for a hook the repo's kind gets (add-only; a repo may decline it in `precedent.json`) | yes | **yes**, since 2026-09-22 — the third removal path, keyed on what upstream ships; it read the already-rewritten manifest and removed nothing until 2026-09-28, when it began reading the record from before the update |
-    | `settings.json` itself | yes, add-only hook entries, since 2026-09-25 | no | no |
+    | Hooks (`.claude/hooks/`) | **yes** — since 2026-10-07 every hook file is one permanent stub that runs `tools/<its name>`, and the script is an engine file (`HOOK_SCRIPT_FILES`); a hook added since then is listed in `tools/hook_wiring.json` and run by the one fixed `precedent-hooks.sh` entry per event. Before that, `HOOK_WIRING` added a `settings.json` entry (2026-09-25), and it takes no new hook | yes — the script, by the engine manifest; the stub never changes | **yes** — the script by the engine manifest diff; a stub upstream stops shipping by `_remove_dropped_hook_files` (since 2026-09-22; it removed nothing until 2026-09-28, when it began reading the record from before the update) |
+    | Practice-declared hooks (`process/practice_hooks.json`) | yes, since 2026-10-07 — the sync writes the `hooks:` of the practices in force | yes | yes — the file is regenerated whole |
+    | `settings.json` itself | yes, add-only hook entries, 2026-09-25 to 2026-10-07; since then nothing a new hook needs touches it | no | no |
     | The practice catalogue | yes — materialized per session | yes | yes |
     | Skeleton / bootstrap templates | only into a newly created set | only into a new set | only into a new set — existing sets drift, which `BOOTSTRAP DRIFT` reports |
     | Vocabulary | yes — derived at render time | yes | yes |
@@ -1714,8 +1717,9 @@ first so this pass spends its attention on what they cannot see.
 - **Whether each practice's TIER is still right.** The question above asks
   what the loaded text costs; this one asks which practices should be in it
   at all, and nothing else in Precedent ever asks it. `tier: resident` is
-  governed only by [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)'s hard
-  2,000-token cap, which fails the build outright — so the trade is forced
+  governed only by the resident block's hard cap (`resident_block_tokens` in
+  [tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_budgets.json), which
+  [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py) enforces), which fails the build outright — so the trade is forced
   once, at the moment somebody adds a resident practice, and the set is never
   revisited afterwards. Read it in both directions. **Demote** a resident
   practice whose occasions turn out to be narrow enough that the path or

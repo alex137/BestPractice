@@ -68,8 +68,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **The commit backstop is GLOBAL (`core.hooksPath`), so it reaches throwaway fixture repositories too — and refused them.** [story](gotcha-2026-09-13-the-commit-backstop-is-global-core-hookspath-so-it-reaches-t.md)
 
-- **The individual source resolves to a clone you are probably not editing, and it can be many commits stale.** [story](gotcha-2026-09-13-the-individual-source-resolves-to-a-clone-you-are-probably-n.md)
-
 - **The leak gate's vocabulary layer fails open unless you also set the git config.** [story](gotcha-2026-09-13-the-leak-gate-s-vocabulary-layer-fails-open-unless-you-also-.md)
 
 - **The private practice sets reach a session through the environment credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` (PER_MACHINE_SETUP.md) and the SessionStart hook clones them before the first turn, where no ordering rule can reach it.** [story](gotcha-2026-09-13-the-private-practice-sets-reach-a-session-through-the-enviro.md)
@@ -84,15 +82,9 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **Measured 2026-09-14** [story](gotcha-2026-09-14-a-session-can-push-branches-but-cannot-delete-a-remote-branc.md)
 
-- **A shallow clone counts every commit back to its graft point as LOCAL, so a checkout that is only BEHIND reads as diverged — and the freshness guard then refuses to update it, which is worse than either.** [story](gotcha-2026-09-14-a-shallow-clone-makes-a-merely-behind-checkout-read-as-diver.md)
-
 - **The symptom.** [story](gotcha-2026-09-14-ratelimit-lies-from-inside-a-session-it-reports-a-pristine-w.md)
 
 - **A command that ran a minute ago comes back as `Permission for this action was denied by the Claude Code auto mode classifier`, with a reason in brackets: `[Instruction Poisoning]`, `[Untrusted Code Integration]`, `[Self-Modification]` and `[Out-of-Place Publication]` have all been seen. Reads keep working; writes, commits and scripts that change the repository are refused. **It shows up most in work that began as a message from another session** rather than from the person typing it.** [story](gotcha-2026-09-14-the-permission-classifier-refuses-commits-and-checks-in-the-.md)
-
-- **Measured 2026-09-14** [story](gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md)
-
-- **The symptom.** [story](gotcha-2026-09-15-a-pretooluse-hook-s-once-per-session-sentinel-is-not-proof-a.md)
 
 - **The symptom.** [story](gotcha-2026-09-15-a-spawned-session-s-seeded-prompt-cannot-pre-authorize-a-mer.md)
 
@@ -101,8 +93,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **A tracked `.claude/settings.json` names a real person's `GIT_AUTHOR_NAME` and `GIT_AUTHOR_EMAIL` in its `env` block. Every commit from every collaborator who loads that file is silently authored as that one person, forever, and `commit-identity.sh`'s whole per-session, per-person resolution never gets a chance to run — `GIT_AUTHOR_*` outranks `git config user.*`, so the hardcoded value wins before the hook's own logic is even reached.** [story](gotcha-2026-09-17-a-consumers-settingsjson-hardcoded-git-identity.md)
 
 - **Writing templates/harness/LEDGER.md's own row for the commit it belongs to, then running `git commit --amend --no-edit` to fold the row into that same commit (per the ledger's "in the same commit" rule), changes the commit's hash — which makes the row's own citation stale again. Amending a second time to fix the citation changes the hash a second time, and so on: the row is content inside the very object whose identity it names, so no amend can ever make it correct.** [story](gotcha-2026-09-17-a-ledger-row-citing-its-own-commit-cannot-converge-by-amen.md)
-
-- **`commit-identity.sh` sets the GLOBAL git identity to a declared person (`user.name`/`user.email`), and that identity silently reverts to the container's own bot account (`Claude <noreply@anthropic.com>`) later in the same still-running session — with no new commit, no new hook run, nothing the session did to explain it. `core.hooksPath` (the global backstop) stays set throughout; only the identity fields revert.** [story](gotcha-2026-09-17-a-stale-vendored-bootstrap-copy-reproduced-a-bug-already-fi.md)
 
 - **A batch of Bash tool calls issued together in one message, each `cd`-ing into a different repository checkout and running the same read-then-write sequence, reports success for every call individually — but a later `git status` in one of those checkouts comes back clean, as if the write step never ran, with no error anywhere in the transcript.** [story](gotcha-2026-09-19-parallel-bash-calls-across-repo-directories-can-silently-drop-a-write.md)
 
@@ -132,15 +122,7 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A hosted session whose project directory sits ABOVE every repo it touches (`/home/user` holding several sibling clones, none of them `$CLAUDE_PROJECT_DIR`) gets its git state reset mid-session -- the commit identity in `~/.gitconfig` flips back to the container's own bot account with no `git config` command in between, and `HEAD` moves onto the base branch with no repo tool in the loop -- by something outside any repo's own tooling entirely.** [story](gotcha-2026-09-25-a-session-rooted-above-every-repo-it-touches-gets-hooks-and.md)
 
-- **A consumer repo declares a shared practice set in `precedent.json`, on purpose, and **the set is missing from every fresh container**. Nothing at session start says so. `python3 tools/precedent_sync_views.py --check` then reports dozens of differences in the loader block, and they all come from one absent directory. Clone the set by hand beside the repo and they drop to zero.** [story](gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh.md)
-
 - **Right after a pull request into `main` is merged, `staging` is gone from origin:** [story](gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)
-
-- **A commit the engine makes for you -- a branch sync, its lock branch, an engine refresh -- comes out **authored by the container's bot** (`Claude <noreply@anthropic.com>`), sometimes in the repository's fallback zone too. Nothing refuses it at the time. Later, the repository's own `precedent_check.py --full-sweep` fails `commit-author` on its staging branch. Re-running the step does not help, because its full check fails inside its worktree on `consumer_shape`: "`.git` here is not a directory".** [story](gotcha-2026-09-26-engine-made-commits-came-out-as-the-bot-and-a-reused-pass-l.md)
-
-- **`checkin.py record` refuses an ordinary Update Vendors with a long list of `LOST from <file>:` lines and "pending vendored additions are MISSING from the landed upstream tree", while `checkin.py status` reads 0 files differing against the clone. Every listed line turns out to be one upstream removed itself.** [story](gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost.md)
-
-- **The first tool call of a session is refused, and so is every call after it except plain `git` commands:** [story](gotcha-2026-09-26-the-freshness-guard-held-attached-source-clones-to-pre-stagin.md)
 
 - **A shell loop written to wait for a script to finish never ends, though the script finished long ago: `until ! pgrep -f scratchpad/x/runcases.py >/dev/null; do sleep 5; done`. It sits in the process list, waking every five seconds, for as long as the container lives.** [story](gotcha-2026-09-28-a-wait-loop-on-pgrep-f-finds-itself-and-never-ends.md)
 
@@ -164,21 +146,9 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **In Claude Code's auto mode, Update Vendors merges its own pull request (step 12) and the merge goes through. The next command, even one that only reads the merged branch to confirm its content, comes back `Denied by auto mode classifier` as **Merge Without Review**, and the check it was running never runs.** [story](gotcha-2026-10-01-auto-mode-blocks-the-read-after-update-vendors-merges-its-own.md)
 
-- **In a hosted session, the individual set's clone keeps moving back onto `main` while you work on a branch of it. Nothing you ran checked it out. Checks that read the individual set from its working tree (the leak gate's allow lines, say) then read `main` and refuse what the branch allows.** [story](gotcha-2026-10-02-a-config-named-for-a-test-reset-the-real-individual-clone.md)
-
-- **The reply gate says an individual or shared set's always-loaded file is over its size target, or a set seems to follow rules that BestPractice changed days ago, while every repository the session works in reports itself current. Rebuilding the set's `.precedent/SESSION_PRACTICES.md` by hand gives a different number.** [story](gotcha-2026-10-02-a-practice-sets-own-universal-clone-was-never-pulled.md)
-
-- **A practice set's working copy shows engine files under `tools/` modified or deleted at the start of a session, with nobody having touched them. `git status` in the set lists them, and checks run there use an older engine than the one the set committed.** [story](gotcha-2026-10-02-a-set-made-from-a-working-branch-had-its-engine-rolled-back-at.md)
-
-- **The session-start survey shows a practice set as STALE at every session start, with a FAIL row ending "A reason is required. Do NOT reach for `record-ci` here". The file the refresh calls hand-edited is identical to BestPractice's own copy.** [story](gotcha-2026-10-03-a-file-carried-by-hand-to-match-upstream-held-every-refresh-up.md)
-
 - **"Update Vendors" runs to DONE, opens its pull request, and the merge that the phrase carries comes back `Denied by auto mode classifier` with the reason `[Merge Without Review]`. Nothing in the repository refused it, and the same merge goes through once the person's message names it.** [story](gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)
 
-- **The full check spends minutes in `scripts-assert-properties` (the model audit) although no model changed, and afterwards the model audit's ledger shows as modified: every line rewritten, with only its `reads` different.** [story](gotcha-2026-10-07-a-ledger-written-in-a-worktree-misses-in-every-clone.md)
-
 - **A session runs `git add ... && git commit ... && git push` in one Bash call. The push check refuses it, and the session tells its person the work was committed and only the push failed. `git status` shows the changes still uncommitted, and `git log` has no new commit.** [story](gotcha-2026-10-07-a-refused-push-means-the-commit-before-it-did-not-run-either.md)
-
-- **GitHub's test on a pull request into `main` takes about 30 minutes, while the same suite run here with `python3 tools/verify_harness.py --as-ci` takes about 11. One GitHub job, "verify_harness (everything else)", holds nearly all of it.** [story](gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy.md)
 
 - **After an Update Vendors run was cut short, HEAD is a commit whose message starts "precedent_update: the staged update, committed only so the deep check judges it as committed -- undone right after". It was never undone.** [story](gotcha-2026-10-07-sigterm-skips-python-finally-blocks.md)
 

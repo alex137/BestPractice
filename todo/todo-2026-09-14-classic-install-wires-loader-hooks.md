@@ -3,7 +3,7 @@ slug:              todo-2026-09-14-classic-install-wires-loader-hooks
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "the previous item — if §0 becomes the default the §1 adapter shrinks to what §1 uses; if not, ship a §1 variant of `settings.json` or make the gate stay quiet under the `process/upstream` layout."
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-14
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -41,3 +41,7 @@ Not open until: the previous item — if §0 becomes the default the §1 adapter
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Same: only a section 1 install hit it, and section 1 is retired and refused (fdac0ad1).

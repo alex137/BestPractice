@@ -59,8 +59,8 @@ an on-demand practice)?
   don't fill this in unless the check is real.
 - **`applies_to`**: a path glob that scopes where this applies.
 - **`occasion`**: a prose trigger naming the moment this applies.
-- Resident tier (rare -- competes for the 2,000-token budget every session
-  carries): 
+- Resident tier (rare -- competes for the resident block's token budget,
+  which every session carries): 
 
 **Proposed level**, with a reason (Stage 4 asks for a guess, not an open
 question):

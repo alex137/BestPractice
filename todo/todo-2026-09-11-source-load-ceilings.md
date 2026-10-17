@@ -3,7 +3,7 @@ slug:              todo-2026-09-11-source-load-ceilings
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-11
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -62,3 +62,7 @@ is reported as untested, not as clean. The blocked-on above is now narrower
 too: landing a registry in each source is still that repository's own merge,
 but the CHECK no longer has to reach those checkouts for the ceiling to be
 tested.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. The open half (a ceiling declared in each source) is met: tools/session_load_budgets.json exists in all three sets, and their AGENTS.md headers print "of 550", "of 250", "of 2000" budgets.

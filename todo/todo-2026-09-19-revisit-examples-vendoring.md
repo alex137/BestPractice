@@ -102,3 +102,5 @@ relayed "a consumer keeps deleting this" without checking whether the path
 they named still exists upstream. That is worth its own note wherever
 relayed findings are handled, and is why this item asks for friction to be
 MEASURED in a real consumer rather than reported.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): the revisit month has passed; the 2026-09-21 sighting measured the friction as a one-time stale process/upstream/examples/ left from before the move, with a remedy already printed by checkin.py, which is the item's own close (b): friction too minor to act on, the 2026-09-17/19 calls stand. Would close it on (b); it is Morgan's ask.

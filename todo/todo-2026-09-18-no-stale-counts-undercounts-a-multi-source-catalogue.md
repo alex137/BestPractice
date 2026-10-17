@@ -3,7 +3,7 @@ slug:              todo-2026-09-18-no-stale-counts-undercounts-a-multi-source-ca
 kind:              analysis
 domain:            mechanism
 severity:          notable
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "write access to precedent-shared-writing -- refused from a session rooted here (cross-tier add)"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:              2026-09-18
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -78,3 +78,7 @@ not stale -- the false positive is in the checking script, not the document
 it flags. No edit made to AGENTS.md or TODO.md.
 
 2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4). The blocker is write access to that set, not read access, so it stays as filed.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. The writing set's check_no_stale_counts.py reads every declared source (_declared_sources, landed 3acc6d3, 2026-09-29); run against this tree today it no longer flags AGENTS.md's generated count.

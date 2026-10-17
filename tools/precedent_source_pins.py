@@ -90,7 +90,16 @@ def is_dirty(path):
     changes. Only those count: session start refreshes a set's vendored
     engine (tools/ENGINE_MANIFEST.json names those files) and its generated
     MAP.md in the working tree, and a consumer's sync reads neither -- were
-    they counted, no set clone in a session would ever be pinned."""
+    they counted, no set clone in a session would ever be pinned.
+
+    UNTRACKED FILES COUNT (2026-10-17, very deep check). A sync reads
+    practices/ off the disk, so a new practice file nobody has committed
+    yet is read too, and was not counted: `precedent_move.py` leaves
+    exactly that state at its destination, and a consumer's sync then built
+    views from a file in no commit, pinned the commit that lacks it, and
+    `--check` stayed green. Ignored files still do not count -- git status
+    leaves out what .gitignore and info/exclude name, which is where a
+    session's shipped tools are kept."""
     engine = set()
     try:
         m = json.loads((pathlib.Path(path) / 'tools' / 'ENGINE_MANIFEST.json')
@@ -99,7 +108,7 @@ def is_dirty(path):
     except (OSError, ValueError, AttributeError):
         pass
     engine.add('tools/ENGINE_MANIFEST.json')
-    r = _git(path, 'status', '--porcelain', '-z', '--untracked-files=no')
+    r = _git(path, 'status', '--porcelain', '-z', '--untracked-files=all')
     if r.returncode != 0:
         return True
     for entry in r.stdout.split('\0'):

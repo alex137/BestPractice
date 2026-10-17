@@ -132,3 +132,5 @@ Not open until: the refresh itself belongs in each consumer, run under that repo
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): the engine-side guard the item asked for was built the same day (a sync refuses to drop a practice the committed MANIFEST.json records while its source is still declared, with a 7-case harness test), so what is left is the one consumer's own refresh, which this session cannot see. A vendored process/upstream copy is still a live layout (gotcha-2026-10-08-a-vendored-copy-can-claim-a-commit-it-does-not-hold), so the class is real. Would close it on the guard, since that consumer's 2026-09-07 pin predates every Update Vendors since.

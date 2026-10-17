@@ -1,8 +1,16 @@
 # Python leaves these beside the vendored engine's own scripts.
 __pycache__/
-*.pyc
+*.py[cod]
 
 # Written per-machine by commit-identity.sh (it derives TZ from
 # identity.json and stores it here), so it is never the same on two
 # checkouts and must not be committed.
 .claude/settings.local.json
+
+# Editor and system files, and the worktrees a session makes under
+# .claude/. The same lines templates/gitignore.template carries: without
+# them here, a set's first Update Vendors adds them under "# Added by
+# Update Vendors", in every set the same way.
+.DS_Store
+*.swp
+.claude/worktrees/

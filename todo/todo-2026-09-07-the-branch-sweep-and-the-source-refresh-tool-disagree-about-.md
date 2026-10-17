@@ -3,7 +3,7 @@ slug:              todo-2026-09-07-the-branch-sweep-and-the-source-refresh-tool-
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            dropped
 disposition:       wait
 remind_on:         null
 blocked_on:        "nothing but the work."
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-07
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -42,3 +42,7 @@ Not open until: nothing but the work.
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Dropped 2026-10-17 by the very deep check, pass 4: overtaken, so its condition can no longer be met as written. Morgan bounded the branch sweep to the checkout and its own source checkouts, never the fleet (very-deep-check Approval history, 2026-09-21, decided); the premise that the practice wants every attached repo no longer holds.

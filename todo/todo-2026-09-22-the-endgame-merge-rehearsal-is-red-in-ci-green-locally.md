@@ -3,7 +3,7 @@ slug:              todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-gree
 kind:              manual
 domain:            engine
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-22
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -108,3 +108,7 @@ Two parts, and the second is the one that lasts.
 Both belong to [checks-plant-their-state](../practices/checks-plant-their-state.md),
 whose Story cites this as its second instance — with the git-version reading
 that this section corrects.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Both parts are in tools/very_deep_check.py: the merge runs with `-c user.name=... -c user.email=rehearsal@invalid`, and a refused merge (no MERGE_HEAD, non-zero return) is reported as status: error (around line 5697).

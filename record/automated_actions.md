@@ -2,59 +2,76 @@
 title:         Automated actions and schedules
 kind:          record
 status:        closed
-opened:        2026-09-28
-closed:        2026-09-28
+opened:        2026-10-17
+closed:        2026-10-17
 superseded_by: null
 supersedes:    []
 audience:      session
-summary:       "Every automated action and schedule across the repos in force and the account's session Routines, and every path pass 4 looked at for deprecation, each with its verdict -- from the very deep check of 2026-09-28."
+summary:       "Every automated action and schedule across the repos in force, and every path pass 4 looked at for deprecation, each with its verdict -- from the very deep check of 2026-10-17."
 ---
 
 # Automated actions and schedules
 
-Inventory from the very deep check of 2026-09-28, pass 4
+Inventory from the very deep check of 2026-10-17, pass 4
 ([very-deep-check](../practices/very-deep-check.md)): every automated action
-and schedule across the five repos in force and the account's session
-Routines, with a verdict each, and every path the pass looked at for
-deprecation. **Nothing here fires on a clock today.** The next run reads this
-file first and re-examines only what changed.
+and schedule across the four repos in force (this one and the three sets it
+declares), with a verdict each, and every path the pass looked at for
+deprecation. It replaces the 2026-09-28 inventory, which said nothing fired
+on a clock; **one workflow does now**, the daily run of the full suite here.
+The next run reads this file first and re-examines only what changed.
 
 ## Workflows
 
-| Repo | Workflow | Triggers | Schedule | Runs, last 14 days | Verdict |
+Read from each repo's `origin/main` with `git ls-tree`. Last runs for the
+scheduled trigger read once from GitHub's workflow-runs list for
+`deep-check.yml`, filtered to `schedule`.
+
+| Repo | Workflow | Triggers | Schedule | Last fired | Verdict |
 |---|---|---|---|---|---|
-| BestPractice | `.github/workflows/deep-check.yml` | `pull_request` into `main`, `push` to `main` | none | 947 runs x 4 jobs | **Needed** -- the one GitHub test on the way into `main` ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)). Its job count is a cost question for [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md), not a schedule question. |
-| BestPractice | `.github/workflows/leak-gate.yml` | `push` (every branch), `workflow_dispatch` | none | 1400 runs x 1 job | **Needed** -- the server-side leak gate a `--no-verify` push cannot skip. |
-| the individual set | `.github/workflows/engine-refresh.yml` | `workflow_dispatch` only | none (its weekly cron was removed 2026-09-14) | 1 | **Needed, with a question filed** -- an on-request refresh, cited by `practice-set-engine-refresh`; pass 2 asks whether to delete it or pin its base to the landing branch ([pass 2 findings](../todo/todo-2026-09-28-very-deep-check-pass-2-findings.md)). |
-| the three shared sets | none | -- | -- | -- | Nothing to judge (`source-sets-run-no-ci`). |
+| BestPractice | `.github/workflows/deep-check.yml` | `pull_request` into `main` (opened, reopened, ready for review, synchronize), `push` to `main`, `workflow_dispatch` | `17 7 * * *`, daily at 07:17 UTC, since 2026-10-12 | 2026-10-17 07:26 UTC, success; five scheduled runs (2026-10-13 to 10-17), all success, 11 to 15 minutes each | **Needed.** The one GitHub test on the way into `main`; the daily run checks the whole suite, which a change-scoped run cannot. Approved by Alex, 2026-10-12 ("yes on daily run"), pinned with its content in [precedent.json](../precedent.json)'s `github_ci_approved`. See the note below on where schedules are registered. |
+| BestPractice | `.github/workflows/leak-gate.yml` | `push` to `main`, `workflow_dispatch` | none | not read | **Needed.** The structural leak gate for a merge made on GitHub, which never passes a session's own push gate. Approved by Morgan, 2026-10-11. |
+| BestPractice | `.github/workflows/precedent-branch-cleanup.yml` | `workflow_dispatch` only | none | not read | **Needed, dispatch-only by design.** Started only by a person from the branch cleanup page (Morgan, 2026-10-16, decided: "NEVER run the cleanup automatically"). Not a half-finished decommissioning, which a dispatch-only workflow usually is. |
+| the individual set and both shared sets | none | -- | -- | -- | Nothing to judge: no `.github/workflows/` on `main` in any of the three (`source-sets-run-no-ci`). The individual set's on-request `engine-refresh.yml`, judged in the 2026-09-28 inventory, is gone. |
 
-## Session Routines (this account)
+**Where schedules are registered.** The individual set's
+`crons-are-a-last-resort` asks for one list of every schedule in force in a
+repo's instructions file or its map, updated in the commit that adds one.
+Neither [AGENTS.md](../AGENTS.md) nor [MAP.md](../MAP.md) lists the daily
+run; this file and the workflow's own header comment do. Raised with the
+person rather than changed here: the rule is his, the repository is Alex's,
+and the cron was Alex's approval.
 
-51 Routines on record; **none is enabled and none has a cron expression.**
+## Session Routines
 
-| State | Count | Verdict |
-|---|---|---|
-| One-shot, already fired (`run_once_fired`), created 2026-09-05 to 2026-09-26 | 40 | **Delete** -- cannot fire again; kept only as history nobody reads. |
-| Auto-disabled, environment deleted (`auto_disabled_env_deleted`), all 2026-09-14/15 relay and follow-up messages | 9 | **Delete** -- never fired; each carries an instruction nobody has re-read. |
-| Auto-disabled, session gone (`auto_disabled_session_gone`) | 2 | **Delete** -- same reason. |
-
-The weekly very-deep-check Routine proposed 2026-09-17
-([todo-2026-09-17-weekly-very-deep-check-trigger-decision](../todo/todo-2026-09-17-weekly-very-deep-check-trigger-decision.md))
-was never created.
+The account's session Routines and triggers are listed by the main session of
+this run from the harness's own trigger list, not by this file's pass; no
+repository holds them.
 
 ## Operating-system cron
 
-The container image ships `/etc/cron.d/e2scrub_all` and `/etc/cron.d/php`,
-but no cron daemon runs (`pgrep cron` finds nothing) and the container does
-not persist. **Not in force**; no verdict owed.
+`crontab` is not installed and no cron daemon runs (`pgrep cron` finds
+nothing). The image still ships `/etc/cron.d/e2scrub_all` and
+`/etc/cron.d/php`, and the container does not persist. **Not in force**; no
+verdict owed.
 
 ## Paths looked at for deprecation
 
+Method: every tracked `tools/*.py`, `tools/*.sh`, `tools/*.json` and
+`tools/checks/*` file here, searched for its name in any other tracked file
+outside the history directories (`todo/`, `gotchas/`, `record/`, `spec/`,
+`decisions/`, and the generated [MAP.md](../MAP.md), [WHERE_THINGS_ARE.md](../WHERE_THINGS_ARE.md) and
+[WHATS_NEW.md](../WHATS_NEW.md)). Only two came back with one reference or none. Each path
+below was then read, and the doubtful ones run through
+[tools/precedent_decommission.py](../tools/precedent_decommission.py) as an
+audit; nothing was deleted.
+
 | Repo | Path | Verdict |
 |---|---|---|
-| BestPractice | [`tools/reach_key.py`](../tools/reach_key.py) | **Deliberate** -- nothing here imports it; carried upstream 2026-09-27 (`f80024e0`) from a consumer so Update Vendors keeps it. |
-| BestPractice | `tools/precedent_beta_watermark_check.py` | **Live** -- run by `.claude/hooks/session-start.sh` and the reply gate. See the pass 4 finding about its `--depth=50` fetch. |
-| BestPractice | `evals/routing`, `evals/routing_synthetic`, `evals/simulation` | **Live** -- each read by a tool in `tools/`. |
-| the individual set | `page.md` | **Ask** -- a two-line file (`# Page` / `Decided (Morgan, 2026-09-08).`) committed by accident with a test-fixture change. `precedent_decommission.py page.md` is not clean, but all five blockers are left-side substring hits (`docs-page.md`, `a-page.md`) that the tool documents as deliberate false positives. |
-| precedent-shared-repo-maintenance | `bootstrap/freshness-guard.sh`, `bootstrap/freshness.snippet.json` | **Deliberate, pending** -- `fresh-before-write` moved to universal 2026-09-28; its own Story says to decide at the deduplication step whether this copy and its check retire. |
-| the individual set | `bootstrap/freshness-guard.sh` | **Live but frozen** -- wired in `.claude/settings.json`, not in `ENGINE_MANIFEST.json`'s `engine_paths`, so no refresh reaches it (729 lines against the engine's 886). Filed: [todo-2026-09-09-source-hook-drift](../todo/todo-2026-09-09-source-hook-drift.md). |
+| BestPractice | [`tools/move_paths.py`](../tools/move_paths.py) | **Deliberate.** A person-run tool (practice: rename-updates-links), named in [precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)'s engine file list, so every install carries it; nothing is meant to call it. |
+| BestPractice | [`tools/routing_eval_synthetic.py`](../tools/routing_eval_synthetic.py) | **Deliberate.** The re-runnable scorer for `evals/routing_synthetic/`, whose [PREDICTION.md](../evals/routing_synthetic/PREDICTION.md) cites it. The audit is not clean (that file and MAP.md name it), which is correct for a live research harness. |
+| BestPractice | [`tools/reach_key.py`](../tools/reach_key.py) | **Live now.** Imported by [doc_sync.py](../tools/doc_sync.py) and [fact_ledger.py](../tools/fact_ledger.py); the 2026-09-28 inventory had it as carried for a consumer and unused here. |
+| BestPractice | `evals/routing`, `evals/routing_synthetic`, `evals/simulation` | **Live.** Each read by a tool in `tools/`. |
+| the individual set | `bootstrap/session-start.sh` | **Live, ask.** Wired by nothing in that set's own settings and not declared as an adapter, but its `claude-web-bootstrap` check and that check's tests read it, so the audit is not clean. Whether consumers are still meant to copy it is the open question in [todo-2026-09-12-source-sets-declare-adapters](../todo/todo-2026-09-12-source-sets-declare-adapters.md). |
+| the individual set | `bootstrap/freshness-guard.sh`, `bootstrap/commit-identity.sh` | **Resolved.** The 2026-09-28 inventory had the guard "live but frozen". Since 2026-10-07 both are the engine's 31-line stub, which runs the current `tools/` copy, so nothing is left to freeze. |
+| the individual set | `page.md` | **Gone.** The accidental two-line file the 2026-09-28 inventory asked about is no longer in the tree. |
+| a retired shared set | the whole repository | **Ask.** Retired 2026-10-06 and listed in [tools/deleted_sets.json](../tools/deleted_sets.json) as "being deleted", but on 2026-10-17 its repository still answers `git ls-remote`, with pull-request refs that its own open item says still reach a file naming private repositories. Deleting it is the person's call. |

@@ -48,3 +48,5 @@ Not open until: nothing external, but it was not worth the complexity at the mea
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): a deliberate deferral with a revisit trigger (throttle interval dropping) that has not fired; it is a declined idea, not blocked work. Would drop it (status: dropped) as decided-not-to-build; Morgan's call.

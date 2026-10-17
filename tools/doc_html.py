@@ -151,7 +151,7 @@ def _declared_base_branch(root):
     that is not the configured default -- BestPractice's own
     `precedent-beta-v01` -- and then every inference is quietly wrong with
     nothing failing. Returns None when undeclared or unreadable, so callers
-    fall back to the old inference rather than breaking (fail-gracefully).
+    fall back to the old inference rather than breaking (practice: fail-gracefully).
     Enforced by precedent_check.py's `declared-base-branch`.
     """
     try:

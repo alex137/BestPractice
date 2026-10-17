@@ -3,7 +3,7 @@ slug:              todo-2026-09-10-retire-a-practice-source
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "nothing; it is queued for size rather than permission. The sequence above is already true and already executed once, so this item is writing it down where the next retirement will look, not deciding it. Disposition `wait` ([open-item-disposition](../practices/open-item-disposition.md))."
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-10
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -57,3 +57,7 @@ Not open until: nothing; it is queued for size rather than permission. The seque
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. The sequence is now mechanism and written where the next retirement looks: a set marks `retired` in precedent-source.json, Update Vendors drops it only when its rules are in force elsewhere (vendor-update-runbook step 9, Morgan 2026-10-06, decided; `precedent_vendor_engine.py drop-retired`), and tools/deleted_sets.json covers the repository after deletion (2026-10-08).

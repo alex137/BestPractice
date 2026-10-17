@@ -364,6 +364,13 @@ _dirty() {
 # ref is ever written and every comparison below silently has nothing to
 # compare against. Local config only, idempotent, adds no commits.
 _widen_refspec() {
+  # Only where an origin exists, as bootstrap.sh already guards it. On a
+  # repository with none -- every fresh install before its first push --
+  # `config --add remote.origin.fetch` creates a [remote "origin"] section
+  # with no URL, and the `git remote add origin URL` INSTALL.md §0 step 8
+  # then tells the person to run fails with "remote origin already exists"
+  # (very deep check, 2026-10-17, pass 1).
+  _git remote get-url origin >/dev/null 2>&1 || return 0
   if ! _git config --get-all remote.origin.fetch 2>/dev/null | grep -q 'refs/heads/\*'; then
     _git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null
   fi

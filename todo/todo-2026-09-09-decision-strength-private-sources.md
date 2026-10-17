@@ -3,7 +3,7 @@ slug:              todo-2026-09-09-decision-strength-private-sources
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-09
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -47,3 +47,7 @@ Each private set's vendored [tools/precedent_check.py](../tools/precedent_check.
 2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).
 
 2026-10-06: re-triaged; no longer blocked. The only blocker was read access to the private sets, which a session now normally has (they arrive at session start, or by `add_repo`); the "could not attach" above is as it stood on 2026-09-09. The disposition stays `wait`: changing it is the owner's call.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Each set's vendored tools/precedent_check.py registers decision-strength (grep: 2 hits in each of the three), and the individual set has no rule treating a recorded approval as final by default (grep).

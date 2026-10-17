@@ -50,3 +50,7 @@ Every consuming repo's `process/upstream/practices/` holds the three practice
 files at their current content, and its `tools/ENGINE_MANIFEST.json` records
 [very_deep_check.py](../tools/very_deep_check.py) as synced rather than
 diverged.
+
+## Notes
+
+2026-10-17, very deep check pass 4 (ambiguous, asked of the person): its condition names every consumer's process/upstream/practices/, which this session cannot read; four weeks of Update Vendors and Update All Vendors have run since, and a consumer that resolves universal live never needed the copy. Would close it as overtaken; unverifiable from here.

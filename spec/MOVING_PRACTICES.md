@@ -81,18 +81,26 @@ set's `approvers.json` too, and the name goes into the Story line (added
 2026-09-28, when a rehearsal found only the destination was ever checked).
 **With `--to universal` it drafts only** — the file goes
 into the clone's `practices/`, the clone's own [`build_views.py`](../tools/build_views.py) and
-`doc_sync.py --write` run so its deep check is green on the draft, and the
-source stays active. A source file with no `## Install` gets an empty one
-in the draft, and the tool says so: every universal practice carries the
-section, and the harness fails a draft without it while every fast check
-passes it. Commit that on a branch and open the pull request.
+`doc_sync.py --write` run so the clone's generated files match the draft,
+and the source stays active. A source file with no `## Install` gets an
+empty one in the draft, and the tool says so: every universal practice
+carries the section, and `practice-file-shape` refuses a draft without it.
+An on-demand draft still needs an `applies_to_why:` before the clone's
+deep check passes (`routing-reason`); the tool says that too, and adds
+nothing for it. Commit that on a branch and open the pull request.
+**After it merges, write the approval in:** the draft's `approved_by:` is a
+`pending PR review` placeholder, and once the practice is on the base
+branch `pending-approval-outlives-its-merge` refuses it on every run until
+someone writes who approved it and in which pull request.
 **Run it again with `--dedupe-only` only once the pull request has merged
 AND every repository consuming the source set has taken the new universal
 catalogue** ([INSTALL.md](../INSTALL.md) §2 step 0, or `Update Vendors`):
-a consumer still vendoring the old catalogue sees the rule in neither
-source: its next [`precedent_sync_views.py`](../tools/precedent_sync_views.py) prints `IN FORCE NOWHERE` and
-**removes the rule, exit 0**, so deduplicating early silently drops it
-there until that consumer takes the new catalogue.
+a consumer still vendoring the old catalogue has no universal copy for
+the set's deduplicated stub to point at. Since 2026-10-16 its
+[`precedent_sync_views.py`](../tools/precedent_sync_views.py) keeps the set's
+copy in force there and prints `KEPT IN FORCE, ITS TARGET NOT HERE YET` on
+every sync until it takes the new catalogue; before that, it printed
+`IN FORCE NOWHERE` and dropped the rule, exit 0.
 
 **With `--from universal` the tool now runs, added 2026-09-23** — this
 was the one direction it refused outright until this incident showed why
@@ -115,7 +123,7 @@ decides otherwise.
 without it: the moment it runs, a consumer that resolves only universal
 loses the rule entirely, and nothing the tool can measure says whether the
 audience that still needs it has moved to the destination set. That is a
-human call, the same shape [`go-update`](https://github.com/themorgan/precedent-shared-ladder/blob/main/practices/go-update.md)
+human call, the same shape the ladder set's `go-update`
 already asks for on anything hard to reverse — say the read out loud and
 confirm it, rather than letting a flag default to "yes."
 That run also clears what the universal clone's own checks would hold
@@ -126,6 +134,17 @@ The stub it leaves says, in its Story, when and to which set the rule was
 withdrawn, and a consumer's `IN FORCE NOWHERE` warning for it reads that
 back: *withdrawn from universal on the date; in force in the set — declare
 that set to keep it*.
+
+**`--withdraw-from-universal` (added 2026-10-02) withdraws it for good.**
+For a rule meant only for the people who bring or declare the destination
+set ([LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md)), run after the
+destination copy is active: it deletes the universal file rather than
+leaving a stub, so no sync anywhere warns about it, fixes the mentions,
+rewrites the set copy's `approved_by:` to say universal keeps no copy, and
+appends one line to
+[record/WITHDRAWN_FROM_UNIVERSAL.md](../record/WITHDRAWN_FROM_UNIVERSAL.md). It implies
+`--dedupe-only --accept-reach-loss`, keeps their refusals, and needs
+`--approved-by`.
 
 Found the hard way, 2026-09-23: two practices were moved out of universal
 by hand, following this page's own two-step pattern before this tool
@@ -189,11 +208,11 @@ hand-done one against:
      ([`precedent_candidate.py`](../tools/precedent_candidate.py), [`precedent_land.py`](../tools/precedent_land.py)) is not the way to
      move an existing practice**: it carries a rule and an observation,
      not a file, and the rehearsal above lists what it drops.
-   - **To universal**: a pull request (PR) against `precedent-beta-v01`,
-     merged once its own deep check passes — no second sign-off required,
-     same as any other PR into that branch
-     ([merge-target-is-beta-branch](../local/practices/merge-target-is-beta-branch.md))
-     and same as any new universal practice. The tool drafts the file; the
+   - **To universal**: a pull request (PR) against BestPractice's landing
+     branch (`staging`; `python3 tools/precedent_branches.py --landing`
+     says which), merged once its own deep check passes — no second
+     sign-off required, same as any other PR into that branch (AGENTS.md's
+     opening paragraph) and same as any new universal practice. The tool drafts the file; the
      merge is the approval.
 
    **Re-point any link to a sibling practice that does not move with it:
@@ -213,10 +232,16 @@ hand-done one against:
      preference about where the rule lives. The tool checks `--approved-by`
      against that set's `approvers.json` and writes the name into the
      `## Story` line it appends; a hand-done one writes the same line.
-   - **Universal**: a PR, same as any universal change.
+   - **Universal**: a PR, same as any universal change. For a practice
+     moving *out of* universal this is never part of the move: the
+     universal copy stays active, and withdrawing it is the later,
+     deliberate `--dedupe-only --accept-reach-loss` run above. Done at
+     once, by hand, it is the 2026-09-23 failure.
 
    Done by hand, step 2 is a three-line edit of the source file — the two
-   frontmatter fields and the Story line — and nothing else. No tool other
+   frontmatter fields and the Story line. Then regenerate both sets' views
+   with the full `python3 tools/build_views.py`, as the tool does: without
+   it each set's own check fails on stale views. No tool other
    than [`precedent_move.py`](../tools/precedent_move.py) writes it: [`precedent_retire.py`](../tools/precedent_retire.py) only reports,
    and [`precedent_migrate_status.py`](../tools/precedent_migrate_status.py) refuses an active practice.
 

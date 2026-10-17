@@ -34,3 +34,11 @@ item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-09-
 ## Fix
 
 (migration could not isolate a distinct Fix paragraph -- read ## Story.)
+
+**Narrowed 2026-10-17 (very deep check pass 4).** Since 2026-10-07 every
+engine hook a set ships is a 31-line stub that runs the engine's own
+`tools/<name>`, which Update Vendors keeps current, so engine hooks have a
+repair path now. Two files are not stubs and still drift as described above:
+the writing set's 196-line `.claude/hooks/precedent-individual-bootstrap.sh`
+and the individual set's 155-line `bootstrap/precedent-universal-catalogue.sh`
+(the first is also in todo-2026-10-11-very-deep-check-findings).

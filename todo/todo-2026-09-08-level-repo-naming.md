@@ -3,7 +3,7 @@ slug:              todo-2026-09-08-level-repo-naming
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-08
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -59,3 +59,7 @@ closed:            null
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
 
 2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. The sets were renamed so the level is in the name (precedent-individual, precedent-shared-<subject>, team -> shared on 2026-09-18), which was the goal; the dotted scheme was not taken.

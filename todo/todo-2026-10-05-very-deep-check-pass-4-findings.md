@@ -77,3 +77,7 @@ Fixed the same day: six open items closed on their own conditions, and
 
 Each decision is made and recorded, and each other bullet is fixed or
 recorded here as declined.
+
+## Notes
+
+2026-10-17, very deep check pass 4 (still live, narrowed): moot or done: the folded sets were retired together and deleted, the ladder's merge-takes-vendor-update branch is gone. Left: claude/upstream-bug-fix-review-ltbiy8 still on origin with no verdict, issue #394 (Alex), and no ruleset protecting main/staging.

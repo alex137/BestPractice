@@ -8749,6 +8749,24 @@ def check_very_deep_check_boundary_audit_reads_the_setting():
         f, n, out = run(project)
         cases.append(('an unprotected base branch is a finding naming it',
                       any('NOT protected' in x for x in f), out))
+
+        # A practice set draws its boundary with approvers.json, and the
+        # setting that makes it bind is not read: a note, so the section
+        # never prints "current and on" over it (2026-10-17).
+        aset = tmp / 'aset'
+        aset.mkdir()
+        (aset / 'approvers.json').write_text(json.dumps({
+            'format_version': 1,
+            'approvers': [{'name': 'A', 'github': 'approver'}]}), encoding='utf-8')
+        with contextlib.redirect_stdout(io.StringIO()):
+            bco.main(check_only=False, root=aset)
+        out = io.StringIO()
+        f, n = vdc.boundary_audit(aset, [], out=out)
+        out = out.getvalue()
+        cases.append(('a set drawn by approvers.json says protection was not '
+                      'read -- a note, never clean',
+                      not f and any('approvers.json' in x and 'not a pass' in x
+                                    for x in n) and 'current' in out, out))
     finally:
         pbc.fetch_protection = real_fetch
         for k, v in saved.items():
@@ -8761,7 +8779,8 @@ def check_very_deep_check_boundary_audit_reads_the_setting():
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'very_deep_check.py\'s CONTRIBUTOR BOUNDARY reads the setting, not the '
           f'document ({len(cases)} stated cases: missing file, no registry, '
-          f'hand-edited file, --skip-liveness, no token, PASS, unprotected)',
+          f'hand-edited file, --skip-liveness, no token, PASS, unprotected, a set\'s '
+          f'approvers.json)',
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
@@ -8849,6 +8868,13 @@ def check_very_deep_check_warnings_are_judged_not_just_counted():
         cases.append(('the block names this run\'s decisions, with who made them',
                       'Exclusions decided this run: 1.' in md and 'by the session -- closed records are history' in md,
                       md))
+        bare = tmp / 'no-registry'
+        bare.mkdir()
+        md2 = wr.render_markdown(result, problems, [], repo_root=bare)
+        cases.append(('with no registry file the block links none (a dead '
+                      'link refused the run record in a set)',
+                      '](../tools/warning_exclusions.json)' not in md2
+                      and 'creates the registry' in md2, md2))
         doc = tmp / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
         doc.write_text('# Run\n\nBody.\n', encoding='utf-8')
         vdc._write_warnings_block(tmp, 'FIRST')
@@ -23951,8 +23977,25 @@ def check_precedent_check_fires():
         def _vdc_stale_account(t):
             return re.sub(r'^opened:(\s*)\S+', r'opened:\g<1>2026-10-05',
                           t, count=1, flags=re.M)
-        case('very-deep-check',
-             lambda repo: rewrite(repo, _VDC_UP, _vdc_stale_account))
+        # The fixture owns the ledger state it asserts on: the last completed
+        # run gets all four passes and a date past the rule's. Inheriting the
+        # real ledger made this case fail during every real run -- between
+        # the tool's first run and the session's --record-pass the last
+        # completed run has no passes, so nothing was owed and nothing fired
+        # (2026-10-17; practice: fixture-owns-its-state).
+        def _vdc_four_passes(t):
+            d = json.loads(t)
+            done = [r for r in d['runs'] if r.get('completed', True)]
+            done[-1]['passes'] = [{'pass': str(n), 'status': 'done'}
+                                  for n in (1, 2, 3, 4)]
+            if str(done[-1].get('date') or '') < '2026-10-11':
+                done[-1]['date'] = '2026-10-11'
+            return json.dumps(d, indent=2) + '\n'
+
+        def _vdc_plant(repo):
+            rewrite(repo, 'record/very-deep-check-ledger.json', _vdc_four_passes)
+            rewrite(repo, _VDC_UP, _vdc_stale_account)
+        case('very-deep-check', _vdc_plant)
 
         # The other two states, by message and by silence
         # (control-asserts-which-failure, checks-plant-their-state): no
@@ -23960,6 +24003,7 @@ def check_precedent_check_fires():
         # not recorded yet is still in progress, so a stale account is not
         # owed and must not fail.
         _vdc_gone = fresh('very-deep-check-no-account')
+        rewrite(_vdc_gone, 'record/very-deep-check-ledger.json', _vdc_four_passes)
         (_vdc_gone / _VDC_UP).unlink()
         _rcg, _outg = run(_vdc_gone, 'very-deep-check')
         cases.append(('very-deep-check: four passes recorded and no account '
@@ -23973,6 +24017,7 @@ def check_precedent_check_fires():
                                   if str(p.get('pass')) != '4']
             return json.dumps(d, indent=2) + '\n'
         _vdc_mid = fresh('very-deep-check-mid-run')
+        rewrite(_vdc_mid, 'record/very-deep-check-ledger.json', _vdc_four_passes)
         rewrite(_vdc_mid, 'record/very-deep-check-ledger.json', _vdc_three_passes)
         rewrite(_vdc_mid, _VDC_UP, _vdc_stale_account)
         _rcm, _outm = run(_vdc_mid, 'very-deep-check')
@@ -34274,6 +34319,49 @@ def check_practice_ships_its_files():
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_session_ships_exclude_survives_another_worktree():
+    """The session-ships block of info/exclude keeps an entry another work
+    tree of the same clone still holds, and drops it once none does.
+
+    2026-10-17, very deep check: info/exclude is shared by every linked
+    worktree, and a session file built in a helper's worktree rewrote the
+    block with only that worktree's ships. Three shipped tools, one from a
+    private repository, went back to untracked in the main checkout, where a
+    `git add -A` would have committed them."""
+    import tempfile
+    import precedent_materialize as pm
+    _git = fixture_git
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        W = pathlib.Path(td)
+        main = W / 'main'
+        main.mkdir()
+        _git(main, 'init', '-q', '-b', 'main')
+        _git(main, 'config', 'user.email', 'harness@example.com')
+        _git(main, 'config', 'user.name', 'Harness')
+        (main / 'README.md').write_text('x\n')
+        _git(main, 'add', '-A'); _git(main, 'commit', '-qm', 'one')
+        _git(main, 'worktree', 'add', '-q', str(W / 'side'), '-b', 'side')
+        (main / 'tools').mkdir()
+        (main / 'tools' / 'private_tool.py').write_text('x = 1\n')
+        pm._set_excluded(main, {'tools/private_tool.py'})
+        untracked = lambda: _git(main, 'status', '--porcelain',
+                                 '--untracked-files=all').stdout
+        cases.append(('the main checkout\'s ship is hidden',
+                      'private_tool.py' not in untracked()))
+        pm._set_excluded(W / 'side', {'tools/other.py'})
+        cases.append(('a rewrite from another worktree keeps it hidden',
+                      'private_tool.py' not in untracked()))
+        (main / 'tools' / 'private_tool.py').unlink()
+        pm._set_excluded(W / 'side', {'tools/other.py'})
+        ex = pm._exclude_file(main).read_text()
+        cases.append(('once no worktree holds the file, its entry goes',
+                      '/tools/private_tool.py' not in ex and '/tools/other.py' in ex))
+    failed = [n for n, ok in cases if not ok]
+    check(f'session-ships exclude survives another worktree ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
 def check_brought_set_ships_reach_the_session_untracked():
     """practice: practice-carries-its-files -- a set the person brings ships
     its files and its hook too, without touching the tracked tree.
@@ -40176,6 +40264,82 @@ def check_shipped_copy_has_no_broken_links():
           f'{len(broken)} broken: ' + '; '.join(broken[:8]))
 
 
+def check_identity_mechanism_check_reaches_a_stubbed_hook():
+    """check_commit_author's prevention half runs where the hook is a stub
+    (2026-10-17).
+
+    Since 2026-10-07 every hook in .claude/hooks/ is one stub that runs
+    tools/<its name>, so `precedent:commit-identity` is in
+    tools/commit-identity.sh and in no hook file. find_identity_script()
+    looked for it only in the hook files, found nothing in BestPractice or
+    any consumer, and the half that RUNS the identity hook and tries the
+    wrong-author commit returned no findings -- a pass -- without running.
+    Found by the very deep check (pass 2, question 15).
+
+    THE PLANT: a consumer whose stubbed hook delegates to a
+    tools/commit-identity.sh that carries the marker and sets no identity --
+    the check must report the identity it failed to set. THE CONTROLS: the
+    real engine script beside the same stub passes with no findings, and a
+    stub whose tools/ script lacks the marker is not taken for the identity
+    hook (practice: control-asserts-which-failure)."""
+    import tempfile, shutil as _shutil
+    name = 'The identity mechanism check reaches a stubbed hook'
+    stub = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    real = ROOT / 'tools' / 'commit-identity.sh'
+    if not stub.is_file() or not real.is_file():
+        not_applicable(name, '.claude/hooks/commit-identity.sh or '
+                             'tools/commit-identity.sh is absent here')
+        return
+    probe = ('import json, sys; sys.path.insert(0, "tools"); '
+             'import check_commit_author as c; s = c.find_identity_script(); '
+             'print(json.dumps([s.name if s else None, '
+             'c.mechanism_findings() if s else []]))')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        def fixture(label, script_text):
+            repo = pathlib.Path(td) / label
+            (repo / '.claude' / 'hooks').mkdir(parents=True)
+            _shutil.copytree(ROOT / 'tools', repo / 'tools',
+                             ignore=_shutil.ignore_patterns('__pycache__'))
+            _shutil.copy2(stub, repo / '.claude' / 'hooks' / stub.name)
+            _shutil.copy2(ROOT / '.claude' / 'settings.json',
+                          repo / '.claude' / 'settings.json')
+            if script_text is not None:
+                (repo / 'tools' / 'commit-identity.sh').write_text(
+                    script_text, encoding='utf-8')
+            subprocess.run(['git', 'init', '-q', str(repo)],
+                           capture_output=True)
+            subprocess.run(['git', '-C', str(repo), 'add', '-A'],
+                           capture_output=True)
+            env = dict(os.environ, PRECEDENT_COMMIT_NAME='Fixture Person',
+                       PRECEDENT_COMMIT_EMAIL='fixture@example.com',
+                       PRECEDENT_COMMIT_TZ='UTC')
+            p = subprocess.run([sys.executable, '-c', probe], cwd=str(repo),
+                               capture_output=True, text=True, env=env,
+                               timeout=120)
+            try:
+                return json.loads(p.stdout.strip().splitlines()[-1])
+            except (ValueError, IndexError):
+                return [None, ['probe failed: ' + (p.stderr or p.stdout)[-300:]]]
+
+        broken = fixture('broken', '#!/bin/bash\n# precedent:commit-identity\n'
+                                   'exit 0\n')
+        cases.append(('a stub whose engine script sets no identity is found '
+                      'and reported', broken[0] == 'commit-identity.sh'
+                      and any('user.name' in f for f in broken[1]),
+                      repr(broken)[:400]))
+        good = fixture('good', None)
+        cases.append(('the real engine script behind the same stub passes',
+                      good == ['commit-identity.sh', []], repr(good)[:400]))
+        unmarked = fixture('unmarked', '#!/bin/bash\nexit 0\n')
+        cases.append(('a stub whose tools/ script lacks the marker is not '
+                      'taken for the identity hook', unmarked[0] is None,
+                      repr(unmarked)[:400]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_promote_picks_its_step():
     """Promote picks pre-staging -> staging or staging -> main, and says
     which before anything else (Morgan, 2026-09-26, strength: decided: it
@@ -42737,6 +42901,55 @@ def check_github_ci_setting_names():
                                 'github_ci_workflows': 'disabled'})))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_source_pin_counts_an_uncommitted_new_practice():
+    """A set with a new practice file nobody committed is dirty to a sync.
+
+    2026-10-17, very deep check (the practice-move rehearsal): after
+    `precedent_move.py` put a practice into a shared set and before anyone
+    committed it there, a consumer's sync materialized the new file,
+    pinned the set at a commit that does not contain it, and its own
+    `--check` printed OK -- is_dirty asked git with --untracked-files=no.
+    The control halves matter as much: an untracked file outside what a
+    sync reads, an ignored one, and an engine file refreshed in place must
+    all still read clean, or no set clone in a session is ever pinned."""
+    import tempfile
+    import precedent_source_pins as psp
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env)
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        s = pathlib.Path(td) / 'set'
+        (s / 'practices').mkdir(parents=True)
+        (s / 'tools').mkdir()
+        (s / 'practices' / 'old.md').write_text('old\n', encoding='utf-8')
+        (s / 'tools' / 'engine.py').write_text('x = 1\n', encoding='utf-8')
+        (s / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            '{"files": ["engine.py"]}\n', encoding='utf-8')
+        (s / '.gitignore').write_text('scratch/\n', encoding='utf-8')
+        git(s, 'init', '-q', '-b', 'main')
+        git(s, 'add', '-A')
+        git(s, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', 'a')
+        cases.append(('a clean set reads clean', not psp.is_dirty(s)))
+        (s / 'notes.txt').write_text('mine\n', encoding='utf-8')
+        (s / 'scratch').mkdir()
+        (s / 'scratch' / 'practices.md').write_text('x\n', encoding='utf-8')
+        cases.append(('an untracked file a sync never reads, and an ignored '
+                      'one, leave it clean', not psp.is_dirty(s)))
+        (s / 'tools' / 'engine.py').write_text('x = 2\n', encoding='utf-8')
+        cases.append(('an engine file refreshed in place leaves it clean',
+                      not psp.is_dirty(s)))
+        (s / 'practices' / 'moved-in.md').write_text('new\n', encoding='utf-8')
+        cases.append(('an uncommitted NEW practice file makes it dirty',
+                      psp.is_dirty(s)))
+    failed = [n for n, ok in cases if not ok]
+    check(f'source pin counts an uncommitted new practice ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
 
 
 def check_source_clone_is_pinned_to_a_branch():
@@ -75977,6 +76190,96 @@ def check_pretooluse_hook_fires():
           not bad, '; '.join(n for n, _ in bad))
 
 
+def check_very_deep_check_reads_a_worktree_and_runs_the_suite_last():
+    """Two faults the 2026-10-17 very deep check paid for in its own run.
+
+    A linked worktree is its own checkout: the branch scan and the
+    live-session sweep asked whether `.git` is a directory, which in a
+    worktree it is not, and skipped both for every helper working in one.
+    A subdirectory of a checkout (a repo-local source) and a plain folder
+    must still read as not their own.
+
+    And --with-harness runs after the declared sources' freshness gate, not
+    before it: a run spent 27 minutes on the suite and was then refused in
+    seconds for a stale source (practice: gates-fail-fast). That half reads
+    main()'s own order, since running the tool end to end here would cost
+    the suite it is about."""
+    import tempfile
+    import very_deep_check as vdc
+
+    _git = fixture_git
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        W = pathlib.Path(td)
+        repo = W / 'repo'
+        repo.mkdir()
+        _git(repo, 'init', '-q', '-b', 'main')
+        _git(repo, 'config', 'user.email', 'harness@example.com')
+        _git(repo, 'config', 'user.name', 'Harness')
+        (repo / 'local').mkdir()
+        (repo / 'local' / 'f.txt').write_text('x\n')
+        _git(repo, 'add', '-A'); _git(repo, 'commit', '-qm', 'one')
+        _git(repo, 'worktree', 'add', '-q', str(W / 'wt'), '-b', 'side')
+        plain = W / 'plain'
+        plain.mkdir()
+        cases.append(('a clone is its own checkout', vdc._own_checkout(repo)))
+        cases.append(('a linked worktree is its own checkout',
+                      vdc._own_checkout(W / 'wt')))
+        cases.append(('a folder inside a checkout is not',
+                      not vdc._own_checkout(repo / 'local')))
+        cases.append(('a plain folder is not', not vdc._own_checkout(plain)))
+        cases.append(('the live-session sweep reads a worktree',
+                      vdc.recent_activity(W / 'wt', 14) is not None))
+    src = (ROOT / 'tools' / 'very_deep_check.py').read_text(encoding='utf-8')
+    body = src[src.index('def main():'):]
+    gate = body.find('not provably current')
+    late = body.find('if with_harness:\n        _planted_section()')
+    cases.append(('--with-harness runs after the source freshness gate',
+                  0 <= gate < late))
+    failed = [n for n, ok in cases if not ok]
+    check(f'very deep check reads a worktree and runs the suite last '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_very_deep_check_registers_its_own_records():
+    """The very deep check lists the record files it writes in the checked
+    repo's generated-files registry, once each, and only when they exist.
+
+    2026-10-17: in all three practice sets, committing the run record the
+    tool asks for failed generated-files-registered, because a set's
+    registry lists only its views and cannot list a file that does not
+    exist yet."""
+    import tempfile
+    import very_deep_check as vdc
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'tools').mkdir()
+        reg = repo / 'tools' / 'generated_files.json'
+        reg.write_text('{"files": [{"path": "MAP.md"}]}\n', encoding='utf-8')
+        cases.append(('nothing is listed before the files exist',
+                      vdc.register_run_outputs(repo) == []))
+        (repo / 'record').mkdir()
+        for e in vdc.RUN_OUTPUT_ENTRIES:
+            (repo / e['path']).write_text('x\n', encoding='utf-8')
+        added = vdc.register_run_outputs(repo)
+        paths = [e.get('path') for e in json.loads(reg.read_text())['files']]
+        cases.append(('both record files are listed once they exist, and the '
+                      'set\'s own entry is kept',
+                      sorted(added) == sorted(e['path'] for e in vdc.RUN_OUTPUT_ENTRIES)
+                      and paths[0] == 'MAP.md' and len(paths) == 3))
+        cases.append(('a second run adds nothing',
+                      vdc.register_run_outputs(repo) == []))
+        bare = repo / 'bare'
+        (bare / 'record').mkdir(parents=True)
+        cases.append(('a repo with no registry is left alone',
+                      vdc.register_run_outputs(bare) == []
+                      and not (bare / 'tools').exists()))
+    failed = [n for n, ok in cases if not ok]
+    check(f'very deep check registers its own record files ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
 def check_freshness_gate_fires():
     """The very deep check's freshness gate, as stated cases against
     throwaway repos (practice: very-deep-check).
@@ -76074,6 +76377,27 @@ def check_freshness_gate_fires():
         results.append(('a local-only branch reports branch-not-on-origin, '
                         'not a fetch failure',
                         v['status'] == 'branch-not-on-origin'))
+        # ...and its remedy is to bring the base in, not to push: the
+        # branch is behind origin/main here, and pushing it would only buy
+        # a second refusal (2026-10-17).
+        results.append(('a local-only branch behind the base is told to '
+                        'bring the base in, never to push',
+                        'merge origin/main' in (v['remedy'] or '')
+                        and 'push -u' not in (v['remedy'] or '')))
+
+        # Detached, as a cloud session hands an attached repo over: at
+        # origin's base it is current, with nothing unpushed; behind it, it
+        # is refused (2026-10-17).
+        _git(work, 'fetch', '-q', 'origin')
+        _git(work, 'checkout', '-q', '--detach', 'origin/main')
+        v = vdc.freshness(work)
+        results.append(('a detached HEAD at origin/main reads clean, with '
+                        'nothing unpushed',
+                        v['status'] in vdc.FRESHNESS_CLEAN and v['ahead'] == 0))
+        _git(work, 'checkout', '-q', '--detach', 'origin/main~1')
+        v = vdc.freshness(work)
+        results.append(('a detached HEAD behind origin/main is refused',
+                        v['status'] == 'detached'))
 
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check refuses a stale repo ({len(results)} stated '
@@ -76935,6 +77259,68 @@ def check_branch_scan_sees_every_branch():
               f'cases, the single-branch clone being the controlling case and '
               f'an unreachable origin the negative control)',
               not failed, '; '.join(failed) if failed else '')
+
+
+def check_freshness_guard_writes_no_origin_into_a_repo_without_one():
+    """The freshness guard widens a single-branch clone's refspec, and must
+    leave a repository with NO origin exactly as it found it.
+
+    THE INCIDENT (very deep check, 2026-10-17, pass 1). A fresh install has
+    no origin until its first push, and INSTALL.md section 0 step 8 tells the
+    person to give it one. The guard's `_widen_refspec` ran `git config --add
+    remote.origin.fetch ...` unconditionally, which on such a repository
+    creates a [remote "origin"] section with no URL -- after which the
+    ordinary `git remote add origin URL` fails with "remote origin already
+    exists". tools/bootstrap.sh had carried the same guard since 2026-09-14;
+    the freshness guard did not. The positive control keeps the widening
+    itself: a single-branch clone must still be widened."""
+    import tempfile
+    guard = ROOT / 'tools' / 'freshness-guard.sh'
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        env = {k: v for k, v in os.environ.items()
+               if not k.startswith('PRECEDENT_')}
+
+        def run_guard(repo):
+            subprocess.run(['bash', str(guard), 'session-start', 'main'],
+                           cwd=repo, input='', capture_output=True, text=True,
+                           env={**env, 'CLAUDE_PROJECT_DIR': str(repo)},
+                           timeout=120)
+
+        bare_repo = tmp / 'no-origin'
+        fixture_git(tmp, 'init', '-q', '-b', 'main', str(bare_repo))
+        run_guard(bare_repo)
+        remotes = fixture_git(bare_repo, 'config', '--get-regexp',
+                              r'^remote\.', allow_failure=True).stdout.strip()
+        cases.append((f'a repository with no origin gets no remote section '
+                      f'(got {remotes!r})', not remotes))
+        added = fixture_git(bare_repo, 'remote', 'add', 'origin',
+                            str(tmp / 'somewhere.git'), allow_failure=True)
+        cases.append(('`git remote add origin` still works afterwards',
+                      added.returncode == 0))
+
+        up = tmp / 'up'
+        fixture_git(tmp, 'init', '-q', '-b', 'main', str(up))
+        fixture_git(up, 'config', 'user.email', 'harness@example.com')
+        fixture_git(up, 'config', 'user.name', 'Harness')
+        (up / 'f.txt').write_text('x\n')
+        fixture_git(up, 'add', '-A')
+        fixture_git(up, 'commit', '-qm', 'base')
+        narrow = tmp / 'narrow'
+        subprocess.run(['git', 'clone', '-q', '--single-branch', '--branch',
+                        'main', f'file://{up}', str(narrow)],
+                       capture_output=True, text=True)
+        run_guard(narrow)
+        spec = fixture_git(narrow, 'config', '--get-all',
+                           'remote.origin.fetch').stdout
+        cases.append(('a single-branch clone is still widened',
+                      'refs/heads/*' in spec))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the freshness guard writes no origin into a repository without '
+          f'one, and still widens a single-branch clone ({len(cases)} cases)',
+          not failed, '; '.join(failed) if failed else '')
 
 
 def check_public_tree_bakes_in_no_owner_account():
@@ -81321,6 +81707,8 @@ def main():
     check_practice_audit_loader()
     check_practice_audit_declined()
     check_freshness_gate_fires()
+    check_very_deep_check_registers_its_own_records()
+    check_very_deep_check_reads_a_worktree_and_runs_the_suite_last()
     check_doc_lint_exempts_links_in_a_mirrored_tree()
     check_local_engine_edit_saves_a_prompt_please()
     check_repo_may_declare_its_own_fallback_zone()
@@ -81339,6 +81727,7 @@ def main():
     check_gemini_settings_template_keeps_stdout_clean()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
+    check_freshness_guard_writes_no_origin_into_a_repo_without_one()
     check_branch_name_follows_the_convention()
     check_base_branch_drift_ignores_carried_work()
     check_very_deep_check_never_offers_a_tier_branch_for_deletion()
@@ -81723,6 +82112,7 @@ def main():
     check_sync_keeps_a_hook_whose_stub_has_no_script()
     check_practice_ships_its_files()
     check_brought_set_ships_reach_the_session_untracked()
+    check_session_ships_exclude_survives_another_worktree()
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
     check_sync_refuses_to_lose_a_recorded_practice()
@@ -81759,6 +82149,7 @@ def main():
     check_promote_pre_staging()
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()
+    check_identity_mechanism_check_reaches_a_stubbed_hook()
     check_promote_picks_its_step()
     check_shipped_copy_has_no_broken_links()
     check_empty_commits_are_never_counted()
@@ -81773,6 +82164,7 @@ def main():
     check_main_test_without_individual_source()
     check_private_repo_skipped_gate_is_not_main_test()
     check_source_clone_is_pinned_to_a_branch()
+    check_source_pin_counts_an_uncommitted_new_practice()
     check_consumer_bootstrap_clones_declared_sources()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()

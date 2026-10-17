@@ -68,3 +68,7 @@ pages linking the root TODO.md stub, and README's "vendor in".
 
 The decision is made and recorded, and each set item is fixed in its set
 or recorded here as declined.
+
+## Notes
+
+2026-10-17, very deep check pass 4 (still live, narrowed): the decision and the engine halves are fixed and the writing set's curly-quotes no longer cites fix-typos-keep-ambiguity; left: three set stubs still say "in force there" (individual name-the-branch.md and practice-links-travel.md, writing resolved-issue-note-updates.md).

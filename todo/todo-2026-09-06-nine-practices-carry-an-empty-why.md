@@ -3,7 +3,7 @@ slug:              todo-2026-09-06-nine-practices-carry-an-empty-why
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "nothing but the work."
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-06
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -40,3 +40,7 @@ Not open until: nothing but the work.
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. All nine have a non-empty ## Why; filled by 1b9b581e (2026-09-06, "Fill the nine empty Why sections").

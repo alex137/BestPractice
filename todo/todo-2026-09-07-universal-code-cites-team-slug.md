@@ -3,7 +3,7 @@ slug:              todo-2026-09-07-universal-code-cites-team-slug
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        "Morgan"
 noted:             2026-09-07
-closed:            null
+closed:            2026-10-17
 ---
 ## What
 
@@ -85,3 +85,7 @@ closed:            null
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
 
 2026-10-06: re-triaged; no longer blocked. The call was made: `fail-gracefully` moved into universal with the repository-maintenance set on 2026-10-05 ([practices/fail-gracefully.md](../practices/fail-gracefully.md)), so `precedent_show.py fail-gracefully` resolves here. What is left is the anchoring: [tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py), [tools/precedent_show.py](../tools/precedent_show.py) and [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py) already carry `practice: fail-gracefully`; [tools/routing_audit.py](../tools/routing_audit.py) does not yet. The "lives in" sentence above, and the set it names, are as filed on 2026-09-07.
+
+## Closed
+
+Closed 2026-10-17 by the very deep check, pass 4, on its own condition. Fail-gracefully resolves from universal since the 2026-10-05 fold, and the last unanchored citations (the shared base-branch docstring in routing_audit.py, doc_html.py, parse_check.py, checkin.py, doc_lint.py, very_deep_check.py and precedent_check.py) were anchored as `practice: fail-gracefully` in 34a2ad27 on branch 2026-10-17-themorgan-vdc-p4-backlog. The hook scripts were already anchored across a line break.
