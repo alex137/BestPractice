@@ -221,7 +221,7 @@ Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared shared/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
-import collections, datetime, io, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.parse
+import collections, datetime, fnmatch, io, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -8322,8 +8322,15 @@ def _warnings_doc_path(repo_root):
 
 
 def _write_warnings_block(repo_root, markdown):
-    """Rewrite the warnings block in the run's write-up, appending a
-    `## Warnings` section that carries it when the write-up has none: the
+    """Rewrite the warnings block in the run's write-up (_write_run_block).
+    -> the path written, or None."""
+    return _write_run_block(repo_root, WARNINGS_EMBED, 'Warnings', 'WARNINGS',
+                            markdown, 'refresh with --refresh-warnings')
+
+
+def _write_run_block(repo_root, embed, heading, section, markdown, how=''):
+    """Rewrite the `embed` block in the run's write-up, appending a
+    `## <heading>` section that carries it when the write-up has none: the
     session rewrites that file every run, and a block it dropped must come
     back rather than silently stop being written. -> the path written, or
     None."""
@@ -8331,19 +8338,398 @@ def _write_warnings_block(repo_root, markdown):
     if path is None:
         return None
     text = path.read_text(encoding='utf-8')
-    pattern = _vdc_embed_re(WARNINGS_EMBED)
+    pattern = _vdc_embed_re(embed)
     if pattern.search(text):
         new_text = pattern.sub(lambda m: m.group(1) + markdown + m.group(2),
                                text, count=1)
     else:
-        new_text = (text.rstrip('\n') + '\n\n## Warnings\n\n'
-                    + '<!--vdc-embed:' + WARNINGS_EMBED + ': never hand-edit '
-                    '-- written by tools/very_deep_check.py\'s WARNINGS section; '
-                    'refresh with --refresh-warnings -->\n' + markdown
-                    + '\n<!--/vdc-embed:' + WARNINGS_EMBED + '-->\n')
+        new_text = (text.rstrip('\n') + f'\n\n## {heading}\n\n'
+                    + '<!--vdc-embed:' + embed + ': never hand-edit '
+                    f'-- written by tools/very_deep_check.py\'s {section} section'
+                    + (f'; {how}' if how else '') + ' -->\n' + markdown
+                    + '\n<!--/vdc-embed:' + embed + '-->\n')
     if new_text != text:
         path.write_text(new_text, encoding='utf-8')
     return path
+
+
+# CHECKS BY STAGE (practice: very-deep-check, Pass 2's question 25; Morgan,
+# 2026-10-17, strength: decided). Before a push to staging or main only the
+# bare essentials and the leak gate run; every other check runs at the Debut
+# and after Produce (GitHub's test, or the full local suite on main where
+# that is not due). Checks crept the other way twice -- the quick check took
+# 218 s by 2026-10-16 (spec/TESTS_RUN_AT_THE_DEBUT_PLAN.md) -- so every run
+# lists what runs before and after each move, read from the code that runs
+# it, and flags anything before a push that the closed quick tier does not
+# name.
+STAGES_EMBED = 'checks-by-stage'
+# The function in precedent_branches.py that calls _check(), -> (the move,
+# when its check runs, where the move goes). 'before': the move runs it
+# before it pushes or merges, so only the quick tier may run there.
+# 'asked': a route taken only on the person's own words. 'after': a check of
+# work already on the branch. 'debut': the Debut, which moves nothing.
+STAGE_ROUTES = {
+    '_land_composed': ('Booked: the land onto staging', 'before', 'staging'),
+    '_promote_to_main_fast': ('Produce: the fast move into main (the default)',
+                              'before', 'main'),
+    '_promote_to_main': ('Produce: the --full route, on the person\'s own words',
+                         'asked', 'main'),
+    '_promote_unlocked': ('Promote from pre-staging into staging', 'before',
+                          'staging'),
+    'sync_pre_staging': ('Sync into pre-staging', 'before', 'pre-staging'),
+    '_check_tier': ('Drift sync: work that reached staging or main from '
+                    'above, checked before it is copied down', 'after',
+                    'pre-staging'),
+    '_run_tests': ('Debut', 'debut', None),
+}
+# What a check started from the per-file step must never be: a test, the
+# harness or the practice checks (verify_harness.check_quick_tier_is_closed
+# scans for the same; this is the copy a very deep check reads every run).
+_TEST_RUNNERS = ('verify_harness.py', 'precedent_check.py', 'run_all.sh')
+
+
+def _workflow_triggers(text):
+    """-> {event: [branch, ...] or None (every branch)} for the push and
+    pull_request events a workflow's `on:` names."""
+    out, event, inside, in_branches = {}, None, False, False
+    for line in text.splitlines():
+        body = line.split(' #', 1)[0].rstrip()
+        if not body.strip() or body.lstrip().startswith('#'):
+            continue
+        ind = len(body) - len(body.lstrip(' '))
+        if ind == 0:
+            m = re.match(r'["\']?on["\']?:\s*(.*)$', body)
+            inside = bool(m) and not m.group(1).strip()
+            if m and m.group(1).strip():
+                for ev in re.findall(r'[\w-]+', m.group(1)):
+                    if ev in ('push', 'pull_request'):
+                        out[ev] = None
+            continue
+        if not inside:
+            continue
+        if ind == 2:
+            m = re.match(r'\s*([\w-]+)\s*:', body)
+            event = m.group(1) if m and m.group(1) in ('push', 'pull_request') else None
+            if event:
+                out[event] = None
+            in_branches = False
+            continue
+        if event is None:
+            continue
+        m = re.match(r'\s*branches\s*:\s*(.*)$', body)
+        if m:
+            listed = re.findall(r'[\w./*-]+', m.group(1))
+            out[event] = listed or []
+            in_branches = not listed
+            continue
+        m = re.match(r'\s*-\s*["\']?([\w./*-]+)', body)
+        if in_branches and m:
+            out[event].append(m.group(1))
+        elif not m:
+            in_branches = False
+    return out
+
+
+def _gh_after(tree, branch):
+    """-> ['<workflow> (<event>)', ...]: the GitHub workflows in `tree` that
+    run after a push to `branch`, or on a pull request into it."""
+    found = []
+    for wf in sorted((pathlib.Path(tree) / '.github' / 'workflows').glob('*.y*ml')):
+        try:
+            trig = _workflow_triggers(wf.read_text(encoding='utf-8', errors='replace'))
+        except OSError:
+            continue
+        for ev, branches in sorted(trig.items()):
+            if branches is None or any(fnmatch.fnmatchcase(branch, b)
+                                       for b in branches):
+                found.append(f'{wf.name} ({"push" if ev == "push" else "pull request into it"})')
+    return found
+
+
+def stage_checks(tree):
+    """-> what runs before and after each move in the repository at `tree`,
+    read from that tree's own push check and branch tool: a dict, or one
+    with 'skip' saying why nothing could be read. Run in a process of its
+    own (--stage-checks-json), so a vendored copy is read, not this one."""
+    tree = pathlib.Path(tree).resolve()
+    tools = tree / 'tools'
+    if not (tools / 'precedent_push_check.py').is_file():
+        return {'skip': 'carries no tools/precedent_push_check.py, so no check '
+                        'runs before its pushes but its own hooks'}
+    import ast, inspect, textwrap
+    for name, mod in list(sys.modules.items()):
+        f = getattr(mod, '__file__', None) or ''
+        if f and pathlib.Path(f).resolve().parent == ROOT / 'tools' and name != '__main__':
+            del sys.modules[name]
+    sys.path.insert(0, str(tools))
+    import precedent_push_check as ppc
+    try:
+        import precedent_branches as pb
+    except ImportError:
+        pb = None
+    kind, full = ppc.plan(tree, engine=tools, tier=ppc.FULL)
+    _k, basic = ppc.plan(tree, engine=tools, tier=ppc.BASIC)
+    approved = getattr(ppc, 'BASIC_CHECKS_APPROVED', None) or {
+        n: (None, None) for n in getattr(ppc, 'BASIC_CHECKS', ())}
+    quick = []
+    for name, _argv, _r in basic:
+        words, secs = approved.get(name, (None, None))
+        quick.append({'name': name, 'words': words, 'secs': secs,
+                      'approved': name in approved})
+    basic_names = {n for n, _a, _r in basic}
+    full_only = [n for n, _a, _r in full if n not in basic_names]
+    findings = []
+    for q in quick:
+        if not q['approved']:
+            findings.append(('VIOLATION', f"{q['name']} runs before every push "
+                             f"and is not in BASIC_CHECKS_APPROVED -- move it to "
+                             f"the full tier (the Debut and after Produce); only "
+                             f"the person's own words, after being told its time "
+                             f"and urged to leave it to the Debut, let it in "
+                             f"(practice: quick-tier-is-closed)"))
+        elif not (q['words'] and re.search(r'\b20\d\d-\d\d-\d\d\b', q['words'])
+                  and '"' in q['words']):
+            findings.append(('VIOLATION', f"{q['name']}: its approval quotes no "
+                             f"one's words with a date"))
+    untimed = [q['name'] for q in quick if q['approved'] and q['secs'] is None]
+    # The per-file step a landing adds: it must start no test.
+    per_file = ''
+    for fn in ('changed_files_check', '_check_script_tests'):
+        if hasattr(ppc, fn):
+            per_file += textwrap.dedent(inspect.getsource(getattr(ppc, fn))) + '\n'
+    if per_file:
+        for node in ast.walk(ast.parse(per_file)):
+            if isinstance(node, ast.Call) and getattr(node.func, 'attr', '') in (
+                    'run', 'Popen', 'check_output', 'call'):
+                words = [n.value for n in ast.walk(node)
+                         if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+                if any(w.endswith(_TEST_RUNNERS) or w == '--changed-files-only'
+                       for w in words):
+                    findings.append(('VIOLATION', 'the per-file step a landing '
+                                     'adds starts a test or the practice checks: '
+                                     + (ast.get_source_segment(per_file, node) or
+                                        'a call')[:120]))
+    routes = []
+    pb_path = tools / 'precedent_branches.py'
+    if pb_path.is_file():
+        src = pb_path.read_text(encoding='utf-8')
+        for fn in ast.walk(ast.parse(src)):
+            if not isinstance(fn, ast.FunctionDef):
+                continue
+            for node in ast.walk(fn):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                        and node.func.id == '_check' and len(node.args) >= 3
+                        and isinstance(node.args[2], ast.Name)):
+                    tier = {'BASIC': 'basic', 'FULL': 'full'}.get(node.args[2].id,
+                                                                 node.args[2].id)
+                    move, when, dest = STAGE_ROUTES.get(
+                        fn.name, (None, None, None))
+                    routes.append({'fn': fn.name, 'line': node.lineno,
+                                   'tier': tier, 'move': move, 'when': when,
+                                   'dest': dest})
+                    if move is None:
+                        findings.append(('FINDING', f'precedent_branches.py:'
+                                         f'{node.lineno}: {fn.name} runs the '
+                                         f'{tier} check and no stage names it '
+                                         f'-- add it to STAGE_ROUTES in '
+                                         f'tools/very_deep_check.py, saying '
+                                         f'whether it runs before a push'))
+                    elif when == 'before' and tier != 'basic' and dest in (
+                            'staging', 'main'):
+                        findings.append(('VIOLATION', f'{move} runs the {tier} '
+                                         f'check before it pushes '
+                                         f'(precedent_branches.py:{node.lineno},'
+                                         f' {fn.name}) -- only the quick tier '
+                                         f'may run before a push to {dest}'))
+    gates = {}
+    if pb is not None and hasattr(pb, 'tier_for_branch'):
+        staging = pb.staging_branch(tree) if hasattr(pb, 'staging_branch') else 'staging'
+        for branch in dict.fromkeys((staging, pb.MAIN)):
+            try:
+                tier, why = pb.tier_for_branch(tree, branch)
+            except Exception as exc:                             # noqa: BLE001
+                tier, why = None, f'could not be read: {type(exc).__name__}'
+            gates[branch] = {'tier': tier, 'why': why}
+            if tier == 'full':
+                findings.append(('VIOLATION', f'a push to {branch} runs the full '
+                                 f'tier before it goes ({why}; the pre-push gate, '
+                                 f'and the merge gate for any pull request but a '
+                                 f'fast move\'s copy, read tier_for_branch) '
+                                 f'-- only the quick tier may run before a push '
+                                 f'to {branch}'))
+        if staging != pb.MAIN and gates.get(staging, {}).get('tier') == 'basic' \
+                and hasattr(pb, 'lands_on_staging'):
+            real = pb.lands_on_staging
+            pb.lands_on_staging = lambda *a, **k: (False, None)
+            try:
+                tier, why = pb.tier_for_branch(tree, staging)
+            finally:
+                pb.lands_on_staging = real
+            gates['for a person who promotes from pre-staging'] = {
+                'tier': tier, 'why': why, 'branch': staging}
+            if tier == 'full':
+                findings.append(('VIOLATION', f'for a person who promotes from '
+                                 f'pre-staging, a push to {staging} runs the full '
+                                 f'tier before it goes ({why})'))
+    staging = pb.staging_branch(tree) if pb is not None and hasattr(
+        pb, 'staging_branch') else 'staging'
+    return {'kind': kind, 'quick': quick, 'untimed': untimed,
+            'full_only': full_only, 'routes': routes, 'gates': gates,
+            'staging': staging,
+            'gh_after': {'staging': _gh_after(tree, staging),
+                         'main': _gh_after(tree, 'main')},
+            'full_after': bool(pb is not None and hasattr(pb, 'full_check_after')),
+            'findings': findings}
+
+
+def _stage_lines(name, r):
+    """-> the CHECKS BY STAGE lines for one repository's stage_checks()."""
+    if r.get('skip'):
+        return [f'  {name}: {r["skip"]}.']
+    q = r['quick']
+    secs = sum(x['secs'] or 0 for x in q)
+    out = [f'  {name} ({r["kind"]}):',
+           f'    THE QUICK TIER -- all that may run before a push to '
+           f'{r["staging"]} or main: {len(q)} check(s), {secs} s measured'
+           + (f', {len(r["untimed"])} never timed' if r['untimed'] else '')]
+    for x in q:
+        t = f'{x["secs"]} s' if x['secs'] is not None else 'untimed'
+        why = x['words'] if x['approved'] else 'NOT APPROVED'
+        out.append(f'      {x["name"]:<22} {t:>8}  {why}')
+    out.append(f'    THE FULL TIER ADDS (the Debut, and after Produce): '
+               + (', '.join(r['full_only']) or 'nothing'))
+
+    def by(fn):
+        return [x for x in r['routes'] if x['fn'] == fn]
+
+    def tiers(fn):
+        return ', '.join(f'{x["tier"]} tier (precedent_branches.py:{x["line"]})'
+                         for x in by(fn)) or 'no check found'
+    st, gates = r['staging'], r['gates']
+
+    def gate(b):
+        g = gates.get(b)
+        return f'{g["tier"]} tier -- {g["why"]}' if g else 'not read'
+    gh_s = ', '.join(r['gh_after']['staging']) or 'none'
+    gh_m = ', '.join(r['gh_after']['main']) or 'none'
+    out += [f'    BOOKED (step 3 of 5), onto {st}:',
+            f'      before: {tiers("_land_composed")}; a plain push to {st}: '
+            f'{gate(st)}',
+            f'      after:  nothing automatic; GitHub: {gh_s}. The full tier '
+            f'runs at the Debut, when asked.',
+            f'    PRODUCE (step 5 of 5), {st} into main:',
+            f'      before: {tiers("_promote_to_main_fast")}; the --full route, '
+            f'only on the person\'s own words: {tiers("_promote_to_main")}; a '
+            f'plain push to main, or a pull request into it that is not a '
+            f'fast move\'s copy: {gate("main")}',
+            f'      after:  GitHub: {gh_m}, when due'
+            + ('; where it is not due or none is installed, the full local '
+               'suite on main (--run-tests main), unless only prose changed, '
+               'a Debut passed on the same pair, or the person asked for none'
+               if r['full_after'] else '') + '.',
+            f'    DEBUT (step 4 of 5), on {st}:',
+            f'      before: nothing. It IS the full tier: {tiers("_run_tests")}.',
+            f'      after:  nothing -- it moves nothing.']
+    other = [x for x in r['routes'] if x['fn'] not in (
+        '_land_composed', '_promote_to_main_fast', '_promote_to_main', '_run_tests')]
+    if other or any(k.startswith('for a person') for k in gates):
+        out.append('    OTHER MOVES:')
+        for x in other:
+            out.append(f'      {x["move"] or x["fn"]}: {x["tier"]} tier, '
+                       f'{x["when"] or "unclassified"} '
+                       f'(precedent_branches.py:{x["line"]})')
+        for k, g in gates.items():
+            if k.startswith('for a person'):
+                out.append(f'      a push to {g["branch"]}, {k}: {g["tier"]} tier')
+    for level, text in r['findings']:
+        out.append(f'    {level}: {text}')
+    if not r['findings']:
+        out.append('    clean -- nothing but the quick tier runs before a push.')
+    return out
+
+
+def _stage_markdown(results):
+    """-> the `## Checks by stage` block for the run's write-up."""
+    md = ['Read from each repository\'s own push check and branch tool by '
+          'this run (`tools/very_deep_check.py`, CHECKS BY STAGE). Before a '
+          'push to staging or main only the quick tier may run: the bare '
+          'essentials and the leak gate (Morgan, 2026-10-16 and 2026-10-17).',
+          '']
+    for name, r in results:
+        md.append(f'### {name}')
+        md.append('')
+        if r.get('skip'):
+            md += [f'{r["skip"][0].upper()}{r["skip"][1:]}.', '']
+            continue
+        st = r['staging']
+        q = r['quick']
+
+        def tier(fn):
+            return ', '.join(sorted({x['tier'] for x in r['routes']
+                                     if x['fn'] == fn})) or 'none'
+        g = {b: (v['tier'] or 'unread') for b, v in r['gates'].items()}
+        gh_s = ', '.join(r['gh_after']['staging']) or 'none'
+        gh_m = ', '.join(r['gh_after']['main']) or 'none'
+        md += ['| Stage | Before | After |', '|---|---|---|',
+               f'| Booked, onto {st} | {tier("_land_composed")} tier '
+               f'(a plain push: {g.get(st, "unread")}) | nothing automatic; '
+               f'GitHub: {gh_s} |',
+               f'| Produce, into main | {tier("_promote_to_main_fast")} tier '
+               f'(`--full` on request: {tier("_promote_to_main")}; a plain '
+               f'push, or a pull request that is not a fast move\'s copy: '
+               f'{g.get("main", "unread")}) | '
+               f'GitHub: {gh_m}'
+               + ('; else the full local suite on main' if r['full_after'] else '')
+               + ' |',
+               f'| Debut, on {st} | nothing | nothing (it is the '
+               f'{tier("_run_tests")} tier and moves nothing) |', '',
+               f'The quick tier ({len(q)}): '
+               + ', '.join(f'`{x["name"]}`' + (f' {x["secs"]} s' if x['secs']
+                                                is not None else ' untimed')
+                           for x in q) + '.', '',
+               'The full tier adds: '
+               + (', '.join(f'`{n}`' for n in r['full_only']) or 'nothing')
+               + '.', '']
+        if r['findings']:
+            md += [f'- **{lvl}**: {t}' for lvl, t in r['findings']] + ['']
+        else:
+            md += ['Clean: nothing but the quick tier runs before a push.', '']
+    return '\n'.join(md).rstrip('\n')
+
+
+def checks_by_stage_section(targets, repo_root):
+    """Print CHECKS BY STAGE for every repository in `targets` [(name,
+    path)], write its block into the run's write-up, and -> the number of
+    findings."""
+    results = []
+    for name, path in targets:
+        if not pathlib.Path(path).is_dir():
+            continue
+        p = subprocess.run([sys.executable, str(pathlib.Path(__file__).resolve()),
+                            '--stage-checks-json', str(path)],
+                           capture_output=True, text=True, timeout=120)
+        try:
+            r = json.loads(p.stdout)
+        except ValueError:
+            r = {'skip': 'could not be read: ' + ((p.stderr or p.stdout).strip()
+                                                  .splitlines() or ['no output'])[-1]}
+        results.append((name, r))
+    for name, r in results:
+        for line in _stage_lines(name, r):
+            print(line)
+        print()
+    n = sum(len(r.get('findings') or []) for _n, r in results)
+    if n:
+        print(f'  {n} finding(s). Fix each in this pass: move the check to the '
+              f'full tier, or change the move so it runs the quick tier '
+              f'before it pushes. Only the person\'s own words keep a check '
+              f'before a push (practice: quick-tier-is-closed).')
+    written = _write_run_block(repo_root, STAGES_EMBED, 'Checks by stage',
+                               'CHECKS BY STAGE', _stage_markdown(results))
+    if written:
+        print(f'  written into {pathlib.Path(written).relative_to(repo_root)}, '
+              f'its `## Checks by stage` block.')
+    return n
 
 
 def _warnings_open_history(repo_root):
@@ -8615,7 +9001,7 @@ def main():
 # recorded.
 VALUED_FLAGS = ('--repo', '--user-config', '--target', '--stale-days',
                 '--session-days', '--record-pass', '--record-read',
-                '--ledger', '--branch-report', '--emit')
+                '--ledger', '--branch-report', '--emit', '--stage-checks-json')
 BOOLEAN_FLAGS = ('--json', '--allow-missing-sources', '--skip-branch-scan',
                  '--skip-practice-catalogue', '--catalogue-include-private',
                  '--checklist', '--with-harness', '--skip-visibility',
@@ -8648,6 +9034,15 @@ def _main(box):
               f"anything ran, so the ledger is untouched.\n\n"
               f"{(__doc__ or '').strip()}", file=sys.stderr)
         return 2
+    if '--stage-checks-json' in args:
+        # One repository's CHECKS BY STAGE, in a process of its own so that
+        # repository's vendored tools are the ones imported: no ledger, no
+        # freshness gate, no other section.
+        i = args.index('--stage-checks-json')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --stage-checks-json needs a value.")
+        print(json.dumps(stage_checks(args[i + 1])))
+        return 0
     repo, user_config, checkout_target, stale_days = None, None, None, None
     session_days = None
     for flag, dest in (('--repo', 'repo'), ('--user-config', 'user_config'),
@@ -10293,6 +10688,14 @@ def _main(box):
     print()
     if led:
         led.end(items=_w_groups, findings=_w_open)
+        led.start('CHECKS BY STAGE')
+
+    print("CHECKS BY STAGE -- what runs before and after Booked, Produce and "
+          "the Debut; before a push, only the quick tier\n")
+    _cbs_findings = checks_by_stage_section(_orph_targets, repo_root)
+    print()
+    if led:
+        led.end(findings=_cbs_findings)
         led.start('CROSS-REPO LINKS')
 
     print("CROSS-REPO LINKS -- do absolute github.com links into a repo "
