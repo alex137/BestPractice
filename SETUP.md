@@ -70,7 +70,9 @@ nothing to choose here — this page installs §0, always.
      does not. If it is Claude Code, ask in the same breath for the
      go-ahead to commit its hooks and settings (`.claude/`): its auto mode
      holds that commit until they say yes, so ask now rather than stall at
-     the end.
+     the end. Ask for it as a sentence they say, such as "Commit the
+     `.claude/` hooks and settings", never a bare yes: auto mode clears an
+     action only on words that name it.
    - *Should the vendored GitHub Actions workflows be on or off?* **Default
      on, since 2026-09-25**: one light check that runs only on a pull
      request into `main` (about one billed minute per merge into `main`),

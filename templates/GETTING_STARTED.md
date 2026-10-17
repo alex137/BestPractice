@@ -282,18 +282,20 @@ Click-paths as of <install date>.
 
 - **This project's repository is private**, unless it is meant to be
   public.
-- **A developer key, stored in this project** — a personal access token
-  (GitHub's name for a key that stands in for a person) that can reach this
-  repository, saved under **Settings → Secrets and variables → Actions →
-  New repository secret**, named `PRECEDENT_REPO_TOKEN` unless something
-  here expects another name. Without it an AI Assistant can prepare
-  changes but not push them or open a proposal on the project's behalf.
+- **Only if you later add automation that opens proposals: a developer
+  key, stored in this project** — a personal access token (GitHub's name
+  for a key that stands in for a person) that can reach this repository,
+  saved under **Settings → Secrets and variables → Actions → New
+  repository secret**, named `PRECEDENT_REPO_TOKEN` unless something here
+  expects another name. It lets a GitHub workflow push a branch or open a
+  proposal on the project's behalf. None of the checks installed here
+  needs it, so it is not needed today.
 - **The main line of work is called `main`** — **Settings → General →
-  Default branch**. The Markdown check below watches a branch by that exact
+  Default branch**. The GitHub check below watches a branch by that exact
   name.
-- **Automation is allowed to open proposals** — **Settings → Actions →
-  General → Workflow permissions**, with *Allow GitHub Actions to create
-  and approve pull requests* ticked.
+- **Only with that automation: let it open proposals** — **Settings →
+  Actions → General → Workflow permissions**, with *Allow GitHub Actions to
+  create and approve pull requests* ticked.
 - **Optional: turn GitHub Actions off here, if this project needs no
   automatic checks on GitHub** — **Settings → Actions → General → Actions
   permissions → Disable actions**. GitHub Actions is the service that runs
