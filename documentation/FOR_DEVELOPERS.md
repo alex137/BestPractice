@@ -140,6 +140,15 @@ here rather than leaving to be discovered at the link.
   can resolve a zone, so the author-date check drops from enforced to
   guessed and wrong-offset commits reach the remote.
   [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
+- **On your own machine, the session-start hook changes this checkout's
+  git config, never your global one.**
+  [tools/commit-identity.sh](../tools/commit-identity.sh) sets
+  `user.name`, `user.email` and a `pre-commit` backstop in the checkout,
+  and says in one line what it left alone (your global identity, a global
+  `core.hooksPath`, the system clock). In a cloud container it sets those
+  globally too, on purpose; that difference is decided by
+  `CLAUDE_CODE_REMOTE`, or `PRECEDENT_LOCAL_SESSION=1` for another harness
+  ([INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)).
 - **The practices about running a repository are shown to its code owners
   only**, so the engine has to know who you are. It takes your GitHub
   username from `PRECEDENT_GITHUB_USER`, your individual set's

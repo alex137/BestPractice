@@ -236,6 +236,15 @@ FAILED = []
 # check_attached_sets_*, check_ladder_off_*).
 os.environ.setdefault('PRECEDENT_ASSUME_LADDER', '1')
 
+# THE HARNESS IS A CONTAINER, NOT A LAPTOP (2026-10-17). commit-identity.sh
+# leaves the global git identity, the global core.hooksPath and the system
+# clock alone in a local session -- CLAUDE_PROJECT_DIR set and
+# CLAUDE_CODE_REMOTE not "true", as a fixture running the hook looks on a
+# CI runner. The cases about those writes test the container; the one about
+# the laptop (check_commit_identity_leaves_a_laptops_global_config_alone)
+# says so itself.
+os.environ.setdefault('PRECEDENT_LOCAL_SESSION', '0')
+
 # THE HARNESS SEEDS FROM THE COMMIT UNDER TEST (2026-10-02), which main
 # does not contain on any working branch or pull request. seed() and the
 # bootstrap refuse that unless told it is on purpose (--off-main); every
@@ -38315,6 +38324,92 @@ def check_boildown_contradiction_spares_work_waiting_upstream():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
           '; '.join(failed) + ('' if not failed else f' -- {up.stderr[:300]}'))
+
+
+def check_commit_identity_leaves_a_laptops_global_config_alone():
+    """On a local session (Claude Code on a person's own machine), the
+    commit-identity hook sets the identity for this checkout only and leaves
+    the global git identity, the global core.hooksPath and the system clock
+    alone, saying so; in a cloud container it writes all three as before.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: the first
+    session on a local machine rewrote the developer's global identity and
+    set a global core.hooksPath, which silences every other repository's
+    .git/hooks, and no document said so. Decision chosen by the session
+    under Morgan's delegation of 2026-10-17 ("Fix the other issues you found
+    including the checks that never run. Tell me what you decide. I will be
+    offline so don't wait for me. Approved, act, and Booked."): repo-local
+    config only on a local session, cloud unchanged.
+
+    Hermetic: a scratch HOME and global config, a scratch clock file
+    (PRECEDENT_LOCALTIME), TZ pinned -- the machine's own clock and config
+    are never touched. Negative control, measured 2026-10-17: on the code
+    before the fix the local run wrote the global identity, core.hooksPath
+    and the clock file.
+    """
+    import tempfile
+    hook = ROOT / 'tools' / 'commit-identity.sh'
+    zone = 'Asia/Tokyo'
+    if not pathlib.Path('/usr/share/zoneinfo', zone).exists():
+        return True, f'not applicable: no zoneinfo for {zone}', ''
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        def run(name, **extra):
+            repo = tmp / name / 'repo'
+            home = tmp / name / 'home'
+            home.mkdir(parents=True)
+            subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+            gcfg = home / '.gitconfig'
+            gcfg.write_text('', encoding='utf-8')
+            e = {k: v for k, v in os.environ.items()
+                 if k not in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LOCAL_SESSION',
+                              'PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
+                              'PRECEDENT_COMMIT_TZ')}
+            e.update(HOME=str(home), GIT_CONFIG_GLOBAL=str(gcfg), TZ='UTC',
+                     CLAUDE_PROJECT_DIR=str(repo),
+                     PRECEDENT_LOCALTIME=str(tmp / name / 'localtime'),
+                     PRECEDENT_GLOBAL_HOOKS=str(home / 'git-hooks'),
+                     PRECEDENT_USER_CONFIG=str(home / 'no-config.json'),
+                     PRECEDENT_COMMIT_NAME='Dana Dev',
+                     PRECEDENT_COMMIT_EMAIL='dana@example.com',
+                     PRECEDENT_COMMIT_TZ=zone, **extra)
+            r = subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                               timeout=120, env=e)
+
+            def gget(key, where):
+                return subprocess.run(['git', 'config', '--file', str(where), '--get', key],
+                                      capture_output=True, text=True).stdout.strip()
+            return {'local_email': gget('user.email', repo / '.git' / 'config'),
+                    'global_email': gget('user.email', gcfg),
+                    'hooks_path': gget('core.hooksPath', gcfg),
+                    'clock': os.path.lexists(tmp / name / 'localtime'),
+                    'err': r.stderr}
+
+        lap = run('laptop')
+        cases.append(('a local session sets the identity for this checkout',
+                      lap['local_email'] == 'dana@example.com', str(lap)[:400]))
+        cases.append(('...and leaves the global identity, core.hooksPath and the clock alone',
+                      not lap['global_email'] and not lap['hooks_path'] and not lap['clock'],
+                      str(lap)[:600]))
+        cases.append(('...and says what it left alone',
+                      'local session -- the identity is set for this checkout only' in lap['err']
+                      and 'global git identity' in lap['err']
+                      and 'core.hooksPath' in lap['err'], lap['err'][-600:]))
+        cloud = run('cloud', CLAUDE_CODE_REMOTE='true')
+        cases.append(('CONTROL: a cloud container still writes the global identity, '
+                      'core.hooksPath and the clock',
+                      cloud['global_email'] == 'dana@example.com' and bool(cloud['hooks_path'])
+                      and cloud['clock'] and 'local session' not in cloud['err'],
+                      str(cloud)[:600]))
+        marked = run('marked', CLAUDE_CODE_REMOTE='true', PRECEDENT_LOCAL_SESSION='1')
+        cases.append(('PRECEDENT_LOCAL_SESSION=1 marks a local session for any harness',
+                      not marked['global_email'] and not marked['hooks_path'],
+                      str(marked)[:400]))
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
 def check_commit_identity_prevents_the_wrong_offset():
@@ -82247,6 +82342,8 @@ def main():
           *check_a_person_with_no_individual_set_can_be_a_code_owner())
     check("the universal catalogue's close_detect.json travels with it on install and update",
           *check_installer_vendors_the_catalogue_companions())
+    check("a local session's commit identity leaves the laptop's global git config alone",
+          *check_commit_identity_leaves_a_laptops_global_config_alone())
     check_endgame_merge_finds_the_silent_drop()
     check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
           *check_moved_claims_says_when_it_could_not_read_the_tree())

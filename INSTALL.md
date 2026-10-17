@@ -146,14 +146,26 @@ not this section.
   `precedent.githubLogin`), else the GitHub account your token belongs to.
   With none of them those practices stay hidden; set
   `PRECEDENT_GITHUB_USER` ([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)).
+- **Your git configuration.** Every session start runs the
+  [tools/commit-identity.sh](tools/commit-identity.sh) hook, which makes commits carry the person's name,
+  email and time zone. On your own machine (a local Claude Code session,
+  or any harness that sets `PRECEDENT_LOCAL_SESSION=1`) it writes **this
+  checkout's** git config and `.git/hooks/pre-commit` only, and leaves your
+  global identity, your global `core.hooksPath` and the system clock alone,
+  saying so in one line when it held one back. In a cloud container it also
+  sets the global identity, a global `core.hooksPath` backstop under
+  `~/.config/precedent/git-hooks` and the system time zone, because a
+  container's defaults are its own bot account and UTC, and a session
+  rooted above several repositories depends on them.
 
 1. **Vendor the universal source.** Clone Precedent (on `main`, as
    above) and
    copy two things into this repo as ordinary tracked files: its
    `practices/` tree, into a tracked path of your choosing (recommended:
    `precedent/universal/practices/`), with the three source files that
-   travel beside it (`precedent-source.json`,
-   `record/WITHDRAWN_FROM_UNIVERSAL.md`, and `close_detect.json`, which is
+   travel beside it ([precedent-source.json](precedent-source.json),
+   [record/WITHDRAWN_FROM_UNIVERSAL.md](record/WITHDRAWN_FROM_UNIVERSAL.md),
+   and [close_detect.json](close_detect.json), which is
    what lets a closing session offer a rule it noticed), and the loader
    engine itself.
    **Don't hand-copy the engine files** — from the Precedent clone, run
