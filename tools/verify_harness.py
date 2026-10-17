@@ -39654,6 +39654,82 @@ def check_shipped_copy_has_no_broken_links():
           f'{len(broken)} broken: ' + '; '.join(broken[:8]))
 
 
+def check_identity_mechanism_check_reaches_a_stubbed_hook():
+    """check_commit_author's prevention half runs where the hook is a stub
+    (2026-10-17).
+
+    Since 2026-10-07 every hook in .claude/hooks/ is one stub that runs
+    tools/<its name>, so `precedent:commit-identity` is in
+    tools/commit-identity.sh and in no hook file. find_identity_script()
+    looked for it only in the hook files, found nothing in BestPractice or
+    any consumer, and the half that RUNS the identity hook and tries the
+    wrong-author commit returned no findings -- a pass -- without running.
+    Found by the very deep check (pass 2, question 15).
+
+    THE PLANT: a consumer whose stubbed hook delegates to a
+    tools/commit-identity.sh that carries the marker and sets no identity --
+    the check must report the identity it failed to set. THE CONTROLS: the
+    real engine script beside the same stub passes with no findings, and a
+    stub whose tools/ script lacks the marker is not taken for the identity
+    hook (practice: control-asserts-which-failure)."""
+    import tempfile, shutil as _shutil
+    name = 'The identity mechanism check reaches a stubbed hook'
+    stub = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    real = ROOT / 'tools' / 'commit-identity.sh'
+    if not stub.is_file() or not real.is_file():
+        not_applicable(name, '.claude/hooks/commit-identity.sh or '
+                             'tools/commit-identity.sh is absent here')
+        return
+    probe = ('import json, sys; sys.path.insert(0, "tools"); '
+             'import check_commit_author as c; s = c.find_identity_script(); '
+             'print(json.dumps([s.name if s else None, '
+             'c.mechanism_findings() if s else []]))')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        def fixture(label, script_text):
+            repo = pathlib.Path(td) / label
+            (repo / '.claude' / 'hooks').mkdir(parents=True)
+            _shutil.copytree(ROOT / 'tools', repo / 'tools',
+                             ignore=_shutil.ignore_patterns('__pycache__'))
+            _shutil.copy2(stub, repo / '.claude' / 'hooks' / stub.name)
+            _shutil.copy2(ROOT / '.claude' / 'settings.json',
+                          repo / '.claude' / 'settings.json')
+            if script_text is not None:
+                (repo / 'tools' / 'commit-identity.sh').write_text(
+                    script_text, encoding='utf-8')
+            subprocess.run(['git', 'init', '-q', str(repo)],
+                           capture_output=True)
+            subprocess.run(['git', '-C', str(repo), 'add', '-A'],
+                           capture_output=True)
+            env = dict(os.environ, PRECEDENT_COMMIT_NAME='Fixture Person',
+                       PRECEDENT_COMMIT_EMAIL='fixture@example.com',
+                       PRECEDENT_COMMIT_TZ='UTC')
+            p = subprocess.run([sys.executable, '-c', probe], cwd=str(repo),
+                               capture_output=True, text=True, env=env,
+                               timeout=120)
+            try:
+                return json.loads(p.stdout.strip().splitlines()[-1])
+            except (ValueError, IndexError):
+                return [None, ['probe failed: ' + (p.stderr or p.stdout)[-300:]]]
+
+        broken = fixture('broken', '#!/bin/bash\n# precedent:commit-identity\n'
+                                   'exit 0\n')
+        cases.append(('a stub whose engine script sets no identity is found '
+                      'and reported', broken[0] == 'commit-identity.sh'
+                      and any('user.name' in f for f in broken[1]),
+                      repr(broken)[:400]))
+        good = fixture('good', None)
+        cases.append(('the real engine script behind the same stub passes',
+                      good == ['commit-identity.sh', []], repr(good)[:400]))
+        unmarked = fixture('unmarked', '#!/bin/bash\nexit 0\n')
+        cases.append(('a stub whose tools/ script lacks the marker is not '
+                      'taken for the identity hook', unmarked[0] is None,
+                      repr(unmarked)[:400]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_promote_picks_its_step():
     """Promote picks pre-staging -> staging or staging -> main, and says
     which before anything else (Morgan, 2026-09-26, strength: decided: it
@@ -81211,6 +81287,7 @@ def main():
     check_promote_pre_staging()
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()
+    check_identity_mechanism_check_reaches_a_stubbed_hook()
     check_promote_picks_its_step()
     check_shipped_copy_has_no_broken_links()
     check_empty_commits_are_never_counted()
