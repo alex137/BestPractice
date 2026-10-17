@@ -25710,6 +25710,28 @@ def check_precedent_check_fires():
         case('vendored-copy-matches-record', _plant_drifted_copy,
              setup=_setup_recorded_copy)
 
+        # upstream-bug-stops-here -- a file the sync's MANIFEST.json records
+        # as shipped here, edited after delivery with no recorded answer.
+        # The setup records it as delivered, so the clean tree matches.
+        def _setup_received_file(repo):
+            f = repo / 'planted_received.txt'
+            f.write_text('As the set shipped it.\n', encoding='utf-8')
+            (repo / 'MANIFEST.json').write_text(json.dumps({'ships': [{
+                'path': 'planted_received.txt', 'source': 'precedent-shared-x',
+                'sha256_16': hashlib.sha256(f.read_bytes()).hexdigest()[:16]}]}),
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'a received file and its record')
+
+        def _plant_edited_received_file(repo):
+            (repo / 'planted_received.txt').write_text(
+                'Fixed here instead of upstream.\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted local edit of a shipped file')
+
+        case('upstream-bug-stops-here', _plant_edited_received_file,
+             setup=_setup_received_file)
+
         # todo-migrate-available-but-unused -- a repo that has the migration
         # tool vendored (an ENGINE_MANIFEST.json declaring a kind, same as a
         # real vendored repo would carry) but whose TODO.md was never
@@ -33867,13 +33889,27 @@ def check_practice_ships_its_files():
                       out[-300:]))
         ggit('commit', '-qam', 'our own newer helper')
         rc, out = grun()
-        cases.append(('once committed, the repository\'s own newer version is '
-                      'kept, and the set is named as the one behind',
+        cases.append(('once committed, the repository\'s own version is kept, '
+                      'and the sync asks for its answer',
                       rc == 0 and 'uncommitted' in text_of(gdelivered)
-                      and 'the set\'s copy is the older one' in out, out[-300:]))
-        cases.append(('...and is not drift: it needs no declined_ships entry',
+                      and 'upstream-bug-stops-here' in out
+                      and 'owed-upstream' in out, out[-300:]))
+        # practice: upstream-bug-stops-here (2026-10-17): kept is not
+        # answered. It is drift until precedent.json records its answer.
+        cases.append(('...and it is drift until it has its answer',
+                      any('tools/helper.py was committed here after the set'
+                          in x for x in _drift_at(gconsumer))))
+        gcfg = json.loads((gconsumer / 'precedent.json').read_text(encoding='utf-8'))
+        gcfg['upstream_edits'] = {'tools/helper.py': {
+            'answer': 'owed-upstream',
+            'detail': 'https://example.com/set/pull/1 carries it to the set'}}
+        (gconsumer / 'precedent.json').write_text(json.dumps(gcfg), encoding='utf-8')
+        cases.append(('...and is not drift once "owed-upstream" records the '
+                      'link that carries it up',
                       not any('tools/helper.py' in x for x in
                               _drift_at(gconsumer))))
+        gcfg.pop('upstream_edits')
+        (gconsumer / 'precedent.json').write_text(json.dumps(gcfg), encoding='utf-8')
         # The origin case before any delivery is recorded: this file's own
         # history holds the set's exact bytes, then moved on.
         mf = gconsumer / 'MANIFEST.json'
@@ -33888,7 +33924,8 @@ def check_practice_ships_its_files():
         cases.append(('a repository whose history holds the set\'s copy keeps '
                       'its newer one, with no delivery on record',
                       rc == 0 and 'origin, newer' in text_of(gdelivered)
-                      and 'the set\'s copy is the older one' in out, out[-300:]))
+                      and 'LEFT UNTOUCHED' in out
+                      and 'committed its own version after' in out, out[-300:]))
         # A committed hand-copy the set never came from is still adopted: git
         # keeps what goes.
         m = json.loads(mf.read_text(encoding='utf-8'))
@@ -37270,6 +37307,109 @@ def check_a_new_test_lands_with_its_time():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
           '; '.join(failed) + ('' if not failed else f' -- {out[-300:]} / {out2[-300:]}'))
+
+
+def check_upstream_edits_need_an_answer():
+    """practice: upstream-bug-stops-here, enforced (Morgan, 2026-10-17,
+    "Act"). An upstream-owned file -- an engine file or hook
+    ENGINE_MANIFEST.json records, a shipped file MANIFEST.json records --
+    that differs from what was delivered is a finding until precedent.json
+    records its answer; the edit-time hook refuses the edit before it
+    happens, with the three answers in its reason.
+
+    Controls: an untouched delivery and this repository's own file are
+    never named; each malformed answer is named for what it lacks; an
+    answer for a file that matches again is stale; and the hook lets every
+    other edit through.
+    """
+    import shutil, tempfile
+    name = 'an edit to an upstream-owned file needs its recorded answer'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import upstream_edits as ue
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-upstream-edits-'))
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        engine_file = repo / 'tools' / 'engine_thing.py'
+        engine_file.write_text('X = 1\n', encoding='utf-8')
+        shipped = repo / 'tools' / 'shipped_thing.py'
+        shipped.write_text('Y = 1\n', encoding='utf-8')
+        own = repo / 'tools' / 'our_own.py'
+        own.write_text('Z = 1\n', encoding='utf-8')
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+            'sha256': {'engine_thing.py': hashlib.sha256(
+                engine_file.read_bytes()).hexdigest()}}), encoding='utf-8')
+        (repo / 'MANIFEST.json').write_text(json.dumps({'ships': [{
+            'path': 'tools/shipped_thing.py', 'source': 'precedent-shared-x',
+            'sha256_16': hashlib.sha256(shipped.read_bytes()).hexdigest()[:16]}]}),
+            encoding='utf-8')
+        cfg = repo / 'precedent.json'
+
+        def answers(entries):
+            cfg.write_text(json.dumps({'upstream_edits': entries} if entries
+                                      is not None else {}), encoding='utf-8')
+        answers(None)
+        cases.append(('control: an untouched delivery has no finding',
+                      ue.findings(repo) == [], str(ue.findings(repo))))
+        cases.append(('control: editing this repository\'s own file is allowed',
+                      ue.guard(own, repo) is None, ''))
+        why = ue.guard(shipped, repo) or ''
+        cases.append(('editing a shipped file is refused before the edit, with '
+                      'the three answers', 'upstream-bug-stops-here' in why
+                      and 'owed-upstream' in why and 'local-need' in why, why[:200]))
+        engine_file.write_text('X = 2\n', encoding='utf-8')
+        shipped.write_text('Y = 2\n', encoding='utf-8')
+        found = ue.findings(repo)
+        cases.append(('an edited engine file and an edited shipped file are '
+                      'each a finding until answered',
+                      len(found) == 2 and all('no recorded answer' in f
+                                              for f in found), str(found)[:400]))
+        answers({'tools/shipped_thing.py': {'answer': 'owed-upstream',
+                                            'detail': 'carried up later'}})
+        cases.append(('"owed-upstream" with no link is named for the link',
+                      any('needs the link' in f for f in ue.findings(repo)), ''))
+        answers({'tools/shipped_thing.py': {'answer': 'local-need',
+                                            'detail': 'this repo pins Y'}})
+        cases.append(('"local-need" with no quoted, dated approval is named for it',
+                      any('quoted, with the date' in f for f in ue.findings(repo)), ''))
+        answers({'tools/shipped_thing.py': {
+                    'answer': 'owed-upstream',
+                    'detail': 'https://example.com/set/pull/7'},
+                 'tools/engine_thing.py': {
+                    'answer': 'local-need', 'detail': 'X must be 2 here because ...',
+                    'approved': 'Morgan, 2026-10-17: "yes, keep it"'}})
+        cases.append(('with both answered, nothing is named',
+                      ue.findings(repo) == [], str(ue.findings(repo))))
+        cases.append(('...and the guard lets an answered file be edited',
+                      ue.guard(shipped, repo) is None, ''))
+        engine_file.write_text('X = 1\n', encoding='utf-8')
+        cases.append(('an answer for a file that matches again is stale',
+                      any('tools/engine_thing.py: has a "upstream_edits" entry '
+                          'but matches' in f for f in ue.findings(repo)), ''))
+        # The real hook, end to end, in the consumer.
+        answers(None)
+        shutil.copy2(ROOT / 'tools' / 'upstream_edits.py', repo / 'tools')
+        hook = ROOT / 'tools' / 'precedent-paths.sh'
+        if shutil.which('jq'):
+            def run_hook(target):
+                r = subprocess.run(['bash', str(hook)], capture_output=True,
+                                   text=True, timeout=60, input=json.dumps(
+                                       {'tool_input': {'file_path': str(target)}}),
+                                   env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+                return r.returncode, r.stdout
+            rc, out = run_hook(shipped)
+            cases.append(('the edit-time hook denies an edit to an unanswered '
+                          'shipped file, giving the reason',
+                          rc == 0 and '"permissionDecision": "deny"' in out
+                          and 'upstream-bug-stops-here' in out, out[:300]))
+            rc, out = run_hook(own)
+            cases.append(('control: the hook lets an edit to this repository\'s '
+                          'own file through', rc == 0 and 'deny' not in out, out[:300]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_quick_tier_is_closed():
@@ -81419,6 +81559,7 @@ def main():
     check_for_change_adds_what_the_reach_ledger_picks()
     check_changed_files_runs_the_harness_tests_a_change_reaches()
     check_quick_tier_is_closed()
+    check_upstream_edits_need_an_answer()
     check_a_new_test_lands_with_its_time()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()

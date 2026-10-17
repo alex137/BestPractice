@@ -928,9 +928,12 @@ git checkout) is left untouched, and both the sync and `--check` say so:
 commit it to keep it, or delete it and sync again to take the set's copy.
 A committed copy this repository moved on from the set's -- after a
 recorded delivery, or with the set's exact bytes in that file's own history
--- is left untouched too and is not drift: that repository is the file's
-origin, and the set's copy is the older one, so the notice says to carry it
-to the set, with no `declined_ships` entry needed. On 2026-10-16 a sync
+-- is left untouched too, and stays drift until it has its answer under
+`upstream_edits` in `precedent.json`: the set already fixed it (take the
+set's copy), it belongs in the set (`owed-upstream`, with the link that
+carries it there), or a local need met some other way (`local-need`, with
+the person's approval). Since 2026-10-17 the full check enforces that for
+every upstream-owned file (practice: upstream-bug-stops-here). On 2026-10-16 a sync
 replaced an uncommitted edit with a set's older copy and pointed at
 `git diff`, which showed nothing. Harness adapters follow the first two
 halves of the same rule.
