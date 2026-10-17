@@ -172,6 +172,32 @@ One of Morgan's private repositories still declares `landing_branch:
 pre-staging` and has two commits only there; they move into its
 `staging` first.
 
+**The step that moves a repository off pre-staging is not deleted.**
+It became a migration on 2026-10-17
+([tools/migration_retire_pre_staging.py](../tools/migration_retire_pre_staging.py),
+which Update Vendors runs without naming it), so each repository is
+moved at its own next Update Vendors and no repository has to be checked
+from here first. A sweep across many repositories is never part of this
+plan: attaching or opening more than two beyond the ones a session
+started with waits for Morgan's approval, naming each (Morgan,
+2026-10-17, decided: "ANYTHING TO OPEN ALL THE REPOS MUST GET SESSION
+USER APPROVAL"). The 2026-10-17 sweep above ended with 21 repositories
+attached to one session, which is why.
+
+**Two suggestions for 5b**, from another session's Root issues list
+(2026-10-17), to weigh when the code moves:
+
+- Produce's other-work note (`_other_work_note`) tells a session to name
+  others' commits "when asking to approve this move", but Produce is
+  itself the go-ahead. Name them in the reply that reports the move, and
+  tell the person's own other sessions apart from other people with
+  [tools/precedent_commit_owners.py](../tools/precedent_commit_owners.py).
+- `--land` lands a commit from a hand-named branch that the ladder set's
+  branch-name guard refused at `git push`, because `--land` pushes
+  staging instead. Whether the naming rule holds at `--land` too is
+  decided with 5b, through the generic hook point, never as engine code
+  that names the ladder.
+
 **Small calls, noted.** The set's tests for a tool that is not a check
 go in `tools/checks/tests/` beside the rest, since that is where the set's
 runner already looks; piece 1 confirms a consumer's sync skips a test

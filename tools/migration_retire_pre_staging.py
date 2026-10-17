@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Update Vendors' migration off pre-staging: brings work waiting there into staging, rewords this repository's instructions and links to it, and offers the branch for deletion
+"""Update Vendors' migration off a retired branch tier: brings work still waiting there into staging, rewords this repository's instructions and links to it, and offers the old branch for deletion
 
 migration_retire_pre_staging.py -- a migration, run by Update Vendors
 (precedent_update.migrations_step), which runs every tools/migration_*.py
