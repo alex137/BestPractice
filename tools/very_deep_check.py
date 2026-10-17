@@ -8215,10 +8215,23 @@ def _record_pass(value, path=None, repo=None):
               f"complete (newest {runs[-1].get('run_id')}); this pass is "
               f"recorded against the last completed run instead.",
               file=sys.stderr)
-    target.setdefault('passes', []).append(entry)
+    # ONE ENTRY PER PASS PER RUN (2026-10-17). Recording a pass again --
+    # its findings recounted, its note corrected -- used to append a second
+    # entry beside the first, so the run carried two answers for one pass
+    # and every reader took whichever it met first. The newer one replaces
+    # the older, in place.
+    passes = target.setdefault('passes', [])
+    same = [i for i, p in enumerate(passes) if str(p.get('pass')) == name]
+    if same:
+        passes[same[0]] = entry
+        for i in reversed(same[1:]):
+            del passes[i]
+    else:
+        passes.append(entry)
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     print(f"recorded: pass {name} = {status or '(no status)'} against the run "
-          f"of {target.get('run_id')} in {path}.")
+          f"of {target.get('run_id')} in {path}"
+          + (", replacing the entry already recorded for it." if same else "."))
     # The run's full account is owed the moment its last pass is in, and the
     # deep check refuses a push without it (practice: very-deep-check;
     # Morgan, 2026-10-11, after a run left it out until he asked).

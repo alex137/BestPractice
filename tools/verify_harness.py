@@ -58606,6 +58606,22 @@ def check_very_deep_check_refuses_unknown_flags_before_the_ledger():
                       and not runs[1].get('passes')
                       and 'did not complete' in r.stderr,
                       f'exit {r.returncode}; {runs}; {r.stderr[-300:]}'))
+        # Recording the same pass on the same run again replaces it
+        # (2026-10-17): it used to append a second entry for pass 3.
+        for arg in ('3=done,findings=5,note=recounted', '2=done'):
+            r = subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+                 '--ledger', str(good), '--record-pass', arg],
+                capture_output=True, text=True, cwd=str(tmp), timeout=120)
+        passes = json.loads(good.read_text(encoding='utf-8'))['runs'][0].get(
+            'passes') or []
+        threes = [p for p in passes if p.get('pass') == '3']
+        cases.append(('THE CASE: the same pass recorded again on the same run '
+                      'replaces its entry, and a different pass is added',
+                      len(threes) == 1 and threes[0].get('findings') == 5
+                      and threes[0].get('note') == 'recounted'
+                      and [p.get('pass') for p in passes] == ['3', '2'],
+                      f'{passes}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
