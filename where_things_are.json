@@ -542,7 +542,7 @@
     },
     {
       "looking_for": "Upstream open items / roadmap",
-      "go_to": "[todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub and a pull request touching it is refused by the deep check.",
+      "go_to": "[todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub, and a new item added to it is refused by the deep check.",
       "quick": 11
     },
     {
