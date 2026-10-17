@@ -7894,10 +7894,25 @@ def _enforcement_lives_with_its_practice(ctx):
     # regarding them in best practice. And it should never be like that").
     # A docstring or bare string statement is a comment, and comments may
     # name a set (Morgan, 2026-10-16).
-    for path in sorted((ctx.root / 'tools').rglob('*.py')):
-        if '__pycache__' in path.parts:
-            continue
+    # A file git ignores here is a copy some set ships, delivered by the
+    # sync (tools/ladder/ and the like): that set's own code, in the place
+    # it is meant to run, never this repository's (2026-10-17: the ladder
+    # set's others_did.py, shipped into BestPractice, read as engine code).
+    every = [p for p in sorted((ctx.root / 'tools').rglob('*.py'))
+             if '__pycache__' not in p.parts]
+    shipped_here = set()
+    try:
+        r = subprocess.run(['git', '-C', str(ctx.root), 'check-ignore', '--stdin'],
+                           input='\n'.join(p.relative_to(ctx.root).as_posix()
+                                           for p in every),
+                           capture_output=True, text=True, timeout=60)
+        shipped_here = set(r.stdout.split())
+    except (OSError, subprocess.SubprocessError):
+        pass
+    for path in every:
         rel = path.relative_to(ctx.root).as_posix()
+        if rel in shipped_here:
+            continue
         hits = _set_names_in_strings(path, wanted, set_only, names)
         test = rel == 'tools/verify_harness.py' or '/tests/' in rel \
             or pathlib.PurePosixPath(rel).name.startswith('test_')

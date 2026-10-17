@@ -835,13 +835,10 @@ ENGINE_FILES = [
     # "What's new?" works in every project, so the log's mechanics ship
     # (practice: whats-new); each project's own log never does.
     'precedent_whats_new.py',
-    # Its other half (Morgan, 2026-10-08): once a day, what OTHER people
-    # landed since the person was last told. The session-start hook and the
-    # reply gate both call it, so a repository without it would carry hooks
-    # naming a file that is not there (the others-did practice, in the ladder set). It
-    # stores nothing on origin: since 2026-10-10 it counts from the person's
-    # own last commit, with only a note in the container's .precedent/.
-    'precedent_others_did.py',
+    # Who made each commit in a range: Update Vendors' note of what others
+    # changed upstream reads it, and so does a set's daily report of what
+    # others landed (split out of precedent_others_did.py, 2026-10-17).
+    'precedent_commit_owners.py',
     # EVERY VOCABULARY WORD HAS TO WORK WHERE THE ENGINE IS VENDORED
     # (2026-09-21, Morgan: "ALL of our vocabulary words should"). A standing
     # command a session cannot carry out is worse than one that does not
@@ -1155,6 +1152,9 @@ RETIRED_ENGINE_FILES = {
     'ladder_words.py':
         'replaced by set_words.py, 2026-10-17: the words are each set\'s own, '
         'declared in its precedent-source.json',
+    'precedent_others_did.py':
+        'moved to the ladder set as tools/ladder/others_did.py, 2026-10-17; '
+        'its commit sorting stayed, as precedent_commit_owners.py',
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 _WAS_COMMIT_ENV = 'PRECEDENT_REFRESH_WAS_COMMIT'  # the pre-refresh source_commit, for a second pass

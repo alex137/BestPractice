@@ -2619,10 +2619,10 @@ def upstream_by_others(repo, old, new, clone=None):
     takes now, made by anyone but the person running the update; None when
     it cannot be read (no identity, or a commit the clone lacks). `clone`
     is the source's checkout, BestPractice's (SOURCE) when not given.
-    The same sorting the morning report uses (precedent_others_did.classify):
+    The same sorting a set's daily report uses (precedent_commit_owners):
     a commit signed only by Claude counts as its session's owner's."""
     import precedent_identity as pi
-    import precedent_others_did as od
+    import precedent_commit_owners as od
     clone = clone or SOURCE
     if not old or not new or old == new:
         return [], []
@@ -2635,7 +2635,7 @@ def upstream_by_others(repo, old, new, clone=None):
     code, out = od.git(clone, 'log', '--no-merges', od.LOG_FORMAT, f'{old}..{new}')
     if code != 0:
         return None
-    return od.classify(clone, od._records(out), me.get('email'), {'new': new})
+    return od.classify(clone, od.records(out), me.get('email'), {'new': new})
 
 
 def set_pins(repo):
@@ -2663,6 +2663,16 @@ def sets_moved(before, after):
             if name in before and before[name][1] != after[name][1]]
 
 
+def _off_ladder(repo):
+    """True for a person off the ladder, whose Update Vendors report carries
+    no note of what others changed upstream (the ladder set turns it on)."""
+    try:
+        import precedent_ladder
+        return precedent_ladder.ladder_in_force(repo) is False
+    except Exception:                                             # noqa: BLE001
+        return False
+
+
 def upstream_changes_block(repo, old, new, sets=()):
     """-> the block Update Vendors' report carries about what OTHER people
     changed upstream in what this update brings in -- BestPractice's range
@@ -2678,8 +2688,8 @@ def upstream_changes_block(repo, old, new, sets=()):
     practice, in the ladder set, which is what turns both on). The shared
     and individual sets came the same evening (Morgan: "yes extend it"):
     their changes reach a repository by the same update."""
-    import precedent_others_did as od
-    if od.off_ladder(repo):
+    import precedent_commit_owners as od
+    if _off_ladder(repo):
         return ''
     sections, unread, total = [], [], 0
     for name, clone, a, b in [(SOURCE.name, SOURCE, old, new), *sets]:
