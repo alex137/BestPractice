@@ -1965,6 +1965,46 @@ def settings_change_is_wiring_only(before_text, after_text):
     return True
 
 
+def received_paths(dest_root):
+    """-> (paths, prefixes): what this repository RECEIVES rather than
+    writes, so a mention inside it is never its own to repoint -- the
+    engine's files and hooks (ENGINE_MANIFEST.json), what the materializer
+    records (MANIFEST.json: practices/, checks, adapters, shipped files),
+    the catalogue mirror (process/upstream/) and a vendored universal
+    source (precedent.json's universal `path`). The next refresh or sync
+    overwrites them. The same set the decommission audit skips since
+    2026-09-28 (precedent_decommission.generated_elsewhere), read from
+    there so the two cannot drift; the engine manifest is read here too,
+    for a first pass whose tools/ has no decommission module yet."""
+    root = pathlib.Path(dest_root)
+    paths, prefixes = set(), ['process/upstream/']
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_decommission as _pd
+        paths |= set(_pd.generated_elsewhere(root))
+        prefixes += [p for p in _pd.SCAN_SKIP_PREFIXES if p != '.git/']
+    except Exception:                              # practice: fail-gracefully
+        pass
+    finally:
+        sys.path.pop(0)
+    try:
+        mf = json.loads((root / 'tools' / MANIFEST_NAME).read_text(encoding='utf-8'))
+        paths |= {f'tools/{n}' for n in mf.get('files') or [] if isinstance(n, str)}
+        paths |= {f'{HOOK_DEST_DIR}/{n}' for n in mf.get('hook_files') or []
+                  if isinstance(n, str)}
+    except (OSError, ValueError, AttributeError):
+        pass
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+        for src in cfg.get('sources') or []:
+            if isinstance(src, dict) and src.get('level') == 'universal' \
+                    and isinstance(src.get('path'), str) and src['path'].strip('/.'):
+                prefixes.append(src['path'].strip('/') + '/')
+    except (OSError, ValueError, AttributeError):
+        pass
+    return paths, tuple(dict.fromkeys(prefixes))
+
+
 def dependents_of(dest_root, rels, cap=8):
     """-> {rel: [(referring path, line number, the line)]} for files that
     are about to stop existing, or just have.
@@ -2009,6 +2049,11 @@ def dependents_of(dest_root, rels, cap=8):
     # decommission registry is the same: a removal writes the path there a
     # moment before this runs, so every removal used to warn about itself.
     skip = {MANIFEST_NAME, 'decommissioned_paths.json'}
+    # A file this repo receives -- the engine itself, materialized
+    # practices, the vendored catalogue -- names retired paths because
+    # upstream does, and the next refresh rewrites it: counting it made every
+    # row in a consumer a finding (2026-10-17, very deep check).
+    received, received_under = received_paths(dest_root)
     needles = {}
     for rel in rels:
         base = pathlib.PurePosixPath(rel).name
@@ -2022,6 +2067,8 @@ def dependents_of(dest_root, rels, cap=8):
             continue
         if rel_here in rels:
             continue                      # the file being deleted itself
+        if rel_here in received or rel_here.startswith(received_under):
+            continue
         try:
             text = f.read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):

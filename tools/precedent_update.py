@@ -1441,8 +1441,9 @@ def retired_mentions(repo, engine_out):
     Read from the WARN lines rather than asked of the engine because the
     deletion usually happens in the first pass, which is the consumer's own
     older copy. A file this repo receives rather than writes -- the
-    vendored tree, practices/, tools/checks/ -- is skipped: the check skips
-    it too, and the next sync overwrites it."""
+    vendored tree, practices/, tools/checks/, the engine's own files and
+    hooks -- is skipped: the check skips it too, and the next sync or
+    refresh overwrites it."""
     try:
         tree = str(json.loads((repo / 'process' / 'manifest.json').read_text(
             encoding='utf-8')).get('upstream', {}).get('vendored_at')
@@ -1455,10 +1456,17 @@ def retired_mentions(repo, engine_out):
     rel = universal_catalogue_path(repo)
     if rel:
         received += (rel.rstrip('/') + '/',)
+    # So is the engine itself, and whatever else another tool writes here
+    # (pve.received_paths): until 2026-10-17 this told a session to edit
+    # tools/precedent_vendor_engine.py, precedent_bootstrap_source.py and
+    # very_deep_check.py, vendored files the full check refuses to see
+    # edited, because they name the file they just retired.
+    files, under = pve.received_paths(repo)
+    received += under
     out = []
     for line in engine_out.splitlines():
         m = _MENTION.match(line.strip())
-        if not m or m.group('path').startswith(received):
+        if not m or m.group('path').startswith(received) or m.group('path') in files:
             continue
         gone, path = m.group('gone'), m.group('path')
         try:

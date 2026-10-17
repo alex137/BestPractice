@@ -72078,6 +72078,75 @@ def check_refresh_names_an_in_place_hook_no_engine_path_keeps():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_retired_mentions_skip_what_the_repo_receives():
+    """A mention of a file the refresh deleted is this repo's to fix only
+    where the repo writes the file: never in the engine's own files or
+    hooks, materialized practices, or the vendored catalogue -- neither in
+    the refresh's warning nor on Update Vendors' Left for you.
+
+    2026-10-17, very deep check: Update Vendors told a session to edit
+    tools/precedent_bootstrap_source.py, precedent_vendor_engine.py and
+    very_deep_check.py ("repoint or remove the mention; the full check
+    refuses it"), vendored engine files, because retired_mentions() did not
+    treat the engine manifest's files as received; and the refresh's own
+    warning counted every received file, so every row in a consumer became
+    a finding. The decommission audit got this exclusion on 2026-09-28.
+    Planted: a consumer whose engine file, engine hook, materialized
+    practice, vendored universal practice and own doc all name a deleted
+    engine file."""
+    import contextlib, io, tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-received-mentions-'))
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    gone = 'tools/precedent_retire_path.py'
+    cases = []
+    try:
+        def put(rel, text):
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        line = f'Retire a path with `{gone}`.\n'
+        put('docs/HOWTO.md', '# How We Work\n\n' + line)
+        put('tools/precedent_vendor_engine.py', '# ' + line)
+        put('.claude/hooks/session-start.sh', '# ' + line)
+        put('practices/some-rule.md', line)
+        put('precedent/universal/practices/other-rule.md', line)
+        put('tools/' + pve.MANIFEST_NAME, json.dumps(
+            {'files': ['precedent_vendor_engine.py'], 'hook_files': ['session-start.sh']}))
+        put('MANIFEST.json', json.dumps({
+            'generated_by': 'tools/precedent_materialize.py',
+            'practices': [{'slug': 'some-rule'}]}))
+        put('precedent.json', json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'}]}))
+        subprocess.run(['git', 'init', '-q', str(tmp)], env=env, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], env=env, check=True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            pve._warn_about_dependents(tmp, [gone], 'dropped from the engine')
+        warned = [l for l in err.getvalue().splitlines() if 'still names it' in l]
+        cases.append(('the refresh warns about the repo\'s own doc',
+                      any('docs/HOWTO.md:3' in l for l in warned), err.getvalue()[:500]))
+        cases.append(('...and about nothing it receives (engine file, hook, '
+                      'materialized and vendored practices)',
+                      len(warned) == 1, '\n'.join(warned)[:800]))
+        planted = '\n'.join(
+            f"WARN: precedent_vendor_engine: {gone} was dropped from the engine, and "
+            f"{p}:1 still names it -- 'x'. Nothing here refuses."
+            for p in ('tools/precedent_vendor_engine.py', '.claude/hooks/session-start.sh',
+                      'docs/HOWTO.md'))
+        got = pu.retired_mentions(tmp, planted)
+        cases.append(('Update Vendors leaves only the repo\'s own file for the person, '
+                      'never a vendored engine file or hook',
+                      [w for w, _g in got] == ['docs/HOWTO.md:3'], str(got)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'mentions of a deleted file skip what the repo receives '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -82857,6 +82926,7 @@ def main():
     check_update_takes_an_untouched_install_copy()
     check_refresh_replaces_a_past_individual_hook_rendering()
     check_refresh_names_an_in_place_hook_no_engine_path_keeps()
+    check_retired_mentions_skip_what_the_repo_receives()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
