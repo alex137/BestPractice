@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch)",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 2 added 2026-10-17 by --record-new-times, scaled by 2.39 to it; 5 added 2026-10-17 by --record-new-times (very deep check branch); 1 added 2026-10-17 by --record-new-times, scaled by 1.69 to it",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -259,6 +259,7 @@
   "check_ladder_opt_in_loader": 9.8,
   "check_ladder_test_session_and_the_two_ladder_checks": 1.1,
   "check_land_rebuilds_generated_content_without_a_header": 1.8,
+  "check_land_tells_the_push_hooks_what_it_lands": 0.6,
   "check_landed_branch_gets_its_delete_link": 0.8,
   "check_landed_check_names_the_tier_that_ran": 0.1,
   "check_landed_reduction_quiets_the_reduction_ask": 0.3,

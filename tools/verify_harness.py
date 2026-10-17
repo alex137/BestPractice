@@ -57160,6 +57160,93 @@ print(json.dumps(out))
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+
+def check_land_tells_the_push_hooks_what_it_lands():
+    """--land's push names the branch it lands, and runs in the person's own
+    checkout, so a pre-push hook a practice declares can judge what is being
+    landed and not only where it goes.
+
+    2026-10-17, the very deep check: a branch named by the cloud harness was
+    landed on staging by a bare --land while a practice's pre-push hook was
+    in force against that very name. git's pre-push sees only
+    `<sha> refs/heads/staging` for a landing, the push ran from a throwaway
+    worktree where hooks listed in the checkout's untracked files are not,
+    and nothing said what was being landed. Morgan, 2026-10-17: "Fix the
+    other issues you found including the checks that never run". The
+    fixture's pre-push hook records what it was told and where it ran.
+
+    Negative control, measured 2026-10-17: with the push made from the
+    worktree with no variable (the code before this), the first two cases
+    fail."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-source-'))
+    cases = []
+    try:
+        log = tmp / 'hook.log'
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        (hooks / 'pre-push').write_text(
+            '#!/bin/sh\ncat >/dev/null\n'
+            f'printf "%s|%s\\n" "$PRECEDENT_LANDING_SOURCE" '
+            f'"$(git rev-parse --show-toplevel)" >> {str(log)!r}\nexit 0\n',
+            encoding='utf-8')
+        (hooks / 'pre-push').chmod(0o755)
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, os, pathlib, subprocess, sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                  PRECEDENT_USER_CONFIG={str(tmp / 'no-config.json')!r},
+                  GIT_CONFIG_GLOBAL={str(tmp / 'gitconfig')!r})
+os.environ.pop('PRECEDENT_LANDING_SOURCE', None)
+pathlib.Path({str(tmp / 'gitconfig')!r}).write_text('')
+import precedent_branches as pb
+td = pathlib.Path({str(tmp)!r})
+origin, work = td / 'o.git', td / 'w'
+g = lambda *a: subprocess.run(['git', '-C', str(work), *a], capture_output=True, text=True)
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g('checkout', '-q', '-B', 'main')
+(work / 'precedent.json').write_text('{{"landing_branch": "staging"}}\\n')
+g('add', '-A'); g('commit', '-qm', 'base')
+g('push', '-q', 'origin', 'main', 'main:staging')
+g('config', 'core.hooksPath', {str(hooks)!r})
+g('checkout', '-q', '-b', 'claude/demo-work-abcdef')
+(work / 'x.md').write_text('x\\n'); g('add', '-A'); g('commit', '-qm', 'work')
+pb._check = lambda *a, **k: (True, 'stub check')
+said = []
+rc, verdict = pb._land_composed(work, g('rev-parse', 'HEAD').stdout.strip(),
+                                'claude/demo-work-abcdef', 'staging', 'the fixture',
+                                said.append)
+g('fetch', '-q', 'origin')
+print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-400:],
+                      landed='x.md' in g('ls-tree', '--name-only', 'origin/staging').stdout)))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=300)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-600:]
+        seen = log.read_text(encoding='utf-8').splitlines() if log.exists() else []
+        source, _, top = (seen[-1] if seen else '').partition('|')
+        cases.append(('THE DISCRIMINATING CASE: the pre-push hook is told the '
+                      'branch being landed', source == 'claude/demo-work-abcdef',
+                      str(seen) or why))
+        cases.append(('...and runs in the person\'s own checkout, where untracked '
+                      'hook lists live, not in the throwaway worktree',
+                      bool(top) and pathlib.Path(top).resolve()
+                      == (tmp / 'w').resolve(), str(seen) or why))
+        cases.append(('...and the landing still lands',
+                      out.get('rc') == 0 and out.get('landed'), str(out) or why))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'--land tells the push\'s hooks what it lands ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_leak_gate_reads_other_clones_as_themselves_inside_a_hook():
     """Inside a git hook the leak gate still reads every other clone as
     itself, lets a repository name itself, and says where the push goes.
@@ -82235,6 +82322,7 @@ def main():
     check_a_failed_result_never_carries_its_success_word()
     check_a_replacing_rule_inherits_what_it_does_not_restate()
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
+    check_land_tells_the_push_hooks_what_it_lands()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
     check_update_stages_what_a_late_step_writes()

@@ -68,7 +68,7 @@
     },
     {
       "word": "primary branch",
-      "meaning": "The one shared branch regular work lands on. (A branch is a separate line of work in a repository.)"
+      "meaning": "The repository's trunk: the branch its settings name as the base, usually main, where finished work ends up. (A branch is a separate line of work in a repository.)"
     },
     {
       "word": "landing branch",
