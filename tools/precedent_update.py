@@ -599,6 +599,27 @@ def brought_sets_step(rep, fetch=None, repo=None):
                   f'and run this again')
 
 
+_HOOK_NOT_HERE = re.compile(
+    r'precedent_sync_views: (\S+): its (\S+) hook runs (\S+), which is not '
+    r'in this repository yet')
+
+
+def hooks_not_here_step(rep, out):
+    """Say each hook a practice in force declares whose script this
+    repository does not have yet (precedent_sync_views notes it).
+
+    WHY (2026-10-17, the session moving enforcement into the sets). The
+    engine dropped a refusal that a practice set now ships as its own hook;
+    a repository that took the engine half without that set's files lost the
+    old refusal before it had the new one, and nothing said so."""
+    for slug, event, run in _HOOK_NOT_HERE.findall(out or ''):
+        rep.step('a check not here yet',
+                 f'WARNING: {slug} declares a {event} hook running {run}, which '
+                 f'this repository does not have yet, so that check is off here. '
+                 f'Take its source\'s sync in this same update (the sets layer), '
+                 f'or the engine half lands without the check that replaced it')
+
+
 def removed_links_step(rep, out):
     """List, for the person, each link in this repo's own files that the
     sync reported dangling: to a practice the sync removed, or an earlier
@@ -3717,7 +3738,7 @@ def harness_ask(paths, last=False, cases=None, gates=None, baselines=None):
                f'question. To approve, say: "{say}". Then run this update '
                f'again with {HARNESS_GO_AHEAD}="<their words>": that run '
                f'{" and ".join(records) or "stages them"}. In auto mode the '
-               f'rerun can still be held as self-modification even with their '
+               f'rerun can still be refused as self-modification even with their '
                f'words; then the person approves the one permission prompt, or '
                f'switches to default permissions for it -- the sentence alone '
                f'is not always enough. Get the words before committing: '
@@ -5342,6 +5363,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
                 rep)
         in_force_nowhere_step(repo, rep, out)
         removed_links_step(rep, out)
+        hooks_not_here_step(rep, out)
         if rc != 0:
             # A declared source whose clone answers to another name is a
             # call about this repo's own precedent.json, so it is left for

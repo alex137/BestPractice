@@ -305,6 +305,13 @@ def _declared_practice_hooks(repo, practices):
             if h['run'] in declined or pathlib.PurePosixPath(h['run']).name in declined:
                 continue
             if not (pathlib.Path(repo) / h['run']).is_file():
+                # Said, never skipped in silence (2026-10-17): a check the
+                # engine stopped carrying, now shipped by a set, is off here
+                # until that set's files arrive.
+                notes.append(f"{slug}: its {h['event']} hook runs {h['run']}, "
+                             f"which is not in this repository yet, so that "
+                             f"check does not run here until its source's "
+                             f"files arrive")
                 continue
             entries.append((h['event'], h['matcher'], bv.hook_command(h)))
     return entries, notes

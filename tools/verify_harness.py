@@ -60729,8 +60729,22 @@ def check_practice_declared_hooks_are_wired():
               declined == [], repr(declined))
         (repo / 'precedent.json').unlink()
         (repo / 'tools' / 'dated_name.py').unlink()
-        absent, _n = psv._declared_practice_hooks(repo, practices)
+        absent, gone_notes = psv._declared_practice_hooks(repo, practices)
         check('a script not on disk gets no hook', absent == [], repr(absent))
+        # 2026-10-17: never in silence -- a check the engine stopped carrying,
+        # now a set's hook, was off in a repo that lacked the set's files.
+        check('...and says so: the check is off here until the script arrives',
+              any('planted-download-names' in n and 'not in this repository yet' in n
+                  for n in gone_notes), repr(gone_notes))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_update as _pu
+        _rep = _pu.Report()
+        if hasattr(_pu, 'hooks_not_here_step'):
+            _pu.hooks_not_here_step(_rep, '\n'.join(
+                f'precedent_sync_views: {n}' for n in gone_notes))
+        _said = repr(getattr(_rep, '__dict__', {}))
+        check('...and Update Vendors carries it into its report as a warning',
+              'tools/dated_name.py' in _said and 'WARNING' in _said, _said[-300:])
         bad, notes = psv._declared_practice_hooks(
             repo, {'x': {'fm': {**good, 'hooks': '[{"event": "Stop"}]'}}})
         check('a declaration that does not parse is a note, never a guess',
