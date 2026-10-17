@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-08"
-approved_by: "Alex, 2026-10-08: \"Why not adopt a practice of asking if you need access rather than simply passively announcing you can't\" (strength: decided); amended 2026-10-14, Morgan -- ask for push access by name before trying, and stop at a safety-check refusal -- from a handoff he confirmed as his (\"you said that you're stopped from doing something that shouldn't be stopped. So include this issue and your suggested fixes\"; strength: assented); the two-repository limit on clause 1 added on Morgan F's words of 2026-10-17 (Story)"
+approved_by: "Alex, 2026-10-08: \"Why not adopt a practice of asking if you need access rather than simply passively announcing you can't\" (strength: decided); amended 2026-10-14, Morgan -- ask for push access by name before trying, and stop at a safety-check refusal -- from a handoff he confirmed as his (\"you said that you're stopped from doing something that shouldn't be stopped. So include this issue and your suggested fixes\"; strength: assented); the repository limit on clause 1 added on Morgan F's words of 2026-10-17, set at three (Story)"
 ---
 ## Rule
 **A reply never stops at "could not reach it."** When a check, a tool or
@@ -25,9 +25,9 @@ or connector -- do one of these in the same turn:
 
 1. **Read access a tool in this session can grant** (attaching a
    repository read-only, for one): take it, carry on, and say in one line
-   that you did. **That covers at most two repositories beyond the ones
+   that you did. **That covers at most three repositories beyond the ones
    the session started with** (its own and the practice sources its setup
-   attaches). A third is a question for the person, naming each repository
+   attaches). A fourth is a question for the person, naming each repository
    and what the session needs there, unless their own words already asked
    for those repositories ("Update All Vendors" names every one, and is
    that approval). Every attached repository costs
@@ -78,8 +78,9 @@ read access to one repository after another, as clause 1 allowed with no
 limit, and ended with 21 attached, every turn paying for all of them.
 Morgan: *"ANYTHING TO OPEN ALL THE REPOS MUST GET SESSION USER APPROVAL,
 ... PLUS MAKES NO SENSE TO DO THIS BEFORE A VENDOR UPDATE"* (strength:
-decided); the clause left out says what it costs in tokens. Clause 1 now stops at two repositories beyond
-the ones a session starts with.
+decided); the clause left out says what it costs in tokens. Clause 1 now stops at three repositories beyond
+the ones a session starts with; Morgan set the number at three the same
+day ("let's say three").
 
 ## Install
 Nothing to install, and no mechanical check: whether a gap was one a tool
