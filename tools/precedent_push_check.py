@@ -190,6 +190,13 @@ TAIL_LINES = 40
 # until 2026-09-30 neither was picked, so a full check failed naming nothing.
 FINDING = re.compile(r'^\s*(?:[\w.-]+ )?(VIOLATION|ERROR|FAIL(ED|URE)?)\b')
 FINDING_LINES = 30
+# A shard that died before any verdict -- a traceback, a killed process --
+# has no FAIL: line to pick, only the stderr tail the harness prints under
+# its SHARD FAILED header, at that header's own indent. On 2026-10-17 a
+# Debut failed reading "SHARD FAILED (exit 1)" and nothing else, and the
+# same commit passed when rerun, so what broke it was never known.
+SHARD_FAILED = re.compile(r'^\s*SHARD FAILED\b')
+SHARD_NOISE = re.compile(r'^\s*(?:SKIP|N/A)\b')
 
 
 
@@ -210,6 +217,18 @@ def _finding_lines(out):
         if FINDING.match(out[i]):
             picked.append(out[i])
             i += 1
+            if SHARD_FAILED.match(picked[-1]):
+                end = i
+                while (end < len(out) and out[end].startswith('  ')
+                       and not SHARD_FAILED.match(out[end])):
+                    end += 1
+                block = out[i:end]
+                if not any(FINDING.match(l) for l in block):
+                    room = FINDING_LINES - len(picked)
+                    picked += [l for l in block
+                               if not SHARD_NOISE.match(l)][:room]
+                    i = end
+                continue
             while (i < len(out) and out[i].startswith('    ')
                    and len(picked) < FINDING_LINES):
                 picked.append(out[i])
