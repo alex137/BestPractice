@@ -465,8 +465,18 @@ def freshness(repo_dir, fetch=True):
         return out
     rc, branch, _ = _run_git(repo_dir, 'rev-parse', '--abbrev-ref', 'HEAD')
     if rc != 0 or not branch or branch == 'HEAD':
+        # A DETACHED HEAD THAT CARRIES ORIGIN'S BASE IS CURRENT (2026-10-17).
+        # A cloud session hands every attached repo over detached at its
+        # main, so this refused the very state the harness creates, before
+        # anybody had touched it. Detached is a refusal only when HEAD does
+        # not contain origin's declared base branch -- the same test a
+        # local-only branch gets below.
+        if fetch and _contains_origin_base(repo_dir, out):
+            return out
         out['status'] = 'detached'
-        out['remedy'] = 'git checkout <branch>  # HEAD is detached, so there is no upstream to compare against'
+        out['remedy'] = ('git checkout <branch>  # HEAD is detached and does '
+                         'not contain origin\'s base branch, so nothing says '
+                         'it is current')
         return out
     out['branch'] = branch
     if fetch:
@@ -502,13 +512,18 @@ def freshness(repo_dir, fetch=True):
                     # prove nothing (2026-09-28).
                     return out
                 else:
+                    # Local-only AND missing origin's base: the branch is
+                    # behind, and pushing it would prove nothing. Until
+                    # 2026-10-17 this said "push it", which a run followed
+                    # straight into a second refusal; the base had moved
+                    # under the branch while it sat here.
+                    _base = _declared_base_branch(repo_dir) or 'main'
                     out['status'] = 'branch-not-on-origin'
                     out['remedy'] = (
-                        f'git -C {repo_dir} push -u origin {branch}   '
-                        f'# or switch this source to its integration branch. '
-                        f'origin has no {branch}: the network is fine, the '
-                        f'branch is local-only, so nothing can say whether '
-                        f'its content is current')
+                        f'git -C {repo_dir} merge origin/{_base}   '
+                        f'# origin has no {branch}, and it does not contain '
+                        f'origin/{_base}: it is behind the base branch, so '
+                        f'bring that in (or check out {_base}) and re-run')
                 return out
             out['status'] = 'fetch-failed'
             # Name WHICH failure. "no credential", "credential refused" and
@@ -603,11 +618,30 @@ def _contains_origin_base(repo_dir, out):
     ref = f'origin/{base}'
     if _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, 'HEAD')[0] != 0:
         return False
-    rc, n, _ = _run_git(repo_dir, 'rev-list', '--count', f'{ref}..HEAD')
+    # What no origin ref has, never what the base lacks: a branch cut from
+    # origin/main in a repo whose base is staging carries main's merge
+    # commits, which are on origin, and read as "3 unpushed" (2026-10-17).
+    rc, n, _ = _run_git(repo_dir, 'rev-list', '--count', 'HEAD', '--not',
+                        '--remotes=origin')
     out['status'] = 'ahead'
     out['behind'] = 0
     out['ahead'] = int(n.strip()) if rc == 0 and n.strip().isdigit() else 0
     return True
+
+
+def _own_checkout(repo_dir):
+    """True when `repo_dir` is the top of a git work tree of its own -- a
+    clone or a linked worktree. A repo-local source inside its parent's
+    checkout is not: its branches are the parent's.
+
+    Until 2026-10-17 the branch scan and the live-session sweep asked
+    whether `.git` is a directory, which a linked worktree's is not (it is a
+    file naming the shared git directory), so a run from a worktree skipped
+    the checkout's own branches and sessions and said "not its own git
+    checkout". Three helpers of that day's very deep check hit it."""
+    rc, top, _ = _run_git(repo_dir, 'rev-parse', '--show-toplevel')
+    return rc == 0 and bool(top.strip()) and \
+        pathlib.Path(top.strip()).resolve() == pathlib.Path(repo_dir).resolve()
 
 
 def report_freshness(label, verdict, out=None):
@@ -632,8 +666,8 @@ def report_freshness(label, verdict, out=None):
                           f"{verdict['ahead']} ahead",
               'no-upstream': 'no origin/<branch> ref -- freshness unprovable',
               'fetch-failed': 'could not reach origin -- freshness unprovable',
-              'branch-not-on-origin': 'this branch exists only locally -- '
-                                      'freshness unprovable',
+              'branch-not-on-origin': 'this branch exists only locally and '
+                                      'lacks origin\'s base branch -- behind',
               'no-shared-history': 'cannot compare against origin',
               'detached': 'HEAD is detached'}[s]
     print(f"  STALE: {label} ({verdict['branch'] or '-'}): {detail}", file=out)
@@ -5360,7 +5394,7 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     STALE_DAYS_DEFAULT. Each merged entry is a _merged_row dict, never a
     bare name -- see that function for why the deletion list needs dates."""
     repo_dir = pathlib.Path(repo_dir)
-    if not (repo_dir / '.git').is_dir():
+    if not _own_checkout(repo_dir):
         return None
     if stale_days is None:
         stale_days = _declared_stale_days(repo_dir) or STALE_DAYS_DEFAULT
@@ -5549,7 +5583,7 @@ def recent_activity(repo_dir, days):
     A mechanical half that pretended to the whole thing would be the
     "sample reads as clean" failure pass 2 question 14 is about."""
     repo_dir = pathlib.Path(repo_dir)
-    if not (repo_dir / '.git').is_dir():
+    if not _own_checkout(repo_dir):
         return None
     out = {'days': days, 'shallow': False, 'commits': [], 'branches': [],
            'note': None}
@@ -8412,7 +8446,8 @@ def warnings_section(repo_root, precedent_check_output=None, refresh=False,
           'block.', file=out)
     written = _write_warnings_block(
         repo_root, wr.render_markdown(result, problems, notes,
-                                      previous=previous, start=start))
+                                      previous=previous, start=start,
+                                      repo_root=repo_root))
     if written:
         print(f'  Summary written to '
               f'{written.relative_to(pathlib.Path(repo_root).resolve()) if written.is_absolute() else written}.',
@@ -8607,6 +8642,63 @@ def _write_branch_report(branch_scans, out_path, repo_root, held_back=(),
     return out_path
 
 
+# What this tool writes into the repository it checks, and asks to have
+# committed with the run, as that repository's generated-files registry
+# must list it. The entries are this repository's own for the same files.
+RUN_OUTPUT_ENTRIES = [
+    {
+        "path": "record/stale_branches.md",
+        "generated_by": "tools/very_deep_check.py",
+        "edit_instead": None,
+        "regenerate": "python3 tools/very_deep_check.py",
+        "check": None,
+        "why_no_check": "a snapshot of live branches, rewritten by each very deep check run; nothing offline can say what it should read now"
+    },
+    {
+        "path": "record/very-deep-check-ledger.json",
+        "generated_by": "tools/very_deep_check.py",
+        "edit_instead": None,
+        "regenerate": "python3 tools/very_deep_check.py",
+        "check": None,
+        "why_no_check": "an append-only log each run adds itself to; there is nothing to regenerate it from"
+    }
+]
+
+
+def register_run_outputs(repo_root):
+    """List this run's record files in the checked repository's
+    tools/generated_files.json, when it keeps one and they are missing.
+    -> the paths added.
+
+    WHY THE WRITER REGISTERS (2026-10-17). In all three practice sets the
+    commit of the run record this tool asks for failed
+    generated-files-registered, because a set's registry, written at
+    bootstrap, lists only its views -- and it cannot list these two in
+    advance, since the check refuses an entry for a file that does not
+    exist yet. The tool that creates a file is the one place that knows,
+    at the moment it exists, that it must be listed. A repo with no
+    registry is left alone; an entry already there is never rewritten."""
+    path = pathlib.Path(repo_root) / 'tools' / 'generated_files.json'
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except ValueError:
+        return []
+    files = data.get('files')
+    if not isinstance(files, list):
+        return []
+    listed = {e.get('path') for e in files if isinstance(e, dict)}
+    added = [dict(e) for e in RUN_OUTPUT_ENTRIES
+             if e['path'] not in listed
+             and (pathlib.Path(repo_root) / e['path']).is_file()]
+    if added:
+        data['files'] = files + added
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                        encoding='utf-8')
+    return [e['path'] for e in added]
+
+
 def _exit(message):
     print(message, file=sys.stderr)
     return 1
@@ -8627,6 +8719,11 @@ def main():
         led = box.get('ledger')
         if led is not None:
             led.finish(completed=box['completed'])
+            if led.saved:
+                for rel in register_run_outputs(led.repo or ROOT):
+                    print(f"  note: listed {rel} in tools/generated_files.json, "
+                          f"so committing it passes generated-files-registered",
+                          file=sys.stderr)
 
 
 # Every flag _main reads. A flag outside these two sets used to fall
@@ -8860,22 +8957,34 @@ def _main(box):
                  f"precedent.json to enumerate its own scope, so it cannot "
                  f"report anything else while one of them is malformed.")
 
+    def _planted_section():
+        # CHEAP BEFORE EXPENSIVE (2026-10-17, practice: gates-fail-fast).
+        # With --with-harness this section is the whole suite, about half an
+        # hour, and it used to run here, before the declared sources'
+        # freshness gate; a run spent 27 minutes on it and was then refused
+        # in seconds for a stale source. Without --with-harness it only
+        # reads the rotation's state, so it still prints here; with it, it
+        # waits until every gate below has passed.
+        if led:
+            led.start('PLANTED CASE COVERAGE')
+        _pc_status, _pc_lines = planted_case_coverage(_root, run=with_harness)
+        if not as_json:
+            print("PLANTED CASE COVERAGE -- the push gate's rotation, settled "
+                  "or still owed\n")
+            for _l in _pc_lines:
+                print(f"  {_l}")
+            print()
+        if led:
+            # An owed rotation is a finding: the promise "covered within 10
+            # commits" is the thing this section exists to stop taking on
+            # trust. 'n/a' is unmeasurable, never clean.
+            led.end(findings=None if _pc_status == 'n/a'
+                    else (0 if _pc_status == 'ran' and not any(
+                        l.startswith('FAIL') for l in _pc_lines) else 1))
+
+    if not with_harness:
+        _planted_section()
     if led:
-        led.start('PLANTED CASE COVERAGE')
-    _pc_status, _pc_lines = planted_case_coverage(_root, run=with_harness)
-    if not as_json:
-        print("PLANTED CASE COVERAGE -- the push gate's rotation, settled "
-              "or still owed\n")
-        for _l in _pc_lines:
-            print(f"  {_l}")
-        print()
-    if led:
-        # An owed rotation is a finding: the promise "covered within 10
-        # commits" is the thing this section exists to stop taking on
-        # trust. 'n/a' is unmeasurable, never clean.
-        led.end(findings=None if _pc_status == 'n/a'
-                else (0 if _pc_status == 'ran' and not any(
-                    l.startswith('FAIL') for l in _pc_lines) else 1))
         led.start('VENDORED SURPLUS')
     _vs_n = _vendored_surplus_section(_root, as_json)
     if led:
@@ -8956,6 +9065,8 @@ def _main(box):
                      f"pure artifact -- a convention 'not rolled out' that "
                      f"was rolled out last week. Run each remedy above, or "
                      f"--freshen, and start again.")
+    if with_harness:
+        _planted_section()
 
     # Still THERE, not only still current. The freshness gate above proves
     # each repo in force matches its origin; it cannot see that the origin

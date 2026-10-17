@@ -8868,6 +8868,13 @@ def check_very_deep_check_warnings_are_judged_not_just_counted():
         cases.append(('the block names this run\'s decisions, with who made them',
                       'Exclusions decided this run: 1.' in md and 'by the session -- closed records are history' in md,
                       md))
+        bare = tmp / 'no-registry'
+        bare.mkdir()
+        md2 = wr.render_markdown(result, problems, [], repo_root=bare)
+        cases.append(('with no registry file the block links none (a dead '
+                      'link refused the run record in a set)',
+                      '](../tools/warning_exclusions.json)' not in md2
+                      and 'creates the registry' in md2, md2))
         doc = tmp / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
         doc.write_text('# Run\n\nBody.\n', encoding='utf-8')
         vdc._write_warnings_block(tmp, 'FIRST')
@@ -75574,6 +75581,96 @@ def check_pretooluse_hook_fires():
           not bad, '; '.join(n for n, _ in bad))
 
 
+def check_very_deep_check_reads_a_worktree_and_runs_the_suite_last():
+    """Two faults the 2026-10-17 very deep check paid for in its own run.
+
+    A linked worktree is its own checkout: the branch scan and the
+    live-session sweep asked whether `.git` is a directory, which in a
+    worktree it is not, and skipped both for every helper working in one.
+    A subdirectory of a checkout (a repo-local source) and a plain folder
+    must still read as not their own.
+
+    And --with-harness runs after the declared sources' freshness gate, not
+    before it: a run spent 27 minutes on the suite and was then refused in
+    seconds for a stale source (practice: gates-fail-fast). That half reads
+    main()'s own order, since running the tool end to end here would cost
+    the suite it is about."""
+    import tempfile
+    import very_deep_check as vdc
+
+    _git = fixture_git
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        W = pathlib.Path(td)
+        repo = W / 'repo'
+        repo.mkdir()
+        _git(repo, 'init', '-q', '-b', 'main')
+        _git(repo, 'config', 'user.email', 'harness@example.com')
+        _git(repo, 'config', 'user.name', 'Harness')
+        (repo / 'local').mkdir()
+        (repo / 'local' / 'f.txt').write_text('x\n')
+        _git(repo, 'add', '-A'); _git(repo, 'commit', '-qm', 'one')
+        _git(repo, 'worktree', 'add', '-q', str(W / 'wt'), '-b', 'side')
+        plain = W / 'plain'
+        plain.mkdir()
+        cases.append(('a clone is its own checkout', vdc._own_checkout(repo)))
+        cases.append(('a linked worktree is its own checkout',
+                      vdc._own_checkout(W / 'wt')))
+        cases.append(('a folder inside a checkout is not',
+                      not vdc._own_checkout(repo / 'local')))
+        cases.append(('a plain folder is not', not vdc._own_checkout(plain)))
+        cases.append(('the live-session sweep reads a worktree',
+                      vdc.recent_activity(W / 'wt', 14) is not None))
+    src = (ROOT / 'tools' / 'very_deep_check.py').read_text(encoding='utf-8')
+    body = src[src.index('def main():'):]
+    gate = body.find('not provably current')
+    late = body.find('if with_harness:\n        _planted_section()')
+    cases.append(('--with-harness runs after the source freshness gate',
+                  0 <= gate < late))
+    failed = [n for n, ok in cases if not ok]
+    check(f'very deep check reads a worktree and runs the suite last '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_very_deep_check_registers_its_own_records():
+    """The very deep check lists the record files it writes in the checked
+    repo's generated-files registry, once each, and only when they exist.
+
+    2026-10-17: in all three practice sets, committing the run record the
+    tool asks for failed generated-files-registered, because a set's
+    registry lists only its views and cannot list a file that does not
+    exist yet."""
+    import tempfile
+    import very_deep_check as vdc
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'tools').mkdir()
+        reg = repo / 'tools' / 'generated_files.json'
+        reg.write_text('{"files": [{"path": "MAP.md"}]}\n', encoding='utf-8')
+        cases.append(('nothing is listed before the files exist',
+                      vdc.register_run_outputs(repo) == []))
+        (repo / 'record').mkdir()
+        for e in vdc.RUN_OUTPUT_ENTRIES:
+            (repo / e['path']).write_text('x\n', encoding='utf-8')
+        added = vdc.register_run_outputs(repo)
+        paths = [e.get('path') for e in json.loads(reg.read_text())['files']]
+        cases.append(('both record files are listed once they exist, and the '
+                      'set\'s own entry is kept',
+                      sorted(added) == sorted(e['path'] for e in vdc.RUN_OUTPUT_ENTRIES)
+                      and paths[0] == 'MAP.md' and len(paths) == 3))
+        cases.append(('a second run adds nothing',
+                      vdc.register_run_outputs(repo) == []))
+        bare = repo / 'bare'
+        (bare / 'record').mkdir(parents=True)
+        cases.append(('a repo with no registry is left alone',
+                      vdc.register_run_outputs(bare) == []
+                      and not (bare / 'tools').exists()))
+    failed = [n for n, ok in cases if not ok]
+    check(f'very deep check registers its own record files ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
 def check_freshness_gate_fires():
     """The very deep check's freshness gate, as stated cases against
     throwaway repos (practice: very-deep-check).
@@ -75671,6 +75768,27 @@ def check_freshness_gate_fires():
         results.append(('a local-only branch reports branch-not-on-origin, '
                         'not a fetch failure',
                         v['status'] == 'branch-not-on-origin'))
+        # ...and its remedy is to bring the base in, not to push: the
+        # branch is behind origin/main here, and pushing it would only buy
+        # a second refusal (2026-10-17).
+        results.append(('a local-only branch behind the base is told to '
+                        'bring the base in, never to push',
+                        'merge origin/main' in (v['remedy'] or '')
+                        and 'push -u' not in (v['remedy'] or '')))
+
+        # Detached, as a cloud session hands an attached repo over: at
+        # origin's base it is current, with nothing unpushed; behind it, it
+        # is refused (2026-10-17).
+        _git(work, 'fetch', '-q', 'origin')
+        _git(work, 'checkout', '-q', '--detach', 'origin/main')
+        v = vdc.freshness(work)
+        results.append(('a detached HEAD at origin/main reads clean, with '
+                        'nothing unpushed',
+                        v['status'] in vdc.FRESHNESS_CLEAN and v['ahead'] == 0))
+        _git(work, 'checkout', '-q', '--detach', 'origin/main~1')
+        v = vdc.freshness(work)
+        results.append(('a detached HEAD behind origin/main is refused',
+                        v['status'] == 'detached'))
 
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check refuses a stale repo ({len(results)} stated '
@@ -80980,6 +81098,8 @@ def main():
     check_practice_audit_loader()
     check_practice_audit_declined()
     check_freshness_gate_fires()
+    check_very_deep_check_registers_its_own_records()
+    check_very_deep_check_reads_a_worktree_and_runs_the_suite_last()
     check_doc_lint_exempts_links_in_a_mirrored_tree()
     check_local_engine_edit_saves_a_prompt_please()
     check_repo_may_declare_its_own_fallback_zone()

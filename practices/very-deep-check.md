@@ -560,7 +560,9 @@ method"). Build the fixtures.
   page offers (individual → shared, shared → individual, shared → universal,
   and universal → shared/individual, both halves — the initial duplicate
   landing and the deliberate `--dedupe-only --accept-reach-loss`
-  withdrawal), with `tools/precedent_move.py` and, separately, by hand
+  withdrawal), and `--withdraw-from-universal` (added 2026-10-17, the day
+  a rehearsal found the page never named it), with
+  `tools/precedent_move.py` and, separately, by hand
   against the page's two steps — then the copy-and-delete the page
   forbids, to see which check names it. **And read what the move left
   behind elsewhere**: since 2026-09-28 the run that withdraws the source

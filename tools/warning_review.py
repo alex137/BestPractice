@@ -300,7 +300,7 @@ def render_text(result, problems, notes, previous=None, limit=40):
 
 
 def render_markdown(result, problems, notes, previous=None, start=None,
-                    to_root='../'):
+                    to_root='../', repo_root=None):
     """The block the run record embeds: what the run saw, what it decided,
     and what is left -- by source and kind, never every file, so the record
     stays readable at 2,000 warnings."""
@@ -355,11 +355,19 @@ def render_markdown(result, problems, notes, previous=None, start=None,
     for n in notes:
         lines.append(f'- Not read: {n}')
     # Linked, not backticked: a bare path here would be an unlinked-reference
-    # warning of its own, written by the section that counts them.
-    lines += ['', f'Exclusions live in [{REGISTRY_RELPATH}]'
-                  f'({to_root}{REGISTRY_RELPATH}); '
-                  f'[tools/warning_review.py]({to_root}tools/warning_review.py) '
-                  f'lists every open group.']
+    # warning of its own, written by the section that counts them. But only
+    # when the registry is there: a set with no exclusions yet has no such
+    # file, the link was dead, and the light check refused the run record
+    # the tool had just asked to be committed (2026-10-17, very deep check).
+    has_registry = repo_root is None or \
+        (pathlib.Path(repo_root) / REGISTRY_RELPATH).is_file()
+    where = (f'Exclusions live in [{REGISTRY_RELPATH}]'
+             f'({to_root}{REGISTRY_RELPATH}); ' if has_registry else
+             'No exclusion is decided here yet; the first one creates '
+             'the registry under tools/. ')
+    lines += ['', where +
+              f'[tools/warning_review.py]({to_root}tools/warning_review.py) '
+              f'lists every open group.']
     return '\n'.join(lines)
 
 
