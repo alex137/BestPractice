@@ -9,7 +9,12 @@ Run from a clone of Precedent (this repository), pointed at the project:
       [--about "one sentence, used only if the project has no README yet"] \\
       [--base-branch main] [--visibility private|public] \\
       [--output-paths docs,site] [--content-paths notes/,TODO.md] \\
-      [--admin github-handle] [--team NAME=PATH ...] [--force]
+      [--admin github-handle] [--team NAME=PATH ...] [--no-terminal] [--force]
+
+--no-terminal says the assistant that will work here has no terminal
+(ChatGPT connected to GitHub, say): precedent.json gets
+"github_ci_main_test": "always", so GitHub checks every push to main, in a
+private repository too -- the only check such an assistant gets.
 
 --visibility, when not given, is read from GitHub for a GitHub origin, and
 is public when it cannot be read: the safe direction, since a private repo
@@ -83,6 +88,7 @@ TEMPLATES = ROOT / 'templates'
 UPSTREAM_URL = 'https://github.com/alex137/BestPractice'
 UPSTREAM_DOCS = f'{UPSTREAM_URL}/blob/main'
 UNIVERSAL_PATH = 'precedent/universal'
+MAIN_TEST_KEY = precedent_vendor_engine.MAIN_TEST_KEY
 # Mirrors precedent_update.CATALOGUE_COMPANIONS (asserted equal by
 # check_installer_vendors_the_catalogue_companions); not imported, since
 # precedent_update is a far heavier import than this list.
@@ -313,7 +319,7 @@ def _seed_engine(dest):
 
 
 def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, force,
-                          content_paths=None):
+                          content_paths=None, no_terminal=False):
     path = dest / 'precedent.json'
     if path.exists() and not force:
         raise InstallRefused(f'{path} already exists -- this project looks '
@@ -338,11 +344,27 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
             'public: this repository\'s tracked files are a publication, so the',
             'generated loader block leaves out every PRIVATE-level source (team,',
             'individual). private: they are rendered in. Omitting the key counts',
-            'as public, which is the direction that cannot be undone -- so it is',
-            'always written explicitly here.',
+            'as public, the safe direction (a wrong "public" only leaves those',
+            'out; a wrong "private" publishes them) -- and it is always written',
+            'explicitly here.',
         ],
         'sources': sources,
     }
+    # AN ASSISTANT WITH NO TERMINAL GETS ITS CHECK ON GITHUB (2026-10-17). A
+    # private repository's light check runs on a pull request only from a
+    # branch Promote named, so off the ladder it ran on none, and an
+    # assistant that cannot run the local check got no check anywhere --
+    # though SETUP.md's fifth question says that workflow is the only place
+    # one can run for it. "always" tests every push to main from any route,
+    # once, after it lands (precedent_vendor_engine.render_ci_workflow).
+    if no_terminal:
+        doc[MAIN_TEST_KEY] = 'always'
+        doc['_' + MAIN_TEST_KEY + '_comment'] = [
+            'The assistant working here has no terminal, so the local check never',
+            'runs; GitHub tests every push to main instead, once it lands, in a',
+            'private repository too. Written by tools/precedent_install.py',
+            '(--no-terminal). "individual" hands the choice back to Promote.',
+        ]
     # The tiered default only when the person installing is on the ladder
     # (spec/LADDER_OPT_IN_PLAN.md D3): for anyone else a repository has its
     # main branch, and its precedent.json says nothing about tiers.
@@ -831,7 +853,7 @@ def _tiers(dest):
 
 def install(dest, project, about=None, base_branch=None, visibility=None,
             output_paths=None, admin=None, teams=(), force=False, quiet=False,
-            content_paths=None):
+            content_paths=None, no_terminal=False):
     dest = pathlib.Path(dest).resolve()
     say = (lambda *a: None) if quiet else print
     rc, top, _ = _git(dest, 'rev-parse', '--show-toplevel')
@@ -869,8 +891,13 @@ def install(dest, project, about=None, base_branch=None, visibility=None,
     for line in _seed_engine(dest):
         say(f'  {line}')
     _write_precedent_json(dest, branch, visibility, output_paths, teams, force,
-                          content_paths=content_paths)
+                          content_paths=content_paths, no_terminal=no_terminal)
     say('  wrote precedent.json')
+    if no_terminal:
+        say(f'  main\'s GitHub test: always ({MAIN_TEST_KEY}) -- the assistant here has no '
+            f'terminal, so GitHub checks every push to main once it lands'
+            + ('' if ci_enabled else f'; but no workflow is written ({ci_note}), so '
+               f'nothing will run until a source enables them'))
     # Its code owners, from who can edit it now (Morgan, 2026-10-06): a
     # starting default, never rewritten once set.
     try:
@@ -983,12 +1010,14 @@ def main(argv=None):
     opts = {'--project-name': None, '--about': None, '--base-branch': None,
             '--visibility': None, '--output-paths': None, '--admin': None,
             '--content-paths': None}
-    teams, force = [], False
+    teams, force, no_terminal = [], False, False
     i = 1
     while i < len(argv):
         a = argv[i]
         if a == '--force':
             force = True
+        elif a == '--no-terminal':
+            no_terminal = True
         elif a == '--team':
             i += 1
             name, _, path = argv[i].partition('=')
@@ -1016,7 +1045,8 @@ def main(argv=None):
         ok = install(dest, opts['--project-name'], about=opts['--about'],
                      base_branch=opts['--base-branch'], visibility=opts['--visibility'],
                      output_paths=paths or None, admin=opts['--admin'],
-                     teams=teams, force=force, content_paths=content or None)
+                     teams=teams, force=force, content_paths=content or None,
+                     no_terminal=no_terminal)
     except InstallRefused as e:
         print(f'precedent_install FAIL: {e}', file=sys.stderr)
         return 1

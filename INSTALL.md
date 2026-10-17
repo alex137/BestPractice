@@ -110,8 +110,13 @@ python3 tools/precedent_install.py <project path> --project-name "<name>" \
     [--about "<one sentence, for a README that does not exist yet>"] \
     [--visibility private|public] [--base-branch main] \
     [--output-paths docs,site] [--content-paths notes/,TODO.md] \
-    [--admin <github handle>] [--team NAME=PATH]
+    [--admin <github handle>] [--team NAME=PATH] [--no-terminal]
 ```
+
+`--no-terminal` is for a project whose assistant has no terminal (ChatGPT
+connected to GitHub): it writes `"github_ci_main_test": "always"`, so the
+light check runs on every push to `main`, private repositories included,
+since off the ladder no pull request in a private repository gets one.
 
 [tools/precedent_install.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_install.py) does steps 1, 2,
 4, 5 and 6 below exactly as written, lints the files it wrote, and prints

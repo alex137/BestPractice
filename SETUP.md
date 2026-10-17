@@ -83,8 +83,9 @@ nothing to choose here — this page installs §0, always.
      request shows it as skipped. For an AI
      Assistant with no terminal access (ChatGPT, or anything else with no
      local shell) it is the only place any check can run at all, so say
-     so. Say the default out loud and let them override it. If they want
-     it off, it takes `"github_ci_workflows": "disabled"` in an individual
+     so, and say that the install then has GitHub check every change that
+     reaches `main` instead (`--no-terminal`, step 3). Say the default
+     out loud and let them override it. If they want it off, it takes `"github_ci_workflows": "disabled"` in an individual
      or shared source's `identity.json`
      ([documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md));
      if they answered "no" to the third question there is nowhere this
@@ -116,11 +117,16 @@ nothing to choose here — this page installs §0, always.
        --visibility <private or public, read from the repository, never asked> \
        --output-paths <the published folders from their first answer, comma-separated> \
        --content-paths <their own material from their first answer, comma-separated> \
-       --admin <the administrator's GitHub handle>
+       --admin <the administrator's GitHub handle> \
+       [--no-terminal]
    ```
 
    Leave `--output-paths` out when they said "none yet", and
-   `--content-paths` when they said "none". If they said yes
+   `--content-paths` when they said "none". Add `--no-terminal` when the
+   assistant they named has no terminal (ChatGPT connected to GitHub, or
+   anything else with no local shell): GitHub then checks every push to
+   `main`, in a private repository too, which is the only check such an
+   assistant gets. If they said yes
    to a shared set (the writing set, say), clone it beside the project
    first and add `--team <name>=../<name>` for each one: the name must be
    the set's own `name` in its `precedent-source.json`

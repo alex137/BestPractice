@@ -30082,6 +30082,69 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_installer_no_terminal_tests_every_push_to_main():
+    """An install for an assistant with no terminal (--no-terminal) writes
+    precedent.json's "github_ci_main_test": "always", so the light check
+    it writes tests every push to main in a private repository too; an
+    install without it leaves the template's private-repository skip as it
+    is.
+
+    Found 2026-10-17 by the very deep check's install rehearsal: off the
+    ladder, a private repository's light check ran on no pull request (its
+    `if:` admits only branches Promote named), so an assistant with no
+    terminal got no check anywhere, though SETUP.md's fifth question says
+    that workflow is the only place a check can run for one. Decision chosen
+    by the session under Morgan's delegation of 2026-10-17 ("Fix the other
+    issues you found including the checks that never run. Tell me what you
+    decide. I will be offline so don't wait for me. Approved, act, and
+    Booked."): the existing "always" setting, written by the installer when
+    the answers say no terminal.
+
+    Negative control, measured 2026-10-17: on the code before the fix the
+    installer refuses --no-terminal as an unknown argument.
+    """
+    import tempfile
+    tool = str(ROOT / 'tools' / 'precedent_install.py')
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-no-terminal-'))
+    env = dict(os.environ, PRECEDENT_USER_CONFIG=str(tmp / 'no-config.json'),
+               GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    env.pop('PRECEDENT_GITHUB_USER', None)
+    try:
+        def install(name, *extra):
+            proj = tmp / name
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(proj)], capture_output=True)
+            (proj / 'README.md').write_text('# Notes\n\nA newsletter.\n', encoding='utf-8')
+            subprocess.run(['git', '-C', str(proj), 'add', '-A'], capture_output=True, env=env)
+            subprocess.run(['git', '-C', str(proj), 'commit', '-qm', 'before'],
+                           capture_output=True, env=env)
+            r = subprocess.run([sys.executable, tool, str(proj), '--project-name', 'Notes',
+                                '--visibility', 'private', *extra], cwd=str(ROOT),
+                               capture_output=True, text=True, env=env)
+            cfg = proj / 'precedent.json'
+            doc = json.loads(cfg.read_text(encoding='utf-8')) if cfg.is_file() else {}
+            wf = proj / '.github' / 'workflows' / 'light-check.yml'
+            return r, doc, wf.read_text(encoding='utf-8') if wf.is_file() else ''
+        r, doc, wf = install('chatgpt', '--no-terminal')
+        cases.append(('--no-terminal installs, writes "always" and says so',
+                      r.returncode == 0 and doc.get('github_ci_main_test') == 'always'
+                      and "main's GitHub test: always" in r.stdout,
+                      (r.stdout + r.stderr)[-600:]))
+        cases.append(('...and the light check it writes tests a private push to main',
+                      "'main-test:always' == 'main-test:always'" in wf, wf[:200]))
+        r, doc, wf = install('claude-code')
+        cases.append(('CONTROL: without it, nothing is written and the template keeps its skip',
+                      r.returncode == 0 and 'github_ci_main_test' not in doc
+                      and "'main-test:individual' == 'main-test:always'" in wf,
+                      (r.stdout + r.stderr)[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_installer_visibility_defaults_to_public_and_says_why():
     """The installer's visibility: --visibility when given, then an existing
     precedent.json, then GitHub's answer for a GitHub origin, and public
@@ -82493,6 +82556,8 @@ def main():
           *check_installer_base_branch_asks_origin_before_the_current_branch())
     check('the installer defaults visibility to public when it cannot be read, and says why',
           *check_installer_visibility_defaults_to_public_and_says_why())
+    check('an install for an assistant with no terminal has GitHub test every push to main',
+          *check_installer_no_terminal_tests_every_push_to_main())
     check("a local session's commit identity leaves the laptop's global git config alone",
           *check_commit_identity_leaves_a_laptops_global_config_alone())
     check_endgame_merge_finds_the_silent_drop()
