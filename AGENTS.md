@@ -395,7 +395,10 @@ place — nothing is ever deleted, and nothing moves.
   before every commit; **deep check** is `python3 tools/precedent_push_check.py`,
   before push or merge, **always run bare**: it checks at the tier a push
   to your landing branch gets -- seconds for `staging` when you land there,
-  the full suite for `main`. What matters is `0 failed` and `0 violated`. Which one a push gets, `--as-ci`, and failing tests a
+  the full suite for `main`. What matters is `0 failed` and `0 violated`.
+  **A pass pushes to origin:** a small receipt (file hashes, no content)
+  on the receipt branch, so other checkouts skip those files;
+  `PRECEDENT_NO_SHARED_PASS=1` turns that off. Which one a push gets, `--as-ci`, and failing tests a
   source shipped:
   [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#two-check-levels).
 

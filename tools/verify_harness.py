@@ -38894,8 +38894,14 @@ def check_push_check_gate():
         files = git(hub, 'ls-tree', '-r', '--name-only',
                     'precedent-check-receipts').stdout.split()
         cases.append(('a full pass is published to origin as a receipt',
-                      'shared with every checkout' in ran
-                      and any(f.startswith('receipts/') for f in files)))
+                      any(f.startswith('receipts/') for f in files)))
+        # The run says the push plainly (2026-10-17): no document said a
+        # check writes to origin, and the old line ("receipt shared with
+        # every checkout") never said it pushed, or where.
+        cases.append(('the run says in plain words that it pushed a pass '
+                      'receipt, to which branch, on origin, and how to stop it',
+                      'pushed a pass receipt to precedent-check-receipts on '
+                      'origin' in ran and 'PRECEDENT_NO_SHARED_PASS=1' in ran))
         other = tmp / 'other'
         git(tmp, 'clone', '-q', f'file://{hub}', str(other))
         got = run_check(other, '--gate', '--tier', 'full')

@@ -1090,12 +1090,17 @@ def publish_pass(root, rec):
                             f'{c.stdout.strip()}:refs/heads/{branch}'], 60)
         if p is not None and p.returncode == 0:
             _git_env(root, ['update-ref', RECEIPT_REF, c.stdout.strip()], 10)
-            print('precedent_push_check: receipt shared with every checkout of '
-                  'this repository, so no other window re-runs these files.')
+            # SAY THE PUSH (2026-10-17). A check that writes to origin is
+            # rare enough that a reader of the run must see it in plain
+            # words: what was pushed, where, and how to stop it.
+            print(f'precedent_push_check: pushed a pass receipt to {branch} '
+                  f'on origin, so no other checkout re-runs these files '
+                  f'(PRECEDENT_NO_SHARED_PASS=1 turns this off).')
             return
         why = p.stderr.strip()[:200] if p is not None else 'timed out'
-    print(f'precedent_push_check: NOTE -- could not share the receipt with '
-          f'other checkouts ({why}); they will run the suite themselves.')
+    print(f'precedent_push_check: NOTE -- could not push the pass receipt to '
+          f'{branch} on origin ({why}); other checkouts will run the suite '
+          f'themselves.')
 
 
 def _promote_only_refusal(root, argv):
