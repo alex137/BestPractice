@@ -370,6 +370,11 @@ place — nothing is ever deleted, and nothing moves.
   table — [GEMINI.md](GEMINI.md) at the root already says so for Gemini
   CLI, and [templates/harness/codex/README.md](templates/harness/codex/README.md)
   covers Codex.
+- **Schedules in force: one.**
+  [deep-check.yml](.github/workflows/deep-check.yml) runs the whole suite
+  daily at 07:17 UTC (`cron: '17 7 * * *'`, Alex, 2026-10-12: "yes on daily
+  run"); its header says why. Nothing else here runs on a clock. A commit
+  that adds, changes, pauses or removes a schedule updates this line.
 - **Work lands on your landing branch** (the opening paragraph;
   `python3 tools/precedent_branches.py --landing`).
 - **Some changes arrive as check-in PRs from dependent repos** (INSTALL.md
