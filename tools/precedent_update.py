@@ -1422,6 +1422,33 @@ def _without_duplicate_permissions(text):
     return json.dumps(data, indent=indent, ensure_ascii=False) + '\n'
 
 
+def names_full_path(line, path):
+    """True when `line` names `path` the way rename-updates-links reads a
+    line: the whole path, or with ./ or ../ in front, never as the tail of a
+    longer path and never by its file name alone.
+
+    WHY (2026-10-17, a document project's Update Vendors): the first run
+    left precedent.json lines that the same run had already repointed from
+    tools/checks/check_commit_author.py to tools/check_commit_author.py, and
+    the engine manifest's bare "check_commit_author.py" at its new home, as
+    still naming the old path: this matched the file name alone. Nothing
+    refuses those lines, and the next run, with no edit, did not list
+    them."""
+    start = 0
+    while True:
+        i = line.find(path, start)
+        if i < 0:
+            return False
+        start = i + 1
+        k = i
+        while k > 0 and (line[k - 1].isalnum() or line[k - 1] in '._-/'):
+            k -= 1
+        prefix = line[k:i]
+        if not prefix or (prefix.endswith('/') and all(
+                seg in ('.', '..') for seg in prefix[:-1].split('/'))):
+            return True
+
+
 def retired_mentions(repo, engine_out):
     """-> [(where, gone)] for each file that still names something the
     engine refresh deleted, and still does now that the rest of the update
@@ -1468,9 +1495,8 @@ def retired_mentions(repo, engine_out):
             text = (repo / path).read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             continue
-        base = pathlib.PurePosixPath(gone).name
         hit = next((n for n, l in enumerate(text.splitlines(), 1)
-                    if gone in l or base in l), None)
+                    if names_full_path(l, gone)), None)
         if hit is not None and (f'{path}:{hit}', gone) not in out:
             out.append((f'{path}:{hit}', gone))
     return out
@@ -2286,6 +2312,9 @@ def dropped_template_lines_step(repo, rep, rev):
             rep.step('kept on purpose', f'{rel} keeps wording {tmpl} dropped, '
                      f'as precedent.json records -- "{reason}"')
             continue
+        if verdict == 'stale':
+            kept_file_question(repo, rep, rel, tmpl, sha, reason, old, rev)
+            continue
         if verdict in (None, 'unreasoned'):
             left = refresh_template_comment(repo, rel, tmpl, rev, hits)
             if left is not None:
@@ -2309,19 +2338,74 @@ def dropped_template_lines_step(repo, rep, rev):
                 f'purpose? record "{rel}" in precedent.json\'s '
                 f'{pve.KEPT_DIVERGENCES_KEY} with a reason and template_sha256 '
                 f'{sha}']
-        if verdict == 'stale':
-            change = (pve._template_change(old, _source_text(rev, tmpl) or '')
-                      if old is not None else [])
-            shown = ['  ' + (l if len(l) <= 160 else l[:157] + '...')
-                     for l in change[:20]]
-            if len(change) > 20:
-                shown.append(f'  ... and {len(change) - 20} more line(s)')
-            note[:0] = [f'recorded as kept ("{reason}"), but {tmpl} has changed '
-                        f'since -- ' + ('what changed:' if shown else
-                                        'read it again')] + shown
-        elif verdict == 'unreasoned':
+        if verdict == 'unreasoned':
             note.insert(0, 'recorded as kept with no reason, so not honoured')
         rep.details.setdefault(first, []).extend(note)
+
+
+def _lines_this_update_added(repo, rel, rep):
+    """-> [line] the file `rel` has now and had at HEAD, which this run
+    wrote: only when the file was clean when the run started writing, so a
+    person's own uncommitted edit is never called the update's."""
+    if rep.before is None or rel in rep.before:
+        return []
+    committed = _git_show(repo, f'HEAD:{rel}')
+    if committed is None:
+        return []
+    try:
+        now = (repo / rel).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return []
+    import difflib
+    return [l[1:] for l in difflib.unified_diff(
+                committed.splitlines(), now.splitlines(), lineterm='', n=0)
+            if l.startswith('+') and not l.startswith('+++') and l[1:].strip()]
+
+
+def kept_file_question(repo, rep, rel, tmpl, sha, reason, old, rev):
+    """ONE question for a file kept whole on purpose whose template has
+    changed since that was recorded: what changed in the template, what
+    this update already carried into the file, and the one edit that
+    records it as still kept.
+
+    WHY (2026-10-17, a consuming repository's Update Vendors): its
+    GETTING_STARTED.md is rewritten on purpose and recorded as kept. The
+    template gained a bullet and a reworded line. The update carried the
+    bullet into the file itself, said nothing about it, and then left ten
+    items, one per line of the repository's own rewrite, each saying "bring
+    it in line with templates/GETTING_STARTED.md, or drop the line". A
+    session doing what it was told would have cut lines from a file the
+    repository keeps on purpose. The lines are the repository's; the
+    question is only whether the decision still holds."""
+    change = (pve._template_change(old, _source_text(rev, tmpl) or '')
+              if old is not None else [])
+    carried = _lines_this_update_added(repo, rel, rep)
+
+    def clip(line):
+        return '  ' + (line if len(line) <= 160 else line[:157] + '...')
+    rep.leave(rel, f'kept on purpose ("{reason}"), and {tmpl} has changed '
+              f'since that was recorded: is it still kept as it is? Its own '
+              f'lines are this repository\'s; none of them is to be dropped '
+              f'for this question')
+    note = []
+    if change:
+        note.append(f'what changed in {tmpl} since the recorded version:')
+        note += [clip(l) for l in change[:20]]
+        if len(change) > 20:
+            note.append(f'  ... and {len(change) - 20} more line(s)')
+    else:
+        note.append(f'the recorded version of {tmpl} could not be found in '
+                    f'its history, so read the current template against the '
+                    f'file')
+    if carried:
+        note.append(f'this update already carried {len(carried)} line(s) of '
+                    f'it into {rel}, uncommitted:')
+        note += [clip(l) for l in carried[:10]]
+    note.append(f'still kept? in precedent.json, set '
+                f'{pve.KEPT_DIVERGENCES_KEY}["{rel}"].template_sha256 to {sha} '
+                f'and run again; not kept? bring {rel} in line with {tmpl} by '
+                f'hand, then remove its entry')
+    rep.details.setdefault(rel, []).extend(note)
 
 
 def budget_note_key(tool):

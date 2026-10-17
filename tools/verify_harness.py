@@ -72166,6 +72166,120 @@ def check_install_and_update_offer_the_owners_zone():
           f'fallback ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_a_reasked_left_out_section_is_not_asked_every_rerun():
+    """A section recorded as left out, which a second pass asks about again
+    (its first pass ran an engine older than the hand-over), is asked once
+    per update, not on every re-run of it (2026-10-17, a document project's
+    Update Vendors: the first pass runs the repository's committed engine,
+    which an unfinished update has not committed, so every re-run asked the
+    same four sections again and the run could not reach DONE until the
+    engine was committed mid-update). The record is per source commit, in
+    the git directory: another update asks again."""
+    import contextlib, io, tempfile
+    import precedent_vendor_engine as pve
+    name = 'a re-asked left-out section is not asked on every re-run'
+    if not hasattr(pve, '_report_agents_md'):
+        not_applicable(name, '_report_agents_md is absent')
+        return
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='reasked-'))
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+        (tmp / 'AGENTS.md').write_text('# Notes\n', encoding='utf-8')
+        plan = [('## Session setup', 'AGENTS.md.loader.template', 12, 'absent', None)]
+
+        def run(commit):
+            saved = list(pve._LEFT_FOR_YOU)
+            pve._LEFT_FOR_YOU[:] = []
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    try:
+                        pve._report_agents_md(tmp, tmp, plan, reask_absent=True,
+                                              commit=commit)
+                    except TypeError:
+                        pve._report_agents_md(tmp, tmp, plan, reask_absent=True)
+                left = list(pve._LEFT_FOR_YOU)
+            finally:
+                pve._LEFT_FOR_YOU[:] = saved
+            return left, buf.getvalue()
+
+        left, out = run('c1')
+        cases.append(('the first re-run of an update asks again, as before',
+                      any('Session setup' in i for i, _w in left), out[-200:]))
+        left, out = run('c1')
+        cases.append(('the next re-run of the same update does not ask a '
+                      'third time, and says why',
+                      not left and 'not asked a third time' in out, out[-300:]))
+        left, out = run('c2')
+        cases.append(('an update to another source commit asks again',
+                      any('Session setup' in i for i, _w in left), out[-200:]))
+        tracked = subprocess.run(['git', '-C', str(tmp), 'status', '--porcelain',
+                                  '--untracked-files=all'],
+                                 capture_output=True, text=True).stdout
+        cases.append(('the record lives in the git directory, never in the tree',
+                      'reasked' not in tracked, tracked))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_update_vendors_maps_a_task_kind_to_manual():
+    """An open item filed as `kind: task` (or todo, action, chore) is moved
+    to `manual` by Update Vendors' migration, and the report names it, so
+    the update's generated-files step never stops on build_todo_index.py's
+    refusal (2026-10-17, a document project's Update Vendors: it failed half
+    way on "A `task` is usually `manual`"). A done item, and a kind that is
+    already legal, are left alone; the update runs the migration unnamed."""
+    import importlib.util, inspect, tempfile
+    name = 'Update Vendors moves an open item\'s `task` kind to `manual`'
+    path = ROOT / 'tools' / 'migration_todo_kind_synonyms.py'
+    if not path.is_file():
+        check(name, False, 'tools/migration_todo_kind_synonyms.py is missing')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        spec = importlib.util.spec_from_file_location('_vh_mig_kinds', path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    finally:
+        sys.path.pop(0)
+    pu, _pve, _pr = _update_tools()
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-task-kind-'))
+    try:
+        (tmp / 'todo').mkdir()
+
+        def item(slug, kind, status):
+            (tmp / 'todo' / f'todo-{slug}.md').write_text(
+                f'---\nslug:              todo-{slug}\nkind:              {kind}\n'
+                f'status:            {status}\n---\n## What\n\nBody `kind: task`.\n',
+                encoding='utf-8')
+        item('a', 'task', 'open')
+        item('b', 'chore', 'done')
+        item('c', 'verify', 'open')
+        rep = pu.Report()
+        mod.migrate(tmp, rep, pu)
+        a = (tmp / 'todo' / 'todo-a.md').read_text(encoding='utf-8')
+        cases.append(('an open `task` item becomes `manual`, frontmatter only',
+                      'kind:              manual\n' in a and 'Body `kind: task`.' in a, a))
+        cases.append(('a done item and a legal kind are untouched',
+                      'kind:              chore' in (tmp / 'todo' / 'todo-b.md').read_text()
+                      and 'kind:              verify' in (tmp / 'todo' / 'todo-c.md').read_text()))
+        said = ' '.join(o for n, o in rep.steps if n == 'open items')
+        cases.append(('the report names the file and what it was',
+                      'todo/todo-a.md (was `task`)' in said, said))
+        cases.append(('Update Vendors runs every migration file unnamed',
+                      "glob('migration_*.py')" in inspect.getsource(pu.migrations_step)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_update_vendors_reports_dropped_template_wording():
     """An install-once file still carrying wording its template has since
     dropped is left for the person, by file and line -- and nothing else is.
@@ -72274,8 +72388,46 @@ def check_update_vendors_reports_dropped_template_wording():
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
                 step(repo, rep, rev)
-            cases.append(('...and listed again once the template has changed since',
-                          len(rep.left) == 3, str(rep.left)))
+            # ONE QUESTION FOR A FILE KEPT WHOLE (2026-10-17, a consuming
+            # repository): its kept rewrite was left as one item per line,
+            # each saying "or drop the line"; and a line the update carried
+            # in by itself went unsaid.
+            cases.append(('...and asked again once the template has changed '
+                          'since: one item for the file, never one per line',
+                          sorted(dict(rep.left)) == ['TODO.md'], str(rep.left)))
+            v1_sha = hashlib.sha256(git(src, 'show', f'{rev}~1:templates/'
+                                        'TODO.md.template').stdout.encode()).hexdigest()
+            (repo / 'precedent.json').write_text(json.dumps({
+                pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                    'reason': 'kept on purpose', 'template_sha256': v1_sha}}}),
+                encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            said = ' '.join(dict(rep.left).values()) + ' ' + ' '.join(
+                rep.details.get('TODO.md', []))
+            cases.append(('...which never says to drop a line, shows what the '
+                          'template changed, and the hash to record',
+                          'drop the line' not in said
+                          and 'what changed in templates/TODO.md.template' in said
+                          and hashlib.sha256(tmpl.read_bytes()).hexdigest() in said,
+                          said[:400]))
+            git(repo, 'init', '-q')
+            git(repo, 'add', 'TODO.md')
+            git(repo, 'commit', '-qm', 'kept rewrite')
+            (repo / 'TODO.md').write_text(
+                body + 'A bullet the update carried in from the template.\n',
+                encoding='utf-8')
+            rep = pu.Report()
+            rep.before = set()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            said = ' '.join(rep.details.get('TODO.md', []))
+            cases.append(('...and says what this update already carried into it',
+                          'already carried 1 line(s)' in said
+                          and 'A bullet the update carried in' in said, said[:400]))
+            git(repo, 'checkout', '-q', '--', 'TODO.md')
+            shutil.rmtree(repo / '.git', ignore_errors=True)
 
             # A file that is, byte for byte, an older version of its
             # template was never made the repository's own: it takes the
@@ -72767,6 +72919,100 @@ def check_refresh_names_an_in_place_hook_no_engine_path_keeps():
     check(f'refresh names an in-place hook no engine_paths entry keeps current '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_retired_mentions_match_the_full_path_only():
+    """A file is left as still naming a deleted or moved path only when it
+    names the whole path, the way rename-updates-links reads it: never by
+    its file name alone, and never as the tail of a longer path.
+
+    2026-10-17, a document project's Update Vendors: precedent.json lines
+    the same run had repointed to tools/check_commit_author.py, and the
+    engine manifest's bare check_commit_author.py at its new home, were left
+    as still naming tools/checks/check_commit_author.py, because the scan
+    matched the file name. The next run, with no edit, listed none."""
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    name = 'a mention of a deleted path is the whole path, not its file name'
+    if not hasattr(pu, 'retired_mentions'):
+        not_applicable(name, 'retired_mentions is absent')
+        return
+    gone = 'tools/checks/check_commit_author.py'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-full-path-'))
+    cases = []
+    try:
+        files = {
+            'repointed.json': '{"run": "python3 tools/check_commit_author.py"}\n',
+            'bare.md': 'The check is check_commit_author.py now.\n',
+            'longer.md': 'A pack ships process/pack/tools/checks/check_commit_author.py.\n',
+            'old.md': f'Run `{gone}` before pushing.\n',
+            'relative/doc.md': f'See [it](../{gone}).\n',
+        }
+        for rel, text in files.items():
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        planted = '\n'.join(
+            f"WARN: precedent_vendor_engine: {gone} was moved, and {rel}:1 "
+            f"still names it -- 'x'. Nothing here refuses."
+            for rel in files)
+        got = sorted(w for w, _g in pu.retired_mentions(tmp, planted))
+        cases.append(('the whole path, and one written with ../ in front, are '
+                      'left for the person',
+                      'old.md:1' in got and 'relative/doc.md:1' in got, str(got)))
+        cases.append(('a line already repointed, a bare file name, and a longer '
+                      'path ending in it are not',
+                      got == ['old.md:1', 'relative/doc.md:1'], str(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_dependents_warning_skips_a_wholly_generated_view():
+    """The refresh's "still names it" warning leaves out a file a generator
+    writes whole, which the update rebuilds from its sources a moment later,
+    and still reads a file only partly generated (2026-10-17, a consuming
+    repository's Update Vendors: MAP.md was warned about for naming two
+    engine tools the refresh had removed, and the view rebuild then dropped
+    both lines). A source still naming the tool is warned about as before."""
+    import contextlib, io, tempfile
+    import precedent_vendor_engine as pve
+    name = 'the dependents warning skips a wholly generated view'
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-generated-dependents-'))
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    gone = 'tools/retired_words.py'
+    try:
+        def put(rel, text):
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text(text, encoding='utf-8')
+        put('MAP.md', f'| `{gone}` | a tool |\n')
+        put('AGENTS.md', f'Run `{gone}` by hand.\n')
+        put('docs/HOWTO.md', f'Use `{gone}`.\n')
+        put('tools/generated_files.json', json.dumps({'files': [
+            {'path': 'MAP.md', 'generated_by': 'tools/build_views.py'},
+            {'path': 'AGENTS.md', 'part': '<!-- BEGIN GENERATED: x -->',
+             'generated_by': 'tools/build_views.py'}]}))
+        subprocess.run(['git', 'init', '-q', str(tmp)], env=env, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], env=env, check=True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            pve._warn_about_dependents(tmp, [gone], 'removed from this kind\'s engine set')
+        warned = err.getvalue()
+        cases.append(('a wholly generated MAP.md naming the removed tool is not '
+                      'warned about', 'MAP.md:' not in warned, warned[:400]))
+        cases.append(('...while a hand-written doc and a partly generated '
+                      'AGENTS.md still are',
+                      'docs/HOWTO.md:1' in warned and 'AGENTS.md:1' in warned,
+                      warned[:400]))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
 def check_retired_mentions_skip_what_the_repo_receives():
@@ -73560,7 +73806,7 @@ def check_kept_pin_moves_across_a_comment_only_template_change():
         shown = '\n'.join(l for v in rep.details.values() for l in v)
         cases.append(('CONTROL: a change a reader sees is still asked, and the '
                       'question shows the changed line',
-                      bool(rep.left) and 'what changed:' in shown
+                      bool(rep.left) and 'what changed in templates/' in shown
                       and '+One file for each item under todo/.' in shown, shown))
     except (OSError, ValueError, KeyError) as e:
         cases.append((f'fixture could not be built ({e})', False, ''))
@@ -84484,6 +84730,8 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_update_vendors_maps_a_task_kind_to_manual()
+    check_a_reasked_left_out_section_is_not_asked_every_rerun()
     check_update_vendors_refreshes_a_template_own_comment()
     check_update_vendors_dropped_wording_reads_a_views_source()
     check_kept_pin_moves_across_a_comment_only_template_change()
@@ -84502,6 +84750,8 @@ def main():
     check_refresh_replaces_a_past_individual_hook_rendering()
     check_refresh_names_an_in_place_hook_no_engine_path_keeps()
     check_retired_mentions_skip_what_the_repo_receives()
+    check_dependents_warning_skips_a_wholly_generated_view()
+    check_retired_mentions_match_the_full_path_only()
     check_second_pass_drops_a_first_pass_unshipped_workflow_call()
     check_update_says_once_that_commands_moved_to_an_undeclared_set()
     check_retired_words_reads_past_the_decommission_ledger()

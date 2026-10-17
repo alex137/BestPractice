@@ -2033,6 +2033,25 @@ def received_paths(dest_root):
     return paths, tuple(dict.fromkeys(prefixes))
 
 
+GENERATED_REGISTRY = 'tools/generated_files.json'
+
+
+def wholly_generated_files(dest_root):
+    """-> {path} of each file this repository's generated-files registry
+    says a generator writes whole (an entry with no `part`). Never raises:
+    no registry is no generated file."""
+    try:
+        entries = json.loads((pathlib.Path(dest_root) / GENERATED_REGISTRY)
+                             .read_text(encoding='utf-8')).get('files') or []
+    except (OSError, ValueError, AttributeError):
+        return set()
+    whole = {str(e.get('path')) for e in entries
+             if isinstance(e, dict) and e.get('path') and not e.get('part')}
+    partial = {str(e.get('path')) for e in entries
+               if isinstance(e, dict) and e.get('path') and e.get('part')}
+    return whole - partial
+
+
 def dependents_of(dest_root, rels, cap=8):
     """-> {rel: [(referring path, line number, the line)]} for files that
     are about to stop existing, or just have.
@@ -2082,6 +2101,14 @@ def dependents_of(dest_root, rels, cap=8):
     # upstream does, and the next refresh rewrites it: counting it made every
     # row in a consumer a finding (2026-10-17, very deep check).
     received, received_under = received_paths(dest_root)
+    # A WHOLE FILE A GENERATOR WRITES (2026-10-17, a consuming repository's
+    # Update Vendors): MAP.md was warned about for naming two engine tools
+    # the refresh had just removed, and the update's own view rebuild a
+    # moment later dropped both lines. A generated view names what its
+    # sources and the tree name; a source that still names the file is
+    # warned about itself, and the view is rebuilt from them. A file only
+    # partly generated (AGENTS.md's blocks) is still read.
+    generated = wholly_generated_files(dest_root)
     needles = {}
     for rel in rels:
         base = pathlib.PurePosixPath(rel).name
@@ -2096,6 +2123,8 @@ def dependents_of(dest_root, rels, cap=8):
         if rel_here in rels:
             continue                      # the file being deleted itself
         if rel_here in received or rel_here.startswith(received_under):
+            continue
+        if rel_here in generated:
             continue
         try:
             text = f.read_text(encoding='utf-8')
@@ -6854,8 +6883,55 @@ def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
     return True
 
 
+# WHAT A SECOND PASS ALREADY ASKED AGAIN, KEPT ACROSS RE-RUNS OF ONE UPDATE
+# (2026-10-17, a document project's Update Vendors). A second pass whose
+# first pass ran an engine older than the hand-over asks again about every
+# section recorded as left out (reask_absent). The first pass runs the
+# repository's own committed engine, which an unfinished update has not
+# committed yet, so every re-run asked the same sections again and the run
+# never reached DONE until the engine was committed mid-update. A section
+# asked again once in this update, and still left out on the next run, is
+# the person's answer: it is not asked a third time for the same source
+# commit. Kept in the git directory, never committed; another source commit
+# starts a fresh record.
+REASKED_FILE = 'precedent-refresh-reasked.json'
+
+
+def _reasked_path(dest_root):
+    out = _git(dest_root, 'rev-parse', '--git-path', REASKED_FILE)
+    if not out:
+        return None
+    path = pathlib.Path(out)
+    return path if path.is_absolute() else pathlib.Path(dest_root) / path
+
+
+def reasked_sections(dest_root, commit):
+    """-> {section key} a second pass of this same update (`commit`)
+    already asked about again."""
+    path = _reasked_path(dest_root)
+    try:
+        data = json.loads(path.read_text(encoding='utf-8')) if path else {}
+    except (OSError, ValueError):
+        return set()
+    if not isinstance(data, dict) or data.get('commit') != commit:
+        return set()
+    return {str(k) for k in data.get('sections') or []}
+
+
+def record_reasked(dest_root, commit, keys):
+    path = _reasked_path(dest_root)
+    if not path or not commit:
+        return
+    keys = set(keys) | reasked_sections(dest_root, commit)
+    try:
+        path.write_text(json.dumps({'commit': commit, 'sections': sorted(keys)},
+                                   indent=1) + '\n', encoding='utf-8')
+    except OSError:
+        pass
+
+
 def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
-                      name_absent=False):
+                      name_absent=False, commit=None):
     """Print what refresh (or status) found in AGENTS.md's template
     sections, and put what needs a person on the Left-for-you list. Every
     run, the early exit included, for the reason
@@ -6881,6 +6957,8 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
     lines = (dest_root / AGENTS_MD).read_text(encoding='utf-8').split('\n')
     template_text = None
     complete = []
+    asked_before = reasked_sections(dest_root, commit) if reask_absent and commit else set()
+    asked_now = []
     for key, src_rel, line_no, action, span in plan:
         # This pass judges the section on today's state, so what the first
         # pass of a self-replacing refresh said about it no longer stands:
@@ -6895,9 +6973,15 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
             _CARRIED_LEFT[:] = [(i, w) for i, w in _CARRIED_LEFT
                                 if i != f'{AGENTS_MD} "{key}"']
         if action == 'absent' and reask_absent:
+            if key in asked_before:
+                print(f"  NOTE: {AGENTS_MD} \"{key}\" is recorded as left out, "
+                      f"and an earlier run of this same update already asked "
+                      f"about it again -- not asked a third time.")
+                continue
             print(f"  NOTE: {AGENTS_MD} \"{key}\" is recorded as left out, but "
                   f"possibly only by the first pass of this refresh, whose "
                   f"older engine did not hand its list over -- asking again.")
+            asked_now.append(key)
             action = 'missing'
         if action == 'missing':
             print(f"MISSING: {AGENTS_MD} has no \"{key}\" section; upstream's "
@@ -6962,6 +7046,8 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
               f'{len(lacks)} of its blocks (listed above) -- copy each in by '
               f'hand, keeping this repo\'s own text, or record it as kept on '
               f'purpose (vendor-update-runbook step 10(d))')
+    if asked_now:
+        record_reasked(dest_root, commit, asked_now)
     if complete:
         print(f"DIVERGED, nothing to copy in: {AGENTS_MD} "
               f"{', '.join(repr(k) for k in complete)} carr"
@@ -8576,7 +8662,7 @@ def refresh(clone, force=False, ref=None):
         agents_plan = _agents_md_plan(ROOT, kind, engine_dir / 'templates', manifest)
         agents_pending = _agents_md_pending(agents_plan, manifest)
         _report_agents_md(ROOT, engine_dir / 'templates', agents_plan,
-                          reask_absent=not handed_over)
+                          reask_absent=not handed_over, commit=new_commit)
 
         # Before the early exit, so a repo whose engine is already current
         # but whose catalogue pin is not -- the state a half-finished update
