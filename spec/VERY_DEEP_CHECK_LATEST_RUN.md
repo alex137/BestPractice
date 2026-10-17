@@ -96,6 +96,11 @@ All 24 questions answered or explicitly marked partly attempted. Fixed:
   worktree is its own checkout; the warnings block links the exclusions
   registry only where it exists; and the tool lists the record files it
   writes in the checked repo's registry.
+- **A shared ignore list could expose a private file.** The list that keeps
+  a set's shipped tools out of git is shared by every worktree of a clone,
+  and a run in one worktree rewrote it with only its own ships; three tools,
+  one from a private repository, went back to untracked in the main
+  checkout. Found when they reappeared mid-run; fixed with a stated case.
 - **Four check descriptions, the shipped-class table and the push check's
   own `--list` and `--help`** said what the code no longer does.
 - **Warnings judged for the first time**: dated records' unlinked references
