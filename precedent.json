@@ -700,7 +700,8 @@
   ],
   "record_paths": [
     {"path": "spec/CROSS_REPO_DRIFT_BRIEF.md",
-     "reason": "a dated investigation brief (2026-09-19); it quotes, as evidence, the broken link it reports, which has since been fixed where it lived"}
+     "reason": "a dated investigation brief (2026-09-19); it quotes, as evidence, the broken link it reports, which has since been fixed where it lived"},
+    {"path": "WHATS_NEW.md", "reason": "a dated daily log: each entry says what was true the day it was written, so a file it names may since have moved or gone (2026-10-17: a highlight of 2026-10-08 names a tool that later moved into the ladder set)"}
   ],
   "_source_purpose_comment": [
     "One disambiguating sentence per declared source, for a session sorting",
