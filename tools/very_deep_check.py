@@ -8741,7 +8741,7 @@ STAGES_EMBED = 'checks-by-stage'
 # when its check runs, where the move goes). 'before': the move runs it
 # before it pushes or merges, so only the quick tier may run there.
 # 'asked': a route taken only on the person's own words. 'after': a check of
-# work already on the branch. 'debut': the Debut, which moves nothing.
+# work already on the branch. 'moves-nothing': the Debut.
 STAGE_ROUTES = {
     '_land_composed': ('Booked: the land onto staging', 'before', 'staging'),
     '_promote_to_main_fast': ('Produce: the fast move into main (the default)',
@@ -8754,7 +8754,7 @@ STAGE_ROUTES = {
     '_check_tier': ('Drift sync: work that reached staging or main from '
                     'above, checked before it is copied down', 'after',
                     'pre-staging'),
-    '_run_tests': ('Debut', 'debut', None),
+    '_run_tests': ('Debut', 'moves-nothing', None),
 }
 # What a check started from the per-file step must never be: a test, the
 # harness or the practice checks (verify_harness.check_quick_tier_is_closed
@@ -8954,6 +8954,105 @@ def stage_checks(tree):
                          'main': _gh_after(tree, 'main')},
             'full_after': bool(pb is not None and hasattr(pb, 'full_check_after')),
             'findings': findings}
+
+
+# SET INDEPENDENCE (practice: very-deep-check, Pass 2's question 26;
+# Morgan, 2026-10-17, strength: decided). A practice set's rules, checks and
+# tests live in the set; BestPractice runs them and never says what one
+# set's rule is. On 2026-10-16 BestPractice held a set's practice names in
+# its logic and its tests, and it took a night's work to take them out. The
+# inventory is precedent_check.py's enforcement-lives-with-its-practice; this
+# section runs it, sets apart what the plan of record holds back on purpose,
+# and writes the result into the run's account.
+SETS_EMBED = 'set-independence'
+_SETS_PLAN = pathlib.Path('spec') / 'ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md'
+
+
+def _waiting_files(repo_root):
+    """-> the tools/ files the plan's part 3 holds in the engine until the
+    person says go: read from the plan, which is the record."""
+    try:
+        text = (pathlib.Path(repo_root) / _SETS_PLAN).read_text(encoding='utf-8')
+    except OSError:
+        return set()
+    m = re.search(r'^## 3\..*?(?=^## \d)', text, re.S | re.M)
+    return set(re.findall(r'tools/([\w.-]+\.py)', m.group(0))) if m else set()
+
+
+def set_independence(repo_root):
+    """-> (fix, waiting, note): the inventory's findings as (file, text),
+    split into those to fix now and those the plan holds back; `note` says
+    why nothing could be read."""
+    p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                        'enforcement-lives-with-its-practice'],
+                       cwd=repo_root, capture_output=True, text=True, timeout=600)
+    out = p.stdout + p.stderr
+    if re.search(r'^\s*(SKIPPED|NOT APPLICABLE)\b', out, re.M) or \
+            ' 1 skipped' in out:
+        why = re.search(r'^\s*SKIPPED\s+\S+\s+[-—]+\s*(.*)$', out, re.M)
+        return [], [], (why.group(1).strip() if why else 'the inventory did not run here')
+    rows = []
+    for line in out.splitlines():
+        m = re.match(r'^\s{2,}((?:tools|practices)/\S+|[\w.-]+/(?:practices|tools)/\S+)'
+                     r': (.*)$', line)
+        if m:
+            rows.append((m.group(1), m.group(2)))
+    waiting_files = _waiting_files(repo_root)
+    held = {f for f, _t in rows if pathlib.PurePosixPath(f).name in waiting_files}
+    held_slugs = {s for f, t in rows if f in held
+                  for s in re.findall(r"practice ([\w-]+)", t)}
+    fix, waiting = [], []
+    for f, t in rows:
+        named = re.findall(r"practice ([\w-]+)", t)
+        if f in held or (f.startswith('tools/') and ' in a test' in t
+                         and named and set(named) <= held_slugs):
+            waiting.append((f, t))
+        else:
+            fix.append((f, t))
+    return fix, waiting, None
+
+
+def set_independence_section(repo_root):
+    """Print SET INDEPENDENCE, write its block into the run's write-up, and
+    -> the number of findings to fix now."""
+    fix, waiting, note = set_independence(repo_root)
+    md = ['Read by this run from `python3 tools/precedent_check.py --only '
+          'enforcement-lives-with-its-practice` (`tools/very_deep_check.py`, '
+          'SET INDEPENDENCE). A practice set\'s rules, checks and tests live '
+          'in the set; BestPractice runs them and never names one set\'s '
+          'rule in its code, its tests or a universal practice.', '']
+    if note:
+        print(f'  not read here: {note}.')
+        md.append(f'Not read here: {note}.')
+    else:
+        print(f'  TO FIX IN THIS PASS ({len(fix)}): move it into the set that '
+              f'owns it -- its check, its test, its rule -- or plant a made-up '
+              f'name in an engine test. A set this session cannot land in gets '
+              f'a Prompt Please.')
+        for f, t in fix:
+            print(f'    {f}: {t}')
+        if not fix:
+            print('    none -- every set keeps its own rules, checks and tests.')
+        print(f'\n  HELD IN THE ENGINE ON PURPOSE ({len(waiting)}): the plan of '
+              f'record\'s part 3, waiting on the person\'s go-ahead '
+              f'({_SETS_PLAN.as_posix()}). Listed, not fixed.')
+        by_file = collections.Counter(f for f, _t in waiting)
+        for f, n in sorted(by_file.items()):
+            print(f'    {f}: {n} name(s)')
+        md += [f'**To fix in this pass: {len(fix)}.**', '']
+        md += [f'- `{f}`: {t}' for f, t in fix] or ['None: every set keeps its '
+                                                    'own rules, checks and tests.']
+        md += ['', f'**Held in the engine on purpose: {len(waiting)}** (the plan '
+               f'of record\'s part 3, [{_SETS_PLAN.name}]'
+               f'({_SETS_PLAN.name}), waiting on the person\'s go-ahead): '
+               + (', '.join(f'`{f}` ({n})' for f, n in sorted(by_file.items()))
+                  or 'none') + '.']
+    written = _write_run_block(repo_root, SETS_EMBED, 'Set independence',
+                               'SET INDEPENDENCE', '\n'.join(md))
+    if written:
+        print(f'\n  written into {pathlib.Path(written).relative_to(repo_root)}, '
+              f'its `## Set independence` block.')
+    return len(fix)
 
 
 def _stage_lines(name, r):
@@ -11083,6 +11182,14 @@ def _main(box):
     print()
     if led:
         led.end(findings=_cbs_findings)
+        led.start('SET INDEPENDENCE')
+
+    print("SET INDEPENDENCE -- a practice set's rules, checks and tests live "
+          "in the set, never in BestPractice\n")
+    _si_findings = set_independence_section(repo_root)
+    print()
+    if led:
+        led.end(findings=_si_findings)
         led.start('CROSS-REPO LINKS')
 
     print("CROSS-REPO LINKS -- do absolute github.com links into a repo "
