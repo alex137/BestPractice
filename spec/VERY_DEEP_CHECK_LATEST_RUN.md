@@ -210,3 +210,76 @@ Measured 2026-10-17: **2267 warning(s), 2019 still open** (neither fixed nor exc
 
 Exclusions live in [tools/warning_exclusions.json](../tools/warning_exclusions.json); [tools/warning_review.py](../tools/warning_review.py) lists every open group.
 <!--/vdc-embed:warnings-->
+
+## Checks by stage
+
+<!--vdc-embed:checks-by-stage: never hand-edit -- written by tools/very_deep_check.py's CHECKS BY STAGE section -->
+Read from each repository's own push check and branch tool by this run (`tools/very_deep_check.py`, CHECKS BY STAGE). Before a push to staging or main only the quick tier may run: the bare essentials and the leak gate (Morgan, 2026-10-16 and 2026-10-17).
+
+### this checkout
+
+| Stage | Before | After |
+|---|---|---|
+| Booked, onto staging | basic tier (a plain push: basic) | nothing automatic; GitHub: none |
+| Produce, into main | basic tier (`--full` on request: full; a plain push, or a pull request that is not a fast move's copy: basic) | GitHub: deep-check.yml (pull request into it), deep-check.yml (push), leak-gate.yml (push); else the full local suite on main |
+| Debut, on staging | nothing | nothing (it is the full tier and moves nothing) |
+
+The quick tier (6): `leak_gate` 16 s, `leak_gate_commits` 4 s, `doc_lint` 1 s, `commit_author` 0 s, `commit_dates` 0 s, `session_trailer` 0 s.
+
+The full tier adds: `verify_harness`, `precedent_check`, `doc_sync`, `deep_check`.
+
+- **RETIRED**: Sync into pre-staging is pre-staging code still present (precedent_branches.py:2717, sync_pre_staging) -- pre-staging was retired 2026-10-14; delete it as todo/todo-2026-10-14-delete-pre-staging-code.md says
+- **RETIRED**: Promote from pre-staging into staging is pre-staging code still present (precedent_branches.py:4311, _promote_unlocked) -- pre-staging was retired 2026-10-14; delete it as todo/todo-2026-10-14-delete-pre-staging-code.md says
+- **RETIRED**: a push to staging still runs the full tier for a person who does not land on it, which only the retired pre-staging route left anyone doing (staging is a fully checked branch); delete it with the pre-staging code (todo/todo-2026-10-14-delete-pre-staging-code.md)
+
+### precedent-individual
+
+| Stage | Before | After |
+|---|---|---|
+| Booked, onto staging | basic tier (a plain push: basic) | nothing automatic; GitHub: none |
+| Produce, into main | basic tier (`--full` on request: full; a plain push, or a pull request that is not a fast move's copy: full) | GitHub: none; else the full local suite on main |
+| Debut, on staging | nothing | nothing (it is the full tier and moves nothing) |
+
+The quick tier (10): `build_views` 1 s, `leak_gate` 16 s, `leak_gate_commits` 4 s, `doc_lint` 1 s, `generated_files` 2 s, `rename_links` untimed, `ci_workflows` untimed, `commit_author` 0 s, `commit_dates` 0 s, `session_trailer` 0 s.
+
+The full tier adds: `precedent_check`, `deep_check`, `consumer_shape`.
+
+- **RETIRED**: Sync into pre-staging is pre-staging code still present (precedent_branches.py:2650, sync_pre_staging) -- pre-staging was retired 2026-10-14; delete it as todo/todo-2026-10-14-delete-pre-staging-code.md says
+- **RETIRED**: Promote from pre-staging into staging is pre-staging code still present (precedent_branches.py:4194, _promote_unlocked) -- pre-staging was retired 2026-10-14; delete it as todo/todo-2026-10-14-delete-pre-staging-code.md says
+- **VIOLATION**: a push to main runs the full tier before it goes (main is a fully checked branch; the pre-push gate, and the merge gate for any pull request but a fast move's copy, read tier_for_branch) -- only the quick tier may run before a push to main
+- **RETIRED**: a push to staging still runs the full tier for a person who does not land on it, which only the retired pre-staging route left anyone doing (staging is a fully checked branch); delete it with the pre-staging code (todo/todo-2026-10-14-delete-pre-staging-code.md)
+
+### precedent-shared-writing
+
+| Stage | Before | After |
+|---|---|---|
+| Booked, onto staging | basic tier (a plain push: basic) | nothing automatic; GitHub: none |
+| Produce, into main | basic tier (`--full` on request: full; a plain push, or a pull request that is not a fast move's copy: full) | GitHub: none; else the full local suite on main |
+| Debut, on staging | nothing | nothing (it is the full tier and moves nothing) |
+
+The quick tier (10): `build_views` 1 s, `leak_gate` 16 s, `leak_gate_commits` 4 s, `doc_lint` 1 s, `generated_files` 2 s, `rename_links` untimed, `ci_workflows` untimed, `commit_author` 0 s, `commit_dates` 0 s, `session_trailer` 0 s.
+
+The full tier adds: `precedent_check`, `deep_check`, `consumer_shape`.
+
+- **RETIRED**: Sync into pre-staging is pre-staging code still present (precedent_branches.py:2650, sync_pre_staging) -- pre-staging was retired 2026-10-14; delete it as todo/todo-2026-10-14-delete-pre-staging-code.md says
+- **RETIRED**: Promote from pre-staging into staging is pre-staging code still present (precedent_branches.py:4194, _promote_unlocked) -- pre-staging was retired 2026-10-14; delete it as todo/todo-2026-10-14-delete-pre-staging-code.md says
+- **VIOLATION**: a push to main runs the full tier before it goes (main is a fully checked branch; the pre-push gate, and the merge gate for any pull request but a fast move's copy, read tier_for_branch) -- only the quick tier may run before a push to main
+- **RETIRED**: a push to staging still runs the full tier for a person who does not land on it, which only the retired pre-staging route left anyone doing (staging is a fully checked branch); delete it with the pre-staging code (todo/todo-2026-10-14-delete-pre-staging-code.md)
+
+### precedent-shared-ladder
+
+| Stage | Before | After |
+|---|---|---|
+| Booked, onto staging | basic tier (a plain push: basic) | nothing automatic; GitHub: none |
+| Produce, into main | basic tier (`--full` on request: full; a plain push, or a pull request that is not a fast move's copy: full) | GitHub: none; else the full local suite on main |
+| Debut, on staging | nothing | nothing (it is the full tier and moves nothing) |
+
+The quick tier (10): `build_views` 1 s, `leak_gate` 16 s, `leak_gate_commits` 4 s, `doc_lint` 1 s, `generated_files` 2 s, `rename_links` untimed, `ci_workflows` untimed, `commit_author` 0 s, `commit_dates` 0 s, `session_trailer` 0 s.
+
+The full tier adds: `precedent_check`, `deep_check`, `consumer_shape`.
+
+- **RETIRED**: Sync into pre-staging is pre-staging code still present (precedent_branches.py:2650, sync_pre_staging) -- pre-staging was retired 2026-10-14; delete it as todo/todo-2026-10-14-delete-pre-staging-code.md says
+- **RETIRED**: Promote from pre-staging into staging is pre-staging code still present (precedent_branches.py:4194, _promote_unlocked) -- pre-staging was retired 2026-10-14; delete it as todo/todo-2026-10-14-delete-pre-staging-code.md says
+- **VIOLATION**: a push to main runs the full tier before it goes (main is a fully checked branch; the pre-push gate, and the merge gate for any pull request but a fast move's copy, read tier_for_branch) -- only the quick tier may run before a push to main
+- **RETIRED**: a push to staging still runs the full tier for a person who does not land on it, which only the retired pre-staging route left anyone doing (staging is a fully checked branch); delete it with the pre-staging code (todo/todo-2026-10-14-delete-pre-staging-code.md)
+<!--/vdc-embed:checks-by-stage-->
