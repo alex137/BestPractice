@@ -1135,8 +1135,12 @@ def _ship_drift_advice(out_dir, source_name, rel, dest):
     to a shipped file while the same fix sat on the set's working branch,
     and this told it to decline the file -- the wrong move). Only when the
     source has nothing matching is declining offered."""
-    decline = (f"to keep this repository's own version, decline it under "
-               f"\"{DECLINED_SHIPS_KEY}\" in precedent.json")
+    # An edit to a shipped file is answered, not declined (practice:
+    # upstream-bug-stops-here, 2026-10-17): a decline says this repository
+    # does not want the file at all, and was the side door every edit took.
+    decline = (f"{_three_answers()}; decline it under "
+               f"\"{DECLINED_SHIPS_KEY}\" in precedent.json only if this "
+               f"repository does not want the file at all")
     try:
         clone = next((pathlib.Path(p) for p, _lvl, name, _n in
                       pr.declared_source_paths(out_dir)
@@ -1791,9 +1795,11 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
         print("precedent_materialize: shipped file(s) whose previous content "
               "this tree had not recorded as materialized were REPLACED -- a "
               "hand-copy being adopted. Its committed version is in git "
-              "(`git diff` shows exactly what went, before you commit); to "
-              f"keep a repository's own version instead, decline it under "
-              f"\"{DECLINED_SHIPS_KEY}\" in precedent.json: "
+              "(`git diff` shows exactly what went, before you commit). If "
+              "that version was a fix, it is owed upstream (practice: "
+              "upstream-bug-stops-here); decline the file under "
+              f"\"{DECLINED_SHIPS_KEY}\" in precedent.json only if this "
+              "repository does not want it at all: "
               + ', '.join(ships_adopted), file=sys.stderr)
     unsaved = [k['label'] for k in ships_kept if k['why'] == 'unsaved']
     ahead = [k['label'] for k in ships_kept if k['why'] == 'ahead']

@@ -2482,13 +2482,30 @@ def _resolve_by_regenerating(wt, say):
             return False, made, (f'generated files changed on both sides, and '
                                  f'`{" ".join(cmd)}` could not rebuild them')
     for rel in conflicted:
-        text = (pathlib.Path(wt) / rel).read_text(encoding='utf-8', errors='replace')
+        # A builder that writes dated names (practice: dated-download-names)
+        # deletes the conflicted file and writes today's: a path gone is a
+        # rebuild, not markers left in one.
+        path = pathlib.Path(wt) / rel
+        text = (path.read_text(encoding='utf-8', errors='replace')
+                if path.is_file() else '')
         if '<<<<<<<' in text or '>>>>>>>' in text:
             return False, [rel], ('generated, but its rebuild left conflict '
                                   'markers in it')
     _drop_stamp_only_changes(wt)
     _run(wt, 'add', '-A', '--', *conflicted)
     _run(wt, 'add', '-u')
+    # ...and that new file is untracked: staged by the globs that declared
+    # the conflicted output, or the land committed the deletion and lost the
+    # rebuilt document (2026-10-17, read off this code by the session that
+    # declared a consumer's dated Word output).
+    globs = [g for g_, argv in _declared_generated(wt)
+             if argv in gens.values() for g in g_]
+    if globs:
+        new = [l for l in _run(wt, 'ls-files', '--others', '--exclude-standard')
+               .stdout.splitlines()
+               if l and any(fnmatch.fnmatchcase(l, g) for g in globs)]
+        if new:
+            _run(wt, 'add', '--', *new)
     return True, sorted(conflicted), ''
 
 

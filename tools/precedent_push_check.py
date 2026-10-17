@@ -377,9 +377,11 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # no time. A new entry needs the person's own words asking for THIS check
 # before a push, given after they were told its time and urged to put it
 # at the Debut instead -- never a session's judgment that it is cheap.
-# The fourteen below were in force when the tier was closed; a time is the
-# one measured on 2026-10-16 or the one its own note above gives, and None
-# where neither exists.
+# The fourteen below were in force when the tier was closed. A time is the
+# one measured on 2026-10-16 here, or its own note above; the six this repo
+# does not run (ci_workflows, light_check, views_sync, scrub_gate,
+# practice_export_loop, rename_links) were measured on 2026-10-17 in two
+# consuming repositories, three runs each, from the slower repo's median.
 _IN_FORCE_AT_CLOSING = ('in force when Morgan closed the tier, 2026-10-16: '
                         '"all the testing EXCEPT THE BARE ESSENTIAL AND LEAK '
                         'GATES SHOULD GO INTO DEBUT"')
@@ -388,18 +390,18 @@ _WORKFLOWS = 'Morgan, 2026-09-25: "we need to absolutely put a hard stop to this
 BASIC_CHECKS_APPROVED = {
     'leak_gate': (_LEAKS, 16),
     'leak_gate_commits': (_LEAKS, 4),
-    'ci_workflows': (_WORKFLOWS, None),
-    'light_check': (_WORKFLOWS, None),
+    'ci_workflows': (_WORKFLOWS, 0),
+    'light_check': (_WORKFLOWS, 0),
     'doc_lint': (_IN_FORCE_AT_CLOSING, 1),
     'commit_author': (_IN_FORCE_AT_CLOSING, 0),
     'commit_dates': (_IN_FORCE_AT_CLOSING, 0),
     'session_trailer': (_IN_FORCE_AT_CLOSING, 0),
     'build_views': (_IN_FORCE_AT_CLOSING, 1),
     'generated_files': (_IN_FORCE_AT_CLOSING, 2),
-    'views_sync': (_IN_FORCE_AT_CLOSING, None),
-    'scrub_gate': (_IN_FORCE_AT_CLOSING, None),
-    'practice_export_loop': (_IN_FORCE_AT_CLOSING, None),
-    'rename_links': (_IN_FORCE_AT_CLOSING, None),
+    'views_sync': (_IN_FORCE_AT_CLOSING, 2),
+    'scrub_gate': (_IN_FORCE_AT_CLOSING, 1),
+    'practice_export_loop': (_IN_FORCE_AT_CLOSING, 1),
+    'rename_links': (_IN_FORCE_AT_CLOSING, 0),
 }
 BASIC_CHECKS = set(BASIC_CHECKS_APPROVED)
 BASIC, FULL = 'basic', 'full'
@@ -2186,7 +2188,12 @@ def main(argv):
     except Exception:                                        # noqa: BLE001
         pass
     argv = _default_destination(root, argv)
-    refused = _full_tier_refusal(root, argv)
+    # --list runs nothing and pushes nothing, so no refusal about what a
+    # push may carry applies to it. It used to be refused whenever main had
+    # commits staging lacked, which turned the harness test that reads it
+    # red for a reason unrelated to any change (2026-10-17).
+    listing = '--list' in argv
+    refused = None if listing else _full_tier_refusal(root, argv)
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1
@@ -2195,7 +2202,7 @@ def main(argv):
         print(f'precedent_push_check: running as asked, because: '
               f'{argv[i + 1] if i + 1 < len(argv) else "(no reason given)"}',
               flush=True)
-    refused = _promote_only_refusal(root, argv)
+    refused = None if listing else _promote_only_refusal(root, argv)
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1

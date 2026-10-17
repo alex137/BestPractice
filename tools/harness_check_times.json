@@ -1,6 +1,6 @@
 {
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds.",
- "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 1 added 2026-10-17 by --record-new-times",
+ "measured": "2026-10-09, 4 cores, --as-ci; 100 added 2026-10-16 by --record-new-times; 1 added 2026-10-16 by --record-new-times; 1 added 2026-10-17 by --record-new-times; 3 added 2026-10-17 by --record-new-times, scaled by 2.33 to it; 1 added 2026-10-17 by --record-new-times",
  "default_seconds": 0.3,
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.0,
@@ -10,6 +10,7 @@
   "check_a_failure_item_lists_the_index_it_creates": 7.8,
   "check_a_hook_wired_from_elsewhere_is_reported_as_wired": 0.0,
   "check_a_new_test_lands_with_its_time": 0.1,
+  "check_a_pushed_branch_in_a_shallow_clone_is_safe": 0.5,
   "check_a_registry_file_can_be_a_checks_own_opt_in": 0.3,
   "check_a_renamed_engine_file_never_survives_a_reseed": 2.0,
   "check_a_replacing_rule_inherits_what_it_does_not_restate": 0.0,
@@ -77,6 +78,7 @@
   "check_catalogue_anchors": 0.4,
   "check_catalogue_copy_is_an_allowlist": 0.0,
   "check_catalogue_hook_runs_the_freshness_notice": 0.2,
+  "check_caused_by_this_push_reads_advisory_findings": 0.0,
   "check_changed_files_asks_a_new_check_for_its_planted_case": 0.3,
   "check_changed_files_asks_a_new_check_for_its_test": 0.2,
   "check_changed_files_compares_quoted_counts_when_a_practice_changes": 0.1,
@@ -389,6 +391,7 @@
   "check_push_check_gate": 19.1,
   "check_push_check_honours_not_binding": 5.0,
   "check_push_check_installs_gate_packages": 0.0,
+  "check_push_check_list_is_never_refused": 0.1,
   "check_push_check_records_over_its_own_ledgers": 1.6,
   "check_push_check_refuses_an_unknown_option": 0.1,
   "check_push_check_runs_approved_workflow_steps": 0.0,
