@@ -44157,6 +44157,20 @@ def check_session_check_adopts_a_detached_start():
         cases.append(('a branch that strands the detached commit still fails',
                       ok is False and c2[:12] in detail, detail))
 
+        # Detached at a commit origin already has (main's tip, a Produce merge)
+        # and work cut from staging, which lacks it: nothing is stranded
+        # (2026-10-17, a false warning at every turn).
+        git('update-ref', 'refs/remotes/origin/main', 'main')
+        _, c_main_tip, _ = git('rev-parse', 'main')
+        stamp.write_text(f'HEAD\n{c_main_tip}\n')
+        git('checkout', '-q', '-B', 'claude/from-staging', 'staging')
+        ok, detail = row()
+        cases.append(('a detached start at a commit origin has, then a branch '
+                      'cut from staging that lacks it, passes',
+                      ok is True and 'already has' in detail, detail))
+        git('checkout', '-q', 'main')
+        git('update-ref', '-d', 'refs/remotes/origin/main')
+
         # An older one-line stamp recording HEAD is adopted, not failed.
         stamp.write_text('HEAD\n')
         ok, detail = row()
@@ -52220,6 +52234,39 @@ def check_refresh_sources_leaves_the_base_branch_clean():
                       not [b for b in g('branch', '--format=%(refname:short)').split()
                            if '-engine-refresh-99999999-' in b]
                       and g('branch', '--show-current') == 'main', str(steps)))
+
+        # SUPERSEDED REFRESH BRANCHES GO, AND THE RUN SAYS SO (2026-10-17).
+        # A commit with the tool's own subject, as apply_to really writes it.
+        def real_apply(e, commit=False, branch=None, body='newer\n'):
+            (repo / 'engine.txt').write_text(body, encoding='utf-8')
+            g('checkout', '-q', '-B', branch)
+            g('add', '-A')
+            subprocess.run(['git', '-C', str(repo), 'commit', '-qm',
+                            prs.REFRESH_SUBJECT + e['tip'][:8]],
+                           capture_output=True, text=True, env=env)
+            return [('refresh', True, ''), ('commit', True, 'committed')]
+        prs.apply_to = lambda e, commit=False, branch=None: real_apply(e, commit, branch, 'v1\n')
+        prs.apply_on_its_own_branch({'repo': repo, 'tip': '1111111112345'}, 'main')
+        older = [b for b in g('branch', '--format=%(refname:short)').split()
+                 if '-engine-refresh-11111111-' in b]
+        g('checkout', '-q', '-b', 'keep-engine-refresh-mine', 'main')
+        (repo / 'mine.txt').write_text('work\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', prs.REFRESH_SUBJECT + 'x')
+        (repo / 'mine2.txt').write_text('more\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'my own work')
+        g('checkout', '-q', 'main')
+        prs.apply_to = lambda e, commit=False, branch=None: real_apply(e, commit, branch, 'v2\n')
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': '2222222212345'}, 'main')
+        now = g('branch', '--format=%(refname:short)').split()
+        said = ' '.join(d for _s, _ok, d in steps)
+        cases.append(('a newer refresh removes the older refresh-only branch',
+                      bool(older) and older[0] not in now
+                      and any('-engine-refresh-22222222-' in b for b in now),
+                      f'{now} {steps}'))
+        cases.append(('...and names it in what the run reports',
+                      bool(older) and older[0] in said and 'removed 1' in said, said[:300]))
+        cases.append(('...and never a branch carrying work of its own',
+                      'keep-engine-refresh-mine' in now, str(now)))
     finally:
         prs.apply_to = saved
         shutil.rmtree(tmp, ignore_errors=True)
