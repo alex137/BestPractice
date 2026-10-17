@@ -256,7 +256,6 @@
   "check_individual_source_bootstrap_self_heals": 2.5,
   "check_install_and_update_name_the_code_owners": 0.1,
   "check_install_and_update_offer_the_owners_zone": 5.1,
-  "check_install_by_a_staging_person_makes_no_pre_staging": 0.5,
   "check_install_names_every_not_vendored_dir": 0.0,
   "check_install_names_the_other_assistants_adapters": 11.0,
   "check_install_records_the_commit_its_catalogue_came_from": 0.1,
