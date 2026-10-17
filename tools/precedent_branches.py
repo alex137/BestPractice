@@ -496,8 +496,8 @@ def landing_branch(root, user_config=None):
     if tier == MAIN:
         # Straight to main is a person's choice to make (Morgan, 2026-09-25:
         # "they have to be able to set it to \"main\" if they want"). It
-        # skips staging, never the checks: a push to main is fully checked
-        # like one to staging. A repository's own rule about main -- this
+        # skips staging, never the checks: a push to main takes the quick
+        # checks and its full suite runs after (tier_for_branch, 2026-10-17). A repository's own rule about main -- this
         # one's needs the person to name main in the request -- still
         # decides whether a session may push there.
         return MAIN, why
