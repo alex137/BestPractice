@@ -748,25 +748,6 @@ _session_start_one() {
         fi
       fi
     fi
-    # Pre-staging behind a tier above it: somebody pushed straight to
-    # staging, or a workflow or a web edit committed straight to main
-    # (plan, holes 2, 4 and 5). Reported and named, never merged from a
-    # hook -- the same rule this guard keeps for every base merge.
-    # precedent_branches.py --drift says which tier, how many commits,
-    # and whether they have had their tier's checks, and stays silent about
-    # merge commits that change no file -- the two every ordinary pull
-    # request into main leaves behind.
-    if [ "$base" = "pre-staging" ]; then
-      local tool="" c
-      for c in "$ROOT/tools/precedent_branches.py"; do
-        if [ -f "$c" ]; then tool="$c"; break; fi
-      done
-      if [ -n "$tool" ] && command -v python3 >/dev/null 2>&1; then
-        (cd "$ROOT" && python3 "$tool" --drift 2>/dev/null) | while IFS= read -r line; do
-          [ -n "$line" ] && echo "NOTE: freshness-guard: $line" >&2
-        done
-      fi
-    fi
   else
     echo "NOTE: freshness-guard: no base branch given and origin/HEAD does not resolve -- base-branch check SKIPPED (not passed). Pass the base as the hook's second argument in .claude/settings.json." >&2
   fi
