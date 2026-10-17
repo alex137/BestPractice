@@ -8887,12 +8887,6 @@ STAGE_ROUTES = {
                               'before', 'main'),
     '_promote_to_main': ('Produce: the --full route, on the person\'s own words',
                          'asked', 'main'),
-    '_promote_unlocked': ('Promote from pre-staging into staging', 'retired',
-                          'staging'),
-    'sync_pre_staging': ('Sync into pre-staging', 'retired', 'pre-staging'),
-    '_check_tier': ('Drift sync: work that reached staging or main from '
-                    'above, checked before it is copied down', 'after',
-                    'pre-staging'),
     '_run_tests': ('Debut', 'moves-nothing', None),
 }
 # What a check started from the per-file step must never be: a test, the
