@@ -146,6 +146,19 @@ the newer of the two is kept. Any doubt -- visibility unknown, no number
 set -- shows the button: showing it costs nothing, only a click does. A
 repository whose `main` lacks the workflow gets a line saying so, never a
 dead link. A page carrying this is format 3.
+
+ONE CLICK FOR EVERY PUBLIC REPOSITORY (2026-10-16,
+spec/BRANCH_CLEANUP_ALL_REPOS_PLAN.md). Above the sections, one button
+starts the cleanup workflow in every repository on the page that is
+known to be public and carries it: the page calls GitHub's
+actions_run_trigger through the VIEWER's own GitHub connector (the `mcp`
+capability, PAGE_CAPABILITIES), so it holds no credential, and only that
+click calls it. A private repository, or one whose visibility is unknown,
+is never included: those cost minutes. And any cleanup click, this one
+or a repository's own, checks off every row of the repositories it
+covers. Morgan: "whenever any of these cleanup buttons are clicked ... it
+should check the box and cross it off if it doesn't already" (strength:
+decided).
 """
 import datetime
 import html
@@ -436,6 +449,14 @@ def link(owner, name, branch):
 # THE DELETE-ALL BUTTON (module docstring, "THE DELETE-ALL BUTTON").
 CLEANUP_WORKFLOW = 'precedent-branch-cleanup.yml'
 CLEANUP_PATH = '.github/workflows/' + CLEANUP_WORKFLOW
+
+# The all-public button starts each public repository's cleanup workflow
+# through the VIEWER's own GitHub connector: the page holds no credential,
+# and only a person's click calls it. The page is published with these
+# capabilities -- its own saves, and that one GitHub tool, nothing else.
+GITHUB_CONNECTOR = 'github'
+PAGE_CAPABILITIES = {'artifact': {}, 'mcp': {'servers': [
+    {'server': GITHUB_CONNECTOR, 'tools': ['actions_run_trigger']}]}}
 # A run in one of these states has been started and may still delete: it
 # counts as a run, so a second click is not invited while it works.
 _RUN_STARTED = {'queued', 'in_progress', 'waiting', 'requested', 'pending'}
@@ -621,6 +642,7 @@ def _cleanup_line(owner, name, n, state, now=None, tz=''):
     shown, back = cleanup_due(state, now)
     attrs = (f' data-repo="{html.escape(owner + "/" + name)}"'
              f' data-private="{"1" if state.get("private") is True else "0"}"'
+             f' data-public="{"1" if state.get("private") is False else "0"}"'
              f' data-hours="{state.get("hours") or 0:g}"'
              f' data-last="{html.escape(state.get("last") or "")}"')
     back_text = f'Delete-all button back on {_day(back, tz)}.' if back else ''
@@ -633,6 +655,36 @@ def _cleanup_line(owner, name, n, state, now=None, tz=''):
             f'<code>main</code>, never <code>main</code> or <code>staging</code>.</span>'
             f'<span class="back"{"" if back else " hidden"}>{html.escape(back_text)}</span>'
             f'</p>')
+
+
+def public_cleanup(groups, carried, cleanup):
+    """-> [(owner, name, n)] for the all-public button: every repository on
+    the page that GitHub or its precedent.json says is public and whose main
+    carries the workflow. Unknown visibility is left out: a private run
+    costs minutes, so this button never guesses."""
+    out = []
+    for owner, name, rows in [(o, n, r) for o, n, r in groups] + [
+            (o, n, r) for o, n, r, _c in carried]:
+        st = cleanup.get(_key(owner, name)) or {}
+        if st.get('installed') and st.get('private') is False:
+            out.append((owner, name, len(rows)))
+    return out
+
+
+def _public_line(public):
+    """-> the line above the sections that starts every public repository's
+    cleanup workflow at once; '' with none."""
+    if not public:
+        return ''
+    n = sum(k for *_x, k in public)
+    return (f'<p class="cleanup-all"><button type="button" id="del-public">'
+            f'Delete every merged branch in all {len(public)} public '
+            f'repositor{"y" if len(public) == 1 else "ies"} ({n} listed)</button>'
+            f'<span class="how">One click starts each one\'s cleanup workflow on '
+            f'GitHub, through your GitHub connector. Public repositories '
+            f'use no Actions minutes. It deletes only branches already in '
+            f'<code>main</code>, never <code>main</code> or <code>staging</code>.</span>'
+            f'<span class="status" id="del-public-status" role="status"></span></p>')
 
 
 def delete_merged(repo, keep=(), skip_heads=(), env=None, push=None, say=print):
@@ -938,8 +990,9 @@ def render_html(groups, now=None, tz='', carried=(), waiting=(), carried_wait=()
     line; None or a missing key leaves that section without one."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
     total = sum(len(r) for *_x, r in groups) + sum(len(c[2]) for c in carried)
-    secs = [_waiting_section(waiting, carried_wait, tz)]
     cleanup = cleanup or {}
+    secs = [_public_line(public_cleanup(groups, carried, cleanup)),
+            _waiting_section(waiting, carried_wait, tz)]
 
     def line(o, n, rows):
         return _cleanup_line(o, n, len(rows), cleanup.get(_key(o, n)), now, tz)
@@ -973,6 +1026,8 @@ def render_html(groups, now=None, tz='', carried=(), waiting=(), carried_wait=()
     return (_PAGE.replace('{{TOTAL}}', str(total))
             .replace('{{BUILT}}', html.escape(built_line(now, tz)))
             .replace('{{BUILD}}', now.strftime('%Y%m%dT%H%M%SZ'))
+            .replace('{{GH}}', GITHUB_CONNECTOR)
+            .replace('{{WORKFLOW}}', CLEANUP_WORKFLOW)
             .replace('{{SECTIONS}}', ''.join(secs)))
 
 
@@ -1016,6 +1071,11 @@ li + li { border-top:1px solid var(--line); }
 .cleanup a { font-weight:600; color:var(--accent); text-decoration:none; justify-self:start; }
 .cleanup a:hover { text-decoration:underline; }
 .cleanup [hidden] { display:none; }
+.cleanup-all { display:grid; gap:4px; margin:0; font-size:.88rem; color:var(--muted); max-width:62ch; }
+.cleanup-all button { font:inherit; font-weight:600; justify-self:start; background:var(--accent); color:var(--surface); border:0; border-radius:4px; padding:6px 12px; cursor:pointer; }
+.cleanup-all button:disabled { opacity:.6; cursor:default; }
+.cleanup-all button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.cleanup-all .status { color:var(--fg); }
 </style>
 <main>
 <header>
@@ -1035,7 +1095,7 @@ li + li { border-top:1px solid var(--line); }
   var DATA_RE=/(<script type="application\\/json" id="branch-data">)[\\s\\S]*?(<\\/script>)/;
   var data={}; try { data=JSON.parse(document.getElementById('branch-data').textContent)||{}; } catch(e) { data={}; }
   var boxes=[].slice.call(document.querySelectorAll('input[data-k]'));
-  var KEY='branch-cleanup-done:{{BUILD}}', done={}, saved=data.done||{}, page=null, timer=null, dirty=false;
+  var KEY='branch-cleanup-done:{{BUILD}}', done={}, saved=data.done||{}, page=null, timer=null, dirty=false, busy=false;
   try { for(var i=localStorage.length-1;i>=0;i--){ var k=localStorage.key(i); if(k&&k.indexOf('branch-cleanup-done')===0&&k!==KEY) localStorage.removeItem(k); } } catch(e) {}
   try { done=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; } catch(e) { done={}; }
   Object.keys(saved).forEach(function(k){ done[k]=saved[k]; });
@@ -1052,7 +1112,7 @@ li + li { border-top:1px solid var(--line); }
   }
   function publish(){
     if(timer){ clearTimeout(timer); timer=null; }
-    if(!page||!dirty) return;
+    if(!page||!dirty||busy) return;
     dirty=false;
     page.publish(document_with(done)).catch(function(){});
   }
@@ -1078,11 +1138,56 @@ li + li { border-top:1px solid var(--line); }
     a.hidden=!shown; how.hidden=!shown; back.hidden=shown;
     if(!shown) back.textContent='Delete-all button back on '+new Date(due).toLocaleDateString(undefined,{day:'numeric',month:'short'})+'.';
   }
+  // Any cleanup click checks off every row of the repositories it covers
+  // (Morgan, 2026-10-16): the run deletes them, so they are done here.
+  function started(p){
+    clicked[p.dataset.repo]=new Date().toISOString();
+    var sec=p.closest('section.repo');
+    if(sec) sec.querySelectorAll('input[data-k]').forEach(function(b){ if(!b.checked){ b.checked=true; done[b.dataset.k]=new Date().toISOString(); } });
+    cleanup(p);
+  }
   var lines=[].slice.call(document.querySelectorAll('.cleanup[data-repo]'));
   lines.forEach(function(p){
     cleanup(p);
     var a=p.querySelector('.del-all');
-    if(a) a.addEventListener('click',function(){ clicked[p.dataset.repo]=new Date().toISOString(); save(); cleanup(p); });
+    if(a) a.addEventListener('click',function(){ started(p); save(); render(); });
+  });
+  // One click for every public repository: the page asks GitHub, through
+  // the viewer's own GitHub connector, to run each one's cleanup workflow.
+  // Only this click calls it; nothing on load or on a timer does.
+  var all=document.getElementById('del-public'), status=document.getElementById('del-public-status');
+  var WHY={needs_reauth:'reconnect GitHub in claude.ai Settings, Connectors',
+    server_not_connected:'add the GitHub connector in claude.ai Settings, Connectors',
+    selection_required:'choose which GitHub connector this page uses',
+    not_in_manifest:'this page is not allowed to use GitHub; allow it in this page’s Permissions menu',
+    approval_required:'GitHub access for this page was not approved',
+    blocked_by_policy:'your organization blocks this'};
+  if(all) all.addEventListener('click',function(){
+    var pub=lines.filter(function(p){ return p.dataset.public==='1'; });
+    if(!pub.length) return;
+    // A save reloads the page, which would cut the runs off midway and
+    // wipe the result line: it waits until they are all asked for, and
+    // then long enough to read the result (or until the page is left).
+    all.disabled=true; busy=true;
+    pub.forEach(started); save(); render();
+    status.textContent='Starting '+pub.length+' cleanup run(s)...';
+    var use=(window.claude&&window.claude.use)?window.claude.use('mcp'):Promise.resolve(null);
+    Promise.resolve(use).catch(function(){ return null; }).then(function(mcp){
+      if(!mcp){ status.textContent='This view cannot reach GitHub. Use the button in each repository below; your checkmarks are saved.'; all.disabled=false; busy=false; publish(); return; }
+      var ok=[], bad=[];
+      return pub.reduce(function(chain,p){
+        return chain.then(function(){
+          var r=p.dataset.repo.split('/');
+          return mcp.callTool('{{GH}}','actions_run_trigger',{method:'run_workflow',owner:r[0],repo:r[1],workflow_id:'{{WORKFLOW}}',ref:'main'})
+            .then(function(){ ok.push(r[1]); }, function(e){ bad.push(r[1]+' ('+((e&&WHY[e.code])||(e&&e.code)||'failed')+')'); });
+        });
+      }, Promise.resolve()).then(function(){
+        status.textContent='Started '+ok.length+' of '+pub.length+'.'+(bad.length?' Not started: '+bad.join('; ')+'. Use the button in that repository below.':' Each run deletes its branches within a minute or two.');
+        all.disabled=false; busy=false;
+        if(timer) clearTimeout(timer);
+        timer=setTimeout(publish, 30000);
+      });
+    });
   });
   document.getElementById('clear').addEventListener('click',function(){ done={}; boxes.forEach(function(b){b.checked=false;}); save(); render(); });
   // Opening a branch's link leaves this page for GitHub: save then.
@@ -1223,11 +1328,13 @@ def main(argv):
                  if waiting or carried_wait else '')
               + ('' if noted else ' (not noted for the publish gate, which '
                  'will refuse it: artifact_publish_gate.py did not load)'))
+        caps = json.dumps(PAGE_CAPABILITIES)
         print(f'Publish it to the saved page, in place: {url}, with '
-              f'capabilities {{"artifact": {{}}}} so the page can save its own '
-              f'checkmarks' if url else
-              'No saved page yet: publish it as a new page with capabilities '
-              '{"artifact": {}}, so it can save its own checkmarks, then save its '
+              f'capabilities {caps} so the page can save its own checkmarks and '
+              f'its all-public button can start the cleanup runs' if url else
+              f'No saved page yet: publish it as a new page with capabilities '
+              f'{caps}, so it can save its own checkmarks and start the cleanup '
+              'runs, then save its '
               'address as "branch_cleanup_page" in the identity.json of your '
               'individual practice source, so the next close updates it.')
         return 0

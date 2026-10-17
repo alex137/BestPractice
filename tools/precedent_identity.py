@@ -411,6 +411,43 @@ def ci_preference(repo, user_config=None):
         f'(GITHUB_ACTIONS.md) whenever you actually want it')
 
 
+def practice_checked_by(script, repo):
+    """-> (slug, path) of the practice in force at `repo` whose `checked_by`
+    names tools/<script>, or (None, None).
+
+    For the engine's generic declared-identity checks, which a person's own
+    set points its practices at: the engine never names that set's
+    practices (practice: enforcement-lives-with-its-practice; Morgan,
+    2026-10-16, "sets practice names should NOT be in BestPractice"), so it
+    asks the practices which of them it is enforcing. Read from this
+    repository's own practices/ and local/practices/, then from every
+    shared and individual set declared or brought here, first match wins.
+    Only the frontmatter line is read: this runs inside push checks."""
+    import re
+    root = pathlib.Path(repo).resolve()
+    want = f'tools/{script}'
+    dirs = [root / 'practices', root / 'local' / 'practices']
+    try:
+        import precedent_resolve as _pr
+        dirs += [pathlib.Path(p) / 'practices' for p, _lvl, _n, _note in
+                 _pr.declared_source_paths(root) if p]
+    except Exception:                                        # noqa: BLE001
+        pass
+    line = re.compile(r'^checked_by:\s*["\']?' + re.escape(want) + r'["\']?\s*$', re.M)
+    for d in dirs:
+        if not d.is_dir():
+            continue
+        for f in sorted(d.glob('*.md')):
+            try:
+                head = f.read_text(encoding='utf-8').split('\n---', 1)[0]
+            except OSError:
+                continue
+            if line.search(head):
+                m = re.search(r'^slug:\s*(\S+)', head, re.M)
+                return (m.group(1).strip('"\'') if m else f.stem), f
+    return None, None
+
+
 def _main(argv):
     import sys
     if '--commit-env' in argv:

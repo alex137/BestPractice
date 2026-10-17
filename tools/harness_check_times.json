@@ -338,7 +338,7 @@
   "check_push_check_streams_a_gate_progress_live": 0.1,
   "check_push_destination_reaches_the_views_check": 0.0,
   "check_push_gate_judges_only_what_a_working_branch_brings": 2.6,
-  "check_push_refuses_a_hand_made_session_branch_name": 0.2,
+  "check_engine_carries_no_branch_naming_enforcement": 0.1,
   "check_push_to_main_skips_what_already_passed": 0.7,
   "check_reach_key_self_check": 0.3,
   "check_reachability": 0.0,

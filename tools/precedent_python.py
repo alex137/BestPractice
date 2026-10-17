@@ -160,6 +160,28 @@ def export_path(d):
     return ''
 
 
+def link_for_hooks(d, root=ROOT):
+    """Link `d` at <root>/.precedent/python-bin for the hooks. -> '' or why not.
+
+    The session file reaches the Bash tool's commands only; Claude Code
+    starts every hook with its own PATH (2026-10-16). Each hook script in
+    tools/ puts this link first on PATH before its first python3, so the
+    gates run the declared Python with every declared package, not just the
+    engine's own (practice: one-python). Per checkout, under the gitignored .precedent/, because
+    two repositories in one container may declare different versions."""
+    link = pathlib.Path(root) / '.precedent' / 'python-bin'
+    try:
+        link.parent.mkdir(exist_ok=True)
+        if link.is_symlink() or link.exists():
+            if link.is_symlink() and os.readlink(link) == str(d):
+                return ''
+            link.unlink()
+        link.symlink_to(d, target_is_directory=True)
+    except OSError as e:
+        return f'could not link {link} for the hooks: {e}'
+    return ''
+
+
 def setup(root=ROOT):
     version, packages = declared(root)
     exe = interpreter(version)
@@ -168,8 +190,9 @@ def setup(root=ROOT):
               f'is no python{version} on PATH; python3 here is {running_version() or "missing"}. '
               'Install it, or change "python" in precedent.json.', file=sys.stderr)
         return 1
-    problems = [p for p in (install(exe, packages), export_path(make_shims(exe, version)),
-                            hook_install(exe)) if p]
+    shims = make_shims(exe, version)
+    problems = [p for p in (install(exe, packages), export_path(shims),
+                            link_for_hooks(shims, root), hook_install(exe)) if p]
     for p in problems:
         print(f'precedent_python: WARN -- {p}', file=sys.stderr)
     if not problems:
@@ -190,7 +213,9 @@ def hook_install(exe, running=sys.executable):
     it is the one the hooks get; when that is not the declared one, the
     engine's own packages go there too. Only BASE_PACKAGES: a hook runs
     engine tools, and the push check installs what else it needs itself
-    (practice: one-python)."""
+    (practice: one-python). Since link_for_hooks the hooks start the
+    declared Python whenever setup has run; this stays for the hooks that
+    run before it ever has, the first session start's own."""
     if not running or os.path.realpath(running) == os.path.realpath(exe):
         return ''
     why = install(running, BASE_PACKAGES)
