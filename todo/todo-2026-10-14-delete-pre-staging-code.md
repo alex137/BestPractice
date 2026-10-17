@@ -58,3 +58,11 @@ item closes.
   private repository, last touched 2026-09-28. Its work moves into its `staging` before the
   retirement step is deleted; that merge waits on Morgan's word, since it
   writes to another repository.
+- 2026-10-17, the step that moves a repository off pre-staging became a
+  migration, [tools/migration_retire_pre_staging.py](../tools/migration_retire_pre_staging.py),
+  which Update Vendors runs without naming it (PR #1184). It is kept, not
+  deleted, so a repository that has not updated loses nothing, and the
+  instruction above to check every repository first no longer applies.
+  A sweep across many repositories needs Morgan's approval first, naming
+  each (Morgan, 2026-10-17, decided: "ANYTHING TO OPEN ALL THE REPOS MUST
+  GET SESSION USER APPROVAL").
