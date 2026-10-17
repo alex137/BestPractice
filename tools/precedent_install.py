@@ -78,6 +78,11 @@ TEMPLATES = ROOT / 'templates'
 UPSTREAM_URL = 'https://github.com/alex137/BestPractice'
 UPSTREAM_DOCS = f'{UPSTREAM_URL}/blob/main'
 UNIVERSAL_PATH = 'precedent/universal'
+# Mirrors precedent_update.CATALOGUE_COMPANIONS (asserted equal by
+# check_installer_vendors_the_catalogue_companions); not imported, since
+# precedent_update is a far heavier import than this list.
+CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md',
+                        'close_detect.json')
 
 # What section 0 instantiates at the project root, and the template each
 # comes from. GETTING_STARTED.md is a template that keeps a plain .md name
@@ -183,11 +188,15 @@ def _vendor_catalogue(dest):
     if target.exists():
         shutil.rmtree(target)
     shutil.copytree(ROOT / 'practices', target)
-    # The source's own manifest travels with its catalogue: a consumer's
-    # occasion-index cap sums what each source declares there (2026-09-29).
-    if (ROOT / 'precedent-source.json').is_file():
-        shutil.copy2(ROOT / 'precedent-source.json',
-                     dest / UNIVERSAL_PATH / 'precedent-source.json')
+    # The source's own files travel with its catalogue, the same list Update
+    # Vendors copies (precedent_update.CATALOGUE_COMPANIONS): its manifest,
+    # which a consumer's occasion-index cap sums (2026-09-29), its withdrawal
+    # record, and its close_detect.json, without which "it notices and
+    # offers a rule" did nothing on a fresh install (2026-10-17).
+    for comp in CATALOGUE_COMPANIONS:
+        if (ROOT / comp).is_file():
+            (dest / UNIVERSAL_PATH / comp).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / comp, dest / UNIVERSAL_PATH / comp)
     # The same sync record Update Vendors writes, naming the commit this copy
     # came from -- only when that is true, i.e. this clone's practices/ is
     # exactly its HEAD. Without it a fresh install's every session start said
@@ -195,7 +204,7 @@ def _vendor_catalogue(dest):
     # "absent this session" (2026-10-11 install rehearsal).
     head = _run(['git', 'rev-parse', 'HEAD'], ROOT)
     dirty = _run(['git', 'status', '--porcelain', '--', 'practices',
-                  'precedent-source.json'], ROOT)
+                  *CATALOGUE_COMPANIONS], ROOT)
     if head.returncode == 0 and dirty.returncode == 0 and not dirty.stdout.strip():
         (dest / UNIVERSAL_PATH / 'CATALOGUE_SYNC.json').write_text(json.dumps({
             'source_commit': head.stdout.strip(),

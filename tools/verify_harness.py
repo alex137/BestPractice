@@ -30073,6 +30073,58 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_installer_vendors_the_catalogue_companions():
+    """The universal catalogue's companions -- its manifest, its withdrawal
+    record and its close_detect.json -- travel with practices/ on install,
+    the same list Update Vendors copies, so precedent_close_detect.py
+    --explain finds universal's declaration in a consumer.
+
+    Found 2026-10-17 by the very deep check's install rehearsal:
+    BestPractice's root close_detect.json (for the universal the-boildown)
+    was never vendored, since INSTALL.md section 0 step 1 copies only
+    practices/, so "it notices and offers a rule" did nothing on a fresh
+    install. Decision chosen by the session under Morgan's delegation of
+    2026-10-17 ("Fix the other issues you found including the checks that
+    never run. Tell me what you decide. I will be offline so don't wait for
+    me. Approved, act, and Booked."): vendor it, the findings item's pick.
+
+    Negative control, measured 2026-10-17: on the code before the fix the
+    installer had no list to compare, and --explain in the vendored copy
+    said no source declares a close_detect.json.
+    """
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-companions-'))
+    try:
+        cases.append(("the installer copies the same companions Update Vendors does",
+                      getattr(pi, 'CATALOGUE_COMPANIONS', None) == pu.CATALOGUE_COMPANIONS
+                      and 'close_detect.json' in pu.CATALOGUE_COMPANIONS,
+                      f'{getattr(pi, "CATALOGUE_COMPANIONS", None)} vs {pu.CATALOGUE_COMPANIONS}'))
+        proj = tmp / 'proj'
+        proj.mkdir()
+        pi._vendor_catalogue(proj)
+        (proj / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': pi.UNIVERSAL_PATH}]}),
+            encoding='utf-8')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_close_detect.py'),
+                            '--explain', '--repo', str(proj)], capture_output=True, text=True)
+        cases.append(("--explain in the vendored copy finds universal's close_detect.json",
+                      (proj / pi.UNIVERSAL_PATH / 'close_detect.json').is_file()
+                      and 'universal/precedent: ready-to-archive' in r.stdout
+                      and 'no source declares' not in r.stdout, r.stdout + r.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_a_person_with_no_individual_set_can_be_a_code_owner():
     """A person with no individual set is known by the administrator the
     installer was told (--admin), or by the GitHub account the session's
@@ -82193,6 +82245,8 @@ def main():
           *check_code_owners_only_practices_reach_only_code_owners())
     check('a person with no individual set is known by --admin or their GitHub account',
           *check_a_person_with_no_individual_set_can_be_a_code_owner())
+    check("the universal catalogue's close_detect.json travels with it on install and update",
+          *check_installer_vendors_the_catalogue_companions())
     check_endgame_merge_finds_the_silent_drop()
     check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
           *check_moved_claims_says_when_it_could_not_read_the_tree())

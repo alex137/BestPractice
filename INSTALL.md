@@ -151,7 +151,11 @@ not this section.
    above) and
    copy two things into this repo as ordinary tracked files: its
    `practices/` tree, into a tracked path of your choosing (recommended:
-   `precedent/universal/practices/`), and the loader engine itself.
+   `precedent/universal/practices/`), with the three source files that
+   travel beside it (`precedent-source.json`,
+   `record/WITHDRAWN_FROM_UNIVERSAL.md`, and `close_detect.json`, which is
+   what lets a closing session offer a rule it noticed), and the loader
+   engine itself.
    **Don't hand-copy the engine files** — from the Precedent clone, run
    `python3 tools/precedent_vendor_engine.py seed <this repo's path> --kind consumer`
    to write the engine into this repo's own `tools/`: the loader, the
@@ -163,7 +167,7 @@ not this section.
    was written and the seed wrote thirty-one by 2026-09-14). **What does
    not travel this way**: the harness adapters this repo's `precedent.json`
    declares are copied by the sync only from a source's `precedent.json`,
-   and step 1 copies `practices/` alone — so a §0 install gets its hooks
+   and step 1 copies only `practices/` and its three companions — so a §0 install gets its hooks
    from step 5's harness adapter, which the installer writes
    (`.claude/settings.json` and every hook script it wires), and the sync reports
    `0 harness adapter(s)`; that is expected, not a failure. See "Keep the vendored engine current (consumer repos)" under §2
