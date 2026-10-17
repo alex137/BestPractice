@@ -3569,10 +3569,24 @@ def _settings_cases(was, now):
     except (ValueError, AttributeError, TypeError):
         more = []
     if more:
+        broad = pve.ENGINE_ALLOW_RULE in more
         ro = all(pve.is_read_only_allow_rule(r) for r in more)
         cases.append(f'settings.json allows {len(more)} more '
-                     + ('read-only Precedent tool ' if ro else '')
-                     + f'command(s): {", ".join(more)}')
+                     + ('Precedent tool ' if ro else '')
+                     + f'command(s): {", ".join(more)}'
+                     + (' -- the first covers every engine tool, and the ask '
+                        'rules beside it keep the ones that land, produce, '
+                        'merge or update other repositories asking the person'
+                        if broad else ''))
+    # The rules that always ask (2026-10-17): said by name too.
+    try:
+        ask = lambda t: ((json.loads(t) if t else {}).get('permissions') or {}).get('ask') or []
+        asks = [r for r in ask(now) if r not in ask(was)]
+    except (ValueError, AttributeError, TypeError):
+        asks = []
+    if asks:
+        cases.append(f'settings.json makes {len(asks)} command(s) always ask the '
+                     f'person first: {", ".join(asks)}')
     if not cases and (was or '') != (now or ''):
         cases.append('settings.json changes outside its hook entries')
     return cases
