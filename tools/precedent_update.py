@@ -4541,10 +4541,14 @@ def _engine_owned(repo):
             | {f'.claude/hooks/{f}' for f in mf.get('hook_files') or []})
 
 
-def citations(repo):
+def citations(repo, rev=None):
     """-> ([(where, why)] to fix, [where] to read), or None when the lookup
     could not run. Asks the SOURCE clone's copy of the lookup, for the same
-    reason every other step here does: it is the current code."""
+    reason every other step here does: it is the current code. With `rev`,
+    a line that is word for word a line of the current AGENTS.md template
+    (at `rev`) is left out: it is upstream's wording, which the refresh
+    keeps, not this repository's (2026-10-17, very deep check: every
+    consumer's update listed two such lines to read)."""
     refs = SOURCE / 'tools' / 'precedent_practice_refs.py'
     if not refs.is_file():
         return None
@@ -4560,16 +4564,48 @@ def citations(repo):
         data = json.loads(r.stdout)
     except ValueError:
         return None
-    return citation_findings(data, _engine_owned(repo))
+    stock = {}
+    for tmpl in (pve.AGENTS_MD_TEMPLATES.get('consumer') or ())[:1]:
+        text = _source_text(rev, tmpl) if rev else None
+        if text:
+            stock['AGENTS.md'] = {l.strip() for l in text.splitlines() if l.strip()}
+    return citation_findings(data, _engine_owned(repo),
+                             stock=_stock_line_test(repo, stock))
 
 
-def citation_findings(data, engine=frozenset()):
+def _stock_line_test(repo, stock):
+    """-> is_stock(file, line_no): whether that line of the repo's `file`
+    is, stripped, one of the template lines `stock` holds for it."""
+    cache = {}
+
+    def is_stock(rel, n):
+        lines = stock.get(rel)
+        if not lines:
+            return False
+        if rel not in cache:
+            try:
+                cache[rel] = (pathlib.Path(repo) / rel).read_text(
+                    encoding='utf-8').splitlines()
+            except (OSError, UnicodeDecodeError):
+                cache[rel] = []
+        text = cache[rel]
+        try:
+            return 0 < int(n) <= len(text) and text[int(n) - 1].strip() in lines
+        except (TypeError, ValueError):
+            return False
+    return is_stock
+
+
+def citation_findings(data, engine=frozenset(), stock=None):
     """-> ([(where, why)] to fix, [where] to read) from
-    precedent_practice_refs.py's JSON, leaving out the paths in `engine`."""
+    precedent_practice_refs.py's JSON, leaving out the paths in `engine`
+    and every line `stock(file, line)` says is upstream's template wording."""
     fix, read = [], []
     slugs, successors = data.get('slugs', {}), data.get('successors', {})
     for h in data.get('hits', []):
         if h.get('source') != 'this repository' or h.get('kind') != 'live':
+            continue
+        if stock is not None and stock(h.get('file'), h.get('line')):
             continue
         # A file the engine owns is not this repo's to edit: the next
         # refresh rewrites it, and its citations are upstream's to keep
@@ -5752,7 +5788,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # longest: its AGENTS.md and docs were written against the name it had
     # then, and nothing the refresh touches rewrites them.
     # practice: practice-change-propagates
-    cited = citations(repo)
+    cited = citations(repo, head.strip() if head_ok else None)
     if cited is None:
         rep.step('citations', 'could not be looked up -- run '
                  'tools/precedent_practice_refs.py --withdrawn before pushing')

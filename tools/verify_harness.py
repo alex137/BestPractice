@@ -21290,8 +21290,13 @@ def check_legacy_leftovers_retired_by_content():
                       'files sees it gone', SYNC not in g(r1, 'ls-files').stdout,
                       g(r1, 'status', '--short').stdout))
         cases.append(('the secrets only it read are named for the person',
-                      {'ANTHROPIC_API_KEY', 'PERSONAL_PACK_TOKEN'}
-                      <= set(res['secrets']), str(res['secrets'])))
+                      {'ANTHROPIC_API_KEY'} <= set(res['secrets']),
+                      str(res['secrets'])))
+        # 2026-10-17: a legacy secret name this repo never carried is not
+        # (check_legacy_secret_named_only_where_the_repo_had_it).
+        cases.append(('...and a legacy secret it never carried is not',
+                      'PERSONAL_PACK_TOKEN' not in res['secrets'],
+                      str(res['secrets'])))
         cases.append(('NEGATIVE: light-check.yml is never touched, whatever '
                       'it runs', (r1 / LIGHT).is_file(), ''))
 
@@ -72522,6 +72527,84 @@ def check_parallels_table_holds_a_shipped_hook_this_repo_does_not_run():
           f'({len(cases)} stated cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_noise_template_lines_and_a_secret_never_had():
+    """Two lines every consumer's update printed and nobody could act on:
+    the citations step listing AGENTS.md lines that are word for word the
+    current template, and the refresh naming a legacy secret,
+    PERSONAL_PACK_TOKEN, in repositories that never had it.
+
+    2026-10-17, very deep check, both seen on a scratch install from
+    2026-10-01 main. Now a cited line that is a line of the AGENTS.md
+    template at the commit taken is left out (it is upstream's, and the
+    refresh keeps it), and a legacy secret is named only where the
+    repository's history ever carried the word. Planted: a citation on a
+    template line and one on the repository's own line; a legacy workflow
+    that reads one secret, in a repo whose history never named the legacy
+    one, and in one whose history did."""
+    import tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-noise-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+    cases = []
+    try:
+        test = getattr(pu, '_stock_line_test', None)
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        tmpl_line = '  (practice `capture-gate`): did this thread\'s work imply anything'
+        (repo / 'AGENTS.md').write_text('# Agents\n' + tmpl_line + '\n'
+                                        'Our own note citing `capture-gate` here.\n',
+                                        encoding='utf-8')
+        data = {'slugs': {'capture-gate': 'Rule reworded'}, 'successors': {},
+                'hits': [{'source': 'this repository', 'kind': 'live',
+                          'slug': 'capture-gate', 'file': 'AGENTS.md', 'line': n}
+                         for n in (2, 3)]}
+        if test is None:
+            cases.append(('the citations step can tell a template line', False,
+                          'precedent_update has no _stock_line_test'))
+        else:
+            _fix, read = pu.citation_findings(
+                data, stock=test(repo, {'AGENTS.md': {tmpl_line.strip()}}))
+            cases.append(('a cited line that is the template\'s is left out; the '
+                          'repo\'s own is still listed', read == ['AGENTS.md:3'],
+                          str(read)))
+        sync = '.github/workflows/bestpractice-upstream-sync.yml'
+        text = ('name: sync\non:\n  workflow_dispatch:\njobs:\n  s:\n    steps:\n'
+                '      - uses: anthropics/claude-code-action@v1\n        with:\n'
+                '          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}\n')
+        legacy = pve.LEGACY_SECRETS[0]
+
+        def repo_with(name, history):
+            r = tmp / name
+            (r / '.github' / 'workflows').mkdir(parents=True)
+            git(tmp, 'init', '-q', str(r))
+            (r / 'README.md').write_text(history, encoding='utf-8')
+            git(r, 'add', '-A')
+            git(r, 'commit', '-qm', 'one')
+            (r / 'README.md').write_text('now\n', encoding='utf-8')
+            git(r, 'commit', '-qam', 'two')
+            return r
+        never = repo_with('never', 'a readme\n')
+        got = pve._orphaned_secrets(never, {sync: text})
+        cases.append(('a legacy secret the repo never carried is not named',
+                      'ANTHROPIC_API_KEY' in got and legacy not in got, str(got)))
+        had = repo_with('had', f'set {legacy} for the pack sync\n')
+        got = pve._orphaned_secrets(had, {sync: text})
+        cases.append(('...and one its history carried still is', legacy in got, str(got)))
+    except OSError as e:
+        cases.append((f'fixture could not be built ({e!r})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors drops template-line citations and a secret never had '
+          f'({len(cases)} stated cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_dropped_wording_reads_placeholders_filled():
     """A line that is the CURRENT template's line with its placeholders
     filled in is not dropped wording, even when it equals an older template
@@ -83307,6 +83390,7 @@ def main():
     check_retired_words_reads_past_the_decommission_ledger()
     check_bootstrapping_a_set_reaches_no_network_unless_asked()
     check_parallels_table_holds_a_shipped_hook_this_repo_does_not_run()
+    check_update_noise_template_lines_and_a_secret_never_had()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()

@@ -5091,8 +5091,26 @@ def _orphaned_secrets(dest_root, deleted_texts, legacy=True):
         read_before |= set(_SECRET_RE.findall(text))
     orphaned = (read_before - remaining) - {'GITHUB_TOKEN'}
     if deleted_texts and legacy:
-        orphaned |= set(LEGACY_SECRETS) - remaining
+        # Only a legacy name this repository ever carried: until 2026-10-17
+        # every consumer whose update deleted a legacy workflow was told to
+        # delete PERSONAL_PACK_TOKEN, a secret most of them never had
+        # (very deep check). Its history is the evidence.
+        orphaned |= {s for s in set(LEGACY_SECRETS) - remaining
+                     if _repo_ever_named(dest_root, s)}
     return sorted(orphaned)
+
+
+def _repo_ever_named(dest_root, word):
+    """True when any commit of `dest_root`, on any branch, added or removed
+    `word` -- the evidence a legacy secret was ever this repository's.
+    Unreadable history counts as no evidence."""
+    try:
+        r = subprocess.run(['git', '-C', str(dest_root), 'log', '--all',
+                            '--format=%H', '-1', '-S', word],
+                           capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0 and bool(r.stdout.strip())
 
 
 def retire_legacy_leftovers(dest_root, manifest, kind):
