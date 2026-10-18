@@ -33,6 +33,7 @@ def migrate(repo, rep, update):
     global pu
     pu = update
     _retire(repo, rep)
+    _landing_comment(repo, rep)
 
 
 # UPGRADING OFF PRE-STAGING (2026-10-09). A person who lands straight on
@@ -505,11 +506,6 @@ def _retire(repo, rep):
         block.append('copies of practices from other sources still name '
                      'pre-staging as an instruction; reword each in its own '
                      'source, never here: ' + ', '.join(elsewhere))
-    if switched and 'pre-staging' in json.dumps(
-            pb.precedent_json(repo).get('_landing_branch_comment') or ''):
-        block.append('precedent.json: landing_branch is now staging, and its '
-                     '_landing_branch_comment still describes pre-staging; '
-                     'reword it in this same commit')
     link = (f'https://github.com/{slug}/branches/all?query='
             + urllib.parse.quote(PRE_STAGING, safe='')) if slug else None
     block.append(f'{PRE_STAGING} holds nothing {staging} lacks and is no '
@@ -521,3 +517,98 @@ def _retire(repo, rep):
                 block[0].startswith('merged into') else '')
              + (f', {len(changed)} mention(s) reworded' if changed else '')
              + '; safe to delete')
+
+
+# PRECEDENT.JSON'S OWN COMMENT (2026-10-18). Install and Update Vendors
+# wrote `_landing_branch_comment` beside `landing_branch` in the engine's
+# own words, and until 2026-10-14 those words described pre-staging. The
+# reword above reads Markdown only, and runs only while origin still has
+# pre-staging, so a repository already on staging, or whose pre-staging
+# was deleted by hand, kept the old words for good: precedent-shared-writing
+# did after its 2026-10-18 update. Reported by the session "Test relevance
+# and performance review", relayed by Morgan.
+#
+# Only the engine's own former wordings are replaced, and only under
+# `landing_branch: staging`, the value the current wording describes: a
+# comment somebody wrote is theirs, and a free-text reword could make a
+# record false (precedent-individual's says when pre-staging was retired).
+# Any other comment that names pre-staging and does not read as history is
+# reported on every run until somebody rewords it.
+FORMER_LANDING_COMMENTS = (
+    # REPO_LANDING_COMMENT, 2026-09-27 to 2026-10-14.
+    ['Where Go update lands for anyone whose own identity.json names no',
+     'landing_branch -- a person\'s own setting always wins. pre-staging is',
+     'the tiered route: work reaches staging and main only by a Promote.',
+     'Change it here for this repository.'],
+    # REPO_LANDING_STAGING_COMMENT, 2026-10-11 to 2026-10-14.
+    ['Where Go update lands for anyone whose own identity.json names no',
+     'landing_branch -- a person\'s own setting always wins. staging: the',
+     'person who installed this has retired pre-staging (retire_pre_staging,',
+     'or landing_branch "staging", in their identity.json), so work lands on',
+     'staging and reaches main by a Produce. Change it here for this repository.'],
+)
+_COMMENT_KEY = '_' + pb.LANDING_SETTING + '_comment'
+_COMMENT_SPAN = re.compile(r'("' + re.escape(_COMMENT_KEY) + r'"\s*:\s*)\[[^\]]*\]')
+
+
+def _words(comment):
+    """-> the comment's words, wrapping ignored: a string or list of strings."""
+    if isinstance(comment, list):
+        comment = ' '.join(str(c) for c in comment)
+    return ' '.join(str(comment or '').split())
+
+
+def _landing_comment(repo, rep):
+    """Replace precedent.json's `_landing_branch_comment` when it is one of
+    the engine's former wordings, which describe pre-staging, by the current
+    one (pb.REPO_LANDING_COMMENT), every other byte kept; report any other
+    comment that still names pre-staging as more than history. Silent when
+    the comment does not name pre-staging. Whatever the ladder and whether
+    or not origin has pre-staging: the comment is stale either way."""
+    path = pathlib.Path(repo) / 'precedent.json'
+    data = pb.precedent_json(repo)
+    words = _words(data.get(_COMMENT_KEY))
+    if PRE_STAGING not in words:
+        return
+    engine_words = words in {_words(c) for c in FORMER_LANDING_COMMENTS}
+    if not engine_words and (_DATED.search(words) or _HISTORY_WORDS.search(words)):
+        return
+    why = None
+    if not engine_words:
+        why = 'it names pre-staging, which is retired; reword it by hand'
+    elif data.get(pb.LANDING_SETTING) != pb.STAGING:
+        why = (f'it is the engine\'s old wording, which describes pre-staging, '
+               f'and {pb.LANDING_SETTING} is not {pb.STAGING}, so the current '
+               f'wording would not fit; reword it by hand')
+    elif 'precedent.json' in set(rep.before or ()):
+        why = ('it is the engine\'s old wording, which describes pre-staging, '
+               'and precedent.json has uncommitted edits, so it was not '
+               'replaced; run Update Vendors again once they are committed')
+    else:
+        text = path.read_text(encoding='utf-8')
+        found = list(_COMMENT_SPAN.finditer(text))
+        new = None
+        if len(found) == 1:
+            m = found[0]
+            line_start = text.rfind('\n', 0, m.start()) + 1
+            indent = re.match(r'[ \t]*', text[line_start:]).group(0)
+            body = (',\n'.join(indent + '  ' + json.dumps(l)
+                                for l in pb.REPO_LANDING_COMMENT))
+            new = (text[:m.start()] + m.group(1) + '[\n' + body + '\n'
+                   + indent + ']' + text[m.end():])
+            try:
+                if json.loads(new).get(_COMMENT_KEY) != pb.REPO_LANDING_COMMENT:
+                    new = None
+            except ValueError:
+                new = None
+        if new is None:
+            why = ('it is the engine\'s old wording, which describes '
+                   'pre-staging, and could not be replaced without touching '
+                   'the rest of the file; reword it by hand')
+        else:
+            path.write_text(new, encoding='utf-8')
+            rep.step('precedent.json', f'{_COMMENT_KEY}: the engine\'s old '
+                     f'wording, which described pre-staging, replaced by its '
+                     f'current one')
+            return
+    rep.leave(f'precedent.json {_COMMENT_KEY}', why)

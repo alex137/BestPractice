@@ -70362,6 +70362,121 @@ def check_debut_judges_the_change_against_main_too():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+
+def check_update_vendors_replaces_the_old_landing_comment():
+    """precedent.json's `_landing_branch_comment` in the engine's former
+    words, which describe pre-staging, is replaced by the current words
+    whether or not this run switched `landing_branch` and whether or not
+    origin still has pre-staging (tools/migration_retire_pre_staging.py,
+    _landing_comment). On 2026-10-18 precedent-shared-writing, already on
+    staging and with no pre-staging left, kept the old words after its
+    Update Vendors: the only look at the comment sat behind both. A comment
+    somebody wrote is never rewritten: one that reads as history is left
+    quietly, any other that names pre-staging is reported on every run."""
+    import tempfile, json as _json
+    name = 'Update Vendors replaces the engine\'s old landing comment'
+    if not (ROOT / 'tools' / 'migration_retire_pre_staging.py').exists():
+        not_applicable(name, 'tools/migration_retire_pre_staging.py is absent')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as _pu
+        import migration_retire_pre_staging as m
+        import precedent_branches as _pb
+    finally:
+        sys.path.pop(0)
+    m.pu = _pu
+    old, old_staging = m.FORMER_LANDING_COMMENTS
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        pj = repo / 'precedent.json'
+
+        def write(landing, comment, extra='"sources": {"a": "b"}'):
+            body = ('{\n  ' + extra + ',\n  "landing_branch": '
+                    + _json.dumps(landing) + ',\n  "_landing_branch_comment": [\n'
+                    + ',\n'.join('    ' + _json.dumps(l) for l in comment)
+                    + '\n  ],\n  "after": 1\n}\n')
+            pj.write_text(body, encoding='utf-8')
+            return body
+
+        def run(before=()):
+            import contextlib, io
+            rep = _pu.Report()
+            rep.before = set(before)
+            with contextlib.redirect_stdout(io.StringIO()):
+                m._landing_comment(repo, rep)
+            return rep
+
+        current = write('staging', _pb.REPO_LANDING_COMMENT)
+        body = write('staging', old)
+        rep = run()
+        cases.append(('not switched, no pre-staging anywhere: the old engine '
+                      'wording is replaced by the current one, every other '
+                      'byte kept', pj.read_text(encoding='utf-8') == current,
+                      pj.read_text(encoding='utf-8')))
+        cases.append(('it says so in one line, and leaves nothing',
+                      len(rep.steps) == 1 and rep.steps[0][0] == 'precedent.json'
+                      and not rep.left, str(rep.steps + rep.left)))
+        rep = run()
+        cases.append(('a second run changes nothing and says nothing',
+                      pj.read_text(encoding='utf-8') == current
+                      and not rep.steps and not rep.left,
+                      str(rep.steps + rep.left)))
+        write('staging', old_staging)
+        run()
+        cases.append(('the old staging wording, which names retire_pre_staging, '
+                      'is replaced too', pj.read_text(encoding='utf-8') == current))
+        said = ' '.join(old).split()
+        rewrapped = [' '.join(said[:10]), ' '.join(said[10:])]
+        write('staging', rewrapped)
+        run()
+        cases.append(('rewrapped, it is still the engine\'s words, and replaced',
+                      pj.read_text(encoding='utf-8') == current))
+        for label, comment in (
+                ('a comment that does not name pre-staging',
+                 ['Work lands on staging here.']),
+                ('a comment that names pre-staging as history',
+                 ['Booked lands on staging (pre-staging, the tier below it,',
+                  'was retired on 2026-10-14).'])):
+            body = write('staging', comment)
+            rep = run()
+            cases.append((f'{label}: untouched, and nothing said',
+                          pj.read_text(encoding='utf-8') == body
+                          and not rep.steps and not rep.left,
+                          str(rep.steps + rep.left)))
+        for label, landing, comment, before, says in (
+                ('a comment somebody wrote that still sends work to pre-staging',
+                 'staging', ['Work lands on pre-staging here.'], (), 'by hand'),
+                ('the engine\'s old wording under a landing branch it does not '
+                 'describe', 'main', old, (), 'is not staging'),
+                ('the engine\'s old wording in a precedent.json with '
+                 'uncommitted edits', 'staging', old, ('precedent.json',),
+                 'uncommitted')):
+            body = write(landing, comment)
+            rep = run(before)
+            cases.append((f'{label}: untouched, and reported',
+                          pj.read_text(encoding='utf-8') == body
+                          and not rep.steps and len(rep.left) == 1
+                          and rep.left[0][0] == 'precedent.json _landing_branch_comment'
+                          and says in rep.left[0][1],
+                          str(rep.steps + rep.left)))
+        pj.write_text('{"landing_branch": "staging"}\n', encoding='utf-8')
+        rep = run()
+        cases.append(('no comment at all: nothing said',
+                      not rep.steps and not rep.left))
+    # Run by migrate() itself, after the retirement step and outside its
+    # "origin still has pre-staging" gate.
+    import inspect
+    src = inspect.getsource(m.migrate)
+    cases.append(('migrate() runs it after _retire, ungated',
+                  0 <= src.find('_retire(repo, rep)')
+                  < src.find('_landing_comment(repo, rep)'), src))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_update_vendors_retires_pre_staging():
     """The upgrade off pre-staging, for anyone on the ladder since it was
     retired for everyone on 2026-10-14 (Morgan, 2026-10-09: "make sure we have a smooth upgrade process
@@ -70638,10 +70753,13 @@ def check_update_vendors_retires_pre_staging():
                       text('practices/borrowed.md') == borrowed
                       and any('practices/borrowed.md (from precedent-individual)' in l
                               for l in retired), str(retired)[:600]))
-        cases.append(('the run that switched says precedent.json\'s comment '
-                      'still describes pre-staging',
-                      any(l.startswith('precedent.json: landing_branch is now staging')
-                          for l in retired), str(retired)[:600]))
+        cases.append(('the run that switched says precedent.json\'s comment, '
+                      'one somebody wrote, still names pre-staging, and leaves it',
+                      any(w == 'precedent.json _landing_branch_comment'
+                          and 'reword it by hand' in why
+                          for w, why in res.get('left', []))
+                      and 'Work lands on pre-staging here.' in text('precedent.json'),
+                      str(res.get('left'))[:600]))
         cases.append(('a gotcha is left alone, counted as history',
                       text(gotcha) == '# Trap\n\nPush to pre-staging failed.\n'
                       and any(l.startswith('left as history: 1 mention')
@@ -70660,6 +70778,12 @@ def check_update_vendors_retires_pre_staging():
                       out[-300:]))
 
         # --- a second run: nothing changes; it says retired, with the link ---
+        # The person rewords the comment by hand, as the first run asked;
+        # until then every run asks again
+        # (check_update_vendors_replaces_the_old_landing_comment).
+        (work / 'precedent.json').write_text(text('precedent.json').replace(
+            'Work lands on pre-staging here.', 'Work lands on staging here.'),
+            encoding='utf-8')
         before, docs = tips(), now
         res, out = call('step')
         retired = res.get('retired') or []
@@ -70669,9 +70793,9 @@ def check_update_vendors_retires_pre_staging():
                                   for l in retired), str(retired)[:300]))
         cases.append(('and still says it is retired, with the link',
                       any(l.endswith(link) for l in retired), str(retired)[-300:]))
-        cases.append(('and does not ask about precedent.json\'s comment again',
-                      not any(l.startswith('precedent.json:') for l in retired),
-                      str(retired)[:300]))
+        cases.append(('and, the comment reworded, does not ask about it again',
+                      not any(w.startswith('precedent.json') for w, _ in
+                              res.get('left', [])), str(res.get('left'))[:300]))
 
         # --- a conflict: nothing moves, nothing is reworded, no offer ---
         git(work, 'add', '-A')
@@ -85535,6 +85659,7 @@ def main():
     check_landing_on_staging_run_tests_and_fast_move_into_main()
     check_debut_judges_the_change_against_main_too()
     check_update_vendors_retires_pre_staging()
+    check_update_vendors_replaces_the_old_landing_comment()
     check_promote_ends_with_its_result_line()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
