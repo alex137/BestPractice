@@ -75,6 +75,54 @@ def _git(*args):
     return _run('git', '-C', str(ROOT), *args)
 
 
+# MERGE DRIVERS A FILE NAMES (2026-10-18). .gitattributes can name a driver
+# (tools/harness_check_times.json merge=precedent-harness-times), but git
+# keeps the driver's command in each clone's own config, which no commit
+# carries. Only tools/bootstrap.sh wrote it, and Claude Code never runs
+# that: on 2026-10-18 neither a session rooted above its repos nor one
+# rooted in BestPractice itself had it, so the file conflicted by hand.
+# Session start (both harnesses) now calls --merge-drivers, and the row
+# below reports a clone that still lacks one.
+MERGE_DRIVERS = {
+    'precedent-harness-times': (
+        'three-way merge of the harness per-test times',
+        'python3 tools/harness_times_merge.py %O %A %B',
+        'tools/harness_times_merge.py'),
+}
+
+
+def missing_merge_drivers(root=None):
+    """-> the drivers .gitattributes names whose script is here but whose
+    command this clone's config lacks."""
+    root = pathlib.Path(root or ROOT)
+    try:
+        attrs = (root / '.gitattributes').read_text(encoding='utf-8')
+    except OSError:
+        return []
+    out = []
+    for name, (_label, command, script) in sorted(MERGE_DRIVERS.items()):
+        if f'merge={name}' not in attrs or not (root / script).is_file():
+            continue
+        got = _run('git', '-C', str(root), 'config', '--get',
+                   f'merge.{name}.driver')[1]
+        if got != command:
+            out.append(name)
+    return out
+
+
+def configure_merge_drivers(root=None):
+    """Write each missing driver into this clone's config. -> names set."""
+    root = pathlib.Path(root or ROOT)
+    done = []
+    for name in missing_merge_drivers(root):
+        label, command, _script = MERGE_DRIVERS[name]
+        _run('git', '-C', str(root), 'config', f'merge.{name}.name', label)
+        if _run('git', '-C', str(root), 'config', f'merge.{name}.driver',
+                command)[0] == 0:
+            done.append(name)
+    return done
+
+
 def _declared_branch():
     """The branch this checkout is measured against: the repository's
     declared base_branch -- or, for a person off the ladder, main, the only
@@ -568,6 +616,16 @@ def checks(offline=False):
 
     # 5. The packages this repo's own gates import.
     out.append(gate_packages_row())
+
+    # 5b. Merge drivers .gitattributes names (MERGE_DRIVERS says why).
+    missing = missing_merge_drivers()
+    out.append(('every merge driver .gitattributes names is configured in '
+                'this clone', not missing,
+                '' if not missing else
+                f'{", ".join(missing)} is named in .gitattributes but not '
+                f'in git config, so a merge of its file conflicts and gets '
+                f'patched by hand. --apply sets it (or: python3 '
+                f'tools/precedent_session_check.py --merge-drivers)'))
 
     # 6. A single-branch clone's refspec, without which every branch reads
     #    as unpushed forever (AGENTS.md's add_repo entry).
@@ -1694,7 +1752,13 @@ def main():
     ap.add_argument('--stamp-start', action='store_true',
                     help='record the branch and commit this session starts on '
                          '(the session-start hook runs this), then exit')
+    ap.add_argument('--merge-drivers', action='store_true',
+                    help='configure the merge drivers .gitattributes names '
+                         '(session start runs this), then exit')
     args = ap.parse_args()
+    if args.merge_drivers:
+        configure_merge_drivers()
+        return 0
     if args.stamp_start:
         stamp_session_start()
         return 0
@@ -1702,6 +1766,8 @@ def main():
     if args.apply:
         print('applying the SessionStart hooks by hand:\n')
         apply_repair()
+        for name in configure_merge_drivers():
+            print(f'  set merge driver {name}')
         print()
 
     rows = checks()

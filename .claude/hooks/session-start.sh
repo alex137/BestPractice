@@ -187,6 +187,9 @@ fi
 # (2026-10-09). Overwrites any earlier record; prints nothing.
 if [ -f tools/precedent_session_check.py ]; then
   python3 tools/precedent_session_check.py --stamp-start 2>/dev/null || true
+  # Merge drivers .gitattributes names live in git config, which no commit
+  # carries (precedent_session_check.py, MERGE_DRIVERS).
+  python3 tools/precedent_session_check.py --merge-drivers 2>/dev/null || true
 fi
 
 # The PRIVATE practice sources, when this environment carries a credential.

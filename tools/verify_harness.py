@@ -78945,7 +78945,8 @@ def check_harness_times_merge_without_a_conflict():
     default_seconds rewritten each time, neighbouring inserts -- and a
     union resolve brought back five timings #1180 had removed, turning the
     --as-ci partition case red. Now: .gitattributes names a merge driver,
-    tools/bootstrap.sh configures it in the clone at session start, and
+    session start configures it in the clone (precedent_session_check.py
+    --merge-drivers, from session-start.sh and bootstrap.sh), and
     --record-new-times leaves the shared fields alone and drops a removed
     test's time itself. Fails on the old code: no driver, so git leaves
     the conflict."""
@@ -78958,11 +78959,15 @@ def check_harness_times_merge_without_a_conflict():
     attr_ok = attrs.is_file() and 'tools/harness_check_times.json merge=precedent-harness-times' \
         in attrs.read_text(encoding='utf-8')
     cases.append(('.gitattributes names the driver for the times file', attr_ok))
-    btext = boot.read_text(encoding='utf-8') if boot.is_file() else ''
-    m = _re.search(r"merge\.precedent-harness-times\.driver \\\s*\n\s*'([^']+)'", btext)
-    cases.append(('bootstrap.sh configures it', bool(m) and script.is_file(),
-                  'no driver line in tools/bootstrap.sh'))
-    driver = m.group(1) if m else ''
+    # Configured at session start by BOTH harnesses (2026-10-18: only
+    # bootstrap.sh did, and Claude Code never runs it).
+    import precedent_session_check as _psc
+    starts = [ROOT / '.claude' / 'hooks' / 'session-start.sh', boot]
+    cases.append(('session-start.sh and bootstrap.sh both configure it',
+                  script.is_file() and all(
+                      f.is_file() and 'precedent_session_check.py --merge-drivers'
+                      in f.read_text(encoding='utf-8') for f in starts),
+                  'a session start that never calls --merge-drivers'))
     with tempfile.TemporaryDirectory() as td:
         repo = pathlib.Path(td) / 'r'
         env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
@@ -78987,8 +78992,14 @@ def check_harness_times_merge_without_a_conflict():
             _shutil.copy2(script, repo / 'tools' / script.name)
         if attrs.is_file():
             _shutil.copy2(attrs, repo / '.gitattributes')
-        if driver:
-            git('config', 'merge.precedent-harness-times.driver', driver)
+        missing = _psc.missing_merge_drivers(repo)
+        cases.append(('the session check reports the clone that lacks it '
+                      f'(missing={missing})',
+                      missing == ['precedent-harness-times']))
+        _psc.configure_merge_drivers(repo)
+        missing = _psc.missing_merge_drivers(repo)
+        cases.append((f'...and --merge-drivers sets it (missing={missing})',
+                      missing == []))
         base = {'check_a': 1.0, 'check_b': 2.0, 'check_c': 3.0}
         times(base)
         git('add', '-A')
