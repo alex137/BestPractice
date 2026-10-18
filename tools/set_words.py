@@ -126,16 +126,16 @@ def sets_with_words(root=ROOT):
         return []
     out, seen = [], set()
     root = pathlib.Path(root).resolve()
-    # The repository itself, by name as well as by path: a checkout of a set
-    # somewhere else -- the worktree --run-tests makes -- is that set, and a
-    # person who brings it resolves its clone at another path (2026-10-18:
-    # the ladder set's full check on main judged its own words).
-    me = str(_manifest(root).get('name') or '')
+    # The repository itself is left out by declared_source_paths(), by name
+    # as well as by path (precedent_resolve.is_repository_itself): a
+    # checkout of a set somewhere else -- the worktree --run-tests makes --
+    # is that set (2026-10-18: the ladder set's full check on main judged
+    # its own words).
     for path, _level, name, note in _pr.declared_source_paths(root):
         if note or not path:
             continue
         p = pathlib.Path(path).resolve()
-        if p == root or p in seen or (me and name == me):
+        if p == root or p in seen:
             continue
         seen.add(p)
         w = words_of(p)

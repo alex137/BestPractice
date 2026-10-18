@@ -1,9 +1,17 @@
 ---
-checked_through: 2026-10-16
+checked_through: 2026-10-17
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Saturday 2026-10-17: pre-staging-deleted
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Pre-staging is gone from the engine, and Promote now has one step: staging into main** (its tier, protection and special cases were removed from code, docs, templates and settings; only the migration that Update Vendors runs in repositories still carrying it remains).
+- **Every engine tool is allowed without a prompt, except the ones that move work, which always ask** (one Bash(python3 tools/precedent_*) allow rule replaces the per-tool lines, and permissions.ask lists the tools that land, produce, merge or update other repositories; a new check keeps that list complete).
+- **A push to main now gets the quick checks, and the full tests run at the Debut instead** (and a set's own words stay in that set, through one general check that reads each set's declared words, set_words.py; the day's very deep check also began reviewing every test for whether it is still worth running).
 
 ## Friday 2026-10-16: cleanup-in-one-click
 

@@ -950,6 +950,7 @@ def checks(offline=False):
     # session loads against this repository's ceilings
     # (spec/LADDER_OPT_IN_PLAN.md D8).
     out.extend(_brought_sets_rows())
+    out.append(_off_base_sources_row())
     out.append(_landing_row())
     out.append(_private_repos_listed_row())
     out.extend(_session_load_rows())
@@ -1048,6 +1049,24 @@ def _brought_sets_rows():
                                        for b in missing)
              + '. Its rules are absent from this session, and nothing else '
              'says so. Fetch it: python3 tools/precedent_source_bootstrap.py')]
+
+
+def _off_base_sources_row():
+    """Every set in force is read from its base branch. Not a failure when
+    one is not -- a person trying a change to their own set may mean it --
+    but never silent (precedent_resolve.off_base_sources, 2026-10-18)."""
+    name = 'every set in force is read from its base branch'
+    try:
+        import precedent_resolve as pr
+        off = pr.off_base_sources(ROOT)
+    except Exception as e:                                   # noqa: BLE001
+        return (name, None, f'could not be worked out: {e}')
+    if not off:
+        return (name, True, '')
+    return (name, None, '; '.join(
+        f'{n} is read from {where} at {path}, not {base} -- its rules here are '
+        f'that branch\'s; `git -C {path} switch {base}` once the work there '
+        f'is done' for n, path, where, base in off))
 
 
 def _private_repos_listed_row():

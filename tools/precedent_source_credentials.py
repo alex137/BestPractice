@@ -595,6 +595,17 @@ def _git_said(unresolved, env):
             + ' | '.join(said) + '.')
 
 
+def _missing_reason(path, name=None):
+    """precedent_resolve.missing_source_reason -- "not cloned at <path>"
+    when nothing is there -- or the old wording from a tree vendored before
+    it existed."""
+    pr = _engine_module('precedent_resolve')
+    fn = getattr(pr, 'missing_source_reason', None) if pr else None
+    if fn is None:
+        return f'{path} has no practices/ directory'
+    return fn(str(path), name)
+
+
 def unresolved_private_sources(repo_root=None, env=None):
     """-> [(level, name, why)] for every PRIVATE-level source this repo
     expects and this session does not have on disk.
@@ -625,7 +636,7 @@ def unresolved_private_sources(repo_root=None, env=None):
         path = (root / str(src.get('path', ''))).resolve()
         if not (path / 'practices').is_dir():
             out.append(('shared', str(src.get('name') or path.name),
-                        f'{path} has no practices/ directory'))
+                        _missing_reason(path, src.get('name'))))
 
     user_cfg, code = individual_config_state(env)
     # On a hosted session with no sign anywhere that this person has an
@@ -652,7 +663,7 @@ def unresolved_private_sources(repo_root=None, env=None):
             # the config named a path, and the clone is not at it.
             out.append(('individual',
                         str(entry.get('name') or 'precedent-individual'),
-                        f"{entry.get('path')} has no practices/ directory"))
+                        _missing_reason(entry.get('path'), entry.get('name'))))
     return out
 
 

@@ -3337,6 +3337,21 @@ def engine_summary(out, last_synced, follow=None, tip=None):
     return line
 
 
+def kept_older_note(line, follow, newest, taken, take=None):
+    """-> the engine line, saying plainly when it is not the newest `follow`.
+
+    2026-10-18: the newest main's test was still running, so this command
+    kept the last tested one and the engine line read a bare "already
+    current with main @ 1a426298cd85". A session took that for a bug, ran
+    the refresh by hand and vendored the untested commit. The line now says
+    why it is not the newest, in its own words."""
+    if take or not newest or not taken or newest == taken:
+        return line
+    return (f"{line} -- the newest {follow}, {newest[:12]}, has no passing "
+            f"GitHub test yet, so this kept {taken[:12]}; a rerun takes the "
+            f"newer one once its test passes")
+
+
 def diverged_details(out):
     """-> {what: [detail line, ...]} from the engine refresh's DIVERGED
     blocks: the blocks a locally edited file or AGENTS.md section lacks, and
@@ -5115,6 +5130,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # Main is taken only where its GitHub test passed (source_commit), once,
     # here: a pinned rerun takes the commit its first run chose.
     chosen = {}
+    newest = None
     if ref is None and head_ok and not pinned:
         newest = head.strip()
         chosen = source_commit(follow, newest, take)
@@ -5202,9 +5218,10 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
             why = why.replace('(listed above)', '(listed below)')
             rep.details[what] = details[what]
         rep.leave(what, why)
-    rep.step('engine', engine_summary(out, last_synced,
-                                      follow=None if ref else follow,
-                                      tip=engine_ref))
+    rep.step('engine', kept_older_note(
+        engine_summary(out, last_synced, follow=None if ref else follow,
+                       tip=engine_ref),
+        follow, newest, chosen.get('commit'), take))
     # Where the engine actually landed. With no --from-ref the whole update
     # is main's, and a consumer's own older engine copy can resolve some
     # other ref for itself -- then the catalogue would be taken from main

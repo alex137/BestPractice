@@ -67388,7 +67388,7 @@ def check_source_credentials():
                       'missing still reads as an access problem, retirement '
                       'clause and all -- the new verdict must not swallow it',
                       verdict == 'set' and 'RETIRED' in message
-                      and 'has no practices/ directory' in message,
+                      and 'not cloned at' in message,
                       f'{verdict}: {message[:260]}'))
 
         # --- 5c: PRECEDENT_USER_CONFIG is honoured here too -----------------
@@ -77573,6 +77573,159 @@ def check_set_words_leave_out_the_set_itself_by_name():
           got == ['zz-other'], f'sets_with_words gave {got}')
 
 
+def _with_user_config(path):
+    """-> a restore() for PRECEDENT_USER_CONFIG, after pointing it at `path`."""
+    saved = os.environ.get('PRECEDENT_USER_CONFIG')
+    os.environ['PRECEDENT_USER_CONFIG'] = str(path)
+
+    def restore():
+        if saved is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved
+    return restore
+
+
+def check_resolver_leaves_out_the_set_itself_by_name():
+    """precedent_resolve.declared_source_paths leaves the repository itself
+    out by name, not only by path, for a declared set and for one the
+    individual set brings (is_repository_itself). Until 2026-10-18 it
+    compared paths, so a checkout of a set elsewhere -- the --run-tests
+    worktree, a CI clone -- listed the set's own clone as a second source;
+    #1198 fixed that in set_words.py alone. A different set still lists
+    (the control)."""
+    import precedent_resolve as pr
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        for d, name in (('clone', 'zz-set'), ('other', 'zz-other'),
+                        ('wt', 'zz-set'), ('ind', 'zz-ind'), ('zz-brought', 'zz-brought')):
+            (tmp / d / '.git').mkdir(parents=True)
+            (tmp / d / 'precedent-source.json').write_text(json.dumps(
+                {'name': name, 'level': 'shared'}))
+        (tmp / 'ind' / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual', 'brings': [
+                {'name': 'zz-set', 'repo_url': 'https://github.com/o/zz-set'},
+                {'name': 'zz-brought', 'repo_url': 'https://github.com/o/zz-brought'}]}))
+        (tmp / 'zz-set' / '.git').mkdir(parents=True)
+        (tmp / 'wt' / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'zz-set', 'path': '../clone'},
+            {'level': 'shared', 'name': 'zz-other', 'path': '../other'}]}))
+        cfg = tmp / 'config.json'
+        cfg.write_text(json.dumps({'individual': {'name': 'zz-ind',
+                                                  'path': str(tmp / 'ind')}}))
+        restore = _with_user_config(cfg)
+        try:
+            got = sorted(n for _p, _l, n, _note in pr.declared_source_paths(tmp / 'wt'))
+        finally:
+            restore()
+    check('a set checked out in a second place is not its own source, '
+          'declared or brought', got == ['zz-brought', 'zz-ind', 'zz-other'],
+          f'declared_source_paths gave {got}')
+
+
+def check_a_missing_clone_says_not_cloned():
+    """A source whose declared path holds nothing reads "not cloned at
+    <path>", naming a clone of the same set found elsewhere; "has no
+    practices/ directory" is kept for a directory that is there
+    (precedent_resolve.missing_source_reason). 2026-10-18: the session check
+    said a set "has no practices/ directory" at a path where nothing
+    existed, while the set sat cloned under another home."""
+    import precedent_resolve as pr
+    import tempfile
+    saved = os.environ.get('HOME')
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        (tmp / 'home' / 'zz-set' / 'practices').mkdir(parents=True)
+        (tmp / 'empty').mkdir()
+        os.environ['HOME'] = str(tmp / 'home')
+        try:
+            gone = pr.missing_source_reason(str(tmp / 'decl' / 'zz-set'), 'zz-set')
+            none = pr.missing_source_reason(str(tmp / 'decl' / 'zz-none'), 'zz-none')
+            there = pr.missing_source_reason(str(tmp / 'empty'), 'empty')
+        finally:
+            if saved is None:
+                os.environ.pop('HOME', None)
+            else:
+                os.environ['HOME'] = saved
+    check('a missing clone reads as not cloned, naming the clone elsewhere',
+          gone.startswith('not cloned at') and str(tmp / 'home' / 'zz-set') in gone
+          and none.startswith('not cloned at') and 'a clone of it' not in none
+          and there.endswith('has no practices/ directory'),
+          f'{gone!r} / {none!r} / {there!r}')
+
+
+def check_off_base_sources_are_named():
+    """A declared set whose clone is on a feature branch, or detached, is
+    named at session start (precedent_resolve.off_base_sources), because the
+    loader reads it from whatever is checked out. 2026-10-18: a session
+    working on a set's feature branch had every repository bringing that set
+    read its rules from there. On its base branch it is not named (the
+    control)."""
+    import precedent_resolve as pr
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        s = tmp / 'zz-set'
+        g = ['git', '-C', str(s), '-c', 'user.name=t', '-c', 'user.email=t@e']
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(s)], check=True)
+        subprocess.run(g + ['commit', '-q', '--allow-empty', '-m', 'x'], check=True)
+        (tmp / 'repo').mkdir()
+        (tmp / 'repo' / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'zz-set', 'path': '../zz-set'}]}))
+        restore = _with_user_config(tmp / 'no-config.json')
+        try:
+            on_main = pr.off_base_sources(tmp / 'repo')
+            subprocess.run(g + ['switch', '-q', '-c', 'feature'], check=True)
+            on_feature = pr.off_base_sources(tmp / 'repo')
+            subprocess.run(g + ['switch', '-q', '--detach'], check=True)
+            detached = pr.off_base_sources(tmp / 'repo')
+        finally:
+            restore()
+    check('a set read from a feature branch or a detached HEAD is named',
+          on_main == [] and [w for _n, _p, w, _b in on_feature] == ['branch feature']
+          and len(detached) == 1 and detached[0][2].startswith('a detached HEAD'),
+          f'main {on_main}; feature {on_feature}; detached {detached}')
+
+
+def check_refresh_refuses_an_untested_main():
+    """precedent_vendor_engine.untested_tip_refusal: a bare refresh following
+    main refuses a tip whose GitHub test is running or failed, naming
+    Update Vendors and --take-anyway; it takes a passed one, and one GitHub
+    cannot be asked about, with a notice. And precedent_update.kept_older_note
+    says plainly when Update Vendors kept an older main. 2026-10-18: Update
+    Vendors said a bare "already current", a session went around it with
+    refresh, and refresh vendored a main whose test was still running."""
+    import precedent_vendor_engine as pve
+    import precedent_update as pu
+
+    class FakeBranches:
+        def __init__(self, state):
+            self.state = state
+
+        def github_tests(self, _clone, _sha):
+            return [('.github/workflows/test.yml', True)]
+
+        def passed_markers(self, _clone):
+            return set()
+
+        def github_test_state(self, _clone, _sha, _tests):
+            return self.state
+    tip = 'b8149f6' + '0' * 33
+    got = {st: pve.untested_tip_refusal(ROOT, tip, pb=FakeBranches((st, 'why')))
+           for st in ('running', 'failed', 'passed', 'unknown')}
+    note = pu.kept_older_note('engine already current with main @ 1a426298cd85',
+                              'main', tip, '1a426298cd85' + '0' * 28)
+    check('a refresh refuses an untested main tip, and Update Vendors says '
+          'when it kept an older one',
+          all(got[st] and pve.TAKE_ANYWAY_FLAG in got[st] and 'precedent_update.py' in got[st]
+              for st in ('running', 'failed'))
+          and got['passed'] is None and got['unknown'] is None
+          and 'b8149f60000' in note and 'no passing GitHub test yet' in note
+          and pu.kept_older_note('x', 'main', tip, tip) == 'x',
+          f'{got} / {note!r}')
+
+
 def check_ladder_off_engine_says_no_ladder_words():
     """spec/LADDER_OPT_IN_PLAN.md assertion B, on the engine's own output: a
     person with no practice set of their own -- the ladder not in force --
@@ -85230,6 +85383,10 @@ def main():
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()
     check_set_words_leave_out_the_set_itself_by_name()
+    check_resolver_leaves_out_the_set_itself_by_name()
+    check_a_missing_clone_says_not_cloned()
+    check_off_base_sources_are_named()
+    check_refresh_refuses_an_untested_main()
     check_ladder_off_engine_says_no_ladder_words()
     check_ladder_test_session_and_the_two_ladder_checks()
     check_consumer_sync_counts_what_a_brought_set_provides()
