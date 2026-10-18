@@ -2144,7 +2144,11 @@ def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
         return 0
     if merged:
         say(f'GitHub test {state.upper()} on {sha[:12]}: {detail}. {MAIN} already '
-            f'carries it, so fix {MAIN} now.')
+            f'carries it, so fix {MAIN} now, straight into it: cut a branch '
+            f'from {MAIN}\'s tip named by `python3 tools/precedent_branch_name.py '
+            f'fix main WORDS`, open its pull request into {MAIN} (red_main_fix '
+            f'lets that one through), then land the same branch on '
+            f'{staging_branch(root)} (`{LAND_COMMAND} BRANCH`).')
     else:
         say(f'GitHub test {state.upper()} on {sha[:12]}: {detail}. Do not merge.')
     return 1
