@@ -61,6 +61,9 @@ def merge(base, ours, theirs):
 
 
 def main(argv):
+    if len(argv) == 2 and argv[1] in ('-h', '--help'):
+        print(__doc__.strip())
+        return 0
     if len(argv) != 4:
         print('usage: harness_times_merge.py BASE OURS THEIRS', file=sys.stderr)
         return 2

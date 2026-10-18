@@ -426,6 +426,9 @@ def render_markdown(results):
 
 
 def main(argv):
+    if '-h' in argv or '--help' in argv:
+        print(__doc__.strip())
+        return 0
     root = ROOT
     if '--repo' in argv:
         i = argv.index('--repo')
