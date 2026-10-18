@@ -34,3 +34,12 @@ hand: open the pull request, look at its checks once, and if none is listed,
 none is coming. Never wait on a check nothing has started. The refusal's
 own wording lives in the ladder set's [`landing_pr_guard.py`](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/landing_pr_guard.py); changing it there is
 [todo-2026-10-18-landing-guard-refusal-promises-checks](../todo/todo-2026-10-18-landing-guard-refusal-promises-checks.md).
+
+**2026-10-18, later: not retired yet.** That item closed: the guard's
+refusal now ends with `pull_request_route_note` on the ladder set's
+`staging`
+([themorgan/precedent-shared-ladder#106](https://github.com/themorgan/precedent-shared-ladder/pull/106)).
+But the copy a session here runs, the untracked copy of the guard
+the session start writes, still carries the old sentence, because it comes
+from the ladder set's `main`. This retires once that copy says when no
+check is coming, or a workflow here runs on pull requests into `staging`.

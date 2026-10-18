@@ -3,16 +3,16 @@ slug:              todo-2026-10-18-harness-branch-named-in-instructions-not-caug
 kind:              analysis
 domain:            mechanism
 severity:          null
-status:            open
-disposition:       ask
+status:            done
+disposition:       null
 remind_on:         null
-blocked_on:        push access to themorgan/precedent-shared-ladder in a session working on it
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-18
-closed:            null
+closed:            2026-10-18
 ---
 ## What
 
@@ -39,3 +39,17 @@ from the same Update Vendors run (branch
 `2026-10-18-themorgan-root-fixes-from-update-vendors-y7plp-mahoa`) had no
 push access to the ladder set. It closes when the fix lands on the ladder
 set's landing branch.
+
+## Closed
+
+Closed 2026-10-18 on its own condition: the fix landed on the ladder set's
+landing branch, `staging`, in
+[themorgan/precedent-shared-ladder#106](https://github.com/themorgan/precedent-shared-ladder/pull/106)
+(merge commit 6127317). It took the item's fallback, not its first choice:
+nothing inside the container carries the session's instructions or outcome
+branches, so `tools/branch_name_guard.py --session-start` now tells every
+cloud ladder session not already on a tool-made branch to name its branch
+with [`precedent_branch_name.py`](../tools/precedent_branch_name.py) and never to create a `claude/` or
+`session/` branch, even when the instructions name one. New cases in
+`tools/checks/tests/test_session_branch_name.sh`. Consumers get it at the
+ladder set's next move into `main`.
