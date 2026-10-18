@@ -128,12 +128,16 @@ def check(payload, root=ROOT, log=None):
     return True, (
         'OUTBOUND PRIVACY: this request would send the person\'s private details off the '
         f'machine (private term {", ".join(map(str, hits))}, the person\'s email first). '
-        'Take them out and send it again: a site that asks for contact details gets a '
-        'generic identifier, never the person\'s name, email or address (practice: '
-        'outbound-privacy). The refusal is logged in .precedent/outbound_refusals.jsonl.')
+        'Take them out and send only what the tool sends by default: answer nothing a site '
+        'asks for. If the site will not serve without more, stop and ask the person what to '
+        'do (practice: outbound-privacy). The refusal is logged in '
+        '.precedent/outbound_refusals.jsonl.')
 
 
 def main():
+    if any(a in ('-h', '--help') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        return 0
     try:
         payload = json.loads(sys.stdin.read() or '{}')
     except ValueError:
