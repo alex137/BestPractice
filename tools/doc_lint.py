@@ -226,6 +226,9 @@ def is_content(path, root=None):
 
 # ---- acronym check (check 3) ----
 ACRONYM_RE = re.compile(r'\b([A-Z]{2}[A-Z0-9]{0,4})\b')   # 2-6 chars, ≥2 leading letters
+# A shouted phrase: three or more ALL-CAPS words (one letter counts: "A",
+# "I"), separated by single spaces. scan_unglossed() says why.
+SHOUTED_RUN_RE = re.compile(r"\b[A-Z][A-Z0-9'’]*(?: [A-Z][A-Z0-9'’]*){2,}\b")
 # A dot plus a lowercase extension immediately after the token: the token is
 # a filename stem (LEDGER.md, MAP.md, SETUP.md), never an acronym to gloss.
 FILENAME_STEM_RE = re.compile(r'\.[a-z][a-z0-9]{0,4}\b')
@@ -796,9 +799,19 @@ def scan_unglossed(text, known, path=None):
             # first time somebody shouts a word nobody thought of.
             continue
         clean = _decontent(line)
+        shouted = [r.span() for r in SHOUTED_RUN_RE.finditer(clean)]
         for m in ACRONYM_RE.finditer(clean):
             tok = m.group(1)
             if tok in known or tok in seen:
+                continue
+            if any(a <= m.start() and m.end() <= b for a, b in shouted):
+                # Three or more ALL-CAPS words in a row, spaces between: a
+                # person shouting a phrase, not an initialism. Morgan writes
+                # in capitals for emphasis, and practices quote him inline;
+                # reach-or-ask's Story quoted "... IT IS A HUGE TOKEN ORDEAL
+                # ..." and ORDEAL was refused, so the quote had to be cut
+                # (2026-10-17). Spaces only, so a list like "API, CLI and
+                # SDK" is still scanned.
                 continue
             if tok == doc_name:
                 # A document naming itself in its own title (SETUP.md's

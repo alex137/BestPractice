@@ -18499,7 +18499,8 @@ def check_acronym_scan_skips_wrapped_code_spans():
         import doc_lint as dl
     finally:
         sys.path.pop(0)
-    name = 'the acronym scan skips code spans that wrap across lines'
+    name = ('the acronym scan skips code spans that wrap across lines, and '
+            'a shouted phrase')
     toks = lambda t: [tok for _i, tok in dl.scan_unglossed(t, set(), 'x.md')
                       if tok in ('QZXA', 'QZXB', 'QZXC', 'QZXD')]
     cases = [
@@ -18511,6 +18512,13 @@ def check_acronym_scan_skips_wrapped_code_spans():
          toks('An open ` tick.\n\nQZXC and a close ` tick.\n') == ['QZXC']),
         ('a fenced block is not joined to prose around it',
          toks('Open `\n```\ncode\n```\nQZXD` here.\n') == ['QZXD']),
+        ('a shouted phrase quoted inline is not an acronym (reach-or-ask, '
+         '2026-10-17: "IT IS A HUGE TOKEN ORDEAL")',
+         toks('He said "QZXA IS A HUGE TOKEN QZXB" twice.\n') == []),
+        ('two capitalized words in a row are still scanned',
+         toks('Use QZXC QZXD here.\n') == ['QZXC', 'QZXD']),
+        ('a comma list of acronyms is still scanned',
+         toks('Use QZXA, QZXB and QZXC.\n') == ['QZXA', 'QZXB', 'QZXC']),
         ('line numbers still point at the right line',
          [i for i, tok in dl.scan_unglossed('a `b\nc` d\nQZXA\n', set(), 'x.md')
           if tok == 'QZXA'] == [3]),
