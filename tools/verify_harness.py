@@ -32522,6 +32522,33 @@ def check_archive_check_sees_work_left_in_a_scratch_folder():
                       'scratch:abcd1234' in unsafe_names(r)
                       and 'msg.txt' in r.stdout, r.stdout[:300]))
         (sess / 'msg.txt').unlink()
+        # A helper's worktree whose branch is on origin is safe to lose,
+        # and said so; one with a commit no remote has is not (2026-10-18:
+        # a folder of landed helper worktrees read NOT SAFE every time).
+        bare = pathlib.Path(td) / 'origin.git'
+        subprocess.run(['git', 'init', '-q', '--bare', str(bare)],
+                       capture_output=True)
+        _g('remote', 'add', 'origin', str(bare))
+        _g('push', '-q', 'origin', 'HEAD:refs/heads/helper')
+        _g('fetch', '-q', 'origin')
+        wt = sess / 'helper-wt'
+        _g('worktree', 'add', '-q', '--detach', str(wt), 'origin/helper')
+        r = scan_repo()
+        plain = subprocess.run(
+            [sys.executable, str(scanner), '--only', str(repo), '--scratch',
+             str(sess), '--no-processes'], capture_output=True, text=True)
+        cases.append(('a helper worktree whose HEAD is on origin is safe to '
+                      'lose, and the report says so',
+                      'scratch:abcd1234' not in unsafe_names(r)
+                      and 'safe to lose' in plain.stdout,
+                      r.stdout[:300] + plain.stdout[:300]))
+        subprocess.run(['git', '-C', str(wt), '-c', 'user.name=t', '-c',
+                        'user.email=t@example.com', 'commit', '-q',
+                        '--allow-empty', '-m', 'only here'], capture_output=True)
+        r = scan_repo()
+        cases.append(('...and one holding a commit no remote has is not',
+                      'scratch:abcd1234' in unsafe_names(r), r.stdout[:300]))
+        _g('worktree', 'remove', '--force', str(wt))
         (sess / 'out').mkdir()
         (sess / 'out' / 'summaries.txt').write_text('189 lines\n', encoding='utf-8')
         r = scan()
