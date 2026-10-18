@@ -935,6 +935,10 @@ ENGINE_FILES = [
     # receipts, Promote's lock -- data- on the ladder, the old name
     # elsewhere (2026-10-11). Both files above import it, guarded.
     'precedent_data_branches.py',
+    # Finishes a session's own merge that stopped on generated files, with
+    # precedent_branches.py's resolver (2026-10-18); shared-index-is-a-
+    # directory names it, so every kind that gets that practice needs it.
+    'precedent_resolve_merge.py',
     # The commit backstop's engine fixer (spec/GENERATED_FILES_PLAN.md step
     # 3): commit-identity.sh's hook runs it from the repository's own copy,
     # so every kind that receives the hook receives the script it calls.
