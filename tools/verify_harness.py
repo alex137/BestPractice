@@ -13081,7 +13081,8 @@ def check_full_run_asks_first():
     cases.append(('the push check passes its own reason',
                   "'--isolated', '--because'" in pc))
     cases.append(("the very deep check's step 2 passes its own reason",
-                  "str(harness), '--all', '--because'" in vd))
+                  "str(harness), '--all',\n" in vd
+                  and "'--record-times', '--because'," in vd))
     failed = [n for n, ok in cases if not ok]
     check(f'a full run started by hand states its cost and asks first '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
@@ -56734,10 +56735,12 @@ def check_one_upstream_move_is_said_once_at_session_start():
                                   'tools/x.py:3'])
     gate_src = (ROOT / 'tools' / 'precedent_gate.py').read_text(encoding='utf-8')
     cases = [
+        # The note itself left the gate for the ladder set's own tool
+        # (8d6a21c9, 2026-10-17), so the gate must carry no count at all.
         ('the reply gate gives no stale-branch count of its own: it reads '
          'without a fetch, the page after one (2026-10-10: 13 met 16)',
          'branch(es) "\n' not in gate_src and 'f"across {len(_groups)}' not in gate_src
-         and 'the page counts them' in gate_src),
+         and 'precedent_stale_branches' not in gate_src),
         ('checkin.py fresh is skipped where the freshness notice runs',
          '! -f tools/precedent_engine_freshness.py' in block),
         ('the citations step names record_paths for a Markdown file it lists',
