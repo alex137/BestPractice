@@ -52453,16 +52453,42 @@ def check_land_refusal_says_whether_a_pull_request_gets_checks():
                       pb.pull_request_checks(t, 'staging') == [], ''))
         cases.append(('a pull request into main gets ci.yml',
                       pb.pull_request_checks(t, 'main') == ['ci.yml'], ''))
-        note = pb.pull_request_route_note(t, 'staging')
-        cases.append(('with none, the note says merge straight away',
+        note = pb.pull_request_route_note(t, 'staging', checks_ran=True)
+        cases.append(('with none, after the quick checks, the note says '
+                      'merge straight away',
                       'merge it straight away' in note
+                      and 'passed on this composition' in note
                       and 'Do not wait' in note, note))
+        note = pb.pull_request_route_note(t, 'staging')
+        cases.append(('called with two arguments (a plain push), the note '
+                      'never says the quick checks passed, and names the '
+                      'command to run them',
+                      'passed' not in note
+                      and 'python3 tools/precedent_push_check.py' in note
+                      and 'Nothing has run the quick checks' in note, note))
+        saved = pb.pull_request_checks
+        pb.pull_request_checks = lambda root, base: None
+        try:
+            unread = pb.pull_request_route_note(t, 'staging')
+            unread_ran = pb.pull_request_route_note(t, 'staging',
+                                                    checks_ran=True)
+        finally:
+            pb.pull_request_checks = saved
+        cases.append(('workflows unreadable, nothing run: the note says to '
+                      'run the quick checks, not that they passed',
+                      'having passed' not in unread
+                      and 'python3 tools/precedent_push_check.py' in unread,
+                      unread))
+        cases.append(('workflows unreadable, after the quick checks: the note '
+                      'says they passed',
+                      'the quick checks above having passed' in unread_ran,
+                      unread_ran))
         (wf / 'any.yml').write_text('on: [pull_request]\njobs: {}\n',
                                     encoding='utf-8')
         cases.append(('a bare pull_request trigger covers every base',
                       pb.pull_request_checks(t, 'staging') == ['any.yml'], ''))
     cases.append(('the land tool prints the note after a pull-request refusal',
-                  'pull_request_route_note(root, staging)' in
+                  'pull_request_route_note(root, staging, checks_ran=True)' in
                   (ROOT / 'tools' / 'precedent_branches.py').read_text(
                       encoding='utf-8'), ''))
     bad = [f'{c[0]} ({c[2]})' for c in cases if not c[1]]
