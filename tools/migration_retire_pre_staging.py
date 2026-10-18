@@ -34,6 +34,8 @@ def migrate(repo, rep, update):
     pu = update
     _retire(repo, rep)
     _json_comments(repo, rep, _landing_comment(repo, rep))
+    if HEADER not in rep.migration_notes:
+        _live_markdown(repo, rep)
 
 
 # UPGRADING OFF PRE-STAGING (2026-10-09). A person who lands straight on
@@ -130,6 +132,8 @@ _HISTORY_WORDS = re.compile(
     r'(?i)\b(?:today|until|used\s+to|no\s+longer|was|were|had|before|'
     r'formerly|previously|retired|old|instead\s+of|rather\s+than)\b')
 _HEADING = re.compile(r'^(#{1,6})\s+(.*)$')
+# A line that starts a sentence of its own, whatever the line above says.
+_STARTS_ITS_OWN = re.compile(r'^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|>|\|)')
 # Whole files that are history: what they record stays as it was.
 _HISTORY_DIRS = ('gotchas/', 'record/')
 
@@ -165,7 +169,10 @@ def _retire_scope(repo, pattern='*.md'):
         if (rel.startswith(_HISTORY_DIRS)
                 or any(rel == p or (p.endswith('/') and rel.startswith(p))
                        for p in records)
-                or (rel.startswith('todo/') and _closed_item(repo / rel))):
+                or (rel.startswith('todo/') and _closed_item(repo / rel))
+                or (rel.startswith('practices/')
+                    and _closed_item(repo / rel, live=('active',)))
+                or _finished_document(repo / rel)):
             history.append(rel)
             continue
         files.append(rel)
@@ -191,8 +198,30 @@ def _materialized_practices(repo):
     return out
 
 
-def _closed_item(path):
-    """True for an open-item file whose frontmatter status is not open."""
+def _finished_document(path):
+    """True for a document whose lifecycle header (`kind:`, then a status
+    in precedent_check.DOCUMENT_DONE_STATUSES: executed, closed,
+    superseded...) says it is finished: the record of what was decided,
+    kept as written, as the deep check reads it too. 2026-10-18: executed
+    specs that say how the three tiers worked were read as live."""
+    try:
+        import precedent_check
+        done = precedent_check.DOCUMENT_DONE_STATUSES
+        head = path.read_text(encoding='utf-8', errors='ignore')[:3000]
+    except Exception:                                        # noqa: BLE001
+        return False
+    m = re.match(r'---\n(.*?)\n---', head, re.S)
+    if not m or not re.search(r'^kind:', m.group(1), re.M):
+        return False
+    st = re.search(r'^status:\s*"?(\w+)', m.group(1), re.M)
+    return bool(st) and st.group(1) in done
+
+
+def _closed_item(path, live=('open', 'claimed')):
+    """True for a file whose frontmatter status is not one of `live`: an
+    open item that is not open, or (live=('active',)) a practice retired
+    or deduplicated, whose body is history (2026-10-18: a retired ladder
+    practice's account of the move off pre-staging was read as live)."""
     try:
         head = path.read_text(encoding='utf-8', errors='ignore')[:2000]
     except OSError:
@@ -200,7 +229,7 @@ def _closed_item(path):
     if not head.startswith('---\n'):
         return False
     m = re.search(r'^status:[ \t]*(\S+)', head[:max(head.find('\n---', 4), 0)], re.M)
-    return bool(m) and m.group(1).strip('"\'') not in ('open', 'claimed')
+    return bool(m) and m.group(1).strip('"\'') not in live
 
 
 def reword_pre_staging(text, slug):
@@ -236,6 +265,26 @@ def reword_pre_staging(text, slug):
             para_dated[k] = True
         if _DATED.search(ln) or carry:
             carry = not ln.rstrip().endswith(('.', '!', '?'))
+    # And upward, to where the sentence began: a date can close a sentence
+    # as well as open it (2026-10-18: "(pre-staging, the" on one line and
+    # "was retired on 2026-10-14)." on the next was read as live). A line
+    # ending a sentence, or one that starts its own -- a list item, a
+    # heading, a quote, a table row -- is where it began.
+    back = False
+    for k in range(len(lines) - 1, -1, -1):
+        ln = lines[k]
+        if not ln.strip() or code[k]:
+            back = False
+            continue
+        if back:
+            if ln.rstrip().endswith(('.', '!', '?')):
+                back = False
+            else:
+                para_dated[k] = True
+        if _DATED.search(ln):
+            back = True
+        if _STARTS_ITS_OWN.match(ln):
+            back = False
     changed, left = [], []
     story = None          # heading level of an open Story section
     dated = None          # heading level of an open dated section
@@ -690,3 +739,42 @@ def _json_comments(repo, rep, landing_handled=False):
                   'pre-staging is retired, and these comments still describe '
                   'it as more than history; reword each by hand: '
                   + ', '.join(live))
+
+
+def _live_markdown(repo, rep):
+    """Report each line of this repository's own Markdown that still names
+    pre-staging as more than history, when _retire did not read them this
+    run: it reads them only while origin still has pre-staging, so a
+    repository whose pre-staging was deleted, or never pushed, kept every
+    stale line unseen (2026-10-18: precedent-shared-ladder's push-directly
+    still said Booked lands on pre-staging). Judged by reword_pre_staging;
+    reported, never rewritten, since by now the move is over and a mention
+    may be deliberate. One Left-for-you item, file:line, first ten."""
+    repo = pathlib.Path(repo)
+    if not pb.ladder_in_force(repo):
+        return
+    try:
+        slug = pb._slug(repo)
+    except Exception:                                        # noqa: BLE001
+        slug = None
+    live = []
+    for rel in _retire_scope(repo)[0]:
+        try:
+            text = (repo / rel).read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        if PRE_STAGING not in text:
+            continue
+        _new, changed, left = reword_pre_staging(text, slug)
+        live += [(rel, n) for n, _w in changed]
+        live += [(rel, n) for n, why in left
+                 if not any(h in why for h in _AS_HISTORY)]
+    if live:
+        live = sorted(set(live))
+        shown = live[:10]
+        rep.leave('Markdown naming pre-staging',
+                  'pre-staging is retired, and these lines still describe it '
+                  'as more than history; reword each by hand, or date it if '
+                  'it is a record: ' + ', '.join(f'{rel}:{n}' for rel, n in shown)
+                  + (f'; and {len(live) - len(shown)} more'
+                     if len(live) > len(shown) else ''))

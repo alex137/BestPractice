@@ -70557,6 +70557,91 @@ def check_debut_judges_the_change_against_main_too():
 
 
 
+def check_update_vendors_reports_live_pre_staging_mentions():
+    """Once origin has no pre-staging, Update Vendors still reports each
+    line of a repository's own Markdown that names it as more than history
+    (tools/migration_retire_pre_staging.py, _live_markdown): until
+    2026-10-18 every Markdown read sat behind "origin still has
+    pre-staging", so precedent-shared-ladder kept push-directly's "Booked
+    lands on pre-staging" unseen. What counts as history is shared with the
+    reword: a retired practice, a finished document (DOCUMENT_DONE_STATUSES)
+    and a sentence a date closes as well as one a date opens."""
+    import tempfile, contextlib, io
+    name = 'Update Vendors reports live pre-staging mentions with no pre-staging left'
+    if not (ROOT / 'tools' / 'migration_retire_pre_staging.py').exists():
+        not_applicable(name, 'tools/migration_retire_pre_staging.py is absent')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as _pu
+        import migration_retire_pre_staging as m
+    finally:
+        sys.path.pop(0)
+    m.pu = _pu
+    cases = []
+    text = ('Sessions opened a PR into pre-staging, which\n'
+            'ended on 2026-10-14.\n\n'
+            '- Open a PR into pre-staging\n'
+            '- 2026-10-01: a note.\n')
+    new, changed, left = m.reword_pre_staging(text, None)
+    cases.append(('a sentence a date closes is history on its earlier lines',
+                  new.startswith('Sessions opened a PR into pre-staging, which')
+                  and (1, 'dated sentence, history') in left, str(left)))
+    cases.append(('a list item above a dated item is its own sentence, and '
+                  'still reworded', '- Open a PR into staging' in new
+                  and (4, 'instruction') in changed, str(changed)))
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+        files = {
+            'docs/a.md': 'Booked lands on pre-staging.\n',
+            'practices/old.md': ('---\nstatus:      retired\n---\n'
+                                 'Push it to pre-staging.\n'),
+            'spec/DONE.md': ('---\nkind:          proposal\nstatus:        executed\n'
+                             '---\nPush it to pre-staging.\n'),
+            'spec/LIVE.md': ('---\nkind:          proposal\nstatus:        accepted\n'
+                             '---\nPush it to pre-staging.\n'),
+        }
+        for rel, body in files.items():
+            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / rel).write_text(body, encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], check=True)
+
+        def run(ladder):
+            saved = m.pb.ladder_in_force
+            m.pb.ladder_in_force = lambda _r: ladder
+            try:
+                rep = _pu.Report()
+                rep.before = set()
+                with contextlib.redirect_stdout(io.StringIO()):
+                    m._live_markdown(repo, rep)
+                return rep
+            finally:
+                m.pb.ladder_in_force = saved
+
+        rep = run(True)
+        said = rep.left[0][1] if len(rep.left) == 1 else ''
+        cases.append(('on the ladder, a live line is reported as file:line',
+                      rep.left[:1] and rep.left[0][0] == 'Markdown naming pre-staging'
+                      and 'docs/a.md:1' in said and 'spec/LIVE.md:5' in said,
+                      str(rep.left)))
+        cases.append(('a retired practice and an executed spec are history, '
+                      'not reported', 'practices/old.md' not in said
+                      and 'spec/DONE.md' not in said, said))
+        cases.append(('nothing is rewritten',
+                      all((repo / rel).read_text(encoding='utf-8') == body
+                          for rel, body in files.items())))
+        rep = run(False)
+        cases.append(('off the ladder, nothing is said', not rep.left, str(rep.left)))
+    import inspect
+    src = inspect.getsource(m.migrate)
+    cases.append(('migrate() runs it only when the retirement step did not read '
+                  'the Markdown this run', 'if HEADER not in rep.migration_notes:'
+                  in src and '_live_markdown(repo, rep)' in src, src))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
 def check_update_vendors_replaces_the_old_landing_comment():
     """precedent.json's `_landing_branch_comment` in the engine's former
     words, which describe pre-staging, is replaced by the current words
@@ -71067,8 +71152,17 @@ def check_update_vendors_retires_pre_staging():
         cases.append(('ensure_tiers does not make pre-staging again for them',
                       res.get('rc') == 0 and not tip('pre-staging'), out[-300:]))
         res, out = call('step')
-        cases.append(('and the step says nothing at all',
-                      res == {'steps': [], 'left': [], 'retired': []}, out[-300:]))
+        # Since 2026-10-18 it still names the live mentions left -- until
+        # then nothing read them once pre-staging was gone
+        # (check_update_vendors_reports_live_pre_staging_mentions).
+        left = res.get('left') or []
+        cases.append(('and the step moves nothing, rewords nothing, and only '
+                      'names the live mentions still left',
+                      not res.get('steps') and not res.get('retired')
+                      and [w for w, _ in left] == ['Markdown naming pre-staging']
+                      and 'more.md:1' in left[0][1]
+                      and text('more.md') == 'Push it to pre-staging.\n',
+                      out[-300:]))
     # Where it runs: a migration, which update() runs without naming it,
     # before the views are regenerated, so they render the reworded sources.
     import inspect
@@ -85892,6 +85986,7 @@ def main():
     check_debut_judges_the_change_against_main_too()
     check_update_vendors_retires_pre_staging()
     check_update_vendors_replaces_the_old_landing_comment()
+    check_update_vendors_reports_live_pre_staging_mentions()
     check_promote_ends_with_its_result_line()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
