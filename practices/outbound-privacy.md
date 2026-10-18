@@ -37,8 +37,8 @@ reply, of any refusal the gate made and anything the scan found.
 ## Detail
 Two tools enforce it. **The gate**
 ([tools/outbound_privacy_gate.py](https://github.com/alex137/BestPractice/blob/main/tools/outbound_privacy_gate.py)),
-before every tool call, refuses a web fetch, a web search, a fetching MCP
-tool, or a shell command that reaches the network, when its text holds a
+before every tool call, refuses a web fetch, a web search, a fetching Model
+Context Protocol (MCP) tool, or a shell command that reaches the network, when its text holds a
 private term, and appends the refusal, the term masked, to
 `.precedent/outbound_refusals.jsonl`. **The scan**
 ([tools/outbound_privacy_scan.py](https://github.com/alex137/BestPractice/blob/main/tools/outbound_privacy_scan.py)),
