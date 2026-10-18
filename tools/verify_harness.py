@@ -41547,7 +41547,8 @@ def check_promote_picks_its_step():
         git(work, 'push', '-q', 'origin', ':refs/heads/to-main-20991231T000000-0300')
         rc, out = branches('--promote', '--work', on_staging)
         cases.append(('the work just done, on staging, goes into main',
-                      rc == 3 and out.startswith('Now promoting from staging to main')))
+                      rc == 3 and out.startswith('Now promoting from staging to main'),
+                      f'rc={rc}: {out[-600:]}'))
         git(work, 'checkout', '-q', '-B', 'w-feature', 'origin/staging')
         (work / 'four.txt').write_text('4\n', encoding='utf-8')
         git(work, 'add', 'four.txt')

@@ -38,12 +38,12 @@ reply, of any refusal the gate made and anything the scan found.
 
 ## Detail
 Two tools enforce it. **The gate**
-([tools/outbound_privacy_gate.py](https://github.com/alex137/BestPractice/blob/main/tools/outbound_privacy_gate.py)),
+([tools/outbound_privacy_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/outbound_privacy_gate.py)),
 before every tool call, refuses a web fetch, a web search, a fetching Model
 Context Protocol (MCP) tool, or a shell command that reaches the network, when its text holds a
 private term, and appends the refusal, the term masked, to
 `.precedent/outbound_refusals.jsonl`. **The scan**
-([tools/outbound_privacy_scan.py](https://github.com/alex137/BestPractice/blob/main/tools/outbound_privacy_scan.py)),
+([tools/outbound_privacy_scan.py](https://github.com/alex137/BestPractice/blob/staging/tools/outbound_privacy_scan.py)),
 at the end of each turn, reads the session's own record of its tool calls
 and its agents' records, and stops the turn once for each request that
 already went out with a private term, so the reply has to say what, where
@@ -73,3 +73,12 @@ details, though its context said never to send that address anywhere. Four
 pages went out that way in one command. It came to light only because the
 agent mentioned it in its report; the scan, run afterwards over every
 transcript on the machine, found that one command and nothing else.
+
+## Install
+[`tools/outbound_privacy_gate.py`](https://github.com/alex137/BestPractice/blob/staging/tools/outbound_privacy_gate.py)
+and
+[`tools/outbound_privacy_scan.py`](https://github.com/alex137/BestPractice/blob/staging/tools/outbound_privacy_scan.py)
+are part of the engine every repository receives, wired through
+`tools/hook_wiring.json`: the gate before every tool call, the scan when a
+turn ends. Private terms beyond the signed-in address go one per line in
+`.precedent/private_terms.txt`, which is never committed.
