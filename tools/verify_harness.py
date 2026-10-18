@@ -57781,6 +57781,86 @@ print(json.dumps(ln.file_failure(ln.ROOT, 'Landing failed: feat/x', 'push reject
     check(f'a failure item lists the index it creates ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_a_sessions_own_merge_rebuilds_generated_conflicts():
+    """precedent_resolve_merge.py finishes a session's own `git merge` that
+    stopped only on generated files, with the landing's own resolver
+    (2026-10-18: MAP.md conflicted in a session's merge and was rebuilt by
+    hand). Planted: a view declared in precedent.json's `generated` list,
+    built from two sources each branch changes. CONTROL: a hand-written
+    conflict is named and left alone."""
+    import tempfile
+    name = "a session's own merge rebuilds conflicted generated files"
+    tool = ROOT / 'tools' / 'precedent_resolve_merge.py'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        r = pathlib.Path(td) / 'r'
+        env = dict(_fixture_git_env())
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(r), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def resolve():
+            return subprocess.run([sys.executable, str(tool)], cwd=str(r),
+                                  capture_output=True, text=True, env=env)
+        (r / 'tools').mkdir(parents=True)
+        (r / 'tools' / 'gen.py').write_text(
+            'import pathlib\n'
+            'src = sorted(pathlib.Path("src").glob("*.txt"))\n'
+            'pathlib.Path("VIEW.md").write_text("".join(p.read_text() for p in src))\n',
+            encoding='utf-8')
+        (r / 'precedent.json').write_text(json.dumps(
+            {'generated': [{'paths': ['VIEW.md'], 'rebuild': ['tools/gen.py']}]}),
+            encoding='utf-8')
+        (r / 'src').mkdir()
+        (r / 'src' / 'a.txt').write_text('a\n', encoding='utf-8')
+        (r / 'notes.md').write_text('base\n', encoding='utf-8')
+        git('init', '-q', '-b', 'main')
+        subprocess.run([sys.executable, 'tools/gen.py'], cwd=str(r))
+        git('add', '-A'); git('commit', '-qm', 'base')
+        git('checkout', '-qb', 'other')
+        (r / 'src' / 'b.txt').write_text('b\n', encoding='utf-8')
+        subprocess.run([sys.executable, 'tools/gen.py'], cwd=str(r))
+        git('add', '-A'); git('commit', '-qm', 'theirs adds b')
+        git('checkout', '-q', 'main')
+        (r / 'src' / 'c.txt').write_text('c\n', encoding='utf-8')
+        subprocess.run([sys.executable, 'tools/gen.py'], cwd=str(r))
+        git('add', '-A'); git('commit', '-qm', 'ours adds c')
+        m = git('merge', '-q', '--no-edit', 'other')
+        cases.append(('the fixture merge really stops on the view',
+                      m.returncode != 0 and 'VIEW.md' in git(
+                          'diff', '--name-only', '--diff-filter=U').stdout, m.stdout))
+        out = resolve()
+        view = (r / 'VIEW.md').read_text(encoding='utf-8')
+        cases.append(('THE DISCRIMINATING CASE: the view is rebuilt from both '
+                      'sides\' sources and staged',
+                      out.returncode == 0 and view == 'a\nb\nc\n'
+                      and not git('diff', '--name-only', '--diff-filter=U').stdout.strip(),
+                      out.stdout[-300:] + repr(view)))
+        git('commit', '-q', '--no-edit')
+        git('checkout', '-qb', 'hand', 'HEAD~1')
+        (r / 'notes.md').write_text('theirs\n', encoding='utf-8')
+        git('commit', '-qam', 'theirs notes')
+        git('checkout', '-q', 'main')
+        (r / 'notes.md').write_text('ours\n', encoding='utf-8')
+        git('commit', '-qam', 'ours notes')
+        git('merge', '-q', '--no-edit', 'hand')
+        out = resolve()
+        cases.append(('CONTROL: a hand-written conflict is named, and the merge '
+                      'is left as it was', out.returncode == 1
+                      and 'notes.md' in out.stdout and 'NOT resolved' in out.stdout
+                      and 'notes.md' in git('diff', '--name-only',
+                                            '--diff-filter=U').stdout,
+                      out.stdout[-300:]))
+        git('merge', '--abort')
+        out = resolve()
+        cases.append(('with no merge in progress it says so',
+                      out.returncode == 2 and 'no merge' in out.stdout, out.stdout))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_global_pre_push_refuses_a_tree_the_full_sweep_failed():
     """A tree `precedent_check.py --full-sweep` just failed is refused by the
     global pre-push, from any session root.
@@ -86221,6 +86301,7 @@ def main():
     check_a_failure_item_lists_the_index_it_creates()
     check_global_pre_push_refuses_a_tree_the_check_failed()
     check_global_pre_push_refuses_a_tree_the_full_sweep_failed()
+    check_a_sessions_own_merge_rebuilds_generated_conflicts()
     check_writing_checks_leave_a_declared_record_as_filed()
     check_vocabulary_lets_a_local_practice_name_a_local_script()
     check_doc_lint_leaves_a_received_practice_to_its_source()
