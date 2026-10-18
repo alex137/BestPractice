@@ -33,7 +33,7 @@ def migrate(repo, rep, update):
     global pu
     pu = update
     _retire(repo, rep)
-    _landing_comment(repo, rep)
+    _json_comments(repo, rep, _landing_comment(repo, rep))
 
 
 # UPGRADING OFF PRE-STAGING (2026-10-09). A person who lands straight on
@@ -134,12 +134,13 @@ _HEADING = re.compile(r'^(#{1,6})\s+(.*)$')
 _HISTORY_DIRS = ('gotchas/', 'record/')
 
 
-def _retire_scope(repo):
-    """-> (files, history): this repository's own hand-written Markdown to
-    read, and the tracked Markdown left whole as history. Vendored copies
-    (the catalogue mirror, a vendored universal source, engine files) and
-    generated views are neither: they are not this repository's to word."""
-    r = subprocess.run(['git', '-C', str(repo), 'ls-files', '-z', '--', '*.md'],
+def _retire_scope(repo, pattern='*.md'):
+    """-> (files, history): this repository's own hand-written files
+    matching `pattern` (Markdown, unless told otherwise) to read, and the
+    tracked ones left whole as history. Vendored copies (the catalogue
+    mirror, a vendored universal source, engine files) and generated views
+    are neither: they are not this repository's to word."""
+    r = subprocess.run(['git', '-C', str(repo), 'ls-files', '-z', '--', pattern],
                        capture_output=True, text=True)
     tracked = [p for p in r.stdout.split('\0') if p] if r.returncode == 0 else []
     vendored = ['process/upstream/']
@@ -532,8 +533,15 @@ def _retire(repo, rep):
 # `landing_branch: staging`, the value the current wording describes: a
 # comment somebody wrote is theirs, and a free-text reword could make a
 # record false (precedent-individual's says when pre-staging was retired).
-# Any other comment that names pre-staging and does not read as history is
-# reported on every run until somebody rewords it.
+#
+# The same blind spot held for every comment in a repository's own JSON
+# (`_comment`, `_<key>_comment`, at any depth): the reword reads Markdown
+# only. _json_comments reads them on every run with the Markdown reword's
+# own judgment, and reports each that still names pre-staging as more than
+# history, until somebody rewords it. Reported, never rewritten: no such
+# comment was found in the repositories in force on 2026-10-18, and
+# rewriting a string inside somebody's JSON, every other byte kept, is code
+# that would buy nothing yet.
 FORMER_LANDING_COMMENTS = (
     # REPO_LANDING_COMMENT, 2026-09-27 to 2026-10-14.
     ['Where Go update lands for anyone whose own identity.json names no',
@@ -561,22 +569,19 @@ def _words(comment):
 def _landing_comment(repo, rep):
     """Replace precedent.json's `_landing_branch_comment` when it is one of
     the engine's former wordings, which describe pre-staging, by the current
-    one (pb.REPO_LANDING_COMMENT), every other byte kept; report any other
-    comment that still names pre-staging as more than history. Silent when
-    the comment does not name pre-staging. Whatever the ladder and whether
-    or not origin has pre-staging: the comment is stale either way."""
+    one (pb.REPO_LANDING_COMMENT), every other byte kept; when it cannot be
+    replaced, say why. -> True when the comment was the engine's old
+    wording (handled here, either way); False for any other comment, which
+    _json_comments judges. Whatever the ladder and whether or not origin
+    has pre-staging: the comment is stale either way."""
     path = pathlib.Path(repo) / 'precedent.json'
     data = pb.precedent_json(repo)
     words = _words(data.get(_COMMENT_KEY))
-    if PRE_STAGING not in words:
-        return
-    engine_words = words in {_words(c) for c in FORMER_LANDING_COMMENTS}
-    if not engine_words and (_DATED.search(words) or _HISTORY_WORDS.search(words)):
-        return
+    if (PRE_STAGING not in words
+            or words not in {_words(c) for c in FORMER_LANDING_COMMENTS}):
+        return False
     why = None
-    if not engine_words:
-        why = 'it names pre-staging, which is retired; reword it by hand'
-    elif data.get(pb.LANDING_SETTING) != pb.STAGING:
+    if data.get(pb.LANDING_SETTING) != pb.STAGING:
         why = (f'it is the engine\'s old wording, which describes pre-staging, '
                f'and {pb.LANDING_SETTING} is not {pb.STAGING}, so the current '
                f'wording would not fit; reword it by hand')
@@ -610,5 +615,78 @@ def _landing_comment(repo, rep):
             rep.step('precedent.json', f'{_COMMENT_KEY}: the engine\'s old '
                      f'wording, which described pre-staging, replaced by its '
                      f'current one')
-            return
+            return True
     rep.leave(f'precedent.json {_COMMENT_KEY}', why)
+    return True
+
+
+def _comments_in(node, where=''):
+    """-> [(dotted key, lines)] for each `_comment` or `_<key>_comment` in a
+    parsed JSON value, at any depth, whose value is a string or a list of
+    strings."""
+    out = []
+    if isinstance(node, dict):
+        for k, v in node.items():
+            here = f'{where}.{k}' if where else str(k)
+            if (isinstance(k, str) and k.startswith('_') and k.endswith('_comment')
+                    or k == '_comment'):
+                if isinstance(v, str):
+                    out.append((here, [v]))
+                elif isinstance(v, list) and all(isinstance(x, str) for x in v):
+                    out.append((here, list(v)))
+                continue
+            out += _comments_in(v, here)
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            out += _comments_in(v, f'{where}[{i}]')
+    return out
+
+
+# What the Markdown reword leaves as history, never as a live mention.
+_AS_HISTORY = ('history', 'quotation', 'table row', 'code block')
+
+
+def _json_comments(repo, rep, landing_handled=False):
+    """Report each comment in this repository's own tracked JSON that names
+    pre-staging as more than history, judged line by line as the Markdown
+    reword judges (reword_pre_staging), the comment read as one line: a
+    clear instruction, a link, or a
+    mention that reads as neither history nor a quotation. One Left-for-you
+    item naming each as file:key; nothing said when there is none.
+    `landing_handled`: precedent.json's landing comment was the engine's
+    own wording, already dealt with by _landing_comment."""
+    repo = pathlib.Path(repo)
+    try:
+        slug = pb._slug(repo)
+    except Exception:                                        # noqa: BLE001
+        slug = None
+    live = []
+    for rel in _retire_scope(repo, '*.json')[0]:
+        try:
+            raw = (repo / rel).read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        if PRE_STAGING not in raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            continue
+        for key, lines in _comments_in(data):
+            if landing_handled and rel == 'precedent.json' and key == _COMMENT_KEY:
+                continue
+            if PRE_STAGING not in ' '.join(lines):
+                continue
+            # One line: a comment wraps a sentence across its strings, and a
+            # date or a word like "retired" anywhere in it makes it history
+            # (precedent-individual's says "(pre-staging, the" on one string
+            # and "was retired on 2026-10-14)." on the next).
+            _new, changed, left = reword_pre_staging(' '.join(lines), slug)
+            if changed or any(not any(h in why for h in _AS_HISTORY)
+                              for _n, why in left):
+                live.append(f'{rel} {key}')
+    if live:
+        rep.leave('JSON comments naming pre-staging',
+                  'pre-staging is retired, and these comments still describe '
+                  'it as more than history; reword each by hand: '
+                  + ', '.join(live))

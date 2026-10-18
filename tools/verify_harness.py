@@ -70372,7 +70372,9 @@ def check_update_vendors_replaces_the_old_landing_comment():
     staging and with no pre-staging left, kept the old words after its
     Update Vendors: the only look at the comment sat behind both. A comment
     somebody wrote is never rewritten: one that reads as history is left
-    quietly, any other that names pre-staging is reported on every run."""
+    quietly, any other that names pre-staging is reported on every run, and
+    so is any comment anywhere in the repository's own JSON
+    (_json_comments): the Markdown reword never read JSON."""
     import tempfile, json as _json
     name = 'Update Vendors replaces the engine\'s old landing comment'
     if not (ROOT / 'tools' / 'migration_retire_pre_staging.py').exists():
@@ -70391,6 +70393,9 @@ def check_update_vendors_replaces_the_old_landing_comment():
     with tempfile.TemporaryDirectory() as td:
         repo = pathlib.Path(td)
         pj = repo / 'precedent.json'
+        subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+        pj.write_text('{}\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', 'precedent.json'], check=True)
 
         def write(landing, comment, extra='"sources": {"a": "b"}'):
             body = ('{\n  ' + extra + ',\n  "landing_branch": '
@@ -70405,7 +70410,7 @@ def check_update_vendors_replaces_the_old_landing_comment():
             rep = _pu.Report()
             rep.before = set(before)
             with contextlib.redirect_stdout(io.StringIO()):
-                m._landing_comment(repo, rep)
+                m._json_comments(repo, rep, m._landing_comment(repo, rep))
             return rep
 
         current = write('staging', _pb.REPO_LANDING_COMMENT)
@@ -70447,7 +70452,8 @@ def check_update_vendors_replaces_the_old_landing_comment():
                           str(rep.steps + rep.left)))
         for label, landing, comment, before, says in (
                 ('a comment somebody wrote that still sends work to pre-staging',
-                 'staging', ['Work lands on pre-staging here.'], (), 'by hand'),
+                 'staging', ['Work lands on pre-staging here.'], (),
+                 'precedent.json _landing_branch_comment'),
                 ('the engine\'s old wording under a landing branch it does not '
                  'describe', 'main', old, (), 'is not staging'),
                 ('the engine\'s old wording in a precedent.json with '
@@ -70458,13 +70464,41 @@ def check_update_vendors_replaces_the_old_landing_comment():
             cases.append((f'{label}: untouched, and reported',
                           pj.read_text(encoding='utf-8') == body
                           and not rep.steps and len(rep.left) == 1
-                          and rep.left[0][0] == 'precedent.json _landing_branch_comment'
+                          and rep.left[0][0] in ('precedent.json _landing_branch_comment',
+                                                 'JSON comments naming pre-staging')
                           and says in rep.left[0][1],
                           str(rep.steps + rep.left)))
         pj.write_text('{"landing_branch": "staging"}\n', encoding='utf-8')
         rep = run()
         cases.append(('no comment at all: nothing said',
                       not rep.steps and not rep.left))
+        # Every comment in the repository's own JSON, at any depth.
+        (repo / 'tools').mkdir()
+        files = {
+            'approvers.json': {'x': {'_comment': 'Push it to pre-staging.'},
+                               'note': 'push it to pre-staging'},
+            'other.json': {'_a_comment': ['Booked lands on staging (pre-staging',
+                                          'was retired on 2026-10-14).']},
+            'tools/engine.json': {'_comment': 'Push it to pre-staging.'},
+            'tools/ENGINE_MANIFEST.json': {'files': ['engine.json']},
+        }
+        for rel, data in files.items():
+            (repo / rel).write_text(_json.dumps(data), encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], check=True)
+        before = {rel: (repo / rel).read_text(encoding='utf-8') for rel in files}
+        rep = run()
+        said = rep.left[0][1] if len(rep.left) == 1 else ''
+        cases.append(('a nested comment in another of its JSON files that '
+                      'sends work to pre-staging is reported as file and key, '
+                      'and nothing is rewritten',
+                      rep.left[:1] and rep.left[0][0] == 'JSON comments naming pre-staging'
+                      and said.endswith(': approvers.json x._comment')
+                      and all((repo / rel).read_text(encoding='utf-8') == t
+                              for rel, t in before.items()), str(rep.left)))
+        cases.append(('a field that is no comment, a comment that is history, '
+                      'and the engine\'s own JSON are not reported',
+                      'note' not in said and 'other.json' not in said
+                      and 'tools/engine.json' not in said, said))
     # Run by migrate() itself, after the retirement step and outside its
     # "origin still has pre-staging" gate.
     import inspect
@@ -70755,8 +70789,8 @@ def check_update_vendors_retires_pre_staging():
                               for l in retired), str(retired)[:600]))
         cases.append(('the run that switched says precedent.json\'s comment, '
                       'one somebody wrote, still names pre-staging, and leaves it',
-                      any(w == 'precedent.json _landing_branch_comment'
-                          and 'reword it by hand' in why
+                      any(w == 'JSON comments naming pre-staging'
+                          and why.endswith('precedent.json _landing_branch_comment')
                           for w, why in res.get('left', []))
                       and 'Work lands on pre-staging here.' in text('precedent.json'),
                       str(res.get('left'))[:600]))
@@ -70794,8 +70828,9 @@ def check_update_vendors_retires_pre_staging():
         cases.append(('and still says it is retired, with the link',
                       any(l.endswith(link) for l in retired), str(retired)[-300:]))
         cases.append(('and, the comment reworded, does not ask about it again',
-                      not any(w.startswith('precedent.json') for w, _ in
-                              res.get('left', [])), str(res.get('left'))[:300]))
+                      not any(w.startswith(('precedent.json', 'JSON comments'))
+                              for w, _ in res.get('left', [])),
+                      str(res.get('left'))[:300]))
 
         # --- a conflict: nothing moves, nothing is reworded, no offer ---
         git(work, 'add', '-A')
