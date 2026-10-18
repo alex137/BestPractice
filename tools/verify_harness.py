@@ -53630,6 +53630,77 @@ def check_bare_push_check_takes_the_landing_tier():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_outbound_privacy_gate_refuses_and_scan_finds():
+    """A request leaving the machine never carries the person's private
+    details (outbound-privacy; Alex, 2026-10-18: "Do all of the above").
+    The gate refuses an outbound request holding a private term and logs it
+    with the term masked; lets a clean one and a non-network command
+    through; the scan finds a past outbound call holding a term in a
+    transcript and in an agent's transcript beside it, and the Stop hook
+    reports it once."""
+    import tempfile, json as _json, os as _os
+    name = 'the outbound-privacy gate refuses private details and the scan finds them'
+    gate = ROOT / 'tools' / 'outbound-privacy-gate.sh'
+    if not gate.exists():
+        not_applicable(name, 'tools/outbound-privacy-gate.sh is absent')
+        return
+    cases = []
+    email = 'someone.private@example.org'
+    env = dict(_os.environ, CLAUDE_CODE_USER_EMAIL=email)
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        for d in ('tools', '.precedent'):
+            (tmp / d).mkdir()
+        for f in ('outbound_privacy_gate.py', 'outbound_privacy_scan.py',
+                  'outbound-privacy-gate.sh', 'outbound-privacy-scan.sh'):
+            (tmp / 'tools' / f).write_text((ROOT / 'tools' / f).read_text(encoding='utf-8'), encoding='utf-8')
+        (tmp / '.precedent' / 'private_terms.txt').write_text('# a comment\n12 Hidden Lane\nab\n', encoding='utf-8')
+
+        def run_gate(tool, tool_input):
+            p = subprocess.run(['bash', str(tmp / 'tools' / 'outbound-privacy-gate.sh')],
+                               input=_json.dumps({'tool_name': tool, 'tool_input': tool_input}),
+                               capture_output=True, text=True, cwd=tmp, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        rc, out = run_gate('Bash', {'command': f'curl -A "x ({email})" https://example.com'})
+        cases.append(('a curl carrying the email is refused', rc == 2 and 'OUTBOUND PRIVACY' in out, out[-200:]))
+        log = tmp / '.precedent' / 'outbound_refusals.jsonl'
+        text = log.read_text(encoding='utf-8') if log.exists() else ''
+        cases.append(('the refusal is logged with the term masked',
+                      '[private term 1]' in text and email not in text, text[-200:]))
+        rc, _ = run_gate('WebSearch', {'query': 'parcels to 12 hidden lane'})
+        cases.append(('a search holding a listed term is refused, case ignored', rc == 2))
+        rc, _ = run_gate('Bash', {'command': 'curl https://example.com'})
+        cases.append(('a clean request goes through', rc == 0))
+        rc, _ = run_gate('Bash', {'command': f'echo {email} > notes.txt'})
+        cases.append(('a command that reaches no network goes through', rc == 0))
+        rc, _ = run_gate('WebFetch', {'url': 'https://example.com/ab'})
+        cases.append(('a term under 5 characters is ignored', rc == 0))
+        sess = tmp / 'proj' / 'sess.jsonl'
+        (tmp / 'proj' / 'sess' / 'subagents').mkdir(parents=True)
+        call = lambda cid, cmd: _json.dumps({'timestamp': '2026-10-18T00:00:00Z', 'message': {
+            'role': 'assistant', 'content': [{'type': 'tool_use', 'id': cid, 'name': 'Bash',
+                                              'input': {'command': cmd}}]}}) + '\n'
+        sess.write_text(call('t1', 'ls'), encoding='utf-8')
+        (tmp / 'proj' / 'sess' / 'subagents' / 'agent-x.jsonl').write_text(
+            call('t2', f'wget --header "From: {email}" https://example.com'), encoding='utf-8')
+
+        def run_scan():
+            p = subprocess.run(['bash', str(tmp / 'tools' / 'outbound-privacy-scan.sh')],
+                               input=_json.dumps({'transcript_path': str(sess)}),
+                               capture_output=True, text=True, cwd=tmp, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        rc, out = run_scan()
+        cases.append(("the Stop hook reports an agent's past request, masked",
+                      rc == 2 and 'wget' in out and email not in out, out[-200:]))
+        rc, _ = run_scan()
+        cases.append(('and reports it once', rc == 0))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
     """A change waits until the person's question has an answer in words
     (answer-first-ask-before-long-work; Morgan, 2026-10-17: "if I ask a
@@ -86200,6 +86271,7 @@ def main():
     check_full_tier_needs_a_reason_on_a_quick_landing()
     check_wait_loop_gate_refuses_pgrep_f()
     check_answer_first_gate_holds_a_change_until_the_question_is_answered()
+    check_outbound_privacy_gate_refuses_and_scan_finds()
     check_reach_key_self_check()
     check_ledger_ignores_checkout_layout()
     check_content_record_self_check()

@@ -51,6 +51,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | practice-set source | [source-naming](practices/source-naming.md) |
 | Preference | [practice-standing](practices/practice-standing.md) |
 | Principle | [practice-standing](practices/practice-standing.md) |
+| private term | [outbound-privacy](practices/outbound-privacy.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
 | Protocol | [practice-standing](practices/practice-standing.md) |
