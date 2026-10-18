@@ -243,7 +243,7 @@
     },
     {
       "looking_for": "**Pushing without waiting on the checks** — the earlier plan for extra branches between a session's work and `main`, each checked at a different depth; kept as history",
-      "go_to": "[spec/BRANCH_TIERS_PLAN.md](spec/BRANCH_TIERS_PLAN.md) (accepted 2026-09-25, superseded 2026-10-14)"
+      "go_to": "[spec/BRANCH_TIERS_PLAN.md](spec/BRANCH_TIERS_PLAN.md) (accepted 2026-09-25; its extra branch retired 2026-10-14)"
     },
     {
       "looking_for": "**Making Update Vendors one command** — the plan to turn the runbook into one tool run that stops only at the calls that belong to one repo, and the rule that an upstream decision ships as a tool step, never as runbook prose",

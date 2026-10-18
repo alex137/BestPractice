@@ -44709,6 +44709,82 @@ def _individual_two_routes_fixture(tmp):
     return url, rewrite, git, run_main, row
 
 
+def check_shared_set_leaves_a_link_at_the_attach_path():
+    """A shared set's clone leaves a link where a repo-attach tool would
+    clone it, as the individual set's always did, so attaching the set
+    mid-session finds the one tree instead of making a second copy
+    (2026-10-18: precedent-shared-ladder, brought by the individual set and
+    cloned in $HOME, was cloned again beside the repositories by a session
+    that attached it, and the person had to approve removing the copy).
+    tools/precedent_source_bootstrap.py: _link_attach, attach_workspace."""
+    import tempfile, contextlib, io
+    name = 'a shared set leaves a link at the attach path'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_source_bootstrap as psb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        srv = tmp / 'srv'
+        source = srv / 'acct' / 'precedent-shared-x'
+        source.mkdir(parents=True)
+        url = 'https://example.invalid/acct/precedent-shared-x'
+        rewrite = {'GIT_CONFIG_COUNT': '1',
+                   'GIT_CONFIG_KEY_0': f'url.file://{srv}/.insteadOf',
+                   'GIT_CONFIG_VALUE_0': 'https://example.invalid/'}
+
+        def git(cwd, *args):
+            return subprocess.run(['git', '-c', 'user.email=h@example.com',
+                                   '-c', 'user.name=h', *args], cwd=str(cwd),
+                                  capture_output=True, text=True,
+                                  env={**os.environ, **rewrite})
+        git(source, 'init', '-q', '-b', 'main')
+        (source / 'practices').mkdir()
+        (source / 'practices' / 'x.md').write_text('x\n', encoding='utf-8')
+        git(source, 'add', '-A')
+        git(source, 'commit', '-qm', 'seed')
+        home, ws = tmp / 'home', tmp / 'ws'
+        home.mkdir()
+        ws.mkdir()
+        saved = {k: os.environ.get(k) for k in rewrite}
+        os.environ.update(rewrite)
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                ok, out = psb.ensure_source('shared', 'precedent-shared-x', url,
+                                            home / 'precedent-shared-x', None,
+                                            retries=1, retry_delay=0,
+                                            workspace=ws)
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        attach = ws / 'precedent-shared-x'
+        cases.append(('cloning a shared set in $HOME links the attach path to it',
+                      ok and attach.is_symlink()
+                      and attach.resolve() == (home / 'precedent-shared-x').resolve(),
+                      str(out)[:300]))
+        tree = home / 'precedent-shared-x'
+        other = tmp / 'ws2'
+        (other / 'precedent-shared-x').mkdir(parents=True)
+        (other / 'precedent-shared-x' / 'mine.txt').write_text('m', encoding='utf-8')
+        psb._link_attach('precedent-shared-x', url, tree, workspace=other)
+        cases.append(('a path already there is never touched',
+                      not (other / 'precedent-shared-x').is_symlink()
+                      and (other / 'precedent-shared-x' / 'mine.txt').is_file()))
+        third = tmp / 'ws3'
+        third.mkdir()
+        psb._link_attach('precedent-shared-x', 'file:///x/precedent-shared-x',
+                         tree, workspace=third)
+        cases.append(('a source that is not hosted gets no attach link',
+                      not (third / 'precedent-shared-x').exists()))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
 def check_individual_hook_run_by_hand_links_the_attached_set():
     """The individual-set bootstrap hook, run BY HAND from a session's own
     shell -- where neither CLAUDE_PROJECT_DIR nor PRECEDENT_PROJECT_DIR is
@@ -85955,6 +86031,7 @@ def main():
     check_light_check_skips_declared_records()
     check_consumer_basic_tier_runs_the_practice_audit()
     check_individual_hook_run_by_hand_links_the_attached_set()
+    check_shared_set_leaves_a_link_at_the_attach_path()
     check_update_vendors_defaults_headroom_floor()
     check_engine_fetch_reaches_main_in_a_single_branch_clone()
     check_update_vendors_leaves_mentions_of_a_deleted_file()
