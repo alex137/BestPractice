@@ -9000,6 +9000,23 @@ def check_very_deep_check_test_worth_judges_what_changed():
                       by['check_owed']['status'] == 'owed', ''))
         cases.append(('a verdict for a test that is gone is stale',
                       r['stale'] == ['check_gone'], repr(r['stale'])))
+        # A practice set keeps no retired list of its own: its tests are
+        # read against the list of the repo running the check (2026-10-18).
+        aset = tmp / 'aset'
+        (aset / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        (aset / 'tools' / 'checks' / 'tests' / 'test_old.sh').write_text(
+            '#!/bin/sh\n# Uses the old tier.\necho zz-gone-tier\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(aset)], check=True)
+        subprocess.run(['git', '-C', str(aset), 'add', '-A'], check=True)
+        alone = {t['name']: t['leads'] for t in tr.review(aset)['tests']}
+        joined = {t['name']: t['leads'] for t in tr.review(aset, also=(tmp,))['tests']}
+        cases.append(('a set\'s test is read against the running repo\'s retired '
+                      'list, and only when that repo is named',
+                      alone.get('tools/checks/tests/test_old.sh') == []
+                      and joined.get('tools/checks/tests/test_old.sh')
+                      == ['names the zz tier (retired 2026-10-14)'],
+                      repr(alone) + ' / ' + repr(joined)))
+        shutil.rmtree(aset, ignore_errors=True)
         cases.append(('a keep without its importance is a registry problem, '
                       'and the test stays unjudged',
                       any('tools/tests/test_thing.sh' in p and 'importance' in p
@@ -9049,7 +9066,8 @@ def check_very_deep_check_test_worth_judges_what_changed():
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'very_deep_check.py\'s TEST WORTH lists every test and judges what changed '
           f'({len(cases)} stated cases: inventory, time, leads, new, again, owed, '
-          f'stale, malformed, times\' age, write-up block)',
+          f'stale, malformed, times\' age, a set read against the running repo, '
+          f'write-up block)',
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 

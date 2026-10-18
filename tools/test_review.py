@@ -48,7 +48,8 @@ IT REPORTS AND NEVER REFUSES. Nothing here is a gate.
   python3 tools/test_review.py --all       # every test still to judge, not the first 40
   python3 tools/test_review.py --markdown  # the `## Test review` block
   python3 tools/test_review.py --json      # every test, for a tool
-  python3 tools/test_review.py --repo PATH # another repository in force
+  python3 tools/test_review.py --repo PATH # another repository in force,
+                                           # read against this one's retired list too
 """
 import ast
 import json
@@ -270,14 +271,29 @@ def leads(test, patterns):
     return sorted(set(out))
 
 
-def review(root):
+def review(root, also=()):
     """-> {'tests': [...], 'stale': [...], 'problems': [...], 'totals': {...}}.
     Each test gains `leads`, `entry` and `status`: judged, unjudged,
     rejudge (a keep whose time or leads changed), or owed (cheapen or
-    retire, not yet done)."""
+    retire, not yet done).
+
+    `also`: other repositories whose retired things count here too -- the
+    one running the check. A practice set keeps no list of its own, so
+    without this its tests were never read against what BestPractice
+    retired: a set's test still about pre-staging went unflagged (Morgan,
+    2026-10-18, strength: decided)."""
     root = pathlib.Path(root)
     registry, problems = load_registry(root)
     patterns = retired_patterns(root, registry)
+    seen = {label for label, _p in patterns}
+    for other in also:
+        other = pathlib.Path(other)
+        if other.resolve() == root.resolve():
+            continue
+        for label, pat in retired_patterns(other, load_registry(other)[0]):
+            if label not in seen:
+                seen.add(label)
+                patterns.append((label, pat))
     tests = inventory(root)
     verdicts = registry['verdicts']
     for t in tests:
@@ -433,7 +449,7 @@ def main(argv):
     if '--repo' in argv:
         i = argv.index('--repo')
         root = pathlib.Path(argv[i + 1]).resolve()
-    result = review(root)
+    result = review(root, also=(ROOT,))
     if '--json' in argv:
         for t in result['tests']:
             t.pop('source', None)
