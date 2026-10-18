@@ -1,10 +1,10 @@
 ---
 title:         Three branch tiers -- pre-staging, staging, main
 kind:          proposal
-status:        accepted
+status:        superseded
 opened:        2026-09-25
 closed:        null
-superseded_by: null
+superseded_by: spec/PRE_STAGING_RETIREMENT_PLAN.md
 supersedes:    []
 audience:      contributor
 summary:       "Every repo gets three branches with three levels of checking: pre-staging (seconds -- markdown lint and the leak gate), staging (every local check), main (every local check plus one GitHub test on the pull request into it, and in a public repo on every push to it as well). Many windows push to pre-staging and never wait; a Promote moves pre-staging to staging and pays the full check once for the whole batch. precedent-beta-v01 becomes staging."
