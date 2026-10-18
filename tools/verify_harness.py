@@ -57830,6 +57830,12 @@ def check_main_test_wait_does_not_ask_to_merge_what_is_merged():
                               rc == rc_want and 'already carries it' in said[-1]
                               and 'Merge the pull request' not in said[-1]
                               and 'Do not merge' not in said[-1], said[-1]))
+                if state != 'passed':
+                    # 2026-10-17: "fix main now" named no route, and the fix
+                    # took the long way through staging and a second Produce.
+                    cases.append(('failure, already on main: the red-main route is named',
+                                  'precedent_branch_name.py' in said[-1]
+                                  and 'red_main_fix' in said[-1], said[-1]))
                 said = []
                 rc = pb.wait_for_main_test(w, open_, said.append)
                 cases.append((f'{state}, not on main yet: as before',
