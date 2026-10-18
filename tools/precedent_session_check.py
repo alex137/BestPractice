@@ -75,6 +75,54 @@ def _git(*args):
     return _run('git', '-C', str(ROOT), *args)
 
 
+# MERGE DRIVERS A FILE NAMES (2026-10-18). .gitattributes can name a driver
+# (tools/harness_check_times.json merge=precedent-harness-times), but git
+# keeps the driver's command in each clone's own config, which no commit
+# carries. Only tools/bootstrap.sh wrote it, and Claude Code never runs
+# that: on 2026-10-18 neither a session rooted above its repos nor one
+# rooted in BestPractice itself had it, so the file conflicted by hand.
+# Session start (both harnesses) now calls --merge-drivers, and the row
+# below reports a clone that still lacks one.
+MERGE_DRIVERS = {
+    'precedent-harness-times': (
+        'three-way merge of the harness per-test times',
+        'python3 tools/harness_times_merge.py %O %A %B',
+        'tools/harness_times_merge.py'),
+}
+
+
+def missing_merge_drivers(root=None):
+    """-> the drivers .gitattributes names whose script is here but whose
+    command this clone's config lacks."""
+    root = pathlib.Path(root or ROOT)
+    try:
+        attrs = (root / '.gitattributes').read_text(encoding='utf-8')
+    except OSError:
+        return []
+    out = []
+    for name, (_label, command, script) in sorted(MERGE_DRIVERS.items()):
+        if f'merge={name}' not in attrs or not (root / script).is_file():
+            continue
+        got = _run('git', '-C', str(root), 'config', '--get',
+                   f'merge.{name}.driver')[1]
+        if got != command:
+            out.append(name)
+    return out
+
+
+def configure_merge_drivers(root=None):
+    """Write each missing driver into this clone's config. -> names set."""
+    root = pathlib.Path(root or ROOT)
+    done = []
+    for name in missing_merge_drivers(root):
+        label, command, _script = MERGE_DRIVERS[name]
+        _run('git', '-C', str(root), 'config', f'merge.{name}.name', label)
+        if _run('git', '-C', str(root), 'config', f'merge.{name}.driver',
+                command)[0] == 0:
+            done.append(name)
+    return done
+
+
 def _declared_branch():
     """The branch this checkout is measured against: the repository's
     declared base_branch -- or, for a person off the ladder, main, the only
@@ -449,7 +497,12 @@ def checks(offline=False):
             f'and none of them ran. This is the incident in the docstring. '
             f'For a session opened above several repos, the environment '
             f'setup-script step in documentation/CLOUD_SETUP.md ("When a '
-            f'Session Opens Above Your Repos") runs them')
+            f'Session Opens Above Your Repos") runs the SessionStart ones '
+            f'only: the push, merge and answer-first gates and the Stop '
+            f'checks still do not run. What holds anyway is git\'s global '
+            f'pre-push -- the leak gate, and a refusal of any tree '
+            f'precedent_push_check.py or precedent_check.py --full-sweep last '
+            f'failed -- so run the check before the push, never after it')
         out.append(('the harness rooted the session at this repository',
                     ok, detail))
 
@@ -563,6 +616,16 @@ def checks(offline=False):
 
     # 5. The packages this repo's own gates import.
     out.append(gate_packages_row())
+
+    # 5b. Merge drivers .gitattributes names (MERGE_DRIVERS says why).
+    missing = missing_merge_drivers()
+    out.append(('every merge driver .gitattributes names is configured in '
+                'this clone', not missing,
+                '' if not missing else
+                f'{", ".join(missing)} is named in .gitattributes but not '
+                f'in git config, so a merge of its file conflicts and gets '
+                f'patched by hand. --apply sets it (or: python3 '
+                f'tools/precedent_session_check.py --merge-drivers)'))
 
     # 6. A single-branch clone's refspec, without which every branch reads
     #    as unpushed forever (AGENTS.md's add_repo entry).
@@ -950,6 +1013,7 @@ def checks(offline=False):
     # session loads against this repository's ceilings
     # (spec/LADDER_OPT_IN_PLAN.md D8).
     out.extend(_brought_sets_rows())
+    out.append(_off_base_sources_row())
     out.append(_landing_row())
     out.append(_private_repos_listed_row())
     out.extend(_session_load_rows())
@@ -1048,6 +1112,24 @@ def _brought_sets_rows():
                                        for b in missing)
              + '. Its rules are absent from this session, and nothing else '
              'says so. Fetch it: python3 tools/precedent_source_bootstrap.py')]
+
+
+def _off_base_sources_row():
+    """Every set in force is read from its base branch. Not a failure when
+    one is not -- a person trying a change to their own set may mean it --
+    but never silent (precedent_resolve.off_base_sources, 2026-10-18)."""
+    name = 'every set in force is read from its base branch'
+    try:
+        import precedent_resolve as pr
+        off = pr.off_base_sources(ROOT)
+    except Exception as e:                                   # noqa: BLE001
+        return (name, None, f'could not be worked out: {e}')
+    if not off:
+        return (name, True, '')
+    return (name, None, '; '.join(
+        f'{n} is read from {where} at {path}, not {base} -- its rules here are '
+        f'that branch\'s; `git -C {path} switch {base}` once the work there '
+        f'is done' for n, path, where, base in off))
 
 
 def _private_repos_listed_row():
@@ -1281,11 +1363,13 @@ def _clone_behind(path, fetch=True, branch=None):
     and wins over the clone's own base_branch: a consumer reads the
     universal catalogue at main whatever BestPractice declares for its own
     work."""
+    landing = None
     if branch is None:
         try:
             cfg = json.loads((pathlib.Path(path) / 'precedent.json')
                              .read_text(encoding='utf-8'))
             branch = cfg.get('base_branch')
+            landing = cfg.get('landing_branch')
         except Exception:
             branch = None
     if not isinstance(branch, str) or not branch.strip():
@@ -1376,10 +1460,44 @@ def _clone_behind(path, fetch=True, branch=None):
     held = (f'checked out off {branch}: {on_origin} commit(s) ahead of '
             f'origin/{branch} that are on origin'
             + (f' ({carrier})' if carrier else '')) if on_origin != '0' else ''
+    if bits and unpushed == '0' and _holds_landing(path, landing, branch,
+                                                   fetch):
+        # ON ITS OWN LANDING LINE IS NOT STALE (2026-10-18). A set a session
+        # was editing, on a branch built from the set's landing branch
+        # `staging`, read as "1 commit behind origin/main" -- a guarantee
+        # NOT in effect, for exactly the work it was asked to do. What main
+        # has and staging lacks is that repo's staging waiting on main, and
+        # no fast-forward of this clone can fix it: the remedy this row
+        # names would refuse, the clone carrying commits main lacks. Behind
+        # its landing branch, or with commits on no origin branch, is still
+        # 'behind'. Only a clone judged at its OWN base_branch gets this:
+        # a caller-named branch (the universal catalogue, read at main) is
+        # held to that branch.
+        return 'current', (f'at or past origin/{landing}, the branch its '
+                           f'work lands on; ' + ' and '.join(bits)
+                           + (f'; {held}' if held else ''))
     if bits:
         # True even off a stale ref: behind an old origin is behind.
         return 'behind', ' and '.join(bits) + (f'; {held}' if held else '')
     return ('current', held) if fetched else ('unverified', why)
+
+
+def _holds_landing(path, landing, branch, fetch):
+    """True when the clone declares a landing branch other than `branch` and
+    HEAD contains origin/<landing>. Unknown is False, never True."""
+    if not isinstance(landing, str) or not landing.strip() or landing == branch:
+        return False
+    if fetch:
+        subprocess.run(['git', '-C', str(path), 'fetch', '--quiet', 'origin',
+                        f'+refs/heads/{landing}:refs/remotes/origin/{landing}'],
+                       capture_output=True, text=True)
+    try:
+        r = subprocess.run(['git', '-C', str(path), 'merge-base',
+                            '--is-ancestor', f'origin/{landing}', 'HEAD'],
+                           capture_output=True, text=True)
+    except OSError:
+        return False
+    return r.returncode == 0
 
 
 def _git_head(path):
@@ -1634,7 +1752,13 @@ def main():
     ap.add_argument('--stamp-start', action='store_true',
                     help='record the branch and commit this session starts on '
                          '(the session-start hook runs this), then exit')
+    ap.add_argument('--merge-drivers', action='store_true',
+                    help='configure the merge drivers .gitattributes names '
+                         '(session start runs this), then exit')
     args = ap.parse_args()
+    if args.merge_drivers:
+        configure_merge_drivers()
+        return 0
     if args.stamp_start:
         stamp_session_start()
         return 0
@@ -1642,6 +1766,8 @@ def main():
     if args.apply:
         print('applying the SessionStart hooks by hand:\n')
         apply_repair()
+        for name in configure_merge_drivers():
+            print(f'  set merge driver {name}')
         print()
 
     rows = checks()

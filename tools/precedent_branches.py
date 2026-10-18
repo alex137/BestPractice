@@ -1114,6 +1114,82 @@ def _push_check_tool(root):
     return None
 
 
+def pull_request_checks(root, base):
+    """-> [workflow file] whose `on: pull_request` fires for a pull request
+    into `base`, or None when it cannot be told (no PyYAML, a file that does
+    not parse). Read from the checkout's .github/workflows/."""
+    try:
+        import yaml
+    except ImportError:
+        return None
+    import fnmatch
+    found = []
+    for wf in sorted((pathlib.Path(root) / '.github' / 'workflows').glob('*.y*ml')):
+        try:
+            doc = yaml.safe_load(wf.read_text(encoding='utf-8')) or {}
+        except Exception:                                    # noqa: BLE001
+            return None
+        # PyYAML reads a bare `on:` key as True.
+        on = doc.get('on', doc.get(True)) if isinstance(doc, dict) else None
+        if on == 'pull_request' or (isinstance(on, list) and 'pull_request' in on):
+            found.append(wf.name)
+            continue
+        if not isinstance(on, dict) or 'pull_request' not in on:
+            continue
+        cfg = on.get('pull_request') or {}
+        want = cfg.get('branches') if isinstance(cfg, dict) else None
+        skip = cfg.get('branches-ignore') if isinstance(cfg, dict) else None
+        if want is not None and not any(fnmatch.fnmatch(base, w) for w in want):
+            continue
+        if skip and any(fnmatch.fnmatch(base, w) for w in skip):
+            continue
+        found.append(wf.name)
+    return found
+
+
+def pull_request_route_note(root, base, checks_ran=None):
+    """What to do after a refusal that sends a landing through a pull
+    request into `base`, said from what the workflows actually run.
+    `checks_ran` is True when the caller ran the quick checks on this work
+    just before (the land tool does); anything else, the two-argument call
+    included, means nobody knows, and the note says to run them first.
+
+    WHY (2026-10-18). A refusal said "open a pull request into staging, and
+    merge it once its checks pass". Here no workflow runs on a pull request
+    into staging, so no check ever reported, no event ever came, and the
+    session sat waiting on one until Morgan asked whether anything was
+    happening. The quick checks this landing ran are the checks; where
+    GitHub adds none, the merge follows the pull request at once.
+
+    WHY checks_ran (2026-10-18). The shared ladder's pre-push guard calls
+    this from a plain `git push`, where no quick checks ran; the note said
+    they had passed and invited a merge with nothing checked."""
+    if checks_ran is True:
+        ran = 'the quick checks above having passed'
+        none_ran = ('The quick checks above passed on this composition: open '
+                    'the pull request and merge it straight away.')
+    else:
+        tool = _push_check_tool(root) or 'tools/precedent_push_check.py'
+        ran = (f'once the quick checks pass (`python3 {tool}`); nothing has '
+               f'run them on this push')
+        none_ran = (f'Nothing has run the quick checks on this push: run '
+                    f'`python3 {tool}`, and once it passes, open the pull '
+                    f'request and merge it straight away.')
+    runs = pull_request_checks(root, base)
+    if runs is None:
+        return (f'Could not read which GitHub checks run on a pull request '
+                f'into {base}. Open the pull request and look at its checks '
+                f'right away: if none is listed, none is coming -- merge it, '
+                f'{ran}. Never wait on a check nothing has started.')
+    if not runs:
+        return (f'No workflow here runs on a pull request into {base}, so no '
+                f'GitHub check will ever report on one. {none_ran} Do not '
+                f'wait for checks.')
+    return (f'A pull request into {base} is checked by {", ".join(runs)}: open '
+            f'it, and merge once those report green. If none has started a '
+            f'few minutes after opening, look again rather than wait.')
+
+
 def refused_push(root, branch, built, proc):
     """A push to origin's `branch` of commit `built` that git refused. ->
     (moved, said): `moved` True only when origin's `branch` now has work
@@ -3987,6 +4063,8 @@ def _land_composed(root, sha, label, staging, why, say):
         say(f'LAND REFUSED, and {staging} did not move: the push was refused, so '
             f'landing again would be refused the same way. What the push '
             f'said:\n{said[-1500:]}')
+        if 'pull request' in said:
+            say(pull_request_route_note(root, staging, checks_ran=True))
         first = next((ln for ln in said.splitlines() if ln.strip()), 'no reason given')
         return 1, f'LAND REFUSED: the push to {staging} was refused: {first[:200]}'
     say(f'the quick checks passed, in {took:.0f}s.')

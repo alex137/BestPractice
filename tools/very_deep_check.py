@@ -9181,7 +9181,7 @@ def test_worth_section(targets, repo_root):
     for name, path in targets:
         if not pathlib.Path(path).is_dir():
             continue
-        r = tr.review(path)
+        r = tr.review(path, also=(repo_root,))
         if not r['tests']:
             print(f'  {name}: no tests of its own.')
             continue

@@ -243,6 +243,29 @@ def _same_place(repo):
         return ('path', str(pathlib.Path(repo).resolve()))
 
 
+def _github_spelling(slug):
+    """-> (owner, name) as GitHub spells them, when the slug is written all
+    in lowercase and GitHub answers; else `slug` unchanged. The attach tool
+    clones from a lowercase URL (alex137/bestpractice), so the cleanup page
+    headed the repository in lowercase (2026-10-17). Only an all-lowercase
+    spelling is asked about: any capital means someone typed it on purpose."""
+    owner, name = slug
+    if f'{owner}/{name}' != f'{owner}/{name}'.lower():
+        return slug
+    gh = _github()
+    if gh is None:
+        return slug
+    try:
+        data, err = gh.call(f'repos/{owner}/{name}')
+    except Exception:                                        # noqa: BLE001
+        return slug
+    full = data.get('full_name') if not err and isinstance(data, dict) else None
+    if (isinstance(full, str) and full.count('/') == 1
+            and full.casefold() == f'{owner}/{name}'.casefold()):
+        return tuple(full.split('/'))
+    return slug
+
+
 def _repos(found=None):
     """-> [(path, (owner, name))], one per repository. ONE REPOSITORY IS
     LISTED ONCE (2026-10-08): GitHub names are case-insensitive, so the key
@@ -266,6 +289,7 @@ def _repos(found=None):
         slug = _slug(repo)
         if not slug:
             continue
+        slug = _github_spelling(slug)
         key = tuple(part.casefold() for part in slug)
         if key not in seen:
             seen.add(key)

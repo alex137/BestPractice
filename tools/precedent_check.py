@@ -10056,6 +10056,20 @@ def _rename_updates_links(ctx):
                     break
     # The order paths-outer gave: by removed path, then by file.
     out = [x for k in sorted(found) for x in found[k]]
+    # AND IN THE PRACTICE SETS BESIDE THIS CHECKOUT (2026-10-18), said and
+    # never refused: an engine file this branch removes can still be named
+    # in a set that vendors it, which only the set's next Update Vendors
+    # used to catch. precedent_refresh_sources ships only in BestPractice,
+    # so elsewhere this reads nothing.
+    try:
+        import precedent_refresh_sources as _prs
+        for label, where, old in _prs.stranded_in_sets(
+                [o for _k, o, _n in paths]):
+            print(f'  ADVISORY (rename-updates-links): {label}/{where} still '
+                  f'names {old}, which this branch removes -- fix it in that '
+                  f'set before its next Update Vendors stops on it')
+    except Exception:                                        # noqa: BLE001
+        pass
     if not out and skipped:
         print(f'  (rename-updates-links: {skipped} single-segment path(s) '
               f'skipped as too generic to search)')
@@ -14048,6 +14062,46 @@ def run(slugs, ctx, scopes, exempt=None):
     return results
 
 
+SWEEP_FAILED = 'precedent_check --full-sweep'
+
+
+def record_sweep_result(root, failed_slugs):
+    """A full sweep that failed on a committed, clean tree writes that tree
+    down where the global pre-push hook reads it (precedent_push_check's
+    FAILED_TREES), and a full sweep that passed clears what a sweep wrote.
+
+    2026-10-17: a session rooted above the repositories it worked in -- so
+    none of their harness hooks ran -- chained `git push` after a full sweep
+    piped into `tail`, twice, and both pushes went out over a failing sweep.
+    The global pre-push already refused a tree the push check had failed;
+    the sweep wrote nothing there. A pass clears only the sweep's own entry:
+    a push-check failure on the same tree is the push check's to clear.
+    Never raises."""
+    try:
+        import precedent_push_check as ppc
+        r = subprocess.run(['git', '-C', str(root), 'status', '--porcelain',
+                            '--untracked-files=no'],
+                           capture_output=True, text=True)
+        if r.returncode != 0 or r.stdout.strip():
+            return
+        tree = subprocess.run(['git', '-C', str(root), 'rev-parse',
+                               'HEAD^{tree}'], capture_output=True,
+                              text=True).stdout.strip()
+        if not tree:
+            return
+        if failed_slugs:
+            ppc.note_failed_tree(root, tree, [f'{SWEEP_FAILED}: '
+                                              + ', '.join(failed_slugs)])
+            return
+        path = ppc.failed_trees_path(root)
+        rec = ppc._failed_trees(path).get(tree) if path and path.is_file() else None
+        if rec and all(str(f).startswith(SWEEP_FAILED)
+                       for f in rec.get('failed') or []):
+            ppc.clear_failed_tree(root, tree)
+    except Exception:                                        # noqa: BLE001
+        pass
+
+
 def main():
     args = sys.argv[1:]
     flags = {a for a in args if a.startswith('--')}
@@ -14328,6 +14382,9 @@ def main():
             print(f'note: --changed-files-only: {len(errored)} check(s) '
                   f'errored and were not held against this change.')
         return 1 if violated else 0
+    if ('--full-sweep' in flags and only is None and paths is None
+            and '--turn-end' not in flags):
+        record_sweep_result(ROOT, sorted({r[0] for r in violated + errored}))
     if violated or errored:
         return 1
     if (skipped or unverified) and '--strict' in flags:

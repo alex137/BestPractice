@@ -1,5 +1,5 @@
 # The harness's per-test times merge three ways, never by hand: a test one
 # side deleted stays deleted, a test either side added is kept
-# (tools/harness_times_merge.py says why). tools/bootstrap.sh configures
-# the driver in each clone at session start.
+# (tools/harness_times_merge.py says why). Session start configures the
+# driver in each clone (precedent_session_check.py --merge-drivers).
 tools/harness_check_times.json merge=precedent-harness-times

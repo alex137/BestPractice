@@ -1424,7 +1424,11 @@ confidently.
     retired thing the test still names (the registry's own `retired` list,
     the retired words in `tools/our_language.json`, a decommissioned tool,
     a retired or deduplicated practice) and a harness test with no recorded
-    time. Leads come first, then the slowest.
+    time. Leads come first, then the slowest. A practice set keeps no
+    retired list of its own, so its tests are also read against the list
+    of the repo running the check: a set's test still about a tier
+    BestPractice retired is flagged like one of BestPractice's own
+    (Morgan, 2026-10-18, strength: decided).
 
     **Judge on today's times.** The whole-suite run this check already
     makes (`--with-harness`, `verify_harness.py --all --record-times`)
