@@ -10056,6 +10056,20 @@ def _rename_updates_links(ctx):
                     break
     # The order paths-outer gave: by removed path, then by file.
     out = [x for k in sorted(found) for x in found[k]]
+    # AND IN THE PRACTICE SETS BESIDE THIS CHECKOUT (2026-10-18), said and
+    # never refused: an engine file this branch removes can still be named
+    # in a set that vendors it, which only the set's next Update Vendors
+    # used to catch. precedent_refresh_sources ships only in BestPractice,
+    # so elsewhere this reads nothing.
+    try:
+        import precedent_refresh_sources as _prs
+        for label, where, old in _prs.stranded_in_sets(
+                [o for _k, o, _n in paths]):
+            print(f'  ADVISORY (rename-updates-links): {label}/{where} still '
+                  f'names {old}, which this branch removes -- fix it in that '
+                  f'set before its next Update Vendors stops on it')
+    except Exception:                                        # noqa: BLE001
+        pass
     if not out and skipped:
         print(f'  (rename-updates-links: {skipped} single-segment path(s) '
               f'skipped as too generic to search)')

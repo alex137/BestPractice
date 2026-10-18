@@ -1,6 +1,6 @@
 ---
 slug:            gotcha-2026-10-17-the-harness-times-file-conflicts-on-every-merge
-status:          active
+status:          live
 noted:           2026-10-17
 severity:        notable
 retired:         null
