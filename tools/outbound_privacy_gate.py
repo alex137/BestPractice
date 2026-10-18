@@ -135,6 +135,9 @@ def check(payload, root=ROOT, log=None):
 
 
 def main():
+    if any(a in ('-h', '--help') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        return 0
     try:
         payload = json.loads(sys.stdin.read() or '{}')
     except ValueError:
