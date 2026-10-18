@@ -1300,11 +1300,13 @@ def _clone_behind(path, fetch=True, branch=None):
     and wins over the clone's own base_branch: a consumer reads the
     universal catalogue at main whatever BestPractice declares for its own
     work."""
+    landing = None
     if branch is None:
         try:
             cfg = json.loads((pathlib.Path(path) / 'precedent.json')
                              .read_text(encoding='utf-8'))
             branch = cfg.get('base_branch')
+            landing = cfg.get('landing_branch')
         except Exception:
             branch = None
     if not isinstance(branch, str) or not branch.strip():
@@ -1395,10 +1397,44 @@ def _clone_behind(path, fetch=True, branch=None):
     held = (f'checked out off {branch}: {on_origin} commit(s) ahead of '
             f'origin/{branch} that are on origin'
             + (f' ({carrier})' if carrier else '')) if on_origin != '0' else ''
+    if bits and unpushed == '0' and _holds_landing(path, landing, branch,
+                                                   fetch):
+        # ON ITS OWN LANDING LINE IS NOT STALE (2026-10-18). A set a session
+        # was editing, on a branch built from the set's landing branch
+        # `staging`, read as "1 commit behind origin/main" -- a guarantee
+        # NOT in effect, for exactly the work it was asked to do. What main
+        # has and staging lacks is that repo's staging waiting on main, and
+        # no fast-forward of this clone can fix it: the remedy this row
+        # names would refuse, the clone carrying commits main lacks. Behind
+        # its landing branch, or with commits on no origin branch, is still
+        # 'behind'. Only a clone judged at its OWN base_branch gets this:
+        # a caller-named branch (the universal catalogue, read at main) is
+        # held to that branch.
+        return 'current', (f'at or past origin/{landing}, the branch its '
+                           f'work lands on; ' + ' and '.join(bits)
+                           + (f'; {held}' if held else ''))
     if bits:
         # True even off a stale ref: behind an old origin is behind.
         return 'behind', ' and '.join(bits) + (f'; {held}' if held else '')
     return ('current', held) if fetched else ('unverified', why)
+
+
+def _holds_landing(path, landing, branch, fetch):
+    """True when the clone declares a landing branch other than `branch` and
+    HEAD contains origin/<landing>. Unknown is False, never True."""
+    if not isinstance(landing, str) or not landing.strip() or landing == branch:
+        return False
+    if fetch:
+        subprocess.run(['git', '-C', str(path), 'fetch', '--quiet', 'origin',
+                        f'+refs/heads/{landing}:refs/remotes/origin/{landing}'],
+                       capture_output=True, text=True)
+    try:
+        r = subprocess.run(['git', '-C', str(path), 'merge-base',
+                            '--is-ancestor', f'origin/{landing}', 'HEAD'],
+                           capture_output=True, text=True)
+    except OSError:
+        return False
+    return r.returncode == 0
 
 
 def _git_head(path):
