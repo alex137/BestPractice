@@ -1,7 +1,7 @@
 ---
 title:         Three branch tiers -- pre-staging, staging, main
 kind:          proposal
-status:        accepted
+status:        executed
 opened:        2026-09-25
 closed:        null
 superseded_by: null

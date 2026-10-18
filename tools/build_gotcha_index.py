@@ -159,6 +159,16 @@ def main(argv):
 
     gotchas_dir = repo / 'gotchas'
     items = load_items(gotchas_dir)
+    # AN UNKNOWN STATUS IS REFUSED, NOT DROPPED (2026-10-18). Two entries
+    # said `status: active`; anything not `live` was left out as if
+    # retired, so both were missing from the index with nothing said.
+    odd = [f"{it.slug} ({it.get('status')!r})" for it in items
+           if it.get('status', 'live') not in ('live', 'retired')]
+    if odd:
+        print(f'build_gotcha_index FAIL: status must be live or retired, '
+              f'and is not in: {", ".join(odd)}. Such an entry would be left '
+              f'out of the index as if retired.')
+        return 1
     out_path = gotchas_dir / 'INDEX.md'
     want = render_index_md(items)
 

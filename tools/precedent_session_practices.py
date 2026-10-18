@@ -763,6 +763,11 @@ def main(argv=None):
     lead = attach_first(repo)
     if lead:
         print(lead)
+    try:
+        for line in getattr(pr, 'off_base_notes', lambda _r: [])(repo):
+            print(line)
+    except Exception:                                        # noqa: BLE001
+        pass  # a notice; never what stops a session starting
     deliver_ships(repo, extra + own_practices(repo))
     text = _with_target_warning(repo, text, brought=brought_share(repo)[0])
     out_dir = pathlib.Path(repo) / OUT_DIR

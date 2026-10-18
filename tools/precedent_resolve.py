@@ -777,11 +777,26 @@ def _diagnose_no_individual(why, heal, user_cfg_path, repo_root):
                         f"a definite answer; declare one there to change it.")}
 
 
+_COMMON_DIRS = {}
+
+
 def _git_common_dir(path):
     """-> the resolved git common directory of the checkout whose top level
     is `path` (the same for a clone and every linked worktree of it), or
     None -- also for a directory INSIDE a checkout, which is not a
-    repository of its own."""
+    repository of its own. A found one is asked once per path per process:
+    the freshness hook calls declared_source_paths(), which asks it for
+    every source. A None is asked again, since a clone can arrive later."""
+    key = str(path)
+    if key not in _COMMON_DIRS:
+        found = _git_common_dir_uncached(path)
+        if found is None:
+            return None
+        _COMMON_DIRS[key] = found
+    return _COMMON_DIRS[key]
+
+
+def _git_common_dir_uncached(path):
     r = subprocess.run(['git', '-C', str(path), 'rev-parse', '--show-toplevel',
                         '--git-common-dir'], capture_output=True, text=True)
     lines = r.stdout.strip().splitlines() if r.returncode == 0 else []
@@ -814,6 +829,33 @@ def _same_repository(a, b):
         return False
     ca, cb = _git_common_dir(pa), _git_common_dir(pb)
     return ca is not None and ca == cb
+
+
+def _own_set_name(repo_root):
+    """-> the set name `repo_root`'s own precedent-source.json declares, or
+    '' when it is not a practice set."""
+    try:
+        man = json.loads((pathlib.Path(repo_root) / SOURCE_MANIFEST).read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        return ''
+    name = man.get('name') if isinstance(man, dict) else None
+    return name if isinstance(name, str) else ''
+
+
+def is_repository_itself(path, name, repo_root):
+    """True when the source at `path`, named `name`, IS the repository being
+    resolved: the same repository (_same_repository), or a set of the name
+    the repository's own precedent-source.json declares. By name too, because
+    a checkout of a set elsewhere -- the worktree --run-tests makes, a CI
+    clone -- shares neither a path nor a git directory with the clone a
+    person brings, and the set then judged its own words (2026-10-18,
+    BestPractice #1198, fixed then in set_words.py alone). The one test for
+    every place that asks."""
+    if _same_repository(path, repo_root):
+        return True
+    own = _own_set_name(repo_root)
+    return bool(own and name and name == own)
 
 
 def _main_checkout(repo_root):
@@ -1209,7 +1251,7 @@ def declared_source_paths(repo, user_config=None):
         if level == 'shared' and entry.get('name') in gone:
             continue
         path = _declared_path(repo_root, entry['path'])
-        if path == repo_root:
+        if is_repository_itself(path, entry.get('name'), repo_root):
             continue
         note = '' if (path / '.git').exists() else 'not cloned here yet'
         out.append((str(path), level, entry.get('name') or level, note))
@@ -1223,20 +1265,70 @@ def declared_source_paths(repo, user_config=None):
                     f'no readable {user_cfg_path}, so the individual set is not known here'))
     if isinstance(ind, dict) and ind.get('path'):
         path = pathlib.Path(ind['path']).expanduser().resolve()
-        if path != repo_root:
+        if not is_repository_itself(path, ind.get('name'), repo_root):
             note = '' if (path / '.git').exists() else 'not cloned here yet'
             out.append((str(path), 'individual',
                         ind.get('name') or DEFAULT_INDIVIDUAL_NAME, note))
         have = {pathlib.Path(p).resolve() for p, *_ in out if p}
         for b in brought_sources(path, warn=False):
             bp = pathlib.Path(b['path']).resolve()
-            if bp == repo_root or bp in have:
+            if bp in have or is_repository_itself(bp, b['name'], repo_root):
                 continue
             if no_ladders() and LADDER_CAPABILITY in source_provides(bp):
                 continue
             note = '' if (bp / '.git').exists() else 'not cloned here yet'
             out.append((str(bp), 'shared', b['name'], note))
     return out
+
+
+def off_base_sources(repo, user_config=None):
+    """-> [(name, path, where, base)] for every practice source declared or
+    brought here whose clone is not on its base branch: `where` is "branch
+    X" or "a detached HEAD at <sha>". The loader reads a set from whatever
+    its clone has checked out, so these are the rules of that branch, not
+    of the set as published.
+
+    2026-10-18: a set's clone was a symlink to the session's own working
+    checkout of that set. While the session worked on a feature branch, and
+    once detached, every repository that brings the set read its rules from
+    there, and nothing said so. Said at session start, rather than read
+    from the base branch's tree: a person trying a change to their own set
+    may want exactly that, and now they are told it is happening."""
+    out = []
+    for path, _level, name, note in declared_source_paths(repo, user_config):
+        if note or not path:
+            continue
+        r = subprocess.run(['git', '-C', path, 'symbolic-ref', '--short', '-q',
+                            'HEAD'], capture_output=True, text=True)
+        head = r.stdout.strip() if r.returncode == 0 else ''
+        base = _base_branch_of(path)
+        try:
+            trunk = json.loads((pathlib.Path(path) / REPO_CONFIG).read_text(
+                encoding='utf-8')).get('trunk') or 'main'
+        except (OSError, ValueError, AttributeError):
+            trunk = 'main'
+        if head in (base, trunk, 'main'):
+            continue
+        if not head:
+            r = subprocess.run(['git', '-C', path, 'rev-parse', '--short=12',
+                                'HEAD'], capture_output=True, text=True)
+            if r.returncode != 0:
+                continue
+            where = f'a detached HEAD at {r.stdout.strip()}'
+        else:
+            where = f'branch {head}'
+        out.append((name, path, where, base))
+    return out
+
+
+def off_base_notes(repo, user_config=None):
+    """-> one line per off_base_sources() entry, for the session to read."""
+    return [f"precedent resolve: {name} is read from {where} of its clone at "
+            f"{path}, not from {base}, so the rules this session takes from "
+            f"it are that branch's. Switch it back with `git -C {path} switch "
+            f"{base}` once the work there is done, unless trying that "
+            f"branch's rules is the point."
+            for name, path, where, base in off_base_sources(repo, user_config)]
 
 
 def _base_branch_of(path):
@@ -1438,7 +1530,7 @@ def load_config(repo, user_config=None):
                 # everybody there reads.
                 if b['name'] in have:
                     continue
-                if _same_repository(b['path'], repo_root):
+                if is_repository_itself(b['path'], b['name'], repo_root):
                     continue
                 sources.append(b)
     gone = deleted_sets(entry['path'] if entry is not None else None,
@@ -1751,12 +1843,56 @@ def load_not_binding(repo, user_config=None):
     return out
 
 
+def missing_source_reason(path, name=None):
+    """-> why the source declared at `path` gives no practices: "has no
+    practices/ directory" only when something is there, else "not cloned
+    at <path>", naming a clone of the same set found elsewhere on disk.
+
+    2026-10-18: a push was refused because a shared set "did not load", and
+    the session check said "/home/user/precedent-shared-writing has no
+    practices/ directory" -- but nothing was at that path: the set was
+    cloned at /root/precedent-shared-writing, while the repository declares
+    ../precedent-shared-writing. The message sent the session looking inside
+    a directory that did not exist."""
+    p = pathlib.Path(path).expanduser()
+    if p.exists():
+        return f"{p} has no practices/ directory"
+    why = f"not cloned at {p} (nothing is at that path)"
+    other = clone_elsewhere(name or p.name, p)
+    if other:
+        why += (f"; a clone of it is at {other}, which is not where it is "
+                f"declared -- clone it at {p}, or point the declaration there")
+    return why
+
+
+def clone_elsewhere(name, declared):
+    """-> the first directory named `name` holding a practices/ tree in the
+    places sessions clone to (the home directory, /root, /home/user, beside
+    the declared path), other than `declared` itself; or None."""
+    if not name:
+        return None
+    try:
+        want = pathlib.Path(declared).expanduser().resolve()
+    except OSError:
+        want = None
+    bases = [pathlib.Path.home(), pathlib.Path('/root'), pathlib.Path('/home/user'),
+             pathlib.Path(declared).expanduser().parent]
+    for base in bases:
+        cand = base / name
+        try:
+            if cand.resolve() != want and (cand / 'practices').is_dir():
+                return cand
+        except OSError:
+            continue
+    return None
+
+
 def load_source(source):
     """-> ({slug: practice}, missing_reason or None). A source directory holds
     its practices in practices/, the same layout Precedent itself uses."""
     d = pathlib.Path(source['path']) / 'practices'
     if not d.is_dir():
-        return {}, f"{source['path']} has no practices/ directory"
+        return {}, missing_source_reason(source['path'], source.get('name'))
     # practice: source-naming -- identity is read off the source, never
     # inferred from its name.
     source['manifest'] = check_source_manifest(source)

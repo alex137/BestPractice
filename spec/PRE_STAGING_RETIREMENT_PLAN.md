@@ -1,7 +1,7 @@
 ---
 title:         Pre-staging retired for everyone
 kind:          proposal
-status:        accepted
+status:        executed
 opened:        2026-10-14
 closed:        null
 superseded_by: null

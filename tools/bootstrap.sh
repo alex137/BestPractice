@@ -133,6 +133,9 @@ fi
 # (2026-10-09). Overwrites any earlier record; prints nothing.
 if [ -f tools/precedent_session_check.py ]; then
   python3 tools/precedent_session_check.py --stamp-start 2>/dev/null || true
+  # Merge drivers .gitattributes names live in git config, which no commit
+  # carries (precedent_session_check.py, MERGE_DRIVERS).
+  python3 tools/precedent_session_check.py --merge-drivers 2>/dev/null || true
 fi
 
 # Clone the declared SHARED sources, where the environment carries a
@@ -201,21 +204,6 @@ if git rev-parse --git-dir >/dev/null 2>&1 && git remote get-url origin >/dev/nu
   # only remote-tracking refs, never a local branch or a commit.
   git config fetch.prune true 2>/dev/null
   timeout 30 git remote prune origin >/dev/null 2>&1 || true
-fi
-
-# A FILE THAT MERGES ITSELF (2026-10-17). Where .gitattributes names the
-# harness-times merge driver and its script is here, configure it in this
-# clone's own config, so a merge rebuilds tools/harness_check_times.json
-# three ways instead of leaving a conflict to patch by hand
-# (tools/harness_times_merge.py says why). Inert in a repository that does
-# not name it. Re-running it is a no-op.
-if grep -qs 'merge=precedent-harness-times' .gitattributes \
-    && [ -f tools/harness_times_merge.py ] \
-    && git rev-parse --git-dir >/dev/null 2>&1; then
-  git config merge.precedent-harness-times.name \
-    'three-way merge of the harness per-test times' 2>/dev/null
-  git config merge.precedent-harness-times.driver \
-    'python3 tools/harness_times_merge.py %O %A %B' 2>/dev/null
 fi
 
 # Is THIS checkout current with its own origin -- and if not, MAKE it current.

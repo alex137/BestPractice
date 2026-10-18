@@ -650,6 +650,34 @@ def _link_to(tree, paths):
                   f'copy of the same source.', file=sys.stderr)
 
 
+def _attach_path(name, repo_url, workspace=None):
+    """-> the path a repo-attach tool would clone source `name` into, or
+    None: only for a hosted url, and only where the session's workspace is
+    known (attach_workspace)."""
+    workspace = workspace if workspace is not None else attach_workspace()
+    if workspace is None or not _is_hosted(repo_url):
+        return None
+    return pathlib.Path(workspace) / name
+
+
+# A SHARED SET GETS THE ATTACH LINK TOO (2026-10-18). Until then only the
+# individual set left a link at the attach path. A shared set brought by
+# the individual one is cloned beside it, in $HOME, so the attach path
+# stayed empty, and a session that attached the set mid-session did what
+# the attach reply says and cloned it there: a second copy, which the
+# session check then flagged and the person had to approve removing (a
+# session working in BestPractice, with precedent-shared-ladder). With the
+# link there, the attach reply's own check ("if it exists and rev-parse
+# succeeds, use it") finds the one tree.
+def _link_attach(name, repo_url, tree, workspace=None):
+    """Link the attach path to `tree` where nothing is there yet
+    (_link_to: an existing path is never touched)."""
+    attach = _attach_path(name, repo_url, workspace)
+    if attach is not None and (pathlib.Path(tree) / '.git').exists() \
+            and attach.resolve() != pathlib.Path(tree).resolve():
+        _link_to(tree, [attach])
+
+
 def ensure_source(level, name, repo_url, clone_path, config_path,
                    retries=DEFAULT_RETRIES, retry_delay=DEFAULT_RETRY_DELAY,
                    sleep=time.sleep, branch=None, workspace=None):
@@ -665,8 +693,9 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
     session cannot yet reach is the expected, common case (see module
     docstring), not a bug to propagate.
 
-    `workspace` (individual only) is where a repo-attach tool clones; see
-    _one_individual_tree. None keeps the one-path behaviour."""
+    `workspace` is where a repo-attach tool clones: for the individual set
+    see _one_individual_tree; a shared set's tree is linked there too
+    (_link_attach). None keeps the one-path behaviour."""
     clone_path = pathlib.Path(clone_path)
     links = []
     if level == 'individual':
@@ -674,6 +703,10 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
             name, repo_url, clone_path, workspace)
         if report:
             print(report, file=sys.stderr)
+    elif level == 'shared' and workspace is not None and clone_path.name == name:
+        attach = _attach_path(name, repo_url, workspace)
+        if attach is not None and attach.resolve() != clone_path.resolve():
+            links = [attach]
     attempts = max(1, retries)
     last_output = ''
     attempt, extra = 0, False
@@ -993,6 +1026,8 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             ok_after, after = _run_git(['-C', str(clone_path), 'rev-parse',
                                         'HEAD'])
             moved = (ok_before and ok_after and before != after)
+            if level == 'shared' and ok_url:
+                _link_attach(name, url, clone_path)
             results.append((name, True, 'already on disk, fast-forwarded'
                             if moved else 'already on disk and current'))
             continue
@@ -1006,6 +1041,11 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             try:
                 clone_path.parent.mkdir(parents=True, exist_ok=True)
                 clone_path.symlink_to(existing, target_is_directory=True)
+                if level == 'shared':
+                    _ok, _url = _run_git(['-C', str(existing), 'remote',
+                                          'get-url', 'origin'])
+                    if _ok:
+                        _link_attach(name, _url, existing)
                 results.append((name, True, f'linked to the copy already on '
                                             f'disk at {existing} rather than '
                                             f'cloned a second time'))
@@ -1027,7 +1067,8 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             continue
         ok, out = ensure_source(level, name, clone_url, clone_path,
                                 None, retries=retries, retry_delay=retry_delay,
-                                branch=branch or _clone_branch(repo_path, level))
+                                branch=branch or _clone_branch(repo_path, level),
+                                workspace=attach_workspace())
         note_clone_result(name, ok, out or '', url=clone_url)
         results.append((name, ok, out or 'cloned'))
     return results
@@ -1207,11 +1248,13 @@ def sources_from_brings(retries=DEFAULT_RETRIES, skip=()):
                 if existing is not None:
                     clone_path.parent.mkdir(parents=True, exist_ok=True)
                     clone_path.symlink_to(existing, target_is_directory=True)
+                    _link_attach(name, url, existing)
                     out.append((name, True, f'linked to the copy already on '
                                             f'disk at {existing}'))
                     continue
             ok, msg = _try_sync(url, clone_path.resolve() if clone_path.exists()
                                 else clone_path)
+            _link_attach(name, url, clone_path)
             if not ok and _left_as_it_stands(clone_path, msg):
                 # On disk, on another branch: the resolver reads it from
                 # there, so it is in force as it stands -- a note, never a
