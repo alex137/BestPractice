@@ -57645,6 +57645,91 @@ print(json.dumps(ln.file_failure(ln.ROOT, 'Landing failed: feat/x', 'push reject
     check(f'a failure item lists the index it creates ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_global_pre_push_refuses_a_tree_the_full_sweep_failed():
+    """A tree `precedent_check.py --full-sweep` just failed is refused by the
+    global pre-push, from any session root.
+
+    2026-10-17: a session rooted in /home/user, above every repository it
+    worked in, ran none of their harness hooks. Twice it chained a push
+    after a full sweep piped into `tail`, and the push went out over a
+    failing sweep. The global pre-push refused a tree the PUSH check had
+    failed (check_global_pre_push_refuses_a_tree_the_check_failed); the
+    sweep wrote nothing there. Now a failing whole-tree sweep on a clean
+    tree writes it down, a passing one clears only its own entry, and the
+    hook commit-identity.sh writes does the refusing."""
+    import inspect
+    import tempfile
+    import precedent_check as _pc
+    import precedent_push_check as _ppc
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = {**_fixture_git_env(), 'HOME': str(tmp / 'home'),
+               'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        (tmp / 'home').mkdir()
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        g = lambda cwd, *a, **e: subprocess.run(
+            ['git', '-C', str(cwd), *a], capture_output=True, text=True,
+            env={**env, **e})
+        bare, work = tmp / 'origin.git', tmp / 'work'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        g(tmp, 'init', '-q', '-b', 'main', str(work))
+        (work / 'a.md').write_text('a\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'base')
+        g(work, 'remote', 'add', 'origin', f'file://{bare}')
+        g(work, 'push', '-q', 'origin', 'main')
+        hooks = tmp / 'hooks'
+        subprocess.run(['bash', str(ROOT / 'tools' / 'commit-identity.sh')],
+                       capture_output=True, text=True, timeout=120,
+                       env=dict(env, CLAUDE_PROJECT_DIR=str(work),
+                                PRECEDENT_COMMIT_NAME='T',
+                                PRECEDENT_COMMIT_EMAIL='t@example.com',
+                                PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                                PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                                PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+        g(work, 'config', 'core.hooksPath', str(hooks))
+        g(work, 'checkout', '-q', '-b', 'feature')
+        (work / 'b.md').write_text('b\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'work', '--no-verify')
+        tree = g(work, 'rev-parse', 'HEAD^{tree}').stdout.strip()
+        # A new ref each time: a push with nothing to send runs no pre-push.
+        pushes = iter(range(100))
+        push = lambda: g(work, 'push', 'origin',
+                         f'HEAD:refs/heads/feature-{next(pushes)}')
+        record = getattr(_pc, 'record_sweep_result', None)
+        cases.append(('precedent_check has a sweep recorder, and main() calls '
+                      'it under --full-sweep', record is not None
+                      and 'record_sweep_result(ROOT' in inspect.getsource(_pc.main),
+                      ''))
+        if record is None:
+            record = lambda *_a: None
+        (work / 'a.md').write_text('dirty\n', encoding='utf-8')
+        record(work, ['catalogue-carries-stories'])
+        g(work, 'checkout', '-q', '--', 'a.md')
+        cases.append(('a sweep of uncommitted edits writes nothing: it did not '
+                      'judge the committed tree', push().returncode == 0, ''))
+        record(work, ['catalogue-carries-stories'])
+        p = push()
+        cases.append(('THE DISCRIMINATING CASE: a push of the tree the sweep just '
+                      'failed is refused, naming the sweep and the practice',
+                      p.returncode != 0 and 'full-sweep' in p.stderr
+                      and 'catalogue-carries-stories' in p.stderr, p.stderr[-500:]))
+        record(work, [])
+        cases.append(('once a sweep passes on the same tree, it pushes',
+                      push().returncode == 0, ''))
+        _ppc.note_failed_tree(work, tree, ['doc_lint'])
+        record(work, [])
+        cases.append(('a passing sweep leaves a push-check failure on the same '
+                      'tree for the push check to clear', push().returncode != 0,
+                      ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the global pre-push refuses a tree the full sweep failed '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_global_pre_push_refuses_a_tree_the_check_failed():
     """A tree the push check last failed is refused by the global pre-push.
 
@@ -85988,6 +86073,7 @@ def main():
     check_landers_wait_their_turn_for_the_lock()
     check_a_failure_item_lists_the_index_it_creates()
     check_global_pre_push_refuses_a_tree_the_check_failed()
+    check_global_pre_push_refuses_a_tree_the_full_sweep_failed()
     check_writing_checks_leave_a_declared_record_as_filed()
     check_vocabulary_lets_a_local_practice_name_a_local_script()
     check_doc_lint_leaves_a_received_practice_to_its_source()

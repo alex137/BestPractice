@@ -449,7 +449,12 @@ def checks(offline=False):
             f'and none of them ran. This is the incident in the docstring. '
             f'For a session opened above several repos, the environment '
             f'setup-script step in documentation/CLOUD_SETUP.md ("When a '
-            f'Session Opens Above Your Repos") runs them')
+            f'Session Opens Above Your Repos") runs the SessionStart ones '
+            f'only: the push, merge and answer-first gates and the Stop '
+            f'checks still do not run. What holds anyway is git\'s global '
+            f'pre-push -- the leak gate, and a refusal of any tree '
+            f'precedent_push_check.py or precedent_check.py --full-sweep last '
+            f'failed -- so run the check before the push, never after it')
         out.append(('the harness rooted the session at this repository',
                     ok, detail))
 
