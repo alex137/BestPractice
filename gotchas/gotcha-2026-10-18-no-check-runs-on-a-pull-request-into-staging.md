@@ -1,6 +1,6 @@
 ---
 slug:            gotcha-2026-10-18-no-check-runs-on-a-pull-request-into-staging
-status:          active
+status:          live
 noted:           2026-10-18
 severity:        notable
 retired:         null
