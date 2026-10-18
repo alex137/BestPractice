@@ -386,6 +386,10 @@ HOOK_SCRIPT_FILES = [
     # instantiated .template is a stub holding only the person's values.
     'individual-source-bootstrap.sh',
     'merge-check-gate.sh',
+    # Their logic is outbound_privacy_gate.py and outbound_privacy_scan.py, in
+    # ENGINE_FILES (2026-10-18).
+    'outbound-privacy-gate.sh',
+    'outbound-privacy-scan.sh',
     'precedent-hooks.sh',
     'precedent-paths.sh',
     'precedent-universal-catalogue.sh',
@@ -402,6 +406,10 @@ HOOK_SCRIPT_FILES = [
 ENGINE_FILES = [
     # What answer-first-gate.sh runs (HOOK_SCRIPT_FILES).
     'answer_first_gate.py',
+    # What outbound-privacy-gate.sh and outbound-privacy-scan.sh run
+    # (HOOK_SCRIPT_FILES), practice outbound-privacy (2026-10-18).
+    'outbound_privacy_gate.py',
+    'outbound_privacy_scan.py',
     'build_views.py',
     # The one place this engine asks GitHub anything, and the counter behind
     # precedent_check.py's github-api-budget check (added 2026-09-14). It

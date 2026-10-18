@@ -6,6 +6,17 @@
       "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__.*__(merge_pull_request|create_pull_request|update_pull_request|push_files|create_or_update_file|delete_file|create_branch)",
       "script": "answer-first-gate.sh",
       "timeout": 10
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "Bash|WebFetch|WebSearch|mcp__.*",
+      "script": "outbound-privacy-gate.sh",
+      "timeout": 10
+    },
+    {
+      "event": "Stop",
+      "script": "outbound-privacy-scan.sh",
+      "timeout": 30
     }
   ],
   "source": [
@@ -14,6 +25,17 @@
       "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__.*__(merge_pull_request|create_pull_request|update_pull_request|push_files|create_or_update_file|delete_file|create_branch)",
       "script": "answer-first-gate.sh",
       "timeout": 10
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "Bash|WebFetch|WebSearch|mcp__.*",
+      "script": "outbound-privacy-gate.sh",
+      "timeout": 10
+    },
+    {
+      "event": "Stop",
+      "script": "outbound-privacy-scan.sh",
+      "timeout": 30
     }
   ]
 }
