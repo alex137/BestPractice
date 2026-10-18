@@ -237,6 +237,7 @@
   "check_gone_path_matcher_matches_one_regex_per_path": 2.0,
   "check_gotcha_currency_signals_fire": 0.1,
   "check_harness_drops_inherited_git_repository_variables": 1.5,
+  "check_harness_fixtures_run_no_background_maintenance": 8.7,
   "check_harness_reach_selects_what_a_change_reaches": 0.6,
   "check_harness_times_merge_without_a_conflict": 0.3,
   "check_heading_anchor_keeps_combining_marks": 0.4,
