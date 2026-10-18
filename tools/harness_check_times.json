@@ -548,6 +548,7 @@
   "check_settled_marker_scan_is_scoped_and_follows_the_split": 0.0,
   "check_shallow_clone_never_fabricates_unlanded_work": 0.1,
   "check_shared_helpers_have_one_copy": 5.6,
+  "check_shared_set_leaves_a_link_at_the_attach_path": 0.3,
   "check_shipped_copy_has_no_broken_links": 0.5,
   "check_shipped_hooks_pass_rename_links_without_the_mirror": 4.6,
   "check_shipped_tests_name_their_owner_and_fail_at_home": 0.7,
