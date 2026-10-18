@@ -99,7 +99,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 149 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 150 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -250,6 +250,8 @@ When decommissioning a mechanism:
   decommission-deletes-files — delete what it owned; audit first, never on a hunch
 When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
+When fetching a page, searching the web, calling an outside service, or writing a script or an agent brief that will:
+  outbound-privacy — nothing private in an outbound request; contact fields get a generic id
 When finishing a task a session was spawned or triggered to do:
   report-up-the-chain — report to whoever tasked you; noticed work goes up, never out as an offer
 When finishing substantial work, or merging a branch:
