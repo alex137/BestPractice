@@ -65255,6 +65255,53 @@ def check_settled_marker_scan_is_scoped_and_follows_the_split():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_load_ceiling_blocks_only_the_change_that_grew_it():
+    """session-load-budget refuses an over-ceiling surface only when the
+    change in scope grew it; growth from a source the change did not touch
+    prints at the merge and push gates instead (S. Alexander Jacobson,
+    2026-10-16). The discriminating case is the first: a consumer's
+    session-start file over its ceiling, on a branch that touched neither
+    precedent.json, its repo-local source nor the registry -- the filing
+    record that was held off trunk for hours."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    def approx(text):
+        return len(text.split())
+
+    class Ctx:
+        def __init__(self, base, changed, base_text=None):
+            self.base, self.changed, self._bt = base, changed, base_text
+
+        def read_base(self, rel):
+            return self._bt
+
+    sp = '.precedent/SESSION_PRACTICES.md'
+    grew = pc._change_grew_surface
+    cases = [
+        ('THE DISCRIMINATING CASE: the session-start file over its ceiling on '
+         'a branch that touched none of its owned inputs is not this '
+         'change\'s finding',
+         not grew(Ctx('abc', ['patents/x.md']), sp, 334, approx)),
+        ('the same file IS the change\'s when it touched precedent.json',
+         grew(Ctx('abc', ['precedent.json']), sp, 334, approx)),
+        ('...or the registry, which set the ceiling',
+         grew(Ctx('abc', ['tools/session_load_budgets.json']), sp, 334, approx)),
+        ('a tracked surface the change made bigger is the change\'s',
+         grew(Ctx('abc', ['AGENTS.md'], 'a b c'), 'AGENTS.md', 5, approx)),
+        ('a tracked surface already that size before the change is not',
+         not grew(Ctx('abc', ['x.md'], 'a b c d e'), 'AGENTS.md', 5, approx)),
+        ('a surface new in this change is the change\'s',
+         grew(Ctx('abc', ['AGENTS.md'], None), 'AGENTS.md', 5, approx)),
+        ('with no change in scope (a clean trunk sweep) it is reported as '
+         'before',
+         grew(Ctx(None, []), sp, 334, approx)),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'an over-ceiling surface blocks only the change that grew it '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_session_load_reports_a_file_over_its_own_declared_ceiling():
     """The SESSION LOAD pass compares each FILE to the ceiling its own repo
     declared, and not only each SECTION to the review threshold
@@ -85260,6 +85307,7 @@ def main():
     check_legacy_bootstrap_shim_is_replaced()
     check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()
+    check_load_ceiling_blocks_only_the_change_that_grew_it()
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_engine_tools_say_which_repo_they_read()
     check_todo_index_check_survives_midnight()
