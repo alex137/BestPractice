@@ -174,4 +174,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A merge of staging into a branch stops on a conflict in `tools/harness_check_times.json`, often the only conflicted file. Or the merge goes through and, later, `check_as_ci_parts_partition_the_suite` fails with "the committed record names only checks that exist: stale: ...".** [story](gotcha-2026-10-17-the-harness-times-file-conflicts-on-every-merge.md)
 
-- **A Booked landing is refused with "This one takes a pull request ... merge it once its checks pass". The pull request into `staging` shows no checks at all, and the session sits waiting for a CI event that never arrives.** [story](gotcha-2026-10-18-no-check-runs-on-a-pull-request-into-staging.md)
+- **A landing on `staging` is refused with "This one takes a pull request ... merge it once its checks pass". The pull request into `staging` shows no checks at all, and the session sits waiting for a CI event that never arrives.** [story](gotcha-2026-10-18-no-check-runs-on-a-pull-request-into-staging.md)
+
+- **Every `git commit` is refused with "ANSWER FIRST: the person's latest message asks something, and it has not been answered yet", even after the session has written the person a long answer in the same turn. Rewording the answer, or making it longer, changes nothing.** [story](gotcha-2026-10-18-the-answer-first-gate-cannot-see-text-written-between-tool-calls.md)
