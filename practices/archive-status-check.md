@@ -82,10 +82,12 @@ the reply gate ([the-boildown](the-boildown.md)'s
 `require_container_safe_if_says`), which is the 2026-09-22 amendment below.
 
 **Anything is outstanding -- do not archive.** Say plainly what it is: a
-merge still open, something the assistant is waiting on, a recommendation
-worth hearing before the person moves on to something else. Leave the
-decision with the person; this phrase asks a question, it does not answer
-itself.
+merge into the landing branch still open (never a Produce or a move into
+`main`: work already on staging gets a one-line note that it is not on
+main, and the archive goes ahead, per [the-boildown](the-boildown.md)),
+something the assistant is waiting on, a recommendation worth hearing
+before the person moves on to something else. Leave the decision
+with the person; this phrase asks a question, it does not answer itself.
 
 ## Detail
 **This absorbs `archive-command`'s old job.** That practice used to mean
