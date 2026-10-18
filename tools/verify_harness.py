@@ -185,6 +185,24 @@ GIT_REPOSITORY_ENV_VARS = (
 for _var in GIT_REPOSITORY_ENV_VARS:
     os.environ.pop(_var, None)
 
+# GIT'S BACKGROUND MAINTENANCE (2026-10-18, issue #1207). A commit ends by
+# starting `git maintenance run --auto` detached, and that run holds
+# .git/objects/maintenance.lock for a moment. check_precedent_check_fires
+# copies its pristine fixture with shutil.copytree right after committing
+# into it, listed the lock, found it gone by the time it went to copy it, and
+# turned GitHub's test on pull request #1206 red with nothing wrong in the
+# tree. No fixture wants git tidying its throwaway repository behind its
+# back, so every git this harness or its subprocesses start is told not to,
+# appended to any GIT_CONFIG_COUNT entries already in the environment
+# (check_harness_fixtures_run_no_background_maintenance).
+HARNESS_GIT_CONFIG = (('maintenance.auto', 'false'), ('gc.auto', '0'))
+_n = int(os.environ.get('GIT_CONFIG_COUNT') or 0)
+for _key, _value in HARNESS_GIT_CONFIG:
+    os.environ[f'GIT_CONFIG_KEY_{_n}'] = _key
+    os.environ[f'GIT_CONFIG_VALUE_{_n}'] = _value
+    _n += 1
+os.environ['GIT_CONFIG_COUNT'] = str(_n)
+
 # THE SAME, FOR THE GITHUB ACCOUNT (2026-09-30). The account a session's
 # token belongs to now fills in the private sets' location and the commit
 # identity when nothing declares them, and a cloud container's proxy answers
@@ -9915,6 +9933,53 @@ def check_harness_drops_inherited_git_repository_variables():
                       not moved))
         cases.append((f'...and the fixture\'s repositories are its own '
                       f'(own={own})', own))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_harness_fixtures_run_no_background_maintenance():
+    """A fixture's git never starts background maintenance, so copying a
+    fixture right after a commit cannot race a lock file git is about to
+    delete (issue #1207: check_precedent_check_fires died copying
+    pristine/.git/objects/maintenance.lock). Run in a subprocess that imports
+    this module, so it measures the block at the top of this file rather than
+    whatever the container's own git config says; the control runs the same
+    probe without the import and must see git's defaults."""
+    import tempfile as _tf
+    name = 'fixture git runs no background maintenance'
+    probe = ('import subprocess, sys\n'
+             'if sys.argv[1] == "import":\n'
+             '    sys.path.insert(0, sys.argv[2]); import verify_harness\n'
+             'r = subprocess.run(["git", "-C", sys.argv[3], "config", "--get",\n'
+             '                    sys.argv[4]], capture_output=True, text=True)\n'
+             'print(r.stdout.strip())\n')
+    cases = []
+    with _tf.TemporaryDirectory(prefix='harness-maint-') as td:
+        env = {k: v for k, v in os.environ.items()
+               if not k.startswith('GIT_CONFIG_')}
+        subprocess.run(['git', 'init', '-q', td], env=env, capture_output=True)
+
+        def ask(mode, key):
+            return subprocess.run(
+                [sys.executable, '-c', probe, mode, str(ROOT / 'tools'), td, key],
+                env=env, capture_output=True, text=True).stdout.strip()
+        for key, value in HARNESS_GIT_CONFIG:
+            got = ask('import', key)
+            cases.append((f'with the harness imported, {key} is {value} '
+                          f'(got {got!r})', got == value))
+        got = ask('plain', 'maintenance.auto')
+        cases.append((f'control: without the import maintenance.auto is not '
+                      f'forced off (got {got!r})', got != 'false'))
+        planted = subprocess.run(
+            [sys.executable, '-c',
+             'import os, sys; sys.path.insert(0, sys.argv[1]); '
+             'import verify_harness; print(os.environ["GIT_CONFIG_KEY_0"], '
+             'os.environ["GIT_CONFIG_COUNT"])', str(ROOT / 'tools')],
+            env=dict(env, GIT_CONFIG_COUNT='1', GIT_CONFIG_KEY_0='a.b',
+                     GIT_CONFIG_VALUE_0='c'),
+            capture_output=True, text=True).stdout.split()
+        cases.append((f'an entry already in GIT_CONFIG_COUNT is kept, not '
+                      f'replaced (got {planted})', planted == ['a.b', '3']))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -85315,6 +85380,7 @@ def main():
     check_new_rule_shows_its_debt_and_booked_names_it()
     check_bot_authored_commits_are_warned_where_no_person_is_declared()
     check_harness_drops_inherited_git_repository_variables()
+    check_harness_fixtures_run_no_background_maintenance()
     check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()
     check_move_dedupe_stub_names_the_slug_alone()
