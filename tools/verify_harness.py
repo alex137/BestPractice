@@ -77539,6 +77539,40 @@ def _owned_word_hits(text, owners=None):
             for h in sw.output_hits(text, words)]
 
 
+def check_set_words_leave_out_the_set_itself_by_name():
+    """A set checked out somewhere other than its clone -- the worktree
+    `--run-tests` makes -- is still that set, so set_words.sets_with_words
+    leaves it out by name, not only by path. 2026-10-18: the ladder set's
+    full check on main judged the ladder's own practices for using the
+    ladder's words, because the clone a person brings sat at another path.
+    A different set's words are still returned (the control)."""
+    import set_words as sw
+    import tempfile
+    words = {'patterns': [{'kind': 'a zz word', 'regex': r'\bZzword\b',
+                           'matches': ['Zzword'], 'never_matches': ['zzword']}]}
+    saved = os.environ.get('PRECEDENT_USER_CONFIG')
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+        try:
+            for d, name in (('clone', 'zz-set'), ('other', 'zz-other'),
+                            ('wt', 'zz-set')):
+                (tmp / d / '.git').mkdir(parents=True)
+                (tmp / d / 'precedent-source.json').write_text(json.dumps(
+                    {'name': name, 'level': 'shared', 'owned_words': words}))
+            (tmp / 'wt' / 'precedent.json').write_text(json.dumps({'sources': [
+                {'level': 'shared', 'name': 'zz-set', 'path': '../clone'},
+                {'level': 'shared', 'name': 'zz-other', 'path': '../other'}]}))
+            got = sorted(n for n, *_ in sw.sets_with_words(tmp / 'wt'))
+        finally:
+            if saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved
+    check('a set checked out in a second place does not judge its own words',
+          got == ['zz-other'], f'sets_with_words gave {got}')
+
+
 def check_ladder_off_engine_says_no_ladder_words():
     """spec/LADDER_OPT_IN_PLAN.md assertion B, on the engine's own output: a
     person with no practice set of their own -- the ladder not in force --
@@ -85195,6 +85229,7 @@ def main():
     check_attached_sets_sources_are_synced()
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()
+    check_set_words_leave_out_the_set_itself_by_name()
     check_ladder_off_engine_says_no_ladder_words()
     check_ladder_test_session_and_the_two_ladder_checks()
     check_consumer_sync_counts_what_a_brought_set_provides()
