@@ -27,6 +27,8 @@ each add an entry add two files and never meet in a merge.
 
 **Only the generated view may conflict, and a conflict there is resolved by
 taking either side and rebuilding it**, because the directory is the truth.
+After a `git merge` stops, `python3 tools/precedent_resolve_merge.py` does
+that for every generated file and stages the result, as a landing does.
 
 ## Detail
 **What counts.** A file is an index when most of its growth is new rows or
