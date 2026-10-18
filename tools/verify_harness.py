@@ -44237,6 +44237,38 @@ def check_session_check_never_calls_an_unfetched_clone_current():
         cases.append(('WITH a fetch the same clone is measured behind',
                       v_on == 'behind' and '1 commit' in phrase,
                       f'{v_on}: {phrase}'))
+        # ON ITS OWN LANDING LINE (2026-10-18): a set declaring base main
+        # and landing staging, checked out at origin/staging while main
+        # carries a direct commit staging lacks, is current -- and the same
+        # clone behind origin/staging is still behind.
+        (upstream / 'precedent.json').write_text(
+            '{"base_branch": "main", "landing_branch": "staging"}\n')
+        g(upstream, 'add', '-A')
+        g(upstream, 'commit', '-qm', 'declare')
+        g(upstream, 'branch', 'staging')
+        g(upstream, 'checkout', '-q', 'staging')
+        (upstream / 's.txt').write_text('staged\n')
+        g(upstream, 'add', '-A')
+        g(upstream, 'commit', '-qm', 'staged work')
+        g(upstream, 'checkout', '-q', 'main')
+        (upstream / 'm.txt').write_text('direct\n')
+        g(upstream, 'add', '-A')
+        g(upstream, 'commit', '-qm', 'direct to main')
+        g(clone, 'fetch', '-q', 'origin',
+          '+refs/heads/staging:refs/remotes/origin/staging')
+        g(clone, 'checkout', '-q', '-B', 'work', 'origin/staging')
+        v_l, phrase = psc._clone_behind(str(clone), fetch=True)
+        cases.append(('a clone at its own landing branch, behind only what '
+                      'main has and staging lacks, is current',
+                      v_l == 'current' and 'origin/staging' in phrase,
+                      f'{v_l}: {phrase}'))
+        v_m, phrase = psc._clone_behind(str(clone), fetch=True, branch='main')
+        cases.append(('the same clone read at a caller-named main is behind',
+                      v_m == 'behind', f'{v_m}: {phrase}'))
+        g(clone, 'checkout', '-q', '-B', 'work', 'origin/staging~1')
+        v_b, phrase = psc._clone_behind(str(clone), fetch=True)
+        cases.append(('a clone behind its own landing branch is still behind',
+                      v_b == 'behind', f'{v_b}: {phrase}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -52381,6 +52413,107 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_removed_engine_path_is_found_in_the_sets_beside():
+    """An engine path this branch removes, still named in a practice set
+    beside the checkout, is reported -- and the set's own vendored copy of
+    the file, which its next refresh removes, is not.
+
+    WHY (2026-10-18). tools/ladder_words.py moved from the engine into a
+    set; a comment in that set kept naming the engine path, and only the
+    set's next Update Vendors stopped on it."""
+    import json as _j, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='stranded-in-sets-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+    saved = prs.candidate_dirs
+    try:
+        def make(name, kind):
+            r = tmp / name
+            (r / 'tools').mkdir(parents=True)
+            (r / 'tools' / 'ENGINE_MANIFEST.json').write_text(_j.dumps(
+                {'kind': kind, 'files': ['gone_words.py', 'kept.py']}))
+            (r / 'tools' / 'gone_words.py').write_text('# tools/gone_words.py\n')
+            (r / 'MAP.md').write_text('---\ngenerated_by: tools/build_views.py\n'
+                                      '---\n[tools/gone_words.py](x)\n')
+            (r / 'precedent-source.json').write_text(
+                '{"_c": "moved from the engine\'s tools/gone_words.py"}\n')
+            subprocess.run(['git', 'init', '-q', str(r)], capture_output=True)
+            subprocess.run(['git', '-C', str(r), 'add', '-A'], capture_output=True)
+            subprocess.run(['git', '-C', str(r), 'commit', '-qm', 'x'],
+                           capture_output=True, env=env)
+            return r
+        a_set, consumer = make('a-set', 'source'), make('consumer', 'consumer')
+        prs.candidate_dirs = lambda extra=(): [a_set, consumer]
+        got = prs.stranded_in_sets(['tools/gone_words.py'])
+        where = [w for _l, w, _o in got]
+        cases.append(('the live mention in the set is reported',
+                      any(w.startswith('precedent-source.json:') for w in where),
+                      repr(got)))
+        cases.append(('...not the set\'s vendored copy, its generated MAP.md, '
+                      'nor a consumer',
+                      len(got) == 1, repr(got)))
+        cases.append(('a path no set vendors finds nothing',
+                      prs.stranded_in_sets(['tools/never_vendored.py']) == [],
+                      ''))
+    finally:
+        prs.candidate_dirs = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{c[0]} ({c[2]})' for c in cases if not c[1]]
+    check(f'a removed engine path still named in a set beside is reported '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_refresh_sources_branch_line_only_when_the_tree_is_older():
+    """The session-start BRANCH line ("BRANCH on X -- expected main") is
+    printed only when the clone could actually sync older text: off its
+    expected branch AND not containing origin/<expected>.
+
+    WHY (2026-10-18). A session checked out on its designated branch,
+    sitting exactly at origin/main, read the warning three times at start
+    for a revert that could not happen. Real git: a clone at origin/main on
+    another branch name, one past it, and one behind it -- only the last
+    keeps the line."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-branch-line-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def g(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env).stdout.strip()
+    try:
+        origin, clone = tmp / 'origin.git', tmp / 'set'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        g(tmp, 'clone', '-q', str(origin), str(clone))
+        for n in ('one', 'two'):
+            (clone / 'f.txt').write_text(n + '\n', encoding='utf-8')
+            g(clone, 'add', '-A'); g(clone, 'commit', '-qm', n)
+        g(clone, 'push', '-q', 'origin', 'main')
+        g(clone, 'checkout', '-q', '-b', 'claude/session-branch')
+        cases.append(('at origin/main under another name: no line',
+                      prs.holds_expected_tree(clone, 'main'), ''))
+        (clone / 'g.txt').write_text('mine\n', encoding='utf-8')
+        g(clone, 'add', '-A'); g(clone, 'commit', '-qm', 'mine')
+        cases.append(('past origin/main: no line',
+                      prs.holds_expected_tree(clone, 'main'), ''))
+        g(clone, 'checkout', '-q', '-B', 'claude/session-branch', 'main~1')
+        cases.append(('behind origin/main: the line stays',
+                      not prs.holds_expected_tree(clone, 'main'), ''))
+        cases.append(('no origin/<expected> at all: the line stays',
+                      not prs.holds_expected_tree(clone, 'nowhere'), ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'the session-start BRANCH line fires only for an older tree '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_refresh_sources_never_fetches_the_branch_a_clone_sits_on():
     """THE BUG (2026-10-14). A session that attaches a set gets the clone
     on the session's own branch, which origin has never had. For a set
@@ -52440,6 +52573,10 @@ def check_refresh_sources_never_fetches_the_branch_a_clone_sits_on():
                       ok and g(clone, 'rev-parse', 'HEAD') == g(seed, 'rev-parse', 'HEAD')
                       and g(clone, 'rev-parse', '--abbrev-ref', 'HEAD')
                       == 'claude/starter-abc12', note))
+        cases.append(('B2. ...and the line names the branch that moved '
+                      '(2026-10-18: a working branch moved with only "now at '
+                      'origin/main" said)',
+                      'moved branch claude/starter-abc12' in note, note))
         ok_o, note_o = prs.make_current(own, prs._pinned_branch(own))
         cases.append(('C. CONTROL: a commit of its own is refused, unchanged',
                       not ok_o and g(own, 'rev-parse', 'HEAD') == own_head
@@ -85240,6 +85377,8 @@ def main():
     check_refresh_sources_path_names_the_whole_target()
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
     check_refresh_sources_never_fetches_the_branch_a_clone_sits_on()
+    check_refresh_sources_branch_line_only_when_the_tree_is_older()
+    check_removed_engine_path_is_found_in_the_sets_beside()
     check_leak_gate_reads_a_declared_visibility_before_the_owner_default()
     check_staging_tier_is_never_main_where_origin_has_staging()
     check_workflows_use_actions_that_run_on_node_24()
