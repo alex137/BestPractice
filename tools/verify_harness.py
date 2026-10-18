@@ -52413,6 +52413,45 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_land_refusal_says_whether_a_pull_request_gets_checks():
+    """When a landing is refused and sent through a pull request, the land
+    tool says whether any workflow checks a pull request into that branch,
+    and with none, to merge at once.
+
+    WHY (2026-10-18). The refusal said "merge it once its checks pass"; no
+    workflow ran on pull requests into staging, and a session waited on a
+    check that never started until Morgan asked if anything was happening."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    cases = []
+    with tempfile.TemporaryDirectory() as t:
+        wf = pathlib.Path(t) / '.github' / 'workflows'
+        wf.mkdir(parents=True)
+        (wf / 'ci.yml').write_text(
+            'on:\n  pull_request:\n    branches: [main]\n  push:\n'
+            '    branches: [main]\njobs: {}\n', encoding='utf-8')
+        cases.append(('a pull request into staging gets no check',
+                      pb.pull_request_checks(t, 'staging') == [], ''))
+        cases.append(('a pull request into main gets ci.yml',
+                      pb.pull_request_checks(t, 'main') == ['ci.yml'], ''))
+        note = pb.pull_request_route_note(t, 'staging')
+        cases.append(('with none, the note says merge straight away',
+                      'merge it straight away' in note
+                      and 'Do not wait' in note, note))
+        (wf / 'any.yml').write_text('on: [pull_request]\njobs: {}\n',
+                                    encoding='utf-8')
+        cases.append(('a bare pull_request trigger covers every base',
+                      pb.pull_request_checks(t, 'staging') == ['any.yml'], ''))
+    cases.append(('the land tool prints the note after a pull-request refusal',
+                  'pull_request_route_note(root, staging)' in
+                  (ROOT / 'tools' / 'precedent_branches.py').read_text(
+                      encoding='utf-8'), ''))
+    bad = [f'{c[0]} ({c[2]})' for c in cases if not c[1]]
+    check(f'a land refusal says whether a pull request gets checks '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_removed_engine_path_is_found_in_the_sets_beside():
     """An engine path this branch removes, still named in a practice set
     beside the checkout, is reported -- and the set's own vendored copy of
@@ -85379,6 +85418,7 @@ def main():
     check_refresh_sources_never_fetches_the_branch_a_clone_sits_on()
     check_refresh_sources_branch_line_only_when_the_tree_is_older()
     check_removed_engine_path_is_found_in_the_sets_beside()
+    check_land_refusal_says_whether_a_pull_request_gets_checks()
     check_leak_gate_reads_a_declared_visibility_before_the_owner_default()
     check_staging_tier_is_never_main_where_origin_has_staging()
     check_workflows_use_actions_that_run_on_node_24()

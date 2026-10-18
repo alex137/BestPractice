@@ -58,6 +58,7 @@ as_of: 2026-10-18
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 13d | ask |  |
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 7d | ask |  |
 | [`todo-2026-10-18-harness-branch-named-in-instructions-not-caught`](todo-2026-10-18-harness-branch-named-in-instructions-not-caught.md) | A ladder-set session's push was refused by `tools/branch_name_guard.py | 0d | ask | push access to themorgan/precedent-shared-ladder in a session working on it |
+| [`todo-2026-10-18-landing-guard-refusal-promises-checks`](todo-2026-10-18-landing-guard-refusal-promises-checks.md) | precedent-shared-ladder's `tools/landing_pr_guard.py` refuses a high-risk | 0d | ask | push access to themorgan/precedent-shared-ladder in a session working on it |
 
 ## Verify Before External Use
 
