@@ -22,7 +22,7 @@ commit was refused three times. Reading the transcript the gate reads showed
 why: of the session's text blocks that turn, only a three-word one ("Now the
 edits.") had been written to it. The longer ones were shown to the person
 but never reached the file, so
-[`answer_first_gate.py`](../tools/answer_first_gate.py) counted 3 words and
+[`answer_first_gate.py`](https://github.com/alex137/BestPractice/blob/staging/tools/answer_first_gate.py) counted 3 words and
 held the commit. It went through on the next turn, once the turn-ending reply
 had been recorded.
 
