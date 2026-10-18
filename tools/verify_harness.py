@@ -18499,7 +18499,8 @@ def check_acronym_scan_skips_wrapped_code_spans():
         import doc_lint as dl
     finally:
         sys.path.pop(0)
-    name = 'the acronym scan skips code spans that wrap across lines'
+    name = ('the acronym scan skips code spans that wrap across lines, and '
+            'a shouted phrase')
     toks = lambda t: [tok for _i, tok in dl.scan_unglossed(t, set(), 'x.md')
                       if tok in ('QZXA', 'QZXB', 'QZXC', 'QZXD')]
     cases = [
@@ -18511,6 +18512,13 @@ def check_acronym_scan_skips_wrapped_code_spans():
          toks('An open ` tick.\n\nQZXC and a close ` tick.\n') == ['QZXC']),
         ('a fenced block is not joined to prose around it',
          toks('Open `\n```\ncode\n```\nQZXD` here.\n') == ['QZXD']),
+        ('a shouted phrase quoted inline is not an acronym (reach-or-ask, '
+         '2026-10-17: "IT IS A HUGE TOKEN ORDEAL")',
+         toks('He said "QZXA IS A HUGE TOKEN QZXB" twice.\n') == []),
+        ('two capitalized words in a row are still scanned',
+         toks('Use QZXC QZXD here.\n') == ['QZXC', 'QZXD']),
+        ('a comma list of acronyms is still scanned',
+         toks('Use QZXA, QZXB and QZXC.\n') == ['QZXA', 'QZXB', 'QZXC']),
         ('line numbers still point at the right line',
          [i for i, tok in dl.scan_unglossed('a `b\nc` d\nQZXA\n', set(), 'x.md')
           if tok == 'QZXA'] == [3]),
@@ -31930,7 +31938,12 @@ def check_stale_branches_lists_one_repository_once():
                 else:
                     sys.modules['precedent_container_safe'] = saved
 
-        got = listed([first, second, other])
+        sb_github = sb._github
+        sb._github = lambda: None
+        try:
+            got = listed([first, second, other])
+        finally:
+            sb._github = sb_github
         slugs = [s_ for _p, s_ in got]
         cases.append(('two clones whose origins differ only in case are one '
                       f'repository, shown as first spelled ({slugs})',
@@ -31938,9 +31951,29 @@ def check_stale_branches_lists_one_repository_once():
                       and not any(s_ == ('alex137', 'bestpractice') for s_ in slugs)))
         cases.append((f'CONTROL: a different repository is still listed ({slugs})',
                       ('alex137', 'something-else') in slugs and len(slugs) == 2))
-        got = listed([link, first, other])
+        sb._github = lambda: None
+        try:
+            got = listed([link, first, other])
+        finally:
+            sb._github = sb_github
         cases.append(('one clone reached through two paths is listed once '
                       f'({[str(p_) for p_, _s in got]})', len(got) == 2))
+        # GitHub's own spelling for a clone the attach tool made from a
+        # lowercase URL (2026-10-17); unchanged when GitHub cannot answer.
+        answers = {'repos/alex137/bestpractice':
+                   ({'full_name': 'alex137/BestPractice'}, None)}
+        fake = types.SimpleNamespace(
+            call=lambda path, **_k: answers.get(path, (None, '404 Not Found')))
+        real_github = sb._github
+        sb._github = lambda: fake
+        try:
+            got = [s_ for _p, s_ in listed([second, other])]
+        finally:
+            sb._github = real_github
+        cases.append(('a clone whose origin is all lowercase is shown as GitHub '
+                      f'spells it ({got})', ('alex137', 'BestPractice') in got))
+        cases.append(('...and one GitHub does not answer for keeps its own '
+                      f'spelling ({got})', ('alex137', 'something-else') in got))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -32514,6 +32547,33 @@ def check_archive_check_sees_work_left_in_a_scratch_folder():
                       'scratch:abcd1234' in unsafe_names(r)
                       and 'msg.txt' in r.stdout, r.stdout[:300]))
         (sess / 'msg.txt').unlink()
+        # A helper's worktree whose branch is on origin is safe to lose,
+        # and said so; one with a commit no remote has is not (2026-10-18:
+        # a folder of landed helper worktrees read NOT SAFE every time).
+        bare = pathlib.Path(td) / 'origin.git'
+        subprocess.run(['git', 'init', '-q', '--bare', str(bare)],
+                       capture_output=True)
+        _g('remote', 'add', 'origin', str(bare))
+        _g('push', '-q', 'origin', 'HEAD:refs/heads/helper')
+        _g('fetch', '-q', 'origin')
+        wt = sess / 'helper-wt'
+        _g('worktree', 'add', '-q', '--detach', str(wt), 'origin/helper')
+        r = scan_repo()
+        plain = subprocess.run(
+            [sys.executable, str(scanner), '--only', str(repo), '--scratch',
+             str(sess), '--no-processes'], capture_output=True, text=True)
+        cases.append(('a helper worktree whose HEAD is on origin is safe to '
+                      'lose, and the report says so',
+                      'scratch:abcd1234' not in unsafe_names(r)
+                      and 'safe to lose' in plain.stdout,
+                      r.stdout[:300] + plain.stdout[:300]))
+        subprocess.run(['git', '-C', str(wt), '-c', 'user.name=t', '-c',
+                        'user.email=t@example.com', 'commit', '-q',
+                        '--allow-empty', '-m', 'only here'], capture_output=True)
+        r = scan_repo()
+        cases.append(('...and one holding a commit no remote has is not',
+                      'scratch:abcd1234' in unsafe_names(r), r.stdout[:300]))
+        _g('worktree', 'remove', '--force', str(wt))
         (sess / 'out').mkdir()
         (sess / 'out' / 'summaries.txt').write_text('189 lines\n', encoding='utf-8')
         r = scan()
@@ -57721,6 +57781,91 @@ print(json.dumps(ln.file_failure(ln.ROOT, 'Landing failed: feat/x', 'push reject
     check(f'a failure item lists the index it creates ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_global_pre_push_refuses_a_tree_the_full_sweep_failed():
+    """A tree `precedent_check.py --full-sweep` just failed is refused by the
+    global pre-push, from any session root.
+
+    2026-10-17: a session rooted in /home/user, above every repository it
+    worked in, ran none of their harness hooks. Twice it chained a push
+    after a full sweep piped into `tail`, and the push went out over a
+    failing sweep. The global pre-push refused a tree the PUSH check had
+    failed (check_global_pre_push_refuses_a_tree_the_check_failed); the
+    sweep wrote nothing there. Now a failing whole-tree sweep on a clean
+    tree writes it down, a passing one clears only its own entry, and the
+    hook commit-identity.sh writes does the refusing."""
+    import inspect
+    import tempfile
+    import precedent_check as _pc
+    import precedent_push_check as _ppc
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = {**_fixture_git_env(), 'HOME': str(tmp / 'home'),
+               'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        (tmp / 'home').mkdir()
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        g = lambda cwd, *a, **e: subprocess.run(
+            ['git', '-C', str(cwd), *a], capture_output=True, text=True,
+            env={**env, **e})
+        bare, work = tmp / 'origin.git', tmp / 'work'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        g(tmp, 'init', '-q', '-b', 'main', str(work))
+        (work / 'a.md').write_text('a\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'base')
+        g(work, 'remote', 'add', 'origin', f'file://{bare}')
+        g(work, 'push', '-q', 'origin', 'main')
+        hooks = tmp / 'hooks'
+        subprocess.run(['bash', str(ROOT / 'tools' / 'commit-identity.sh')],
+                       capture_output=True, text=True, timeout=120,
+                       env=dict(env, CLAUDE_PROJECT_DIR=str(work),
+                                PRECEDENT_COMMIT_NAME='T',
+                                PRECEDENT_COMMIT_EMAIL='t@example.com',
+                                PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                                PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                                PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+        g(work, 'config', 'core.hooksPath', str(hooks))
+        g(work, 'checkout', '-q', '-b', 'feature')
+        (work / 'b.md').write_text('b\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'work', '--no-verify')
+        tree = g(work, 'rev-parse', 'HEAD^{tree}').stdout.strip()
+        # A new ref each time: a push with nothing to send runs no pre-push.
+        pushes = iter(range(100))
+        push = lambda: g(work, 'push', 'origin',
+                         f'HEAD:refs/heads/feature-{next(pushes)}')
+        record = getattr(_pc, 'record_sweep_result', None)
+        cases.append(('precedent_check has a sweep recorder, and main() calls '
+                      'it under --full-sweep', record is not None
+                      and 'record_sweep_result(ROOT' in inspect.getsource(_pc.main),
+                      ''))
+        if record is None:
+            record = lambda *_a: None
+        (work / 'a.md').write_text('dirty\n', encoding='utf-8')
+        record(work, ['catalogue-carries-stories'])
+        g(work, 'checkout', '-q', '--', 'a.md')
+        cases.append(('a sweep of uncommitted edits writes nothing: it did not '
+                      'judge the committed tree', push().returncode == 0, ''))
+        record(work, ['catalogue-carries-stories'])
+        p = push()
+        cases.append(('THE DISCRIMINATING CASE: a push of the tree the sweep just '
+                      'failed is refused, naming the sweep and the practice',
+                      p.returncode != 0 and 'full-sweep' in p.stderr
+                      and 'catalogue-carries-stories' in p.stderr, p.stderr[-500:]))
+        record(work, [])
+        cases.append(('once a sweep passes on the same tree, it pushes',
+                      push().returncode == 0, ''))
+        _ppc.note_failed_tree(work, tree, ['doc_lint'])
+        record(work, [])
+        cases.append(('a passing sweep leaves a push-check failure on the same '
+                      'tree for the push check to clear', push().returncode != 0,
+                      ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the global pre-push refuses a tree the full sweep failed '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_global_pre_push_refuses_a_tree_the_check_failed():
     """A tree the push check last failed is refused by the global pre-push.
 
@@ -78936,7 +79081,8 @@ def check_harness_times_merge_without_a_conflict():
     default_seconds rewritten each time, neighbouring inserts -- and a
     union resolve brought back five timings #1180 had removed, turning the
     --as-ci partition case red. Now: .gitattributes names a merge driver,
-    tools/bootstrap.sh configures it in the clone at session start, and
+    session start configures it in the clone (precedent_session_check.py
+    --merge-drivers, from session-start.sh and bootstrap.sh), and
     --record-new-times leaves the shared fields alone and drops a removed
     test's time itself. Fails on the old code: no driver, so git leaves
     the conflict."""
@@ -78949,11 +79095,15 @@ def check_harness_times_merge_without_a_conflict():
     attr_ok = attrs.is_file() and 'tools/harness_check_times.json merge=precedent-harness-times' \
         in attrs.read_text(encoding='utf-8')
     cases.append(('.gitattributes names the driver for the times file', attr_ok))
-    btext = boot.read_text(encoding='utf-8') if boot.is_file() else ''
-    m = _re.search(r"merge\.precedent-harness-times\.driver \\\s*\n\s*'([^']+)'", btext)
-    cases.append(('bootstrap.sh configures it', bool(m) and script.is_file(),
-                  'no driver line in tools/bootstrap.sh'))
-    driver = m.group(1) if m else ''
+    # Configured at session start by BOTH harnesses (2026-10-18: only
+    # bootstrap.sh did, and Claude Code never runs it).
+    import precedent_session_check as _psc
+    starts = [ROOT / '.claude' / 'hooks' / 'session-start.sh', boot]
+    cases.append(('session-start.sh and bootstrap.sh both configure it',
+                  script.is_file() and all(
+                      f.is_file() and 'precedent_session_check.py --merge-drivers'
+                      in f.read_text(encoding='utf-8') for f in starts),
+                  'a session start that never calls --merge-drivers'))
     with tempfile.TemporaryDirectory() as td:
         repo = pathlib.Path(td) / 'r'
         env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_COMMITTER_NAME='T',
@@ -78978,8 +79128,14 @@ def check_harness_times_merge_without_a_conflict():
             _shutil.copy2(script, repo / 'tools' / script.name)
         if attrs.is_file():
             _shutil.copy2(attrs, repo / '.gitattributes')
-        if driver:
-            git('config', 'merge.precedent-harness-times.driver', driver)
+        missing = _psc.missing_merge_drivers(repo)
+        cases.append(('the session check reports the clone that lacks it '
+                      f'(missing={missing})',
+                      missing == ['precedent-harness-times']))
+        _psc.configure_merge_drivers(repo)
+        missing = _psc.missing_merge_drivers(repo)
+        cases.append((f'...and --merge-drivers sets it (missing={missing})',
+                      missing == []))
         base = {'check_a': 1.0, 'check_b': 2.0, 'check_c': 3.0}
         times(base)
         git('add', '-A')
@@ -86064,6 +86220,7 @@ def main():
     check_landers_wait_their_turn_for_the_lock()
     check_a_failure_item_lists_the_index_it_creates()
     check_global_pre_push_refuses_a_tree_the_check_failed()
+    check_global_pre_push_refuses_a_tree_the_full_sweep_failed()
     check_writing_checks_leave_a_declared_record_as_filed()
     check_vocabulary_lets_a_local_practice_name_a_local_script()
     check_doc_lint_leaves_a_received_practice_to_its_source()

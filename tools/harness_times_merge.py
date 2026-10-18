@@ -6,7 +6,8 @@ its per-test times, so two branches that each record a test never conflict.
         'python3 tools/harness_times_merge.py %O %A %B'
 
 with `tools/harness_check_times.json merge=precedent-harness-times` in
-.gitattributes. tools/bootstrap.sh writes that config at session start, in
+.gitattributes. Session start writes that config (precedent_session_check.py
+--merge-drivers, called by session-start.sh and tools/bootstrap.sh), in
 the clone's own config, wherever .gitattributes names the driver.
 
 WHY (2026-10-17). The file conflicted on nearly every merge that day, in

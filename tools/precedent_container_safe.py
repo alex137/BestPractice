@@ -267,14 +267,58 @@ def is_commit_message(path, msgs):
     return False
 
 
+# A HELPER'S WORKTREE IN SCRATCH (2026-10-18). Helpers check a branch out
+# into the scratch folder with `git worktree add`, push it, and land it. The
+# folder then held nothing but those worktrees, every one of them on
+# origin, and this called the container NOT SAFE every time, so each
+# archive answer needed a verdict written by hand. A git checkout inside a
+# scratch folder is judged as the checkout it is (scan_one: nothing
+# uncommitted, nothing untracked, HEAD reachable from a remote-tracking
+# ref) and, when that finds nothing, its files are safe to lose and the
+# report says so. One that holds anything is still counted, file by file.
+SAFE_SCRATCH_CHECKOUTS = []
+
+
+def scratch_checkouts(d):
+    """-> the git checkouts (a `.git` file or folder at their top) inside
+    scratch folder `d`, outermost first, never `d` itself."""
+    found = []
+    for g in sorted(pathlib.Path(d).rglob('.git')):
+        top = g.parent
+        if top != pathlib.Path(d) and not any(top.is_relative_to(f) for f in found):
+            found.append(top)
+    return found
+
+
+def _scratch_checkout_is_safe(top):
+    """True only when git answers, scan_one finds nothing, and -- for a clone
+    rather than a linked worktree, whose branches its main clone holds and
+    the checkout scan judges -- no local branch has a commit off a remote."""
+    if not _git(top, 'status', '--porcelain')[0] or scan_one(top)['unsafe']:
+        return False
+    if (top / '.git').is_dir():
+        ok, out = _git(top, 'rev-list', '--count', '--branches', '--not',
+                       '--remotes')
+        return ok and out == '0'
+    return True
+
+
 def scan_scratch(d, repos=()):
     """-> an entry shaped like scan_one's, or None when the folder holds
-    nothing but files published on purpose, or commit messages already in
-    one of `repos`."""
+    nothing but files published on purpose, commit messages already in
+    one of `repos`, or checkouts whose work is all on a remote (those are
+    added to SAFE_SCRATCH_CHECKOUTS, so the report can name them)."""
     d = pathlib.Path(d)
     files, msgs = [], None
+    safe = []
+    for top in scratch_checkouts(d):
+        if _scratch_checkout_is_safe(top):
+            safe.append(top)
+            SAFE_SCRATCH_CHECKOUTS.append(top)
     for f in sorted(d.rglob('*')):
         rel = f.relative_to(d)
+        if any(f.is_relative_to(t) for t in safe):
+            continue
         if (f.is_file() and f.name not in PUBLISHED_ON_PURPOSE
                 and rel.parts[0] not in PUBLISHED_COPY_DIRS):
             if msgs is None:
@@ -517,6 +561,9 @@ def main(argv=None):
             for r in running:
                 print(f"  pid {r['pid']}, running {r['elapsed']}: {r['command']}")
             print()
+        for top in SAFE_SCRATCH_CHECKOUTS:
+            print(f'safe to lose: {top} is a checkout in a scratch folder, '
+                  f'and everything in it is on a remote')
         if not bad:
             print(f'container safe: {len(found)} checkout(s), '
                   f'nothing uncommitted and nothing off a remote'
