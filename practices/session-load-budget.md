@@ -23,7 +23,10 @@ ceiling, and every ceiling lives in one registry** —
 [tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_budgets.json).
 That is the instructions file, anything it includes, the generated resident
 block, and the session-start file the private sources write. A surface that
-is loaded and not in the registry is the finding; so is one over its ceiling.
+is loaded and not in the registry is the finding; so is one over its ceiling
+that the change being checked grew. Growth from a source that change did not
+touch is not its finding: the merge and push gates print it as "OVER by", and
+the person decides between a reduction pass and a new ceiling.
 
 **Measure every repo in force, not the one you are rooted in.** A session
 loads its own instructions file *and* whatever each attached team,
