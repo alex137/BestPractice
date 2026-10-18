@@ -11057,7 +11057,12 @@ def check_consumer_engine_carries_what_its_checks_import():
     mods = (set(_re.findall(r'^\s*import (\w+)', src, _re.M))
             | set(_re.findall(r'^\s*from (\w+) import', src, _re.M)))
     local = sorted(m for m in mods if (ROOT / 'tools' / f'{m}.py').is_file())
-    missing = [m for m in local if f'{m}.py' not in _pve.CONSUMER_ENGINE_FILES]
+    # Imported inside a try that reads nothing when the module is absent,
+    # and shipped only here on purpose (2026-10-18: the sets-beside advisory
+    # in rename-updates-links; precedent_check.py's own comment says so).
+    upstream_only = {'precedent_refresh_sources'}
+    missing = [m for m in local if f'{m}.py' not in _pve.CONSUMER_ENGINE_FILES
+               and m not in upstream_only]
     cases = [(f'every engine module precedent_check.py imports is vendored '
               f'to a consumer (missing: {", ".join(missing) or "none"})',
               not missing)]
@@ -52643,6 +52648,17 @@ def check_land_refusal_says_whether_a_pull_request_gets_checks():
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_branches as pb
+    try:
+        import yaml  # noqa: F401
+    except ImportError:
+        # GitHub's runner has no PyYAML (2026-10-18: main's test went red
+        # here). Without it pull_request_checks answers None by design and
+        # the note says it could not tell; the planted workflows cannot be
+        # read, so these cases cannot be judged on such a machine.
+        not_applicable('a land refusal says whether a pull request gets '
+                       'checks', 'PyYAML is not installed, so workflow files '
+                       'cannot be read here')
+        return
     cases = []
     with tempfile.TemporaryDirectory() as t:
         wf = pathlib.Path(t) / '.github' / 'workflows'
