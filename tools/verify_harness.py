@@ -31938,7 +31938,12 @@ def check_stale_branches_lists_one_repository_once():
                 else:
                     sys.modules['precedent_container_safe'] = saved
 
-        got = listed([first, second, other])
+        sb_github = sb._github
+        sb._github = lambda: None
+        try:
+            got = listed([first, second, other])
+        finally:
+            sb._github = sb_github
         slugs = [s_ for _p, s_ in got]
         cases.append(('two clones whose origins differ only in case are one '
                       f'repository, shown as first spelled ({slugs})',
@@ -31946,9 +31951,29 @@ def check_stale_branches_lists_one_repository_once():
                       and not any(s_ == ('alex137', 'bestpractice') for s_ in slugs)))
         cases.append((f'CONTROL: a different repository is still listed ({slugs})',
                       ('alex137', 'something-else') in slugs and len(slugs) == 2))
-        got = listed([link, first, other])
+        sb._github = lambda: None
+        try:
+            got = listed([link, first, other])
+        finally:
+            sb._github = sb_github
         cases.append(('one clone reached through two paths is listed once '
                       f'({[str(p_) for p_, _s in got]})', len(got) == 2))
+        # GitHub's own spelling for a clone the attach tool made from a
+        # lowercase URL (2026-10-17); unchanged when GitHub cannot answer.
+        answers = {'repos/alex137/bestpractice':
+                   ({'full_name': 'alex137/BestPractice'}, None)}
+        fake = types.SimpleNamespace(
+            call=lambda path, **_k: answers.get(path, (None, '404 Not Found')))
+        real_github = sb._github
+        sb._github = lambda: fake
+        try:
+            got = [s_ for _p, s_ in listed([second, other])]
+        finally:
+            sb._github = real_github
+        cases.append(('a clone whose origin is all lowercase is shown as GitHub '
+                      f'spells it ({got})', ('alex137', 'BestPractice') in got))
+        cases.append(('...and one GitHub does not answer for keeps its own '
+                      f'spelling ({got})', ('alex137', 'something-else') in got))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
