@@ -1398,8 +1398,11 @@ def main():
                 # session later.
                 print(f"- For The Boildown, one plain line, not bolded and "
                       f"without urgency: {_line}. Mention it; do not press "
-                      f"for it, and never let it hold the archive line "
-                      f"(practice: the-boildown).")
+                      f"for it, and never let it hold the archive line: "
+                      f"when this session's own work is in it, the line is "
+                      f"\"You can archive this session\", with a note such "
+                      f"as \"Your changes are on staging, but not main\" "
+                      f"(Morgan, 2026-10-18; practice: the-boildown).")
                 continue
             print(f"- NOT YET LANDED: {_line}. The Boildown MUST say so and "
                   f"recommend merging it -- do not close a turn leaving this "
