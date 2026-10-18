@@ -323,6 +323,7 @@
   "check_lint_refuses_an_open_item_waiting_on_an_upstream_fix": 1.6,
   "check_lint_runs_the_hosts_shim": 0.4,
   "check_list_structure_preserved": 0.0,
+  "check_load_ceiling_blocks_only_the_change_that_grew_it": 0.0,
   "check_loader_block_advertises_only_live_channels": 0.5,
   "check_loader_block_covers_every_declared_source": 0.1,
   "check_loader_block_with_an_absent_individual_set": 3.1,

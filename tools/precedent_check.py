@@ -13323,9 +13323,63 @@ def _charge_brought_share(n):
     return charged, None
 
 
+def _change_grew_surface(ctx, rel, n, approx):
+    """True when the change in scope is what put `rel` at `n` tokens, so an
+    over-ceiling surface is this change's to fix; False when it was already
+    that size before the change, or grew from a source the change did not
+    touch.
+
+    An over-ceiling surface the change did not grow is not a finding: the
+    merge and push gates print it as "OVER by" (session_load_trend.
+    headroom_notice), and the person decides between a reduction pass and a
+    new ceiling. Blocking every branch on it held a filing record off a
+    consumer's trunk for hours on 2026-10-16, when the session-start file
+    grew because the universal catalogue added spoken commands -- growth no
+    branch there wrote, and the same wall for every other branch too
+    (S. Alexander Jacobson, 2026-10-16: "Yes, build the warning change").
+
+    With no change in scope (a sweep of a clean trunk) there is nothing to
+    excuse, and the ceiling is reported as before. The session-start file is
+    generated and untracked, so no diff of it exists: the change grew it
+    when it touched what this repository owns among its inputs --
+    precedent.json, or its repo-local practice source. A change to the
+    registry itself always owns the result, since it set the ceiling."""
+    if getattr(ctx, 'base', None) is None:
+        return True
+    # A change that edits the registry set the ceiling it now stands against.
+    if 'tools/session_load_budgets.json' in (ctx.changed or ()):
+        return True
+    if rel == '.precedent/SESSION_PRACTICES.md':
+        owned = ['precedent.json']
+        try:
+            import precedent_resolve as _pr
+            for s in _pr.load_config(str(ROOT)):
+                if s.get('level') != 'repo-local':
+                    continue
+                p = pathlib.Path(str(s.get('path') or ''))
+                p = p if p.is_absolute() else ROOT / p
+                try:
+                    owned.append(str(p.resolve().relative_to(ROOT.resolve())) + '/')
+                except ValueError:
+                    continue
+        except Exception:                           # practice: fail-gracefully
+            pass
+        return any(f == o or (o.endswith('/') and f.startswith(o))
+                   for f in ctx.changed for o in owned)
+    try:
+        base = ctx.read_base(rel)
+    except Exception:                               # practice: fail-gracefully
+        base = None
+    if base is None:
+        return True
+    return n > approx(_as_measured(rel, base))
+
+
 @check('session-load-budget', 'tree',
        'every file a session loads before it works is declared in '
-       'tools/session_load_budgets.json and is under its declared ceiling, '
+       'tools/session_load_budgets.json and is under its declared ceiling '
+       'or, when over it, was not grown by the change in scope (that case '
+       'prints at the merge and push gates instead), '
        'a repo that declares ceilings also declares headroom_floor_pct so '
        "the early-warning notice is not silently off, and a change does "
        'not add text the practice catalogue already holds',
@@ -13396,7 +13450,7 @@ def _session_load_budget(ctx):
             n, brought_finding = _charge_brought_share(n)
             if brought_finding:
                 out.append(brought_finding)
-        if n > ceiling:
+        if n > ceiling and _change_grew_surface(ctx, rel, n, approx):
             out.append(Finding(rel, f'{n:,} tokens, every session, over its '
                                     f'declared ceiling of {ceiling:,}. Run the '
                                     f'reduction pass -- delete what is '
