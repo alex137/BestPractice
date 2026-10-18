@@ -135,6 +135,9 @@ def refusal(payload):
 
 
 def main():
+    if sys.argv[1:2] in (['-h'], ['--help']):
+        print(__doc__.strip())
+        return 0
     try:
         payload = json.loads(sys.stdin.read() or '{}')
         why = refusal(payload) if isinstance(payload, dict) else None
