@@ -36,13 +36,13 @@ paths in code font added. The imprecision that had justified advisory is
 fixed: a name linked anywhere in the reply covers its later bare mentions.
 [documentation/CLOUD_SETUP.md](../documentation/CLOUD_SETUP.md)'s setup
 script writes a Stop entry that runs
-[tools/precedent_global_gate.sh](../tools/precedent_global_gate.sh)
+[tools/precedent_global_gate.sh](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_global_gate.sh)
 `stop-reply-check.sh`; an environment picks it up when its setup script is
 updated and a new session starts.
 
 The two requirements that stay advisory on Morgan's word (the archive line
 and the compaction offer) are now named at the next turn's start, by
-[tools/precedent_gate.py](../tools/precedent_gate.py)'s reply gate: "Your last
+[tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_gate.py)'s reply gate: "Your last
 reply left these out". Nothing is refused. **That notice needs the turn-start
 reply gate to run**, and a session opened above its repositories does not run
 it yet; until it does, an advisory miss in such a session is still unseen.
