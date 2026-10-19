@@ -41330,6 +41330,90 @@ def check_history_checks_never_ride_a_reused_pass():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_commit_backstop_points_shipped_links_at_github():
+    """The commit backstop repoints a shipped Markdown file's link to a file
+    the catalogue copy leaves out at GitHub, as the file is committed, so the
+    file shipped is the file here, byte for byte (Morgan, 2026-10-19: "go,
+    build it and book it").
+
+    Two gotchas in one day linked ../tools/ files no consumer has and turned
+    main red; rewriting in the copy instead would have made every copied
+    file differ from upstream's text, and Update Vendors would call each a
+    consumer's edit. Cases: the tool link moves and keeps its anchor while a
+    practice link stays relative, and the result is staged; a file the copy
+    does not carry is left alone; a file with unstaged changes is left
+    alone and said; and a repository that does not ship the copy is never
+    touched."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_regenerate as pr
+    name = 'the commit backstop points a shipped link at GitHub'
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+    for k in pr.HOOK_GIT_ENV:
+        env.pop(k, None)
+    link = ('See [the tool](../tools/zz_tool.py#L3) and '
+            '[a practice](../practices/zz-rule.md).\n')
+    with tempfile.TemporaryDirectory() as td:
+        def repo_with(tag, engine_manifest=False):
+            r = pathlib.Path(td) / tag
+            for rel, text in {'tools/verify_harness.py': '', 'tools/zz_tool.py': '',
+                              'practices/zz-rule.md': '## Rule\nA rule.\n',
+                              'precedent.json': '{"base_branch": "staging"}\n',
+                              'gotchas/gotcha-zz.md': 'x\n',
+                              'spec/ZZ.md': 'x\n'}.items():
+                (r / rel).parent.mkdir(parents=True, exist_ok=True)
+                (r / rel).write_text(text, encoding='utf-8')
+            if engine_manifest:
+                (r / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}', encoding='utf-8')
+            g = lambda *a: subprocess.run(['git', '-C', str(r), '-c',
+                                           'core.hooksPath=/dev/null', *a],
+                                          capture_output=True, text=True, env=env)
+            g('init', '-q'); g('add', '-A'); g('commit', '-qm', 'base')
+            return r, g
+
+        said = []
+        r, g = repo_with('ship')
+        (r / 'gotchas' / 'gotcha-zz.md').write_text(link, encoding='utf-8')
+        (r / 'spec' / 'ZZ.md').write_text('[t](../tools/zz_tool.py)\n', encoding='utf-8')
+        g('add', '-A')
+        fixed = pr.fix_shipped_links(r, ['gotchas/gotcha-zz.md', 'spec/ZZ.md'],
+                                     say=said.append)
+        staged = g('show', ':gotchas/gotcha-zz.md').stdout
+        spec_now = (r / 'spec' / 'ZZ.md').read_text(encoding='utf-8')
+
+        r2, g2 = repo_with('unstaged')
+        (r2 / 'gotchas' / 'gotcha-zz.md').write_text(link, encoding='utf-8')
+        g2('add', '-A')
+        (r2 / 'gotchas' / 'gotcha-zz.md').write_text(link + 'mine\n', encoding='utf-8')
+        said2 = []
+        fixed2 = pr.fix_shipped_links(r2, ['gotchas/gotcha-zz.md'], say=said2.append)
+        kept2 = (r2 / 'gotchas' / 'gotcha-zz.md').read_text(encoding='utf-8')
+
+        r3, g3 = repo_with('consumer', engine_manifest=True)
+        (r3 / 'gotchas' / 'gotcha-zz.md').write_text(link, encoding='utf-8')
+        g3('add', '-A')
+        fixed3 = pr.fix_shipped_links(r3, ['gotchas/gotcha-zz.md'], say=said.append)
+    url = 'https://github.com/alex137/BestPractice/blob/staging/tools/zz_tool.py#L3'
+    cases = [
+        ('a link to a file the copy leaves out points at GitHub, anchor kept, '
+         'and the result is staged',
+         fixed == ['gotchas/gotcha-zz.md'] and f'[the tool]({url})' in staged),
+        ('a link to a file the copy carries stays relative',
+         '[a practice](../practices/zz-rule.md)' in staged),
+        ('a file the copy does not carry is left alone',
+         spec_now == '[t](../tools/zz_tool.py)\n'),
+        ('a file with unstaged changes is left as it is, and said',
+         fixed2 == [] and kept2 == link + 'mine\n'
+         and any('not staged' in m for m in said2)),
+        ('a repository that does not ship the copy is never touched',
+         fixed3 == []),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {staged!r} {said} {said2}'))
+
+
 def check_shipped_copy_has_no_broken_links():
     """A consumer's copy of the catalogue, as it lands under
     process/upstream/, has no relative link that does not resolve inside it.
@@ -87579,6 +87663,7 @@ def main():
     check_promote_picks_its_step()
     check_to_main_copy_name_is_never_taken()
     check_shipped_copy_has_no_broken_links()
+    check_commit_backstop_points_shipped_links_at_github()
     check_empty_commits_are_never_counted()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()

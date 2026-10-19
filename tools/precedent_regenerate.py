@@ -9,6 +9,8 @@ their sources change).
     python3 tools/precedent_regenerate.py --staged   what the commit backstop runs
     python3 tools/precedent_regenerate.py --all      rebuild every listed file now
 
+In BestPractice it first points a staged, shipped Markdown file's links to
+files the catalogue copy leaves out at GitHub (fix_shipped_links).
 It also re-renders the pages tools/doc_html.py lists (its own registry,
 never repeated in the list below) whose source or the renderer itself is
 staged, as it refreshes doc_sync.py's generated blocks from their own list.
@@ -349,6 +351,59 @@ def refresh_renders(root, staged, say=print, everything=False, stage=True):
     return staged_now
 
 
+# SHIPPED LINKS TRAVEL, FIXED AT THE SOURCE (Morgan, 2026-10-19: "go, build
+# it and book it"). A Markdown file the catalogue copy carries may link a
+# file the copy leaves out (tools/, spec/): in every consumer that link lands
+# on nothing. Two gotchas did it in one day and turned main red twice. The
+# links are repointed here, as the file is committed, and not in the copy:
+# rewritten in the copy, each file would differ from upstream's own text,
+# and Update Vendors' every comparison (checkin.local_changes, upstream_text)
+# would call it a consumer's edit. Only in BestPractice, which ships the
+# copy; checkin.ship_links decides each link.
+def fix_shipped_links(root, staged, say=print):
+    """Repoint, in each staged Markdown file the copy carries, a relative
+    link to a file the copy leaves out at that file on GitHub, and stage it.
+    -> the paths staged. A file with unstaged changes of its own is not
+    touched, and said (practice: repair-cannot-discard-work)."""
+    root = pathlib.Path(root)
+    md = [p for p in staged if p.endswith('.md') and (root / p).is_file()]
+    # Asked before anything is imported: in every other repository this is a
+    # no-op, and a failed import must never cost it the rebuilds below.
+    if not md or not (root / 'tools' / 'verify_harness.py').is_file() \
+            or (root / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+        return []
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    try:
+        import checkin
+    except Exception as e:                                    # noqa: BLE001
+        say(f'precedent_regenerate: shipped links not checked ({e}); the '
+            f'full check still reports them.')
+        return []
+    finally:
+        sys.path.pop(0)
+    if not (hasattr(checkin, 'ship_links') and checkin.ships_its_own_copy(root)):
+        return []
+    fixed = []
+    for p in md:
+        text = (root / p).read_text(encoding='utf-8')
+        new, changed = checkin.ship_links(p, text, root)
+        if not changed:
+            continue
+        if _git(root, 'diff', '--quiet', '--', p).returncode != 0:
+            say(f'precedent_regenerate: {p} links {", ".join(t for _l, t in changed)}, '
+                f'which the catalogue copy leaves out, but it has changes of yours '
+                f'that are not staged, so it was left as it is. Run '
+                f'python3 tools/precedent_regenerate.py --staged once it is staged.')
+            continue
+        (root / p).write_text(new, encoding='utf-8')
+        _git(root, 'add', '--', p)
+        fixed.append(p)
+        say(f'precedent_regenerate: {p}: pointed {len(changed)} link(s) at '
+            f'GitHub ({", ".join(t for _l, t in changed)}), since the catalogue '
+            f'copy leaves those files out; staged.')
+    return fixed
+
+
 def main(argv):
     if argv[:1] in (['--help'], ['-h']):
         print(__doc__.strip())
@@ -366,6 +421,7 @@ def main(argv):
         refresh_renders(top, [], everything=True, stage=False)
         return 0
     staged = [l for l in _git(top, 'diff', '--cached', '--name-only').stdout.splitlines() if l]
+    fix_shipped_links(top, staged, say=lambda m: print(m, file=sys.stderr))
     todo = due(entries, staged)
     if todo:
         regenerate(top, todo, say=lambda m: print(m, file=sys.stderr))
