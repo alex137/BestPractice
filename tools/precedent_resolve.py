@@ -1188,7 +1188,8 @@ def set_tool(repo, key, user_config=None):
     its own tool."""
     repo_root = pathlib.Path(repo).resolve()
     candidates = [str(repo_root)] + [p for p, _l, _n, note in
-                                     declared_source_paths(repo_root, user_config)
+                                     vendored_source_paths(repo_root)
+                                     + declared_source_paths(repo_root, user_config)
                                      if p and not note]
     for src in candidates:
         try:
@@ -1223,6 +1224,39 @@ def load_set_tool(repo, key, user_config=None):
         return None
 
 
+def is_vendored(entry):
+    """True when a precedent.json source entry says its set is copied into
+    this repository (`"vendored": true`), the way the universal catalogue
+    is at process/upstream/: Update Vendors refreshes the copy, nothing
+    attaches or clones it at session start, and it is never edited in
+    place (spec/VENDORED_SHARED_SETS.md, 2026-10-19)."""
+    return isinstance(entry, dict) and entry.get('vendored') is True
+
+
+def vendored_source_paths(repo):
+    """-> [(path, level, name, note)] for every source this repo declares
+    as copied in, in declared_source_paths()'s shape. `note` is '' when the
+    copy is there, or says to run Update Vendors when it is not. Kept apart
+    from declared_source_paths() on purpose: a copy is part of this
+    checkout, not a clone, so nothing may fetch it, ask git for its branch
+    or test it for freshness as one."""
+    repo_root = pathlib.Path(repo).resolve()
+    try:
+        cfg = json.loads((repo_root / REPO_CONFIG).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for entry in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
+        if not is_vendored(entry) or not entry.get('path'):
+            continue
+        path = _declared_path(repo_root, entry['path'])
+        note = '' if (path / 'practices').is_dir() else \
+            'not copied in yet: Update Vendors makes the copy'
+        out.append((str(path), normalize_level(entry.get('level')),
+                    entry.get('name') or 'shared', note))
+    return out
+
+
 def declared_source_paths(repo, user_config=None):
     """-> [(path, level, name, note)] for every practice source this repo and
     this person DECLARE, at the paths load_config() resolves -- without
@@ -1234,9 +1268,12 @@ def declared_source_paths(repo, user_config=None):
     `note` is '' for a clone that is there, or why it cannot be checked (not
     cloned yet, no user config): the caller says so in one line and never
     blocks on it. The repo itself and its repo-local source are left out:
-    they are this checkout, which is checked as the project."""
+    they are this checkout, which is checked as the project. So is a set
+    copied in (is_vendored()): vendored_source_paths() lists those, and a
+    set the person brings that this repo copies in is left out by name."""
     repo_root = pathlib.Path(repo).resolve()
     out = []
+    declared_names = set()
     try:
         cfg = json.loads((repo_root / REPO_CONFIG).read_text(encoding='utf-8'))
     except (OSError, ValueError):
@@ -1249,6 +1286,9 @@ def declared_source_paths(repo, user_config=None):
         if level in ('repo-local', 'individual'):
             continue
         if level == 'shared' and entry.get('name') in gone:
+            continue
+        declared_names.add(entry.get('name'))
+        if is_vendored(entry):
             continue
         path = _declared_path(repo_root, entry['path'])
         if is_repository_itself(path, entry.get('name'), repo_root):
@@ -1272,7 +1312,10 @@ def declared_source_paths(repo, user_config=None):
         have = {pathlib.Path(p).resolve() for p, *_ in out if p}
         for b in brought_sources(path, warn=False):
             bp = pathlib.Path(b['path']).resolve()
-            if bp in have or is_repository_itself(bp, b['name'], repo_root):
+            # The repository's own declaration wins, by name, as in
+            # load_config(): a set it copies in is not a clone to look for.
+            if bp in have or b['name'] in declared_names \
+                    or is_repository_itself(bp, b['name'], repo_root):
                 continue
             if no_ladders() and LADDER_CAPABILITY in source_provides(bp):
                 continue
@@ -1460,6 +1503,8 @@ def load_config(repo, user_config=None):
             # means the repository is called what the source is.
             if entry.get('repo'):
                 src['repo'] = str(entry['repo']).strip()
+            if is_vendored(entry):
+                src['vendored'] = True
             sources.append(src)
 
     user_cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(

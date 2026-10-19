@@ -1304,7 +1304,7 @@ def sources_from_attached_sets(repo_path, base_url=None,
     return out
 
 
-def sources_from_brings(retries=DEFAULT_RETRIES, skip=()):
+def sources_from_brings(retries=DEFAULT_RETRIES, skip=(), skip_names=()):
     """Clone or pull every set the person's individual set BRINGS
     (spec/LADDER_OPT_IN_PLAN.md D2): beside the individual set, from the full
     URL the entry names. A set already on disk elsewhere is linked rather
@@ -1315,7 +1315,11 @@ def sources_from_brings(retries=DEFAULT_RETRIES, skip=()):
     `skip`: paths left alone -- the repository an update is running in,
     when it is itself a brought set (2026-10-07: updating the ladder set
     from its own clone fetched that clone, found it mid-update on a branch,
-    and refused the update over itself)."""
+    and refused the update over itself).
+
+    `skip_names`: sets left alone by name -- the ones the repository a
+    session starts in copies in itself (precedent_resolve.is_vendored), so
+    session start has nothing of theirs to fetch (2026-10-19)."""
     try:
         import precedent_resolve as pr
         ucfg = pathlib.Path(os.environ.get(
@@ -1334,6 +1338,10 @@ def sources_from_brings(retries=DEFAULT_RETRIES, skip=()):
         if clone_path.resolve() in skipped:
             out.append((name, True, 'this repository itself, the one being '
                                     'updated: not fetched'))
+            continue
+        if name in skip_names:
+            out.append((name, True, 'copied into this repository: not '
+                                    'fetched'))
             continue
         try:
             if not (clone_path / '.git').exists() and not clone_path.exists():
@@ -1585,7 +1593,14 @@ def main(argv=None):
                 print(f"precedent_source_bootstrap: shared source "
                       f"{name!r} is not on disk -- {out[-500:]}. Its practices "
                       f"are NOT in force this session.", file=sys.stderr)
-        for name, ok, out in sources_from_brings(retries=args.retries):
+        try:
+            import precedent_resolve as _pr
+            copied = {n for _p, _l, n, _note in
+                      _pr.vendored_source_paths(args.teams_from)}
+        except Exception:                                   # noqa: BLE001
+            copied = set()
+        for name, ok, out in sources_from_brings(retries=args.retries,
+                                                 skip_names=copied):
             if not ok:
                 print(f"precedent_source_bootstrap: {name!r}, a set your own "
                       f"practice set brings, could not be fetched -- "

@@ -430,7 +430,8 @@ def practice_checked_by(script, repo):
     try:
         import precedent_resolve as _pr
         dirs += [pathlib.Path(p) / 'practices' for p, _lvl, _n, _note in
-                 _pr.declared_source_paths(root) if p]
+                 _pr.vendored_source_paths(root)
+                 + _pr.declared_source_paths(root) if p]
     except Exception:                                        # noqa: BLE001
         pass
     line = re.compile(r'^checked_by:\s*["\']?' + re.escape(want) + r'["\']?\s*$', re.M)

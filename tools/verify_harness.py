@@ -23804,6 +23804,23 @@ def check_precedent_check_fires():
             cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
         case('ladder-set-is-brought-not-declared', _plant_declared_ladder)
 
+        # copied-in-set-fits-visibility: a private set copied into a
+        # repository whose precedent.json does not say it is private.
+        def _plant_private_copy(repo):
+            copy = repo / 'process' / 'zz-private-set'
+            (copy / 'practices').mkdir(parents=True, exist_ok=True)
+            (copy / 'precedent-source.json').write_text(json.dumps(
+                {'name': 'zz-private-set', 'level': 'shared',
+                 'visibility': 'private'}), encoding='utf-8')
+            cfg_f = repo / 'precedent.json'
+            cfg = json.loads(cfg_f.read_text(encoding='utf-8'))
+            cfg.pop('visibility', None)
+            cfg.setdefault('sources', []).append(
+                {'name': 'zz-private-set', 'level': 'shared',
+                 'path': 'process/zz-private-set', 'vendored': True})
+            cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+        case('copied-in-set-fits-visibility', _plant_private_copy)
+
         # universal-change-reaches-overrides -- a permanent warning: universal's
         # orientation-map changes below its frontmatter while a declared set
         # carries its own active copy of that slug (2026-10-05, the ladder
@@ -70263,6 +70280,227 @@ def check_hosted_sessions_resolve_without_attaching_a_repo():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_copied_in_shared_sets():
+    """A shared set copied into a repository, the way the universal catalogue
+    is at process/upstream/ (spec/VENDORED_SHARED_SETS.md, 2026-10-19). The
+    plan: attached sets kept failing to arrive at session start; a copy has
+    nothing to arrive.
+
+    1. checkin.py --source mirrors a set declared `"vendored": true` --
+       its practices and precedent-source.json, even with no `code` -- and
+       record() writes vendored_at and repo, so the guard and the freshness
+       line read process/<name>/ and the set's own origin.
+    2. The hand-edit guard: the copy is clean after record, drifted once a
+       rule in it is edited (the negative control).
+    3. The resolver loads the copy with no sibling clone; a person who
+       brings the same set gets the repository's copy, once.
+    4. declared_source_paths() leaves the copy and the same-named brought
+       set out (they are this checkout); vendored_source_paths() lists it.
+    5. A private set is refused into a repository not declared private, and
+       copied into one that is; the tree check says the same.
+    6. The freshness line says BEHIND UPSTREAM once the set's origin moves.
+    7. A missing copy is reported as Update Vendors' to make, never as a
+       set to attach; session start does not fetch a set the repository
+       copies in."""
+    import shutil, tempfile, importlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='copied-in-sets-'))
+    cases = []
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t',
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=env,
+                              capture_output=True, text=True)
+
+    def make_set(name, visibility):
+        origin = tmp / f'{name}.git'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=env, check=True)
+        clone = tmp / name
+        subprocess.run(['git', 'clone', '-q', str(origin), str(clone)],
+                       env=env, capture_output=True, check=True)
+        (clone / 'practices').mkdir()
+        (clone / 'practices' / 'zz-rule.md').write_text(
+            '---\nslug: zz-rule\n---\n# zz\n\n## Rule\n\nx\n',
+            encoding='utf-8')
+        (clone / 'precedent-source.json').write_text(json.dumps(
+            {'name': name, 'level': 'shared', 'visibility': visibility}),
+            encoding='utf-8')
+        git(clone, 'checkout', '-q', '-b', 'main')
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '-qm', 'one')
+        git(clone, 'push', '-q', 'origin', 'main')
+        return clone
+
+    def make_host(hname, name, visibility=None):
+        host = tmp / hname
+        (host / 'process').mkdir(parents=True)
+        cfg = {'format_version': 1, 'sources': [
+            {'name': name, 'level': 'shared', 'path': f'process/{name}',
+             'vendored': True}]}
+        if visibility:
+            cfg['visibility'] = visibility
+        (host / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        (host / 'process' / f'manifest_{name}.json').write_text(json.dumps(
+            {'upstream': {'branch': 'main'}}), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(host)],
+                       env=env, check=True)
+        git(host, 'add', '-A')
+        git(host, 'commit', '-qm', 'init')
+        return host
+
+    def checkin_run(host, name, clone, verb, *flags):
+        return subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'checkin.py'), '--source',
+             name, '--repo', str(host), verb, str(clone), *flags],
+            env=env, capture_output=True, text=True)
+
+    try:
+        import precedent_resolve as pr
+        import checkin
+        importlib.reload(checkin)
+        pub = make_set('zz-set', 'public')
+        host = make_host('host', 'zz-set')
+        r1 = checkin_run(host, 'zz-set', pub, 'update', '--force')
+        r2 = checkin_run(host, 'zz-set', pub, 'record')
+        copy = host / 'process' / 'zz-set'
+        got = sorted(f.relative_to(copy).as_posix() for f in copy.rglob('*')
+                     if f.is_file())
+        cases.append(('a set declared "vendored" with no code is copied: its '
+                      'practices and precedent-source.json',
+                      r1.returncode == 0 and r2.returncode == 0
+                      and got == ['practices/zz-rule.md', 'precedent-source.json'],
+                      f'{got} / {r1.stdout[-300:]}{r1.stderr[-300:]} / '
+                      f'{r2.stdout[-300:]}{r2.stderr[-300:]}'))
+        up = json.loads((host / 'process' / 'manifest_zz-set.json')
+                        .read_text(encoding='utf-8')).get('upstream', {})
+        cases.append(('record() writes where the copy lives and where it '
+                      'came from', up.get('vendored_at') == 'process/zz-set'
+                      and up.get('repo', '').endswith('zz-set.git'), repr(up)))
+
+        if not (copy / 'practices' / 'zz-rule.md').is_file():
+            raise RuntimeError('no copy was made, so nothing after it can be '
+                               'tested')
+        clean = checkin.copy_drift(host)
+        rule = copy / 'practices' / 'zz-rule.md'
+        kept = rule.read_text(encoding='utf-8')
+        rule.write_text('edited in place\n', encoding='utf-8')
+        edited = checkin.copy_drift(host)
+        rule.write_text(kept, encoding='utf-8')
+        cases.append(('the guard finds the copy clean after record',
+                      [d[2] for d in clean] == ['ok']
+                      and clean[0][1] == 'process/zz-set', repr(clean)))
+        cases.append(('NEGATIVE CONTROL: the guard finds a rule edited in the '
+                      'copy', [d[2] for d in edited] == ['drifted'], repr(edited)))
+
+        srcs = pr.load_config(str(host), user_config=str(tmp / 'no-config.json'))
+        mine = [s for s in srcs if s['name'] == 'zz-set']
+        cases.append(('the copy resolves with no sibling clone',
+                      len(mine) == 1 and mine[0].get('vendored') is True
+                      and pathlib.Path(mine[0]['path']) == copy.resolve(),
+                      repr(mine)))
+        ind = tmp / 'people' / 'zz-ind'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual', 'brings': [
+                {'name': 'zz-set', 'repo_url': 'https://example.invalid/zz-set'}]}),
+            encoding='utf-8')
+        shutil.copytree(pub, ind.parent / 'zz-set')
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind',
+                                                   'path': str(ind)}}),
+                        encoding='utf-8')
+        srcs = pr.load_config(str(host), user_config=str(ucfg))
+        mine = [s for s in srcs if s['name'] == 'zz-set']
+        cases.append(('a person who brings the same set gets the copy, once',
+                      len(mine) == 1
+                      and pathlib.Path(mine[0]['path']) == copy.resolve(),
+                      repr(mine)))
+        declared = pr.declared_source_paths(host, user_config=str(ucfg))
+        listed = pr.vendored_source_paths(host)
+        cases.append(('declared_source_paths leaves out the copy and the '
+                      'same-named brought clone; vendored_source_paths lists it',
+                      not [d for d in declared if d[2] == 'zz-set']
+                      and [(n, note) for _p, _l, n, note in listed]
+                      == [('zz-set', '')], f'{declared} / {listed}'))
+
+        priv = make_set('zz-private', 'private')
+        open_host = make_host('open-host', 'zz-private')
+        r = checkin_run(open_host, 'zz-private', priv, 'update', '--force')
+        cases.append(('a private set is refused into a repository not declared '
+                      'private, and nothing is copied',
+                      r.returncode != 0 and 'private' in (r.stdout + r.stderr)
+                      and not (open_host / 'process' / 'zz-private').exists(),
+                      r.stdout[-300:] + r.stderr[-300:]))
+        closed = make_host('closed-host', 'zz-private', visibility='private')
+        r = checkin_run(closed, 'zz-private', priv, 'update', '--force')
+        cases.append(('the same set is copied into a private repository',
+                      r.returncode == 0 and (closed / 'process' / 'zz-private'
+                                             / 'practices').is_dir(),
+                      r.stdout[-300:] + r.stderr[-300:]))
+        import precedent_check as pc
+        old_root = pc.ROOT
+        try:
+            for where, want in ((closed, 0), (open_host, 1)):
+                if where is open_host:
+                    shutil.copytree(closed / 'process' / 'zz-private',
+                                    open_host / 'process' / 'zz-private')
+                pc.ROOT = where
+                found = pc._copied_in_set_fits_visibility(None)
+                cases.append((f'the tree check finds {want} problem(s) in the '
+                              f'{"private" if want == 0 else "unmarked"} '
+                              f'repository', len(found) == want, repr(found)))
+        finally:
+            pc.ROOT = old_root
+
+        (pub / 'practices' / 'zz-later.md').write_text(
+            '---\nslug: zz-later\n---\n# later\n\n## Rule\n\ny\n',
+            encoding='utf-8')
+        git(pub, 'add', '-A')
+        git(pub, 'commit', '-qm', 'two')
+        git(pub, 'push', '-q', 'origin', 'main')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' /
+                            'precedent_engine_freshness.py')], cwd=str(host),
+                           env=env, capture_output=True, text=True)
+        cases.append(('the freshness line says the copy is behind its origin',
+                      'BEHIND UPSTREAM' in r.stdout and 'zz-set' in r.stdout,
+                      r.stdout[-500:]))
+
+        import precedent_source_credentials as psc
+        gone = make_host('gone-host', 'zz-set', visibility='private')
+        un = psc.unresolved_private_sources(gone, env={
+            'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')})
+        cases.append(('a missing copy is Update Vendors\' to make, not a set '
+                      'to attach', any(n == 'zz-set' and 'Update Vendors' in why
+                                       for _l, n, why in un), repr(un)))
+        import precedent_source_bootstrap as psb
+        old = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        try:
+            res = psb.sources_from_brings(retries=0, skip_names={'zz-set'})
+        finally:
+            if old is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = old
+        cases.append(('session start does not fetch a set the repository '
+                      'copies in', res == [('zz-set', True, 'copied into this '
+                                            'repository: not fetched')],
+                      repr(res)))
+    except RuntimeError as e:
+        cases.append((str(e), False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+        if 'checkin' in sys.modules:
+            importlib.reload(sys.modules['checkin'])
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a shared set copied into a repository resolves, is guarded and '
+          f'reports its freshness ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_vendored_engine_reads_the_consumer_root():
     """An engine copy vendored INSIDE another repo reads that repo's
     precedent.json -- not the vendored tree's own copy of BestPractice's.
@@ -88331,6 +88569,7 @@ def main():
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()
     check_hosted_sessions_resolve_without_attaching_a_repo()
+    check_copied_in_shared_sets()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()
