@@ -1326,8 +1326,8 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                         + ', '.join(unlanded[:6])
                         + ('...' if len(unlanded) > 6 else '')
                         + ". Lead with what is not landed, with counts -- "
-                        "\"4 of 5 changes NOT on `staging` yet (open pull "
-                        "requests); 1 is on `staging`\" -- or give a branch "
+                        "\"4 of 5 changes NOT on the landing branch yet (open "
+                        "pull requests); 1 is landed\" -- or give a branch "
                         "up by name: **Branch disposition:** BRANCH -- drop "
                         "(why)."
                         + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
