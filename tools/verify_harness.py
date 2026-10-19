@@ -32025,6 +32025,46 @@ def check_sync_removes_a_stale_ship_named_only_as_another_repos():
           f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
 
 
+def check_update_keeps_the_harness_go_ahead_with_its_content():
+    """2026-10-19, two consuming repos: an Update Vendors run given the
+    person's words for a .claude/settings.json change stopped before the
+    end, the words (one run's environment) were gone, and the practice audit
+    failed the file as DRIFT until it was re-recorded by hand. The words are
+    now recorded with the content they approved and read back by a rerun;
+    CONTROL: changed content needs new words."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_update as pu
+    cases = []
+    saved = os.environ.pop(pu.HARNESS_GO_AHEAD, None)
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            d = pathlib.Path(td)
+            g = lambda *a: _sp.run(['git', '-C', str(d), *a], capture_output=True, text=True)
+            g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+            (d / '.claude').mkdir()
+            sj = d / '.claude' / 'settings.json'
+            sj.write_text('{}\n'); g('add', '-A'); g('commit', '-qm', 'c')
+            sj.write_text('{"hooks": {}}\n')
+            cases.append(('without words the change is held',
+                          pu.held_harness_paths(d) == {'.claude/settings.json'}
+                          and pu.harness_go_ahead(d) == '', pu.held_harness_paths(d)))
+            pu.record_harness_go_ahead(d, 'yes, take the hook', {'.claude/settings.json'})
+            cases.append(('a rerun on the same content reads the recorded words back',
+                          pu.harness_go_ahead(d) == 'yes, take the hook'
+                          and pu.held_harness_paths(d) == set(), pu.harness_go_ahead(d)))
+            sj.write_text('{"hooks": {"Stop": []}}\n')
+            cases.append(('CONTROL: content changed since needs new words',
+                          pu.harness_go_ahead(d) == ''
+                          and pu.held_harness_paths(d) == {'.claude/settings.json'}, ''))
+    finally:
+        if saved is not None:
+            os.environ[pu.HARNESS_GO_AHEAD] = saved
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'Update Vendors keeps the harness go-ahead with its content '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
+
+
 def check_update_holds_a_settings_change_and_offers_it_again():
     """A .claude/ change Update Vendors asks the person about keeps its old
     manifest baseline until their words are given, and a read-only allow
@@ -87429,6 +87469,7 @@ def main():
     check_update_notes_workflow_changes_in_readme_platform_section()
     check_set_bootstrap_defers_to_a_newer_engine_copy()
     check_sync_removes_a_stale_ship_named_only_as_another_repos()
+    check_update_keeps_the_harness_go_ahead_with_its_content()
     check_update_holds_a_settings_change_and_offers_it_again()
     check_deduplicated_copy_stays_in_force_until_its_target_arrives()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()

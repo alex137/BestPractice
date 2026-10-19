@@ -677,6 +677,7 @@
   "check_update_judges_retired_sets_after_the_catalogue": 0.0,
   "check_update_judges_the_committed_tree": 0.4,
   "check_update_keeps_hook_hashes_with_the_held_hooks": 0.6,
+  "check_update_keeps_the_harness_go_ahead_with_its_content": 0.7,
   "check_update_leaves_no_dead_manifest_entry": 0.3,
   "check_update_leftovers_installs_and_stamps": 0.0,
   "check_update_merge_lines_carry_the_full_head": 0.0,
