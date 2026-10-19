@@ -96,14 +96,41 @@ python3 - <<'PY'
 import json, pathlib
 p = pathlib.Path.home() / '.claude' / 'settings.json'
 d = json.loads(p.read_text()) if p.exists() else {}
-cmd = ('f=$(ls -d /home/user/*/tools/precedent_run_session_hooks.py '
-       '2>/dev/null | head -1); [ -n "$f" ] && python3 "$f" || true')
-starts = d.setdefault('hooks', {}).setdefault('SessionStart', [])
-if cmd not in json.dumps(starts):
-    starts.append({'hooks': [{'type': 'command', 'command': cmd}]})
+def find(name):
+    return f'f=$(ls -d /home/user/*/tools/{name} 2>/dev/null | head -1); [ -n "$f" ]'
+gate = find('precedent_global_gate.sh')
+merge = 'Bash|mcp__.*__merge_pull_request'
+wanted = [
+    ('SessionStart', None,
+     find('precedent_run_session_hooks.py') + ' && python3 "$f" || true'),
+    ('PreToolUse', 'Bash', gate + ' && bash "$f" push-check-gate.sh || true'),
+    ('PreToolUse', merge, gate + ' && bash "$f" merge-check-gate.sh || true'),
+    ('PostToolUse', merge, gate + ' && bash "$f" merge-check-gate.sh || true'),
+]
+for event, matcher, cmd in wanted:
+    entries = d.setdefault('hooks', {}).setdefault(event, [])
+    if any(h.get('command') == cmd for e in entries for h in e.get('hooks', [])):
+        continue
+    entry = {'hooks': [{'type': 'command', 'command': cmd, 'timeout': 900}]}
+    if matcher:
+        entry['matcher'] = matcher
+    entries.append(entry)
 p.write_text(json.dumps(d, indent=2))
 PY
 ```
+
+**The last three lines run each repository's merge and push checks for a
+session opened above them** (since 2026-10-19). A repository's checks are
+hooks in its own settings, which such a session never reads, so its merges
+into `main` went unchecked, and two reached `main` broken on 2026-10-18.
+[tools/precedent_global_gate.sh](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_global_gate.sh)
+runs the same check the repository would, for the repository the command or
+pull request is for, and does nothing in a session opened inside a
+repository that runs its own. They are written here, before a session
+starts, because Claude Code reads its hooks when a session opens: a session
+that wrote them into its own settings would not get them, and would stop
+for your approval to change its settings. Run again over an older script's
+file, this adds only what is missing.
 
 **The runner also adds the Precedent tools to the allow list** there
 (since 2026-10-14): since 2026-10-17, one rule for every engine tool, and
@@ -113,7 +140,9 @@ first every time; that list is gone. A session above several
 repositories reads none of their own permission rules, so without this
 every such read waits on auto mode's check
 ([gotcha-2026-10-14](../gotchas/gotcha-2026-10-14-auto-mode-refusal-cascades-into-a-phone-dialog-over-a-read.md)).
-Nothing else is added, and nothing already in the file changes.
+Nothing else is added, and nothing already in the file changes, with one
+exception: the ask rules the runner itself wrote from 2026-10-17 to
+2026-10-19, which it takes back out.
 
 **First added to a real environment on 2026-09-28, not yet confirmed in a
 session started after it.** The runner itself was run by hand in a real
