@@ -886,11 +886,22 @@ def merge_refusal(root, bases, heads, user_config=None, head_sha=None):
 
 
 def main_test_failed(root):
-    """True only when main's own GitHub test has run on main's tip and
-    failed. No test installed, none on this tip, still running, or GitHub
-    cannot be asked: False, so the gate stays as strict as before."""
+    """True only when main's own test has run on main's tip and failed:
+    GitHub's test, or the full local suite (`--run-tests main`, its
+    RUN_TESTS_RECORD entry) where GitHub's was not due. No test installed,
+    none on this tip, still running, or GitHub cannot be asked: False, so
+    the gate stays as strict as before.
+
+    The local suite counts because a fast move into main whose GitHub test
+    is not due tells the session to run it and "fix main at once if it
+    fails" -- and until 2026-10-19 that fix was refused here, since only
+    GitHub's verdict was read, and had to go through staging and a second
+    Produce (a consumer's root-issues report)."""
     try:
         mtip = _remote_tip(root, MAIN)
+        local = run_tests_record(root, MAIN) if mtip else None
+        if local and local.get('commit') == mtip and local.get('result') == 'failed':
+            return True
         tests = (github_tests(root, mtip)
                  if mtip and _gets_github_test(root, MAIN) else [])
         if not tests:

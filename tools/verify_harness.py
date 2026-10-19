@@ -41958,6 +41958,26 @@ def check_promote_only_and_tier_branches():
                                            str(cfg), head_sha=fix_sha) is not None))
         finally:
             pb.main_test_failed = saved_failed
+        # ...and red means the full local suite too, where GitHub's test was
+        # not due: Produce says to fix main at once if `--run-tests main`
+        # fails, and that fix was refused (a consumer, 2026-10-19).
+        rmtip = pb._remote_tip(work, pb.MAIN)
+        record = pb._run_tests_path(work)
+        try:
+            pb._record_run_tests(work, {'branch': pb.MAIN, 'commit': rmtip,
+                                        'result': 'failed', 'failed': []})
+            cases.append(('on: a failed full local suite on main\'s own tip is a red '
+                          'main', pb.main_test_failed(work) is True))
+            pb._record_run_tests(work, {'branch': pb.MAIN, 'commit': '0' * 40,
+                                        'result': 'failed', 'failed': []})
+            cases.append(('on: one recorded on an older main is not',
+                          pb.main_test_failed(work) is False))
+            pb._record_run_tests(work, {'branch': pb.MAIN, 'commit': rmtip,
+                                        'result': 'passed', 'failed': []})
+            cases.append(('on: nor is a passed one', pb.main_test_failed(work) is False))
+        finally:
+            if record:
+                pathlib.Path(record).unlink(missing_ok=True)
         # promote-only's content exception (Morgan, 2026-10-13, decided): a
         # change touching only declared content_paths goes straight into
         # main; anything else beside it, precedent.json included, does not.
