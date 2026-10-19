@@ -4,6 +4,11 @@
 # repositories, from the user-level settings the cloud environment's setup
 # script writes (documentation/CLOUD_SETUP.md).
 #
+# SUPERSEDED the same day by tools/precedent_run_repo_hooks.py, which runs
+# every hook of the repository an action is about, these included; the
+# current setup script removes the lines that call this file. It stays for
+# an environment whose setup script has not been updated yet.
+#
 # WHY (Morgan, 2026-10-19: "Go"). A repository's gates are hooks in its own
 # .claude/settings.json, and Claude Code runs only the hooks of the folder a
 # session is opened in. A session opened in /home/user, the folder holding

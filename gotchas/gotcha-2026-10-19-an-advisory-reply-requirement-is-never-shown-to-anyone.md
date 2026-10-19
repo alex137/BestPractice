@@ -45,4 +45,6 @@ and the compaction offer) are now named at the next turn's start, by
 [tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_gate.py)'s reply gate: "Your last
 reply left these out". Nothing is refused. **That notice needs the turn-start
 reply gate to run**, and a session opened above its repositories does not run
-it yet; until it does, an advisory miss in such a session is still unseen.
+it until its environment takes the 2026-10-19 setup script, whose
+switchboard ([tools/precedent_run_repo_hooks.py](../tools/precedent_run_repo_hooks.py))
+runs the turn-start gate there too.

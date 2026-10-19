@@ -97,51 +97,50 @@ import json, pathlib
 p = pathlib.Path.home() / '.claude' / 'settings.json'
 d = json.loads(p.read_text()) if p.exists() else {}
 def find(name):
-    return f'f=$(ls -d /home/user/*/tools/{name} 2>/dev/null | head -1); [ -n "$f" ]'
-gate = find('precedent_global_gate.sh')
-merge = 'Bash|mcp__.*__merge_pull_request'
-wanted = [
-    ('SessionStart', None,
-     find('precedent_run_session_hooks.py') + ' && python3 "$f" || true'),
-    ('PreToolUse', 'Bash', gate + ' && bash "$f" push-check-gate.sh || true'),
-    ('PreToolUse', merge, gate + ' && bash "$f" merge-check-gate.sh || true'),
-    ('PostToolUse', merge, gate + ' && bash "$f" merge-check-gate.sh || true'),
-    ('Stop', None, 'f=$(ls -d /home/user/*/tools/precedent_global_gate.sh '
-     '2>/dev/null | head -1); [ -z "$f" ] || bash "$f" stop-reply-check.sh'),
-]
-for event, matcher, cmd in wanted:
-    entries = d.setdefault('hooks', {}).setdefault(event, [])
+    return f'f=$(ls -d /home/user/*/tools/{name} 2>/dev/null | head -1);'
+wanted = [('SessionStart', find('precedent_run_session_hooks.py')
+           + ' [ -n "$f" ] && python3 "$f" || true')]
+for event in ('UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop'):
+    wanted.append((event, find('precedent_run_repo_hooks.py')
+                   + f' [ -z "$f" ] || python3 "$f" {event}'))
+hooks = d.setdefault('hooks', {})
+for event in list(hooks):
+    hooks[event] = [e for e in hooks[event] if not any(
+        'precedent_global_gate.sh' in h.get('command', '')
+        for h in e.get('hooks', []))]
+for event, cmd in wanted:
+    entries = hooks.setdefault(event, [])
     if any(h.get('command') == cmd for e in entries for h in e.get('hooks', [])):
         continue
-    entry = {'hooks': [{'type': 'command', 'command': cmd, 'timeout': 900}]}
-    if matcher:
-        entry['matcher'] = matcher
-    entries.append(entry)
+    entries.append({'hooks': [{'type': 'command', 'command': cmd, 'timeout': 900}]})
 p.write_text(json.dumps(d, indent=2))
 PY
 ```
 
-**The `PreToolUse` and `PostToolUse` lines run each repository's merge and push checks for a
-session opened above them** (since 2026-10-19). A repository's checks are
-hooks in its own settings, which such a session never reads, so its merges
-into `main` went unchecked, and two reached `main` broken on 2026-10-18.
-[tools/precedent_global_gate.sh](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_global_gate.sh)
-runs the same check the repository would, for the repository the command or
-pull request is for, and does nothing in a session opened inside a
-repository that runs its own. They are written here, before a session
-starts, because Claude Code reads its hooks when a session opens: a session
-that wrote them into its own settings would not get them, and would stop
-for your approval to change its settings. Run again over an older script's
-file, this adds only what is missing.
+**One line per moment, and every repository's own hooks behind each**
+(since 2026-10-19). A session opened above its repositories reads none of
+their settings, so until then only the hooks this script named one by one
+ran there: session start, then the merge and push gates, then the end of a
+reply. Everything else a repository wires (the turn-start reply gate, the
+rules loaded before a file is edited, the commit identity, the doc lint)
+never ran. Now each line hands the moment to
+[tools/precedent_run_repo_hooks.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_run_repo_hooks.py),
+which runs the hooks of the repository the action is about -- the file it
+writes, the folder a command `cd`s into, the repository a pull request
+belongs to -- and hands back their answer. **A hook a repository adds later
+reaches these sessions without any change here.** Inside a repository with
+its own settings it does nothing, since that repository's hooks run
+natively.
 
-**The `Stop` line runs the reply check for a session opened above the
-repositories** (since 2026-10-19). Until then nothing checked such a
-session's replies at all: a Boildown that named a branch and a file with no
-link passed, and so did every other requirement the reply check enforces.
-It runs in the repository the session was last working in, or in the
-engine's own when that folder is in none. It has no trailing `|| true`, on
-purpose: the check refuses a reply by exiting 2, and `|| true` would turn
-that into a pass. When the engine is missing it does nothing.
+The tool-call lines carry no `|| true`, on purpose: a hook refuses an
+action by exiting 2, and `|| true` would turn that into a pass. When no
+clone carries the tool, each line does nothing. Run over a file an older
+script wrote, this removes the old one-gate-at-a-time lines
+(`precedent_global_gate.sh`) so nothing runs twice, and adds only what is
+missing. Claude Code reads its hooks when a session opens, which is why
+they are written here, before it starts: a session that wrote them into
+its own settings would not get them, and would stop for your approval to
+change its settings.
 
 **The runner also adds the Precedent tools to the allow list** there
 (since 2026-10-14): since 2026-10-17, one rule for every engine tool, and
