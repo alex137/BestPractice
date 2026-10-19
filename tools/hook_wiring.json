@@ -17,6 +17,11 @@
       "event": "Stop",
       "script": "outbound-privacy-scan.sh",
       "timeout": 30
+    },
+    {
+      "event": "SessionStart",
+      "script": "switchboard-offer.sh",
+      "timeout": 10
     }
   ],
   "source": [
@@ -36,6 +41,11 @@
       "event": "Stop",
       "script": "outbound-privacy-scan.sh",
       "timeout": 30
+    },
+    {
+      "event": "SessionStart",
+      "script": "switchboard-offer.sh",
+      "timeout": 10
     }
   ]
 }

@@ -399,6 +399,8 @@ HOOK_SCRIPT_FILES = [
     'session-start.sh',
     'stop-git-check.sh',
     'stop-reply-check.sh',
+    # Its logic is precedent_switchboard_offer.py, in ENGINE_FILES (2026-10-19).
+    'switchboard-offer.sh',
     'wait-loop-gate.sh',
     'workflow-write-gate.sh',
 ]
@@ -724,6 +726,10 @@ ENGINE_FILES = [
     # call it, and it runs the hooks of the repository the action is about.
     # Every repo carries it for the same reason.
     'precedent_run_repo_hooks.py',
+    # What switchboard-offer.sh runs (HOOK_SCRIPT_FILES): offers, once, to
+    # wire the switchboard into a cloud environment that lacks it, and holds
+    # the setup step itself, since consumers carry no CLOUD_SETUP.md.
+    'precedent_switchboard_offer.py',
     # The one place a session's feature branch name is built (2026-10-01).
     # act's Rule names it, so every repo resolving act needs the file; it
     # reads the session ID through precedent_detect and the date through
