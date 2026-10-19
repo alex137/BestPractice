@@ -81093,6 +81093,47 @@ def check_ladder_test_session_and_the_two_ladder_checks():
             got = pc._ladder_set_is_brought_not_declared(None)
             cases.append((f'a precedent.json that {what}: {want} finding(s)',
                           len(got) == want, str([str(f) for f in got])[:300]))
+        # D18 narrowed (2026-10-19): one code owner's quoted, dated yes in
+        # binds_everyone lets a repository declare the ladder.
+        ok_by = 'Fx Owner, 2026-10-19: "bind everyone here"'
+        for be, owners_file, want, what in (
+                ({'sets': ['ladder-set'], 'approved_by': ok_by}, None, 0,
+                 'a code owner, by name, binds everyone'),
+                ({'sets': ['ladder-set'],
+                  'approved_by': 'fxowner, 2026-10-19: "yes"'}, None, 0,
+                 'a code owner, by login, binds everyone'),
+                ({'sets': ['ladder-set'],
+                  'approved_by': 'Someone Else, 2026-10-19: "yes"'}, None, 1,
+                 'NEGATIVE CONTROL: a quote from someone who is not a code owner'),
+                ({'sets': ['ladder-set'],
+                  'approved_by': 'Fx Owner: "bind everyone"'}, None, 1,
+                 'NEGATIVE CONTROL: an undated quote'),
+                ({'sets': ['ladder-set'],
+                  'approved_by': 'Fx Owner, 2026-10-19, said yes'}, None, 1,
+                 'NEGATIVE CONTROL: a paraphrase, quoting nobody'),
+                ({'sets': ['other-set'], 'approved_by': ok_by}, None, 1,
+                 'NEGATIVE CONTROL: an entry that names a different set'),
+                ({'sets': ['ladder-set'], 'approved_by': ok_by},
+                 '* @someone-else\n', 1,
+                 'NEGATIVE CONTROL: a CODEOWNERS file that does not name them'),
+                ({'sets': ['ladder-set'],
+                  'approved_by': 'someone-else, 2026-10-19: "yes"'},
+                 '* @someone-else\n', 0,
+                 'the code owner CODEOWNERS names binds everyone')):
+            (repo / 'precedent.json').write_text(json.dumps({
+                'maintainers': [{'github': 'fxowner', 'name': 'Fx Owner'}],
+                'binds_everyone': be,
+                'sources': [{'name': 'ladder-set', 'level': 'shared',
+                             'path': '../ladder-set'}]}))
+            co = repo / 'CODEOWNERS'
+            if owners_file:
+                co.write_text(owners_file)
+            elif co.exists():
+                co.unlink()
+            pc.ROOT = repo
+            got = pc._ladder_set_is_brought_not_declared(None)
+            cases.append((f'binds_everyone, {what}: {want} finding(s)',
+                          len(got) == want, str([str(f) for f in got])[:300]))
     finally:
         pc.ROOT = saved_root
         shutil.rmtree(tmp, ignore_errors=True)

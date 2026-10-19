@@ -1527,18 +1527,30 @@ def _set_words_stay_in_their_set(ctx):
 
 @check('ladder-set-is-brought-not-declared', 'tree',
        "no repository's precedent.json declares a set that provides the "
-       'five-stage ladder: a declared set is in force for everyone who works '
-       'there, and the ladder is something each person brings for themselves',
+       'five-stage ladder, unless one of its code owners has said, quoted '
+       'and dated in a binds_everyone entry, that it binds everyone there: '
+       'a declared set is in force for everyone who works there, and the '
+       'ladder is otherwise something each person brings for themselves',
        'a declared set whose clone is not on this machine -- what it provides '
        'cannot be read, so it is passed over. It does not look at what a '
-       'person brings: that is theirs to choose.',
+       'person brings: that is theirs to choose. It cannot prove a quote is '
+       'real, only that it names a code owner and is written down.',
        practice_backed=False,
-       selects_on=('precedent.json',))
+       selects_on=('precedent.json', 'CODEOWNERS', '.github/CODEOWNERS',
+                   'docs/CODEOWNERS'))
 def _ladder_set_is_brought_not_declared(ctx):
     """The opt-in works person by person: two people in one repository, one
     bringing the ladder set from their own individual set and one not, each
     get their own. A repository that declares the set takes that choice
-    away from everybody at once, and nothing else would say so."""
+    away from everybody at once, and nothing else would say so.
+
+    Narrowed, not dropped (2026-10-19, D18 in spec/LADDER_OPT_IN_PLAN.md):
+    one code owner may make it bind everyone, in the repository's own
+    precedent.json --
+        "binds_everyone": {"sets": ["<set>"],
+                           "approved_by": "Name, YYYY-MM-DD: \"their words\""}
+    One code owner is enough; the others are not asked. The quote shows
+    who did it."""
     try:
         import precedent_resolve as _pr
     except ImportError:
@@ -1547,6 +1559,7 @@ def _ladder_set_is_brought_not_declared(ctx):
         cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return []
+    bound, why_not = _binds_everyone(ROOT, cfg)
     out = []
     for entry in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
         if not isinstance(entry, dict) or not entry.get('path'):
@@ -1556,14 +1569,67 @@ def _ladder_set_is_brought_not_declared(ctx):
             continue
         path = _pr._declared_path(ROOT.resolve(), entry['path'])
         if _pr.LADDER_CAPABILITY in _pr.source_provides(path):
+            name = entry.get('name') or path.name
+            if name in bound:
+                continue
+            if why_not:
+                out.append(Finding(
+                    'precedent.json',
+                    f'declares {name}, which provides the five-stage ladder, '
+                    f'and its binds_everyone entry does not make that '
+                    f'binding: {why_not}'))
+                continue
             out.append(Finding(
                 'precedent.json',
                 f"declares {entry.get('name') or path.name}, which provides "
                 f'the five-stage ladder, so everyone who works here gets it. '
                 f'Take it out of this file; each person who wants it lists it '
                 f'under "brings" in their own individual set\'s '
-                f'precedent-source.json'))
+                f'precedent-source.json. Or, if one of this repository\'s '
+                f'code owners wants it to bind everyone here, record that in '
+                f'a "binds_everyone" entry quoting them'))
     return out
+
+
+def _binds_everyone(root, cfg):
+    """-> (set names a code owner has bound everyone to, '' or what is
+    wrong with the entry). An absent entry is ({}, ''): the old rule."""
+    entry = cfg.get('binds_everyone') if isinstance(cfg, dict) else None
+    if entry is None:
+        return set(), ''
+    if not isinstance(entry, dict) or not isinstance(entry.get('sets'), list):
+        return set(), 'it is not an object with a "sets" list and "approved_by"'
+    by = str(entry.get('approved_by') or '')
+    if not _APPROVAL_DATE.search(by):
+        return set(), 'approved_by carries no date (YYYY-MM-DD)'
+    if not _APPROVAL_QUOTE.search(by):
+        return set(), ('approved_by quotes nobody -- it must carry the code '
+                       'owner\'s own words, in double quotes')
+    who = by.split(',', 1)[0].strip().lstrip('@').lower()
+    logins, where = _code_owner_logins(root, cfg)
+    if who not in logins:
+        return set(), (f'{who!r} is not one of this repository\'s code owners '
+                       f'({where or "none are named"})')
+    return {str(n) for n in entry['sets']}, ''
+
+
+def _code_owner_logins(root, cfg):
+    """-> (every way a code owner may be named, lowercased: their login and,
+    from precedent.json's maintainers, their name; where they were read).
+    The code owners are precedent_audience.owners(): CODEOWNERS, else the
+    registry it is generated from, else the repository's GitHub owner."""
+    try:
+        import precedent_audience as _aud
+        found, where = _aud.owners(root)
+    except Exception:                                         # noqa: BLE001
+        found, where = None, None
+    logins = {str(o).lstrip('@').lower() for o in (found or ())}
+    names = set(logins)
+    for m in (cfg.get('maintainers') or []) if isinstance(cfg, dict) else []:
+        if isinstance(m, dict) and str(m.get('github') or '').lstrip(
+                '@').lower() in logins and m.get('name'):
+            names.add(str(m['name']).strip().lower())
+    return names, where
 
 
 @check('copied-in-set-fits-visibility', 'tree',

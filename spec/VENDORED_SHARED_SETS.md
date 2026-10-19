@@ -52,13 +52,32 @@ The test is `check_copied_in_shared_sets` in
 [tools/verify_harness.py](../tools/verify_harness.py), with the guard's
 negative control (a rule edited in the copy is found).
 
+## The ladder, bound by one code owner
+
+The `ladder-set-is-brought-not-declared` check refuses a repository that
+declares the ladder (decision D18 of
+[LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md)), because a declared set
+binds everyone there. It is narrowed, not dropped: a `binds_everyone`
+entry in the repository's own `precedent.json` lets it declare the ladder
+when one code owner says so.
+
+```json
+"binds_everyone": {
+  "sets": ["precedent-shared-ladder"],
+  "approved_by": "Name, 2026-10-19: \"their words\""
+}
+```
+
+The name before the first comma must be one of the repository's code
+owners: a login `precedent_audience.owners()` reads (CODEOWNERS, else the
+registry it is generated from, else the repository's GitHub owner), or the
+`name` that `maintainers` gives such a login. The entry needs a date and a
+quote. One code owner is enough; in a repository with several, any one of
+them can bind the rest without asking them, and the quote shows who did.
+The test is in `check_ladder_test_session_and_the_two_ladder_checks`.
+
 ## Still to build
 
-- **The ladder, bound by one code owner.** The `ladder-set-is-brought-not-declared`
-  check refuses a repository that declares the ladder (decision D18 of
-  [LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md)). It is narrowed, not
-  dropped: one code owner's quoted yes in a `binds_everyone` entry lets a
-  repository declare it.
 - **A set carried inside another.** A copied set may carry a second set
   inside it; the repository's own declaration of that second set wins.
 - **The question, asked once.** Installing Precedent, and the one Update
