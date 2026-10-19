@@ -559,6 +559,7 @@
   "check_session_start_warns_of_unapproved_workflow": 1.1,
   "check_session_sweep_reports_the_repo_half": 0.8,
   "check_session_trailer_check_ships_with_the_engine": 0.4,
+  "check_set_bootstrap_defers_to_a_newer_engine_copy": 0.7,
   "check_set_independence_reads_tests_and_rules": 0.0,
   "check_set_words_leave_out_the_set_itself_by_name": 0.0,
   "check_sets_carry_the_todo_and_gotcha_index_tools": 0.0,

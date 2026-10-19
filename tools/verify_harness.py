@@ -31931,6 +31931,56 @@ def check_update_notes_workflow_changes_in_readme_platform_section():
           f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
 
 
+def check_set_bootstrap_defers_to_a_newer_engine_copy():
+    """2026-10-19: an individual set's vendored precedent_source_bootstrap,
+    from before "one tree per source", cloned a shared set into a second
+    folder half an hour after the fix reached main. A set's copy now hands
+    its run to the same file in a BestPractice clone strictly ahead of the
+    commit the set's manifest records."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_source_bootstrap as psb
+    cases = []
+    url = 'https://github.com/alex137/BestPractice'
+    with tempfile.TemporaryDirectory() as td:
+        t = pathlib.Path(td)
+        bp, st = t / 'BestPractice', t / 'set' / 'tools'
+        (bp / 'tools').mkdir(parents=True); st.mkdir(parents=True)
+        g = lambda *a: _sp.run(['git', '-C', str(bp), *a], capture_output=True, text=True)
+        g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        g('remote', 'add', 'origin', url + '.git')
+        tool = bp / 'tools' / 'precedent_source_bootstrap.py'
+        tool.write_text('# old\n'); g('add', '-A'); g('commit', '-qm', 'old')
+        old = g('rev-parse', 'HEAD').stdout.strip()
+        tool.write_text('# new\n'); g('commit', '-qam', 'new')
+        new = g('rev-parse', 'HEAD').stdout.strip()
+        man = lambda c, u=url: (st / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'source_commit': c, 'source_repo': u}))
+        ask = lambda: psb.newer_engine_copy(here=st, candidates=[bp])
+        man(old)
+        cases.append(('a set vendored from an older commit defers to the clone\'s copy',
+                      ask() == tool, ask()))
+        man(new)
+        cases.append(('CONTROL: a set on the clone\'s own commit runs its own copy',
+                      ask() is None, ''))
+        man('0' * 40)
+        cases.append(('CONTROL: a recorded commit the clone lacks proves nothing',
+                      ask() is None, ''))
+        man(old, 'https://github.com/someone/Else')
+        cases.append(('CONTROL: a clone of another repository is never used',
+                      ask() is None, ''))
+        man(old)
+        os.environ[psb.DEFERRED_ENV] = '1'
+        try:
+            cases.append(('CONTROL: a run already deferred never defers again',
+                          ask() is None, ''))
+        finally:
+            os.environ.pop(psb.DEFERRED_ENV, None)
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'a set\'s bootstrap defers to a newer engine copy ({len(cases)} stated cases)',
+          not bad, '; '.join(map(str, bad)))
+
+
 def check_update_holds_a_settings_change_and_offers_it_again():
     """A .claude/ change Update Vendors asks the person about keeps its old
     manifest baseline until their words are given, and a read-only allow
@@ -87333,6 +87383,7 @@ def main():
     check_stale_branches_lists_one_repository_once()
     check_branch_cleanup_button()
     check_update_notes_workflow_changes_in_readme_platform_section()
+    check_set_bootstrap_defers_to_a_newer_engine_copy()
     check_update_holds_a_settings_change_and_offers_it_again()
     check_deduplicated_copy_stays_in_force_until_its_target_arrives()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
