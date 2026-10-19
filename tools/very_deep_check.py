@@ -718,14 +718,23 @@ def _second_practice_lists(repo_dir, threshold=0.8):
     if len(slugs) < 5:
         return []
     generated = {'AGENTS.md', 'MAP.md', 'GLOSSARY.md', 'CLAUDE.md'}
-    try:
+    # The checked repository's OWN doc_sync.py, loaded by path (2026-10-19):
+    # a bare import also searches this script's directory, so a source with
+    # none was judged by BestPractice's PAIRS, and sys.modules kept the
+    # first repository's module for every later one.
+    ds_path = root / 'tools' / 'doc_sync.py'
+    if ds_path.is_file():
         sys.path.insert(0, str(root / 'tools'))
-        import doc_sync as _ds
-        generated |= {doc for doc, _block, _script in getattr(_ds, 'PAIRS', ())}
-    except Exception:
-        pass
-    finally:
-        if sys.path and sys.path[0] == str(root / 'tools'):
+        try:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                f'_vdc_doc_sync_{abs(hash(str(root)))}', ds_path)
+            _ds = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(_ds)
+            generated |= {doc for doc, _block, _script in getattr(_ds, 'PAIRS', ())}
+        except Exception:
+            pass
+        finally:
             sys.path.pop(0)
     r = subprocess.run(['git', '-C', str(root), 'ls-files'],
                        capture_output=True, text=True)

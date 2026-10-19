@@ -1125,13 +1125,20 @@ def _refresh_branch_for(repo, tip):
 REFRESH_SUBJECT = 'Refresh the vendored engine to BestPractice '
 
 
-def refresh_only_branches(repo, base):
+def refresh_only_branches(repo, base, merges_ok=False):
     """-> the local branches in `repo` that carry nothing but this tool's own
     refresh commits beyond `base` and no remote has: engine output, which
     the next refresh writes again from the engine as it then is.
 
     precedent_container_safe asks this to leave them out of "work only
-    here", and apply_on_its_own_branch to clear the superseded ones."""
+    here", and apply_on_its_own_branch to clear the superseded ones.
+
+    `merges_ok` passes over merge commits, as precedent_container_safe's
+    own count of work at risk does (--no-merges). 2026-10-19: a refresh
+    branch made at session start on top of a local merge that never reached
+    a remote held one refresh commit and that merge, so every archive check
+    called it "not safe to lose". Deletion keeps the strict reading: a merge
+    can carry a conflict resolution (practice: repair-cannot-discard-work)."""
     ok, out = _git('for-each-ref', '--format=%(refname:short)', 'refs/heads',
                    cwd=repo)
     mark = f'-{"-".join(REFRESH_BRANCH_WORDS)}-'
@@ -1139,8 +1146,9 @@ def refresh_only_branches(repo, base):
     for b in (out or '').split() if ok else []:
         if mark not in b:
             continue
-        ok2, subjects = _git('log', '--format=%s', b, '--not', base,
-                             '--remotes', cwd=repo)
+        ok2, subjects = _git('log', '--format=%s',
+                             *(['--no-merges'] if merges_ok else []), b,
+                             '--not', base, '--remotes', cwd=repo)
         lines = [l for l in (subjects or '').splitlines() if l.strip()]
         if ok2 and lines and all(l.startswith(REFRESH_SUBJECT) for l in lines):
             found.append(b)
