@@ -28578,6 +28578,30 @@ def check_parallel_artifact_ledger_fires():
                        cwd=tmp, check=True)
         already_on_base = fn(None)
 
+        # A row is a verdict for every member or it is not one (2026-10-19:
+        # the 2026-10-18 row stopped after its change cell, and a 2026-09-30
+        # row carried an unescaped pipe in a code span).
+        header = ('| Date | Originating change | claude-code | codex | '
+                  'gemini-cli |\n|---|---|---|---|---|\n')
+        ledger_path.write_text(header + _row('0000000'), encoding='utf-8')
+        complete_row = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-10-18 | this row\'s own commit — planted |\n',
+            encoding='utf-8')
+        half_row = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-09-30 | a `|` in code | applied | n/a | n/a |\n',
+            encoding='utf-8')
+        loose_pipe = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-09-30 | a `\\|` in code | applied | n/a | n/a |\n',
+            encoding='utf-8')
+        escaped_pipe = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-09-30 | planted | applied |  | n/a |\n',
+            encoding='utf-8')
+        empty_cell = fn(None)
+
         # A ledger naming ONLY the later change: the inception commit must
         # not be demanded. Before this exemption, f2078d6 -- the commit
         # that created all three real harness adapters, five weeks before
@@ -28599,12 +28623,21 @@ def check_parallel_artifact_ledger_fires():
              len(cited_only) == 1),
             ("a change already on the base is not judged again -- the check "
              "never walks the whole history", already_on_base == []),
+            ("a complete row under the header is not a finding",
+             complete_row == []),
+            ("a row with no member cells is a finding, at its line",
+             len(half_row) == 1 and 'LEDGER.md:3' in str(half_row[0].where)),
+            ("an unescaped pipe in a code span is a finding (a cell too many)",
+             len(loose_pipe) == 1),
+            ("an escaped pipe is one cell", escaped_pipe == []),
+            ("an empty member cell is a finding", len(empty_cell) == 1),
         ]
         bad = [n for n, ok in cases if not ok]
         check(f"parallel-artifact-ledger check fires ({len(cases)} stated cases: "
               f"no ledger, ledger missing the commit, a row naming it in "
               f"its change cell, a prose citation not counting as a row, "
-              f"a family's own inception commit needing no row)",
+              f"a family's own inception commit needing no row, a row "
+              f"missing or emptying a member cell)",
               not bad, '; '.join(bad))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
