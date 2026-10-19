@@ -41010,6 +41010,9 @@ def check_merge_check_gate():
         for f in ('precedent_push_check.py', 'precedent_branches.py',
                   'precedent_merge_check.py'):
             _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        # precedent_time is copied as every real repository has it
+        # (2026-10-19: without it each import fell back quietly, the copy
+        # was named "copy-<unix time>", and no case could tell).
         (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
         for t in ('precedent_check', 'leak_gate', 'doc_lint'):
@@ -41872,7 +41875,7 @@ def check_promote_picks_its_step():
         work = tmp / 'work'
         (work / 'tools').mkdir(parents=True)
         git(tmp, 'init', '-q', '-b', 'main', str(work))
-        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+        for f in ('precedent_push_check.py', 'precedent_branches.py', 'precedent_time.py'):
             _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
         (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
@@ -41930,6 +41933,13 @@ def check_promote_picks_its_step():
         copies = [r for r in (l.split('\t')[1] for l in git(
             work, 'ls-remote', 'origin', 'refs/heads/*').stdout.splitlines())
             if pb.is_main_copy(r[len('refs/heads/'):])]
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_time as _pt
+        sys.path.pop(0)
+        cases.append(('the copy is named for the day, by precedent_time, not its '
+                      'quiet fallback', bool(copies) and all(
+                          _pt.today(work) in c[len('refs/heads/'):]
+                          for c in copies), copies))
         cases.append(('staging goes into main, said in '
                       'those words, exiting 3 since main has not moved yet',
                       rc == 3 and out.startswith(
@@ -42187,7 +42197,7 @@ def check_promote_only_and_tier_branches():
         work = tmp / 'work'
         (work / 'tools').mkdir(parents=True)
         git(tmp, 'init', '-q', '-b', 'main', str(work))
-        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+        for f in ('precedent_push_check.py', 'precedent_branches.py', 'precedent_time.py'):
             _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
         (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
@@ -72197,7 +72207,7 @@ def _promote_fixture(tmp, env, base_branch, tiers):
     work = tmp / 'work'
     (work / 'tools').mkdir(parents=True)
     git(tmp, 'init', '-q', '-b', 'main', str(work))
-    for f in ('precedent_push_check.py', 'precedent_branches.py'):
+    for f in ('precedent_push_check.py', 'precedent_branches.py', 'precedent_time.py'):
         _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
     (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
         _json.dumps({'kind': 'consumer'}), encoding='utf-8')
