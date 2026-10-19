@@ -39,6 +39,12 @@ the ledger merges by union and a stale or foreign line costs one re-emit,
 never a skipped block. An emit whose reads could not be recorded gets no
 fact and always runs. `--full` ignores the ledger.
 
+EACH BLOCK SETTLES AS ITS EMIT FINISHES. A block is compared, written (with
+--write) and given its fact the moment its own emit returns, and the ledger
+is saved then, both atomically. A run that is killed, or that stops at a
+failing emit, keeps every block it finished, each the output of its own
+code; the next run's ledger check skips them and carries on from there.
+
     python3 tools/doc_sync.py --full    # emit every block regardless
 
 Beyond the drift gate, this tool enforces two things a generated block alone
@@ -286,6 +292,7 @@ def owned_figures_cached(script, ledger):
     if rd is not None:
         ledger[("#owned", script)] = [_led().make("#owned", script, script, code, json.dumps(figs), rd,
                                                   figures=figs)]
+        save_ledger(ledger)
     return [(lab, forms) for lab, forms in figs]
 
 
@@ -373,15 +380,26 @@ READS = {}                        # (script, name) -> recorded reads, or None wh
 _LED = None
 
 
+_FL = None
+
+
+def _led_module():
+    """fact_ledger.py, beside this file, loaded once."""
+    global _FL
+    if _FL is None:
+        spec = importlib.util.spec_from_file_location("_doc_sync_fact_ledger",
+                                                      Path(__file__).resolve().parent / "fact_ledger.py")
+        _FL = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_FL)
+    return _FL
+
+
 def _led():
     """The shared fact ledger (fact_ledger.py, beside this file), built from
     the host's knobs on first use."""
     global _LED
     if _LED is None:
-        spec = importlib.util.spec_from_file_location("_doc_sync_fact_ledger",
-                                                      Path(__file__).resolve().parent / "fact_ledger.py")
-        fl = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fl)
+        fl = _led_module()
         # the gate's own files: a batch emit runs inside this module, which
         # would otherwise count as a read of every block it emits
         here = Path(__file__).resolve().parent
@@ -640,6 +658,12 @@ def plan_line(pairs, ledger, jobs):
     return line
 
 
+def _write_atomic(path, text):
+    """A document rewritten in one step (fact_ledger.write_atomic): a run
+    killed mid-write leaves the old file or the new one, never half."""
+    _led_module().write_atomic(path, text)
+
+
 def block_re(name):
     return re.compile(
         rf"(<!--gen:{re.escape(name)}-->\n)(.*?)(<!--/gen:{re.escape(name)}-->)",
@@ -814,13 +838,15 @@ def verify_batch(script, names):
     return [n for n in names if one[n] != many[n]]
 
 
-def emit_all(pairs, jobs=None):
+def emit_all(pairs, jobs=None, on_done=None):
     """Every registered block's script output, run concurrently: each emit
     is its own process, and a model that re-derives its state per process
     spends most of a gate's wall clock doing so one block at a time. The
     number of concurrent emits is DOC_SYNC_JOBS, else the CPU count.
     Returns {(script, name): text}; the first failing emit exits the gate,
-    as the serial loop did."""
+    as the serial loop did. `on_done(results)` is called on this thread
+    with each task's {(script, name): text} as soon as that task finishes,
+    so a caller can settle those blocks before the slower ones return."""
     import concurrent.futures
     import os
     keys = list(dict.fromkeys((s, n) for _, n, s in pairs))
@@ -835,9 +861,14 @@ def emit_all(pairs, jobs=None):
     jobs = jobs or int(os.environ.get("DOC_SYNC_JOBS", "0") or 0) or os.cpu_count() or 1
     _IN_FLIGHT[0] = max(1, min(jobs, len(tasks)))
     out = {}
+
+    def done(got):
+        out.update(got)
+        if on_done:
+            on_done(got)
     if jobs <= 1 or len(tasks) <= 1:
         for fn, args in tasks:
-            out.update(collect(fn, args, _timed(fn, args)))
+            done(collect(fn, args, _timed(fn, args)))
         return out
     ex = concurrent.futures.ThreadPoolExecutor(max_workers=jobs)
     try:
@@ -853,7 +884,7 @@ def emit_all(pairs, jobs=None):
                     print(f"[doc_sync] stopping {running} other emit(s): {args[0]} failed",
                           file=sys.stderr)
                 raise
-            out.update(collect(fn, args, res))
+            done(collect(fn, args, res))
     finally:
         ex.shutdown(wait=True, cancel_futures=True)
     return out
@@ -950,64 +981,78 @@ def main():
         print(f"[doc_sync] ledger: {len(held)} of {len(pairs)} block(s) unchanged since their "
               f"last check ({time.time() - t0:.1f} s); emitting {len(pairs) - len(held)}"
               + (" (--full)" if FULL else ""), file=sys.stderr)
-    recorded = False
     to_emit = [(d, n, s) for d, n, s in pairs if (ROOT / d).is_file() and (d, n) not in held]
-    if to_emit:
-        jobs = int(os.environ.get("DOC_SYNC_JOBS", "0") or 0) or os.cpu_count() or 1
-        print(plan_line(to_emit, ledger if LEDGER else {}, jobs), file=sys.stderr, flush=True)
-    wants = emit_all(to_emit)
     for doc, name, script in pairs:
         if (doc, name) in held:
             print(f"[doc_sync] OK    {doc} [{name}] (ledger)")
-            continue
-        path = ROOT / doc
         # Graceful degradation, not a crash: PAIRS is hand-maintained, and a
         # document renamed or deleted without updating it leaves an entry
         # pointing at nothing. A bare FileNotFoundError here names a path
         # and no remedy; this names the registry that has to change.
-        if not path.is_file():
+        elif not (ROOT / doc).is_file():
             print(f"[doc_sync] FAIL  {doc}: registered in PAIRS but no such "
                   f"file -- the document was renamed or deleted; update "
                   f"PAIRS in tools/doc_sync.py (or restore the file)")
             fail = True
-            continue
-        text = path.read_text()
-        m = block_re(name).search(text)
-        if not m:
-            print(f"[doc_sync] FAIL  {doc}: no <!--gen:{name}--> block")
-            fail = True
-            continue
-        want = wants[(script, name)]
-        have = m.group(2)
-        verified = False
-        if have == want:
-            print(f"[doc_sync] OK    {doc} [{name}]")
-            verified = True
-        elif args.write:
-            path.write_text(text[:m.start(2)] + want + text[m.end(2):])
-            print(f"[doc_sync] WROTE {doc} [{name}]")
-            verified = True
-        if verified and LEDGER and (doc, name) in codes:
-            reads = READS.get((script, name))
-            if reads is not None:
-                ledger[(doc, name)] = [make_fact(doc, name, script, codes[(doc, name)], want, reads)]
-                recorded = True
-            else:
-                print(f"[doc_sync] note  {doc} [{name}]: its reads were not recorded, so it "
-                      "gets no ledger fact and emits every run")
-        if not verified:
-            print(f"[doc_sync] DRIFT {doc} [{name}] -- document block != "
-                  "script output. Fix the script (numbers live there), then "
-                  "run doc_sync.py --write.")
-            for line in difflib.unified_diff(
-                    have.splitlines(), want.splitlines(),
-                    f"{doc} (document)", f"{script} --emit {name}",
-                    lineterm="", n=1):
-                print("    " + line)
-            fail = True
+    sys.stdout.flush()
 
-    if recorded:
-        save_ledger(ledger)
+    # Each block settles the moment its emit returns: compared, written and
+    # given its fact, the ledger saved, before any slower emit finishes. A
+    # run cut off at any point leaves documents and a ledger that agree.
+    by_key = {}
+    for doc, name, script in to_emit:
+        by_key.setdefault((script, name), []).append((doc, name, script))
+    drift = []
+
+    def settle(got):
+        recorded = False
+        for key, want in got.items():
+            for doc, name, script in by_key.get(key, ()):
+                path = ROOT / doc
+                text = path.read_text()     # re-read: another block may have just written it
+                m = block_re(name).search(text)
+                if not m:
+                    print(f"[doc_sync] FAIL  {doc}: no <!--gen:{name}--> block")
+                    drift.append(None)
+                    continue
+                have = m.group(2)
+                verified = False
+                if have == want:
+                    print(f"[doc_sync] OK    {doc} [{name}]")
+                    verified = True
+                elif args.write:
+                    _write_atomic(path, text[:m.start(2)] + want + text[m.end(2):])
+                    print(f"[doc_sync] WROTE {doc} [{name}]")
+                    verified = True
+                if verified and LEDGER and (doc, name) in codes:
+                    reads = READS.get((script, name))
+                    if reads is not None:
+                        ledger[(doc, name)] = [make_fact(doc, name, script, codes[(doc, name)], want,
+                                                         reads)]
+                        recorded = True
+                    else:
+                        print(f"[doc_sync] note  {doc} [{name}]: its reads were not recorded, so "
+                              "it gets no ledger fact and emits every run")
+                if not verified:
+                    print(f"[doc_sync] DRIFT {doc} [{name}] -- document block != "
+                          "script output. Fix the script (numbers live there), then "
+                          "run doc_sync.py --write.")
+                    for line in difflib.unified_diff(
+                            have.splitlines(), want.splitlines(),
+                            f"{doc} (document)", f"{script} --emit {name}",
+                            lineterm="", n=1):
+                        print("    " + line)
+                    drift.append((doc, name))
+        if recorded:
+            save_ledger(ledger)     # the document first, then its fact: a kill between costs a re-emit
+        sys.stdout.flush()
+
+    if to_emit:
+        jobs = int(os.environ.get("DOC_SYNC_JOBS", "0") or 0) or os.cpu_count() or 1
+        print(plan_line(to_emit, ledger if LEDGER else {}, jobs), file=sys.stderr, flush=True)
+    emit_all(to_emit, on_done=settle)
+    if drift:
+        fail = True
 
     # Footer check: every registered document must end with a "Numbers by:"
     # footer naming each script that feeds it, so a reader always knows
@@ -1070,9 +1115,6 @@ def main():
                                   "line <!--owned-ok--> if the restatement is "
                                   "deliberate")
                             fail = True
-
-    if LEDGER and any(k[0] == "#owned" for k in ledger):
-        save_ledger(ledger)
 
     # Registry-consistency check: PAIRS is a hand-maintained JOIN over two facts
     # that already declare themselves -- the sentinel in the document and the
