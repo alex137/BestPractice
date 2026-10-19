@@ -46,5 +46,5 @@ and the compaction offer) are now named at the next turn's start, by
 reply left these out". Nothing is refused. **That notice needs the turn-start
 reply gate to run**, and a session opened above its repositories does not run
 it until its environment takes the 2026-10-19 setup script, whose
-switchboard ([tools/precedent_run_repo_hooks.py](../tools/precedent_run_repo_hooks.py))
+switchboard ([tools/precedent_run_repo_hooks.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_run_repo_hooks.py))
 runs the turn-start gate there too.

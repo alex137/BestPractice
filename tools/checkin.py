@@ -595,6 +595,68 @@ def in_shipped_copy(rel, root=None):
     return _in_copy(rel, carries_tools=False)
 
 
+SHIPPED_LINK_REPO = 'https://github.com/alex137/BestPractice'
+_MD_LINK = re.compile(r'(\]\()([^)\s#]+)((?:#[^)\s]*)?\))')
+
+
+def ships_its_own_copy(root=None):
+    """True in the one repository whose catalogue copy is shipped from here:
+    BestPractice carries verify_harness.py and no ENGINE_MANIFEST.json."""
+    base = pathlib.Path(root or ROOT)
+    return ((base / 'tools' / 'verify_harness.py').is_file()
+            and not (base / 'tools' / 'ENGINE_MANIFEST.json').is_file())
+
+
+def shipped_link_branch(root=None):
+    """The branch a rewritten link names: precedent.json's base_branch."""
+    try:
+        return json.loads((pathlib.Path(root or ROOT) / 'precedent.json')
+                          .read_text(encoding='utf-8')).get('base_branch') or 'staging'
+    except (OSError, ValueError):
+        return 'staging'
+
+
+def ship_links(rel, text, root=None):
+    """-> (text, [(line number, target)]): `text` of repo-relative Markdown
+    file `rel` with each relative link to a file the catalogue copy leaves
+    out pointed at that file on GitHub, and the links it changed. A file the
+    copy does not carry comes back as it was.
+
+    THE ONE ANSWER to which links travel (Morgan, 2026-10-19: "go, build it
+    and book it"). A link to a copied file works in every consumer and stays
+    relative. A link to a file left out (tools/, spec/) cannot: the copy sits
+    under process/upstream/, so it lands on nothing there. The commit
+    backstop (precedent_regenerate.py) applies this as a file is committed,
+    so the file shipped is byte for byte the file here and no comparison of
+    a copy with upstream's text ever sees a difference; shipped-links-travel
+    reports what it would still change, for a commit made without the
+    backstop. A link climbing out of the repo, an absolute or scheme link,
+    and a target that does not exist (doc_lint's broken link) are left
+    alone."""
+    import posixpath
+    base = pathlib.Path(root or ROOT)
+    rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix()).as_posix()
+    if not rel.endswith('.md') or not in_shipped_copy(rel, base):
+        return text, []
+    branch = shipped_link_branch(base)
+    changed = []
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        def repoint(m):
+            t = m.group(2)
+            if re.match(r'^[a-z]+:', t) or t.startswith('/'):
+                return m.group(0)
+            tgt = posixpath.normpath(posixpath.join(posixpath.dirname(rel), t))
+            if tgt.startswith('..') or not (base / tgt).exists() \
+                    or in_shipped_copy(tgt, base):
+                return m.group(0)
+            kind = 'tree' if (base / tgt).is_dir() else 'blob'
+            changed.append((i + 1, tgt))
+            return f'{m.group(1)}{SHIPPED_LINK_REPO}/{kind}/{branch}/{tgt}{m.group(3)}'
+        lines[i] = _MD_LINK.sub(repoint, line)
+    return '\n'.join(lines), changed
+
+
 def rules_report(since=None):
     """`checkin.py rules [REF]`: print, for each file added since REF (the
     landing branch by default), whether it ships and the rule that says so.

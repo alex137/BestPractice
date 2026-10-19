@@ -97,7 +97,7 @@ so treat this as a lead for whoever investigates next, not as the cause.
 **2026-10-19: every moment, not only session start.** The cloud setup
 script now writes one user-level line per moment (a prompt, before and
 after a tool call, the end of a reply), each calling
-[tools/precedent_run_repo_hooks.py](../tools/precedent_run_repo_hooks.py),
+[tools/precedent_run_repo_hooks.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_run_repo_hooks.py),
 which runs the hooks of the repository the action is about. An environment
 picks it up when its setup script is updated; until then the older text
 below still describes what it gets.
