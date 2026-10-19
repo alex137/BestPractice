@@ -1871,25 +1871,14 @@ def _sibling_not_in_force(pdir, base):
             f'where that rule went -- settle that before linking it')
 
 
-def _shipped_link_branch():
-    """The branch a shipped link to this repo names: precedent.json's
-    base_branch, which practice-links-travel requires of practice files."""
-    try:
-        return json.loads((ROOT / 'precedent.json').read_text(
-            encoding='utf-8')).get('base_branch') or 'staging'
-    except (OSError, ValueError):
-        return 'staging'
-
-
-_MD_LINK_TARGET = re.compile(r'\]\(([^)\s#]+)(?:#[^)\s]*)?\)')
-
-
 @check('shipped-links-travel', 'tree',
        'no file this repo ships in its catalogue copy links relatively to a '
        'file the copy leaves out (tools/checkin.py\'s VENDORING_RULES): '
        'such a link is broken in every consumer, under process/upstream/, '
        'where the consumer may not fix it. A doc of ours a consumer\'s reader '
-       'needs is linked on GitHub instead',
+       'needs is linked on GitHub instead; the commit backstop '
+       '(precedent_regenerate.py, by checkin.ship_links) repoints such a link '
+       'as the file is committed, so this finds a commit made without it',
        'a link that is not Markdown link syntax (a bare path in backticks, '
        'an HTML anchor), and a relative link that climbs out of the repo; '
        'practice files are judged more closely by practice-links-travel. '
@@ -1900,9 +1889,10 @@ def _shipped_links_travel(ctx):
     # templates/harness/LEDGER.md, a file the copy leaves out, were broken
     # in every consumer, and the full set was 195 links in 65 files.
     # 2026-10-08: judged by checkin.in_shipped_copy, the copy's own rule.
-    # This asked vendoring_rule(), which still counts tools/ as shipped
-    # though since 2026-09-30 a consumer's copy leaves tools/ at home, so
-    # 320 links into tools/ passed here and broke in every consumer.
+    # 2026-10-19: the commit backstop now repoints these links itself
+    # (checkin.ship_links, the one answer, applied by
+    # precedent_regenerate.py), so what this finds is a commit made without
+    # the backstop -- GitHub's web editor, a machine without the hooks.
     if (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file():
         raise NotApplicable('a vendored engine: this repo receives the '
                             'catalogue copy, it does not ship one')
@@ -1910,36 +1900,23 @@ def _shipped_links_travel(ctx):
         import checkin
     except Exception as e:                                    # noqa: BLE001
         raise NotApplicable(f'tools/checkin.py did not import: {e}')
-    if not hasattr(checkin, 'vendoring_rule'):
-        raise NotApplicable('this checkin.py predates VENDORING_RULES')
-    import posixpath
+    if not hasattr(checkin, 'ship_links'):
+        raise NotApplicable('this checkin.py predates ship_links')
     out = []
     for rel in _git('ls-files', '*.md').stdout.split():
-        rule = checkin.vendoring_rule(rel)
-        if not (rule and rule[1]):
-            continue
         try:
             text = (ROOT / rel).read_text(encoding='utf-8', errors='ignore')
         except OSError:
             continue
-        for i, line in enumerate(text.splitlines(), 1):
-            for m in _MD_LINK_TARGET.finditer(line):
-                t = m.group(1)
-                if re.match(r'^[a-z]+:', t) or t.startswith('/'):
-                    continue
-                tgt = posixpath.normpath(posixpath.join(posixpath.dirname(rel), t))
-                if tgt.startswith('..'):
-                    continue
-                # A target missing here is doc_lint's broken link, not this.
-                if not (ROOT / tgt).exists() or checkin.in_shipped_copy(tgt, ROOT):
-                    continue
-                kind = 'tree' if (ROOT / tgt).is_dir() else 'blob'
-                out.append(Finding(
-                    f'{rel}:{i}', f'links to {tgt}, which the catalogue '
-                    f'copy leaves out, so the link is broken in every '
-                    f'consumer -- link it on GitHub instead '
-                    f'(https://github.com/alex137/BestPractice/{kind}/'
-                    f'{_shipped_link_branch()}/{tgt})'))
+        for line, tgt in checkin.ship_links(rel, text, ROOT)[1]:
+            kind = 'tree' if (ROOT / tgt).is_dir() else 'blob'
+            out.append(Finding(
+                f'{rel}:{line}', f'links to {tgt}, which the catalogue '
+                f'copy leaves out, so the link is broken in every '
+                f'consumer -- the commit backstop repoints it '
+                f'(python3 tools/precedent_regenerate.py --staged), or link '
+                f'it on GitHub ({checkin.SHIPPED_LINK_REPO}/{kind}/'
+                f'{checkin.shipped_link_branch(ROOT)}/{tgt})'))
     return out
 
 
