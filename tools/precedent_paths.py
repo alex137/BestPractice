@@ -270,7 +270,17 @@ def with_sources_in_force(root, practices_dir, own):
         if sys.path and sys.path[0] == str(_ENGINE_DIR):
             sys.path.pop(0)
     here = pathlib.Path(practices_dir).resolve()
-    out = {slug: (slug, globs, rule) for slug, globs, rule in own}
+    # The saved copy of someone else's individual set routes nothing to
+    # this session; a slug it holds is answered from outside practices/ when
+    # another source has one (precedent_audience, 2026-10-19).
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_audience as _pa
+        withheld = _pa.withheld_saved_slugs(root)
+    except Exception:                                        # noqa: BLE001
+        withheld = set()
+    out = {slug: (slug, globs, rule) for slug, globs, rule in own
+           if slug not in withheld}
     for slug, p in resolved.items():
         f = pathlib.Path(p.get('file') or '')
         try:

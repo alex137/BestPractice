@@ -882,7 +882,20 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
                           if pm._is_engine_dev_scoped(p)}
     _live = {slug: p for slug, p in res['practices'].items()
              if slug not in _engine_dev_scoped}
-    levels = {slug: p['level'] for slug, p in _live.items()}
+    # The tracked block of a private repository carries no individual set:
+    # it is resolved again without one, so a slug the set overrides shows
+    # the shared or universal rule instead (build_views._split_declared says
+    # why; 2026-10-19). practices/ and MANIFEST.json still hold the set, as
+    # its owner's saved copy.
+    _block = _live
+    if not public and not bv.repo_is_practice_source(pathlib.Path(repo)) \
+            and any(pr.declared_level(s) == 'individual' for s in sources):
+        _bres = pr.resolve([s for s in sources
+                            if pr.declared_level(s) != 'individual'],
+                           context=brought)
+        _block = {slug: p for slug, p in _bres['practices'].items()
+                  if not pm._is_engine_dev_scoped(p)}
+    levels = {slug: p['level'] for slug, p in _block.items()}
     # omits_private must match what this run actually left out, or the
     # standing instruction disagrees with build_views.py's own render of the
     # same repo -- and `generated-artifact-provenance` then reports the file
@@ -924,7 +937,7 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
     triples = [(p['fm'], p['sections'],
                 bv.placed_practice_file(repo, slug, p['file'],
                                         planned=planned))
-               for slug, p in _live.items()]
+               for slug, p in _block.items()]
     block, _tokens, _n = bv.build_loader_block(
         triples, source_levels=levels, defers_sources=bool(omitted),
         # The block lands in <repo>/AGENTS.md, so a resident Rule's relative

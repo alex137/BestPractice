@@ -3772,24 +3772,22 @@ def check_loader_caps_unmeasured_without_a_declared_source():
 
 
 def check_loader_block_with_an_absent_individual_set():
-    """A loader block committed with individual practices is COULD NOT
-    VERIFY where no individual set resolves, never drift (2026-10-09).
+    """A private consumer's loader block carries no individual set, so it is
+    judged the same with or without one (2026-10-19, replacing 2026-10-09).
 
-    A consuming repository's pull request into main failed GitHub's light
-    check with generated-artifact-provenance reporting AGENTS.md hand-edited
-    or stale. Nothing was: its block carried five individual-level practices
-    and the "machine-dependent" paragraph, and a bare runner has no
-    individual set, because a person's set resolves through their user-level
-    config and is never declared in the repository. The declared-source
-    guard in build_views.loader_practices never saw it, so --check compared
-    a block built without those practices to one built with them.
+    Until 2026-10-19 the block of a private consumer carried the person's
+    individual practices and a "machine-dependent" paragraph, and a bare
+    runner with no individual set could only call it COULD NOT VERIFY (a
+    consuming repository's pull request into main once failed on exactly
+    that, 2026-10-09). Part 4 of the copied-in shared sets plan took the
+    individual set out of every private repository's tracked block: everyone
+    there reads it, and a person's own rules bind that person alone. So the
+    block no longer depends on whose machine regenerated it.
 
     A throwaway private consumer whose block was generated with a fixture
-    individual set, run through the real tools three ways: (a) no user
-    config -- every reader of the block says it could not verify, and the
-    provenance check is not violated; (b) the user config back -- the
-    provenance check passes; (c) as (b), with a hand-edit in the block --
-    still violated, so the fix did not widen past the absent set."""
+    individual set: (a) the block carries none of it; (b) with no user
+    config, every reader verifies it and passes; (c) with the user config,
+    the same; (d) a hand-edit is still violated."""
     import tempfile
     cases = []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='individual-absent-'))
@@ -3846,10 +3844,11 @@ def check_loader_block_with_an_absent_individual_set():
 
         run(with_set, 'tools/build_views.py', '--agents-only')
         agents = (c / 'AGENTS.md').read_text(encoding='utf-8')
-        cases.append(('the fixture block carries the individual practice and '
-                      'the machine-dependent paragraph',
-                      'zz-personal' in agents and 'came from an INDIVIDUAL source' in agents
-                      and '1 individual' in agents, agents[:600]))
+        cases.append(('(a) the block carries no individual practice and no '
+                      'machine-dependent paragraph',
+                      'zz-personal' not in agents
+                      and 'came from an INDIVIDUAL source' not in agents
+                      and 'individual)' not in agents, agents[:600]))
         subprocess.run(['git', 'init', '-q'], cwd=c, env=base)
         subprocess.run(['git', 'add', '-A'], cwd=c, env=base)
         subprocess.run(['git', 'commit', '-qm', 'x'], cwd=c, env=base)
@@ -3858,45 +3857,33 @@ def check_loader_block_with_an_absent_individual_set():
             return run(env, 'tools/precedent_check.py', '--only',
                        'generated-artifact-provenance')
 
-        # (a) No individual set here, as on a bare GitHub runner.
+        # (b) No individual set here, as on a bare GitHub runner.
         rc, out = run(without, 'tools/build_views.py', '--check', '--agents-only')
-        cases.append(('(a) build_views --check exits 0 and says NOT VERIFIABLE, '
-                      'never FAIL', rc == 0 and 'NOT VERIFIABLE' in out
+        cases.append(('(b) without the set, build_views --check verifies and '
+                      'passes', rc == 0 and 'NOT VERIFIABLE' not in out
                       and '--check FAIL' not in out, out[-400:]))
-        rc, out = run(without, 'tools/build_views.py', '--budgets', '--agents-only')
-        cases.append(('(a) --budgets says it measured nothing',
-                      rc == 0 and 'budgets NOT VERIFIED' in out
-                      and 'individual source' in out, out[-400:]))
         rc, out = provenance(without)
-        cases.append(('(a) generated-artifact-provenance is COULD NOT VERIFY, '
-                      'not a violation',
-                      rc == 0 and '0 violated' in out
-                      and 'COULD NOT VERIFY  generated-artifact-provenance' in out,
-                      out[-600:]))
-        rc, out = run(without, 'tools/precedent_sync_views.py', '--repo', '.',
-                      '--check', '--skip-unresolved')
-        cases.append(('(a) precedent_sync_views --check says NOT VERIFIABLE, '
-                      'not 31 differences', rc == 0 and 'NOT VERIFIABLE' in out
-                      and 'difference(s)' not in out, out[-400:]))
-        # (b) The person's individual set resolves: a real verdict, and clean.
-        rc, out = provenance(with_set)
-        cases.append(('(b) with the individual set, provenance passes',
+        cases.append(('(b) without the set, provenance passes',
                       rc == 0 and '1 passed' in out and '0 violated' in out
                       and 'COULD NOT VERIFY' not in out, out[-600:]))
-        # (c) ...and a hand-edit is still caught there.
-        (c / 'AGENTS.md').write_text(agents.replace(
-            'A fixture individual rule.', 'A fixture individual rule, edited by hand.'),
-            encoding='utf-8')
+        # (c) The person's individual set resolves: the same verdict.
         rc, out = provenance(with_set)
-        cases.append(('(c) a hand-edit with the individual set present is still '
-                      'violated', rc != 0 and '1 violated' in out
-                      and 'stale or hand-edited' in out, out[-600:]))
+        cases.append(('(c) with the set, provenance passes',
+                      rc == 0 and '1 passed' in out and '0 violated' in out
+                      and 'COULD NOT VERIFY' not in out, out[-600:]))
+        # (d) ...and a hand-edit is still caught.
+        (c / 'AGENTS.md').write_text(agents.replace(
+            '<!-- END GENERATED -->', 'A line edited in by hand.\n<!-- END GENERATED -->'),
+            encoding='utf-8')
+        rc, out = provenance(without)
+        cases.append(('(d) a hand-edit is still violated', rc != 0
+                      and '1 violated' in out and 'stale or hand-edited' in out,
+                      out[-600:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'a loader block carrying individual practices cannot verify where no '
-          f'individual set resolves, and still fails a hand-edit where one does '
-          f'({len(cases)} stated cases)', not bad,
+    check(f'a private consumer\'s loader block carries no individual set, and '
+          f'is verified with or without one ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
@@ -36232,6 +36219,163 @@ def check_brought_set_ships_reach_the_session_untracked():
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_saved_individual_copy_loads_for_its_owner_only():
+    """Part 4 of the copied-in shared sets plan (Morgan, 2026-10-19,
+    strength: assented). In a private repository the sync writes a person's
+    individual set into practices/ as a saved copy, and records whose it is
+    in MANIFEST.json. It loads for that person alone:
+
+    1. The record: the individual source's entry carries its owner's
+       github, name, email and zone; no other entry does.
+    2. The tracked AGENTS.md block carries none of the set, and says so;
+       practices/ still holds it.
+    3. Set missing, this session is the owner's: the session file loads the
+       saved copy and tells the first reply, show, gate and paths serve it,
+       and engine commits are authored as the owner, in the owner's zone.
+    4. NEGATIVE CONTROL -- set missing, someone else's session: none of it.
+       Before this change the saved copy was served to anyone.
+    5. Owner unknown (GitHub knows nobody, nothing declared): none of it,
+       and the session file says why.
+    6. A copy with no owner record (synced before this): none of it."""
+    import shutil, subprocess, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='saved-individual-copy-'))
+    cases = []
+    tools = ROOT / 'tools'
+
+    def practice(path, slug, rule, tier='on-demand', applies_to='["**"]',
+                 gates='[]'):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: {tier}\n'
+            f'severity: default\napplies_to: {applies_to}\noccasion: "testing"\n'
+            f'gates: {gates}\nindex_clause: "a fixture"\nchecked_by: null\n'
+            f'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
+            f'added: null\napproved_by: "harness"\n---\n\n## Rule\n{rule}\n\n'
+            f'## Detail\n\n## Why\n\n## Story\n\n## Install\n', encoding='utf-8')
+
+    try:
+        ind = tmp / 'people' / 'zz-owner-set'
+        practice(ind / 'practices' / 'zz-personal.md', 'zz-personal',
+                 'The owner\'s own resident Rule.', tier='resident')
+        practice(ind / 'practices' / 'zz-routed.md', 'zz-routed',
+                 'The owner\'s routed Rule.', applies_to='["fixture/*.md"]',
+                 gates='["reply"]')
+        (ind / 'identity.json').write_text(json.dumps(
+            {'name': 'Owner O', 'email': 'o@example.com', 'github': 'owner-o',
+             'timezone': 'Asia/Tokyo'}), encoding='utf-8')
+        uni = tmp / 'uni'
+        practice(uni / 'practices' / 'zz-universal.md', 'zz-universal',
+                 'The universal Rule.', tier='resident')
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        (repo / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(uni)}]}), encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            '# Fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-owner-set',
+                                                   'path': str(ind)}}))
+        none_cfg = str(tmp / 'no-config.json')
+        base = {k: v for k, v in os.environ.items()
+                if k not in ('PRECEDENT_GITHUB_USER', 'PRECEDENT_COMMIT_EMAIL',
+                             'PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_TZ', 'TZ')}
+
+        def run(tool, *args, user_config=none_cfg, who=None):
+            env = {**base, 'PRECEDENT_USER_CONFIG': user_config}
+            if who:
+                env['PRECEDENT_GITHUB_USER'] = who
+            r = subprocess.run([sys.executable, str(tools / tool), *args],
+                               cwd=str(repo), env=env, capture_output=True,
+                               text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run('precedent_sync_views.py', '--repo', str(repo),
+                      '--user-config', str(ucfg), user_config=str(ucfg))
+        man = json.loads((repo / 'MANIFEST.json').read_text())
+        owners = {s['level']: s.get('owner') for s in man['sources']}
+        cases.append(('the saved copy records its owner, and only it does',
+                      rc == 0 and owners.get('individual') == {
+                          'github': 'owner-o', 'name': 'Owner O',
+                          'email': 'o@example.com', 'timezone': 'Asia/Tokyo'}
+                      and owners.get('universal') is None,
+                      f'{owners} {out[-600:]}'))
+        agents = (repo / 'AGENTS.md').read_text()
+        cases.append(('the tracked block carries none of the set; practices/ '
+                      'keeps it', 'zz-personal' not in agents
+                      and 'INDIVIDUAL source' not in agents
+                      and 'zz-universal' in agents
+                      and (repo / 'practices' / 'zz-personal.md').is_file(),
+                      agents[-800:]))
+
+        def session(who):
+            rc, out = run('precedent_session_practices.py', '--repo', str(repo),
+                          who=who)
+            f = repo / '.precedent' / 'SESSION_PRACTICES.md'
+            return out + (f.read_text() if f.is_file() else '')
+
+        def served(who):
+            got = {}
+            got['session'] = 'own resident Rule' in session(who)
+            got['show'] = 'own resident Rule' in run(
+                'precedent_show.py', 'zz-personal', '--repo', str(repo), who=who)[1]
+            got['gate'] = 'zz-routed' in run(
+                'precedent_gate.py', 'reply', '--repo', str(repo), who=who)[1]
+            got['paths'] = 'zz-routed' in run(
+                'precedent_paths.py', 'fixture/a.md', '--repo', str(repo),
+                who=who)[1]
+            return got
+
+        mine = served('owner-o')
+        out = session('owner-o')
+        cases.append(('set missing, the owner\'s session: the saved copy is '
+                      'served everywhere, and the first reply is told',
+                      all(mine.values()) and 'saved copy, last changed' in out,
+                      f'{mine} {out[-500:]}'))
+        rc, env_out = run('precedent_identity.py', '--commit-env', str(repo),
+                          who='owner-o')
+        cases.append(('...and engine commits are the owner\'s, in their zone',
+                      'GIT_AUTHOR_EMAIL=o@example.com' in env_out
+                      and 'TZ=Asia/Tokyo' in env_out, env_out))
+        rc, ident = run('precedent_audience.py', '--saved-owner-identity',
+                        '--repo', str(repo), who='owner-o')
+        cases.append(('...and the commit hook is handed name, email and zone',
+                      ident.splitlines()[:3] == ['Owner O', 'o@example.com',
+                                                 'Asia/Tokyo'], ident))
+
+        theirs = served('someone-else')
+        rc, ident = run('precedent_audience.py', '--saved-owner-identity',
+                        '--repo', str(repo), who='someone-else')
+        rc, env_out = run('precedent_identity.py', '--commit-env', str(repo),
+                          who='someone-else')
+        cases.append(('NEGATIVE CONTROL: someone else\'s session is served '
+                      'none of it, and is never authored as the owner',
+                      not any(theirs.values()) and not ident.strip()
+                      and 'o@example.com' not in env_out,
+                      f'{theirs} {ident} {env_out}'))
+
+        nobody = served(None)
+        out = session(None)
+        cases.append(('owner unknown: none of it, and the session file says why',
+                      not any(nobody.values()) and 'was not loaded' in out,
+                      f'{nobody} {out[-400:]}'))
+
+        for src in man['sources']:
+            src.pop('owner', None)
+        (repo / 'MANIFEST.json').write_text(json.dumps(man))
+        legacy = served('owner-o')
+        cases.append(('a copy with no owner record loads for nobody',
+                      not any(legacy.values()), repr(legacy)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the saved copy of an individual set loads for its owner only '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:500]}" for n, d in bad))
+
+
 def check_show_flags_unreachable_materialized_source():
     """practices/verify-postcondition.md, applied to the READ side of the
     gap practices/session-bootstrap.md's Story records on the write side.
@@ -36302,6 +36446,12 @@ def check_show_flags_unreachable_materialized_source():
         write_practice(indiv / 'practices' / 'show-fixture-individual-routed.md',
                        'show-fixture-individual-routed', 'The routed individual fixture Rule.',
                        applies_to='["fixture-only/*.md"]', gates='["push"]')
+        # Whose set it is (2026-10-19): a saved copy loads for its owner
+        # only, so every read below runs as the owner's session.
+        (indiv / 'identity.json').write_text(json.dumps(
+            {'name': 'Fx Owner', 'email': 'fx@example.com', 'github': 'fx-owner'}),
+            encoding='utf-8')
+        owner_env = {**os.environ, 'PRECEDENT_GITHUB_USER': 'fx-owner'}
         uni = tmp / 'uni-source'
         write_practice(uni / 'practices' / 'show-fixture-universal.md',
                        'show-fixture-universal', 'The universal fixture Rule.')
@@ -36332,17 +36482,17 @@ def check_show_flags_unreachable_materialized_source():
 
         def show(*slugs):
             r = subprocess.run([sys.executable, show_tool, *slugs, '--repo', str(consumer)],
-                               capture_output=True, text=True)
+                               capture_output=True, text=True, env=owner_env)
             return r.returncode, r.stdout + r.stderr
 
         def gate(name):
             r = subprocess.run([sys.executable, gate_tool, name, '--repo', str(consumer)],
-                               capture_output=True, text=True)
+                               capture_output=True, text=True, env=owner_env)
             return r.returncode, r.stdout + r.stderr
 
         def paths(*p):
             r = subprocess.run([sys.executable, paths_tool, *p, '--repo', str(consumer)],
-                               capture_output=True, text=True)
+                               capture_output=True, text=True, env=owner_env)
             return r.returncode, r.stdout + r.stderr
 
         rc, out = materialize()
@@ -49019,12 +49169,14 @@ def check_sync_views_cross_source():
         agents_text = (consumer / 'AGENTS.md').read_text(encoding='utf-8')
         cases.append(('the resident block names BOTH resident sources, not just one',
                       'uni-fixture' in agents_text and 'team-fixture' in agents_text))
+        # The individual set is not in a private consumer's tracked block
+        # (2026-10-19): it reaches its person through the session file.
         cases.append(('the resident-count-by-level header counts only the '
-                      'RESIDENT practices, not all four resolved ones',
-                      '2 of 4 practices (1 shared, 1 universal)' in agents_text))
-        cases.append(('the occasion index reaches the on-demand individual '
-                      'and repo-local practices too',
-                      'ind-fixture' in agents_text and 'local-fixture' in agents_text))
+                      'RESIDENT practices, of the three the block carries',
+                      '2 of 3 practices (1 shared, 1 universal)' in agents_text))
+        cases.append(('the occasion index reaches the on-demand repo-local '
+                      'practice, and not the individual one',
+                      'local-fixture' in agents_text and '  ind-fixture \u2014' not in agents_text))
         cases.append(('the repo-local source file at its OWN subdirectory '
                       'survives the sync untouched',
                       (consumer / 'local' / 'practices' / 'local-fixture.md').exists()))
@@ -70563,6 +70715,32 @@ def check_copied_in_shared_sets():
                       and 'set_root' in r.stdout + r.stderr,
                       r.stdout[-200:] + r.stderr[-200:]))
 
+        # What a copied set's rules point at comes with it (2026-10-19, the
+        # first real copy-in left the writing set's checks and the ladder
+        # set's hook scripts behind), and the set's own engine copy does not.
+        kit = tmp / 'kit-set'
+        (kit / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        (kit / 'tools' / 'checks' / 'check_zz.py').write_text('x = 1\n')
+        (kit / 'tools' / 'checks' / 'tests' / 'test_zz.sh').write_text('true\n')
+        (kit / 'tools' / 'zz_shipped.py').write_text('x = 1\n')
+        (kit / 'tools' / 'zzhooks').mkdir()
+        (kit / 'tools' / 'zzhooks' / 'run.py').write_text('x = 1\n')
+        (kit / 'tools' / 'zzhooks' / 'helper.py').write_text('x = 1\n')
+        (kit / 'tools' / 'precedent_engine_file.py').write_text('x = 1\n')
+        (kit / 'practices').mkdir()
+        (kit / 'practices' / 'zz-kit.md').write_text(
+            '---\nslug: zz-kit\nships: ["tools/zz_shipped.py"]\n'
+            'hooks: [{"event": "Stop", "run": "tools/zzhooks/run.py"}]\n'
+            'checked_by: "tools/checks/check_zz.py"\n---\n# k\n\n## Rule\n\nx\n')
+        got = checkin._files_rules_name(kit)
+        cases.append(('a copied set brings its checks, what its rules ship and '
+                      'the hook scripts they run, folder and all',
+                      got == ['tools/checks', 'tools/zz_shipped.py', 'tools/zzhooks'],
+                      repr(got)))
+        cases.append(('NEGATIVE CONTROL: and never the engine copy in its tools/',
+                      'tools/precedent_engine_file.py' not in got
+                      and 'tools' not in got, repr(got)))
+
         import precedent_source_credentials as psc
         gone = make_host('gone-host', 'zz-set', visibility='private')
         un = psc.unresolved_private_sources(gone, env={
@@ -70962,6 +71140,24 @@ def check_copy_in_is_asked_once():
                       and cfg['copy_in']['zz-writing']['answer'] == 'no'
                       and 'zz-writing' not in {e['name'] for e in cfg['sources']},
                       repr(rep2.asks)))
+
+        # Morgan, 2026-10-19: a public repository is warned about first,
+        # and "no" is named as loading the set at session start.
+        q = pve.copy_in_question(pve.copy_in_offers(tmp / 'open')[0])
+        cases.append(('a public repository\'s question warns first that what '
+                      'is copied in becomes public',
+                      q.startswith('WARNING: this repository is PUBLIC'), q))
+        q = pve.copy_in_question(pve.copy_in_offers(tmp / 'shared')[0])
+        cases.append(('NEGATIVE CONTROL: a private one carries no such warning, '
+                      'and either says no keeps it loading at session start',
+                      'PUBLIC' not in q
+                      and 'No: keep loading it at session start' in q, q))
+        own_set = make_host('a-set', 'private', ['zzme'])
+        (own_set / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ladder', 'level': 'shared'}))
+        got = pve.copy_in_offers(own_set)
+        cases.append(('a practice set is offered nothing, least of all itself',
+                      got == [], repr(got)))
 
         fresh = make_host('fresh', 'private', ['zzme'])
         lines = pi._copy_in(fresh, {}, '')
@@ -88919,6 +89115,7 @@ def main():
     check_brought_set_ships_reach_the_session_untracked()
     check_session_ships_exclude_survives_another_worktree()
     check_show_flags_unreachable_materialized_source()
+    check_saved_individual_copy_loads_for_its_owner_only()
     check_sync_views_cross_source()
     check_sync_refuses_to_lose_a_recorded_practice()
     check_doc_lifecycle_fires_and_clears()

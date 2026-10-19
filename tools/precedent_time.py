@@ -161,6 +161,21 @@ def _read_key(path, key):
     return value if isinstance(value, str) and value.strip() else None
 
 
+def _saved_owner_zone(root):
+    """The zone the saved copy of this person's individual set records,
+    while this session runs on it (precedent_audience.saved_owner_identity;
+    never a network lookup here). None otherwise, or when that module is
+    not beside this one."""
+    try:
+        import sys
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_audience as _pa
+        ident = _pa.saved_owner_identity(root, lookup=False)
+    except Exception:                                        # noqa: BLE001
+        return None
+    return (ident or {}).get('timezone') or None
+
+
 def resolved(root=None):
     """(tzinfo, name, source) — the zone in force, and where it came from.
 
@@ -176,6 +191,9 @@ def resolved(root=None):
          "this repository's own identity.json"),
         (_individual_identity_zone(),
          "the person's own zone, from their individual source's identity.json"),
+        (_saved_owner_zone(root),
+         "the person's own zone, from the saved copy of their individual set "
+         "(the set did not attach)"),
         (os.environ.get('TZ'), 'TZ in the environment'),
         (_repo_fallback_zone(root),
          "this repository's declared fallback_timezone (no zone was found for this person)"),

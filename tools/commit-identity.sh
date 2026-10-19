@@ -38,6 +38,10 @@
 #      mechanical check asserting who a repo's commits are authored by --
 #      derives from it and is checked against it, rather than restating it
 #      (practice: registry-source-of-truth).
+#   3b. The saved copy of that individual set, when the set did not attach:
+#      a private repository's MANIFEST.json records whose its tracked copy
+#      is, and precedent_audience.py --saved-owner-identity answers only
+#      when this session is that person's (2026-10-19).
 #   4. CCR_SESSION_ACCOUNT_EMAIL, when the harness provides the session
 #      owner's address.
 #   5. The GitHub account this session is authenticated as
@@ -256,6 +260,17 @@ PY
       [ -n "$resolved" ] && _take_identity "$resolved" "the individual practice source's identity.json" individual
     fi
   fi
+fi
+
+# --- 3b. the saved copy of the person's individual set, when the set itself
+# did not attach and the saved copy is this session's person's own
+# (precedent_audience.py --saved-owner-identity, which checks whose session
+# it is; 2026-10-19). Nothing is printed for anyone else's session.
+if [ -z "$email" ] && [ -f "$ROOT/tools/precedent_audience.py" ] \
+    && command -v python3 >/dev/null 2>&1; then
+  saved="$(python3 "$ROOT/tools/precedent_audience.py" --saved-owner-identity \
+           --repo "$ROOT" 2>/dev/null || true)"
+  [ -n "$saved" ] && _take_identity "$saved" "the saved copy of your individual set (MANIFEST.json) -- the set itself did not attach" individual
 fi
 
 # --- 4. the harness's own record of the session owner
