@@ -70,6 +70,10 @@ ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
 try:
+    import precedent_source_home as _psh  # one tree, many paths (2026-10-19)
+except Exception:                                           # noqa: BLE001
+    _psh = None
+try:
     import precedent_refresh_sources as _refresh
 except Exception:                     # a source-config problem is that
     _refresh = None                   # tool's to report; never fatal here
@@ -126,10 +130,22 @@ def checkouts():
     working directory, which is how `/root/BestPractice` and
     `/home/user/BestPractice` coexist. And whatever the source config
     DECLARES, since an individual set is cloned wherever its owner's
-    user-level config says, which need not be either of the above."""
-    seen, out = [], []
+    user-level config says, which need not be either of the above. Plus the
+    harness's declared source home (precedent_source_home, 2026-10-19).
+
+    One tree is one checkout however many paths reach it: a link and its
+    target, both ways round, are listed once (precedent_source_home's
+    tree_key, the test every lister shares)."""
+    seen, out = set(), []
     cands = [ROOT, *sorted(ROOT.parent.iterdir()),
              *sorted(pathlib.Path.home().iterdir())]
+    if _psh is not None:
+        try:
+            src_home = _psh.home()
+            if src_home.is_dir():
+                cands += sorted(src_home.iterdir())
+        except Exception:                                   # noqa: BLE001
+            pass
     if _refresh is not None:
         try:
             cands += _refresh.declared_paths()
@@ -140,9 +156,10 @@ def checkouts():
             p = pathlib.Path(p).expanduser().resolve()
         except (OSError, RuntimeError):
             continue
-        if p in seen or not p.is_dir():
+        key = _psh.tree_key(p) if _psh is not None else p
+        if key in seen or not p.is_dir():
             continue
-        seen.append(p)
+        seen.add(key)
         if _is_checkout(p):
             out.append(p)
     return out
