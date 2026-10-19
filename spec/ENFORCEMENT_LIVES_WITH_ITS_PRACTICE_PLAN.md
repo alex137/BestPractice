@@ -215,6 +215,17 @@ places, so the two never run side by side:
   5a asks the resolver where the set is, copied in or attached, and
   treats a repository whose code owners have not bound the ladder like
   one with no ladder. Built before it, 5a would be built twice.
+- **Step 1 landed on staging on 2026-10-19** (pull requests #1270, #1273
+  and #1274). What 5a builds on: a set may live inside the repository at
+  `process/<name>/`, declared with `"vendored": true`; it is not a clone,
+  so `precedent_resolve.declared_source_paths()` leaves it out and
+  `vendored_source_paths(repo)` lists it, and finding the set that provides
+  the ladder reads both, as `set_tool()` already does. A copied set may
+  carry another (`"carries"` in its `precedent-source.json`), listed with
+  `carried_by`; the repository's own declaration wins by name. A repository
+  makes the ladder binding with `"binds_everyone"` in `precedent.json`, on
+  one code owner's word; `precedent_ladder.ladder_sources()` counts it and
+  dedupes by name. `tools/precedent_branches.py` was not touched.
 - 5b's code goes to `tools/ladder/` in the ladder set, which since
   2026-10-19 also holds thirteen rules moved there from Morgan's
   individual set (`promote-only`, `stage-words` and `ladder-required`

@@ -32136,6 +32136,60 @@ def check_wait_main_test_finds_a_merged_pull_requests_head():
           not bad, '; '.join(map(str, bad)))
 
 
+def check_push_to_staging_runs_own_checks_inside_a_budget():
+    """2026-10-19: two consuming repos' Produce merged a change their own
+    pull-request check was certain to fail, because since 2026-10-17 a push
+    to main takes the basic tier and a repository's own approved workflow
+    steps ran only at the Debut. They now run before a change reaches
+    staging (Morgan: "before it's even pushed to staging"), split across a
+    budget so a slow one is stopped and left to GitHub, never a failure and
+    never minutes."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_push_check as ppc
+    cases = []
+    wf = ('name: Own\non:\n  pull_request:\n    branches: [main]\njobs:\n  check:\n'
+          '    runs-on: ubuntu-latest\n    steps:\n'
+          '      - name: Check out repository\n        uses: actions/checkout@v4\n'
+          '      - name: Check {n}\n        run: python3 tools/{n}.py\n')
+    scripts = {'fast_check': 'pass', 'failing_check': 'raise SystemExit(1)',
+               'slow_check': 'import time; time.sleep(30)'}
+    saved = ppc.OWN_CHECKS_BUDGET_SECONDS
+    ppc.OWN_CHECKS_BUDGET_SECONDS = 3
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            d = pathlib.Path(td)
+            (d / 'tools').mkdir(); (d / '.github' / 'workflows').mkdir(parents=True)
+            approved = {}
+            for n, body in scripts.items():
+                (d / 'tools' / f'{n}.py').write_text(body + '\n')
+                rel = f'.github/workflows/{n}.yml'
+                (d / rel).write_text(wf.format(n=n))
+                approved[rel] = {'sha256': 'x', 'approved_by': 't'}
+            (d / 'precedent.json').write_text(json.dumps({'github_ci_approved': approved}))
+            own = ppc.own_checks_before_staging(d)
+            by = {n: next((c for c in own if f'tools/{n}.py' in c[0]), None) for n in scripts}
+            cases.append(('each approved workflow step is planned before staging',
+                          all(by.values()), [c[0] for c in own]))
+            run = lambda c: _sp.run(c[1], cwd=d, capture_output=True, text=True, timeout=60)
+            if all(by.values()):
+                cases.append(('a passing step passes', run(by['fast_check']).returncode == 0, ''))
+                cases.append(('a failing step fails, as GitHub would',
+                              run(by['failing_check']).returncode == 1, ''))
+                r = run(by['slow_check'])
+                cases.append(('a step past its share of the budget is stopped and left to '
+                              'GitHub, not failed', r.returncode == 0 and 'left to GitHub'
+                              in r.stdout, r.stdout + r.stderr))
+            cases.append(('CONTROL: a tool the list already runs is not run twice',
+                          not ppc.own_checks_before_staging(
+                              d, planned=[f'tools/{n}.py' for n in scripts]), ''))
+    finally:
+        ppc.OWN_CHECKS_BUDGET_SECONDS = saved
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'a push to staging runs the repository\'s own checks inside a budget '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
+
+
 def check_update_holds_a_settings_change_and_offers_it_again():
     """A .claude/ change Update Vendors asks the person about keeps its old
     manifest baseline until their words are given, and a read-only allow
@@ -88328,6 +88382,7 @@ def main():
     check_sync_removes_a_stale_ship_named_only_as_another_repos()
     check_update_keeps_the_harness_go_ahead_with_its_content()
     check_wait_main_test_finds_a_merged_pull_requests_head()
+    check_push_to_staging_runs_own_checks_inside_a_budget()
     check_update_holds_a_settings_change_and_offers_it_again()
     check_deduplicated_copy_stays_in_force_until_its_target_arrives()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()

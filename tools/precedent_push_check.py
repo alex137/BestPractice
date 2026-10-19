@@ -818,10 +818,9 @@ def plan(root, engine=HERE, tier=FULL):
     # list, which owns its tier: BestPractice's own deep-check.yml runs the
     # full suite, which a basic push must not.
     # A repository's own workflow checks are tests, so they run in the full
-    # tier only: at the Debut, never before a push. Not at Produce either:
-    # since 2026-10-17 a push or merge into main takes the basic tier, so a
-    # failure here is found by GitHub's pull-request check after it (two
-    # consuming repos, 2026-10-19, platform-docs-check.yml). Until
+    # tier: at the Debut, never before an ordinary push. A push to the
+    # staging tier gets them in the basic tier too, inside a budget
+    # (own_checks_before_staging, 2026-10-19). Until
     # 2026-10-17 they ran at every tier, outside BASIC_CHECKS, where the
     # closed quick tier could not see them (Morgan, 2026-10-16: "all the
     # testing EXCEPT THE BARE ESSENTIAL AND LEAK GATES SHOULD GO INTO DEBUT";
@@ -833,6 +832,60 @@ def plan(root, engine=HERE, tier=FULL):
     out.extend(c for c in approved_workflow_checks(root)[0]
                if Path(c[1][1]).as_posix() not in planned)
     return kind, out
+
+
+# A REPOSITORY'S OWN CHECKS RUN BEFORE STAGING, INSIDE A BUDGET (2026-10-19).
+# Since 2026-10-17 a push or merge into main takes the basic tier, so a
+# repository's own approved workflow steps ran only at the Debut, and two
+# consuming repositories' Produce merged a change their own pull-request
+# check (platform-docs-check.yml) was certain to fail. Those steps are what
+# GitHub runs on that pull request, and each measured under 0.2s that day,
+# so the quick checks for a push to the staging tier run them too: a change
+# meets them before it is shared at all, and GitHub's test still runs after
+# it is live on main. Morgan, the same day (strength: decided): "let's run
+# them ... before it's even pushed to staging", not during the push to main.
+# And earlier:
+# "I want to prevent the problem that happened before. We had one little
+# check, then another little check ... So it goes back to being from seconds
+# to minutes." Hence the budget: together they get OWN_CHECKS_BUDGET_SECONDS,
+# split evenly; one that runs past its share is stopped, said, and left to
+# GitHub, never counted as a failure, so no slow step added later can turn
+# Produce back into minutes.
+OWN_CHECKS_BUDGET_SECONDS = 10
+_BUDGET_RUNNER = (
+    'import subprocess, sys\n'
+    't = float(sys.argv[1])\n'
+    'try:\n'
+    '    sys.exit(subprocess.run(sys.argv[2:], timeout=t).returncode)\n'
+    'except subprocess.TimeoutExpired:\n'
+    '    print(f"ran past its {t:g}s share of the budget for a push to staging; '
+    'stopped and left to GitHub")\n')
+
+
+def _staging_name(root):
+    """-> the staging tier's branch name in `root`, or 'staging'."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_branches
+        return precedent_branches.staging_branch(root)
+    except Exception:                                        # noqa: BLE001
+        return 'staging'
+    finally:
+        sys.path.pop(0)
+
+
+def own_checks_before_staging(root, engine=HERE, planned=()):
+    """-> approved_workflow_checks(root), minus a tool `planned` already
+    runs, each wrapped to stop at its share of OWN_CHECKS_BUDGET_SECONDS."""
+    planned = {Path(a).as_posix() for a in planned}
+    own = [c for c in approved_workflow_checks(root)[0]
+           if Path(c[1][1]).as_posix() not in planned]
+    if not own:
+        return []
+    share = round(max(OWN_CHECKS_BUDGET_SECONDS / len(own), 1.0), 1)
+    return [(name, [sys.executable, '-c', _BUDGET_RUNNER, str(share), *argv],
+             f'{replaces}, before staging (at most {share:g}s)')
+            for name, argv, replaces in own]
 
 
 def shown_interpreter(argv):
@@ -2236,6 +2289,10 @@ def main(argv):
             os.environ[_name] = _value
         else:
             os.environ.pop(_name, None)
+    if tier == BASIC and _dest and _dest == _staging_name(root) and kind is not None:
+        checks.extend(own_checks_before_staging(
+            root, planned=[a[1] if a and a[0] == sys.executable else a[0]
+                           for _n, a, _r in checks if a]))
     if since and kind is not None:
         rel = HERE.relative_to(root) if HERE.is_relative_to(root) else HERE
         # Only the per-file checks: the practice checks and every test run

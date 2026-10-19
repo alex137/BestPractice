@@ -53,7 +53,7 @@ both spellings resolve to this one rule.
 
 **The standing test, in Morgan's words** (2026-10-19, strength: decided):
 *"if a session has nothing else pending, nothing that wasn't pushed to
-staging, nothing on in the temporary files that's needed, and the plan is
+[the landing branch], nothing on in the temporary files that's needed, and the plan is
 being continued in another session, or I said that I don't want to
 continue the plan, then you can say, and you should say, it can be
 archived."* The conditions below are that test, spelled out; when they
