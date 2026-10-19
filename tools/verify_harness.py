@@ -71141,6 +71141,24 @@ def check_copy_in_is_asked_once():
                       and 'zz-writing' not in {e['name'] for e in cfg['sources']},
                       repr(rep2.asks)))
 
+        # Morgan, 2026-10-19: a public repository is warned about first,
+        # and "no" is named as loading the set at session start.
+        q = pve.copy_in_question(pve.copy_in_offers(tmp / 'open')[0])
+        cases.append(('a public repository\'s question warns first that what '
+                      'is copied in becomes public',
+                      q.startswith('WARNING: this repository is PUBLIC'), q))
+        q = pve.copy_in_question(pve.copy_in_offers(tmp / 'shared')[0])
+        cases.append(('NEGATIVE CONTROL: a private one carries no such warning, '
+                      'and either says no keeps it loading at session start',
+                      'PUBLIC' not in q
+                      and 'No: keep loading it at session start' in q, q))
+        own_set = make_host('a-set', 'private', ['zzme'])
+        (own_set / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ladder', 'level': 'shared'}))
+        got = pve.copy_in_offers(own_set)
+        cases.append(('a practice set is offered nothing, least of all itself',
+                      got == [], repr(got)))
+
         fresh = make_host('fresh', 'private', ['zzme'])
         lines = pi._copy_in(fresh, {}, '')
         asked = [l for l in lines if l.startswith('copy in, a question:')]

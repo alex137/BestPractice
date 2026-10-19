@@ -5115,6 +5115,11 @@ def copy_in_offers(dest_root, user_config=None, login=None):
         return []
     if not isinstance(cfg, dict):
         return []
+    # A practice set copies nothing in: it is a set, and its sessions read
+    # the others from their own repositories. Asking anyway offered each set
+    # a copy of itself (2026-10-19, Update Vendors in four sets).
+    if (root / 'precedent-source.json').is_file():
+        return []
     answered = cfg.get(COPY_IN_KEY) if isinstance(cfg.get(COPY_IN_KEY), dict) \
         else {}
     copied = {e.get('name') for e in cfg.get('sources') or []
@@ -5146,17 +5151,27 @@ def copy_in_offers(dest_root, user_config=None, login=None):
             default, why = 'no', 'others are code owners here too'
         out.append({'name': name, 'repo_url': url, 'clone': clone,
                     'brought': brought, 'default': default, 'why': why,
-                    'ladder': ladder, 'set_root': set_root})
+                    'ladder': ladder, 'set_root': set_root,
+                    'public': not private})
     return out
 
 
 def copy_in_question(offer, flag='--copy-in', by_flag='--answered-by'):
     """The question for one offer, in words the person answers, with how
     the answer comes back to the tool."""
-    q = (f'Copy {offer["name"]} into this repository? Then it is in force '
-         f'for everyone who works here, it is refreshed by Update Vendors, '
-         f'and it can never fail to load. No keeps it arriving the way it '
-         f'does today. Suggested: {offer["default"]} ({offer["why"]}).')
+    # Morgan, 2026-10-19, relayed from the session that first met this
+    # question in his practice sets: warn before copying into a public
+    # repository, and name "no" as the choice to keep loading the set at
+    # session start.
+    q = ''
+    if offer.get('public'):
+        q += ('WARNING: this repository is PUBLIC. Everything copied in -- '
+              'the set\'s rules and every detail in them -- becomes public '
+              'with it. ')
+    q += (f'Copy {offer["name"]} into this repository? Yes: it is in force '
+          f'for everyone who works here, refreshed by Update Vendors, and it '
+          f'can never fail to load. No: keep loading it at session start, as '
+          f'now. Suggested: {offer["default"]} ({offer["why"]}).')
     if offer.get('ladder'):
         q += (' It provides the ladder, so a yes makes the ladder bind '
               'everyone here; if this repository has other code owners, '
