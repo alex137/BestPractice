@@ -1,9 +1,17 @@
 ---
-checked_through: 2026-10-17
+checked_through: 2026-10-18
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Sunday 2026-10-18: nothing-private-sent-out
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Sessions now refuse to send anything private outside, and never answer a website's request themselves** (the new practice outbound-privacy: a fetch, search or outside call carrying the person's private details is refused and logged, transcripts are scanned for any that went out, and a site asking for more becomes a question for the person).
+- **The leftovers of the retired pre-staging branch are now found even where the branch is already gone** (Update Vendors' migration reads comments in a repository's own JSON, replaces the engine's old wording in precedent.json, and lists stale lines once origin has no pre-staging; three repositories' stale text was fixed by hand the same day).
+- **Main's failing test was fixed, and fewer duplicate copies and false "don't archive" calls get in the way** (test fixtures stop git's background maintenance, issue #1207; a shared practice set now leaves a link where an attached copy would be cloned; the archive line is decided only from what is still running or not landed).
 
 ## Saturday 2026-10-17: pre-staging-deleted
 
