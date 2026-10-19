@@ -232,6 +232,17 @@ def _bind_source(clone):
     # code at all -- its practices are the point.
     if (own.get('upstream') or {}).get('vendor_practices') or copied_in:
         dirs += ['practices', SOURCE_MANIFEST]
+    # And every file its own rules point at: the check scripts in its
+    # tools/checks/ (with their tests), and each file a practice ships, runs
+    # from a hook, or is checked by. Without them the copy's rules are in
+    # force with their checks gone -- found 2026-10-19, the first copy-in:
+    # the writing set's checks and the ladder set's hook scripts were left
+    # behind, and the sync removed the consumer's copies of them. Never the
+    # engine copy a set keeps in its own tools/.
+    if copied_in:
+        for rel in _files_rules_name(clone / SET_ROOT if SET_ROOT else clone):
+            if rel not in dirs:
+                dirs.append(rel)
     # A set it carries inside itself comes with it, whole: the carrier's
     # precedent-source.json names each one and where it sits.
     if copied_in:
@@ -242,6 +253,53 @@ def _bind_source(clone):
                     and rel not in dirs:
                 dirs.append(rel)
     CODE_DIRS = dirs
+
+
+def _files_rules_name(set_dir):
+    """-> the paths, relative to the set, that its own practices need
+    beside them: tools/checks/ when the set has one, and every file a
+    practice names in `ships`, `checked_by` or a hook's `run`. A hook script
+    in a folder of its own under tools/ (tools/<name>/x.py) brings that
+    folder, since such a script imports its neighbours."""
+    set_dir = pathlib.Path(set_dir)
+    out = []
+    if (set_dir / 'tools' / 'checks').is_dir():
+        out.append('tools/checks')
+    try:
+        import split_practices as _sp
+    except ImportError:
+        return out
+
+    def _list(raw):
+        if isinstance(raw, list):
+            return raw
+        try:
+            got = json.loads(raw) if isinstance(raw, str) and raw.strip() else None
+        except ValueError:
+            return []
+        return got if isinstance(got, list) else []
+
+    for f in sorted((set_dir / 'practices').glob('*.md')):
+        try:
+            fm, _sections = _sp._read_practice_file(f)
+        except Exception:                                    # noqa: BLE001
+            continue
+        named = [x for x in _list(fm.get('ships')) if isinstance(x, str)]
+        named += [h.get('run') for h in _list(fm.get('hooks'))
+                  if isinstance(h, dict) and isinstance(h.get('run'), str)]
+        cb = str(fm.get('checked_by') or '').strip().strip('"\'')
+        if cb and cb != 'null':
+            named.append(cb)
+        for rel in named:
+            parts = pathlib.PurePosixPath(rel.strip().strip('/')).parts
+            if not parts or '..' in parts or not (set_dir / rel).exists():
+                continue
+            if len(parts) > 2 and parts[0] == 'tools' and parts[1] != 'checks':
+                rel = '/'.join(parts[:2])
+            rel = pathlib.PurePosixPath(rel).as_posix()
+            if rel not in out and not any(rel.startswith(o + '/') for o in out):
+                out.append(rel)
+    return out
 
 
 def _declared_copied_in(name):
