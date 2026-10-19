@@ -26,6 +26,17 @@ but never reached the file, so
 held the commit. It went through on the next turn, once the turn-ending reply
 had been recorded.
 
+**2026-10-19, measured again.** The lag fix that landed the same night
+(waiting up to three seconds for the guarded call to be recorded) does not
+reach this: the text is not late, it is never written. In one session,
+every mid-turn text of 25 to 32 words was in the transcript and every one
+of about 45 words or more was not, minutes later or ever, whether or not
+its tool call was refused; the turn-ending reply was. The session's
+200-word answer was refused four times running. One proposal, waiting on
+Morgan because it loosens a gate that was holding the session proposing
+it: the gate refuses once per question, and lets the next change through
+once its own refusal is in the transcript.
+
 ## Fix
 
 By hand: end the turn with the answer as the final message, which the

@@ -267,12 +267,18 @@ def unloaded_sources(root=ROOT):
         print(f'precedent_hooks: the practice sources here could not be read '
               f'({exc}); whether each loaded is not known', file=sys.stderr)
         return []
-    out = []
+    out, named = [], set()
     for path, level, name, _note in rows:
         if pr.normalize_level(level) not in pr.PRIVATE_LEVELS or not path:
             continue
         if (Path(path) / 'practices').is_dir():
             continue
+        # One line per set (2026-10-19): this repository and the person's
+        # individual set both declare ../<name>, from two different folders,
+        # and the session-start notice asked for the same add_repo twice.
+        if name in named:
+            continue
+        named.add(name)
         where = hints.get(name) or (f"{hints['*']}/{name}" if '*' in hints else '')
         out.append((name, where))
     return out

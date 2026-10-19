@@ -179,3 +179,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **A landing on `staging` is refused with "This one takes a pull request ... merge it once its checks pass". The pull request into `staging` shows no checks at all, and the session sits waiting for a CI event that never arrives.** [story](gotcha-2026-10-18-no-check-runs-on-a-pull-request-into-staging.md)
 
 - **Every `git commit` is refused with "ANSWER FIRST: the person's latest message asks something, and it has not been answered yet", even after the session has written the person a long answer in the same turn. Rewording the answer, or making it longer, changes nothing.** [story](gotcha-2026-10-18-the-answer-first-gate-cannot-see-text-written-between-tool-calls.md)
+
+- **A harness case that sets `HOME` to a temporary folder still clones into, links to, or pulls a real practice set, such as `/home/user/precedent-individual`. Or a case passes on GitHub's runner and fails in a Claude Code cloud session, or the other way round, with a path outside its temporary folder in the output.** [story](gotcha-2026-10-19-a-fixture-that-fakes-home-keeps-the-real-attach-folder.md)
