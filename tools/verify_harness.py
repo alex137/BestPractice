@@ -32108,6 +32108,42 @@ def check_reply_check_requires_the_boildown_first_line():
         cases.append(('negative control: no heading is the heading check\'s '
                       'case, not this one',
                       r5.returncode == 0, f'exit {r5.returncode}: {r5.stderr[:160]}'))
+
+        # The first line leads with what is not landed (Morgan, 2026-10-19,
+        # decided): "now on: `staging` (BestPractice) ..., and four open pull
+        # requests" was read as all of it on staging, and four missed a
+        # Produce. In process, with this session's unlanded branches planted.
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_reply_check as _rc
+        lead = [{'practice': 'fixture-first-line',
+                 'require_first_item_leads_with_unlanded': {'heading': 'boildown'}}]
+        saved = _rc._unlanded_names
+
+        def kinds(line, unlanded):
+            _rc._unlanded_names = lambda *a, **k: list(unlanded)
+            return [v['kind'] for v in _rc.violations(
+                'x\n\n## The Boildown\n- **The work of this session is now on:** '
+                + line + '\n- Next.\n', lead)]
+        try:
+            pr = ['2026-10-19-someone-fix-abcde-fghij']
+            cases.append(('the line that caused the incident is refused while a '
+                          'branch is unlanded',
+                          kinds('`staging` (BestPractice) for one change, and four '
+                                'open pull requests into `staging`', pr)
+                          == ['first_item_unlanded'], ''))
+            cases.append(('negative control: counts and NOT first pass',
+                          kinds('4 of 5 changes NOT on `staging` yet (open pull '
+                                'requests); 1 is on `staging`', pr) == [], ''))
+            cases.append(('negative control: with everything landed, `staging` '
+                          'alone passes', kinds('`staging` (BestPractice)', []) == [], ''))
+            cases.append(('a branch name holding the word main names no tier',
+                          kinds('the open pull request from red-main-counts', pr)
+                          == [], ''))
+            cases.append(('a line silent about the unlanded work is refused',
+                          kinds('BestPractice, five changes', pr)
+                          == ['first_item_unlanded'], ''))
+        finally:
+            _rc._unlanded_names = saved
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

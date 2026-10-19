@@ -1091,6 +1091,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_container_safe_if_says',
     'require_landed_if_says',
     'require_delete_link_when_landed',
+    'require_first_item_leads_with_unlanded',
     'require_full_check_after_fast_main',
     'require_section_not_repeated',
     'require_quiet_while_background_runs',
@@ -1286,6 +1287,49 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                     + (f" -- {first['why']}" if first.get('why') else '')
                     + (f" (practice: {r['practice']})"
                        if r.get('practice') else ''))})
+        # require_first_item_leads_with_unlanded (Morgan, 2026-10-19,
+        # strength: decided: "Yes, make that change"). A first line that
+        # opens on `staging` while some of the session's work is still on a
+        # feature branch or in an open pull request reads as "it is all on
+        # staging": a person had staging produced into main on exactly that
+        # line, and four pull requests missed the move. The facts are
+        # already here -- this session's own branches, and its current
+        # branch's unlanded commits -- so the line is held to them: when
+        # any work is not landed, a not-landed marker comes before the first
+        # word naming a tier. A branch given up by name (**Branch
+        # disposition:** BRANCH -- drop) is not counted.
+        lead = r.get('require_first_item_leads_with_unlanded')
+        if lead and lead.get('heading'):
+            item = first_item_under_heading(text, lead['heading'])
+            unlanded = _unlanded_names() if item is not None else []
+            unlanded = [b for b in unlanded
+                        if not re.search(r'\*\*branch disposition:\*\*\s*`?'
+                                         + re.escape(b) + r'`?\s*[—-]+\s*drop',
+                                         text, re.I)]
+            if unlanded:
+                body = _strip_markdown_emphasis(item)
+                body = body.split(':', 1)[1] if ':' in body else body
+                marker = re.search(lead.get('not_landed_matching')
+                                   or NOT_LANDED_MARKER, body, re.I)
+                tier = re.search(lead.get('tier_matching') or TIER_WORD, body)
+                if marker is None or (tier is not None and tier.start() < marker.start()):
+                    out.append({'kind': 'first_item_unlanded', 'advisory': advisory,
+                                'message': (
+                        f"[{r.get('_source', '?')}] the first line of the "
+                        f"Boildown "
+                        + ("names a tier before saying what is not landed"
+                           if marker is not None else
+                           "does not say that some of this session's work "
+                           "is not landed")
+                        + f", and {len(unlanded)} branch(es) of it are not: "
+                        + ', '.join(unlanded[:6])
+                        + ('...' if len(unlanded) > 6 else '')
+                        + ". Lead with what is not landed, with counts -- "
+                        "\"4 of 5 changes NOT on `staging` yet (open pull "
+                        "requests); 1 is on `staging`\" -- or give a branch "
+                        "up by name: **Branch disposition:** BRANCH -- drop "
+                        "(why)."
+                        + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
         # require_section_not_repeated: a section whose every item says again
         # what the previous reply's same section said is noise the person
         # pays to read (Morgan, 2026-10-05: three Boildowns in a row, each
@@ -1847,8 +1891,27 @@ def _is_landed(repo, ref, base):
 
 def _own_landed_branches(root=None, siblings=True):
     """-> [(repo, branch, base)] for each branch on origin that this session
-    made and whose work has landed -- on the repository's landing branch, or
-    on main for a Promote's copy.
+    made and whose work has landed (_own_branches)."""
+    return [(repo, name, base) for repo, name, base, _landing
+            in _own_branches(root, siblings) if base]
+
+
+def _own_unlanded_branches(root=None, siblings=True):
+    """-> [(repo, branch, landing)] for each branch on origin that this
+    session made whose work is on none of its repository's bases yet -- an
+    open pull request, a pushed feature branch -- with the branch it lands
+    on. A Promote's copy into main is left out: it carries no work of its
+    own, only staging's, which is already landed."""
+    return [(repo, name, landing) for repo, name, base, landing
+            in _own_branches(root, siblings)
+            if not base and 'promote-to-main' not in name]
+
+
+def _own_branches(root=None, siblings=True):
+    """-> [(repo, branch, landed_base or None, landing_branch)] for each
+    branch on origin that this session made: landed_base is the base its
+    work is on -- the repository's landing branch, or main for a Promote's
+    copy -- and None while it is on none of them.
 
     A branch is this session's when its name carries the session's tag (the
     last five characters of its ID, which precedent_branch_name.py puts in
@@ -1926,14 +1989,15 @@ def _own_landed_branches(root=None, siblings=True):
             live = git(repo, 'ls-remote', '--heads', 'origin', timeout=8)
             heads = ({l.split('refs/heads/', 1)[-1] for l in live.splitlines()}
                      if live is not None else None)
+            landing = bases[1] if len(bases) > 1 else bases[0]
             for name, ref in cands:
                 if heads is not None and name not in heads:
                     continue
-                for b in bases:
-                    if git(repo, 'rev-parse', '--verify', '-q',
-                           f'refs/remotes/origin/{b}') and _is_landed(repo, ref, b):
-                        found.append((str(pathlib.Path(repo).resolve()), name, b))
-                        break
+                on = next((b for b in bases
+                           if git(repo, 'rev-parse', '--verify', '-q',
+                                  f'refs/remotes/origin/{b}')
+                           and _is_landed(repo, ref, b)), None)
+                found.append((str(pathlib.Path(repo).resolve()), name, on, landing))
         except Exception:                                     # noqa: BLE001
             continue
     return found
@@ -2024,6 +2088,28 @@ def _stranded_branches(root=None, siblings=True):
         if m:
             found.append((m.group('repo'), m.group('branch')))
     return found
+
+
+# What the first line must say first when work is not landed, and the word
+# it must not say before that. A tier word is `staging` or `main` standing
+# alone: inside a branch name (red-main-counts) it names no tier.
+NOT_LANDED_MARKER = (r"\bnot\s+(?:yet\s+)?(?:landed|merged|pushed|on)\b|\bunlanded\b"
+                     r"|\bunmerged\b|\bopen pull requests?\b|\bfeature branch(?:es)?\b"
+                     r"|\bno branch yet\b")
+TIER_WORD = r"(?<![\w/-])`?(?:staging|main)`?(?![\w/-])"
+
+
+def _unlanded_names(root=None, siblings=True):
+    """-> the names of this session's branches whose work is not landed:
+    its own branches on origin (_own_unlanded_branches) and each repo's
+    current branch with commits not on its landing branch
+    (_stranded_branches), once each."""
+    names = []
+    for _repo, branch, *_rest in (_own_unlanded_branches(root, siblings)
+                                  + _stranded_branches(root, siblings)):
+        if branch not in names:
+            names.append(branch)
+    return names
 
 
 def _declares_loss(rule, text):
