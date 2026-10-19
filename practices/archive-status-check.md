@@ -32,7 +32,11 @@ approved_by: "Morgan, 2026-09-18 -- dictated in full, including the reading
   decided. Amended 2026-10-12, Alex, adding condition 4 -- nothing from the
   conversation lives only in the chat -- with the-boildown: \"the boildown
   should tell the user what work is not yet in a document and suggest places
-  to put it\". Authorized: \"yes, add it upstream\". strength: decided."
+  to put it\". Authorized: \"yes, add it upstream\". strength: decided. Amended
+  2026-10-19, Morgan, adding condition 5 -- a multi-step plan with steps
+  left holds the session open: \"You cannot tell me to archive it unless
+  the plan is fully complete Or I explicitly tell you that I am finishing
+  the plan early.\" strength: decided."
 strength:    decided
 ---
 ## Rule
@@ -46,8 +50,8 @@ old immediate-action reading of a standalone `"Archive"` is retired, and
 both spellings resolve to this one rule.
 
 **The check is [the-boildown](the-boildown.md)'s own four archive
-conditions, run on demand instead of waited for at the natural end of a
-reply:**
+conditions and its plan blocker, run on demand instead of waited for at the
+natural end of a reply:**
 
 1. Nothing in the container that anybody wants to keep would be lost --
    **every checkout it holds, not just the one this session worked in**.
@@ -66,8 +70,13 @@ reply:**
    clearer or give that material a home, including a recorded
    decision whose substance belongs in the document it shapes --
    the-boildown's condition 4.
+5. No multi-step plan this session is following has a step left. A plan
+   holds the session open until every step is done, or until the person
+   says in their own words that they are finishing it early; name the
+   plan and what is left, in plain words (the-boildown's blocker 5, Morgan,
+   2026-10-19).
 
-**All four hold, and there is nothing else worth flagging** (no open
+**All five hold, and there is nothing else worth flagging** (no open
 recommendation, no other live session on the same subject, nothing the
 assistant is itself waiting on) -- **archive it**: resolve the session,
 check `list_triggers`, call `archive_session`, and say plainly that it's

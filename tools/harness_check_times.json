@@ -38,6 +38,7 @@
   "check_archive_check_sees_work_left_in_a_scratch_folder": 0.8,
   "check_archive_gate_keeps_inner_workings_from_non_owners": 0.0,
   "check_archive_guard_refuses_work_left_on_a_feature_branch": 0.6,
+  "check_archive_guard_waits_for_an_unfinished_plan": 0.0,
   "check_archive_line_is_refused_when_the_container_holds_only_copy_work": 3.1,
   "check_archived_set_question_names_the_attach_fix": 0.1,
   "check_as_ci_parts_partition_the_suite": 0.0,

@@ -82,6 +82,14 @@
   },
   {
     "practice": "the-boildown",
+    "require_plan_done_if_says": [
+      "You can archive this session"
+    ],
+    "why": "2026-10-19, Morgan (strength: decided): \"if your session is following a multi-step plan. You cannot tell me to archive it unless the plan is fully complete Or I explicitly tell you that I am finishing the plan early.\" A session following a plan names it on a `**Plan:**` line in its Boildown; tools/precedent_reply_check.py reads that plan's `- [ ]` checklist from disk and refuses the archive sentence while a box is unticked. The escape is the person's own word, quoted on a `**Plan ended early:**` line. It reads only a plan the reply names and that keeps a checklist; anything else is the-boildown's blocker 5 in prose. An engine without this branch reports it as unknown and blocks nothing.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
+    "practice": "the-boildown",
     "id": "boildown-not-repeated",
     "require_section_not_repeated": {
       "heading": "boildown",
