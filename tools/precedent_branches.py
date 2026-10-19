@@ -3201,7 +3201,17 @@ def _to_main_copy(root, due=True):
     day, moment = _day_and_moment(root)
     prefix = 'to-main-' if due else NOT_DUE_PREFIX
     base = f'{prefix}{day}'
-    return base if not _remote_tip(root, base) else f'{prefix}{moment}'
+    if not _remote_tip(root, base):
+        return base
+    # The moment is a second: two Promotes in one second named the same
+    # copy and the second push was refused as non-fast-forward (2026-10-19:
+    # "the work just done, on staging, goes into main" failed only on
+    # GitHub's faster runner, run 39259090526). Count up until one is free.
+    name, n = f'{prefix}{moment}', 1
+    while _remote_tip(root, name):
+        n += 1
+        name = f'{prefix}{moment}-{n}'
+    return name
 
 
 # Exit 0 from a Promote means the branch it names has moved. Into main it
