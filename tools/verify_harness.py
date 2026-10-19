@@ -64800,6 +64800,39 @@ def check_branch_cleanup_page_merges_the_saved_page():
           f'stated cases)', not bad, '; '.join(bad))
 
 
+def check_branch_cleanup_open_next_is_a_real_link():
+    """A repository's open-in-tabs control is a real link to its first
+    branch, and the page's script never calls window.open.
+
+    WHY (Morgan, 2026-10-19: the button to open them all in new tabs
+    "didn't work"). It called window.open once per branch, which inside an
+    artifact returns nothing for almost every viewer, and a browser opens
+    one tab per click anyway; it opened nothing and blamed pop-ups. A real
+    link always opens, so it is one, moved to the next branch per click."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_stale_branches as _sb
+    finally:
+        sys.path.pop(0)
+    two = _sb.render_html([('o', 'r', [('a/one', '2026-10-01'),
+                                       ('b-two', '2026-10-02')])])
+    one = _sb.render_html([('o', 'r', [('a/one', '2026-10-01')])])
+    tag = two.split('class="open-next"', 1)[-1].split('>', 1)[0] \
+        if 'class="open-next"' in two else ''
+    cases = [
+        ('two branches carry the link', bool(tag)),
+        ('it points at the first branch, filtered', 'query=a%2Fone' in two.split(
+            'class="open-next"', 1)[0].rsplit('<a', 1)[-1] + tag, tag),
+        ('it opens in a new tab', 'target="_blank"' in tag, tag),
+        ('one branch has no link', 'class="open-next"' not in one),
+        ('no script calls window.open', 'window.open(' not in two),
+    ]
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the cleanup page opens the next branch with a real link '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d) + ')' if d else ''}" for n, d in bad))
+
+
 def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
     """The page never offers main, staging or a live data- branch, from any
     path, and an engine branch's old name is offered only from this run's
@@ -87234,6 +87267,7 @@ def main():
     check_branch_cleanup_page_merges_the_saved_page()
     check_branch_cleanup_page_lists_staging_waiting_to_go_live()
     check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names()
+    check_branch_cleanup_open_next_is_a_real_link()
     check_branch_cleanup_merge_warns_on_a_stale_copy()
     check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
