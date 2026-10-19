@@ -18554,6 +18554,11 @@ def check_acronym_scan_skips_wrapped_code_spans():
          toks('He said "QZXA IS A HUGE TOKEN QZXB" twice.\n') == []),
         ('two capitalized words in a row are still scanned',
          toks('Use QZXC QZXD here.\n') == ['QZXC', 'QZXD']),
+        ('inside a quotation, two capitalized words in a row are a shout '
+         '(promote-only, 2026-10-19: "just PURE CONTENT")',
+         toks('Me: *"since it is just QZXA QZXB, skip it"*.\n') == []),
+        ('one capitalized word alone inside a quotation is still scanned',
+         toks('He said "use QZXC here" once.\n') == ['QZXC']),
         ('a comma list of acronyms is still scanned',
          toks('Use QZXA, QZXB and QZXC.\n') == ['QZXA', 'QZXB', 'QZXC']),
         ('line numbers still point at the right line',
