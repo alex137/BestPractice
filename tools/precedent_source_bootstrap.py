@@ -80,6 +80,17 @@ import subprocess
 import sys
 import time
 
+# The home-folder registry and the one-tree test (precedent_source_home,
+# 2026-10-19). An engine vendored before it has no module: the old one-path
+# behaviour, unchanged.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+try:
+    import precedent_source_home as _psh
+except ImportError:
+    _psh = None
+finally:
+    sys.path.pop(0)
+
 LEVELS = {'individual', 'shared'}
 # The resolver's alias table, for this hook running with no resolver beside
 # it; verify_harness.py asserts it equals precedent_resolve.LEVEL_ALIASES.
@@ -552,13 +563,51 @@ def attach_workspace():
     and the sets beside it -- and the attach tool clones into that dir, not
     its parent. Reading the parent there gave /home: no attach copy was ever
     found, the link went nowhere, and a shared set ended up cloned twice,
-    once by the attach tool under /home/user and once by the engine."""
+    once by the attach tool under /home/user and once by the engine.
+
+    Since 2026-10-19 the answer is precedent_source_home's, the one copy
+    every tool asks; this name stays for its callers."""
+    if _psh is not None:
+        return _psh.attach_workspace()
     for var in ('PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR'):
         proj = os.environ.get(var, '').strip()
         if proj:
             proj = pathlib.Path(proj)
             return proj.parent if (proj / '.git').exists() else proj
     return None
+
+
+# THE HOME FOLDER DECIDES WHERE A NEW CLONE GOES (2026-10-19, Morgan,
+# strength: decided). Each harness has a declared home folder for source
+# trees (tools/source_homes.json, read through precedent_source_home); a
+# source whose declared path sits in one of this machine's standard folders
+# ($HOME, the attach folder) and is not on disk yet is cloned into the home
+# folder, and the declared path becomes a link into it. Before this the
+# folder depended on which repository resolved the set first, the two
+# folders' clone locks never met, and one container had links running both
+# ways. Off unless main() turns it on: a library call (a test fixture) keeps
+# the one-path behaviour, so no fixture can reach the real home folder.
+_home_rule = False
+
+
+def _home_redirect(name, clone_path, repo_url):
+    """-> (the path to clone or pull, [paths to link to it]). Unchanged
+    unless the home rule is on, `clone_path` is absent, named for the
+    source, hosted, and in a standard folder whose source home differs."""
+    clone_path = pathlib.Path(clone_path)
+    if (not _home_rule or _psh is None or os.path.lexists(clone_path)
+            or clone_path.name != name or not _is_hosted(repo_url)):
+        return clone_path, []
+    target = _psh.place(name)
+    standard = [pathlib.Path.home(), _psh.attach_workspace(), target.parent]
+    if not any(s is not None and _psh.same_tree(clone_path.parent, s)
+               for s in standard):
+        return clone_path, []
+    if _psh.same_tree(target.parent, clone_path.parent):
+        return clone_path, []
+    if os.path.lexists(target) and not (target / '.git').exists():
+        return clone_path, []           # something else is there; never touched
+    return target, [clone_path]
 
 
 def _is_hosted(url):
@@ -593,6 +642,13 @@ def _copy_state(path):
     return head, ', '.join(bits)
 
 
+def _same(a, b):
+    """One tree? precedent_source_home's test when it is here."""
+    if _psh is not None:
+        return _psh.same_tree(a, b)
+    return pathlib.Path(a).resolve() == pathlib.Path(b).resolve()
+
+
 def _one_individual_tree(name, repo_url, clone_path, workspace):
     """-> (the path to sync, [paths that should lead to it], report or None).
 
@@ -603,19 +659,29 @@ def _one_individual_tree(name, repo_url, clone_path, workspace):
     if workspace is not None and clone_path.name == name \
             and _is_hosted(repo_url):
         attach = pathlib.Path(workspace) / name
+    # $HOME/<name> as well (2026-10-19): with the clone in the harness's home
+    # folder, a tree an older layout left in $HOME is found and used rather
+    # than cloned again, and an empty $HOME path becomes a link into it.
+    in_home = None
+    if clone_path.name == name and _is_hosted(repo_url):
+        in_home = pathlib.Path.home() / name
+    others = []
+    for cand in (attach, in_home):
+        if cand is not None and cand != clone_path and cand not in others:
+            others.append(cand)
     trees = []                                  # [(resolved, as found)]
-    for cand, must_match in ((clone_path, False), (attach, True)):
+    for cand, must_match in [(clone_path, False)] + [(o, True) for o in others]:
         if cand is None or not (cand / '.git').exists():
             continue
         real = cand.resolve()
-        if any(real == r for r, _ in trees):
+        if any(_same(real, r) for r, _ in trees):
             continue                            # a link to a tree already seen
         if must_match:
             ok, url = _run_git(['-C', str(cand), 'remote', 'get-url', 'origin'])
             if not ok or _repo_key(url) != _repo_key(repo_url):
                 continue                        # somebody else's repository
         trees.append((real, cand))
-    links = [p for p in (clone_path, attach) if p is not None]
+    links = [p for p in [clone_path] + others if p is not None]
     if not trees:
         if clone_path.is_symlink() and not clone_path.exists():
             clone_path.unlink()                 # dangling: nothing to lose
@@ -712,10 +778,13 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
             name, repo_url, clone_path, workspace)
         if report:
             print(report, file=sys.stderr)
-    elif level == 'shared' and workspace is not None and clone_path.name == name:
-        attach = _attach_path(name, repo_url, workspace)
-        if attach is not None and attach.resolve() != clone_path.resolve():
-            links = [attach]
+    elif level == 'shared':
+        clone_path, links = _home_redirect(name, clone_path, repo_url)
+        if workspace is not None and clone_path.name == name:
+            attach = _attach_path(name, repo_url, workspace)
+            if attach is not None and not _same(attach, clone_path) \
+                    and attach not in links:
+                links.append(attach)
     attempts = max(1, retries)
     last_output = ''
     attempt, extra = 0, False
@@ -821,6 +890,11 @@ def _clone_elsewhere_on_disk(name, clone_path, repo_path):
     path over an EXISTING `clone_path` -- the caller only reaches here when
     that one is absent."""
     roots = []
+    if _psh is not None:
+        try:
+            roots.append(_psh.home())       # the declared home first (2026-10-19)
+        except Exception:                                   # noqa: BLE001
+            pass
     try:
         roots.append(pathlib.Path.home())
     except Exception:
@@ -1261,8 +1335,12 @@ def sources_from_brings(retries=DEFAULT_RETRIES, skip=()):
                     out.append((name, True, f'linked to the copy already on '
                                             f'disk at {existing}'))
                     continue
-            ok, msg = _try_sync(url, clone_path.resolve() if clone_path.exists()
-                                else clone_path)
+            sync_path, also = _home_redirect(name, clone_path, url)
+            ok, msg = _try_sync(url, sync_path.resolve() if sync_path.exists()
+                                else sync_path)
+            if also and (sync_path / '.git').exists():
+                _link_to(sync_path, also)
+                clone_path = sync_path
             _link_attach(name, url, clone_path)
             if not ok and _left_as_it_stands(clone_path, msg):
                 # On disk, on another branch: the resolver reads it from
@@ -1400,6 +1478,8 @@ def main(argv=None):
 
     if args.remote_only.lower() == 'true' and os.environ.get('CLAUDE_CODE_REMOTE') != 'true':
         return 0
+    global _home_rule
+    _home_rule = True                   # the session-start path: see _home_redirect
 
     if args.teams_from:
         root_results = sources_from_repo(args.teams_from,

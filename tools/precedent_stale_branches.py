@@ -235,7 +235,14 @@ def _slug(repo):
 def _same_place(repo):
     """-> a key equal for every path that reaches the same directory: its
     device and inode, which a case-insensitive filesystem and a symbolic
-    link both share, else the resolved path."""
+    link both share, else the resolved path. precedent_source_home.tree_key
+    since 2026-10-19, the one copy every lister shares; this is the fallback
+    for an engine without it."""
+    try:
+        import precedent_source_home as psh
+        return psh.tree_key(repo)
+    except ImportError:
+        pass
     try:
         st = pathlib.Path(repo).stat()
         return ('inode', st.st_dev, st.st_ino)
