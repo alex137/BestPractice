@@ -49168,6 +49168,109 @@ def check_bootstrap_writes_what_real_sets_converged_on():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_global_gate_runs_a_repos_gate_only_from_above():
+    """tools/precedent_global_gate.sh, run from the user-level settings the
+    cloud setup script writes, runs the engine's merge or push gate for a
+    session opened above its repositories, hands the hook input through,
+    names the engine's repository as the project, and stays out where the
+    project's own settings already wire that gate.
+
+    2026-10-19 (Morgan: "Go"): a session opened in /home/user ran none of
+    the repositories' gates, so its merges into main went unchecked (#1206,
+    #1217). Negative control: without the wrapper nothing runs from above."""
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        w = pathlib.Path(td)
+        engine, above, inside = w / 'engine', w / 'above', w / 'above' / 'repo'
+        (engine / 'tools').mkdir(parents=True)
+        (inside / '.claude').mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'precedent_global_gate.sh',
+                    engine / 'tools' / 'precedent_global_gate.sh')
+        (engine / 'tools' / 'push-check-gate.sh').write_text(
+            '#!/bin/bash\nprintf "RAN project=%s input=%s" '
+            '"$CLAUDE_PROJECT_DIR" "$(cat)"\n', encoding='utf-8')
+        (inside / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
+            'PreToolUse': [{'matcher': 'Bash', 'hooks': [{'type': 'command',
+                'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/push-check-gate.sh'}]}]}}),
+            encoding='utf-8')
+
+        def run(gate, project):
+            env = dict(os.environ, CLAUDE_PROJECT_DIR=str(project))
+            return subprocess.run(['bash', str(engine / 'tools' / 'precedent_global_gate.sh'),
+                                   gate], input='{"tool_name":"Bash"}', env=env,
+                                  capture_output=True, text=True, timeout=60)
+        r = run('push-check-gate.sh', above)
+        cases.append(('THE DISCRIMINATING CASE: from above the repositories the '
+                      'gate runs, with the hook input and the engine as project',
+                      r.returncode == 0 and f'RAN project={engine.resolve()}' in r.stdout
+                      and 'input={"tool_name":"Bash"}' in r.stdout,
+                      r.stdout + r.stderr))
+        r = run('push-check-gate.sh', inside)
+        cases.append(('inside a repository that wires the gate itself, nothing '
+                      'runs twice', r.returncode == 0 and 'RAN' not in r.stdout,
+                      r.stdout + r.stderr))
+        r = run('rm-everything.sh', above)
+        cases.append(('a name that is not one of the two gates runs nothing',
+                      r.returncode == 0 and 'RAN' not in r.stdout
+                      and 'no gate named' in r.stderr, r.stdout + r.stderr))
+        r = run('merge-check-gate.sh', above)
+        cases.append(('a gate missing beside it fails open and says so',
+                      r.returncode == 0 and 'is not beside this file' in r.stderr,
+                      r.stdout + r.stderr))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the user-level gate runs a repository\'s gate only from above '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
+def check_cloud_setup_script_writes_each_hook_once():
+    """The setup script documentation/CLOUD_SETUP.md gives for the cloud
+    environment writes the session-start runner and the merge and push
+    gates into the user-level settings, keeps what the file held, and run
+    again adds nothing.
+
+    2026-10-19: its duplicate test looked for the command in the file's JSON
+    text, where the command's quotes are escaped, so every run added the
+    hook again; nothing ran the script, so nothing noticed. Negative
+    control: that test writes each hook twice and fails the first case."""
+    import tempfile, re as _re
+    text = (ROOT / 'documentation' / 'CLOUD_SETUP.md').read_text(encoding='utf-8')
+    m = _re.search(r'^mkdir -p ~/\.claude\n.*?^PY$', text, _re.M | _re.S)
+    if not m:
+        check('the cloud setup script writes each hook once', False,
+              'no setup script found in documentation/CLOUD_SETUP.md')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        home = pathlib.Path(td)
+        (home / '.claude').mkdir()
+        (home / '.claude' / 'settings.json').write_text(json.dumps(
+            {'permissions': {'allow': ['Bash(ls)']}}), encoding='utf-8')
+        env = dict(os.environ, HOME=str(home))
+        for _ in range(2):
+            r = subprocess.run(['sh', '-c', m.group(0)], env=env,
+                               capture_output=True, text=True, timeout=60)
+        got = json.loads((home / '.claude' / 'settings.json').read_text(encoding='utf-8'))
+        pairs = [(name, h['command']) for name, ev in got.get('hooks', {}).items()
+                 for e in ev for h in e.get('hooks', [])]
+        cmds = [c for _n, c in pairs]
+        cases.append(('THE DISCRIMINATING CASE: run twice, each hook is there once',
+                      r.returncode == 0 and len(pairs) == len(set(pairs)) == 4,
+                      cmds or r.stderr[-300:]))
+        cases.append(('the merge and push gates are written for a session '
+                      'opened above the repositories',
+                      sum('precedent_global_gate.sh' in c for c in cmds) == 3
+                      and any(c.endswith('push-check-gate.sh || true') for c in cmds),
+                      cmds))
+        cases.append(('what the file held is kept',
+                      got.get('permissions') == {'allow': ['Bash(ls)']}, got))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the cloud setup script writes each hook once ({len(cases)} '
+          f'stated cases)', not bad,
+          '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
 def check_session_hooks_allow_read_only_tools_at_user_level():
     """A session opened above several repositories reads none of their
     permission rules (Claude Code's settings docs), so the runner adds the
@@ -49218,6 +49321,20 @@ def check_session_hooks_allow_read_only_tools_at_user_level():
                 user_settings=user)
         cases.append(('a second session start changes nothing',
                       user.read_text(encoding='utf-8') == before, ''))
+        # A container that ran the runner from 2026-10-17 to 2026-10-19 holds
+        # the ask rules it wrote then; they come out, and the person's own
+        # ask rule stays (Morgan, 2026-10-19: "Go").
+        held = dict(mine, permissions=dict(mine['permissions'], ask=[
+            'Bash(python3 tools/precedent_branches.py --land *)',
+            'mcp__github__merge_pull_request', 'Bash(rm -rf *)']))
+        user.write_text(json.dumps(held), encoding='utf-8')
+        rsh.run(root, log=pathlib.Path(td) / 'log', say=lambda m: None,
+                user_settings=user)
+        left = json.loads(user.read_text(encoding='utf-8'))['permissions'].get('ask')
+        cases.append(('THE DISCRIMINATING CASE (2026-10-19): the ask rules this '
+                      'runner wrote while the engine shipped them are taken back '
+                      'out, and the person\'s own ask rule stays',
+                      left == ['Bash(rm -rf *)'], left))
         user.write_text('{oops', encoding='utf-8')
         rsh.run(root, log=pathlib.Path(td) / 'log', say=lambda m: None,
                 user_settings=user)
@@ -87133,6 +87250,8 @@ def main():
     check_engine_tools_allowed_and_none_asks()
     check_leak_gate_reads_the_written_private_repo_list()
     check_session_hooks_allow_read_only_tools_at_user_level()
+    check_global_gate_runs_a_repos_gate_only_from_above()
+    check_cloud_setup_script_writes_each_hook_once()
     check('an empty blocklist is reported as nothing checked, never a pass',
           *check_empty_blocklist_is_not_a_pass())
     check_hook_changes_never_touch_dot_claude()
