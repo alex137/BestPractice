@@ -9901,13 +9901,19 @@ def _strip_other_repo_urls(line, own_slug):
     return _REPO_URL_RE.sub(keep, line)
 
 
-def _materialize():
+def _names_another_repo(line, path, own_slug):
+    """qualified_mention's rule, loaded lazily so a checkout without the
+    module still runs this check (reading every mention as plain). It was
+    reached through precedent_materialize until 2026-10-19, whose own
+    imports failed in a partial checkout and errored this whole check."""
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
     try:
-        import precedent_materialize
+        import qualified_mention
+    except ImportError:
+        return False
     finally:
         sys.path.pop(0)
-    return precedent_materialize
+    return qualified_mention.mention_names_another_repo(line, path, own_slug)
 
 
 @check('rename-updates-links', 'tree',
@@ -10091,8 +10097,7 @@ def _rename_updates_links(ctx):
                 # removes a file no source ships any more (2026-10-19).
                 if old in line and _names_path(_strip_other_repo_urls(
                         PINNED_PERMALINK_RE.sub('', line), _own_slug), old) \
-                        and not _materialize().mention_names_another_repo(
-                            line, old, _own_slug):
+                        and not _names_another_repo(line, old, _own_slug):
                     if moved and is_guarded_fallback(rel, line, old):
                         continue  # the fallback beside tools/, as templates write it
                     where = f'renamed to {new_path}' if new_path else 'deleted'

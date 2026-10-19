@@ -1185,40 +1185,17 @@ def _ship_drift_advice(out_dir, source_name, rel, dest):
             f"would keep a copy that drifts from the fix")
 
 
-# A MENTION QUALIFIED BY ANOTHER REPOSITORY NAMES THAT REPOSITORY'S FILE
-# (2026-10-19). An individual set stopped shipping tools/human_voice_check.py
-# once a shared set shipped its own, and three consuming repositories' docs
-# said "OtherSet's `tools/human_voice_check.py`" -- the shared set's checker,
-# not the stale copy. Read as plain mentions of the copy, they kept it
-# (_stale_ship_keep_reason) and then flagged its deletion
-# (precedent_check's rename-updates-links). One answer for both, read off
-# the line alone so a checkout with no other set on disk (GitHub's) judges
-# it the same way: the line names another repository as `owner/name`
-# (this repository's owner, or a github.com URL), or a possessive
-# ("OtherSet's") stands right before the path.
-_POSSESSIVE_BEFORE = re.compile(r"([A-Za-z][\w.-]*)['\u2019]s\s+[`*\"']*(?:\./)?$")
-_NOT_A_REPO = {'it', 'that', 'there', 'what', 'who', 'here', 'one', 'this',
-               'file', 'repo', 'repository', 'set', 'engine', 'pack', 'source'}
-
-
 def mention_names_another_repo(line, path, own_slug):
-    """True when `line`'s mention of `path` (or of its file name) is
-    qualified by a repository other than `own_slug` ('owner/name')."""
-    own = (own_slug or '').lower().removesuffix('.git')
-    owner, _, name = own.partition('/')
-    for m in re.finditer(r'(?:github\.com/)?([\w.-]+)/([\w.-]+)', line):
-        slug = f'{m.group(1)}/{m.group(2)}'.lower().removesuffix('.git')
-        if slug != own and ((m.group(0).lower().startswith('github.com/'))
-                            or (owner and m.group(1).lower() == owner)):
-            return True
-    for needle in {path, pathlib.PurePath(path).name}:
-        at = line.find(needle)
-        while at >= 0:
-            m = _POSSESSIVE_BEFORE.search(line[:at])
-            if m and m.group(1).lower() not in _NOT_A_REPO | {name}:
-                return True
-            at = line.find(needle, at + 1)
-    return False
+    """qualified_mention's rule (one copy), loaded lazily: a tree without
+    the module reads every mention as plain, as before 2026-10-19."""
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    try:
+        import qualified_mention
+    except ImportError:
+        return False
+    finally:
+        sys.path.pop(0)
+    return qualified_mention.mention_names_another_repo(line, path, own_slug)
 
 
 def _stale_ship_keep_reason(out_dir, rel, shipped_hash):
