@@ -26395,22 +26395,6 @@ def check_precedent_check_fires():
 
         case('declared-base-branch', _plant_unguarded_branch_inference)
 
-        # risky-engine-tools-ask -- the template allows every engine tool
-        # and drops the ask rules for Update All Vendors, which pushes in
-        # every repository: it would run with no prompt (2026-10-17).
-        def _plant_unasked_pusher(repo):
-            import json as _j
-            rewrite(repo, 'templates/harness/claude-code/settings.json',
-                    lambda s: _j.dumps({**_j.loads(s), 'permissions': {
-                        **_j.loads(s).get('permissions', {}),
-                        'ask': [r for r in _j.loads(s).get('permissions', {})
-                                .get('ask', []) if 'update_all' not in r]}},
-                        indent=2) + '\n')
-            git(repo, 'add', '-A')
-            git(repo, 'commit', '-qm', 'an engine tool that pushes, asked for by nobody')
-
-        case('risky-engine-tools-ask', _plant_unasked_pusher)
-
         # document-status-header -- a stamped document whose declared
         # status is illegal for its declared kind. The fixture must stamp a
         # SECOND file legally as well: the check raises NotApplicable when
@@ -48723,8 +48707,9 @@ def check_session_hooks_allow_read_only_tools_at_user_level():
     (2026-10-14). THE DISCRIMINATING CASE: a write-capable rule a repository
     allows (git push) never reaches user level, and what the user file
     already holds -- its hooks, its own allow and deny rules -- is kept.
-    Since 2026-10-17 the one rule that allows every engine tool arrives only
-    with the rules that make landing, Produce and merging ask."""
+    Since 2026-10-18 the one rule that allows every engine tool arrives on
+    its own: no rule makes landing, Produce or merging ask (2026-10-17 to
+    2026-10-18 they did)."""
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_run_session_hooks as rsh
@@ -48753,10 +48738,9 @@ def check_session_hooks_allow_read_only_tools_at_user_level():
                       'Bash(python3 tools/doc_lint.py *)' in allow
                       and 'Bash(python3 tools/precedent_*)' in allow, allow))
         asked = got['permissions'].get('ask') or []
-        cases.append(('THE DISCRIMINATING CASE (2026-10-17): the broad engine rule '
-                      'arrives with the asks for landing, Produce and the merge',
-                      any('precedent_branches.py --land' in r for r in asked)
-                      and 'mcp__github__merge_pull_request' in asked, asked))
+        cases.append(('THE DISCRIMINATING CASE (2026-10-18): no ask rule reaches '
+                      'user level, so landing, Produce and the merge never wait '
+                      'for a click', asked == [], asked))
         cases.append(('what the user file held is kept, and a denied rule is not added',
                       got['hooks'] == mine['hooks'] and allow[0] == 'Bash(ls)'
                       and got['permissions']['deny'] == mine['permissions']['deny']
@@ -53450,6 +53434,112 @@ def check_doc_sync_fails_fast():
           f'exit {p.returncode} after {took:.0f}s: {(p.stdout + p.stderr).strip()[-300:]}')
 
 
+def check_doc_sync_keeps_finished_blocks():
+    """doc_sync settles each block as its own emit finishes: written, given
+    its ledger fact, the ledger saved. A run killed partway, or stopped by a
+    failing emit, keeps every block it finished, and the next run skips them
+    (origin 2026-10-18: two container restarts each threw away a run more
+    than two hours in, because blocks and facts were written only at the
+    end). A scratch repository: two quick blocks in one document, one slow
+    block, then one failing block."""
+    name = 'doc_sync keeps the blocks a killed or failed run finished, and the next run skips them'
+    engine = ROOT / 'tools' / 'doc_sync.py'
+    if not engine.is_file() or not (ROOT / 'tools' / 'reach_key.py').is_file():
+        not_applicable(name, 'tools/doc_sync.py or tools/reach_key.py is absent')
+        return
+    import signal as _sig
+    import tempfile as _tf
+    bad = []
+
+    def model(value, before=''):
+        return ('import os, sys, time\n'
+                'def emit_table():\n'
+                '    open(__file__.rsplit("/", 1)[0] + "/emits.log", "a").write(__file__[-6:-3])\n'
+                f'    {before or "pass"}\n'
+                f'    return "| v |\\n|---|\\n| {value} |"\n'
+                'EMITTERS = {"%s": emit_table}\n'
+                'if __name__ == "__main__":\n'
+                '    if len(sys.argv) == 3 and sys.argv[1] == "--emit":\n'
+                '        print(EMITTERS[sys.argv[2]]())\n'
+                '        sys.exit(0)\n')
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
+        for f in ('reach_key.py', 'fact_ledger.py', 'content_record.py', 'generated_blocks.py'):
+            if (ROOT / 'tools' / f).is_file():
+                shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
+        (d / 'm_aa.py').write_text(model(1) % 'a')
+        (d / 'm_bb.py').write_text(model(2) % 'b')
+        (d / 'm_cc.py').write_text(model(3, 'time.sleep(120)') % 'c')
+        (d / 'doc.md').write_text('<!--gen:a-->\n<!--/gen:a-->\n<!--gen:b-->\n<!--/gen:b-->\n'
+                                  'Numbers by: m_aa.py m_bb.py\n')
+        (d / 'slow.md').write_text('<!--gen:c-->\n<!--/gen:c-->\nNumbers by: m_cc.py\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util\n'
+            'spec = importlib.util.spec_from_file_location("ds_engine", "tools/doc_sync.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.PAIRS = [("doc.md", "a", "m_aa.py"), ("doc.md", "b", "m_bb.py"),\n'
+            '           ("slow.md", "c", "m_cc.py")]\n'
+            'e.LEDGER = "ledger.jsonl"\n'
+            'e.DOC_GLOB = "*.md"\n'
+            'e.main()\n')
+        env = {**os.environ, 'DOC_SYNC_JOBS': '3'}
+        env.pop('PYTHONNOUSERSITE', None)
+
+        def emits():
+            f = d / 'emits.log'
+            return f.read_text() if f.is_file() else ''
+
+        def facts():
+            f = d / 'ledger.jsonl'
+            return {json.loads(ln)['block'] for ln in f.read_text().splitlines()} if f.is_file() else set()
+        # 1. killed partway: the quick blocks are on disk with their facts
+        p = subprocess.Popen([sys.executable, 'shim.py', '--write'], cwd=d, env=env,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                             start_new_session=True)
+        t0 = time.time()
+        while time.time() - t0 < 60 and facts() != {'a', 'b'}:
+            time.sleep(0.2)
+        os.killpg(p.pid, _sig.SIGKILL)
+        p.communicate()
+        doc = (d / 'doc.md').read_text()
+        if '| 1 |' not in doc or '| 2 |' not in doc:
+            bad.append(f'a killed run lost a block it had finished: {doc!r}')
+        if facts() != {'a', 'b'}:
+            bad.append(f'a killed run left facts for {sorted(facts())}, not a and b')
+        if '| 3 |' in (d / 'slow.md').read_text():
+            bad.append('the slow block was written although its emit was killed')
+        # 2. the next run skips what finished and emits only the rest
+        (d / 'm_cc.py').write_text(model(3) % 'c')
+        before = emits()
+        r = subprocess.run([sys.executable, 'shim.py', '--write'], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=120)
+        ran = emits()[len(before):]
+        if r.returncode != 0 or ran != '_cc' or '| 3 |' not in (d / 'slow.md').read_text():
+            bad.append(f'the next run emitted {ran!r} (want only _cc), exit {r.returncode}: '
+                       f'{(r.stdout + r.stderr)[-300:]}')
+        # 3. a failing emit stops the run, and the blocks already done stay done
+        (d / 'm_aa.py').write_text(model(11) % 'a')
+        (d / 'm_cc.py').write_text(model(3, 'time.sleep(3); raise SystemExit("broken")') % 'c')
+        (d / 'slow.md').write_text('<!--gen:c-->\n<!--/gen:c-->\nNumbers by: m_cc.py\n')
+        r = subprocess.run([sys.executable, 'shim.py', '--write'], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=120)
+        if r.returncode == 0 or '| 11 |' not in (d / 'doc.md').read_text():
+            bad.append(f'a failed run kept no finished block (exit {r.returncode}): '
+                       f'{(r.stdout + r.stderr)[-300:]}')
+        # 4. the check (no --write) still writes no document
+        (d / 'm_bb.py').write_text(model(22) % 'b')
+        (d / 'm_cc.py').write_text(model(3) % 'c')
+        r = subprocess.run([sys.executable, 'shim.py'], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=120)
+        if r.returncode == 0 or '| 22 |' in (d / 'doc.md').read_text() or 'DRIFT' not in r.stdout:
+            bad.append(f'the check without --write changed a document or passed drift '
+                       f'(exit {r.returncode})')
+    check(name, not bad, '; '.join(bad))
+
+
 def check_model_audit_ledger():
     """model_audit with a ledger audits each model in its own process and
     records a fact for a clean audit; a model whose fact holds is not run
@@ -53784,6 +53874,49 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
         rc, out = run([asked, said('Landing first.')], via_hooks=True)
         cases.append(('it runs through the fixed precedent-hooks.sh entry '
                       '(tools/hook_wiring.json)', rc == 2 and 'ANSWER FIRST' in out,
+                      out[-200:]))
+
+        # 2026-10-18: Claude Code records a message -- its text and the tool
+        # call it ends in -- after PreToolUse runs, so the answer written
+        # with the guarded call is not there on the first read. A session
+        # answered in about a hundred words; the gate counted 11 and refused
+        # its merge three times.
+        def call(tid):
+            return {'type': 'assistant', 'message': {'role': 'assistant',
+                    'content': [{'type': 'tool_use', 'id': tid,
+                                 'name': 'Bash', 'input': {}}]}}
+
+        def run_late(records, tid, late, delay=0.5):
+            tr = tmp / 'transcript.jsonl'
+            tr.write_text(''.join(_json.dumps(r) + '\n' for r in records),
+                          encoding='utf-8')
+            proc = subprocess.Popen(['bash', str(gate)], stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, text=True, cwd=ROOT)
+            proc.stdin.write(_json.dumps({
+                'tool_name': 'Bash', 'transcript_path': str(tr),
+                'tool_use_id': tid,
+                'tool_input': {'command': 'git push -u origin HEAD'}}))
+            proc.stdin.close()
+            time.sleep(delay)
+            with tr.open('a', encoding='utf-8') as fh:
+                fh.write(''.join(_json.dumps(r) + '\n' for r in late))
+            out = proc.stdout.read() + proc.stderr.read()
+            return proc.wait(), out
+
+        short = said('Short answer.')
+        rc, out = run_late([asked, short], 'toolu_late',
+                           [answer, call('toolu_late')])
+        cases.append(('an answer recorded with the guarded call after the '
+                      'gate first reads still counts', rc == 0, out[-200:]))
+        rc, out = run_late([asked, short], 'toolu_never', [], delay=0)
+        cases.append(('a transcript that never records the guarded call lets '
+                      'it through, saying so', rc == 0
+                      and 'has not recorded toolu_never' in out, out[-200:]))
+        rc, out = run_late([asked, short, call('toolu_here')], 'toolu_here', [],
+                           delay=0)
+        cases.append(('once the guarded call is recorded, a short answer is '
+                      'still refused', rc == 2 and 'ANSWER FIRST' in out,
                       out[-200:]))
         tr = tmp / 'transcript.jsonl'
         tr.write_text('not json\n', encoding='utf-8')
@@ -64714,11 +64847,9 @@ def check_refresh_adds_read_only_allow_rules():
                   {pve._ALLOW_RULE_RE.match(r).group(1) for r in rules if r != broad}
                   >= {t for t in pve.READ_ONLY_ALLOW_TOOLS
                       if not t.startswith('precedent_')}, rules))
-    cases.append(('the template asks for landing, Produce, the merge and Update Vendors',
-                  any('precedent_branches.py --land' in r for r in ask)
-                  and any('precedent_branches.py --promote' in r for r in ask)
-                  and 'mcp__github__merge_pull_request' in ask
-                  and any('precedent_update.py' in r for r in ask), ask))
+    # 2026-10-18: the template asks before nothing (Morgan: "I urgently need
+    # a fix so you stop asking me so much").
+    cases.append(('the template asks before nothing', ask == [], ask))
 
     def fixture(td, own, declined=()):
         dest = pathlib.Path(td)
@@ -64747,8 +64878,9 @@ def check_refresh_adds_read_only_allow_rules():
         after = json.loads(sp.read_text(encoding='utf-8'))
         perms = after['permissions']
         allow = perms['allow']
-        cases.append(('THE DISCRIMINATING CASE: the broad rule comes with every ask rule',
-                      ok_call and broad in allow and perms.get('ask') == ask, perms))
+        cases.append(('THE DISCRIMINATING CASE: the broad rule is added on its own, '
+                      'with no ask rule beside it',
+                      ok_call and broad in allow and not perms.get('ask'), perms))
         cases.append(('what was there stays first and unchanged',
                       allow[:2] == own['permissions']['allow']
                       and perms['deny'] == own['permissions']['deny'], allow))
@@ -64762,33 +64894,30 @@ def check_refresh_adds_read_only_allow_rules():
         cases.append(('a second run adds nothing',
                       ok_call and pve._apply_read_only_allow(dest, rules, ask) == [], ''))
     with tempfile.TemporaryDirectory() as td:
-        dest, sp = fixture(td, own, declined=[ask[0]] if ask else [])
+        dest, sp = fixture(td, own, declined=[broad])
         if ok_call:
             pve._apply_read_only_allow(dest, rules, ask)
         perms = json.loads(sp.read_text(encoding='utf-8'))['permissions']
-        cases.append(('THE DISCRIMINATING CASE: declining one ask rule keeps the broad '
-                      'rule out, and no ask is written alone',
-                      bool(ask) and broad not in perms['allow'] and not perms.get('ask'),
-                      perms))
+        cases.append(('a repository that declines the broad rule does not get it',
+                      broad not in perms['allow'], perms))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the refresh adds read-only Precedent tool allow rules ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
 
 
-def check_engine_tools_allowed_and_the_ones_that_move_work_ask():
+def check_engine_tools_allowed_and_none_asks():
     """With the settings template as shipped, Claude Code lets every engine
-    tool run and asks the person before the ones that land, produce, merge,
-    update other repositories or send work upstream (Morgan, 2026-10-17:
-    "why not include all on that list except a small list we explicitly want
-    to exclude from that list to get the session user's permission", then
-    "yes, build it including the preemptive fix"). Matching follows Claude
-    Code's documented rules (code.claude.com/docs/en/permissions, read
+    tool run, the ones that land, produce, merge and update other
+    repositories included, and asks the person before none of them. From
+    2026-10-17 to 2026-10-18 the template's permissions.ask made those stop
+    for the person's click every time (Morgan, 2026-10-18: "I urgently need
+    a fix so you stop asking me so much"). Matching follows Claude Code's
+    documented rules (code.claude.com/docs/en/permissions, read
     2026-10-17): deny, then ask, then allow, the first match deciding; a
     `*` matches any text, spaces included. A tool added later needs no
-    settings change. Fails on the old template: precedent_branches.py
-    --land was not asked for, and a new engine tool was not allowed."""
+    settings change. Fails on the 2026-10-17 template: --land asked."""
     import re as _re
-    name = 'every engine tool runs, and the ones that move work ask'
+    name = 'every engine tool runs, and none asks'
     tmpl = ROOT / 'templates' / 'harness' / 'claude-code' / 'settings.json'
     if not tmpl.is_file():
         not_applicable(name, 'no Claude Code settings template here')
@@ -64808,27 +64937,24 @@ def check_engine_tools_allowed_and_the_ones_that_move_work_ask():
                 return key
         return 'unlisted'
     want = [
-        ('python3 tools/precedent_brand_new_tool.py --any args', 'allow'),
-        ('python3 tools/precedent_show.py act', 'allow'),
-        ('python3 tools/precedent_check.py --full-sweep', 'allow'),
-        ('python3 tools/precedent_branches.py --landing', 'allow'),
-        ('python3 tools/precedent_branches.py --run-tests', 'allow'),
-        ('python3 tools/precedent_branches.py --land', 'ask'),
-        ('python3 tools/precedent_branches.py --land 2026-10-17-x-y', 'ask'),
-        ('python3 tools/precedent_branches.py --promote --to main --work b', 'ask'),
-        ('python3 ../BestPractice/tools/precedent_update.py --repo .', 'ask'),
-        ('python3 ../bestpractice/tools/precedent_update.py --repo .', 'ask'),
-        ('python3 tools/precedent_update.py --repo .', 'ask'),
-        ('python3 tools/precedent_update_all.py --list', 'ask'),
-        ('python3 tools/precedent_vendor_engine.py refresh --from x', 'ask'),
-        ('python3 tools/precedent_local_edits.py send', 'ask'),
-        ('python3 tools/precedent_local_edits.py list', 'allow'),
-        ('python3 tools/precedent_merge_check.py --pr 1', 'ask'),
-        ('python3 tools/doc_lint.py README.md', 'allow'),
+        'python3 tools/precedent_brand_new_tool.py --any args',
+        'python3 tools/precedent_show.py act',
+        'python3 tools/precedent_check.py --full-sweep',
+        'python3 tools/precedent_branches.py --landing',
+        'python3 tools/precedent_branches.py --run-tests',
+        'python3 tools/precedent_branches.py --land',
+        'python3 tools/precedent_branches.py --land 2026-10-17-x-y',
+        'python3 tools/precedent_branches.py --promote --to main --work b',
+        'python3 tools/precedent_update.py --repo .',
+        'python3 tools/precedent_update_all.py --list',
+        'python3 tools/precedent_vendor_engine.py refresh --from x',
+        'python3 tools/precedent_local_edits.py send',
+        'python3 tools/precedent_merge_check.py --pr 1',
+        'python3 tools/doc_lint.py README.md',
     ]
-    cases = [(f'{cmd!r} -> {exp}', decide(cmd) == exp, decide(cmd)) for cmd, exp in want]
-    cases.append(('the GitHub merge always asks',
-                  'mcp__github__merge_pull_request' in (perms.get('ask') or [])))
+    cases = [(f'{cmd!r} -> allow', decide(cmd) == 'allow', decide(cmd)) for cmd in want]
+    cases.append(('the template asks before nothing', not perms.get('ask'),
+                  str(perms.get('ask'))[:200]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (got ' + d + ')' if d else ''}" for n, d in bad))
@@ -86278,6 +86404,7 @@ def main():
     check_content_record_self_check()
     check_doc_sync_ledger()
     check_doc_sync_fails_fast()
+    check_doc_sync_keeps_finished_blocks()
     check_model_audit_ledger()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
@@ -86355,7 +86482,7 @@ def main():
     check_repin_kept_records_the_persons_words()
     check_document_project_agents_md_is_compared_with_its_own_template()
     check_refresh_adds_read_only_allow_rules()
-    check_engine_tools_allowed_and_the_ones_that_move_work_ask()
+    check_engine_tools_allowed_and_none_asks()
     check_leak_gate_reads_the_written_private_repo_list()
     check_session_hooks_allow_read_only_tools_at_user_level()
     check('an empty blocklist is reported as nothing checked, never a pass',
