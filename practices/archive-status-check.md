@@ -36,7 +36,9 @@ approved_by: "Morgan, 2026-09-18 -- dictated in full, including the reading
   2026-10-19, Morgan, adding condition 5 -- a multi-step plan with steps
   left holds the session open: \"You cannot tell me to archive it unless
   the plan is fully complete Or I explicitly tell you that I am finishing
-  the plan early.\" strength: decided."
+  the plan early.\" strength: decided. Amended the same day, Morgan, making
+  his four-part test the standing rule: \"That should be the standing
+  rule\". strength: decided."
 strength:    decided
 ---
 ## Rule
@@ -48,6 +50,14 @@ on", "is this one done") -- **run the check right then, in that same turn,
 and act on what it finds.** The bare word does not skip the check: the
 old immediate-action reading of a standalone `"Archive"` is retired, and
 both spellings resolve to this one rule.
+
+**The standing test, in Morgan's words** (2026-10-19, strength: decided):
+*"if a session has nothing else pending, nothing that wasn't pushed to
+staging, nothing on in the temporary files that's needed, and the plan is
+being continued in another session, or I said that I don't want to
+continue the plan, then you can say, and you should say, it can be
+archived."* The conditions below are that test, spelled out; when they
+hold, say so.
 
 **The check is [the-boildown](the-boildown.md)'s own four archive
 conditions and its plan blocker, run on demand instead of waited for at the
