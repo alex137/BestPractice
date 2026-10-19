@@ -70,6 +70,31 @@ class NoDeclaredIdentity(Exception):
     exists to prevent."""
 
 
+def read_identity_file(path, where=''):
+    """-> one identity.json read as {'name', 'email', 'timezone', 'github',
+    'branch_cleanup_page', 'source'}, or None when it is missing, malformed
+    or names no email. The one reader: declared_identity() uses it, and so
+    does the sync when it records whose a saved copy of an individual set
+    is (precedent_materialize, 2026-10-19)."""
+    try:
+        ident = json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
+    except (ValueError, OSError, AttributeError):
+        return None
+    if not isinstance(ident, dict) or not ident.get('email'):
+        return None
+    return {'name': ident.get('name') or '',
+            'email': ident['email'],
+            'timezone': ident.get('timezone') or '',
+            # The person's GitHub username, which is what a CODEOWNERS
+            # file names (precedent_audience.py, 2026-10-05).
+            'github': ident.get('github') or '',
+            # The address of the person's one pinned branch-cleanup
+            # page, which every closing session updates in place
+            # (precedent_stale_branches.py, 2026-10-11).
+            'branch_cleanup_page': ident.get('branch_cleanup_page') or '',
+            'source': where}
+
+
 def declared_identity(repo, user_config=None):
     """-> {'name', 'email', 'timezone', 'source'} for the person this
     session's commits belong to, or raise NoDeclaredIdentity.
@@ -112,24 +137,7 @@ def declared_identity(repo, user_config=None):
     wrong thing to JUDGE one against -- a check that treated the container's
     ambient git config as the expected author would pass whatever it found.
     """
-    def _read(path, where):
-        try:
-            ident = json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
-        except (ValueError, OSError, AttributeError):
-            return None
-        if not isinstance(ident, dict) or not ident.get('email'):
-            return None
-        return {'name': ident.get('name') or '',
-                'email': ident['email'],
-                'timezone': ident.get('timezone') or '',
-                # The person's GitHub username, which is what a CODEOWNERS
-                # file names (precedent_audience.py, 2026-10-05).
-                'github': ident.get('github') or '',
-                # The address of the person's one pinned branch-cleanup
-                # page, which every closing session updates in place
-                # (precedent_stale_branches.py, 2026-10-11).
-                'branch_cleanup_page': ident.get('branch_cleanup_page') or '',
-                'source': where}
+    _read = read_identity_file
 
     repo_root = pathlib.Path(repo).resolve()
     own = _read(repo_root / 'identity.json',
@@ -235,7 +243,17 @@ def commit_env(repo, env=None):
                 f'identity.json) and no author could be resolved for a '
                 f'commit here: {exc}. Refusing to commit as whoever git '
                 f'config names instead') from exc
-        ident = None
+        # The saved copy of the person's individual set, when the set did
+        # not attach and the copy is theirs (precedent_audience, 2026-10-19):
+        # an authoring answer only. declared_identity() never reads it, so a
+        # check never judges a commit against it.
+        try:
+            import precedent_audience as _pa
+            ident = _pa.saved_owner_identity(repo, lookup=False)
+        except Exception:                                    # noqa: BLE001
+            ident = None
+        if ident and not ident.get('email'):
+            ident = None
     if ident:
         if ident.get('name'):
             out['GIT_AUTHOR_NAME'] = ident['name']

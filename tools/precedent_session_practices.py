@@ -222,7 +222,33 @@ def collect(repo, skip_brought=False):
     if _owner_only and not _is_owner:
         notes.append(('hidden', pa.hidden_notice(repo, sorted(_owner_only))))
 
-    if not deferred and not (_owner_only and _is_owner):
+    # THE SAVED COPY OF THE PERSON'S OWN SET (2026-10-19, Part 4 of the
+    # copied-in shared sets plan). In a private repository practices/ holds
+    # it, and the tracked block does not carry it. When the person's set did
+    # not attach this session and the copy is theirs, it binds them from
+    # here, last known good, and the first reply says so in one line. For
+    # anyone else it is never read (precedent_audience.saved_copy_state).
+    saved_extra = []
+    try:
+        if pa is not None and pa.saved_copy_in_use(repo):
+            saved = pa.saved_copy_state(repo)[1]
+            have = set(res['practices'])
+            for fm, sections, f in bv.load_practices(
+                    pathlib.Path(repo) / 'practices', announce=False):
+                slug = fm.get('slug')
+                if slug in saved['slugs'] and slug not in have:
+                    saved_extra.append((slug, (fm, sections, pathlib.Path(f))))
+            notes.append(('saved', pa.saved_copy_notice(repo)))
+        elif pa is not None:
+            state, _sv, why = pa.saved_copy_state(repo)
+            if state == 'unknown':
+                notes.append(('unresolved', f'the saved copy of an individual '
+                              f'set in practices/ was not loaded: {why}'))
+    except Exception as e:                                   # noqa: BLE001
+        notes.append(('unresolved', f'the saved copy of an individual set '
+                      f'could not be read: {e}'))
+
+    if not deferred and not (_owner_only and _is_owner) and not saved_extra:
         notes.append((
             'deferred',
             'every source this repo declares is already carried by its '
@@ -238,6 +264,9 @@ def collect(repo, skip_brought=False):
             continue
         extra.append((p['fm'], p['sections'], pathlib.Path(p['file'])))
         levels[slug] = p['level']
+    for slug, triple in saved_extra:
+        extra.append(triple)
+        levels[slug] = 'individual'
     return extra, levels, notes
 
 
@@ -336,6 +365,11 @@ def render(extra, levels, notes, repo=None):
     head += [intro, '']
     unresolved = [n for kind, n in notes if kind == 'unresolved']
     deferred_notes = [n for kind, n in notes if kind == 'deferred']
+    # The saved copy is in use: the person hears it in the first reply.
+    head += [f'**Say this in one line of your first reply:** {n}.'
+             for kind, n in notes if kind == 'saved' and n]
+    if any(kind == 'saved' and n for kind, n in notes):
+        head += ['']
     # One line, kept short: every session pays for it.
     head += [n for kind, n in notes if kind == 'hidden' and n]
     if any(kind == 'hidden' and n for kind, n in notes):
@@ -763,6 +797,9 @@ def main(argv=None):
     lead = attach_first(repo)
     if lead:
         print(lead)
+    for _kind, _n in notes:
+        if _kind == 'saved' and _n:
+            print(f'Say this in one line of your first reply: {_n}.')
     try:
         for line in getattr(pr, 'off_base_notes', lambda _r: [])(repo):
             print(line)
