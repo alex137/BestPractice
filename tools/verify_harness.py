@@ -44809,6 +44809,44 @@ def check_session_check_reports_a_source_cloned_twice():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_session_start_says_did_not_load_only_after_cloning():
+    """Session start opened with "BEFORE ANY OTHER WORK: these practice
+    sources did not load" on a fresh container (2026-10-19) for two sets
+    that loaded seconds later, and named one of them twice. Two causes:
+    BestPractice's own .claude/hooks/session-start.sh wrote the practices
+    file, and that notice, before the step that clones the shared sets
+    (tools/bootstrap.sh, which says it keeps the same order, had them the
+    right way round); and precedent_hooks.unloaded_sources listed a set
+    once per folder that declares it. Both fail on the old code."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_hooks as ph
+        import precedent_resolve as pr
+    finally:
+        sys.path.pop(0)
+    cases = []
+    for rel in ('.claude/hooks/session-start.sh', 'tools/bootstrap.sh'):
+        text = (ROOT / rel).read_text(encoding='utf-8')
+        clone = text.find('precedent_source_bootstrap.py --teams-from')
+        render = text.find('python3 tools/precedent_session_practices.py')
+        cases.append((f'{rel} clones the sources before it says which loaded',
+                      0 <= clone < render, f'clone at {clone}, render at {render}'))
+    saved = (pr.declared_source_paths, ph._attach_hints)
+    try:
+        pr.declared_source_paths = lambda root: [
+            ('/nowhere/a/precedent-shared-x', 'shared', 'precedent-shared-x', ''),
+            ('/nowhere/b/precedent-shared-x', 'shared', 'precedent-shared-x', '')]
+        ph._attach_hints = lambda root: {'precedent-shared-x': 'acct/precedent-shared-x'}
+        rows = ph.unloaded_sources(ROOT)
+    finally:
+        pr.declared_source_paths, ph._attach_hints = saved
+    cases.append(('a set two folders declare is named once',
+                  rows == [('precedent-shared-x', 'acct/precedent-shared-x')], str(rows)))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_one_tree_per_source_whichever_way_links_run():
     """One practice source, one tree, whichever folder got there first.
 
@@ -86688,6 +86726,9 @@ def main():
     check('one practice source is one tree: each harness\'s home folder, the '
           'listers on links running both ways, two runs leave one clone',
           *check_one_tree_per_source_whichever_way_links_run())
+    check('session start says a source did not load only after cloning, '
+          'and names each set once',
+          *check_session_start_says_did_not_load_only_after_cloning())
     check('the session check never calls an unfetched source clone current',
           *check_session_check_never_calls_an_unfetched_clone_current())
     check_session_check_covers_the_universal_clone()
