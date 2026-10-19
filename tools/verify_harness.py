@@ -39145,6 +39145,38 @@ def check_container_check_sees_other_local_branches():
         cases.append(('a branch holding only an engine refresh is not work at risk',
                       not any('other local branches' in u for u in got['unsafe']),
                       str(got['unsafe'])))
+        # 2026-10-19: a refresh made on top of a local merge of work the
+        # remote already has -- the merge itself never pushed -- was called
+        # work at risk, "(1)", on every archive check.
+        fixture_git(clone, 'checkout', '-q', '-b', 'side')
+        (clone / 'side.txt').write_text('s\n', encoding='utf-8')
+        fixture_git(clone, 'add', '-A')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'side')
+        fixture_git(clone, 'push', '-q', 'origin', 'side')
+        fixture_git(clone, 'checkout', '-q', '-b', 'merged', 'main')
+        (clone / 'main-only.txt').write_text('m\n', encoding='utf-8')
+        fixture_git(clone, 'add', '-A')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'main-only')
+        fixture_git(clone, 'push', '-q', 'origin', 'merged')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'merge', '-q',
+                    '--no-edit', 'side')
+        fixture_git(clone, 'checkout', '-q', '-b',
+                    '2026-10-14-x-engine-refresh-0bad1234-mm')
+        (clone / 'refresh.txt').write_text('r\n', encoding='utf-8')
+        fixture_git(clone, 'add', '-A')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm',
+                    'Refresh the vendored engine to BestPractice 0bad1234ef56')
+        fixture_git(clone, 'checkout', '-q', 'main')
+        fixture_git(clone, 'branch', '-q', '-D', 'merged', 'side')
+        got = pcs.scan_one(clone)
+        cases.append(('a refresh over an unpushed merge of pushed work is not work at risk',
+                      not any('other local branches' in u for u in got['unsafe']),
+                      str(got['unsafe'])))
+        import precedent_refresh_sources as prs
+        cases.append(('the refresh tool still keeps that branch: a merge can '
+                      'carry a conflict resolution',
+                      '2026-10-14-x-engine-refresh-0bad1234-mm'
+                      not in prs.refresh_only_branches(clone, 'HEAD'), ''))
         branch_with('half-done', 'real work, never pushed')
         got = pcs.scan_one(clone)
         cases.append(('a branch with real unpushed work is named',
