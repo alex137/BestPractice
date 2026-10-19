@@ -148,6 +148,7 @@
   "check_copied_set_carries_another": 2.1,
   "check_copy_fingerprint_is_checked_without_a_clone": 0.5,
   "check_copy_in_is_asked_once": 6.4,
+  "check_copy_in_question_names_what_would_leak": 0.1,
   "check_corruption_drop_is_a_duplicate": 0.0,
   "check_creation_pipeline_fires": 5.4,
   "check_cross_source_resident_budget": 0.5,
