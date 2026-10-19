@@ -97,6 +97,19 @@ repositories without any such rule. What the guard objected to was where the
 request came from and a credential on a command line. The person asking
 directly and the environment's own credential answer both of those.
 
+**The third incident, 2026-10-18 to 2026-10-19: work on the permission
+rules themselves.** A session asked to stop the approval prompts was
+removing the ask list from the engine's own `.claude/settings.json` and the
+template every repository copies. Once that work began, `[Self-Modification]`
+refusals spread well past the edit: branch creation, commits, starting a new
+session, and even read-only commands like `git status` and `git ls-remote`
+were refused. Nothing came from a relay this time. What cleared it was the
+person's own words naming the change ("What do you think is best to do? Do
+it", then "Approved and booked"), after which the same commands ran.
+**Expect this whenever a session edits permission rules, its own or the
+ones it ships**: say up front that the guard will ask, and have the person
+name the change in their own words before starting.
+
 ## Fix
 
 **Stop and tell the person what was refused, word for word.** Then:

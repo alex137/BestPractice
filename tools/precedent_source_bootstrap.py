@@ -542,13 +542,22 @@ def _sync_once(repo_url, clone_path, branch=None):
 
 
 def attach_workspace():
-    """-> the directory a repo-attach tool clones into, or None: the parent
-    of the session's project, read from the same two variables as
-    _clone_elsewhere_on_disk (engine's own first, provider's second)."""
+    """-> the directory a repo-attach tool clones into, or None, read from
+    the same two variables as _clone_elsewhere_on_disk (engine's own first,
+    provider's second): the parent of the session's project when the
+    project is a repository, and the project itself when it is not.
+
+    WHY THE SECOND CASE (2026-10-19). A session rooted ABOVE its repos has
+    a project dir that is no repository -- /home/user, holding BestPractice
+    and the sets beside it -- and the attach tool clones into that dir, not
+    its parent. Reading the parent there gave /home: no attach copy was ever
+    found, the link went nowhere, and a shared set ended up cloned twice,
+    once by the attach tool under /home/user and once by the engine."""
     for var in ('PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR'):
         proj = os.environ.get(var, '').strip()
         if proj:
-            return pathlib.Path(proj).parent
+            proj = pathlib.Path(proj)
+            return proj.parent if (proj / '.git').exists() else proj
     return None
 
 
