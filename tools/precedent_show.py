@@ -489,12 +489,21 @@ def main():
                  f"a slug is lowercase, hyphenated, and names a practice, not a path.")
 
     manifest = _materialize_manifest(root)
+    # The saved copy of someone else's individual set is not this session's
+    # to read: a slug it holds is looked up in the declared sources instead,
+    # so a rule it overrides shows the shared or universal one
+    # (precedent_audience.withheld_saved_slugs, 2026-10-19).
+    try:
+        import precedent_audience as _pa
+        withheld = _pa.withheld_saved_slugs(root)
+    except Exception:                                        # noqa: BLE001
+        withheld = set()
 
     out = []
     missing = []
     for slug in slugs:
         path = practices_dir / f'{slug}.md'
-        if not path.exists():
+        if not path.exists() or slug in withheld:
             missing.append(slug)
             continue
         try:

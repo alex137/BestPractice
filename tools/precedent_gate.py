@@ -143,10 +143,14 @@ def practices_by_gate(practices_dir=None):
         # kept serving the practice the index had already removed).
         if not bv.is_in_force(fm):
             continue
-        # Code owners only: see resolved_gate_practices().
+        # Code owners only: see resolved_gate_practices(). And the saved
+        # copy of someone else's individual set is never theirs to follow
+        # (precedent_audience.withheld_saved_slugs, 2026-10-19).
         try:
             import precedent_audience as pa
             if not pa.visible(fm, practices_dir.parent):
+                continue
+            if fm.get('slug') in pa.withheld_saved_slugs(practices_dir.parent):
                 continue
         except ImportError:
             pass

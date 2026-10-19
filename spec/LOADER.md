@@ -42,6 +42,13 @@ command,
 and the `AGENTS.md` bootstrap writes for it says never to use
 `--agents-only`.
 
+*Since 2026-10-19 a private consumer's generated `AGENTS.md` carries no
+individual set: everyone there reads it, and a person's own rules bind that
+person alone. The set reaches its owner through the per-session file, and
+the copy in `practices/` is their saved copy
+([VENDORED_SHARED_SETS.md](VENDORED_SHARED_SETS.md), "A person's own
+set").*
+
 **The cross-source case is also built now (2026-09-03, same day).** A
 consuming repo — universal + team + individual + repo-local, all resolved
 together into one generated `AGENTS.md` — runs

@@ -171,6 +171,48 @@ the steps are `copy_in_step` and `refresh_copies_step` in
 `check_copy_in_is_asked_once` in
 [tools/verify_harness.py](../tools/verify_harness.py).
 
+## A person's own set: the saved copy is for its owner only
+
+A person's individual set cannot be copied into a repository others use:
+it holds their name, their zone and how they want to be talked to. In a
+private repository the sync has always written its practices into the
+tracked `practices/` anyway, as a saved copy, and the tracked AGENTS.md
+block carried them for everyone who opened the repository. Since
+2026-10-19 (Morgan, strength: assented) the saved copy is its owner's
+alone:
+
+- **The record.** When the sync writes individual practices into a
+  repository, the individual source's entry in `MANIFEST.json` carries
+  `owner`: the set's own `identity.json` GitHub login, name, email and zone.
+  A set whose `identity.json` names no login gets no record.
+- **The tracked block carries no individual set** in a private repository.
+  It is resolved without one, so a slug the set overrides shows the shared
+  or universal rule. The set reaches its owner through
+  `.precedent/SESSION_PRACTICES.md`, live when it attached.
+- **Whose session it is** is the one answer
+  `precedent_audience.viewer_and_source` already gives:
+  `PRECEDENT_GITHUB_USER`, the person's declared identity, the login this
+  clone remembers, then the GitHub account the session's token belongs to.
+- **Set missing, the owner's session:** the session file loads the saved
+  copy as last known good, and the first reply says so in one line, with
+  the date the copy last changed. [precedent_show.py](../tools/precedent_show.py), [precedent_gate.py](../tools/precedent_gate.py)
+  and [precedent_paths.py](../tools/precedent_paths.py) serve it. Commits are authored as the owner, in
+  their zone: a new rung in [commit-identity.sh](../tools/commit-identity.sh), and the same answer in
+  `precedent_identity.commit_env` and `precedent_time`. A check never
+  judges a commit against it.
+- **Anyone else's session, or one whose person cannot be told, or a copy
+  with no owner record:** none of it is read. A slug it holds is answered
+  from the declared sources instead, when one has it.
+
+The decisions live in `saved_copy_state`, `withheld_saved_slugs`,
+`saved_copy_in_use`, `saved_owner_identity` and `saved_copy_notice` in
+[tools/precedent_audience.py](../tools/precedent_audience.py). The test
+is `check_saved_individual_copy_loads_for_its_owner_only`, whose negative
+control is someone else's session.
+
+**What it does not do:** it governs what a session loads, not who can read
+the repository. A file in `practices/` is still there for anyone to open.
+
 ## Rolling back
 
 In one repository: point the source back at a sibling clone, drop

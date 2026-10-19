@@ -314,10 +314,142 @@ def hidden_notice(repo, hidden):
             f'and are not shown in this session: {why}.')
 
 
+# ---- the saved copy of a person's individual set ---------------------------
+# In a private repository the sync writes the individual set's practices
+# into the tracked practices/ tree: a saved copy of one person's rules, with
+# whose they are recorded in MANIFEST.json (precedent_materialize._with_owner).
+# Part 4 of the copied-in shared sets plan (Morgan, 2026-10-19, strength:
+# assented): it loads for that person alone -- as last known good when their
+# set did not attach -- and for nobody else, so a teammate's session never
+# runs on, or signs commits as, someone else's rules. A copy with no owner
+# record, or a session whose person cannot be told, loads for nobody: wrong
+# in the safe direction.
+MANIFEST_NAME = 'MANIFEST.json'
+_MATERIALIZER = 'tools/precedent_materialize.py'
+
+
+def saved_copy(repo):
+    """-> {'source', 'owner' (dict or None), 'slugs', 'saved_at'} for the
+    individual practices this repository's MANIFEST.json says its tree
+    holds, or None when it holds none."""
+    try:
+        import json
+        man = json.loads((pathlib.Path(repo) / MANIFEST_NAME).read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(man, dict) or man.get('generated_by') != _MATERIALIZER:
+        return None
+    slugs = sorted({str(e.get('slug')) for e in man.get('practices') or []
+                    if isinstance(e, dict) and e.get('slug')
+                    and str(e.get('level') or '').strip() == 'individual'})
+    if not slugs:
+        return None
+    src = next((e for e in man.get('sources') or [] if isinstance(e, dict)
+                and str(e.get('level') or '').strip() == 'individual'), {})
+    owner = src.get('owner') if isinstance(src.get('owner'), dict) else None
+    return {'source': src.get('name') or '', 'owner': owner, 'slugs': slugs,
+            'saved_at': man.get('generated_at_utc') or ''}
+
+
+def _individual_on_disk(user_config=None):
+    """True when the person's own individual set is on disk this session."""
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_resolve as _pr
+        path = _pr.person_individual_path(user_config)
+    except Exception:                                        # noqa: BLE001
+        return False
+    return bool(path) and (pathlib.Path(path) / 'practices').is_dir()
+
+
+def saved_copy_state(repo, lookup=True):
+    """-> (state, saved, why). state is 'none' (no saved copy here),
+    'owner' (it is this session's person's), 'other' (someone else's) or
+    'unknown' (no owner record, or this session's person cannot be told).
+    Cached per repository."""
+    key = ('saved', str(pathlib.Path(repo).resolve()))
+    if key in _CACHE:
+        return _CACHE[key]
+    saved = saved_copy(repo)
+    if saved is None:
+        out = ('none', None, 'this repository holds no saved individual set')
+    elif not saved['owner'] or not saved['owner'].get('github'):
+        out = ('unknown', saved, f"the saved copy of {saved['source']} records "
+               f"no owner -- it was synced before owners were recorded; the "
+               f"owner's next sync here records one")
+    else:
+        gh, _email, where = viewer_and_source(repo, lookup=lookup)
+        owner = saved['owner']['github'].lstrip('@').lower()
+        if not gh:
+            out = ('unknown', saved, 'whose session this is could not be told')
+        elif gh.lower() == owner:
+            out = ('owner', saved, f'@{gh} ({where}) owns it')
+        else:
+            out = ('other', saved, f'it is @{owner}\'s, and this session is '
+                   f'@{gh}\'s')
+    _CACHE[key] = out
+    return out
+
+
+def withheld_saved_slugs(repo, lookup=True):
+    """-> the slugs of a saved individual copy this session must not read:
+    all of them unless the copy is this session's person's own."""
+    state, saved, _why = saved_copy_state(repo, lookup=lookup)
+    return set() if state in ('none', 'owner') else set(saved['slugs'])
+
+
+def saved_copy_in_use(repo, lookup=True, user_config=None):
+    """True when this session runs on the saved copy: it is the person's own
+    and their individual set did not attach."""
+    state, _saved, _why = saved_copy_state(repo, lookup=lookup)
+    return state == 'owner' and not _individual_on_disk(user_config)
+
+
+def saved_owner_identity(repo, lookup=False, user_config=None):
+    """-> the owner's {name, email, timezone, github} while the saved copy is
+    in use, else None: who commits are authored as, and in which zone, when
+    the set that would say so did not attach."""
+    if not saved_copy_in_use(repo, lookup=lookup, user_config=user_config):
+        return None
+    return dict(saved_copy_state(repo, lookup=lookup)[1]['owner'])
+
+
+def saved_copy_notice(repo, lookup=True, user_config=None):
+    """-> the one line the first reply says while the saved copy is in use,
+    or ''. Its date is the day the copy last changed, in the owner's zone
+    (Morgan, 2026-10-19: that date, said as "last changed")."""
+    if not saved_copy_in_use(repo, lookup=lookup, user_config=user_config):
+        return ''
+    saved = saved_copy_state(repo, lookup=lookup)[1]
+    day = saved['saved_at'][:10]
+    try:
+        import datetime
+        from zoneinfo import ZoneInfo
+        at = datetime.datetime.fromisoformat(saved['saved_at'].replace('Z', '+00:00'))
+        if saved['owner'].get('timezone'):
+            at = at.astimezone(ZoneInfo(saved['owner']['timezone']))
+        day = at.date().isoformat()
+    except Exception:                                        # noqa: BLE001
+        pass
+    return (f'your own rules are from the saved copy, last changed {day}; '
+            f'your individual set did not attach')
+
+
 def main(argv):
     repo = '.'
     if '--repo' in argv:
         repo = argv[argv.index('--repo') + 1]
+    if '--saved-owner-identity' in argv:
+        # For commit-identity.sh: the owner's name, email and zone on three
+        # lines (its _take_identity reads exactly that), while this session
+        # runs on the saved copy; nothing otherwise.
+        ident = saved_owner_identity(repo, lookup=True)
+        if ident:
+            print(ident.get('name') or '')
+            print(ident.get('email') or '')
+            print(ident.get('timezone') or '')
+        return 0
     ok, why = is_code_owner(repo)
     print(f"{'code owner' if ok else 'not a code owner'}: {why}")
     return 0
