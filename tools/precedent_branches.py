@@ -844,10 +844,12 @@ def merge_refusal(root, bases, heads, user_config=None, head_sha=None):
             return None
         return (f'{MAIN} has {len(missing)} commit(s) made directly that this '
                 f'pull request into {staging} lacks, and work lands on '
-                f'{staging} carrying everything {MAIN} has. Close it and land '
-                f'the branch with `{LAND_COMMAND} BRANCH`, which brings '
-                f'{MAIN}\'s work in first -- or merge origin/{MAIN} into the '
-                f'branch, push it, and merge again.')
+                f'{staging} carrying everything {MAIN} has. Run '
+                f'`{LAND_COMMAND} BRANCH`: it brings {MAIN}\'s work in first, '
+                f'and lands it -- or, for a change that takes a pull request, '
+                f'pushes that checked composition to the branch, and this '
+                f'pull request merges. Or merge origin/{MAIN} into the branch, '
+                f'push it, and merge again.')
     allowed = set()
     for b in bases:
         allowed |= _promotion_heads(root, b)
@@ -1145,6 +1147,37 @@ def pull_request_checks(root, base):
             continue
         found.append(wf.name)
     return found
+
+
+def _carry_composition_to_branch(root, label, new):
+    """After a landing refused for the pull-request route: push the
+    composition the quick checks just passed -- staging, main's direct work
+    and the branch -- to the branch itself, so the pull request carries
+    everything main has. -> what to tell the person.
+
+    WHY (2026-10-19). The refusal sent the work to a pull request from the
+    branch as it stood, which lacked main's direct commits; the push check
+    and the merge guard then refused THAT, telling the session to use
+    --land, which had just sent it to the pull request. The way out was a
+    hand merge of origin/main into the branch. The composition is already
+    built and checked, and it descends from the branch, so this push is a
+    fast-forward; a branch that moved, or a label that is no branch, is
+    left alone and said."""
+    branch = label[len('origin/'):] if label.startswith('origin/') else label
+    if branch in ('HEAD', '') or branch in tier_branches(root):
+        return (f'{label} is not a branch the pull request can come from, so '
+                f'the checked composition was not pushed anywhere: merge '
+                f'origin/{MAIN} into the branch you open it from first.')
+    p = _run(root, 'push', '-q', 'origin', f'{new}:refs/heads/{branch}')
+    if p.returncode != 0:
+        return (f'Could not bring {branch} up to the checked composition '
+                f'({(p.stderr or p.stdout).strip()[:200]}): merge '
+                f'origin/{MAIN} into {branch} and push it before opening the '
+                f'pull request, or the merge is refused for lacking '
+                f'{MAIN}\'s work.')
+    return (f'{branch} now carries the composition the quick checks passed '
+            f'({new[:12]}: {staging_branch(root)}, {MAIN}\'s direct work and '
+            f'{branch}), so the pull request from it lacks nothing {MAIN} has.')
 
 
 def pull_request_route_note(root, base, checks_ran=None):
@@ -4064,6 +4097,7 @@ def _land_composed(root, sha, label, staging, why, say):
             f'landing again would be refused the same way. What the push '
             f'said:\n{said[-1500:]}')
         if 'pull request' in said:
+            say(_carry_composition_to_branch(root, label, new))
             say(pull_request_route_note(root, staging, checks_ran=True))
         first = next((ln for ln in said.splitlines() if ln.strip()), 'no reason given')
         return 1, f'LAND REFUSED: the push to {staging} was refused: {first[:200]}'

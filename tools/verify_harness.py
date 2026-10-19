@@ -58500,6 +58500,94 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-400:],
     check(f'--land tells the push\'s hooks what it lands ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_land_sent_to_a_pull_request_carries_mains_work():
+    """A landing refused for the pull-request route pushes the composition
+    it checked -- staging, main's direct work and the branch -- to the
+    branch, so the pull request from it is not refused for lacking main.
+
+    2026-10-19: a change to tools/verify_harness.py was refused by --land
+    ("This one takes a pull request"); the pull request from the branch as
+    it stood lacked main's four direct commits, and the push check and
+    merge guard sent the session back to --land. The way out was a hand
+    merge of origin/main. The fixture's pre-push hook refuses a push to
+    staging as the real one does; main carries a commit staging lacks.
+
+    Negative control, measured 2026-10-19: without
+    _carry_composition_to_branch the branch on origin lacks main's commit
+    and the first case fails."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-pr-'))
+    cases = []
+    try:
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        (hooks / 'pre-push').write_text(
+            '#!/bin/sh\nwhile read l ls r rs; do\n'
+            '  case "$r" in refs/heads/staging) echo "push refused: this one '
+            'takes a pull request" >&2; exit 1;; esac\ndone\nexit 0\n',
+            encoding='utf-8')
+        (hooks / 'pre-push').chmod(0o755)
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, os, pathlib, subprocess, sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                  PRECEDENT_USER_CONFIG={str(tmp / 'no-config.json')!r},
+                  GIT_CONFIG_GLOBAL={str(tmp / 'gitconfig')!r})
+pathlib.Path({str(tmp / 'gitconfig')!r}).write_text('')
+import precedent_branches as pb
+td = pathlib.Path({str(tmp)!r})
+origin, work = td / 'o.git', td / 'w'
+g = lambda *a: subprocess.run(['git', '-C', str(work), *a], capture_output=True, text=True)
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g('checkout', '-q', '-B', 'main')
+(work / 'precedent.json').write_text('{{"landing_branch": "staging"}}\\n')
+g('add', '-A'); g('commit', '-qm', 'base')
+g('push', '-q', 'origin', 'main', 'main:staging')
+g('checkout', '-q', '-b', 'claude/engine-change-abcdef')
+(work / 'x.md').write_text('x\\n'); g('add', '-A'); g('commit', '-qm', 'work')
+g('push', '-q', 'origin', 'claude/engine-change-abcdef')
+g('checkout', '-q', 'main')
+(work / 'direct.md').write_text('d\\n'); g('add', '-A'); g('commit', '-qm', 'direct')
+g('push', '-q', 'origin', 'main')
+g('checkout', '-q', 'claude/engine-change-abcdef')
+g('config', 'core.hooksPath', {str(hooks)!r})
+pb._check = lambda *a, **k: (True, 'stub check')
+said = []
+rc, verdict = pb._land_composed(work, g('rev-parse', 'HEAD').stdout.strip(),
+                                'claude/engine-change-abcdef', 'staging', 'the fixture',
+                                said.append)
+g('fetch', '-q', 'origin')
+files = g('ls-tree', '--name-only', 'origin/claude/engine-change-abcdef').stdout.split()
+print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], files=files,
+                      staging=g('ls-tree', '--name-only', 'origin/staging').stdout.split())))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=300)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-600:]
+        files = out.get('files') or []
+        cases.append(('THE DISCRIMINATING CASE: the branch on origin now carries '
+                      'main\'s direct commit and its own work',
+                      'direct.md' in files and 'x.md' in files, str(out) or why))
+        cases.append(('...staging did not move, and the landing says it was refused',
+                      out.get('rc') == 1 and 'x.md' not in (out.get('staging') or [])
+                      and 'REFUSED' in (out.get('verdict') or ''), str(out) or why))
+        cases.append(('...and the reply says the branch now carries the checked '
+                      'composition', 'now carries the composition' in
+                      (out.get('said') or ''), str(out) or why))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a landing sent to a pull request carries main\'s work '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_leak_gate_reads_other_clones_as_themselves_inside_a_hook():
     """Inside a git hook the leak gate still reads every other clone as
     itself, lets a repository name itself, and says where the push goes.
@@ -86595,6 +86683,7 @@ def main():
     check_a_replacing_rule_inherits_what_it_does_not_restate()
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_land_tells_the_push_hooks_what_it_lands()
+    check_land_sent_to_a_pull_request_carries_mains_work()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
     check_update_stages_what_a_late_step_writes()
