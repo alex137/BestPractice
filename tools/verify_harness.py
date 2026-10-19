@@ -28578,6 +28578,30 @@ def check_parallel_artifact_ledger_fires():
                        cwd=tmp, check=True)
         already_on_base = fn(None)
 
+        # A row is a verdict for every member or it is not one (2026-10-19:
+        # the 2026-10-18 row stopped after its change cell, and a 2026-09-30
+        # row carried an unescaped pipe in a code span).
+        header = ('| Date | Originating change | claude-code | codex | '
+                  'gemini-cli |\n|---|---|---|---|---|\n')
+        ledger_path.write_text(header + _row('0000000'), encoding='utf-8')
+        complete_row = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-10-18 | this row\'s own commit — planted |\n',
+            encoding='utf-8')
+        half_row = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-09-30 | a `|` in code | applied | n/a | n/a |\n',
+            encoding='utf-8')
+        loose_pipe = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-09-30 | a `\\|` in code | applied | n/a | n/a |\n',
+            encoding='utf-8')
+        escaped_pipe = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-09-30 | planted | applied |  | n/a |\n',
+            encoding='utf-8')
+        empty_cell = fn(None)
+
         # A ledger naming ONLY the later change: the inception commit must
         # not be demanded. Before this exemption, f2078d6 -- the commit
         # that created all three real harness adapters, five weeks before
@@ -28599,12 +28623,21 @@ def check_parallel_artifact_ledger_fires():
              len(cited_only) == 1),
             ("a change already on the base is not judged again -- the check "
              "never walks the whole history", already_on_base == []),
+            ("a complete row under the header is not a finding",
+             complete_row == []),
+            ("a row with no member cells is a finding, at its line",
+             len(half_row) == 1 and 'LEDGER.md:3' in str(half_row[0].where)),
+            ("an unescaped pipe in a code span is a finding (a cell too many)",
+             len(loose_pipe) == 1),
+            ("an escaped pipe is one cell", escaped_pipe == []),
+            ("an empty member cell is a finding", len(empty_cell) == 1),
         ]
         bad = [n for n, ok in cases if not ok]
         check(f"parallel-artifact-ledger check fires ({len(cases)} stated cases: "
               f"no ledger, ledger missing the commit, a row naming it in "
               f"its change cell, a prose citation not counting as a row, "
-              f"a family's own inception commit needing no row)",
+              f"a family's own inception commit needing no row, a row "
+              f"missing or emptying a member cell)",
               not bad, '; '.join(bad))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -43042,6 +43075,51 @@ def check_main_test_cadence():
         st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)], RunsGH())
         cases.append(('a skipped run newer than a pass reads "passed", never "failed" '
                       '(every private push to main records one)', st == 'passed'))
+
+        # 2026-10-19: the push run on main skipped its test while the pull
+        # request's run was still going, finished `success`, and was read as
+        # main's verdict; the pull request's run failed (issue #1242).
+        pr_fail = {'id': 1, 'path': WF, 'status': 'completed', 'conclusion': 'failure',
+                   'created_at': '2026-10-19T14:24:40Z', 'head_sha': 'HEAD',
+                   'html_url': 'U'}
+        push_ok = {'id': 2, 'path': WF, 'status': 'completed', 'conclusion': 'success',
+                   'created_at': '2026-10-19T14:25:34Z', 'head_sha': 'SHA'}
+
+        def runs_gh(on_sha, jobs_of):
+            class G:
+                def call(self, path, cache=True):
+                    if path.endswith('/pulls'):
+                        return [{'head': {'sha': 'HEAD'}, 'base': {'ref': 'main'},
+                                 'number': 1240}], None
+                    if '/jobs' in path:
+                        return {'jobs': jobs_of}, None
+                    if 'head_sha=HEAD' in path:
+                        return {'workflow_runs': [pr_fail]}, None
+                    return {'workflow_runs': on_sha}, None
+            return G()
+        hollow_jobs = [{'name': pb.DECISION_JOB, 'conclusion': 'success'},
+                       {'name': 'test', 'conclusion': 'skipped'}]
+        st, why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                       runs_gh([push_ok], hollow_jobs))
+        cases.append(('a push run that tested nothing, newer than its pull '
+                      'request\'s failed run, reads "failed" (2026-10-19)',
+                      st == 'failed' and 'U' in why))
+        st, _why = pb.github_test_state(
+            repo, 'SHA', [(WF, True)],
+            runs_gh([push_ok], [dict(j, conclusion='success') for j in hollow_jobs]))
+        cases.append(('CONTROL: a push run that did run its test, and passed, '
+                      'still decides', st == 'passed'))
+        pr_fail_saved, pr_fail = pr_fail, dict(pr_fail, path='other.yml')
+        st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                        runs_gh([push_ok], hollow_jobs))
+        pr_fail = pr_fail_saved
+        cases.append(('a run that tested nothing and is the only run is kept: '
+                      'it reads "passed", never "never ran"', st == 'passed'))
+        wf_text = (ROOT / '.github' / 'workflows' / 'deep-check.yml').read_text(
+            encoding='utf-8')
+        cases.append(("precedent_branches.DECISION_JOB is deep-check.yml's "
+                      'already-tested job name',
+                      f'name: {pb.DECISION_JOB}\n' in wf_text))
     if saved_env is not None:
         os.environ[pb.FORCE_ENV] = saved_env
     failed = [n for n, ok in cases if not ok]
@@ -45470,6 +45548,54 @@ def check_individual_hook_run_by_hand_links_the_attached_set():
     check(f'a hand-run individual-set hook links the attached set '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
+
+
+def check_missing_brought_set_names_a_fetch_that_runs():
+    """The session check's row for a set the individual set brings that is
+    not on disk named `python3 tools/precedent_source_bootstrap.py` bare,
+    which refuses to run without four arguments (2026-10-19: a brought set was
+    missing and the named fix failed). The row now names an add_repo per
+    set and the session-start hook's own fetch, and that fetch must parse."""
+    import importlib, shlex, tempfile
+    name = ('a brought set that is missing is fetched by a command the '
+            'bootstrap accepts')
+    sys.path.insert(0, str(ROOT / 'tools'))
+    sc = importlib.import_module('precedent_session_check')
+    pr = importlib.import_module('precedent_resolve')
+    boot = importlib.import_module('precedent_source_bootstrap')
+    saved = (pr.brought_sources, sc._individual_path, boot._home_rule,
+             os.environ.get('CLAUDE_CODE_REMOTE'))
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            sc._individual_path = lambda: pathlib.Path(tmp)
+            pr.brought_sources = lambda *a, **k: [
+                {'level': 'shared', 'name': 'sh', 'path': f'{tmp}/sh',
+                 'repo': 'https://github.com/someone-else/Some-Set.git',
+                 'brought': True}]
+            rows = sc._brought_sets_rows()
+            detail = rows[0][2] if rows else ''
+            cmd = detail.split('then ', 1)[-1]
+            argv = shlex.split(cmd)[2:]
+            os.environ.pop('CLAUDE_CODE_REMOTE', None)
+            try:
+                parsed = boot.main(argv + ['--remote-only', 'true']) == 0
+            except SystemExit:
+                parsed = False
+        finally:
+            (pr.brought_sources, sc._individual_path, boot._home_rule, remote) = saved
+            if remote is not None:
+                os.environ['CLAUDE_CODE_REMOTE'] = remote
+    cases = [
+        ('the row fails', bool(rows) and rows[0][1] is False),
+        ('it names add_repo for the set, owner and repository from its URL',
+         'add_repo someone-else/Some-Set (read access)' in detail),
+        ("it names the session-start hook's fetch",
+         cmd.startswith('python3 tools/precedent_source_bootstrap.py --teams-from')),
+        ('the bootstrap accepts that command', parsed),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + (f' -- row: {detail}' if failed else ''))
 
 
 def check_individual_set_has_one_tree_whichever_route_cloned_it():
@@ -87488,6 +87614,7 @@ def main():
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_leak_gate_reads_a_sets_own_visibility()
     check_visibility_audit_reads_repo_names_out_of_prose()
+    check_missing_brought_set_names_a_fetch_that_runs()
     check('the individual set has one tree on disk, whichever of the '
           'bootstrap and the attach tool cloned it first',
           *check_individual_set_has_one_tree_whichever_route_cloned_it())
