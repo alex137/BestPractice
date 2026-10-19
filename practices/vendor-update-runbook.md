@@ -943,7 +943,11 @@ says so, both from the vendored tree under `process/upstream/`.
    ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-01-auto-mode-blocks-the-read-after-update-vendors-merges-its-own.md)).
 12. **Publish it, without asking again.** Commit, push and merge the result
     the way this repository lands work, and report which branch it landed
-    on. The phrase authorizes this step; do not stop after step 11 and ask.
+    on. **The commit message names every file the report's COMMIT MESSAGE
+    lines list**: what the update rewrote outside `process/upstream/` and
+    `tools/`. On 2026-09-15 an update replaced a consumer's hand-written
+    map and glossary under a message that named neither, and nobody
+    noticed for a month. The phrase authorizes this step; do not stop after step 11 and ask.
     Every condition the repository puts on landing still holds -- a branch
     the repository restricts is still restricted, and a step this session
     cannot reach hands off rather than coming back as a question. **If the safety check refuses a step

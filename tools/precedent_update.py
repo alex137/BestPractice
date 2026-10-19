@@ -1607,6 +1607,10 @@ def generated_full_views(repo):
     in order. A hand-written MAP.md with no source is the repo's, and left
     alone."""
     import build_views as _bv
+    if hasattr(_bv, 'view_owner'):   # the one answer to whose a view is
+        return [name for name in FULL_VIEWS
+                if (pathlib.Path(repo) / name).is_file()
+                and _bv.view_owner(repo, name) in _bv.ENGINE_WRITES]
     srcs = {'MAP.md': getattr(_bv, 'MAP_SOURCE', None),
             'GLOSSARY.md': getattr(_bv, 'GLOSSARY_SOURCE', None)}
     return [name for name in FULL_VIEWS
@@ -3036,6 +3040,13 @@ class Report:
         if self.commit_note:
             print(f"\nCOMMIT MESSAGE: say this in it, in these words: "
                   f"{self.commit_note}")
+        outside = rewritten_outside_vendored(self.repo or self.pin_repo)
+        if outside:
+            print("\nCOMMIT MESSAGE: name each of these in it -- files this update "
+                  "rewrote outside the vendored trees, which nobody reading the "
+                  "commit would guess it touched:")
+            for line in outside:
+                print(f"  {line}")
 
     def _pinned(self):
         if self.pin:
@@ -3186,6 +3197,41 @@ class Report:
         if self.not_run:
             print(self.not_run)
         return DONE
+
+
+# Where an update is expected to write: the vendored catalogue, the engine,
+# and the practice files the catalogue materializes. Anything else it
+# rewrites is news to whoever reads the commit. On 2026-09-15 an update
+# replaced a consumer's hand-written MAP.md and GLOSSARY.md with generated
+# ones under a message that named neither, and the loss went unnoticed for a
+# month (a consumer's root-issues report, 2026-10-19).
+VENDORED_PREFIXES = ('process/upstream/', 'tools/')
+MATERIALIZED_PREFIX = 'practices/'
+
+
+def rewritten_outside_vendored(repo):
+    """-> lines naming every staged file outside VENDORED_PREFIXES, with git's
+    status letter; the materialized practices/ files as one line with their
+    count."""
+    if repo is None:
+        return []
+    r = subprocess.run(['git', '-C', str(repo), 'diff', '--cached', '--name-status',
+                        '--no-renames'], capture_output=True, text=True)
+    if r.returncode != 0:
+        return []
+    out, practices = [], 0
+    for line in r.stdout.splitlines():
+        status, _tab, rel = line.partition('\t')
+        if not rel or rel.startswith(VENDORED_PREFIXES):
+            continue
+        if rel.startswith(MATERIALIZED_PREFIX):
+            practices += 1
+            continue
+        out.append(f"{status[:1]} {rel}")
+    if practices:
+        out.append(f"{MATERIALIZED_PREFIX} ({practices} practice file(s) "
+                   f"materialized from the sources)")
+    return out
 
 
 def staged_workflows(repo):
