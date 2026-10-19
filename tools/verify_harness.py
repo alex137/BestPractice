@@ -44809,6 +44809,28 @@ def check_session_check_reports_a_source_cloned_twice():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_sets_carry_the_todo_and_gotcha_index_tools():
+    """A practice set keeps its own todo/ and gotchas/, so the engine every
+    set carries has the tools that rebuild their generated indexes.
+    build_todo_index.py moved into ENGINE_FILES on 2026-09-19 when sets
+    turned out to keep todo items; build_gotcha_index.py stayed
+    consumer-only until 2026-10-19, when a private set was made with nine
+    gotchas and a generated gotchas/INDEX.md its own engine could not
+    rebuild, so its generated-files check could never pass. Fails on the
+    old list."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    missing = [t for t in ('build_todo_index.py', 'build_gotcha_index.py')
+               if t not in pve.ENGINE_FILES]
+    twice = [t for t in ('build_todo_index.py', 'build_gotcha_index.py')
+             if pve.CONSUMER_ENGINE_FILES.count(t) != 1]
+    return (not missing and not twice, '2 tools',
+            f'not in ENGINE_FILES: {missing}; not exactly once for a consumer: {twice}')
+
+
 def check_session_start_says_did_not_load_only_after_cloning():
     """Session start opened with "BEFORE ANY OTHER WORK: these practice
     sources did not load" on a fresh container (2026-10-19) for two sets
@@ -86756,6 +86778,8 @@ def main():
     check('one practice source is one tree: each harness\'s home folder, the '
           'listers on links running both ways, two runs leave one clone',
           *check_one_tree_per_source_whichever_way_links_run())
+    check('a practice set carries the tools that rebuild its todo and gotcha indexes',
+          *check_sets_carry_the_todo_and_gotcha_index_tools())
     check('session start says a source did not load only after cloning, '
           'and names each set once',
           *check_session_start_says_did_not_load_only_after_cloning())
