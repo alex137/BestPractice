@@ -49503,6 +49503,91 @@ def check_turn_start_names_what_the_last_reply_left_out():
           '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
 
 
+def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
+    """tools/precedent_run_repo_hooks.py, called from the user-level line for
+    each moment, runs the hooks of the repository an action is about -- the
+    file it writes, the folder a command cds into, the prompt's folder --
+    filtered by matcher, passes a refusal and a JSON denial through, does
+    nothing in a session opened inside a repository, and with no repository
+    named runs only the two gates that find their own.
+
+    2026-10-19 (Morgan: "Okay, let's do it, Act and Booked"): a session opened
+    above its repositories ran none of their hooks but the few the setup
+    script named one at a time. Negative control: the same Edit with the
+    session opened inside the repository runs nothing (native hooks do)."""
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        engine = root / 'engine'
+        (engine / 'tools').mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'precedent_run_repo_hooks.py',
+                    engine / 'tools' / 'precedent_run_repo_hooks.py')
+        (engine / '.claude').mkdir()
+        (engine / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
+            'PreToolUse': [{'matcher': 'Bash', 'hooks': [
+                {'type': 'command', 'command': 'echo ENGINE-PUSH # push-check-gate.sh'},
+                {'type': 'command', 'command': 'echo ENGINE-OTHER'}]}]}}), encoding='utf-8')
+
+        def repo(name, hooks):
+            r = root / name
+            (r / '.claude').mkdir(parents=True)
+            (r / '.claude' / 'settings.json').write_text(json.dumps({'hooks': hooks}),
+                                                        encoding='utf-8')
+            subprocess.run(['git', 'init', '-q', str(r)], check=True)
+            return r
+        a = repo('a', {
+            'PreToolUse': [
+                {'matcher': 'Edit|Write', 'hooks': [{'type': 'command',
+                 'command': 'echo "A refuses $CLAUDE_PROJECT_DIR" >&2; exit 2'}]},
+                {'matcher': 'Bash', 'hooks': [{'type': 'command', 'command': 'echo A-BASH'}]}],
+            'UserPromptSubmit': [{'hooks': [{'type': 'command', 'command': 'echo A-PROMPT'}]}]})
+        b = repo('b', {'PreToolUse': [{'matcher': 'Bash', 'hooks': [{'type': 'command',
+            'command': 'echo \'{"hookSpecificOutput": {"hookEventName": "PreToolUse", '
+                       '"permissionDecision": "deny", "permissionDecisionReason": "B says no"}}\''}]}]})
+
+        def run(event, payload, project=root):
+            env = dict(os.environ, CLAUDE_PROJECT_DIR=str(project))
+            return subprocess.run([sys.executable, str(engine / 'tools' / 'precedent_run_repo_hooks.py'),
+                                   event], input=json.dumps(payload), env=env,
+                                  capture_output=True, text=True, timeout=60)
+        r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Edit',
+                               'tool_input': {'file_path': str(a / 'x.md')}})
+        cases.append(('THE DISCRIMINATING CASE: an edit in a repository runs its Edit '
+                      'hook, as that repository, and the refusal comes through',
+                      r.returncode == 2 and f'A refuses {a.resolve()}' in r.stderr
+                      and 'A-BASH' not in r.stdout, (r.returncode, r.stdout, r.stderr)))
+        r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Edit',
+                               'tool_input': {'file_path': str(a / 'x.md')}}, project=a)
+        cases.append(('negative control: opened inside the repository, nothing runs',
+                      r.returncode == 0 and not r.stdout and not r.stderr,
+                      (r.returncode, r.stdout, r.stderr)))
+        r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Bash',
+                               'tool_input': {'command': f'cd {a} && ls'}})
+        cases.append(('a command that cds into a repository runs that one\'s Bash hooks',
+                      r.returncode == 0 and 'A-BASH' in r.stdout, (r.stdout, r.stderr)))
+        r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Bash',
+                               'tool_input': {'command': f'git -C {b} status'}})
+        cases.append(('a JSON denial from the repository is handed back as it is',
+                      r.returncode == 0 and '"permissionDecision": "deny"' in r.stdout,
+                      (r.stdout, r.stderr)))
+        r = run('UserPromptSubmit', {'cwd': str(a), 'prompt': 'hi'})
+        cases.append(('a prompt runs the hooks of the folder the session is working in',
+                      r.returncode == 0 and 'A-PROMPT' in r.stdout, (r.stdout, r.stderr)))
+        r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Bash',
+                               'tool_input': {'command': 'ls'}})
+        cases.append(('a command in no repository runs only the self-locating gates',
+                      'ENGINE-PUSH' in r.stdout and 'ENGINE-OTHER' not in r.stdout,
+                      (r.stdout, r.stderr)))
+        r = run('Nonsense', {})
+        cases.append(('an unknown moment runs nothing', r.returncode == 0
+                      and 'usage' in r.stdout, r.stdout))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the switchboard runs the hooks of the repository an action is about '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {str(d)[:240]}' for n, d in bad))
+
+
 def check_cloud_setup_script_writes_each_hook_once():
     """The setup script documentation/CLOUD_SETUP.md gives for the cloud
     environment writes the session-start runner and the merge and push
@@ -49525,7 +49610,10 @@ def check_cloud_setup_script_writes_each_hook_once():
         home = pathlib.Path(td)
         (home / '.claude').mkdir()
         (home / '.claude' / 'settings.json').write_text(json.dumps(
-            {'permissions': {'allow': ['Bash(ls)']}}), encoding='utf-8')
+            {'permissions': {'allow': ['Bash(ls)']}, 'hooks': {'PreToolUse': [
+                {'matcher': 'Bash', 'hooks': [{'type': 'command', 'command':
+                 'f=$(ls -d /home/user/*/tools/precedent_global_gate.sh); '
+                 'bash "$f" push-check-gate.sh || true'}]}]}}), encoding='utf-8')
         env = dict(os.environ, HOME=str(home))
         for _ in range(2):
             r = subprocess.run(['sh', '-c', m.group(0)], env=env,
@@ -49537,18 +49625,20 @@ def check_cloud_setup_script_writes_each_hook_once():
         cases.append(('THE DISCRIMINATING CASE: run twice, each hook is there once',
                       r.returncode == 0 and len(pairs) == len(set(pairs)) == 5,
                       cmds or r.stderr[-300:]))
-        cases.append(('the merge and push gates are written for a session '
-                      'opened above the repositories',
-                      sum('precedent_global_gate.sh' in c for c in cmds) == 4
-                      and any(c.endswith('push-check-gate.sh || true') for c in cmds),
-                      cmds))
-        stop = [c for n, c in pairs if n == 'Stop']
-        cases.append(('the reply check is written at Stop, and its refusal is not '
-                      'swallowed by a trailing "|| true"',
-                      len(stop) == 1 and 'stop-reply-check.sh' in stop[0]
-                      and '|| true' not in stop[0], stop))
-        cases.append(('what the file held is kept',
-                      got.get('permissions') == {'allow': ['Bash(ls)']}, got))
+        names = sorted(n for n, _c in pairs)
+        switch = [c for n, c in pairs if n != 'SessionStart']
+        cases.append(('one line per moment: session start, then the switchboard '
+                      'for the prompt, both tool-call moments and the end of a reply',
+                      names == sorted(['SessionStart', 'UserPromptSubmit', 'PreToolUse',
+                                       'PostToolUse', 'Stop'])
+                      and all('precedent_run_repo_hooks.py' in c for c in switch),
+                      pairs))
+        cases.append(('no switchboard line swallows a refusal with "|| true"',
+                      switch and not any('|| true' in c for c in switch), switch))
+        cases.append(('what the file held is kept, and an older script\'s '
+                      'one-gate line is gone so nothing runs twice',
+                      got.get('permissions') == {'allow': ['Bash(ls)']}
+                      and not any('precedent_global_gate.sh' in c for c in cmds), got))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the cloud setup script writes each hook once ({len(cases)} '
           f'stated cases)', not bad,
@@ -87640,6 +87730,7 @@ def main():
     check_global_gate_runs_a_repos_gate_only_from_above()
     check_reply_check_refuses_an_unlinked_branch_or_file()
     check_turn_start_names_what_the_last_reply_left_out()
+    check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about()
     check_cloud_setup_script_writes_each_hook_once()
     check('an empty blocklist is reported as nothing checked, never a pass',
           *check_empty_blocklist_is_not_a_pass())

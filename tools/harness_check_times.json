@@ -610,6 +610,7 @@
   "check_suggested_links_keep_a_dotfiles_leading_dot": 0.1,
   "check_summary_fields_drop_links_before_the_cut": 0.0,
   "check_superseded_source_says_so": 0.0,
+  "check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about": 0.8,
   "check_symlinked_root_path_matching": 0.0,
   "check_sync_check_passes_from_another_checkout": 4.0,
   "check_sync_does_not_call_a_held_back_check_an_orphan": 0.0,

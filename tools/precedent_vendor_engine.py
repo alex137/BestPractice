@@ -719,6 +719,11 @@ ENGINE_FILES = [
     # anyway (2026-09-28). Every repo carries it, so the hook finds a copy
     # in whichever clones a session has.
     'precedent_run_session_hooks.py',
+    # ...and its counterpart for every other moment (2026-10-19): the
+    # user-level UserPromptSubmit, PreToolUse, PostToolUse and Stop lines
+    # call it, and it runs the hooks of the repository the action is about.
+    # Every repo carries it for the same reason.
+    'precedent_run_repo_hooks.py',
     # The one place a session's feature branch name is built (2026-10-01).
     # act's Rule names it, so every repo resolving act needs the file; it
     # reads the session ID through precedent_detect and the date through
