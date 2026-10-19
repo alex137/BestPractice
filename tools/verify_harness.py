@@ -31845,6 +31845,28 @@ def check_branch_cleanup_button():
                       and any('GETTING_STARTED.md' in str(i) for i in pve._LEFT_FOR_YOU),
                       pve._LEFT_FOR_YOU))
         pve._LEFT_FOR_YOU.clear()
+        # 2026-10-19, two consuming repos: an older guide with the template's
+        # checks heading but neither anchor bullet, and the workflow already
+        # installed by an earlier refresh that could not say so. The old code
+        # wrote nothing on that refresh and never asked again on later ones.
+        guide.write_text('# Getting started\n\n## For the administrator\n\n'
+                         '### Automatic checks installed for this project\n\n'
+                         '- **A check runs on pull requests.**\n\n'
+                         '### Updates happen when you ask\n\nSay so.\n',
+                         encoding='utf-8')
+        assert (wf / 'precedent-branch-cleanup.yml').is_file()
+        refreshed, _c, _r = pve._refresh_ci_workflow_files(dest, 'consumer', src, man)
+        text = guide.read_text(encoding='utf-8')
+        cases.append(('a refresh that finds the workflow already there still writes the '
+                      'bullet, at the end of the checks section of an older guide',
+                      'GETTING_STARTED.md' in refreshed
+                      and text.index('A check runs') < text.index('precedent-branch-cleanup.yml')
+                      < text.index('### Updates happen'), text))
+        refreshed, _c, _r = pve._refresh_ci_workflow_files(dest, 'consumer', src, man)
+        cases.append(('CONTROL: the next refresh leaves the guide alone',
+                      'GETTING_STARTED.md' not in refreshed
+                      and guide.read_text(encoding='utf-8') == text, refreshed))
+        pve._LEFT_FOR_YOU.clear()
     import precedent_install as _pi
     cases.append(('the installer\'s guide paragraph carries the same bullet, one copy',
                   pve.CI_DISCLOSURES['branch-cleanup.yml.template'] in _pi._CI_PARAGRAPH_ON
