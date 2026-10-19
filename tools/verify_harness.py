@@ -69710,6 +69710,89 @@ def check_copied_set_carries_another():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_copy_in_question_names_what_would_leak():
+    """Morgan, 2026-10-19, on the question asked before copying a set into
+    a public repository: "Maybe it should also run some sort of leak gate
+    to review names of repos etc to make them general."
+
+    1. A set whose practice names a repository under a private owner, and
+       a word on the repository's own scrub list, gets both lines named.
+    2. The set's own name in its own repository is not a hit.
+    3. A file the copy never brings (the set's README) is not read.
+    4. A carried set's files are read.
+    5. The question lists the hits, or says the set is clean.
+    6. NEGATIVE CONTROL: the same set with the lines made general is clean."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='copy-in-leaks-'))
+    saved = os.environ.get('PRECEDENT_LEAK_BLOCKLIST')
+    cases = []
+    try:
+        bl = tmp / 'private' / 'leak-blocklist.txt'
+        bl.parent.mkdir()
+        bl.write_text('# visibility-audit: private-owner zzowner -- every '
+                      'repo is private\nzzsecretword\n')
+        os.environ['PRECEDENT_LEAK_BLOCKLIST'] = str(bl)
+        dest = tmp / 'dest'
+        (dest / 'process').mkdir(parents=True)
+        (dest / 'process' / 'scrub_blocklist.txt').write_text(
+            '# this repo\'s words\nzzclientname\n')
+        s = tmp / 'zz-set'
+        (s / 'practices').mkdir(parents=True)
+        (s / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-set', 'level': 'shared', 'visibility': 'public',
+             'carries': [{'name': 'zz-inner', 'path': 'inner'}]}))
+        rule = s / 'practices' / 'zz-rule.md'
+        rule.write_text('---\nslug: zz-rule\n---\n# r\n\n## Rule\n\n'
+                        'See zzowner/zz-hidden-repo for the story.\n'
+                        'Found with zzclientname.\n')
+        (s / 'README.md').write_text('zzowner/zz-readme-only\n')
+        (s / 'inner' / 'practices').mkdir(parents=True)
+        (s / 'inner' / 'practices' / 'zz-inner.md').write_text(
+            '---\nslug: zz-inner\n---\n# i\n\n## Rule\n\nzzsecretword\n')
+        hits, note = pve.copy_in_leaks(s, dest)
+        joined = '\n'.join(hits)
+        cases.append(('a private-owner repository is named',
+                      'zzowner/zz-hidden-repo' in joined, joined))
+        cases.append(("the repository's own scrub word is named",
+                      'zzclientname' in joined, joined))
+        cases.append(('a file the copy never brings is not read',
+                      'zz-readme-only' not in joined, joined))
+        cases.append(("a carried set's file is read",
+                      'inner/practices/zz-inner.md' in joined, joined))
+        cases.append(('the private list counts as configured', note == '', note))
+        q = pve.copy_in_question({'name': 'zz-set', 'default': 'no',
+                                  'why': 'w', 'public': True, 'clone': s,
+                                  'leaks': hits, 'leak_note': note})
+        cases.append(('the question lists the hits',
+                      'would be published' in q and 'zz-hidden-repo' in q, q))
+        # NEGATIVE CONTROL
+        rule.write_text('---\nslug: zz-rule\n---\n# r\n\n## Rule\n\n'
+                        'See a private repository for the story.\n')
+        (s / 'inner' / 'practices' / 'zz-inner.md').write_text(
+            '---\nslug: zz-inner\n---\n# i\n\n## Rule\n\nplain\n')
+        hits2, _ = pve.copy_in_leaks(s, dest)
+        cases.append(('NEGATIVE CONTROL: made general, the set is clean',
+                      hits2 == [], hits2))
+        q2 = pve.copy_in_question({'name': 'zz-set', 'default': 'no',
+                                   'why': 'w', 'public': True, 'clone': s,
+                                   'leaks': [], 'leak_note': ''})
+        cases.append(('a clean set is said to be clean',
+                      'found nothing' in q2, q2))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        else:
+            os.environ['PRECEDENT_LEAK_BLOCKLIST'] = saved
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the copy-in question names the lines a public copy would '
+          f'publish ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
+
+
 def check_copy_in_is_asked_once():
     """Part 6 of spec/VENDORED_SHARED_SETS.md (Morgan, 2026-10-19: "it's a
     question with each new repo and (one time) when we update vendors to
@@ -87616,6 +87699,7 @@ def main():
     check_copied_in_shared_sets()
     check_copied_set_carries_another()
     check_copy_in_is_asked_once()
+    check_copy_in_question_names_what_would_leak()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()

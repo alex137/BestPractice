@@ -5097,6 +5097,120 @@ def _copy_in_candidates(user_config=None):
     return out
 
 
+COPY_IN_LEAKS_SHOWN = 10
+
+
+def _copy_in_files(set_dir):
+    """-> [Path relative to set_dir] for the files a copy-in would bring:
+    the set's precedent-source.json, its practices/, the check and hook
+    files those practices name (checkin._files_rules_name), and every set
+    it carries. Read from the clone's working tree, which is what the
+    person has in front of them when they answer."""
+    import precedent_resolve as pr
+    set_dir = pathlib.Path(set_dir)
+    roots = ['practices']
+    try:
+        import checkin as _ci
+        roots += _ci._files_rules_name(set_dir)
+    except Exception:                                           # noqa: BLE001
+        pass
+    try:
+        man = pr.read_source_manifest(set_dir)
+    except Exception:                                           # noqa: BLE001
+        man = None
+    for item in ((man or {}).get('carries') or []):
+        rel = str((item or {}).get('path') or '').strip().strip('/') \
+            if isinstance(item, dict) else ''
+        if rel and '..' not in pathlib.PurePosixPath(rel).parts:
+            roots.append(rel)
+    out = []
+    if (set_dir / pr.SOURCE_MANIFEST).is_file():
+        out.append(pathlib.Path(pr.SOURCE_MANIFEST))
+    for rel in roots:
+        base = set_dir / rel
+        found = [base] if base.is_file() else sorted(base.rglob('*')) \
+            if base.is_dir() else []
+        for f in found:
+            if f.is_file() and '.git' not in f.parts:
+                r = f.relative_to(set_dir)
+                if r not in out:
+                    out.append(r)
+    return out
+
+
+def copy_in_leaks(set_dir, dest_root=None):
+    """-> (hits, note). hits: ['<file>:<line>: <why> (<text>)'] for what a
+    copy of the set at `set_dir` would publish, read the way the leak gate
+    reads a push: its blocklists (the committed default, the person's own
+    private list, its neighbours'), the owners it keeps private by default,
+    the private clones it covers by name, and `dest_root`'s own scrub
+    blocklist. note says what could not be checked, or ''.
+
+    Morgan, 2026-10-19, on the question asked before copying a set into a
+    public repository: "Maybe it should also run some sort of leak gate to
+    review names of repos etc to make them general." A warning that a
+    repository is public says what kind of thing becomes public; this says
+    which lines."""
+    import leak_gate as lg
+    set_dir = pathlib.Path(set_dir)
+    dest = pathlib.Path(dest_root) if dest_root else None
+    note = ''
+    try:
+        blocklist, _desc, configured = lg.load_blocklist()
+    except SystemExit as exc:
+        blocklist, configured = lg.load_default_blocklist(), False
+        note = f'the private word list could not be read ({exc})'
+    if not configured and not note:
+        note = ('no private word list is configured on this machine, so only '
+                'the default words and repository names were checked')
+    bl_path, _how = lg.resolve_blocklist_path()
+    policy, auto, public = ({}, {}), [], None
+    if bl_path is not None and bl_path.exists():
+        try:
+            if not lg.repo_policy_errors(bl_path):
+                policy = lg.parse_repo_policy(bl_path)
+                for where in (set_dir, dest):
+                    if where is not None:
+                        policy = lg.with_own_repo(policy, where)
+                if policy[0] and lg.auto_cover_enabled(bl_path):
+                    refs = lg.listed_private_refs(bl_path)
+                    if dest is not None:
+                        refs |= lg.local_clone_refs(dest)
+                    auto = lg.auto_private_name_patterns(refs, policy[0],
+                                                         policy[1])
+            public = lg.parse_public_email_domains(bl_path)
+        except Exception as exc:                                # noqa: BLE001
+            note = note or f'the repository-name policy could not be read ({exc})'
+    if dest is not None:
+        scrub = dest / 'process' / 'scrub_blocklist.txt'
+        if scrub.is_file():
+            for line in scrub.read_text(encoding='utf-8').splitlines():
+                line = line.strip()
+                if line and not line.startswith(('#', '!')):
+                    try:
+                        blocklist = list(blocklist) + [re.compile(line)]
+                    except re.error:
+                        pass
+    units = []
+    for rel in _copy_in_files(set_dir):
+        if not lg.is_texty(rel.as_posix()):
+            continue
+        try:
+            text = (set_dir / rel).read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        units.append((rel.as_posix(), None, text))
+    hits = lg.scan(units, blocklist, policy, auto, private_names=set(),
+                   structural_exempt=(), public_email_domains=public)
+    out, seen = [], set()
+    for display, line_no, why, text in hits:
+        key = (display, line_no, text)
+        if key not in seen:
+            seen.add(key)
+            out.append(f'{display}:{line_no}: {why.split(" (")[0]} ({text})')
+    return out, note
+
+
 def copy_in_offers(dest_root, user_config=None, login=None):
     """-> one dict per set the person could copy into this repository and
     has not been asked about here: {name, repo_url, clone, brought,
@@ -5149,10 +5263,18 @@ def copy_in_offers(dest_root, user_config=None, login=None):
             default, why = 'no', 'this repository is not private'
         else:
             default, why = 'no', 'others are code owners here too'
+        leaks, leak_note = [], ''
+        if not private and clone:
+            try:
+                leaks, leak_note = copy_in_leaks(
+                    clone / set_root if set_root else clone, root)
+            except Exception as exc:                            # noqa: BLE001
+                leak_note = f'the leak check could not run ({exc})'
         out.append({'name': name, 'repo_url': url, 'clone': clone,
                     'brought': brought, 'default': default, 'why': why,
                     'ladder': ladder, 'set_root': set_root,
-                    'public': not private})
+                    'public': not private, 'leaks': leaks,
+                    'leak_note': leak_note})
     return out
 
 
@@ -5168,6 +5290,22 @@ def copy_in_question(offer, flag='--copy-in', by_flag='--answered-by'):
         q += ('WARNING: this repository is PUBLIC. Everything copied in -- '
               'the set\'s rules and every detail in them -- becomes public '
               'with it. ')
+        leaks = offer.get('leaks') or []
+        if leaks:
+            shown = leaks[:COPY_IN_LEAKS_SHOWN]
+            more = len(leaks) - len(shown)
+            q += (f'The leak check found {len(leaks)} line(s) in the set that '
+                  f'would be published: ' + '; '.join(shown)
+                  + (f'; and {more} more' if more > 0 else '')
+                  + '. Make them general in the set\'s own repository before '
+                  'a yes. ')
+        elif offer.get('clone'):
+            q += 'The leak check found nothing in the set\'s files. '
+        else:
+            q += ('The leak check could not run: there is no clone of the '
+                  'set on this machine. ')
+        if offer.get('leak_note'):
+            q += f'(Not fully checked: {offer["leak_note"]}.) '
     q += (f'Copy {offer["name"]} into this repository? Yes: it is in force '
           f'for everyone who works here, refreshed by Update Vendors, and it '
           f'can never fail to load. No: keep loading it at session start, as '
