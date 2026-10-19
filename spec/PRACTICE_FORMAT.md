@@ -930,8 +930,9 @@ the practice to work. Absent, `null` and `[]` all mean "nothing".
 copies each entry of every practice it materializes to the **same path** in
 the consuming repository, the way it copies `tools/checks/`: recorded in
 `MANIFEST.json` under `ships`, compared by `--check`, a destination two
-sources both claim refused, a file no practice ships any more reported and
-left in place.
+sources both claim refused, a file no practice ships any more removed
+while unchanged and named by nothing else, otherwise reported and left in
+place.
 
 **A copy this tree did not write is replaced only when git keeps what
 goes** (practice: repair-cannot-discard-work). A committed hand-copy is
