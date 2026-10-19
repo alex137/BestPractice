@@ -32065,6 +32065,55 @@ def check_update_keeps_the_harness_go_ahead_with_its_content():
           f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
 
 
+def check_wait_main_test_finds_a_merged_pull_requests_head():
+    """2026-10-19: --wait-main-test COPY could not find its commit after the
+    merge -- GitHub deletes the branch, and a shallow clone cannot resolve
+    it. It now takes a pull request number, and looks a gone branch up as a
+    pull request's head. CONTROL: a branch that resolves is used as before."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_branches as pb
+    cases = []
+    head = 'a' * 40
+
+    class FakeGH:
+        def __init__(self):
+            self.asked = []
+
+        def call(self, path, cache=True):
+            self.asked.append(path)
+            pr = {'number': 7, 'head': {'sha': head, 'ref': 'x-promote-to-main-y'},
+                  'base': {'ref': 'main'}}
+            if path.endswith('/pulls/7'):
+                return pr, None
+            if '/pulls?state=all&head=acme:x-promote-to-main-y' in path:
+                return [pr], None
+            return [], None
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        g = lambda *a: _sp.run(['git', '-C', str(d), *a], capture_output=True, text=True)
+        g('init', '-q', '-b', 'main'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        g('remote', 'add', 'origin', 'https://github.com/acme/consumer.git')
+        g('commit', '-q', '--allow-empty', '-m', 'c')
+        local = g('rev-parse', 'HEAD').stdout.strip()
+        g('branch', 'still-here')
+        gh = FakeGH()
+        cases.append(('a pull request number gives its head commit and branch',
+                      pb.resolve_main_test_target(d, '#7', gh=gh) == (head, 'x-promote-to-main-y'),
+                      gh.asked))
+        cases.append(('a branch GitHub deleted is found as a pull request\'s head',
+                      pb.resolve_main_test_target(d, 'x-promote-to-main-y', gh=gh)
+                      == (head, 'x-promote-to-main-y'), gh.asked))
+        cases.append(('CONTROL: a branch that resolves here is used as before',
+                      pb.resolve_main_test_target(d, 'still-here', gh=gh) == (local, 'still-here'),
+                      ''))
+        cases.append(('CONTROL: a name nothing knows gives nothing',
+                      pb.resolve_main_test_target(d, 'nope', gh=gh) == (None, None), ''))
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'--wait-main-test finds a merged pull request\'s head ({len(cases)} stated cases)',
+          not bad, '; '.join(map(str, bad)))
+
+
 def check_update_holds_a_settings_change_and_offers_it_again():
     """A .claude/ change Update Vendors asks the person about keeps its old
     manifest baseline until their words are given, and a read-only allow
@@ -87470,6 +87519,7 @@ def main():
     check_set_bootstrap_defers_to_a_newer_engine_copy()
     check_sync_removes_a_stale_ship_named_only_as_another_repos()
     check_update_keeps_the_harness_go_ahead_with_its_content()
+    check_wait_main_test_finds_a_merged_pull_requests_head()
     check_update_holds_a_settings_change_and_offers_it_again()
     check_deduplicated_copy_stays_in_force_until_its_target_arrives()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()

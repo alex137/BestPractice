@@ -797,6 +797,7 @@
   "check_vocabulary_reads_a_materialized_practice_as_one": 0.0,
   "check_vocabulary_scan_skips_code_owner_commands": 0.0,
   "check_wait_loop_gate_refuses_pgrep_f": 1.4,
+  "check_wait_main_test_finds_a_merged_pull_requests_head": 1.9,
   "check_whats_new_log_mechanics": 1.9,
   "check_whats_new_skips_precedents_own_updates": 1.9,
   "check_where_things_are_from_one_source": 0.0,
