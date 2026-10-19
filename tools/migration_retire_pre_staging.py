@@ -775,6 +775,10 @@ def _live_markdown(repo, rep):
         rep.leave('Markdown naming pre-staging',
                   'pre-staging is retired, and these lines still describe it '
                   'as more than history; reword each by hand, or date it if '
-                  'it is a record: ' + ', '.join(f'{rel}:{n}' for rel, n in shown)
+                  'it is a record -- and where the whole file is a record (a '
+                  'plan carried out, a decision taken), give it a lifecycle '
+                  'header instead (`kind: proposal`, `status: executed`), '
+                  'which this check and the deep check both read as history: '
+                  + ', '.join(f'{rel}:{n}' for rel, n in shown)
                   + (f'; and {len(live) - len(shown)} more'
                      if len(live) > len(shown) else ''))

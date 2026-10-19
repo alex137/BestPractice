@@ -404,7 +404,8 @@ def scan_one(repo):
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
         import precedent_refresh_sources as _prs
-        regenerable = set(_prs.refresh_only_branches(repo, 'HEAD'))
+        regenerable = set(_prs.refresh_only_branches(repo, 'HEAD',
+                                                       merges_ok=True))
     except Exception:                                        # noqa: BLE001
         regenerable = set()
     ok_b, heads = _git(repo, 'for-each-ref', '--format=%(refname:short)', 'refs/heads')
