@@ -18,6 +18,15 @@
   },
   {
     "practice": "the-boildown",
+    "id": "boildown-first-line-leads-with-unlanded",
+    "require_first_item_leads_with_unlanded": {
+      "heading": "boildown"
+    },
+    "why": "Morgan, 2026-10-19 (strength: decided): a first line that opened on `staging` while four of five changes were still open pull requests was read as all of it on staging, staging was produced into main, and the four missed the move. When any of this session's branches is not landed, the line says so before it names a tier. Blocking: the check reads the same branch facts the reply gate prints at the turn's start, so a refusal is never a judgment call.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
+    "practice": "the-boildown",
     "require_one_of": [
       "Now is a good time to compact the session",
       "This is a cheap point to compact"

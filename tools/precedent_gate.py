@@ -527,8 +527,21 @@ def _session_roots(root, siblings=True):
     -- found 2026-09-25, the first time the harness gated a push, with the
     push check's own rollout commits sitting on the sets' working branches.
     Shared since 2026-10-19 with the reply check's delete links, which ask
-    the same question of the same repositories."""
+    the same question of the same repositories.
+
+    A session rooted ABOVE its repositories (a cloud session holding
+    several, whose root is their parent folder) is no checkout itself: its
+    repositories are the folders inside it. Without them the not-landed
+    lines and the reply check's branch facts saw nothing at all, and a
+    Boildown naming `staging` while four pull requests were open passed
+    unchecked (2026-10-19)."""
     roots = [pathlib.Path(root)]
+    if siblings and not (pathlib.Path(root) / '.git').exists():
+        try:
+            roots += [d for d in sorted(pathlib.Path(root).iterdir())
+                      if d.is_dir() and (d / '.git').exists()]
+        except OSError:
+            pass
     for parent in ({pathlib.Path(root).parent, pathlib.Path.home()}
                    if siblings else ()):
         try:
