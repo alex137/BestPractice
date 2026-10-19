@@ -52,6 +52,25 @@ The test is `check_copied_in_shared_sets` in
 [tools/verify_harness.py](../tools/verify_harness.py), with the guard's
 negative control (a rule edited in the copy is found).
 
+## A set that lives in a folder of its repository
+
+Some sets share their repository with other things. A voice pack lives in
+a repository that also runs its own Precedent install, so that
+repository's `practices/` is its own rules, not the pack's. Such a set
+keeps its `precedent-source.json`, `practices/` and anything it carries in
+one folder, and the source entry that copies it in names that folder:
+
+```json
+{"level": "shared", "name": "<set>", "path": "process/<set>",
+ "vendored": true, "set_root": "<folder>"}
+```
+
+Update Vendors' copy then takes that folder alone, and the copy reads as
+the set itself. A `set_root` that leaves the repository is refused. A set
+a person only offers names its folder in the same way (`offers` entries
+take a `set_root`), and a yes to the question below writes it into the
+source entry.
+
 ## The ladder, bound by one code owner
 
 The `ladder-set-is-brought-not-declared` check refuses a repository that
@@ -105,12 +124,52 @@ each carried set and where it sits, relative to the carrier:
 The test is `check_copied_set_carries_another` in
 [tools/verify_harness.py](../tools/verify_harness.py).
 
-## Still to build
+## The question, asked once
 
-- **The question, asked once.** Installing Precedent, and the one Update
-  Vendors that brings this into an existing repository, ask the person
-  whether to copy in each set they bring, and record the answer, yes or
-  no, in `precedent.json`.
+Whether a repository copies a set in is a question put to the person at
+two moments, and only those: installing Precedent into a new repository,
+and the one Update Vendors that brings this system into an existing one.
+The answer, yes or no, is recorded in that repository's `precedent.json`
+and never asked again there (Morgan, 2026-10-19, strength: decided).
+
+- **What is offered:** every set the person's individual set brings, and
+  every set it only offers (its `precedent-source.json`'s `offers`, a list
+  of `{name, repo_url}`: a voice pack, which nobody brings everywhere).
+- **The default suggested:** "yes" for a set the person brings, only when
+  the repository is private and its code owners are that person alone.
+  "No" everywhere else, and always for a set they only offer. The
+  person's answer always wins; nothing is copied in unanswered.
+- **How the answer comes back:** `--copy-in NAME=yes|no` (repeated) with
+  `--answered-by 'Name, YYYY-MM-DD: "their words"'`, to
+  [tools/precedent_update.py](../tools/precedent_update.py) or
+  [tools/precedent_install.py](../tools/precedent_install.py). An answer
+  with no date or no quote is not recorded. Every set still unanswered is
+  printed as a question for the person.
+- **What is recorded:**
+
+  ```json
+  "copy_in": {"<set>": {"answer": "yes", "answered_by": "Name, 2026-10-19: \"...\""}}
+  ```
+
+  A yes also declares the set copied in at `process/<name>`, replacing a
+  live declaration of it. For a set that provides the ladder, a yes adds
+  it to `binds_everyone` with the same quote; the question says that each
+  other code owner should agree first. A no leaves the set arriving the
+  way it did before, through the person's own `brings`.
+- **The refresh:** every Update Vendors then refreshes each copy from the
+  person's clone of the set, with `checkin.py --source`. A set whose
+  `precedent-source.json` says `"copy_refresh": "on-go-ahead"` (a voice
+  pack, synced only on its owner's word) is copied the first time, and
+  after that only reported when its origin moves, until a run names it
+  with `--take-set NAME`. The installer copies a yes in at once.
+
+The helpers are `copy_in_offers`, `copy_in_question`, `record_copy_in` and
+`parse_copy_in_answers` in
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py);
+the steps are `copy_in_step` and `refresh_copies_step` in
+[tools/precedent_update.py](../tools/precedent_update.py). The test is
+`check_copy_in_is_asked_once` in
+[tools/verify_harness.py](../tools/verify_harness.py).
 
 ## Rolling back
 

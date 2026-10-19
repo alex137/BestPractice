@@ -10,6 +10,14 @@ Run from a clone of Precedent (this repository), pointed at the project:
       [--base-branch main] [--visibility private|public] \\
       [--output-paths docs,site] [--content-paths notes/,TODO.md] \\
       [--admin github-handle] [--team NAME=PATH ...] [--no-terminal] [--force]
+      [--copy-in NAME=yes|no ... --answered-by 'Name, YYYY-MM-DD: "..."']
+
+--copy-in records the person's answer to "copy this set into this
+repository?" for a set their individual set brings or offers, in
+precedent.json, and copies a yes in from their clone of it. Every set still
+unanswered is printed as a question at the end, with the default it
+suggests: yes only for a set they bring, in a private repository whose only
+code owner is them (spec/VENDORED_SHARED_SETS.md).
 
 --no-terminal says the assistant that will work here has no terminal
 (ChatGPT connected to GitHub, say): precedent.json gets
@@ -886,9 +894,53 @@ def _tiers(dest):
                                else 'staging and main both present')
 
 
+def _copy_in(dest, answers, answered_by):
+    """Record the answers given (--copy-in, --answered-by), copy in each
+    set answered yes from the person's clone of it, and return one line per
+    answer and one question per set still unanswered. Never raises: an
+    install does not fail over an offer."""
+    lines = []
+    try:
+        import precedent_vendor_engine as _pve
+        offers = {o['name']: o for o in _pve.copy_in_offers(dest)}
+    except Exception as e:                                    # noqa: BLE001
+        return [f'copy in: not asked, the offers could not be read ({e})']
+    for name, answer in answers.items():
+        offer = offers.pop(name, None)
+        if offer is None:
+            lines.append(f'copy in: {name} is not a set you bring or offer; '
+                         f'nothing recorded')
+            continue
+        ok, what = _pve.record_copy_in(dest, name, answer, answered_by,
+                                       repo_url=offer['repo_url'],
+                                       ladder=offer['ladder'],
+                                       set_root=offer.get('set_root', ''))
+        lines.append(f'copy in: {what}')
+        if not ok or answer != 'yes':
+            continue
+        clone = offer.get('clone')
+        if not clone or not (pathlib.Path(clone) / '.git').exists():
+            lines.append(f'copy in: {name} has no clone on this machine; the '
+                         f'next Update Vendors makes the copy')
+            continue
+        tool = [sys.executable, str(ROOT / 'tools' / 'checkin.py'), '--source', name]
+        for verb, extra in (('update', ['--force']), ('record', [])):
+            r = _run(tool + [verb, str(clone), '--repo', str(dest)] + extra, dest)
+            if r.returncode != 0:
+                lines.append(f'copy in: {name} not copied yet ({verb} said: '
+                             f'{(r.stdout + r.stderr).strip()[-300:]}); the next '
+                             f'Update Vendors tries again')
+                break
+        else:
+            lines.append(f'copy in: {name} copied to process/{name}')
+    for offer in offers.values():
+        lines.append('copy in, a question: ' + _pve.copy_in_question(offer))
+    return lines
+
+
 def install(dest, project, about=None, base_branch=None, visibility=None,
             output_paths=None, admin=None, teams=(), force=False, quiet=False,
-            content_paths=None, no_terminal=False):
+            content_paths=None, no_terminal=False, copy_in=None, answered_by=''):
     dest = pathlib.Path(dest).resolve()
     say = (lambda *a: None) if quiet else print
     rc, top, _ = _git(dest, 'rev-parse', '--show-toplevel')
@@ -967,6 +1019,10 @@ def install(dest, project, about=None, base_branch=None, visibility=None,
         _offer = None
     if _offer:
         say(f'  time zone, an offer: {_offer}')
+    # Whether to copy in each set the person brings or offers: asked once,
+    # here, and the answer recorded (spec/VENDORED_SHARED_SETS.md, Part 6).
+    for line in _copy_in(dest, copy_in or {}, answered_by):
+        say(f'  {line}')
     written, skipped = _instantiate_root_files(dest, project, owner_repo, admin, branch, ci_enabled, force)
     say(f'  instantiated: {", ".join(written)}' + (f' (kept existing: {", ".join(skipped)})' if skipped else ''))
     lp_written, lp_skipped = _instantiate_local_practices(dest, force)
@@ -1045,7 +1101,7 @@ def main(argv=None):
     opts = {'--project-name': None, '--about': None, '--base-branch': None,
             '--visibility': None, '--output-paths': None, '--admin': None,
             '--content-paths': None}
-    teams, force, no_terminal = [], False, False
+    teams, force, no_terminal, copy_in_args, answered_by = [], False, False, [], ''
     i = 1
     while i < len(argv):
         a = argv[i]
@@ -1060,6 +1116,12 @@ def main(argv=None):
                 print('precedent_install FAIL: --team takes NAME=PATH', file=sys.stderr)
                 return 1
             teams.append((name, path))
+        elif a == '--copy-in':
+            i += 1
+            copy_in_args.append(argv[i])
+        elif a == '--answered-by':
+            i += 1
+            answered_by = argv[i]
         elif a in opts:
             i += 1
             opts[a] = argv[i]
@@ -1074,6 +1136,13 @@ def main(argv=None):
     if opts['--visibility'] not in (None, 'public', 'private'):
         print('precedent_install FAIL: --visibility is public or private', file=sys.stderr)
         return 1
+    import precedent_vendor_engine as _pve
+    copy_in, bad = _pve.parse_copy_in_answers(copy_in_args)
+    if bad or (copy_in and not answered_by):
+        print('precedent_install FAIL: ' + ('; '.join(bad) if bad else
+              '--copy-in needs --answered-by: who answered, the date and '
+              'their words in quotes'), file=sys.stderr)
+        return 1
     paths = [p.strip() for p in (opts['--output-paths'] or '').split(',') if p.strip()]
     content = [p.strip() for p in (opts['--content-paths'] or '').split(',') if p.strip()]
     try:
@@ -1081,7 +1150,8 @@ def main(argv=None):
                      base_branch=opts['--base-branch'], visibility=opts['--visibility'],
                      output_paths=paths or None, admin=opts['--admin'],
                      teams=teams, force=force, content_paths=content or None,
-                     no_terminal=no_terminal)
+                     no_terminal=no_terminal, copy_in=copy_in,
+                     answered_by=answered_by)
     except InstallRefused as e:
         print(f'precedent_install FAIL: {e}', file=sys.stderr)
         return 1
