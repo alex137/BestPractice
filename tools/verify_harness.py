@@ -86976,6 +86976,15 @@ if __name__ == '__main__':
         _i = _args.index('--for-change')
         if _i + 1 >= len(_args):
             sys.exit('verify_harness: --for-change needs a ref, e.g. --for-change origin/staging')
+        _ref = _args[_i + 1]
+        # A file is not a ref (2026-10-19: `--for-change tools/x.py` said
+        # "git could not diff tools/x.py...HEAD" and ran nothing).
+        if subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--verify', '-q',
+                           f'{_ref}^{{commit}}'], capture_output=True).returncode != 0:
+            hint = (f'{_ref} is a file, not a ref: --for-change takes the base '
+                    f'the change is measured from' if (ROOT / _ref).exists()
+                    else f'{_ref} names no commit here')
+            sys.exit(f'verify_harness: {hint}, e.g. --for-change origin/staging')
         _budget = FOR_CHANGE_BUDGET_SECONDS
         if '--budget' in _args and _args.index('--budget') + 1 < len(_args):
             _budget = float(_args[_args.index('--budget') + 1])
