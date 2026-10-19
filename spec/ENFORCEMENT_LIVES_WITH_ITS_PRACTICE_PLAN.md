@@ -198,8 +198,9 @@ attached to one session, which is why.
   decided with 5b, through the generic hook point, never as engine code
   that names the ladder.
 
-**Piece 5 waits for the copied-in shared sets work** (2026-10-19,
-proposed to Morgan, not yet decided). Another session's plan, kept in
+**Piece 5 waits for the copied-in shared sets work** (Morgan,
+2026-10-19: "Your plan is fine", strength: assented). That plan asks
+whoever lands its Step 1 to tell the session holding piece 5. Another session's plan, kept in
 Morgan's individual set because it names private repositories, has as
 its Step 1 a change to this engine: a shared set may be copied into the
 repository that uses it, refreshed and checked for freshness, instead of
