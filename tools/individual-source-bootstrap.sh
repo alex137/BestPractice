@@ -200,21 +200,9 @@ if [ -z "$REPO_URL" ]; then
   exit 0
 fi
 
-# WHERE THE CLONE GOES is the harness's declared home folder for practice
-# sources (tools/source_homes.json, through precedent_source_home.py,
-# 2026-10-19): $HOME, except Claude Code on the web, where the attach tool's
-# folder holds the tree and $HOME/<name> is linked to it. An engine without
-# the module clones to $HOME as before.
-_clone="$HOME/${PRECEDENT_INDIVIDUAL_SOURCE_NAME}"
-_home_tool="$(dirname "$ENGINE")/precedent_source_home.py"
-if [ -f "$_home_tool" ]; then
-  _clone="$(python3 "$_home_tool" --path "${PRECEDENT_INDIVIDUAL_SOURCE_NAME}" 2>/dev/null || echo "$_clone")"
-fi
-unset _home_tool
-
 exec python3 "$ENGINE" \
   --level individual \
   --name "${PRECEDENT_INDIVIDUAL_SOURCE_NAME}" \
   --repo-url "$REPO_URL" \
-  --clone "$_clone" \
+  --clone "$HOME/${PRECEDENT_INDIVIDUAL_SOURCE_NAME}" \
   --config "$HOME/.config/precedent/config.json"

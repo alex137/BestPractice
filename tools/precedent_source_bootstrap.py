@@ -659,14 +659,21 @@ def _one_individual_tree(name, repo_url, clone_path, workspace):
     if workspace is not None and clone_path.name == name \
             and _is_hosted(repo_url):
         attach = pathlib.Path(workspace) / name
-    # $HOME/<name> as well (2026-10-19): with the clone in the harness's home
-    # folder, a tree an older layout left in $HOME is found and used rather
-    # than cloned again, and an empty $HOME path becomes a link into it.
-    in_home = None
-    if clone_path.name == name and _is_hosted(repo_url):
-        in_home = pathlib.Path.home() / name
+    # THE HARNESS'S HOME FOLDER (2026-10-19, precedent_source_home). A tree
+    # already there is used, like the attach copy, only when its origin is
+    # this set; with nothing anywhere, the session-start run clones there and
+    # every other path becomes a link into it. Checked by origin rather than
+    # taken on trust: the hook passes $HOME/<name>, and a run whose project
+    # dir is a real checkout while its $HOME is somewhere else (a test
+    # fixture, a hand run) must never adopt the real set's tree.
+    home_tree = None
+    if _psh is not None and clone_path.name == name and _is_hosted(repo_url):
+        try:
+            home_tree = _psh.place(name)
+        except Exception:                                   # noqa: BLE001
+            home_tree = None
     others = []
-    for cand in (attach, in_home):
+    for cand in (attach, home_tree):
         if cand is not None and cand != clone_path and cand not in others:
             others.append(cand)
     trees = []                                  # [(resolved, as found)]
@@ -685,6 +692,10 @@ def _one_individual_tree(name, repo_url, clone_path, workspace):
     if not trees:
         if clone_path.is_symlink() and not clone_path.exists():
             clone_path.unlink()                 # dangling: nothing to lose
+        if (_home_rule and home_tree is not None
+                and not os.path.lexists(home_tree)
+                and home_tree.parent.is_dir()):
+            return home_tree, [p for p in links if p != home_tree], None
         return clone_path, links, None
     if len(trees) == 1:
         real, found = trees[0]

@@ -44896,6 +44896,81 @@ def check_one_tree_per_source_whichever_way_links_run():
                       f'leave two trees',
                       len(real_old) == 2, f'trees {real_old}'))
 
+    # (a) the individual set the same way, through the hook's own path
+    # ($HOME/<name>): cloned into the home folder with $HOME linked to it,
+    # and a tree in the home folder that is some other repository is never
+    # adopted -- the run clones where the hook said instead.
+    def individual_run(foreign):
+        with tempfile.TemporaryDirectory() as td:
+            t = pathlib.Path(td)
+            srv, home, ws = t / 'srv', t / 'home', t / 'ws'
+            proj = ws / 'proj'
+            source = srv / 'acct' / 'precedent-individual'
+            for d in (source, home, proj):
+                d.mkdir(parents=True)
+            rewrite = {'GIT_CONFIG_COUNT': '1',
+                       'GIT_CONFIG_KEY_0': f'url.file://{srv}/.insteadOf',
+                       'GIT_CONFIG_VALUE_0': 'https://example.invalid/'}
+            git_env = {**os.environ, **rewrite, 'GIT_AUTHOR_NAME': 't',
+                       'GIT_AUTHOR_EMAIL': 't@example.com',
+                       'GIT_COMMITTER_NAME': 't',
+                       'GIT_COMMITTER_EMAIL': 't@example.com'}
+            (source / 'practices').mkdir()
+            (source / 'practices' / 'x.md').write_text('x\n')
+            for args in (['init', '-q', '-b', 'main'], ['add', '-A'],
+                         ['commit', '-qm', 'seed']):
+                subprocess.run(['git', *args], cwd=str(source), env=git_env,
+                               capture_output=True)
+            subprocess.run(['git', 'init', '-q', str(proj)], capture_output=True)
+            if foreign:
+                other = ws / 'precedent-individual'
+                subprocess.run(['git', 'init', '-q', str(other)], capture_output=True)
+                subprocess.run(['git', '-C', str(other), 'remote', 'add', 'origin',
+                                'https://example.invalid/someone/precedent-individual'],
+                               capture_output=True)
+            keys = ['HOME', 'PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR',
+                    'CLAUDECODE', 'CLAUDE_CODE_REMOTE', 'PRECEDENT_HARNESS',
+                    'PRECEDENT_SOURCE_HOME', *rewrite]
+            saved = {k: os.environ.get(k) for k in keys}
+            saved_rule = getattr(psb, '_home_rule', False)
+            try:
+                for k in keys:
+                    os.environ.pop(k, None)
+                os.environ.update(rewrite)
+                os.environ.update(HOME=str(home), PRECEDENT_PROJECT_DIR=str(proj),
+                                  CLAUDECODE='1', CLAUDE_CODE_REMOTE='true')
+                psb._home_rule = True
+                with contextlib.redirect_stderr(io.StringIO()):
+                    ok, _ = psb.ensure_source(
+                        'individual', 'precedent-individual',
+                        'https://example.invalid/acct/precedent-individual',
+                        home / 'precedent-individual', t / 'config.json',
+                        retries=1, retry_delay=0, workspace=ws)
+                cfg = json.loads((t / 'config.json').read_text())
+            finally:
+                psb._home_rule = saved_rule
+                for k, v in saved.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+            in_ws, in_home = ws / 'precedent-individual', home / 'precedent-individual'
+            return (ok, cfg['individual']['path'], str(in_ws), str(in_home),
+                    in_home.is_symlink() and psh.same_tree(in_home, in_ws),
+                    (in_ws / 'practices').is_dir(), (in_home / 'practices').is_dir()
+                    and not in_home.is_symlink())
+
+    ok, cfg_path, in_ws, in_home, home_linked, ws_has, home_real = individual_run(False)
+    cases.append(('the individual set is cloned into the home folder (the attach '
+                  'folder on the web), and $HOME/<name> is a link into it',
+                  ok and cfg_path == in_ws and home_linked and ws_has,
+                  f'ok={ok} config={cfg_path} home_linked={home_linked}'))
+    ok, cfg_path, in_ws, in_home, home_linked, ws_has, home_real = individual_run(True)
+    cases.append(('a tree in the home folder that is another repository is never '
+                  'adopted: the run clones where the hook said',
+                  ok and cfg_path == in_home and home_real and not ws_has,
+                  f'ok={ok} config={cfg_path} home_real={home_real}'))
+
     # (b) a container laid out the 2026-10-18 way: links both directions.
     with tempfile.TemporaryDirectory() as td:
         t = pathlib.Path(td)
@@ -45012,11 +45087,20 @@ def _individual_two_routes_fixture(tmp):
     def fake(home, consumer):
         saved = {k: os.environ.get(k) for k in
                  ('HOME', 'PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR',
-                  'PRECEDENT_GIT_TOKEN', *rewrite)}
+                  'PRECEDENT_GIT_TOKEN', 'CLAUDECODE', 'CLAUDE_CODE_REMOTE',
+                  'PRECEDENT_HARNESS', 'PRECEDENT_SOURCE_HOME', *rewrite)}
         os.environ.update({'HOME': str(home),
                            'PRECEDENT_PROJECT_DIR': str(consumer), **rewrite})
         os.environ.pop('CLAUDE_PROJECT_DIR', None)
         os.environ.pop('PRECEDENT_GIT_TOKEN', None)
+        # The harness, and so the home folder, is the fixture's to say:
+        # $HOME, the layout these cases pin. Inherited, a cloud session's
+        # CLAUDE_CODE_REMOTE put the tree in the attach folder here and in
+        # $HOME on GitHub's runner (tools/source_homes.json; the web layout
+        # is check_one_tree_per_source_whichever_way_links_run's).
+        for k in ('CLAUDECODE', 'CLAUDE_CODE_REMOTE', 'PRECEDENT_SOURCE_HOME'):
+            os.environ.pop(k, None)
+        os.environ['PRECEDENT_HARNESS'] = 'default'
         try:
             yield
         finally:
