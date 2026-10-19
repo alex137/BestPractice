@@ -326,7 +326,7 @@ def branch_push_checks(root, user_config=None):
                   f'"basic" nor "full" -- checked fully until it is fixed')
 
 
-def tier_for_branch(root, branch, user_config=None):
+def _engine_tier_for_branch(root, branch, user_config=None):
     """-> (tier, why) for a push to `branch`. Staging takes the quick checks:
     work lands there, and the full suite is asked for with --run-tests.
 
@@ -524,7 +524,7 @@ def _landing_by_ladder(root, ladder, user_config=None):
 PROMOTE_ONLY_SETTING = 'promote_only'
 
 
-def promote_only(root, user_config=None):
+def _engine_promote_only(root, user_config=None):
     """-> (on, where). Only a literal `true` turns it on, and only while the
     ladder is in force for this person (spec/LADDER_OPT_IN_PLAN.md D3.4):
     off the ladder, and in a session started with PRECEDENT_NO_LADDERS, the
@@ -930,7 +930,7 @@ def red_main_fix(root, head_sha):
     return main_test_failed(root)
 
 
-def tier_branches(root):
+def _engine_tier_branches(root):
     """Every branch that is a tier here: main and staging (and its old
     name). None of them may ever be the SOURCE of a pull request:
     A merged pull request's page offers to delete its source branch, and
@@ -942,6 +942,84 @@ def tier_branches(root):
     if declared:
         names.add(declared)
     return sorted(names)
+
+
+# THE BRANCH POLICY SEAM (2026-10-19, piece 5a of
+# spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md; Morgan: "Let's do 5a
+# now", strength: decided). Three questions decide how work moves between
+# branches here: which branches are tiers, how hard a push to one is
+# checked, and whether this person's work reaches main only by promotion.
+# A practice set in force may answer them: it names a module as
+# `branch_policy` in its precedent-source.json, found the way step_review
+# is -- a set's clone, a copy inside this repository, or a set carried in
+# one (precedent_resolve.set_tool). The module is handed the engine's own
+# answer and returns its own; a question it does not define, an answer of
+# the wrong shape, or any failure keeps the engine's. Off the ladder it is
+# never asked. No set ships one yet, so nothing changes until one does;
+# piece 5b moves the ladder's answers into it.
+POLICY_KEY = 'branch_policy'
+
+
+def branch_policy(root, user_config=None):
+    """-> the branch-policy module a set in force names, imported, or None:
+    off the ladder, with no set naming one, or when it cannot load."""
+    if ladder_in_force(root, user_config) is False:
+        return None
+    pr = _sibling('precedent_resolve')
+    if pr is None:
+        return None
+    try:
+        return pr.load_set_tool(root, POLICY_KEY, user_config)
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def _ask_policy(root, question, default, valid, *args, user_config=None):
+    """-> the policy module's answer to `question`, or `default` when there
+    is no module, it does not answer that question, it fails, or `valid`
+    rejects what it returns."""
+    policy = branch_policy(root, user_config)
+    fn = getattr(policy, question, None) if policy is not None else None
+    if not callable(fn):
+        return default
+    try:
+        answer = fn(root, *args, default=default, user_config=user_config)
+    except Exception:                                       # noqa: BLE001
+        return default
+    return answer if valid(answer) else default
+
+
+def _is_pair(answer):
+    return isinstance(answer, tuple) and len(answer) == 2
+
+
+def tier_branches(root):
+    """Every branch that is a tier here (_engine_tier_branches), as the
+    branch policy answers it. main is always one."""
+    default = _engine_tier_branches(root)
+    names = _ask_policy(root, 'tier_branches', default,
+                        lambda a: isinstance(a, (list, tuple))
+                        and all(isinstance(n, str) and n for n in a))
+    return sorted(set(names) | {MAIN})
+
+
+def tier_for_branch(root, branch, user_config=None):
+    """-> (tier, why) for a push to `branch` (_engine_tier_for_branch), as
+    the branch policy answers it. A tier it names that this engine does not
+    know is ignored."""
+    default = _engine_tier_for_branch(root, branch, user_config)
+    return _ask_policy(root, 'tier_for_branch', default,
+                       lambda a: _is_pair(a) and a[0] in TIERS,
+                       branch, user_config=user_config)
+
+
+def promote_only(root, user_config=None):
+    """-> (on, where) (_engine_promote_only), as the branch policy answers
+    it."""
+    default = _engine_promote_only(root, user_config)
+    return _ask_policy(root, 'promote_only', default,
+                       lambda a: _is_pair(a) and isinstance(a[0], bool),
+                       user_config=user_config)
 
 
 def never_offered(root, user_config=None):

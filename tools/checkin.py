@@ -135,28 +135,53 @@ MANIFEST = ROOT / 'process' / 'manifest.json'
 SOURCE = None
 SOURCE_MANIFEST = 'precedent-source.json'
 CODE_DIRS = None
+# The folder inside the set's repository that IS the set, for a set that
+# shares its repository with other things -- a voice pack beside the
+# repository's own Precedent install. Read from the consumer's source entry
+# (`"set_root"`); '' means the repository's root, as before.
+SET_ROOT = ''
 
 
 def _select_source(name):
-    global SOURCE, UPSTREAM, MANIFEST
+    global SOURCE, UPSTREAM, MANIFEST, SET_ROOT
     SOURCE = name
     UPSTREAM = ROOT / 'process' / name
     MANIFEST = ROOT / 'process' / f'manifest_{name}.json'
+    SET_ROOT = _declared_set_root(name)
+
+
+def _declared_set_root(name):
+    """The `set_root` this repo's precedent.json gives the source `name`, as
+    a clean relative folder, or ''. One that leaves the repository is
+    refused: it would copy something that is not the set."""
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return ''
+    for e in (cfg.get('sources') or []) if isinstance(cfg, dict) else []:
+        if isinstance(e, dict) and e.get('name') == name and e.get('set_root'):
+            rel = pathlib.PurePosixPath(str(e['set_root']).strip().strip('/'))
+            if rel.is_absolute() or '..' in rel.parts or not str(rel):
+                sys.exit(f"checkin FAIL: {name}'s set_root {e['set_root']!r} must "
+                         f"be a folder inside the set's repository.")
+            return rel.as_posix()
+    return ''
 
 
 def _read_source_manifest(clone):
     """-> the clone's own precedent-source.json (dict) or {}. Read from the
     tracked branch's remote ref when it has one, so the working tree's state
     is never what decides what gets mirrored."""
+    inside = f'{SET_ROOT}/{SOURCE_MANIFEST}' if SET_ROOT else SOURCE_MANIFEST
     for ref in (f'origin/{_tracked_branch(clone)}', 'HEAD'):
-        rc, out = _git_rc(clone, 'show', f'{ref}:{SOURCE_MANIFEST}')
+        rc, out = _git_rc(clone, 'show', f'{ref}:{inside}')
         if rc == 0 and out.strip():
             try:
                 return json.loads(out)
             except ValueError:
                 sys.exit(f"checkin FAIL: {clone}'s {SOURCE_MANIFEST} at {ref} is not "
                          f"valid JSON")
-    f = clone / SOURCE_MANIFEST
+    f = clone / inside
     if f.is_file():
         try:
             return json.loads(f.read_text(encoding='utf-8'))
@@ -240,7 +265,8 @@ def _refuse_private_into_public(clone, manifest):
     for item in manifest.get('carries') or []:
         rel = str((item or {}).get('path') or '') if isinstance(item, dict) else ''
         try:
-            inner.append((clone / rel / SOURCE_MANIFEST).read_text(encoding='utf-8'))
+            inner.append((clone / SET_ROOT / rel / SOURCE_MANIFEST).read_text(
+                encoding='utf-8'))
         except OSError:
             continue
     if not any(manifest_says_private(t) for t in [json.dumps(manifest)] + inner):
@@ -857,7 +883,7 @@ def local_changes(clone, recorded):
     guard refuses on it, and tools/precedent_local_edits.py resolves and
     sends exactly these files (2026-09-29), so the two can never disagree
     about what counts as a local edit."""
-    tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
+    tar = subprocess.run(['git', '-C', str(clone), 'archive', _set_tree(recorded)],
                          capture_output=True)
     if tar.returncode != 0:
         return None
@@ -1305,6 +1331,14 @@ def _followed_branch():
         return 'main'
 
 
+def _set_tree(ref):
+    """The tree to archive for `ref`: the set's folder (SET_ROOT) for a set
+    that lives in a folder of its repository, else the whole commit. Every
+    archive of the set's side goes through here, or one of them compares
+    the copy against the wrong tree."""
+    return f'{ref}:{SET_ROOT}' if SET_ROOT and SOURCE else ref
+
+
 def _tree_at(clone, ref, into):
     """Extract `clone`'s tree at `ref` into `into`, without touching `clone`.
 
@@ -1326,7 +1360,9 @@ def _tree_at(clone, ref, into):
     guarantee in as many words -- "it reads blobs, it never checks the clone
     out" -- and verify_harness.py asserts it. This one now does the same.
     """
-    tar = subprocess.run(['git', '-C', str(clone), 'archive', ref],
+    # A set rooted in a folder of its repository (SET_ROOT) is archived from
+    # that folder, so the tree reads as the set itself.
+    tar = subprocess.run(['git', '-C', str(clone), 'archive', _set_tree(ref)],
                          capture_output=True)
     if tar.returncode != 0:
         sys.exit(f"checkin FAIL: cannot read {ref!r} in {clone} "
@@ -1684,7 +1720,7 @@ def _drop_what_the_copy_no_longer_carries(clone, src):
     with tempfile.TemporaryDirectory() as td:
         base = None
         if recorded:
-            tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
+            tar = subprocess.run(['git', '-C', str(clone), 'archive', _set_tree(recorded)],
                                  capture_output=True)
             if tar.returncode == 0:
                 extract_archive(tar.stdout, td)
