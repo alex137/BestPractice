@@ -70468,6 +70468,42 @@ def check_copied_in_shared_sets():
                       'BEHIND UPSTREAM' in r.stdout and 'zz-set' in r.stdout,
                       r.stdout[-500:]))
 
+        # A set rooted in a folder of a repository that is something else
+        # too: a voice pack beside that repository's own Precedent install,
+        # whose practices/ is its own rules, not the set's.
+        mixed = make_set('zz-mixed', 'public')
+        (mixed / 'pack' / 'practices').mkdir(parents=True)
+        (mixed / 'pack' / 'practices' / 'zz-pack-rule.md').write_text(
+            '---\nslug: zz-pack-rule\n---\n# p\n\n## Rule\n\nx\n')
+        (mixed / 'pack' / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-mixed', 'level': 'shared', 'visibility': 'public'}))
+        git(mixed, 'add', '-A')
+        git(mixed, 'commit', '-qm', 'pack')
+        git(mixed, 'push', '-q', 'origin', 'main')
+        sub = make_host('sub-host', 'zz-mixed')
+        cfg = json.loads((sub / 'precedent.json').read_text())
+        cfg['sources'][0]['set_root'] = 'pack'
+        (sub / 'precedent.json').write_text(json.dumps(cfg))
+        r1 = checkin_run(sub, 'zz-mixed', mixed, 'update', '--force')
+        r2 = checkin_run(sub, 'zz-mixed', mixed, 'record')
+        got = sorted(f.relative_to(sub / 'process' / 'zz-mixed').as_posix()
+                     for f in (sub / 'process' / 'zz-mixed').rglob('*')
+                     if f.is_file())
+        cases.append(('a set rooted in a folder of its repository is copied from '
+                      'that folder alone',
+                      r1.returncode == 0 and r2.returncode == 0
+                      and got == ['practices/zz-pack-rule.md',
+                                  'precedent-source.json'],
+                      f'{got} / {r1.stdout[-200:]}{r1.stderr[-200:]} / '
+                      f'{r2.stdout[-200:]}{r2.stderr[-200:]}'))
+        cfg['sources'][0]['set_root'] = '../elsewhere'
+        (sub / 'precedent.json').write_text(json.dumps(cfg))
+        r = checkin_run(sub, 'zz-mixed', mixed, 'update')
+        cases.append(('NEGATIVE CONTROL: a set_root that leaves the repository '
+                      'is refused', r.returncode != 0
+                      and 'set_root' in r.stdout + r.stderr,
+                      r.stdout[-200:] + r.stderr[-200:]))
+
         import precedent_source_credentials as psc
         gone = make_host('gone-host', 'zz-set', visibility='private')
         un = psc.unresolved_private_sources(gone, env={
@@ -70660,6 +70696,218 @@ def check_copied_set_carries_another():
     check(f'a copied set carries another inside it, and the repository\'s own '
           f'declaration wins ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_copy_in_is_asked_once():
+    """Part 6 of spec/VENDORED_SHARED_SETS.md (Morgan, 2026-10-19: "it's a
+    question with each new repo and (one time) when we update vendors to
+    the new system").
+
+    1. The offers: every set the person brings, and every set they only
+       offer. "yes" is suggested only for a brought set, in a private
+       repository whose only code owner is the person; "no" otherwise.
+    2. Update Vendors with no answers asks once per set and writes nothing.
+    3. An answer is recorded, with who gave it; a yes declares the set
+       copied in, and a ladder yes binds everyone through binds_everyone,
+       which the ladder check then accepts.
+    4. A recorded answer, yes or no, is never asked again.
+    5. The refresh copies a yes in from the person's clone and records its
+       commit; a set that waits for its owner's go-ahead is reported when
+       it moves, not taken, and taken with --take-set.
+    6. NEGATIVE CONTROL: an answer with no quote is not recorded.
+    7. The installer asks the same questions and records the same answers."""
+    import shutil, tempfile, importlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='copy-in-asked-once-'))
+    cases = []
+    genv = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+            'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    saved = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',
+                                            'PRECEDENT_GITHUB_USER')}
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=genv,
+                              capture_output=True, text=True)
+
+    def make_set(name, extra):
+        origin = tmp / 'origins' / f'{name}.git'
+        origin.parent.mkdir(exist_ok=True)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=genv, check=True)
+        clone = tmp / 'people' / name
+        subprocess.run(['git', 'clone', '-q', str(origin), str(clone)],
+                       env=genv, capture_output=True, check=True)
+        (clone / 'practices').mkdir()
+        (clone / 'practices' / f'{name}-rule.md').write_text(
+            f'---\nslug: {name}-rule\n---\n# r\n\n## Rule\n\nx\n')
+        (clone / 'precedent-source.json').write_text(json.dumps(
+            {'name': name, 'level': 'shared', 'visibility': 'public', **extra}))
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '-qm', 'one')
+        git(clone, 'push', '-q', 'origin', 'main')
+        return clone
+
+    def make_host(hname, visibility, owners):
+        host = tmp / hname
+        host.mkdir()
+        (host / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': visibility,
+             'maintainers': [{'github': o, 'name': o.title()} for o in owners],
+             'sources': []}, indent=2))
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(host)],
+                       env=genv, check=True)
+        git(host, 'add', '-A')
+        git(host, 'commit', '-qm', 'init')
+        return host
+
+    try:
+        ladder = make_set('zz-ladder', {'provides': ['ladder']})
+        make_set('zz-writing', {})
+        voice = make_set('zz-voice', {'copy_refresh': 'on-go-ahead'})
+        ind = tmp / 'people' / 'zz-ind'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual',
+             'brings': [{'name': 'zz-ladder', 'repo_url': 'https://example.invalid/zz-ladder'},
+                        {'name': 'zz-writing', 'repo_url': 'https://example.invalid/zz-writing'}],
+             'offers': [{'name': 'zz-voice', 'repo_url': 'https://example.invalid/zz-voice'}]}))
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind', 'path': str(ind)}}))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        os.environ['PRECEDENT_GITHUB_USER'] = 'zzme'
+        import precedent_vendor_engine as pve
+        import precedent_update as pu
+        import precedent_install as pi
+
+        mine = make_host('mine', 'private', ['zzme'])
+        offers = {o['name']: o['default'] for o in pve.copy_in_offers(mine)}
+        cases.append(('private, and only you own it: yes for what you bring, no '
+                      'for what you only offer',
+                      offers == {'zz-ladder': 'yes', 'zz-writing': 'yes',
+                                 'zz-voice': 'no'}, repr(offers)))
+        for hname, vis, owners, what in (
+                ('open', 'public', ['zzme'], 'a public repository'),
+                ('shared', 'private', ['zzme', 'zzother'],
+                 'a private repository others own too')):
+            h = make_host(hname, vis, owners)
+            got = {o['default'] for o in pve.copy_in_offers(h)}
+            cases.append((f'{what}: every default is no', got == {'no'},
+                          repr(got)))
+
+        before = (mine / 'precedent.json').read_text()
+        rep = pu.Report()
+        pu.copy_in_step(mine, rep)
+        cases.append(('with no answers, Update Vendors asks once per set and '
+                      'writes nothing',
+                      sorted(q.split('?')[0] for _w, q in rep.asks)
+                      == ['Copy zz-ladder into this repository',
+                          'Copy zz-voice into this repository',
+                          'Copy zz-writing into this repository']
+                      and (mine / 'precedent.json').read_text() == before,
+                      repr(rep.asks)[:600]))
+
+        rep = pu.Report()
+        pu.copy_in_step(mine, rep, {'zz-ladder': 'no'}, 'Zzme, 2026-10-19 said no')
+        cfg = json.loads((mine / 'precedent.json').read_text())
+        cases.append(('NEGATIVE CONTROL: an answer with no quote is not recorded',
+                      'zz-ladder' not in (cfg.get('copy_in') or {}),
+                      repr(cfg.get('copy_in'))))
+
+        by = 'Zzme, 2026-10-19: "yes, copy it in"'
+        rep = pu.Report()
+        pu.copy_in_step(mine, rep, {'zz-ladder': 'yes', 'zz-voice': 'yes'}, by)
+        cfg = json.loads((mine / 'precedent.json').read_text())
+        decl = {e['name']: e for e in cfg['sources']}
+        cases.append(('a yes is recorded with who gave it, and declares the set '
+                      'copied in',
+                      cfg['copy_in']['zz-ladder'] == {'answer': 'yes',
+                                                      'answered_by': by}
+                      and decl.get('zz-ladder', {}).get('vendored') is True
+                      and decl['zz-ladder']['path'] == 'process/zz-ladder',
+                      repr(cfg)[:600]))
+        cases.append(('a ladder yes binds everyone, quoting the answer',
+                      cfg.get('binds_everyone') == {'sets': ['zz-ladder'],
+                                                    'approved_by': by},
+                      repr(cfg.get('binds_everyone'))))
+        cases.append(('only the unanswered set is still asked',
+                      [q.split('?')[0] for _w, q in rep.asks]
+                      == ['Copy zz-writing into this repository'],
+                      repr(rep.asks)[:400]))
+
+        rep = pu.Report()
+        pu.refresh_copies_step(mine, rep)
+        up = json.loads((mine / 'process' / 'manifest_zz-ladder.json')
+                        .read_text()).get('upstream', {})
+        cases.append(('the refresh copies a yes in and records its commit',
+                      (mine / 'process' / 'zz-ladder' / 'practices'
+                       / 'zz-ladder-rule.md').is_file()
+                      and up.get('vendored_at') == 'process/zz-ladder'
+                      and bool(up.get('commit')), repr(rep.steps)[-600:]))
+        cases.append(('a set waiting for a go-ahead is still copied the first time',
+                      (mine / 'process' / 'zz-voice' / 'practices').is_dir(),
+                      repr(rep.steps)[-600:]))
+
+        import precedent_check as pc
+        old_root = pc.ROOT
+        try:
+            pc.ROOT = mine
+            found = pc._ladder_set_is_brought_not_declared(None)
+        finally:
+            pc.ROOT = old_root
+        cases.append(('the ladder check accepts the copy the answer bound',
+                      found == [], str([str(f) for f in found])))
+
+        (voice / 'practices' / 'zz-later.md').write_text(
+            '---\nslug: zz-later\n---\n# l\n\n## Rule\n\ny\n')
+        git(voice, 'add', '-A')
+        git(voice, 'commit', '-qm', 'two')
+        rep = pu.Report()
+        pu.refresh_copies_step(mine, rep)
+        cases.append(('a moved set that waits for a go-ahead is reported, not taken',
+                      any(w == 'copy of zz-voice' and '--take-set zz-voice' in q
+                          for w, q in rep.asks)
+                      and not (mine / 'process' / 'zz-voice' / 'practices'
+                               / 'zz-later.md').exists(), repr(rep.asks)[:400]))
+        git(voice, 'push', '-q', 'origin', 'main')
+        rep = pu.Report()
+        pu.refresh_copies_step(mine, rep, take_sets=('zz-voice',))
+        cases.append(('--take-set takes it',
+                      (mine / 'process' / 'zz-voice' / 'practices'
+                       / 'zz-later.md').is_file(), repr(rep.steps)[-400:]))
+
+        rep = pu.Report()
+        pu.copy_in_step(mine, rep, {'zz-writing': 'no'}, by)
+        rep2 = pu.Report()
+        pu.copy_in_step(mine, rep2)
+        cfg = json.loads((mine / 'precedent.json').read_text())
+        cases.append(('a no is recorded, the set stays live, and nothing is '
+                      'asked again', rep2.asks == []
+                      and cfg['copy_in']['zz-writing']['answer'] == 'no'
+                      and 'zz-writing' not in {e['name'] for e in cfg['sources']},
+                      repr(rep2.asks)))
+
+        fresh = make_host('fresh', 'private', ['zzme'])
+        lines = pi._copy_in(fresh, {}, '')
+        asked = [l for l in lines if l.startswith('copy in, a question:')]
+        lines2 = pi._copy_in(fresh, {'zz-writing': 'yes'}, by)
+        cases.append(('the installer asks the same question, and copies a yes in',
+                      len(asked) == 3 and any('copied to process/zz-writing' in l
+                                              for l in lines2)
+                      and (fresh / 'process' / 'zz-writing' / 'practices').is_dir(),
+                      repr(lines + lines2)[:700]))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+        if 'checkin' in sys.modules:
+            importlib.reload(sys.modules['checkin'])
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'whether to copy a set in is asked once per repository, and the '
+          f'answer recorded ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:500]}" for n, d in bad))
 
 
 def check_vendored_engine_reads_the_consumer_root():
@@ -88773,6 +89021,7 @@ def main():
     check_hosted_sessions_resolve_without_attaching_a_repo()
     check_copied_in_shared_sets()
     check_copied_set_carries_another()
+    check_copy_in_is_asked_once()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()

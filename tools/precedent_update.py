@@ -1101,6 +1101,107 @@ def maintainers_step(repo, rep):
         rep.ask('time zone', offer)
 
 
+def copy_in_step(repo, rep, answers=None, answered_by=''):
+    """Part 6 of spec/VENDORED_SHARED_SETS.md: whether to copy each set the
+    person brings (or offers) into this repository is asked once, here and
+    at install, and the answer is recorded in precedent.json. Answers given
+    on this run (--copy-in NAME=yes|no, --answered-by) are recorded first;
+    every set still unanswered becomes one question for the person. A
+    recorded answer is never asked again."""
+    answers = answers or {}
+    try:
+        offers = {o['name']: o for o in pve.copy_in_offers(repo)}
+    except Exception as exc:                                  # noqa: BLE001
+        rep.step('copy in', f'not asked: the offers could not be read ({exc})')
+        return
+    for name, answer in answers.items():
+        offer = offers.pop(name, None)
+        if offer is None:
+            rep.step('copy in', f'{name}: no answer recorded -- it is not a set '
+                     f'you bring or offer, or it was answered here already')
+            continue
+        ok, what = pve.record_copy_in(repo, name, answer, answered_by,
+                                      repo_url=offer['repo_url'],
+                                      ladder=offer['ladder'],
+                                      set_root=offer.get('set_root', ''))
+        if ok:
+            rep.step('copy in', what)
+        else:
+            rep.ask('copy in', f'{what}. {pve.copy_in_question(offer)}')
+    for offer in offers.values():
+        rep.ask('copy in', pve.copy_in_question(offer))
+
+
+def refresh_copies_step(repo, rep, take_sets=()):
+    """Refresh every shared set this repository copies in, from the
+    person's own clone of it, with checkin.py --source: the same mirror and
+    record the universal catalogue gets. A set whose precedent-source.json
+    says "copy_refresh": "on-go-ahead" (a voice pack) is only reported when
+    its origin has moved, and taken when this run names it in --take-set.
+    A set with no clone on this machine is said, never guessed."""
+    try:
+        import precedent_resolve as pr
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+    except Exception:                                         # noqa: BLE001
+        return
+    entries = [e for e in (cfg.get('sources') or []) if pr.is_vendored(e)]
+    if not entries:
+        return
+    ind = pr.person_individual_path()
+    brought = {b['name']: pathlib.Path(b['path'])
+               for b in (pr.brought_sources(ind, warn=False) if ind else [])}
+    checkin = [sys.executable, str(SOURCE / 'tools' / 'checkin.py')]
+    for e in entries:
+        name = e.get('name')
+        clone = brought.get(name)
+        if clone is None or not (clone / '.git').exists():
+            near = (ind.resolve().parent / name) if ind else None
+            clone = near if near is not None and (near / '.git').exists() \
+                else pr.clone_elsewhere(name, str(repo / str(e['path'])))
+        if clone is None or not (pathlib.Path(clone) / '.git').exists():
+            rep.step(f'copy of {name}', 'not refreshed: no clone of it on this '
+                     'machine to refresh from. Attach it and run Update '
+                     'Vendors again')
+            continue
+        clone = pathlib.Path(clone)
+        try:
+            man = json.loads((clone / pr.SOURCE_MANIFEST).read_text(
+                encoding='utf-8'))
+        except (OSError, ValueError):
+            man = {}
+        mpath = repo / 'process' / f'manifest_{name}.json'
+        try:
+            up = json.loads(mpath.read_text(encoding='utf-8')).get('upstream') or {}
+        except (OSError, ValueError, AttributeError):
+            up = {}
+        first = not up.get('commit')
+        if man.get('copy_refresh') == 'on-go-ahead' and not first \
+                and name not in take_sets:
+            rc, head = run(['git', '-C', str(clone), 'rev-parse', 'HEAD'], repo)
+            if rc == 0 and head.strip() and not head.strip().startswith(
+                    str(up.get('commit'))[:12]):
+                rep.ask(f'copy of {name}', f'{name} has moved since it was '
+                        f'copied in ({str(up.get("commit"))[:12]} -> '
+                        f'{head.strip()[:12]}), and it is refreshed only on its '
+                        f'owner\'s go-ahead. Take it with --take-set {name}')
+            else:
+                rep.step(f'copy of {name}', 'current; refreshed only on its '
+                         'owner\'s go-ahead')
+            continue
+        rc, out = run(checkin + ['--source', name, 'update', str(clone),
+                                 '--repo', str(repo)]
+                      + (['--force'] if first else []), repo)
+        if rc != 0:
+            rep.step(f'copy of {name}', 'not refreshed: ' + tail(out, repo=repo))
+            continue
+        rc, out = run(checkin + ['--source', name, 'record', str(clone),
+                                 '--repo', str(repo), '--note', 'Update Vendors'],
+                      repo)
+        rep.step(f'copy of {name}', next(
+            (l for l in out.splitlines() if l.startswith('checkin record')),
+            'recorded') if rc == 0 else 'not recorded: ' + tail(out, repo=repo))
+
+
 def renamed_sources_step(repo, rep, engine_out):
     """Repoint every precedent-team-* source to its precedent-shared-* name,
     path and level, from THIS copy of the engine -- a consumer whose own
@@ -5110,7 +5211,8 @@ def source_commit(follow, tip, take=None):
     return out
 
 
-def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
+def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
+           copy_in=None, answered_by='', take_sets=()):
     rep = Report()
     rep.pin_repo = repo
     if code:
@@ -5382,6 +5484,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     renamed_sources_step(repo, rep, out)
     level_alias_step(repo, rep)
     maintainers_step(repo, rep)
+    copy_in_step(repo, rep, copy_in or {}, answered_by)
 
     # 3. The catalogue, where there is one, by the source clone's checkin.py.
     if (repo / 'process' / 'manifest.json').is_file():
@@ -5502,6 +5605,11 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # an arrangement the engine has dropped. Before the views, so they
     # render what a migration rewords.
     migrations_step(repo, rep)
+
+    # 3d. The shared sets this repository copies in, refreshed the way the
+    # catalogue is (spec/VENDORED_SHARED_SETS.md). Before the views, which
+    # render their rules.
+    refresh_copies_step(repo, rep, take_sets)
 
     # 4. The views. A refresh changes what the loader renders.
     #
@@ -6105,8 +6213,27 @@ def main(argv=None):
                          'started from until it reports DONE; take the '
                          'followed branch\'s newest commit instead (on main, '
                          'the newest whose GitHub test passed)')
+    ap.add_argument('--copy-in', action='append', default=[],
+                    metavar='NAME=yes|no',
+                    help='the person\'s answer to "copy this set into this '
+                         'repository?", recorded in precedent.json and never '
+                         'asked again; repeat per set')
+    ap.add_argument('--answered-by', default='',
+                    help='who answered --copy-in, with a date and their own '
+                         'words: \'Name, YYYY-MM-DD: "..."\'')
+    ap.add_argument('--take-set', action='append', default=[], metavar='NAME',
+                    help='refresh this copied-in set although it waits for its '
+                         'owner\'s go-ahead -- only on that go-ahead')
     a = ap.parse_args(argv)
     repo = pathlib.Path(a.repo).resolve()
+    copy_in, bad = pve.parse_copy_in_answers(a.copy_in)
+    if bad:
+        print('precedent_update FAIL: ' + '; '.join(bad))
+        return FAILED
+    if copy_in and not a.answered_by:
+        print('precedent_update FAIL: --copy-in needs --answered-by: who '
+              'answered, the date and their words in quotes.')
+        return FAILED
     if repo in (SOURCE, CLONE):
         print("precedent_update FAIL: --repo is this BestPractice clone itself. "
               "Run it from the consuming repo: python3 <this clone>/tools/"
@@ -6125,7 +6252,8 @@ def main(argv=None):
     if isinstance(code, int):
         return code
     return update(repo, skip_check=a.skip_check, ref=a.from_ref, move=a.move,
-                  take=a.take, code=code)
+                  take=a.take, code=code, copy_in=copy_in,
+                  answered_by=a.answered_by, take_sets=tuple(a.take_set))
 
 
 def bootstrap(repo, a, argv):
