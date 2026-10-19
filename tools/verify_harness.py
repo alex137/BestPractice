@@ -4176,6 +4176,16 @@ def check_whats_new_log_mechanics():
                       str([pwn.shape_problems(t) for t in
                            (good, old, wrong_day, no_line, no_bold, backticked,
                             mid_bold)])))
+        bare = good.replace('(a name)', '(`docs/GUIDE.md` and `tools/run.py`)')
+        linked = good.replace('(a name)', '([`docs/GUIDE.md`](docs/GUIDE.md), '
+                              '`python3 tools/run.py`, `practices/*.md`)')
+        got_bare = pwn.unlinked_files(bare)
+        got_linked = pwn.unlinked_files(linked)
+        cases.append(('a file an entry names without a link is flagged, and a '
+                      'linked one, a command line and a glob are not',
+                      [n for _, n in got_bare] == ['docs/GUIDE.md', 'tools/run.py']
+                      and got_linked == [],
+                      f'{got_bare} {got_linked}'))
         import title_case as _tc
         kept = _tc.title_case('Wednesday 2026-09-30: safer-merges')
         compound = _tc.title_case('a lock-in for safer-merges')

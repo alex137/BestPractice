@@ -25,7 +25,8 @@ what was noteworthy, said plainly); this file does the mechanical half.
                                                     # the log now covers every day through
                                                     # this one (creates the file if needed)
     python3 tools/precedent_whats_new.py --check    # every entry has the shape (heading,
-                                                    # opening line) and names no approver
+                                                    # opening line), names no approver
+                                                    # and links every file it names
 
 THE ONE PIECE OF STATE is the log's own front matter, `checked_through:
 <date>`. It answers both questions a run asks: which days to write, and
@@ -352,6 +353,28 @@ def heading_for(day, slug='<slug>'):
     return f'## {WEEKDAYS[day.weekday()]} {day.isoformat()}: {slug}'
 
 
+def unlinked_files(text):
+    """-> [(line number, name)] for a backticked file name a reader could
+    open that is not a link. doc_lint.py's own test, so the two never
+    disagree.
+
+    WHY (2026-10-19). --check passed a log in which one entry named five
+    files and linked none; doc_lint flags that only as a warning, on lines
+    a commit touches, so 17 such names across nine entries were never
+    caught. The log is read by people, who click."""
+    try:
+        import doc_lint
+    except Exception:                                       # noqa: BLE001
+        return []
+    out = []
+    for i, line in enumerate((text or '').splitlines(), 1):
+        for m in doc_lint.REF_RE.finditer(line):
+            if (line[m.end():m.end() + 2] != '](' and line[m.start() - 1:m.start()] != '['
+                    and doc_lint.is_file_reference(m.group(1))):
+                out.append((i, m.group(1)))
+    return out
+
+
 def shape_problems(text):
     """-> [(line number, problem)] for entries not in the fixed shape: a
     heading `## <Weekday> <date>: <slug>` whose weekday is the date's own,
@@ -464,9 +487,14 @@ def main(argv):
         shape = shape_problems(text)
         for n, problem in shape:
             print(f'{rel}:{n}: {problem}')
+        unlinked = unlinked_files(text)
+        for n, name in unlinked:
+            print(f'{rel}:{n}: `{name}` is not a link -- link every file an '
+                  f'entry names')
         print(f'precedent_whats_new: {len(hits)} entry line(s) naming an approval, '
-              f'{len(shape)} entry shape problem(s)')
-        return 1 if hits or shape else 0
+              f'{len(shape)} entry shape problem(s), {len(unlinked)} unlinked '
+              f'file name(s)')
+        return 1 if hits or shape or unlinked else 0
 
     if '--today' in argv:
         tz, name = repo_zone(root)
