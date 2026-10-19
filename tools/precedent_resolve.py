@@ -1233,6 +1233,52 @@ def is_vendored(entry):
     return isinstance(entry, dict) and entry.get('vendored') is True
 
 
+def carried_sources(copy_path, outer_name):
+    """-> [{'level': 'shared', 'name', 'path', 'vendored': True,
+    'carried_by'}] for every set the copied set at `copy_path` says it
+    carries inside itself: its precedent-source.json's `carries`, a list of
+    {"name", "path"} with `path` relative to the set and inside it. A copied
+    voice pack carries the writing rules it is built on this way, so a
+    repository that copies the pack in gets both and declares one
+    (spec/VENDORED_SHARED_SETS.md, 2026-10-19). An entry without a slug
+    name, or whose path leaves the set, is skipped."""
+    root = pathlib.Path(copy_path)
+    try:
+        man = json.loads((root / SOURCE_MANIFEST).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for item in (man.get('carries') if isinstance(man, dict) else None) or []:
+        if not isinstance(item, dict):
+            continue
+        name, rel = item.get('name'), str(item.get('path') or '')
+        if not isinstance(name, str) or not SLUG_RE.match(name) or not rel \
+                or pathlib.PurePosixPath(rel).is_absolute() \
+                or '..' in pathlib.PurePosixPath(rel).parts:
+            continue
+        out.append({'level': 'shared', 'name': name, 'path': str(root / rel),
+                    'vendored': True, 'carried_by': outer_name})
+    return out
+
+
+def carried_in_force(sources):
+    """-> the sets the copied sources in `sources` carry that are in force:
+    every carried set whose name no source in `sources` already has. The
+    repository's own declaration of a set wins over a copy carried inside
+    another set; the first carrier wins over a later one."""
+    taken = {s['name'] for s in sources}
+    out = []
+    for s in sources:
+        if not s.get('vendored'):
+            continue
+        for c in carried_sources(s['path'], s['name']):
+            if c['name'] in taken:
+                continue
+            taken.add(c['name'])
+            out.append(c)
+    return out
+
+
 def vendored_source_paths(repo):
     """-> [(path, level, name, note)] for every source this repo declares
     as copied in, in declared_source_paths()'s shape. `note` is '' when the
@@ -1254,6 +1300,14 @@ def vendored_source_paths(repo):
             'not copied in yet: Update Vendors makes the copy'
         out.append((str(path), normalize_level(entry.get('level')),
                     entry.get('name') or 'shared', note))
+    declared = [{'name': e.get('name'), 'path': str(_declared_path(
+                    repo_root, e['path'])), 'vendored': is_vendored(e)}
+                for e in (cfg.get('sources') or [])
+                if isinstance(e, dict) and e.get('path')]
+    for c in carried_in_force(declared):
+        note = '' if (pathlib.Path(c['path']) / 'practices').is_dir() else \
+            f"carried in {c['carried_by']}'s copy, which has no practices there"
+        out.append((c['path'], 'shared', c['name'], note))
     return out
 
 
@@ -1310,6 +1364,9 @@ def declared_source_paths(repo, user_config=None):
             out.append((str(path), 'individual',
                         ind.get('name') or DEFAULT_INDIVIDUAL_NAME, note))
         have = {pathlib.Path(p).resolve() for p, *_ in out if p}
+        # A set carried inside a copy is the repository's too.
+        declared_names |= {n for _p, _l, n, _note in
+                           vendored_source_paths(repo_root)}
         for b in brought_sources(path, warn=False):
             bp = pathlib.Path(b['path']).resolve()
             # The repository's own declaration wins, by name, as in
@@ -1506,6 +1563,11 @@ def load_config(repo, user_config=None):
             if is_vendored(entry):
                 src['vendored'] = True
             sources.append(src)
+    # A copied set may carry another inside it (carried_sources). Added
+    # here, before the person's own sets, so the name it takes is taken
+    # for a brought set of the same name too; the repository's own
+    # declaration of that set wins over the carried copy.
+    sources.extend(carried_in_force(sources))
 
     user_cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
         os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()

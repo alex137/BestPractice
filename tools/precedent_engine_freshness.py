@@ -197,6 +197,8 @@ def declared_sources(root, user=True):
                        'path': p}
                 if entry.get('repo'):
                     src['repo'] = str(entry['repo']).strip()
+                if entry.get('vendored') is True:
+                    src['vendored'] = True
                 sources.append(src)
     user_cfg = pathlib.Path(os.environ.get(USER_CONFIG_ENV,
                                            DEFAULT_USER_CONFIG)).expanduser()
@@ -258,6 +260,35 @@ def _live_clone(path, root):
                       cwd=path)
         branch = ref.split('/', 1)[1] if '/' in ref else ''
     return {'url': url, 'branch': branch, 'head': head}
+
+
+def _carried_rows(root, src, sources):
+    """One note row per set a copied set carries inside itself. It moves
+    with its carrier, whose own row says whether that copy is behind; the
+    note says so, and says when the carried copy is not in force because
+    this repository declares the same set itself."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+        carried = _pr.carried_sources(src['path'], src['name'])
+    except Exception:                                        # noqa: BLE001
+        return []
+    finally:
+        sys.path.pop(0)
+    own = {s['name'] for s in sources if s is not src}
+    rows = []
+    for c in carried:
+        where = pathlib.Path(c['path'])
+        where = where.relative_to(root) if where.is_relative_to(root) else where
+        shadow = ('; not in force here, because this repository declares '
+                  f"{c['name']} itself" if c['name'] in own else '')
+        rows.append({'label': f"{c['name']} carried in {src['name']}",
+                     'kind': 'carried',
+                     'note': f"{c['name']} is carried at {where} inside the "
+                             f"copy of {src['name']} and moves with it -- "
+                             f"{src['name']}'s row says whether it is behind"
+                             f"{shadow}"})
+    return rows
 
 
 def collect_targets(root='.'):
@@ -369,6 +400,8 @@ def collect_targets(root='.'):
                 rows.append({'label': label, 'kind': 'live', 'url': url,
                              'branch': live['branch'], 'recorded': live['head'],
                              'path': str(src['path'])})
+        if src.get('vendored'):
+            rows.extend(_carried_rows(root, src, sources))
         if reached == 0 and src['path'].resolve() != root:
             rows.append({'label': f"{who} at {src['path']}", 'kind': 'absent',
                          'problem': 'declared, but neither a vendored manifest '
@@ -645,6 +678,9 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
             print(f"freshness: not checked, and not counted -- {row['note']}",
                   file=out)
             continue
+        if row['kind'] == 'carried':
+            print(f"freshness: {row['note']}", file=out)
+            continue
         if row.get('problem'):
             unverified += 1
             if not row.get('nothing_vendored'):
@@ -733,7 +769,7 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
               f'tools/precedent_engine_freshness.py for which (not verified '
               f'is not current)', file=out)
     if not quiet:
-        print(f"freshness: {sum(r['kind'] != 'deleted' for r in rows)} "
+        print(f"freshness: {sum(r['kind'] not in ('deleted', 'carried') for r in rows)} "
               f'row(s) -- {current} current, '
               f'{behind} behind, {unverified} not verified (not verified is '
               f'not current)', file=out)
