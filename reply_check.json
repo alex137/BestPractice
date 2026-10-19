@@ -121,30 +121,42 @@
     "require_no_bare_pattern": [
       {
         "pattern": "\\bPR #\\d+\\b",
-        "why": "a pull request number names a page with a destination -- link it, rather than naming the bare number"
+        "why": "a pull request number names a page with a destination -- link it, rather than naming the bare number",
+        "repair": "It named something with a page -- listed below -- without linking it. The person has ALREADY SEEN the reply: output ONLY one short line giving each missing link, \"Links: [name](url), ...\" -- a file as its GitHub link, a branch as its tree view -- and end the turn. A file that has no page (untracked or local) is given as its absolute path instead. Do not repeat the reply or apologize."
       },
       {
         "pattern": "\\bsession_[A-Za-z0-9-]+\\b",
-        "why": "a session id names a specific session with its own page -- link it, rather than naming the bare id"
+        "why": "a session id names a specific session with its own page -- link it, rather than naming the bare id",
+        "repair": "It named something with a page -- listed below -- without linking it. The person has ALREADY SEEN the reply: output ONLY one short line giving each missing link, \"Links: [name](url), ...\" -- a file as its GitHub link, a branch as its tree view -- and end the turn. A file that has no page (untracked or local) is given as its absolute path instead. Do not repeat the reply or apologize."
       },
       {
         "pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/pull/\\d+\\b",
-        "why": "a bare GitHub pull request URL outside a markdown link is unclickable copy, not a citation"
+        "why": "a bare GitHub pull request URL outside a markdown link is unclickable copy, not a citation",
+        "repair": "It named something with a page -- listed below -- without linking it. The person has ALREADY SEEN the reply: output ONLY one short line giving each missing link, \"Links: [name](url), ...\" -- a file as its GitHub link, a branch as its tree view -- and end the turn. A file that has no page (untracked or local) is given as its absolute path instead. Do not repeat the reply or apologize."
+      },
+      {
+        "pattern": "`(?:\\d{4}-\\d{2}-\\d{2}-[a-z0-9][a-z0-9.-]*|claude/[\\w.-]+)`",
+        "why": "a branch name -- a dated session branch or a harness claude/ branch -- has a tree view to link to",
+        "repair": "It named something with a page -- listed below -- without linking it. The person has ALREADY SEEN the reply: output ONLY one short line giving each missing link, \"Links: [name](url), ...\" -- a file as its GitHub link, a branch as its tree view -- and end the turn. A file that has no page (untracked or local) is given as its absolute path instead. Do not repeat the reply or apologize."
+      },
+      {
+        "pattern": "`(?![/~])(?:[\\w.-]+/)*[\\w-][\\w.-]*\\.(?:md|py|json|sh|ya?ml|html|toml|txt|csv|docx)`",
+        "why": "a file named in code font has a page to link to; a file with none (untracked, local) is written as its absolute path instead",
+        "repair": "It named something with a page -- listed below -- without linking it. The person has ALREADY SEEN the reply: output ONLY one short line giving each missing link, \"Links: [name](url), ...\" -- a file as its GitHub link, a branch as its tree view -- and end the turn. A file that has no page (untracked or local) is given as its absolute path instead. Do not repeat the reply or apologize."
       }
     ],
-    "advisory": true,
-    "why": "rule-links says anything mentioned that has a destination gets a link the first time it is named -- a PR, a session, a rule, a file -- and had no mechanical check at all until this predicate (tools/precedent_reply_check.py's require_no_bare_pattern). Added 2026-09-20 after a reply in a downstream consumer repository mentioned 'PR #21' with no link, and nothing caught it before the person had to notice and ask. Declared advisory rather than blocking: markdown links are stripped from the whole reply once, up front, so a thing correctly linked on its FIRST mention and named bare again later in the same reply still matches -- a known imprecision (rule-links only requires the first mention to carry the link), not a bug, and not yet worth refusing a turn over."
+    "why": "rule-links says anything mentioned that has a destination gets a link the first time it is named -- a PR, a session, a rule, a file -- and had no mechanical check at all until this predicate (tools/precedent_reply_check.py's require_no_bare_pattern). Added 2026-09-20 after a reply in a downstream consumer repository mentioned 'PR #21' with no link, and nothing caught it before the person had to notice and ask. Declared advisory rather than blocking: markdown links are stripped from the whole reply once, up front, so a thing correctly linked on its FIRST mention and named bare again later in the same reply still matches -- a known imprecision (rule-links only requires the first mention to carry the link), not a bug, and not yet worth refusing a turn over. 2026-10-19: blocking, with dated session branches and file paths in code font added (Morgan: \"Don't we have practice rules so when you mention files you always give links?\", after a Boildown named a branch, a section and a practice with no link). Advisory had meant unseen: main() drops an advisory finding without telling anyone, so this had never reached a session. The imprecision that justified it is fixed: a name linked anywhere in the reply now covers its later bare mentions."
   },
   {
     "practice": "rule-links",
     "require_no_bare_pattern": [
       {
         "pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/tree/[\\w/-]+(?:\\.[\\w/-]+)*",
-        "why": "a bare GitHub branch tree URL outside a markdown link is unclickable copy, not a citation"
+        "why": "a bare GitHub branch tree URL outside a markdown link is unclickable copy, not a citation",
+        "repair": "It named something with a page -- listed below -- without linking it. The person has ALREADY SEEN the reply: output ONLY one short line giving each missing link, \"Links: [name](url), ...\" -- a file as its GitHub link, a branch as its tree view -- and end the turn. A file that has no page (untracked or local) is given as its absolute path instead. Do not repeat the reply or apologize."
       }
     ],
-    "advisory": true,
-    "why": "branch-links says a git branch named anywhere in a reply gets a link to its tree view, and its own Install section says a bare branch NAME has no reliable syntactic signature a mechanical check could key off -- a branch's tree URL does, though, so this predicate (tools/precedent_reply_check.py's require_no_bare_pattern) catches that one detectable case rather than the general one. Added 2026-09-20 alongside the rule-links entry above, same incident. Declared advisory for the same reason: a link stripped once, up front, does not know a later bare mention of a URL already linked earlier in the same reply was already covered."
+    "why": "branch-links says a git branch named anywhere in a reply gets a link to its tree view, and its own Install section says a bare branch NAME has no reliable syntactic signature a mechanical check could key off -- a branch's tree URL does, though, so this predicate (tools/precedent_reply_check.py's require_no_bare_pattern) catches that one detectable case rather than the general one. Added 2026-09-20 alongside the rule-links entry above, same incident. Declared advisory for the same reason: a link stripped once, up front, does not know a later bare mention of a URL already linked earlier in the same reply was already covered. 2026-10-19: blocking, for the same reason as the entry above; a branch NAME in code font is now caught there too, where it carries the dated shape precedent_branch_name.py gives every session branch or the harness's claude/ prefix."
   },
   {
     "practice": "fence-block-for-paste",

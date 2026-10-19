@@ -1,6 +1,6 @@
 #!/bin/bash
 # precedent_global_gate.sh GATE -- run one of the engine's gates (GATE is
-# merge-check-gate.sh or push-check-gate.sh) for a session opened ABOVE its
+# merge-check-gate.sh, push-check-gate.sh or stop-reply-check.sh) for a session opened ABOVE its
 # repositories, from the user-level settings the cloud environment's setup
 # script writes (documentation/CLOUD_SETUP.md).
 #
@@ -21,7 +21,7 @@
 # input arrives on stdin and passes straight through.
 gate="${1:-}"
 case "$gate" in
-    merge-check-gate.sh|push-check-gate.sh) ;;
+    merge-check-gate.sh|push-check-gate.sh|stop-reply-check.sh) ;;
     *) echo "NOTE: precedent_global_gate.sh: no gate named '$gate'; nothing checked." >&2
        exit 0 ;;
 esac
@@ -34,6 +34,27 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 if [[ ! -f "$here/$gate" ]]; then
     echo "NOTE: precedent_global_gate.sh: tools/$gate is not beside this file, so nothing was checked." >&2
     exit 0
+fi
+# The reply check judges the reply against the repository it runs in,
+# found from the folder it starts in. A Stop hook names no repository, so it
+# runs in the one the session was last working in (the hook input's `cwd`),
+# or, when that folder is in none, in the engine's own: its reply rules are
+# the universal ones, and the person's own and brought sets resolve from
+# their user-level config wherever it runs. Added 2026-10-19 (Morgan: "Fix
+# the link check"): until then no reply check ran for a session opened
+# above its repositories, so nothing caught a Boildown that linked nothing.
+if [[ "$gate" == stop-reply-check.sh ]]; then
+    input="$(cat)"
+    dir="$(printf '%s' "$input" | python3 -c 'import json,sys
+try: print(json.load(sys.stdin).get("cwd") or "")
+except Exception: print("")' 2>/dev/null)"
+    top="$( [[ -n "$dir" ]] && git -C "$dir" rev-parse --show-toplevel 2>/dev/null || true)"
+    if [[ -z "$top" || ! -f "$top/tools/precedent_gate.py" && ! -f "$top/process/upstream/tools/precedent_gate.py" ]]; then
+        top="$(cd "$here/.." && pwd)"
+    fi
+    cd "$top" || exit 0
+    printf '%s' "$input" | CLAUDE_PROJECT_DIR="$top" bash "$here/$gate"
+    exit $?
 fi
 # The gate reads its own tool from the project folder, which here is the
 # folder above every repository and holds none: name the engine's
