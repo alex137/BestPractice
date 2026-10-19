@@ -45550,6 +45550,54 @@ def check_individual_hook_run_by_hand_links_the_attached_set():
           '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
 
 
+def check_missing_brought_set_names_a_fetch_that_runs():
+    """The session check's row for a set the individual set brings that is
+    not on disk named `python3 tools/precedent_source_bootstrap.py` bare,
+    which refuses to run without four arguments (2026-10-19: a brought set was
+    missing and the named fix failed). The row now names an add_repo per
+    set and the session-start hook's own fetch, and that fetch must parse."""
+    import importlib, shlex, tempfile
+    name = ('a brought set that is missing is fetched by a command the '
+            'bootstrap accepts')
+    sys.path.insert(0, str(ROOT / 'tools'))
+    sc = importlib.import_module('precedent_session_check')
+    pr = importlib.import_module('precedent_resolve')
+    boot = importlib.import_module('precedent_source_bootstrap')
+    saved = (pr.brought_sources, sc._individual_path, boot._home_rule,
+             os.environ.get('CLAUDE_CODE_REMOTE'))
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            sc._individual_path = lambda: pathlib.Path(tmp)
+            pr.brought_sources = lambda *a, **k: [
+                {'level': 'shared', 'name': 'sh', 'path': f'{tmp}/sh',
+                 'repo': 'https://github.com/someone-else/Some-Set.git',
+                 'brought': True}]
+            rows = sc._brought_sets_rows()
+            detail = rows[0][2] if rows else ''
+            cmd = detail.split('then ', 1)[-1]
+            argv = shlex.split(cmd)[2:]
+            os.environ.pop('CLAUDE_CODE_REMOTE', None)
+            try:
+                parsed = boot.main(argv + ['--remote-only', 'true']) == 0
+            except SystemExit:
+                parsed = False
+        finally:
+            (pr.brought_sources, sc._individual_path, boot._home_rule, remote) = saved
+            if remote is not None:
+                os.environ['CLAUDE_CODE_REMOTE'] = remote
+    cases = [
+        ('the row fails', bool(rows) and rows[0][1] is False),
+        ('it names add_repo for the set, owner and repository from its URL',
+         'add_repo someone-else/Some-Set (read access)' in detail),
+        ("it names the session-start hook's fetch",
+         cmd.startswith('python3 tools/precedent_source_bootstrap.py --teams-from')),
+        ('the bootstrap accepts that command', parsed),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + (f' -- row: {detail}' if failed else ''))
+
+
 def check_individual_set_has_one_tree_whichever_route_cloned_it():
     """The individual set got cloned twice, reported by two consumer sessions
     on 2026-09-28. The source bootstrap clones it to $HOME/precedent-
@@ -87566,6 +87614,7 @@ def main():
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_leak_gate_reads_a_sets_own_visibility()
     check_visibility_audit_reads_repo_names_out_of_prose()
+    check_missing_brought_set_names_a_fetch_that_runs()
     check('the individual set has one tree on disk, whichever of the '
           'bootstrap and the attach tool cloned it first',
           *check_individual_set_has_one_tree_whichever_route_cloned_it())

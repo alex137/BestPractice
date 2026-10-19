@@ -362,6 +362,7 @@
   "check_merged_branches_carry_a_date_and_a_staleness_verdict": 1.3,
   "check_migrate_views_keeps_every_word": 21.7,
   "check_mirrored_prefixes_answers_both_install_models": 0.0,
+  "check_missing_brought_set_names_a_fetch_that_runs": 0.0,
   "check_model_audit_changed_selects_only_what_a_change_reaches": 0.5,
   "check_model_audit_ledger": 0.9,
   "check_move_dedupe_stub_names_the_slug_alone": 7.0,
