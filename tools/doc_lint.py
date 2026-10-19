@@ -229,6 +229,12 @@ ACRONYM_RE = re.compile(r'\b([A-Z]{2}[A-Z0-9]{0,4})\b')   # 2-6 chars, ≥2 lead
 # A shouted phrase: three or more ALL-CAPS words (one letter counts: "A",
 # "I"), separated by single spaces. scan_unglossed() says why.
 SHOUTED_RUN_RE = re.compile(r"\b[A-Z][A-Z0-9'’]*(?: [A-Z][A-Z0-9'’]*){2,}\b")
+# Inside a quotation, two ALL-CAPS words in a row are already a person
+# shouting: a quote keeps its own form, and Morgan's "PURE CONTENT" in
+# promote-only's Story was refused as an acronym when the practice moved to a
+# set too small to know "pure" as a word (2026-10-19).
+QUOTED_SHOUT_RE = re.compile(r"\b[A-Z][A-Z0-9'’]*(?: [A-Z][A-Z0-9'’]*)+\b")
+QUOTATION_RE = re.compile(r'"[^"\n]{3,}"|“[^”\n]{3,}”')
 # A dot plus a lowercase extension immediately after the token: the token is
 # a filename stem (LEDGER.md, MAP.md, SETUP.md), never an acronym to gloss.
 FILENAME_STEM_RE = re.compile(r'\.[a-z][a-z0-9]{0,4}\b')
@@ -800,6 +806,9 @@ def scan_unglossed(text, known, path=None):
             continue
         clean = _decontent(line)
         shouted = [r.span() for r in SHOUTED_RUN_RE.finditer(clean)]
+        for q in QUOTATION_RE.finditer(clean):
+            shouted += [(q.start() + r.start(), q.start() + r.end())
+                        for r in QUOTED_SHOUT_RE.finditer(q.group(0))]
         for m in ACRONYM_RE.finditer(clean):
             tok = m.group(1)
             if tok in known or tok in seen:
