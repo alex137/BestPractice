@@ -9796,6 +9796,15 @@ def _strip_other_repo_urls(line, own_slug):
     return _REPO_URL_RE.sub(keep, line)
 
 
+def _materialize():
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    try:
+        import precedent_materialize
+    finally:
+        sys.path.pop(0)
+    return precedent_materialize
+
+
 @check('rename-updates-links', 'tree',
        'no tracked file still references a path this branch renamed away '
        'or deleted',
@@ -9811,7 +9820,8 @@ def _strip_other_repo_urls(line, own_slug):
        'by one -- or about a path inside a permalink pinned to a 40-hex '
        'commit, which cites the file as it was and cannot go stale, or '
        'inside a URL into another repository, which names that '
-       'repository\'s file rather than this one\'s. Nor '
+       'repository\'s file rather than this one\'s, or on a line that '
+       'qualifies it by another repository ("OtherSet\'s tools/x.py"). Nor '
        'about history, which names a path as it was: a generated view (its '
        'source is read), a closed todo item, a `## Story` section, or a '
        'record file precedent.json declares in `record_paths`.',
@@ -9970,8 +9980,14 @@ def _rename_updates_links(ctx):
                 # branch later deleted).
                 if rel.endswith('.json') and line.lstrip().startswith('"notes"'):
                     continue
+                # And a mention the line itself qualifies by another
+                # repository ("OtherSet's tools/x.py") names that
+                # repository's file: the same rule the sync uses before it
+                # removes a file no source ships any more (2026-10-19).
                 if old in line and _names_path(_strip_other_repo_urls(
-                        PINNED_PERMALINK_RE.sub('', line), _own_slug), old):
+                        PINNED_PERMALINK_RE.sub('', line), _own_slug), old) \
+                        and not _materialize().mention_names_another_repo(
+                            line, old, _own_slug):
                     if moved and is_guarded_fallback(rel, line, old):
                         continue  # the fallback beside tools/, as templates write it
                     where = f'renamed to {new_path}' if new_path else 'deleted'

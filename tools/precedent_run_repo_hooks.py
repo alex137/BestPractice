@@ -35,6 +35,7 @@ settings file runs nothing and exits 0.
 
     python3 tools/precedent_run_repo_hooks.py UserPromptSubmit|PreToolUse|PostToolUse|Stop
 """
+import concurrent.futures
 import json
 import os
 import pathlib
@@ -151,15 +152,12 @@ def hooks_for(repo, event, tool_name):
     return out
 
 
-def _blocks(obj):
-    """-> True for a hook's JSON answer that stops the action."""
-    hso = obj.get('hookSpecificOutput') or {}
-    return (obj.get('decision') == 'block' or obj.get('continue') is False
-            or hso.get('permissionDecision') in ('deny', 'ask'))
-
-
 def run(event, raw, project):
-    """-> (exit code, stdout, stderr) for the switchboard's answer."""
+    """-> (exit code, stdout, stderr) for the switchboard's answer: the
+    target repository's hooks run at once and their answers merged by
+    precedent_hooks.combine, the one place the engine turns several hooks'
+    answers into the one Claude Code reads (a refusal or denial from any of
+    them wins; context is joined)."""
     try:
         payload = json.loads(raw) if raw.strip() else {}
     except ValueError:
@@ -176,46 +174,27 @@ def run(event, raw, project):
         repo = ENGINE_REPO
         if event in TOOL_EVENTS:
             only = SELF_LOCATING
-    plain, contexts, errs = [], [], []
-    for command, timeout in hooks_for(repo, event, tool_name):
-        if only and not any(name in command for name in only):
-            continue
-        env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo))
-        try:
-            r = subprocess.run(['bash', '-c', command], input=raw, cwd=str(repo), env=env,
-                               capture_output=True, text=True, timeout=float(timeout))
-        except subprocess.TimeoutExpired:
-            errs.append(f'NOTE: precedent_run_repo_hooks: {command} ran past {timeout}s; skipped.')
-            continue
-        except OSError as e:
-            errs.append(f'NOTE: precedent_run_repo_hooks: {command} could not run ({e}).')
-            continue
-        if r.returncode == 2:
-            return 2, '', '\n'.join(errs + [r.stderr.rstrip()]).strip() + '\n'
-        if r.stderr.strip():
-            errs.append(r.stderr.rstrip())
-        out = r.stdout.strip()
-        if not out:
-            continue
-        if out.startswith('{'):
-            try:
-                obj = json.loads(out)
-            except ValueError:
-                obj = None
-            if isinstance(obj, dict):
-                if _blocks(obj):
-                    return 0, out + '\n', '\n'.join(errs)
-                ctx = (obj.get('hookSpecificOutput') or {}).get('additionalContext')
-                if isinstance(ctx, str) and ctx.strip():
-                    contexts.append(ctx.strip())
-                continue
-        plain.append(out)
-    err = '\n'.join(e for e in errs if e)
-    if contexts:
-        return 0, json.dumps({'hookSpecificOutput': {
-            'hookEventName': event,
-            'additionalContext': '\n\n'.join(plain + contexts)}}) + '\n', err
-    return 0, ('\n'.join(plain) + '\n') if plain else '', err
+    todo = [(c, t) for c, t in hooks_for(repo, event, tool_name)
+            if not only or any(name in c for name in only)]
+    if not todo:
+        return 0, '', ''
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_hooks as ph
+    finally:
+        sys.path.pop(0)
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo))
+    cwd = os.getcwd()
+    os.chdir(repo)          # each hook runs from its repository, as natively
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(todo)) as pool:
+            results = list(pool.map(
+                lambda ct: ph._run(ct[0], ['bash', '-c', ct[0]], float(ct[1]), raw, env),
+                todo))
+    finally:
+        os.chdir(cwd)
+    code, out, err = ph.combine(event, results)
+    return code, (out + '\n') if out and not out.endswith('\n') else out, err
 
 
 def main(argv):
