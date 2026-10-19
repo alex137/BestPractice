@@ -53041,18 +53041,21 @@ def check_land_refusal_says_whether_a_pull_request_gets_checks():
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_branches as pb
-    try:
-        import yaml  # noqa: F401
-    except ImportError:
-        # GitHub's runner has no PyYAML (2026-10-18: main's test went red
-        # here). Without it pull_request_checks answers None by design and
-        # the note says it could not tell; the planted workflows cannot be
-        # read, so these cases cannot be judged on such a machine.
-        not_applicable('a land refusal says whether a pull request gets '
-                       'checks', 'PyYAML is not installed, so workflow files '
-                       'cannot be read here')
-        return
+    # No PyYAML guard: GitHub's runner has none, and this test used to
+    # report itself not applicable there (#1218), so CI never ran the path.
+    # pull_request_checks reads workflows itself now (workflow_triggers).
     cases = []
+    dash = ('name: x\n"on":\n  # comment\n  pull_request:\n    branches:\n'
+            '      - main  # trailing\n      - \'rel/*\'\n  workflow_dispatch:\n'
+            'jobs: {}\n')
+    got = pb.workflow_triggers(dash)
+    cases.append(('a quoted on:, comments and a dash list of branches are read',
+                  got == {'pull_request': {'branches': ['main', 'rel/*']},
+                          'workflow_dispatch': {}}, str(got)))
+    got = pb.workflow_triggers('on: push\njobs: {}\n')
+    cases.append(('a single inline event is read', got == {'push': {}}, str(got)))
+    cases.append(('a file with no on: cannot be told',
+                  pb.workflow_triggers('jobs: {}\n') is None, ''))
     with tempfile.TemporaryDirectory() as t:
         wf = pathlib.Path(t) / '.github' / 'workflows'
         wf.mkdir(parents=True)
@@ -79910,6 +79913,56 @@ def check_codeowners_stamp_hashes_only_the_registry():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_land_times_fallback_keeps_a_deleted_test_deleted():
+    """The land tool's fallback for a conflicted harness timing list merges
+    three ways, so a test one side deleted stays deleted.
+
+    2026-10-19 (relayed root issue 4): precedent_branches._merge_times_file
+    wrote the union of both sides, which brings a deleted test back -- the
+    #1180/#1181 bug harness_times_merge.py was written to stop. Negative
+    control: the union code keeps check_b and fails the first case."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        w = pathlib.Path(td)
+        env = {**os.environ, **_fixture_git_env()}
+        g = lambda *a: subprocess.run(['git', '-C', str(w), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        f = w / pb.TIMES_FILE
+        f.parent.mkdir(parents=True)
+        def put(measured, secs):
+            f.write_text(json.dumps({'measured': measured, 'seconds': secs},
+                                    indent=1) + '\n', encoding='utf-8')
+        put('base', {'check_a': 1.0, 'check_b': 2.0})
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('checkout', '-q', '-b', 'theirs')
+        put('theirs added c', {'check_a': 1.0, 'check_b': 2.0, 'check_c': 3.0})
+        g('commit', '-qam', 'add c')
+        g('checkout', '-q', 'main')
+        put('ours removed b', {'check_a': 1.0})
+        g('commit', '-qam', 'drop b')
+        conflicted = g('merge', '-q', 'theirs').returncode != 0
+        wrote = pb._merge_times_file(w)
+        got = json.loads(f.read_text(encoding='utf-8')) if wrote else {}
+        secs = got.get('seconds') or {}
+        cases.append(('THE DISCRIMINATING CASE: the test one side deleted '
+                      'stays deleted', conflicted and wrote and 'check_b' not in secs,
+                      str(got)))
+        cases.append(('...and the test the other side added is kept',
+                      secs.get('check_c') == 3.0 and secs.get('check_a') == 1.0,
+                      str(got)))
+        cases.append(('...and both sides\' notes are kept',
+                      'theirs added c' in got.get('measured', '')
+                      and 'ours removed b' in got.get('measured', ''), str(got)))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the land tool\'s timing-list fallback merges three ways '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
+
 def check_harness_times_merge_without_a_conflict():
     """Two branches that each record a test, one of them deleting another,
     merge tools/harness_check_times.json with no conflict, and the deleted
@@ -87148,6 +87201,7 @@ def main():
     check_as_ci_says_why_a_shard_failed()
     check_as_ci_parts_partition_the_suite()
     check_harness_times_merge_without_a_conflict()
+    check_land_times_fallback_keeps_a_deleted_test_deleted()
     check_move_fixes_mentions_of_the_moved_practice()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
@@ -87296,6 +87350,15 @@ if __name__ == '__main__':
         _i = _args.index('--for-change')
         if _i + 1 >= len(_args):
             sys.exit('verify_harness: --for-change needs a ref, e.g. --for-change origin/staging')
+        _ref = _args[_i + 1]
+        # A file is not a ref (2026-10-19: `--for-change tools/x.py` said
+        # "git could not diff tools/x.py...HEAD" and ran nothing).
+        if subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--verify', '-q',
+                           f'{_ref}^{{commit}}'], capture_output=True).returncode != 0:
+            hint = (f'{_ref} is a file, not a ref: --for-change takes the base '
+                    f'the change is measured from' if (ROOT / _ref).exists()
+                    else f'{_ref} names no commit here')
+            sys.exit(f'verify_harness: {hint}, e.g. --for-change origin/staging')
         _budget = FOR_CHANGE_BUDGET_SECONDS
         if '--budget' in _args and _args.index('--budget') + 1 < len(_args):
             _budget = float(_args[_args.index('--budget') + 1])
