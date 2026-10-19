@@ -49645,8 +49645,8 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
         root = pathlib.Path(td)
         engine = root / 'engine'
         (engine / 'tools').mkdir(parents=True)
-        shutil.copy(ROOT / 'tools' / 'precedent_run_repo_hooks.py',
-                    engine / 'tools' / 'precedent_run_repo_hooks.py')
+        for name in ('precedent_run_repo_hooks.py', 'precedent_hooks.py'):
+            shutil.copy(ROOT / 'tools' / name, engine / 'tools' / name)
         (engine / '.claude').mkdir()
         (engine / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
             'PreToolUse': [{'matcher': 'Bash', 'hooks': [
@@ -49689,7 +49689,7 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
         r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Bash',
                                'tool_input': {'command': f'cd {a} && ls'}})
         cases.append(('a command that cds into a repository runs that one\'s Bash hooks',
-                      r.returncode == 0 and 'A-BASH' in r.stdout, (r.stdout, r.stderr)))
+                      r.returncode == 0 and 'A-BASH' in r.stdout + r.stderr, (r.stdout, r.stderr)))
         r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Bash',
                                'tool_input': {'command': f'git -C {b} status'}})
         cases.append(('a JSON denial from the repository is handed back as it is',
@@ -49701,7 +49701,7 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
         r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Bash',
                                'tool_input': {'command': 'ls'}})
         cases.append(('a command in no repository runs only the self-locating gates',
-                      'ENGINE-PUSH' in r.stdout and 'ENGINE-OTHER' not in r.stdout,
+                      'ENGINE-PUSH' in r.stdout + r.stderr and 'ENGINE-OTHER' not in r.stdout + r.stderr,
                       (r.stdout, r.stderr)))
         r = run('Nonsense', {})
         cases.append(('an unknown moment runs nothing', r.returncode == 0
@@ -49710,6 +49710,71 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
     check(f'the switchboard runs the hooks of the repository an action is about '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} -- {str(d)[:240]}' for n, d in bad))
+
+
+def check_switchboard_offer_is_made_once_and_only_where_missing():
+    """tools/precedent_switchboard_offer.py offers to wire the switchboard
+    only in a cloud session whose user-level settings lack it, says where a
+    no will be kept, stays silent once the person declined, and holds the
+    same setup step documentation/CLOUD_SETUP.md shows.
+
+    2026-10-19 (Morgan: "ALEX AND EVERYONE ELSE WILL FIND THIS VERY
+    FRUSTRATING", then "Yes, build it"): without it, a person had to find
+    the document and paste the script. Negative control: outside the cloud,
+    with the same missing settings, nothing is offered."""
+    import tempfile, re as _re
+    tool = ROOT / 'tools' / 'precedent_switchboard_offer.py'
+    cases = []
+    doc = (ROOT / 'documentation' / 'CLOUD_SETUP.md').read_text(encoding='utf-8')
+    m = _re.search(r'^mkdir -p ~/\.claude\n.*?^PY$', doc, _re.M | _re.S)
+    script = subprocess.run([sys.executable, str(tool), '--script'],
+                            capture_output=True, text=True, timeout=30).stdout.rstrip('\n')
+    cases.append(('the setup step in the document is the one the tool holds',
+                  bool(m) and m.group(0) == script, (m and m.group(0)[:80], script[:80])))
+    with tempfile.TemporaryDirectory() as td:
+        home = pathlib.Path(td) / 'home'
+        (home / '.claude').mkdir(parents=True)
+        ind = pathlib.Path(td) / 'ind'
+        ind.mkdir()
+        cfg = pathlib.Path(td) / 'cfg.json'
+
+        def run(remote=True, identity=None, settings=None, with_cfg=True):
+            (home / '.claude' / 'settings.json').write_text(json.dumps(settings or {}),
+                                                           encoding='utf-8')
+            if identity is not None:
+                (ind / 'identity.json').write_text(json.dumps(identity), encoding='utf-8')
+            cfg.write_text(json.dumps({'individual': {'path': str(ind)}}), encoding='utf-8')
+            env = dict(os.environ, HOME=str(home),
+                       PRECEDENT_USER_CONFIG=str(cfg if with_cfg else pathlib.Path(td) / 'none.json'))
+            env.pop('CLAUDE_CODE_REMOTE', None)
+            if remote:
+                env['CLAUDE_CODE_REMOTE'] = 'true'
+            return subprocess.run([sys.executable, str(tool), '--hook'], env=env,
+                                  capture_output=True, text=True, timeout=30)
+        me = {'name': 'A', 'email': 'a@example.com'}
+        r = run(identity=me)
+        cases.append(('THE DISCRIMINATING CASE: a cloud session without the '
+                      'switchboard is told to offer it, and where a no is kept',
+                      'SWITCHBOARD NOT SET UP' in r.stdout
+                      and str(ind / 'identity.json') in r.stdout, r.stdout + r.stderr))
+        r = run(remote=False, identity=me)
+        cases.append(('negative control: outside the cloud, nothing is offered',
+                      not r.stdout, r.stdout))
+        wired = {'hooks': {'Stop': [{'hooks': [{'type': 'command', 'command':
+                 'f=x; python3 "$f/precedent_run_repo_hooks.py" Stop'}]}]}}
+        r = run(identity=me, settings=wired)
+        cases.append(('once the switchboard is wired, nothing is offered',
+                      not r.stdout, r.stdout))
+        r = run(identity=dict(me, switchboard_offer='declined'))
+        cases.append(('after a no kept in the individual set, nothing is offered',
+                      not r.stdout, r.stdout))
+        r = run(with_cfg=False)
+        cases.append(('with no individual set, the offer says it will come back',
+                      'next session' in r.stdout, r.stdout))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the switchboard offer is made once and only where missing '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
 
 
 def check_cloud_setup_script_writes_each_hook_once():
@@ -87856,6 +87921,7 @@ def main():
     check_reply_check_refuses_an_unlinked_branch_or_file()
     check_turn_start_names_what_the_last_reply_left_out()
     check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about()
+    check_switchboard_offer_is_made_once_and_only_where_missing()
     check_cloud_setup_script_writes_each_hook_once()
     check('an empty blocklist is reported as nothing checked, never a pass',
           *check_empty_blocklist_is_not_a_pass())
