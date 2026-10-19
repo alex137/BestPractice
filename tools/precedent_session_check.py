@@ -1125,11 +1125,18 @@ def _brought_sets_rows():
                if not (pathlib.Path(b['path']) / 'practices').is_dir()]
     if not missing:
         return [(name, True, '')]
+    # The fetch named is the session-start hook's own, which brings these
+    # sets too. It used to be the bare script, which refuses to run without
+    # four arguments this row never gave (2026-10-19).
+    attach = [b['repo'].rstrip('/').removesuffix('.git').split('/')[-2:]
+              for b in missing if 'github.com/' in (b.get('repo') or '')]
     return [(name, False,
              'not here: ' + ', '.join(f"{b['name']} (expected at {b['path']})"
                                        for b in missing)
              + '. Its rules are absent from this session, and nothing else '
-             'says so. Fetch it: python3 tools/precedent_source_bootstrap.py')]
+             'says so. Fetch it: '
+             + ''.join(f'add_repo {o}/{r} (read access), ' for o, r in attach)
+             + 'then python3 tools/precedent_source_bootstrap.py --teams-from .')]
 
 
 def _off_base_sources_row():

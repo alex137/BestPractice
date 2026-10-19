@@ -28578,6 +28578,30 @@ def check_parallel_artifact_ledger_fires():
                        cwd=tmp, check=True)
         already_on_base = fn(None)
 
+        # A row is a verdict for every member or it is not one (2026-10-19:
+        # the 2026-10-18 row stopped after its change cell, and a 2026-09-30
+        # row carried an unescaped pipe in a code span).
+        header = ('| Date | Originating change | claude-code | codex | '
+                  'gemini-cli |\n|---|---|---|---|---|\n')
+        ledger_path.write_text(header + _row('0000000'), encoding='utf-8')
+        complete_row = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-10-18 | this row\'s own commit — planted |\n',
+            encoding='utf-8')
+        half_row = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-09-30 | a `|` in code | applied | n/a | n/a |\n',
+            encoding='utf-8')
+        loose_pipe = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-09-30 | a `\\|` in code | applied | n/a | n/a |\n',
+            encoding='utf-8')
+        escaped_pipe = fn(None)
+        ledger_path.write_text(
+            header + '| 2026-09-30 | planted | applied |  | n/a |\n',
+            encoding='utf-8')
+        empty_cell = fn(None)
+
         # A ledger naming ONLY the later change: the inception commit must
         # not be demanded. Before this exemption, f2078d6 -- the commit
         # that created all three real harness adapters, five weeks before
@@ -28599,12 +28623,21 @@ def check_parallel_artifact_ledger_fires():
              len(cited_only) == 1),
             ("a change already on the base is not judged again -- the check "
              "never walks the whole history", already_on_base == []),
+            ("a complete row under the header is not a finding",
+             complete_row == []),
+            ("a row with no member cells is a finding, at its line",
+             len(half_row) == 1 and 'LEDGER.md:3' in str(half_row[0].where)),
+            ("an unescaped pipe in a code span is a finding (a cell too many)",
+             len(loose_pipe) == 1),
+            ("an escaped pipe is one cell", escaped_pipe == []),
+            ("an empty member cell is a finding", len(empty_cell) == 1),
         ]
         bad = [n for n, ok in cases if not ok]
         check(f"parallel-artifact-ledger check fires ({len(cases)} stated cases: "
               f"no ledger, ledger missing the commit, a row naming it in "
               f"its change cell, a prose citation not counting as a row, "
-              f"a family's own inception commit needing no row)",
+              f"a family's own inception commit needing no row, a row "
+              f"missing or emptying a member cell)",
               not bad, '; '.join(bad))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -43042,6 +43075,51 @@ def check_main_test_cadence():
         st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)], RunsGH())
         cases.append(('a skipped run newer than a pass reads "passed", never "failed" '
                       '(every private push to main records one)', st == 'passed'))
+
+        # 2026-10-19: the push run on main skipped its test while the pull
+        # request's run was still going, finished `success`, and was read as
+        # main's verdict; the pull request's run failed (issue #1242).
+        pr_fail = {'id': 1, 'path': WF, 'status': 'completed', 'conclusion': 'failure',
+                   'created_at': '2026-10-19T14:24:40Z', 'head_sha': 'HEAD',
+                   'html_url': 'U'}
+        push_ok = {'id': 2, 'path': WF, 'status': 'completed', 'conclusion': 'success',
+                   'created_at': '2026-10-19T14:25:34Z', 'head_sha': 'SHA'}
+
+        def runs_gh(on_sha, jobs_of):
+            class G:
+                def call(self, path, cache=True):
+                    if path.endswith('/pulls'):
+                        return [{'head': {'sha': 'HEAD'}, 'base': {'ref': 'main'},
+                                 'number': 1240}], None
+                    if '/jobs' in path:
+                        return {'jobs': jobs_of}, None
+                    if 'head_sha=HEAD' in path:
+                        return {'workflow_runs': [pr_fail]}, None
+                    return {'workflow_runs': on_sha}, None
+            return G()
+        hollow_jobs = [{'name': pb.DECISION_JOB, 'conclusion': 'success'},
+                       {'name': 'test', 'conclusion': 'skipped'}]
+        st, why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                       runs_gh([push_ok], hollow_jobs))
+        cases.append(('a push run that tested nothing, newer than its pull '
+                      'request\'s failed run, reads "failed" (2026-10-19)',
+                      st == 'failed' and 'U' in why))
+        st, _why = pb.github_test_state(
+            repo, 'SHA', [(WF, True)],
+            runs_gh([push_ok], [dict(j, conclusion='success') for j in hollow_jobs]))
+        cases.append(('CONTROL: a push run that did run its test, and passed, '
+                      'still decides', st == 'passed'))
+        pr_fail_saved, pr_fail = pr_fail, dict(pr_fail, path='other.yml')
+        st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                        runs_gh([push_ok], hollow_jobs))
+        pr_fail = pr_fail_saved
+        cases.append(('a run that tested nothing and is the only run is kept: '
+                      'it reads "passed", never "never ran"', st == 'passed'))
+        wf_text = (ROOT / '.github' / 'workflows' / 'deep-check.yml').read_text(
+            encoding='utf-8')
+        cases.append(("precedent_branches.DECISION_JOB is deep-check.yml's "
+                      'already-tested job name',
+                      f'name: {pb.DECISION_JOB}\n' in wf_text))
     if saved_env is not None:
         os.environ[pb.FORCE_ENV] = saved_env
     failed = [n for n, ok in cases if not ok]
@@ -45470,6 +45548,54 @@ def check_individual_hook_run_by_hand_links_the_attached_set():
     check(f'a hand-run individual-set hook links the attached set '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
+
+
+def check_missing_brought_set_names_a_fetch_that_runs():
+    """The session check's row for a set the individual set brings that is
+    not on disk named `python3 tools/precedent_source_bootstrap.py` bare,
+    which refuses to run without four arguments (2026-10-19: a brought set was
+    missing and the named fix failed). The row now names an add_repo per
+    set and the session-start hook's own fetch, and that fetch must parse."""
+    import importlib, shlex, tempfile
+    name = ('a brought set that is missing is fetched by a command the '
+            'bootstrap accepts')
+    sys.path.insert(0, str(ROOT / 'tools'))
+    sc = importlib.import_module('precedent_session_check')
+    pr = importlib.import_module('precedent_resolve')
+    boot = importlib.import_module('precedent_source_bootstrap')
+    saved = (pr.brought_sources, sc._individual_path, boot._home_rule,
+             os.environ.get('CLAUDE_CODE_REMOTE'))
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            sc._individual_path = lambda: pathlib.Path(tmp)
+            pr.brought_sources = lambda *a, **k: [
+                {'level': 'shared', 'name': 'sh', 'path': f'{tmp}/sh',
+                 'repo': 'https://github.com/someone-else/Some-Set.git',
+                 'brought': True}]
+            rows = sc._brought_sets_rows()
+            detail = rows[0][2] if rows else ''
+            cmd = detail.split('then ', 1)[-1]
+            argv = shlex.split(cmd)[2:]
+            os.environ.pop('CLAUDE_CODE_REMOTE', None)
+            try:
+                parsed = boot.main(argv + ['--remote-only', 'true']) == 0
+            except SystemExit:
+                parsed = False
+        finally:
+            (pr.brought_sources, sc._individual_path, boot._home_rule, remote) = saved
+            if remote is not None:
+                os.environ['CLAUDE_CODE_REMOTE'] = remote
+    cases = [
+        ('the row fails', bool(rows) and rows[0][1] is False),
+        ('it names add_repo for the set, owner and repository from its URL',
+         'add_repo someone-else/Some-Set (read access)' in detail),
+        ("it names the session-start hook's fetch",
+         cmd.startswith('python3 tools/precedent_source_bootstrap.py --teams-from')),
+        ('the bootstrap accepts that command', parsed),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + (f' -- row: {detail}' if failed else ''))
 
 
 def check_individual_set_has_one_tree_whichever_route_cloned_it():
@@ -63169,7 +63295,7 @@ def check_landed_branch_gets_its_delete_link():
             pg.record_turn_start_unlanded(repo, recs)
             return recs
 
-        def replycheck(name, text):
+        def replycheck(name, text, sid=None):
             q = tmp / name
             q.write_text(text, encoding='utf-8')
             return subprocess.run(
@@ -63177,7 +63303,8 @@ def check_landed_branch_gets_its_delete_link():
                  '--repo', str(repo), '--text', str(q)],
                 capture_output=True, text=True, cwd=str(tmp),
                 env={**env, 'CLAUDE_PROJECT_DIR': str(repo),
-                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json'),
+                     **({'CLAUDE_CODE_REMOTE_SESSION_ID': sid} if sid else {})})
 
         bare = 'Booked.\n\n## Boildown\n- The work of this session is now on: `trunk`.\n'
         linked = bare + ('- Delete [the branch](https://github.com/o/r/branches/all?'
@@ -63214,6 +63341,47 @@ def check_landed_branch_gets_its_delete_link():
                       'is not owed again in a later reply',
                       r4.returncode == 0 and r5.returncode == 0,
                       f'exit {r4.returncode}/{r5.returncode}: {r5.stderr[:200]}'))
+        # 2026-10-19 (Morgan: "you stopped giving me the branches to
+        # delete"): a branch made, pushed and landed inside one turn was
+        # never on the turn-start record, so nothing asked for its link.
+        # This session's own branches -- its tag in the name, as every
+        # name the branch-name tool builds carries -- are now found on
+        # their own. Another session's tag is not this one's to report.
+        sid = 'cse_01FixtureSessionAbcde'
+        pg.record_turn_start_unlanded(repo, [])
+        g('switch', '-q', 'trunk'); g('pull', '-q', 'origin', 'trunk')
+        mine, theirs = '2026-10-19-me-same-turn-abcde-q7m2x', '2026-10-19-me-other-fghij-k3p9z'
+        for name, f in ((mine, 'c.txt'), (theirs, 'd.txt')):
+            g('switch', '-q', '-c', name, 'trunk')
+            (repo / f).write_text(name + '\n', encoding='utf-8')
+            g('add', '-A'); g('commit', '-qm', name)
+            g('push', '-q', 'origin', name); g('push', '-q', 'origin', f'{name}:trunk')
+            g('switch', '-q', 'trunk'); g('pull', '-q', 'origin', 'trunk')
+        r6 = replycheck('same-turn.md', bare, sid)
+        cases.append(('THE DISCRIMINATING CASE: a branch this session made and landed '
+                      'inside one turn, never on the turn-start record, is owed its link',
+                      r6.returncode == 2 and mine in r6.stderr,
+                      f'exit {r6.returncode}: {r6.stderr[:300]}'))
+        cases.append(('...and another session\'s landed branch is not asked about',
+                      theirs not in r6.stderr, r6.stderr[:300]))
+        linked6 = bare + (f'- Delete [it](https://github.com/o/r/branches/all?query={mine}) '
+                          'when you like; it merged into `trunk`.\n')
+        r7 = replycheck('same-turn-linked.md', linked6, sid)
+        r8 = replycheck('same-turn-later.md', bare, sid)
+        cases.append(('...given once, it is not owed again',
+                      r7.returncode == 0 and r8.returncode == 0,
+                      f'exit {r7.returncode}/{r8.returncode}: {r7.stderr[:200]} {r8.stderr[:200]}'))
+        g('push', '-q', 'origin', '--delete', theirs)
+        mine2 = '2026-10-19-me-gone-abcde-w4x8v'
+        g('switch', '-q', '-c', mine2, 'trunk')
+        (repo / 'e.txt').write_text('e\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'gone'); g('push', '-q', 'origin', mine2)
+        g('push', '-q', 'origin', f'{mine2}:trunk'); g('push', '-q', 'origin', '--delete', mine2)
+        g('update-ref', f'refs/remotes/origin/{mine2}', 'HEAD')
+        r9 = replycheck('gone.md', bare, sid)
+        cases.append(('a branch already deleted on origin, with a stale local ref, '
+                      'is not asked about', r9.returncode == 0,
+                      f'exit {r9.returncode}: {r9.stderr[:200]}'))
         src = (ROOT / 'tools' / 'precedent_gate.py').read_text(encoding='utf-8')
         cases.append(('the reply gate writes the turn start',
                       'record_turn_start_unlanded(root, _records)' in src, ''))
@@ -64798,6 +64966,39 @@ def check_branch_cleanup_page_merges_the_saved_page():
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'refreshing the branch-cleanup page merges the saved one ({len(cases)} '
           f'stated cases)', not bad, '; '.join(bad))
+
+
+def check_branch_cleanup_open_next_is_a_real_link():
+    """A repository's open-in-tabs control is a real link to its first
+    branch, and the page's script never calls window.open.
+
+    WHY (Morgan, 2026-10-19: the button to open them all in new tabs
+    "didn't work"). It called window.open once per branch, which inside an
+    artifact returns nothing for almost every viewer, and a browser opens
+    one tab per click anyway; it opened nothing and blamed pop-ups. A real
+    link always opens, so it is one, moved to the next branch per click."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_stale_branches as _sb
+    finally:
+        sys.path.pop(0)
+    two = _sb.render_html([('o', 'r', [('a/one', '2026-10-01'),
+                                       ('b-two', '2026-10-02')])])
+    one = _sb.render_html([('o', 'r', [('a/one', '2026-10-01')])])
+    tag = two.split('class="open-next"', 1)[-1].split('>', 1)[0] \
+        if 'class="open-next"' in two else ''
+    cases = [
+        ('two branches carry the link', bool(tag)),
+        ('it points at the first branch, filtered', 'query=a%2Fone' in two.split(
+            'class="open-next"', 1)[0].rsplit('<a', 1)[-1] + tag, tag),
+        ('it opens in a new tab', 'target="_blank"' in tag, tag),
+        ('one branch has no link', 'class="open-next"' not in one),
+        ('no script calls window.open', 'window.open(' not in two),
+    ]
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the cleanup page opens the next branch with a real link '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d) + ')' if d else ''}" for n, d in bad))
 
 
 def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
@@ -87234,6 +87435,7 @@ def main():
     check_branch_cleanup_page_merges_the_saved_page()
     check_branch_cleanup_page_lists_staging_waiting_to_go_live()
     check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names()
+    check_branch_cleanup_open_next_is_a_real_link()
     check_branch_cleanup_merge_warns_on_a_stale_copy()
     check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
@@ -87488,6 +87690,7 @@ def main():
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_leak_gate_reads_a_sets_own_visibility()
     check_visibility_audit_reads_repo_names_out_of_prose()
+    check_missing_brought_set_names_a_fetch_that_runs()
     check('the individual set has one tree on disk, whichever of the '
           'bootstrap and the attach tool cloned it first',
           *check_individual_set_has_one_tree_whichever_route_cloned_it())

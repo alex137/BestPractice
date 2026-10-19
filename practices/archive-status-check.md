@@ -83,7 +83,7 @@ the reply gate ([the-boildown](the-boildown.md)'s
 
 **Anything is outstanding -- do not archive.** Say plainly what it is: a
 merge into the landing branch still open (never a Produce or a move into
-`main`: work already on staging gets a one-line note that it is not on
+`main`: work already on the landing branch gets a one-line note that it is not on
 main, and the archive goes ahead, per [the-boildown](the-boildown.md)),
 something the assistant is waiting on, a recommendation worth hearing
 before the person moves on to something else. Leave the decision

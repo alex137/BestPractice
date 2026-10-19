@@ -1792,6 +1792,29 @@ def _current_slug(gh, slug):
     return _CURRENT_SLUG[slug]
 
 
+# The job in .github/workflows/deep-check.yml that decides, on a push to
+# main, whether the test has anything to do. A run in which it is the only
+# job that ran tested nothing; check_main_test_cadence holds this name to the
+# workflow's.
+DECISION_JOB = 'Already tested?'
+
+
+def _tested_nothing(gh, slug, run):
+    """True when a finished run's decision job was the only one that ran: it
+    skipped the test, because the same files passed earlier or because
+    another run of them was still going and decides. GitHub concludes such a
+    run `success`. One call, for a completed run's jobs, which never change."""
+    if (run.get('status') != 'completed' or run.get('conclusion') != 'success'
+            or not run.get('id')):
+        return False
+    data, err = gh.call(f'repos/{slug}/actions/runs/{run["id"]}/jobs?per_page=100')
+    jobs = (data or {}).get('jobs') if not err and isinstance(data, dict) else None
+    if not jobs:
+        return False
+    ran = [j for j in jobs if j.get('conclusion') != 'skipped']
+    return len(ran) < len(jobs) and all(j.get('name') == DECISION_JOB for j in ran)
+
+
 def github_test_state(root, sha, tests, gh=None, via_pulls=True,
                       _slug_override=None, _renamed_from=None):
     """-> (state, detail): did main's GitHub test run on `sha` and pass?
@@ -1841,7 +1864,8 @@ def github_test_state(root, sha, tests, gh=None, via_pulls=True,
                                    > (newest[path].get('created_at') or '')):
                 newest[path] = r
         return newest
-    newest = _newest(runs)
+    pool = runs
+    newest = _newest(pool)
     if wanted - set(newest):
         # GitHub's run list FILTERED by head_sha can leave out a run that is
         # already going: on 2026-09-30 a Produce's test started seconds
@@ -1857,7 +1881,28 @@ def github_test_state(root, sha, tests, gh=None, via_pulls=True,
                  for r in ((recent or {}).get('workflow_runs') or []
                            if isinstance(recent, dict) else [])
                  if r.get('head_sha') in heads]
-        newest = _newest(runs + extra)
+        pool = runs + extra
+        newest = _newest(pool)
+    # A RUN THAT TESTED NOTHING DOES NOT DECIDE when another run of the same
+    # workflow is there to (2026-10-19). A Produce merges at once, while its
+    # pull request's test is still going; the push run on main sees that,
+    # skips the test, and leaves the verdict to it -- and GitHub concludes
+    # the push run `success`. Newest-decides read main as passing on that
+    # while the pull request's run failed: the red-main fix was refused
+    # straight into main (#1243) and Update Vendors would have taken the red
+    # main. Kept when it is the only run, so a re-run that leaned on an
+    # earlier pass never turns into "never ran".
+    hollow = set()
+    for path in sorted(newest):
+        while path in newest:
+            r = newest[path]
+            others = [x for x in pool if x.get('path') == path and x is not r
+                      and x.get('conclusion') != 'skipped'
+                      and id(x) not in hollow]
+            if not others or not _tested_nothing(gh, slug, r):
+                break
+            hollow.add(id(r))
+            newest = _newest([x for x in pool if id(x) not in hollow])
     missing = sorted(wanted - set(newest))
     bad = sorted(p for p, r in newest.items() if r.get('status') == 'completed'
                  and r.get('conclusion') != 'success')

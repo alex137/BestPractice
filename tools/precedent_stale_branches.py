@@ -159,15 +159,19 @@ covers. Morgan: "whenever any of these cleanup buttons are clicked ... it
 should check the box and cross it off if it doesn't already" (strength:
 decided).
 
-OPEN ALL IN TABS (2026-10-17). A repository with more than one branch
-listed carries, under its delete-all line, a link that opens every branch
-link of that repository in its own tab, the ones not yet checked off (all
-of them once every one is), and checks off each tab that opened. Morgan:
+OPEN ALL IN TABS (2026-10-17), ONE CLICK PER TAB (2026-10-19). A
+repository with more than one branch listed carries, under its delete-all
+line, a link that opens that repository's next branch not yet checked off
+in a new tab, checks it off, and moves on to the one after. Morgan, 2026-10-17:
 "at the start of the section for each repo, have a link to open all those
-links (in that repo) in new tabs". A browser opens one tab per click and
-blocks the rest until pop-ups are allowed for the page; the line under the
-link says how many it blocked and how to allow them, and a second click
-opens only what is left.
+links (in that repo) in new tabs". It was first a button that called
+window.open once per branch, and on 2026-10-19 Morgan reported that it
+"didn't work". Two limits stop it: a browser opens one tab per click, and
+inside an artifact window.open returns nothing for almost every viewer,
+so the button opened no tabs and said pop-ups were blocked. A real link
+is the one thing the page's frame always opens, so the link is a real
+<a href> whose address the script moves to the next branch after each
+click: one click per tab, with no hunting down the list.
 """
 import datetime
 import html
@@ -1044,14 +1048,16 @@ def _section(owner, name, rows, note='', cleanup=''):
             f'<p class="owner">github.com/{html.escape(owner)}/{html.escape(name)}</p>'
             + (f'<p class="carried">{html.escape(note)}</p>' if note else '')
             + cleanup
-            + (_OPEN_ALL if len(rows) > 1 else '')
+            + (_open_next(owner, name, rows) if len(rows) > 1 else '')
             + f'<ul>{lis}</ul></section>')
 
 
-# OPEN ALL IN TABS (module docstring).
-_OPEN_ALL = ('<p class="open-all"><button type="button" class="open-all-btn">'
-             'Open all these links in new tabs</button>'
-             '<span class="open-status" role="status"></span></p>')
+# OPEN ALL IN TABS (module docstring): a real link, never window.open.
+def _open_next(owner, name, rows):
+    first = link(owner, name, rows[0][0]) if rows else '#'
+    return ('<p class="open-all"><a class="open-next" href="' + first + '" '
+            'target="_blank" rel="noopener">Open the next one in a new tab</a>'
+            '<span class="open-status" role="status"></span></p>')
 
 
 def render_html(groups, now=None, tz='', carried=(), waiting=(), carried_wait=(),
@@ -1155,9 +1161,9 @@ li + li { border-top:1px solid var(--line); }
 .cleanup-all button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 .cleanup-all .status { color:var(--fg); }
 .open-all { margin:0 0 10px; font-size:.88rem; color:var(--muted); max-width:62ch; }
-.open-all button { font:inherit; font-weight:600; color:var(--accent); background:none; border:0; padding:0; cursor:pointer; }
-.open-all button:hover { text-decoration:underline; }
-.open-all button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.open-all a.open-next { font-weight:600; color:var(--accent); text-decoration:none; }
+.open-all a.open-next:hover { text-decoration:underline; }
+.open-all a.open-next:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 </style>
 <main>
 <header>
@@ -1205,7 +1211,8 @@ li + li { border-top:1px solid var(--line); }
     timer=setTimeout(publish, 5000);
   }
   function mark(b, on){ if(on) done[b.dataset.k]=new Date().toISOString(); else delete done[b.dataset.k]; save(); render(); }
-  function render(){ var n=boxes.filter(function(b){return b.checked;}).length; document.getElementById('progress').textContent=n+' of '+boxes.length+' done'; }
+  var nexts=[];
+  function render(){ var n=boxes.filter(function(b){return b.checked;}).length; document.getElementById('progress').textContent=n+' of '+boxes.length+' done'; nexts.forEach(function(a){ if(a._row) aim(a); }); }
   boxes.forEach(function(b){ b.checked=!!done[b.dataset.k]; b.addEventListener('change',function(){ mark(b, b.checked); }); });
   document.querySelectorAll('.row a').forEach(function(a){ a.addEventListener('click',function(){ var b=a.parentNode.querySelector('input'); if(!b.checked){ b.checked=true; mark(b, true); } }); });
   // A private repository's button comes back once its hours have passed
@@ -1271,28 +1278,31 @@ li + li { border-top:1px solid var(--line); }
       });
     });
   });
-  // Open every link of one repository, one tab each. A browser lets one
-  // click open one tab and blocks the rest until pop-ups are allowed for
-  // the page, so only the tabs that opened are checked off, and the line
-  // says how many were blocked; a second click opens what is left.
-  document.querySelectorAll('section.repo .open-all-btn').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      var sec=btn.closest('section.repo'), st=sec.querySelector('.open-status');
-      var rows=[].slice.call(sec.querySelectorAll('.row'));
-      var todo=rows.filter(function(r){ return !r.querySelector('input').checked; });
-      if(!todo.length) todo=rows;
-      var opened=0;
-      todo.forEach(function(r){
-        var a=r.querySelector('a'), b=r.querySelector('input'), w=null;
-        try { w=window.open(a.href,'_blank'); } catch(e) {}
-        if(!w) return;
-        try { w.opener=null; } catch(e) {}
-        opened++;
-        if(!b.checked){ b.checked=true; done[b.dataset.k]=new Date().toISOString(); }
-      });
-      save(); render();
-      st.textContent=opened===todo.length?' Opened '+opened+' tabs.'
-        :' Your browser opened '+opened+' of '+todo.length+' and blocked the rest. Allow pop-ups for this page (the blocked-pop-up icon in the address bar), then click again: it opens only the ones not checked off yet.';
+  // Open the next branch not yet checked off, one tab per click. It is a
+  // real link because a page in an artifact frame cannot open tabs from a
+  // script (window.open returns null for almost every viewer), and a
+  // browser gives one click one tab anyway. After each click the link
+  // moves to the next branch; once every one is checked off it starts over.
+  nexts=[].slice.call(document.querySelectorAll('section.repo a.open-next'));
+  function aim(a){
+    var sec=a.closest('section.repo'), st=sec.querySelector('.open-status');
+    var rows=[].slice.call(sec.querySelectorAll('.row'));
+    var left=rows.filter(function(r){ return !r.querySelector('input').checked; });
+    var row=(left.length?left:rows)[0];
+    a.href=row.querySelector('a').href;
+    a._row=row;
+    st.textContent=left.length?' '+left.length+' of '+rows.length+' left, one tab per click.'
+      :' All '+rows.length+' checked off. Clicking starts again from the top.';
+  }
+  nexts.forEach(function(a){
+    aim(a);
+    a.addEventListener('click',function(){
+      var b=a._row&&a._row.querySelector('input');
+      // The tab opens from the address the link has now; move it after.
+      setTimeout(function(){
+        if(b&&!b.checked){ b.checked=true; mark(b, true); }
+        aim(a);
+      },0);
     });
   });
   document.getElementById('clear').addEventListener('click',function(){ done={}; boxes.forEach(function(b){b.checked=false;}); save(); render(); });
