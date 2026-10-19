@@ -736,6 +736,12 @@ ENGINE_FILES = [
     # other and accumulates its own open items the same way a consumer does.
     'build_todo_index.py',
     'todo_migrate.py',
+    # The gotcha-catalogue generator, moved here from the consumer half on
+    # 2026-10-19 for the reason build_todo_index.py moved: a practice set
+    # keeps its own gotchas/ too. A private shared set was made that day with
+    # nine gotchas and a generated gotchas/INDEX.md, and the set engine had
+    # no tool to rebuild it, so its generated-files check could never pass.
+    'build_gotcha_index.py',
     # The "Drop it" writer (added 2026-10-05): park-it tells every session
     # to run it, and every kind of repo keeps todo items -- the same reason
     # build_todo_index.py is here.
@@ -1100,21 +1106,10 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # without the other would crash on its first real run. See the entry
     # there. Repeating it here is refused by the duplicate guard below.
     #
-    # The gotcha-catalogue generator for the 2026-09-16 todo/gotcha migration's
-    # per-item format (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 2). Missing from
-    # this list since the migration -- found 2026-09-16 when a consumer taking
-    # the vendor update went looking for build_gotcha_index.py to do its own
-    # gotcha-catalogue split and it simply was not there, no error, no
-    # SKIPPED, nothing named it as missing. CONSUMER-only: a source set
-    # materializes no catalogue of its own gotchas/*.md items, so it has
-    # nothing for this generator to read.
-    #
-    # build_todo_index.py and todo_migrate.py were listed here alongside it
-    # until 2026-09-19 and are now in ENGINE_FILES -- a source set turned out
-    # to have its own TODO.md after all (see the entry there). Repeating them
-    # here is refused by the duplicate guard below, which is how a stray
-    # re-listing would be caught.
-    'build_gotcha_index.py',
+    # build_gotcha_index.py was listed here from 2026-09-16 (consumer-only:
+    # "a source set materializes no catalogue of its own gotchas/*.md") and
+    # moved to ENGINE_FILES on 2026-10-19, when a set turned out to keep
+    # one. Repeating it here is refused by the duplicate guard below.
     # precedent_source_bootstrap.py is NOT re-listed here, for the same
     # reason precedent_check.py is not (see the note below): it was
     # consumer-only when this list was written -- the individual-source
