@@ -250,11 +250,17 @@ def sha(data):
 WRITTEN_ENV = "FACT_LEDGER_WRITTEN"
 
 
+_NOTED = set()
+
+
 def note_written(path):
-    """Append `path` to the file WRITTEN_ENV names, if any. Never raises."""
+    """Append `path` to the file WRITTEN_ENV names, if any, once per process
+    (a ledger saved after every unit would otherwise list itself hundreds of
+    times). Never raises."""
     out = os.environ.get(WRITTEN_ENV)
-    if not out:
+    if not out or (out, str(path)) in _NOTED:
         return
+    _NOTED.add((out, str(path)))
     try:
         with open(out, "a", encoding="utf-8") as f:
             f.write(str(Path(path).resolve()) + "\n")
@@ -269,6 +275,31 @@ def note_written(path):
 # clone, and the reverse: a full re-run and a rewritten ledger each time
 # (found 2026-10-07, a consuming repo's model audit re-running all 70 of its
 # scripts inside the full check). The git state work can see is kind "g".
+def write_atomic(path, text):
+    """Replace `path` with `text` in one step (a temporary file beside it,
+    then os.replace), so a reader or a killed writer never sees half a file.
+    Keeps the file's mode."""
+    path = Path(path)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix="." + path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        try:
+            mode = path.stat().st_mode & 0o7777
+        except OSError:                 # a new file: what open() would have given it
+            umask = os.umask(0)
+            os.umask(umask)
+            mode = 0o666 & ~umask
+        os.chmod(tmp, mode)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def checkout_layout(rel):
     """True for a read of the repository's own .git entry."""
     return rel == ".git"
@@ -390,9 +421,12 @@ class Ledger:
         return self.facts
 
     def save(self):
+        """Write every fact, atomically: a caller saves after each unit it
+        verifies, so a run killed at any moment leaves the last whole
+        ledger on disk, never a truncated one."""
         lines = [json.dumps(self.facts[k][-1], sort_keys=True, separators=(",", ":"))
                  for k in sorted(self.facts)]
-        (self.root / self.path).write_text("".join(ln + "\n" for ln in lines))
+        write_atomic(self.root / self.path, "".join(ln + "\n" for ln in lines))
         note_written(self.root / self.path)
 
     def holds(self, f, code, out=None):
