@@ -2078,7 +2078,22 @@ def _split_declared(root, declared):
                 f"out by level, whatever each set's own visibility, so that "
                 f"a private one is never published here")
         return tracked, deferred, notes
-    return list(declared), [], notes
+    # A private repository's tracked block carries no one person's own rules
+    # (2026-10-19, Part 4 of the copied-in shared sets plan; Morgan,
+    # strength: assented). Every session there loads AGENTS.md, a teammate's
+    # included, so an individual set's text in it would bind whoever opens
+    # the repository -- their commits signed as its owner. It reaches its
+    # owner through .precedent/SESSION_PRACTICES.md instead, live, or from
+    # the saved copy in practices/ when the set did not attach
+    # (precedent_audience.saved_copy_state).
+    individual = [s for s in declared if _declared_level(s) == 'individual']
+    if individual:
+        notes.append(
+            f"{', '.join(s['name'] for s in individual)} deferred to "
+            f".precedent/SESSION_PRACTICES.md -- an individual set binds its "
+            f"own person, and this tracked block is read by everyone here")
+    return ([s for s in declared if _declared_level(s) != 'individual'],
+            individual, notes)
 
 
 def defers_any_source(root):
@@ -2117,7 +2132,12 @@ def defers_any_source(root):
     # who does not, so in a repository that uses Precedent build_views.py
     # and the view sync disagreed, and its full check failed for everyone
     # who brings one (found 2026-10-03, migrating a real consumer's copy).
-    return any(not s.get('brought') for s in deferred)
+    # Nor a private repository's individual set, deferred above for the
+    # same reason: whether one is declared depends on who regenerates.
+    public = repo_is_public(root)
+    return any(not s.get('brought')
+               and (public or _declared_level(s) != 'individual')
+               for s in deferred)
 
 
 def source_levels_from_manifest(root):

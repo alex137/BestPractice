@@ -2093,6 +2093,36 @@ def _source_entry(source, base):
     return entry
 
 
+def _with_owner(entry, source, written):
+    """An individual source's entry, with whose set it is: {github, name,
+    email, timezone} from the set's own identity.json, when this tree holds
+    at least one of its practices. That tracked copy is a saved copy of one
+    person's rules, and a session loads it only for that person
+    (precedent_audience.saved_copy_state; spec/VENDORED_SHARED_SETS.md,
+    2026-10-19). A set whose identity.json names no GitHub login gets no
+    record, so its saved copy loads for nobody -- said here, once."""
+    if pr.normalize_level(source.get('level')) != 'individual':
+        return entry
+    if not any(pr.normalize_level(w.get('level')) == 'individual'
+               and w.get('source') == source.get('name') for w in written):
+        return entry
+    try:
+        import precedent_identity as _pid
+        ident = _pid.read_identity_file(
+            pathlib.Path(source['path']) / 'identity.json') or {}
+    except Exception:                                         # noqa: BLE001
+        ident = {}
+    if not ident.get('github'):
+        print(f"precedent_materialize: {source.get('name')}'s identity.json "
+              f"names no github login, so its saved copy here will load for "
+              f"nobody", file=sys.stderr)
+        return entry
+    entry['owner'] = {'github': ident['github'], 'name': ident.get('name') or '',
+                      'email': ident.get('email') or '',
+                      'timezone': ident.get('timezone') or ''}
+    return entry
+
+
 def _build_manifest(sources, written, checks_written, rstats,
                     adapters_written=(), withheld=None,
                     excluded_engine_dev=None, ships_written=(),
@@ -2124,7 +2154,8 @@ def _build_manifest(sources, written, checks_written, rstats,
                 'precedent_materialize.py with the same --repo/--user-config; '
                 'this file records exactly what produced the snapshot so drift '
                 'is visible, per generated-artifact-provenance.',
-        'sources': [_source_entry(s, base) for s in sources],
+        'sources': [_with_owner(_source_entry(s, base), s, written)
+                    for s in sources],
         'resident': rstats,
         'practices': written,
         'checks': checks_written,
