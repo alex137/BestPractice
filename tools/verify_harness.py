@@ -53434,6 +53434,112 @@ def check_doc_sync_fails_fast():
           f'exit {p.returncode} after {took:.0f}s: {(p.stdout + p.stderr).strip()[-300:]}')
 
 
+def check_doc_sync_keeps_finished_blocks():
+    """doc_sync settles each block as its own emit finishes: written, given
+    its ledger fact, the ledger saved. A run killed partway, or stopped by a
+    failing emit, keeps every block it finished, and the next run skips them
+    (origin 2026-10-18: two container restarts each threw away a run more
+    than two hours in, because blocks and facts were written only at the
+    end). A scratch repository: two quick blocks in one document, one slow
+    block, then one failing block."""
+    name = 'doc_sync keeps the blocks a killed or failed run finished, and the next run skips them'
+    engine = ROOT / 'tools' / 'doc_sync.py'
+    if not engine.is_file() or not (ROOT / 'tools' / 'reach_key.py').is_file():
+        not_applicable(name, 'tools/doc_sync.py or tools/reach_key.py is absent')
+        return
+    import signal as _sig
+    import tempfile as _tf
+    bad = []
+
+    def model(value, before=''):
+        return ('import os, sys, time\n'
+                'def emit_table():\n'
+                '    open(__file__.rsplit("/", 1)[0] + "/emits.log", "a").write(__file__[-6:-3])\n'
+                f'    {before or "pass"}\n'
+                f'    return "| v |\\n|---|\\n| {value} |"\n'
+                'EMITTERS = {"%s": emit_table}\n'
+                'if __name__ == "__main__":\n'
+                '    if len(sys.argv) == 3 and sys.argv[1] == "--emit":\n'
+                '        print(EMITTERS[sys.argv[2]]())\n'
+                '        sys.exit(0)\n')
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
+        for f in ('reach_key.py', 'fact_ledger.py', 'content_record.py', 'generated_blocks.py'):
+            if (ROOT / 'tools' / f).is_file():
+                shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
+        (d / 'm_aa.py').write_text(model(1) % 'a')
+        (d / 'm_bb.py').write_text(model(2) % 'b')
+        (d / 'm_cc.py').write_text(model(3, 'time.sleep(120)') % 'c')
+        (d / 'doc.md').write_text('<!--gen:a-->\n<!--/gen:a-->\n<!--gen:b-->\n<!--/gen:b-->\n'
+                                  'Numbers by: m_aa.py m_bb.py\n')
+        (d / 'slow.md').write_text('<!--gen:c-->\n<!--/gen:c-->\nNumbers by: m_cc.py\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util\n'
+            'spec = importlib.util.spec_from_file_location("ds_engine", "tools/doc_sync.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.PAIRS = [("doc.md", "a", "m_aa.py"), ("doc.md", "b", "m_bb.py"),\n'
+            '           ("slow.md", "c", "m_cc.py")]\n'
+            'e.LEDGER = "ledger.jsonl"\n'
+            'e.DOC_GLOB = "*.md"\n'
+            'e.main()\n')
+        env = {**os.environ, 'DOC_SYNC_JOBS': '3'}
+        env.pop('PYTHONNOUSERSITE', None)
+
+        def emits():
+            f = d / 'emits.log'
+            return f.read_text() if f.is_file() else ''
+
+        def facts():
+            f = d / 'ledger.jsonl'
+            return {json.loads(ln)['block'] for ln in f.read_text().splitlines()} if f.is_file() else set()
+        # 1. killed partway: the quick blocks are on disk with their facts
+        p = subprocess.Popen([sys.executable, 'shim.py', '--write'], cwd=d, env=env,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                             start_new_session=True)
+        t0 = time.time()
+        while time.time() - t0 < 60 and facts() != {'a', 'b'}:
+            time.sleep(0.2)
+        os.killpg(p.pid, _sig.SIGKILL)
+        p.communicate()
+        doc = (d / 'doc.md').read_text()
+        if '| 1 |' not in doc or '| 2 |' not in doc:
+            bad.append(f'a killed run lost a block it had finished: {doc!r}')
+        if facts() != {'a', 'b'}:
+            bad.append(f'a killed run left facts for {sorted(facts())}, not a and b')
+        if '| 3 |' in (d / 'slow.md').read_text():
+            bad.append('the slow block was written although its emit was killed')
+        # 2. the next run skips what finished and emits only the rest
+        (d / 'm_cc.py').write_text(model(3) % 'c')
+        before = emits()
+        r = subprocess.run([sys.executable, 'shim.py', '--write'], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=120)
+        ran = emits()[len(before):]
+        if r.returncode != 0 or ran != '_cc' or '| 3 |' not in (d / 'slow.md').read_text():
+            bad.append(f'the next run emitted {ran!r} (want only _cc), exit {r.returncode}: '
+                       f'{(r.stdout + r.stderr)[-300:]}')
+        # 3. a failing emit stops the run, and the blocks already done stay done
+        (d / 'm_aa.py').write_text(model(11) % 'a')
+        (d / 'm_cc.py').write_text(model(3, 'time.sleep(3); raise SystemExit("broken")') % 'c')
+        (d / 'slow.md').write_text('<!--gen:c-->\n<!--/gen:c-->\nNumbers by: m_cc.py\n')
+        r = subprocess.run([sys.executable, 'shim.py', '--write'], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=120)
+        if r.returncode == 0 or '| 11 |' not in (d / 'doc.md').read_text():
+            bad.append(f'a failed run kept no finished block (exit {r.returncode}): '
+                       f'{(r.stdout + r.stderr)[-300:]}')
+        # 4. the check (no --write) still writes no document
+        (d / 'm_bb.py').write_text(model(22) % 'b')
+        (d / 'm_cc.py').write_text(model(3) % 'c')
+        r = subprocess.run([sys.executable, 'shim.py'], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=120)
+        if r.returncode == 0 or '| 22 |' in (d / 'doc.md').read_text() or 'DRIFT' not in r.stdout:
+            bad.append(f'the check without --write changed a document or passed drift '
+                       f'(exit {r.returncode})')
+    check(name, not bad, '; '.join(bad))
+
+
 def check_model_audit_ledger():
     """model_audit with a ledger audits each model in its own process and
     records a fact for a clean audit; a model whose fact holds is not run
@@ -53768,6 +53874,49 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
         rc, out = run([asked, said('Landing first.')], via_hooks=True)
         cases.append(('it runs through the fixed precedent-hooks.sh entry '
                       '(tools/hook_wiring.json)', rc == 2 and 'ANSWER FIRST' in out,
+                      out[-200:]))
+
+        # 2026-10-18: Claude Code records a message -- its text and the tool
+        # call it ends in -- after PreToolUse runs, so the answer written
+        # with the guarded call is not there on the first read. A session
+        # answered in about a hundred words; the gate counted 11 and refused
+        # its merge three times.
+        def call(tid):
+            return {'type': 'assistant', 'message': {'role': 'assistant',
+                    'content': [{'type': 'tool_use', 'id': tid,
+                                 'name': 'Bash', 'input': {}}]}}
+
+        def run_late(records, tid, late, delay=0.5):
+            tr = tmp / 'transcript.jsonl'
+            tr.write_text(''.join(_json.dumps(r) + '\n' for r in records),
+                          encoding='utf-8')
+            proc = subprocess.Popen(['bash', str(gate)], stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, text=True, cwd=ROOT)
+            proc.stdin.write(_json.dumps({
+                'tool_name': 'Bash', 'transcript_path': str(tr),
+                'tool_use_id': tid,
+                'tool_input': {'command': 'git push -u origin HEAD'}}))
+            proc.stdin.close()
+            time.sleep(delay)
+            with tr.open('a', encoding='utf-8') as fh:
+                fh.write(''.join(_json.dumps(r) + '\n' for r in late))
+            out = proc.stdout.read() + proc.stderr.read()
+            return proc.wait(), out
+
+        short = said('Short answer.')
+        rc, out = run_late([asked, short], 'toolu_late',
+                           [answer, call('toolu_late')])
+        cases.append(('an answer recorded with the guarded call after the '
+                      'gate first reads still counts', rc == 0, out[-200:]))
+        rc, out = run_late([asked, short], 'toolu_never', [], delay=0)
+        cases.append(('a transcript that never records the guarded call lets '
+                      'it through, saying so', rc == 0
+                      and 'has not recorded toolu_never' in out, out[-200:]))
+        rc, out = run_late([asked, short, call('toolu_here')], 'toolu_here', [],
+                           delay=0)
+        cases.append(('once the guarded call is recorded, a short answer is '
+                      'still refused', rc == 2 and 'ANSWER FIRST' in out,
                       out[-200:]))
         tr = tmp / 'transcript.jsonl'
         tr.write_text('not json\n', encoding='utf-8')
@@ -86255,6 +86404,7 @@ def main():
     check_content_record_self_check()
     check_doc_sync_ledger()
     check_doc_sync_fails_fast()
+    check_doc_sync_keeps_finished_blocks()
     check_model_audit_ledger()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
