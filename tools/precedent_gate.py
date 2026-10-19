@@ -527,8 +527,21 @@ def _session_roots(root, siblings=True):
     -- found 2026-09-25, the first time the harness gated a push, with the
     push check's own rollout commits sitting on the sets' working branches.
     Shared since 2026-10-19 with the reply check's delete links, which ask
-    the same question of the same repositories."""
+    the same question of the same repositories.
+
+    A session rooted ABOVE its repositories (a cloud session holding
+    several, whose root is their parent folder) is no checkout itself: its
+    repositories are the folders inside it. Without them the not-landed
+    lines and the reply check's branch facts saw nothing at all, and a
+    Boildown naming `staging` while four pull requests were open passed
+    unchecked (2026-10-19)."""
     roots = [pathlib.Path(root)]
+    if siblings and not (pathlib.Path(root) / '.git').exists():
+        try:
+            roots += [d for d in sorted(pathlib.Path(root).iterdir())
+                      if d.is_dir() and (d / '.git').exists()]
+        except OSError:
+            pass
     for parent in ({pathlib.Path(root).parent, pathlib.Path.home()}
                    if siblings else ()):
         try:
@@ -958,6 +971,17 @@ def _print_hard_requirements(root):
                   f"line, such as \"(Waiting on <what>.)\": no status report, "
                   f"no Boildown. Report once, when the last job ends or one "
                   f"fails. A wake that reports a failure may speak.")
+        # require_plan_done_if_says (2026-10-19): the session has to know to
+        # name its plan before the reply is written, or the check never sees
+        # it.
+        for _ph in (r.get('require_plan_done_if_says') or []):
+            print(f"- [{src}] a session following a multi-step plan names it "
+                  f"in The Boildown on a line opening **Plan:** and its link, "
+                  f"with the steps left. \"{_ph}\" is refused while that "
+                  f"plan has an unticked `- [ ]` box, unless the person is "
+                  f"quoted ending it early on a **Plan ended early:** line, "
+                  f"or it is handed to a session `get_session` confirms is "
+                  f"running with it, linked on a **Plan handed to:** line.")
         for pair in (r.get('require_paired_with') or []):
             if pair.get('if_matches') and pair.get('must_also_match'):
                 print(f"- [{src}] a reply matching /{pair['if_matches']}/ "

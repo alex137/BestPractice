@@ -198,6 +198,46 @@ attached to one session, which is why.
   decided with 5b, through the generic hook point, never as engine code
   that names the ladder.
 
+**Piece 5 waits for the copied-in shared sets work** (Morgan,
+2026-10-19: "Your plan is fine", strength: assented). That plan asks
+whoever lands its Step 1 to tell the session holding piece 5. Another session's plan, kept in
+Morgan's individual set because it names private repositories, has as
+its Step 1 a change to this engine: a shared set may be copied into the
+repository that uses it, refreshed and checked for freshness, instead of
+attached beside it at session start; and the ladder becomes binding in a
+repository when one of its code owners says so. That session writes the
+engine half into `spec/` here when it builds it. Piece 5 touches the same
+places, so the two never run side by side:
+
+- 5a's seam finds the ladder's module through the set that provides the
+  `ladder` capability. Step 1 changes where that set's files are and
+  whether the ladder applies in a repository at all. Built after Step 1,
+  5a asks the resolver where the set is, copied in or attached, and
+  treats a repository whose code owners have not bound the ladder like
+  one with no ladder. Built before it, 5a would be built twice.
+- **Step 1 landed on staging on 2026-10-19** (pull requests #1270, #1273
+  and #1274). What 5a builds on: a set may live inside the repository at
+  `process/<name>/`, declared with `"vendored": true`; it is not a clone,
+  so `precedent_resolve.declared_source_paths()` leaves it out and
+  `vendored_source_paths(repo)` lists it, and finding the set that provides
+  the ladder reads both, as `set_tool()` already does. A copied set may
+  carry another (`"carries"` in its `precedent-source.json`), listed with
+  `carried_by`; the repository's own declaration wins by name. A repository
+  makes the ladder binding with `"binds_everyone"` in `precedent.json`, on
+  one code owner's word; `precedent_ladder.ladder_sources()` counts it and
+  dedupes by name. `tools/precedent_branches.py` was not touched.
+- 5b's code goes to `tools/ladder/` in the ladder set, which since
+  2026-10-19 also holds thirteen rules moved there from Morgan's
+  individual set (`promote-only`, `stage-words` and `ladder-required`
+  among them). 5b reads them where they live now.
+
+**Pre-staging in the practice sets.** BestPractice was cleared on
+2026-10-17 (piece 0). The sets' engine copies clear as each set takes
+the engine; what is left is in their own files, nearly all of it in the
+ladder set, including the rules moved there on 2026-10-19. That cleanup
+runs after the other session's 2026-10-19 Produces of both sets, both
+done, and never while that session is editing the same files.
+
 **Small calls, noted.** The set's tests for a tool that is not a check
 go in `tools/checks/tests/` beside the rest, since that is where the set's
 runner already looks; piece 1 confirms a consumer's sync skips a test

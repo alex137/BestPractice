@@ -1304,7 +1304,7 @@ def sources_from_attached_sets(repo_path, base_url=None,
     return out
 
 
-def sources_from_brings(retries=DEFAULT_RETRIES, skip=()):
+def sources_from_brings(retries=DEFAULT_RETRIES, skip=(), skip_names=()):
     """Clone or pull every set the person's individual set BRINGS
     (spec/LADDER_OPT_IN_PLAN.md D2): beside the individual set, from the full
     URL the entry names. A set already on disk elsewhere is linked rather
@@ -1315,7 +1315,11 @@ def sources_from_brings(retries=DEFAULT_RETRIES, skip=()):
     `skip`: paths left alone -- the repository an update is running in,
     when it is itself a brought set (2026-10-07: updating the ladder set
     from its own clone fetched that clone, found it mid-update on a branch,
-    and refused the update over itself)."""
+    and refused the update over itself).
+
+    `skip_names`: sets left alone by name -- the ones the repository a
+    session starts in copies in itself (precedent_resolve.is_vendored), so
+    session start has nothing of theirs to fetch (2026-10-19)."""
     try:
         import precedent_resolve as pr
         ucfg = pathlib.Path(os.environ.get(
@@ -1334,6 +1338,10 @@ def sources_from_brings(retries=DEFAULT_RETRIES, skip=()):
         if clone_path.resolve() in skipped:
             out.append((name, True, 'this repository itself, the one being '
                                     'updated: not fetched'))
+            continue
+        if name in skip_names:
+            out.append((name, True, 'copied into this repository: not '
+                                    'fetched'))
             continue
         try:
             if not (clone_path / '.git').exists() and not clone_path.exists():
@@ -1450,7 +1458,90 @@ def _diagnose(output):
     return 'it'
 
 
+# A SET'S OLD ENGINE DEFERS TO A NEWER ONE ON THE SAME MACHINE (2026-10-19).
+# Each practice set runs its own vendored copy of this file at session
+# start, and a set's copy moves only when someone runs Update Vendors in
+# it. Half an hour after "one tree per source" reached main, an individual
+# set's copy from before it cloned a shared set into a second folder beside
+# the tree already there. When the BestPractice clone on the same machine
+# carries a newer copy -- its HEAD has the commit the set's
+# ENGINE_MANIFEST.json records as an ancestor -- this hands the run to that
+# copy, unchanged, so where things are cloned is decided by the newest rule
+# present. Nothing is written into the set: its own copy still moves only by
+# Update Vendors (precedent_refresh_sources commits that refresh locally).
+# A recorded commit the clone does not hold (a shallow clone) proves
+# nothing, and the set's own copy runs, as before.
+DEFERRED_ENV = 'PRECEDENT_ENGINE_DEFERRED'
+
+
+def _engine_clone_candidates(here):
+    """-> paths a BestPractice clone may sit at on this machine: the home
+    folder's, $HOME's, and beside the set this copy is vendored into."""
+    found = []
+    try:
+        import precedent_source_home as _sh
+        bases = [_sh.home(), _sh.attach_workspace()]
+        found += [b / n for b in bases if b for n in ('BestPractice', 'bestpractice')]
+    except Exception:                                        # noqa: BLE001
+        pass
+    home = pathlib.Path(os.path.expanduser('~'))
+    found += [home / 'BestPractice', home / 'bestpractice',
+              here.parent.parent / 'BestPractice', here.parent.parent / 'bestpractice']
+    return found
+
+
+def _same_repo(a, b):
+    norm = lambda u: re.sub(r'(\.git)?/*$', '', (u or '').strip().lower()).rsplit(
+        'github.com', 1)[-1].lstrip(':/')
+    return bool(a and b) and norm(a) == norm(b)
+
+
+def newer_engine_copy(here=None, candidates=None):
+    """-> the path of this same file in a BestPractice clone whose HEAD is
+    strictly ahead of the engine commit this copy was vendored from, or
+    None (this copy is the newest known, or nothing can prove otherwise)."""
+    if os.environ.get(DEFERRED_ENV):
+        return None
+    here = pathlib.Path(here or pathlib.Path(__file__).resolve().parent)
+    try:
+        man = json.loads((here / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    recorded, url = man.get('source_commit'), man.get('source_repo')
+    if not recorded or not url:
+        return None
+    me = (here / pathlib.Path(__file__).name).resolve()
+    seen = set()
+    for cand in (candidates if candidates is not None
+                 else _engine_clone_candidates(here)):
+        tool = pathlib.Path(cand) / 'tools' / pathlib.Path(__file__).name
+        try:
+            key = tool.resolve()
+        except OSError:
+            continue
+        if key in seen or key == me or not tool.is_file():
+            continue
+        seen.add(key)
+        git = lambda *a: subprocess.run(['git', '-C', str(cand), *a],
+                                        capture_output=True, text=True)
+        if not _same_repo(git('remote', 'get-url', 'origin').stdout, url):
+            continue
+        head = git('rev-parse', 'HEAD').stdout.strip()
+        if head and head != recorded and git(
+                'merge-base', '--is-ancestor', recorded, head).returncode == 0:
+            return tool
+    return None
+
+
 def main(argv=None):
+    newer = newer_engine_copy()
+    if newer:
+        print(f'precedent_source_bootstrap: this copy was vendored from an older '
+              f'engine; running the newer one at {newer}', file=sys.stderr)
+        sys.stderr.flush()
+        os.execve(sys.executable,
+                  [sys.executable, str(newer), *(sys.argv[1:] if argv is None else argv)],
+                  {**os.environ, DEFERRED_ENV: '1'})
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument('--level', choices=sorted(LEVELS))
     p.add_argument('--name')
@@ -1502,7 +1593,14 @@ def main(argv=None):
                 print(f"precedent_source_bootstrap: shared source "
                       f"{name!r} is not on disk -- {out[-500:]}. Its practices "
                       f"are NOT in force this session.", file=sys.stderr)
-        for name, ok, out in sources_from_brings(retries=args.retries):
+        try:
+            import precedent_resolve as _pr
+            copied = {n for _p, _l, n, _note in
+                      _pr.vendored_source_paths(args.teams_from)}
+        except Exception:                                   # noqa: BLE001
+            copied = set()
+        for name, ok, out in sources_from_brings(retries=args.retries,
+                                                 skip_names=copied):
             if not ok:
                 print(f"precedent_source_bootstrap: {name!r}, a set your own "
                       f"practice set brings, could not be fetched -- "
