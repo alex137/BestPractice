@@ -169,6 +169,7 @@
   "check_doc_lint_leaves_a_received_practice_to_its_source": 0.0,
   "check_doc_lint_strict_refuses_the_gate_scope": 0.5,
   "check_doc_sync_fails_fast": 1.1,
+  "check_doc_sync_keeps_finished_blocks": 3.5,
   "check_doc_sync_ledger": 2.3,
   "check_doc_sync_reads_a_consumers_own_pairs": 0.7,
   "check_docs_current_state_honours_load_bearing_paths": 0.0,
