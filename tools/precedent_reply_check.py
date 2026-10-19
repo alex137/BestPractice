@@ -105,14 +105,15 @@ PR, a session, a branch, a rule) gets a link the first time it is named, and
 neither of which had a mechanical check before this. Each entry is a
 `{pattern, why}` pair; every markdown link (`[text](url)`) in the reply is
 stripped out FIRST, and each pattern is then tested against what remains --
-a match there is a mention that never appeared inside a link at all. Because
-the strip happens once, up front, a thing linked on its first mention and
-named bare again later in the same reply still matches, which is a known
-imprecision (rule-links only requires the FIRST mention to be linked) rather
-than a bug -- see this repo's own reply_check.json, which declares this
-predicate `advisory` for exactly that reason. Added 2026-09-20 after a bare
-"PR #21" in a chat reply went unlinked and uncaught in a downstream
-consumer.
+a match there is a mention that never appeared inside a link at all. A
+match whose name appears inside any link in the reply is covered, so a thing
+linked on its first mention may be named bare again later (rule-links asks
+only for the first). Every distinct bare name is listed in the finding, and
+a requirement's own `repair` says how to correct it. Added 2026-09-20 after
+a bare "PR #21" in a chat reply went unlinked and uncaught in a downstream
+consumer; declared advisory then, because a linked-then-repeated name still
+matched, and so never seen by anyone. Blocking since 2026-10-19, when that
+was fixed and branch and file names were added.
 
 A source may declare one requirement (an object) or several (a list). Add
 `"advisory": true` to a requirement and an unmet one is still detected and
@@ -664,6 +665,13 @@ def _strip_markdown_links(s):
     return _MD_LINK_RE.sub(' ', s)
 
 
+def _linked_spans(s):
+    """Every markdown link in `s`, text and destination, joined: a name
+    found in here was linked somewhere in the reply, so a later bare
+    mention of it is covered."""
+    return '\n'.join(m.group(0) for m in _MD_LINK_RE.finditer(s))
+
+
 # practices/the-boildown.md (practice: the-boildown) names one fixed template
 # for a turn where nothing happened that is visible, or non-trivial, to the
 # person -- "Unchanged since the last update: <what it's still waiting on>."
@@ -1161,9 +1169,10 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
          'message': <human-readable>, 'advisory': bool}
 
     `advisory` mirrors the requirement's own `"advisory": true` declaration
-    (default false). main() still detects and names an unmet advisory
-    requirement -- a session should still hear about it -- but never lets
-    one refuse the turn: `advisory` marks a recommendation the person can
+    (default false). An unmet advisory requirement never refuses the turn;
+    the session hears about it at the next turn's start instead
+    (precedent_gate._print_advisories_missed, since 2026-10-19 -- before
+    that, main() dropped it and nobody heard): `advisory` marks a recommendation the person can
     take or leave, not a shape the reply must have. (Morgan, 2026-09-17,
     on the-boildown's own compact/archive lines specifically: give the
     honest answer after actually reviewing which situation applies, "and
@@ -1382,16 +1391,36 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
         # already inside a link is not a bare one), then each declared
         # pattern is tested against what remains -- a match is a mention
         # that never appeared in a link anywhere in the reply.
+        #
+        # A mention linked once and named bare again later passes: the name
+        # is looked for in every link's text and destination, and found
+        # there it is covered (rule-links asks for the link on first use).
+        # Until 2026-10-19 that second mention matched, which is why these
+        # requirements were declared advisory -- and an advisory finding is
+        # dropped unseen by main(), so a reply that linked nothing in the
+        # Boildown passed with no one told (Morgan: "Don't we have practice
+        # rules so when you mention files you always give links?").
         link_stripped = _strip_markdown_links(text)
+        linked = _linked_spans(text)
         for entry in (r.get('require_no_bare_pattern') or []):
             pattern, pat_why = entry.get('pattern'), entry.get('why')
             if not pattern:
                 continue
-            m = re.search(pattern, link_stripped)
-            if m:
-                out.append({'kind': 'bare_pattern', 'advisory': advisory, 'message': (
+            names = []
+            for m in re.finditer(pattern, link_stripped):
+                name = m.group(0).strip('`')
+                if name not in linked and name not in names:
+                    names.append(name)
+            if names:
+                shown = ', '.join(f'"{n}"' for n in names[:8]) \
+                    + (f' and {len(names) - 8} more' if len(names) > 8 else '')
+                # The repair rides on the pattern entry, not the requirement:
+                # an engine older than this ignores a key inside an entry,
+                # and refuses a requirement carrying a key it does not know.
+                out.append({'kind': 'bare_pattern', 'advisory': advisory,
+                            'repair': entry.get('repair'), 'message': (
                     f"[{r.get('_source', '?')}] this reply mentions "
-                    f"\"{m.group(0)}\" without a markdown link to it"
+                    f"{shown} without a markdown link"
                     + (f" -- {pat_why}" if pat_why else '') + "."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 

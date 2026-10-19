@@ -72,6 +72,18 @@ made or recommended gets the same question: does it also belong somewhere
 else? A band-aid applied here is the clearest case, since by definition
 its root is still open.
 
+**Two parts of the system fighting is a finding of its own, and the
+first one.** When this session restored, re-added or worked around something
+another part of the system removed or broke, the root issue is the conflict,
+not the thing restored. Name both parts, search history for earlier rounds
+of the same fight, and recommend settling which part owns the thing, not
+another patch for the latest symptom. A person should never have to spot
+the pattern for you.
+
+**A recurring warning is traced, not recited.** A warning this session saw
+that earlier sessions saw too has its cause found here, once, and that cause
+goes in the prompt ([verdict-not-mechanism](verdict-not-mechanism.md)).
+
 **Upstream means anywhere the same fix also belongs**, in at least these
 places:
 - **Precedent** (BestPractice, the engine every repo vendors) and the
@@ -166,6 +178,19 @@ side in every list a person read. Morgan asked for "Root issues" alone, with
 "Root fixes" kept only as a synonym, because the second name says the wrong
 thing: *"you don't 'fix' those issues, you just find them and give me the
 prompt, for another session to fix it."* Strength: decided.
+
+**Two parts fighting, 2026-10-19.** A consumer's hand-written map and
+glossary were erased by one writer (a full view rebuild during an update,
+2026-09-15), given back as empty source files by another (the view
+migration, 2026-10-05), and guarded against by a third patch for a
+different hole (2026-10-12). Each round was fixed where it showed, and the
+person had to point out that it was one fight over who owns the file. A
+warning had been showing the loss for a month: the doc linter flagged an
+unglossed acronym in every session that touched one page, because the
+glossary entry defining it was gone, and every session passed it over as
+known backlog. The root-issues prompt that followed asked for both
+paragraphs above. Strength: proposed, from that prompt; the person's yes on
+the merge decides it.
 
 ## Install
 Nothing mechanical checks that a reply found every upstream finding: whether

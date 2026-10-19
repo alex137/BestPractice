@@ -55,6 +55,10 @@ ahead/behind that made changes to the repo"*.
 "Pre-existing warnings only, unrelated to my edit", said again at every
 commit, informs nothing; say "checks passed" or what failed. A run that
 failed, or a warning the current edit introduced, is always reported.
+**Not re-explaining a warning is not the same as knowing its cause:** one
+seen in more than one session is traced to its cause once, by the session
+that notices it recurring, and the cause is fixed or filed. Until then it is
+an open finding, not backlog.
 
 **When a tool's verdict and the session's disagree, the reply says what the
 session found, not what the tool concluded.** If a fixed sentence the tool

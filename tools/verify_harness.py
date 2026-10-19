@@ -26358,12 +26358,21 @@ def check_precedent_check_fires():
         # and precedent-beta-v01 sat red against a tree nobody had edited
         # (found 2026-09-11). Both directions below; the second is the one
         # that would have caught it.
+        # One cell per member the real ledger's header names: a row short of
+        # them is incomplete, and the check refuses it on its own
+        # (2026-10-19, when grok-build made the family four).
         def _ledger_row(repo, cell_hash, prose_hash=None):
+            header = next(l for l in (repo / 'templates' / 'harness'
+                                      / 'LEDGER.md').read_text(
+                              encoding='utf-8').splitlines()
+                          if l.startswith('| Date |'))
+            others = header.count('|') - 4
             h = f'[`{cell_hash[:7]}`](https://example.invalid/{cell_hash})'
             tail = (f' — same reason as the [`{prose_hash[:7]}`]'
                     f'(https://example.invalid/{prose_hash}) row'
                     if prose_hash else '')
-            return f'| 2026-01-01 | {h} — planted | applied{tail} | n/a | n/a |'
+            return (f'| 2026-01-01 | {h} — planted | applied{tail} |'
+                    + ' n/a |' * others)
 
         dup = fresh('parallel-artifact-ledger-dup')
         _ledger_setup(dup)
@@ -49344,8 +49353,130 @@ def check_global_gate_runs_a_repos_gate_only_from_above():
         cases.append(('a gate missing beside it fails open and says so',
                       r.returncode == 0 and 'is not beside this file' in r.stderr,
                       r.stdout + r.stderr))
+        # The reply check (2026-10-19): it names no repository, so it runs in
+        # the one the hook input's cwd is in, else in the engine's, and its
+        # refusal (exit 2) reaches Claude Code.
+        (engine / 'tools' / 'stop-reply-check.sh').write_text(
+            '#!/bin/bash\ncat >/dev/null; printf "RAN pwd=%s" "$PWD"; exit 2\n',
+            encoding='utf-8')
+        repo = above / 'work'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / 'precedent_gate.py').write_text('', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+
+        def run_stop(cwd):
+            env = dict(os.environ, CLAUDE_PROJECT_DIR=str(above))
+            return subprocess.run(['bash', str(engine / 'tools' / 'precedent_global_gate.sh'),
+                                   'stop-reply-check.sh'], input=json.dumps({'cwd': str(cwd)}),
+                                  env=env, capture_output=True, text=True, timeout=60)
+        r = run_stop(repo)
+        cases.append(('the reply check runs in the repository the session was '
+                      'working in, and its refusal comes through',
+                      r.returncode == 2 and f'RAN pwd={repo.resolve()}' in r.stdout,
+                      (r.returncode, r.stdout + r.stderr)))
+        r = run_stop(above)
+        cases.append(('from a folder in no repository, it runs in the engine\'s',
+                      r.returncode == 2 and f'RAN pwd={engine.resolve()}' in r.stdout,
+                      (r.returncode, r.stdout + r.stderr)))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the user-level gate runs a repository\'s gate only from above '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
+def check_reply_check_refuses_an_unlinked_branch_or_file():
+    """reply_check.json's rule-links requirements refuse a reply naming a
+    dated session branch or a file in code font with no link, let a name
+    linked once be named bare again, and leave alone what has no page: a
+    command, an absolute path, a filename template.
+
+    2026-10-19 (Morgan: "Don't we have practice rules so when you mention
+    files you always give links?"): a Boildown named a branch and a file
+    with no link and passed, because the requirement was advisory and
+    main() drops an advisory finding unseen. Negative control: declared
+    advisory again, the discriminating case is not in the blocking set."""
+    import precedent_reply_check as prc
+    reqs = [dict(b, _source='universal/precedent')
+            for b in json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+            if b.get('practice') == 'rule-links' and b.get('require_no_bare_pattern')]
+    branch = '2026-10-19-someone-a-plan-ab12c-xy9z0'
+
+    def blocking(text, rs=None):
+        return [v for v in prc.violations(text, rs if rs is not None else reqs)
+                if v['kind'] == 'bare_pattern' and not v['advisory']]
+    cases = []
+    v = blocking(f'Work is on `{branch}` (repo).')
+    cases.append(('THE DISCRIMINATING CASE: a bare dated branch in code font is '
+                  'refused, with a repair', len(v) == 1 and branch in v[0]['message']
+                  and v[0].get('repair'), v))
+    v = blocking('See `spec/A_PLAN.md` and `claude/some-branch-x1`.')
+    cases.append(('a bare file path and a bare claude/ branch are both named',
+                  len(v) == 2, v))
+    v = blocking(f'On [`{branch}`](https://example.com/tree/{branch}); '
+                 f'later `{branch}` again, and [A_PLAN.md](https://e/spec/A_PLAN.md) '
+                 f'then `A_PLAN.md`.')
+    cases.append(('a name linked once may be named bare again', not v, v))
+    v = blocking('Run `python3 tools/x.py --apply`; the scratch file is '
+                 '`/tmp/s/out.md`; items are `todo-<date>-<slug>.md`; `main` (BestPractice).')
+    cases.append(('a command, an absolute path, a template and a plain branch '
+                  'word pass', not v, v))
+    soft = [dict(r, advisory=True) for r in reqs]
+    v = blocking(f'Work is on `{branch}`.', soft)
+    cases.append(('negative control: declared advisory, nothing blocks', not v, v))
+    cases.append(('no rule-links requirement here is advisory',
+                  reqs and not any(r.get('advisory') for r in reqs), reqs))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the reply check refuses an unlinked branch or file '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
+def check_turn_start_names_what_the_last_reply_left_out():
+    """The turn-start reply gate names an advisory requirement the LAST
+    reply left out, and refuses nothing; a reply that met it gets no line.
+
+    2026-10-19 (Morgan: "make them visible"): the archive-line and compaction
+    requirements are advisory on his word (2026-09-17, "an absent one must
+    never refuse the turn"), and an unmet advisory requirement reached
+    nobody. Negative control: with the requirement not advisory, the gate
+    prints no such line, since the stop hook refuses that one itself."""
+    import tempfile, io, contextlib
+    import precedent_gate as pg
+    import precedent_reply_check as prc
+    req = {'practice': 'the-boildown', '_source': 'universal/precedent',
+           'require_one_of': ['You can archive this session',
+                              "Don't archive this session"], 'advisory': True}
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        def run(reply, reqs):
+            path = pathlib.Path(td) / 't.jsonl'
+            path.write_text('\n'.join(json.dumps(r) for r in [
+                {'type': 'user', 'message': {'role': 'user', 'content': 'hi'}},
+                {'type': 'assistant', 'message': {'role': 'assistant', 'content': [
+                    {'type': 'text', 'text': reply}]}}]) + '\n', encoding='utf-8')
+            old = os.environ.get('PRECEDENT_TRANSCRIPT_PATH')
+            os.environ['PRECEDENT_TRANSCRIPT_PATH'] = str(path)
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    pg._print_advisories_missed(reqs, prc)
+            finally:
+                if old is None:
+                    os.environ.pop('PRECEDENT_TRANSCRIPT_PATH', None)
+                else:
+                    os.environ['PRECEDENT_TRANSCRIPT_PATH'] = old
+            return buf.getvalue()
+        out = run('Done.\n\n## The Boildown\n\n- one\n', [req])
+        cases.append(('THE DISCRIMINATING CASE: a last reply without the archive '
+                      'line is named at turn start', 'left these out' in out
+                      and 'You can archive this session' in out, out))
+        out = run("Done.\n\n## The Boildown\n\n- Don't archive this session.\n", [req])
+        cases.append(('a last reply that met it gets no line', not out, out))
+        out = run('Done.\n\n## The Boildown\n\n- one\n', [dict(req, advisory=False)])
+        cases.append(('negative control: a blocking requirement is not listed here',
+                      not out, out))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'turn start names what the last reply left out '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
 
@@ -49382,13 +49513,18 @@ def check_cloud_setup_script_writes_each_hook_once():
                  for e in ev for h in e.get('hooks', [])]
         cmds = [c for _n, c in pairs]
         cases.append(('THE DISCRIMINATING CASE: run twice, each hook is there once',
-                      r.returncode == 0 and len(pairs) == len(set(pairs)) == 4,
+                      r.returncode == 0 and len(pairs) == len(set(pairs)) == 5,
                       cmds or r.stderr[-300:]))
         cases.append(('the merge and push gates are written for a session '
                       'opened above the repositories',
-                      sum('precedent_global_gate.sh' in c for c in cmds) == 3
+                      sum('precedent_global_gate.sh' in c for c in cmds) == 4
                       and any(c.endswith('push-check-gate.sh || true') for c in cmds),
                       cmds))
+        stop = [c for n, c in pairs if n == 'Stop']
+        cases.append(('the reply check is written at Stop, and its refusal is not '
+                      'swallowed by a trailing "|| true"',
+                      len(stop) == 1 and 'stop-reply-check.sh' in stop[0]
+                      and '|| true' not in stop[0], stop))
         cases.append(('what the file held is kept',
                       got.get('permissions') == {'allow': ['Bash(ls)']}, got))
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -87453,6 +87589,8 @@ def main():
     check_leak_gate_reads_the_written_private_repo_list()
     check_session_hooks_allow_read_only_tools_at_user_level()
     check_global_gate_runs_a_repos_gate_only_from_above()
+    check_reply_check_refuses_an_unlinked_branch_or_file()
+    check_turn_start_names_what_the_last_reply_left_out()
     check_cloud_setup_script_writes_each_hook_once()
     check('an empty blocklist is reported as nothing checked, never a pass',
           *check_empty_blocklist_is_not_a_pass())
