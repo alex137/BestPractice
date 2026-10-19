@@ -143,6 +143,7 @@
   "check_content_preserved_by_sentence": 0.0,
   "check_content_record_self_check": 0.1,
   "check_contradiction_requirement_blocks": 0.9,
+  "check_copied_in_shared_sets": 4.2,
   "check_copy_fingerprint_is_checked_without_a_clone": 0.5,
   "check_corruption_drop_is_a_duplicate": 0.0,
   "check_creation_pipeline_fires": 5.4,
