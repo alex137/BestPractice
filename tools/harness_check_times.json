@@ -95,6 +95,7 @@
   "check_caused_by_this_push_reads_advisory_findings": 0.0,
   "check_changed_files_asks_a_new_check_for_its_planted_case": 0.3,
   "check_changed_files_asks_a_new_check_for_its_test": 0.2,
+  "check_changed_files_asks_shipped_links_to_travel": 0.2,
   "check_changed_files_compares_quoted_counts_when_a_practice_changes": 0.1,
   "check_changed_files_only_judges_the_change": 65.0,
   "check_changed_files_runs_one_copy_of_a_repo_local_test": 0.2,

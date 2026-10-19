@@ -1512,6 +1512,26 @@ def changed_files_check(root, since):
                 f'what tools/catalogue_stats.py computes -- update the '
                 f'sentence and the anchor in catalogue_stats.py together. '
                 + ' | '.join(fails)[:500])
+    # A SHIPPED LINK TRAVELS (2026-10-19, Morgan: "please do a root fix to
+    # this issue"). A changed Markdown file that ships in the catalogue copy
+    # may not link to a file the copy leaves out: that link is broken in
+    # every consumer. The full check's own function, on the changed files
+    # only; two gotchas reached main in one day without it.
+    shipped = [f for f in files if f.endswith('.md') and (root / f).is_file()]
+    if shipped:
+        sys.path.insert(0, str(HERE))
+        try:
+            import precedent_check
+            if hasattr(precedent_check, 'shipped_link_findings'):
+                for f in precedent_check.shipped_link_findings(shipped, root):
+                    problems.append(str(f))
+        except Exception as e:      # practice: fail-gracefully
+            if type(e).__name__ != 'NotApplicable':
+                print(f'changed_files: NOTE -- the shipped-link check did '
+                      f'not run ({e}); the full check still runs it.',
+                      flush=True)
+        finally:
+            sys.path.pop(0)
     _new_tests_have_times(root, since, files, problems)
     for line in problems:
         print(f'  {line}')

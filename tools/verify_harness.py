@@ -37864,6 +37864,42 @@ def check_changed_files_asks_a_new_check_for_its_test():
           '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
 
 
+def check_changed_files_asks_shipped_links_to_travel():
+    """A changed file the catalogue copy ships, linking relatively to a file
+    the copy leaves out, is refused at push time, with the GitHub link to
+    write instead.
+
+    2026-10-19: since the quick check stopped running practice checks
+    (2026-10-16), two gotchas in one day linked ../tools/ files no consumer
+    has, every quick check passed, and GitHub's test after the Produce was
+    the first to say so (Morgan: "please do a root fix to this issue"). The
+    same link on GitHub is the control."""
+    import tempfile
+    name = 'the changed-files check asks a shipped link to travel'
+    base = {'tools/zz_hidden.py': 'print(1)\n'}
+    with tempfile.TemporaryDirectory() as td:
+        commit, run = _changed_files_fixture(pathlib.Path(td) / 'bad', base)
+        commit({'gotchas/gotcha-zz.md':
+                    'See [the tool](../tools/zz_hidden.py).\n'})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'ok', base)
+        commit2({'gotchas/gotcha-zz.md':
+                     'See [the tool](https://github.com/alex137/BestPractice/'
+                     'blob/staging/tools/zz_hidden.py).\n'})
+        rc2, out2 = run2()
+    cases = [
+        ('a changed gotcha linking a file the copy leaves out is refused',
+         rc == 1),
+        ('the refusal names the line and the link to write instead',
+         'gotchas/gotcha-zz.md:1' in out and 'catalogue copy leaves out' in out
+         and 'tools/zz_hidden.py' in out),
+        ('control: the same link on GitHub passes', rc2 == 0),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
+
+
 def check_changed_files_compares_quoted_counts_when_a_practice_changes():
     """A practice change whose quoted count no longer matches what
     tools/catalogue_stats.py computes is refused at push time, not first
@@ -87985,6 +88021,7 @@ def main():
     check_changed_files_asks_a_new_check_for_its_test()
     check_changed_files_asks_a_new_check_for_its_planted_case()
     check_changed_files_compares_quoted_counts_when_a_practice_changes()
+    check_changed_files_asks_shipped_links_to_travel()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_for_change_runs_the_tests_a_change_reaches()
     check_for_change_adds_what_the_reach_ledger_picks()

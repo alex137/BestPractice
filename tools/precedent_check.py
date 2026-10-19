@@ -1896,6 +1896,23 @@ _MD_LINK_TARGET = re.compile(r'\]\(([^)\s#]+)(?:#[^)\s]*)?\)')
        'Only the repo that ships a catalogue copy is judged',
        practice_backed=False, selects_on=('*.md', '*/*.md', 'tools/checkin.py'))
 def _shipped_links_travel(ctx):
+    return shipped_link_findings()
+
+
+def shipped_link_findings(rels=None, root=None):
+    """-> a Finding for each relative link, in the shipped Markdown files
+    among `rels` (every tracked .md when None), to a file the catalogue copy
+    leaves out. Raises NotApplicable where this repo ships no copy.
+
+    ONE MECHANISM, TWO CALLERS (Morgan, 2026-10-19: "please do a root fix
+    to this issue"). The tree check above reads every file; the quick check
+    before a push (precedent_push_check.py's changed_files_check) reads only
+    the change's. Since 2026-10-16 the quick check runs no practice check,
+    so two gotchas in one day reached main with links to tools/ files no
+    consumer has, and only GitHub's test after a Produce said so. This is a
+    broken-link check like doc_lint's, on the changed files only, so it
+    costs the quick check nothing it can measure."""
+    root = pathlib.Path(root) if root else ROOT
     # WHY (2026-10-01, from a consumer's update): seven links to
     # templates/harness/LEDGER.md, a file the copy leaves out, were broken
     # in every consumer, and the full set was 195 links in 65 files.
@@ -1903,7 +1920,7 @@ def _shipped_links_travel(ctx):
     # This asked vendoring_rule(), which still counts tools/ as shipped
     # though since 2026-09-30 a consumer's copy leaves tools/ at home, so
     # 320 links into tools/ passed here and broke in every consumer.
-    if (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+    if (root / 'tools' / 'ENGINE_MANIFEST.json').is_file():
         raise NotApplicable('a vendored engine: this repo receives the '
                             'catalogue copy, it does not ship one')
     try:
@@ -1914,12 +1931,16 @@ def _shipped_links_travel(ctx):
         raise NotApplicable('this checkin.py predates VENDORING_RULES')
     import posixpath
     out = []
-    for rel in _git('ls-files', '*.md').stdout.split():
+    if rels is None:
+        rels = _git('ls-files', '*.md', cwd=root).stdout.split()
+    for rel in rels:
+        if not rel.endswith('.md'):
+            continue
         rule = checkin.vendoring_rule(rel)
         if not (rule and rule[1]):
             continue
         try:
-            text = (ROOT / rel).read_text(encoding='utf-8', errors='ignore')
+            text = (root / rel).read_text(encoding='utf-8', errors='ignore')
         except OSError:
             continue
         for i, line in enumerate(text.splitlines(), 1):
@@ -1931,9 +1952,9 @@ def _shipped_links_travel(ctx):
                 if tgt.startswith('..'):
                     continue
                 # A target missing here is doc_lint's broken link, not this.
-                if not (ROOT / tgt).exists() or checkin.in_shipped_copy(tgt, ROOT):
+                if not (root / tgt).exists() or checkin.in_shipped_copy(tgt, root):
                     continue
-                kind = 'tree' if (ROOT / tgt).is_dir() else 'blob'
+                kind = 'tree' if (root / tgt).is_dir() else 'blob'
                 out.append(Finding(
                     f'{rel}:{i}', f'links to {tgt}, which the catalogue '
                     f'copy leaves out, so the link is broken in every '
