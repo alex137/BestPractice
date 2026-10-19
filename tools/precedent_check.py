@@ -627,6 +627,7 @@ def register_materialized_checks():
 
         CHECKS[slug] = dict(
             slug=slug, scope='tree', fn=_run_script,
+            selects_on=script_selects_on(script),
             what=f'whatever {rel} checks — a check script supplied by one '
                  f'of this repo\'s own practice sources',
             blind_to=f"anything {rel} does not look at; its own limits are "
@@ -659,6 +660,53 @@ def register_materialized_checks():
             # path would silence every source-supplied check in every
             # consuming repo, so this keeps them all.
             judges_received=True)
+
+
+# A CHECK SCRIPT'S INPUTS. A script check is selected by its practice's
+# applies_to (tier 2 of _scoped_tree_slugs), which names the file the
+# practice is ABOUT -- not everything the script reads. A consumer's check
+# that every practice naming a page is listed on that page read the practice
+# files' applies_to; a new practice naming the page landed without its row,
+# no file the change touched matched the page's glob, the rotation left the
+# check for a later commit, and main went red after a Produce (a consumer's
+# root-issues report, 2026-10-19). Two ways in, both only ever ADDING
+# selection, like `selects_on` on a built-in check:
+#   - declared: a top-level `SELECTS_ON = ("glob", ...)` in the script,
+#     read without running it;
+#   - inferred: a script that reads practices' `applies_to` depends on every
+#     practice file, so it is selected whenever one changes.
+_PRACTICE_FILE_GLOBS = ('practices/*.md', 'local/practices/*.md')
+_READS_APPLIES_TO = re.compile(r"""['"]applies_to['"]|applies_to\s*:""")
+
+
+def script_selects_on(script):
+    """-> the globs that select check script `script` for a run: its own
+    SELECTS_ON declaration, plus the practice files when it reads
+    `applies_to`."""
+    import ast
+    try:
+        text = pathlib.Path(script).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return ()
+    globs = []
+    try:
+        body = ast.parse(text).body
+    except SyntaxError:
+        body = []
+    for node in body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id == 'SELECTS_ON'):
+            try:
+                value = ast.literal_eval(node.value)
+            except ValueError:
+                continue
+            if isinstance(value, str):
+                value = (value,)
+            globs += [g for g in value if isinstance(g, str) and g != '**']
+    if _READS_APPLIES_TO.search(text):
+        globs += [g for g in _PRACTICE_FILE_GLOBS if g not in globs]
+    return tuple(globs)
 
 
 # A finding line that opens with a path the repository has: `x.md:12: ...`,
