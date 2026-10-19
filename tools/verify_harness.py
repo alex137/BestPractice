@@ -70817,14 +70817,27 @@ def check_copy_in_is_asked_once():
     try:
         ladder = make_set('zz-ladder', {'provides': ['ladder']})
         make_set('zz-writing', {})
-        voice = make_set('zz-voice', {'copy_refresh': 'on-go-ahead'})
+        voice = make_set('zz-voice', {})
+        # The voice pack's set lives in a folder of its repository
+        # (set_root), as a real voice pack does beside its own install:
+        # the root's manifest says nothing about go-aheads, the folder's does.
+        (voice / 'pack' / 'practices').mkdir(parents=True)
+        (voice / 'pack' / 'practices' / 'zz-voice-rule.md').write_text(
+            '---\nslug: zz-voice-rule\n---\n# v\n\n## Rule\n\nx\n')
+        (voice / 'pack' / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-voice', 'level': 'shared', 'visibility': 'public',
+             'copy_refresh': 'on-go-ahead'}))
+        git(voice, 'add', '-A')
+        git(voice, 'commit', '-qm', 'pack')
+        git(voice, 'push', '-q', 'origin', 'main')
         ind = tmp / 'people' / 'zz-ind'
         (ind / 'practices').mkdir(parents=True)
         (ind / 'precedent-source.json').write_text(json.dumps(
             {'name': 'zz-ind', 'level': 'individual',
              'brings': [{'name': 'zz-ladder', 'repo_url': 'https://example.invalid/zz-ladder'},
                         {'name': 'zz-writing', 'repo_url': 'https://example.invalid/zz-writing'}],
-             'offers': [{'name': 'zz-voice', 'repo_url': 'https://example.invalid/zz-voice'}]}))
+             'offers': [{'name': 'zz-voice', 'repo_url': 'https://example.invalid/zz-voice',
+                         'set_root': 'pack'}]}))
         ucfg = tmp / 'person.json'
         ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind', 'path': str(ind)}}))
         os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
@@ -70897,8 +70910,13 @@ def check_copy_in_is_asked_once():
                        / 'zz-ladder-rule.md').is_file()
                       and up.get('vendored_at') == 'process/zz-ladder'
                       and bool(up.get('commit')), repr(rep.steps)[-600:]))
-        cases.append(('a set waiting for a go-ahead is still copied the first time',
-                      (mine / 'process' / 'zz-voice' / 'practices').is_dir(),
+        cases.append(('a set waiting for a go-ahead is still copied the first time, '
+                      'from its set_root folder alone',
+                      (mine / 'process' / 'zz-voice' / 'practices'
+                       / 'zz-voice-rule.md').is_file()
+                      and not (mine / 'process' / 'zz-voice' / 'pack').exists()
+                      and json.loads((mine / 'precedent.json').read_text())
+                      ['sources'][-1].get('set_root') == 'pack',
                       repr(rep.steps)[-600:]))
 
         import precedent_check as pc
@@ -70911,7 +70929,7 @@ def check_copy_in_is_asked_once():
         cases.append(('the ladder check accepts the copy the answer bound',
                       found == [], str([str(f) for f in found])))
 
-        (voice / 'practices' / 'zz-later.md').write_text(
+        (voice / 'pack' / 'practices' / 'zz-later.md').write_text(
             '---\nslug: zz-later\n---\n# l\n\n## Rule\n\ny\n')
         git(voice, 'add', '-A')
         git(voice, 'commit', '-qm', 'two')

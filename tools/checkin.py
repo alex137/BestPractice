@@ -883,7 +883,7 @@ def local_changes(clone, recorded):
     guard refuses on it, and tools/precedent_local_edits.py resolves and
     sends exactly these files (2026-09-29), so the two can never disagree
     about what counts as a local edit."""
-    tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
+    tar = subprocess.run(['git', '-C', str(clone), 'archive', _set_tree(recorded)],
                          capture_output=True)
     if tar.returncode != 0:
         return None
@@ -1331,6 +1331,14 @@ def _followed_branch():
         return 'main'
 
 
+def _set_tree(ref):
+    """The tree to archive for `ref`: the set's folder (SET_ROOT) for a set
+    that lives in a folder of its repository, else the whole commit. Every
+    archive of the set's side goes through here, or one of them compares
+    the copy against the wrong tree."""
+    return f'{ref}:{SET_ROOT}' if SET_ROOT and SOURCE else ref
+
+
 def _tree_at(clone, ref, into):
     """Extract `clone`'s tree at `ref` into `into`, without touching `clone`.
 
@@ -1354,8 +1362,7 @@ def _tree_at(clone, ref, into):
     """
     # A set rooted in a folder of its repository (SET_ROOT) is archived from
     # that folder, so the tree reads as the set itself.
-    tree = f'{ref}:{SET_ROOT}' if SET_ROOT and SOURCE else ref
-    tar = subprocess.run(['git', '-C', str(clone), 'archive', tree],
+    tar = subprocess.run(['git', '-C', str(clone), 'archive', _set_tree(ref)],
                          capture_output=True)
     if tar.returncode != 0:
         sys.exit(f"checkin FAIL: cannot read {ref!r} in {clone} "
@@ -1713,7 +1720,7 @@ def _drop_what_the_copy_no_longer_carries(clone, src):
     with tempfile.TemporaryDirectory() as td:
         base = None
         if recorded:
-            tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
+            tar = subprocess.run(['git', '-C', str(clone), 'archive', _set_tree(recorded)],
                                  capture_output=True)
             if tar.returncode == 0:
                 extract_archive(tar.stdout, td)
