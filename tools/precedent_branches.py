@@ -1227,6 +1227,14 @@ def _carry_composition_to_branch(root, label, new):
         return (f'{label} is not a branch the pull request can come from, so '
                 f'the checked composition was not pushed anywhere: merge '
                 f'origin/{MAIN} into the branch you open it from first.')
+    # A branch that already carries main's work -- one cut from main, a
+    # red-main fix above all -- needs nothing, and is left alone: moving it
+    # after its pull request into main merged sent the main-test wait to a
+    # head no test ever ran on (2026-10-19).
+    tip = _remote_tip(root, branch)
+    if tip and not main_work_missing(root, tip):
+        return (f'{branch} already carries everything {MAIN} has, so the pull '
+                f'request from it as it stands lacks nothing.')
     p = _run(root, 'push', '-q', 'origin', f'{new}:refs/heads/{branch}')
     if p.returncode != 0:
         return (f'Could not bring {branch} up to the checked composition '
