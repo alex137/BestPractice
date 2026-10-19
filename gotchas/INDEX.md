@@ -179,3 +179,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **A landing on `staging` is refused with "This one takes a pull request ... merge it once its checks pass". The pull request into `staging` shows no checks at all, and the session sits waiting for a CI event that never arrives.** [story](gotcha-2026-10-18-no-check-runs-on-a-pull-request-into-staging.md)
 
 - **A harness case that sets `HOME` to a temporary folder still clones into, links to, or pulls a real practice set, such as `/home/user/precedent-individual`. Or a case passes on GitHub's runner and fails in a Claude Code cloud session, or the other way round, with a path outside its temporary folder in the output.** [story](gotcha-2026-10-19-a-fixture-that-fakes-home-keeps-the-real-attach-folder.md)
+
+- **A reply breaks a rule the reply check carries, nobody is told, and the person has to notice it and ask. The requirement is right there in `reply_check.json`, with a pattern that matches the reply, and `--explain` lists it. It is declared `"advisory": true`.** [story](gotcha-2026-10-19-an-advisory-reply-requirement-is-never-shown-to-anyone.md)

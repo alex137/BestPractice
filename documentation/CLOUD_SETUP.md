@@ -106,6 +106,8 @@ wanted = [
     ('PreToolUse', 'Bash', gate + ' && bash "$f" push-check-gate.sh || true'),
     ('PreToolUse', merge, gate + ' && bash "$f" merge-check-gate.sh || true'),
     ('PostToolUse', merge, gate + ' && bash "$f" merge-check-gate.sh || true'),
+    ('Stop', None, 'f=$(ls -d /home/user/*/tools/precedent_global_gate.sh '
+     '2>/dev/null | head -1); [ -z "$f" ] || bash "$f" stop-reply-check.sh'),
 ]
 for event, matcher, cmd in wanted:
     entries = d.setdefault('hooks', {}).setdefault(event, [])
@@ -119,7 +121,7 @@ p.write_text(json.dumps(d, indent=2))
 PY
 ```
 
-**The last three lines run each repository's merge and push checks for a
+**The `PreToolUse` and `PostToolUse` lines run each repository's merge and push checks for a
 session opened above them** (since 2026-10-19). A repository's checks are
 hooks in its own settings, which such a session never reads, so its merges
 into `main` went unchecked, and two reached `main` broken on 2026-10-18.
@@ -131,6 +133,15 @@ starts, because Claude Code reads its hooks when a session opens: a session
 that wrote them into its own settings would not get them, and would stop
 for your approval to change its settings. Run again over an older script's
 file, this adds only what is missing.
+
+**The `Stop` line runs the reply check for a session opened above the
+repositories** (since 2026-10-19). Until then nothing checked such a
+session's replies at all: a Boildown that named a branch and a file with no
+link passed, and so did every other requirement the reply check enforces.
+It runs in the repository the session was last working in, or in the
+engine's own when that folder is in none. It has no trailing `|| true`, on
+purpose: the check refuses a reply by exiting 2, and `|| true` would turn
+that into a pass. When the engine is missing it does nothing.
 
 **The runner also adds the Precedent tools to the allow list** there
 (since 2026-10-14): since 2026-10-17, one rule for every engine tool, and
