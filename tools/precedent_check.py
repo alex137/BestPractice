@@ -1566,6 +1566,45 @@ def _ladder_set_is_brought_not_declared(ctx):
     return out
 
 
+@check('copied-in-set-fits-visibility', 'tree',
+       'a set this repository copies in ("vendored": true in precedent.json) '
+       'is private only when the repository is: a private set\'s rules in a '
+       'public tree are a leak, and the copy is the leak',
+       'a copy that is not on disk yet -- there is no precedent-source.json '
+       'to say whether the set is private, and Update Vendors refuses the '
+       'copy itself when it would not fit.',
+       practice_backed=False,
+       selects_on=('precedent.json', 'process/*/precedent-source.json'))
+def _copied_in_set_fits_visibility(ctx):
+    """Update Vendors refuses to make such a copy (checkin.py); this catches
+    one made another way, or a repository turned public after the copy."""
+    try:
+        import precedent_resolve as _pr
+        from leak_gate import declared_visibility, manifest_says_private
+    except ImportError:
+        raise NotApplicable('the resolver or the leak gate did not import')
+    copies = [(pathlib.Path(p), n) for p, _l, n, note in
+              _pr.vendored_source_paths(ROOT) if not note]
+    if not copies:
+        raise NotApplicable('this repository copies no set in')
+    if declared_visibility(ROOT)[0] == 'private':
+        return []
+    out = []
+    for path, name in copies:
+        try:
+            text = (path / _pr.SOURCE_MANIFEST).read_text(encoding='utf-8')
+        except OSError:
+            text = '{}'
+        if manifest_says_private(text):
+            out.append(Finding(
+                'precedent.json',
+                f'copies in {name}, a private set (its precedent-source.json '
+                f'does not say "visibility": "public"), and this repository '
+                f'does not say "visibility": "private". Remove the copy and '
+                f'the "vendored" flag, or make the repository private'))
+    return out
+
+
 # ---- frontmatter-field-order ----------------------------------------------
 # spec/PRACTICE_FORMAT.md sets one order for a practice's frontmatter fields;
 # frontmatter_yaml.FIELD_ORDER is that order written down once, in code.

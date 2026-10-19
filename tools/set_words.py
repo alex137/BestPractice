@@ -131,7 +131,8 @@ def sets_with_words(root=ROOT):
     # checkout of a set somewhere else -- the worktree --run-tests makes --
     # is that set (2026-10-18: the ladder set's full check on main judged
     # its own words).
-    for path, _level, name, note in _pr.declared_source_paths(root):
+    for path, _level, name, note in (_pr.vendored_source_paths(root)
+                                     + _pr.declared_source_paths(root)):
         if note or not path:
             continue
         p = pathlib.Path(path).resolve()

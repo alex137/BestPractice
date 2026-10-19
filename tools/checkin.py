@@ -179,7 +179,10 @@ def _bind_source(clone):
                  f"{SOURCE_MANIFEST}; --source named {SOURCE!r}. Point at the "
                  f"right clone, or declare the source by the name it gives itself.")
     dirs = [str(d).strip().strip('/') for d in (m.get('code') or []) if str(d).strip()]
-    if not dirs:
+    copied_in = _declared_copied_in(SOURCE)
+    if copied_in:
+        _refuse_private_into_public(clone, m)
+    if not dirs and not copied_in:
         sys.exit(f"checkin FAIL: {clone}'s {SOURCE_MANIFEST} lists no `code` "
                  f"directories, so there is nothing to vendor -- a set whose "
                  f"practices resolve live needs no mirror at all.")
@@ -198,9 +201,41 @@ def _bind_source(clone):
         own = json.loads(MANIFEST.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         own = {}
-    if (own.get('upstream') or {}).get('vendor_practices'):
+    # The same opt-in, said where every other tool reads it: the source
+    # entry in precedent.json carries `"vendored": true` (2026-10-19,
+    # spec/VENDORED_SHARED_SETS.md). A set copied in that way may ship no
+    # code at all -- its practices are the point.
+    if (own.get('upstream') or {}).get('vendor_practices') or copied_in:
         dirs += ['practices', SOURCE_MANIFEST]
     CODE_DIRS = dirs
+
+
+def _declared_copied_in(name):
+    """True when this repo's precedent.json declares the source `name`
+    with `"vendored": true` -- copied in, refreshed by Update Vendors."""
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False
+    return any(isinstance(e, dict) and e.get('name') == name
+               and e.get('vendored') is True
+               for e in (cfg.get('sources') or []) if isinstance(cfg, dict))
+
+
+def _refuse_private_into_public(clone, manifest):
+    """Exit when a private set is about to be copied into a repository that
+    does not declare itself private. Its rules in a public tree are exactly
+    what the leak gate exists to refuse, and the copy is the leak."""
+    from leak_gate import declared_visibility, manifest_says_private
+    if not manifest_says_private(json.dumps(manifest)):
+        return
+    vis, _why = declared_visibility(ROOT)
+    if vis != 'private':
+        sys.exit(f"checkin FAIL: {SOURCE} is a private set ({clone}'s "
+                 f"{SOURCE_MANIFEST} does not say \"visibility\": \"public\"), "
+                 f"and this repository's precedent.json does not say "
+                 f"\"visibility\": \"private\". A private set is copied only "
+                 f"into a private repository; nothing was copied.")
 
 
 def _same_commit(a, b):
@@ -2125,6 +2160,15 @@ def record(clone, note, accept_loss=False, resolving=(), from_ref=None):
     if SOURCE and 'source' not in manifest:
         manifest['source'] = SOURCE
         up.setdefault('branch', _tracked_branch(clone))
+    if SOURCE:
+        # Where the copy lives and where it came from. Without vendored_at
+        # the hand-edit guard (copy_drift) and the audit compared
+        # process/upstream instead of this set's copy, and without repo the
+        # freshness line could not tell when the set's origin moved.
+        up['vendored_at'] = UPSTREAM.relative_to(ROOT).as_posix()
+        rc, url = _git_rc(clone, 'remote', 'get-url', 'origin')
+        if rc == 0 and url.strip():
+            up.setdefault('repo', url.strip())
     old = up.get('commit')
     manifest['upstream']['commit'] = head
     # record() has just verified the vendored tree is byte-identical to what
