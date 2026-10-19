@@ -680,6 +680,7 @@
   "check_update_merge_lines_carry_the_full_head": 0.0,
   "check_update_never_fetches_the_repo_it_updates": 0.3,
   "check_update_noise_template_lines_and_a_secret_never_had": 0.2,
+  "check_update_notes_workflow_changes_in_readme_platform_section": 0.3,
   "check_update_on_stubs_stages_nothing_under_claude": 22.8,
   "check_update_question_names_new_gates": 0.2,
   "check_update_rebaselines_what_it_asked_about_and_reviews_no_git_output": 0.2,

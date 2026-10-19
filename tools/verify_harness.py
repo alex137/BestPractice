@@ -31885,6 +31885,52 @@ def check_branch_cleanup_button():
           not bad, '; '.join(map(str, bad)))
 
 
+def check_update_notes_workflow_changes_in_readme_platform_section():
+    """2026-10-19, two consuming repos: Update Vendors changed engine
+    workflows, wrote nothing in README.md's "If this repo ever leaves
+    GitHub" section, and each repository's own pull-request check (a
+    workflow change must touch that section) failed after Produce. The
+    refresh now keeps one dated line there naming what it changed."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_vendor_engine as pve
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        g = lambda *a: _sp.run(['git', *a], cwd=d, capture_output=True, text=True)
+        g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        (d / '.github' / 'workflows').mkdir(parents=True)
+        (d / '.github' / 'workflows' / 'light-check.yml').write_text('a\n')
+        (d / 'README.md').write_text('# R\n\n## If this repo ever leaves GitHub\n\n'
+                                     '- **light-check.yml** -- runs checks.\n\n'
+                                     '## Next\n\nText.\n')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        cases.append(('CONTROL: no workflow changed, README left alone',
+                      not pve._note_workflow_changes_in_readme(d, 'abcdef1234', '2026-10-19'),
+                      ''))
+        (d / '.github' / 'workflows' / 'light-check.yml').write_text('b\n')
+        (d / '.github' / 'workflows' / 'precedent-branch-cleanup.yml').write_text('c\n')
+        wrote = pve._note_workflow_changes_in_readme(d, 'abcdef1234', '2026-10-19')
+        text = (d / 'README.md').read_text()
+        cases.append(('a changed and an added workflow are named in the section, '
+                      'before the next heading',
+                      wrote and text.index('runs checks') < text.index('`light-check.yml`, '
+                                                                       '`precedent-branch-cleanup.yml`')
+                      < text.index('## Next'), text))
+        pve._note_workflow_changes_in_readme(d, '99999999aa', '2026-10-20')
+        again = (d / 'README.md').read_text()
+        cases.append(('the next refresh replaces its own line, never stacks another',
+                      again.count('Changed by Update Vendors') == 1 and '2026-10-20' in again,
+                      again))
+        (d / 'README.md').write_text('# R\n\nNo such section.\n')
+        cases.append(('CONTROL: a README without the section is left alone',
+                      not pve._note_workflow_changes_in_readme(d, 'abcdef1234')
+                      and (d / 'README.md').read_text() == '# R\n\nNo such section.\n', ''))
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'Update Vendors notes its workflow changes in README\'s platform section '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
+
+
 def check_update_holds_a_settings_change_and_offers_it_again():
     """A .claude/ change Update Vendors asks the person about keeps its old
     manifest baseline until their words are given, and a read-only allow
@@ -87286,6 +87332,7 @@ def main():
     check_freshness_guard_never_tells_a_tier_branch_to_merge()
     check_stale_branches_lists_one_repository_once()
     check_branch_cleanup_button()
+    check_update_notes_workflow_changes_in_readme_platform_section()
     check_update_holds_a_settings_change_and_offers_it_again()
     check_deduplicated_copy_stays_in_force_until_its_target_arrives()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()

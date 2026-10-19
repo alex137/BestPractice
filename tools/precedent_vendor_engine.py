@@ -3311,6 +3311,52 @@ def _section_end(text, titles):
     return None
 
 
+# A REPOSITORY'S OWN NOTE ON WHAT IT NEEDS FROM GITHUB. Some consuming
+# repositories keep a README section, "If this repo ever leaves GitHub",
+# naming every workflow, and a check of their own fails a pull request that
+# changes a workflow without touching it. 2026-10-19: Update Vendors
+# changed two engine workflows in two such repositories, wrote nothing
+# there, and their pull-request checks into main failed after Produce. The
+# refresh now keeps one dated line at the end of that section, naming the
+# workflow files it changed, whenever it changed any.
+README_PLATFORM_SECTION = 'if this repo ever leaves github'
+_PLATFORM_LINE = '- **Changed by Update Vendors on '
+
+
+def _note_workflow_changes_in_readme(dest_root, new_commit, today=None):
+    """-> True when README.md's platform section was given a fresh line
+    naming the .github/workflows/ files this refresh left changed (by git's
+    own reading of the working tree, so additions, rewrites and removals by
+    any part of the refresh all count). A README without the section is
+    left alone: the repository keeps no such note."""
+    readme = dest_root / 'README.md'
+    if not readme.is_file():
+        return False
+    ok = subprocess.run(['git', 'status', '--porcelain', '--', '.github/workflows'],
+                        cwd=dest_root, capture_output=True, text=True)
+    names = sorted({line[3:].strip().rsplit('/', 1)[-1]
+                    for line in ok.stdout.splitlines() if line[3:].strip()}
+                   ) if ok.returncode == 0 else []
+    if not names:
+        return False
+    text = readme.read_text(encoding='utf-8')
+    end = _section_end(text, (README_PLATFORM_SECTION,))
+    if end is None:
+        return False
+    import datetime as _dt
+    day = today or _dt.date.today().isoformat()
+    line = (f'{_PLATFORM_LINE}{day}** (BestPractice {new_commit[:8]}): '
+            + ', '.join(f'`{n}`' for n in names)
+            + '. Each is described above, or in GETTING_STARTED.md if it is '
+              'new since this section was last written.\n')
+    head = ''.join(l for l in text[:end].splitlines(keepends=True)
+                   if not l.startswith(_PLATFORM_LINE)).rstrip('\n')
+    tail = text[end:]
+    readme.write_text(head + '\n' + line + ('\n' + tail if tail else ''),
+                      encoding='utf-8')
+    return True
+
+
 # CI-workflow analog of RETIRED_ENGINE_FILES above -- a relative path this
 # manifest may still be tracking in ci_workflow_files/ci_workflows_sha256
 # whose template CI_WORKFLOW_TEMPLATES no longer lists at all.
@@ -9106,6 +9152,8 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
                                            engine_path_sources, manifest)
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
+    if _note_workflow_changes_in_readme(ROOT, new_commit):
+        written.append(ROOT / 'README.md')
     # The engine is whole now, so a judgment that could not import it at the
     # top of this pass runs here.
     _judge_deferred_workflows()
