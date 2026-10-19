@@ -1672,7 +1672,7 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                 continue
             if re.search(r'\*\*plan ended early:\*\*[^\S\n]*\S', text, re.I):
                 continue
-            # Handed on (Morgan, 2026-10-19, strength: assented): the plan
+            # Handed on (Morgan, 2026-10-19, strength: decided): the plan
             # now lives in another session, confirmed running with it. The
             # line has to carry that session's link; whether it is running
             # is the session's to confirm with get_session before writing it.
