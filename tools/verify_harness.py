@@ -88643,6 +88643,7 @@ def main():
     check_update_keeps_the_harness_go_ahead_with_its_content()
     check_wait_main_test_finds_a_merged_pull_requests_head()
     check_push_to_staging_runs_own_checks_inside_a_budget()
+    check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer()
     check_update_holds_a_settings_change_and_offers_it_again()
     check_deduplicated_copy_stays_in_force_until_its_target_arrives()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
