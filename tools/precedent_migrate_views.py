@@ -8,9 +8,18 @@ repository that uses Precedent keeps everything it wrote).
 
     python3 tools/precedent_migrate_views.py --repo DIR            migrate, then regenerate
     python3 tools/precedent_migrate_views.py --repo DIR --check    say what it would do; change nothing
-    python3 tools/precedent_migrate_views.py --repo DIR --restore-map-from REV
-        a map a vendor update already overwrote: take MAP.source.md from
-        MAP.md as it stood at REV (the person picks REV)
+    python3 tools/precedent_migrate_views.py --repo DIR --find-lost
+        say, for MAP.md and GLOSSARY.md, the last hand-written version in
+        git history and every heading and table row of it that neither the
+        source nor the view carries now; changes nothing. Exit 1 when
+        something is missing
+    python3 tools/precedent_migrate_views.py --repo DIR --restore-from REV
+        views a writer already overwrote: take MAP.source.md and
+        GLOSSARY.source.md from MAP.md and GLOSSARY.md as they stood at REV
+        (the person picks REV; --find-lost names the likely one). A view
+        that was already generated at REV is skipped and said; a source
+        that exists and is not empty is never written over.
+        --restore-map-from REV does the map alone, as before
     python3 tools/precedent_migrate_views.py --repo DIR --split [--check]
         turn MAP.source.md / GLOSSARY.source.md into the directories
         MAP.source/ / GLOSSARY.source/, one file per heading and one per
@@ -47,6 +56,15 @@ repair-cannot-discard-work). It also writes the repository's own
 tools/generated_files.json entries for both views, so a commit that changes
 a source rebuilds them.
 
+A view already generated, with no source yet, gets an empty source -- but
+only when its history holds no hand-written version with entries the view
+has lost. When it does, the migration refuses and names the commit to
+restore from: on 2026-10-05 it wrote a consumer's MAP.source.md and
+GLOSSARY.source.md empty a month after a writer had erased the text they
+should have held, and nothing looked in history (a consumer's root-issues
+report, 2026-10-19). --accept-loss writes them empty anyway, for a person
+who has read what is listed and decided.
+
 Exit 0 migrated or nothing to do; 1 a view could not be migrated without
 loss (nothing is left changed); 2 a usage error.
 """
@@ -71,36 +89,76 @@ def _engine_rel(repo):
         return 'tools'
 
 
-def plan(repo, restore_from=None):
+def _empty_source(repo, source):
+    """True when `source` is a file holding nothing but whitespace: the
+    placeholder an earlier migration wrote, which a restore may fill."""
+    p = pathlib.Path(repo) / source
+    return p.is_file() and not p.read_text(encoding='utf-8').strip()
+
+
+def plan(repo, restore_from=None, restore_views=('MAP.md',), say=print):
     """-> [(view, source, text to write into source)] -- what migrating
     `repo` would do. A view already migrated, missing, or generated (and
-    not being restored) needs nothing."""
+    not being restored) needs nothing. `restore_views` are the views a
+    `restore_from` applies to."""
     repo = pathlib.Path(repo)
     out = []
+    restoring = [v for v, _s in VIEWS if restore_from and v in restore_views]
     for view, source in VIEWS:
-        vp, sp = repo / view, repo / source
-        if bv.has_own_source(repo, source):
-            if view == 'MAP.md' and restore_from:
-                raise SystemExit(f'precedent_migrate_views: {source} already exists, so '
-                                 f'nothing was restored over it; bring back what you '
-                                 f'need from {restore_from} into it by hand.')
+        vp = repo / view
+        restore = view in restoring
+        if bv.has_own_source(repo, source) and not (restore and _empty_source(repo, source)):
+            if restore:
+                raise SystemExit(f'precedent_migrate_views: {bv.own_source_label(repo, source)} '
+                                 f'already exists and holds text, so nothing was restored over it; '
+                                 f'bring back what you need from {restore_from} into it '
+                                 f'by hand (--find-lost lists it).')
             continue
-        if view == 'MAP.md' and restore_from:
+        if restore:
             r = subprocess.run(['git', '-C', str(repo), 'show', f'{restore_from}:{view}'],
                                capture_output=True, text=True)
             if r.returncode != 0:
                 raise SystemExit(f'precedent_migrate_views: {view} is not at {restore_from}: '
                                  f'{r.stderr.strip()[:200]}')
-            if bv.GENERATED_BY_RE.match(r.stdout[:2000]):
-                raise SystemExit(f'precedent_migrate_views: {view} at {restore_from} is '
-                                 f'already generated; name a commit from before it was '
-                                 f'overwritten.')
+            if bv._ANY_GENERATED_LABEL.match(r.stdout[:2000]):
+                if len(restoring) == 1:
+                    raise SystemExit(f'precedent_migrate_views: {view} at {restore_from} is '
+                                     f'already generated; name a commit from before it was '
+                                     f'overwritten (--find-lost names one).')
+                say(f'precedent_migrate_views: {view} at {restore_from} is already '
+                    f'generated, so it is not restored from there.')
+                continue
             out.append((view, source, r.stdout))
             continue
         if not vp.is_file() or bv.is_generated_view(vp):
             continue
         out.append((view, source, vp.read_text(encoding='utf-8')))
     return out
+
+
+def find_lost(repo, say=print):
+    """Report, per view, what --find-lost promises. -> 0 nothing missing,
+    1 something is."""
+    repo = pathlib.Path(repo)
+    missing = 0
+    for view, _source in VIEWS:
+        found = bv.lost_hand_entries(repo, view)
+        if found is None:
+            say(f'{view}: {bv.view_owner(repo, view)}; no earlier hand-written version '
+                f'was replaced, so nothing to compare.')
+            continue
+        sha, lines = found
+        if not lines:
+            say(f'{view}: every heading and row of its last hand-written version '
+                f'({sha[:10]}) is still here.')
+            continue
+        missing += 1
+        say(f'{view}: {len(lines)} heading(s) or row(s) of its last hand-written version '
+            f'({sha[:10]}) are in neither {view} nor its source now. Each is either '
+            f'dropped on purpose or lost; restore what was lost into the source:')
+        for line in lines:
+            say(f'    {line[:200]}')
+    return 1 if missing else 0
 
 
 def write_list(repo):
@@ -145,11 +203,12 @@ def write_list(repo):
     return path
 
 
-def migrate(repo, restore_from=None, say=print):
+def migrate(repo, restore_from=None, say=print, restore_views=('MAP.md',),
+            accept_loss=False):
     """Migrate `repo`. -> 0 done or nothing to do, 1 refused (nothing left
     changed)."""
     repo = pathlib.Path(repo)
-    todo = plan(repo, restore_from)
+    todo = plan(repo, restore_from, restore_views, say)
     if not todo:
         # A repository already on source files keeps its list complete: a
         # fresh install writes the sources itself, and a later labelled file
@@ -159,8 +218,31 @@ def migrate(repo, restore_from=None, say=print):
         # commit that edits it rebuilds the view. Without both, the commit
         # backstop rebuilt nothing there (found 2026-10-03 rehearsing a
         # consumer overwritten on 2026-09-15).
-        made = [s for v, s in VIEWS if not bv.has_own_source(repo, s)
-                and (repo / v).is_file() and bv.is_generated_view(repo / v)]
+        made = [s for v, s in VIEWS if bv.view_owner(repo, v) == bv.OWNER_ENGINE]
+        # A view a writer turned from hand-written into generated may hold
+        # less than it did; an empty source then makes the loss permanent
+        # with no word said (2026-10-05). Look in history first.
+        erased = {}
+        for v, s in VIEWS:
+            if s in made:
+                found = bv.lost_hand_entries(repo, v)
+                if found and found[1]:
+                    erased[v] = found
+        if erased and not accept_loss:
+            for v, (sha, lines) in erased.items():
+                say(f'precedent_migrate_views: REFUSED -- {v} was hand-written until a '
+                    f'writer replaced it with a generated one, and {len(lines)} heading(s) '
+                    f'or row(s) of its last hand-written version ({sha[:10]}) are not in it '
+                    f'now. Writing an empty source would make that loss permanent.')
+            # The newest of those commits holds every view's last hand-written
+            # copy at once, so one restore brings all of them back.
+            newest = max((sha for sha, _l in erased.values()), key=lambda c: subprocess.run(
+                ['git', '-C', str(repo), 'show', '-s', '--format=%ct', c],
+                capture_output=True, text=True).stdout.strip() or '0')
+            say(f'precedent_migrate_views: --find-lost lists what is missing. Restore with '
+                f'--restore-from {newest}, or put back what matters by hand, or pass '
+                f'--accept-loss once a person has read that list and decided.')
+            return 1
         if made:
             for s in made:
                 (repo / s).write_text('', encoding='utf-8')
@@ -571,8 +653,11 @@ def main(argv):
         print(__doc__.strip(), file=sys.stderr)
         return 2
     repo = pathlib.Path(argv[argv.index('--repo') + 1]).resolve()
-    restore = (argv[argv.index('--restore-map-from') + 1]
-               if '--restore-map-from' in argv else None)
+    restore = (_arg(argv, '--restore-from') or _arg(argv, '--restore-map-from'))
+    restore_views = (tuple(v for v, _s in VIEWS) if '--restore-from' in argv
+                     else ('MAP.md',))
+    if '--find-lost' in argv:
+        return find_lost(repo)
     if '--split-file' in argv:
         path = _arg(argv, '--split-file')
         if not path:
@@ -589,13 +674,14 @@ def main(argv):
     if '--split' in argv:
         return split(repo, check='--check' in argv)
     if '--check' in argv:
-        todo = plan(repo, restore)
+        todo = plan(repo, restore, restore_views)
         for view, source, _t in todo:
             print(f'would move {view} into {source} and generate {view} from it')
         if not todo:
             print('nothing to migrate')
         return 0
-    return migrate(repo, restore)
+    return migrate(repo, restore, restore_views=restore_views,
+                   accept_loss='--accept-loss' in argv)
 
 
 if __name__ == '__main__':
