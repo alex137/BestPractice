@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-18-the-answer-first-gate-cannot-see-text-written-between-tool-calls
-status:          live
+status:          retired
 noted:           2026-10-18
 severity:        notable
-retired:         null
+retired:         2026-10-19
 retires_when:    "tools/answer_first_gate.py counts the answer from something the harness reliably records, or the harness writes every text block to the transcript before the next tool call runs"
 ---
 ## Symptom
@@ -32,10 +32,12 @@ reach this: the text is not late, it is never written. In one session,
 every mid-turn text of 25 to 32 words was in the transcript and every one
 of about 45 words or more was not, minutes later or ever, whether or not
 its tool call was refused; the turn-ending reply was. The session's
-200-word answer was refused four times running. One proposal, waiting on
-Morgan because it loosens a gate that was holding the session proposing
-it: the gate refuses once per question, and lets the next change through
-once its own refusal is in the transcript.
+200-word answer was refused four times running. Morgan: "if you write a
+longer answer for me, IS THERE A REASON TO NOT GIVE IT TO ME IMMEDIATELY?
+WHY WAIT OR WHY REFUSE?", then "okay, go fix" (strength: decided). The gate
+now refuses once per question and lets the next change through once its
+own refusal is in the transcript, so the trap below can cost one refused
+call, never a loop. Retired the same day.
 
 ## Fix
 

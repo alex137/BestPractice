@@ -42,6 +42,21 @@ up to CATCH_UP_SECONDS for that call to be recorded -- its text lands first
 the call goes through. No tool_use_id: nothing to prove lag with, so the
 first count stands.
 
+ONE REFUSAL PER QUESTION (Morgan, 2026-10-19, strength: decided: "okay,
+go fix"). The lag above was not the whole story. A text the session writes
+mid-turn of about forty-five words or more is never written to the
+transcript at all: shorter ones are, and the turn's final reply is, but a
+mid-turn answer the length this gate asks for is not, minutes later or
+ever (gotchas/gotcha-2026-10-18-the-answer-first-gate-cannot-see-text-
+written-between-tool-calls.md). A session that had answered in two hundred
+words was refused four times running, with nothing it could write ever
+reaching the gate. The person had the answer the moment it was written;
+only the work they asked for was held. So the refusal is a nudge, given
+once: when the transcript already carries this gate's refusal since the
+person's latest message, the next change goes through, saying so. Morgan:
+"if you write a longer answer for me, IS THERE A REASON TO NOT GIVE IT TO
+ME IMMEDIATELY? WHY WAIT OR WHY REFUSE?"
+
 FAIL-OPEN (practice: fail-gracefully): no transcript, an unreadable line,
 an unknown tool, a transcript that has not caught up with the call, or any
 error lets the call through.
@@ -102,10 +117,27 @@ def assistant_words(rec):
     return len(_text((rec.get('message') or {}).get('content')).split())
 
 
-def unanswered(lines):
+REFUSED_MARK = 'ANSWER FIRST:'
+
+
+def refused_already(rec):
+    """True for a tool result carrying this gate's own refusal."""
+    if rec.get('type') != 'user':
+        return False
+    content = (rec.get('message') or {}).get('content')
+    if not isinstance(content, list):
+        return False
+    return any(isinstance(b, dict) and b.get('type') == 'tool_result'
+               and REFUSED_MARK in str(b.get('content'))
+               for b in content)
+
+
+def unanswered(lines, once=None):
     """-> the person's latest message when it asks something and fewer than
-    MIN_ANSWER_WORDS words have gone to them since, else None."""
-    asked, words = None, 0
+    MIN_ANSWER_WORDS words have gone to them since, else None. When this
+    gate has already refused since that message, None as well, and `once`
+    (a list) gets the message appended: ONE REFUSAL PER QUESTION."""
+    asked, words, refused = None, 0, False
     for line in lines:
         try:
             rec = json.loads(line)
@@ -115,10 +147,15 @@ def unanswered(lines):
             continue
         said = person_message(rec)
         if said is not None:
-            asked, words = said, 0
+            asked, words, refused = said, 0, False
             continue
+        refused = refused or refused_already(rec)
         words += assistant_words(rec)
     if asked and ASKS.search(asked) and words < MIN_ANSWER_WORDS:
+        if refused:
+            if once is not None:
+                once.append(asked)
+            return None
         return asked
     return None
 
@@ -144,9 +181,15 @@ def refusal(payload):
     path = payload.get('transcript_path')
     if not path:
         return None
+    once = []
     try:
         with open(path, encoding='utf-8') as fh:
-            asked = unanswered(fh)
+            asked = unanswered(fh, once)
+        if once:
+            print('answer_first_gate: refused once already for this question; '
+                  'an answer written mid-turn may never reach the transcript, '
+                  'so this change goes through', file=sys.stderr)
+            return None
         call = payload.get('tool_use_id')
         if asked and call:
             if not recorded(path, call, CATCH_UP_SECONDS):
