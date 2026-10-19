@@ -30,14 +30,29 @@ The person's messages are the transcript's records whose origin is
 working (queued_command). Notices, tool results and other sessions'
 messages are not theirs.
 
+THE TRANSCRIPT TRAILS THE TURN (measured 2026-10-18). Claude Code writes
+an assistant message -- the text and the tool call it ends in -- to the
+transcript after PreToolUse runs, usually within a second, sometimes not
+for several. So the answer written just before the change being guarded is
+not there when the gate first reads; that day a session answered in about a
+hundred words, the gate counted 11 and refused its merge three times. When
+the count falls short and the payload names its tool_use_id, the gate waits
+up to CATCH_UP_SECONDS for that call to be recorded -- its text lands first
+-- and counts again. Still not recorded: the transcript provably lags, and
+the call goes through. No tool_use_id: nothing to prove lag with, so the
+first count stands.
+
 FAIL-OPEN (practice: fail-gracefully): no transcript, an unreadable line,
-an unknown tool or any error lets the call through.
+an unknown tool, a transcript that has not caught up with the call, or any
+error lets the call through.
 """
 import json
 import re
 import sys
+import time
 
 MIN_ANSWER_WORDS = 50
+CATCH_UP_SECONDS = 3.0
 
 ASKS = re.compile(
     r'\?|\b(?:explain|tell me|give me|show me|walk me through|details?|'
@@ -108,6 +123,19 @@ def unanswered(lines):
     return None
 
 
+def recorded(path, call, seconds):
+    """-> True once the transcript at path carries tool call `call`, waiting
+    up to `seconds` for it. The text written with the call lands first."""
+    deadline = time.monotonic() + seconds
+    while True:
+        with open(path, encoding='utf-8') as fh:
+            if call in fh.read():
+                return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+
+
 def refusal(payload):
     """-> the refusal text for this PreToolUse payload, or None."""
     tool = payload.get('tool_name') or ''
@@ -119,6 +147,16 @@ def refusal(payload):
     try:
         with open(path, encoding='utf-8') as fh:
             asked = unanswered(fh)
+        call = payload.get('tool_use_id')
+        if asked and call:
+            if not recorded(path, call, CATCH_UP_SECONDS):
+                print(f'answer_first_gate: the transcript has not recorded '
+                      f'{call} after {CATCH_UP_SECONDS:g}s, so it may lack the '
+                      f'answer written with it; letting the call through',
+                      file=sys.stderr)
+                return None
+            with open(path, encoding='utf-8') as fh:
+                asked = unanswered(fh)
     except OSError:
         return None
     if not asked:
