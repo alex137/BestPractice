@@ -80,8 +80,8 @@ may not survive.
 
 **Telling your AI Assistant to save your work to GitHub** is how you end
 that. Say it in your own words and it saves the work properly, puts it on
-the project's main branch where your colleagues can see it, and tells you
-where it went. The project's own checks still run when it is saved.
+the project's shared branch on GitHub where your colleagues can see it, and
+tells you which branch that was. The project's own checks still run when it is saved.
 
 Say it when you're done with a piece of work and want other people to
 have it, or when you simply want it saved outside the conversation before
@@ -113,7 +113,10 @@ each one saves you a paragraph of explaining:
 <!--/gen:vocabulary-->
 
 *That table is built from the rules themselves every time this page is
-rebuilt, so it cannot fall behind the AI Assistant. Numbers by:
+rebuilt, so it cannot fall behind the AI Assistant. It lists the phrases
+everyone here shares; a set of rules you bring for yourself adds its own,
+which only "Vocabulary" shows, because this page reads the same for
+everyone. Numbers by:
 precedent_vocabulary.py — or just say **"Vocabulary"** and your AI Assistant
 will read you the current list.*
 
