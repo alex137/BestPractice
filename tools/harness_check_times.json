@@ -68,6 +68,7 @@
   "check_boundary_check_never_passes_unread": 0.2,
   "check_branch_cleanup_button": 0.2,
   "check_branch_cleanup_merge_warns_on_a_stale_copy": 0.0,
+  "check_branch_cleanup_open_next_is_a_real_link": 0.0,
   "check_branch_cleanup_page_is_one_page_updated_in_place": 0.0,
   "check_branch_cleanup_page_lists_staging_waiting_to_go_live": 0.7,
   "check_branch_cleanup_page_merges_the_saved_page": 0.2,
