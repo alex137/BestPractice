@@ -3,16 +3,16 @@ slug:              todo-2026-10-19-deferred-main-run-reads-as-passed
 kind:              analysis
 domain:            mechanism
 severity:          high
-status:            open
-disposition:       ask
+status:            done
+disposition:       null
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        Morgan's go-ahead on the fix below
+decision:          fix it in the engine
+decision_strength: decided
+waiting_on:        null
 noted:             2026-10-19
-closed:            null
+closed:            2026-10-19
 ---
 ## What
 
@@ -57,3 +57,13 @@ The other place to fix it is the workflow: a deferred push run could wait
 for the pull request's run and copy its conclusion. That bills Actions
 minutes for waiting, which the minutes rule is against, so the engine
 side is the pick.
+
+## Done, 2026-10-19
+
+Morgan, 2026-10-19 (strength: decided): "yes, fix the engine and the two
+small ones". Fixed as proposed in
+[tools/precedent_branches.py](../tools/precedent_branches.py)
+(`_tested_nothing`, `DECISION_JOB`). Measured on the real runs:
+`d94c11c5` read `passed` before and reads `failed` now; `cc1a9e18`, after
+the fix reached main in #1246, still reads `passed`.
+`check_main_test_cadence` carries the case, which fails on the old code.

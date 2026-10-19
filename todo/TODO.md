@@ -57,7 +57,6 @@ as_of: 2026-10-19
 | [`todo-2026-10-05-very-deep-check-pass-3-findings`](todo-2026-10-05-very-deep-check-pass-3-findings.md) | What the 2026-10-05 very deep check's pass 3 (does the writing hold | 14d | ask |  |
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 14d | ask |  |
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 8d | ask |  |
-| [`todo-2026-10-19-deferred-main-run-reads-as-passed`](todo-2026-10-19-deferred-main-run-reads-as-passed.md) | `github_test_state` in tools/precedent_branches.py | 0d | ask |  |
 
 ## Verify Before External Use
 
@@ -154,7 +153,6 @@ as_of: 2026-10-19
 | [`todo-2026-10-05-very-deep-check-pass-3-findings`](todo-2026-10-05-very-deep-check-pass-3-findings.md) | What the 2026-10-05 very deep check's pass 3 (does the writing hold | 14d |
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 14d |
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 8d |
-| [`todo-2026-10-19-deferred-main-run-reads-as-passed`](todo-2026-10-19-deferred-main-run-reads-as-passed.md) | `github_test_state` in tools/precedent_branches.py | 0d |
 
 ## Open Decisions
 
