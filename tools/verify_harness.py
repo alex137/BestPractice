@@ -66813,6 +66813,33 @@ def check_source_supplied_checks_run():
                       'script, not from the filename',
                       {'fx-clean', 'fx-violated', 'fx-skipped', 'fx-broken',
                        'fx-local', 'fx-both'} <= added, str(sorted(added))))
+
+        # A script's inputs select it, not only its practice's applies_to: a
+        # consumer's check of a page's practice list reads every practice's
+        # applies_to, a new practice landed without its row, and the
+        # rotation left the check for later (2026-10-19).
+        reads = repo / 'tools' / 'checks' / 'check_fx_reads.py'
+        script(reads, 'fm = {}\nfm.get("applies_to")\nsys.exit(0)\n')
+        declares = repo / 'tools' / 'checks' / 'check_fx_declares.py'
+        script(declares, 'SELECTS_ON = ("pages/*.md", "**")\nsys.exit(0)\n')
+        cases.append(('a script that reads applies_to is selected by any '
+                      'practice file', set(pc.script_selects_on(reads))
+                      >= {'practices/*.md', 'local/practices/*.md'},
+                      repr(pc.script_selects_on(reads))))
+        cases.append(('a script\'s own SELECTS_ON is read without running it, '
+                      'and a bare ** in it adds nothing',
+                      pc.script_selects_on(declares) == ('pages/*.md',),
+                      repr(pc.script_selects_on(declares))))
+        cases.append(('a script that declares nothing and reads no applies_to '
+                      'is selected exactly as before',
+                      pc.script_selects_on(repo / 'tools' / 'checks'
+                                           / 'check_fx_clean.py') == (), ''))
+        pc.register_materialized_checks()
+        cases.append(('...and the registered check carries those globs, where '
+                      'the change-driven selection reads them',
+                      'practices/*.md' in (pc.CHECKS.get('check_fx_reads', {})
+                                           .get('selects_on') or ()),
+                      repr(pc.CHECKS.get('check_fx_reads', {}).get('selects_on'))))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
