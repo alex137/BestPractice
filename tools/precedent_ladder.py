@@ -73,12 +73,17 @@ def ladder_sources(repo=None, user_config=None):
     if isinstance(ind, dict) and ind.get('path'):
         for b in pr.brought_sources(ind['path'], warn=False):
             candidates.append((b['name'], pathlib.Path(b['path'])))
-    out, seen = [], set()
+    out, seen, named = [], set(), set()
     for name, path in candidates:
         real = pathlib.Path(path).resolve()
-        if real in seen or not (real / 'practices').is_dir():
+        # By name too: a set the repository declares (or copies in) wins
+        # over the same set brought from a clone elsewhere, as in the
+        # resolver.
+        if real in seen or (name and name in named) \
+                or not (real / 'practices').is_dir():
             continue
         seen.add(real)
+        named.add(name)
         if pr.LADDER_CAPABILITY in pr.source_provides(real):
             out.append((name, str(real)))
     return out

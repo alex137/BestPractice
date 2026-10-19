@@ -250,8 +250,26 @@ def private_set_names(root=None):
         return names
     for s in data.get('sources', []) or []:
         if _declared_level(s) in PRIVATE_LEVELS and isinstance(s.get('name'), str):
+            if s.get('vendored') is True and _copy_says_public(root, s):
+                # A public set copied in (spec/VENDORED_SHARED_SETS.md): its
+                # folder name is no secret, and its manifest says so.
+                continue
             names.add(s['name'].strip().lower())
     return names
+
+
+def _copy_says_public(root, src):
+    """True when the copy a vendored source entry points at carries a
+    precedent-source.json that says "visibility": "public"."""
+    path = pathlib.Path(str(src.get('path') or ''))
+    if not str(path) or path.is_absolute():
+        return False
+    try:
+        text = (pathlib.Path(root or ROOT) / path / 'precedent-source.json'
+                ).read_text(encoding='utf-8')
+    except OSError:
+        return False
+    return not _manifest_says_private(text)
 
 
 def _manifest_says_private(text):
@@ -269,6 +287,8 @@ def _manifest_says_private(text):
     if vis == 'private':
         return True
     return vis != 'public' and _declared_level(data) in PRIVATE_LEVELS
+
+manifest_says_private = _manifest_says_private
 
 # Exactly one path is exempt from the path rules, by full path, and it is
 # not a loophole: it is the canonical SessionStart hook every consuming

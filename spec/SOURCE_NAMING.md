@@ -40,7 +40,7 @@ Every source carries `precedent-source.json` at its root:
 | `level` | `universal`, `shared`, `individual` or `repo-local`. `shared` is any set a repository declares beside the universal one and its own `local/`; it was called `team` until 2026-09-18, and a declaration that still says `team` resolves as `shared`. |
 | `visibility` | `public` or `private`. The author's say, not the consumer's: the leak gate refuses a private set's manifest in a public tree whatever directory it sits in. |
 | `subject` | One sentence on what the set is about. For people. |
-| `code` | Directories a consumer vendors alongside the practices — `tools`, for a set whose practices are about a tool it ships. Practices themselves resolve live and are never vendored. |
+| `code` | Directories a consumer vendors alongside the practices — `tools`, for a set whose practices are about a tool it ships. Practices resolve live, unless the consumer copies the whole set in ([VENDORED_SHARED_SETS.md](VENDORED_SHARED_SETS.md)). |
 
 Two names are fixed because they are not anyone's product: the universal
 set is `precedent`, and a repo-local source is `local`, matching its fixed
@@ -105,7 +105,7 @@ put a source in a differently-named directory.
 | `team` still reads as `shared` | the same module's `normalize_level` |
 | A new set is created with its manifest, under a name that is a slug | [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py) |
 | A declared set is cloned from where the consumer says it lives | [tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)'s `_clone_url` |
-| A shared set's code vendors under its name | [tools/checkin.py](../tools/checkin.py) `--source <name>`, mirroring the manifest's `code` directories into `process/<name>/` |
+| A shared set's code vendors under its name | [tools/checkin.py](../tools/checkin.py) `--source <name>`, mirroring the manifest's `code` directories into `process/<name>/`, and the set's practices too when the consumer copies it in ([VENDORED_SHARED_SETS.md](VENDORED_SHARED_SETS.md)) |
 | Every `precedent.json` in the tree conforms, and every reachable source answers to its declaration | [tools/precedent_check.py](../tools/precedent_check.py)'s `source-naming` check, with a planted case in [tools/verify_harness.py](../tools/verify_harness.py) |
 | A declared source repository is still called what the consumer says | [tools/precedent_source_names.py](../tools/precedent_source_names.py), at [vendor-update-runbook](../practices/vendor-update-runbook.md)'s step 8 — not in [tools/precedent_check.py](../tools/precedent_check.py), which is offline by construction |
 | Say it before a name is picked | the occasion index — this practice's occasion names *importing and creating* a repository, not only declaring one |

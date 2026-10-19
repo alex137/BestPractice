@@ -1117,7 +1117,11 @@ def _brought_sets_rows():
         import precedent_resolve as pr
     except Exception:                                        # noqa: BLE001
         return []
-    brought = pr.brought_sources(_individual_path(), warn=False)
+    # A set this repository copies in is here by definition, and its copy
+    # wins over the person's (precedent_resolve.vendored_source_paths).
+    copied = {n for _p, _l, n, _note in pr.vendored_source_paths(ROOT)}
+    brought = [b for b in pr.brought_sources(_individual_path(), warn=False)
+               if b['name'] not in copied]
     if not brought:
         return []
     name = 'every set your individual set brings is here'

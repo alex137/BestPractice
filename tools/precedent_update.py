@@ -3525,16 +3525,58 @@ def status_paths(repo, *pathspec):
 HARNESS_GO_AHEAD = 'PRECEDENT_HARNESS_GO_AHEAD'
 
 
-def held_harness_paths(repo):
-    """-> the .claude/ paths this run changed from HEAD while the person's
-    words for them are not given (HARNESS_GO_AHEAD unset): what the update
-    asks about and may not commit yet, so their baselines wait for the run
-    that has the words (rebaseline_vendored_entries' `hold`)."""
-    if os.environ.get(HARNESS_GO_AHEAD, '').strip():
-        return set()
+def _harness_diff(repo):
     r = subprocess.run(['git', '-C', str(repo), 'diff', 'HEAD', '--name-only',
                         '--', '.claude/'], capture_output=True, text=True)
     return {n for n in r.stdout.splitlines() if n}
+
+
+def _content_hashes(repo, paths):
+    import hashlib
+    out = {}
+    for rel in sorted(paths):
+        f = pathlib.Path(repo) / rel
+        out[rel] = hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else None
+    return out
+
+
+# THE GO-AHEAD IS KEPT WITH WHAT IT APPROVED (2026-10-19). The person's words
+# reached the update only as HARNESS_GO_AHEAD in one run's environment, and
+# the baselines they unlock were re-recorded near the end of that run. Two
+# consuming repositories' runs stopped before the end, the words were gone,
+# and the practice audit failed settings.json as DRIFT until it was
+# re-recorded by hand. Now the run that has the words writes them into the
+# update's record, keyed to the content they approved, and re-records those
+# baselines at once; a rerun on the same content reads them back.
+def record_harness_go_ahead(repo, words, paths):
+    data = _read_record(repo)
+    data['harness_go_ahead'] = {'words': words, 'paths': _content_hashes(repo, paths)}
+    _write_record(repo, data)
+
+
+def harness_go_ahead(repo):
+    """-> the person's words for the .claude/ change in the tree now: this
+    run's HARNESS_GO_AHEAD, else the words an earlier run recorded for
+    exactly this content, else ''."""
+    words = os.environ.get(HARNESS_GO_AHEAD, '').strip()
+    if words:
+        return words
+    kept = _read_record(repo).get('harness_go_ahead') or {}
+    diff = _harness_diff(repo)
+    if diff and isinstance(kept, dict) and kept.get('words') and \
+            kept.get('paths') == _content_hashes(repo, diff):
+        return str(kept['words'])
+    return ''
+
+
+def held_harness_paths(repo):
+    """-> the .claude/ paths this run changed from HEAD while the person's
+    words for them are not given (harness_go_ahead): what the update asks
+    about and may not commit yet, so their baselines wait for the run that
+    has the words (rebaseline_vendored_entries' `hold`)."""
+    if harness_go_ahead(repo):
+        return set()
+    return _harness_diff(repo)
 
 
 def harness_changes(repo):
@@ -5648,13 +5690,18 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None):
     # question is printed in every outcome, ahead of the commit.
     harness = harness_changes(repo)
     if harness:
-        words = os.environ.get(HARNESS_GO_AHEAD, '').strip()
+        words = harness_go_ahead(repo)
         rehashed = hold_hook_hashes(repo, harness, approved=bool(words))
         if words:
+            # At the step the words are given, not at the end of the run.
+            record_harness_go_ahead(repo, words, _harness_diff(repo))
+            rebased = rebaseline_vendored_entries(repo, set(harness), hold=set())
             rep.step('hooks and settings', f'{", ".join(harness)} changed, with '
                      f'the person\'s go-ahead: "{words}"'
                      + (f'; recorded the hash of {", ".join(rehashed)} in '
-                        f'{ENGINE_MANIFEST_REL}' if rehashed else ''))
+                        f'{ENGINE_MANIFEST_REL}' if rehashed else '')
+                     + (f'; re-recorded the baseline of {", ".join(rebased)}'
+                        if rebased else ''))
         else:
             if rehashed:
                 rep.step('hooks and settings', f'{ENGINE_MANIFEST_REL} keeps '

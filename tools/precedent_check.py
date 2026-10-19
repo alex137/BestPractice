@@ -1527,18 +1527,30 @@ def _set_words_stay_in_their_set(ctx):
 
 @check('ladder-set-is-brought-not-declared', 'tree',
        "no repository's precedent.json declares a set that provides the "
-       'five-stage ladder: a declared set is in force for everyone who works '
-       'there, and the ladder is something each person brings for themselves',
+       'five-stage ladder, unless one of its code owners has said, quoted '
+       'and dated in a binds_everyone entry, that it binds everyone there: '
+       'a declared set is in force for everyone who works there, and the '
+       'ladder is otherwise something each person brings for themselves',
        'a declared set whose clone is not on this machine -- what it provides '
        'cannot be read, so it is passed over. It does not look at what a '
-       'person brings: that is theirs to choose.',
+       'person brings: that is theirs to choose. It cannot prove a quote is '
+       'real, only that it names a code owner and is written down.',
        practice_backed=False,
-       selects_on=('precedent.json',))
+       selects_on=('precedent.json', 'CODEOWNERS', '.github/CODEOWNERS',
+                   'docs/CODEOWNERS'))
 def _ladder_set_is_brought_not_declared(ctx):
     """The opt-in works person by person: two people in one repository, one
     bringing the ladder set from their own individual set and one not, each
     get their own. A repository that declares the set takes that choice
-    away from everybody at once, and nothing else would say so."""
+    away from everybody at once, and nothing else would say so.
+
+    Narrowed, not dropped (2026-10-19, D18 in spec/LADDER_OPT_IN_PLAN.md):
+    one code owner may make it bind everyone, in the repository's own
+    precedent.json --
+        "binds_everyone": {"sets": ["<set>"],
+                           "approved_by": "Name, YYYY-MM-DD: \"their words\""}
+    One code owner is enough; the others are not asked. The quote shows
+    who did it."""
     try:
         import precedent_resolve as _pr
     except ImportError:
@@ -1547,6 +1559,7 @@ def _ladder_set_is_brought_not_declared(ctx):
         cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return []
+    bound, why_not = _binds_everyone(ROOT, cfg)
     out = []
     for entry in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
         if not isinstance(entry, dict) or not entry.get('path'):
@@ -1556,13 +1569,105 @@ def _ladder_set_is_brought_not_declared(ctx):
             continue
         path = _pr._declared_path(ROOT.resolve(), entry['path'])
         if _pr.LADDER_CAPABILITY in _pr.source_provides(path):
+            name = entry.get('name') or path.name
+            if name in bound:
+                continue
+            if why_not:
+                out.append(Finding(
+                    'precedent.json',
+                    f'declares {name}, which provides the five-stage ladder, '
+                    f'and its binds_everyone entry does not make that '
+                    f'binding: {why_not}'))
+                continue
             out.append(Finding(
                 'precedent.json',
                 f"declares {entry.get('name') or path.name}, which provides "
                 f'the five-stage ladder, so everyone who works here gets it. '
                 f'Take it out of this file; each person who wants it lists it '
                 f'under "brings" in their own individual set\'s '
-                f'precedent-source.json'))
+                f'precedent-source.json. Or, if one of this repository\'s '
+                f'code owners wants it to bind everyone here, record that in '
+                f'a "binds_everyone" entry quoting them'))
+    return out
+
+
+def _binds_everyone(root, cfg):
+    """-> (set names a code owner has bound everyone to, '' or what is
+    wrong with the entry). An absent entry is ({}, ''): the old rule."""
+    entry = cfg.get('binds_everyone') if isinstance(cfg, dict) else None
+    if entry is None:
+        return set(), ''
+    if not isinstance(entry, dict) or not isinstance(entry.get('sets'), list):
+        return set(), 'it is not an object with a "sets" list and "approved_by"'
+    by = str(entry.get('approved_by') or '')
+    if not _APPROVAL_DATE.search(by):
+        return set(), 'approved_by carries no date (YYYY-MM-DD)'
+    if not _APPROVAL_QUOTE.search(by):
+        return set(), ('approved_by quotes nobody -- it must carry the code '
+                       'owner\'s own words, in double quotes')
+    who = by.split(',', 1)[0].strip().lstrip('@').lower()
+    logins, where = _code_owner_logins(root, cfg)
+    if who not in logins:
+        return set(), (f'{who!r} is not one of this repository\'s code owners '
+                       f'({where or "none are named"})')
+    return {str(n) for n in entry['sets']}, ''
+
+
+def _code_owner_logins(root, cfg):
+    """-> (every way a code owner may be named, lowercased: their login and,
+    from precedent.json's maintainers, their name; where they were read).
+    The code owners are precedent_audience.owners(): CODEOWNERS, else the
+    registry it is generated from, else the repository's GitHub owner."""
+    try:
+        import precedent_audience as _aud
+        found, where = _aud.owners(root)
+    except Exception:                                         # noqa: BLE001
+        found, where = None, None
+    logins = {str(o).lstrip('@').lower() for o in (found or ())}
+    names = set(logins)
+    for m in (cfg.get('maintainers') or []) if isinstance(cfg, dict) else []:
+        if isinstance(m, dict) and str(m.get('github') or '').lstrip(
+                '@').lower() in logins and m.get('name'):
+            names.add(str(m['name']).strip().lower())
+    return names, where
+
+
+@check('copied-in-set-fits-visibility', 'tree',
+       'a set this repository copies in ("vendored": true in precedent.json) '
+       'is private only when the repository is: a private set\'s rules in a '
+       'public tree are a leak, and the copy is the leak',
+       'a copy that is not on disk yet -- there is no precedent-source.json '
+       'to say whether the set is private, and Update Vendors refuses the '
+       'copy itself when it would not fit.',
+       practice_backed=False,
+       selects_on=('precedent.json', 'process/*/precedent-source.json'))
+def _copied_in_set_fits_visibility(ctx):
+    """Update Vendors refuses to make such a copy (checkin.py); this catches
+    one made another way, or a repository turned public after the copy."""
+    try:
+        import precedent_resolve as _pr
+        from leak_gate import declared_visibility, manifest_says_private
+    except ImportError:
+        raise NotApplicable('the resolver or the leak gate did not import')
+    copies = [(pathlib.Path(p), n) for p, _l, n, note in
+              _pr.vendored_source_paths(ROOT) if not note]
+    if not copies:
+        raise NotApplicable('this repository copies no set in')
+    if declared_visibility(ROOT)[0] == 'private':
+        return []
+    out = []
+    for path, name in copies:
+        try:
+            text = (path / _pr.SOURCE_MANIFEST).read_text(encoding='utf-8')
+        except OSError:
+            text = '{}'
+        if manifest_says_private(text):
+            out.append(Finding(
+                'precedent.json',
+                f'copies in {name}, a private set (its precedent-source.json '
+                f'does not say "visibility": "public"), and this repository '
+                f'does not say "visibility": "private". Remove the copy and '
+                f'the "vendored" flag, or make the repository private'))
     return out
 
 
@@ -9796,6 +9901,15 @@ def _strip_other_repo_urls(line, own_slug):
     return _REPO_URL_RE.sub(keep, line)
 
 
+def _materialize():
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    try:
+        import precedent_materialize
+    finally:
+        sys.path.pop(0)
+    return precedent_materialize
+
+
 @check('rename-updates-links', 'tree',
        'no tracked file still references a path this branch renamed away '
        'or deleted',
@@ -9811,7 +9925,8 @@ def _strip_other_repo_urls(line, own_slug):
        'by one -- or about a path inside a permalink pinned to a 40-hex '
        'commit, which cites the file as it was and cannot go stale, or '
        'inside a URL into another repository, which names that '
-       'repository\'s file rather than this one\'s. Nor '
+       'repository\'s file rather than this one\'s, or on a line that '
+       'qualifies it by another repository ("OtherSet\'s tools/x.py"). Nor '
        'about history, which names a path as it was: a generated view (its '
        'source is read), a closed todo item, a `## Story` section, or a '
        'record file precedent.json declares in `record_paths`.',
@@ -9970,8 +10085,14 @@ def _rename_updates_links(ctx):
                 # branch later deleted).
                 if rel.endswith('.json') and line.lstrip().startswith('"notes"'):
                     continue
+                # And a mention the line itself qualifies by another
+                # repository ("OtherSet's tools/x.py") names that
+                # repository's file: the same rule the sync uses before it
+                # removes a file no source ships any more (2026-10-19).
                 if old in line and _names_path(_strip_other_repo_urls(
-                        PINNED_PERMALINK_RE.sub('', line), _own_slug), old):
+                        PINNED_PERMALINK_RE.sub('', line), _own_slug), old) \
+                        and not _materialize().mention_names_another_repo(
+                            line, old, _own_slug):
                     if moved and is_guarded_fallback(rel, line, old):
                         continue  # the fallback beside tools/, as templates write it
                     where = f'renamed to {new_path}' if new_path else 'deleted'

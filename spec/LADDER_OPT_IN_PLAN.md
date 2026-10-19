@@ -190,7 +190,7 @@ and run only for ladder users. Ladder lines print only when the ladder is
 in force. Off-ladder output says plainly what happened and names the base
 branch.
 
-**D5. Helper.** One helper, `tools/precedent_ladder.py`, offers
+**D5. Helper.** One helper, [tools/precedent_ladder.py](../tools/precedent_ladder.py), offers
 `ladder_in_force()` and `say(ladder_text, plain_text)`, plus a bash entry
 point (`--in-force`, an exit code cached per session) for the
 freshness-guard, stop-git-check and push-check-gate hooks. About fifty
@@ -245,7 +245,7 @@ above", 2026-09-26):
     stale generated page, and nothing on the ladder could take them.
   - A conflict only in generated files is rebuilt by each file's own
     generator from the merged sources. A file counts as generated when it
-    carries a `generated_by:` header, is a page `doc_html.py` renders, or
+    carries a `generated_by:` header, is a page [doc_html.py](../tools/doc_html.py) renders, or
     is declared by the repository in its `precedent.json`:
     `"generated": [{"paths": ["book/output/*.docx"], "rebuild":
     ["tools/build_book.py"]}]` (globs, and a `tools/` script with its
@@ -473,7 +473,7 @@ rules and Vocabulary match the baseline taken before the work, with
 and fixed, each with a harness case shown failing without its fix:
 
 - **Path rules from outside the repository never fired.**
-  `precedent_paths.py` read the repository's `practices/` alone, so a path
+  [precedent_paths.py](../tools/precedent_paths.py) read the repository's `practices/` alone, so a path
   rule in a person's individual set, a set they bring, or a set a practice
   repository declares, never reached a session. `checks-follow-the-tier`
   stopped reaching its ladder user when it moved. It now adds every rule in
@@ -493,7 +493,7 @@ The final round, on the finished tree, found two more, fixed the same way:
 - **The staging watch reached a colleague.** Its off-ladder silence sat in
   its command line only, and the reply gate calls it directly, so a
   colleague was told who had pushed to staging. Every entry point asks now.
-- **A reworded warning broke the code that read it.** `precedent_check.py`'s
+- **A reworded warning broke the code that read it.** [precedent_check.py](../tools/precedent_check.py)'s
   size-cap warning was made plain, and the push check went on matching the
   old words, so its closing reminder never fired. It matches both now, and
   says nothing about tiers to a person off the ladder.
@@ -525,6 +525,16 @@ how two people in one repository can differ). A repository's
 the ladder is never listed in one; each person brings it from their own
 individual set. The check `ladder-set-is-brought-not-declared` refuses a
 `precedent.json` that declares one.
+
+*Narrowed 2026-10-19 (Morgan, strength: decided: "one CODEOWNER (not all)
+can make it binding for everyone").* D18 stays the default everywhere. A
+repository may declare the ladder (and so copy it in,
+[VENDORED_SHARED_SETS.md](VENDORED_SHARED_SETS.md)) when one of its code
+owners says so in its own `precedent.json`, quoted and dated:
+`"binds_everyone": {"sets": ["<set>"], "approved_by": "Name, YYYY-MM-DD:
+\"their words\""}`. One code owner is enough and the others are not
+asked; the quote shows who did it. The check passes such a declaration and
+says what is wrong with an entry that does not qualify.
 
 ## Testing
 

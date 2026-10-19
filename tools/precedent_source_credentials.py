@@ -635,8 +635,15 @@ def unresolved_private_sources(repo_root=None, env=None):
             continue
         path = (root / str(src.get('path', ''))).resolve()
         if not (path / 'practices').is_dir():
-            out.append(('shared', str(src.get('name') or path.name),
-                        _missing_reason(path, src.get('name'))))
+            # A set copied into this repository is never attached or cloned:
+            # a missing copy is made by Update Vendors, and saying "attach
+            # it" would send the session after the wrong fix.
+            why = (f"{src.get('path')} is declared as copied in "
+                   f"(\"vendored\": true) and is not there -- run Update "
+                   f"Vendors to make the copy"
+                   if src.get('vendored') is True
+                   else _missing_reason(path, src.get('name')))
+            out.append(('shared', str(src.get('name') or path.name), why))
 
     user_cfg, code = individual_config_state(env)
     # On a hosted session with no sign anywhere that this person has an
