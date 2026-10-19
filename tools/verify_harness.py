@@ -39145,6 +39145,38 @@ def check_container_check_sees_other_local_branches():
         cases.append(('a branch holding only an engine refresh is not work at risk',
                       not any('other local branches' in u for u in got['unsafe']),
                       str(got['unsafe'])))
+        # 2026-10-19: a refresh made on top of a local merge of work the
+        # remote already has -- the merge itself never pushed -- was called
+        # work at risk, "(1)", on every archive check.
+        fixture_git(clone, 'checkout', '-q', '-b', 'side')
+        (clone / 'side.txt').write_text('s\n', encoding='utf-8')
+        fixture_git(clone, 'add', '-A')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'side')
+        fixture_git(clone, 'push', '-q', 'origin', 'side')
+        fixture_git(clone, 'checkout', '-q', '-b', 'merged', 'main')
+        (clone / 'main-only.txt').write_text('m\n', encoding='utf-8')
+        fixture_git(clone, 'add', '-A')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'main-only')
+        fixture_git(clone, 'push', '-q', 'origin', 'merged')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'merge', '-q',
+                    '--no-edit', 'side')
+        fixture_git(clone, 'checkout', '-q', '-b',
+                    '2026-10-14-x-engine-refresh-0bad1234-mm')
+        (clone / 'refresh.txt').write_text('r\n', encoding='utf-8')
+        fixture_git(clone, 'add', '-A')
+        fixture_git(clone, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm',
+                    'Refresh the vendored engine to BestPractice 0bad1234ef56')
+        fixture_git(clone, 'checkout', '-q', 'main')
+        fixture_git(clone, 'branch', '-q', '-D', 'merged', 'side')
+        got = pcs.scan_one(clone)
+        cases.append(('a refresh over an unpushed merge of pushed work is not work at risk',
+                      not any('other local branches' in u for u in got['unsafe']),
+                      str(got['unsafe'])))
+        import precedent_refresh_sources as prs
+        cases.append(('the refresh tool still keeps that branch: a merge can '
+                      'carry a conflict resolution',
+                      '2026-10-14-x-engine-refresh-0bad1234-mm'
+                      not in prs.refresh_only_branches(clone, 'HEAD'), ''))
         branch_with('half-done', 'real work, never pushed')
         got = pcs.scan_one(clone)
         cases.append(('a branch with real unpushed work is named',
@@ -44777,6 +44809,337 @@ def check_session_check_reports_a_source_cloned_twice():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_session_start_says_did_not_load_only_after_cloning():
+    """Session start opened with "BEFORE ANY OTHER WORK: these practice
+    sources did not load" on a fresh container (2026-10-19) for two sets
+    that loaded seconds later, and named one of them twice. Two causes:
+    BestPractice's own .claude/hooks/session-start.sh wrote the practices
+    file, and that notice, before the step that clones the shared sets
+    (tools/bootstrap.sh, which says it keeps the same order, had them the
+    right way round); and precedent_hooks.unloaded_sources listed a set
+    once per folder that declares it. Both fail on the old code."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_hooks as ph
+        import precedent_resolve as pr
+    finally:
+        sys.path.pop(0)
+    cases = []
+    for rel in ('.claude/hooks/session-start.sh', 'tools/bootstrap.sh'):
+        text = (ROOT / rel).read_text(encoding='utf-8')
+        clone = text.find('precedent_source_bootstrap.py --teams-from')
+        render = text.find('python3 tools/precedent_session_practices.py')
+        cases.append((f'{rel} clones the sources before it says which loaded',
+                      0 <= clone < render, f'clone at {clone}, render at {render}'))
+    saved = (pr.declared_source_paths, ph._attach_hints)
+    try:
+        pr.declared_source_paths = lambda root: [
+            ('/nowhere/a/precedent-shared-x', 'shared', 'precedent-shared-x', ''),
+            ('/nowhere/b/precedent-shared-x', 'shared', 'precedent-shared-x', '')]
+        ph._attach_hints = lambda root: {'precedent-shared-x': 'acct/precedent-shared-x'}
+        rows = ph.unloaded_sources(ROOT)
+    finally:
+        pr.declared_source_paths, ph._attach_hints = saved
+    cases.append(('a set two folders declare is named once',
+                  rows == [('precedent-shared-x', 'acct/precedent-shared-x')], str(rows)))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_one_tree_per_source_whichever_way_links_run():
+    """One practice source, one tree, whichever folder got there first.
+
+    Seen 2026-10-18 on one cloud container: /home/user/precedent-individual
+    and /home/user/precedent-shared-ladder were links into /root, while
+    /root/precedent-shared-writing was a link into /home/user. One tree each,
+    but which folder held it depended on which repository resolved the set
+    first, and the clone lock is keyed by path, so two runs cloning the same
+    set into the two folders at once never waited on each other. A report
+    from 2026-10-17 of a shared set "cloned twice at session start" could
+    not be reproduced afterwards, which is what that race leaves behind.
+
+    Morgan, 2026-10-19 (strength: decided): each harness declares a home
+    folder (tools/source_homes.json); the tree is cloned there and every
+    other path is a link into it; every tool that lists checkouts treats a
+    link and its target as one, through precedent_source_home.
+
+    Three parts, each against a fixture it owns (practice:
+    fixture-owns-its-state): (a) each harness's home folder, and the
+    bootstrap cloning into it, (b) the listers on a container laid out the
+    2026-10-18 way, links running both directions, (c) the two runs that
+    used to leave two trees. NEGATIVE CONTROLS: (a) and (c) run again with
+    the home rule off, the code before this change, and must leave two
+    trees; (b)'s session-hooks lister must have run a repository's hooks
+    twice before."""
+    import tempfile, contextlib, io
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_source_home as psh
+        import precedent_source_bootstrap as psb
+        import precedent_run_session_hooks as rsh
+        import precedent_stale_branches as psbr
+    finally:
+        sys.path.pop(0)
+    cases = []
+
+    # (a) the registry: one home folder per harness, the four adapters and a
+    # default, and every adapter that runs the bootstrap names its entry.
+    reg = psh.registry()
+    adapters = sorted(d.name for d in (ROOT / 'templates' / 'harness').iterdir()
+                      if d.is_dir())
+    cases.append(('the registry has every adapter under templates/harness/ '
+                  'and a default',
+                  set(adapters) | {'default'} <= set(reg), f'{adapters} {sorted(reg)}'))
+    for adapter, rel in (('codex', 'codex/hooks.json'),
+                         ('gemini-cli', 'gemini-cli/settings.json'),
+                         ('grok-build', 'grok-build/README.md')):
+        text = (ROOT / 'templates' / 'harness' / rel).read_text(encoding='utf-8')
+        cases.append((f'the {adapter} adapter declares PRECEDENT_HARNESS={adapter}',
+                      f'PRECEDENT_HARNESS={adapter}' in text, rel))
+    with tempfile.TemporaryDirectory() as td:
+        t = pathlib.Path(td)
+        home, ws = t / 'home', t / 'ws'
+        proj = ws / 'proj'
+        proj.mkdir(parents=True)
+        home.mkdir()
+        subprocess.run(['git', 'init', '-q', str(proj)], capture_output=True)
+        base = {'HOME': str(home), 'PRECEDENT_PROJECT_DIR': str(proj)}
+        want = {
+            'claude-code on the web': ({**base, 'CLAUDECODE': '1',
+                                        'CLAUDE_CODE_REMOTE': 'true'}, ws),
+            'claude-code on a computer': ({**base, 'CLAUDECODE': '1'}, home),
+            'codex': ({**base, 'PRECEDENT_HARNESS': 'codex'}, home),
+            'gemini-cli': ({**base, 'PRECEDENT_HARNESS': 'gemini-cli'}, home),
+            'grok-build': ({**base, 'PRECEDENT_HARNESS': 'grok-build'}, home),
+            'any other harness': (dict(base), home),
+            'PRECEDENT_SOURCE_HOME set': ({**base, 'CLAUDECODE': '1',
+                                           'CLAUDE_CODE_REMOTE': 'true',
+                                           'PRECEDENT_SOURCE_HOME': str(t / 'mine')},
+                                          t / 'mine'),
+        }
+        for label, (env, folder) in want.items():
+            got = psh.home(env)
+            cases.append((f'home folder, {label}', got == folder, f'{got} != {folder}'))
+
+    # (a) and (c): the bootstrap clones a shared set into the home folder and
+    # links the declared path, so two runs that resolve the set into the
+    # two folders leave one tree. With the rule off -- the old code -- the
+    # same two runs leave two.
+    def two_runs(rule, harness_env):
+        with tempfile.TemporaryDirectory() as td:
+            t = pathlib.Path(td)
+            srv, home, ws = t / 'srv', t / 'home', t / 'ws'
+            proj = ws / 'proj'
+            source = srv / 'acct' / 'precedent-shared-x'
+            for d in (source, home, proj):
+                d.mkdir(parents=True)
+            rewrite = {'GIT_CONFIG_COUNT': '1',
+                       'GIT_CONFIG_KEY_0': f'url.file://{srv}/.insteadOf',
+                       'GIT_CONFIG_VALUE_0': 'https://example.invalid/'}
+            git_env = {**os.environ, **rewrite, 'GIT_AUTHOR_NAME': 't',
+                       'GIT_AUTHOR_EMAIL': 't@example.com',
+                       'GIT_COMMITTER_NAME': 't',
+                       'GIT_COMMITTER_EMAIL': 't@example.com'}
+            for args in (['init', '-q', '-b', 'main'], ['add', '-A'],
+                         ['commit', '-qm', 'seed']):
+                if args[0] == 'add':
+                    (source / 'practices').mkdir()
+                    (source / 'practices' / 'x.md').write_text('x\n')
+                subprocess.run(['git', *args], cwd=str(source), env=git_env,
+                               capture_output=True)
+            subprocess.run(['git', 'init', '-q', str(proj)], capture_output=True)
+            keys = ['HOME', 'PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR',
+                    'CLAUDECODE', 'CLAUDE_CODE_REMOTE', 'PRECEDENT_HARNESS',
+                    'PRECEDENT_SOURCE_HOME', *rewrite]
+            saved = {k: os.environ.get(k) for k in keys}
+            saved_rule = getattr(psb, '_home_rule', False)
+            try:
+                for k in keys:
+                    os.environ.pop(k, None)
+                os.environ.update(rewrite)
+                os.environ.update(HOME=str(home), PRECEDENT_PROJECT_DIR=str(proj),
+                                  **harness_env)
+                psb._home_rule = rule
+                url = 'https://example.invalid/acct/precedent-shared-x'
+                for declared in (home / 'precedent-shared-x',
+                                 ws / 'precedent-shared-x'):
+                    with contextlib.redirect_stderr(io.StringIO()):
+                        psb.ensure_source('shared', 'precedent-shared-x', url,
+                                          declared, None, retries=1,
+                                          retry_delay=0)
+            finally:
+                psb._home_rule = saved_rule
+                for k, v in saved.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+            paths = [home / 'precedent-shared-x', ws / 'precedent-shared-x']
+            real = [p for p in paths if (p / '.git').exists()
+                    and not p.is_symlink()]
+            linked = [p for p in paths if p.is_symlink()
+                      and real and psh.same_tree(p, real[0])]
+            return real, linked, paths
+
+    for label, harness_env, tree_in in (
+            ('claude-code on the web', {'CLAUDECODE': '1',
+                                        'CLAUDE_CODE_REMOTE': 'true'}, 1),
+            ('codex', {'PRECEDENT_HARNESS': 'codex'}, 0)):
+        real, linked, paths = two_runs(True, harness_env)
+        cases.append((f'{label}: two runs from the two folders leave one tree, '
+                      f'in the home folder, and a link into it',
+                      [p.name for p in real] == ['precedent-shared-x']
+                      and real[0].parent == paths[tree_in].parent
+                      and len(linked) == 1,
+                      f'trees {real}, links {linked}'))
+        real_old, _, _ = two_runs(False, harness_env)
+        cases.append((f'{label}: CONTROL, with the rule off the same two runs '
+                      f'leave two trees',
+                      len(real_old) == 2, f'trees {real_old}'))
+
+    # (a) the individual set the same way, through the hook's own path
+    # ($HOME/<name>): cloned into the home folder with $HOME linked to it,
+    # and a tree in the home folder that is some other repository is never
+    # adopted -- the run clones where the hook said instead.
+    def individual_run(foreign):
+        with tempfile.TemporaryDirectory() as td:
+            t = pathlib.Path(td)
+            srv, home, ws = t / 'srv', t / 'home', t / 'ws'
+            proj = ws / 'proj'
+            source = srv / 'acct' / 'precedent-individual'
+            for d in (source, home, proj):
+                d.mkdir(parents=True)
+            rewrite = {'GIT_CONFIG_COUNT': '1',
+                       'GIT_CONFIG_KEY_0': f'url.file://{srv}/.insteadOf',
+                       'GIT_CONFIG_VALUE_0': 'https://example.invalid/'}
+            git_env = {**os.environ, **rewrite, 'GIT_AUTHOR_NAME': 't',
+                       'GIT_AUTHOR_EMAIL': 't@example.com',
+                       'GIT_COMMITTER_NAME': 't',
+                       'GIT_COMMITTER_EMAIL': 't@example.com'}
+            (source / 'practices').mkdir()
+            (source / 'practices' / 'x.md').write_text('x\n')
+            for args in (['init', '-q', '-b', 'main'], ['add', '-A'],
+                         ['commit', '-qm', 'seed']):
+                subprocess.run(['git', *args], cwd=str(source), env=git_env,
+                               capture_output=True)
+            subprocess.run(['git', 'init', '-q', str(proj)], capture_output=True)
+            if foreign:
+                other = ws / 'precedent-individual'
+                subprocess.run(['git', 'init', '-q', str(other)], capture_output=True)
+                subprocess.run(['git', '-C', str(other), 'remote', 'add', 'origin',
+                                'https://example.invalid/someone/precedent-individual'],
+                               capture_output=True)
+            keys = ['HOME', 'PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR',
+                    'CLAUDECODE', 'CLAUDE_CODE_REMOTE', 'PRECEDENT_HARNESS',
+                    'PRECEDENT_SOURCE_HOME', *rewrite]
+            saved = {k: os.environ.get(k) for k in keys}
+            saved_rule = getattr(psb, '_home_rule', False)
+            try:
+                for k in keys:
+                    os.environ.pop(k, None)
+                os.environ.update(rewrite)
+                os.environ.update(HOME=str(home), PRECEDENT_PROJECT_DIR=str(proj),
+                                  CLAUDECODE='1', CLAUDE_CODE_REMOTE='true')
+                psb._home_rule = True
+                with contextlib.redirect_stderr(io.StringIO()):
+                    ok, _ = psb.ensure_source(
+                        'individual', 'precedent-individual',
+                        'https://example.invalid/acct/precedent-individual',
+                        home / 'precedent-individual', t / 'config.json',
+                        retries=1, retry_delay=0, workspace=ws)
+                cfg = json.loads((t / 'config.json').read_text())
+            finally:
+                psb._home_rule = saved_rule
+                for k, v in saved.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+            in_ws, in_home = ws / 'precedent-individual', home / 'precedent-individual'
+            return (ok, cfg['individual']['path'], str(in_ws), str(in_home),
+                    in_home.is_symlink() and psh.same_tree(in_home, in_ws),
+                    (in_ws / 'practices').is_dir(), (in_home / 'practices').is_dir()
+                    and not in_home.is_symlink())
+
+    ok, cfg_path, in_ws, in_home, home_linked, ws_has, home_real = individual_run(False)
+    cases.append(('the individual set is cloned into the home folder (the attach '
+                  'folder on the web), and $HOME/<name> is a link into it',
+                  ok and cfg_path == in_ws and home_linked and ws_has,
+                  f'ok={ok} config={cfg_path} home_linked={home_linked}'))
+    ok, cfg_path, in_ws, in_home, home_linked, ws_has, home_real = individual_run(True)
+    cases.append(('a tree in the home folder that is another repository is never '
+                  'adopted: the run clones where the hook said',
+                  ok and cfg_path == in_home and home_real and not ws_has,
+                  f'ok={ok} config={cfg_path} home_real={home_real}'))
+
+    # (b) a container laid out the 2026-10-18 way: links both directions.
+    with tempfile.TemporaryDirectory() as td:
+        t = pathlib.Path(td)
+        root_home, user = t / 'root', t / 'home-user'
+        root_home.mkdir()
+        user.mkdir()
+        trees = {'precedent-individual': root_home,
+                 'precedent-shared-ladder': root_home,
+                 'precedent-shared-writing': user,
+                 'BestPractice': user}
+        for name, where in trees.items():
+            d = where / name
+            (d / '.claude').mkdir(parents=True)
+            (d / '.claude' / 'settings.json').write_text('{}')
+            subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+            other = user if where == root_home else root_home
+            if name != 'BestPractice':
+                (other / name).symlink_to(d, target_is_directory=True)
+        # the attach tool's lowercase spelling of a repository already there
+        (user / 'bestpractice').symlink_to(user / 'BestPractice',
+                                           target_is_directory=True)
+        every = sorted(root_home.iterdir()) + sorted(user.iterdir())
+        one = psh.one_per_tree(every)
+        cases.append(('one_per_tree lists each of four trees once, links running '
+                      'both ways and a second spelling',
+                      len(one) == 4, f'{[str(p) for p in one]}'))
+        listed = [p.name for p in rsh.repos_under(user)]
+        cases.append(('the session-hooks runner runs a repository\'s hooks once '
+                      'when two names under the root reach it',
+                      sorted(n.lower() for n in listed)
+                      == ['bestpractice', 'precedent-individual',
+                          'precedent-shared-ladder', 'precedent-shared-writing'],
+                      str(listed)))
+        cases.append(('the branch page\'s place test agrees with it',
+                      psbr._same_place(user / 'bestpractice')
+                      == psbr._same_place(user / 'BestPractice')
+                      and psbr._same_place(root_home / 'precedent-shared-writing')
+                      == psbr._same_place(user / 'precedent-shared-writing'), ''))
+        # The individual bootstrap's own "cloned twice" report: a link in
+        # either direction is one tree, never reported.
+        url = 'https://example.invalid/acct/precedent-individual'
+        saved_home = os.environ.get('HOME')
+        try:
+            os.environ['HOME'] = str(root_home)
+            for clone in (user / 'precedent-individual',
+                          root_home / 'precedent-individual'):
+                _p, _links, report = psb._one_individual_tree(
+                    'precedent-individual', url, clone, user)
+                cases.append((f'the bootstrap does not call {clone.parent.name}/'
+                              f'precedent-individual a second clone',
+                              report is None, str(report)))
+        finally:
+            if saved_home is None:
+                os.environ.pop('HOME', None)
+            else:
+                os.environ['HOME'] = saved_home
+    # The runner case above is not empty: by name, that root holds five
+    # repositories for four trees, which the runner before this change ran
+    # the hooks of five times.
+    cases.append(('the layout really has five names for four trees under one root',
+                  len([p for p in every if p.parent == user]) == 5, ''))
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def _individual_two_routes_fixture(tmp):
     """Shared by the two checks below: an individual-set "remote" served at a
     HOSTED url that git rewrites to a local directory, so the bootstrap takes
@@ -44826,11 +45189,20 @@ def _individual_two_routes_fixture(tmp):
     def fake(home, consumer):
         saved = {k: os.environ.get(k) for k in
                  ('HOME', 'PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR',
-                  'PRECEDENT_GIT_TOKEN', *rewrite)}
+                  'PRECEDENT_GIT_TOKEN', 'CLAUDECODE', 'CLAUDE_CODE_REMOTE',
+                  'PRECEDENT_HARNESS', 'PRECEDENT_SOURCE_HOME', *rewrite)}
         os.environ.update({'HOME': str(home),
                            'PRECEDENT_PROJECT_DIR': str(consumer), **rewrite})
         os.environ.pop('CLAUDE_PROJECT_DIR', None)
         os.environ.pop('PRECEDENT_GIT_TOKEN', None)
+        # The harness, and so the home folder, is the fixture's to say:
+        # $HOME, the layout these cases pin. Inherited, a cloud session's
+        # CLAUDE_CODE_REMOTE put the tree in the attach folder here and in
+        # $HOME on GitHub's runner (tools/source_homes.json; the web layout
+        # is check_one_tree_per_source_whichever_way_links_run's).
+        for k in ('CLAUDECODE', 'CLAUDE_CODE_REMOTE', 'PRECEDENT_SOURCE_HOME'):
+            os.environ.pop(k, None)
+        os.environ['PRECEDENT_HARNESS'] = 'default'
         try:
             yield
         finally:
@@ -52707,18 +53079,21 @@ def check_land_refusal_says_whether_a_pull_request_gets_checks():
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_branches as pb
-    try:
-        import yaml  # noqa: F401
-    except ImportError:
-        # GitHub's runner has no PyYAML (2026-10-18: main's test went red
-        # here). Without it pull_request_checks answers None by design and
-        # the note says it could not tell; the planted workflows cannot be
-        # read, so these cases cannot be judged on such a machine.
-        not_applicable('a land refusal says whether a pull request gets '
-                       'checks', 'PyYAML is not installed, so workflow files '
-                       'cannot be read here')
-        return
+    # No PyYAML guard: GitHub's runner has none, and this test used to
+    # report itself not applicable there (#1218), so CI never ran the path.
+    # pull_request_checks reads workflows itself now (workflow_triggers).
     cases = []
+    dash = ('name: x\n"on":\n  # comment\n  pull_request:\n    branches:\n'
+            '      - main  # trailing\n      - \'rel/*\'\n  workflow_dispatch:\n'
+            'jobs: {}\n')
+    got = pb.workflow_triggers(dash)
+    cases.append(('a quoted on:, comments and a dash list of branches are read',
+                  got == {'pull_request': {'branches': ['main', 'rel/*']},
+                          'workflow_dispatch': {}}, str(got)))
+    got = pb.workflow_triggers('on: push\njobs: {}\n')
+    cases.append(('a single inline event is read', got == {'push': {}}, str(got)))
+    cases.append(('a file with no on: cannot be told',
+                  pb.workflow_triggers('jobs: {}\n') is None, ''))
     with tempfile.TemporaryDirectory() as t:
         wf = pathlib.Path(t) / '.github' / 'workflows'
         wf.mkdir(parents=True)
@@ -53992,6 +54367,22 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
         cases.append(('once the guarded call is recorded, a short answer is '
                       'still refused', rc == 2 and 'ANSWER FIRST' in out,
                       out[-200:]))
+        # 2026-10-19 (Morgan: "okay, go fix"): a mid-turn answer of about
+        # 45 words or more is never written to the transcript, so a session
+        # that had answered was refused four times running. One refusal per
+        # question: once the transcript holds it, the next change goes
+        # through; a new question starts over.
+        refused = {'type': 'user', 'message': {'role': 'user', 'content': [
+            {'type': 'tool_result', 'tool_use_id': 'toolu_x', 'is_error': True,
+             'content': 'PreToolUse:Bash hook error: ANSWER FIRST: the '
+                        "person's latest message asks something"}]}}
+        rc, out = run([asked, short, refused])
+        cases.append(('after one refusal for the question, the next change '
+                      'goes through, saying so', rc == 0
+                      and 'refused once already' in out, out[-200:]))
+        rc, out = run([asked, refused, human('and why is main red?')])
+        cases.append(('a new question after that refusal is held again',
+                      rc == 2 and 'ANSWER FIRST' in out, out[-200:]))
         tr = tmp / 'transcript.jsonl'
         tr.write_text('not json\n', encoding='utf-8')
         p = subprocess.run(['bash', str(gate)], input='{broken', text=True,
@@ -58597,7 +58988,16 @@ rc, verdict = pb._land_composed(work, g('rev-parse', 'HEAD').stdout.strip(),
                                 said.append)
 g('fetch', '-q', 'origin')
 files = g('ls-tree', '--name-only', 'origin/claude/engine-change-abcdef').stdout.split()
+g('checkout', '-q', '-b', 'claude/fix-main-abcdef', 'origin/main')
+(work / 'y.md').write_text('y\\n'); g('add', '-A'); g('commit', '-qm', 'fix')
+fix = g('rev-parse', 'HEAD').stdout.strip()
+g('push', '-q', 'origin', 'claude/fix-main-abcdef')
+said2 = []
+pb._land_composed(work, fix, 'claude/fix-main-abcdef', 'staging', 'the fixture', said2.append)
+g('fetch', '-q', 'origin')
+fix_moved = g('rev-parse', 'origin/claude/fix-main-abcdef').stdout.strip() != fix
 print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], files=files,
+                      fix_moved=fix_moved, said2='\\n'.join(said2)[-300:],
                       staging=g('ls-tree', '--name-only', 'origin/staging').stdout.split())))
 """, encoding='utf-8')
         p = subprocess.run([sys.executable, str(script)], capture_output=True,
@@ -58617,6 +59017,11 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], file
         cases.append(('...and the reply says the branch now carries the checked '
                       'composition', 'now carries the composition' in
                       (out.get('said') or ''), str(out) or why))
+        cases.append(('a branch cut from main already carries its work and is '
+                      'left where it is, so a red-main fix\'s head never moves',
+                      out.get('fix_moved') is False
+                      and 'as it stands lacks nothing' in (out.get('said2') or ''),
+                      str(out) or why))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -79576,6 +79981,56 @@ def check_codeowners_stamp_hashes_only_the_registry():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_land_times_fallback_keeps_a_deleted_test_deleted():
+    """The land tool's fallback for a conflicted harness timing list merges
+    three ways, so a test one side deleted stays deleted.
+
+    2026-10-19 (relayed root issue 4): precedent_branches._merge_times_file
+    wrote the union of both sides, which brings a deleted test back -- the
+    #1180/#1181 bug harness_times_merge.py was written to stop. Negative
+    control: the union code keeps check_b and fails the first case."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        w = pathlib.Path(td)
+        env = {**os.environ, **_fixture_git_env()}
+        g = lambda *a: subprocess.run(['git', '-C', str(w), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        f = w / pb.TIMES_FILE
+        f.parent.mkdir(parents=True)
+        def put(measured, secs):
+            f.write_text(json.dumps({'measured': measured, 'seconds': secs},
+                                    indent=1) + '\n', encoding='utf-8')
+        put('base', {'check_a': 1.0, 'check_b': 2.0})
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('checkout', '-q', '-b', 'theirs')
+        put('theirs added c', {'check_a': 1.0, 'check_b': 2.0, 'check_c': 3.0})
+        g('commit', '-qam', 'add c')
+        g('checkout', '-q', 'main')
+        put('ours removed b', {'check_a': 1.0})
+        g('commit', '-qam', 'drop b')
+        conflicted = g('merge', '-q', 'theirs').returncode != 0
+        wrote = pb._merge_times_file(w)
+        got = json.loads(f.read_text(encoding='utf-8')) if wrote else {}
+        secs = got.get('seconds') or {}
+        cases.append(('THE DISCRIMINATING CASE: the test one side deleted '
+                      'stays deleted', conflicted and wrote and 'check_b' not in secs,
+                      str(got)))
+        cases.append(('...and the test the other side added is kept',
+                      secs.get('check_c') == 3.0 and secs.get('check_a') == 1.0,
+                      str(got)))
+        cases.append(('...and both sides\' notes are kept',
+                      'theirs added c' in got.get('measured', '')
+                      and 'ours removed b' in got.get('measured', ''), str(got)))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the land tool\'s timing-list fallback merges three ways '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
+
 def check_harness_times_merge_without_a_conflict():
     """Two branches that each record a test, one of them deleting another,
     merge tools/harness_check_times.json with no conflict, and the deleted
@@ -86298,6 +86753,12 @@ def main():
           *check_session_check_adopts_a_detached_start())
     check('the session check reports a source cloned twice on one disk',
           *check_session_check_reports_a_source_cloned_twice())
+    check('one practice source is one tree: each harness\'s home folder, the '
+          'listers on links running both ways, two runs leave one clone',
+          *check_one_tree_per_source_whichever_way_links_run())
+    check('session start says a source did not load only after cloning, '
+          'and names each set once',
+          *check_session_start_says_did_not_load_only_after_cloning())
     check('the session check never calls an unfetched source clone current',
           *check_session_check_never_calls_an_unfetched_clone_current())
     check_session_check_covers_the_universal_clone()
@@ -86811,6 +87272,7 @@ def main():
     check_as_ci_says_why_a_shard_failed()
     check_as_ci_parts_partition_the_suite()
     check_harness_times_merge_without_a_conflict()
+    check_land_times_fallback_keeps_a_deleted_test_deleted()
     check_move_fixes_mentions_of_the_moved_practice()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
@@ -86959,6 +87421,15 @@ if __name__ == '__main__':
         _i = _args.index('--for-change')
         if _i + 1 >= len(_args):
             sys.exit('verify_harness: --for-change needs a ref, e.g. --for-change origin/staging')
+        _ref = _args[_i + 1]
+        # A file is not a ref (2026-10-19: `--for-change tools/x.py` said
+        # "git could not diff tools/x.py...HEAD" and ran nothing).
+        if subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--verify', '-q',
+                           f'{_ref}^{{commit}}'], capture_output=True).returncode != 0:
+            hint = (f'{_ref} is a file, not a ref: --for-change takes the base '
+                    f'the change is measured from' if (ROOT / _ref).exists()
+                    else f'{_ref} names no commit here')
+            sys.exit(f'verify_harness: {hint}, e.g. --for-change origin/staging')
         _budget = FOR_CHANGE_BUDGET_SECONDS
         if '--budget' in _args and _args.index('--budget') + 1 < len(_args):
             _budget = float(_args[_args.index('--budget') + 1])

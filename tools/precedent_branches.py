@@ -1116,31 +1116,90 @@ def _push_check_tool(root):
     return None
 
 
+def _yaml_scalar_list(value):
+    """`[a, 'b']`, `a` or `` -> a list of plain strings."""
+    v = value.split(' #', 1)[0].strip()
+    if v.startswith('[') and v.endswith(']'):
+        v = v[1:-1]
+        return [x.strip().strip('\'"') for x in v.split(',') if x.strip()]
+    return [v.strip('\'"')] if v else []
+
+
+_ON_KEY = re.compile(r'''^(?:on|"on"|'on')\s*:\s*(.*)$''')
+_YAML_KEY = re.compile(r'^([\w-]+)\s*:\s*(.*)$')
+
+
+def workflow_triggers(text):
+    """-> {event: {key: [values]}} read from a workflow's top-level `on:`,
+    or None when the file has no `on:` this reader understands. Only what
+    pull_request_checks needs: the events, and each event's list-valued
+    keys (`branches`, `branches-ignore`), inline or as a dash list.
+
+    WHY NOT PyYAML (2026-10-19). GitHub's runner has none, so this code
+    never ran where the deep check runs, and its test reported itself not
+    applicable there (#1218) -- a band-aid over a path CI could not
+    exercise. A workflow's `on:` block is a small, regular shape; reading
+    it here keeps one path everywhere, as frontmatter_yaml.py does for
+    frontmatter."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        m = _ON_KEY.match(line)
+        if not m:
+            continue
+        inline = m.group(1).split(' #', 1)[0].strip()
+        if inline:
+            return {e: {} for e in _yaml_scalar_list(inline)}
+        out, event, key, ev_indent = {}, None, None, None
+        for raw in lines[i + 1:]:
+            if raw.lstrip().startswith('#'):
+                continue
+            body = raw.split(' #', 1)[0].rstrip()
+            if not body.strip():
+                continue
+            indent = len(body) - len(body.lstrip())
+            if indent == 0:
+                break
+            item = body.strip()
+            if ev_indent is None:
+                ev_indent = indent
+            if indent == ev_indent:
+                em = _YAML_KEY.match(item)
+                if not em:
+                    return None
+                event, key = em.group(1), None
+                out[event] = {}
+                continue
+            if event is None:
+                return None
+            km = _YAML_KEY.match(item)
+            if km:
+                key = km.group(1)
+                out[event][key] = _yaml_scalar_list(km.group(2))
+            elif item.startswith('-') and key is not None:
+                out[event][key].extend(_yaml_scalar_list(item[1:]))
+        return out
+    return None
+
+
 def pull_request_checks(root, base):
     """-> [workflow file] whose `on: pull_request` fires for a pull request
-    into `base`, or None when it cannot be told (no PyYAML, a file that does
-    not parse). Read from the checkout's .github/workflows/."""
-    try:
-        import yaml
-    except ImportError:
-        return None
+    into `base`, or None when it cannot be told (a file whose `on:` this
+    reader does not understand). Read from the checkout's
+    .github/workflows/ with workflow_triggers, never PyYAML."""
     import fnmatch
     found = []
     for wf in sorted((pathlib.Path(root) / '.github' / 'workflows').glob('*.y*ml')):
         try:
-            doc = yaml.safe_load(wf.read_text(encoding='utf-8')) or {}
-        except Exception:                                    # noqa: BLE001
+            on = workflow_triggers(wf.read_text(encoding='utf-8'))
+        except OSError:
             return None
-        # PyYAML reads a bare `on:` key as True.
-        on = doc.get('on', doc.get(True)) if isinstance(doc, dict) else None
-        if on == 'pull_request' or (isinstance(on, list) and 'pull_request' in on):
-            found.append(wf.name)
+        if on is None:
+            return None
+        if 'pull_request' not in on:
             continue
-        if not isinstance(on, dict) or 'pull_request' not in on:
-            continue
-        cfg = on.get('pull_request') or {}
-        want = cfg.get('branches') if isinstance(cfg, dict) else None
-        skip = cfg.get('branches-ignore') if isinstance(cfg, dict) else None
+        cfg = on['pull_request']
+        want = cfg.get('branches')
+        skip = cfg.get('branches-ignore')
         if want is not None and not any(fnmatch.fnmatch(base, w) for w in want):
             continue
         if skip and any(fnmatch.fnmatch(base, w) for w in skip):
@@ -1168,6 +1227,14 @@ def _carry_composition_to_branch(root, label, new):
         return (f'{label} is not a branch the pull request can come from, so '
                 f'the checked composition was not pushed anywhere: merge '
                 f'origin/{MAIN} into the branch you open it from first.')
+    # A branch that already carries main's work -- one cut from main, a
+    # red-main fix above all -- needs nothing, and is left alone: moving it
+    # after its pull request into main merged sent the main-test wait to a
+    # head no test ever ran on (2026-10-19).
+    tip = _remote_tip(root, branch)
+    if tip and not main_work_missing(root, tip):
+        return (f'{branch} already carries everything {MAIN} has, so the pull '
+                f'request from it as it stands lacks nothing.')
     p = _run(root, 'push', '-q', 'origin', f'{new}:refs/heads/{branch}')
     if p.returncode != 0:
         return (f'Could not bring {branch} up to the checked composition '
@@ -2421,9 +2488,15 @@ TIMES_FILE = 'tools/harness_check_times.json'
 
 
 def _merge_times_file(wt):
-    """Write the union of both sides of a conflicted harness timing list
-    into worktree `wt`. -> True when written, False when either side does
-    not read as one (then it stops like any other conflict)."""
+    """Write the three-way merge of a conflicted harness timing list into
+    worktree `wt`, by tools/harness_times_merge.py, the merge driver's own
+    code. -> True when written, False when either side does not read as
+    one (then it stops like any other conflict).
+
+    WHY THREE-WAY (2026-10-19). This fallback used to write the union of
+    both sides, which brings back a test the other side deleted -- the
+    exact #1180/#1181 bug the merge driver was written to stop. Index stage
+    1 is the base; a file both sides added has none, and reads as empty."""
     def side(n):
         r = subprocess.run(['git', '-C', str(wt), 'show', f':{n}:{TIMES_FILE}'],
                            capture_output=True, text=True)
@@ -2435,8 +2508,12 @@ def _merge_times_file(wt):
     ours, theirs = side(2), side(3)
     if ours is None or theirs is None:
         return False
-    merged = dict(theirs)
-    merged['seconds'] = dict(sorted({**theirs['seconds'], **ours['seconds']}.items()))
+    here = str(pathlib.Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import harness_times_merge
+    merged = harness_times_merge.merge(side(1) or {}, ours, theirs)
+    # Both sides add to the one "measured" line: keep both notes.
     notes = [str(theirs.get('measured') or '')]
     notes += [n for n in str(ours.get('measured') or '').split('; ')
               if n and n not in notes[0]]

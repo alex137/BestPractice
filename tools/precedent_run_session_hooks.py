@@ -130,7 +130,11 @@ def session_start_commands(repo):
 
 
 def repos_under(root):
-    """-> the git repositories directly under `root` that declare hooks."""
+    """-> the git repositories directly under `root` that declare hooks,
+    each tree once. Two names under `root` for one tree (a link beside its
+    target, or the attach tool's lowercase spelling beside the original)
+    ran that repository's hooks twice until 2026-10-19; the test is
+    precedent_source_home.one_per_tree, the one every lister shares."""
     found = []
     for child in sorted(root.iterdir()):
         try:
@@ -139,7 +143,19 @@ def repos_under(root):
                 found.append(child)
         except OSError:
             continue
-    return found
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    try:
+        import precedent_source_home as psh
+        return psh.one_per_tree(found)
+    except ImportError:
+        seen, out = set(), []
+        for p in found:
+            if p.resolve() not in seen:
+                seen.add(p.resolve())
+                out.append(p)
+        return out
+    finally:
+        sys.path.pop(0)
 
 
 def read_only_rules(root, repos):
