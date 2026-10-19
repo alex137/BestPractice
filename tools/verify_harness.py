@@ -26358,12 +26358,21 @@ def check_precedent_check_fires():
         # and precedent-beta-v01 sat red against a tree nobody had edited
         # (found 2026-09-11). Both directions below; the second is the one
         # that would have caught it.
+        # One cell per member the real ledger's header names: a row short of
+        # them is incomplete, and the check refuses it on its own
+        # (2026-10-19, when grok-build made the family four).
         def _ledger_row(repo, cell_hash, prose_hash=None):
+            header = next(l for l in (repo / 'templates' / 'harness'
+                                      / 'LEDGER.md').read_text(
+                              encoding='utf-8').splitlines()
+                          if l.startswith('| Date |'))
+            others = header.count('|') - 4
             h = f'[`{cell_hash[:7]}`](https://example.invalid/{cell_hash})'
             tail = (f' — same reason as the [`{prose_hash[:7]}`]'
                     f'(https://example.invalid/{prose_hash}) row'
                     if prose_hash else '')
-            return f'| 2026-01-01 | {h} — planted | applied{tail} | n/a | n/a |'
+            return (f'| 2026-01-01 | {h} — planted | applied{tail} |'
+                    + ' n/a |' * others)
 
         dup = fresh('parallel-artifact-ledger-dup')
         _ledger_setup(dup)
