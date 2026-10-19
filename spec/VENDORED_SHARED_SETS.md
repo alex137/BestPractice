@@ -146,6 +146,19 @@ and never asked again there (Morgan, 2026-10-19, strength: decided).
   answers: yes copies it in; no keeps loading it at session start, as
   now. A copied-in set is never also opened as an attachment at session
   start.
+- **What the leak check adds** (Morgan, 2026-10-19: "Maybe it should also
+  run some sort of leak gate to review names of repos etc to make them
+  general"): in a repository that is not private, the question also lists
+  each line the copy would publish, read the way the leak gate reads a
+  push (its word lists, the owners kept private by default, the private
+  repositories covered by name) plus the repository's own scrub list. It
+  reads only the files a copy brings: the set's `precedent-source.json`,
+  its `practices/`, the files those name, and any set it carries. A clean
+  set is said to be clean; a check that could not run fully says what it
+  missed. It warns and never refuses: the fix belongs in the set's own
+  repository, and the person decides. (`copy_in_leaks` in
+  [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py);
+  test `check_copy_in_question_names_what_would_leak`.)
 - **A practice set is never asked.** It is a set, and its sessions read
   the others from their own repositories; asking offered each set a copy
   of itself.
