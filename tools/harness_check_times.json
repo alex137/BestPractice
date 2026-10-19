@@ -625,6 +625,7 @@
   "check_title_case_never_corrupts_content": 0.0,
   "check_title_case_output_paths_inverts_the_default": 0.0,
   "check_titles_match_source": 0.0,
+  "check_to_main_copy_name_is_never_taken": 0.0,
   "check_todo_and_gotcha_sweeps": 0.0,
   "check_todo_gotcha_stale_reference_fires": 0.4,
   "check_todo_index_check_survives_midnight": 0.0,
