@@ -63295,7 +63295,7 @@ def check_landed_branch_gets_its_delete_link():
             pg.record_turn_start_unlanded(repo, recs)
             return recs
 
-        def replycheck(name, text):
+        def replycheck(name, text, sid=None):
             q = tmp / name
             q.write_text(text, encoding='utf-8')
             return subprocess.run(
@@ -63303,7 +63303,8 @@ def check_landed_branch_gets_its_delete_link():
                  '--repo', str(repo), '--text', str(q)],
                 capture_output=True, text=True, cwd=str(tmp),
                 env={**env, 'CLAUDE_PROJECT_DIR': str(repo),
-                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json'),
+                     **({'CLAUDE_CODE_REMOTE_SESSION_ID': sid} if sid else {})})
 
         bare = 'Booked.\n\n## Boildown\n- The work of this session is now on: `trunk`.\n'
         linked = bare + ('- Delete [the branch](https://github.com/o/r/branches/all?'
@@ -63340,6 +63341,47 @@ def check_landed_branch_gets_its_delete_link():
                       'is not owed again in a later reply',
                       r4.returncode == 0 and r5.returncode == 0,
                       f'exit {r4.returncode}/{r5.returncode}: {r5.stderr[:200]}'))
+        # 2026-10-19 (Morgan: "you stopped giving me the branches to
+        # delete"): a branch made, pushed and landed inside one turn was
+        # never on the turn-start record, so nothing asked for its link.
+        # This session's own branches -- its tag in the name, as every
+        # name the branch-name tool builds carries -- are now found on
+        # their own. Another session's tag is not this one's to report.
+        sid = 'cse_01FixtureSessionAbcde'
+        pg.record_turn_start_unlanded(repo, [])
+        g('switch', '-q', 'trunk'); g('pull', '-q', 'origin', 'trunk')
+        mine, theirs = '2026-10-19-me-same-turn-abcde-q7m2x', '2026-10-19-me-other-fghij-k3p9z'
+        for name, f in ((mine, 'c.txt'), (theirs, 'd.txt')):
+            g('switch', '-q', '-c', name, 'trunk')
+            (repo / f).write_text(name + '\n', encoding='utf-8')
+            g('add', '-A'); g('commit', '-qm', name)
+            g('push', '-q', 'origin', name); g('push', '-q', 'origin', f'{name}:trunk')
+            g('switch', '-q', 'trunk'); g('pull', '-q', 'origin', 'trunk')
+        r6 = replycheck('same-turn.md', bare, sid)
+        cases.append(('THE DISCRIMINATING CASE: a branch this session made and landed '
+                      'inside one turn, never on the turn-start record, is owed its link',
+                      r6.returncode == 2 and mine in r6.stderr,
+                      f'exit {r6.returncode}: {r6.stderr[:300]}'))
+        cases.append(('...and another session\'s landed branch is not asked about',
+                      theirs not in r6.stderr, r6.stderr[:300]))
+        linked6 = bare + (f'- Delete [it](https://github.com/o/r/branches/all?query={mine}) '
+                          'when you like; it merged into `trunk`.\n')
+        r7 = replycheck('same-turn-linked.md', linked6, sid)
+        r8 = replycheck('same-turn-later.md', bare, sid)
+        cases.append(('...given once, it is not owed again',
+                      r7.returncode == 0 and r8.returncode == 0,
+                      f'exit {r7.returncode}/{r8.returncode}: {r7.stderr[:200]} {r8.stderr[:200]}'))
+        g('push', '-q', 'origin', '--delete', theirs)
+        mine2 = '2026-10-19-me-gone-abcde-w4x8v'
+        g('switch', '-q', '-c', mine2, 'trunk')
+        (repo / 'e.txt').write_text('e\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'gone'); g('push', '-q', 'origin', mine2)
+        g('push', '-q', 'origin', f'{mine2}:trunk'); g('push', '-q', 'origin', '--delete', mine2)
+        g('update-ref', f'refs/remotes/origin/{mine2}', 'HEAD')
+        r9 = replycheck('gone.md', bare, sid)
+        cases.append(('a branch already deleted on origin, with a stale local ref, '
+                      'is not asked about', r9.returncode == 0,
+                      f'exit {r9.returncode}: {r9.stderr[:200]}'))
         src = (ROOT / 'tools' / 'precedent_gate.py').read_text(encoding='utf-8')
         cases.append(('the reply gate writes the turn start',
                       'record_turn_start_unlanded(root, _records)' in src, ''))
@@ -64924,6 +64966,39 @@ def check_branch_cleanup_page_merges_the_saved_page():
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'refreshing the branch-cleanup page merges the saved one ({len(cases)} '
           f'stated cases)', not bad, '; '.join(bad))
+
+
+def check_branch_cleanup_open_next_is_a_real_link():
+    """A repository's open-in-tabs control is a real link to its first
+    branch, and the page's script never calls window.open.
+
+    WHY (Morgan, 2026-10-19: the button to open them all in new tabs
+    "didn't work"). It called window.open once per branch, which inside an
+    artifact returns nothing for almost every viewer, and a browser opens
+    one tab per click anyway; it opened nothing and blamed pop-ups. A real
+    link always opens, so it is one, moved to the next branch per click."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_stale_branches as _sb
+    finally:
+        sys.path.pop(0)
+    two = _sb.render_html([('o', 'r', [('a/one', '2026-10-01'),
+                                       ('b-two', '2026-10-02')])])
+    one = _sb.render_html([('o', 'r', [('a/one', '2026-10-01')])])
+    tag = two.split('class="open-next"', 1)[-1].split('>', 1)[0] \
+        if 'class="open-next"' in two else ''
+    cases = [
+        ('two branches carry the link', bool(tag)),
+        ('it points at the first branch, filtered', 'query=a%2Fone' in two.split(
+            'class="open-next"', 1)[0].rsplit('<a', 1)[-1] + tag, tag),
+        ('it opens in a new tab', 'target="_blank"' in tag, tag),
+        ('one branch has no link', 'class="open-next"' not in one),
+        ('no script calls window.open', 'window.open(' not in two),
+    ]
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the cleanup page opens the next branch with a real link '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + str(d) + ')' if d else ''}" for n, d in bad))
 
 
 def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
@@ -87360,6 +87435,7 @@ def main():
     check_branch_cleanup_page_merges_the_saved_page()
     check_branch_cleanup_page_lists_staging_waiting_to_go_live()
     check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names()
+    check_branch_cleanup_open_next_is_a_real_link()
     check_branch_cleanup_merge_warns_on_a_stale_copy()
     check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
