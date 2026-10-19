@@ -43042,6 +43042,51 @@ def check_main_test_cadence():
         st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)], RunsGH())
         cases.append(('a skipped run newer than a pass reads "passed", never "failed" '
                       '(every private push to main records one)', st == 'passed'))
+
+        # 2026-10-19: the push run on main skipped its test while the pull
+        # request's run was still going, finished `success`, and was read as
+        # main's verdict; the pull request's run failed (issue #1242).
+        pr_fail = {'id': 1, 'path': WF, 'status': 'completed', 'conclusion': 'failure',
+                   'created_at': '2026-10-19T14:24:40Z', 'head_sha': 'HEAD',
+                   'html_url': 'U'}
+        push_ok = {'id': 2, 'path': WF, 'status': 'completed', 'conclusion': 'success',
+                   'created_at': '2026-10-19T14:25:34Z', 'head_sha': 'SHA'}
+
+        def runs_gh(on_sha, jobs_of):
+            class G:
+                def call(self, path, cache=True):
+                    if path.endswith('/pulls'):
+                        return [{'head': {'sha': 'HEAD'}, 'base': {'ref': 'main'},
+                                 'number': 1240}], None
+                    if '/jobs' in path:
+                        return {'jobs': jobs_of}, None
+                    if 'head_sha=HEAD' in path:
+                        return {'workflow_runs': [pr_fail]}, None
+                    return {'workflow_runs': on_sha}, None
+            return G()
+        hollow_jobs = [{'name': pb.DECISION_JOB, 'conclusion': 'success'},
+                       {'name': 'test', 'conclusion': 'skipped'}]
+        st, why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                       runs_gh([push_ok], hollow_jobs))
+        cases.append(('a push run that tested nothing, newer than its pull '
+                      'request\'s failed run, reads "failed" (2026-10-19)',
+                      st == 'failed' and 'U' in why))
+        st, _why = pb.github_test_state(
+            repo, 'SHA', [(WF, True)],
+            runs_gh([push_ok], [dict(j, conclusion='success') for j in hollow_jobs]))
+        cases.append(('CONTROL: a push run that did run its test, and passed, '
+                      'still decides', st == 'passed'))
+        pr_fail_saved, pr_fail = pr_fail, dict(pr_fail, path='other.yml')
+        st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                        runs_gh([push_ok], hollow_jobs))
+        pr_fail = pr_fail_saved
+        cases.append(('a run that tested nothing and is the only run is kept: '
+                      'it reads "passed", never "never ran"', st == 'passed'))
+        wf_text = (ROOT / '.github' / 'workflows' / 'deep-check.yml').read_text(
+            encoding='utf-8')
+        cases.append(("precedent_branches.DECISION_JOB is deep-check.yml's "
+                      'already-tested job name',
+                      f'name: {pb.DECISION_JOB}\n' in wf_text))
     if saved_env is not None:
         os.environ[pb.FORCE_ENV] = saved_env
     failed = [n for n, ok in cases if not ok]
