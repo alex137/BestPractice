@@ -1692,15 +1692,16 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                             + (f" (practice: {r['practice']})" if r.get('practice') else '')})
 
         if r.get('require_delete_link_when_landed'):
-            for repo, branch, base in _landed_this_turn():
+            for repo, branch, base in _delete_links_owed():
                 enc = urllib.parse.quote(branch, safe='')
                 if re.search(r'branches/all\?query=(?:' + re.escape(enc) + '|'
                              + re.escape(branch) + r')(?![\w%./-])', text, re.I):
                     continue
                 out.append({'kind': 'delete-link', 'advisory': False, 'message': (
                     f"[{r.get('_source', '?')}] '{branch}' "
-                    f"({pathlib.Path(repo).name}) landed on '{base}' during "
-                    f"this turn, and the reply gives no delete link for it. "
+                    f"({pathlib.Path(repo).name}) is this session's and has "
+                    f"landed on '{base}', and no reply has given its delete "
+                    f"link yet. "
                     f"Add one line to The Boildown with its filtered "
                     f"branches-page link -- https://github.com/<owner>/<repo>"
                     f"/branches/all?query={enc} -- and the branch it merged "
@@ -1747,6 +1748,181 @@ def _consume_turn_start(root=None):
         _pg.record_turn_start_unlanded(root, keep)
     except Exception:                                         # noqa: BLE001
         pass
+
+
+# A branch this session made, once landed, is owed its delete link in the
+# reply that sees it landed, whether or not it existed when the turn began.
+# Kept per checkout in .git beside the turn-start record: the branches a
+# passing reply has given the link for, so each is asked about once.
+DELETE_LINKS_GIVEN = 'precedent-delete-links-given.json'
+
+
+def _links_given_file(root):
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        f = _pg._turn_start_file(root)
+    except Exception:                                         # noqa: BLE001
+        return None
+    return f.with_name(DELETE_LINKS_GIVEN) if f else None
+
+
+def _links_given(root):
+    f = _links_given_file(root)
+    try:
+        recs = json.loads(f.read_text(encoding='utf-8')) if f and f.is_file() else []
+    except Exception:                                         # noqa: BLE001
+        recs = []
+    return {(x.get('repo'), x.get('branch')) for x in recs if isinstance(x, dict)}
+
+
+def _linked(text, branch):
+    enc = urllib.parse.quote(branch, safe='')
+    return bool(re.search(r'branches/all\?query=(?:' + re.escape(enc) + '|'
+                          + re.escape(branch) + r')(?![\w%./-])', text or '', re.I))
+
+
+def _record_links_given(text, root=None):
+    """After a passing reply: every owed branch it linked is given. Never
+    raises."""
+    try:
+        root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
+        f = _links_given_file(root)
+        if not f:
+            return
+        new = [(r, b) for r, b, _ in _delete_links_owed(root) if _linked(text, b)]
+        if not new:
+            return
+        have = _links_given(root) | set(new)
+        f.write_text(json.dumps([{'repo': r, 'branch': b} for r, b in sorted(have)]),
+                     encoding='utf-8')
+    except Exception:                                         # noqa: BLE001
+        pass
+
+
+def _is_landed(repo, ref, base):
+    """True when every commit of `ref` is on origin/<base>, or, after a squash
+    or rebase merge, every file it changed is identical there."""
+    def git(*args):
+        p = subprocess.run(['git', '-C', str(repo), *args],
+                           capture_output=True, text=True, timeout=20)
+        return p.stdout.strip() if p.returncode == 0 else None
+    if git('rev-list', '--count', f'origin/{base}..{ref}') == '0':
+        return True
+    mb = git('merge-base', f'origin/{base}', ref)
+    files = (git('diff', '--name-only', mb, ref) or '').split() if mb else []
+    return bool(files) and subprocess.run(
+        ['git', '-C', str(repo), 'diff', '--quiet', f'origin/{base}', ref, '--',
+         *files], capture_output=True).returncode == 0
+
+
+def _own_landed_branches(root=None, siblings=True):
+    """-> [(repo, branch, base)] for each branch on origin that this session
+    made and whose work has landed -- on the repository's landing branch, or
+    on main for a Promote's copy.
+
+    A branch is this session's when its name carries the session's tag (the
+    last five characters of its ID, which precedent_branch_name.py puts in
+    every name it builds, a Promote's copy included), or when one of the
+    last few commits along its tip carries the session's trailer. Read from
+    the clone's own refs, so it costs no network call; a branch it finds is
+    confirmed on origin with one ls-remote per repository, and dropped when
+    it is gone. [] with no session ID to look for.
+
+    WHY (Morgan, 2026-10-19: "you stopped giving me the branches to delete
+    ... I think we should bring that back"). The turn-start record
+    (_landed_this_turn) sees only a branch that already existed, unlanded,
+    when the turn began. Since 2026-10-08 a session usually makes, pushes
+    and merges its branch inside one turn, and a Promote's copy never
+    exists at a turn's start, so neither was ever asked for: about seventy
+    landed branches piled up in BestPractice in a week with no link given."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        import precedent_branch_name as _pbn
+        import precedent_detect as _pd
+        sid, tag = _pd.this_session_id(), _pbn.session_id_tail()
+        root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
+        repos = _pg._session_roots(root, siblings)
+        pb = _pg._branches_module()
+    except Exception:                                         # noqa: BLE001
+        return []
+    if not (sid or tag):
+        return []
+
+    def git(repo, *args, timeout=20):
+        try:
+            p = subprocess.run(['git', '-C', str(repo), *args],
+                               capture_output=True, text=True, timeout=timeout)
+        except Exception:                                     # noqa: BLE001
+            return None
+        return p.stdout.strip() if p.returncode == 0 else None
+
+    found = []
+    for repo in repos:
+        try:
+            # main first: a branch already there is named as merged into
+            # main, a Promote's copy included, whose tip staging holds too.
+            bases = ['main']
+            if pb is not None:
+                try:
+                    bases.append(pb.landing_branch(repo)[0])
+                except Exception:                             # noqa: BLE001
+                    pass
+            try:
+                bases.append((json.loads((pathlib.Path(repo) / 'precedent.json')
+                                         .read_text(encoding='utf-8'))
+                              .get('base_branch') or '').strip())
+            except Exception:                                 # noqa: BLE001
+                pass
+            bases = [b for i, b in enumerate(bases) if b and b not in bases[:i]]
+            refs = (git(repo, 'for-each-ref', '--format=%(refname)',
+                        'refs/remotes/origin') or '').split()
+            cands = []
+            for ref in refs:
+                name = ref[len('refs/remotes/origin/'):]
+                if (name in ('HEAD', 'main', 'staging', 'precedent-beta-v01')
+                        or name in bases or name.startswith(('data-', 'precedent-'))):
+                    continue
+                mine = bool(tag) and tag in name.replace('/', '-').split('-')
+                if not mine and sid:
+                    mine = sid in (git(repo, 'log', '--format=%B', '--first-parent',
+                                       '-n', '3', ref) or '')
+                if mine:
+                    cands.append((name, ref))
+            if not cands:
+                continue
+            for b in bases:
+                _pg._refresh_remote_branch(repo, b)
+            live = git(repo, 'ls-remote', '--heads', 'origin', timeout=8)
+            heads = ({l.split('refs/heads/', 1)[-1] for l in live.splitlines()}
+                     if live is not None else None)
+            for name, ref in cands:
+                if heads is not None and name not in heads:
+                    continue
+                for b in bases:
+                    if git(repo, 'rev-parse', '--verify', '-q',
+                           f'refs/remotes/origin/{b}') and _is_landed(repo, ref, b):
+                        found.append((str(pathlib.Path(repo).resolve()), name, b))
+                        break
+        except Exception:                                     # noqa: BLE001
+            continue
+    return found
+
+
+def _delete_links_owed(root=None):
+    """-> [(repo, branch, base)]: the branches landed this turn by the
+    turn-start record, and this session's own landed branches, less those a
+    passing reply has already linked."""
+    root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
+    given, seen, out = _links_given(root), set(), []
+    for repo, branch, base in _landed_this_turn(root) + _own_landed_branches(root):
+        key = (str(pathlib.Path(repo).resolve()), branch)
+        if key in seen or key in given or (repo, branch) in given:
+            continue
+        seen.add(key)
+        out.append((repo, branch, base))
+    return out
 
 
 def _landed_this_turn(root=None):
@@ -1993,8 +2169,8 @@ def main():
                             'turn while its batch still runs (or to a progress '
                             'event), unless it reports a failure')
             if r.get('require_delete_link_when_landed'):
-                bits.append('a branch that landed during this turn gets its '
-                            'one-click delete link (branches/all?query=)')
+                bits.append("a branch of this session's that has landed gets "
+                            'its one-click delete link (branches/all?query=), once')
             if r.get('require_full_check_after_fast_main'):
                 bits.append('a fast move into main whose GitHub test does not '
                             'run has its full local suite on main started, '
@@ -2068,6 +2244,9 @@ def main():
     bad = [b for b in violations(text, reqs, timeline, wake, prompt)
            if not b.get('advisory')]
     if not bad:
+        # Recorded first: consuming takes the landed branches off the
+        # turn-start record, and they are owed links until recorded given.
+        _record_links_given(text)
         _consume_turn_start()
         return 0
     # The reply that was just refused has ALREADY been shown to the person --

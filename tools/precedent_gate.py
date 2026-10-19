@@ -516,6 +516,32 @@ def record_turn_start_unlanded(root, records):
         pass
 
 
+def _session_roots(root, siblings=True):
+    """-> [Path] this checkout, then each sibling Precedent repo this session
+    may also have committed in: a `precedent-*` clone beside it or in the
+    home directory.
+
+    `siblings=False` is for a test fixture, which must see only itself.
+    The scan includes the home directory, so a harness run on a machine
+    whose real practice sets carried unmerged work failed on THEIR state
+    -- found 2026-09-25, the first time the harness gated a push, with the
+    push check's own rollout commits sitting on the sets' working branches.
+    Shared since 2026-10-19 with the reply check's delete links, which ask
+    the same question of the same repositories."""
+    roots = [pathlib.Path(root)]
+    for parent in ({pathlib.Path(root).parent, pathlib.Path.home()}
+                   if siblings else ()):
+        try:
+            entries = sorted(parent.iterdir())
+        except OSError:
+            continue
+        for d in entries:
+            if d.name.startswith('precedent-') and (d / '.git').exists():
+                if d.resolve() not in {r.resolve() for r in roots}:
+                    roots.append(d)
+    return roots
+
+
 def _unlanded_work(root, siblings=True, records=None):
     """-> [str] one line per repo in this session whose committed work is not
     on the branch that repo actually merges into -- and only where those
@@ -550,28 +576,7 @@ def _unlanded_work(root, siblings=True, records=None):
         return r.stdout.strip() if r.returncode == 0 else ''
 
     out = []
-    roots = [pathlib.Path(root)]
-    # Sibling Precedent repos this session may also have committed in. A
-    # session that made a commit in a source set and left it on a branch has
-    # the same problem, and nothing else in this preamble looks there.
-    #
-    # `siblings=False` is for a test fixture, which must see only itself.
-    # The scan includes the home directory, so a harness run on a machine
-    # whose real practice sets carried unmerged work failed on THEIR state
-    # -- found 2026-09-25, the first time the harness gated a push, with the
-    # push check's own rollout commits sitting on the sets' working branches.
-    for parent in ({pathlib.Path(root).parent, pathlib.Path.home()}
-                   if siblings else ()):
-        try:
-            entries = sorted(parent.iterdir())
-        except OSError:
-            continue
-        for d in entries:
-            if d.name.startswith('precedent-') and (d / '.git').exists():
-                if d.resolve() not in {r.resolve() for r in roots}:
-                    roots.append(d)
-
-    for repo in roots:
+    for repo in _session_roots(root, siblings):
         head = _git(repo, 'rev-parse', '--abbrev-ref', 'HEAD')
         if not head or head == 'HEAD':
             continue
