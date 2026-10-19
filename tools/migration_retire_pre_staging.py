@@ -158,6 +158,16 @@ def _retire_scope(repo, pattern='*.md'):
     try:
         import precedent_resolve as pr
         records = list(pr.declared_record_paths(repo))
+        # A shared set copied into this repository is a mirror too: its
+        # wording is its own repository's to change, and Update Vendors puts
+        # it back on every refresh (2026-10-19, the first copy-in).
+        root = pathlib.Path(repo).resolve()
+        for path, _l, _n, _note in pr.vendored_source_paths(repo):
+            try:
+                vendored.append(pathlib.Path(path).resolve()
+                                .relative_to(root).as_posix() + '/')
+            except ValueError:
+                continue
     except Exception:                                        # noqa: BLE001
         records = []
     files, history = [], []
