@@ -971,6 +971,15 @@ def _print_hard_requirements(root):
                   f"line, such as \"(Waiting on <what>.)\": no status report, "
                   f"no Boildown. Report once, when the last job ends or one "
                   f"fails. A wake that reports a failure may speak.")
+        # require_plan_done_if_says (2026-10-19): the session has to know to
+        # name its plan before the reply is written, or the check never sees
+        # it.
+        for _ph in (r.get('require_plan_done_if_says') or []):
+            print(f"- [{src}] a session following a multi-step plan names it "
+                  f"in The Boildown on a line opening **Plan:** and its link, "
+                  f"with the steps left. \"{_ph}\" is refused while that "
+                  f"plan has an unticked `- [ ]` box, unless the person is "
+                  f"quoted ending it early on a **Plan ended early:** line.")
         for pair in (r.get('require_paired_with') or []):
             if pair.get('if_matches') and pair.get('must_also_match'):
                 print(f"- [{src}] a reply matching /{pair['if_matches']}/ "

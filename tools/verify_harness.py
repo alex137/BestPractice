@@ -32602,6 +32602,69 @@ def check_archive_guard_refuses_work_left_on_a_feature_branch():
           f'accepts a named drop ({len(cases)} stated cases)', ok)
 
 
+@_without_session_id
+def check_archive_guard_waits_for_an_unfinished_plan():
+    """`require_plan_done_if_says` refuses the archive sentence while the
+    plan a `**Plan:**` line names still holds an unticked box, and accepts
+    it once every box is ticked or the person's early end is quoted on a
+    `**Plan ended early:**` line (the-boildown blocker 5, Morgan,
+    2026-10-19). The plan is a real file in a fixture directory, found both
+    by a relative path and by a GitHub link to a clone beside it. Owns its
+    state.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_reply_check as rc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='plan-guard-'))
+    old = os.environ.get('CLAUDE_PROJECT_DIR')
+    cases = []
+    try:
+        proj = tmp / 'Fixture'
+        (proj / 'spec').mkdir(parents=True)
+        plan = proj / 'spec' / 'FIXTURE_PLAN.md'
+        plan.write_text('# Plan\n\n- [x] Step 1: write it\n- [ ] Step 2: ship it\n',
+                        encoding='utf-8')
+        (proj / 'spec' / 'NO_BOXES.md').write_text('# Notes\n\nStep 1, then 2.\n',
+                                                   encoding='utf-8')
+        os.environ['CLAUDE_PROJECT_DIR'] = str(proj)
+        req = [{'practice': 'the-boildown', '_source': 'universal/fixture',
+                'require_plan_done_if_says': ['You can archive this session']}]
+        kinds = lambda text: [v['kind'] for v in rc.violations(text, req)]
+        rel = '- **Plan:** [the plan](spec/FIXTURE_PLAN.md)\n\nYou can archive this session.'
+        link = ('- **Plan:** https://github.com/someone/fixture/blob/staging/'
+                'spec/FIXTURE_PLAN.md\n\nYou can archive this session.')
+        cases += [
+            ('refused while a step is unticked (relative path)', 'plan' in kinds(rel), ''),
+            ('refused while a step is unticked (GitHub link, case-blind repo name)',
+             'plan' in kinds(link), ''),
+            ('a quoted early end lets it through',
+             'plan' not in kinds(rel.replace('\n\n', '\n- **Plan ended early:** '
+                                             '"stop after step 1"\n\n')), ''),
+            ('negative control: an empty early-end line does not',
+             'plan' in kinds(rel.replace('\n\n', '\n- **Plan ended early:**\n\n')), ''),
+            ('negative control: "Don\'t archive this session" is never refused by it',
+             'plan' not in kinds(rel.replace('You can', "Don't")), ''),
+            ('negative control: a plan with no checklist is not judged',
+             'plan' not in kinds(rel.replace('FIXTURE_PLAN', 'NO_BOXES')), ''),
+            ('negative control: a missing plan file is not judged',
+             'plan' not in kinds(rel.replace('FIXTURE_PLAN', 'GONE')), ''),
+        ]
+        plan.write_text('# Plan\n\n- [x] Step 1\n- [x] Step 2\n', encoding='utf-8')
+        cases.append(('accepted once every box is ticked', 'plan' not in kinds(rel), ''))
+    finally:
+        if old is None:
+            os.environ.pop('CLAUDE_PROJECT_DIR', None)
+        else:
+            os.environ['CLAUDE_PROJECT_DIR'] = old
+        shutil.rmtree(tmp, ignore_errors=True)
+    ok = all(passed for _, passed, _ in cases)
+    for name, passed, detail in cases:
+        if not passed:
+            print(f"  plan guard did NOT behave as stated: {name} [{detail}]")
+    check(f'the archive guard waits for an unfinished plan, and accepts a '
+          f'quoted early end ({len(cases)} stated cases)', ok)
+
+
 def check_vocabulary_moves_a_word_to_our_language():
     """A `command:` phrase that is also a word in tools/our_language.json
     prints under "Our language", not among the commands, and the word list
@@ -87983,6 +88046,7 @@ def main():
     check_vocabulary_prefers_the_file_you_are_standing_on()
     check_vocabulary_moves_a_word_to_our_language()
     check_archive_guard_refuses_work_left_on_a_feature_branch()
+    check_archive_guard_waits_for_an_unfinished_plan()
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
     check_close_detect_counts_only_this_sessions_reverts()
