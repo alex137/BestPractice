@@ -3118,6 +3118,12 @@ def check_rename_links_spares_a_url_into_another_repository():
             'See [go-update](https://github.com/acme/consumer/blob/main/'
             'guide/go-update.md).\n', encoding='utf-8')
         (repo / 'bare.md').write_text('See guide/go-update.md.\n', encoding='utf-8')
+        # 2026-10-19: docs saying "OtherSet's tools/human_voice_check.py"
+        # were flagged on the change that deleted a stale copy of it.
+        (repo / 'possessive.md').write_text(
+            "Run OtherSet's `guide/go-update.md` instead.\n", encoding='utf-8')
+        (repo / 'slug.md').write_text(
+            'Source (in acme/other-set): guide/go-update.md\n', encoding='utf-8')
         env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
                    GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
 
@@ -3136,6 +3142,9 @@ def check_rename_links_spares_a_url_into_another_repository():
         out = r.stdout + r.stderr
         cases.append(('a link into another repository is not a stale reference',
                       'elsewhere.md' not in out, out[-400:]))
+        cases.append(('a mention the line qualifies by another repository '
+                      '(a possessive, or owner/name) is not a stale reference',
+                      'possessive.md' not in out and 'slug.md' not in out, out[-400:]))
         cases.append(('CONTROL: a link into this same repository is still flagged',
                       'here.md:1' in out, out[-400:]))
         cases.append(('CONTROL: a bare path is still flagged',
@@ -31979,6 +31988,41 @@ def check_set_bootstrap_defers_to_a_newer_engine_copy():
     bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
     check(f'a set\'s bootstrap defers to a newer engine copy ({len(cases)} stated cases)',
           not bad, '; '.join(map(str, bad)))
+
+
+def check_sync_removes_a_stale_ship_named_only_as_another_repos():
+    """2026-10-19: an individual set stopped shipping tools/human_voice_check.py
+    once a shared set shipped its own. Three consumers kept the stale copy
+    because their docs said "OtherSet's tools/human_voice_check.py" and
+    the sync's audit read any mention of the file name as a use of the copy.
+    CONTROL: a plain mention still keeps it."""
+    import subprocess as _sp
+    import tempfile
+    import hashlib as _h
+    import precedent_materialize as pm
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        g = lambda *a: _sp.run(['git', '-C', str(d), *a], capture_output=True, text=True)
+        g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        g('remote', 'add', 'origin', 'https://github.com/acme/consumer.git')
+        (d / 'tools').mkdir()
+        f = d / 'tools' / 'voice_check.py'
+        f.write_text('print(1)\n')
+        h = _h.sha256(f.read_bytes()).hexdigest()[:16]
+        (d / 'README.md').write_text("Copies OtherSet's `tools/voice_check.py` to external/.\n"
+                                     'Source (in acme/OtherSet): tools/voice_check.py\n')
+        g('add', '-A'); g('commit', '-qm', 'c')
+        why = pm._stale_ship_keep_reason(d, 'tools/voice_check.py', h)
+        cases.append(('a file named only as another repository\'s may go', why is None, why))
+        (d / 'GUIDE.md').write_text('Run `python3 tools/voice_check.py` first.\n')
+        g('add', '-A'); g('commit', '-qm', 'c2')
+        why = pm._stale_ship_keep_reason(d, 'tools/voice_check.py', h)
+        cases.append(('CONTROL: a plain mention still keeps it',
+                      bool(why) and 'GUIDE.md' in why, why))
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'the sync removes a stale ship named only as another repository\'s '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
 
 
 def check_update_holds_a_settings_change_and_offers_it_again():
@@ -87384,6 +87428,7 @@ def main():
     check_branch_cleanup_button()
     check_update_notes_workflow_changes_in_readme_platform_section()
     check_set_bootstrap_defers_to_a_newer_engine_copy()
+    check_sync_removes_a_stale_ship_named_only_as_another_repos()
     check_update_holds_a_settings_change_and_offers_it_again()
     check_deduplicated_copy_stays_in_force_until_its_target_arrives()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()

@@ -624,6 +624,7 @@
   "check_sync_refuses_a_rule_waiting_on_a_brought_set_by_name": 1.7,
   "check_sync_refuses_to_lose_a_recorded_practice": 5.2,
   "check_sync_refuses_to_write_from_incomplete_sources": 1.0,
+  "check_sync_removes_a_stale_ship_named_only_as_another_repos": 0.6,
   "check_sync_says_which_copy_of_a_claimed_check_runs": 0.0,
   "check_sync_views_cross_source": 2.6,
   "check_template_freshness_reads_the_skeleton_correctly": 0.0,
