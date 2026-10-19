@@ -105,7 +105,7 @@ Some top highlights from the day's activity; ask if you want to learn more detai
 
 - **GitHub's test before anything reaches main now runs the same command a session runs, in one job**: about 17 minutes instead of up to 30, and one billed job instead of three (deep-check.yml runs `verify_harness.py --as-ci`; the speed-up made locally a week earlier had never reached GitHub's copy, and a check now refuses a second copy of the split).
 - **Changing a hook no longer touches .claude/**, so auto mode stops asking about every hook change (the scripts live in tools/hooks/; .claude/hooks/ holds permanent stubs and one fixed entry per event).
-- **A whole test-suite run now says how long it takes and waits for a go-ahead**, and every time estimate carries its clock time (`verify_harness.py` refuses a full run without `--because`; answer-first-ask-before-long-work).
+- **A whole test-suite run now says how long it takes and waits for a go-ahead**, and every time estimate carries its clock time ([`verify_harness.py`](tools/verify_harness.py) refuses a full run without `--because`; answer-first-ask-before-long-work).
 - **One repository's update can no longer switch another repository's working branch to main** (precedent_source_bootstrap.py reports a clone on another branch, with the command that moves it, instead of checking out main there).
 
 ## Tuesday 2026-10-06: relayed-messages-get-weighed
@@ -225,25 +225,25 @@ Some top highlights from the day's activity; ask if you want to learn more detai
 
 Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
 
-- **The formatting check on documents now runs before a commit is allowed**, in the session, instead of a second time on GitHub afterward (`.claude/hooks/doc-lint-gate.sh` refuses a commit whose Markdown fails `doc_lint.py`; the retired workflow had billed about 350 minutes over 19 days in one repository).
+- **The formatting check on documents now runs before a commit is allowed**, in the session, instead of a second time on GitHub afterward (`.claude/hooks/doc-lint-gate.sh` refuses a commit whose Markdown fails [`doc_lint.py`](tools/doc_lint.py); the retired workflow had billed about 350 minutes over 19 days in one repository).
 - **The practice sets stopped running automated checks on GitHub at all**, and the checks that projects still run got cheaper (the `source-sets-run-no-ci` practice, after four sets turned out to be 127 of 143 billed minutes in one day; the CI templates went to one job per workflow, so a run bills 1 minute instead of up to 3).
-- **A project now finds out on its own when it has fallen behind** the latest version of Precedent (`tools/precedent_engine_freshness.py` runs at session start and before a push or merge; when measured, 18 of 22 installed projects had never taken an update).
+- **A project now finds out on its own when it has fallen behind** the latest version of Precedent ([`tools/precedent_engine_freshness.py`](tools/precedent_engine_freshness.py) runs at session start and before a push or merge; when measured, 18 of 22 installed projects had never taken an update).
 - **The instructions every session reads first got shorter**, with nothing thrown away (the always-loaded block went from about 2,200 tokens to about 1,430 against a 2,000 cap, by moving two practices to on-demand and trimming the three longest rules).
 
 ## Sunday 2026-09-20: one-file-per-item
 
 Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
 
-- **Every open item and every recorded trap now lives in its own file** instead of one long list, and a follow-up check found items the move had lost and put them back (105 items from `TODO.md` plus 44 live and 33 retired gotchas moved into `todo/` and `gotchas/`, and `TODO.md` shrank by about 7,200 lines to a redirect stub; 54 of 161 items had gone missing, and `tools/todo_migrate.py` now refuses to finish if any item drops).
-- **The front page was rewritten** to open with the everyday problems Precedent solves rather than a definition and a feature list (`README.md`, rebuilt around three named frustrations, with a new "Get Up and Running!" section).
+- **Every open item and every recorded trap now lives in its own file** instead of one long list, and a follow-up check found items the move had lost and put them back (105 items from [`TODO.md`](TODO.md) plus 44 live and 33 retired gotchas moved into `todo/` and `gotchas/`, and [`TODO.md`](TODO.md) shrank by about 7,200 lines to a redirect stub; 54 of 161 items had gone missing, and [`tools/todo_migrate.py`](tools/todo_migrate.py) now refuses to finish if any item drops).
+- **The front page was rewritten** to open with the everyday problems Precedent solves rather than a definition and a feature list ([`README.md`](README.md), rebuilt around three named frustrations, with a new "Get Up and Running!" section).
 - **Standing commands now respond to what a message is asking for**, not only to an exact phrase, and the session says its reading out loud when that reading is a judgment call (`go-merge`, `weak-yes` and `decision-strength` read intent; `chief-of-staff`, `full-practice-audit` and `very-deep-check` stay on the literal words).
-- **Sessions running on other AI coding tools get the same setup** Claude Code sessions get (Codex and Gemini CLI adapters wired through `tools/bootstrap.sh` and a new `GEMINI.md`, plus a new Grok Build adapter under `templates/harness/grok-build/`).
+- **Sessions running on other AI coding tools get the same setup** Claude Code sessions get (Codex and Gemini CLI adapters wired through `tools/bootstrap.sh` and a new [`GEMINI.md`](GEMINI.md), plus a new Grok Build adapter under `templates/harness/grok-build/`).
 
 ## Monday 2026-09-14: bestpractice-becomes-precedent
 
 Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
 
-- **The rulebook was broken up into one file per rule**, and only a handful are read every time; the rest come in when they apply (the single 140-kilobyte `PRACTICES.md` became 116 files under `practices/`, with 10 always loaded at about 950 tokens and the others reached through an occasion index, `precedent_paths.py` for the file being edited, and `precedent_gate.py` at moments like a merge).
-- **A project can stack its own team's rules and one person's rules** on top of the shared ones, and pick up engine fixes without copying files by hand (sources are declared in `precedent.json`, and `precedent_vendor_engine.py` installs and refreshes the engine in a project that uses Precedent).
-- **New plain-language guides for people who don't write code** arrived, plus a set of essays on why the project works the way it does (`documentation/` gained `WHY_PRECEDENT.md`, `FOR_EVERYONE_ELSE.md` and `DAILY_HABITS.md`; `philosophy/` holds essays such as `CORE_PILLARS.md` and `OUR_PHILOSOPHY.md`).
+- **The rulebook was broken up into one file per rule**, and only a handful are read every time; the rest come in when they apply (the single 140-kilobyte [`PRACTICES.md`](PRACTICES.md) became 116 files under `practices/`, with 10 always loaded at about 950 tokens and the others reached through an occasion index, [`precedent_paths.py`](tools/precedent_paths.py) for the file being edited, and [`precedent_gate.py`](tools/precedent_gate.py) at moments like a merge).
+- **A project can stack its own team's rules and one person's rules** on top of the shared ones, and pick up engine fixes without copying files by hand (sources are declared in `precedent.json`, and [`precedent_vendor_engine.py`](tools/precedent_vendor_engine.py) installs and refreshes the engine in a project that uses Precedent).
+- **New plain-language guides for people who don't write code** arrived, plus a set of essays on why the project works the way it does (`documentation/` gained [`WHY_PRECEDENT.md`](documentation/WHY_PRECEDENT.md), [`FOR_EVERYONE_ELSE.md`](documentation/FOR_EVERYONE_ELSE.md) and [`DAILY_HABITS.md`](documentation/DAILY_HABITS.md); `philosophy/` holds essays such as [`CORE_PILLARS.md`](philosophy/CORE_PILLARS.md) and [`OUR_PHILOSOPHY.md`](philosophy/OUR_PHILOSOPHY.md)).
 - **The project can test whether its rules actually fire when they should**, by replaying made-up scenarios against them (a four-phase practice simulation under `evals/simulation`, alongside routing tests in `evals/routing`; the tools folder grew from 7 Python scripts to 56).

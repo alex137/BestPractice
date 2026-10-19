@@ -4176,6 +4176,16 @@ def check_whats_new_log_mechanics():
                       str([pwn.shape_problems(t) for t in
                            (good, old, wrong_day, no_line, no_bold, backticked,
                             mid_bold)])))
+        bare = good.replace('(a name)', '(`docs/GUIDE.md` and `tools/run.py`)')
+        linked = good.replace('(a name)', '([`docs/GUIDE.md`](docs/GUIDE.md), '
+                              '`python3 tools/run.py`, `practices/*.md`)')
+        got_bare = pwn.unlinked_files(bare)
+        got_linked = pwn.unlinked_files(linked)
+        cases.append(('a file an entry names without a link is flagged, and a '
+                      'linked one, a command line and a glob are not',
+                      [n for _, n in got_bare] == ['docs/GUIDE.md', 'tools/run.py']
+                      and got_linked == [],
+                      f'{got_bare} {got_linked}'))
         import title_case as _tc
         kept = _tc.title_case('Wednesday 2026-09-30: safer-merges')
         compound = _tc.title_case('a lock-in for safer-merges')
@@ -44896,6 +44906,29 @@ def check_shared_set_leaves_a_link_at_the_attach_path():
                          tree, workspace=third)
         cases.append(('a source that is not hosted gets no attach link',
                       not (third / 'precedent-shared-x').exists()))
+        # Where the attach tool clones: beside a project that is a
+        # repository, and INSIDE a session root that is not one -- a session
+        # rooted above its repos (2026-10-19: rooted at /home/user, the
+        # parent read /home, and a shared set was cloned twice).
+        repo_proj, above = tmp / 'wsr' / 'proj', tmp / 'above'
+        repo_proj.mkdir(parents=True)
+        above.mkdir()
+        git(repo_proj, 'init', '-q')
+        saved_proj = os.environ.get('PRECEDENT_PROJECT_DIR')
+        try:
+            os.environ['PRECEDENT_PROJECT_DIR'] = str(repo_proj)
+            beside = psb.attach_workspace()
+            os.environ['PRECEDENT_PROJECT_DIR'] = str(above)
+            inside = psb.attach_workspace()
+        finally:
+            if saved_proj is None:
+                os.environ.pop('PRECEDENT_PROJECT_DIR', None)
+            else:
+                os.environ['PRECEDENT_PROJECT_DIR'] = saved_proj
+        cases.append(('the attach path sits beside a project that is a '
+                      'repository, and inside a session root that is not',
+                      beside == repo_proj.parent and inside == above,
+                      f'{beside} {inside}'))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
@@ -44943,6 +44976,11 @@ def check_individual_hook_run_by_hand_links_the_attached_set():
         proj = ws / 'proj'
         (proj / 'tools').mkdir(parents=True)
         (proj / '.claude' / 'hooks').mkdir(parents=True)
+        # A project is a repository; one that is not is a session rooted
+        # above its repos, whose attach copies sit in it, not beside it
+        # (attach_workspace, 2026-10-19).
+        subprocess.run(['git', 'init', '-q', str(proj)], env=env0,
+                       capture_output=True)
         home.mkdir()
         for name in ('precedent_source_bootstrap.py',
                      'precedent_source_credentials.py',
@@ -58461,6 +58499,94 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-400:],
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'--land tells the push\'s hooks what it lands ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_land_sent_to_a_pull_request_carries_mains_work():
+    """A landing refused for the pull-request route pushes the composition
+    it checked -- staging, main's direct work and the branch -- to the
+    branch, so the pull request from it is not refused for lacking main.
+
+    2026-10-19: a change to tools/verify_harness.py was refused by --land
+    ("This one takes a pull request"); the pull request from the branch as
+    it stood lacked main's four direct commits, and the push check and
+    merge guard sent the session back to --land. The way out was a hand
+    merge of origin/main. The fixture's pre-push hook refuses a push to
+    staging as the real one does; main carries a commit staging lacks.
+
+    Negative control, measured 2026-10-19: without
+    _carry_composition_to_branch the branch on origin lacks main's commit
+    and the first case fails."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-pr-'))
+    cases = []
+    try:
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        (hooks / 'pre-push').write_text(
+            '#!/bin/sh\nwhile read l ls r rs; do\n'
+            '  case "$r" in refs/heads/staging) echo "push refused: this one '
+            'takes a pull request" >&2; exit 1;; esac\ndone\nexit 0\n',
+            encoding='utf-8')
+        (hooks / 'pre-push').chmod(0o755)
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, os, pathlib, subprocess, sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                  PRECEDENT_USER_CONFIG={str(tmp / 'no-config.json')!r},
+                  GIT_CONFIG_GLOBAL={str(tmp / 'gitconfig')!r})
+pathlib.Path({str(tmp / 'gitconfig')!r}).write_text('')
+import precedent_branches as pb
+td = pathlib.Path({str(tmp)!r})
+origin, work = td / 'o.git', td / 'w'
+g = lambda *a: subprocess.run(['git', '-C', str(work), *a], capture_output=True, text=True)
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g('checkout', '-q', '-B', 'main')
+(work / 'precedent.json').write_text('{{"landing_branch": "staging"}}\\n')
+g('add', '-A'); g('commit', '-qm', 'base')
+g('push', '-q', 'origin', 'main', 'main:staging')
+g('checkout', '-q', '-b', 'claude/engine-change-abcdef')
+(work / 'x.md').write_text('x\\n'); g('add', '-A'); g('commit', '-qm', 'work')
+g('push', '-q', 'origin', 'claude/engine-change-abcdef')
+g('checkout', '-q', 'main')
+(work / 'direct.md').write_text('d\\n'); g('add', '-A'); g('commit', '-qm', 'direct')
+g('push', '-q', 'origin', 'main')
+g('checkout', '-q', 'claude/engine-change-abcdef')
+g('config', 'core.hooksPath', {str(hooks)!r})
+pb._check = lambda *a, **k: (True, 'stub check')
+said = []
+rc, verdict = pb._land_composed(work, g('rev-parse', 'HEAD').stdout.strip(),
+                                'claude/engine-change-abcdef', 'staging', 'the fixture',
+                                said.append)
+g('fetch', '-q', 'origin')
+files = g('ls-tree', '--name-only', 'origin/claude/engine-change-abcdef').stdout.split()
+print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], files=files,
+                      staging=g('ls-tree', '--name-only', 'origin/staging').stdout.split())))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=300)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-600:]
+        files = out.get('files') or []
+        cases.append(('THE DISCRIMINATING CASE: the branch on origin now carries '
+                      'main\'s direct commit and its own work',
+                      'direct.md' in files and 'x.md' in files, str(out) or why))
+        cases.append(('...staging did not move, and the landing says it was refused',
+                      out.get('rc') == 1 and 'x.md' not in (out.get('staging') or [])
+                      and 'REFUSED' in (out.get('verdict') or ''), str(out) or why))
+        cases.append(('...and the reply says the branch now carries the checked '
+                      'composition', 'now carries the composition' in
+                      (out.get('said') or ''), str(out) or why))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a landing sent to a pull request carries main\'s work '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
 
 def check_leak_gate_reads_other_clones_as_themselves_inside_a_hook():
     """Inside a git hook the leak gate still reads every other clone as
@@ -86557,6 +86683,7 @@ def main():
     check_a_replacing_rule_inherits_what_it_does_not_restate()
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_land_tells_the_push_hooks_what_it_lands()
+    check_land_sent_to_a_pull_request_carries_mains_work()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
     check_update_stages_what_a_late_step_writes()
