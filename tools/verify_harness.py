@@ -7797,14 +7797,28 @@ def check_migrate_views_keeps_every_word():
             '---\ngenerated_by: tools/build_views.py\nedit_instead: "practices/*.md"\n'
             '---\n# Canonical names\n', encoding='utf-8')
         (repo / 'tools' / 'generated_files.json').unlink(missing_ok=True)
+        # ...but their history holds the hand-written views, with a heading
+        # and a row the overwrite took. An empty source would make that loss
+        # permanent, which is what happened to that consumer on 2026-10-05.
         rc, out = migrate()
+        cases.append(('views already generated whose history holds hand-written '
+                      'ones with entries they lost: refused, naming the commit to '
+                      'restore from, with nothing written',
+                      rc == 1 and 'REFUSED' in out and f'--restore-from {first}' in out
+                      and not (repo / 'MAP.source.md').exists()
+                      and not (repo / 'GLOSSARY.source.md').exists()))
+        rc, out = migrate('--find-lost')
+        cases.append(('--find-lost names each lost heading and row, and changes nothing',
+                      rc == 1 and '## Known consumers' in out and '| a/b |' in out
+                      and '| HVR |' in out and not (repo / 'MAP.source.md').exists()))
+        rc, out = migrate('--accept-loss')
         lst = repo / 'tools' / 'generated_files.json'
         listed = ({e['path']: e.get('edit_instead') for e in
                    _json.loads(lst.read_text(encoding='utf-8'))['files']}
                   if lst.is_file() else {})
-        cases.append(('views already generated, with no source and no list: each '
-                      'gets an empty source, as a fresh install would, and the list '
-                      'names both',
+        cases.append(('with --accept-loss, views already generated, with no source '
+                      'and no list: each gets an empty source, as a fresh install '
+                      'would, and the list names both',
                       rc == 0 and 'nothing to migrate' in out
                       and listed.get('MAP.md') == 'MAP.source.md'
                       and listed.get('GLOSSARY.md') == 'GLOSSARY.source.md'
@@ -7818,6 +7832,14 @@ def check_migrate_views_keeps_every_word():
                       and 'GLOSSARY.source.md' in (repo / 'GLOSSARY.md')
                       .read_text(encoding='utf-8').split('---', 2)[1]
                       and (repo / 'AGENTS.md').read_text(encoding='utf-8') == agents_before))
+        rc, out = migrate('--restore-from', first)
+        cases.append(('--restore-from fills both empty sources from the named commit, '
+                      'and nothing is lost afterwards',
+                      rc == 0
+                      and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map
+                      and (repo / 'GLOSSARY.source.md').read_text(encoding='utf-8')
+                      == hand_glossary
+                      and migrate('--find-lost')[0] == 0))
 
         # A hand-written map and no glossary at all: the migration makes no
         # glossary, and the list names nothing that is not there. Found
