@@ -72,8 +72,9 @@ natural end of a reply:**
    the-boildown's condition 4.
 5. No multi-step plan this session is following has a step left. A plan
    holds the session open until every step is done, or until the person
-   says in their own words that they are finishing it early; name the
-   plan and what is left, in plain words (the-boildown's blocker 5, Morgan,
+   says in their own words that they are finishing it early, or until it
+   is handed to another session confirmed running with it; name the plan
+   and what is left, in plain words (the-boildown's blocker 5, Morgan,
    2026-10-19).
 
 **All five hold, and there is nothing else worth flagging** (no open

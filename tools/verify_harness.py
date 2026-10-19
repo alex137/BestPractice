@@ -32606,8 +32606,9 @@ def check_archive_guard_refuses_work_left_on_a_feature_branch():
 def check_archive_guard_waits_for_an_unfinished_plan():
     """`require_plan_done_if_says` refuses the archive sentence while the
     plan a `**Plan:**` line names still holds an unticked box, and accepts
-    it once every box is ticked or the person's early end is quoted on a
-    `**Plan ended early:**` line (the-boildown blocker 5, Morgan,
+    it once every box is ticked, the person's early end is quoted on a
+    `**Plan ended early:**` line, or a `**Plan handed to:**` line links the
+    session now carrying it (the-boildown blocker 5, Morgan,
     2026-10-19). The plan is a real file in a fixture directory, found both
     by a relative path and by a GitHub link to a clone beside it. Owns its
     state.
@@ -32642,6 +32643,11 @@ def check_archive_guard_waits_for_an_unfinished_plan():
                                              '"stop after step 1"\n\n')), ''),
             ('negative control: an empty early-end line does not',
              'plan' in kinds(rel.replace('\n\n', '\n- **Plan ended early:**\n\n')), ''),
+            ('a **Plan handed to:** line with a session link lets it through',
+             'plan' not in kinds(rel.replace('\n\n', '\n- **Plan handed to:** '
+                                             'https://claude.ai/code/session_01Abc\n\n')), ''),
+            ('negative control: a **Plan handed to:** line with no session link does not',
+             'plan' in kinds(rel.replace('\n\n', '\n- **Plan handed to:** another one\n\n')), ''),
             ('negative control: "Don\'t archive this session" is never refused by it',
              'plan' not in kinds(rel.replace('You can', "Don't")), ''),
             ('negative control: a plan with no checklist is not judged',
