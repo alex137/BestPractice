@@ -132,7 +132,7 @@ audience:      session
 summary:       The verdict recorded for each inherited practice against the architecture the restructuring plan approved.</p>
 <hr />
 <h1 id="pre-fork-catalogue-audit">Pre-Fork Catalogue Audit</h1>
-<time class="renderstamp" datetime="2026-10-17T10:16:44+00:00">2026-10-17 10:16 UTC</time>
+<time class="renderstamp" datetime="2026-10-19T23:36:43+00:00">2026-10-19 23:36 UTC</time>
 <nav class="contents" id="contents"><span class="contents-label">Contents</span><ol><li><a href="#the-table">The table</a></li><li><a href="#two-systemic-gaps-this-audit-found-bigger-than-any-one-row">Two systemic gaps this audit found, bigger than any one row</a></li><li><a href="#what-was-checked-and-found-clean">What was checked and found clean</a></li></ol></nav>
 <p>One row per practice inherited from pre-fork BestPractice (the original 52,
 numbered <code>PRACTICES.md</code> catalogue, plus Alex’s practice 53 added on <code>main</code>
@@ -1049,6 +1049,21 @@ entry, ever named this.</p>
       });
       cell.appendChild(btn);
     });
+    // A default filter (<!--default-filter: Header=Value-->, see the module
+    // docstring): the table opens with that column filtered to that value, and
+    // Reset returns to it; the reader can clear it like any filter.
+    function defaultFilter() {
+      var spec = tbl.dataset.defaultFilter;
+      if (!spec) return;
+      var eq = spec.indexOf("="), want = spec.slice(0, eq).trim(), val = spec.slice(eq + 1).trim();
+      Array.prototype.forEach.call(fr.cells, function (c, i) {
+        var label = (hrow.cells[i].dataset.label || hrow.cells[i].textContent).replace(/[▲▼][0-9]*$/, "").trim();
+        if (label !== want) return;
+        filterState[+c.dataset.col].vals[val] = 1;
+        if (c.firstChild && c.firstChild._sync) c.firstChild._sync();
+      });
+    }
+    defaultFilter();
 
     function posMap() {
       var m = {};
@@ -1176,6 +1191,7 @@ entry, ever named this.</p>
       Array.prototype.forEach.call(fr.cells, function (c) {
         if (c.firstChild && c.firstChild._sync) c.firstChild._sync();
       });
+      defaultFilter();
       baseOrder = [];
       for (var i = 0; i < ncols; i++) baseOrder.push(i);
       var body = tbl.tBodies[0];
