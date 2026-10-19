@@ -121,6 +121,7 @@
   "check_codeowners_check_is_a_check": 0.5,
   "check_codeowners_stamp_hashes_only_the_registry": 0.0,
   "check_codex_hooks_template_runs_the_claude_gates": 0.2,
+  "check_commit_backstop_points_shipped_links_at_github": 0.2,
   "check_commit_identity_ci_cadence": 15.7,
   "check_commit_identity_copies_are_identical": 0.0,
   "check_commit_identity_derives_declared_timezone": 3.0,
