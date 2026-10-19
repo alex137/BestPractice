@@ -3589,9 +3589,7 @@ def _settings_cases(was, now):
         cases.append(f'settings.json allows {len(more)} more '
                      + ('Precedent tool ' if ro else '')
                      + f'command(s): {", ".join(more)}'
-                     + (' -- the first covers every engine tool, and the ask '
-                        'rules beside it keep the ones that land, produce, '
-                        'merge or update other repositories asking the person'
+                     + (' -- the first covers every engine tool'
                         if broad else ''))
     # The rules that always ask (2026-10-17): said by name too.
     try:
