@@ -751,6 +751,7 @@
   "check_upstream_edits_need_an_answer": 0.1,
   "check_upstream_fix_sets_up_the_fix_in_the_source": 0.3,
   "check_upstream_review_only_for_a_code_owner_on_the_ladder": 0.6,
+  "check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer": 0.1,
   "check_vdc_is_a_known_acronym_everywhere": 0.0,
   "check_vendor_engine_consumer_case": 33.7,
   "check_vendor_engine_hook_drift_respects_adapters": 12.9,
