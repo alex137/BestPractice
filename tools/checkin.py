@@ -207,6 +207,15 @@ def _bind_source(clone):
     # code at all -- its practices are the point.
     if (own.get('upstream') or {}).get('vendor_practices') or copied_in:
         dirs += ['practices', SOURCE_MANIFEST]
+    # A set it carries inside itself comes with it, whole: the carrier's
+    # precedent-source.json names each one and where it sits.
+    if copied_in:
+        for item in m.get('carries') or []:
+            rel = str((item or {}).get('path') or '').strip().strip('/') \
+                if isinstance(item, dict) else ''
+            if rel and '..' not in pathlib.PurePosixPath(rel).parts \
+                    and rel not in dirs:
+                dirs.append(rel)
     CODE_DIRS = dirs
 
 
@@ -227,12 +236,19 @@ def _refuse_private_into_public(clone, manifest):
     does not declare itself private. Its rules in a public tree are exactly
     what the leak gate exists to refuse, and the copy is the leak."""
     from leak_gate import declared_visibility, manifest_says_private
-    if not manifest_says_private(json.dumps(manifest)):
+    inner = []
+    for item in manifest.get('carries') or []:
+        rel = str((item or {}).get('path') or '') if isinstance(item, dict) else ''
+        try:
+            inner.append((clone / rel / SOURCE_MANIFEST).read_text(encoding='utf-8'))
+        except OSError:
+            continue
+    if not any(manifest_says_private(t) for t in [json.dumps(manifest)] + inner):
         return
     vis, _why = declared_visibility(ROOT)
     if vis != 'private':
-        sys.exit(f"checkin FAIL: {SOURCE} is a private set ({clone}'s "
-                 f"{SOURCE_MANIFEST} does not say \"visibility\": \"public\"), "
+        sys.exit(f"checkin FAIL: {SOURCE} is, or carries, a private set (a "
+                 f"{SOURCE_MANIFEST} in {clone} does not say \"visibility\": \"public\"), "
                  f"and this repository's precedent.json does not say "
                  f"\"visibility\": \"private\". A private set is copied only "
                  f"into a private repository; nothing was copied.")

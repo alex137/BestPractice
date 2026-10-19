@@ -70555,6 +70555,167 @@ def check_copied_in_shared_sets():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_copied_set_carries_another():
+    """A copied set may carry a second set inside it -- a voice pack and the
+    writing rules it is built on (spec/VENDORED_SHARED_SETS.md, 2026-10-19).
+
+    1. Update Vendors' copy brings the carried set along with its carrier.
+    2. The resolver puts the carried set in force, once, at its place in
+       the copy; a person who brings the same set gets the carried one.
+    3. A repository that declares the same set itself keeps its own: one
+       copy in force, the repository's (and the freshness line says the
+       carried one is not in force).
+    4. NEGATIVE CONTROL: a `carries` path that leaves the set is ignored.
+    5. A private set carried by a public one is refused into a repository
+       not declared private."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='carried-sets-'))
+    cases = []
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t',
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=env,
+                              capture_output=True, text=True)
+
+    def rule(d, slug):
+        (d / 'practices').mkdir(parents=True, exist_ok=True)
+        (d / 'practices' / f'{slug}.md').write_text(
+            f'---\nslug: {slug}\n---\n# {slug}\n\n## Rule\n\nx\n',
+            encoding='utf-8')
+
+    def make_pack(name, inner_vis, carries):
+        origin = tmp / f'{name}.git'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=env, check=True)
+        clone = tmp / name
+        subprocess.run(['git', 'clone', '-q', str(origin), str(clone)],
+                       env=env, capture_output=True, check=True)
+        rule(clone, 'zz-pack-rule')
+        rule(clone / 'inner', 'zz-inner-rule')
+        (clone / 'inner' / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-inner', 'level': 'shared', 'visibility': inner_vis}),
+            encoding='utf-8')
+        (clone / 'precedent-source.json').write_text(json.dumps(
+            {'name': name, 'level': 'shared', 'visibility': 'public',
+             'carries': carries}), encoding='utf-8')
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '-qm', 'one')
+        git(clone, 'push', '-q', 'origin', 'main')
+        return clone
+
+    def make_host(hname, name, extra=(), visibility=None):
+        host = tmp / hname
+        (host / 'process').mkdir(parents=True)
+        cfg = {'format_version': 1, 'sources': [
+            {'name': name, 'level': 'shared', 'path': f'process/{name}',
+             'vendored': True}, *extra]}
+        if visibility:
+            cfg['visibility'] = visibility
+        (host / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        (host / 'process' / f'manifest_{name}.json').write_text(json.dumps(
+            {'upstream': {'branch': 'main'}}), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(host)],
+                       env=env, check=True)
+        git(host, 'add', '-A')
+        git(host, 'commit', '-qm', 'init')
+        return host
+
+    def take(host, name, clone):
+        out = ''
+        for verb, flags in (('update', ['--force']), ('record', [])):
+            r = subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'checkin.py'), '--source',
+                 name, '--repo', str(host), verb, str(clone), *flags],
+                env=env, capture_output=True, text=True)
+            out += r.stdout[-300:] + r.stderr[-300:]
+            if r.returncode != 0:
+                return False, out
+        return True, out
+
+    try:
+        import precedent_resolve as pr
+        carries = [{'name': 'zz-inner', 'path': 'inner'}]
+        pack = make_pack('zz-pack', 'public', carries)
+        host = make_host('host', 'zz-pack')
+        ok, out = take(host, 'zz-pack', pack)
+        inner = host / 'process' / 'zz-pack' / 'inner'
+        cases.append(('the copy brings the carried set along',
+                      ok and (inner / 'practices' / 'zz-inner-rule.md').is_file()
+                      and (inner / 'precedent-source.json').is_file(), out))
+        srcs = pr.load_config(str(host), user_config=str(tmp / 'no-config.json'))
+        mine = [s for s in srcs if s['name'] == 'zz-inner']
+        cases.append(('the carried set is in force, once, at its place in the copy',
+                      len(mine) == 1 and pathlib.Path(mine[0]['path'])
+                      == inner.resolve() and mine[0].get('carried_by') == 'zz-pack',
+                      repr(mine)))
+
+        ind = tmp / 'people' / 'zz-ind'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual', 'brings': [
+                {'name': 'zz-inner',
+                 'repo_url': 'https://example.invalid/zz-inner'}]}),
+            encoding='utf-8')
+        rule(ind.parent / 'zz-inner', 'zz-inner-rule')
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind',
+                                                   'path': str(ind)}}))
+        srcs = pr.load_config(str(host), user_config=str(ucfg))
+        mine = [s for s in srcs if s['name'] == 'zz-inner']
+        cases.append(('a person who brings the carried set gets the carried copy',
+                      len(mine) == 1 and pathlib.Path(mine[0]['path'])
+                      == inner.resolve(), repr(mine)))
+
+        own = tmp / 'own-inner'
+        rule(own, 'zz-inner-rule')
+        cfg = json.loads((host / 'precedent.json').read_text())
+        cfg['sources'].append({'name': 'zz-inner', 'level': 'shared',
+                               'path': str(own)})
+        (host / 'precedent.json').write_text(json.dumps(cfg))
+        srcs = pr.load_config(str(host), user_config=str(tmp / 'no-config.json'))
+        mine = [s for s in srcs if s['name'] == 'zz-inner']
+        cases.append(('a repository that declares the carried set keeps its own',
+                      len(mine) == 1 and pathlib.Path(mine[0]['path'])
+                      == own.resolve(), repr(mine)))
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' /
+                            'precedent_engine_freshness.py')], cwd=str(host),
+                           env=env, capture_output=True, text=True)
+        cases.append(('the freshness line says the carried copy is not in force',
+                      'carried at' in r.stdout and 'not in force here' in r.stdout,
+                      r.stdout[-600:]))
+
+        esc = tmp / 'escape-pack'
+        rule(esc, 'zz-pack-rule')
+        rule(tmp / 'outside', 'zz-out-rule')
+        (esc / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'escape-pack', 'level': 'shared', 'visibility': 'public',
+             'carries': [{'name': 'zz-out', 'path': '../outside'}]}))
+        got = pr.carried_sources(esc, 'escape-pack')
+        cases.append(('NEGATIVE CONTROL: a carries path that leaves the set is '
+                      'ignored', got == [], repr(got)))
+
+        priv = make_pack('zz-priv-pack', 'private', carries)
+        open_host = make_host('open-host', 'zz-priv-pack')
+        ok, out = take(open_host, 'zz-priv-pack', priv)
+        cases.append(('a private set carried by a public one is refused into a '
+                      'repository not declared private',
+                      not ok and 'private' in out
+                      and not (open_host / 'process' / 'zz-priv-pack').exists(),
+                      out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+        if 'checkin' in sys.modules:
+            import importlib
+            importlib.reload(sys.modules['checkin'])
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a copied set carries another inside it, and the repository\'s own '
+          f'declaration wins ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_vendored_engine_reads_the_consumer_root():
     """An engine copy vendored INSIDE another repo reads that repo's
     precedent.json -- not the vendored tree's own copy of BestPractice's.
@@ -88666,6 +88827,7 @@ def main():
     check_source_credentials()
     check_hosted_sessions_resolve_without_attaching_a_repo()
     check_copied_in_shared_sets()
+    check_copied_set_carries_another()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()

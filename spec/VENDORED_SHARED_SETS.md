@@ -76,10 +76,37 @@ quote. One code owner is enough; in a repository with several, any one of
 them can bind the rest without asking them, and the quote shows who did.
 The test is in `check_ladder_test_session_and_the_two_ladder_checks`.
 
+## A set carried inside another
+
+A copied set may carry a second set inside it: a voice pack, say, carries
+the writing rules it is built on, so a repository that copies the pack in
+gets both and declares one. The carrier's `precedent-source.json` names
+each carried set and where it sits, relative to the carrier:
+
+```json
+"carries": [{"name": "<set>", "path": "<folder inside this set>"}]
+```
+
+- **Update Vendors' copy brings it along**, whole, with its carrier.
+- **The resolver puts it in force** at its place in the copy, unless the
+  repository declares a set of that name itself: then the repository's
+  own declaration wins, and only one copy is in force. A person who
+  brings the same set gets the carried copy. (`carried_sources` and
+  `carried_in_force` in
+  [tools/precedent_resolve.py](../tools/precedent_resolve.py).)
+- **Freshness:** the carried set moves with its carrier, so the carrier's
+  row says whether it is behind; a note names the carried set, and says
+  when it is not in force because the repository declares its own.
+- **Private sets:** Update Vendors refuses a carrier that carries a private
+  set into a repository not declared private, and the
+  `copied-in-set-fits-visibility` check covers carried sets too.
+- A `carries` path that leaves the set is ignored.
+
+The test is `check_copied_set_carries_another` in
+[tools/verify_harness.py](../tools/verify_harness.py).
+
 ## Still to build
 
-- **A set carried inside another.** A copied set may carry a second set
-  inside it; the repository's own declaration of that second set wins.
 - **The question, asked once.** Installing Precedent, and the one Update
   Vendors that brings this into an existing repository, ask the person
   whether to copy in each set they bring, and record the answer, yes or
