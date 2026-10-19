@@ -1,3 +1,15 @@
+---
+title:         Shared sets copied into a repository
+kind:          reference
+status:        current
+opened:        2026-10-19
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       "A shared set can be copied into the repository that uses it, like the universal catalogue at process/upstream/: Update Vendors refreshes the copy, a guard refuses hand edits, freshness reports it, a private set goes only into a private repository, and session start never has to attach it."
+---
+
 # Shared sets copied into a repository
 
 A shared set can be copied into the repository that uses it, the way the
