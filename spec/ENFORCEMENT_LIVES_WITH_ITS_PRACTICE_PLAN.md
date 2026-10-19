@@ -1,19 +1,21 @@
 ---
 title:         "Enforcement lives with its practice: the move plan"
 kind:          proposal
-status:        accepted
+status:        executed
 opened:        2026-10-16
 closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "Moves each practice set's enforcement out of Precedent's engine and into the set: built for the ladder's branch-naming rule and go-update's high-risk line; the ladder's own steps wait on Morgan's go-ahead; the commit-identity checks wait on one decision of his."
+summary:       "Moves each practice set's enforcement out of Precedent's engine and into the set: built for the ladder's branch-naming rule, go-update's high-risk line and the ladder's own steps (Promote and Produce now live in the ladder set); the commit-identity checks stay in the engine by decision. Executed 2026-10-19; one finding left, the writing set's rule-links requirements."
 ---
 # Enforcement lives with its practice: the move plan
 
-Status: plan, 2026-10-16. Parts 1, 2 and 4 are built; part 3 started
-2026-10-17 on Morgan's go-ahead (strength: decided): "starting with
-section 3 now".
+Status: executed, 2026-10-19. Parts 1, 2, 3 and 4 are built; part 3
+started 2026-10-17 on Morgan's go-ahead (strength: decided): "starting
+with section 3 now", and closed with piece 6 on 2026-10-19 ("Let's do
+piece 6"). One finding is left, waiting on Morgan:
+[the writing set's rule-links requirements live in BestPractice](../todo/todo-2026-10-19-rule-links-enforcement-lives-in-the-engine.md).
 
 The rule is
 [enforcement-lives-with-its-practice](../practices/enforcement-lives-with-its-practice.md):
@@ -72,7 +74,7 @@ byte-identical to what the engine manifest recorded vendoring from
 BestPractice's main is exempt (Morgan, 2026-10-16); a workflow never is.
 Update Vendors' DONE says when an update takes a pull request.
 
-## 3. Waiting on Morgan: the ladder's own steps
+## 3. Built: the ladder's own steps
 
 The ladder's stages run on engine code today, and the inventory names it:
 
@@ -151,7 +153,7 @@ half loses nothing.
 | 5a | A seam, no behaviour change (built 2026-10-19) | -- | [`branch_policy`](../tools/precedent_branches.py): a set names a module as `branch_policy` in its precedent-source.json, found as `set_tool()` finds any set's tool, and `tier_branches`, `tier_for_branch` and `promote_only` ask it, handing it the engine's own answer. A question it does not define, a bad answer or a failure keeps the engine's; off the ladder it is never asked; main stays a tier. No set ships one yet, so nothing changed. 5b moves the ladder's answers into the set and shrinks the engine's to the landing branch and the trunk | 0 |
 | 5b | Promote and Produce (built 2026-10-19) | `tools/ladder/ladder_branches.py`, named `branch_moves` in its precedent-source.json and shipped by its promote practice: Promote, Produce and the wait on main's GitHub test, 22 functions moved whole, calling the engine as `core` | [`branch_moves`](../tools/precedent_branches.py): `--promote` and `--wait-main-test` are handed to the module, arguments unchanged, bound to the engine; with no set naming one they refuse and move nothing. The engine keeps landing, the lock, composing a merge, the checks and pushing. Kept on purpose, small calls Morgan can overturn: `--land`, the landing every repository uses, ladder or not; `--run-tests`, the plain full suite on a branch that the direct route into main also uses; and the tier answers, because protecting staging must hold where the set is not loaded, GitHub's runner among them (the rule's own last paragraph) | 2 |
 | 5c | Their tests (built 2026-10-19) | 17 harness tests, moved whole or as their Promote cases, in `tools/ladder/ladder_branches_cases.py`, run by `tools/checks/tests/test_ladder_branches.sh` against the engine beside them, with that engine and the moves in one module the way the code stood before; not applicable beside an engine older than the move | `check_promote_is_handed_to_the_moves_a_set_names` and `check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer`, against made-up sets | 1 |
-| 6 | Close | -- | part 3's files off the held-on-purpose list; the inventory reads clean | -- |
+| 6 | Close (built 2026-10-19) | -- | nothing held on purpose any more: the very deep check holds back only what a part still headed "Waiting" names, and part 3 is built; the session-setup test plants made-up set names. Left: the writing set's rule-links requirements, which need that set attached to move ([open item](../todo/todo-2026-10-19-rule-links-enforcement-lives-in-the-engine.md)) | 2 |
 
 **Kept in the engine (Morgan, 2026-10-17, decided, "only activated if
 configured"):** [`precedent_branch_name.py`](../tools/precedent_branch_name.py)
@@ -198,7 +200,7 @@ attached to one session, which is why.
   decided with 5b, through the generic hook point, never as engine code
   that names the ladder.
 
-**Piece 5 waits for the copied-in shared sets work** (Morgan,
+**Piece 5 waited for the copied-in shared sets work** (Morgan,
 2026-10-19: "Your plan is fine", strength: assented). That plan asks
 whoever lands its Step 1 to tell the session holding piece 5. Another session's plan, kept in
 Morgan's individual set because it names private repositories, has as

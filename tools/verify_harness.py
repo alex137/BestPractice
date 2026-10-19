@@ -39345,6 +39345,34 @@ def check_upstream_edits_need_an_answer():
     check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_set_independence_holds_only_what_a_waiting_part_names():
+    """The very deep check's SET INDEPENDENCE holds back only the tools/
+    files a part of the plan still headed "Waiting" names (2026-10-19,
+    piece 6: part 3 was built, and its files are held no more). Made-up
+    plan text."""
+    import tempfile
+    import very_deep_check as vdc
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'spec').mkdir()
+        plan = root / vdc._SETS_PLAN
+        plan.write_text('# Plan\n\n## 1. Built: one\n\n`tools/zz_built.py`\n\n'
+                        '## 2. Waiting on someone: two\n\n`tools/zz_held.py` and '
+                        '[x](../tools/zz_also.py)\n\n## 3. Built: three\n\n'
+                        '`tools/zz_done.py`\n', encoding='utf-8')
+        got = vdc._waiting_files(root)
+        cases.append(('only a Waiting part\'s files are held',
+                      got == {'zz_held.py', 'zz_also.py'}, repr(got)))
+        plan.write_text(plan.read_text().replace('## 2. Waiting on someone',
+                                                 '## 2. Built'), encoding='utf-8')
+        got = vdc._waiting_files(root)
+        cases.append(('once that part is built, nothing is held', got == set(), repr(got)))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'set independence holds only what a Waiting part names '
+          f'({len(cases)} stated cases)', not bad, '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_set_independence_reads_tests_and_rules():
     """The set-independence inventory (precedent_check.py's
     enforcement-lives-with-its-practice) reads BestPractice's tests and
@@ -44928,8 +44956,8 @@ def check_one_tree_per_source_whichever_way_links_run():
         root_home.mkdir()
         user.mkdir()
         trees = {'precedent-individual': root_home,
-                 'precedent-shared-ladder': root_home,
-                 'precedent-shared-writing': user,
+                 'precedent-shared-zz': root_home,
+                 'precedent-shared-yy': user,
                  'BestPractice': user}
         for name, where in trees.items():
             d = where / name
@@ -44952,13 +44980,13 @@ def check_one_tree_per_source_whichever_way_links_run():
                       'when two names under the root reach it',
                       sorted(n.lower() for n in listed)
                       == ['bestpractice', 'precedent-individual',
-                          'precedent-shared-ladder', 'precedent-shared-writing'],
+                          'precedent-shared-yy', 'precedent-shared-zz'],
                       str(listed)))
         cases.append(('the branch page\'s place test agrees with it',
                       psbr._same_place(user / 'bestpractice')
                       == psbr._same_place(user / 'BestPractice')
-                      and psbr._same_place(root_home / 'precedent-shared-writing')
-                      == psbr._same_place(user / 'precedent-shared-writing'), ''))
+                      and psbr._same_place(root_home / 'precedent-shared-yy')
+                      == psbr._same_place(user / 'precedent-shared-yy'), ''))
         # The individual bootstrap's own "cloned twice" report: a link in
         # either direction is one tree, never reported.
         url = 'https://example.invalid/acct/precedent-individual'
@@ -87889,6 +87917,7 @@ def main():
     check_a_pushed_branch_in_a_shallow_clone_is_safe()
     check_very_deep_check_lists_checks_by_stage()
     check_set_independence_reads_tests_and_rules()
+    check_set_independence_holds_only_what_a_waiting_part_names()
     check_upstream_edits_need_an_answer()
     check_a_new_test_lands_with_its_time()
     check_boildown_contradiction_spares_work_waiting_upstream()
