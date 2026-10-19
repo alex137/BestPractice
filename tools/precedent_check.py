@@ -11020,6 +11020,23 @@ def _ledger_change_cells(ledger_text):
     return cells
 
 
+def _ledger_rows(ledger_text):
+    """-> [(line number, cells, header width)] for every row of the ledger
+    table: the lines from its `| Date |` header on that start with a pipe,
+    the separator left out, split as _ledger_change_cells splits them."""
+    split = lambda line: re.split(r'(?<!\\)\|', line.rstrip())[1:-1]
+    rows, width = [], None
+    for line_no, line in enumerate(ledger_text.splitlines(), 1):
+        if line.startswith('| Date |'):
+            width = len(split(line))
+            continue
+        if width is None or not line.startswith('|') \
+                or re.match(r'^\|[-|: ]+\|\s*$', line):
+            continue
+        rows.append((line_no, split(line), width))
+    return rows
+
+
 def _shallow_boundary_commits():
     """Commits git's OWN `.git/shallow` file records as grafted boundaries --
     ground truth, unlike `git rev-list --max-parents=0` (used below to
@@ -11097,10 +11114,11 @@ def _shallow_boundary_commits():
        'named in exactly one row\'s `Originating change` cell, or added its '
        'own row in the same commit (a commit cannot name its own ID) -- a '
        'mention in another row\'s prose is a citation, not that commit\'s '
-       'own row',
+       'own row -- and every row under the table header has as many '
+       'non-empty cells as the header',
        'whether a referenced row is actually CORRECT -- the right verdict '
-       'per member, not a rubber-stamped one -- only that a row exists for '
-       'every commit that changed a member, the "any marked date without a '
+       'per member, not a rubber-stamped one -- only that a complete row '
+       'exists for every commit that changed a member, the "any marked date without a '
        'complete ledger row fails" half of the practice, added 2026-09-05 '
        'after a routing-audit run found the ledger itself had no audit. '
        'Enforcing; the 2026-09-05 advisory downgrade was lifted 2026-09-06 '
@@ -11121,6 +11139,7 @@ def _parallel_artifact_ledger(ctx):
             '), so there is no parallel-artifact family here for it to '
             'ledger. A family of its own still needs one -- that half is '
             'a review judgment, not something this check can find')
+    incomplete = []
     ledger_path = ROOT / 'templates' / 'harness' / 'LEDGER.md'
     if not ledger_path.exists():
         return [Finding('templates/harness/LEDGER.md',
@@ -11128,6 +11147,22 @@ def _parallel_artifact_ledger(ctx):
                         'names a ledger table as this practice\'s Install')]
     ledger_text = ledger_path.read_text(encoding='utf-8', errors='ignore')
     change_cells = _ledger_change_cells(ledger_text)
+    # A ROW IS COMPLETE OR IT IS NOT A VERDICT (2026-10-19). The 2026-10-18
+    # row stopped after its Originating change cell, with no member cell at
+    # all, and this check only asked whether a row named the commit. An
+    # unescaped `|` in a code span splits a row into one cell too many,
+    # which GitHub renders shifted the same way.
+    for line_no, cells, want in _ledger_rows(ledger_text):
+        empty = sum(1 for c in cells if not c.strip())
+        if len(cells) == want and not empty:
+            continue
+        what = (f'{len(cells)} cells, not {want}' if len(cells) != want
+                else f'{empty} empty cell(s)')
+        incomplete.append(Finding(
+            f'templates/harness/LEDGER.md:{line_no}',
+            f'a ledger row with {what} -- each row carries a date, its '
+            f'change, and a verdict for every member; a literal pipe in a '
+            f'cell is written \\|'))
     # A repo's (or a test scratch copy's) root commit -- the tree coming
     # into existence, zero parents -- is inception, not "a change to any
     # member" the practice's Rule is about; exclude it, or every squashed-
@@ -11245,7 +11280,7 @@ def _parallel_artifact_ledger(ctx):
                 f'gets one dated row, so a reader can tell which transfer '
                 f'verdict was the considered one; merge them'))
 
-    return findings
+    return incomplete + findings
 
 
 @check('search-by-purpose', 'change',
