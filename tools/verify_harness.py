@@ -45050,7 +45050,7 @@ def check_one_tree_per_source_whichever_way_links_run():
                 other = ws / 'precedent-individual'
                 subprocess.run(['git', 'init', '-q', str(other)], capture_output=True)
                 subprocess.run(['git', '-C', str(other), 'remote', 'add', 'origin',
-                                'https://example.invalid/someone/precedent-individual'],
+                                'https://example.invalid/owner/precedent-individual'],
                                capture_output=True)
             keys = ['HOME', 'PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR',
                     'CLAUDECODE', 'CLAUDE_CODE_REMOTE', 'PRECEDENT_HARNESS',
