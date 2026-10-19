@@ -979,7 +979,9 @@ def _print_hard_requirements(root):
                   f"in The Boildown on a line opening **Plan:** and its link, "
                   f"with the steps left. \"{_ph}\" is refused while that "
                   f"plan has an unticked `- [ ]` box, unless the person is "
-                  f"quoted ending it early on a **Plan ended early:** line.")
+                  f"quoted ending it early on a **Plan ended early:** line, "
+                  f"or it is handed to a session `get_session` confirms is "
+                  f"running with it, linked on a **Plan handed to:** line.")
         for pair in (r.get('require_paired_with') or []):
             if pair.get('if_matches') and pair.get('must_also_match'):
                 print(f"- [{src}] a reply matching /{pair['if_matches']}/ "

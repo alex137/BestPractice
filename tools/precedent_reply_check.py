@@ -1672,6 +1672,13 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                 continue
             if re.search(r'\*\*plan ended early:\*\*[^\S\n]*\S', text, re.I):
                 continue
+            # Handed on (Morgan, 2026-10-19, strength: assented): the plan
+            # now lives in another session, confirmed running with it. The
+            # line has to carry that session's link; whether it is running
+            # is the session's to confirm with get_session before writing it.
+            if re.search(r'\*\*plan handed to:\*\*[^\n]*claude\.ai/code/session_\w+',
+                         text, re.I):
+                continue
             for ref, left in _plans_with_steps_left(text):
                 listing = '\n'.join(f'  - [ ] {step}' for step in left[:8])
                 more = f'\n  ...and {len(left) - 8} more' if len(left) > 8 else ''
@@ -1681,7 +1688,9 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                     f"{len(left)} step(s) not ticked:\n{listing}{more}\n"
                     f"Finish them, tick what is already done, or -- only if "
                     f"the person said they are finishing the plan early -- "
-                    f"quote them on a **Plan ended early:** line."
+                    f"quote them on a **Plan ended early:** line, or -- once "
+                    f"another session is confirmed running with it -- give its "
+                    f"link on a **Plan handed to:** line."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
         # require_delete_link_when_landed: a branch that was not on its
@@ -2385,7 +2394,9 @@ def main():
                     bits.append(f'"{ph}" requires every box ticked in a plan '
                                 f'the reply names on a **Plan:** line (or the '
                                 f'person quoted on a **Plan ended early:** '
-                                f'line); a session following a multi-step '
+                                f'line, or a **Plan handed to:** line with '
+                                f'the receiving session\'s link); a session '
+                                f'following a multi-step '
                                 f'plan names it there')
             if r.get('require_when_context_grew_tokens'):
                 bits.append("ONLY once the context has grown "
