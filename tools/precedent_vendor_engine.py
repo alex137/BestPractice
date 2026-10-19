@@ -522,6 +522,14 @@ ENGINE_FILES = [
     # several runs share, so Update Vendors in several repos at once waits its
     # turn instead of losing a ref lock (2026-10-10). Standard library only.
     'precedent_clone_lock.py',
+    # Where each harness keeps practice-source trees, and the one test for
+    # "these two paths are one tree" every setup and listing tool asks
+    # (2026-10-19, Morgan, strength: decided). precedent_source_bootstrap,
+    # precedent_container_safe, precedent_session_check,
+    # precedent_stale_branches and precedent_run_session_hooks import it and
+    # fall back to their old behaviour when it is missing. Standard library.
+    'precedent_source_home.py',
+    'source_homes.json',
     # precedent_check.py imports it at module scope, so a vendored engine
     # without it does not degrade -- it raises ModuleNotFoundError and takes
     # the whole check run down. Found 2026-09-09 by verify_harness the moment

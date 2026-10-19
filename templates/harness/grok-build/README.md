@@ -38,10 +38,16 @@ Wiring the rest:
   reports that only `~/.grok/hooks/*.json` is dispatched: hooks from
   plugins and from the Claude Code compatibility import show as loaded and
   trusted, and never run. So nothing here ships a template. Whoever wires
-  a session-start hook to `bash tools/bootstrap.sh` (the script Codex and
-  Gemini CLI both run) should put it in `~/.grok/hooks/`, check the
-  current hooks reference first, and record what they saw in
+  a session-start hook to `PRECEDENT_HARNESS=grok-build bash
+  tools/bootstrap.sh` (the script Codex and Gemini CLI both run) should
+  put it in `~/.grok/hooks/`, check the current hooks reference first, and
+  record what they saw in
   [../LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md).
+- **Where practice sources are cloned:** the folder
+  [tools/source_homes.json](https://github.com/alex137/BestPractice/blob/staging/tools/source_homes.json)
+  declares for `grok-build`, `$HOME` today. `PRECEDENT_HARNESS=grok-build`
+  on the hook command is how the engine knows which entry to read; without
+  it the `default` entry applies, which is the same folder.
 - **Pre-approved commands:** unresearched — not found in what this pass
   covered.
 - **Commit identity and signing:** `tools/bootstrap.sh` calls
