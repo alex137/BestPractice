@@ -1185,6 +1185,42 @@ def _ship_drift_advice(out_dir, source_name, rel, dest):
             f"would keep a copy that drifts from the fix")
 
 
+# A MENTION QUALIFIED BY ANOTHER REPOSITORY NAMES THAT REPOSITORY'S FILE
+# (2026-10-19). An individual set stopped shipping tools/human_voice_check.py
+# once a shared set shipped its own, and three consuming repositories' docs
+# said "OtherSet's `tools/human_voice_check.py`" -- the shared set's checker,
+# not the stale copy. Read as plain mentions of the copy, they kept it
+# (_stale_ship_keep_reason) and then flagged its deletion
+# (precedent_check's rename-updates-links). One answer for both, read off
+# the line alone so a checkout with no other set on disk (GitHub's) judges
+# it the same way: the line names another repository as `owner/name`
+# (this repository's owner, or a github.com URL), or a possessive
+# ("OtherSet's") stands right before the path.
+_POSSESSIVE_BEFORE = re.compile(r"([A-Za-z][\w.-]*)['\u2019]s\s+[`*\"']*(?:\./)?$")
+_NOT_A_REPO = {'it', 'that', 'there', 'what', 'who', 'here', 'one', 'this',
+               'file', 'repo', 'repository', 'set', 'engine', 'pack', 'source'}
+
+
+def mention_names_another_repo(line, path, own_slug):
+    """True when `line`'s mention of `path` (or of its file name) is
+    qualified by a repository other than `own_slug` ('owner/name')."""
+    own = (own_slug or '').lower().removesuffix('.git')
+    owner, _, name = own.partition('/')
+    for m in re.finditer(r'(?:github\.com/)?([\w.-]+)/([\w.-]+)', line):
+        slug = f'{m.group(1)}/{m.group(2)}'.lower().removesuffix('.git')
+        if slug != own and ((m.group(0).lower().startswith('github.com/'))
+                            or (owner and m.group(1).lower() == owner)):
+            return True
+    for needle in {path, pathlib.PurePath(path).name}:
+        at = line.find(needle)
+        while at >= 0:
+            m = _POSSESSIVE_BEFORE.search(line[:at])
+            if m and m.group(1).lower() not in _NOT_A_REPO | {name}:
+                return True
+            at = line.find(needle, at + 1)
+    return False
+
+
 def _stale_ship_keep_reason(out_dir, rel, shipped_hash):
     """-> None when shipped file `rel`, which no practice ships any more, may
     be removed: it is byte for byte what the manifest says was shipped, and
@@ -1202,9 +1238,30 @@ def _stale_ship_keep_reason(out_dir, rel, shipped_hash):
     if r.returncode not in (0, 1):
         return 'not checked: git grep failed'
     users = [l for l in r.stdout.splitlines() if l.strip()]
+    # A file that names it only as another repository's names that
+    # repository's copy (mention_names_another_repo).
+    slug = _origin_slug(out_dir)
+    users = [u for u in users if not all(
+        mention_names_another_repo(line, rel, slug)
+        for line in _lines_naming(out_dir / u, pathlib.PurePath(rel).name))]
     if users:
         return f'named by {users[0]}' + (f' and {len(users) - 1} more' if len(users) > 1 else '')
     return None
+
+
+def _origin_slug(root):
+    r = subprocess.run(['git', '-C', str(root), 'remote', 'get-url', 'origin'],
+                       capture_output=True, text=True)
+    m = re.search(r'github\.com[:/]+([^/]+/[^/\s]+?)(?:\.git)?/*$', r.stdout.strip())
+    return m.group(1) if r.returncode == 0 and m else None
+
+
+def _lines_naming(path, needle):
+    try:
+        return [l for l in path.read_text(encoding='utf-8', errors='ignore').splitlines()
+                if needle in l]
+    except OSError:
+        return [needle]                 # unreadable: counts as a plain mention
 
 
 def _prior_ship_hashes(out_dir):

@@ -3253,6 +3253,13 @@ CI_DISCLOSURES = {
 # Where the bullet goes: before the first of these lines the guide has.
 _DISCLOSURE_ANCHORS = ('- **Your writing is checked before it is saved',
                        '- **Every pull request opens with a standard template**')
+# Failing those, at the end of the first section headed by one of these
+# (case ignored). 2026-10-19: two consuming repos' guides predate the two
+# bullets above but carry the template's own heading for the section, and
+# the refresh left the bullet for a person, who never saw it; Produce then
+# refused both repositories (github-setup-disclosed).
+_DISCLOSURE_SECTIONS = ('automatic checks installed for this project',
+                        'for the administrator')
 
 
 def _disclose_added_workflow(dest_root, rel, template):
@@ -3273,10 +3280,82 @@ def _disclose_added_workflow(dest_root, rel, template):
         if at >= 0:
             guide.write_text(text[:at + 1] + bullet + text[at + 1:], encoding='utf-8')
             return True
+    at = _section_end(text, _DISCLOSURE_SECTIONS)
+    if at is not None:
+        head, tail = text[:at].rstrip('\n'), text[at:]
+        guide.write_text(head + '\n' + bullet + ('\n' + tail if tail else ''),
+                         encoding='utf-8')
+        return True
     _left('GETTING_STARTED.md', f'{name} was added, and this guide has no place '
                                 f'this refresh recognises to say so: add this to '
                                 f'its administrator section --\n{bullet}')
     return False
+
+def _section_end(text, titles):
+    """-> the offset where the section headed by the earliest of `titles`
+    the text has (a heading starting with it, case ignored) ends -- the next
+    heading at its level or above, or the end of the text -- or None when
+    no heading matches. `titles` runs most specific first."""
+    lines = text.splitlines(keepends=True)
+    for title in titles:
+        offset, level = 0, None
+        for line in lines:
+            m = re.match(r'(#{1,6})\s+(.*)', line)
+            if m and level is not None and len(m.group(1)) <= level:
+                return offset
+            if m and level is None and m.group(2).strip().lower().startswith(title):
+                level = len(m.group(1))
+            offset += len(line)
+        if level is not None:
+            return offset
+    return None
+
+
+# A REPOSITORY'S OWN NOTE ON WHAT IT NEEDS FROM GITHUB. Some consuming
+# repositories keep a README section, "If this repo ever leaves GitHub",
+# naming every workflow, and a check of their own fails a pull request that
+# changes a workflow without touching it. 2026-10-19: Update Vendors
+# changed two engine workflows in two such repositories, wrote nothing
+# there, and their pull-request checks into main failed after Produce. The
+# refresh now keeps one dated line at the end of that section, naming the
+# workflow files it changed, whenever it changed any.
+README_PLATFORM_SECTION = 'if this repo ever leaves github'
+_PLATFORM_LINE = '- **Changed by Update Vendors on '
+
+
+def _note_workflow_changes_in_readme(dest_root, new_commit, today=None):
+    """-> True when README.md's platform section was given a fresh line
+    naming the .github/workflows/ files this refresh left changed (by git's
+    own reading of the working tree, so additions, rewrites and removals by
+    any part of the refresh all count). A README without the section is
+    left alone: the repository keeps no such note."""
+    readme = dest_root / 'README.md'
+    if not readme.is_file():
+        return False
+    ok = subprocess.run(['git', 'status', '--porcelain', '--', '.github/workflows'],
+                        cwd=dest_root, capture_output=True, text=True)
+    names = sorted({line[3:].strip().rsplit('/', 1)[-1]
+                    for line in ok.stdout.splitlines() if line[3:].strip()}
+                   ) if ok.returncode == 0 else []
+    if not names:
+        return False
+    text = readme.read_text(encoding='utf-8')
+    end = _section_end(text, (README_PLATFORM_SECTION,))
+    if end is None:
+        return False
+    import datetime as _dt
+    day = today or _dt.date.today().isoformat()
+    line = (f'{_PLATFORM_LINE}{day}** (BestPractice {new_commit[:8]}): '
+            + ', '.join(f'`{n}`' for n in names)
+            + '. Each is described above, or in GETTING_STARTED.md if it is '
+              'new since this section was last written.\n')
+    head = ''.join(l for l in text[:end].splitlines(keepends=True)
+                   if not l.startswith(_PLATFORM_LINE)).rstrip('\n')
+    tail = text[end:]
+    readme.write_text(head + '\n' + line + ('\n' + tail if tail else ''),
+                      encoding='utf-8')
+    return True
+
 
 # CI-workflow analog of RETIRED_ENGINE_FILES above -- a relative path this
 # manifest may still be tracking in ci_workflow_files/ci_workflows_sha256
@@ -5691,8 +5770,6 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
             recorded[rel] = hashlib.sha256(rendered).hexdigest()
             owned.append(rel)
             refreshed.append(rel)
-            if _disclose_added_workflow(dest_root, rel, template):
-                refreshed.append('GETTING_STARTED.md')
             continue
         if not src.is_file():
             continue                  # this commit predates the template
@@ -5736,6 +5813,17 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
             path.write_bytes(rendered)
             recorded[rel] = template_hash
             refreshed.append(rel)
+    # EVERY REFRESH SAYS IT, NOT ONLY THE ONE THAT ADDS THE WORKFLOW
+    # (2026-10-19). A repository whose guide had no place for the bullet
+    # when the workflow arrived kept the workflow and never got the words:
+    # the next refresh found the file present and moved on. Asking again
+    # each time while the guide does not name it closes that for every
+    # repository already in that state.
+    for template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+        if (template in CI_DISCLOSURES and (dest_root / rel).is_file()
+                and _disclose_added_workflow(dest_root, rel, template)
+                and 'GETTING_STARTED.md' not in refreshed):
+            refreshed.append('GETTING_STARTED.md')
     if owned:
         _drop_ci_approvals(dest_root, owned)
     manifest_path = dest_root / 'tools' / MANIFEST_NAME
@@ -9064,6 +9152,8 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
                                            engine_path_sources, manifest)
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
+    if _note_workflow_changes_in_readme(ROOT, new_commit):
+        written.append(ROOT / 'README.md')
     # The engine is whole now, so a judgment that could not import it at the
     # top of this pass runs here.
     _judge_deferred_workflows()

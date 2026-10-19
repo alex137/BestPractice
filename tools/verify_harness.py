@@ -3118,6 +3118,12 @@ def check_rename_links_spares_a_url_into_another_repository():
             'See [go-update](https://github.com/acme/consumer/blob/main/'
             'guide/go-update.md).\n', encoding='utf-8')
         (repo / 'bare.md').write_text('See guide/go-update.md.\n', encoding='utf-8')
+        # 2026-10-19: docs saying "OtherSet's tools/human_voice_check.py"
+        # were flagged on the change that deleted a stale copy of it.
+        (repo / 'possessive.md').write_text(
+            "Run OtherSet's `guide/go-update.md` instead.\n", encoding='utf-8')
+        (repo / 'slug.md').write_text(
+            'Source (in acme/other-set): guide/go-update.md\n', encoding='utf-8')
         env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
                    GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
 
@@ -3136,6 +3142,9 @@ def check_rename_links_spares_a_url_into_another_repository():
         out = r.stdout + r.stderr
         cases.append(('a link into another repository is not a stale reference',
                       'elsewhere.md' not in out, out[-400:]))
+        cases.append(('a mention the line qualifies by another repository '
+                      '(a possessive, or owner/name) is not a stale reference',
+                      'possessive.md' not in out and 'slug.md' not in out, out[-400:]))
         cases.append(('CONTROL: a link into this same repository is still flagged',
                       'here.md:1' in out, out[-400:]))
         cases.append(('CONTROL: a bare path is still flagged',
@@ -31850,6 +31859,28 @@ def check_branch_cleanup_button():
                       and any('GETTING_STARTED.md' in str(i) for i in pve._LEFT_FOR_YOU),
                       pve._LEFT_FOR_YOU))
         pve._LEFT_FOR_YOU.clear()
+        # 2026-10-19, two consuming repos: an older guide with the template's
+        # checks heading but neither anchor bullet, and the workflow already
+        # installed by an earlier refresh that could not say so. The old code
+        # wrote nothing on that refresh and never asked again on later ones.
+        guide.write_text('# Getting started\n\n## For the administrator\n\n'
+                         '### Automatic checks installed for this project\n\n'
+                         '- **A check runs on pull requests.**\n\n'
+                         '### Updates happen when you ask\n\nSay so.\n',
+                         encoding='utf-8')
+        assert (wf / 'precedent-branch-cleanup.yml').is_file()
+        refreshed, _c, _r = pve._refresh_ci_workflow_files(dest, 'consumer', src, man)
+        text = guide.read_text(encoding='utf-8')
+        cases.append(('a refresh that finds the workflow already there still writes the '
+                      'bullet, at the end of the checks section of an older guide',
+                      'GETTING_STARTED.md' in refreshed
+                      and text.index('A check runs') < text.index('precedent-branch-cleanup.yml')
+                      < text.index('### Updates happen'), text))
+        refreshed, _c, _r = pve._refresh_ci_workflow_files(dest, 'consumer', src, man)
+        cases.append(('CONTROL: the next refresh leaves the guide alone',
+                      'GETTING_STARTED.md' not in refreshed
+                      and guide.read_text(encoding='utf-8') == text, refreshed))
+        pve._LEFT_FOR_YOU.clear()
     import precedent_install as _pi
     cases.append(('the installer\'s guide paragraph carries the same bullet, one copy',
                   pve.CI_DISCLOSURES['branch-cleanup.yml.template'] in _pi._CI_PARAGRAPH_ON
@@ -31865,6 +31896,226 @@ def check_branch_cleanup_button():
                                      '.github/workflows/precedent-branch-cleanup.yml'], picked))
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'the branch cleanup page\'s delete-all button ({len(cases)} stated cases)',
+          not bad, '; '.join(map(str, bad)))
+
+
+def check_update_notes_workflow_changes_in_readme_platform_section():
+    """2026-10-19, two consuming repos: Update Vendors changed engine
+    workflows, wrote nothing in README.md's "If this repo ever leaves
+    GitHub" section, and each repository's own pull-request check (a
+    workflow change must touch that section) failed after Produce. The
+    refresh now keeps one dated line there naming what it changed."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_vendor_engine as pve
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        g = lambda *a: _sp.run(['git', *a], cwd=d, capture_output=True, text=True)
+        g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        (d / '.github' / 'workflows').mkdir(parents=True)
+        (d / '.github' / 'workflows' / 'light-check.yml').write_text('a\n')
+        (d / 'README.md').write_text('# R\n\n## If this repo ever leaves GitHub\n\n'
+                                     '- **light-check.yml** -- runs checks.\n\n'
+                                     '## Next\n\nText.\n')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        cases.append(('CONTROL: no workflow changed, README left alone',
+                      not pve._note_workflow_changes_in_readme(d, 'abcdef1234', '2026-10-19'),
+                      ''))
+        (d / '.github' / 'workflows' / 'light-check.yml').write_text('b\n')
+        (d / '.github' / 'workflows' / 'precedent-branch-cleanup.yml').write_text('c\n')
+        wrote = pve._note_workflow_changes_in_readme(d, 'abcdef1234', '2026-10-19')
+        text = (d / 'README.md').read_text()
+        cases.append(('a changed and an added workflow are named in the section, '
+                      'before the next heading',
+                      wrote and text.index('runs checks') < text.index('`light-check.yml`, '
+                                                                       '`precedent-branch-cleanup.yml`')
+                      < text.index('## Next'), text))
+        pve._note_workflow_changes_in_readme(d, '99999999aa', '2026-10-20')
+        again = (d / 'README.md').read_text()
+        cases.append(('the next refresh replaces its own line, never stacks another',
+                      again.count('Changed by Update Vendors') == 1 and '2026-10-20' in again,
+                      again))
+        (d / 'README.md').write_text('# R\n\nNo such section.\n')
+        cases.append(('CONTROL: a README without the section is left alone',
+                      not pve._note_workflow_changes_in_readme(d, 'abcdef1234')
+                      and (d / 'README.md').read_text() == '# R\n\nNo such section.\n', ''))
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'Update Vendors notes its workflow changes in README\'s platform section '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
+
+
+def check_set_bootstrap_defers_to_a_newer_engine_copy():
+    """2026-10-19: an individual set's vendored precedent_source_bootstrap,
+    from before "one tree per source", cloned a shared set into a second
+    folder half an hour after the fix reached main. A set's copy now hands
+    its run to the same file in a BestPractice clone strictly ahead of the
+    commit the set's manifest records."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_source_bootstrap as psb
+    cases = []
+    url = 'https://github.com/alex137/BestPractice'
+    with tempfile.TemporaryDirectory() as td:
+        t = pathlib.Path(td)
+        bp, st = t / 'BestPractice', t / 'set' / 'tools'
+        (bp / 'tools').mkdir(parents=True); st.mkdir(parents=True)
+        g = lambda *a: _sp.run(['git', '-C', str(bp), *a], capture_output=True, text=True)
+        g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        g('remote', 'add', 'origin', url + '.git')
+        tool = bp / 'tools' / 'precedent_source_bootstrap.py'
+        tool.write_text('# old\n'); g('add', '-A'); g('commit', '-qm', 'old')
+        old = g('rev-parse', 'HEAD').stdout.strip()
+        tool.write_text('# new\n'); g('commit', '-qam', 'new')
+        new = g('rev-parse', 'HEAD').stdout.strip()
+        man = lambda c, u=url: (st / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'source_commit': c, 'source_repo': u}))
+        ask = lambda: psb.newer_engine_copy(here=st, candidates=[bp])
+        man(old)
+        cases.append(('a set vendored from an older commit defers to the clone\'s copy',
+                      ask() == tool, ask()))
+        man(new)
+        cases.append(('CONTROL: a set on the clone\'s own commit runs its own copy',
+                      ask() is None, ''))
+        man('0' * 40)
+        cases.append(('CONTROL: a recorded commit the clone lacks proves nothing',
+                      ask() is None, ''))
+        man(old, 'https://github.com/someone/Else')
+        cases.append(('CONTROL: a clone of another repository is never used',
+                      ask() is None, ''))
+        man(old)
+        os.environ[psb.DEFERRED_ENV] = '1'
+        try:
+            cases.append(('CONTROL: a run already deferred never defers again',
+                          ask() is None, ''))
+        finally:
+            os.environ.pop(psb.DEFERRED_ENV, None)
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'a set\'s bootstrap defers to a newer engine copy ({len(cases)} stated cases)',
+          not bad, '; '.join(map(str, bad)))
+
+
+def check_sync_removes_a_stale_ship_named_only_as_another_repos():
+    """2026-10-19: an individual set stopped shipping tools/human_voice_check.py
+    once a shared set shipped its own. Three consumers kept the stale copy
+    because their docs said "OtherSet's tools/human_voice_check.py" and
+    the sync's audit read any mention of the file name as a use of the copy.
+    CONTROL: a plain mention still keeps it."""
+    import subprocess as _sp
+    import tempfile
+    import hashlib as _h
+    import precedent_materialize as pm
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        g = lambda *a: _sp.run(['git', '-C', str(d), *a], capture_output=True, text=True)
+        g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        g('remote', 'add', 'origin', 'https://github.com/acme/consumer.git')
+        (d / 'tools').mkdir()
+        f = d / 'tools' / 'voice_check.py'
+        f.write_text('print(1)\n')
+        h = _h.sha256(f.read_bytes()).hexdigest()[:16]
+        (d / 'README.md').write_text("Copies OtherSet's `tools/voice_check.py` to external/.\n"
+                                     'Source (in acme/OtherSet): tools/voice_check.py\n')
+        g('add', '-A'); g('commit', '-qm', 'c')
+        why = pm._stale_ship_keep_reason(d, 'tools/voice_check.py', h)
+        cases.append(('a file named only as another repository\'s may go', why is None, why))
+        (d / 'GUIDE.md').write_text('Run `python3 tools/voice_check.py` first.\n')
+        g('add', '-A'); g('commit', '-qm', 'c2')
+        why = pm._stale_ship_keep_reason(d, 'tools/voice_check.py', h)
+        cases.append(('CONTROL: a plain mention still keeps it',
+                      bool(why) and 'GUIDE.md' in why, why))
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'the sync removes a stale ship named only as another repository\'s '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
+
+
+def check_update_keeps_the_harness_go_ahead_with_its_content():
+    """2026-10-19, two consuming repos: an Update Vendors run given the
+    person's words for a .claude/settings.json change stopped before the
+    end, the words (one run's environment) were gone, and the practice audit
+    failed the file as DRIFT until it was re-recorded by hand. The words are
+    now recorded with the content they approved and read back by a rerun;
+    CONTROL: changed content needs new words."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_update as pu
+    cases = []
+    saved = os.environ.pop(pu.HARNESS_GO_AHEAD, None)
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            d = pathlib.Path(td)
+            g = lambda *a: _sp.run(['git', '-C', str(d), *a], capture_output=True, text=True)
+            g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+            (d / '.claude').mkdir()
+            sj = d / '.claude' / 'settings.json'
+            sj.write_text('{}\n'); g('add', '-A'); g('commit', '-qm', 'c')
+            sj.write_text('{"hooks": {}}\n')
+            cases.append(('without words the change is held',
+                          pu.held_harness_paths(d) == {'.claude/settings.json'}
+                          and pu.harness_go_ahead(d) == '', pu.held_harness_paths(d)))
+            pu.record_harness_go_ahead(d, 'yes, take the hook', {'.claude/settings.json'})
+            cases.append(('a rerun on the same content reads the recorded words back',
+                          pu.harness_go_ahead(d) == 'yes, take the hook'
+                          and pu.held_harness_paths(d) == set(), pu.harness_go_ahead(d)))
+            sj.write_text('{"hooks": {"Stop": []}}\n')
+            cases.append(('CONTROL: content changed since needs new words',
+                          pu.harness_go_ahead(d) == ''
+                          and pu.held_harness_paths(d) == {'.claude/settings.json'}, ''))
+    finally:
+        if saved is not None:
+            os.environ[pu.HARNESS_GO_AHEAD] = saved
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'Update Vendors keeps the harness go-ahead with its content '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
+
+
+def check_wait_main_test_finds_a_merged_pull_requests_head():
+    """2026-10-19: --wait-main-test COPY could not find its commit after the
+    merge -- GitHub deletes the branch, and a shallow clone cannot resolve
+    it. It now takes a pull request number, and looks a gone branch up as a
+    pull request's head. CONTROL: a branch that resolves is used as before."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_branches as pb
+    cases = []
+    head = 'a' * 40
+
+    class FakeGH:
+        def __init__(self):
+            self.asked = []
+
+        def call(self, path, cache=True):
+            self.asked.append(path)
+            pr = {'number': 7, 'head': {'sha': head, 'ref': 'x-promote-to-main-y'},
+                  'base': {'ref': 'main'}}
+            if path.endswith('/pulls/7'):
+                return pr, None
+            if '/pulls?state=all&head=acme:x-promote-to-main-y' in path:
+                return [pr], None
+            return [], None
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        g = lambda *a: _sp.run(['git', '-C', str(d), *a], capture_output=True, text=True)
+        g('init', '-q', '-b', 'main'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        g('remote', 'add', 'origin', 'https://github.com/acme/consumer.git')
+        g('commit', '-q', '--allow-empty', '-m', 'c')
+        local = g('rev-parse', 'HEAD').stdout.strip()
+        g('branch', 'still-here')
+        gh = FakeGH()
+        cases.append(('a pull request number gives its head commit and branch',
+                      pb.resolve_main_test_target(d, '#7', gh=gh) == (head, 'x-promote-to-main-y'),
+                      gh.asked))
+        cases.append(('a branch GitHub deleted is found as a pull request\'s head',
+                      pb.resolve_main_test_target(d, 'x-promote-to-main-y', gh=gh)
+                      == (head, 'x-promote-to-main-y'), gh.asked))
+        cases.append(('CONTROL: a branch that resolves here is used as before',
+                      pb.resolve_main_test_target(d, 'still-here', gh=gh) == (local, 'still-here'),
+                      ''))
+        cases.append(('CONTROL: a name nothing knows gives nothing',
+                      pb.resolve_main_test_target(d, 'nope', gh=gh) == (None, None), ''))
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'--wait-main-test finds a merged pull request\'s head ({len(cases)} stated cases)',
           not bad, '; '.join(map(str, bad)))
 
 
@@ -40800,6 +41051,9 @@ def check_merge_check_gate():
         for f in ('precedent_push_check.py', 'precedent_branches.py',
                   'precedent_merge_check.py'):
             _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        # precedent_time is copied as every real repository has it
+        # (2026-10-19: without it each import fell back quietly, the copy
+        # was named "copy-<unix time>", and no case could tell).
         (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
         for t in ('precedent_check', 'leak_gate', 'doc_lint'):
@@ -41662,7 +41916,7 @@ def check_promote_picks_its_step():
         work = tmp / 'work'
         (work / 'tools').mkdir(parents=True)
         git(tmp, 'init', '-q', '-b', 'main', str(work))
-        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+        for f in ('precedent_push_check.py', 'precedent_branches.py', 'precedent_time.py'):
             _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
         (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
@@ -41720,6 +41974,13 @@ def check_promote_picks_its_step():
         copies = [r for r in (l.split('\t')[1] for l in git(
             work, 'ls-remote', 'origin', 'refs/heads/*').stdout.splitlines())
             if pb.is_main_copy(r[len('refs/heads/'):])]
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_time as _pt
+        sys.path.pop(0)
+        cases.append(('the copy is named for the day, by precedent_time, not its '
+                      'quiet fallback', bool(copies) and all(
+                          _pt.today(work) in c[len('refs/heads/'):]
+                          for c in copies), copies))
         cases.append(('staging goes into main, said in '
                       'those words, exiting 3 since main has not moved yet',
                       rc == 3 and out.startswith(
@@ -41977,7 +42238,7 @@ def check_promote_only_and_tier_branches():
         work = tmp / 'work'
         (work / 'tools').mkdir(parents=True)
         git(tmp, 'init', '-q', '-b', 'main', str(work))
-        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+        for f in ('precedent_push_check.py', 'precedent_branches.py', 'precedent_time.py'):
             _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
         (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
@@ -71987,7 +72248,7 @@ def _promote_fixture(tmp, env, base_branch, tiers):
     work = tmp / 'work'
     (work / 'tools').mkdir(parents=True)
     git(tmp, 'init', '-q', '-b', 'main', str(work))
-    for f in ('precedent_push_check.py', 'precedent_branches.py'):
+    for f in ('precedent_push_check.py', 'precedent_branches.py', 'precedent_time.py'):
         _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
     (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
         _json.dumps({'kind': 'consumer'}), encoding='utf-8')
@@ -87305,6 +87566,11 @@ def main():
     check_freshness_guard_never_tells_a_tier_branch_to_merge()
     check_stale_branches_lists_one_repository_once()
     check_branch_cleanup_button()
+    check_update_notes_workflow_changes_in_readme_platform_section()
+    check_set_bootstrap_defers_to_a_newer_engine_copy()
+    check_sync_removes_a_stale_ship_named_only_as_another_repos()
+    check_update_keeps_the_harness_go_ahead_with_its_content()
+    check_wait_main_test_finds_a_merged_pull_requests_head()
     check_update_holds_a_settings_change_and_offers_it_again()
     check_deduplicated_copy_stays_in_force_until_its_target_arrives()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()

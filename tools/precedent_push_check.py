@@ -818,7 +818,10 @@ def plan(root, engine=HERE, tier=FULL):
     # list, which owns its tier: BestPractice's own deep-check.yml runs the
     # full suite, which a basic push must not.
     # A repository's own workflow checks are tests, so they run in the full
-    # tier only: at the Debut and around Produce, never before a push. Until
+    # tier only: at the Debut, never before a push. Not at Produce either:
+    # since 2026-10-17 a push or merge into main takes the basic tier, so a
+    # failure here is found by GitHub's pull-request check after it (two
+    # consuming repos, 2026-10-19, platform-docs-check.yml). Until
     # 2026-10-17 they ran at every tier, outside BASIC_CHECKS, where the
     # closed quick tier could not see them (Morgan, 2026-10-16: "all the
     # testing EXCEPT THE BARE ESSENTIAL AND LEAK GATES SHOULD GO INTO DEBUT";
