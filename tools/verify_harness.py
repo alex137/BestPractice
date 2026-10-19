@@ -58934,7 +58934,16 @@ rc, verdict = pb._land_composed(work, g('rev-parse', 'HEAD').stdout.strip(),
                                 said.append)
 g('fetch', '-q', 'origin')
 files = g('ls-tree', '--name-only', 'origin/claude/engine-change-abcdef').stdout.split()
+g('checkout', '-q', '-b', 'claude/fix-main-abcdef', 'origin/main')
+(work / 'y.md').write_text('y\\n'); g('add', '-A'); g('commit', '-qm', 'fix')
+fix = g('rev-parse', 'HEAD').stdout.strip()
+g('push', '-q', 'origin', 'claude/fix-main-abcdef')
+said2 = []
+pb._land_composed(work, fix, 'claude/fix-main-abcdef', 'staging', 'the fixture', said2.append)
+g('fetch', '-q', 'origin')
+fix_moved = g('rev-parse', 'origin/claude/fix-main-abcdef').stdout.strip() != fix
 print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], files=files,
+                      fix_moved=fix_moved, said2='\\n'.join(said2)[-300:],
                       staging=g('ls-tree', '--name-only', 'origin/staging').stdout.split())))
 """, encoding='utf-8')
         p = subprocess.run([sys.executable, str(script)], capture_output=True,
@@ -58954,6 +58963,11 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], file
         cases.append(('...and the reply says the branch now carries the checked '
                       'composition', 'now carries the composition' in
                       (out.get('said') or ''), str(out) or why))
+        cases.append(('a branch cut from main already carries its work and is '
+                      'left where it is, so a red-main fix\'s head never moves',
+                      out.get('fix_moved') is False
+                      and 'as it stands lacks nothing' in (out.get('said2') or ''),
+                      str(out) or why))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
