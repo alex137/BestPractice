@@ -83447,6 +83447,91 @@ def check_upstream_review_only_for_a_code_owner_on_the_ladder():
           '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
+def check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer():
+    """The branch policy seam (piece 5a, 2026-10-19): which branches are
+    tiers, how hard a push to one is checked, and whether work reaches main
+    only by promotion are asked of the module a set names as
+    `branch_policy` in its precedent-source.json. Made-up set and policy.
+
+    - no set names one: the engine's own answers, unchanged;
+    - a set names one and the ladder is in force: its answers win, and main
+      stays a tier whatever it says;
+    - a question it does not define, an answer of the wrong shape, or a
+      tier this engine does not know: the engine's answer;
+    - a policy that raises: the engine's answer, no error;
+    - off the ladder: never asked."""
+    import tempfile
+    import precedent_branches as pb
+    cases = []
+    policy = (
+        'import os\n'
+        'def tier_branches(root, default, user_config=None):\n'
+        '    if os.environ.get("ZZ_BAD"):\n'
+        '        return "not a list"\n'
+        '    if os.environ.get("ZZ_RAISE"):\n'
+        '        raise RuntimeError("boom")\n'
+        '    return ["zz-tier"]\n'
+        'def tier_for_branch(root, branch, default, user_config=None):\n'
+        '    if branch == "zz-odd":\n'
+        '        return ("loud", "a tier nobody knows")\n'
+        '    return ("full", "zz says full for " + branch)\n')
+    saved_cfg = os.environ.get('PRECEDENT_USER_CONFIG')
+    saved_ladder = pb.ladder_in_force
+    with tempfile.TemporaryDirectory() as td:
+        wt = pathlib.Path(td) / 'repo'
+        wt.mkdir()
+        os.environ['PRECEDENT_USER_CONFIG'] = str(pathlib.Path(td) / 'no-config.json')
+        try:
+            fixture_git(wt, 'init', '-q', '-b', 'main')
+            pb.ladder_in_force = lambda root, user_config=None: True
+            engine = (pb._engine_tier_branches(wt),
+                      pb._engine_tier_for_branch(wt, 'feature-x'),
+                      pb._engine_promote_only(wt))
+            cases.append(('no set names a branch policy: the engine answers',
+                          (pb.tier_branches(wt), pb.tier_for_branch(wt, 'feature-x'),
+                           pb.promote_only(wt)) == engine, repr(engine)))
+            (wt / 'tools' / 'zz').mkdir(parents=True)
+            (wt / 'tools' / 'zz' / 'zz_policy.py').write_text(policy, encoding='utf-8')
+            (wt / 'precedent-source.json').write_text(json.dumps({
+                'name': 'zz-set', 'level': 'shared',
+                'branch_policy': 'tools/zz/zz_policy.py'}), encoding='utf-8')
+            got = pb.tier_branches(wt)
+            cases.append(("the set's answer wins, and main stays a tier",
+                          got == ['main', 'zz-tier'], repr(got)))
+            got = pb.tier_for_branch(wt, 'feature-x')
+            cases.append(("the set's check level wins",
+                          got == ('full', 'zz says full for feature-x'), repr(got)))
+            got = pb.tier_for_branch(wt, 'zz-odd')
+            cases.append(('a tier this engine does not know: the engine answers',
+                          got == pb._engine_tier_for_branch(wt, 'zz-odd'), repr(got)))
+            got = pb.promote_only(wt)
+            cases.append(('a question the policy does not define: the engine answers',
+                          got == pb._engine_promote_only(wt), repr(got)))
+            for env, name in (('ZZ_BAD', 'an answer of the wrong shape'),
+                              ('ZZ_RAISE', 'a policy that raises')):
+                os.environ[env] = '1'
+                try:
+                    got = pb.tier_branches(wt)
+                finally:
+                    os.environ.pop(env, None)
+                cases.append((f'{name}: the engine answers, no error',
+                              got == engine[0], repr(got)))
+            pb.ladder_in_force = lambda root, user_config=None: False
+            got = pb.tier_branches(wt)
+            cases.append(('off the ladder the policy is never asked',
+                          got == engine[0], repr(got)))
+        finally:
+            pb.ladder_in_force = saved_ladder
+            if saved_cfg is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the branch policy a set names answers, and the engine keeps '
+          f'every answer it cannot use ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_very_deep_check_walks_every_tier_pair():
     """The drift scan and the merge rehearsal ask about every tier pair
     origin carries: main into staging, and the merge a Promote makes
