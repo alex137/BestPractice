@@ -1820,18 +1820,16 @@ READ_ONLY_ALLOW_TOOLS = ('precedent_show.py', 'precedent_paths.py',
                          'routing_audit.py', 'practice_audit.py')
 DECLINED_ALLOW_KEY = 'declined_allow_rules'
 _ALLOW_RULE_RE = re.compile(r'^Bash\(python3 tools/([\w.-]+)( \*)?\)$')
-# EVERY ENGINE TOOL IS ALLOWED, AND THE ONES THAT MOVE WORK ASK (Morgan,
-# 2026-10-17: "why not include all on that list except a small list we
-# explicitly want to exclude from that list to get the session user's
-# permission", then "yes, build it"). One allow rule covers every
-# tools/precedent_*.py, so a new engine tool needs no settings change and no
-# approval in any repository; the template's permissions.ask names the
-# tools that land, produce, merge, update other repositories or send work
-# upstream. Claude Code applies ask before allow, auto mode included, so
-# those always ask. The allow rule is never written without every ask rule
-# beside it (permission_rules_to_add), or for one moment every one of them
-# would run unasked. precedent_check.py's risky-engine-tools-ask keeps the
-# ask list complete.
+# EVERY ENGINE TOOL IS ALLOWED (Morgan, 2026-10-17: "why not include all on
+# that list"). One allow rule covers every tools/precedent_*.py, so a new
+# engine tool needs no settings change and no approval in any repository.
+# From 2026-10-17 to 2026-10-18 the template also listed the tools that
+# land, produce, merge or update other repositories under permissions.ask;
+# Claude Code applies ask before allow, auto mode included, so every
+# Booked, Produce, merge and Update Vendors stopped for a click Morgan
+# always gave (2026-10-18: "I urgently need a fix so you stop asking me so
+# much"). The list is gone: when work moves is the rules' call (go-update,
+# produce), checked by the tools themselves.
 ENGINE_ALLOW_RULE = 'Bash(python3 tools/precedent_*)'
 
 
@@ -1875,20 +1873,15 @@ def engine_ask_rules(template_text):
 
 def permission_rules_to_add(perms, allow, ask, declined=()):
     """-> (allow rules, ask rules) to add to a settings file whose
-    permissions are `perms`: those it does not already have, less `declined`.
-    ENGINE_ALLOW_RULE comes only with every rule of `ask` present after the
-    write, so the broad allow never stands without the asks beside it; a
-    repo that declines one ask rule keeps the tools allowed one by one."""
+    permissions are `perms`: those it does not already have, less
+    `declined`. Since 2026-10-18 the broad engine allow stands on its own:
+    the template ships no ask rules (see ENGINE_ALLOW_RULE)."""
     perms = perms if isinstance(perms, dict) else {}
     have_allow = set(perms.get('allow') or []) | set(perms.get('deny') or [])
     have_ask = set(perms.get('ask') or []) | set(perms.get('deny') or [])
     declined = set(declined or ())
     add_ask = [r for r in ask if r not in have_ask and r not in declined]
-    asks_complete = all(r in have_ask or r in add_ask for r in ask) and bool(ask)
-    add_allow = [r for r in allow if r not in have_allow and r not in declined
-                 and (r != ENGINE_ALLOW_RULE or asks_complete)]
-    if ENGINE_ALLOW_RULE not in add_allow and ENGINE_ALLOW_RULE not in have_allow:
-        add_ask = []          # the asks exist for the broad allow, never alone
+    add_allow = [r for r in allow if r not in have_allow and r not in declined]
     return add_allow, add_ask
 
 

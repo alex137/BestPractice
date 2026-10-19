@@ -284,8 +284,7 @@ def run(root, log=None, say=None, user_settings=None):
              if user_settings is not None else [])
     if added:
         say(f'precedent session hooks: added {len(added)} Precedent tool '
-            f'rule(s) to user-level settings (the tools that land, produce or '
-            f'merge always ask), since a session above several repositories '
+            f'rule(s) to user-level settings, since a session above several repositories '
             f'reads none of theirs')
     if contexts:
         # The spoken commands first, whole and once, ahead of every repo's
