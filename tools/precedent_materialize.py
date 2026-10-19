@@ -1029,7 +1029,8 @@ def _plan_adapters(sources):
 # write file by file, never by emptying a directory (tools/ holds the
 # consumer's own scripts and the vendored engine); record each file in
 # MANIFEST.json so drift() can compare it; replace a copy the manifest never
-# recorded, loudly; report, never delete, a file no practice ships any more.
+# recorded, loudly; remove a file no practice ships any more while it is
+# exactly what was shipped and nothing names it, and report any other.
 #
 # ONE DIFFERENCE: a consumer may DECLINE one, in its own precedent.json,
 # with a reason. An adapter is part of the machinery every consumer runs; a
@@ -1182,6 +1183,28 @@ def _ship_drift_advice(out_dir, source_name, rel, dest):
     return (f"{source_name} has exactly this on {shown}, not yet on its "
             f"{base}: land it there first, then sync -- declining it here "
             f"would keep a copy that drifts from the fix")
+
+
+def _stale_ship_keep_reason(out_dir, rel, shipped_hash):
+    """-> None when shipped file `rel`, which no practice ships any more, may
+    be removed: it is byte for byte what the manifest says was shipped, and
+    no other tracked file names it. Otherwise why it stays: 'gone',
+    'edited here', or 'named by <file>'."""
+    out_dir = pathlib.Path(out_dir)
+    dest = out_dir / rel
+    if not dest.is_file():
+        return 'gone'
+    if not shipped_hash or hashlib.sha256(dest.read_bytes()).hexdigest()[:16] != shipped_hash:
+        return 'edited here'
+    r = subprocess.run(['git', '-C', str(out_dir), 'grep', '-l', '-F', '-e',
+                        pathlib.PurePath(rel).name, '--', '.', f':(exclude){rel}',
+                        ':(exclude)MANIFEST.json'], capture_output=True, text=True)
+    if r.returncode not in (0, 1):
+        return 'not checked: git grep failed'
+    users = [l for l in r.stdout.splitlines() if l.strip()]
+    if users:
+        return f'named by {users[0]}' + (f' and {len(users) - 1} more' if len(users) > 1 else '')
+    return None
 
 
 def _prior_ship_hashes(out_dir):
@@ -1838,11 +1861,32 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
     stale_ships = sorted(set(prior_ships) - {s['path'] for s in ships_written}
                          - {d['path'] for d in declined_rows}
                          - _engine_owned(out_dir))
-    if stale_ships and not dry_run:
+    # A file no practice ships any more is removed in the same sync when it is
+    # exactly what was shipped and nothing else here names it
+    # (decommission-deletes-files: the audit is those two facts). Left in
+    # place, it dropped out of the manifest with this sync and from then on
+    # read as the repository's own file, which nobody wrote (a consumer's
+    # root-issues report, 2026-10-19: a retired practice's tool). A copy
+    # edited here, or one something still names, stays, with the warning.
+    removed_ships, stale_kept = [], []
+    for rel in stale_ships:
+        why = _stale_ship_keep_reason(out_dir, rel, prior_ships.get(rel))
+        if why is None:
+            removed_ships.append(rel)
+            if not dry_run:
+                (out_dir / rel).unlink()
+        elif why != 'gone':
+            stale_kept.append(f'{rel} ({why})')
+    if removed_ships and not dry_run:
+        print("precedent_materialize: removed shipped file(s) no practice in "
+              "force here ships any more -- each unchanged since it was "
+              "shipped, and named by nothing else here: "
+              + ', '.join(removed_ships), file=sys.stderr)
+    if stale_kept and not dry_run:
         print("precedent_materialize: shipped file(s) this tree received that "
               "no practice in force here ships any more -- left in place, not "
               "deleted. Remove each by hand once nothing here uses it: "
-              + ', '.join(stale_ships), file=sys.stderr)
+              + ', '.join(stale_kept), file=sys.stderr)
     if ships_adopted and not dry_run:
         print("precedent_materialize: shipped file(s) whose previous content "
               "this tree had not recorded as materialized were REPLACED -- a "
