@@ -18,6 +18,15 @@
   },
   {
     "practice": "the-boildown",
+    "id": "boildown-first-line-leads-with-unlanded",
+    "require_first_item_leads_with_unlanded": {
+      "heading": "boildown"
+    },
+    "why": "Morgan, 2026-10-19 (strength: decided): a first line that opened on `staging` while four of five changes were still open pull requests was read as all of it on staging, staging was produced into main, and the four missed the move. When any of this session's branches is not landed, the line says so before it names a tier. Blocking: the check reads the same branch facts the reply gate prints at the turn's start, so a refusal is never a judgment call.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
+    "practice": "the-boildown",
     "require_one_of": [
       "Now is a good time to compact the session",
       "This is a cheap point to compact"
@@ -70,6 +79,14 @@
       ],
       "why": "2026-09-23: the rule's own `why` above has always carried Morgan's parenthesis -- \"(unless the work is intended to be lost!)\" -- and the code never implemented it. The refusal even told the reader to \"say in the reply that it is meant to be lost\" and then ignored them doing so. A session said exactly that in three consecutive replies about 34 superseded watermark commits in a clone 74 behind its origin, on an owner the git proxy refuses pushes to; all three were refused, so all three closed by telling Morgan not to archive a session he could safely archive. A gate that forces a false statement is no longer a safety mechanism. The escape is not a password: _declares_loss also requires the reply to NAME every unsafe checkout, so the 2026-09-22 case that built this rule -- a session that had never looked at the clone holding six unpushed commits -- is still caught, because it could not have named it.\n\n2026-09-23, later the same day: the phrase list itself turned out to be the next version of the same bug. A different session had ALREADY said the substance plainly -- 'safe to let the container reclaim them', 'confirmed superseded... busywork' -- across two replies about the same kind of dead watermark commits, and both were refused for matching none of the four fixed strings, so a session that had done the work of establishing loss was safe still could not say so without guessing the exact incantation. Morgan: \"That rule, as you read it, it makes no sense... if there's some way to force it to fire, that would be great.\" A phrase LIST was never going to close this gap; the fix is a structured marker (`**Checkout disposition:** NAME -- discard (reason)`) checked per unsafe checkout by name, same shape as park-it's own `**Disposition:**` line, so the escape is legible and greppable rather than a password to guess. The phrase list stays as a fallback for prose that already reads correctly under the old rule; the marker is what a reply should reach for going forward."
     }
+  },
+  {
+    "practice": "the-boildown",
+    "require_plan_done_if_says": [
+      "You can archive this session"
+    ],
+    "why": "2026-10-19, Morgan (strength: decided): \"if your session is following a multi-step plan. You cannot tell me to archive it unless the plan is fully complete Or I explicitly tell you that I am finishing the plan early.\" A session following a plan names it on a `**Plan:**` line in its Boildown; tools/precedent_reply_check.py reads that plan's `- [ ]` checklist from disk and refuses the archive sentence while a box is unticked. Two escapes: the person's own word, quoted on a `**Plan ended early:**` line; or the plan handed to another session that get_session confirms is running with it, linked on a `**Plan handed to:**` line (Morgan, 2026-10-19, strength: decided). It reads only a plan the reply names and that keeps a checklist; anything else is the-boildown's blocker 5 in prose. An engine without this branch reports it as unknown and blocks nothing.",
+    "checks_practice_at": "practices/the-boildown.md"
   },
   {
     "practice": "the-boildown",

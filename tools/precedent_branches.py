@@ -89,7 +89,7 @@ CLI:
   precedent_branches.py --tier BRANCH       prints `basic` or `full`
   precedent_branches.py --push ARGS...      the tier a `git push ARGS...` gets
   precedent_branches.py --landing           where `Go update` lands for this person
-  precedent_branches.py --wait-main-test COPY
+  precedent_branches.py --wait-main-test COPY|PR-NUMBER
                                             wait for main's GitHub test on the to-main
                                             copy's pull request; 0 only when it passed,
                                             or when the copy is a not-due one
@@ -2324,6 +2324,43 @@ def _at_head(sha):
     means a copy that moved after its check is not merged by mistake."""
     return (f', at head commit {sha} -- the merge tool takes all 40 '
             f'characters, as here, or no expected head at all' if sha else '')
+
+
+def resolve_main_test_target(root, target, gh=None):
+    """-> (sha, copy branch name or None) for `--wait-main-test TARGET`: a
+    pull request number (`123` or `#123`), a branch, or a commit.
+
+    BY PULL REQUEST WHEN THE BRANCH IS GONE (2026-10-19). GitHub deletes a
+    pull request's branch when it merges, and a shallow clone cannot resolve
+    a name it never fetched, so the wait after a Produce found nothing to
+    wait on. A pull request keeps its head commit and branch name after
+    either is deleted, so a number is looked up there, and a branch name
+    that no longer resolves is looked up as the head of a pull request."""
+    gh = gh or _sibling('github_budget')
+    slug = _slug(root)
+
+    def from_pull(pr):
+        head = (pr or {}).get('head') or {}
+        return (head.get('sha'), head.get('ref')) if head.get('sha') else (None, None)
+    num = target.lstrip('#')
+    if num.isdigit():
+        if gh is None or not slug:
+            return None, None
+        pr, _err = gh.call(f'repos/{slug}/pulls/{num}', cache=False)
+        return from_pull(pr if isinstance(pr, dict) else None)
+    _run(root, 'fetch', '-q', 'origin', target)
+    sha = (_git(root, 'rev-parse', '--verify', '--quiet', f'origin/{target}^{{commit}}')
+           or _git(root, 'rev-parse', '--verify', '--quiet', f'{target}^{{commit}}'))
+    if sha:
+        return sha, target
+    if gh is None or not slug:
+        return None, None
+    pulls, _err = gh.call(f'repos/{slug}/pulls?state=all&head='
+                          f'{slug.split("/")[0]}:{target}', cache=False)
+    for pr in pulls if isinstance(pulls, list) else []:
+        if (pr.get('base') or {}).get('ref') == MAIN:
+            return from_pull(pr)
+    return None, None
 
 
 def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
@@ -4645,14 +4682,12 @@ def _main(argv):
     if argv[:1] == ['--run-tests'] and len(argv) <= 2:
         return run_tests(root, argv[1] if len(argv) == 2 else None)
     if argv[:1] == ['--wait-main-test'] and len(argv) == 2:
-        _run(root, 'fetch', '-q', 'origin', argv[1])
-        sha = (_git(root, 'rev-parse', '--verify', '--quiet', f'origin/{argv[1]}^{{commit}}')
-               or _git(root, 'rev-parse', '--verify', '--quiet', f'{argv[1]}^{{commit}}'))
+        sha, copy = resolve_main_test_target(root, argv[1])
         if not sha:
-            print(f'precedent_branches: {argv[1]} names no branch or commit here.',
-                  file=sys.stderr)
+            print(f'precedent_branches: {argv[1]} names no pull request, branch or '
+                  f'commit here.', file=sys.stderr)
             return 2
-        return wait_for_main_test(root, sha, copy=argv[1])
+        return wait_for_main_test(root, sha, copy=copy)
     if argv[:1] == ['--ensure-tiers'] and set(argv[1:]) <= {'--apply'}:
         return ensure_tiers(root, apply='--apply' in argv)
     tier, why = branch_push_checks(root)
