@@ -4,7 +4,7 @@ status:          live
 noted:           2026-10-19
 severity:        notable
 retired:         null
-retires_when:    "main() in tools/precedent_reply_check.py tells the session about an unmet advisory requirement, or no reply_check.json declares one"
+retires_when:    "a session opened above its repositories runs the turn-start reply gate too, so the notice below reaches every session"
 ---
 ## Symptom
 
@@ -40,5 +40,9 @@ script writes a Stop entry that runs
 `stop-reply-check.sh`; an environment picks it up when its setup script is
 updated and a new session starts.
 
-**Declaring a reply requirement advisory today means nobody sees it.** Make
-it blocking, with a `repair` that says the one line to add, or leave it out.
+The two requirements that stay advisory on Morgan's word (the archive line
+and the compaction offer) are now named at the next turn's start, by
+[tools/precedent_gate.py](../tools/precedent_gate.py)'s reply gate: "Your last
+reply left these out". Nothing is refused. **That notice needs the turn-start
+reply gate to run**, and a session opened above its repositories does not run
+it yet; until it does, an advisory miss in such a session is still unseen.

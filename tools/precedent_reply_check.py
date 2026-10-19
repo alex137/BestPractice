@@ -1169,9 +1169,10 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
          'message': <human-readable>, 'advisory': bool}
 
     `advisory` mirrors the requirement's own `"advisory": true` declaration
-    (default false). main() still detects and names an unmet advisory
-    requirement -- a session should still hear about it -- but never lets
-    one refuse the turn: `advisory` marks a recommendation the person can
+    (default false). An unmet advisory requirement never refuses the turn;
+    the session hears about it at the next turn's start instead
+    (precedent_gate._print_advisories_missed, since 2026-10-19 -- before
+    that, main() dropped it and nobody heard): `advisory` marks a recommendation the person can
     take or leave, not a shape the reply must have. (Morgan, 2026-09-17,
     on the-boildown's own compact/archive lines specifically: give the
     honest answer after actually reviewing which situation applies, "and

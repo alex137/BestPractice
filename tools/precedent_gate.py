@@ -724,6 +724,36 @@ def _unlanded_work(root, siblings=True, records=None):
     return out
 
 
+def _print_advisories_missed(reqs, prc):
+    """Name what the LAST reply left out of an advisory requirement, here at
+    turn start, where the session reads it before writing the next one.
+
+    An advisory requirement never refuses a turn (Morgan, 2026-09-17: "an
+    absent one must never refuse the turn"), and the stop hook's refusal is
+    the only thing a session sees from it, so until 2026-10-19 an unmet one
+    reached nobody -- though violations()'s docstring says "a session should
+    still hear about it" (Morgan, 2026-10-19: "make them visible"). Printing
+    it here keeps both: nothing is refused, and the miss is in front of the
+    session one turn later. Nothing prints without the transcript."""
+    path = os.environ.get('PRECEDENT_TRANSCRIPT_PATH', '').strip()
+    soft = [r for r in reqs if r.get('advisory')]
+    if not path or not soft or not os.path.isfile(path):
+        return
+    try:
+        text = prc.last_assistant_text(path)
+        if not text or not text.strip() or prc.is_trivial_checkin(text):
+            return
+        missed = [v for v in prc.violations(text, soft, prc.assistant_timeline(path))
+                  if v.get('advisory')]
+    except Exception:                                        # noqa: BLE001
+        return
+    if missed:
+        print("\n## Your last reply left these out -- recommendations, never "
+              "refused; include them this time if they apply\n")
+        for v in missed:
+            print(f"- {v['message']}")
+
+
 def _print_size_conditioned(src, r, one_of, every, prc):
     """A requirement owed only once the conversation has grown `every`
     tokens: print the ANSWER, owed or not, not the rule.
@@ -853,6 +883,7 @@ def _print_hard_requirements(root):
         # ever be said to a non technical person." Printed first, every
         # turn, so it governs how everything below reaches the reply.
         print(NOT_A_CODE_OWNER)
+    _print_advisories_missed(reqs, prc)
     print("\n## Hard requirements — the stop hook REFUSES the turn without "
           "these\n")
     for r in reqs:
