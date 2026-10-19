@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "Where each harness keeps the real tree of a practice source (the individual set, a shared set, a brought set).",
+    "Read by tools/precedent_source_home.py and nothing else: every tool asks it, never hard-codes /root or /home/user.",
+    "The tree lives in the home folder; any other path a tool resolves for the same source is a link pointing into it.",
+    "Morgan, 2026-10-19 (strength: decided): one path for every AI tool he uses, 'we can define a different path for each one'.",
+    "home: '$HOME' is the user's home directory; 'attach-workspace' is where the harness's repo-attach tool clones (the parent of the session's project).",
+    "web_env / web_home: when that environment variable is 'true', web_home is used instead. Claude Code on the web clones attached repos into /home/user, and nothing in a repository can move that, so the attach clone is the tree.",
+    "detect_env: a harness is recognised by one of these variables when PRECEDENT_HARNESS does not name it. Only variables seen set by that harness are listed; each adapter under templates/harness/ sets PRECEDENT_HARNESS itself."
+  ],
+  "harnesses": {
+    "claude-code": {
+      "detect_env": ["CLAUDECODE"],
+      "home": "$HOME",
+      "web_env": "CLAUDE_CODE_REMOTE",
+      "web_home": "attach-workspace"
+    },
+    "codex": {"detect_env": [], "home": "$HOME"},
+    "gemini-cli": {"detect_env": [], "home": "$HOME"},
+    "grok-build": {"detect_env": [], "home": "$HOME"},
+    "default": {"detect_env": [], "home": "$HOME"}
+  }
+}

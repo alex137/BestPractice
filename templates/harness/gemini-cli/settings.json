@@ -6,7 +6,7 @@
           {
             "name": "precedent-bootstrap",
             "type": "command",
-            "command": "cd \"${GEMINI_PROJECT_DIR:-.}\" && bash tools/bootstrap.sh 1>&2",
+            "command": "cd \"${GEMINI_PROJECT_DIR:-.}\" && PRECEDENT_HARNESS=gemini-cli bash tools/bootstrap.sh 1>&2",
             "timeout": 600000,
             "description": "Precedent: run tools/bootstrap.sh at session start. Its output goes to stderr because Gemini CLI parses a hook's stdout as JSON."
           }

@@ -384,6 +384,7 @@
   "check_off_base_sources_are_named": 0.3,
   "check_one_list_declares_a_record": 0.0,
   "check_one_python": 0.1,
+  "check_one_tree_per_source_whichever_way_links_run": 2.5,
   "check_one_upstream_move_is_said_once_at_session_start": 0.0,
   "check_orphan_scan_reads_who_claims_a_script": 0.0,
   "check_outbound_privacy_gate_refuses_and_scan_finds": 1.0,
