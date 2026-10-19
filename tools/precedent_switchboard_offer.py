@@ -112,6 +112,9 @@ def offer_text(identity_path):
 
 
 def main(argv):
+    if '-h' in argv or '--help' in argv:
+        print(__doc__)
+        return 0
     if '--script' in argv:
         print(SETUP_SCRIPT)
         return 0

@@ -32042,6 +32042,11 @@ def check_sync_removes_a_stale_ship_named_only_as_another_repos():
         why = pm._stale_ship_keep_reason(d, 'tools/voice_check.py', h)
         cases.append(('CONTROL: a plain mention still keeps it',
                       bool(why) and 'GUIDE.md' in why, why))
+        import qualified_mention as qm
+        link = 'See https://github.com/acme/consumer/blob/main/tools/voice_check.py'
+        cases.append(('CONTROL: with no origin known, a link into a repository is '
+                      'not "another repository\'s"',
+                      not qm.mention_names_another_repo(link, 'tools/voice_check.py', None), ''))
     bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
     check(f'the sync removes a stale ship named only as another repository\'s '
           f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
