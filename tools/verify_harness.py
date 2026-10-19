@@ -41353,6 +41353,38 @@ def check_identity_mechanism_check_reaches_a_stubbed_hook():
           '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
+def check_to_main_copy_name_is_never_taken():
+    """The copy a Promote into main pushes never reuses a name origin has,
+    however many Promotes fall in one second.
+
+    2026-10-19: the fallback name was the current second, so a third
+    Promote within it named the same copy and its push was refused as
+    non-fast-forward. "the work just done, on staging, goes into main"
+    failed only on GitHub's faster runner (run 39259090526), once its
+    output was printed (#1221). Negative control: the old fallback returns
+    a taken name and fails the first case."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    saved = (pb._workflows_know_new_copy_names, pb._day_and_moment, pb._remote_tip)
+    taken = {'to-main-2026-10-19', 'to-main-1792416365', 'to-main-1792416365-2'}
+    try:
+        pb._workflows_know_new_copy_names = lambda root: False
+        pb._day_and_moment = lambda root: ('2026-10-19', '1792416365')
+        pb._remote_tip = lambda root, name: 'abc' if name in taken else None
+        got = pb._to_main_copy('.')
+        taken.discard('to-main-2026-10-19')
+        first = pb._to_main_copy('.')
+    finally:
+        pb._workflows_know_new_copy_names, pb._day_and_moment, pb._remote_tip = saved
+    cases = [('a name origin already has, at the same second twice over, is '
+              'never returned', got == 'to-main-1792416365-3', got),
+             ('...and the dated name is still the first choice when free',
+              first == 'to-main-2026-10-19', first)]
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a Promote copy\'s name is never one origin has ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+
 def check_promote_picks_its_step():
     """Promote moves staging into main, and says so before anything else
     (Morgan, 2026-09-26: print "now promoting staging to main"). It has no
@@ -86427,6 +86459,7 @@ def main():
     check_history_checks_never_ride_a_reused_pass()
     check_identity_mechanism_check_reaches_a_stubbed_hook()
     check_promote_picks_its_step()
+    check_to_main_copy_name_is_never_taken()
     check_shipped_copy_has_no_broken_links()
     check_empty_commits_are_never_counted()
     check_promote_only_and_tier_branches()
