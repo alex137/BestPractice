@@ -53891,6 +53891,49 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
         cases.append(('it runs through the fixed precedent-hooks.sh entry '
                       '(tools/hook_wiring.json)', rc == 2 and 'ANSWER FIRST' in out,
                       out[-200:]))
+
+        # 2026-10-18: Claude Code records a message -- its text and the tool
+        # call it ends in -- after PreToolUse runs, so the answer written
+        # with the guarded call is not there on the first read. A session
+        # answered in about a hundred words; the gate counted 11 and refused
+        # its merge three times.
+        def call(tid):
+            return {'type': 'assistant', 'message': {'role': 'assistant',
+                    'content': [{'type': 'tool_use', 'id': tid,
+                                 'name': 'Bash', 'input': {}}]}}
+
+        def run_late(records, tid, late, delay=0.5):
+            tr = tmp / 'transcript.jsonl'
+            tr.write_text(''.join(_json.dumps(r) + '\n' for r in records),
+                          encoding='utf-8')
+            proc = subprocess.Popen(['bash', str(gate)], stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, text=True, cwd=ROOT)
+            proc.stdin.write(_json.dumps({
+                'tool_name': 'Bash', 'transcript_path': str(tr),
+                'tool_use_id': tid,
+                'tool_input': {'command': 'git push -u origin HEAD'}}))
+            proc.stdin.close()
+            time.sleep(delay)
+            with tr.open('a', encoding='utf-8') as fh:
+                fh.write(''.join(_json.dumps(r) + '\n' for r in late))
+            out = proc.stdout.read() + proc.stderr.read()
+            return proc.wait(), out
+
+        short = said('Short answer.')
+        rc, out = run_late([asked, short], 'toolu_late',
+                           [answer, call('toolu_late')])
+        cases.append(('an answer recorded with the guarded call after the '
+                      'gate first reads still counts', rc == 0, out[-200:]))
+        rc, out = run_late([asked, short], 'toolu_never', [], delay=0)
+        cases.append(('a transcript that never records the guarded call lets '
+                      'it through, saying so', rc == 0
+                      and 'has not recorded toolu_never' in out, out[-200:]))
+        rc, out = run_late([asked, short, call('toolu_here')], 'toolu_here', [],
+                           delay=0)
+        cases.append(('once the guarded call is recorded, a short answer is '
+                      'still refused', rc == 2 and 'ANSWER FIRST' in out,
+                      out[-200:]))
         tr = tmp / 'transcript.jsonl'
         tr.write_text('not json\n', encoding='utf-8')
         p = subprocess.run(['bash', str(gate)], input='{broken', text=True,
