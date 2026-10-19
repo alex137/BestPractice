@@ -35348,15 +35348,35 @@ def check_practice_ships_its_files():
         config()
         run()
 
-        # --- no longer shipped: reported, never deleted ---------------------
+        # --- no longer shipped: removed while unchanged, else reported -------
+        def cgit(*a):
+            subprocess.run(['git', '-C', str(consumer), *a], capture_output=True)
+        put(delivered, text_of(helper))   # the decline above left "ours" there
+        cgit('init', '-q')
+        cgit('config', 'user.email', 'fixture@example.com')
+        cgit('config', 'user.name', 'fixture')
+        cgit('add', '-A')
+        cgit('commit', '-qm', 'the consumer')
         practice(team, 'team-fixture', ships=[])
         rc, out = run()
-        cases.append(('a file no practice ships any more is reported and left '
-                      'in place', rc == 0 and delivered.is_file()
-                      and 'no practice in force here ships any more' in out))
+        cases.append(('a file no practice ships any more is removed in the same '
+                      'sync while it is exactly what was shipped and nothing '
+                      'names it', rc == 0 and not delivered.is_file()
+                      and 'removed shipped file(s)' in out, out[-300:]))
         cases.append(('a consumer that ships nothing carries no `ships` key '
                       'in its manifest (no churn for every other consumer)',
                       'ships' not in manifest()))
+        practice(team, 'team-fixture', ships=['tools/helper.py'])
+        run()
+        cgit('add', '-A')
+        cgit('commit', '-qm', 'shipped again')
+        put(delivered, 'print("edited here")\n')
+        practice(team, 'team-fixture', ships=[])
+        rc, out = run()
+        cases.append(('a file no practice ships any more that was edited here is '
+                      'reported and left in place', rc == 0 and delivered.is_file()
+                      and 'no practice in force here ships any more' in out
+                      and 'edited here' in out, out[-300:]))
 
         # --- refusals -------------------------------------------------------
         practice(team, 'team-fixture', ships=['tools/helper.py'])
