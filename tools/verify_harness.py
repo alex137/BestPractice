@@ -72203,6 +72203,12 @@ def check_update_vendors_reports_live_pre_staging_mentions():
                              '---\nPush it to pre-staging.\n'),
             'spec/LIVE.md': ('---\nkind:          proposal\nstatus:        accepted\n'
                              '---\nPush it to pre-staging.\n'),
+            # A shared set copied in (2026-10-19): a mirror, not this
+            # repository's wording.
+            'process/zz-copied/practices/zz.md': 'Push it to pre-staging.\n',
+            'precedent.json': json.dumps({'sources': [
+                {'level': 'shared', 'name': 'zz-copied',
+                 'path': 'process/zz-copied', 'vendored': True}]}),
         }
         for rel, body in files.items():
             (repo / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -72230,6 +72236,8 @@ def check_update_vendors_reports_live_pre_staging_mentions():
         cases.append(('a retired practice and an executed spec are history, '
                       'not reported', 'practices/old.md' not in said
                       and 'spec/DONE.md' not in said, said))
+        cases.append(('a shared set copied into the repository is a mirror, '
+                      'not reported', 'process/zz-copied' not in said, said))
         cases.append(('nothing is rewritten',
                       all((repo / rel).read_text(encoding='utf-8') == body
                           for rel, body in files.items())))
