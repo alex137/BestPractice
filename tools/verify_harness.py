@@ -54367,6 +54367,22 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
         cases.append(('once the guarded call is recorded, a short answer is '
                       'still refused', rc == 2 and 'ANSWER FIRST' in out,
                       out[-200:]))
+        # 2026-10-19 (Morgan: "okay, go fix"): a mid-turn answer of about
+        # 45 words or more is never written to the transcript, so a session
+        # that had answered was refused four times running. One refusal per
+        # question: once the transcript holds it, the next change goes
+        # through; a new question starts over.
+        refused = {'type': 'user', 'message': {'role': 'user', 'content': [
+            {'type': 'tool_result', 'tool_use_id': 'toolu_x', 'is_error': True,
+             'content': 'PreToolUse:Bash hook error: ANSWER FIRST: the '
+                        "person's latest message asks something"}]}}
+        rc, out = run([asked, short, refused])
+        cases.append(('after one refusal for the question, the next change '
+                      'goes through, saying so', rc == 0
+                      and 'refused once already' in out, out[-200:]))
+        rc, out = run([asked, refused, human('and why is main red?')])
+        cases.append(('a new question after that refusal is held again',
+                      rc == 2 and 'ANSWER FIRST' in out, out[-200:]))
         tr = tmp / 'transcript.jsonl'
         tr.write_text('not json\n', encoding='utf-8')
         p = subprocess.run(['bash', str(gate)], input='{broken', text=True,
