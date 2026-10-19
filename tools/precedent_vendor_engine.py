@@ -5055,6 +5055,188 @@ def seed_maintainers(dest_root, logins=None, today=None, fallback=None):
     return logins, how
 
 
+# ---- copying a set in: the question, asked once per repository -----------
+# spec/VENDORED_SHARED_SETS.md, "The question, asked once". Morgan,
+# 2026-10-19 (strength: decided): "make sure, in this new vendoring-in
+# ladders etc, it's a question with each new repo and (one time) when we
+# update vendors to the new system." The answer, yes or no, is recorded in
+# precedent.json under COPY_IN_KEY and never asked again there.
+COPY_IN_KEY = 'copy_in'
+_ANSWER_DATE = re.compile(r'\b20\d\d-\d\d-\d\d\b')
+_ANSWER_QUOTE = re.compile(r'"[^"]{2,}"|\u201c[^\u201d]{2,}\u201d')
+
+
+def _copy_in_candidates(user_config=None):
+    """-> [(name, repo_url, clone path or None, brought)] for every set the
+    person's individual set brings, then every set it only offers to copy
+    in (its precedent-source.json's `offers`, a list of {name, repo_url}:
+    a voice pack, say, which a person never brings everywhere)."""
+    import precedent_resolve as pr
+    ind = pr.person_individual_path(user_config)
+    if ind is None:
+        return []
+    out, seen = [], set()
+    for b in pr.brought_sources(ind, warn=False):
+        if b['name'] not in seen:
+            seen.add(b['name'])
+            out.append((b['name'], b.get('repo') or '', pathlib.Path(b['path']),
+                        True, ''))
+    man = pr.read_source_manifest(ind) if (ind / pr.SOURCE_MANIFEST).is_file() \
+        else None
+    for item in ((man or {}).get('offers') or []):
+        if not isinstance(item, dict):
+            continue
+        name, url = item.get('name'), str(item.get('repo_url') or '').strip()
+        if not isinstance(name, str) or not pr.SLUG_RE.match(name) \
+                or name in seen or not url:
+            continue
+        seen.add(name)
+        clone = ind.resolve().parent / name
+        root = str(item.get('set_root') or '').strip().strip('/')
+        out.append((name, url, clone if clone.is_dir() else None, False, root))
+    return out
+
+
+def copy_in_offers(dest_root, user_config=None, login=None):
+    """-> one dict per set the person could copy into this repository and
+    has not been asked about here: {name, repo_url, clone, brought,
+    default ('yes'|'no'), why, ladder}. A set already copied in, or with an
+    answer recorded under COPY_IN_KEY, is left out.
+
+    The default offered is "yes" for a set the person brings only when the
+    repository is private and its code owners are that person alone;
+    "no" everywhere else, and always for a set they only offer. The
+    person's answer always wins; nothing is copied in unanswered."""
+    import precedent_resolve as pr
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(cfg, dict):
+        return []
+    answered = cfg.get(COPY_IN_KEY) if isinstance(cfg.get(COPY_IN_KEY), dict) \
+        else {}
+    copied = {e.get('name') for e in cfg.get('sources') or []
+              if pr.is_vendored(e)}
+    private = cfg.get('visibility') == 'private'
+    try:
+        import precedent_audience as _pa
+        found, _where = _pa.owners(root)
+        owners = {str(o).lstrip('@').lower() for o in (found or ())}
+        me = (login or _pa.viewer(root)[0] or '').lstrip('@').lower()
+    except Exception:                                           # noqa: BLE001
+        owners, me = set(), (login or '').lower()
+    alone = bool(me) and owners == {me}
+    out = []
+    for name, url, clone, brought, set_root in _copy_in_candidates(user_config):
+        if name in answered or name in copied:
+            continue
+        ladder = bool(clone) and pr.LADDER_CAPABILITY in pr.source_provides(
+            clone / set_root if set_root else clone)
+        if brought and private and alone:
+            default, why = 'yes', ('this repository is private and you are its '
+                                   'only code owner')
+        elif not brought:
+            default, why = 'no', ('you offer it per repository; copying it in '
+                                  'makes everyone here use it')
+        elif not private:
+            default, why = 'no', 'this repository is not private'
+        else:
+            default, why = 'no', 'others are code owners here too'
+        out.append({'name': name, 'repo_url': url, 'clone': clone,
+                    'brought': brought, 'default': default, 'why': why,
+                    'ladder': ladder, 'set_root': set_root})
+    return out
+
+
+def copy_in_question(offer, flag='--copy-in', by_flag='--answered-by'):
+    """The question for one offer, in words the person answers, with how
+    the answer comes back to the tool."""
+    q = (f'Copy {offer["name"]} into this repository? Then it is in force '
+         f'for everyone who works here, it is refreshed by Update Vendors, '
+         f'and it can never fail to load. No keeps it arriving the way it '
+         f'does today. Suggested: {offer["default"]} ({offer["why"]}).')
+    if offer.get('ladder'):
+        q += (' It provides the ladder, so a yes makes the ladder bind '
+              'everyone here; if this repository has other code owners, '
+              'each of them should agree first.')
+    return (q + f' Answer with {flag} {offer["name"]}=yes|no {by_flag} '
+            f'"Name, YYYY-MM-DD: \\"their words\\""; the answer is recorded '
+            f'in precedent.json and not asked again.')
+
+
+def record_copy_in(dest_root, name, answer, answered_by, repo_url='',
+                   ladder=False, set_root=''):
+    """Record the person's answer for `name` under COPY_IN_KEY. On yes, also
+    declare the set copied in at process/<name> (replacing a live
+    declaration of it), start its manifest for Update Vendors' first copy,
+    and, for a set that provides the ladder, add it to binds_everyone with
+    the same quote. -> (changed: bool, what happened or why not)."""
+    import precedent_resolve as pr
+    answer = str(answer).strip().lower()
+    if answer not in ('yes', 'no'):
+        return False, f'{name}: the answer must be yes or no, not {answer!r}'
+    if not _ANSWER_DATE.search(answered_by or '') \
+            or not _ANSWER_QUOTE.search(answered_by or ''):
+        return False, (f'{name}: the answer needs who gave it, a date and '
+                       f'their words in quotes ("Name, YYYY-MM-DD: \\"...\\"")')
+    root = pathlib.Path(dest_root)
+    path = root / 'precedent.json'
+    try:
+        cfg = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False, 'there is no readable precedent.json'
+    record = cfg.setdefault(COPY_IN_KEY, {})
+    if not isinstance(record, dict):
+        return False, f'precedent.json\'s {COPY_IN_KEY} is not an object'
+    record[name] = {'answer': answer, 'answered_by': answered_by}
+    what = f'{name}: recorded "{answer}"'
+    if answer == 'yes':
+        if cfg.get('visibility') != 'private':
+            repo_url = ''      # a public tree names no account
+        entry = {'level': 'shared', 'name': name, 'path': f'process/{name}',
+                 'vendored': True}
+        if repo_url:
+            entry['repo'] = repo_url
+        if set_root:
+            entry['set_root'] = set_root
+        cfg['sources'] = [e for e in cfg.get('sources') or []
+                          if not (isinstance(e, dict) and e.get('name') == name)]
+        cfg['sources'].append(entry)
+        manifest = root / 'process' / f'manifest_{name}.json'
+        if not manifest.exists():
+            manifest.parent.mkdir(parents=True, exist_ok=True)
+            manifest.write_text(json.dumps({'upstream': {}}, indent=2) + '\n',
+                                encoding='utf-8')
+        what += f', declared copied in at process/{name}'
+        if ladder:
+            be = cfg.get('binds_everyone')
+            be = be if isinstance(be, dict) else {}
+            sets = [x for x in (be.get('sets') or []) if x != name] + [name]
+            prior = str(be.get('approved_by') or '')
+            cfg['binds_everyone'] = {
+                'sets': sets,
+                'approved_by': answered_by if not prior or prior == answered_by
+                else f'{answered_by}; {prior}'}
+            what += ', and added to binds_everyone'
+    path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    return True, what
+
+
+def parse_copy_in_answers(values):
+    """--copy-in NAME=yes|no, repeated -> ({name: answer}, [problems])."""
+    out, bad = {}, []
+    for v in values or []:
+        name, sep, ans = str(v).partition('=')
+        if not sep or ans.strip().lower() not in ('yes', 'no') or not name.strip():
+            bad.append(f'--copy-in {v!r}: expected NAME=yes or NAME=no')
+            continue
+        out[name.strip()] = ans.strip().lower()
+    return out, bad
+
+
 def timezone_offer(dest_root, user_config=None):
     """-> one line offering the owner's own zone as precedent.json's
     `fallback_timezone`, or None. Offered, never written: the person says
