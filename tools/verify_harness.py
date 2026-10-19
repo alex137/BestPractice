@@ -70715,6 +70715,32 @@ def check_copied_in_shared_sets():
                       and 'set_root' in r.stdout + r.stderr,
                       r.stdout[-200:] + r.stderr[-200:]))
 
+        # What a copied set's rules point at comes with it (2026-10-19, the
+        # first real copy-in left the writing set's checks and the ladder
+        # set's hook scripts behind), and the set's own engine copy does not.
+        kit = tmp / 'kit-set'
+        (kit / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        (kit / 'tools' / 'checks' / 'check_zz.py').write_text('x = 1\n')
+        (kit / 'tools' / 'checks' / 'tests' / 'test_zz.sh').write_text('true\n')
+        (kit / 'tools' / 'zz_shipped.py').write_text('x = 1\n')
+        (kit / 'tools' / 'zzhooks').mkdir()
+        (kit / 'tools' / 'zzhooks' / 'run.py').write_text('x = 1\n')
+        (kit / 'tools' / 'zzhooks' / 'helper.py').write_text('x = 1\n')
+        (kit / 'tools' / 'precedent_engine_file.py').write_text('x = 1\n')
+        (kit / 'practices').mkdir()
+        (kit / 'practices' / 'zz-kit.md').write_text(
+            '---\nslug: zz-kit\nships: ["tools/zz_shipped.py"]\n'
+            'hooks: [{"event": "Stop", "run": "tools/zzhooks/run.py"}]\n'
+            'checked_by: "tools/checks/check_zz.py"\n---\n# k\n\n## Rule\n\nx\n')
+        got = checkin._files_rules_name(kit)
+        cases.append(('a copied set brings its checks, what its rules ship and '
+                      'the hook scripts they run, folder and all',
+                      got == ['tools/checks', 'tools/zz_shipped.py', 'tools/zzhooks'],
+                      repr(got)))
+        cases.append(('NEGATIVE CONTROL: and never the engine copy in its tools/',
+                      'tools/precedent_engine_file.py' not in got
+                      and 'tools' not in got, repr(got)))
+
         import precedent_source_credentials as psc
         gone = make_host('gone-host', 'zz-set', visibility='private')
         un = psc.unresolved_private_sources(gone, env={
