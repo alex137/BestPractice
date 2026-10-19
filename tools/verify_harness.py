@@ -45076,6 +45076,9 @@ def check_individual_set_has_one_tree_whichever_route_cloned_it():
             consumer = work / 'consumer'
             home.mkdir(parents=True)
             consumer.mkdir(parents=True)
+            # A project is a repository; one that is not is a session
+            # rooted above its repos (attach_workspace, 2026-10-19).
+            git(tmp, 'init', '-q', str(consumer))
             return home, work, consumer
 
         # --- attach first: the session cloned where the reply said ---------
@@ -45195,6 +45198,7 @@ def check_individual_set_diverged_copies_are_reported_not_clobbered():
         consumer = work / 'consumer'
         home.mkdir()
         consumer.mkdir(parents=True)
+        git(tmp, 'init', '-q', str(consumer))   # a project is a repository
         at_home, at_work = home / 'precedent-individual', work / 'precedent-individual'
         git(tmp, 'clone', '-q', url, str(at_home))
         git(tmp, 'clone', '-q', url, str(at_work))
