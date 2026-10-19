@@ -922,6 +922,10 @@ ENGINE_FILES = [
     # level, and a practice source's own checks are meant to import it from
     # the engine beside them, so every kind needs it.
     'generated_blocks.py',
+    # The one "does this line name another repository's copy?" (added
+    # 2026-10-19): precedent_materialize and precedent_check's
+    # rename-updates-links load it lazily, in every kind.
+    'qualified_mention.py',
     # The document status header's reader (added 2026-10-06).
     # precedent_check.py's document-status-header and speculation-is-marked
     # checks import it, and both practices are universal, so every repo
