@@ -447,7 +447,7 @@
   "check_push_check_walks_every_commit_it_publishes": 0.4,
   "check_push_destination_reaches_the_views_check": 0.0,
   "check_push_gate_judges_only_what_a_working_branch_brings": 2.6,
-  "check_push_to_main_runs_own_checks_inside_a_budget": 2.1,
+  "check_push_to_staging_runs_own_checks_inside_a_budget": 2.1,
   "check_push_to_main_skips_what_already_passed": 0.7,
   "check_quick_tier_is_closed": 0.1,
   "check_reach_key_self_check": 0.3,
