@@ -44906,6 +44906,29 @@ def check_shared_set_leaves_a_link_at_the_attach_path():
                          tree, workspace=third)
         cases.append(('a source that is not hosted gets no attach link',
                       not (third / 'precedent-shared-x').exists()))
+        # Where the attach tool clones: beside a project that is a
+        # repository, and INSIDE a session root that is not one -- a session
+        # rooted above its repos (2026-10-19: rooted at /home/user, the
+        # parent read /home, and a shared set was cloned twice).
+        repo_proj, above = tmp / 'wsr' / 'proj', tmp / 'above'
+        repo_proj.mkdir(parents=True)
+        above.mkdir()
+        git(repo_proj, 'init', '-q')
+        saved_proj = os.environ.get('PRECEDENT_PROJECT_DIR')
+        try:
+            os.environ['PRECEDENT_PROJECT_DIR'] = str(repo_proj)
+            beside = psb.attach_workspace()
+            os.environ['PRECEDENT_PROJECT_DIR'] = str(above)
+            inside = psb.attach_workspace()
+        finally:
+            if saved_proj is None:
+                os.environ.pop('PRECEDENT_PROJECT_DIR', None)
+            else:
+                os.environ['PRECEDENT_PROJECT_DIR'] = saved_proj
+        cases.append(('the attach path sits beside a project that is a '
+                      'repository, and inside a session root that is not',
+                      beside == repo_proj.parent and inside == above,
+                      f'{beside} {inside}'))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
@@ -44953,6 +44976,11 @@ def check_individual_hook_run_by_hand_links_the_attached_set():
         proj = ws / 'proj'
         (proj / 'tools').mkdir(parents=True)
         (proj / '.claude' / 'hooks').mkdir(parents=True)
+        # A project is a repository; one that is not is a session rooted
+        # above its repos, whose attach copies sit in it, not beside it
+        # (attach_workspace, 2026-10-19).
+        subprocess.run(['git', 'init', '-q', str(proj)], env=env0,
+                       capture_output=True)
         home.mkdir()
         for name in ('precedent_source_bootstrap.py',
                      'precedent_source_credentials.py',
