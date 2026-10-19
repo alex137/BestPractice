@@ -7797,14 +7797,28 @@ def check_migrate_views_keeps_every_word():
             '---\ngenerated_by: tools/build_views.py\nedit_instead: "practices/*.md"\n'
             '---\n# Canonical names\n', encoding='utf-8')
         (repo / 'tools' / 'generated_files.json').unlink(missing_ok=True)
+        # ...but their history holds the hand-written views, with a heading
+        # and a row the overwrite took. An empty source would make that loss
+        # permanent, which is what happened to that consumer on 2026-10-05.
         rc, out = migrate()
+        cases.append(('views already generated whose history holds hand-written '
+                      'ones with entries they lost: refused, naming the commit to '
+                      'restore from, with nothing written',
+                      rc == 1 and 'REFUSED' in out and f'--restore-from {first}' in out
+                      and not (repo / 'MAP.source.md').exists()
+                      and not (repo / 'GLOSSARY.source.md').exists()))
+        rc, out = migrate('--find-lost')
+        cases.append(('--find-lost names each lost heading and row, and changes nothing',
+                      rc == 1 and '## Known consumers' in out and '| a/b |' in out
+                      and '| HVR |' in out and not (repo / 'MAP.source.md').exists()))
+        rc, out = migrate('--accept-loss')
         lst = repo / 'tools' / 'generated_files.json'
         listed = ({e['path']: e.get('edit_instead') for e in
                    _json.loads(lst.read_text(encoding='utf-8'))['files']}
                   if lst.is_file() else {})
-        cases.append(('views already generated, with no source and no list: each '
-                      'gets an empty source, as a fresh install would, and the list '
-                      'names both',
+        cases.append(('with --accept-loss, views already generated, with no source '
+                      'and no list: each gets an empty source, as a fresh install '
+                      'would, and the list names both',
                       rc == 0 and 'nothing to migrate' in out
                       and listed.get('MAP.md') == 'MAP.source.md'
                       and listed.get('GLOSSARY.md') == 'GLOSSARY.source.md'
@@ -7818,6 +7832,14 @@ def check_migrate_views_keeps_every_word():
                       and 'GLOSSARY.source.md' in (repo / 'GLOSSARY.md')
                       .read_text(encoding='utf-8').split('---', 2)[1]
                       and (repo / 'AGENTS.md').read_text(encoding='utf-8') == agents_before))
+        rc, out = migrate('--restore-from', first)
+        cases.append(('--restore-from fills both empty sources from the named commit, '
+                      'and nothing is lost afterwards',
+                      rc == 0
+                      and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map
+                      and (repo / 'GLOSSARY.source.md').read_text(encoding='utf-8')
+                      == hand_glossary
+                      and migrate('--find-lost')[0] == 0))
 
         # A hand-written map and no glossary at all: the migration makes no
         # glossary, and the list names nothing that is not there. Found
@@ -35357,15 +35379,35 @@ def check_practice_ships_its_files():
         config()
         run()
 
-        # --- no longer shipped: reported, never deleted ---------------------
+        # --- no longer shipped: removed while unchanged, else reported -------
+        def cgit(*a):
+            subprocess.run(['git', '-C', str(consumer), *a], capture_output=True)
+        put(delivered, text_of(helper))   # the decline above left "ours" there
+        cgit('init', '-q')
+        cgit('config', 'user.email', 'fixture@example.com')
+        cgit('config', 'user.name', 'fixture')
+        cgit('add', '-A')
+        cgit('commit', '-qm', 'the consumer')
         practice(team, 'team-fixture', ships=[])
         rc, out = run()
-        cases.append(('a file no practice ships any more is reported and left '
-                      'in place', rc == 0 and delivered.is_file()
-                      and 'no practice in force here ships any more' in out))
+        cases.append(('a file no practice ships any more is removed in the same '
+                      'sync while it is exactly what was shipped and nothing '
+                      'names it', rc == 0 and not delivered.is_file()
+                      and 'removed shipped file(s)' in out, out[-300:]))
         cases.append(('a consumer that ships nothing carries no `ships` key '
                       'in its manifest (no churn for every other consumer)',
                       'ships' not in manifest()))
+        practice(team, 'team-fixture', ships=['tools/helper.py'])
+        run()
+        cgit('add', '-A')
+        cgit('commit', '-qm', 'shipped again')
+        put(delivered, 'print("edited here")\n')
+        practice(team, 'team-fixture', ships=[])
+        rc, out = run()
+        cases.append(('a file no practice ships any more that was edited here is '
+                      'reported and left in place', rc == 0 and delivered.is_file()
+                      and 'no practice in force here ships any more' in out
+                      and 'edited here' in out, out[-300:]))
 
         # --- refusals -------------------------------------------------------
         practice(team, 'team-fixture', ships=['tools/helper.py'])
@@ -41916,6 +41958,26 @@ def check_promote_only_and_tier_branches():
                                            str(cfg), head_sha=fix_sha) is not None))
         finally:
             pb.main_test_failed = saved_failed
+        # ...and red means the full local suite too, where GitHub's test was
+        # not due: Produce says to fix main at once if `--run-tests main`
+        # fails, and that fix was refused (a consumer, 2026-10-19).
+        rmtip = pb._remote_tip(work, pb.MAIN)
+        record = pb._run_tests_path(work)
+        try:
+            pb._record_run_tests(work, {'branch': pb.MAIN, 'commit': rmtip,
+                                        'result': 'failed', 'failed': []})
+            cases.append(('on: a failed full local suite on main\'s own tip is a red '
+                          'main', pb.main_test_failed(work) is True))
+            pb._record_run_tests(work, {'branch': pb.MAIN, 'commit': '0' * 40,
+                                        'result': 'failed', 'failed': []})
+            cases.append(('on: one recorded on an older main is not',
+                          pb.main_test_failed(work) is False))
+            pb._record_run_tests(work, {'branch': pb.MAIN, 'commit': rmtip,
+                                        'result': 'passed', 'failed': []})
+            cases.append(('on: nor is a passed one', pb.main_test_failed(work) is False))
+        finally:
+            if record:
+                pathlib.Path(record).unlink(missing_ok=True)
         # promote-only's content exception (Morgan, 2026-10-13, decided): a
         # change touching only declared content_paths goes straight into
         # main; anything else beside it, precedent.json included, does not.
@@ -49481,6 +49543,91 @@ def check_turn_start_names_what_the_last_reply_left_out():
           '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
 
 
+def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
+    """tools/precedent_run_repo_hooks.py, called from the user-level line for
+    each moment, runs the hooks of the repository an action is about -- the
+    file it writes, the folder a command cds into, the prompt's folder --
+    filtered by matcher, passes a refusal and a JSON denial through, does
+    nothing in a session opened inside a repository, and with no repository
+    named runs only the two gates that find their own.
+
+    2026-10-19 (Morgan: "Okay, let's do it, Act and Booked"): a session opened
+    above its repositories ran none of their hooks but the few the setup
+    script named one at a time. Negative control: the same Edit with the
+    session opened inside the repository runs nothing (native hooks do)."""
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        engine = root / 'engine'
+        (engine / 'tools').mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'precedent_run_repo_hooks.py',
+                    engine / 'tools' / 'precedent_run_repo_hooks.py')
+        (engine / '.claude').mkdir()
+        (engine / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
+            'PreToolUse': [{'matcher': 'Bash', 'hooks': [
+                {'type': 'command', 'command': 'echo ENGINE-PUSH # push-check-gate.sh'},
+                {'type': 'command', 'command': 'echo ENGINE-OTHER'}]}]}}), encoding='utf-8')
+
+        def repo(name, hooks):
+            r = root / name
+            (r / '.claude').mkdir(parents=True)
+            (r / '.claude' / 'settings.json').write_text(json.dumps({'hooks': hooks}),
+                                                        encoding='utf-8')
+            subprocess.run(['git', 'init', '-q', str(r)], check=True)
+            return r
+        a = repo('a', {
+            'PreToolUse': [
+                {'matcher': 'Edit|Write', 'hooks': [{'type': 'command',
+                 'command': 'echo "A refuses $CLAUDE_PROJECT_DIR" >&2; exit 2'}]},
+                {'matcher': 'Bash', 'hooks': [{'type': 'command', 'command': 'echo A-BASH'}]}],
+            'UserPromptSubmit': [{'hooks': [{'type': 'command', 'command': 'echo A-PROMPT'}]}]})
+        b = repo('b', {'PreToolUse': [{'matcher': 'Bash', 'hooks': [{'type': 'command',
+            'command': 'echo \'{"hookSpecificOutput": {"hookEventName": "PreToolUse", '
+                       '"permissionDecision": "deny", "permissionDecisionReason": "B says no"}}\''}]}]})
+
+        def run(event, payload, project=root):
+            env = dict(os.environ, CLAUDE_PROJECT_DIR=str(project))
+            return subprocess.run([sys.executable, str(engine / 'tools' / 'precedent_run_repo_hooks.py'),
+                                   event], input=json.dumps(payload), env=env,
+                                  capture_output=True, text=True, timeout=60)
+        r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Edit',
+                               'tool_input': {'file_path': str(a / 'x.md')}})
+        cases.append(('THE DISCRIMINATING CASE: an edit in a repository runs its Edit '
+                      'hook, as that repository, and the refusal comes through',
+                      r.returncode == 2 and f'A refuses {a.resolve()}' in r.stderr
+                      and 'A-BASH' not in r.stdout, (r.returncode, r.stdout, r.stderr)))
+        r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Edit',
+                               'tool_input': {'file_path': str(a / 'x.md')}}, project=a)
+        cases.append(('negative control: opened inside the repository, nothing runs',
+                      r.returncode == 0 and not r.stdout and not r.stderr,
+                      (r.returncode, r.stdout, r.stderr)))
+        r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Bash',
+                               'tool_input': {'command': f'cd {a} && ls'}})
+        cases.append(('a command that cds into a repository runs that one\'s Bash hooks',
+                      r.returncode == 0 and 'A-BASH' in r.stdout, (r.stdout, r.stderr)))
+        r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Bash',
+                               'tool_input': {'command': f'git -C {b} status'}})
+        cases.append(('a JSON denial from the repository is handed back as it is',
+                      r.returncode == 0 and '"permissionDecision": "deny"' in r.stdout,
+                      (r.stdout, r.stderr)))
+        r = run('UserPromptSubmit', {'cwd': str(a), 'prompt': 'hi'})
+        cases.append(('a prompt runs the hooks of the folder the session is working in',
+                      r.returncode == 0 and 'A-PROMPT' in r.stdout, (r.stdout, r.stderr)))
+        r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Bash',
+                               'tool_input': {'command': 'ls'}})
+        cases.append(('a command in no repository runs only the self-locating gates',
+                      'ENGINE-PUSH' in r.stdout and 'ENGINE-OTHER' not in r.stdout,
+                      (r.stdout, r.stderr)))
+        r = run('Nonsense', {})
+        cases.append(('an unknown moment runs nothing', r.returncode == 0
+                      and 'usage' in r.stdout, r.stdout))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the switchboard runs the hooks of the repository an action is about '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {str(d)[:240]}' for n, d in bad))
+
+
 def check_cloud_setup_script_writes_each_hook_once():
     """The setup script documentation/CLOUD_SETUP.md gives for the cloud
     environment writes the session-start runner and the merge and push
@@ -49503,7 +49650,10 @@ def check_cloud_setup_script_writes_each_hook_once():
         home = pathlib.Path(td)
         (home / '.claude').mkdir()
         (home / '.claude' / 'settings.json').write_text(json.dumps(
-            {'permissions': {'allow': ['Bash(ls)']}}), encoding='utf-8')
+            {'permissions': {'allow': ['Bash(ls)']}, 'hooks': {'PreToolUse': [
+                {'matcher': 'Bash', 'hooks': [{'type': 'command', 'command':
+                 'f=$(ls -d /home/user/*/tools/precedent_global_gate.sh); '
+                 'bash "$f" push-check-gate.sh || true'}]}]}}), encoding='utf-8')
         env = dict(os.environ, HOME=str(home))
         for _ in range(2):
             r = subprocess.run(['sh', '-c', m.group(0)], env=env,
@@ -49515,18 +49665,20 @@ def check_cloud_setup_script_writes_each_hook_once():
         cases.append(('THE DISCRIMINATING CASE: run twice, each hook is there once',
                       r.returncode == 0 and len(pairs) == len(set(pairs)) == 5,
                       cmds or r.stderr[-300:]))
-        cases.append(('the merge and push gates are written for a session '
-                      'opened above the repositories',
-                      sum('precedent_global_gate.sh' in c for c in cmds) == 4
-                      and any(c.endswith('push-check-gate.sh || true') for c in cmds),
-                      cmds))
-        stop = [c for n, c in pairs if n == 'Stop']
-        cases.append(('the reply check is written at Stop, and its refusal is not '
-                      'swallowed by a trailing "|| true"',
-                      len(stop) == 1 and 'stop-reply-check.sh' in stop[0]
-                      and '|| true' not in stop[0], stop))
-        cases.append(('what the file held is kept',
-                      got.get('permissions') == {'allow': ['Bash(ls)']}, got))
+        names = sorted(n for n, _c in pairs)
+        switch = [c for n, c in pairs if n != 'SessionStart']
+        cases.append(('one line per moment: session start, then the switchboard '
+                      'for the prompt, both tool-call moments and the end of a reply',
+                      names == sorted(['SessionStart', 'UserPromptSubmit', 'PreToolUse',
+                                       'PostToolUse', 'Stop'])
+                      and all('precedent_run_repo_hooks.py' in c for c in switch),
+                      pairs))
+        cases.append(('no switchboard line swallows a refusal with "|| true"',
+                      switch and not any('|| true' in c for c in switch), switch))
+        cases.append(('what the file held is kept, and an older script\'s '
+                      'one-gate line is gone so nothing runs twice',
+                      got.get('permissions') == {'allow': ['Bash(ls)']}
+                      and not any('precedent_global_gate.sh' in c for c in cmds), got))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the cloud setup script writes each hook once ({len(cases)} '
           f'stated cases)', not bad,
@@ -66791,6 +66943,33 @@ def check_source_supplied_checks_run():
                       'script, not from the filename',
                       {'fx-clean', 'fx-violated', 'fx-skipped', 'fx-broken',
                        'fx-local', 'fx-both'} <= added, str(sorted(added))))
+
+        # A script's inputs select it, not only its practice's applies_to: a
+        # consumer's check of a page's practice list reads every practice's
+        # applies_to, a new practice landed without its row, and the
+        # rotation left the check for later (2026-10-19).
+        reads = repo / 'tools' / 'checks' / 'check_fx_reads.py'
+        script(reads, 'fm = {}\nfm.get("applies_to")\nsys.exit(0)\n')
+        declares = repo / 'tools' / 'checks' / 'check_fx_declares.py'
+        script(declares, 'SELECTS_ON = ("pages/*.md", "**")\nsys.exit(0)\n')
+        cases.append(('a script that reads applies_to is selected by any '
+                      'practice file', set(pc.script_selects_on(reads))
+                      >= {'practices/*.md', 'local/practices/*.md'},
+                      repr(pc.script_selects_on(reads))))
+        cases.append(('a script\'s own SELECTS_ON is read without running it, '
+                      'and a bare ** in it adds nothing',
+                      pc.script_selects_on(declares) == ('pages/*.md',),
+                      repr(pc.script_selects_on(declares))))
+        cases.append(('a script that declares nothing and reads no applies_to '
+                      'is selected exactly as before',
+                      pc.script_selects_on(repo / 'tools' / 'checks'
+                                           / 'check_fx_clean.py') == (), ''))
+        pc.register_materialized_checks()
+        cases.append(('...and the registered check carries those globs, where '
+                      'the change-driven selection reads them',
+                      'practices/*.md' in (pc.CHECKS.get('check_fx_reads', {})
+                                           .get('selects_on') or ()),
+                      repr(pc.CHECKS.get('check_fx_reads', {}).get('selects_on'))))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -87591,6 +87770,7 @@ def main():
     check_global_gate_runs_a_repos_gate_only_from_above()
     check_reply_check_refuses_an_unlinked_branch_or_file()
     check_turn_start_names_what_the_last_reply_left_out()
+    check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about()
     check_cloud_setup_script_writes_each_hook_once()
     check('an empty blocklist is reported as nothing checked, never a pass',
           *check_empty_blocklist_is_not_a_pass())

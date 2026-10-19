@@ -4,6 +4,11 @@
 # repositories, from the user-level settings the cloud environment's setup
 # script writes (documentation/CLOUD_SETUP.md).
 #
+# SUPERSEDED the same day by tools/precedent_run_repo_hooks.py, which runs
+# every hook of the repository an action is about, these included; the
+# current setup script removes the lines that call this file. It stays for
+# an environment whose setup script has not been updated yet.
+#
 # WHY (Morgan, 2026-10-19: "Go"). A repository's gates are hooks in its own
 # .claude/settings.json, and Claude Code runs only the hooks of the folder a
 # session is opened in. A session opened in /home/user, the folder holding
@@ -25,6 +30,15 @@ case "$gate" in
     *) echo "NOTE: precedent_global_gate.sh: no gate named '$gate'; nothing checked." >&2
        exit 0 ;;
 esac
+# THE DECLARED PYTHON (2026-10-16, practice one-python). Claude Code starts
+# a hook with its own PATH, so a bare `python3` here is the image's default,
+# not the Python precedent.json declares, and lacks the packages setup put
+# there. Setup links the declared one at .precedent/python-bin; it goes
+# first on PATH here. The same block sits in every hook that starts python3;
+# verify_harness keeps the copies identical. No link: python3 as before,
+# never a refusal.
+_precedent_pybin="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)/.precedent/python-bin" || true
+if [ -x "$_precedent_pybin/python3" ]; then PATH="$_precedent_pybin:$PATH"; fi
 project="${CLAUDE_PROJECT_DIR:-$PWD}"
 if [[ -f "$project/.claude/settings.json" ]] \
         && grep -q "$gate" "$project/.claude/settings.json" 2>/dev/null; then

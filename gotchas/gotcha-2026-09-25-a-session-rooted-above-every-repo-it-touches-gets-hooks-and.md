@@ -4,7 +4,7 @@ status:          live
 noted:           2026-09-25
 severity:        notable
 retired:         null
-retires_when:    null
+retires_when:    "every environment that opens sessions above their repositories runs documentation/CLOUD_SETUP.md's setup script of 2026-10-19 or later"
 ---
 ## Symptom
 
@@ -93,6 +93,15 @@ did -- but nothing this session did caught the epoch changing in the act,
 so treat this as a lead for whoever investigates next, not as the cause.
 
 ## Fix
+
+**2026-10-19: every moment, not only session start.** The cloud setup
+script now writes one user-level line per moment (a prompt, before and
+after a tool call, the end of a reply), each calling
+[tools/precedent_run_repo_hooks.py](../tools/precedent_run_repo_hooks.py),
+which runs the hooks of the repository the action is about. An environment
+picks it up when its setup script is updated; until then the older text
+below still describes what it gets.
+
 
 **Not established beyond documenting it defensively.** No reproduction
 isolated what flips the identity or moves `HEAD`, so there is nothing to
