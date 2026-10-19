@@ -1164,8 +1164,11 @@ def refresh_copies_step(repo, rep, take_sets=()):
                      'Vendors again')
             continue
         clone = pathlib.Path(clone)
+        # A set in a folder of its repository keeps its manifest there.
+        set_dir = clone / str(e.get('set_root') or '').strip('/') \
+            if e.get('set_root') else clone
         try:
-            man = json.loads((clone / pr.SOURCE_MANIFEST).read_text(
+            man = json.loads((set_dir / pr.SOURCE_MANIFEST).read_text(
                 encoding='utf-8'))
         except (OSError, ValueError):
             man = {}
