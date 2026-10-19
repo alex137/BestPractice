@@ -139,6 +139,16 @@ and never asked again there (Morgan, 2026-10-19, strength: decided).
   the repository is private and its code owners are that person alone.
   "No" everywhere else, and always for a set they only offer. The
   person's answer always wins; nothing is copied in unanswered.
+- **What the question says** (Morgan, 2026-10-19, after first meeting it
+  in his practice sets): in a repository that is not private it opens
+  with a warning that the repository is public, so the set's rules and
+  every detail in them become public when copied in. It names the two
+  answers: yes copies it in; no keeps loading it at session start, as
+  now. A copied-in set is never also opened as an attachment at session
+  start.
+- **A practice set is never asked.** It is a set, and its sessions read
+  the others from their own repositories; asking offered each set a copy
+  of itself.
 - **How the answer comes back:** `--copy-in NAME=yes|no` (repeated) with
   `--answered-by 'Name, YYYY-MM-DD: "their words"'`, to
   [tools/precedent_update.py](../tools/precedent_update.py) or
