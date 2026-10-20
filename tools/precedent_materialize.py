@@ -770,6 +770,16 @@ def _plan_checks(sources, res=None):
                     claimed_elsewhere(f, 'checks/tests', s)
                 else:
                     claim(f, 'checks/tests', s['name'])
+            # A test may bring one helper of its own: <name>_cases.py beside
+            # test_<name>.sh travels exactly when that test does, from the
+            # same source (2026-10-20). Until then a set's test could carry
+            # only the .sh, so the ladder set's test_ladder_branches.sh read
+            # its cases from tools/ladder/, shipped by a practice's `ships`
+            # for no reason but this.
+            for f in sorted(src_tests.glob('*_cases.py')):
+                test = f"test_{f.name[:-len('_cases.py')]}.sh"
+                if owner_of.get(f'checks/tests/{test}') == s['name']:
+                    claim(f, 'checks/tests', s['name'])
     if skipped:
         print(f"precedent_materialize: not a per-check file, not vendored: "
               + ', '.join(skipped), file=sys.stderr)
@@ -791,7 +801,7 @@ def _plan_checks(sources, res=None):
     level_of = {s['name']: s['level'] for s in sources}
     test_owners = {filename: (source_name, level_of.get(source_name, 'unknown'))
                    for rel_label, filename, source_name, _data in plan
-                   if rel_label == 'checks/tests'}
+                   if rel_label == 'checks/tests' and filename.endswith('.sh')}
     # Each shipped test's fingerprint, and its check's, as shipped: the
     # driver runs only the check where both still match (RUN_ALL_TAIL says
     # why). Hashed exactly as MANIFEST.json's checks[] records them.

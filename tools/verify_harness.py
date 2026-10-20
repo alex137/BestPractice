@@ -6978,6 +6978,49 @@ def check_sync_does_not_call_a_held_back_check_an_orphan():
           f'stated cases)', not failed, '; '.join(failed))
 
 
+def check_sync_carries_a_test_helper_with_its_test():
+    """A set's test may bring one helper of its own: <name>_cases.py beside
+    test_<name>.sh travels exactly when that test does, from the same
+    source, and is never run as a test itself (2026-10-20). Until then the
+    ladder set's cases file reached a consumer through a practice's
+    `ships`, for no reason but that a test could carry only its .sh.
+    CONTROLS: a helper whose test nothing claims, and one with no test at
+    all, stay behind."""
+    import contextlib, io, tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with _tf.TemporaryDirectory() as td:
+        src = pathlib.Path(td) / 'set'
+        tests = src / 'tools' / 'checks' / 'tests'
+        tests.mkdir(parents=True)
+        for name in ('test_thing.sh', 'test_lost.sh'):
+            (tests / name).write_text('true\n', encoding='utf-8')
+        for name in ('thing_cases.py', 'lost_cases.py', 'alone_cases.py'):
+            (tests / name).write_text('x = 1\n', encoding='utf-8')
+        res = {'practices': {'thing': {'source': 'set', 'fm': {
+            'ships': '["tools/thing/thing.py"]'}}}}
+        with contextlib.redirect_stderr(io.StringIO()):
+            plan = pm._plan_checks([{'name': 'set', 'path': str(src), 'level': 'shared'}], res)
+        got = {name for rel, name, _s, _d in plan if rel == 'checks/tests'}
+        driver = next((d.decode('utf-8') for rel, name, _s, d in plan
+                       if name == pm.RUN_ALL_NAME), '')
+        cases.append(('a claimed test brings its helper', 'thing_cases.py' in got
+                      and 'test_thing.sh' in got))
+        cases.append(('CONTROL: a helper whose test nothing claims stays behind',
+                      'lost_cases.py' not in got and 'test_lost.sh' not in got))
+        cases.append(('CONTROL: a helper with no test stays behind',
+                      'alone_cases.py' not in got))
+        cases.append(('the driver never runs a helper as a test',
+                      'thing_cases.py' not in driver))
+    failed = [n for n, ok in cases if not ok]
+    check(f'a sync carries a test\'s helper with its test ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
 def check_sync_says_which_copy_of_a_claimed_check_runs():
     """A check whose name a practice in force claims is claimed, whichever
     source supplies the file. Where the claiming source ships its own copy,
@@ -89676,6 +89719,7 @@ def main():
     check_session_start_charges_brought_sets_to_the_person()
     check_update_drops_the_dead_blank_blocklist_link()
     check_sync_does_not_call_a_held_back_check_an_orphan()
+    check_sync_carries_a_test_helper_with_its_test()
     check_sync_says_which_copy_of_a_claimed_check_runs()
     check_no_duplication_refuses_a_sets_copy_of_a_universal_rule()
     check_source_directory_splits_and_assembles()
