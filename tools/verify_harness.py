@@ -59572,8 +59572,24 @@ said2 = []
 pb._land_composed(work, fix, 'claude/fix-main-abcdef', 'staging', 'the fixture', said2.append)
 g('fetch', '-q', 'origin')
 fix_moved = g('rev-parse', 'origin/claude/fix-main-abcdef').stdout.strip() != fix
+# 2026-10-20: a branch carrying all of main's work that does NOT merge
+# cleanly into staging (staging moved on) gets the checked composition,
+# never "lacks nothing".
+g('checkout', '-q', '-B', 'stg', 'origin/staging')
+(work / 'z.md').write_text('staging\\n'); g('add', '-A'); g('commit', '-qm', 'staging moved')
+g('-c', 'core.hooksPath=/dev/null', 'push', '-q', 'origin', 'stg:staging')
+g('checkout', '-q', '-b', 'claude/behind-staging-abcdef', 'origin/main')
+(work / 'z.md').write_text('branch\\n'); g('add', '-A'); g('commit', '-qm', 'clash')
+g('push', '-q', 'origin', 'claude/behind-staging-abcdef')
+g('merge', '-q', '-X', 'ours', '--no-edit', 'origin/staging')
+comp = g('rev-parse', 'HEAD').stdout.strip()
+said3 = pb._carry_composition_to_branch(work, 'claude/behind-staging-abcdef', comp, 'staging')
+g('fetch', '-q', 'origin')
+behind_moved = g('rev-parse', 'origin/claude/behind-staging-abcdef').stdout.strip() == comp
+behind_moved = behind_moved and comp != g('rev-parse', 'HEAD^1').stdout.strip()
 print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], files=files,
                       fix_moved=fix_moved, said2='\\n'.join(said2)[-300:],
+                      said3=said3, behind_moved=behind_moved,
                       staging=g('ls-tree', '--name-only', 'origin/staging').stdout.split())))
 """, encoding='utf-8')
         p = subprocess.run([sys.executable, str(script)], capture_output=True,
@@ -59597,6 +59613,11 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], file
                       'left where it is, so a red-main fix\'s head never moves',
                       out.get('fix_moved') is False
                       and 'as it stands lacks nothing' in (out.get('said2') or ''),
+                      str(out) or why))
+        cases.append(('a branch with all of main\'s work that conflicts with '
+                      'staging gets the checked composition, not "lacks nothing"',
+                      out.get('behind_moved') is True
+                      and 'now carries the composition' in (out.get('said3') or ''),
                       str(out) or why))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
