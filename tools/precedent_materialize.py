@@ -1705,6 +1705,30 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
             f"other subdirectory) so its tree and materialize()'s output "
             f"are physically separate.")
 
+    # A PRACTICE SET'S practices/ HOLDS ONLY ITS OWN RULES (2026-10-19,
+    # spec/A_SET_EXPORTS_ONLY_ITS_OWN_RULES.md). Every consumer that declares
+    # the set reads that folder as the set's rules, so copies written there
+    # would be handed on as the set's own, at the set's level, and frozen.
+    # The same bug as a source at --out above, one repository removed. A
+    # set's views come from build_views.py, which defers what it declares
+    # to .precedent/SESSION_PRACTICES.md.
+    if (out_dir / pr.SOURCE_MANIFEST).is_file():
+        try:
+            own = json.loads((out_dir / pr.SOURCE_MANIFEST)
+                             .read_text(encoding='utf-8')).get('name')
+        except (OSError, ValueError, AttributeError):
+            own = None
+        raise MaterializeError(
+            f"{out_dir.resolve()} is the practice set {own or '(unnamed)'!s}: "
+            f"it has a {pr.SOURCE_MANIFEST} at its root. Its practices/ is "
+            f"read by every repository that declares it as the set's own "
+            f"rules, so an install never writes another source's practices "
+            f"there. Build its views with its own tools/build_views.py; the "
+            f"rules it declares reach its sessions through "
+            f".precedent/SESSION_PRACTICES.md. A repository that both uses "
+            f"Precedent and holds a set keeps the set in a folder of its own "
+            f"(`set_root`, spec/VENDORED_SHARED_SETS.md).")
+
     practices_dir = out_dir / 'practices'
     checks_dir = out_dir / 'tools' / 'checks'
 

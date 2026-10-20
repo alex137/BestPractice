@@ -207,6 +207,7 @@ def _bind_source(clone):
     copied_in = _declared_copied_in(SOURCE)
     if copied_in:
         _refuse_private_into_public(clone, m)
+        _refuse_set_holding_copies(clone)
     if not dirs and not copied_in:
         sys.exit(f"checkin FAIL: {clone}'s {SOURCE_MANIFEST} lists no `code` "
                  f"directories, so there is nothing to vendor -- a set whose "
@@ -312,6 +313,23 @@ def _declared_copied_in(name):
     return any(isinstance(e, dict) and e.get('name') == name
                and e.get('vendored') is True
                for e in (cfg.get('sources') or []) if isinstance(cfg, dict))
+
+
+def _refuse_set_holding_copies(clone):
+    """Exit when the set about to be copied in holds practices an install
+    copied into it from other sources (its MANIFEST.json records them). Its
+    practices/ would arrive here as the set's own rules, at the set's level,
+    frozen (2026-10-19, spec/A_SET_EXPORTS_ONLY_ITS_OWN_RULES.md)."""
+    import precedent_resolve as _pr
+    root = clone / SET_ROOT if SET_ROOT else clone
+    copies = _pr.installed_copies(root, SOURCE)
+    if copies:
+        sys.exit(f"checkin FAIL: {SOURCE}'s practices/ in {root} holds "
+                 f"{len(copies)} practice(s) an install copied there from "
+                 f"{', '.join(sorted(set(copies.values())))}. A set exports "
+                 f"only the rules it writes; remove the copies and its "
+                 f"MANIFEST.json in the set's own repository first. Nothing "
+                 f"was copied.")
 
 
 def _refuse_private_into_public(clone, manifest):

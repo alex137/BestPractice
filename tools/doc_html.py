@@ -84,6 +84,14 @@ rule for this module: a new table capability must manifest on every
 registered render from the engine alone, with host or model
 declarations as optional refinement, never as a prerequisite.
 
+Default filter: a generating model MAY precede its table with
+
+    <!--default-filter: Header=Value-->
+
+and the table opens filtered to the rows whose Header cell reads Value
+(a "best match" view of a large permutation table, say). It is an
+ordinary filter the reader can clear; Reset returns to it.
+
 Host configuration: list (repo-relative .md, title) pairs in
 tools/doc_html_host.json (HOST_FILE below), or name a shim there. Link
 rewriting targets the repo's own hosted-view URL, detected from the git
@@ -894,6 +902,21 @@ JS = """
       });
       cell.appendChild(btn);
     });
+    // A default filter (<!--default-filter: Header=Value-->, see the module
+    // docstring): the table opens with that column filtered to that value, and
+    // Reset returns to it; the reader can clear it like any filter.
+    function defaultFilter() {
+      var spec = tbl.dataset.defaultFilter;
+      if (!spec) return;
+      var eq = spec.indexOf("="), want = spec.slice(0, eq).trim(), val = spec.slice(eq + 1).trim();
+      Array.prototype.forEach.call(fr.cells, function (c, i) {
+        var label = (hrow.cells[i].dataset.label || hrow.cells[i].textContent).replace(/[▲▼][0-9]*$/, "").trim();
+        if (label !== want) return;
+        filterState[+c.dataset.col].vals[val] = 1;
+        if (c.firstChild && c.firstChild._sync) c.firstChild._sync();
+      });
+    }
+    defaultFilter();
 
     function posMap() {
       var m = {};
@@ -1021,6 +1044,7 @@ JS = """
       Array.prototype.forEach.call(fr.cells, function (c) {
         if (c.firstChild && c.firstChild._sync) c.firstChild._sync();
       });
+      defaultFilter();
       baseOrder = [];
       for (var i = 0; i < ncols; i++) baseOrder.push(i);
       var body = tbl.tBodies[0];
@@ -1564,6 +1588,19 @@ def _wire_frontier_specs(body):
         sub, body, flags=re.S)
 
 
+def _wire_default_filters(body):
+    """Attach each <!--default-filter: Header=Value--> comment to the table
+    that follows it as a data-default-filter attribute: the table opens
+    filtered to the rows whose Header cell reads Value. Run after the
+    tablewrap wrapping and the frontier specs."""
+    def sub(m):
+        spec = html_mod.escape(" ".join(m.group(1).split()), quote=True)
+        return f'<div class="tablewrap"><table data-default-filter="{spec}"'
+    return re.sub(
+        r'<!--default-filter:\s*(.*?)\s*-->\s*<div class="tablewrap"><table',
+        sub, body, flags=re.S)
+
+
 def _wire_note_backlinks(body):
     """Point each note's ↩ link back at the header cell it defines.
 
@@ -1743,6 +1780,7 @@ def render(src, out_path, title):
     body = body.replace("<table>", '<div class="tablewrap"><table>')
     body = body.replace("</table>", "</table></div>")
     body = _wire_frontier_specs(body)
+    body = _wire_default_filters(body)
     # the build stamp: a <time> carrying the instant in UTC, which the
     # page rewrites into the reader's local time on load (the UTC text is
     # what a reader with scripts off, or a text extract, sees).
