@@ -69311,10 +69311,10 @@ def check_a_set_exports_only_its_own_rules():
 
     1. The resolver leaves out a copy an install recorded in the set's
        MANIFEST.json -- byte-identical or stale -- and keeps the set's own.
-    2. It leaves out a byte-identical copy with no MANIFEST.json (a hand
-       copy); the weaker source's rule stays in force.
-    3. NEGATIVE CONTROL: a set's real override, different text under the
-       same slug, still replaces the weaker rule.
+    2. It leaves out a copy with no MANIFEST.json (a hand copy), identical
+       or gone stale; the weaker source's rule stays in force.
+    3. NEGATIVE CONTROL: a set's real override, which says so with
+       `overrides: <its slug>`, still replaces the weaker rule.
     4. The install step refuses to write into a set, before touching it.
     5. Update Vendors' copy-in refuses a set that holds an install's
        copies."""
@@ -69323,8 +69323,10 @@ def check_a_set_exports_only_its_own_rules():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='set-own-rules-'))
     cases = []
 
-    def rule(slug, body):
-        return f'---\nslug: {slug}\n---\n# {slug}\n\n## Rule\n\n{body}\n'
+    def rule(slug, body, overrides=None):
+        ov = f'overrides: {overrides}\n' if overrides else ''
+        return (f'---\nslug: {slug}\n{ov}---\n# {slug}\n\n## Rule\n\n'
+                f'{body}\n')
 
     def make_source(name, level, files, manifest=None):
         d = tmp / name
@@ -69356,7 +69358,8 @@ def check_a_set_exports_only_its_own_rules():
         import precedent_materialize as pm
         import checkin
         aa, bb = rule('aa', 'live aa'), rule('bb', 'live bb')
-        make_source('precedent', 'universal', {'aa': aa, 'bb': bb})
+        make_source('precedent', 'universal',
+                    {'aa': aa, 'bb': bb, 'cc': rule('cc', 'live cc')})
         polluted = make_source(
             'zz-set', 'shared',
             {'zz-own': rule('zz-own', 'mine'), 'aa': aa,
@@ -69365,7 +69368,8 @@ def check_a_set_exports_only_its_own_rules():
                       {'slug': 'bb', 'source': 'precedent'},
                       {'slug': 'zz-own', 'source': 'zz-set'}])
         make_source('zz-hand', 'shared',
-                    {'aa': aa, 'bb': rule('bb', 'a real override')})
+                    {'aa': aa, 'bb': rule('bb', 'a real override', 'bb'),
+                     'cc': rule('cc', 'a hand copy gone stale')})
         cfg = str(tmp / 'no-config.json')
 
         def resolve(h):
@@ -69378,19 +69382,19 @@ def check_a_set_exports_only_its_own_rules():
         cases.append(('copies an install recorded in the set are left out, '
                       'stale or not; the set keeps its own rule',
                       got == {'aa': 'precedent', 'bb': 'precedent',
-                              'zz-own': 'zz-set'}
+                              'cc': 'precedent', 'zz-own': 'zz-set'}
                       and sorted(c['slug'] for c in res['copies']) == ['aa', 'bb']
                       and 'left out 2' in pr.copies_note(res['copies']),
                       f'{got} / {res.get("copies")}'))
         _s2, res2 = resolve(host('h2', 'zz-hand'))
         got2 = {s: p['source'] for s, p in res2['practices'].items()}
-        cases.append(('a byte-identical hand copy is left out; the original '
-                      'stays in force',
-                      got2.get('aa') == 'precedent'
-                      and [c['slug'] for c in res2['copies']] == ['aa'],
+        cases.append(('a hand copy, identical or gone stale, is left out; '
+                      'the original stays in force',
+                      got2.get('aa') == 'precedent' and got2.get('cc') == 'precedent'
+                      and sorted(c['slug'] for c in res2['copies']) == ['aa', 'cc'],
                       f'{got2} / {res2.get("copies")}'))
-        cases.append(('NEGATIVE CONTROL: a real override under the same slug '
-                      'still replaces the weaker rule',
+        cases.append(('NEGATIVE CONTROL: an override that says so still '
+                      'replaces the weaker rule of the same name',
                       got2.get('bb') == 'zz-hand', repr(got2)))
 
         before = sorted(f.name for f in (polluted / 'practices').iterdir())
