@@ -6187,6 +6187,43 @@ def full_check_after(repo):
     return isinstance(data, dict) and data.get('update_full_check') == 'after'
 
 
+def set_tests_step(repo, rep):
+    """A practice set's own tests, every tools/checks/tests/test_*.sh, when
+    this update changed the set's engine copy: -> None when they pass or do
+    not apply, else the failure text for rep.close().
+
+    2026-10-19: Update Vendors refreshed the ladder set's engine copy, the
+    set's quick check passed, and the update merged; the set's own
+    test_ladder_branches.sh first ran on main after it and was red. Its
+    tests are the set's contract with the engine it calls, and an engine
+    refresh touches the engine's files, never the tests', so the quick
+    tier's "the tests a change touches" never picks them. They run here
+    instead: the one moment the engine under them moves. Measured that day:
+    about 70 seconds for all nine of the ladder set's."""
+    if not (repo / 'precedent-source.json').is_file():
+        return None
+    tests = sorted((repo / 'tools' / 'checks' / 'tests').glob('test_*.sh'))
+    changed, _err = status_paths(repo, 'tools/')
+    engine = {f for f in (changed or ()) if not f.startswith('tools/checks/')}
+    if not tests or not engine:
+        return None
+    red = []
+    for t in tests:
+        r = subprocess.run(['bash', str(t)], cwd=str(repo), capture_output=True,
+                           text=True)
+        if r.returncode != 0:
+            red.append((t.name, (r.stdout + r.stderr).strip()))
+    if not red:
+        rep.step('the set\'s own tests', f'all {len(tests)} pass on the '
+                 f'refreshed engine')
+        return None
+    rep.step('the set\'s own tests', f'{len(red)} of {len(tests)} red on the '
+             f'refreshed engine: ' + ', '.join(n for n, _o in red))
+    return ('the set\'s own tests are red on the refreshed engine, so this '
+            'update would break the set where it lands:\n'
+            + '\n'.join(f'--- {n} ---\n{tail(o, repo=repo)}' for n, o in red))
+
+
 def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
     seed_budgets_step(repo, rep)
@@ -6249,6 +6286,9 @@ def closing_check(repo, rep, skip_check=False):
                          f'problems below first')
                 return rep.close(f"the {pb.BASIC} check is red, so the {label} "
                                  f"was not started:\n{tail(out, repo=repo)}")
+            red = set_tests_step(repo, rep)
+            if red:
+                return rep.close(red)
             if full_check_after(repo):
                 rep.step(label, 'runs after the push (update_full_check: after)')
                 rep.not_run = (
@@ -6262,6 +6302,9 @@ def closing_check(repo, rep, skip_check=False):
         if rc != 0:
             return rep.close(f"the {label} is red:\n{tail(out, repo=repo)}")
         rep.step(label, 'passed')
+        red = set_tests_step(repo, rep) if tier != pb.FULL else None
+        if red:
+            return rep.close(red)
         # A size cap over -- this update's own regenerated block can be what
         # pushed it -- passes the basic tier and is refused at the Debut.
         cap = next((l.strip() for l in out.splitlines()

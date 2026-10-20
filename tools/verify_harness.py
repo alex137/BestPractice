@@ -7037,6 +7037,62 @@ def check_sync_carries_a_test_helper_with_its_test():
           f'stated cases)', not failed, '; '.join(failed))
 
 
+def check_update_runs_a_set_s_own_tests_after_an_engine_refresh():
+    """Update Vendors in a practice set runs the set's own tests when it
+    changed the set's engine copy, and stops on a red one before anything
+    lands (precedent_update.set_tests_step, 2026-10-20). The ladder set's
+    test_ladder_branches.sh first ran on main after an engine refresh
+    merged, and was red. CONTROLS: a repository that is not a set, and a
+    set whose update changed no engine file, run nothing."""
+    import tempfile, subprocess as _sp
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+
+    class Rep:
+        def __init__(self):
+            self.steps = []
+
+        def step(self, name, outcome):
+            self.steps.append((name, outcome))
+    cases = []
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'set'
+        tests = repo / 'tools' / 'checks' / 'tests'
+        tests.mkdir(parents=True)
+        (tests / 'test_ok.sh').write_text('exit 0\n', encoding='utf-8')
+        (repo / 'tools' / 'engine.py').write_text('x = 1\n', encoding='utf-8')
+        g = lambda *a: _sp.run(['git', '-C', str(repo), *a], env=env,
+                               capture_output=True, text=True)
+        g('init', '-q')
+        g('add', '-A')
+        g('commit', '-qm', 'base')
+        (repo / 'tools' / 'engine.py').write_text('x = 2\n', encoding='utf-8')
+        rep = Rep()
+        cases.append(('CONTROL: not a set, nothing runs',
+                      pu.set_tests_step(repo, rep) is None and not rep.steps))
+        (repo / 'precedent-source.json').write_text('{}', encoding='utf-8')
+        rep = Rep()
+        cases.append(('a set whose engine copy changed runs its tests, and green passes',
+                      pu.set_tests_step(repo, rep) is None
+                      and any('all 1 pass' in o for _n, o in rep.steps)))
+        (tests / 'test_bad.sh').write_text('echo broke; exit 1\n', encoding='utf-8')
+        rep = Rep()
+        red = pu.set_tests_step(repo, rep)
+        cases.append(('THE DISCRIMINATING CASE: a red set test stops the update, named',
+                      bool(red) and 'test_bad.sh' in red and 'broke' in red))
+        g('checkout', '-q', '--', 'tools/engine.py')
+        rep = Rep()
+        cases.append(('CONTROL: no engine file changed, nothing runs',
+                      pu.set_tests_step(repo, rep) is None and not rep.steps))
+    failed = [n for n, ok in cases if not ok]
+    check(f'Update Vendors runs a set\'s own tests after an engine refresh '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_sync_says_which_copy_of_a_claimed_check_runs():
     """A check whose name a practice in force claims is claimed, whichever
     source supplies the file. Where the claiming source ships its own copy,
@@ -89736,6 +89792,7 @@ def main():
     check_update_drops_the_dead_blank_blocklist_link()
     check_sync_does_not_call_a_held_back_check_an_orphan()
     check_sync_carries_a_test_helper_with_its_test()
+    check_update_runs_a_set_s_own_tests_after_an_engine_refresh()
     check_sync_says_which_copy_of_a_claimed_check_runs()
     check_no_duplication_refuses_a_sets_copy_of_a_universal_rule()
     check_source_directory_splits_and_assembles()
