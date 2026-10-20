@@ -9073,14 +9073,18 @@ _SETS_PLAN = pathlib.Path('spec') / 'ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md
 
 
 def _waiting_files(repo_root):
-    """-> the tools/ files the plan's part 3 holds in the engine until the
-    person says go: read from the plan, which is the record."""
+    """-> the tools/ files the plan holds in the engine until the person
+    says go: those named in a part whose heading still says "Waiting",
+    read from the plan, which is the record. None since part 3 was built
+    on 2026-10-19 (piece 6)."""
     try:
         text = (pathlib.Path(repo_root) / _SETS_PLAN).read_text(encoding='utf-8')
     except OSError:
         return set()
-    m = re.search(r'^## 3\..*?(?=^## \d)', text, re.S | re.M)
-    return set(re.findall(r'tools/([\w.-]+\.py)', m.group(0))) if m else set()
+    held = set()
+    for m in re.finditer(r'^## \d+\. Waiting\b.*?(?=^## \d|\Z)', text, re.S | re.M):
+        held |= set(re.findall(r'tools/([\w.-]+\.py)', m.group(0)))
+    return held
 
 
 def set_independence(repo_root):
