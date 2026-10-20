@@ -1,9 +1,17 @@
 ---
-checked_through: 2026-10-18
+checked_through: 2026-10-19
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Monday 2026-10-19: shared-sets-copied-in
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **A shared practice set can now be copied into the repository that uses it, so it can never fail to load at session start** (a source entry marked "vendored": true; Update Vendors refreshes the copy, a guard refuses hand edits, a private set goes only into a private repository, a set may carry another inside it, and each repository is asked once whether to copy each set in; spec/VENDORED_SHARED_SETS.md).
+- **A practice set now hands on only the rules it writes, never copies of other sets' rules** (found when a set that had been installed like a project held about 200 copies: the resolver leaves an install's copies out, the install step refuses to write into a set, copy-in refuses a set holding copies, and the set-shape check reports them; spec/A_SET_EXPORTS_ONLY_ITS_OWN_RULES.md).
+- **Branch delete links came back, and the archive line got stricter about unfinished work** (the reply that lands a branch now gives its delete link, checked by the stop hook; an unfinished multi-step plan holds "You can archive this session" until it is done, handed on or ended; Promote and Produce moved out of the engine into the ladder set).
 
 ## Sunday 2026-10-18: nothing-private-sent-out
 

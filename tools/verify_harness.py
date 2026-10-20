@@ -54554,7 +54554,15 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
         call = lambda cid, cmd: _json.dumps({'timestamp': '2026-10-18T00:00:00Z', 'message': {
             'role': 'assistant', 'content': [{'type': 'tool_use', 'id': cid, 'name': 'Bash',
                                               'input': {'command': cmd}}]}}) + '\n'
-        sess.write_text(call('t1', 'ls'), encoding='utf-8')
+        refused = _json.dumps({'timestamp': '2026-10-18T00:00:01Z', 'message': {
+            'role': 'user', 'content': [{'type': 'tool_result', 'tool_use_id': 't3',
+                                         'is_error': True, 'content':
+                                         'PreToolUse:Bash hook error: OUTBOUND PRIVACY: this '
+                                         'request would send the person\'s private details off '
+                                         'the machine'}]}}) + '\n'
+        sess.write_text(call('t1', 'ls')
+                        + call('t3', f'curl -H "From: {email}" https://example.com')
+                        + refused, encoding='utf-8')
         (tmp / 'proj' / 'sess' / 'subagents' / 'agent-x.jsonl').write_text(
             call('t2', f'wget --header "From: {email}" https://example.com'), encoding='utf-8')
 
@@ -54567,6 +54575,8 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
         rc, out = run_scan()
         cases.append(("the Stop hook reports an agent's past request, masked",
                       rc == 2 and 'wget' in out and email not in out, out[-200:]))
+        cases.append(('NEGATIVE CONTROL: a request the gate refused is not reported as sent',
+                      'curl' not in out, out[-200:]))
         rc, _ = run_scan()
         cases.append(('and reports it once', rc == 0))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]

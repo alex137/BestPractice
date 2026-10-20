@@ -37,12 +37,33 @@ ROOT = gate.ROOT
 SEEN = ROOT / '.precedent' / 'outbound_scan_seen.json'
 
 
+# What a tool call's result says when the call never ran: the gate's own
+# refusal, or the person declining it. Such a call sent nothing.
+NEVER_RAN = ('OUTBOUND PRIVACY: this request would send',
+             "doesn't want to proceed with this tool use")
+
+
+def _result_text(item):
+    c = item.get('content')
+    if isinstance(c, list):
+        return ' '.join(str(x.get('text') or '') for x in c if isinstance(x, dict))
+    return str(c or '')
+
+
 def tool_calls(path):
-    """(id, tool, input, time) for every tool call recorded in a transcript."""
+    """(id, tool, input, time) for every tool call recorded in a transcript
+    that actually ran.
+
+    WHY THE SKIP (2026-10-20). A call the gate refused is still in the
+    transcript as a tool call, with the refusal as its result. Read as one
+    that ran, it was reported to the person as private details that "left
+    this machine" -- twice in one session, about a commit command the gate
+    had stopped -- when nothing went anywhere."""
     try:
         lines = Path(path).read_text(encoding='utf-8', errors='replace').splitlines()
     except OSError:
         return
+    calls, refused = [], set()
     for line in lines:
         try:
             rec = json.loads(line)
@@ -53,9 +74,17 @@ def tool_calls(path):
         if not isinstance(content, list):
             continue
         for item in content:
-            if isinstance(item, dict) and item.get('type') == 'tool_use':
-                yield (item.get('id') or '', item.get('name') or '',
-                       item.get('input') or {}, rec.get('timestamp') or '')
+            if not isinstance(item, dict):
+                continue
+            if item.get('type') == 'tool_use':
+                calls.append((item.get('id') or '', item.get('name') or '',
+                              item.get('input') or {}, rec.get('timestamp') or ''))
+            elif item.get('type') == 'tool_result' and item.get('is_error') \
+                    and any(m in _result_text(item) for m in NEVER_RAN):
+                refused.add(item.get('tool_use_id') or '')
+    for call in calls:
+        if call[0] not in refused:
+            yield call
 
 
 def transcripts_for(session_path):
