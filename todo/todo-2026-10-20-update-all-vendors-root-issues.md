@@ -89,3 +89,37 @@ held as written.
    one at a time, and only if that passes, say in update-all-vendors to
    attach one repository at a time.
 
+## Findings 6-8, 2026-10-20
+
+Raised by the same session after copying the shared sets into consumers,
+then sharpened with Morgan's words about BestPractice (BP): "make sure
+this is fixed at its root in BP. So a root issues to find other root issues."
+
+6. **Not reproduced.** Reported: copy-in staged a tracked shipped file as
+   renamed into the copy and left the old path untracked on disk, so the
+   basic check failed on rename-updates-links. Rehearsed four times, with
+   no push: two private consumers on staging's engine, and a third on
+   staging's and on `main`'s (75970f4a0f18), the last with the reporting
+   session's own order (a run with no answers,
+   then the copy-in rerun). Each staged the shipped files as modified or
+   added, never renamed-and-untracked, and ended DONE. Nothing was built
+   for a cause no run showed.
+7. **Fixed at the cause.** A copied set's manifest named no scrub list, so
+   the audit read it as `process/scrub_blocklist.txt` and failed every
+   consumer without one (reproduced in a private consumer). The scrub guards what
+   a repository sends up to a pack; a copy only comes down and is never
+   edited here, so copy-in now writes `scrub_blocklist: null` with that
+   reason, and Update Vendors adds it to a copy made before. The
+   copy-in test now plants a consumer with no list, as
+   checks-plant-their-state asks; it fails on the old code.
+8. **What let it through: a test that planted one consumer shape, and no
+   way to try an unlanded change on real ones.** The first half is the
+   test above. The second: `precedent_update_all.py --rehearse REF` runs
+   every consumer's update against an unlanded commit, with copy-in
+   answers, and never pushes. Whether a rehearsal must precede every
+   engine change to Update Vendors is Morgan's call: it costs a few
+   minutes per consumer.
+
+With these fixes, all three held consumers (three private repositories)
+end DONE with Morgan's recorded answers.
+

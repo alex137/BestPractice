@@ -31959,12 +31959,11 @@ def check_branch_cleanup_button():
     cases.append(('a public one: the link, to the workflow\'s page',
                   sb.workflow_link('o', 'r') in line and ' hidden>Delete every' not in line, line))
     line = sb._cleanup_line('o', 'r', 3, st(False, '', installed=False), now)
-    cases.append(('not installed: says so, no link',
-                  'href' not in line and 'Update Vendors installs it' in line, line))
+    # 2026-10-20 (Morgan: "just give it to me and say nothing else"): a
+    # section without the button says nothing about why.
+    cases.append(('not installed: no link and no explanation', line == '', line))
     line = sb._cleanup_line('o', 'r', 3, dict(st(False, '', installed=False), source=True), now)
-    cases.append(('a practice set: never told Update Vendors installs it',
-                  'href' not in line and 'practice set carries no GitHub workflow' in line
-                  and 'Update Vendors' not in line, line))
+    cases.append(('a practice set: no link and no explanation', line == '', line))
     page = sb.render_html([('o', 'r', [('done-branch', '2026-10-01')])], now=now,
                           cleanup={('o', 'r'): st(True, day_ago)})
     recs, _clicked = sb.read_cleanup(page)
@@ -32741,6 +32740,29 @@ def check_reply_check_requires_the_boildown_first_line():
             cases.append(('a line silent about the unlanded work is refused',
                           kinds('BestPractice, five changes', pr)
                           == ['first_item_unlanded'], ''))
+            # 2026-10-20: one refusal asked for the one-line repeat form and
+            # for the not-landed lead, which that form had no room for. Both
+            # conditions true: the form the repeat refusal now hands over,
+            # from the real reply_check.json entry, passes the lead check;
+            # the plain form it used to hand over does not.
+            rep = next(e['require_section_not_repeated'] for e in json.loads(
+                (ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+                if e.get('require_section_not_repeated'))
+
+            def alone(line):
+                _rc._unlanded_names = lambda *a, **k: list(pr)
+                return [v['kind'] for v in _rc.violations(
+                    'x\n\n## The Boildown\n' + line + '\n', lead)]
+            filled = _rc.one_line_form(rep, pr).replace(
+                '<where the rest is>', '`staging`')
+            cases.append(('while a branch is unlanded, the one-line repeat form '
+                          'handed over passes the not-landed lead check',
+                          alone(filled) == [] and pr[0] in filled, filled))
+            cases.append(('negative control: the plain one-line form is refused '
+                          'then', alone(rep['one_line'].replace(
+                              '<where it is>', '`staging`')) == ['first_item_unlanded'], ''))
+            cases.append(('with nothing unlanded, the plain form is handed over',
+                          _rc.one_line_form(rep, []) == rep['one_line'], ''))
         finally:
             _rc._unlanded_names = saved
     finally:
@@ -34460,6 +34482,41 @@ def check_close_detect_counts_only_this_sessions_reverts():
     failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
     check(f'the close detector counts only this session\'s own reverts '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_close_detect_skips_every_seeded_header_shape():
+    """The practice-candidate detector does not read a prompt another
+    session seeded as the person's words, whichever header shape it opens
+    with: "Sent automatically by ... Nobody typed this.", the From line the
+    reply check's prompt-block-names-both-ends defines, or "Origin:" naming
+    a session.
+
+    2026-10-20: a Root issues seed opening "From: session <id> ... A session
+    wrote this, not a person" had its "Never let a seed assume the attach
+    succeeds." reported at close as "the person said". CONTROL: a person's
+    own first line that only mentions a session link is still read."""
+    import precedent_close_detect as pcd
+    sid = 'session_01AbCdEfGh'
+    rule = 'Never let a seed assume the attach succeeds.'
+    headers = {
+        'Sent automatically': f'Sent automatically by the session "t" ({sid}) -- '
+                              f'https://claude.ai/code/{sid}. Nobody typed this.',
+        'From line': f'From: session {sid}, "t" (https://claude.ai/code/{sid}). '
+                     'A session wrote this, not a person.',
+        'Origin': f'Origin: session {sid}; Morgan asked for this seed.',
+    }
+
+    def fired(person):
+        recs = [{'type': 'user', 'message': {'role': 'user', 'content': person}}]
+        return [d for n, d in pcd.signals(recs, ROOT) if n == 'explicit-instruction']
+    cases = [(f'a seed headed by the {k} shape is not the person\'s',
+              fired(f'{h}\n{rule}') == [], fired(f'{h}\n{rule}'))
+             for k, h in headers.items()]
+    own = f'Pull the fix from the session https://claude.ai/code/{sid}\n{rule}'
+    cases.append(('CONTROL: the person\'s own line naming a session link is still read',
+                  len(fired(own)) == 1, fired(own)))
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
 def check_close_detect_ignores_the_assistant_quoted_back():
@@ -49553,6 +49610,14 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
                  '`/tmp/s/out.md`; items are `todo-<date>-<slug>.md`; `main` (BestPractice).')
     cases.append(('a command, an absolute path, a template and a plain branch '
                   'word pass', not v, v))
+    v = blocking('Paste into: a new session rooted in alex137/BestPractice.\n\n'
+                 '```\nFor: a new session.\nSee PR #1314 and session_01AbCdEfGh, '
+                 f'on `{branch}`.\n```\n')
+    cases.append(('2026-10-20: inside a fenced paste block, where a link cannot '
+                  'render, a bare mention passes', not v, v))
+    v = blocking('```\nquoted\n```\nThen PR #1314 in prose.')
+    cases.append(('...and the same mention after the fence closes is still refused',
+                  len(v) == 1, v))
     soft = [dict(r, advisory=True) for r in reqs]
     v = blocking(f'Work is on `{branch}`.', soft)
     cases.append(('negative control: declared advisory, nothing blocks', not v, v))
@@ -55031,6 +55096,28 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
         rc, _ = run([asked], tool='mcp__github__merge_pull_request',
                     tool_input={'pullNumber': 1})
         cases.append(('a pull request merged on GitHub is held', rc == 2))
+        # 2026-10-20 (Morgan: "Can you make the enforcement of that
+        # stronger?"): the session rebuilt and published the branch page
+        # for its archive line before answering a plain question.
+        rc, out = run([asked], tool='Artifact',
+                      tool_input={'file_path': '/tmp/x/page.html',
+                                  'url': 'https://claude.ai/artifact/x'})
+        cases.append(('an Artifact publish is held', rc == 2
+                      and 'ANSWER FIRST' in out, out[-200:]))
+        rc, _ = run([asked], tool='Artifact',
+                    tool_input={'action': 'read',
+                                'url': 'https://claude.ai/artifact/x'})
+        cases.append(('an Artifact read is not', rc == 0))
+        rc, out = run([asked], tool_input={
+            'command': 'python3 tools/precedent_stale_branches.py --fetch '
+                       '--html /tmp/x/branch-cleanup.html'})
+        cases.append(('building the branch page is held', rc == 2
+                      and 'ANSWER FIRST' in out, out[-200:]))
+        rc, out = run([asked], tool='Artifact', via_hooks=True,
+                      tool_input={'file_path': '/tmp/x/page.html'})
+        cases.append(('an Artifact publish is held through the fixed '
+                      'precedent-hooks.sh entry', rc == 2
+                      and 'ANSWER FIRST' in out, out[-200:]))
         rc, out = run([asked, said('Landing first.')], via_hooks=True)
         cases.append(('it runs through the fixed precedent-hooks.sh entry '
                       '(tools/hook_wiring.json)', rc == 2 and 'ANSWER FIRST' in out,
@@ -59707,8 +59794,24 @@ said2 = []
 pb._land_composed(work, fix, 'claude/fix-main-abcdef', 'staging', 'the fixture', said2.append)
 g('fetch', '-q', 'origin')
 fix_moved = g('rev-parse', 'origin/claude/fix-main-abcdef').stdout.strip() != fix
+# 2026-10-20: a branch carrying all of main's work that does NOT merge
+# cleanly into staging (staging moved on) gets the checked composition,
+# never "lacks nothing".
+g('checkout', '-q', '-B', 'stg', 'origin/staging')
+(work / 'z.md').write_text('staging\\n'); g('add', '-A'); g('commit', '-qm', 'staging moved')
+g('-c', 'core.hooksPath=/dev/null', 'push', '-q', 'origin', 'stg:staging')
+g('checkout', '-q', '-b', 'claude/behind-staging-abcdef', 'origin/main')
+(work / 'z.md').write_text('branch\\n'); g('add', '-A'); g('commit', '-qm', 'clash')
+g('push', '-q', 'origin', 'claude/behind-staging-abcdef')
+g('merge', '-q', '-X', 'ours', '--no-edit', 'origin/staging')
+comp = g('rev-parse', 'HEAD').stdout.strip()
+said3 = pb._carry_composition_to_branch(work, 'claude/behind-staging-abcdef', comp, 'staging')
+g('fetch', '-q', 'origin')
+behind_moved = g('rev-parse', 'origin/claude/behind-staging-abcdef').stdout.strip() == comp
+behind_moved = behind_moved and comp != g('rev-parse', 'HEAD^1').stdout.strip()
 print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], files=files,
                       fix_moved=fix_moved, said2='\\n'.join(said2)[-300:],
+                      said3=said3, behind_moved=behind_moved,
                       staging=g('ls-tree', '--name-only', 'origin/staging').stdout.split())))
 """, encoding='utf-8')
         p = subprocess.run([sys.executable, str(script)], capture_output=True,
@@ -59732,6 +59835,11 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], file
                       'left where it is, so a red-main fix\'s head never moves',
                       out.get('fix_moved') is False
                       and 'as it stands lacks nothing' in (out.get('said2') or ''),
+                      str(out) or why))
+        cases.append(('a branch with all of main\'s work that conflicts with '
+                      'staging gets the checked composition, not "lacks nothing"',
+                      out.get('behind_moved') is True
+                      and 'now carries the composition' in (out.get('said3') or ''),
                       str(out) or why))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -64306,6 +64414,20 @@ def check_update_all_vendors_skips_its_own_source():
                           'cloned', r.returncode == 0
                           and r.stdout.startswith('SKIPPED')
                           and not any(pathlib.Path(tmp).iterdir())))
+        # 2026-10-20: copy-in shipped and broke the update twice in its
+        # first day, once per consumer state no test planted. --rehearse
+        # runs an unlanded commit against every consumer, and never pushes.
+        import argparse as _ap
+        ns = _ap.Namespace(rehearse='feature-x', copy_in=['zz=yes'],
+                           answered_by='Zz, 2026-10-20: "yes"', no_push=False)
+        cases.append(('a rehearsal hands its commit and the answers to each '
+                      'update', pua.update_args(ns) == [
+                          '--from-ref', 'feature-x', '--copy-in', 'zz=yes',
+                          '--answered-by', 'Zz, 2026-10-20: "yes"']))
+        import inspect as _inspect
+        src = _inspect.getsource(pua.main)
+        cases.append(('a rehearsal never pushes',
+                      'if args.rehearse:\n        args.no_push = True' in src))
         r = subprocess.run([sys.executable, tool, '--workdir', tmp],
                            capture_output=True, text=True)
         cases.append(('no repositories named: refused by argparse',
@@ -65271,9 +65393,9 @@ def check_branch_cleanup_page_merges_the_saved_page():
                   sorted(got) == ['B', 'C']
                   and got['C']['checked'].startswith('2026-10-12')
                   and got['B']['checked'].startswith('2026-10-11'), got))
-    cases.append(('...says the kept rows are as last checked, and counts both',
-                  'as listed when last checked, 11 Oct 2026, 10:00 UTC' in page
-                  and '3 branches' in page, ''))
+    cases.append(('...dates the kept rows, and counts both',
+                  'Checked 11 Oct 2026, 10:00 UTC.' in page
+                  and '0 of 3 done' in page, ''))
     kept = _sb.carried_over([{'owner': 'o', 'repo': 'D', 'checked': '',
                               'branches': [['precedent-promote-lock', '2026-10-01'],
                                            ['precedent-check-receipts', '2026-10-01'],
@@ -65321,6 +65443,14 @@ def check_branch_cleanup_page_merges_the_saved_page():
                           rc == 0 and got == ['B', 'C']
                           and '2 kept from the saved page for 1 repositor' in said,
                           f'{got} {said}'))
+            # 2026-10-20: the publish was refused until the saved source was
+            # Read through, while a ladder note said never to Read it. The
+            # tool's last line owns the steps, in the order enforced.
+            cases.append(('the last line says to Read every line of the merged '
+                          'file before publishing, and to resend an identical-'
+                          'content refusal once',
+                          f'Read every line of {td / "saved.html"}' in said
+                          and 'send it once more unchanged' in said, said[-400:]))
             (td / 'junk.html').write_text('<p>not a cleanup page</p>', encoding='utf-8')
             out.unlink()
             rc, said = run('--merge', str(td / 'junk.html'))
@@ -65474,15 +65604,15 @@ def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
     cases.append(('a moved old name from this run\'s own check is offered, marked '
                   'as the data- branch\'s old name',
                   'fresh/precedent-promote-lock' in offered
-                  and 'data-promote-lock' in row and 'Nothing reads this one' in row,
+                  and 'data-promote-lock' in row and 'Old name of' in row,
                   row[:200]))
     cases.append(('an old engine name carried from a saved page is not offered',
                   'saved/precedent-check-receipts' not in offered))
-    lede = page.split('class="lede"', 1)[-1].split('</p>', 1)[0]
-    cases.append(('the intro says how an old engine name appears',
-                  'says so' in lede, lede[:300]))
-    cases.append(('the count is of what is offered (3)',
-                  '>3 branches,' in page or '3 branches, all' in page))
+    # 2026-10-20 (Morgan: "don't [explain], just give it to me and say
+    # nothing else"): the page is the list, with no paragraphs about it.
+    cases.append(('the page carries no explanatory intro',
+                  'class="lede"' not in page and 'Checking a branch off' not in page))
+    cases.append(('the count is of what is offered (3)', '0 of 3 done' in page))
     cases.append(('one list of engine branch names, from the data-branch module',
                   getattr(_sb, 'ENGINE_BRANCHES', frozenset()) >= {
                       'precedent-promote-lock', 'precedent-check-receipts'}
@@ -65573,10 +65703,10 @@ def check_branch_cleanup_page_lists_staging_waiting_to_go_live():
                   and got['New']['checked'].startswith('2026-10-16')
                   and got['Kept']['checked'].startswith('2026-10-14'), got))
     cases.append(('...under a Waiting to go live heading, linking the comparison, '
-                  'and saying a kept row may have moved',
+                  'and dating a kept row',
                   'Waiting to go live' in page
                   and 'github.com/o/New/compare/main...staging' in page
-                  and 'As of the last check, 14 Oct 2026' in page, ''))
+                  and 'Checked 14 Oct 2026' in page, ''))
     cases.append(('CONTROL: nothing waiting, no waiting section',
                   'Waiting to go live' not in _sb.render_html([], now=now), ''))
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
@@ -71119,6 +71249,29 @@ def check_copy_in_is_asked_once():
         pu.refresh_copies_step(mine, rep)
         up = json.loads((mine / 'process' / 'manifest_zz-ladder.json')
                         .read_text()).get('upstream', {})
+        # 2026-10-20: a copied set's manifest named no scrub list, so the
+        # audit read it as process/scrub_blocklist.txt and FAILED in every
+        # consumer without one -- a state this test never planted. 'mine'
+        # has no list: the copy's manifest must opt out, with why, and the
+        # audit must pass it.
+        mf = json.loads((mine / 'process' / 'manifest_zz-ladder.json').read_text())
+        import practice_audit as _pa, contextlib, io
+        saved_root, _pa.ROOT = _pa.ROOT, mine
+        try:
+            got = []
+            with contextlib.redirect_stdout(io.StringIO()):
+                _pa.audit_manifest(mine / 'process' / 'manifest_zz-ladder.json',
+                                   False, got, [], [])
+            fails = [f for f in got if f.startswith('SCRUB')]
+        finally:
+            _pa.ROOT = saved_root
+        cases.append(('in a repository with no scrub list, the copy opts out of '
+                      'the outbound scrub, with why, and the audit passes it',
+                      not (mine / 'process' / 'scrub_blocklist.txt').exists()
+                      and mf['upstream'].get('scrub_blocklist', 'absent') is None
+                      and 'ever sent up' in mf['upstream'].get(
+                          '_scrub_blocklist_note', '')
+                      and not fails, repr(mf['upstream'])[:400] + repr(fails)))
         cases.append(('the refresh copies a yes in and records its commit',
                       (mine / 'process' / 'zz-ladder' / 'practices'
                        / 'zz-ladder-rule.md').is_file()
@@ -88484,6 +88637,8 @@ def main():
           *check_withdrawal_record_lines_all_read_back())
     check('the close detector does not read the assistant quoted back as the '
           'person\'s instruction', *check_close_detect_ignores_the_assistant_quoted_back())
+    check('the close detector skips a seeded prompt whatever header shape it '
+          'opens with', *check_close_detect_skips_every_seeded_header_shape())
     check('a view sync passes its own --check from another checkout of the same '
           'commit, as a Promote checks it',
           *check_sync_check_passes_from_another_checkout())

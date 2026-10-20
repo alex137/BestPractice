@@ -838,6 +838,26 @@ def _fenced_blocks(text, with_lead=False):
     return list(zip(blocks, leads)) if with_lead else blocks
 
 
+def _without_fenced_blocks(text):
+    """`text` with every line inside a fenced block blanked, by the same
+    reading of fences as _fenced_blocks: prose only, line count kept."""
+    out, fence = [], None
+    for line in text.split('\n'):
+        m = re.match(r'^\s{0,3}(`{3,}|~{3,})', line)
+        if fence is None:
+            if m:
+                fence = m.group(1)
+                out.append('')
+            else:
+                out.append(line)
+            continue
+        if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) \
+                and not line.strip()[len(m.group(1)):].strip():
+            fence = None
+        out.append('')
+    return '\n'.join(out)
+
+
 # A clause that narrates: it opens with a session, tool, check or the like
 # as its subject and a past-tense verb ("a tool told it to open a pull
 # request to main", "the last session merged its PR into main"). The
@@ -1349,7 +1369,7 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                     f"matching /{rep['heading']}/i says again what the previous "
                     f"reply's did. With nothing new in it, the whole section "
                     f"is one line"
-                    + (f": {rep['one_line']}" if rep.get('one_line') else '')
+                    + (f": {one_line_form(rep)}" if rep.get('one_line') else '')
                     + (f" -- {rep['why']}" if rep.get('why') else '')
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
         one_of = r.get('require_one_of') or []
@@ -1445,7 +1465,13 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
         # dropped unseen by main(), so a reply that linked nothing in the
         # Boildown passed with no one told (Morgan: "Don't we have practice
         # rules so when you mention files you always give links?").
-        link_stripped = _strip_markdown_links(text)
+        #
+        # Fenced blocks are left out: a Markdown link does not render inside
+        # one, so the check could only ever be met there by writing raw link
+        # syntax into text meant for pasting. On 2026-10-20 a Root issues
+        # prompt was refused for a PR number and session ids written plainly
+        # for the session receiving it.
+        link_stripped = _strip_markdown_links(_without_fenced_blocks(text))
         linked = _linked_spans(text)
         for entry in (r.get('require_no_bare_pattern') or []):
             pattern, pat_why = entry.get('pattern'), entry.get('why')
@@ -2165,6 +2191,25 @@ NOT_LANDED_MARKER = (r"\bnot\s+(?:yet\s+)?(?:landed|merged|pushed|on)\b|\bunland
                      r"|\bunmerged\b|\bopen pull requests?\b|\bfeature branch(?:es)?\b"
                      r"|\bno branch yet\b")
 TIER_WORD = r"(?<![\w/-])`?(?:staging|main)`?(?![\w/-])"
+
+
+def one_line_form(rep, unlanded=None):
+    """-> the one line a repeated section collapses to, or ''. While some of
+    this session's work is not landed, the form that leads with it
+    (`one_line_unlanded`, filled with the count and names): the plain form
+    names no count, so require_first_item_leads_with_unlanded refused the
+    very line the repeat refusal asked for (2026-10-20, both in one
+    refusal)."""
+    if unlanded is None:
+        try:
+            unlanded = _unlanded_names()
+        except Exception:                                    # noqa: BLE001
+            unlanded = []
+    if unlanded and rep.get('one_line_unlanded'):
+        return rep['one_line_unlanded'].format(
+            n=len(unlanded), names=', '.join(unlanded[:6])
+            + (', ...' if len(unlanded) > 6 else ''))
+    return rep.get('one_line') or ''
 
 
 def _unlanded_names(root=None, siblings=True):
