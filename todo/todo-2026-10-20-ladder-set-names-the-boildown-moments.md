@@ -6,7 +6,7 @@ severity:          medium
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "push access to themorgan/precedent-shared-ladder: the session that wrote this asked add_repo for it on 2026-10-20 and was refused as a permission grant"
+blocked_on:        "Morgan's word to land precedent-shared-ladder branch 2026-10-20-themorgan-root-issues-moments-gate-amusp-5ntqi on its staging, then that set's Update Vendors once BestPractice PR #1314 is on main"
 batch:             null
 decision:          null
 decision_strength: null
@@ -134,3 +134,13 @@ diff -ru a/tools/ladder/branch_page_note.py b/tools/ladder/branch_page_note.py
  
  if __name__ == '__main__':
 ```
+
+## Progress
+
+2026-10-20: the patch landed on precedent-shared-ladder staging (2628479).
+The moments check was then widened to read each practice's Rule and Detail,
+and found one more restatement there, in loss-comes-with-a-verdict's
+Detail; it is fixed on precedent-shared-ladder branch
+2026-10-20-themorgan-root-issues-moments-gate-amusp-5ntqi, with which the
+tool prints "none" for that checkout. Left: that branch landing, and the
+set's Update Vendors after PR #1314 reaches BestPractice main.
