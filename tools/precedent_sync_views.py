@@ -494,6 +494,14 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
             name = entry.get('source') if isinstance(entry, dict) else None
             if name:
                 contributed[name] = contributed.get(name, 0) + 1
+    # A copied set that only carries others (a voice pack whose rules are
+    # the writing set it carries) contributes through them: its carried
+    # sets are in force under their own names (2026-10-19, the first voice
+    # pack copied into a repository, refused here as empty).
+    for s in sources:
+        carrier = s.get('carried_by')
+        if carrier and contributed.get(s['name']):
+            contributed[carrier] = contributed.get(carrier, 0) + 1
     empty = [s['name'] for s in sources
              if s['name'] not in {m['name'] for m in res['missing']}
              and not contributed.get(s['name'])]
