@@ -6,7 +6,7 @@ severity:          high
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "handed on by Morgan's Root issues on 2026-10-20 as one prompt for a new session; the session that found them was working in the ladder set"
+blocked_on:        "items 1-7 built on 2026-10-20-themorgan-ladder-landing-root-issues-v5nil-bz3kz and pushed, not landed: nobody authorized landing for that handoff; item 8 waits on Morgan's pick in todo-2026-10-20-branch-page-data-in-a-file"
 batch:             null
 decision:          null
 decision_strength: null
@@ -69,3 +69,44 @@ Each one has its cause here or in a set's practice text. Listed by harm:
 
 Each fixed finding has a test that fails on the old code and passes on the
 new, and the deep check reports 0 failed and 0 violated.
+
+## Progress, 2026-10-20
+
+Built on branch `2026-10-20-themorgan-ladder-landing-root-issues-v5nil-bz3kz`, pushed, not landed. Each case below fails on the old
+code and passes on the new (measured by stashing the fix and rerunning the
+named harness check); `precedent_push_check.py` passed on the branch.
+
+1. Fixed. The approval must open the quoted span or blockquote line, and the
+   engine looks for it with a tool's quoted output blanked
+   ([`precedent_reply_check.py`](../tools/precedent_reply_check.py)). New
+   cases in `check_reply_check_refuses_a_paste_block_that_lands_unauthorized`.
+2. Fixed in universal: the ladder set's addressed-position anchor and
+   bracketed-list suffix, plus "so" and "to" so an infinitive order still
+   fires. The ladder pair cannot drop its triggers yet: `inherits` merges
+   whole keys, and its triggers name staging as well as main, so it would
+   need an engine key for the destination first. That engine key is not
+   blocked; the ladder half has to wait until consumers' engines carry it,
+   or an older engine would read the ladder rule with no triggers at all.
+   Engine half proposed to Morgan 2026-10-20, about 30 minutes.
+3. Fixed, mechanism only. In this harness a seeded prompt is recorded with
+   origin `task-notification`, which the gate never reads; the refused session
+   must have received the prompt as a typed message. The incident itself was
+   not rerun. Code spans, fenced blocks and `(?` no longer count as
+   questions, and a message opening with the origin line holds nothing.
+4. Fixed in the reply check, not the resolver:
+   `declared_requirements` adds the set itself, once, at its declared level.
+   The ladder checkout now loads `shared/precedent-shared-ladder`. Its
+   vendored engine gets this on its next Update Vendors.
+5. Fixed in [prompt-please](../practices/prompt-please.md), prose only, no
+   test. Not copied into prompt-please-on-the-ladder: that addition replaces
+   only "Where the work stops" and says the rest holds, so the line already
+   applies there.
+6. Fixed: both refusals name the fix; the three skip variables are in
+   [FOR_DEVELOPERS.md](../documentation/FOR_DEVELOPERS.md). Both refusals
+   are tested in `check_global_pre_push_refuses_a_tree_the_check_failed` (the
+   practice-hook case added later the same day, when Morgan asked why the
+   gap was written down instead of closed).
+7. Fixed: refresh takes the newest main that passed within ten first-parent
+   commits and says which; it refuses only when none passed.
+8. Not built, as asked.
+

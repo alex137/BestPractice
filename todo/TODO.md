@@ -113,7 +113,7 @@ as_of: 2026-10-20
 | [`todo-2026-10-14-update-review-remembers-past-updates`](todo-2026-10-14-update-review-remembers-past-updates.md) | Make the upstream review that Update Vendors prints (the ladder set's | 6d | parked |  |
 | [`todo-2026-10-16-enforcement-moves-waiting-on-morgan`](todo-2026-10-16-enforcement-moves-waiting-on-morgan.md) | Three calls left by | 4d | ask |  |
 | [`todo-2026-10-20-branch-page-data-in-a-file`](todo-2026-10-20-branch-page-data-in-a-file.md) | The branch cleanup page that | 0d | ask | Morgan's call: it changes how the page saves ticks into itself, which he chose o… |
-| [`todo-2026-10-20-root-issues-from-ladder-landing-check`](todo-2026-10-20-root-issues-from-ladder-landing-check.md) | Found while fixing the ladder set's landing-authority reply rule on | 0d | wait | handed on by Morgan's Root issues on 2026-10-20 as one prompt for a new session;… |
+| [`todo-2026-10-20-root-issues-from-ladder-landing-check`](todo-2026-10-20-root-issues-from-ladder-landing-check.md) | Found while fixing the ladder set's landing-authority reply rule on | 0d | wait | items 1-7 built on 2026-10-20-themorgan-ladder-landing-root-issues-v5nil-bz3kz a… |
 
 ## Decisions (the Person's Call)
 
