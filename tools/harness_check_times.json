@@ -7,6 +7,7 @@
   "check_a_changed_glob_needs_its_reason_looked_at": 2.1,
   "check_a_consumer_may_declare_a_ci_workflow_its_own": 0.0,
   "check_a_failure_item_lists_the_index_it_creates": 7.8,
+  "check_a_gap_names_its_reason": 1.9,
   "check_a_hook_wired_from_elsewhere_is_reported_as_wired": 0.0,
   "check_a_land_rebuilds_dated_outputs_two_days_left": 0.5,
   "check_a_missing_clone_says_not_cloned": 0.0,
