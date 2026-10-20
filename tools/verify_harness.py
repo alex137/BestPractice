@@ -49154,9 +49154,10 @@ def check_global_gate_runs_a_repos_gate_only_from_above():
 
 
 def check_reply_check_refuses_an_unlinked_branch_or_file():
-    """reply_check.json's rule-links requirements refuse a reply naming a
-    dated session branch or a file in code font with no link, let a name
-    linked once be named bare again, and leave alone what has no page: a
+    """require_no_bare_pattern, with a planted copy of the link patterns a set
+    declares, refuses a reply naming a
+    dated session branch or a file in code font with no link, lets a name
+    linked once be named bare again, and leaves alone what has no page: a
     command, an absolute path, a filename template.
 
     2026-10-19 (Morgan: "Don't we have practice rules so when you mention
@@ -49165,9 +49166,19 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
     main() drops an advisory finding unseen. Negative control: declared
     advisory again, the discriminating case is not in the blocking set."""
     import precedent_reply_check as prc
-    reqs = [dict(b, _source='universal/precedent')
-            for b in json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
-            if b.get('practice') == 'rule-links' and b.get('require_no_bare_pattern')]
+    # The real patterns are the writing set's (its reply_check.json, since
+    # 2026-10-19); these are a planted copy, under a made-up practice name,
+    # so this tests the engine's require_no_bare_pattern and not one set.
+    planted = [
+        {"pattern": "\\bPR #\\d+\\b", "why": "zz", "repair": "zz: link it"},
+        {"pattern": "\\bsession_[A-Za-z0-9-]+\\b", "why": "zz", "repair": "zz: link it"},
+        {"pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/pull/\\d+\\b", "why": "zz", "repair": "zz: link it"},
+        {"pattern": "`(?:\\d{4}-\\d{2}-\\d{2}-[a-z0-9][a-z0-9.-]*|claude/[\\w.-]+)`", "why": "zz", "repair": "zz: link it"},
+        {"pattern": "`(?![/~])(?:[\\w.-]+/)*[\\w-][\\w.-]*\\.(?:md|py|json|sh|ya?ml|html|toml|txt|csv|docx)`", "why": "zz", "repair": "zz: link it"},
+        {"pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/tree/[\\w/-]+(?:\\.[\\w/-]+)*", "why": "zz", "repair": "zz: link it"},
+    ]
+    reqs = [{'practice': 'zz-links', 'require_no_bare_pattern': planted,
+             '_source': 'shared/zz-set'}]
     branch = '2026-10-19-someone-a-plan-ab12c-xy9z0'
 
     def blocking(text, rs=None):
@@ -49192,8 +49203,6 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
     soft = [dict(r, advisory=True) for r in reqs]
     v = blocking(f'Work is on `{branch}`.', soft)
     cases.append(('negative control: declared advisory, nothing blocks', not v, v))
-    cases.append(('no rule-links requirement here is advisory',
-                  reqs and not any(r.get('advisory') for r in reqs), reqs))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the reply check refuses an unlinked branch or file '
           f'({len(cases)} stated cases)', not bad,
@@ -69821,6 +69830,114 @@ def check_copy_in_question_names_what_would_leak():
           not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
 
 
+def check_early_copy_in_yes_waits_for_the_set():
+    """A yes given before the set can be copied is recorded and waits
+    (Morgan, 2026-10-19: he said yes to his voice pack in a repository
+    before its owner had Produced it, and the update then refused to sync
+    anything, because the yes declared a copy with nothing behind it).
+
+    1. The yes is recorded with why it waits, and nothing is declared.
+    2. The set is not asked about again.
+    3. NEGATIVE CONTROL: a later run while the set is still missing keeps
+       waiting and declares nothing.
+    4. Once the set reaches its own main, the next run declares it copied
+       in, with its folder, and drops the wait."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='early-copy-in-yes-'))
+    cases = []
+    genv = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+            'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    saved = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',
+                                            'PRECEDENT_GITHUB_USER')}
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=genv,
+                              capture_output=True, text=True)
+    try:
+        origin = tmp / 'origins' / 'zz-voice.git'
+        origin.parent.mkdir()
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=genv, check=True)
+        voice = tmp / 'people' / 'zz-voice'
+        subprocess.run(['git', 'clone', '-q', str(origin), str(voice)],
+                       env=genv, capture_output=True, check=True)
+        (voice / 'README.md').write_text('a voice repo, no pack yet\n')
+        git(voice, 'add', '-A')
+        git(voice, 'commit', '-qm', 'one')
+        git(voice, 'push', '-q', 'origin', 'main')
+        ind = tmp / 'people' / 'zz-ind'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual', 'brings': [],
+             'offers': [{'name': 'zz-voice', 'repo_url': 'https://example.invalid/zz-voice',
+                         'set_root': 'pack'}]}))
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind', 'path': str(ind)}}))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        os.environ['PRECEDENT_GITHUB_USER'] = 'zzme'
+        host = tmp / 'host'
+        host.mkdir()
+        (host / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'private',
+             'maintainers': [{'github': 'zzme', 'name': 'Zzme'}],
+             'sources': []}, indent=2))
+        import precedent_update as pu
+
+        def cfg():
+            return json.loads((host / 'precedent.json').read_text())
+
+        def declared():
+            return [e for e in cfg().get('sources') or []
+                    if e.get('name') == 'zz-voice']
+
+        by = 'Zzme, 2026-10-19: "yes to the voice pack"'
+        rep = pu.Report()
+        pu.copy_in_step(host, rep, {'zz-voice': 'yes'}, by)
+        rec = (cfg().get('copy_in') or {}).get('zz-voice') or {}
+        cases.append(('an early yes is recorded with why it waits, and nothing '
+                      'is declared',
+                      rec.get('answer') == 'yes' and 'main' in rec.get('waits_on', '')
+                      and not declared(), repr(cfg())[:500]))
+        rep = pu.Report()
+        pu.copy_in_step(host, rep)
+        cases.append(('the set is not asked about again', not rep.asks,
+                      repr(rep.asks)[:300]))
+        cases.append(('NEGATIVE CONTROL: still missing, it keeps waiting',
+                      not declared() and any('still waiting' in w
+                                             for _k, w in rep.steps),
+                      repr(rep.steps)[:400]))
+        (voice / 'pack' / 'practices').mkdir(parents=True)
+        (voice / 'pack' / 'practices' / 'zz-voice-rule.md').write_text(
+            '---\nslug: zz-voice-rule\n---\n# v\n\n## Rule\n\nx\n')
+        (voice / 'pack' / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-voice', 'level': 'shared', 'visibility': 'private'}))
+        git(voice, 'add', '-A')
+        git(voice, 'commit', '-qm', 'pack')
+        git(voice, 'push', '-q', 'origin', 'main')
+        rep = pu.Report()
+        pu.copy_in_step(host, rep)
+        rec = (cfg().get('copy_in') or {}).get('zz-voice') or {}
+        d = declared()
+        cases.append(('once the set reaches its main, the next run declares it '
+                      'with its folder and drops the wait',
+                      len(d) == 1 and d[0].get('vendored') is True
+                      and d[0].get('set_root') == 'pack'
+                      and 'waits_on' not in rec and rec.get('answered_by') == by,
+                      repr(cfg())[:500]))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'an early copy-in yes waits for the set, then declares it '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
+
+
 def check_copy_in_is_asked_once():
     """Part 6 of spec/VENDORED_SHARED_SETS.md (Morgan, 2026-10-19: "it's a
     question with each new repo and (one time) when we update vendors to
@@ -87727,6 +87844,7 @@ def main():
     check_copied_in_shared_sets()
     check_copied_set_carries_another()
     check_copy_in_is_asked_once()
+    check_early_copy_in_yes_waits_for_the_set()
     check_copy_in_question_names_what_would_leak()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()

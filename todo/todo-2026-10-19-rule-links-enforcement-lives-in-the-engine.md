@@ -3,16 +3,16 @@ slug:              todo-2026-10-19-rule-links-enforcement-lives-in-the-engine
 kind:              decision
 domain:            mechanism
 severity:          medium
-status:            open
-disposition:       ask
+status:            done
+disposition:       null
 remind_on:         null
-blocked_on:        "Morgan's yes to attach precedent-shared-writing with push access (a fourth repository beyond the ones the session started with)"
+blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        Morgan
+decision:          move it into the writing set
+decision_strength: decided
+waiting_on:        null
 noted:             2026-10-19
-closed:            null
+closed:            2026-10-19
 ---
 ## What
 
@@ -26,7 +26,20 @@ finding of `enforcement-lives-with-its-practice` after piece 6 of
 [the enforcement plan](../spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md)
 closed it on 2026-10-19.
 
-## The fix
+## Done, 2026-10-19
+
+Morgan: "Yes attach the writing set" (strength: decided). The two
+requirements moved, unchanged, into the writing set's own
+`reply_check.json`, which the reply check reads like any set's
+(`--explain` now lists them under shared/precedent-shared-writing). The
+harness test here keeps testing `require_no_bare_pattern` with a planted
+copy of the patterns under a made-up practice name. The writing set has
+no in-set test of its reply settings, as the ladder set has none of its
+own: a test there with no check or shipped tool to claim it would be left
+behind, with a warning, by every consumer's sync.
+`enforcement-lives-with-its-practice` now lists nothing.
+
+## The fix, as planned
 
 Move those requirements into the writing set's own `reply_check.json`
 (the reply check reads every source's, as it reads the ladder set's), and
