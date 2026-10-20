@@ -2154,9 +2154,9 @@ def resolve(sources, context=()):
             has = provided_for_person if _s['level'] == 'individual' else provided
             if needs and not needs <= has:
                 continue
-            # A practice replaces a weaker practice of the same slug when its
-            # `overrides:` names that slug (below), and may instead name a
-            # differently-named weaker practice there.
+            # A practice replaces the same slug from a lower source, and may
+            # additionally name a differently-named lower practice in
+            # `overrides:`.
             ov = bv._json_str(practice['fm'].get('overrides', 'null'))
             has_override = bool(ov) and ov != 'null' and ov != slug
 
@@ -2185,23 +2185,6 @@ def resolve(sources, context=()):
                                'file': practice['file'],
                                'copied_from': prior_own['source'],
                                'why': 'identical to the rule it would replace'})
-                continue
-            # A REPLACEMENT SAYS SO (2026-10-19). A practice replaces a weaker
-            # source's rule of the same name only when its `overrides:` names
-            # that slug, its own. Unmarked, a deliberate override and a copy
-            # that has gone stale look alike, and a stale copy at a stronger
-            # level froze the live rule (spec/A_SET_EXPORTS_ONLY_ITS_OWN_RULES.md).
-            # On that day every active override in every source in use named its
-            # target and every same-name pair was a forwarding stub, so the
-            # unmarked one is a copy: the original stays in force.
-            if prior_own is not None and prior_own['level'] != practice['level'] \
-                    and ov != slug:
-                copies.append({'slug': slug, 'source': practice['source'],
-                               'file': practice['file'],
-                               'copied_from': prior_own['source'],
-                               'why': f"has the name of {prior_own['source']}'s "
-                                      f"rule and does not say it replaces it "
-                                      f"(overrides: {slug})"})
                 continue
 
             if has_override:
@@ -2353,10 +2336,8 @@ def copies_note(copies):
              for k, v in sorted(by.items())]
     return (f"left out {len(copies)} copied practice(s), not their sources' "
             f"own rules: {'; '.join(parts)}. A set exports only the rules it "
-            f"writes (spec/A_SET_EXPORTS_ONLY_ITS_OWN_RULES.md): delete a copy "
-            f"from that set's practices/ and its MANIFEST.json, or, if it is "
-            f"meant to replace the rule of the same name, say so with "
-            f"`overrides: <its slug>`.")
+            f"writes (spec/A_SET_EXPORTS_ONLY_ITS_OWN_RULES.md); delete the "
+            f"copies from that set's practices/ and its MANIFEST.json.")
 
 
 # The Story line tools/precedent_move.py appends when it withdraws a

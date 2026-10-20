@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "A repository that had Precedent installed like a project kept every other source's practices in the practices/ folder a set's consumers read as its own. The resolver now leaves an install's copies out, and any rule that takes another source's name without saying it replaces it; the install step refuses to write into a set; Update Vendors' copy-in refuses a set that holds copies."
+summary:       "A repository that had Precedent installed like a project kept every other source's practices in the practices/ folder a set's consumers read as its own. The resolver now leaves an install's copies out, the install step refuses to write into a set, and Update Vendors' copy-in refuses a set that holds copies."
 ---
 
 # A set exports only its own rules
@@ -133,31 +133,16 @@ to put copies there.** Chosen. In detail:
    Update Vendors' copy of a set into a repository, stops on a set whose
    `MANIFEST.json` records copies, so a polluted set never reaches
    `process/<set>/` in anyone's repository.
-5. **A replacement says so.** A rule replaces a weaker source's rule of
-   the same name only when its `overrides:` names that slug, its own. An
-   unmarked one is a copy, identical or stale, and the original stays in
-   force. This closes the case rules 1 and 2 leave: a hand copy, with no
-   manifest, that has since been edited or gone stale. It costs nothing
-   today. On 2026-10-19 every active override in every source in use
-   already named its target in `overrides:`, which is how
-   [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) describes overriding,
-   and every pair of rules sharing a name was a forwarding stub (`status:
-   deduplicated`) beside the rule it points at. The resolver had also let
-   a rule replace another just by having its name, and nothing used that.
-6. **It says so out loud.** Every resolve and every sync that left copies
-   out prints one line naming the set, how many, where they came from, and
-   what to do: delete the copy, or mark it as the override it is meant to
-   be.
+5. **It says so.** Every resolve and every sync that left copies out prints
+   one line naming the set, how many, where they came from and what to
+   delete.
 
 ## Attacking the chosen fix
 
-- **Could it drop a real override?** Only one that does not say it is
-  one, and on the day this landed there were none: the same practice
-  counts came out before and after in every repository below. A set that
-  writes its own text under a universal slug and says `overrides: <slug>`
-  still replaces it; the test's negative control checks exactly that. A
-  rule left out is named on every resolve and sync, so an override someone
-  forgets to mark is seen the first time it runs, not silently lost.
+- **Could it drop a real override?** Only an identical one, and an
+  identical override changes nothing. A set that writes its own text under
+  a universal slug still replaces it; the test's negative control checks
+  exactly that.
 - **A project declared as a source.** Its `MANIFEST.json` lists its own
   repository-local rules as copies too (they are copies, of `local/`), so
   they are left out. That is the conservative answer: a repository that
@@ -172,18 +157,18 @@ to put copies there.** Chosen. In detail:
   one, and no copies reported.
 - **BestPractice itself** has a `precedent-source.json` and is never
   installed into, so the new refusal never meets it.
-- **The gap the first version left.** A copy made by hand, with no
-  manifest, that has since been edited or gone stale, looked exactly like
-  a real override. Rule 5 closes it: what tells the two apart is now
-  written in the file by whoever means it, not guessed. Option C stays the
-  cleaner layout, but nothing is left for it to fix.
+- **The gap.** A copy made by hand, with no manifest, that has since been
+  edited or gone stale, looks exactly like a real override, and nothing
+  here can tell them apart. It still prints as "overridden: X -- shared
+  replaces universal" on every resolve. If it ever happens, option C is
+  the fix that closes it, and B the check that finds it.
 
 ## Where it lives
 
 | Part | Where |
 |---|---|
 | Copies an install recorded are left out | `installed_copies`, `load_source` in [tools/precedent_resolve.py](../tools/precedent_resolve.py) |
-| Identical and unmarked copies stay out of force; the note | `resolve`, `copies_note` in [tools/precedent_resolve.py](../tools/precedent_resolve.py); printed by [tools/precedent_sync_views.py](../tools/precedent_sync_views.py) |
+| Identical copies stay out of force; the note | `resolve`, `copies_note` in [tools/precedent_resolve.py](../tools/precedent_resolve.py); printed by [tools/precedent_sync_views.py](../tools/precedent_sync_views.py) |
 | The install step refuses a set | `_materialize` in [tools/precedent_materialize.py](../tools/precedent_materialize.py) |
 | Copy-in refuses a set holding copies | `_refuse_set_holding_copies` in [tools/checkin.py](../tools/checkin.py) |
 | The test, with its negative control | `check_a_set_exports_only_its_own_rules` in [tools/verify_harness.py](../tools/verify_harness.py) |
