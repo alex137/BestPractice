@@ -6985,7 +6985,9 @@ def check_sync_carries_a_test_helper_with_its_test():
     ladder set's cases file reached a consumer through a practice's
     `ships`, for no reason but that a test could carry only its .sh.
     CONTROLS: a helper whose test nothing claims, and one with no test at
-    all, stay behind."""
+    all, stay behind. Also: a source's test of its own reply_check.json is
+    claimed by that file and runs in the source's own repository only
+    (SOURCE_REPLY_TEST)."""
     import contextlib, io, tempfile as _tf
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
@@ -7016,6 +7018,20 @@ def check_sync_carries_a_test_helper_with_its_test():
                       'alone_cases.py' not in got))
         cases.append(('the driver never runs a helper as a test',
                       'thing_cases.py' not in driver))
+        (tests / pm.SOURCE_REPLY_TEST).write_text('true\n', encoding='utf-8')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            plan = pm._plan_checks([{'name': 'set', 'path': str(src), 'level': 'shared'}], res)
+        cases.append(('CONTROL: a reply-check test with no reply_check.json beside it '
+                      'is an orphan', pm.SOURCE_REPLY_TEST in err.getvalue()))
+        (src / 'reply_check.json').write_text('[]', encoding='utf-8')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            plan = pm._plan_checks([{'name': 'set', 'path': str(src), 'level': 'shared'}], res)
+        cases.append(('a source\'s test of its own reply_check.json is claimed by it: '
+                      'not an orphan, and not vendored',
+                      pm.SOURCE_REPLY_TEST not in err.getvalue()
+                      and pm.SOURCE_REPLY_TEST not in {n for _r, n, _s, _d in plan}))
     failed = [n for n, ok in cases if not ok]
     check(f'a sync carries a test\'s helper with its test ({len(cases)} '
           f'stated cases)', not failed, '; '.join(failed))
