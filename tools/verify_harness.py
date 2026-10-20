@@ -34268,6 +34268,41 @@ def check_close_detect_counts_only_this_sessions_reverts():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_close_detect_skips_every_seeded_header_shape():
+    """The practice-candidate detector does not read a prompt another
+    session seeded as the person's words, whichever header shape it opens
+    with: "Sent automatically by ... Nobody typed this.", the From line the
+    reply check's prompt-block-names-both-ends defines, or "Origin:" naming
+    a session.
+
+    2026-10-20: a Root issues seed opening "From: session <id> ... A session
+    wrote this, not a person" had its "Never let a seed assume the attach
+    succeeds." reported at close as "the person said". CONTROL: a person's
+    own first line that only mentions a session link is still read."""
+    import precedent_close_detect as pcd
+    sid = 'session_01AbCdEfGh'
+    rule = 'Never let a seed assume the attach succeeds.'
+    headers = {
+        'Sent automatically': f'Sent automatically by the session "t" ({sid}) -- '
+                              f'https://claude.ai/code/{sid}. Nobody typed this.',
+        'From line': f'From: session {sid}, "t" (https://claude.ai/code/{sid}). '
+                     'A session wrote this, not a person.',
+        'Origin': f'Origin: session {sid}; Morgan asked for this seed.',
+    }
+
+    def fired(person):
+        recs = [{'type': 'user', 'message': {'role': 'user', 'content': person}}]
+        return [d for n, d in pcd.signals(recs, ROOT) if n == 'explicit-instruction']
+    cases = [(f'a seed headed by the {k} shape is not the person\'s',
+              fired(f'{h}\n{rule}') == [], fired(f'{h}\n{rule}'))
+             for k, h in headers.items()]
+    own = f'Pull the fix from the session https://claude.ai/code/{sid}\n{rule}'
+    cases.append(('CONTROL: the person\'s own line naming a session link is still read',
+                  len(fired(own)) == 1, fired(own)))
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def check_close_detect_ignores_the_assistant_quoted_back():
     """The practice-candidate detector does not read the assistant's own
     sentences, quoted back by the person, as the person's instruction.
@@ -87995,6 +88030,8 @@ def main():
           *check_withdrawal_record_lines_all_read_back())
     check('the close detector does not read the assistant quoted back as the '
           'person\'s instruction', *check_close_detect_ignores_the_assistant_quoted_back())
+    check('the close detector skips a seeded prompt whatever header shape it '
+          'opens with', *check_close_detect_skips_every_seeded_header_shape())
     check('a view sync passes its own --check from another checkout of the same '
           'commit, as a Promote checks it',
           *check_sync_check_passes_from_another_checkout())
