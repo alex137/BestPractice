@@ -570,6 +570,16 @@ def _claimed_in_source(source_path):
     return names
 
 
+# A source's test of its own reply_check.json (2026-10-20). The requirements
+# a set declares there are its own, so their test is too: it runs in the
+# set's own repository against the set's own file, which every one of its
+# requirements is read from. It is claimed by that file, so a sync never
+# calls it an orphan, and it is never vendored: two sets each shipping one
+# would collide on the name, and a consumer re-running a set's test of the
+# set's own file proves nothing the set's run did not.
+SOURCE_REPLY_TEST = 'test_reply_check.sh'
+
+
 def _plan_checks(sources, res=None):
     """Read every source's per-check tools/checks/check_*.py and
     tools/checks/tests/test_*.sh INTO MEMORY, refusing a same-name
@@ -763,12 +773,28 @@ def _plan_checks(sources, res=None):
                         undeclared.append(f'{s["name"]} ({f})')
                 elif not f.name.startswith('test_'):
                     skipped.append(f'tools/checks/tests/{f.name} ({s["name"]})')
+                elif (f.name == SOURCE_REPLY_TEST
+                      and (pathlib.Path(s['path']) / 'reply_check.json').is_file()):
+                    # Claimed by the source's own reply_check.json, and
+                    # run where that file lives: in the source's own
+                    # repository, never vendored (SOURCE_REPLY_TEST).
+                    continue
                 elif claimed_names is not None and f.name not in claimed_names:
                     if not held_back(f.name, s['path']):
                         orphaned.append(f'tools/checks/tests/{f.name} ({s["name"]})')
                 elif claimed_names is not None and unclaimed_here(f.name, s['name']):
                     claimed_elsewhere(f, 'checks/tests', s)
                 else:
+                    claim(f, 'checks/tests', s['name'])
+            # A test may bring one helper of its own: <name>_cases.py beside
+            # test_<name>.sh travels exactly when that test does, from the
+            # same source (2026-10-20). Until then a set's test could carry
+            # only the .sh, so the ladder set's test_ladder_branches.sh read
+            # its cases from tools/ladder/, shipped by a practice's `ships`
+            # for no reason but this.
+            for f in sorted(src_tests.glob('*_cases.py')):
+                test = f"test_{f.name[:-len('_cases.py')]}.sh"
+                if owner_of.get(f'checks/tests/{test}') == s['name']:
                     claim(f, 'checks/tests', s['name'])
     if skipped:
         print(f"precedent_materialize: not a per-check file, not vendored: "
@@ -791,7 +817,7 @@ def _plan_checks(sources, res=None):
     level_of = {s['name']: s['level'] for s in sources}
     test_owners = {filename: (source_name, level_of.get(source_name, 'unknown'))
                    for rel_label, filename, source_name, _data in plan
-                   if rel_label == 'checks/tests'}
+                   if rel_label == 'checks/tests' and filename.endswith('.sh')}
     # Each shipped test's fingerprint, and its check's, as shipped: the
     # driver runs only the check where both still match (RUN_ALL_TAIL says
     # why). Hashed exactly as MANIFEST.json's checks[] records them.

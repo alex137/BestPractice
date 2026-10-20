@@ -162,21 +162,26 @@
     "practice": "prompt-please",
     "require_in_fence_paired_with": [
       {
-        "if_matches": "\\b(?:(?:land|merg|promot|push)\\w*|pull requests?|PRs?)\\b[^\\n]{0,80}?\\b(?:into|onto|on|to|against)\\s+[`\\\"']?(?:main|master|the main branch|the base branch)\\b",
+        "if_matches": "(?:^|(?<=^\\W)|(?<=^\\W\\W)|(?<=[.;:!?,(]\\s)|(?<=\\()|(?<=\\s[-*]\\s)|(?<=\\bthen\\s)|(?<=\\bnow\\s)|(?<=\\bplease\\s)|(?<=\\band\\s)|(?<=\\bso\\s)|(?<=\\balso\\s)|(?<=\\bjust\\s)|(?<=\\byou\\s)|(?<=\\bcan\\s)|(?<=\\bmust\\s)|(?<=\\bshould\\s)|(?<=\\bwill\\s)|(?<=\\bmay\\s)|(?<=\\bto\\s)|(?<=\\bahead\\sand\\s))(?:land|merge|promote|push|fast[- ]forward)\\b[^\\n]{0,80}?\\b(?:into|onto|on|to|against)\\s+[`\\\"']?(?:main|master|the main branch|the base branch)\\b(?![^()\\n]*,\\s*(?!(?:then|and|now|stop|push|merge|land)\\b)[^()\\n]*\\))",
         "also_if_matches": [
-          "\\b(?:make|put|take|push|send)\\s+(?:\\S+\\s+){0,2}?live\\b",
-          "\\bgo(?:es|ing)?\\s+live\\b",
-          "\\b(?:ship|deploy|release|publish|roll\\s+out)\\w*\\b[^\\n]{0,60}?\\b(?:to|into|on|in)\\s+(?:production|prod)\\b",
-          "\\bship\\s+(?:it|this|them|the\\s+(?:work|fix|change|branch)\\w*)\\b",
+          "(?:^|(?<=^\\W)|(?<=^\\W\\W)|(?<=[.;:!?,(]\\s)|(?<=\\()|(?<=\\s[-*]\\s)|(?<=\\bthen\\s)|(?<=\\bnow\\s)|(?<=\\bplease\\s)|(?<=\\band\\s)|(?<=\\bso\\s)|(?<=\\balso\\s)|(?<=\\bjust\\s)|(?<=\\byou\\s)|(?<=\\bcan\\s)|(?<=\\bmust\\s)|(?<=\\bshould\\s)|(?<=\\bwill\\s)|(?<=\\bmay\\s)|(?<=\\bto\\s)|(?<=\\bahead\\sand\\s))(?:open|raise|create|file|send|make)\\b[^\\n]{0,40}?\\b(?:PRs?|pull\\s+requests?)\\b[^\\n]{0,80}?\\b(?:into|onto|on|to|against)\\s+[`\\\"']?(?:main|master|the main branch|the base branch)\\b(?![^()\\n]*,\\s*(?!(?:then|and|now|stop|push|merge|land)\\b)[^()\\n]*\\))",
+          "(?:^|(?<=^\\W)|(?<=^\\W\\W)|(?<=[.;:!?,(]\\s)|(?<=\\()|(?<=\\s[-*]\\s)|(?<=\\bthen\\s)|(?<=\\bnow\\s)|(?<=\\bplease\\s)|(?<=\\band\\s)|(?<=\\bso\\s)|(?<=\\balso\\s)|(?<=\\bjust\\s)|(?<=\\byou\\s)|(?<=\\bcan\\s)|(?<=\\bmust\\s)|(?<=\\bshould\\s)|(?<=\\bwill\\s)|(?<=\\bmay\\s)|(?<=\\bto\\s)|(?<=\\bahead\\sand\\s))(?:make|put|take|push|send)\\s+(?:\\S+\\s+){0,2}?live\\b(?![^()\\n]*,\\s*(?!(?:then|and|now|stop|push|merge|land)\\b)[^()\\n]*\\))",
+          "(?:^|(?<=^\\W)|(?<=^\\W\\W)|(?<=[.;:!?,(]\\s)|(?<=\\()|(?<=\\s[-*]\\s)|(?<=\\bthen\\s)|(?<=\\bnow\\s)|(?<=\\bplease\\s)|(?<=\\band\\s)|(?<=\\bso\\s)|(?<=\\balso\\s)|(?<=\\bjust\\s)|(?<=\\byou\\s)|(?<=\\bcan\\s)|(?<=\\bmust\\s)|(?<=\\bshould\\s)|(?<=\\bwill\\s)|(?<=\\bmay\\s)|(?<=\\bto\\s)|(?<=\\bahead\\sand\\s))(?:let\\s+(?:it|this|them)\\s+)?go\\s+live\\b(?![^()\\n]*,\\s*(?!(?:then|and|now|stop|push|merge|land)\\b)[^()\\n]*\\))",
+          "(?:^|(?<=^\\W)|(?<=^\\W\\W)|(?<=[.;:!?,(]\\s)|(?<=\\()|(?<=\\s[-*]\\s)|(?<=\\bthen\\s)|(?<=\\bnow\\s)|(?<=\\bplease\\s)|(?<=\\band\\s)|(?<=\\bso\\s)|(?<=\\balso\\s)|(?<=\\bjust\\s)|(?<=\\byou\\s)|(?<=\\bcan\\s)|(?<=\\bmust\\s)|(?<=\\bshould\\s)|(?<=\\bwill\\s)|(?<=\\bmay\\s)|(?<=\\bto\\s)|(?<=\\bahead\\sand\\s))(?:ship|deploy|release|publish|roll\\s+out)\\b[^\\n]{0,60}?\\b(?:to|into|on|in)\\s+(?:production|prod)\\b(?![^()\\n]*,\\s*(?!(?:then|and|now|stop|push|merge|land)\\b)[^()\\n]*\\))",
+          "(?:^|(?<=^\\W)|(?<=^\\W\\W)|(?<=[.;:!?,(]\\s)|(?<=\\()|(?<=\\s[-*]\\s)|(?<=\\bthen\\s)|(?<=\\bnow\\s)|(?<=\\bplease\\s)|(?<=\\band\\s)|(?<=\\bso\\s)|(?<=\\balso\\s)|(?<=\\bjust\\s)|(?<=\\byou\\s)|(?<=\\bcan\\s)|(?<=\\bmust\\s)|(?<=\\bshould\\s)|(?<=\\bwill\\s)|(?<=\\bmay\\s)|(?<=\\bto\\s)|(?<=\\bahead\\sand\\s))ship\\s+(?:it|this|them|the\\s+(?:work|fix|change|branch)\\w*)\\b(?![^()\\n]*,\\s*(?!(?:then|and|now|stop|push|merge|land)\\b)[^()\\n]*\\))",
           "\\bfast[- ]forward\\w*\\s+(?:origin/)?[`\\\"']?(?:main|master)\\b[`\\\"']?\\s+(?:to|onto)\\b",
           "\\bfast[- ]forward\\w*\\b[^\\n]{0,60}?\\b(?:into|onto)\\s+[`\\\"']?(?:origin/)?(?:main|master)\\b",
-          "\\bmerg\\w*\\s+(?:(?:the|this|that|your|its|their|both|all)\\s+)?(?:\\S+\\s+){0,2}?(?:PRs?|pull requests?)\\b",
+          "(?:^|(?<=^\\W)|(?<=^\\W\\W)|(?<=[.;:!?,(]\\s)|(?<=\\()|(?<=\\s[-*]\\s)|(?<=\\bthen\\s)|(?<=\\bnow\\s)|(?<=\\bplease\\s)|(?<=\\band\\s)|(?<=\\bso\\s)|(?<=\\balso\\s)|(?<=\\bjust\\s)|(?<=\\byou\\s)|(?<=\\bcan\\s)|(?<=\\bmust\\s)|(?<=\\bshould\\s)|(?<=\\bwill\\s)|(?<=\\bmay\\s)|(?<=\\bto\\s)|(?<=\\bahead\\sand\\s))merge\\s+(?:(?:the|this|that|your|its|their|both|all)\\s+)?(?:\\S+\\s+){0,2}?(?:PRs?|pull requests?)\\b(?![^()\\n]*,\\s*(?!(?:then|and|now|stop|push|merge|land)\\b)[^()\\n]*\\))",
           "\\bgh\\s+pr\\s+merge\\b",
           "--base[\\s=]+[`\\\"']?(?:main|master)\\b",
           "\\bgit\\s+push\\b[^\\n]*?\\s(?:\\S+:)?(?:refs/heads/)?(?:main|master)\\b(?![\\w/.-])"
         ],
-        "must_also_match": "^>\\s.+|(?<!\\w)[\"“'‘][^\"”’']*\\b(?:[Aa]pproved?|[Mm]erge|[Pp]ush|[Ll]and|[Gg]o ahead)\\w*\\b",
+        "must_also_match": "^>\\s*(?:approved?\\b|go ahead\\b|(?:merge|push|land)\\s+(?:it|this|that|them|the)\\b)|^>\\s[^\\n]*\\b(?:approved?|go ahead)\\b|(?<!\\w)[\\\"“'‘]\\s*(?:approved?\\b|go ahead\\b|(?:merge|push|land)\\s+(?:it|this|that|them|the)\\b)",
         "why": "a paste block that tells another session to land, merge, push or open a pull request onto the main branch, or says the same in other words (make it live, ship it, gh pr merge, git push origin main) carries landing authority, and only the person's own words for this handoff give it -- quoted in the block, so the receiving session can check them. Without them, the prompt ends with the work built on a feature branch, pushed there, and stopped",
+        "landing_branches_pattern": [
+          "(?:main|master|the main branch|the base branch)",
+          "(?:main|master)"
+        ],
         "narration_exempt": true,
         "narration_exempt_if_block_matches": "\\bfeature branch\\b[^\\n]{0,80}?\\bstop\\b",
         "negation_exempt_if_clause_negates": {
@@ -187,7 +192,7 @@
         "quoted_output_exempt_if_preceded_by": "\\b(?:prints?|printed|printing|outputs?|output|shows?|showed|displays?|displayed|logs?|logged|warns?|warned|the (?:message|line|output))\\b(?:\\s+\\S+){0,3}?\\s*:?"
       }
     ],
-    "why": "2026-10-01: two prompts a session wrote told another session to land work, though the person had not said to. fence-block-for-paste passed both, because it checks that a block says where it goes, not what it authorizes. 2026-10-08: it refused a block that ended at the feature branch, because the block's situation paragraph reported that a tool had told an earlier session to open a pull request to main; in a block that says it stops at the feature branch, a clause narrating what a session or tool did or was told is not an instruction, and every other clause is still judged. Later on 2026-10-08: the rule skipped any line with 'no' or 'without' in it, so 'Merge it into main, no questions asked' passed; a negator now exempts a clause only when it governs the landing verb, and the rule reads the other ways a block says land (make it live, ship it, merge the PR, gh pr merge, git push origin main). Morgan: 'shouldn't it understand the intent behind commands not just the literal words?' (practice: read-for-intent).",
+    "why": "2026-10-01: two prompts a session wrote told another session to land work, though the person had not said to. fence-block-for-paste passed both, because it checks that a block says where it goes, not what it authorizes. 2026-10-08: it refused a block that ended at the feature branch, because the block's situation paragraph reported that a tool had told an earlier session to open a pull request to main; in a block that says it stops at the feature branch, a clause narrating what a session or tool did or was told is not an instruction, and every other clause is still judged. Later on 2026-10-08: the rule skipped any line with 'no' or 'without' in it, so 'Merge it into main, no questions asked' passed; a negator now exempts a clause only when it governs the landing verb, and the rule reads the other ways a block says land (make it live, ship it, merge the PR, gh pr merge, git push origin main). Morgan: 'shouldn't it understand the intent behind commands not just the literal words?' (practice: read-for-intent). 2026-10-20, found fixing the ladder set's copy: any quoted span holding push, merge or land counted as the approval, so a refusal quoted further down (\"push refused\") granted landing; the quote now counts only when it opens with the person's approval or order, and a tool's quoted output is blanked before the approval is looked for. And a landing noun with no verb addressed to the reader (\"A push to main runs the deep check\") was read as an order: every verb-led trigger now counts its verb only where it is addressed (a clause start, or after then, so, you, can, must, to and the like), and skips a non-final item of a bracketed list of examples, as the ladder set's copy does. Commands (gh pr merge, --base main, git push naming main) stay orders wherever they stand.",
     "checks_practice_at": "practices/prompt-please.md",
     "id": "prompt-please-landing-authority"
   },
@@ -204,5 +209,15 @@
     "why": "Morgan, 2026-10-10 (strength: decided): \"Every prompt you give me should have BOTH at the top: the session sending it, and what session it is for.\" With many sessions open, the For line is what tells him which window a block goes to. A reply to another session's message goes back to that session; a reply whose plain text says \"Open a new session\" says so in its For line instead. It replaced reply-block-names-its-session (2026-10-08), which recognized a sender only as From \"...\" (link) and missed one opening \"Sent automatically by the session\". 2026-10-11, a consuming repository: a block headed \"From: <title> (<link>)\" and \"For: a new BestPractice session\" matched no prompt shape and was never judged, so a From or For line naming a session, or a \"Paste into:\" line above the block naming one, now marks it as a prompt; and the From line must say a session sent it, as the practice always asked.",
     "checks_practice_at": "practices/seeded-prompt-names-its-origin.md",
     "id": "prompt-block-names-both-ends"
+  },
+  {
+    "practice": "todo-is-a-handoff",
+    "id": "gap-names-its-reason",
+    "require_reason_on_gap_line": {
+      "if_matches": "\\b(?:no (?:test|harness case|check)s?\\b(?!\\s+(?:fails?|failed|broke|found|was needed))|not (?:yet )?(?:built|fixed|tested|implemented|covered|started)\\b|(?:left|leave|leaving|parked|deferred)\\s+(?:it\\s+|this\\s+|that\\s+|them\\s+)?(?:for|to|as)\\s+(?:later|now|a follow-?up|another session|a todo|an open item)\\b|\\b(?:as|in) a follow-?up\\b|\\bdeferred\\b)",
+      "must_match_on_line": "\\b(?:blocked on|block(?:s|ed|ing)? (?:it|this|that)|wait(?:s|ing)? (?:on|for)|needs? (?:\\w+'s|your|a decision|the person's)|until\\b|because\\b|since\\b|as (?:asked|instructed|agreed)|out of scope|on purpose|deliberately|by design|(?:prose|wording|docs?) only|can(?:'|no)?t\\b|cannot\\b|no longer applies|superseded|refused)"
+    },
+    "why": "an item is left undone only for a stated reason; a line that admits a gap and names nothing blocking it is work the session could have done, written down instead (2026-10-20: \"no harness case triggers it\" and \"Not built.\" went into a reply and an open item with nothing blocking either, and Morgan asked why a todo and not a fix)",
+    "checks_practice_at": "practices/todo-is-a-handoff.md"
   }
 ]

@@ -246,18 +246,52 @@ def load_registry():
         sys.exit(f'precedent_decommission: {e}')
 
 
-def record_decommissioned(root, paths, reason, cfg=None):
+LEFT_IN_CONSUMERS_KEY = 'left_in_consumers'
+
+
+def was_vendored(root, rel, rev='HEAD'):
+    """True when `rel` is a file the engine vendors into other repositories
+    (named, quoted, in tools/precedent_vendor_engine.py), now or at `rev` --
+    a change that drops a tool from the list and deletes it together still
+    owes the answer. A file there can leave files behind in every repository
+    it ran in, so retiring one asks what it left
+    (practice: decommission-deletes-files).
+
+    Read as text, never imported: importing a fixture's engine by its module
+    name replaced the real one for everything after it (2026-10-20)."""
+    rel = rel.rstrip('/')
+    if not rel.startswith('tools/') or rel.count('/') != 1:
+        return False
+    name = rel.split('/', 1)[1]
+    quoted = (f"'{name}'", f'"{name}"')
+    try:
+        now = (pathlib.Path(root) / 'tools' / 'precedent_vendor_engine.py') \
+            .read_text(encoding='utf-8')
+    except OSError:
+        now = ''
+    if any(q in now for q in quoted):
+        return True
+    r = _git('show', f'{rev}:tools/precedent_vendor_engine.py', cwd=root)
+    return r.returncode == 0 and any(q in r.stdout for q in quoted)
+
+
+def record_decommissioned(root, paths, reason, cfg=None, left=None):
     """Append one entry per path to <root>/REGISTRY and write it. Deletes
     nothing: the caller has already removed the files (git rm here, a plain
     unlink in a refresh) and this is only the record. -> the date recorded.
-    Raises ValueError on a malformed registry, like read_registry."""
+    `left`, when given, is what the retired engine tools wrote into consumer
+    repositories (LEFT_IN_CONSUMERS_KEY), recorded on each engine tool's
+    entry. Raises ValueError on a malformed registry, like read_registry."""
     root = pathlib.Path(root)
     if cfg is None:
         cfg = read_registry(root)
     today = precedent_time.today()
     for p in paths:
-        cfg['decommissioned'].append({'path': p.rstrip('/'), 'reason': reason,
-                                      'decommissioned_at': today})
+        entry = {'path': p.rstrip('/'), 'reason': reason,
+                 'decommissioned_at': today}
+        if left is not None and was_vendored(root, p):
+            entry[LEFT_IN_CONSUMERS_KEY] = list(left)
+        cfg['decommissioned'].append(entry)
     (root / REGISTRY).parent.mkdir(parents=True, exist_ok=True)
     (root / REGISTRY).write_text(
         json.dumps(cfg, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
@@ -545,12 +579,12 @@ def audit(path, exempt, siblings=()):
     return blockers, evidence
 
 
-def apply_retirement(paths, reason, cfg):
+def apply_retirement(paths, reason, cfg, left=None):
     r = _git('rm', '-r', '-q', '--', *paths)
     if r.returncode != 0:
         sys.exit(f'precedent_decommission: git rm failed ({r.stderr.strip()}) '
                  f'-- nothing was recorded')
-    today = record_decommissioned(ROOT, paths, reason, cfg)
+    today = record_decommissioned(ROOT, paths, reason, cfg, left=left)
     _git('add', '--', REGISTRY)
     return today
 
@@ -612,6 +646,14 @@ def main(argv=None):
                     help='delete and record, only if the audit is clean')
     ap.add_argument('--list', action='store_true',
                     help='print what this repo has already decommissioned')
+    ap.add_argument('--left-in-consumers', action='append', default=[],
+                    metavar='PATH',
+                    help='a file a retired engine tool wrote into the '
+                         'repositories it ran in; Update Vendors removes it '
+                         'there. Repeat per file')
+    ap.add_argument('--left-nothing', action='store_true',
+                    help='the retired engine tool wrote nothing into the '
+                         'repositories it ran in')
     args = ap.parse_args(argv)
 
     _require_root()
@@ -653,7 +695,21 @@ def main(argv=None):
         print(f'\nAudit clean. Re-run with --reason "..." --apply to delete '
               f'and record it in {REGISTRY}.')
         return 0
-    today = apply_retirement(args.paths, args.reason, cfg)
+    engine = sorted(p.rstrip('/') for p in args.paths if was_vendored(ROOT, p))
+    if args.left_in_consumers and args.left_nothing:
+        ap.error('--left-in-consumers and --left-nothing contradict each other')
+    if engine and not (args.left_in_consumers or args.left_nothing):
+        # WHY (2026-10-20): the others-did tool left a mark file in every
+        # consumer, nobody retiring it asked, and the file stopped their
+        # updates three days later.
+        print(f'\nNot applied: {", ".join(engine)} is vendored into other '
+              f'repositories, and may have left files there. Say what it '
+              f'wrote into them -- --left-in-consumers PATH for each (Update '
+              f'Vendors then removes them) or --left-nothing -- and run this '
+              f'again.')
+        return 1
+    left = args.left_in_consumers if engine else None
+    today = apply_retirement(args.paths, args.reason, cfg, left=left)
     print(f'\nDeleted and recorded in {REGISTRY} ({today}). Commit this '
           f'together with whatever decommissioned the mechanism.')
     return 0

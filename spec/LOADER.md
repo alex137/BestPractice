@@ -211,7 +211,7 @@ a number in a sentence. That is `docs-track-models`, happening here.
 | Rules still over 150 words | 95 |
 | Carrying a `## Detail` | 148 |
 | Carrying a `## Story` | 187 |
-| Enforced by a check | 70 of 187 practices carry a `checked_by` |
+| Enforced by a check | 71 of 187 practices carry a `checked_by` |
 <!--/gen:catalogue-->
 
 Numbers by: catalogue_stats.py

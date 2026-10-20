@@ -104,8 +104,12 @@ it until one reports DONE, so the target does not move while you work the
 list; `--move` takes the newest commit instead. Two flags start
 `--take`, so always spell them out: `--take-anyway <commit>` takes a commit
 whose GitHub test has not passed, on the person's word, and `--take-set
-<name>` refreshes a copied-in set on its owner's go-ahead; a bare `--take`
-is refused with both named (2026-10-20). Every one is
+<name>` refreshes, this once, a copied-in set the repository holds; a bare
+`--take` is refused with both named (2026-10-20). **Every copied-in set,
+voice packs and the sets they carry included, is refreshed on a normal update**, and
+the report says how far it moved; a repository freezes one only by its own
+`"hold": "<why>"` on that source in its `precedent.json` (Morgan,
+2026-10-20, strength: decided). Every one is
 listed in the same run, and while any is open the deep check is not started:
 it is the slow step, so it waits until nothing cheaper is in its way. Where
 the landing branch takes the full check, the basic tier runs first, and a
@@ -293,21 +297,10 @@ says so, both from the vendored tree under `process/upstream/`.
    later called assent rather than a decision; this move was made for
    every install at once so that cannot happen again.
 
-   **One repo may follow `staging` instead, since 2026-10-05, by saying so
-   in its own `precedent.json`: `"upstream_branch": "staging"`.** Alex,
-   2026-10-05 (`strength: decided`), after measuring that a change took
-   about 25 minutes to reach `main` and a few to reach `staging`. The
-   default is unchanged: a repo that names nothing follows `main`. Only
-   `main` and `staging` are accepted; any other name -- the branch that
-   has had only seconds of checking among them -- is refused, with the
-   update saying so and following `main`.
-   The update reads the declaration and moves both records itself -- the
-   engine's `source_branch` and the catalogue's `upstream.branch` -- in the
-   same run, so this is still never a hand edit to either. What a repo
-   gives up by declaring it: `staging` has not had GitHub's clean-machine
-   test. Removing the declaration moves the pins back to `main`; an engine
-   already ahead of `main` is then left as it is until `main` catches up,
-   never rolled back.
+   **One repo may follow BestPractice's pre-release branch instead of
+   `main`, by declaring it in its own `precedent.json`** (Alex,
+   2026-10-05, `strength: decided`); the Detail section says how and
+   what it gives up.
 
    **What reads a commit and what reads a working tree, which is the whole
    point of the step.** Inside Update Vendors, everything is read by commit,
@@ -994,6 +987,22 @@ first refresh after upstream renames or drops an engine file asks for a
 path that is genuinely gone.
 
 ## Detail
+**One repo may follow `staging` instead, since 2026-10-05, by saying so
+in its own `precedent.json`: `"upstream_branch": "staging"`.** Alex,
+2026-10-05 (`strength: decided`), after measuring that a change took
+about 25 minutes to reach `main` and a few to reach `staging`. The
+default is unchanged: a repo that names nothing follows `main`. Only
+`main` and `staging` are accepted; any other name -- the branch that
+has had only seconds of checking among them -- is refused, with the
+update saying so and following `main`.
+The update reads the declaration and moves both records itself -- the
+engine's `source_branch` and the catalogue's `upstream.branch` -- in the
+same run, so this is still never a hand edit to either. What a repo
+gives up by declaring it: `staging` has not had GitHub's clean-machine
+test. Removing the declaration moves the pins back to `main`; an engine
+already ahead of `main` is then left as it is until `main` catches up,
+never rolled back.
+
 **Step 1 is first because it is the one nobody thinks of as part of the
 update.** The instinct is to start with the command that does the
 vendoring. Every failure mode below step 1 is silent — no error, just an

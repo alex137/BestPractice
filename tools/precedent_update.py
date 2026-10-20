@@ -1148,9 +1148,16 @@ def copy_in_step(repo, rep, answers=None, answered_by=''):
 def refresh_copies_step(repo, rep, take_sets=()):
     """Refresh every shared set this repository copies in, from the
     person's own clone of it, with checkin.py --source: the same mirror and
-    record the universal catalogue gets. A set whose precedent-source.json
-    says "copy_refresh": "on-go-ahead" (a voice pack) is only reported when
-    its origin has moved, and taken when this run names it in --take-set.
+    record the universal catalogue gets. Every copied-in set is refreshed
+    on every run, a voice pack included, and the report says how far it
+    moved (Morgan, 2026-10-20, strength: decided: "Voice packs (and [the
+    writing rules they carry]) should be marked to refresh upon a normal
+    vendor update").
+    Whether to freeze a copy is the repository's call, not the set's: a
+    source entry in precedent.json carrying "hold": "<why>" is only reported
+    when its origin moves, and taken this once when the run names it in
+    --take-set. The set-side "copy_refresh": "on-go-ahead" it replaces is
+    ignored, and named so its owner can delete it.
     A set with no clone on this machine is said, never guessed."""
     try:
         import precedent_resolve as pr
@@ -1199,8 +1206,14 @@ def refresh_copies_step(repo, rep, take_sets=()):
         # any other way.
         here = repo / str(e['path'])
         first = not up.get('commit') or not (here / pr.SOURCE_MANIFEST).is_file()
-        if man.get('copy_refresh') == 'on-go-ahead' and not first \
-                and name not in take_sets:
+        if man.get('copy_refresh'):
+            rep.step(f'copy of {name}', f'its precedent-source.json still says '
+                     f'"copy_refresh": {json.dumps(man["copy_refresh"])}, which '
+                     f'is retired (2026-10-20): every copy is refreshed, and a '
+                     f'repository that wants one frozen says "hold" in its own '
+                     f'precedent.json. Delete the line in {name}')
+        hold = str(e.get('hold') or '').strip()
+        if hold and not first and name not in take_sets:
             # The copy is taken from the set's main, so "has it moved" asks
             # main too, never the branch this clone happens to be on.
             head = ''
@@ -1211,13 +1224,14 @@ def refresh_copies_step(repo, rep, take_sets=()):
                     break
             if rc == 0 and head.strip() and not head.strip().startswith(
                     str(up.get('commit'))[:12]):
-                rep.ask(f'copy of {name}', f'{name} has moved since it was '
-                        f'copied in ({str(up.get("commit"))[:12]} -> '
-                        f'{head.strip()[:12]}), and it is refreshed only on its '
-                        f'owner\'s go-ahead. Take it with --take-set {name}')
+                rep.step(f'copy of {name}', f'held by this repository ({hold}), '
+                         f'so not refreshed, though {name} has moved since it '
+                         f'was copied in ({str(up.get("commit"))[:12]} -> '
+                         f'{head.strip()[:12]}). Take it this once with '
+                         f'--take-set {name}, or delete the hold')
             else:
-                rep.step(f'copy of {name}', 'current; refreshed only on its '
-                         'owner\'s go-ahead')
+                rep.step(f'copy of {name}', f'current; held by this repository '
+                         f'({hold})')
             continue
         rc, out = run(checkin + ['--source', name, 'update', str(clone),
                                  '--repo', str(repo)]
@@ -1235,6 +1249,16 @@ def refresh_copies_step(repo, rep, take_sets=()):
         rep.step(f'copy of {name}', next(
             (l for l in out.splitlines() if l.startswith('checkin record')),
             'recorded') if rc == 0 else 'not recorded: ' + tail(out, repo=repo))
+        # Refreshed without asking, so the report says it moved: a voice
+        # copy that changes is heard about, never found later in the prose.
+        try:
+            now = json.loads(mpath.read_text(encoding='utf-8')).get(
+                'upstream', {}).get('commit')
+        except (OSError, ValueError, AttributeError):
+            now = None
+        if rc == 0 and now and up.get('commit') and now != up.get('commit'):
+            rep.step(f'copy of {name}', f'moved {str(up["commit"])[:12]} -> '
+                     f'{str(now)[:12]}')
 
 
 def renamed_sources_step(repo, rep, engine_out):
@@ -5843,7 +5867,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     if adopted:
         before = before - set(adopted)
         rep.step('engine, written ahead', f'{len(adopted)} uncommitted path(s) '
-                 f'already held the pinned engine (a source refresh ran first); '
+                 f'already held the pinned engine (an earlier Update Vendors run here, or a '
+                 f'source refresh, wrote them and did not commit); '
                  f'staged as this update\'s: ' + ', '.join(adopted))
     mirrored = adopt_catalogue_output(repo, before, head.strip())
     if mirrored:
@@ -6162,6 +6187,43 @@ def full_check_after(repo):
     return isinstance(data, dict) and data.get('update_full_check') == 'after'
 
 
+def set_tests_step(repo, rep):
+    """A practice set's own tests, every tools/checks/tests/test_*.sh, when
+    this update changed the set's engine copy: -> None when they pass or do
+    not apply, else the failure text for rep.close().
+
+    2026-10-19: Update Vendors refreshed the ladder set's engine copy, the
+    set's quick check passed, and the update merged; the set's own
+    test_ladder_branches.sh first ran on main after it and was red. Its
+    tests are the set's contract with the engine it calls, and an engine
+    refresh touches the engine's files, never the tests', so the quick
+    tier's "the tests a change touches" never picks them. They run here
+    instead: the one moment the engine under them moves. Measured that day:
+    about 70 seconds for all nine of the ladder set's."""
+    if not (repo / 'precedent-source.json').is_file():
+        return None
+    tests = sorted((repo / 'tools' / 'checks' / 'tests').glob('test_*.sh'))
+    changed, _err = status_paths(repo, 'tools/')
+    engine = {f for f in (changed or ()) if not f.startswith('tools/checks/')}
+    if not tests or not engine:
+        return None
+    red = []
+    for t in tests:
+        r = subprocess.run(['bash', str(t)], cwd=str(repo), capture_output=True,
+                           text=True)
+        if r.returncode != 0:
+            red.append((t.name, (r.stdout + r.stderr).strip()))
+    if not red:
+        rep.step('the set\'s own tests', f'all {len(tests)} pass on the '
+                 f'refreshed engine')
+        return None
+    rep.step('the set\'s own tests', f'{len(red)} of {len(tests)} red on the '
+             f'refreshed engine: ' + ', '.join(n for n, _o in red))
+    return ('the set\'s own tests are red on the refreshed engine, so this '
+            'update would break the set where it lands:\n'
+            + '\n'.join(f'--- {n} ---\n{tail(o, repo=repo)}' for n, o in red))
+
+
 def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
     seed_budgets_step(repo, rep)
@@ -6224,6 +6286,9 @@ def closing_check(repo, rep, skip_check=False):
                          f'problems below first')
                 return rep.close(f"the {pb.BASIC} check is red, so the {label} "
                                  f"was not started:\n{tail(out, repo=repo)}")
+            red = set_tests_step(repo, rep)
+            if red:
+                return rep.close(red)
             if full_check_after(repo):
                 rep.step(label, 'runs after the push (update_full_check: after)')
                 rep.not_run = (
@@ -6237,6 +6302,9 @@ def closing_check(repo, rep, skip_check=False):
         if rc != 0:
             return rep.close(f"the {label} is red:\n{tail(out, repo=repo)}")
         rep.step(label, 'passed')
+        red = set_tests_step(repo, rep) if tier != pb.FULL else None
+        if red:
+            return rep.close(red)
         # A size cap over -- this update's own regenerated block can be what
         # pushed it -- passes the basic tier and is refused at the Debut.
         cap = next((l.strip() for l in out.splitlines()
@@ -6300,8 +6368,8 @@ def main(argv=None):
                     help='who answered --copy-in or --keep-workflow, with a '
                          'date and their own words: \'Name, YYYY-MM-DD: "..."\'')
     ap.add_argument('--take-set', action='append', default=[], metavar='NAME',
-                    help='refresh this copied-in set although it waits for its '
-                         'owner\'s go-ahead -- only on that go-ahead')
+                    help='refresh this copied-in set this once although '
+                         'this repository holds it ("hold" in precedent.json)')
     flags = [f for f in ap._option_string_actions if f.startswith('--')]
     for tok in (sys.argv[1:] if argv is None else argv):
         word = tok.split('=', 1)[0]

@@ -159,7 +159,11 @@ following, every time:
   say what to do if an attach is refused**: do the part the session can
   reach and report plainly what is left, or have the person start the
   session with every repository selected. Never write the prompt as if the
-  attach will succeed (Detail).
+  attach will succeed (Detail). **A repository the work pushes to is named
+  "with push access"**, a practice set above all: the session-start hook
+  clones sets with read access only, so the receiving session's first push
+  to one is refused unless it attaches the set for pushing first
+  ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-22-a-cross-owner-source-clone-fetches-fine-and-cannot-be-pushed.md)).
 - **Where the work stops.** Without the person's own go-ahead for this
   handoff (below), **the prompt ends on a feature branch**: *"Build it on
   your feature branch, push it there, and stop. Open no pull request and

@@ -12507,6 +12507,42 @@ BARE_GOTCHA_ANCHOR_EXEMPT_FILES = {
 }
 
 
+@check('todo-is-a-handoff', 'change',
+       'a line this change adds to an open item that admits work left undone '
+       '("no test", "not built", "not fixed", "deferred", "left for later") '
+       'says on the same line what blocks it -- the same rule and patterns the '
+       'reply gate reads (reply_check.json, gap-names-its-reason)',
+       'a gap said in other words, a reason given on the next line rather than '
+       'the same one, and whether a reason given is true: a person judges that. '
+       'Lines already in the item before this change are not read.',
+       selects_on=('todo/todo-*.md',))
+def _gap_names_its_reason(ctx):
+    """2026-10-20: a session wrote "the practice-hook refusal has no test that
+    triggers it" and "Not built." into an open item's progress notes with
+    nothing blocking either; Morgan asked why a todo and not a fix, and then
+    how to stop it happening again (practice: todo-is-a-handoff)."""
+    try:
+        import precedent_reply_check as _rc
+        rule = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('id') == 'gap-names-its-reason']
+    except (ImportError, OSError, ValueError, AttributeError):
+        raise NotApplicable('reply_check.json or the reply check engine could '
+                            'not be read here')
+    pats = (rule[0].get('require_reason_on_gap_line') or {}) if rule else {}
+    gap, reason = pats.get('if_matches'), pats.get('must_match_on_line')
+    if not (gap and reason and hasattr(_rc, 'unexplained_gaps')):
+        raise NotApplicable('no gap-names-its-reason rule is declared here')
+    out = []
+    for f in ctx.changed_matching(r'^todo/todo-[^/]+\.md$'):
+        old = set((ctx.read_base(f) or '').splitlines())
+        added = '\n'.join(l for l in ctx.read(f).splitlines() if l not in old)
+        for line in _rc.unexplained_gaps(added, gap, reason):
+            out.append(Finding(f, f'"{line[:120]}" leaves work undone and names '
+                                  f'nothing blocking it: do it now, or say on that '
+                                  f'line what blocks it'))
+    return out
+
+
 @check('todo-gotcha-stale-reference', 'tree',
        'nothing in the tracked tree cites an open item or a gotcha the way '
        'the pre-2026-09-16 format did -- a `TODO.md#slug` link, a bare '
@@ -13543,6 +13579,18 @@ def _charge_brought_share(n):
     except Exception:                                         # noqa: BLE001
         return n, None
     rel = '.precedent/SESSION_PRACTICES.md'
+    # The individual set's own budget (precedent_session_practices.
+    # INDIVIDUAL_BUDGET_KEY), when it declares one.
+    try:
+        ind, ind_budget = _psp.individual_charge(ROOT)
+    except Exception:                                         # noqa: BLE001
+        ind, ind_budget = 0, None
+    if ind_budget is not None and ind > ind_budget:
+        return charged, Finding(rel, (
+            f"{ind:,} tokens of it come from this person's individual set, "
+            f"over the {ind_budget:,}-token `{_psp.INDIVIDUAL_BUDGET_KEY}` "
+            f"budget it declares. Reduce in the individual set, or the person "
+            f"raises their own budget"))
     if budget is not None and share > budget:
         return charged, Finding(rel, (
             f"{share:,} tokens of it come from the set(s) this person brings "
@@ -14641,13 +14689,20 @@ def main():
               f'run judges it; an edit here lasts until the next sync.')
 
     n_uv = sum(len(r[4]) for r in unverified)
+    # The repo this run checked, on the line a reader keeps, when it is not
+    # the one they stand in (precedent_which_repo.elsewhere_note).
+    try:
+        import precedent_which_repo
+        where = precedent_which_repo.elsewhere_note(ROOT)
+    except Exception:                                        # noqa: BLE001
+        where = ''
     print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
           f'{len(advisory)} advisory, {len(errored)} errored, {len(skipped)} '
           f'skipped, {len(exempted)} exempted, {n_uv} could not be verified '
           f'(a skip is not a pass, and neither is a could-not-verify; '
           f'advisory findings do not fail the run; an exemption is this repo '
           f'declaring the rule does not bind it, with a reason, in '
-          f'precedent.json).')
+          f'precedent.json){where}.')
     if '--changed-files-only' in flags:
         if materialized:
             print(f'note: --changed-files-only: {materialized} changed practice '

@@ -328,7 +328,11 @@ FORBIDDEN_CONTENT = [
     # set's test fixture, `check@example.invalid`, turned out to have been
     # failing this gate since the set's leak-gate workflow was retired --
     # found the first time the gate ran locally before a push.
+    # Nor is user@IPv4 (2026-10-20): no mailbox lives at a bare address, and
+    # the session proxy's own git remote, http://local_proxy@127.0.0.1:PORT/
+    # git/owner/repo, was refused as one.
     (re.compile(r'\b(?!noreply@)[\w.+-]+@(?!example\.(?:com|org|net)\b)'
+                r'(?!\d{1,3}(?:\.\d{1,3}){3}(?![\w.-]))'
                 r'(?!users\.noreply\.github\.com\b)'
                 r'(?![\w-]+(?:\.[\w-]+)*\.(?:invalid|test|example|localhost)(?![\w.-]))'
                 r'[\w-]+\.[\w.-]+\b'),

@@ -69,6 +69,13 @@ the BestPractice clone:
    all of them reach the person together in one message.
 
 ## Detail
+**A change to Update Vendors is tried in one repository, not all.** When a
+landing or merge in BestPractice changes the update's own code, it says so,
+and the session tells the person, names one repository the change would
+touch, and offers to start a session rooted there to run Update Vendors
+(Morgan, 2026-10-20). A rehearsal over every repository before each change
+he declined the same day.
+
 **No list, on purpose.** A stored list of the person's repositories saved
 only the check on the few that do not use Precedent, and it went stale every
 time one started or stopped using it, or was archived. Finding them fresh

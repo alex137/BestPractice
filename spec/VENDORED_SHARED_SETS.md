@@ -188,11 +188,20 @@ and never asked again there (Morgan, 2026-10-19, strength: decided).
   other code owner should agree first. A no leaves the set arriving the
   way it did before, through the person's own `brings`.
 - **The refresh:** every Update Vendors then refreshes each copy from the
-  person's clone of the set, with `checkin.py --source`. A set whose
-  `precedent-source.json` says `"copy_refresh": "on-go-ahead"` (a voice
-  pack, synced only on its owner's word) is copied the first time, and
-  after that only reported when its origin moves, until a run names it
-  with `--take-set NAME`. The installer copies a yes in at once.
+  person's clone of the set, with `checkin.py --source`, voice packs
+  included, and says how far each one moved (Morgan, 2026-10-20, strength:
+  decided: *"Voice packs (and [the writing rules they carry]) should be
+  marked to refresh upon a normal vendor update. We should standardize
+  these"*). Freezing a copy
+  is the repository's call, not the set's: a source entry carrying
+  `"hold": "<why>"` in the repository's own `precedent.json` is only
+  reported when its origin moves, never counted as behind, and taken this
+  once by a run that names it with `--take-set NAME` (the hold, strength:
+  assented, Morgan's yes to the proposal). Until 2026-10-20 the set
+  declared this itself, `"copy_refresh": "on-go-ahead"` in its
+  `precedent-source.json`; a set that still says it is refreshed anyway,
+  and the update names the line to delete. The installer copies a yes in
+  at once.
 
 The helpers are `copy_in_offers`, `copy_in_question`, `record_copy_in` and
 `parse_copy_in_answers` in

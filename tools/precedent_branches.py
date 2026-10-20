@@ -1020,6 +1020,63 @@ def _at_head(sha):
 # nothing.
 MOVES_KEY = 'branch_moves'
 
+# The names a moves module may call on this engine as `core.<name>`: its
+# contract with the engine (2026-10-20). A rename here breaks Promote and
+# Produce in every repository on the ladder, and until this list nothing
+# said so until a set's own test ran on a refreshed engine copy.
+# verify_harness holds that every name here exists; the ladder set's own
+# test holds that its moves module calls nothing else. Renaming or removing
+# one is a change to both sides: add the new name, move the set, then drop
+# the old one.
+MOVES_CORE = (
+    'BASIC',
+    'COPY_NAME_MARKER',
+    'COPY_SLUG',
+    'FULL',
+    'GITHUB_POLL_SECONDS',
+    'GITHUB_TEST_WAIT_SECONDS',
+    'LAND_COMMAND',
+    'MAIN',
+    'NOT_DUE_PREFIX',
+    'NOT_DUE_SLUG',
+    'STAGING',
+    'UNCHECKED_REF',
+    '_Worktree',
+    '_against_main',
+    '_at_head',
+    '_check',
+    '_day_and_moment',
+    '_exit_cleanly_on_signal',
+    '_fast_main_path',
+    '_gets_github_test',
+    '_git',
+    '_ignore_signals',
+    '_lock_claim',
+    '_lock_release',
+    '_merge_env',
+    '_new_commits',
+    '_other_work_note',
+    '_promote_made',
+    '_read_json',
+    '_receipt',
+    '_remote_tip',
+    '_restore_signals',
+    '_run',
+    '_sibling',
+    '_slug',
+    '_upstream_review',
+    'full_check_after',
+    'github_test_state',
+    'github_tests',
+    'main_test_due',
+    'mark_other_work',
+    'promote_branch_name',
+    'repo_has_tiers',
+    'resolve_main_test_target',
+    'run_tests_record',
+    'staging_branch',
+)
+
 
 def branch_moves(root, user_config=None):
     """-> the moves module a set in force names, imported and bound to this
@@ -3366,6 +3423,40 @@ def clear_main_unchecked(root, checked):
 FIX_PREFIX = 'promote-fix-'
 
 
+# A SHALLOW CLONE IS NOT A CONFLICT (2026-10-20). A shallow clone can lack
+# the commit where staging and main parted; git then calls them unrelated
+# histories and refuses the merge, and --land reported "main conflicts with
+# staging". A session took the conflict path; `git fetch --depth=300` was
+# the whole fix. So a missing merge base deepens the clone and looks again,
+# and one still missing is said as what it is.
+DEEPEN_STEPS = (300, 3000)
+TOO_SHALLOW = 'this clone is too shallow'
+
+
+def _reach_merge_base(root, a, b, refs=()):
+    """Make sure commits `a` and `b` have a merge base this clone can see,
+    deepening a shallow clone along origin's `refs` (and staging and main)
+    by DEEPEN_STEPS. -> None when there is one, else why not: TOO_SHALLOW
+    with its remedy, or that the two share no history at all."""
+    if _run(root, 'merge-base', a, b).returncode == 0:
+        return None
+    if _git(root, 'rev-parse', '--is-shallow-repository') != 'true':
+        return f'{a[:12]} and {b[:12]} share no history at all'
+    names = []
+    for r in (*refs, staging_branch(root), MAIN):
+        r = r[len('origin/'):] if r.startswith('origin/') else r
+        if r not in names and _git(root, 'rev-parse', '--verify', '--quiet',
+                                   f'refs/remotes/origin/{r}'):
+            names.append(r)
+    for n in DEEPEN_STEPS:
+        _run(root, 'fetch', '-q', f'--deepen={n}', 'origin', *names)
+        if _run(root, 'merge-base', a, b).returncode == 0:
+            return None
+    return (f'{TOO_SHALLOW}: {a[:12]} and {b[:12]} part further back than '
+            f'it holds, even after deepening it by {sum(DEEPEN_STEPS)} '
+            f'commits. Run `git fetch --unshallow origin` and try again')
+
+
 def _compose(root, wt, parts, staging, say):
     """Merge each (label, sha, message) in `parts` into worktree `wt`'s HEAD,
     in order, by merge commits. One already in HEAD is skipped; a conflict
@@ -3378,6 +3469,10 @@ def _compose(root, wt, parts, staging, say):
     for label, sha, message in parts:
         if _run(wt, 'merge-base', '--is-ancestor', sha, 'HEAD').returncode == 0:
             continue
+        shallow = _reach_merge_base(root, _git(wt, 'rev-parse', 'HEAD'), sha,
+                                    (label, staging))
+        if shallow:
+            return (label, sha, [], shallow), merged
         m = _run(wt, 'merge', '--no-ff', '-q', '-m', message, sha, env=env)
         if m.returncode != 0:
             done, files, why = _resolve_by_regenerating(wt, say)
@@ -3402,6 +3497,9 @@ def _from_above(root, staging, stip):
         tip = _remote_tip(root, branch)
         if tip:
             _run(root, 'fetch', '-q', 'origin', branch)
+            # drift() reads a missing base as everything differing; the
+            # composition says TOO_SHALLOW if this cannot fix it.
+            _reach_merge_base(root, stip, tip, (staging, branch))
             commits = drift(root, stip, tip)
             if commits:
                 above.append((branch, tip, commits))
@@ -3527,6 +3625,50 @@ LAND_RESULT = 'LAND RESULT'
 LANDING_SOURCE_ENV = 'PRECEDENT_LANDING_SOURCE'
 
 
+# What Update Vendors runs in another repository: its own code, the engine
+# refresh and copy-in, the catalogue copy, the view sync, and the templates
+# an install or update writes there.
+UPDATE_VENDORS_PATHS = (
+    'tools/precedent_update.py', 'tools/precedent_update_all.py',
+    'tools/precedent_vendor_engine.py', 'tools/checkin.py',
+    'tools/precedent_sync_views.py', 'tools/precedent_materialize.py',
+    'tools/precedent_install.py', 'tools/precedent_resolve.py',
+    'templates/',
+)
+
+
+def update_vendors_note(root, before, after):
+    """-> what to tell the person when the commits from `before` to `after`
+    change how Update Vendors behaves in other repositories, or ''. Only in
+    BestPractice, where that code is written.
+
+    WHY (Morgan, 2026-10-20): copy-in landed one day and broke the update in
+    the first consumers it met the next, one repository at a time. "When
+    there is a change to update vendors, tell the session user there was a
+    change and recommend to him he run it (perhaps even suggesting a repo
+    and you rooting a new session to make it easy) to make sure there are
+    no issues." A whole rehearsal before every change he declined the same
+    day; one repository, chosen and offered, is the ask."""
+    if not (pathlib.Path(root) / 'tools' / 'verify_harness.py').is_file():
+        return ''
+    out = _git(root, 'diff', '--name-only', f'{before}..{after}') or ''
+    hit = sorted(f for f in out.splitlines()
+                 if any(f == u or (u.endswith('/') and f.startswith(u))
+                        for u in UPDATE_VENDORS_PATHS))
+    if not hit:
+        return ''
+    return ('UPDATE VENDORS CHANGED (' + ', '.join(hit[:6])
+            + (f' and {len(hit) - 6} more' if len(hit) > 6 else '')
+            + '). Tell the person, and recommend trying it in one repository '
+            'that uses Precedent before the next routine update meets it: '
+            'pick one this change would touch (list_repos; a public one, one '
+            'with copied-in sets, or one not updated for a while), name it, '
+            'and offer to start a session rooted in it to run Update Vendors '
+            '(create_session). Until a Produce moves this into main, that '
+            'session runs the update with --from-ref origin/staging, and '
+            'pushes nothing.')
+
+
 def land(root, work=None, say=print):
     """Land `work` (a branch or commit; HEAD when None) on staging for a
     person who lands there, and end with one LAND RESULT line.
@@ -3609,6 +3751,11 @@ def _land_composed(root, sha, label, staging, why, say):
                                                   last, say)
         if conflict:
             clabel, csha, files, why = conflict
+            if why.startswith(TOO_SHALLOW) or 'share no history' in why:
+                say(f'LAND REFUSED, and {staging} did not move: {clabel} '
+                    f'({csha[:12]}) could not be merged, and not for a '
+                    f'conflict -- {why}.')
+                return 1, f'LAND REFUSED: {why.split(":")[0]}, not a conflict'
             say(f'LAND REFUSED, and {staging} did not move: {clabel} ({csha[:12]}) '
                 f'does not merge cleanly into {" + ".join([staging] + merged)} -- '
                 f'{why}'
@@ -3669,6 +3816,9 @@ def _land_composed(root, sha, label, staging, why, say):
         f'nothing.')
     for line in review:
         say(line)
+    note = update_vendors_note(root, stip, new)
+    if note:
+        say(note)
     return 0, f'LANDED at {new}'
 
 
@@ -3827,8 +3977,10 @@ def _run_tests(root, branch, say):
         if conflict:
             ok, out = False, ''
             failed = [{'check': 'merge with main', 'line':
-                       f'{conflict[0]} ({conflict[1][:12]}) does not merge cleanly '
-                       f'into {branch}: {conflict[3]}'
+                       f'{conflict[0]} ({conflict[1][:12]}) '
+                       + ('could not be merged' if conflict[3].startswith(TOO_SHALLOW)
+                          else 'does not merge cleanly')
+                       + f' into {branch}: {conflict[3]}'
                        + (f' ({", ".join(conflict[2])})' if conflict[2] else '')}]
         else:
             ok, out = _check(root, wt, FULL, dest=staging)

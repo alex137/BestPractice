@@ -81,10 +81,10 @@ The ladder's stages run on engine code today, and the inventory names it:
 | Engine file | What is the ladder's |
 |---|---|
 | [`precedent_branches.py`](../tools/precedent_branches.py) | `--land`, `--promote`, `--run-tests`, the tier branches, promote-only, the Debut and Produce steps |
-| `ladder_words.py` (moved 2026-10-17: the words are the set's own data now, read by the engine's [`set_words.py`](../tools/set_words.py)) | the stage words and every ladder practice slug |
-| `precedent_others_did.py` | the `others-did` reply block |
+| [`ladder_words.py`](https://github.com/alex137/BestPractice/blob/1e37680bd33aab23777cf64f6c1e7a11b56f364f/tools/ladder_words.py) (moved 2026-10-17: the words are the set's own data now, read by the engine's [`set_words.py`](../tools/set_words.py)) | the stage words and every ladder practice slug |
+| [`precedent_others_did.py`](https://github.com/alex137/BestPractice/blob/796a336f16b32adff057ecd164c6f8220225dc73/tools/precedent_others_did.py) | the `others-did` reply block |
 | [`precedent_stale_branches.py`](../tools/precedent_stale_branches.py), [`precedent_gate.py`](../tools/precedent_gate.py) | the `stale-branch-cleanup` page and its reply requirement |
-| `precedent_upstream_review.py` | Debut and Produce wording |
+| [`precedent_upstream_review.py`](https://github.com/alex137/BestPractice/blob/372b216d6ddc52a81a51c7d3ac0c297761a1ed5c/tools/precedent_upstream_review.py) | Debut and Produce wording |
 | [`precedent_branch_name.py`](../tools/precedent_branch_name.py) | the name builder (part 1) |
 
 The 2026-10-03 decision kept these in the engine
@@ -95,7 +95,7 @@ that predates this practice. The move, in outline:
    landing branch, a lock, composing a merge in a worktree, pushing it)
    and what only the ladder needs (staging, pre-staging, Promote, Debut,
    Produce). The first stays; the second ships from the ladder set.
-2. `ladder_words.py`, `precedent_others_did.py` and the stale-branch page
+2. [`ladder_words.py`](https://github.com/alex137/BestPractice/blob/1e37680bd33aab23777cf64f6c1e7a11b56f364f/tools/ladder_words.py), [`precedent_others_did.py`](https://github.com/alex137/BestPractice/blob/796a336f16b32adff057ecd164c6f8220225dc73/tools/precedent_others_did.py) and the stale-branch page
    ship from the ladder set as they are.
 3. The reply gate learns its ladder requirements from the set (its
    `reply_check.json` already exists), instead of from engine code.
@@ -113,9 +113,9 @@ with the plan. Booked." Read here as: the builder stays, and the engine's
 own steps use its dated names only when a person's config turns them on.
 
 Measured on staging at `8e122175`: the inventory names 23 ladder names
-in engine code -- 16 in `ladder_words.py`, 2 each in
-[`precedent_branches.py`](../tools/precedent_branches.py) and `precedent_upstream_review.py`, 1 each in
-[`precedent_gate.py`](../tools/precedent_gate.py), `precedent_others_did.py` and [`verify_harness.py`](../tools/verify_harness.py).
+in engine code -- 16 in [`ladder_words.py`](https://github.com/alex137/BestPractice/blob/1e37680bd33aab23777cf64f6c1e7a11b56f364f/tools/ladder_words.py), 2 each in
+[`precedent_branches.py`](../tools/precedent_branches.py) and [`precedent_upstream_review.py`](https://github.com/alex137/BestPractice/blob/372b216d6ddc52a81a51c7d3ac0c297761a1ed5c/tools/precedent_upstream_review.py), 1 each in
+[`precedent_gate.py`](../tools/precedent_gate.py), [`precedent_others_did.py`](https://github.com/alex137/BestPractice/blob/796a336f16b32adff057ecd164c6f8220225dc73/tools/precedent_others_did.py) and [`verify_harness.py`](../tools/verify_harness.py).
 [`precedent_branches.py`](../tools/precedent_branches.py) is about 5,000 lines, imported by 19 engine
 tools, and its tests are a few hundred references in [`verify_harness.py`](../tools/verify_harness.py).
 
@@ -147,12 +147,12 @@ half loses nothing.
 |---|---|---|---|---|
 | 0 | Delete pre-staging (Morgan, 2026-10-17, decided; [its open item](../todo/todo-2026-10-14-delete-pre-staging-code.md)) | -- | nothing of it but one migration (done 2026-10-17): `--sync-pre-staging`, Promote's pre-staging path and the full tier for staging are gone, and no mention is left in active use. The step that moves a repository off it became [tools/migration_retire_pre_staging.py](../tools/migration_retire_pre_staging.py), which Update Vendors runs without naming it | 0, but less to move |
 | 1 | Stage words (built 2026-10-17) | its words as data: `owned_words` in its precedent-source.json, each pattern with the examples it must and must never match | a general check, `set-words-stay-in-their-set`, and its matcher [`set_words.py`](../tools/set_words.py): every set is held to the words the other sets in force declare. The ladder's own check would have guarded the ladder set, the one place its words are allowed | 16 |
-| 2 | others-did (built 2026-10-17) | `tools/ladder/others_did.py` and its test, wired by the practice's own SessionStart and UserPromptSubmit hooks; the first prompt runs the day's check itself if the start-up hook missed it | [`precedent_commit_owners.py`](../tools/precedent_commit_owners.py): who made each commit, which Update Vendors' upstream note also reads | 1 |
-| 3 | Branch-cleanup note (built 2026-10-17) | `tools/ladder/branch_page_note.py` and its test, named in its `reply_check.json` as `note_from_tool` | a general `note_from_tool` key: the reply gate runs a tool a set ships and prints what it says. The page itself, [`precedent_stale_branches.py`](../tools/precedent_stale_branches.py), stays: its delete button runs on GitHub, where nothing a set ships is present, and it names no set's rule. This piece's engine half lands first: an older engine only reports the new key, never refuses on it | 1 |
-| 4 | Upstream review (built 2026-10-17) | `tools/ladder/upstream_review.py` and its test, named `step_review` in its precedent-source.json | [`load_set_tool`](../tools/precedent_resolve.py): Update Vendors and the stages ask for whatever step_review a set in force names, and write its lines into the commit | 2 |
+| 2 | others-did (built 2026-10-17) | [`tools/ladder/others_did.py`](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/ladder/others_did.py) and its test, wired by the practice's own SessionStart and UserPromptSubmit hooks; the first prompt runs the day's check itself if the start-up hook missed it | [`precedent_commit_owners.py`](../tools/precedent_commit_owners.py): who made each commit, which Update Vendors' upstream note also reads | 1 |
+| 3 | Branch-cleanup note (built 2026-10-17) | [`tools/ladder/branch_page_note.py`](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/ladder/branch_page_note.py) and its test, named in its `reply_check.json` as `note_from_tool` | a general `note_from_tool` key: the reply gate runs a tool a set ships and prints what it says. The page itself, [`precedent_stale_branches.py`](../tools/precedent_stale_branches.py), stays: its delete button runs on GitHub, where nothing a set ships is present, and it names no set's rule. This piece's engine half lands first: an older engine only reports the new key, never refuses on it | 1 |
+| 4 | Upstream review (built 2026-10-17) | [`tools/ladder/upstream_review.py`](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/ladder/upstream_review.py) and its test, named `step_review` in its precedent-source.json | [`load_set_tool`](../tools/precedent_resolve.py): Update Vendors and the stages ask for whatever step_review a set in force names, and write its lines into the commit | 2 |
 | 5a | A seam, no behaviour change (built 2026-10-19) | -- | [`branch_policy`](../tools/precedent_branches.py): a set names a module as `branch_policy` in its precedent-source.json, found as `set_tool()` finds any set's tool, and `tier_branches`, `tier_for_branch` and `promote_only` ask it, handing it the engine's own answer. A question it does not define, a bad answer or a failure keeps the engine's; off the ladder it is never asked; main stays a tier. No set ships one yet, so nothing changed. 5b moves the ladder's answers into the set and shrinks the engine's to the landing branch and the trunk | 0 |
-| 5b | Promote and Produce (built 2026-10-19) | `tools/ladder/ladder_branches.py`, named `branch_moves` in its precedent-source.json and shipped by its promote practice: Promote, Produce and the wait on main's GitHub test, 22 functions moved whole, calling the engine as `core` | [`branch_moves`](../tools/precedent_branches.py): `--promote` and `--wait-main-test` are handed to the module, arguments unchanged, bound to the engine; with no set naming one they refuse and move nothing. The engine keeps landing, the lock, composing a merge, the checks and pushing. Kept on purpose, small calls Morgan can overturn: `--land`, the landing every repository uses, ladder or not; `--run-tests`, the plain full suite on a branch that the direct route into main also uses; and the tier answers, because protecting staging must hold where the set is not loaded, GitHub's runner among them (the rule's own last paragraph) | 2 |
-| 5c | Their tests (built 2026-10-19) | 17 harness tests, moved whole or as their Promote cases, in `tools/ladder/ladder_branches_cases.py`, run by `tools/checks/tests/test_ladder_branches.sh` against the engine beside them, with that engine and the moves in one module the way the code stood before; not applicable beside an engine older than the move | `check_promote_is_handed_to_the_moves_a_set_names` and `check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer`, against made-up sets | 1 |
+| 5b | Promote and Produce (built 2026-10-19) | [`tools/ladder/ladder_branches.py`](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/ladder/ladder_branches.py), named `branch_moves` in its precedent-source.json and shipped by its promote practice: Promote, Produce and the wait on main's GitHub test, 22 functions moved whole, calling the engine as `core` | [`branch_moves`](../tools/precedent_branches.py): `--promote` and `--wait-main-test` are handed to the module, arguments unchanged, bound to the engine; with no set naming one they refuse and move nothing. The engine keeps landing, the lock, composing a merge, the checks and pushing. Kept on purpose, small calls Morgan can overturn: `--land`, the landing every repository uses, ladder or not; `--run-tests`, the plain full suite on a branch that the direct route into main also uses; and the tier answers, because protecting staging must hold where the set is not loaded, GitHub's runner among them (the rule's own last paragraph) | 2 |
+| 5c | Their tests (built 2026-10-19) | 17 harness tests, moved whole or as their Promote cases, in [`tools/ladder/ladder_branches_cases.py`](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/ladder/ladder_branches_cases.py), run by [`tools/checks/tests/test_ladder_branches.sh`](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/checks/tests/test_ladder_branches.sh) against the engine beside them, with that engine and the moves in one module the way the code stood before; not applicable beside an engine older than the move | `check_promote_is_handed_to_the_moves_a_set_names` and `check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer`, against made-up sets | 1 |
 | 6 | Close (built 2026-10-19) | -- | nothing held on purpose any more: the very deep check holds back only what a part still headed "Waiting" names, and part 3 is built; the session-setup test plants made-up set names. The writing set's rule-links requirements moved into its own reply_check.json the same day ([item](../todo/todo-2026-10-19-rule-links-enforcement-lives-in-the-engine.md)); the inventory lists nothing | 2 |
 
 **Kept in the engine (Morgan, 2026-10-17, decided, "only activated if
@@ -227,7 +227,7 @@ places, so the two never run side by side:
   `carried_by`; the repository's own declaration wins by name. A repository
   makes the ladder binding with `"binds_everyone"` in `precedent.json`, on
   one code owner's word; `precedent_ladder.ladder_sources()` counts it and
-  dedupes by name. `tools/precedent_branches.py` was not touched.
+  dedupes by name. [`tools/precedent_branches.py`](../tools/precedent_branches.py) was not touched.
 - 5b's code goes to `tools/ladder/` in the ladder set, which since
   2026-10-19 also holds thirteen rules moved there from Morgan's
   individual set (`promote-only`, `stage-words` and `ladder-required`

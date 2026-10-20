@@ -37,6 +37,15 @@ instead, and whether the page runtime can, and whether a republish then
 needs that file read through too, is not yet known. If the read-through
 applies to the data file as well, the saving is nothing.
 
+## A second option (2026-10-20, a later session)
+
+Measured on the 1,013-line version: every branch is written twice, once as
+an HTML row and once in the `branch-data` JSON. If the page's own script
+built the rows from the JSON, the saved page would hold each branch once and
+the read would be roughly halved, with the self-save left as it is. The cost:
+the rows would no longer show without scripts, so a static summary may be
+needed for that case.
+
 ## Done when
 
 Morgan says yes or no. On yes: the page's self-save and `--merge` work with

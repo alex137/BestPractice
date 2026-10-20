@@ -126,6 +126,7 @@ Run:
 Exit status: 0 everything passed; 1 a check failed; 2 nothing could be run
 (not a git checkout, or a repository of no kind this file knows).
 """
+import collections
 import hashlib
 import json
 import os
@@ -1358,6 +1359,51 @@ def _unplanted_checks(root):
     return sorted(registered - declared)
 
 
+# A HARNESS TEST NOBODY CALLS (2026-10-20). verify_harness.py's
+# check_every_verdict_returning_check_is_recorded asserts every check_*
+# there is wired into main(), but only on a full run, so
+# check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer reached
+# main uncalled and turned it red (#1286/#1287). The scan lives here, once:
+# the harness check calls it, and so does the quick tier whenever
+# verify_harness.py changes. One pass over the source, about a tenth of a
+# second; the per-name regex it replaced took over a minute.
+_HARNESS_DEF_RE = re.compile(r'^def (check_[a-z_0-9]+)\(', re.M)
+
+
+def unrecorded_harness_checks(src):
+    """-> [(name, why)] for each check_* in verify_harness.py's source `src`
+    whose verdict nobody reads: a verdict-returning one (its body ends in
+    `return (not bad...,`) called bare or never passed to check(), and any
+    check_* named nowhere else in the file."""
+    returning, cur = [], None
+    for line in src.splitlines():
+        m = _HARNESS_DEF_RE.match(line)
+        if m:
+            cur = m.group(1)
+        # `not bad,` was the original pattern and it missed
+        # `not bad_cases,` -- which is how
+        # check_reply_check_requires_a_destination_for_a_fence_block sat
+        # unreferenced until 2026-09-22.
+        if cur and re.match(r'^    return \(not bad\w*,', line) \
+                and cur not in returning:
+            returning.append(cur)
+    bare = set(re.findall(r'^\s+(check_\w+)\(\)\s*$', src, re.M))
+    wired = set(re.findall(r'\*(check_\w+)\(\)', src))
+    bad = []
+    for fn in returning:
+        if fn in bare:
+            bad.append((fn, 'called bare -- its verdict is discarded; '
+                            f"call it as check('<name>', *{fn}())"))
+        elif fn not in wired:
+            bad.append((fn, 'defined but never called from main()'))
+    uses = collections.Counter(re.findall(r'\bcheck_\w+', src))
+    for fn in _HARNESS_DEF_RE.findall(src):
+        if uses[fn] <= 1:
+            bad.append((fn, 'defined but never called from main() -- it has '
+                            'never run'))
+    return bad
+
+
 def _front_matter_changed(root, since, rel):
     """True when practice file `rel`'s front matter differs from `since`'s
     copy (or it had none there)."""
@@ -1433,6 +1479,48 @@ def _new_tests_have_times(root, since, files, problems):
             f'recorded time ({", ".join(missing)}) -- run `python3 '
             f'tools/verify_harness.py --record-new-times` and commit '
             f'tools/harness_check_times.json with them')
+
+
+def _retired_engine_files_unanswered(root, since):
+    """-> one problem per vendored engine file this change deletes whose
+    retirement does not say what it left in the repositories it ran in --
+    the `left_in_consumers` list on its process/decommissioned_paths.json
+    entry, [] for nothing. Only where the engine is written (upstream): a
+    consumer's update deletes dropped engine files as a matter of course.
+
+    WHY (2026-10-20, Update All Vendors). d50e09ee1 deleted the others-did
+    tool by hand, and nobody asked what it had written into consumers; its
+    mark file stayed in each, naming a tool that was gone, until it stopped
+    their updates. Asked here, every deletion meets the question, however
+    it was made (practice: decommission-deletes-files)."""
+    if repo_kind(HERE) != 'upstream':
+        return []
+    gone = [r for r in _changed_paths(root, since, 'D')
+            if r.startswith('tools/') and r.count('/') == 1]
+    if not gone:
+        return []
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_decommission as pd
+    except Exception:                                          # noqa: BLE001
+        return []
+    finally:
+        sys.path.pop(0)
+    try:
+        entries = json.loads((root / pd.REGISTRY).read_text(
+            encoding='utf-8')).get('decommissioned') or []
+    except (OSError, ValueError, AttributeError):
+        entries = []
+    answered = {e.get('path') for e in entries if isinstance(e, dict)
+                and isinstance(e.get(pd.LEFT_IN_CONSUMERS_KEY), list)}
+    return [f'{rel}: a vendored engine file this change deletes, and nothing '
+            f'says what it left in the repositories it ran in. Record it in '
+            f'{pd.REGISTRY} with "{pd.LEFT_IN_CONSUMERS_KEY}": the files it '
+            f'wrote there, [] for none (precedent_decommission.py '
+            f'--left-in-consumers PATH or --left-nothing does it), so Update '
+            f'Vendors removes them'
+            for rel in gone if rel not in answered
+            and pd.was_vendored(root, rel, since)]
 
 
 def changed_files_check(root, since):
@@ -1532,6 +1620,12 @@ def changed_files_check(root, since):
                 f'tools/verify_harness.py, planting the violation it exists '
                 f'to catch; the harness refuses a check without one, and '
                 f'the next full check runs it')
+    harness = root / 'tools' / 'verify_harness.py'
+    if 'tools/verify_harness.py' in files and harness.is_file():
+        for fn, why in unrecorded_harness_checks(
+                harness.read_text(encoding='utf-8', errors='replace')):
+            problems.append(f'tools/verify_harness.py: {fn} {why}')
+    problems += _retired_engine_files_unanswered(root, since)
     practice = [f for f in files if f.endswith('.md')
                 and (f.startswith('practices/') or '/practices/' in f)]
     build = root / 'tools' / 'build_views.py'
@@ -2680,4 +2774,15 @@ if __name__ == '__main__':
               f'--changed-files-check [REF], --gate and --list; --help says '
               f'what each does. Nothing was run.', file=sys.stderr)
         sys.exit(2)
-    sys.exit(main(sys.argv[1:]))
+    rc = main(sys.argv[1:])
+    # Said again last, where a reader of the tail sees it: the banner at the
+    # start scrolls away (precedent_which_repo.elsewhere_note).
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_which_repo
+        _where = precedent_which_repo.elsewhere_note(HERE)
+        if _where:
+            print(f'precedent_push_check:{_where}.')
+    except Exception:                                        # noqa: BLE001
+        pass
+    sys.exit(rc)

@@ -3917,61 +3917,78 @@ _LEGACY_TO_READ_KINDS = {'.github/workflows/commit-identity.yml': {'consumer', '
 RETIRED_HOOK_FILES = {}
 
 
-def _json_comment_names(text, *tools):
-    """True when `text` is a JSON object whose `_comment` names one of
-    `tools` -- the header every mark file below was written with."""
-    try:
-        data = json.loads(text)
-    except ValueError:
-        return False
-    comment = data.get('_comment') if isinstance(data, dict) else None
-    words = ' '.join(comment) if isinstance(comment, list) else str(comment or '')
-    return any(t in words for t in tools)
-
-
 # Files an ENGINE TOOL wrote into a consumer at run time (never vendored, so
-# no manifest records them), whose tool BestPractice has since decommissioned:
-# path -> (why, content recogniser). Removed by the update, with the same
-# file refusals as a legacy workflow.
+# no manifest records them), whose tool BestPractice has since decommissioned.
+# They are named where the tool's retirement is recorded: the source's
+# process/decommissioned_paths.json entry for the tool carries
+# `left_in_consumers`, which the push check requires of any change deleting
+# a vendored engine file (practice: decommission-deletes-files). A consumer's
+# file goes only while its text still names the retired tool.
 #
 # WHY (2026-10-20, Update All Vendors over 18 repositories). The others-did
 # report stopped storing a mark on 2026-10-10 and left the engine on
-# 2026-10-17, and BestPractice recorded tools/others_did_watermark.json as
-# decommissioned -- but only in its own registry. Consumers kept their copy,
-# whose header names the deleted tool, so each update stopped on a
+# 2026-10-17, but consumers kept tools/others_did_watermark.json, whose
+# header names the deleted tool, and each update stopped on a
 # rename-updates-links finding about a file only the engine ever wrote.
-RETIRED_ENGINE_WRITTEN_FILES = {
-    'tools/others_did_watermark.json': (
-        'the others-did mark, written by the engine\'s precedent_others_did.py; '
-        'the report stores no mark since 2026-10-10 and left the engine for '
-        'the ladder set on 2026-10-17',
-        lambda t: _json_comment_names(t, 'precedent_others_did.py')),
-    'tools/beta_branch_watermark.json': (
-        'the beta-branch mark, written by the engine\'s '
-        'precedent_beta_watermark_check.py, decommissioned 2026-10-08',
-        lambda t: _json_comment_names(t, 'precedent_beta_watermark_check.py')),
-}
+# Nobody retiring the tool had been asked what it left behind.
+LEFT_IN_CONSUMERS_KEY = 'left_in_consumers'
 
 
-def _retire_engine_written_files(dest_root, pd):
-    """Delete each RETIRED_ENGINE_WRITTEN_FILES entry present here whose
-    content still has the shape its tool wrote. -> [rel deleted]. A file
-    with the name but not the shape is this repo's own and is kept."""
+def source_retired_written(clone, ref=None, worktree=False):
+    """-> [(rel, tool basename, reason)] for every file the source's
+    decommission record says a retired engine tool left in consumers, read
+    from `clone` at `ref` (HEAD when None), or from its working tree when
+    `worktree` or when git cannot show it. [] when the record cannot be
+    read: nothing is deleted on a guess."""
+    clone = pathlib.Path(clone)
+    rel = 'process/decommissioned_paths.json'
+    text = None
+    if not worktree:
+        r = subprocess.run(['git', '-C', str(clone), 'show',
+                            f'{ref or "HEAD"}:{rel}'], capture_output=True, text=True)
+        text = r.stdout if r.returncode == 0 else None
+    if text is None:
+        try:
+            text = (clone / rel).read_text(encoding='utf-8')
+        except OSError:
+            return []
+    try:
+        entries = json.loads(text).get('decommissioned') or []
+    except (ValueError, AttributeError):
+        return []
+    out = []
+    for e in entries:
+        left = e.get(LEFT_IN_CONSUMERS_KEY) if isinstance(e, dict) else None
+        if not isinstance(left, list) or not e.get('path'):
+            continue
+        tool = pathlib.PurePosixPath(str(e['path'])).name
+        for f in left:
+            if isinstance(f, str) and f and '..' not in pathlib.PurePosixPath(f).parts:
+                out.append((f, tool, str(e.get('reason') or 'its tool was retired')))
+    return out
+
+
+def _retire_engine_written_files(dest_root, pd, written=()):
+    """Delete each file `written` (source_retired_written's list) present
+    here whose text still names the tool that wrote it. -> [rel deleted]. A
+    file with the name but not the tool's mark is this repo's own and is
+    kept, and said."""
     deleted = []
-    for rel, (reason, recognise) in sorted(RETIRED_ENGINE_WRITTEN_FILES.items()):
+    for rel, tool, reason in sorted(set(written)):
         f = dest_root / rel
         if not f.is_file():
             continue
-        if not recognise(f.read_text(encoding='utf-8', errors='ignore')):
-            _left(rel, 'carries the name of a file a decommissioned engine '
-                       'tool wrote, but not its content -- kept; read it')
+        if tool not in f.read_text(encoding='utf-8', errors='ignore'):
+            _left(rel, f'carries the name of a file {tool} wrote before it '
+                       f'was retired, but not its content -- kept; read it')
             continue
+        why = f'written by {tool}, which was retired: {reason}'
         if pd is None:
-            _left(rel, f'a leftover ({reason}), but the vendored '
+            _left(rel, f'a leftover ({why}), but the vendored '
                        'precedent_decommission.py predates this sweep -- '
                        'refresh once more and it goes')
             continue
-        if _retire_one(dest_root, pd, rel, reason):
+        if _retire_one(dest_root, pd, rel, why):
             deleted.append(rel)
     if deleted:
         _warn_about_dependents(dest_root, deleted,
@@ -5132,7 +5149,7 @@ _ANSWER_QUOTE = re.compile(r'"[^"]{2,}"|\u201c[^\u201d]{2,}\u201d')
 
 
 # The session proxy's form of a GitHub remote:
-# http://<user>@127.0.0.1:PORT/git/<owner>/<repo>, the user being local_proxy.
+# http://local_proxy@127.0.0.1:PORT/git/<owner>/<repo>.
 _PROXY_SLUG_RE = re.compile(
     r'^https?://[^/]+/git/([A-Za-z0-9][\w-]*)/([\w.-]+?)(?:\.git)?/?$')
 
@@ -5944,7 +5961,7 @@ def _repo_ever_named(dest_root, word):
     return r.returncode == 0 and bool(r.stdout.strip())
 
 
-def retire_legacy_leftovers(dest_root, manifest, kind):
+def retire_legacy_leftovers(dest_root, manifest, kind, written=()):
     """Run every legacy sweep; called at the top of refresh(), after
     _remove_retired_ci_workflow_files (which clears a hand-paused tracked
     entry first, so the untracked sweep then sees it). -> {'deleted': [...],
@@ -5953,7 +5970,7 @@ def retire_legacy_leftovers(dest_root, manifest, kind):
     deleted_wf, _kept = _retire_legacy_workflows(dest_root, manifest, kind, pd)
     removed_wf = _remove_unapproved_workflows(dest_root, manifest, kind, pd)
     deleted_hooks = _retire_legacy_hooks(dest_root, manifest, pd)
-    deleted_written = _retire_engine_written_files(dest_root, pd)
+    deleted_written = _retire_engine_written_files(dest_root, pd, written)
     _remove_retired_config_fields(dest_root)
     _settle_local_declarations(dest_root, kind)
     handled = set()
@@ -9469,6 +9486,45 @@ def untested_tip_refusal(clone, commit, pb=None):
             f"refresh <clone> {TAKE_ANYWAY_FLAG}.")
 
 
+# How far back a refresh looks for a main that passed, as Update Vendors
+# does (precedent_update.GREEN_WINDOW).
+PASSED_WINDOW = 10
+
+
+def newest_passed_main(clone, tip, pb=None, window=PASSED_WINDOW):
+    """-> (commit, passed_over): the newest first-parent commit of main at or
+    behind `tip` whose GitHub test passed (its passed marker, or GitHub's
+    answer), and how many newer ones were passed over; (None, n) when none
+    did within `window`.
+
+    2026-10-20: a session-start refresh found main's newest commit with no
+    finished test and refused, for every source, leaving all four stale. A
+    refresh never takes an untested main (untested_tip_refusal); it now
+    takes the newest one that passed instead, as Update Vendors does, and
+    says which."""
+    pb = pb or _source_branches_module(clone)
+    if pb is None or not tip:
+        return None, 0
+    try:
+        out = subprocess.run(['git', '-C', str(clone), 'rev-list', '--first-parent',
+                              f'--max-count={window}', tip],
+                             capture_output=True, text=True)
+        commits = out.stdout.split() if out.returncode == 0 else []
+        tests = pb.github_tests(clone, tip)
+        marked = pb.passed_markers(clone) or set()
+    except Exception:  # noqa: BLE001 -- the question must not break a refresh
+        return None, 0
+    for n, sha in enumerate(commits):
+        try:
+            if marked and _rev(clone, f'{sha}^{{tree}}') in marked:
+                return sha, n
+            if tests and pb.github_test_state(clone, sha, tests)[0] == 'passed':
+                return sha, n
+        except Exception:  # noqa: BLE001
+            return None, n
+    return None, len(commits)
+
+
 def refresh(clone, force=False, ref=None, take_anyway=False):
     """`ref`, when given, names the exact commit or ref inside `clone` to
     vendor from, instead of resolving FOLLOWED_BRANCH there.
@@ -9500,7 +9556,8 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
     global _DEFER_WORKFLOW_JUDGMENT
     _DEFER_WORKFLOW_JUDGMENT = True
     try:
-        retire_legacy_leftovers(ROOT, manifest, kind)
+        retire_legacy_leftovers(ROOT, manifest, kind,
+                                written=source_retired_written(clone, ref))
     finally:
         _DEFER_WORKFLOW_JUDGMENT = False
 
@@ -9576,7 +9633,22 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
                 else untested_tip_refusal(clone, new_commit))
     if untested:
         shutil.rmtree(engine_dir, ignore_errors=True)
-        sys.exit(f"precedent_vendor_engine FAIL: {untested}")
+        older, over = newest_passed_main(clone, new_commit)
+        if not older:
+            sys.exit(f"precedent_vendor_engine FAIL: {untested} No "
+                     f"{SOURCE_BRANCH} in the last {over} commits has a "
+                     f"passing test either, so nothing is taken.")
+        print(f"NOTICE: precedent_vendor_engine refresh: took {SOURCE_BRANCH} @ "
+              f"{older[:12]}, the newest whose GitHub test passed, {over} "
+              f"commit{'s' if over != 1 else ''} behind {new_commit[:12]}, "
+              f"which has none yet. A refresh after its test passes takes it.")
+        if recorded and recorded != older and engine_is_ahead(clone, recorded, older):
+            print(f"precedent_vendor_engine refresh: this repo's engine came "
+                  f"from BestPractice {recorded[:12]}, newer than {older[:12]}, "
+                  f"so it is left as it is.")
+            return
+        new_commit, engine_dir = _source_tools_at(clone, kind, ref=older,
+                                                  fetch=False)
     try:
         # Read now, compared now, BEFORE any write: a first-run refusal
         # after the engine files were already rewritten would leave a
