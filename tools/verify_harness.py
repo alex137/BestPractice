@@ -81724,6 +81724,43 @@ def check_set_words_leave_out_the_set_itself_by_name():
           got == ['zz-other'], f'sets_with_words gave {got}')
 
 
+def check_set_words_hold_a_practice_printed_part_to_output_patterns():
+    """set_words.file_hits holds a practice's printed part -- title,
+    index_clause and ## Rule, what the gates print word for word -- to a
+    set's output patterns, and leaves its Detail, its Story and the excused
+    ordinary phrase alone. 2026-10-20: "staging" in two universal Rules
+    reached the gates' output and only the full suite's
+    check_ladder_off_engine_says_no_ladder_words saw it, because the quick
+    check read files with file patterns alone."""
+    import set_words as sw
+    import tempfile
+    words = sw.Words('zz-set', {'output_patterns': [
+        {'kind': 'a zz tier', 'regex': r'(?<![/\w-])zztier\b',
+         'matches': ['on zztier'], 'never_matches': ['tree/zztier']}]})
+    practice = ('---\nslug: zz\ntitle: "Zz"\nindex_clause: "{clause}"\n'
+                'status: active\n---\n## Rule\n{rule}\n\n## Detail\n'
+                'Detail names zztier.\n\n## Story\nStory names zztier.\n')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        f = pathlib.Path(td) / 'zz.md'
+
+        def got(clause='plain', rule='Plain rule.'):
+            f.write_text(practice.format(clause=clause, rule=rule))
+            return [(n, m) for n, _k, m in sw.file_hits(f, words)]
+        cases.append(('a Rule naming the word is a hit', got(rule='Land on zztier.') == [(8, 'zztier')]))
+        cases.append(('an index_clause naming it is a hit', got(clause='land on zztier') == [(4, 'zztier')]))
+        cases.append(('CONTROL: Detail and Story naming it are not', got() == []))
+        sw.EXCUSED_IN_OUTPUT += ('zztier document',)
+        try:
+            cases.append(('an excused phrase is not',
+                          got(rule='Write a zztier document.') == []))
+        finally:
+            sw.EXCUSED_IN_OUTPUT = sw.EXCUSED_IN_OUTPUT[:-1]
+    bad = [n for n, ok in cases if not ok]
+    check(f'a practice\'s printed part is held to output patterns ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def _with_user_config(path):
     """-> a restore() for PRECEDENT_USER_CONFIG, after pointing it at `path`."""
     saved = os.environ.get('PRECEDENT_USER_CONFIG')
@@ -81936,7 +81973,7 @@ def check_ladder_off_engine_says_no_ladder_words():
         ('the deep check\'s listing', ['tools/precedent_push_check.py', '--list']),
         ('the ladder helper', ['tools/precedent_ladder.py', '--status']),
     ]
-    excused = ('staging document',)
+    excused = sw.EXCUSED_IN_OUTPUT
     cases = []
     for what, argv in runs:
         r = subprocess.run([sys.executable, *argv], cwd=str(ROOT), env=env,
@@ -89860,6 +89897,7 @@ def main():
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()
     check_set_words_leave_out_the_set_itself_by_name()
+    check_set_words_hold_a_practice_printed_part_to_output_patterns()
     check_resolver_leaves_out_the_set_itself_by_name()
     check_a_missing_clone_says_not_cloned()
     check_off_base_sources_are_named()
