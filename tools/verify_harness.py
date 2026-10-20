@@ -69822,6 +69822,31 @@ def check_copied_set_carries_another():
                       == inner.resolve() and mine[0].get('carried_by') == 'zz-pack',
                       repr(mine)))
 
+        # A pack with no rules of its own (a voice pack: all its rules are
+        # the set it carries) is not an empty source to the sync
+        # (2026-10-19, the first voice pack copied into a repository).
+        own = host / 'process' / 'zz-pack' / 'practices' / 'zz-pack-rule.md'
+        own.unlink()
+        senv = {**env, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                            '--repo', str(host), '--check'],
+                           env=senv, capture_output=True, text=True)
+        cases.append(('a pack whose only rules are the set it carries is not '
+                      'refused as empty',
+                      'contributed no practices' not in r.stdout + r.stderr,
+                      (r.stdout + r.stderr)[-500:]))
+        # NEGATIVE CONTROL: with the carried set's rules gone too, it is.
+        (inner / 'practices' / 'zz-inner-rule.md').unlink()
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                            '--repo', str(host), '--check'],
+                           env=senv, capture_output=True, text=True)
+        cases.append(('NEGATIVE CONTROL: a pack that carries an empty set is '
+                      'still refused as empty',
+                      'contributed no practices' in r.stdout + r.stderr,
+                      (r.stdout + r.stderr)[-500:]))
+        rule(host / 'process' / 'zz-pack', 'zz-pack-rule')
+        rule(inner, 'zz-inner-rule')
+
         ind = tmp / 'people' / 'zz-ind'
         (ind / 'practices').mkdir(parents=True)
         (ind / 'precedent-source.json').write_text(json.dumps(
