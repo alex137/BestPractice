@@ -81672,6 +81672,29 @@ def check_refresh_refuses_an_untested_main():
           and pu.kept_older_note('x', 'main', tip, tip) == 'x',
           f'{got} / {note!r}')
 
+    # 2026-10-20: a session-start refresh refused for every source because
+    # main's newest commit had no finished test, leaving them all stale. It
+    # now takes the newest main that passed, as Update Vendors does.
+    head = subprocess.run(['git', '-C', str(ROOT), 'rev-list', '--first-parent',
+                           '--max-count=3', 'HEAD'], capture_output=True,
+                          text=True).stdout.split()
+
+    class PassesAt(FakeBranches):
+        def __init__(self, passed):
+            self.passed = passed
+
+        def github_test_state(self, _clone, sha, _tests):
+            return ('passed', '') if sha == self.passed else ('running', '')
+    if len(head) == 3:
+        took = pve.newest_passed_main(ROOT, head[0], pb=PassesAt(head[2]))
+        none = pve.newest_passed_main(ROOT, head[0], pb=PassesAt('none'), window=3)
+        check('a refresh takes the newest main that passed when the newest has '
+              'not', took == (head[2], 2) and none == (None, 3),
+              f'{took} / {none}')
+    else:
+        not_applicable('a refresh takes the newest main that passed',
+                       'this clone has fewer than three first-parent commits')
+
 
 def check_ladder_off_engine_says_no_ladder_words():
     """spec/LADDER_OPT_IN_PLAN.md assertion B, on the engine's own output: a

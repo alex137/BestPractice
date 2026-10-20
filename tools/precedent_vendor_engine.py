@@ -9486,6 +9486,45 @@ def untested_tip_refusal(clone, commit, pb=None):
             f"refresh <clone> {TAKE_ANYWAY_FLAG}.")
 
 
+# How far back a refresh looks for a main that passed, as Update Vendors
+# does (precedent_update.GREEN_WINDOW).
+PASSED_WINDOW = 10
+
+
+def newest_passed_main(clone, tip, pb=None, window=PASSED_WINDOW):
+    """-> (commit, passed_over): the newest first-parent commit of main at or
+    behind `tip` whose GitHub test passed (its passed marker, or GitHub's
+    answer), and how many newer ones were passed over; (None, n) when none
+    did within `window`.
+
+    2026-10-20: a session-start refresh found main's newest commit with no
+    finished test and refused, for every source, leaving all four stale. A
+    refresh never takes an untested main (untested_tip_refusal); it now
+    takes the newest one that passed instead, as Update Vendors does, and
+    says which."""
+    pb = pb or _source_branches_module(clone)
+    if pb is None or not tip:
+        return None, 0
+    try:
+        out = subprocess.run(['git', '-C', str(clone), 'rev-list', '--first-parent',
+                              f'--max-count={window}', tip],
+                             capture_output=True, text=True)
+        commits = out.stdout.split() if out.returncode == 0 else []
+        tests = pb.github_tests(clone, tip)
+        marked = pb.passed_markers(clone) or set()
+    except Exception:  # noqa: BLE001 -- the question must not break a refresh
+        return None, 0
+    for n, sha in enumerate(commits):
+        try:
+            if marked and _rev(clone, f'{sha}^{{tree}}') in marked:
+                return sha, n
+            if tests and pb.github_test_state(clone, sha, tests)[0] == 'passed':
+                return sha, n
+        except Exception:  # noqa: BLE001
+            return None, n
+    return None, len(commits)
+
+
 def refresh(clone, force=False, ref=None, take_anyway=False):
     """`ref`, when given, names the exact commit or ref inside `clone` to
     vendor from, instead of resolving FOLLOWED_BRANCH there.
@@ -9594,7 +9633,22 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
                 else untested_tip_refusal(clone, new_commit))
     if untested:
         shutil.rmtree(engine_dir, ignore_errors=True)
-        sys.exit(f"precedent_vendor_engine FAIL: {untested}")
+        older, over = newest_passed_main(clone, new_commit)
+        if not older:
+            sys.exit(f"precedent_vendor_engine FAIL: {untested} No "
+                     f"{SOURCE_BRANCH} in the last {over} commits has a "
+                     f"passing test either, so nothing is taken.")
+        print(f"NOTICE: precedent_vendor_engine refresh: took {SOURCE_BRANCH} @ "
+              f"{older[:12]}, the newest whose GitHub test passed, {over} "
+              f"commit{'s' if over != 1 else ''} behind {new_commit[:12]}, "
+              f"which has none yet. A refresh after its test passes takes it.")
+        if recorded and recorded != older and engine_is_ahead(clone, recorded, older):
+            print(f"precedent_vendor_engine refresh: this repo's engine came "
+                  f"from BestPractice {recorded[:12]}, newer than {older[:12]}, "
+                  f"so it is left as it is.")
+            return
+        new_commit, engine_dir = _source_tools_at(clone, kind, ref=older,
+                                                  fetch=False)
     try:
         # Read now, compared now, BEFORE any write: a first-run refusal
         # after the engine files were already rewritten would leave a
