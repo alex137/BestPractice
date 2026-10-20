@@ -81724,6 +81724,23 @@ def check_set_words_leave_out_the_set_itself_by_name():
           got == ['zz-other'], f'sets_with_words gave {got}')
 
 
+def check_moves_core_names_exist_in_the_engine():
+    """Every name precedent_branches.MOVES_CORE declares -- what a set's
+    moves module may call on the engine as `core.<name>` -- exists in the
+    engine. 2026-10-20: the ladder's moves module called 47 engine names
+    with no contract, so a rename broke Promote everywhere and only the
+    set's own test, after an engine refresh, would see it. The other half,
+    that the module calls only declared names, is the ladder set's test."""
+    import precedent_branches as pb
+    declared = getattr(pb, 'MOVES_CORE', ())
+    missing = [n for n in declared if not hasattr(pb, n)]
+    dupes = sorted({n for n in declared if declared.count(n) > 1})
+    check(f'every name the engine declares for a moves module exists '
+          f'({len(declared)} declared)',
+          declared and not missing and not dupes,
+          f'missing: {missing}; declared twice: {dupes}')
+
+
 def check_set_words_hold_a_practice_printed_part_to_output_patterns():
     """set_words.file_hits holds a practice's printed part -- title,
     index_clause and ## Rule, what the gates print word for word -- to a
@@ -89898,6 +89915,7 @@ def main():
     check_ladder_opt_in_loader()
     check_set_words_leave_out_the_set_itself_by_name()
     check_set_words_hold_a_practice_printed_part_to_output_patterns()
+    check_moves_core_names_exist_in_the_engine()
     check_resolver_leaves_out_the_set_itself_by_name()
     check_a_missing_clone_says_not_cloned()
     check_off_base_sources_are_named()

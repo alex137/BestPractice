@@ -1020,6 +1020,63 @@ def _at_head(sha):
 # nothing.
 MOVES_KEY = 'branch_moves'
 
+# The names a moves module may call on this engine as `core.<name>`: its
+# contract with the engine (2026-10-20). A rename here breaks Promote and
+# Produce in every repository on the ladder, and until this list nothing
+# said so until a set's own test ran on a refreshed engine copy.
+# verify_harness holds that every name here exists; the ladder set's own
+# test holds that its moves module calls nothing else. Renaming or removing
+# one is a change to both sides: add the new name, move the set, then drop
+# the old one.
+MOVES_CORE = (
+    'BASIC',
+    'COPY_NAME_MARKER',
+    'COPY_SLUG',
+    'FULL',
+    'GITHUB_POLL_SECONDS',
+    'GITHUB_TEST_WAIT_SECONDS',
+    'LAND_COMMAND',
+    'MAIN',
+    'NOT_DUE_PREFIX',
+    'NOT_DUE_SLUG',
+    'STAGING',
+    'UNCHECKED_REF',
+    '_Worktree',
+    '_against_main',
+    '_at_head',
+    '_check',
+    '_day_and_moment',
+    '_exit_cleanly_on_signal',
+    '_fast_main_path',
+    '_gets_github_test',
+    '_git',
+    '_ignore_signals',
+    '_lock_claim',
+    '_lock_release',
+    '_merge_env',
+    '_new_commits',
+    '_other_work_note',
+    '_promote_made',
+    '_read_json',
+    '_receipt',
+    '_remote_tip',
+    '_restore_signals',
+    '_run',
+    '_sibling',
+    '_slug',
+    '_upstream_review',
+    'full_check_after',
+    'github_test_state',
+    'github_tests',
+    'main_test_due',
+    'mark_other_work',
+    'promote_branch_name',
+    'repo_has_tiers',
+    'resolve_main_test_target',
+    'run_tests_record',
+    'staging_branch',
+)
+
 
 def branch_moves(root, user_config=None):
     """-> the moves module a set in force names, imported and bound to this
