@@ -563,6 +563,7 @@
   "check_set_bootstrap_defers_to_a_newer_engine_copy": 0.7,
   "check_set_independence_holds_only_what_a_waiting_part_names": 0.1,
   "check_set_independence_reads_tests_and_rules": 0.0,
+  "check_set_refuses_its_own_stranded_deduplication": 0.1,
   "check_set_words_leave_out_the_set_itself_by_name": 0.0,
   "check_sets_carry_the_todo_and_gotcha_index_tools": 0.0,
   "check_settled_marker_scan_is_scoped_and_follows_the_split": 0.0,
