@@ -1359,6 +1359,10 @@ _top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
 _common="\$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git rev-parse --absolute-git-dir 2>/dev/null || true)"
 _own="\$_common/hooks/pre-push"
 _gate="\$_top/tools/leak_gate.py"
+# A refusal here names the route that is allowed, never its own bypass: a
+# session reading it was just told no (2026-10-20). The PRECEDENT_SKIP_*
+# variables are documented for a person to choose, in
+# documentation/FOR_DEVELOPERS.md (How Enforcement Works).
 # A tree the push check last FAILED is not pushed (precedent_push_check.py,
 # FAILED_TREES): the check's own "do not push past it", made to hold where
 # no harness hook runs. A pass of the same tree clears it.
@@ -1374,7 +1378,7 @@ if [ -n "\$_common" ] && [ -s "\$_failed" ] && command -v python3 >/dev/null 2>&
 d = json.load(open(sys.argv[1])).get(sys.argv[2])
 if not d: sys.exit(1)
 print(", ".join(d.get("failed") or []) + (" at " + d["at"] if d.get("at") else ""))' "\$_failed" "\$_tree" 2>/dev/null)"; then
-        echo "push refused: precedent_push_check FAILED on exactly this tree (\$_why) and has not passed on it since. Fix what it found, run python3 tools/precedent_push_check.py again, and push once it passes. PRECEDENT_SKIP_FAILED_TREE=1 lets one push through." >&2
+        echo "push refused: precedent_push_check FAILED on exactly this tree (\$_why) and has not passed on it since. Fix what it found, run python3 tools/precedent_push_check.py again, and push once it passes." >&2
         exit 1
       fi
     done
@@ -1417,7 +1421,7 @@ if [ -n "\$_top" ] && [ -f "\$_hooks" ] && command -v python3 >/dev/null 2>&1; t
   if [ "\${PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS:-}" = 1 ]; then
     echo "pre-push: the practices' pre-push hooks SKIPPED for this push (PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS=1)" >&2
   elif ! printf '%s\\n' "\$_input" | (cd "\$_top" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR python3 "\$_hooks" --git pre-push "\$@"); then
-    echo "push refused: a practice in force here refused it, above. PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS=1 lets one push through." >&2
+    echo "push refused: a practice in force here refused it, above. Do what it says there, then push again." >&2
     exit 1
   fi
 fi

@@ -3,7 +3,7 @@
   "consumer": [
     {
       "event": "PreToolUse",
-      "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__.*__(merge_pull_request|create_pull_request|update_pull_request|push_files|create_or_update_file|delete_file|create_branch)",
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|Artifact|mcp__.*__(merge_pull_request|create_pull_request|update_pull_request|push_files|create_or_update_file|delete_file|create_branch)",
       "script": "answer-first-gate.sh",
       "timeout": 10
     },
@@ -27,7 +27,7 @@
   "source": [
     {
       "event": "PreToolUse",
-      "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__.*__(merge_pull_request|create_pull_request|update_pull_request|push_files|create_or_update_file|delete_file|create_branch)",
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|Artifact|mcp__.*__(merge_pull_request|create_pull_request|update_pull_request|push_files|create_or_update_file|delete_file|create_branch)",
       "script": "answer-first-gate.sh",
       "timeout": 10
     },

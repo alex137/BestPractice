@@ -156,10 +156,11 @@ def keep_stale(target, unresolved):
 # and this file would have duplicated it into every session.
 
 
-def collect(repo, skip_brought=False):
+def collect(repo, skip_brought=False, skip_individual=False):
     """-> (extra_practices, levels, notes). `skip_brought` leaves out the
     sets the person brings, for measuring what bringing them costs
-    (brought_share). `extra_practices` is in
+    (brought_share); `skip_individual` leaves out the person's own
+    individual set too, for individual_share. `extra_practices` is in
     build_views.load_practices()' (fm, sections, file) shape so the loader
     block is rendered by the SAME code that renders AGENTS.md -- a second
     renderer here would drift from that one, which is the whole reason
@@ -179,6 +180,8 @@ def collect(repo, skip_brought=False):
         return [], {}, [('unresolved', f'no source set could be read: {e}')]
     if skip_brought:
         sources = [s for s in sources if not s.get('brought')]
+    if skip_individual:
+        sources = [s for s in sources if pr.declared_level(s) != 'individual']
 
     try:
         res = pr.resolve(sources)
@@ -430,6 +433,7 @@ def render(extra, levels, notes, repo=None):
         try:
             if any(s.get('brought') for s in pr.load_config(str(repo))):
                 budget += brought_budget(repo)[0] or 0
+            budget += brought_budget(repo, INDIVIDUAL_BUDGET_KEY)[0] or 0
         except Exception:                                    # noqa: BLE001
             pass
     # The tracked AGENTS.md is loaded every session alongside this file, so a
@@ -540,9 +544,21 @@ def _with_target_warning(repo, text, brought=0):
 BROUGHT_BUDGET_KEY = 'brought_sets_tokens'
 
 
-def brought_budget(repo=None):
+# THE PERSON'S OWN INDIVIDUAL SET HAS A BUDGET OF ITS OWN TOO (Morgan,
+# 2026-10-20, strength: decided: "7 option 1"). Its rules reach every
+# repository the person works in, and no repository can shorten them, so
+# when the set declares `individual_set_tokens` its share of this file is
+# held to that, not to each repository's ceiling. 2026-10-20, a voice
+# repository: ~1,176 of ~1,510 tokens were the individual set, against a
+# 400-token ceiling, and every session start there failed for it.
+# Undeclared, the share stays charged to the repository, as before.
+INDIVIDUAL_BUDGET_KEY = 'individual_set_tokens'
+
+
+def brought_budget(repo=None, key=BROUGHT_BUDGET_KEY):
     """-> (tokens or None, individual set path or None): the budget the
-    person's individual set declares for the sets it brings."""
+    person's individual set declares under `key`: for the sets it brings
+    (BROUGHT_BUDGET_KEY), or for itself (INDIVIDUAL_BUDGET_KEY)."""
     try:
         sources = pr.load_config(repo or str(_ENGINE_DIR.parent))
     except Exception:                                        # noqa: BLE001
@@ -555,7 +571,7 @@ def brought_budget(repo=None):
                          .read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None, ind['path']
-    v = man.get(BROUGHT_BUDGET_KEY) if isinstance(man, dict) else None
+    v = man.get(key) if isinstance(man, dict) else None
     return (v if isinstance(v, int) else None), ind['path']
 
 
@@ -592,6 +608,30 @@ def brought_share(repo=None):
     return max(0, full - bare), names
 
 
+def individual_share(repo):
+    """-> tokens of the repository's charge (charged_to_repo) that the
+    person's own individual set accounts for: the file rendered without the
+    brought sets, less the file rendered without the individual set as well.
+    0 when either rendering fails.
+
+    WHY (2026-10-20). A consuming repository's ceiling for this file was
+    seeded at 400 from a render whose own part measured 312; ten days later
+    the session check failed every session start at ~1,510, and its remedy
+    said to reduce the repository. ~1,200 of that was the person's own
+    individual set -- rules the repository does not hold and cannot shorten.
+    The check now says how much is whose, so the reduction goes where the
+    text is, or the person decides to raise the repository's ceiling."""
+    import contextlib, io
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            with_ind = render(*collect(repo, skip_brought=True), repo=repo)
+            without = render(*collect(repo, skip_brought=True,
+                                      skip_individual=True), repo=repo)
+    except Exception:                                        # noqa: BLE001
+        return 0
+    return max(0, bv._approx_tokens(with_ind) - bv._approx_tokens(without))
+
+
 def charged_to_repo(repo, n):
     """-> (tokens charged to the repository's ceiling, brought share, [names],
     the person's budget or None) for a session file measuring `n`.
@@ -625,9 +665,26 @@ def charged_to_repo(repo, n):
         budget = brought_budget(repo)[0] if share else None
     except Exception:                                        # noqa: BLE001
         return n, 0, [], None
-    if not share or budget is None:
-        return n, share, names, budget
-    return bare, share, names, budget
+    charged = n if (not share or budget is None) else bare
+    # The individual set's share, when it declares a budget of its own
+    # (INDIVIDUAL_BUDGET_KEY); individual_charge says whether it is over.
+    ind, ind_budget = individual_charge(repo)
+    if ind_budget is not None:
+        charged = max(0, charged - ind)
+    return charged, share, names, budget
+
+
+def individual_charge(repo):
+    """-> (the individual set's share of this file, its declared budget or
+    None). The share is measured only when a budget is declared: (0, None)
+    otherwise, and the share stays the repository's to pay."""
+    try:
+        ind_budget = brought_budget(repo, INDIVIDUAL_BUDGET_KEY)[0]
+    except Exception:                                        # noqa: BLE001
+        return 0, None
+    if ind_budget is None:
+        return 0, None
+    return individual_share(str(repo)), ind_budget
 
 
 def spoken_block(extra):

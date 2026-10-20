@@ -1125,6 +1125,10 @@ def copy_in_step(repo, rep, answers=None, answered_by=''):
             rep.step('copy in', f'{name}: no answer recorded -- it is not a set '
                      f'you bring or offer, or it was answered here already')
             continue
+        if answer == 'yes' and pve.copy_in_unchecked(offer):
+            rep.ask('copy in', f'{name}: the yes was not recorded. '
+                    f'{pve.copy_in_question(offer)}')
+            continue
         waits = pve.copy_in_waits_on(offer.get('clone'),
                                      offer.get('set_root', '')) \
             if answer == 'yes' else ''
@@ -1144,9 +1148,16 @@ def copy_in_step(repo, rep, answers=None, answered_by=''):
 def refresh_copies_step(repo, rep, take_sets=()):
     """Refresh every shared set this repository copies in, from the
     person's own clone of it, with checkin.py --source: the same mirror and
-    record the universal catalogue gets. A set whose precedent-source.json
-    says "copy_refresh": "on-go-ahead" (a voice pack) is only reported when
-    its origin has moved, and taken when this run names it in --take-set.
+    record the universal catalogue gets. Every copied-in set is refreshed
+    on every run, a voice pack included, and the report says how far it
+    moved (Morgan, 2026-10-20, strength: decided: "Voice packs (and [the
+    writing rules they carry]) should be marked to refresh upon a normal
+    vendor update").
+    Whether to freeze a copy is the repository's call, not the set's: a
+    source entry in precedent.json carrying "hold": "<why>" is only reported
+    when its origin moves, and taken this once when the run names it in
+    --take-set. The set-side "copy_refresh": "on-go-ahead" it replaces is
+    ignored, and named so its owner can delete it.
     A set with no clone on this machine is said, never guessed."""
     try:
         import precedent_resolve as pr
@@ -1189,11 +1200,20 @@ def refresh_copies_step(repo, rep, take_sets=()):
         # A copy whose files are not there is made again, whatever its
         # record says: a failed update's rerun can leave the record and
         # clear the tree, and a go-ahead set was then never re-copied
-        # (2026-10-19, a voice pack left empty in a consumer).
+        # (2026-10-19, a voice pack left empty in a consumer). A backstop:
+        # the cause, the put-back taking the copy for engine output, is
+        # fixed in vendored_layer_paths(); this still covers a copy lost
+        # any other way.
         here = repo / str(e['path'])
         first = not up.get('commit') or not (here / pr.SOURCE_MANIFEST).is_file()
-        if man.get('copy_refresh') == 'on-go-ahead' and not first \
-                and name not in take_sets:
+        if man.get('copy_refresh'):
+            rep.step(f'copy of {name}', f'its precedent-source.json still says '
+                     f'"copy_refresh": {json.dumps(man["copy_refresh"])}, which '
+                     f'is retired (2026-10-20): every copy is refreshed, and a '
+                     f'repository that wants one frozen says "hold" in its own '
+                     f'precedent.json. Delete the line in {name}')
+        hold = str(e.get('hold') or '').strip()
+        if hold and not first and name not in take_sets:
             # The copy is taken from the set's main, so "has it moved" asks
             # main too, never the branch this clone happens to be on.
             head = ''
@@ -1204,13 +1224,14 @@ def refresh_copies_step(repo, rep, take_sets=()):
                     break
             if rc == 0 and head.strip() and not head.strip().startswith(
                     str(up.get('commit'))[:12]):
-                rep.ask(f'copy of {name}', f'{name} has moved since it was '
-                        f'copied in ({str(up.get("commit"))[:12]} -> '
-                        f'{head.strip()[:12]}), and it is refreshed only on its '
-                        f'owner\'s go-ahead. Take it with --take-set {name}')
+                rep.step(f'copy of {name}', f'held by this repository ({hold}), '
+                         f'so not refreshed, though {name} has moved since it '
+                         f'was copied in ({str(up.get("commit"))[:12]} -> '
+                         f'{head.strip()[:12]}). Take it this once with '
+                         f'--take-set {name}, or delete the hold')
             else:
-                rep.step(f'copy of {name}', 'current; refreshed only on its '
-                         'owner\'s go-ahead')
+                rep.step(f'copy of {name}', f'current; held by this repository '
+                         f'({hold})')
             continue
         rc, out = run(checkin + ['--source', name, 'update', str(clone),
                                  '--repo', str(repo)]
@@ -1221,9 +1242,23 @@ def refresh_copies_step(repo, rep, take_sets=()):
         rc, out = run(checkin + ['--source', name, 'record', str(clone),
                                  '--repo', str(repo), '--note', 'Update Vendors'],
                       repo)
+        # A copy made before copy-in wrote the scrub opt-out gets it here.
+        if pve.copy_skips_scrub(repo, name):
+            rep.step(f'copy of {name}', 'its manifest now opts out of the '
+                     'outbound scrub: a copy is never sent up from here')
         rep.step(f'copy of {name}', next(
             (l for l in out.splitlines() if l.startswith('checkin record')),
             'recorded') if rc == 0 else 'not recorded: ' + tail(out, repo=repo))
+        # Refreshed without asking, so the report says it moved: a voice
+        # copy that changes is heard about, never found later in the prose.
+        try:
+            now = json.loads(mpath.read_text(encoding='utf-8')).get(
+                'upstream', {}).get('commit')
+        except (OSError, ValueError, AttributeError):
+            now = None
+        if rc == 0 and now and up.get('commit') and now != up.get('commit'):
+            rep.step(f'copy of {name}', f'moved {str(up["commit"])[:12]} -> '
+                     f'{str(now)[:12]}')
 
 
 def renamed_sources_step(repo, rep, engine_out):
@@ -4400,8 +4435,33 @@ def vendored_layer_paths(repo, paths):
     # for the person, the update never DONE (2026-10-16, a consumer taking
     # precedent-branch-cleanup.yml). Put back, the new engine writes it again.
     shipped = {rel for rows in pve.CI_WORKFLOW_TEMPLATES.values() for _t, rel in rows}
-    return [p for p in paths if p.startswith(engine)
-            or p == 'process/manifest.json' or p in declared or p in shipped]
+    # A copied-in set is a mirror too, but nothing writes it again from HEAD:
+    # its refresh copies only a set that moved or has no record, and its
+    # record (process/manifest_<set>.json) is outside its folder, so it is
+    # never put back with it. Put back, an uncommitted copy was deleted and
+    # its record kept, and the set read as copied and empty (2026-10-19, a
+    # voice pack in a consumer).
+    copies = tuple(p.rstrip('/') + '/' for p in copied_in_paths(repo))
+    return [p for p in paths if not p.startswith(copies) and (
+            p.startswith(engine) or p == 'process/manifest.json'
+            or p in declared or p in shipped)]
+
+
+def copied_in_paths(repo):
+    """-> the folders precedent.json, as committed or as the run left it,
+    declares as copied-in sets (`"vendored": true`)."""
+    out = set()
+    for spec in ('HEAD:precedent.json', None):
+        try:
+            text = (subprocess.run(['git', '-C', str(repo), 'show', spec],
+                                   capture_output=True, text=True).stdout if spec
+                    else (repo / 'precedent.json').read_text(encoding='utf-8'))
+            for e in (json.loads(text) or {}).get('sources') or []:
+                if isinstance(e, dict) and e.get('vendored') is True and e.get('path'):
+                    out.add(str(e['path']).strip('/'))
+        except (OSError, ValueError, AttributeError):
+            pass
+    return sorted(p for p in out if p not in ('', '.'))
 
 
 def restore_own_staged_output(repo, select):
@@ -5236,7 +5296,7 @@ def source_commit(follow, tip, take=None):
 
 
 def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
-           copy_in=None, answered_by='', take_sets=()):
+           copy_in=None, answered_by='', take_sets=(), keep_workflows=()):
     rep = Report()
     rep.pin_repo = repo
     if code:
@@ -5382,6 +5442,11 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     # 2. The engine, by the consumer's own copy: refresh() takes ROOT from
     # where it sits. It replaces itself and re-runs, so an old copy still
     # ends on the current code.
+    # Before the refresh, so its CI judgment reads the person's answer.
+    for rel in keep_workflows:
+        ok, what = pve.record_ci_keep(repo, rel, answered_by)
+        (rep.step if ok else rep.leave)(*(('CI workflow', what) if ok
+                                          else (rel, what)))
     argv = [sys.executable, str(engine_tool), 'refresh', str(SOURCE)]
     engine_ref = ref or engine_refresh_ref(SOURCE, head.strip() if head_ok else '',
                                            follow, last_synced)
@@ -5481,6 +5546,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
             rep.step('kept pin updated', line.split(': ', 1)[1])
         elif line.startswith('precedent_vendor_engine refresh: REPLACED '):
             rep.step('replaced', line.split('REPLACED ', 1)[1])
+        elif line.startswith(pve.KEEP_WORKFLOW_ASK):
+            rep.ask('CI workflow', line[len(pve.KEEP_WORKFLOW_ASK):])
     # A consumer's CI converges to upstream without asking (2026-09-27, see
     # precedent_vendor_engine.CI_CONVERGES_KINDS), so what the refresh
     # replaced or removed is reported here as done, never as a question.
@@ -5800,7 +5867,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     if adopted:
         before = before - set(adopted)
         rep.step('engine, written ahead', f'{len(adopted)} uncommitted path(s) '
-                 f'already held the pinned engine (a source refresh ran first); '
+                 f'already held the pinned engine (an earlier Update Vendors run here, or a '
+                 f'source refresh, wrote them and did not commit); '
                  f'staged as this update\'s: ' + ', '.join(adopted))
     mirrored = adopt_catalogue_output(repo, before, head.strip())
     if mirrored:
@@ -6119,6 +6187,43 @@ def full_check_after(repo):
     return isinstance(data, dict) and data.get('update_full_check') == 'after'
 
 
+def set_tests_step(repo, rep):
+    """A practice set's own tests, every tools/checks/tests/test_*.sh, when
+    this update changed the set's engine copy: -> None when they pass or do
+    not apply, else the failure text for rep.close().
+
+    2026-10-19: Update Vendors refreshed the ladder set's engine copy, the
+    set's quick check passed, and the update merged; the set's own
+    test_ladder_branches.sh first ran on main after it and was red. Its
+    tests are the set's contract with the engine it calls, and an engine
+    refresh touches the engine's files, never the tests', so the quick
+    tier's "the tests a change touches" never picks them. They run here
+    instead: the one moment the engine under them moves. Measured that day:
+    about 70 seconds for all nine of the ladder set's."""
+    if not (repo / 'precedent-source.json').is_file():
+        return None
+    tests = sorted((repo / 'tools' / 'checks' / 'tests').glob('test_*.sh'))
+    changed, _err = status_paths(repo, 'tools/')
+    engine = {f for f in (changed or ()) if not f.startswith('tools/checks/')}
+    if not tests or not engine:
+        return None
+    red = []
+    for t in tests:
+        r = subprocess.run(['bash', str(t)], cwd=str(repo), capture_output=True,
+                           text=True)
+        if r.returncode != 0:
+            red.append((t.name, (r.stdout + r.stderr).strip()))
+    if not red:
+        rep.step('the set\'s own tests', f'all {len(tests)} pass on the '
+                 f'refreshed engine')
+        return None
+    rep.step('the set\'s own tests', f'{len(red)} of {len(tests)} red on the '
+             f'refreshed engine: ' + ', '.join(n for n, _o in red))
+    return ('the set\'s own tests are red on the refreshed engine, so this '
+            'update would break the set where it lands:\n'
+            + '\n'.join(f'--- {n} ---\n{tail(o, repo=repo)}' for n, o in red))
+
+
 def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
     seed_budgets_step(repo, rep)
@@ -6181,6 +6286,9 @@ def closing_check(repo, rep, skip_check=False):
                          f'problems below first')
                 return rep.close(f"the {pb.BASIC} check is red, so the {label} "
                                  f"was not started:\n{tail(out, repo=repo)}")
+            red = set_tests_step(repo, rep)
+            if red:
+                return rep.close(red)
             if full_check_after(repo):
                 rep.step(label, 'runs after the push (update_full_check: after)')
                 rep.not_run = (
@@ -6194,6 +6302,9 @@ def closing_check(repo, rep, skip_check=False):
         if rc != 0:
             return rep.close(f"the {label} is red:\n{tail(out, repo=repo)}")
         rep.step(label, 'passed')
+        red = set_tests_step(repo, rep) if tier != pb.FULL else None
+        if red:
+            return rep.close(red)
         # A size cap over -- this update's own regenerated block can be what
         # pushed it -- passes the basic tier and is refused at the Debut.
         cap = next((l.strip() for l in out.splitlines()
@@ -6218,8 +6329,13 @@ def closing_check(repo, rep, skip_check=False):
 
 
 def main(argv=None):
+    # No abbreviations: `--take` was ambiguous between --take-anyway and
+    # --take-set, and argparse's own refusal named neither usefully
+    # (2026-10-19, Update Vendors in a consumer). A shortened flag is
+    # refused below with every flag it could mean, spelled out.
     ap = argparse.ArgumentParser(
-        description='Update Vendors as one command (spec/ONE_COMMAND_UPDATE_PLAN.md).')
+        description='Update Vendors as one command (spec/ONE_COMMAND_UPDATE_PLAN.md).',
+        allow_abbrev=False)
     ap.add_argument('--repo', default='.', help='the consuming repo (default: .)')
     ap.add_argument('--skip-check', action='store_true',
                     help='leave the deep check out; it still gates the push')
@@ -6242,17 +6358,36 @@ def main(argv=None):
                     help='the person\'s answer to "copy this set into this '
                          'repository?", recorded in precedent.json and never '
                          'asked again; repeat per set')
+    ap.add_argument('--keep-workflow', action='append', default=[],
+                    metavar='PATH',
+                    help='the person said to keep this workflow of the '
+                         'repository\'s own: recorded in github_ci_approved, '
+                         'pinned to its content, and never asked again; '
+                         'needs --answered-by')
     ap.add_argument('--answered-by', default='',
-                    help='who answered --copy-in, with a date and their own '
-                         'words: \'Name, YYYY-MM-DD: "..."\'')
+                    help='who answered --copy-in or --keep-workflow, with a '
+                         'date and their own words: \'Name, YYYY-MM-DD: "..."\'')
     ap.add_argument('--take-set', action='append', default=[], metavar='NAME',
-                    help='refresh this copied-in set although it waits for its '
-                         'owner\'s go-ahead -- only on that go-ahead')
+                    help='refresh this copied-in set this once although '
+                         'this repository holds it ("hold" in precedent.json)')
+    flags = [f for f in ap._option_string_actions if f.startswith('--')]
+    for tok in (sys.argv[1:] if argv is None else argv):
+        word = tok.split('=', 1)[0]
+        if word.startswith('--') and word not in flags:
+            meant = sorted(f for f in flags if f.startswith(word))
+            if meant:
+                print(f'precedent_update FAIL: {word} is not a flag; say which '
+                      f'you mean in full: {" or ".join(meant)}')
+                return FAILED
     a = ap.parse_args(argv)
     repo = pathlib.Path(a.repo).resolve()
     copy_in, bad = pve.parse_copy_in_answers(a.copy_in)
     if bad:
         print('precedent_update FAIL: ' + '; '.join(bad))
+        return FAILED
+    if a.keep_workflow and not a.answered_by:
+        print('precedent_update FAIL: --keep-workflow needs --answered-by: who '
+              'answered, the date and their words in quotes.')
         return FAILED
     if copy_in and not a.answered_by:
         print('precedent_update FAIL: --copy-in needs --answered-by: who '
@@ -6277,7 +6412,8 @@ def main(argv=None):
         return code
     return update(repo, skip_check=a.skip_check, ref=a.from_ref, move=a.move,
                   take=a.take, code=code, copy_in=copy_in,
-                  answered_by=a.answered_by, take_sets=tuple(a.take_set))
+                  answered_by=a.answered_by, take_sets=tuple(a.take_set),
+                  keep_workflows=tuple(a.keep_workflow))
 
 
 def bootstrap(repo, a, argv):

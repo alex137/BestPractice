@@ -480,6 +480,8 @@ def landed(argv, pb, search):
     said = landed_verdict(base, number, sha, tier, rc, out, same)
     if said is not None:
         print(said[1])
+        if said[0] == 0:
+            _update_vendors_note(root, sha, pb)
         return said[0]
     # The finding first: a long run's last lines can be all SKIPs, and the
     # failure that caused the revert scrolled off the tail (2026-10-12).
@@ -501,6 +503,15 @@ def landed(argv, pb, search):
              if done else f'{what}. Fix it on {base} now.')
           + f'\n{tail}')
     return 1
+
+
+def _update_vendors_note(root, sha, pb):
+    """Print precedent_branches.update_vendors_note for what merge `sha`
+    brought in, when this engine has it."""
+    note = getattr(pb, 'update_vendors_note', None) if pb else None
+    text = note(root, f'{sha}^1', sha) if note else ''
+    if text:
+        print(f'precedent_merge_check: {text}')
 
 
 def _arg(argv, name):

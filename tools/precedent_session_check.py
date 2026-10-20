@@ -1215,16 +1215,53 @@ def _charge_brought_share(n):
         charged, share, names, budget = psp.charged_to_repo(ROOT, n)
     except Exception:                                        # noqa: BLE001
         return n, '', None
+    try:
+        ind, ind_budget = psp.individual_charge(ROOT)
+    except Exception:                                        # noqa: BLE001
+        ind, ind_budget = 0, None
+    ind_note, ind_over = '', None
+    if ind_budget is not None:
+        # Held to the individual set's own budget (INDIVIDUAL_BUDGET_KEY).
+        ind_note = (f" (plus ~{ind:,} from your individual set, of your "
+                    f"{ind_budget:,})")
+        if ind > ind_budget:
+            ind_over = (f"your individual set adds ~{ind:,} tokens, over the "
+                        f"{ind_budget:,}-token `{psp.INDIVIDUAL_BUDGET_KEY}` "
+                        f"budget it declares")
     if not share or budget is None:
-        return n, '', None
+        return charged, ind_note, ind_over
     note = (f" (plus ~{share:,} from {', '.join(names)}, which you bring, "
-            f"of your {budget:,})")
-    over = None
+            f"of your {budget:,})") + ind_note
+    over = ind_over
     if share > budget:
         over = (f"the set(s) you bring ({', '.join(names)}) add ~{share:,} "
                 f"tokens, over the {budget:,}-token `brought_sets_tokens` "
                 f"budget in your individual set")
     return charged, note, over
+
+
+def _individual_part(n, cap):
+    """-> ' (of which ~X is your individual set's own ...)' when the person's
+    own individual set accounts for part of what the session file charges
+    the repository, else ''. The repository cannot shorten that part, so a
+    remedy naming only "a reduction pass" sent the work to the wrong repo
+    (precedent_session_practices.individual_share, 2026-10-20)."""
+    try:
+        import precedent_session_practices as psp
+        if psp.brought_budget(ROOT, psp.INDIVIDUAL_BUDGET_KEY)[0] is not None:
+            return ''               # its own budget holds it, not the repository
+        part = psp.individual_share(ROOT)
+    except Exception:                                        # noqa: BLE001
+        return ''
+    if not part:
+        return ''
+    own = max(0, n - part)
+    return (f" (of which ~{part:,} is your individual set's own practices, "
+            f"which this repository cannot shorten, and ~{own:,} the "
+            f"repository's own"
+            + (f", within its ceiling: reduce your individual set, or raise "
+               f"this ceiling in the person's own words" if own <= cap else '')
+            + ')')
 
 
 def _session_load_rows():
@@ -1254,7 +1291,9 @@ def _session_load_rows():
         else:
             measured.append(f'{rel} ~{n:,} of {cap:,}')
         if n > cap:
-            over.append(f'{rel} is ~{n:,} tokens, over its ceiling of {cap:,}')
+            over.append(f'{rel} is ~{n:,} tokens, over its ceiling of {cap:,}'
+                        + (_individual_part(n, cap)
+                           if rel == '.precedent/SESSION_PRACTICES.md' else ''))
     if not measured:
         return []
     name = "what this session loads fits this repository's ceilings"

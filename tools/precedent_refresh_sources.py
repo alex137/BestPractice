@@ -1155,6 +1155,46 @@ def refresh_only_branches(repo, base, merges_ok=False):
     return found
 
 
+# A REFRESH THAT STOPS SHORT OF ITS COMMIT IS UNDONE (2026-10-20). It used to
+# be "left where it failed, for a person to see" -- but session start runs
+# this with its output thrown away, so no person saw it. What was left was
+# the set's checkout sitting on the local refresh branch with the new engine
+# written and staged, uncommitted: Update Vendors in that set then reported
+# "engine, written ahead: 22 uncommitted path(s)", and
+# precedent_container_safe read them as work that existed nowhere else and
+# held an archive. Reproduced with a refused commit (an identity that would
+# not resolve does it); any failing step after `refresh` leaves the same.
+# Every byte of it is engine output the next refresh writes again, and the
+# caller only gets here once classify_dirt found no person's edit, so going
+# back loses nothing (practice: repair-cannot-discard-work) -- and if a
+# person's edit WAS there before, nothing is reset and the line says so.
+def _undo_uncommitted_refresh(repo, base, name, other_before):
+    """Put `repo` back on `base`, clean, with no `name` branch, after a
+    refresh that wrote files and did not commit them. -> a step tuple."""
+    if other_before:
+        return ('undone', False,
+                f'NOT undone: uncommitted changes of a person\'s were here '
+                f'before the refresh ({", ".join(other_before[:3])}), so the '
+                f'refresh output is left beside them on {name}')
+    for args in (('reset', '-q', '--hard', 'HEAD'), ('clean', '-fdq'),
+                 ('checkout', '-q', base)):
+        ok, out = _git(*args, cwd=repo)
+        if not ok:
+            return ('undone', False, f'could not undo the refresh '
+                                     f'(git {args[0]}): {out}')
+    _ok, held = _git('rev-list', '--count', name, '--not', base, cwd=repo)
+    if held == '0':
+        _git('branch', '-D', name, cwd=repo)
+    _ok, dirt = _git('status', '--porcelain', cwd=repo)
+    # practice: verify-postcondition -- the state wanted is "on base, clean"
+    _ok, now = _git('branch', '--show-current', cwd=repo)
+    if dirt or now != base:
+        return ('undone', False, f'could not return to {base} clean: '
+                                 f'on {now or "?"}, {dirt or "clean"}')
+    return ('undone', True, f'the refresh did not commit, so it was undone: '
+                            f'{base}, clean, as it was')
+
+
 def apply_on_its_own_branch(entry, base):
     """apply_to(), committed on a new local branch named for the engine tip,
     then back to `base` with the working tree clean. -> the same steps list."""
@@ -1172,13 +1212,15 @@ def apply_on_its_own_branch(entry, base):
         name = f'engine-refresh-{tip[:8] or "tip"}'
     finally:
         sys.path.pop(0)
+    _engine_before, other_before = classify_dirt(repo)
     steps = apply_to(entry, commit=True, branch=name)
     last = steps[-1] if steps else ('refresh', False, 'nothing ran')
     if last[0] == 'commit' and not last[1] and 'nothing to commit' in (last[2] or ''):
         steps[-1] = ('commit', True, 'the refresh changed nothing')
         last = steps[-1]
     if last[0] != 'commit' or not last[1]:
-        return steps                    # left where it failed, for a person to see
+        steps.append(_undo_uncommitted_refresh(repo, base, name, other_before))
+        return steps
     ok, out = _git('checkout', '-q', base, cwd=repo)
     if ok and 'changed nothing' in last[2]:
         _git('branch', '-D', name, cwd=repo)
@@ -1569,6 +1611,12 @@ def main(argv):
               f"{len(skipped)} of {len(stale)} stale source(s): "
               f"{', '.join(skipped)}. Those clones stay behind, and the "
               f"catalogue in force is read from their working trees.")
+    elif failed:
+        # It said "applied ... left clean" over a FAIL commit row, which is
+        # what hid the 2026-10-20 leftover (practice: control-asserts-which-failure).
+        print("\nprecedent_refresh_sources: NOT APPLIED -- a step above "
+              "FAILED. A refresh that did not commit was undone where it "
+              "could be; each FAIL row says what is left.")
     else:
         print("\nprecedent_refresh_sources: applied. Each refresh is committed "
               "on its own local branch in that set, and the set's base branch "

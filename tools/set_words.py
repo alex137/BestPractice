@@ -14,7 +14,8 @@ its own precedent-source.json:
         {"kind": "a step label", "regex": "\\\\bphase [1-9] of 9\\\\b",
          "matches": ["phase 2 of 9"], "never_matches": ["phase two"]}
       ],
-      "output_patterns": [ ...held only against printed engine output... ],
+      "output_patterns": [ ...held against printed output: engine output,
+                           and a practice's title, index_clause and Rule... ],
       "practice_links": ["a-slug-that-lives-in-the-set"]
     }
 
@@ -211,19 +212,70 @@ def scoped_files(root=ROOT):
     return seen
 
 
+# Ordinary English that an output pattern would otherwise take for a set's
+# word, excused wherever printed text is held to output patterns.
+EXCUSED_IN_OUTPUT = ('staging document',)
+
+
+def _printed_part(lines):
+    """Keep only what the gates and precedent_show.py print of a practice --
+    its title, its index_clause and its ## Rule -- blanking the rest, so
+    line numbers stay true."""
+    out, in_fm, in_rule = [], False, False
+    for n, line in enumerate(lines):
+        if n == 0 and line.strip() == '---':
+            in_fm = True
+            out.append('')
+            continue
+        if in_fm:
+            if line.strip() == '---':
+                in_fm = False
+                out.append('')
+            else:
+                out.append(line if line.startswith(('title:', 'index_clause:'))
+                           else '')
+            continue
+        if line.startswith('## '):
+            in_rule = line.strip().lower() == '## rule'
+        out.append(line if in_rule else '')
+    return out
+
+
+def output_hits_in_text(text, words):
+    """-> output-pattern hits in printed text, the excused phrases left out."""
+    return [h for h in hits(text, words.output_patterns)
+            if not any(x in text.splitlines()[h[0] - 1]
+                       for x in EXCUSED_IN_OUTPUT)]
+
+
 def file_hits(path, words, provides=()):
     """-> hits of `words` in the file at `path`, records left out. A
     practice that `requires` a capability the owning set provides is in
-    force only for a person who brings that set, so its words are theirs."""
+    force only for a person who brings that set, so its words are theirs.
+
+    A practice's printed part -- the title, index_clause and Rule the gates
+    print word for word -- is also held to the set's output patterns,
+    because a person reads it exactly as they read engine output. Found
+    2026-10-20: "staging" in two universal Rules reached the reply gate's
+    output, and only the full suite saw it, because the word is an output
+    pattern and this matcher read files with file patterns alone."""
     path = pathlib.Path(path)
     text = path.read_text(encoding='utf-8', errors='replace')
+    printed = None
     if path.suffix == '.md' and text.startswith('---'):
         if _inactive_practice(text) or (_requires(text) & set(provides)):
             return []
+        printed = '\n'.join(_printed_part(text.splitlines()))
         text = '\n'.join(_blank_record_fields(text.splitlines()))
     if path.suffix == '.md':
         text = '\n'.join(_strip_story(text.splitlines()))
-    return hits(text, words.patterns)
+    found = hits(text, words.patterns)
+    if printed is not None and words.output_patterns:
+        seen = {(n, m) for n, _k, m in found}
+        found += [h for h in output_hits_in_text(printed, words)
+                  if (h[0], h[2]) not in seen]
+        found.sort()
+    return found
 
 
 def main(argv=None):

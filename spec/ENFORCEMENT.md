@@ -128,6 +128,7 @@ being checked by it.
 | `speculation-is-marked` | tree | a speculative document under spec/ or record/ carries all four of its markers or none of them: the SPECULATIVE_ filename prefix requires a matching title, `kind: proposal`, a drafted/abandoned status and a warning block directly under the heading -- and, in the other direction, a document whose title or opening paragraph calls itself speculative must carry the prefix |
 | `technical-describes-people` | tree | no tracked path labels a FILE or DIRECTORY with a skill level; 'technical' and 'non-technical' describe people |
 | `timestamps-carry-offset` | tree | no tracked Python file stamps a moment with a bare `date.today()`, `utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` -- every one of those resolves to whatever zone the machine is on, which in a container is UTC and in a record is unrecoverable. And the ENGINE's fallback zone is the SAME string in both engine files that hold it: the time engine and the commit hook's script in tools/ (the hook files themselves are stubs since 2026-10-07) |
+| `todo-is-a-handoff` | change | a line this change adds to an open item that admits work left undone ("no test", "not built", "not fixed", "deferred", "left for later") says on the same line what blocks it -- the same rule and patterns the reply gate reads (reply_check.json, gap-names-its-reason) |
 | `todo-migrate-available-but-unused` | tree | a repo that has tools/todo_migrate.py vendored in (source or consumer engine alike) but has never run it -- TODO.md still carries real old-format item bullets, no todo/ directory exists, and the file does not open on the "# TODO has moved" stub heading |
 | `two-check-levels` | tree | the session instructions name both of the repo's two check levels -- the pair GLOSSARY.md defines against this practice, or "light check" / "deep check" where the glossary defines none -- and the glossary, when it names any, names two distinct levels |
 | `upstream-bug-stops-here` | tree | every file this repository received from upstream -- an engine file or hook tools/ENGINE_MANIFEST.json records, a shipped file, adapter or materialized check MANIFEST.json records -- is what was delivered, or carries its answer under "upstream_edits" in precedent.json: "owed-upstream" with the link that carries the fix up, or "local-need" with how the need is met and the person's quoted, dated approval. An answer for a file that matches again is stale |
@@ -137,7 +138,7 @@ being checked by it.
 | `whats-new` | change | a changed What's New log has every entry in the shape: a heading "<Weekday> <date>: <slug>" whose weekday is the date's own, the fixed opening line word for word, every bullet opening with a bold key phrase, and no approver named |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-69 of 188 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+70 of 188 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

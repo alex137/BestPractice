@@ -101,7 +101,15 @@ that belong to this repo, each named with its file and its question -- work
 them under the conflicted-file review below, then run it again. The rerun
 takes the same source commit the first run read, and so does every run after
 it until one reports DONE, so the target does not move while you work the
-list; `--move` takes the newest commit instead. Every one is
+list; `--move` takes the newest commit instead. Two flags start
+`--take`, so always spell them out: `--take-anyway <commit>` takes a commit
+whose GitHub test has not passed, on the person's word, and `--take-set
+<name>` refreshes, this once, a copied-in set the repository holds; a bare
+`--take` is refused with both named (2026-10-20). **Every copied-in set,
+voice packs and the sets they carry included, is refreshed on a normal update**, and
+the report says how far it moved; a repository freezes one only by its own
+`"hold": "<why>"` on that source in its `precedent.json` (Morgan,
+2026-10-20, strength: decided). Every one is
 listed in the same run, and while any is open the deep check is not started:
 it is the slow step, so it waits until nothing cheaper is in its way. Where
 the landing branch takes the full check, the basic tier runs first, and a
@@ -289,21 +297,10 @@ says so, both from the vendored tree under `process/upstream/`.
    later called assent rather than a decision; this move was made for
    every install at once so that cannot happen again.
 
-   **One repo may follow `staging` instead, since 2026-10-05, by saying so
-   in its own `precedent.json`: `"upstream_branch": "staging"`.** Alex,
-   2026-10-05 (`strength: decided`), after measuring that a change took
-   about 25 minutes to reach `main` and a few to reach `staging`. The
-   default is unchanged: a repo that names nothing follows `main`. Only
-   `main` and `staging` are accepted; any other name -- the branch that
-   has had only seconds of checking among them -- is refused, with the
-   update saying so and following `main`.
-   The update reads the declaration and moves both records itself -- the
-   engine's `source_branch` and the catalogue's `upstream.branch` -- in the
-   same run, so this is still never a hand edit to either. What a repo
-   gives up by declaring it: `staging` has not had GitHub's clean-machine
-   test. Removing the declaration moves the pins back to `main`; an engine
-   already ahead of `main` is then left as it is until `main` catches up,
-   never rolled back.
+   **One repo may follow BestPractice's pre-release branch instead of
+   `main`, by declaring it in its own `precedent.json`** (Alex,
+   2026-10-05, `strength: decided`); the Detail section says how and
+   what it gives up.
 
    **What reads a commit and what reads a working tree, which is the whole
    point of the step.** Inside Update Vendors, everything is read by commit,
@@ -433,7 +430,10 @@ says so, both from the vendored tree under `process/upstream/`.
    (an absent one stays absent), and
    removes every other workflow upstream does not ship, unless the person
    approved it in their own words in `github_ci_approved`. A declaration
-   under `local_ci_workflows` no longer keeps one in a consumer. **Nothing
+   under `local_ci_workflows` no longer keeps one in a consumer; the update
+   asks once, keep or delete, and a keep is recorded by rerunning it with
+   `--keep-workflow PATH --answered-by '<their words>'`, which also drops
+   the declaration (2026-10-20). **Nothing
    needed is lost:** a file that runs anything the local push check does not
    run (a script, a test runner, a third-party action) is **left alone, and
    flagged loudly**: an `IMPORTANT -- GITHUB WORKFLOW LEFT ALONE` banner
@@ -894,7 +894,8 @@ says so, both from the vendored tree under `process/upstream/`.
     stands. For each one, show the person
     what it runs and **when it triggers**, in one line, and ask. Record the
     answer in `precedent.json`'s `github_ci_approved`, pinned to the file's
-    sha256 and quoting their words, or delete the file. **Never approve one
+    sha256 and quoting their words (`precedent_update.py --keep-workflow
+    PATH --answered-by '...'` writes it), or delete the file. **Never approve one
     on the person's behalf**, and never "fix" a trigger to make it pass
     without asking
     ([ci-workflow-approved](ci-workflow-approved.md), Morgan, 2026-09-25:
@@ -986,6 +987,22 @@ first refresh after upstream renames or drops an engine file asks for a
 path that is genuinely gone.
 
 ## Detail
+**One repo may follow `staging` instead, since 2026-10-05, by saying so
+in its own `precedent.json`: `"upstream_branch": "staging"`.** Alex,
+2026-10-05 (`strength: decided`), after measuring that a change took
+about 25 minutes to reach `main` and a few to reach `staging`. The
+default is unchanged: a repo that names nothing follows `main`. Only
+`main` and `staging` are accepted; any other name -- the branch that
+has had only seconds of checking among them -- is refused, with the
+update saying so and following `main`.
+The update reads the declaration and moves both records itself -- the
+engine's `source_branch` and the catalogue's `upstream.branch` -- in the
+same run, so this is still never a hand edit to either. What a repo
+gives up by declaring it: `staging` has not had GitHub's clean-machine
+test. Removing the declaration moves the pins back to `main`; an engine
+already ahead of `main` is then left as it is until `main` catches up,
+never rolled back.
+
 **Step 1 is first because it is the one nobody thinks of as part of the
 update.** The instinct is to start with the command that does the
 vendoring. Every failure mode below step 1 is silent — no error, just an

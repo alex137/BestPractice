@@ -1020,6 +1020,63 @@ def _at_head(sha):
 # nothing.
 MOVES_KEY = 'branch_moves'
 
+# The names a moves module may call on this engine as `core.<name>`: its
+# contract with the engine (2026-10-20). A rename here breaks Promote and
+# Produce in every repository on the ladder, and until this list nothing
+# said so until a set's own test ran on a refreshed engine copy.
+# verify_harness holds that every name here exists; the ladder set's own
+# test holds that its moves module calls nothing else. Renaming or removing
+# one is a change to both sides: add the new name, move the set, then drop
+# the old one.
+MOVES_CORE = (
+    'BASIC',
+    'COPY_NAME_MARKER',
+    'COPY_SLUG',
+    'FULL',
+    'GITHUB_POLL_SECONDS',
+    'GITHUB_TEST_WAIT_SECONDS',
+    'LAND_COMMAND',
+    'MAIN',
+    'NOT_DUE_PREFIX',
+    'NOT_DUE_SLUG',
+    'STAGING',
+    'UNCHECKED_REF',
+    '_Worktree',
+    '_against_main',
+    '_at_head',
+    '_check',
+    '_day_and_moment',
+    '_exit_cleanly_on_signal',
+    '_fast_main_path',
+    '_gets_github_test',
+    '_git',
+    '_ignore_signals',
+    '_lock_claim',
+    '_lock_release',
+    '_merge_env',
+    '_new_commits',
+    '_other_work_note',
+    '_promote_made',
+    '_read_json',
+    '_receipt',
+    '_remote_tip',
+    '_restore_signals',
+    '_run',
+    '_sibling',
+    '_slug',
+    '_upstream_review',
+    'full_check_after',
+    'github_test_state',
+    'github_tests',
+    'main_test_due',
+    'mark_other_work',
+    'promote_branch_name',
+    'repo_has_tiers',
+    'resolve_main_test_target',
+    'run_tests_record',
+    'staging_branch',
+)
+
 
 def branch_moves(root, user_config=None):
     """-> the moves module a set in force names, imported and bound to this
@@ -1314,7 +1371,7 @@ def pull_request_checks(root, base):
     return found
 
 
-def _carry_composition_to_branch(root, label, new):
+def _carry_composition_to_branch(root, label, new, base=None):
     """After a landing refused for the pull-request route: push the
     composition the quick checks just passed -- staging, main's direct work
     and the branch -- to the branch itself, so the pull request carries
@@ -1327,7 +1384,14 @@ def _carry_composition_to_branch(root, label, new):
     hand merge of origin/main into the branch. The composition is already
     built and checked, and it descends from the branch, so this push is a
     fast-forward; a branch that moved, or a label that is no branch, is
-    left alone and said."""
+    left alone and said.
+
+    2026-10-20: the shortcut below looked only at main, but the pull
+    request goes into the landing branch. A branch carrying all of main's
+    work while the landing branch had moved on was told it "lacks
+    nothing", the composition (landing branch merged in, generated files
+    rebuilt) was dropped, and GitHub refused the merge for conflicts. The
+    shortcut now also needs the branch to merge cleanly into `base`."""
     branch = label[len('origin/'):] if label.startswith('origin/') else label
     if branch in ('HEAD', '') or branch in tier_branches(root):
         return (f'{label} is not a branch the pull request can come from, so '
@@ -1338,9 +1402,15 @@ def _carry_composition_to_branch(root, label, new):
     # after its pull request into main merged sent the main-test wait to a
     # head no test ever ran on (2026-10-19).
     tip = _remote_tip(root, branch)
-    if tip and not main_work_missing(root, tip):
-        return (f'{branch} already carries everything {MAIN} has, so the pull '
-                f'request from it as it stands lacks nothing.')
+    base = base or staging_branch(root)
+    btip = _remote_tip(root, base)
+    clean = not btip or _run(root, 'merge-base', '--is-ancestor', btip,
+                             tip or btip).returncode == 0 or (
+        tip and _run(root, 'merge-tree', '--write-tree', btip, tip).returncode == 0)
+    if tip and clean and not main_work_missing(root, tip):
+        return (f'{branch} already carries everything {MAIN} has and merges '
+                f'cleanly into {base}, so the pull request from it as it '
+                f'stands lacks nothing.')
     p = _run(root, 'push', '-q', 'origin', f'{new}:refs/heads/{branch}')
     if p.returncode != 0:
         return (f'Could not bring {branch} up to the checked composition '
@@ -3353,6 +3423,40 @@ def clear_main_unchecked(root, checked):
 FIX_PREFIX = 'promote-fix-'
 
 
+# A SHALLOW CLONE IS NOT A CONFLICT (2026-10-20). A shallow clone can lack
+# the commit where staging and main parted; git then calls them unrelated
+# histories and refuses the merge, and --land reported "main conflicts with
+# staging". A session took the conflict path; `git fetch --depth=300` was
+# the whole fix. So a missing merge base deepens the clone and looks again,
+# and one still missing is said as what it is.
+DEEPEN_STEPS = (300, 3000)
+TOO_SHALLOW = 'this clone is too shallow'
+
+
+def _reach_merge_base(root, a, b, refs=()):
+    """Make sure commits `a` and `b` have a merge base this clone can see,
+    deepening a shallow clone along origin's `refs` (and staging and main)
+    by DEEPEN_STEPS. -> None when there is one, else why not: TOO_SHALLOW
+    with its remedy, or that the two share no history at all."""
+    if _run(root, 'merge-base', a, b).returncode == 0:
+        return None
+    if _git(root, 'rev-parse', '--is-shallow-repository') != 'true':
+        return f'{a[:12]} and {b[:12]} share no history at all'
+    names = []
+    for r in (*refs, staging_branch(root), MAIN):
+        r = r[len('origin/'):] if r.startswith('origin/') else r
+        if r not in names and _git(root, 'rev-parse', '--verify', '--quiet',
+                                   f'refs/remotes/origin/{r}'):
+            names.append(r)
+    for n in DEEPEN_STEPS:
+        _run(root, 'fetch', '-q', f'--deepen={n}', 'origin', *names)
+        if _run(root, 'merge-base', a, b).returncode == 0:
+            return None
+    return (f'{TOO_SHALLOW}: {a[:12]} and {b[:12]} part further back than '
+            f'it holds, even after deepening it by {sum(DEEPEN_STEPS)} '
+            f'commits. Run `git fetch --unshallow origin` and try again')
+
+
 def _compose(root, wt, parts, staging, say):
     """Merge each (label, sha, message) in `parts` into worktree `wt`'s HEAD,
     in order, by merge commits. One already in HEAD is skipped; a conflict
@@ -3365,6 +3469,10 @@ def _compose(root, wt, parts, staging, say):
     for label, sha, message in parts:
         if _run(wt, 'merge-base', '--is-ancestor', sha, 'HEAD').returncode == 0:
             continue
+        shallow = _reach_merge_base(root, _git(wt, 'rev-parse', 'HEAD'), sha,
+                                    (label, staging))
+        if shallow:
+            return (label, sha, [], shallow), merged
         m = _run(wt, 'merge', '--no-ff', '-q', '-m', message, sha, env=env)
         if m.returncode != 0:
             done, files, why = _resolve_by_regenerating(wt, say)
@@ -3389,6 +3497,9 @@ def _from_above(root, staging, stip):
         tip = _remote_tip(root, branch)
         if tip:
             _run(root, 'fetch', '-q', 'origin', branch)
+            # drift() reads a missing base as everything differing; the
+            # composition says TOO_SHALLOW if this cannot fix it.
+            _reach_merge_base(root, stip, tip, (staging, branch))
             commits = drift(root, stip, tip)
             if commits:
                 above.append((branch, tip, commits))
@@ -3514,6 +3625,50 @@ LAND_RESULT = 'LAND RESULT'
 LANDING_SOURCE_ENV = 'PRECEDENT_LANDING_SOURCE'
 
 
+# What Update Vendors runs in another repository: its own code, the engine
+# refresh and copy-in, the catalogue copy, the view sync, and the templates
+# an install or update writes there.
+UPDATE_VENDORS_PATHS = (
+    'tools/precedent_update.py', 'tools/precedent_update_all.py',
+    'tools/precedent_vendor_engine.py', 'tools/checkin.py',
+    'tools/precedent_sync_views.py', 'tools/precedent_materialize.py',
+    'tools/precedent_install.py', 'tools/precedent_resolve.py',
+    'templates/',
+)
+
+
+def update_vendors_note(root, before, after):
+    """-> what to tell the person when the commits from `before` to `after`
+    change how Update Vendors behaves in other repositories, or ''. Only in
+    BestPractice, where that code is written.
+
+    WHY (Morgan, 2026-10-20): copy-in landed one day and broke the update in
+    the first consumers it met the next, one repository at a time. "When
+    there is a change to update vendors, tell the session user there was a
+    change and recommend to him he run it (perhaps even suggesting a repo
+    and you rooting a new session to make it easy) to make sure there are
+    no issues." A whole rehearsal before every change he declined the same
+    day; one repository, chosen and offered, is the ask."""
+    if not (pathlib.Path(root) / 'tools' / 'verify_harness.py').is_file():
+        return ''
+    out = _git(root, 'diff', '--name-only', f'{before}..{after}') or ''
+    hit = sorted(f for f in out.splitlines()
+                 if any(f == u or (u.endswith('/') and f.startswith(u))
+                        for u in UPDATE_VENDORS_PATHS))
+    if not hit:
+        return ''
+    return ('UPDATE VENDORS CHANGED (' + ', '.join(hit[:6])
+            + (f' and {len(hit) - 6} more' if len(hit) > 6 else '')
+            + '). Tell the person, and recommend trying it in one repository '
+            'that uses Precedent before the next routine update meets it: '
+            'pick one this change would touch (list_repos; a public one, one '
+            'with copied-in sets, or one not updated for a while), name it, '
+            'and offer to start a session rooted in it to run Update Vendors '
+            '(create_session). Until a Produce moves this into main, that '
+            'session runs the update with --from-ref origin/staging, and '
+            'pushes nothing.')
+
+
 def land(root, work=None, say=print):
     """Land `work` (a branch or commit; HEAD when None) on staging for a
     person who lands there, and end with one LAND RESULT line.
@@ -3596,6 +3751,11 @@ def _land_composed(root, sha, label, staging, why, say):
                                                   last, say)
         if conflict:
             clabel, csha, files, why = conflict
+            if why.startswith(TOO_SHALLOW) or 'share no history' in why:
+                say(f'LAND REFUSED, and {staging} did not move: {clabel} '
+                    f'({csha[:12]}) could not be merged, and not for a '
+                    f'conflict -- {why}.')
+                return 1, f'LAND REFUSED: {why.split(":")[0]}, not a conflict'
             say(f'LAND REFUSED, and {staging} did not move: {clabel} ({csha[:12]}) '
                 f'does not merge cleanly into {" + ".join([staging] + merged)} -- '
                 f'{why}'
@@ -3637,7 +3797,7 @@ def _land_composed(root, sha, label, staging, why, say):
             f'landing again would be refused the same way. What the push '
             f'said:\n{said[-1500:]}')
         if 'pull request' in said:
-            say(_carry_composition_to_branch(root, label, new))
+            say(_carry_composition_to_branch(root, label, new, staging))
             say(pull_request_route_note(root, staging, checks_ran=True))
         first = next((ln for ln in said.splitlines() if ln.strip()), 'no reason given')
         return 1, f'LAND REFUSED: the push to {staging} was refused: {first[:200]}'
@@ -3656,6 +3816,9 @@ def _land_composed(root, sha, label, staging, why, say):
         f'nothing.')
     for line in review:
         say(line)
+    note = update_vendors_note(root, stip, new)
+    if note:
+        say(note)
     return 0, f'LANDED at {new}'
 
 
@@ -3814,8 +3977,10 @@ def _run_tests(root, branch, say):
         if conflict:
             ok, out = False, ''
             failed = [{'check': 'merge with main', 'line':
-                       f'{conflict[0]} ({conflict[1][:12]}) does not merge cleanly '
-                       f'into {branch}: {conflict[3]}'
+                       f'{conflict[0]} ({conflict[1][:12]}) '
+                       + ('could not be merged' if conflict[3].startswith(TOO_SHALLOW)
+                          else 'does not merge cleanly')
+                       + f' into {branch}: {conflict[3]}'
                        + (f' ({", ".join(conflict[2])})' if conflict[2] else '')}]
         else:
             ok, out = _check(root, wt, FULL, dest=staging)
@@ -3852,15 +4017,77 @@ _VALUED = {'-o', '--push-option', '--repo', '--receive-pack', '--exec'}
 _UNREADABLE = {'--all', '--mirror', '--tags', '--follow-tags', '--branches'}
 
 
+# Set by the push hook when the command switches branch before its push
+# (`git switch -c X && git push`): the hook runs before any of it, so HEAD
+# is still the old branch, or detached, and the push's own words name none.
+PUSH_FROM_ENV = 'PRECEDENT_PUSH_FROM_BRANCH'
+
+
 def _current_push_branch(root):
     """Where a bare `git push` (or a refspec of HEAD) sends the current
-    branch: its push destination when one is configured, else its own
-    name. None on a detached HEAD."""
-    dest = _git(root, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{push}')
+    branch -- the one PRECEDENT_PUSH_FROM_BRANCH names, when set: its push
+    destination when one is configured (its upstream), else its own name,
+    which is where a branch with no upstream goes. None on a detached
+    HEAD."""
+    head = os.environ.get(PUSH_FROM_ENV, '').strip() or None
+    ref = f'{head}@{{push}}' if head else '@{push}'
+    dest = _git(root, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', ref)
     if dest and '/' in dest:
         return dest.split('/', 1)[1]
+    if head:
+        return head
     head = _git(root, 'symbolic-ref', '--short', '-q', 'HEAD')
     return head or None
+
+
+_PUSH_WORDS = re.compile(
+    r'(?:^|[|;&]|&&|\|\||\$\()\s*git\s+(?:-C\s+\S+\s+)?push\b')
+
+
+def branch_switched_to(root, command):
+    """-> the branch a shell `command` leaves checked out by the time its
+    first `git push` runs, from a `git switch` / `git checkout` before it;
+    None when nothing there changes branch, or what it changes to cannot
+    be read. `git checkout X` counts only when X is a branch (local or on
+    origin): otherwise it restored a file."""
+    m = _PUSH_WORDS.search(command)
+    before = command[:m.start()] if m else command
+    found = None
+    for part in re.split(r'&&|\|\||;|\n', before):
+        try:
+            words = shlex.split(part)
+        except ValueError:
+            continue
+        if len(words) >= 3 and words[0] == 'git' and words[1] == '-C':
+            words = ['git'] + words[3:]
+        if len(words) < 3 or words[0] != 'git' or words[1] not in ('switch', 'checkout'):
+            continue
+        sub, rest = words[1], words[2:]
+        if '--detach' in rest:
+            found = None
+            continue
+        if '--' in rest:
+            continue
+        create = ({'-c', '-C', '--create', '--force-create'} if sub == 'switch'
+                  else {'-b', '-B'})
+        named = None
+        for i, w in enumerate(rest):
+            if w in create:
+                named = rest[i + 1] if i + 1 < len(rest) else None
+                break
+        if named is None:
+            plain = [w for w in rest if not w.startswith('-')]
+            if len(plain) != 1 or plain[0] == '-':
+                continue
+            cand = plain[0]
+            if sub == 'checkout' and not (
+                    _git(root, 'rev-parse', '-q', '--verify', f'refs/heads/{cand}')
+                    or _git(root, 'rev-parse', '-q', '--verify',
+                            f'refs/remotes/origin/{cand}')):
+                continue
+            named = cand
+        found = named
+    return found
 
 
 def _dest_of(root, refspec):
@@ -3920,8 +4147,22 @@ def tier_for_push(root, args, user_config=None):
     it writes to needs."""
     targets = push_targets(root, args)
     if not targets:
-        return FULL, ('where this push goes could not be read from its '
-                      'arguments, so it is checked fully')
+        try:
+            words = shlex.split(args) if isinstance(args, str) else list(args or [])
+        except ValueError:
+            words = None
+        if words is None or any(w in _UNREADABLE for w in words):
+            return FULL, ('this push writes branches its arguments do not '
+                          'name, so it is checked fully')
+        # No branch to read it from -- a detached HEAD, or a branch the
+        # command makes after the hook has run. The landing branch's tier,
+        # not the full suite: a push writing main or staging names it or is
+        # made from it (2026-10-20: `git switch -c X && git push` ran the
+        # 14-minute tier).
+        landing = landing_branch(root, user_config)[0]
+        tier, why = tier_for_branch(root, landing, user_config)
+        return tier, (f'where this push goes could not be read, so it gets '
+                      f'what a push to {landing}, the landing branch, gets: {why}')
     tiers = [tier_for_branch(root, t, user_config) for t in targets]
     for tier, why in tiers:
         if tier == FULL:
@@ -3938,6 +4179,9 @@ def _main(argv):
         tier, why = tier_for_branch(root, argv[1])
         print(tier)
         print(why, file=sys.stderr)
+        return 0
+    if argv[:1] == ['--switched-to'] and len(argv) == 2:
+        print(branch_switched_to(root, argv[1]) or '')
         return 0
     if argv[:1] == ['--push']:
         tier, why = tier_for_push(root, argv[1:])

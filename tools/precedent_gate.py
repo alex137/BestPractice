@@ -961,7 +961,7 @@ def _print_hard_requirements(root):
                                                  _rep['heading'])
                 except Exception:                            # noqa: BLE001
                     _prev = None
-            _short = f" ({_rep['one_line']})" if _rep.get('one_line') else ''
+            _short = f" ({prc.one_line_form(_rep)})" if _rep.get('one_line') else ''
             if _prev:
                 print(f"- [{src}] the section under /{_rep['heading']}/i is "
                       f"refused when every line of it repeats the last "

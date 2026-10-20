@@ -126,6 +126,7 @@ Run:
 Exit status: 0 everything passed; 1 a check failed; 2 nothing could be run
 (not a git checkout, or a repository of no kind this file knows).
 """
+import collections
 import hashlib
 import json
 import os
@@ -759,6 +760,19 @@ def approved_workflow_checks(root):
     except Exception:                                          # noqa: BLE001
         pass
     engine_tools = {f'tools/{f}' for f in man.get('files') or []}
+    # And whatever this repository's own tiers run: in BestPractice, which
+    # has no manifest, deep-check.yml's steps are precedent_check.py and
+    # verify_harness.py, which the full tier runs at the Debut. Unfiltered,
+    # they were planned as "own checks" for every push to staging -- hidden
+    # until 2026-10-20 only because script_arg's bug kept any from running.
+    try:
+        rel = HERE.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        rel = None
+    if rel:
+        engine_tools |= {a[0].replace('{engine}', rel)
+                         for entry in PUSH_CHECKS.get(repo_kind(), ())
+                         for a in [entry[1]] if a}
     checks, unrun = [], []
     for rel in sorted(approved if isinstance(approved, dict) else []):
         wf = root / rel
@@ -872,6 +886,17 @@ def _staging_name(root):
         return 'staging'
     finally:
         sys.path.pop(0)
+
+
+def script_arg(argv):
+    """-> the script `argv` runs: argv[1], or, for a step own_checks_before_
+    staging wrapped in its budget runner, the script inside the wrapper.
+    Reading argv[1] of a wrapped step looked for a file named "-c" and
+    reported every repository's own checks as "could not run here"
+    (2026-10-20, Update All Vendors; seen in this repository too)."""
+    if len(argv) > 5 and argv[1] == '-c' and argv[2] == _BUDGET_RUNNER:
+        return argv[5]
+    return argv[1]
 
 
 def own_checks_before_staging(root, engine=HERE, planned=()):
@@ -1334,6 +1359,51 @@ def _unplanted_checks(root):
     return sorted(registered - declared)
 
 
+# A HARNESS TEST NOBODY CALLS (2026-10-20). verify_harness.py's
+# check_every_verdict_returning_check_is_recorded asserts every check_*
+# there is wired into main(), but only on a full run, so
+# check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer reached
+# main uncalled and turned it red (#1286/#1287). The scan lives here, once:
+# the harness check calls it, and so does the quick tier whenever
+# verify_harness.py changes. One pass over the source, about a tenth of a
+# second; the per-name regex it replaced took over a minute.
+_HARNESS_DEF_RE = re.compile(r'^def (check_[a-z_0-9]+)\(', re.M)
+
+
+def unrecorded_harness_checks(src):
+    """-> [(name, why)] for each check_* in verify_harness.py's source `src`
+    whose verdict nobody reads: a verdict-returning one (its body ends in
+    `return (not bad...,`) called bare or never passed to check(), and any
+    check_* named nowhere else in the file."""
+    returning, cur = [], None
+    for line in src.splitlines():
+        m = _HARNESS_DEF_RE.match(line)
+        if m:
+            cur = m.group(1)
+        # `not bad,` was the original pattern and it missed
+        # `not bad_cases,` -- which is how
+        # check_reply_check_requires_a_destination_for_a_fence_block sat
+        # unreferenced until 2026-09-22.
+        if cur and re.match(r'^    return \(not bad\w*,', line) \
+                and cur not in returning:
+            returning.append(cur)
+    bare = set(re.findall(r'^\s+(check_\w+)\(\)\s*$', src, re.M))
+    wired = set(re.findall(r'\*(check_\w+)\(\)', src))
+    bad = []
+    for fn in returning:
+        if fn in bare:
+            bad.append((fn, 'called bare -- its verdict is discarded; '
+                            f"call it as check('<name>', *{fn}())"))
+        elif fn not in wired:
+            bad.append((fn, 'defined but never called from main()'))
+    uses = collections.Counter(re.findall(r'\bcheck_\w+', src))
+    for fn in _HARNESS_DEF_RE.findall(src):
+        if uses[fn] <= 1:
+            bad.append((fn, 'defined but never called from main() -- it has '
+                            'never run'))
+    return bad
+
+
 def _front_matter_changed(root, since, rel):
     """True when practice file `rel`'s front matter differs from `since`'s
     copy (or it had none there)."""
@@ -1409,6 +1479,48 @@ def _new_tests_have_times(root, since, files, problems):
             f'recorded time ({", ".join(missing)}) -- run `python3 '
             f'tools/verify_harness.py --record-new-times` and commit '
             f'tools/harness_check_times.json with them')
+
+
+def _retired_engine_files_unanswered(root, since):
+    """-> one problem per vendored engine file this change deletes whose
+    retirement does not say what it left in the repositories it ran in --
+    the `left_in_consumers` list on its process/decommissioned_paths.json
+    entry, [] for nothing. Only where the engine is written (upstream): a
+    consumer's update deletes dropped engine files as a matter of course.
+
+    WHY (2026-10-20, Update All Vendors). d50e09ee1 deleted the others-did
+    tool by hand, and nobody asked what it had written into consumers; its
+    mark file stayed in each, naming a tool that was gone, until it stopped
+    their updates. Asked here, every deletion meets the question, however
+    it was made (practice: decommission-deletes-files)."""
+    if repo_kind(HERE) != 'upstream':
+        return []
+    gone = [r for r in _changed_paths(root, since, 'D')
+            if r.startswith('tools/') and r.count('/') == 1]
+    if not gone:
+        return []
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_decommission as pd
+    except Exception:                                          # noqa: BLE001
+        return []
+    finally:
+        sys.path.pop(0)
+    try:
+        entries = json.loads((root / pd.REGISTRY).read_text(
+            encoding='utf-8')).get('decommissioned') or []
+    except (OSError, ValueError, AttributeError):
+        entries = []
+    answered = {e.get('path') for e in entries if isinstance(e, dict)
+                and isinstance(e.get(pd.LEFT_IN_CONSUMERS_KEY), list)}
+    return [f'{rel}: a vendored engine file this change deletes, and nothing '
+            f'says what it left in the repositories it ran in. Record it in '
+            f'{pd.REGISTRY} with "{pd.LEFT_IN_CONSUMERS_KEY}": the files it '
+            f'wrote there, [] for none (precedent_decommission.py '
+            f'--left-in-consumers PATH or --left-nothing does it), so Update '
+            f'Vendors removes them'
+            for rel in gone if rel not in answered
+            and pd.was_vendored(root, rel, since)]
 
 
 def changed_files_check(root, since):
@@ -1508,6 +1620,12 @@ def changed_files_check(root, since):
                 f'tools/verify_harness.py, planting the violation it exists '
                 f'to catch; the harness refuses a check without one, and '
                 f'the next full check runs it')
+    harness = root / 'tools' / 'verify_harness.py'
+    if 'tools/verify_harness.py' in files and harness.is_file():
+        for fn, why in unrecorded_harness_checks(
+                harness.read_text(encoding='utf-8', errors='replace')):
+            problems.append(f'tools/verify_harness.py: {fn} {why}')
+    problems += _retired_engine_files_unanswered(root, since)
     practice = [f for f in files if f.endswith('.md')
                 and (f.startswith('practices/') or '/practices/' in f)]
     build = root / 'tools' / 'build_views.py'
@@ -1887,7 +2005,7 @@ def _output_at(root, rev, argv):
     wt = tmp / 'tree'
     try:
         add = _git_env(root, ['worktree', 'add', '-q', '--detach', str(wt), rev], 60)
-        if add is None or add.returncode != 0 or not (wt / argv[1]).is_file():
+        if add is None or add.returncode != 0 or not (wt / script_arg(argv)).is_file():
             return []
         p = subprocess.run(argv, cwd=wt, capture_output=True, text=True)
         return (p.stdout + p.stderr).splitlines()
@@ -1993,15 +2111,16 @@ def run(root, checks, landed=None, reported=None):
                   f'that and run again (PRECEDENT_PUSH_CHECK_ALL=1 runs it '
                   f'anyway)', flush=True)
             continue
-        script = root / argv[1]
+        script_rel = script_arg(argv)
+        script = root / script_rel
         shown = ' '.join([shown_interpreter(argv), *argv[1:]])
         if not script.is_file() and name in OPTIONAL:
             print(f'[{i}/{len(checks)}] {name}: not here -- this repo has no '
-                  f'{argv[1]}', flush=True)
+                  f'{script_rel}', flush=True)
             continue
         slug = (identity_slug(name, root) if name in IDENTITY_NAMES else None) or (
             _practice_of(script) if script.is_file() and
-            'checks' in Path(argv[1]).parts else None)
+            'checks' in Path(script_rel).parts else None)
         if slug and slug in not_binding():
             print(f'[{i}/{len(checks)}] {name}: EXEMPT -- this repo declares '
                   f'{slug} not binding in precedent.json: '
@@ -2018,7 +2137,7 @@ def run(root, checks, landed=None, reported=None):
                 PUSH_TIME_SINCE[name] not in script.read_text(encoding='utf-8',
                                                               errors='ignore')):
             print(f'[{i}/{len(checks)}] {name}: not run at push time -- this '
-                  f'repo\'s copy of {argv[1]} predates judging only what a push '
+                  f'repo\'s copy of {script_rel} predates judging only what a push '
                   f'carries, and would read the whole history; it still runs in '
                   f'the full sweep, as it did before, until the set that ships '
                   f'it is updated here', flush=True)
@@ -2027,7 +2146,7 @@ def run(root, checks, landed=None, reported=None):
             # A check whose tool this repo does not carry cannot be run, and
             # saying so beats a crash. Reported, never silently dropped.
             missing.append(name)
-            print(f'[{i}/{len(checks)}] {name}: NOT RUN -- {argv[1]} is not '
+            print(f'[{i}/{len(checks)}] {name}: NOT RUN -- {script_rel} is not '
                   f'in this repo (stands in for {replaces})', flush=True)
             continue
         print(f'[{i}/{len(checks)}] {name}: {shown}', flush=True)
@@ -2655,4 +2774,15 @@ if __name__ == '__main__':
               f'--changed-files-check [REF], --gate and --list; --help says '
               f'what each does. Nothing was run.', file=sys.stderr)
         sys.exit(2)
-    sys.exit(main(sys.argv[1:]))
+    rc = main(sys.argv[1:])
+    # Said again last, where a reader of the tail sees it: the banner at the
+    # start scrolls away (precedent_which_repo.elsewhere_note).
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_which_repo
+        _where = precedent_which_repo.elsewhere_note(HERE)
+        if _where:
+            print(f'precedent_push_check:{_where}.')
+    except Exception:                                        # noqa: BLE001
+        pass
+    sys.exit(rc)

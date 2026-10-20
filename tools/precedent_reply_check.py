@@ -195,6 +195,7 @@ def declared_requirements(repo):
         sources = pr.load_config(repo)
     except Exception as e:                                   # noqa: BLE001
         return reqs, [f'no source set could be read ({e})']
+    sources = _with_own_set(pr, repo, sources)
     for s in sources:
         root = pathlib.Path(s['path'])
         cfg = root / CONFIG_NAME
@@ -277,6 +278,79 @@ def for_this_session(reqs, repo):
     return [r for r in reqs if any(k in r for k in STANDING_KEEPS)]
 
 
+def _with_own_set(pr, repo, sources):
+    """-> `sources`, plus the repository itself when it is a practice set
+    the resolver left out.
+
+    load_config() leaves a set out of its own checkout on purpose
+    (is_repository_itself), so the set is never loaded twice. But that
+    meant a paste block written while working in the ladder set was judged
+    by universal's copy of the landing rule alone, never the set's own
+    (2026-10-20, todo/todo-2026-10-20-root-issues-from-ladder-landing-check.md,
+    item 4). Its reply_check.json is read once here, at the set's own
+    level; a repository that already declares itself is left as it is."""
+    root = pathlib.Path(repo).resolve()
+    own = pr._own_set_name(root)
+    if not own or any(s.get('name') == own
+                      or pr._same_repository(s['path'], root) for s in sources):
+        return sources
+    if pr.no_ladders() and pr.LADDER_CAPABILITY in pr.source_provides(root):
+        return sources
+    try:
+        level = json.loads((root / pr.SOURCE_MANIFEST).read_text(
+            encoding='utf-8')).get('level')
+    except (OSError, ValueError, AttributeError):
+        level = None
+    out = list(sources) + [{'level': level or 'repo-local', 'name': own,
+                            'path': str(root)}]
+    out.sort(key=lambda s: pr._precedence_rank(s['level']))
+    return out
+
+
+def _inherit_pair(earlier, pair):
+    """-> `pair` merged over the `earlier` pair it inherits from, key by key.
+
+    Two keys let a set keep universal's triggers instead of restating them
+    (2026-10-20). Before them the ladder set's landing pair copied every
+    trigger universal has, only to name staging beside main, and the two
+    copies drifted: universal learned to read a verb only where it is
+    addressed to the reader, and the ladder copy did not, until it was
+    fixed by hand.
+
+    `landing_branches` (the set's pair): the branches the set lands on, as a
+    regex alternation ("staging|main"). In every trigger the set inherits
+    rather than states, each span the earlier pair names in
+    `landing_branches_pattern` is replaced by "(?:<landing_branches>)".
+
+    `adds_if_matches` (the set's pair): triggers added to the inherited
+    `also_if_matches`, for orders only the set knows (its stage words).
+
+    An engine older than this ignores both keys, so a set states its own
+    triggers until every repository that brings it runs this engine."""
+    merged = {**earlier, **pair}
+    branches = pair.get('landing_branches')
+    spans = earlier.get('landing_branches_pattern') or []
+    if isinstance(spans, str):
+        spans = [spans]
+    if isinstance(branches, str) and branches and spans:
+        def widen(rx):
+            for span in sorted(spans, key=len, reverse=True):
+                rx = rx.replace(span, f'(?:{branches})')
+            return rx
+        for key in ('if_matches', 'also_if_matches'):
+            if key in pair or key not in earlier:
+                continue
+            val = earlier[key]
+            merged[key] = ([widen(x) for x in val] if isinstance(val, list)
+                           else widen(val) if isinstance(val, str) else val)
+    adds = pair.get('adds_if_matches')
+    if adds:
+        base = merged.get('also_if_matches') or []
+        base = [base] if isinstance(base, str) else list(base)
+        merged['also_if_matches'] = base + ([adds] if isinstance(adds, str) else list(adds))
+    return merged
+
+
 def _settle(reqs, repo):
     """Two generic keys a requirement may carry (spec/LADDER_OPT_IN_PLAN.md
     D11, 2026-10-02):
@@ -316,7 +390,7 @@ def _settle(reqs, repo):
             key = 'require_in_fence_paired_with'
             if isinstance(earlier.get(key), list) and isinstance(r.get(key), list):
                 merged[key] = [
-                    {**(earlier[key][i] if i < len(earlier[key]) else {}), **pair}
+                    _inherit_pair(earlier[key][i] if i < len(earlier[key]) else {}, pair)
                     for i, pair in enumerate(r[key])]
             last[rid] = merged
     kept = []
@@ -678,6 +752,27 @@ def _strip_quoted_spans(s):
     return _DQUOTE_SPAN_RE.sub(' ', s)
 
 
+
+_CODE_SPAN_RE = re.compile(r'`[^`\n]*`')
+
+
+def unexplained_gaps(text, gap, reason):
+    """-> the lines of `text` that admit work left undone (`gap`) with no
+    reason on the same line (`reason`). Fenced blocks, code spans and
+    double-quoted spans are left out: a pasted prompt, a command or a
+    quoted phrase is not the writer saying what they left.
+
+    One function for both places the rule is read: a reply, through
+    require_reason_on_gap_line, and a line added to an open item, through
+    precedent_check's gap-names-its-reason (practice: todo-is-a-handoff:
+    an item is queued only for a stated reason)."""
+    out = []
+    for line in _without_fenced_blocks(text).splitlines():
+        bare = _strip_quoted_spans(_CODE_SPAN_RE.sub(' ', line))
+        if re.search(gap, bare, re.I) and not re.search(reason, bare, re.I):
+            out.append(line.strip())
+    return out
+
 # A markdown link's text may itself look like the thing require_no_bare_pattern
 # is hunting for ("[PR #21](https://...)"), so the whole `[text](url)` span
 # is blanked out, not just the URL -- otherwise the pattern would still match
@@ -874,6 +969,26 @@ def _fenced_blocks(text, with_lead=False):
     if cur is not None:
         blocks.append('\n'.join(cur))
     return list(zip(blocks, leads)) if with_lead else blocks
+
+
+def _without_fenced_blocks(text):
+    """`text` with every line inside a fenced block blanked, by the same
+    reading of fences as _fenced_blocks: prose only, line count kept."""
+    out, fence = [], None
+    for line in text.split('\n'):
+        m = re.match(r'^\s{0,3}(`{3,}|~{3,})', line)
+        if fence is None:
+            if m:
+                fence = m.group(1)
+                out.append('')
+            else:
+                out.append(line)
+            continue
+        if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) \
+                and not line.strip()[len(m.group(1)):].strip():
+            fence = None
+        out.append('')
+    return '\n'.join(out)
 
 
 # A clause that narrates: it opens with a session, tool, check or the like
@@ -1135,6 +1250,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_section_not_repeated',
     'require_quiet_while_background_runs',
     'require_prompt_block_header',
+    'require_reason_on_gap_line',
     'unless_reply_declares_loss',
     # printed by the reply gate before the reply, never evaluated here
     # (precedent_gate._note_from_tool, 2026-10-17)
@@ -1380,14 +1496,23 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
             cur = section_bullets(text, rep['heading'])
             prev = (previous_section(timeline, text, rep['heading'])
                     if cur and len(cur) > 1 else None)
-            if prev and all(item_repeats(i, prev, rep.get('same_when_both_say') or ())
-                            for i in cur):
+            # A delete-link line for a branch still owed one is not a repeat
+            # to refuse: the one-line form plus the owed link lines is what
+            # such a reply is (2026-10-20: the two rules refused every reply
+            # in turn, one for the link lines, one for their absence).
+            rest = cur
+            if prev and 'branches/all?query=' in text:
+                owed = [b for _, b, _ in _delete_links_owed()]
+                rest = [i for i in cur if not any(_linked(i, b) for b in owed)]
+            if prev and (len(rest) == len(cur) or len(rest) > 1) and all(
+                    item_repeats(i, prev, rep.get('same_when_both_say') or ())
+                    for i in rest):
                 out.append({'kind': 'repeat', 'advisory': advisory, 'message': (
                     f"[{r.get('_source', '?')}] every line under the heading "
                     f"matching /{rep['heading']}/i says again what the previous "
                     f"reply's did. With nothing new in it, the whole section "
                     f"is one line"
-                    + (f": {rep['one_line']}" if rep.get('one_line') else '')
+                    + (f": {one_line_form(rep)}" if rep.get('one_line') else '')
                     + (f" -- {rep['why']}" if rep.get('why') else '')
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
         one_of = r.get('require_one_of') or []
@@ -1483,7 +1608,13 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
         # dropped unseen by main(), so a reply that linked nothing in the
         # Boildown passed with no one told (Morgan: "Don't we have practice
         # rules so when you mention files you always give links?").
-        link_stripped = _strip_markdown_links(text)
+        #
+        # Fenced blocks are left out: a Markdown link does not render inside
+        # one, so the check could only ever be met there by writing raw link
+        # syntax into text meant for pasting. On 2026-10-20 a Root issues
+        # prompt was refused for a PR number and session ids written plainly
+        # for the session receiving it.
+        link_stripped = _strip_markdown_links(_without_fenced_blocks(text))
         linked = _linked_spans(text)
         for entry in (r.get('require_no_bare_pattern') or []):
             pattern, pat_why = entry.get('pattern'), entry.get('why')
@@ -1512,6 +1643,26 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                     f"[{r.get('_source', '?')}] this reply mentions "
                     f"{shown} without a markdown link"
                     + (f" -- {pat_why}" if pat_why else '') + "."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_reason_on_gap_line (2026-10-20, Morgan: "how do we prevent
+        # this issue (you not fixing it it doing a todo) from happening
+        # again?"). A session wrote "no harness case triggers it" and "Not
+        # built." into a reply and an open item, with nothing blocking
+        # either, and nothing read those lines. A line that admits work left
+        # undone says on that line what stops it, or the work gets done.
+        gaps = r.get('require_reason_on_gap_line')
+        if isinstance(gaps, dict) and gaps.get('if_matches') and gaps.get('must_match_on_line'):
+            lines = unexplained_gaps(text, gaps['if_matches'], gaps['must_match_on_line'])
+            if lines:
+                shown = '; '.join(f'"{l[:100]}"' for l in lines[:4])
+                out.append({'kind': 'gap_without_reason', 'advisory': advisory,
+                            'message': (
+                    f"[{r.get('_source', '?')}] this reply says work is left "
+                    f"undone with no reason on the same line: {shown}. Do it "
+                    f"now, or say on that line what blocks it (blocked on, "
+                    f"waiting for, needs someone's word, can't until)"
+                    + (f" -- {r.get('why')}" if r.get('why') else '') + "."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
         # require_paired_with: when the reply contains X, it must also
@@ -1588,7 +1739,13 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                 if describer:
                     judged = _described_clauses(judged, triggers, describer)
                 m = _first_trigger(triggers, judged)
-                if m and not re.search(needed, block, re.I | re.M):
+                # A tool's quoted output is no approval either (2026-10-20,
+                # the ladder set's landing check): "push refused", quoted from
+                # a refusal, granted landing to the order beside it. The
+                # approval is searched for with that output blanked, as the
+                # trigger is.
+                granted = _quoted_output_blanked(block, quoter) if quoter else block
+                if m and not re.search(needed, granted, re.I | re.M):
                     out.append({'kind': 'in_fence_paired', 'advisory': advisory,
                                 'message': (
                         f"[{r.get('_source', '?')}] a fenced block says "
@@ -1958,13 +2115,38 @@ def _links_given_file(root):
     return f.with_name(DELETE_LINKS_GIVEN) if f else None
 
 
-def _links_given(root):
-    f = _links_given_file(root)
+def _links_given_files(root):
+    """-> [Path]: the given-links record of this checkout and of each
+    repository this session reaches (precedent_gate._session_roots).
+
+    WHY (2026-10-20). A session rooted ABOVE its repositories has no .git of
+    its own, so the one record kept beside the root's never existed: a
+    passing reply's links were never written down, and every later reply was
+    asked for the same delete links again. Each repository now keeps the
+    record for its own branches, in its own .git."""
+    files = []
     try:
-        recs = json.loads(f.read_text(encoding='utf-8')) if f and f.is_file() else []
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        roots = _pg._session_roots(root)
     except Exception:                                         # noqa: BLE001
-        recs = []
-    return {(x.get('repo'), x.get('branch')) for x in recs if isinstance(x, dict)}
+        roots = [root]
+    for r in roots:
+        f = _links_given_file(r)
+        if f and f not in files:
+            files.append(f)
+    return files
+
+
+def _links_given(root):
+    out = set()
+    for f in _links_given_files(root):
+        try:
+            recs = json.loads(f.read_text(encoding='utf-8')) if f.is_file() else []
+        except Exception:                                     # noqa: BLE001
+            recs = []
+        out |= {(x.get('repo'), x.get('branch')) for x in recs if isinstance(x, dict)}
+    return out
 
 
 def _linked(text, branch):
@@ -1974,19 +2156,25 @@ def _linked(text, branch):
 
 
 def _record_links_given(text, root=None):
-    """After a passing reply: every owed branch it linked is given. Never
-    raises."""
+    """After a reply, passing or refused (both are on screen): every owed
+    branch it linked is given, written into its own repository's record
+    (_links_given_files). Never raises."""
     try:
         root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
-        f = _links_given_file(root)
-        if not f:
-            return
         new = [(r, b) for r, b, _ in _delete_links_owed(root) if _linked(text, b)]
-        if not new:
-            return
-        have = _links_given(root) | set(new)
-        f.write_text(json.dumps([{'repo': r, 'branch': b} for r, b in sorted(have)]),
-                     encoding='utf-8')
+        for repo in {r for r, _ in new}:
+            f = _links_given_file(repo) or _links_given_file(root)
+            if not f:
+                continue
+            try:
+                have = json.loads(f.read_text(encoding='utf-8')) if f.is_file() else []
+            except Exception:                                 # noqa: BLE001
+                have = []
+            keys = {(x.get('repo'), x.get('branch')) for x in have if isinstance(x, dict)}
+            keys |= {(str(pathlib.Path(r).resolve()), b) for r, b in new if r == repo}
+            f.write_text(json.dumps([{'repo': str(r), 'branch': b}
+                                     for r, b in sorted(keys, key=str)]),
+                         encoding='utf-8')
     except Exception:                                         # noqa: BLE001
         pass
 
@@ -2249,6 +2437,25 @@ NOT_LANDED_MARKER = (r"\bnot\s+(?:yet\s+)?(?:landed|merged|pushed|on)\b|\bunland
                      r"|\bunmerged\b|\bopen pull requests?\b|\bfeature branch(?:es)?\b"
                      r"|\bno branch yet\b")
 TIER_WORD = r"(?<![\w/-])`?(?:staging|main)`?(?![\w/-])"
+
+
+def one_line_form(rep, unlanded=None):
+    """-> the one line a repeated section collapses to, or ''. While some of
+    this session's work is not landed, the form that leads with it
+    (`one_line_unlanded`, filled with the count and names): the plain form
+    names no count, so require_first_item_leads_with_unlanded refused the
+    very line the repeat refusal asked for (2026-10-20, both in one
+    refusal)."""
+    if unlanded is None:
+        try:
+            unlanded = _unlanded_names()
+        except Exception:                                    # noqa: BLE001
+            unlanded = []
+    if unlanded and rep.get('one_line_unlanded'):
+        return rep['one_line_unlanded'].format(
+            n=len(unlanded), names=', '.join(unlanded[:6])
+            + (', ...' if len(unlanded) > 6 else ''))
+    return rep.get('one_line') or ''
 
 
 def _unlanded_names(root=None, siblings=True):
@@ -2577,17 +2784,21 @@ def main():
         return 0
     if is_trivial_checkin(text) and not (wake and wake.get('quiet_owed')):
         return 0
-    # What the reply settled counts whether or not it is refused below for
-    # something else: a delete link it gave is given, and a branch it gave
-    # up by name is given up. Until 2026-10-20 both were kept only from a
-    # reply that passed, so a refused one was asked for the same links
-    # again, in reply after reply (S. Alexander Jacobson, 2026-10-20).
-    if 'branches/all?query=' in text:
-        _record_links_given(text)
+    # A branch the reply gave up by name is given up whether or not the
+    # reply is refused below for something else (S. Alexander Jacobson,
+    # 2026-10-20: a branch already given up kept being reported as unlanded).
     _record_given_up(text)
     bad = [b for b in violations(text, reqs, timeline, wake, prompt)
            if not b.get('advisory')]
+    # A refused reply has been shown too, so the delete links it gave are
+    # given (2026-10-20: recorded on a pass only, a link given in a refused
+    # reply was owed again in its repair, which another rule refused for
+    # repeating it, and no reply ever passed to record it).
+    # practice: branch-delete-links
+    _record_links_given(text)
     if not bad:
+        # Recorded first: consuming takes the landed branches off the
+        # turn-start record, and they are owed links until recorded given.
         _consume_turn_start()
         return 0
     # The reply that was just refused has ALREADY been shown to the person --
@@ -2655,7 +2866,8 @@ def main():
               'the previous reply\'s, line for line, named below. The person '
               'has ALREADY SEEN it. Output ONLY the one-line form, under the '
               'same heading -- "- The work of this session is now on: <where '
-              'it is>, unchanged since the last update." -- and end the turn: '
+              'it is>, unchanged since the last update." (and below it any '
+              'delete-link line still owed) -- and end the turn: '
               'no correction, no shorter copy, no apology. An empty reply is '
               'not accepted by the harness, so this line is what is owed.',
               file=sys.stderr)

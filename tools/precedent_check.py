@@ -6504,6 +6504,143 @@ def _code_owner_practice_stays_out_of_the_index(ctx):
     return out
 
 
+
+@check('own-deduplication-points-somewhere', 'tree',
+       "a practice set's own deduplicated practice names, in in_force_at:, a "
+       'rule in force among the sources the set itself takes (its declared '
+       'sources, the sets it brings, and its own practices)',
+       'a target that is late only in some consumer, whose vendored catalogue '
+       'is older (the resolver keeps the copy in force there, and says so); '
+       'and a source that did not resolve this session, reported as '
+       'could-not-verify',
+       practice_backed=False, binds_publishers=True,
+       selects_on=('practices/*.md', 'precedent-source.json', 'precedent.json',
+                   'tools/precedent_resolve.py'))
+def _own_deduplication_points_somewhere(ctx):
+    """WHY (2026-10-20). A consumer's resolver keeps a set's deduplicated
+    copy in force while its target is missing, because there it only means
+    the vendored universal catalogue is older than the set
+    (precedent_resolve.resolve, "KEPT IN FORCE UNTIL ITS TARGET ARRIVES").
+    In the set's OWN checkout that reading never holds, and it is the one
+    place the cause can be fixed. On 2026-10-19 an individual set stopped
+    bringing the set that held its stub's target; every consumer then
+    printed KEPT IN FORCE and put the old copy back in force, the opposite
+    of the deduplication, and four repositories failed their test on main.
+    This refuses the stub where it lives, in the change that strands it."""
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as bv
+        import precedent_resolve as pr
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'build_views is not importable here ({e})')
+    if not (ROOT / getattr(pr, 'SOURCE_MANIFEST', 'precedent-source.json')).is_file():
+        raise NotApplicable('not a practice set (no precedent-source.json)')
+    if not (ROOT / 'practices').is_dir():
+        raise NotApplicable('no practices/ tree in this repo')
+    try:
+        manifest = json.loads((ROOT / pr.SOURCE_MANIFEST).read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError, AttributeError):
+        manifest = {}
+    if pr.declared_level(manifest) == 'universal':
+        # A universal stub is never kept in force downstream: one pointing
+        # at a set a consumer does not declare is that consumer's call
+        # (precedent_resolve.resolve, "A SET'S copy only").
+        raise NotApplicable('universal copies are never kept in force downstream')
+    own = bv.load_practices(ROOT / 'practices', in_force_only=False, announce=False)
+    stubs = [(fm, f) for fm, _s, f in own
+             if bv.practice_status(fm) == bv.DEDUPLICATED_STATUS]
+    if not stubs:
+        return []
+    brought = pr.brought_sources(str(ROOT), warn=False)
+    try:
+        res = pr.resolve(pr.load_config(str(ROOT)), context=brought)
+    except Exception as e:                                   # noqa: BLE001
+        res = {'practices': {}, 'retired': [],
+               'missing': [{'level': '?', 'name': 'declared sources',
+                            'reason': str(e)}]}
+    resolved = dict(res.get('practices') or {})
+    retired = list(res.get('retired') or [])
+    missed = [f"{m.get('level')}/{m.get('name')} ({m.get('reason')})"
+              for m in res.get('missing') or []]
+    for s in brought:
+        loaded, why = pr.load_source(s)
+        if why:
+            missed.append(f"brought/{s['name']}")
+            continue
+        for slug, p in (loaded or {}).items():
+            if bv.is_in_force(p['fm']):
+                resolved.setdefault(slug, p)
+            else:
+                retired.append(p)
+    for fm, _s, f in own:
+        slug = fm.get('slug', pathlib.Path(f).stem)
+        if bv.is_in_force(fm):
+            resolved.setdefault(slug, {'slug': slug, 'fm': fm})
+        else:
+            retired.append({'slug': slug, 'fm': fm})
+    out = []
+    for fm, f in stubs:
+        rel = str(f.relative_to(ROOT)) if hasattr(f, 'relative_to') else str(f)
+        target = bv._json_str(fm.get('in_force_at', '')) or ''
+        if not target or target in (bv.IN_FORCE_AT_ENGINE, bv.IN_FORCE_AT_NOWHERE):
+            continue
+        if pr.follow_in_force_at(target, resolved, retired) is not None:
+            continue
+        if missed:
+            out.append(Unverified(rel, f'in_force_at: {target} names no rule in '
+                                       f'force among the sources that resolved, '
+                                       f'and {", ".join(missed)} did not resolve '
+                                       f'this session -- it may be there'))
+            continue
+        out.append(Finding(rel, f'is deduplicated to in_force_at: {target}, '
+                                f'and no source this set takes holds that rule '
+                                f'in force -- not its declared sources, not a '
+                                f'set it brings, not its own practices. Every '
+                                f'consumer would keep this copy in force as '
+                                f'"KEPT IN FORCE, ITS TARGET NOT HERE YET", the '
+                                f'opposite of the deduplication. Retire it '
+                                f'(status: retired), point it at the rule\'s '
+                                f'new slug, or bring the set that holds it '
+                                f'again'))
+    return out
+
+
+@check('boildown-moments-named', 'tree',
+       'no practice in force other than the-boildown restates one of its two '
+       'named moments -- quoting "You can archive this session", or "answers '
+       '\'Archive\' or \'Archive?\'" -- in its title, occasion, index_clause, '
+       'gates_why, applies_to_why, reply_check.json note, a tool it ships '
+       'or runs for a note, or a sentence of its Rule or Detail that does not '
+       'also name the moment; it names "the archive-line reply" or "the '
+       'closing reply" instead',
+       'a restatement in other words than the patterns '
+       'tools/precedent_moments.py knows, and the Why and Story sections, '
+       'which are history. It reads this tree only; the tool, run bare, '
+       'reads every sibling checkout too.',
+       practice_backed=False, binds_publishers=True,
+       selects_on=('practices/*.md', 'reply_check.json', 'tools/**/*.py'))
+def _boildown_moments_named(ctx):
+    """WHY (2026-10-20). the-boildown changed both moments on 2026-10-18,
+    and two practices that had copied the old wording broke silently, one a
+    day (tools/precedent_moments.py says how). A dependent that names the
+    moment follows a change to it for free; one that restates it is the next
+    round. practice: the-boildown"""
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_moments as pm
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'precedent_moments is not importable here ({e})')
+    if not (ROOT / 'practices').is_dir():
+        raise NotApplicable('no practices/ tree in this repo')
+    _deps, rest = pm.scan([ROOT], skip=_foreign_practice)
+    return [Finding(rel, f'{where} restates the {name} ("...{ex}...") instead '
+                         f'of naming it. Write "the {name} (the-boildown)", '
+                         f'which the-boildown defines; a change to the moment '
+                         f'then reaches this practice without an edit here')
+            for _root, rel, _slug, name, where, ex in rest]
+
+
 @check('adds-to-names-a-rule-in-force', 'tree',
        'a practice carrying adds_to: names a rule some source in force here '
        'carries (followed through deduplications), never itself, and is not '
@@ -12370,6 +12507,42 @@ BARE_GOTCHA_ANCHOR_EXEMPT_FILES = {
 }
 
 
+@check('todo-is-a-handoff', 'change',
+       'a line this change adds to an open item that admits work left undone '
+       '("no test", "not built", "not fixed", "deferred", "left for later") '
+       'says on the same line what blocks it -- the same rule and patterns the '
+       'reply gate reads (reply_check.json, gap-names-its-reason)',
+       'a gap said in other words, a reason given on the next line rather than '
+       'the same one, and whether a reason given is true: a person judges that. '
+       'Lines already in the item before this change are not read.',
+       selects_on=('todo/todo-*.md',))
+def _gap_names_its_reason(ctx):
+    """2026-10-20: a session wrote "the practice-hook refusal has no test that
+    triggers it" and "Not built." into an open item's progress notes with
+    nothing blocking either; Morgan asked why a todo and not a fix, and then
+    how to stop it happening again (practice: todo-is-a-handoff)."""
+    try:
+        import precedent_reply_check as _rc
+        rule = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('id') == 'gap-names-its-reason']
+    except (ImportError, OSError, ValueError, AttributeError):
+        raise NotApplicable('reply_check.json or the reply check engine could '
+                            'not be read here')
+    pats = (rule[0].get('require_reason_on_gap_line') or {}) if rule else {}
+    gap, reason = pats.get('if_matches'), pats.get('must_match_on_line')
+    if not (gap and reason and hasattr(_rc, 'unexplained_gaps')):
+        raise NotApplicable('no gap-names-its-reason rule is declared here')
+    out = []
+    for f in ctx.changed_matching(r'^todo/todo-[^/]+\.md$'):
+        old = set((ctx.read_base(f) or '').splitlines())
+        added = '\n'.join(l for l in ctx.read(f).splitlines() if l not in old)
+        for line in _rc.unexplained_gaps(added, gap, reason):
+            out.append(Finding(f, f'"{line[:120]}" leaves work undone and names '
+                                  f'nothing blocking it: do it now, or say on that '
+                                  f'line what blocks it'))
+    return out
+
+
 @check('todo-gotcha-stale-reference', 'tree',
        'nothing in the tracked tree cites an open item or a gotcha the way '
        'the pre-2026-09-16 format did -- a `TODO.md#slug` link, a bare '
@@ -13406,6 +13579,18 @@ def _charge_brought_share(n):
     except Exception:                                         # noqa: BLE001
         return n, None
     rel = '.precedent/SESSION_PRACTICES.md'
+    # The individual set's own budget (precedent_session_practices.
+    # INDIVIDUAL_BUDGET_KEY), when it declares one.
+    try:
+        ind, ind_budget = _psp.individual_charge(ROOT)
+    except Exception:                                         # noqa: BLE001
+        ind, ind_budget = 0, None
+    if ind_budget is not None and ind > ind_budget:
+        return charged, Finding(rel, (
+            f"{ind:,} tokens of it come from this person's individual set, "
+            f"over the {ind_budget:,}-token `{_psp.INDIVIDUAL_BUDGET_KEY}` "
+            f"budget it declares. Reduce in the individual set, or the person "
+            f"raises their own budget"))
     if budget is not None and share > budget:
         return charged, Finding(rel, (
             f"{share:,} tokens of it come from the set(s) this person brings "
@@ -14252,10 +14437,24 @@ def main():
     args = sys.argv[1:]
     flags = {a for a in args if a.startswith('--')}
     # A run from inside a different repo reads THIS repo, silently -- say so
-    # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
+    # (precedent_which_repo.py; gotcha-2026-09-29). Where that repo has its
+    # own copy, refuse with no pass/fail line: a pass here would be about
+    # this repo, and read as one about that (2026-10-20). `--repo PATH`
+    # naming this repo is the deliberate run.
+    repo = None
+    if '--repo' in args:
+        i = args.index('--repo')
+        repo = args[i + 1] if i + 1 < len(args) else ''
+        del args[i:i + 2]
     try:
         import precedent_which_repo
-        precedent_which_repo.warn_if_elsewhere(ROOT, 'precedent_check.py')
+        refusal = precedent_which_repo.elsewhere_refusal(
+            ROOT, 'precedent_check.py', repo=repo)
+        if refusal:
+            print(refusal, file=sys.stderr)
+            return 2
+        if repo is None:
+            precedent_which_repo.warn_if_elsewhere(ROOT, 'precedent_check.py')
     except Exception:                                        # noqa: BLE001
         pass
     # Before --list/--explain/--only read CHECKS, so a source-supplied
@@ -14490,13 +14689,20 @@ def main():
               f'run judges it; an edit here lasts until the next sync.')
 
     n_uv = sum(len(r[4]) for r in unverified)
+    # The repo this run checked, on the line a reader keeps, when it is not
+    # the one they stand in (precedent_which_repo.elsewhere_note).
+    try:
+        import precedent_which_repo
+        where = precedent_which_repo.elsewhere_note(ROOT)
+    except Exception:                                        # noqa: BLE001
+        where = ''
     print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
           f'{len(advisory)} advisory, {len(errored)} errored, {len(skipped)} '
           f'skipped, {len(exempted)} exempted, {n_uv} could not be verified '
           f'(a skip is not a pass, and neither is a could-not-verify; '
           f'advisory findings do not fail the run; an exemption is this repo '
           f'declaring the rule does not bind it, with a reason, in '
-          f'precedent.json).')
+          f'precedent.json){where}.')
     if '--changed-files-only' in flags:
         if materialized:
             print(f'note: --changed-files-only: {materialized} changed practice '

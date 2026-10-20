@@ -457,6 +457,14 @@ message *is* the rule at that point, rather than a paraphrase of it.
   `--paths <file,file>` or `--range <A..B>` to scope a run to specific
   files or commits instead of the whole tree.
 
+The pre-push hook refuses a push in three cases, and each refusal says what
+to fix, never how to get past it. A person who has decided a push must go
+through anyway sets one variable for that one push:
+`PRECEDENT_SKIP_FAILED_TREE=1` (the push check failed on exactly this
+tree), `PRECEDENT_SKIP_LEAK_GATE=1` (the leak gate found something), or
+`PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS=1` (a practice's own pre-push hook
+refused). That is the person's call, not an AI Assistant's.
+
 Landing a *new* enforced practice carries a hard rule, not a suggestion:
 `precedent_land.py` refuses a `checked_by` claim with no registered,
 tested check behind it — a slug has to already be a key in
