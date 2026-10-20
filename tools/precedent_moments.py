@@ -22,10 +22,15 @@ WHAT IT READS, per practices/ tree given (default: this repository's own,
 plus every sibling checkout beside it that has one): each practice in force
 other than the-boildown itself -- its frontmatter `title`, `occasion`,
 `index_clause`, `gates_why` and `applies_to_why`; the `note` of each of its
-entries in that tree's reply_check.json; and every tool its `ships:` or a
-reply_check.json `note_from_tool` names. Prose sections and Story are not
-read: history may quote the old wording, and a rule body may explain the
-moment it names.
+entries in that tree's reply_check.json; every tool its `ships:` or a
+reply_check.json `note_from_tool` names; and its `## Rule` and `## Detail`
+sections, which are what a session actually follows. In those two, a
+sentence that also names the moment is explaining it and passes; one that
+does not is a restatement. `## Why` and `## Story` are history and are not
+read: they may quote the old wording. (Body sections were added
+2026-10-20, after stale-branch-cleanup's Rule kept the old moment in its
+own words -- "a reply that does not say the session can be archived" --
+while this tool printed "none", and a session found it only by grep.)
 
   python3 tools/precedent_moments.py            # dependents and restatements
   python3 tools/precedent_moments.py ROOT ...   # those trees only
@@ -45,12 +50,36 @@ OWNER = 'the-boildown'
 MOMENTS = {
     'archive-line reply': re.compile(
         r'you can archive this session|'
-        r'says?,? (?:that )?the session can be archived', re.I),
+        r'(?:says?|saying),?\s+(?:that\s+)?(?:the\s+|this\s+)?session\s+'
+        r'(?:can|may)\s+be\s+archived', re.I),
     'closing reply': re.compile(
         r'answers?\s+\\?["“]Archive|"Archive\??" or "Archive\??"', re.I),
 }
 
 FIELDS = ('title', 'occasion', 'index_clause', 'gates_why', 'applies_to_why')
+
+# The prose sections a session follows; Why and Story are history.
+BODY_SECTIONS = ('rule', 'detail')
+
+
+def _sections(sections):
+    """-> [(Name, text)] for the Rule and Detail of a practice's parsed
+    sections, fenced blocks dropped so a quoted example is not read as the
+    rule."""
+    out = []
+    for name in BODY_SECTIONS:
+        text = (sections or {}).get(name) or ''
+        text = re.sub(r'(?ms)^\s*```.*?^\s*```[^\n]*$', '', text)
+        if text.strip():
+            out.append((name.capitalize(), text))
+    return out
+
+
+def _sentence(text, start, end):
+    """-> the sentence of `text` holding [start, end)."""
+    a = max(text.rfind('. ', 0, start), text.rfind('\n\n', 0, start)) + 1
+    stops = [i for i in (text.find('. ', end), text.find('\n\n', end)) if i >= 0]
+    return text[a:min(stops) if stops else len(text)]
 
 
 def default_roots():
@@ -61,11 +90,12 @@ def default_roots():
     return roots
 
 
-def _texts(root, fm, slug, notes, tools):
+def _texts(root, fm, slug, notes, tools, body=None):
     """-> [(where, text)] for one practice: its frontmatter fields, its
-    reply_check notes, the tools it ships or runs."""
+    reply_check notes, the tools it ships or runs, its Rule and Detail."""
     import build_views as bv
     out = [(f'{f}:', str(fm.get(f) or '')) for f in FIELDS]
+    out += [(f'## {n}', t) for n, t in _sections(body)]
     out += [('reply_check.json note', n) for n in notes.get(slug, [])]
     for rel in sorted(set(bv.ships_paths(fm)) | set(tools.get(slug, []))):
         p = root / rel
@@ -107,18 +137,21 @@ def scan(roots=None, skip=lambda rel: False):
         if not pdir.is_dir():
             continue
         notes, tools = _reply_check(root)
-        for fm, _s, f in bv.load_practices(pdir, in_force_only=True,
-                                           announce=False):
+        for fm, body, f in bv.load_practices(pdir, in_force_only=True,
+                                             announce=False):
             slug = fm.get('slug', pathlib.Path(f).stem)
             rel = str(pathlib.Path(f).resolve().relative_to(root.resolve()))
             if slug == OWNER or skip(rel):
                 continue
-            texts = _texts(root, fm, slug, notes, tools)
+            texts = _texts(root, fm, slug, notes, tools, body)
             for name, pat in MOMENTS.items():
                 if any(name in t for w, t in texts if w.endswith(':')):
                     dependents.append((root, slug, name))
                 for where, t in texts:
-                    m = pat.search(t)
+                    m = next((m for m in pat.finditer(t)
+                              if not (where.startswith('## ') and name in
+                                      _sentence(t, m.start(), m.end()))),
+                             None)
                     if m:
                         a = max(0, m.start() - 40)
                         restatements.append(

@@ -154,7 +154,7 @@ def assistant_texts(records):
     return out
 
 
-def person_messages(records):
+def person_messages(records, repo=None):
     """The text the PERSON actually typed, and nothing else.
 
     A `type: user` record is also how tool results and every hook's injected
@@ -184,6 +184,7 @@ def person_messages(records):
             '<wake ', '<event ', '<webhook-payload>')
     out = []
     said = ''                     # every assistant text so far, folded
+    seeded = _seeded_header(repo)
     for rec in records:
         said += ' ' + _fold(' '.join(b.get('text', '') for b in _blocks(rec, 'assistant')
                                      if b.get('type') == 'text'))
@@ -195,7 +196,7 @@ def person_messages(records):
             text = b.get('text') or ''
             if not text.strip() or any(m in text for m in skip):
                 continue
-            text = _without_quoted_assistant(_without_other_sessions_words(text), said)
+            text = _without_quoted_assistant(_without_other_sessions_words(text, seeded), said)
             if text.strip():
                 out.append(text)
     return out
@@ -251,12 +252,39 @@ def _without_quoted_assistant(text, said):
 
 
 # The first line every prompt one session puts into another carries
-# (practice: seeded-prompt-names-its-origin).
-_SEEDED = re.compile(r'Sent automatically by\b[^\n]*?Nobody typed this\.')
+# (practice: seeded-prompt-names-its-origin). Three shapes: the practice's
+# own "Sent automatically by ... Nobody typed this."; the From line, as the
+# reply check's prompt-block-names-both-ends entry defines it (read from
+# reply_check.json, so the two never drift apart); and "Origin:" naming a
+# session, which seeded-prompt-gate.sh lets through because it names one.
+_SEEDED_LEGACY = r'Sent automatically by\b[^\n]*?Nobody typed this\.'
+_SEEDED_ORIGIN = r'\bOrigin:[^\n]*\bsession_[A-Za-z0-9]{6,}'
+
+
+def _seeded_header(repo=None):
+    """-> one pattern for every seeded-prompt header shape. The From line
+    comes from whichever source's reply_check.json declares
+    require_prompt_block_header; with none readable, the other two shapes
+    still hold."""
+    shapes = [_SEEDED_LEGACY, _SEEDED_ORIGIN]
+    try:
+        import precedent_reply_check as prc
+        reqs, _ = prc.declared_requirements(repo or os.getcwd())
+    except Exception:                                        # noqa: BLE001
+        reqs = []
+    for e in reqs:
+        rule = e.get('require_prompt_block_header') if isinstance(e, dict) else None
+        if isinstance(rule, dict) and rule.get('from_line'):
+            # anchored at line start there; here a person's own words may
+            # come first on the line, so the anchor is dropped
+            shapes.append(r'\b' + rule['from_line'].lstrip('^'))
+    return re.compile('|'.join(f'(?:{x})' for x in shapes))
+
+
 _PASTED = re.compile(r'<pasted_content\b[^>]*>.*?</pasted_content\b[^>]*>', re.S)
 
 
-def _without_other_sessions_words(text):
+def _without_other_sessions_words(text, seeded=None):
     """`text` without the words another session wrote: a prompt it seeded,
     and anything pasted in a <pasted_content> block. What the person typed
     around them stays, and is read as before.
@@ -267,10 +295,12 @@ def _without_other_sessions_words(text):
     everything from the header on is the other session's. On 2026-09-29
     three explicit-instruction signals ("Never open a pull request, never
     merge.", and two more) came from a pasted handoff and were reported
-    as "the person said"."""
+    as "the person said". On 2026-10-20 it happened again from a seed
+    headed "From: session <id> ... A session wrote this, not a person",
+    which only the "Sent automatically" shape was then recognized by."""
     text = _PASTED.sub(' ', text)
     first = next((l for l in text.splitlines() if l.strip()), '')
-    m = _SEEDED.search(first)
+    m = (seeded or _seeded_header()).search(first)
     if m:
         text = first[:m.start()]
     return text
@@ -323,7 +353,7 @@ def signals(records, repo):
     except ImportError:
         return []
     found = []
-    for text in person_messages(records):
+    for text in person_messages(records, repo):
         for pattern, sent in pd.instruction_hits(text):
             # "the person", never a pronoun: this is universal engine code
             # and the person on the other end of any given session is

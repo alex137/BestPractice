@@ -112,7 +112,8 @@ as_of: 2026-10-20
 | [`todo-2026-10-14-alex-private-repos-outside-the-leak-list`](todo-2026-10-14-alex-private-repos-outside-the-leak-list.md) | Since 2026-10-14 the leak gate reads a person's written list of private | 6d | wait |  |
 | [`todo-2026-10-14-update-review-remembers-past-updates`](todo-2026-10-14-update-review-remembers-past-updates.md) | Make the upstream review that Update Vendors prints (the ladder set's | 6d | parked |  |
 | [`todo-2026-10-16-enforcement-moves-waiting-on-morgan`](todo-2026-10-16-enforcement-moves-waiting-on-morgan.md) | Three calls left by | 4d | ask |  |
-| [`todo-2026-10-20-ladder-set-names-the-boildown-moments`](todo-2026-10-20-ladder-set-names-the-boildown-moments.md) | The ladder set's half of naming the Boildown's moments. BestPractice's | 0d | wait | push access to themorgan/precedent-shared-ladder: the session that wrote this as… |
+| [`todo-2026-10-20-branch-page-data-in-a-file`](todo-2026-10-20-branch-page-data-in-a-file.md) | The branch cleanup page that | 0d | ask | Morgan's call: it changes how the page saves ticks into itself, which he chose o… |
+| [`todo-2026-10-20-ladder-set-names-the-boildown-moments`](todo-2026-10-20-ladder-set-names-the-boildown-moments.md) | The ladder set's half of naming the Boildown's moments. BestPractice's | 0d | wait | Morgan's word to land precedent-shared-ladder branch 2026-10-20-themorgan-root-i… |
 
 ## Decisions (the Person's Call)
 

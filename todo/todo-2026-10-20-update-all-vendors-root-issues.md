@@ -89,3 +89,70 @@ held as written.
    one at a time, and only if that passes, say in update-all-vendors to
    attach one repository at a time.
 
+## Findings 6-8, 2026-10-20
+
+Raised by the same session after copying the shared sets into consumers,
+then sharpened with Morgan's words about BestPractice (BP): "make sure
+this is fixed at its root in BP. So a root issues to find other root issues."
+
+6. **Not reproduced.** Reported: copy-in staged a tracked shipped file as
+   renamed into the copy and left the old path untracked on disk, so the
+   basic check failed on rename-updates-links. Rehearsed four times, with
+   no push: two private consumers on staging's engine, and a third on
+   staging's and on `main`'s (75970f4a0f18), the last with the reporting
+   session's own order (a run with no answers,
+   then the copy-in rerun). Each staged the shipped files as modified or
+   added, never renamed-and-untracked, and ended DONE. Nothing was built
+   for a cause no run showed.
+7. **Fixed at the cause.** A copied set's manifest named no scrub list, so
+   the audit read it as `process/scrub_blocklist.txt` and failed every
+   consumer without one (reproduced in a private consumer). The scrub guards what
+   a repository sends up to a pack; a copy only comes down and is never
+   edited here, so copy-in now writes `scrub_blocklist: null` with that
+   reason, and Update Vendors adds it to a copy made before. The
+   copy-in test now plants a consumer with no list, as
+   checks-plant-their-state asks; it fails on the old code.
+8. **What let it through: a test that planted one consumer shape, and no
+   way to try an unlanded change on real ones.** The first half is the
+   test above. The second: `precedent_update_all.py --rehearse REF` runs
+   every consumer's update against an unlanded commit, with copy-in
+   answers, and never pushes. Morgan decided not to require a rehearsal
+   before every engine change (2026-10-20, strength: decided: "1 no"), nor
+   a full one now ("2 no but you can choose two repos and update vendors in
+   them as a test, just not all repos").
+
+   The two-repository test, the same day, no push: a public consumer and a
+   private one not updated for a week. Both stopped only on the person's
+   own questions (copy-in, a settings change, one AGENTS.md section kept
+   on purpose). The public one showed the new refusal for a set the leak
+   check could not read; the private one, the corrected wording for a set
+   it does not use. No engine failure.
+
+With these fixes, all three held consumers (three private repositories)
+end DONE with Morgan's recorded answers.
+
+
+## Ideas to prevent or detect this kind of error, offered 2026-10-20
+
+Morgan asked for other ways to catch today's failures, given that a
+rehearsal over every consumer is not wanted. Not yet adopted:
+
+1. **Consumer shape fixtures.** Record the shape of each real consumer
+   (visibility, whether it keeps a scrub list, which shipped files it
+   tracks, which sets it declares, live or copied in), never its content,
+   and have the update and copy-in tests run against every recorded shape.
+   It brings the rehearsal's coverage to the harness without attaching a
+   repository. The pick.
+2. **Every update test ends with the consumer's own basic check.** Today's
+   copy-in test checked each step's output and never ran the gates a real
+   consumer runs next; the scrub failure was a gate downstream of the step.
+3. **"Could not check" is a failure, not a note.** Two of today's bugs
+   were a check that could not run, followed by carrying on: the public
+   copy-in offered with no leak check, and the push check skipping every
+   repository's own checks as "could not run here". An audit could list
+   every message of that kind the engine prints and require each to be a
+   refusal or a tested, named skip.
+4. **Decommissioning asks where the file went.** Deleting an engine tool
+   that wrote files into consumers should name those files for the update
+   to remove, or say none left BestPractice; the watermark lingered
+   because nobody asked.

@@ -6610,13 +6610,14 @@ def _own_deduplication_points_somewhere(ctx):
        'no practice in force other than the-boildown restates one of its two '
        'named moments -- quoting "You can archive this session", or "answers '
        '\'Archive\' or \'Archive?\'" -- in its title, occasion, index_clause, '
-       'gates_why, applies_to_why, reply_check.json note, or a tool it ships '
-       'or runs for a note; it names "the archive-line reply" or "the closing '
-       'reply" instead',
-       'a restatement in other words than the two patterns '
-       'tools/precedent_moments.py knows, and prose sections, which may '
-       'explain the moment they name. It reads this tree only; the tool, run '
-       'bare, reads every sibling checkout too.',
+       'gates_why, applies_to_why, reply_check.json note, a tool it ships '
+       'or runs for a note, or a sentence of its Rule or Detail that does not '
+       'also name the moment; it names "the archive-line reply" or "the '
+       'closing reply" instead',
+       'a restatement in other words than the patterns '
+       'tools/precedent_moments.py knows, and the Why and Story sections, '
+       'which are history. It reads this tree only; the tool, run bare, '
+       'reads every sibling checkout too.',
        practice_backed=False, binds_publishers=True,
        selects_on=('practices/*.md', 'reply_check.json', 'tools/**/*.py'))
 def _boildown_moments_named(ctx):
@@ -14388,10 +14389,24 @@ def main():
     args = sys.argv[1:]
     flags = {a for a in args if a.startswith('--')}
     # A run from inside a different repo reads THIS repo, silently -- say so
-    # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
+    # (precedent_which_repo.py; gotcha-2026-09-29). Where that repo has its
+    # own copy, refuse with no pass/fail line: a pass here would be about
+    # this repo, and read as one about that (2026-10-20). `--repo PATH`
+    # naming this repo is the deliberate run.
+    repo = None
+    if '--repo' in args:
+        i = args.index('--repo')
+        repo = args[i + 1] if i + 1 < len(args) else ''
+        del args[i:i + 2]
     try:
         import precedent_which_repo
-        precedent_which_repo.warn_if_elsewhere(ROOT, 'precedent_check.py')
+        refusal = precedent_which_repo.elsewhere_refusal(
+            ROOT, 'precedent_check.py', repo=repo)
+        if refusal:
+            print(refusal, file=sys.stderr)
+            return 2
+        if repo is None:
+            precedent_which_repo.warn_if_elsewhere(ROOT, 'precedent_check.py')
     except Exception:                                        # noqa: BLE001
         pass
     # Before --list/--explain/--only read CHECKS, so a source-supplied
