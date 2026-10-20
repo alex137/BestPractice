@@ -69303,6 +69303,134 @@ def check_hosted_sessions_resolve_without_attaching_a_repo():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_a_set_exports_only_its_own_rules():
+    """A practice set hands on only the rules it writes
+    (spec/A_SET_EXPORTS_ONLY_ITS_OWN_RULES.md, 2026-10-19). A repository that
+    had Precedent installed like a project kept 209 copies of other sources'
+    practices in the practices/ folder a set's consumers read as its own.
+
+    1. The resolver leaves out a copy an install recorded in the set's
+       MANIFEST.json -- byte-identical or stale -- and keeps the set's own.
+    2. It leaves out a byte-identical copy with no MANIFEST.json (a hand
+       copy); the weaker source's rule stays in force.
+    3. NEGATIVE CONTROL: a set's real override, different text under the
+       same slug, still replaces the weaker rule.
+    4. The install step refuses to write into a set, before touching it.
+    5. Update Vendors' copy-in refuses a set that holds an install's
+       copies."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='set-own-rules-'))
+    cases = []
+
+    def rule(slug, body):
+        return f'---\nslug: {slug}\n---\n# {slug}\n\n## Rule\n\n{body}\n'
+
+    def make_source(name, level, files, manifest=None):
+        d = tmp / name
+        (d / 'practices').mkdir(parents=True)
+        (d / 'precedent-source.json').write_text(json.dumps(
+            {'name': name, 'level': level, 'visibility': 'public'}),
+            encoding='utf-8')
+        for slug, text in files.items():
+            (d / 'practices' / f'{slug}.md').write_text(text, encoding='utf-8')
+        if manifest is not None:
+            (d / 'MANIFEST.json').write_text(json.dumps(
+                {'generated_by': 'tools/precedent_materialize.py',
+                 'practices': manifest}), encoding='utf-8')
+        return d
+
+    def host(hname, set_name):
+        h = tmp / hname
+        h.mkdir()
+        (h / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'private', 'sources': [
+                {'level': 'universal', 'name': 'precedent',
+                 'path': str(tmp / 'precedent')},
+                {'level': 'shared', 'name': set_name,
+                 'path': str(tmp / set_name)}]}), encoding='utf-8')
+        return h
+
+    try:
+        import precedent_resolve as pr
+        import precedent_materialize as pm
+        import checkin
+        aa, bb = rule('aa', 'live aa'), rule('bb', 'live bb')
+        make_source('precedent', 'universal', {'aa': aa, 'bb': bb})
+        polluted = make_source(
+            'zz-set', 'shared',
+            {'zz-own': rule('zz-own', 'mine'), 'aa': aa,
+             'bb': rule('bb', 'stale bb')},
+            manifest=[{'slug': 'aa', 'source': 'precedent'},
+                      {'slug': 'bb', 'source': 'precedent'},
+                      {'slug': 'zz-own', 'source': 'zz-set'}])
+        make_source('zz-hand', 'shared',
+                    {'aa': aa, 'bb': rule('bb', 'a real override')})
+        cfg = str(tmp / 'no-config.json')
+
+        def resolve(h):
+            srcs = [s for s in pr.load_config(str(h), user_config=cfg)
+                    if s['name'] in ('precedent', 'zz-set', 'zz-hand')]
+            return srcs, pr.resolve(srcs)
+
+        srcs, res = resolve(host('h1', 'zz-set'))
+        got = {s: p['source'] for s, p in res['practices'].items()}
+        cases.append(('copies an install recorded in the set are left out, '
+                      'stale or not; the set keeps its own rule',
+                      got == {'aa': 'precedent', 'bb': 'precedent',
+                              'zz-own': 'zz-set'}
+                      and sorted(c['slug'] for c in res['copies']) == ['aa', 'bb']
+                      and 'left out 2' in pr.copies_note(res['copies']),
+                      f'{got} / {res.get("copies")}'))
+        _s2, res2 = resolve(host('h2', 'zz-hand'))
+        got2 = {s: p['source'] for s, p in res2['practices'].items()}
+        cases.append(('a byte-identical hand copy is left out; the original '
+                      'stays in force',
+                      got2.get('aa') == 'precedent'
+                      and [c['slug'] for c in res2['copies']] == ['aa'],
+                      f'{got2} / {res2.get("copies")}'))
+        cases.append(('NEGATIVE CONTROL: a real override under the same slug '
+                      'still replaces the weaker rule',
+                      got2.get('bb') == 'zz-hand', repr(got2)))
+
+        before = sorted(f.name for f in (polluted / 'practices').iterdir())
+        uni = [s for s in srcs if s['name'] == 'precedent']
+        try:
+            pm._materialize(uni, pr.resolve(uni), polluted)
+            refused, why = False, 'materialized into a set'
+        except pm.MaterializeError as e:
+            refused, why = 'precedent-source.json' in str(e), str(e)
+        after = sorted(f.name for f in (polluted / 'practices').iterdir())
+        cases.append(('the install step refuses to write into a practice '
+                      'set, and leaves it as it was',
+                      refused and before == after, why[:300]))
+
+        old = (checkin.SOURCE, checkin.SET_ROOT)
+        checkin.SOURCE, checkin.SET_ROOT = 'zz-set', ''
+        try:
+            checkin._refuse_set_holding_copies(polluted)
+            exited = 'not refused'
+        except SystemExit as e:
+            exited = str(e)
+        try:
+            checkin._refuse_set_holding_copies(tmp / 'zz-hand')
+            clean_ok = True
+        except SystemExit:
+            clean_ok = False
+        finally:
+            checkin.SOURCE, checkin.SET_ROOT = old
+        cases.append(("Update Vendors' copy-in refuses a set holding an "
+                      "install's copies, and takes one that holds none",
+                      'holds 2 practice(s)' in exited and clean_ok, exited[:300]))
+    except Exception as e:                                   # noqa: BLE001
+        cases.append(('the test ran', False, f'{type(e).__name__}: {e}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    for name, ok, detail in cases:
+        check(f'a set exports only its own rules: {name}', ok,
+              '' if ok else str(detail)[:500])
+
+
 def check_copied_in_shared_sets():
     """A shared set copied into a repository, the way the universal catalogue
     is at process/upstream/ (spec/VENDORED_SHARED_SETS.md, 2026-10-19). The
@@ -87841,6 +87969,7 @@ def main():
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()
     check_hosted_sessions_resolve_without_attaching_a_repo()
+    check_a_set_exports_only_its_own_rules()
     check_copied_in_shared_sets()
     check_copied_set_carries_another()
     check_copy_in_is_asked_once()
