@@ -838,6 +838,26 @@ def _fenced_blocks(text, with_lead=False):
     return list(zip(blocks, leads)) if with_lead else blocks
 
 
+def _without_fenced_blocks(text):
+    """`text` with every line inside a fenced block blanked, by the same
+    reading of fences as _fenced_blocks: prose only, line count kept."""
+    out, fence = [], None
+    for line in text.split('\n'):
+        m = re.match(r'^\s{0,3}(`{3,}|~{3,})', line)
+        if fence is None:
+            if m:
+                fence = m.group(1)
+                out.append('')
+            else:
+                out.append(line)
+            continue
+        if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) \
+                and not line.strip()[len(m.group(1)):].strip():
+            fence = None
+        out.append('')
+    return '\n'.join(out)
+
+
 # A clause that narrates: it opens with a session, tool, check or the like
 # as its subject and a past-tense verb ("a tool told it to open a pull
 # request to main", "the last session merged its PR into main"). The
@@ -1445,7 +1465,13 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
         # dropped unseen by main(), so a reply that linked nothing in the
         # Boildown passed with no one told (Morgan: "Don't we have practice
         # rules so when you mention files you always give links?").
-        link_stripped = _strip_markdown_links(text)
+        #
+        # Fenced blocks are left out: a Markdown link does not render inside
+        # one, so the check could only ever be met there by writing raw link
+        # syntax into text meant for pasting. On 2026-10-20 a Root issues
+        # prompt was refused for a PR number and session ids written plainly
+        # for the session receiving it.
+        link_stripped = _strip_markdown_links(_without_fenced_blocks(text))
         linked = _linked_spans(text)
         for entry in (r.get('require_no_bare_pattern') or []):
             pattern, pat_why = entry.get('pattern'), entry.get('why')

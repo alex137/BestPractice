@@ -49387,6 +49387,14 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
                  '`/tmp/s/out.md`; items are `todo-<date>-<slug>.md`; `main` (BestPractice).')
     cases.append(('a command, an absolute path, a template and a plain branch '
                   'word pass', not v, v))
+    v = blocking('Paste into: a new session rooted in alex137/BestPractice.\n\n'
+                 '```\nFor: a new session.\nSee PR #1314 and session_01AbCdEfGh, '
+                 f'on `{branch}`.\n```\n')
+    cases.append(('2026-10-20: inside a fenced paste block, where a link cannot '
+                  'render, a bare mention passes', not v, v))
+    v = blocking('```\nquoted\n```\nThen PR #1314 in prose.')
+    cases.append(('...and the same mention after the fence closes is still refused',
+                  len(v) == 1, v))
     soft = [dict(r, advisory=True) for r in reqs]
     v = blocking(f'Work is on `{branch}`.', soft)
     cases.append(('negative control: declared advisory, nothing blocks', not v, v))
