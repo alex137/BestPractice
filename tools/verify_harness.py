@@ -49154,9 +49154,10 @@ def check_global_gate_runs_a_repos_gate_only_from_above():
 
 
 def check_reply_check_refuses_an_unlinked_branch_or_file():
-    """reply_check.json's rule-links requirements refuse a reply naming a
-    dated session branch or a file in code font with no link, let a name
-    linked once be named bare again, and leave alone what has no page: a
+    """require_no_bare_pattern, with a planted copy of the link patterns a set
+    declares, refuses a reply naming a
+    dated session branch or a file in code font with no link, lets a name
+    linked once be named bare again, and leaves alone what has no page: a
     command, an absolute path, a filename template.
 
     2026-10-19 (Morgan: "Don't we have practice rules so when you mention
@@ -49165,9 +49166,19 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
     main() drops an advisory finding unseen. Negative control: declared
     advisory again, the discriminating case is not in the blocking set."""
     import precedent_reply_check as prc
-    reqs = [dict(b, _source='universal/precedent')
-            for b in json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
-            if b.get('practice') == 'rule-links' and b.get('require_no_bare_pattern')]
+    # The real patterns are the writing set's (its reply_check.json, since
+    # 2026-10-19); these are a planted copy, under a made-up practice name,
+    # so this tests the engine's require_no_bare_pattern and not one set.
+    planted = [
+        {"pattern": "\\bPR #\\d+\\b", "why": "zz", "repair": "zz: link it"},
+        {"pattern": "\\bsession_[A-Za-z0-9-]+\\b", "why": "zz", "repair": "zz: link it"},
+        {"pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/pull/\\d+\\b", "why": "zz", "repair": "zz: link it"},
+        {"pattern": "`(?:\\d{4}-\\d{2}-\\d{2}-[a-z0-9][a-z0-9.-]*|claude/[\\w.-]+)`", "why": "zz", "repair": "zz: link it"},
+        {"pattern": "`(?![/~])(?:[\\w.-]+/)*[\\w-][\\w.-]*\\.(?:md|py|json|sh|ya?ml|html|toml|txt|csv|docx)`", "why": "zz", "repair": "zz: link it"},
+        {"pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/tree/[\\w/-]+(?:\\.[\\w/-]+)*", "why": "zz", "repair": "zz: link it"},
+    ]
+    reqs = [{'practice': 'zz-links', 'require_no_bare_pattern': planted,
+             '_source': 'shared/zz-set'}]
     branch = '2026-10-19-someone-a-plan-ab12c-xy9z0'
 
     def blocking(text, rs=None):
@@ -49192,8 +49203,6 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
     soft = [dict(r, advisory=True) for r in reqs]
     v = blocking(f'Work is on `{branch}`.', soft)
     cases.append(('negative control: declared advisory, nothing blocks', not v, v))
-    cases.append(('no rule-links requirement here is advisory',
-                  reqs and not any(r.get('advisory') for r in reqs), reqs))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the reply check refuses an unlinked branch or file '
           f'({len(cases)} stated cases)', not bad,
