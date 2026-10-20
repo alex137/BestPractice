@@ -3527,6 +3527,50 @@ LAND_RESULT = 'LAND RESULT'
 LANDING_SOURCE_ENV = 'PRECEDENT_LANDING_SOURCE'
 
 
+# What Update Vendors runs in another repository: its own code, the engine
+# refresh and copy-in, the catalogue copy, the view sync, and the templates
+# an install or update writes there.
+UPDATE_VENDORS_PATHS = (
+    'tools/precedent_update.py', 'tools/precedent_update_all.py',
+    'tools/precedent_vendor_engine.py', 'tools/checkin.py',
+    'tools/precedent_sync_views.py', 'tools/precedent_materialize.py',
+    'tools/precedent_install.py', 'tools/precedent_resolve.py',
+    'templates/',
+)
+
+
+def update_vendors_note(root, before, after):
+    """-> what to tell the person when the commits from `before` to `after`
+    change how Update Vendors behaves in other repositories, or ''. Only in
+    BestPractice, where that code is written.
+
+    WHY (Morgan, 2026-10-20): copy-in landed one day and broke the update in
+    the first consumers it met the next, one repository at a time. "When
+    there is a change to update vendors, tell the session user there was a
+    change and recommend to him he run it (perhaps even suggesting a repo
+    and you rooting a new session to make it easy) to make sure there are
+    no issues." A whole rehearsal before every change he declined the same
+    day; one repository, chosen and offered, is the ask."""
+    if not (pathlib.Path(root) / 'tools' / 'verify_harness.py').is_file():
+        return ''
+    out = _git(root, 'diff', '--name-only', f'{before}..{after}') or ''
+    hit = sorted(f for f in out.splitlines()
+                 if any(f == u or (u.endswith('/') and f.startswith(u))
+                        for u in UPDATE_VENDORS_PATHS))
+    if not hit:
+        return ''
+    return ('UPDATE VENDORS CHANGED (' + ', '.join(hit[:6])
+            + (f' and {len(hit) - 6} more' if len(hit) > 6 else '')
+            + '). Tell the person, and recommend trying it in one repository '
+            'that uses Precedent before the next routine update meets it: '
+            'pick one this change would touch (list_repos; a public one, one '
+            'with copied-in sets, or one not updated for a while), name it, '
+            'and offer to start a session rooted in it to run Update Vendors '
+            '(create_session). Until a Produce moves this into main, that '
+            'session runs the update with --from-ref origin/staging, and '
+            'pushes nothing.')
+
+
 def land(root, work=None, say=print):
     """Land `work` (a branch or commit; HEAD when None) on staging for a
     person who lands there, and end with one LAND RESULT line.
@@ -3669,6 +3713,9 @@ def _land_composed(root, sha, label, staging, why, say):
         f'nothing.')
     for line in review:
         say(line)
+    note = update_vendors_note(root, stip, new)
+    if note:
+        say(note)
     return 0, f'LANDED at {new}'
 
 

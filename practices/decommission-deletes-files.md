@@ -27,6 +27,15 @@ a mechanical audit, never on confidence: run
 path and act only on a clean report. Record what went, and why, in
 `process/decommissioned_paths.json`.
 
+**Retiring an engine tool asks what it left in other repositories.** A tool
+the engine vendors ran in every repository that uses Precedent, and any
+file it wrote there outlives it. Its record says which, under
+`left_in_consumers` (`--left-in-consumers PATH`, or `--left-nothing`), and
+Update Vendors removes those files wherever they still carry the tool's
+mark. The push check refuses a change that deletes a vendored engine file
+without the answer (Morgan, 2026-10-20: "When retiring an engine tool, ask
+what it left in other repositories").
+
 ## Detail
 The audit refuses on four conditions, each of which is a real dependency
 rather than a doubt: the path is not tracked (there is no deletion to

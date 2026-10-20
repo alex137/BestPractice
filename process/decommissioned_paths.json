@@ -139,7 +139,10 @@
     {
       "path": "tools/precedent_beta_watermark_check.py",
       "reason": "Replaced by tools/precedent_others_did.py and tools/others_did_watermark.json (2026-10-08): the daily report of what others landed, delivered at the first prompt, with its mark committed onto the landing branch",
-      "decommissioned_at": "2026-10-08"
+      "decommissioned_at": "2026-10-08",
+      "left_in_consumers": [
+        "tools/beta_branch_watermark.json"
+      ]
     },
     {
       "path": "tools/beta_branch_watermark.json",
@@ -165,6 +168,14 @@
       "path": "tools/section_split.json",
       "reason": "A spent phase-1.5 migration tool and its data: the editorial Rule/Detail/Why/Story/Install split it applied was done long ago, its list named practices that have since moved to the ladder set, so --check could never pass, and nothing called it. Decommissioned by the session under Morgan's delegation of 2026-10-17 (\"Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked.\").",
       "decommissioned_at": "2026-10-17"
+    },
+    {
+      "path": "tools/precedent_others_did.py",
+      "reason": "Moved to the precedent-shared-ladder set as tools/ladder/others_did.py (d50e09ee1, 2026-10-17); deleted from the engine by hand then, and recorded here on 2026-10-20 so Update Vendors removes the mark file it left in consumers.",
+      "decommissioned_at": "2026-10-17",
+      "left_in_consumers": [
+        "tools/others_did_watermark.json"
+      ]
     }
   ],
   "exempt_files": [

@@ -21737,6 +21737,126 @@ def check_update_vendors_converges_consumer_ci():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_retiring_an_engine_tool_asks_what_it_left():
+    """A change deleting a vendored engine file is refused until the
+    decommission record says what the tool left in the repositories it ran
+    in (Morgan, 2026-10-20: "When retiring an engine tool, ask what it left
+    in other repositories ... please implement this one").
+
+    1. Deleting a file the engine vendored at the base, with no answer:
+       one problem, naming the file and the flag.
+    2. NEGATIVE CONTROL: an answer of [] (it left nothing) clears it.
+    3. NEGATIVE CONTROL: a deleted tools/ file the engine never vendored
+       is not asked about.
+    4. precedent_decommission records the answer on the tool's entry."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    import precedent_decommission as pd
+    cases = []
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def g(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=env,
+                              capture_output=True, text=True)
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        (d / 'tools').mkdir()
+        (d / 'process').mkdir()
+        (d / 'tools' / 'precedent_vendor_engine.py').write_text(
+            "KINDS = {'consumer': ['zz_marker_tool.py']}\n")
+        (d / 'tools' / 'zz_marker_tool.py').write_text('print(1)\n')
+        (d / 'tools' / 'zz_own_script.py').write_text('print(2)\n')
+        (d / pd.REGISTRY).write_text(json.dumps({'decommissioned': []}))
+        g(d, 'init', '-q', '-b', 'base')
+        g(d, 'add', '-A')
+        g(d, 'commit', '-qm', 'base')
+        g(d, 'switch', '-q', '-c', 'work')
+        g(d, 'rm', '-q', 'tools/zz_marker_tool.py', 'tools/zz_own_script.py')
+        g(d, 'commit', '-qm', 'retire')
+        got = ppc._retired_engine_files_unanswered(d, 'base')
+        cases.append(('deleting a vendored engine file with no answer is one '
+                      'problem naming it and the flag',
+                      len(got) == 1 and got[0].startswith('tools/zz_marker_tool.py')
+                      and '--left-in-consumers' in got[0], repr(got)))
+        cases.append(('NEGATIVE CONTROL: a tools/ file the engine never '
+                      'vendored is not asked about',
+                      not any('zz_own_script' in x for x in got), repr(got)))
+        (d / pd.REGISTRY).write_text(json.dumps({'decommissioned': [
+            {'path': 'tools/zz_marker_tool.py', 'reason': 'r',
+             'decommissioned_at': '2026-10-20', pd.LEFT_IN_CONSUMERS_KEY: []}]}))
+        g(d, 'commit', '-qam', 'answer')
+        got = ppc._retired_engine_files_unanswered(d, 'base')
+        cases.append(('NEGATIVE CONTROL: "it left nothing" answers it',
+                      got == [], repr(got)))
+        (d / pd.REGISTRY).write_text(json.dumps({'decommissioned': []}))
+        pd.record_decommissioned(d, ['tools/zz_marker_tool.py'], 'r',
+                                 left=['tools/zz_mark.json'])
+        e = json.loads((d / pd.REGISTRY).read_text())['decommissioned'][0]
+        cases.append(('the decommission tool records what it left on the '
+                      "tool's entry", e.get(pd.LEFT_IN_CONSUMERS_KEY)
+                      == ['tools/zz_mark.json'], repr(e)))
+    bad = [c for c in cases if not c[1]]
+    return (not bad, '; '.join(f'{n}: {x}' for n, _ok, x in bad)
+            or f'{len(cases)} cases')
+
+
+def check_update_vendors_change_is_announced():
+    """Landing a change to Update Vendors' code tells the session to tell
+    the person and offer a one-repository trial (Morgan, 2026-10-20: "when
+    there is a change to update vendors, tell the session user there was a
+    change and recommend to him he run it").
+
+    1. A change to precedent_update.py: the note, naming the file and
+       offering a session rooted in one repository.
+    2. NEGATIVE CONTROL: a change to a practice file: no note.
+    3. NEGATIVE CONTROL: outside BestPractice (no verify_harness.py), the
+       same change: no note -- a consumer runs the update, it does not
+       write it."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    cases = []
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def g(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=env,
+                              capture_output=True, text=True).stdout.strip()
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        (d / 'tools').mkdir()
+        (d / 'practices').mkdir()
+        (d / 'tools' / 'verify_harness.py').write_text('\n')
+        (d / 'tools' / 'precedent_update.py').write_text('a = 1\n')
+        (d / 'practices' / 'zz.md').write_text('x\n')
+        g(d, 'init', '-q')
+        g(d, 'add', '-A')
+        g(d, 'commit', '-qm', 'base')
+        base = g(d, 'rev-parse', 'HEAD')
+        (d / 'practices' / 'zz.md').write_text('y\n')
+        g(d, 'commit', '-qam', 'doc')
+        doc = g(d, 'rev-parse', 'HEAD')
+        (d / 'tools' / 'precedent_update.py').write_text('a = 2\n')
+        g(d, 'commit', '-qam', 'update')
+        upd = g(d, 'rev-parse', 'HEAD')
+        note = pb.update_vendors_note(d, doc, upd)
+        cases.append(('a change to Update Vendors is announced, with a '
+                      'one-repository trial offered',
+                      'UPDATE VENDORS CHANGED (tools/precedent_update.py)' in note
+                      and 'create_session' in note and 'one repository' in note,
+                      note))
+        cases.append(('NEGATIVE CONTROL: a practice change is not',
+                      pb.update_vendors_note(d, base, doc) == '', ''))
+        (d / 'tools' / 'verify_harness.py').unlink()
+        cases.append(('NEGATIVE CONTROL: outside BestPractice, nothing',
+                      pb.update_vendors_note(d, doc, upd) == '', ''))
+    bad = [c for c in cases if not c[1]]
+    return (not bad, '; '.join(f'{n}: {x}' for n, _ok, x in bad)
+            or f'{len(cases)} cases')
+
+
 def check_local_workflow_declaration_is_asked_once():
     """A converging repository's local_ci_workflows declaration becomes one
     keep-or-delete question, settled by the person's recorded words, and is
@@ -21844,14 +21964,21 @@ def check_engine_written_leftovers_leave_by_content():
                            env=env, check=True)
         return repo
 
+    # What the source's decommission record says the retired tool left.
+    written = [e for e in pve.source_retired_written(ROOT, worktree=True)
+               if e[0] == MARK]
+
     def sweep(repo):
         pve._LEFT_FOR_YOU.clear()
-        res = pve.retire_legacy_leftovers(repo, {}, 'consumer')
+        res = pve.retire_legacy_leftovers(repo, {}, 'consumer', written=written)
         left = [w for i, w in pve._LEFT_FOR_YOU if i == MARK]
         pve._LEFT_FOR_YOU.clear()
         return res, left
 
-    cases = []
+    cases = [('the source records what the retired others-did tool left in '
+              'consumers', written == [(MARK, 'precedent_others_did.py',
+                                        written[0][2] if written else '')],
+              repr(written))]
     try:
         r = make('stock', stock)
         res, _left = sweep(r)
@@ -88813,6 +88940,10 @@ def main():
           *check_engine_written_leftovers_leave_by_content())
     check('a local workflow declaration is one keep-or-delete question, asked once',
           *check_local_workflow_declaration_is_asked_once())
+    check('retiring an engine tool asks what it left in other repositories',
+          *check_retiring_an_engine_tool_asks_what_it_left())
+    check('a change to Update Vendors is announced, with a one-repository trial offered',
+          *check_update_vendors_change_is_announced())
     check('refresh repoints a retired catalogue pin to main, and no other pin',
           *check_refresh_repoints_a_retired_catalogue_pin())
     check('a repo\'s upstream_branch declaration is followed, and only main or staging',

@@ -1435,6 +1435,48 @@ def _new_tests_have_times(root, since, files, problems):
             f'tools/harness_check_times.json with them')
 
 
+def _retired_engine_files_unanswered(root, since):
+    """-> one problem per vendored engine file this change deletes whose
+    retirement does not say what it left in the repositories it ran in --
+    the `left_in_consumers` list on its process/decommissioned_paths.json
+    entry, [] for nothing. Only where the engine is written (upstream): a
+    consumer's update deletes dropped engine files as a matter of course.
+
+    WHY (2026-10-20, Update All Vendors). d50e09ee1 deleted the others-did
+    tool by hand, and nobody asked what it had written into consumers; its
+    mark file stayed in each, naming a tool that was gone, until it stopped
+    their updates. Asked here, every deletion meets the question, however
+    it was made (practice: decommission-deletes-files)."""
+    if repo_kind(HERE) != 'upstream':
+        return []
+    gone = [r for r in _changed_paths(root, since, 'D')
+            if r.startswith('tools/') and r.count('/') == 1]
+    if not gone:
+        return []
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_decommission as pd
+    except Exception:                                          # noqa: BLE001
+        return []
+    finally:
+        sys.path.pop(0)
+    try:
+        entries = json.loads((root / pd.REGISTRY).read_text(
+            encoding='utf-8')).get('decommissioned') or []
+    except (OSError, ValueError, AttributeError):
+        entries = []
+    answered = {e.get('path') for e in entries if isinstance(e, dict)
+                and isinstance(e.get(pd.LEFT_IN_CONSUMERS_KEY), list)}
+    return [f'{rel}: a vendored engine file this change deletes, and nothing '
+            f'says what it left in the repositories it ran in. Record it in '
+            f'{pd.REGISTRY} with "{pd.LEFT_IN_CONSUMERS_KEY}": the files it '
+            f'wrote there, [] for none (precedent_decommission.py '
+            f'--left-in-consumers PATH or --left-nothing does it), so Update '
+            f'Vendors removes them'
+            for rel in gone if rel not in answered
+            and pd.was_vendored(root, rel, since)]
+
+
 def changed_files_check(root, since):
     """-> 0 when every file the change touches is sound, 1 with each
     problem named. Reads nothing but the changed files, and the views a
@@ -1532,6 +1574,7 @@ def changed_files_check(root, since):
                 f'tools/verify_harness.py, planting the violation it exists '
                 f'to catch; the harness refuses a check without one, and '
                 f'the next full check runs it')
+    problems += _retired_engine_files_unanswered(root, since)
     practice = [f for f in files if f.endswith('.md')
                 and (f.startswith('practices/') or '/practices/' in f)]
     build = root / 'tools' / 'build_views.py'
