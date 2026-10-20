@@ -55327,6 +55327,25 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
                      human('why did main go red?', queued=True)])
         cases.append(('a question sent mid-turn holds the next change',
                       rc == 2))
+        # 2026-10-20: a seeded prompt full of regex had the first file write
+        # of the session it started refused, its question marks read as
+        # questions (todo/todo-2026-10-20-root-issues-from-ladder-landing-check.md,
+        # item 3).
+        rc, _ = run([human('Port the anchor `(?<=\\bthen\\s)(?:land|merge)` '
+                           'and the suffix:\n```\n(?![^()\\n]*\\))\n```\nThen push.')])
+        cases.append(('question marks in code spans and fenced blocks are not '
+                      'questions', rc == 0))
+        rc, _ = run([human('Anchor the trigger with (?<=\\bthen\\s) and push.')])
+        cases.append(('a regex group opening "(?" is not a question', rc == 0))
+        rc, _ = run([human('Sent automatically by the session "X" -- '
+                           'https://claude.ai/code/session_01X. Nobody typed this.\n'
+                           'For: a new session.\nGive me the details in the todo '
+                           'item, then fix it. Why it broke?')])
+        cases.append(('a seeded handoff, opening with its origin line, holds nothing',
+                      rc == 0))
+        rc, _ = run([human('Is `x?` the cause? Explain.')])
+        cases.append(('NEGATIVE CONTROL: a real question beside a code span still '
+                      'holds', rc == 2))
         rc, _ = run([asked, notice])
         cases.append(('a notice is not the person: their question still holds',
                       rc == 2))
