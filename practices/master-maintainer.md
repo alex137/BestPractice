@@ -27,7 +27,7 @@ plainly its own to fix, it fixes and lands; anything else it **files as an
 open item and sends to the session that made the change**.
 
 **It proves it is alive with a heartbeat**: on a schedule, one small file
-pushed to a side branch (`maintainer-heartbeat`), **never to the trunk**.
+pushed to the `coord` side branch, **never to the trunk**.
 **Every session reads the heartbeat's age at session start**; when it is
 missing or older than the limit, the session **tells the person once, in
 plain words,** that the repository has no maintainer, and gives the
@@ -59,21 +59,21 @@ links.
   "title": "Master maintainer (<repo>)",
   "prompt_file": "process/jobs/maintainer.md",
   "session": "session_...",
-  "heartbeat_branch": "maintainer-heartbeat",
   "stale_after_hours": 24
 }
 ```
 
-`session` is filled in once the maintainer runs. The last two are optional;
-the defaults are in [tools/precedent_heartbeat.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_heartbeat.py).
+`session` is filled in once the maintainer runs. The limit is optional; the
+default is in [tools/precedent_heartbeat.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_heartbeat.py).
 A repository with no block hears nothing at session start.
 
-**The heartbeat.** `python3 tools/precedent_heartbeat.py beat` replaces the
-one file on the side branch through
-[tools/branch_store.py](https://github.com/alex137/BestPractice/blob/staging/tools/branch_store.py) in snapshot mode, so the branch
-never grows and the working tree is never touched. The maintainer schedules
-it into its own session every six hours; the limit is a day, so one missed
-beat is not an alarm. Both numbers are guesses to revisit, not facts.
+**The heartbeat.** `python3 tools/precedent_heartbeat.py beat` records it
+as the landing queue's own heartbeat for the job `maintainer`
+([tools/land_queue.py](https://github.com/alex137/BestPractice/blob/staging/tools/land_queue.py) `beat`), on the `coord` branch the lease
+board and the queue already use, so the working tree is never touched and
+there is one heartbeat mechanism, not two. The maintainer schedules it into
+its own session every six hours; the limit is a day, so one missed beat is
+not an alarm. Both numbers are guesses to revisit, not facts.
 
 **The reply gate leaves it alone.** A standing session's replies are read by
 nobody in real time, so the reply-format requirements do not apply to the

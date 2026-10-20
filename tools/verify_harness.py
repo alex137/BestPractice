@@ -49346,7 +49346,7 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
 
 def check_maintainer_heartbeat_names_a_missing_maintainer_once():
     """tools/precedent_heartbeat.py, practice master-maintainer: a beat
-    lands on the side branch and never on the trunk, reads back as fresh,
+    lands on the coord branch and never on the trunk, reads back as fresh,
     and a session start in a repository whose heartbeat is missing or stale
     is told to tell the person, with the prompt that starts one.
 
@@ -49390,7 +49390,7 @@ def check_maintainer_heartbeat_names_a_missing_maintainer_once():
         cases.append(('a beat lands on the side branch, reads back fresh, and leaves '
                       'the trunk alone',
                       r.returncode == 0 and git('rev-parse', 'origin/main', cwd=work).stdout == trunk
-                      and git('ls-remote', '--heads', 'origin', 'maintainer-heartbeat',
+                      and git('ls-remote', '--heads', 'origin', 'coord',
                               cwd=work).stdout.strip() != '', r.stdout + r.stderr))
         r = run('--hook')
         cases.append(('negative control: a fresh heartbeat says nothing',
@@ -49408,6 +49408,71 @@ def check_maintainer_heartbeat_names_a_missing_maintainer_once():
                       'nothing', not r.stdout, r.stdout))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the maintainer heartbeat names a missing maintainer once '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
+def check_reply_gate_trims_for_standing_sessions_and_one_line_forms():
+    """tools/precedent_reply_check.py, the five trims of 2026-10-20 (S.
+    Alexander Jacobson, strength: decided): a standing session is held only
+    to the requirements that guard work; a one-line reply is never also
+    asked for what only a full one carries; a branch given up by name stays
+    given up; and one pattern of a requirement can be advice.
+
+    Negative controls: an ordinary session keeps every requirement, and a
+    reply with no closing section at all is still refused."""
+    import tempfile, importlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    prc = importlib.import_module('precedent_reply_check')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True, timeout=30)
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'maintainer': {'session': 'session_TRIMTEST'}}), encoding='utf-8')
+        reqs = [{'require_heading_matching': 'boildown'},
+                {'require_container_safe_if_says': ['You can archive this session']},
+                {'require_section_not_repeated': {'heading': 'boildown'}}]
+        old = os.environ.get('CLAUDE_CODE_REMOTE_SESSION_ID')
+        try:
+            os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_TRIMTEST'
+            kept = prc.for_this_session(reqs, repo)
+            cases.append(('THE DISCRIMINATING CASE: the named standing session keeps '
+                          'only the requirement that guards work',
+                          kept == [reqs[1]], kept))
+            os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_SOMEONEELSE'
+            cases.append(('negative control: any other session keeps every requirement',
+                          prc.for_this_session(reqs, repo) == reqs, None))
+        finally:
+            if old is None:
+                os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+            else:
+                os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = old
+        one = ('Done.\n\n## The Boildown\n\n- The work of this session is now on: '
+               'main, unchanged since the last update.\n')
+        fake = [{'kind': 'first_item_unlanded', 'advisory': False, 'message': 'x'},
+                {'kind': 'delete-link', 'advisory': False, 'message': 'y'},
+                {'kind': 'container', 'advisory': False, 'message': 'z'}]
+        got = prc._one_line_wins(fake, one, reqs)
+        cases.append(('the one-line form is not also asked to list branches or links; '
+                      'a finding that guards work stands', [b['kind'] for b in got] == ['container'],
+                      got))
+        cases.append(('negative control: a full reply keeps every finding',
+                      prc._one_line_wins(fake, 'Done.\n\n## The Boildown\n\n- a\n- b\n', reqs)
+                      == fake, None))
+        prc._record_given_up('**Branch disposition:** `2026-10-19-old-x` -- drop (superseded)',
+                             root=str(repo))
+        cases.append(('a branch given up by name stays given up after that reply',
+                      prc.given_up_branches(str(repo)) == {'2026-10-19-old-x'},
+                      prc.given_up_branches(str(repo))))
+        bare = [{'require_no_bare_pattern': [
+            {'pattern': r'`[\w.-]+\.md`', 'advisory': True},
+            {'pattern': r'\bPR #\d+\b'}]}]
+        v = prc.violations('See `notes.md` and PR #4.', bare)
+        cases.append(('one pattern can be advice while the other still blocks',
+                      sorted(b['advisory'] for b in v) == [False, True], v))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the reply gate trims for standing sessions and one-line forms '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
 
@@ -88006,6 +88071,7 @@ def main():
     check_turn_start_names_what_the_last_reply_left_out()
     check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about()
     check_maintainer_heartbeat_names_a_missing_maintainer_once()
+    check_reply_gate_trims_for_standing_sessions_and_one_line_forms()
     check_cloud_setup_script_writes_each_hook_once()
     check('an empty blocklist is reported as nothing checked, never a pass',
           *check_empty_blocklist_is_not_a_pass())

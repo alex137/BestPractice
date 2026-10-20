@@ -7,10 +7,10 @@ A repository that declares a `maintainer` block in precedent.json has one
 standing session watching its trunk: after each landing it runs the full
 check, refreshes generated tables, publishes renders and watches the
 repositories vendored into it. That session proves it is alive by pushing a
-heartbeat: one small JSON file on a dedicated branch (`maintainer-heartbeat`
-by default), never on the trunk, so the trunk's history stays clean. Each
-beat replaces the last (branch_store.py with history=False), so the branch
-never grows.
+heartbeat: one small JSON file on the `coord` branch, never on the trunk, so
+the trunk's history stays clean. The file is the landing queue's own
+heartbeat record (tools/land_queue.py `beat maintainer`); this tool adds
+only what to do about its age.
 
 Every other session reads the heartbeat's age at session start. A stale or
 missing one is told to the session once, with the paste-ready prompt that
@@ -30,7 +30,6 @@ Opt-in: a repository without a `maintainer` block hears nothing.
       "title":            "Master maintainer (<repo>)",
       "prompt_file":      "process/jobs/maintainer.md",
       "session":          "session_...",            # written once it runs
-      "heartbeat_branch": "maintainer-heartbeat",   # optional
       "stale_after_hours": 24                       # optional
     }
 
@@ -40,7 +39,6 @@ Run:
   python3 tools/precedent_heartbeat.py prompt   print the prompt that starts a maintainer
   python3 tools/precedent_heartbeat.py --hook   SessionStart
 """
-import datetime
 import json
 import os
 import pathlib
@@ -49,8 +47,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-DEFAULT_BRANCH = 'maintainer-heartbeat'
-FILE = 'heartbeat.json'
+JOB = 'maintainer'
 # How often the maintainer beats and when a beat counts as stale. Neither is
 # a fact about the world: a guess at a schedule cheap enough to keep and a
 # limit loose enough that one missed beat is not an alarm (practice:
@@ -82,6 +79,11 @@ def _git(repo, *args, timeout=15):
     return r.stdout.strip() if r.returncode == 0 else None
 
 
+def _limit(cfg):
+    v = cfg.get('stale_after_hours')
+    return float(STALE_AFTER_HOURS if v is None else v)
+
+
 def _origin_slug(repo):
     url = _git(repo, 'remote', 'get-url', 'origin') or ''
     tail = url.rstrip('/').removesuffix('.git').split('github.com')[-1]
@@ -89,46 +91,24 @@ def _origin_slug(repo):
 
 
 def read(repo, cfg=None):
-    """-> (state, beat): state is 'fresh', 'stale', 'none' or 'unreachable';
-    beat is the heartbeat's JSON plus `age_hours`, or None. Reads with time
-    limits, so a session start never hangs on the network."""
-    cfg = cfg or config(repo) or {}
-    branch = cfg.get('heartbeat_branch') or DEFAULT_BRANCH
-    ref = f'refs/branch-store/{branch}'
-    heads = _git(repo, 'ls-remote', '--heads', 'origin', branch, timeout=8)
-    if heads is None:
-        return 'unreachable', None
-    if not heads:
-        return 'none', None
-    if _git(repo, 'fetch', '--quiet', '--no-tags', '--depth', '1', 'origin',
-            f'+refs/heads/{branch}:{ref}', timeout=15) is None:
-        return 'unreachable', None
-    try:
-        beat = json.loads(_git(repo, 'cat-file', 'blob', f'{ref}:{FILE}') or '{}')
-        at = datetime.datetime.fromisoformat(beat['at_utc'].replace('Z', '+00:00'))
-    except (ValueError, KeyError, TypeError, AttributeError):
-        return 'none', None
-    age = (datetime.datetime.now(datetime.timezone.utc) - at).total_seconds() / 3600
-    beat['age_hours'] = round(age, 1)
-    limit = float(cfg.get('stale_after_hours') or STALE_AFTER_HOURS)
-    return ('fresh' if age <= limit else 'stale'), beat
-
-
-def beat(repo, note=''):
-    """Push a new heartbeat, replacing the last. -> the new commit."""
+    """-> (state, age_hours): state is 'fresh', 'stale', 'none' or
+    'unreachable'; age_hours is None unless a beat was found."""
     import branch_store
-    import precedent_detect
-    import precedent_time
-    cfg = config(repo) or {}
-    branch = cfg.get('heartbeat_branch') or DEFAULT_BRANCH
-    store = branch_store.BranchStore(branch=branch, repo=str(repo), history=False)
-    trunk = _git(repo, 'rev-parse', f"origin/{cfg.get('_base', 'main')}") or ''
-    body = {'at_utc': precedent_time.utc_iso(),
-            'session': precedent_detect.this_session_id(),
-            'trunk_seen': trunk[:12],
-            'note': note}
-    return store.transact(lambda tip: ({FILE: json.dumps(body, indent=2) + '\n'}, ()),
-                          f'heartbeat {body["at_utc"]}')
+    import land_queue
+    cfg = cfg or config(repo) or {}
+    try:
+        age = land_queue.beats(land_queue._store(repo=pathlib.Path(repo))).get(JOB)
+    except (branch_store.Unreachable, OSError, subprocess.SubprocessError):
+        return 'unreachable', None
+    if age is None:
+        return 'none', None
+    return ('fresh' if age <= _limit(cfg) else 'stale'), round(age, 1)
+
+
+def beat(repo):
+    """Record a heartbeat for the maintainer on the coord branch."""
+    import land_queue
+    land_queue.beat(land_queue._store(repo=pathlib.Path(repo)), JOB)
 
 
 def start_prompt(repo, cfg):
@@ -153,15 +133,13 @@ def hook_text(repo):
     cfg = config(repo)
     if cfg is None:
         return ''
-    state, b = read(repo, cfg)
+    state, age = read(repo, cfg)
     if state in ('fresh', 'unreachable'):
         return ''
-    branch = cfg.get('heartbeat_branch') or DEFAULT_BRANCH
-    why = (f"its last heartbeat on the `{branch}` branch is {b['age_hours']} hours "
-           f"old, past the {cfg.get('stale_after_hours') or STALE_AFTER_HOURS}-hour "
-           f"limit (from {b.get('session') or 'an unnamed session'})"
+    why = (f"its last heartbeat on the `coord` branch is {age} hours old, past "
+           f"the {_limit(cfg):g}-hour limit"
            if state == 'stale' else
-           f"no heartbeat has ever been pushed to the `{branch}` branch")
+           "no heartbeat has ever been recorded on the `coord` branch")
     if cfg.get('session') and cfg['session'] == precedent_detect.this_session_id():
         return (f'YOU ARE THIS REPOSITORY\'S MASTER MAINTAINER and {why}. Push one '
                 f'now (python3 tools/precedent_heartbeat.py beat) and check that '
@@ -199,20 +177,19 @@ def main(argv):
         return 2
     cmd = argv[0] if argv else 'age'
     if cmd == 'beat':
-        new = beat(repo, ' '.join(argv[1:]))
-        state, b = read(repo, cfg)
+        beat(repo)
+        state, age = read(repo, cfg)
         if state != 'fresh':
-            print(f'precedent_heartbeat: pushed {new}, but reading it back says '
-                  f'{state}.', file=sys.stderr)
+            print(f'precedent_heartbeat: a beat was pushed, but reading it back '
+                  f'says {state}.', file=sys.stderr)
             return 1
-        print(f"heartbeat pushed: {b['at_utc']} ({new[:12] if new else 'unchanged'})")
+        print(f'heartbeat recorded on the coord branch ({age} hours old)')
         return 0
     if cmd == 'prompt':
         print(start_prompt(repo, cfg))
         return 0
-    state, b = read(repo, cfg)
-    print(f"maintainer heartbeat: {state}"
-          + (f", {b['age_hours']} hours old, from {b.get('session') or '?'}" if b else ''))
+    state, age = read(repo, cfg)
+    print(f"maintainer heartbeat: {state}" + (f", {age} hours old" if age is not None else ''))
     return 0 if state == 'fresh' else 1
 
 
