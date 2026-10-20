@@ -96,7 +96,7 @@ too, and needs the same words.
 An approved workflow of the repository's own is also run locally, as far
 as it can be (2026-10-10): the push check runs each of its steps that is a
 plain `python3 tools/<x>.py` call in its full tier, at the full test run on
-staging and around the move into main, and Update Vendors names any other step, which only GitHub runs.
+the landing branch and around the move into main, and Update Vendors names any other step, which only GitHub runs.
 Since 2026-10-17 none of them runs before a push: they are tests, and
 before a push only the closed quick tier runs
 ([quick-tier-is-closed](quick-tier-is-closed.md)).
