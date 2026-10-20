@@ -3852,15 +3852,77 @@ _VALUED = {'-o', '--push-option', '--repo', '--receive-pack', '--exec'}
 _UNREADABLE = {'--all', '--mirror', '--tags', '--follow-tags', '--branches'}
 
 
+# Set by the push hook when the command switches branch before its push
+# (`git switch -c X && git push`): the hook runs before any of it, so HEAD
+# is still the old branch, or detached, and the push's own words name none.
+PUSH_FROM_ENV = 'PRECEDENT_PUSH_FROM_BRANCH'
+
+
 def _current_push_branch(root):
     """Where a bare `git push` (or a refspec of HEAD) sends the current
-    branch: its push destination when one is configured, else its own
-    name. None on a detached HEAD."""
-    dest = _git(root, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{push}')
+    branch -- the one PRECEDENT_PUSH_FROM_BRANCH names, when set: its push
+    destination when one is configured (its upstream), else its own name,
+    which is where a branch with no upstream goes. None on a detached
+    HEAD."""
+    head = os.environ.get(PUSH_FROM_ENV, '').strip() or None
+    ref = f'{head}@{{push}}' if head else '@{push}'
+    dest = _git(root, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', ref)
     if dest and '/' in dest:
         return dest.split('/', 1)[1]
+    if head:
+        return head
     head = _git(root, 'symbolic-ref', '--short', '-q', 'HEAD')
     return head or None
+
+
+_PUSH_WORDS = re.compile(
+    r'(?:^|[|;&]|&&|\|\||\$\()\s*git\s+(?:-C\s+\S+\s+)?push\b')
+
+
+def branch_switched_to(root, command):
+    """-> the branch a shell `command` leaves checked out by the time its
+    first `git push` runs, from a `git switch` / `git checkout` before it;
+    None when nothing there changes branch, or what it changes to cannot
+    be read. `git checkout X` counts only when X is a branch (local or on
+    origin): otherwise it restored a file."""
+    m = _PUSH_WORDS.search(command)
+    before = command[:m.start()] if m else command
+    found = None
+    for part in re.split(r'&&|\|\||;|\n', before):
+        try:
+            words = shlex.split(part)
+        except ValueError:
+            continue
+        if len(words) >= 3 and words[0] == 'git' and words[1] == '-C':
+            words = ['git'] + words[3:]
+        if len(words) < 3 or words[0] != 'git' or words[1] not in ('switch', 'checkout'):
+            continue
+        sub, rest = words[1], words[2:]
+        if '--detach' in rest:
+            found = None
+            continue
+        if '--' in rest:
+            continue
+        create = ({'-c', '-C', '--create', '--force-create'} if sub == 'switch'
+                  else {'-b', '-B'})
+        named = None
+        for i, w in enumerate(rest):
+            if w in create:
+                named = rest[i + 1] if i + 1 < len(rest) else None
+                break
+        if named is None:
+            plain = [w for w in rest if not w.startswith('-')]
+            if len(plain) != 1 or plain[0] == '-':
+                continue
+            cand = plain[0]
+            if sub == 'checkout' and not (
+                    _git(root, 'rev-parse', '-q', '--verify', f'refs/heads/{cand}')
+                    or _git(root, 'rev-parse', '-q', '--verify',
+                            f'refs/remotes/origin/{cand}')):
+                continue
+            named = cand
+        found = named
+    return found
 
 
 def _dest_of(root, refspec):
@@ -3920,8 +3982,22 @@ def tier_for_push(root, args, user_config=None):
     it writes to needs."""
     targets = push_targets(root, args)
     if not targets:
-        return FULL, ('where this push goes could not be read from its '
-                      'arguments, so it is checked fully')
+        try:
+            words = shlex.split(args) if isinstance(args, str) else list(args or [])
+        except ValueError:
+            words = None
+        if words is None or any(w in _UNREADABLE for w in words):
+            return FULL, ('this push writes branches its arguments do not '
+                          'name, so it is checked fully')
+        # No branch to read it from -- a detached HEAD, or a branch the
+        # command makes after the hook has run. The landing branch's tier,
+        # not the full suite: a push writing main or staging names it or is
+        # made from it (2026-10-20: `git switch -c X && git push` ran the
+        # 14-minute tier).
+        landing = landing_branch(root, user_config)[0]
+        tier, why = tier_for_branch(root, landing, user_config)
+        return tier, (f'where this push goes could not be read, so it gets '
+                      f'what a push to {landing}, the landing branch, gets: {why}')
     tiers = [tier_for_branch(root, t, user_config) for t in targets]
     for tier, why in tiers:
         if tier == FULL:
@@ -3938,6 +4014,9 @@ def _main(argv):
         tier, why = tier_for_branch(root, argv[1])
         print(tier)
         print(why, file=sys.stderr)
+        return 0
+    if argv[:1] == ['--switched-to'] and len(argv) == 2:
+        print(branch_switched_to(root, argv[1]) or '')
         return 0
     if argv[:1] == ['--push']:
         tier, why = tier_for_push(root, argv[1:])

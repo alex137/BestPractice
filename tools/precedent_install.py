@@ -911,6 +911,10 @@ def _copy_in(dest, answers, answered_by):
             lines.append(f'copy in: {name} is not a set you bring or offer; '
                          f'nothing recorded')
             continue
+        if answer == 'yes' and _pve.copy_in_unchecked(offer):
+            lines.append(f'copy in: {name}: the yes was not recorded. '
+                         + _pve.copy_in_question(offer))
+            continue
         waits = _pve.copy_in_waits_on(offer.get('clone'),
                                       offer.get('set_root', '')) \
             if answer == 'yes' else ''

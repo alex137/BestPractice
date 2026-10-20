@@ -19088,6 +19088,75 @@ def check_adds_to_names_a_rule_in_force():
           not failed, '; '.join(failed))
 
 
+def check_boildown_moments_named():
+    """precedent_check.py's boildown-moments-named (2026-10-20): the-boildown
+    names two moments, and a practice that restates one in its occasion,
+    title, a reply_check.json note or a tool it ships is refused, since a
+    change to the moment then breaks it silently (twice in two days). It
+    passes a practice that names the moment, the-boildown itself, a retired
+    practice, and a restatement that sits only in a Rule body."""
+    import tempfile, shutil
+    import build_views as _bv              # noqa: F401 -- cached for the check
+    import precedent_check as pc
+    P = _addition_fixture_practice
+    plants = {
+        # slug: (text, fires)
+        'quotes-the-line': (P('quotes-the-line', occasion='a reply that '
+                              'says You can archive this session'), True),
+        'paraphrases-it': (P('paraphrases-it', occasion='a reply that says '
+                             'the session can be archived'), True),
+        'ships-a-quoting-tool': (P('ships-a-quoting-tool',
+                                   extra='ships:       ["tools/zz_note.py"]\n'),
+                                 True),
+        'has-a-quoting-note': (P('has-a-quoting-note'), True),
+        'names-the-moment': (P('names-the-moment', occasion='the '
+                               'archive-line reply (the-boildown)'), False),
+        'the-boildown': (P('the-boildown', occasion='You can archive this '
+                           'session'), False),
+        'retired-quoter': (P('retired-quoter', status='retired', occasion=''
+                             'You can archive this session'), False),
+        'body-only': (P('body-only', rule='Say "You can archive this '
+                        'session" when it holds.'), False),
+    }
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='moments-check-'))
+    saved = pc.ROOT
+    try:
+        (tmp / 'practices').mkdir()
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'zz_note.py').write_text(
+            'NOTE = \'in one that answers "Archive" or "Archive?"\'\n',
+            encoding='utf-8')
+        (tmp / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'has-a-quoting-note',
+             'note': 'Link it whenever you can archive this session.'}]),
+            encoding='utf-8')
+        for slug, (text, _f) in plants.items():
+            (tmp / 'practices' / f'{slug}.md').write_text(text, encoding='utf-8')
+        pc.ROOT = tmp
+        try:
+            got = pc._boildown_moments_named(None)
+        finally:
+            pc.ROOT = saved
+        hit = {pathlib.PurePath(f.file()).stem for f in got}
+        for slug, (_t, fires) in plants.items():
+            cases.append((f'{slug}: {"refused" if fires else "passes"}',
+                          (slug in hit) == fires))
+        text = ' '.join(str(f) for f in got)
+        cases.append(('the refusal names the moment to write instead',
+                      'Write "the archive-line reply (the-boildown)"' in text))
+        cases.append(('the shipped tool is named as where it restates',
+                      'tools/zz_note.py restates the closing reply' in text))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check(f'Boildown moments are named, never restated ({len(cases)} stated '
+          f'cases)', not failed, '; '.join(failed))
+
+
 def check_code_owner_practice_stays_out_of_the_index():
     """precedent_check.py's code-owner-practice-stays-out-of-the-index
     (2026-10-08): a practice marked `visible_to: code-owners` is carried by a
@@ -21647,6 +21716,148 @@ def check_update_vendors_converges_consumer_ci():
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_local_workflow_declaration_is_asked_once():
+    """A converging repository's local_ci_workflows declaration becomes one
+    keep-or-delete question, settled by the person's recorded words, and is
+    not repeated after (2026-10-20, Update All Vendors: three private
+    consumers were told on every update that the declaration "was not
+    honoured; remove it from precedent.json", and nothing recorded a keep).
+
+    1. A declared, unapproved workflow gets the question, naming the flag.
+    2. NEGATIVE CONTROL: an answer with no quote is not recorded.
+    3. A keep is recorded in github_ci_approved, pinned to the file, and
+       the declaration goes.
+    4. The next refresh asks nothing.
+    5. A declaration beside an approval made by hand is dropped, said once."""
+    import precedent_vendor_engine as pve
+    import contextlib, io, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-local-wf-'))
+    WF = '.github/workflows/own.yml'
+    cases = []
+
+    def make(name, cfg):
+        repo = tmp / name
+        (repo / '.github' / 'workflows').mkdir(parents=True)
+        (repo / WF).write_text('name: own\non: push\njobs: {}\n')
+        (repo / 'precedent.json').write_text(json.dumps(cfg, indent=2))
+        return repo
+
+    def settle(repo):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            pve._settle_local_declarations(repo, 'consumer')
+        return buf.getvalue()
+
+    def cfg(repo):
+        return json.loads((repo / 'precedent.json').read_text())
+
+    try:
+        r = make('declared', {'local_ci_workflows': {WF: 'runs our tests'}})
+        out = settle(r)
+        cases.append(('a declared, unapproved workflow gets the keep-or-delete '
+                      'question with the flag',
+                      out.startswith(pve.KEEP_WORKFLOW_ASK)
+                      and f'--keep-workflow {WF}' in out
+                      and 'local_ci_workflows' in cfg(r), out))
+        ok, what = pve.record_ci_keep(r, WF, 'Zz, 2026-10-20 said keep')
+        cases.append(('NEGATIVE CONTROL: an answer with no quote is not recorded',
+                      not ok and 'github_ci_approved' not in cfg(r), what))
+        ok, what = pve.record_ci_keep(r, WF, 'Zz, 2026-10-20: "keep it"')
+        c = cfg(r)
+        cases.append(('a keep is pinned in github_ci_approved and the '
+                      'declaration goes',
+                      ok and c['github_ci_approved'][WF]['sha256']
+                      == pve._sha256(r / WF) and 'local_ci_workflows' not in c,
+                      repr(c)))
+        out = settle(r)
+        cases.append(('the next refresh asks nothing', out == '', out))
+        r2 = make('by-hand', {
+            'local_ci_workflows': {WF: 'ours'},
+            'github_ci_approved': {WF: {
+                'sha256': '', 'approved_by': 'Zz, 2026-10-01: "keep"'}}})
+        c = cfg(r2)
+        c['github_ci_approved'][WF]['sha256'] = pve._sha256(r2 / WF)
+        (r2 / 'precedent.json').write_text(json.dumps(c, indent=2))
+        out = settle(r2)
+        cases.append(('a declaration beside an approval is dropped, said once',
+                      'local_ci_workflows' not in cfg(r2)
+                      and 'removed the local_ci_workflows declaration' in out
+                      and pve.KEEP_WORKFLOW_ASK not in out, out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c for c in cases if not c[1]]
+    return (not bad, '; '.join(f'{n}: {d}' for n, _ok, d in bad)
+            or f'{len(cases)} cases')
+
+
+def check_engine_written_leftovers_leave_by_content():
+    """A file an engine tool wrote into a consumer at run time, whose tool
+    BestPractice has decommissioned, leaves on the next update when its
+    content has that tool's shape; one that only shares the name stays.
+
+    2026-10-20, Update All Vendors over 18 repositories: consumers still
+    carried tools/others_did_watermark.json, decommissioned upstream on
+    2026-10-10, and its header naming the deleted tool stopped their update
+    on a rename-updates-links finding. Nothing removed it, because no
+    manifest ever recorded a file the engine wrote at run time."""
+    import precedent_vendor_engine as pve
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-engine-written-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='harness@example.com',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='harness@example.com')
+    MARK = 'tools/others_did_watermark.json'
+    stock = json.dumps({'_comment': [
+        'What each person was last told about other people\'s commits.',
+        'Written by tools/precedent_others_did.py onto the landing branch.'],
+        'seen_by': {}}, indent=2) + '\n'
+    own = json.dumps({'_comment': ['this repo\'s own file'], 'x': 1}) + '\n'
+
+    def make(name, text, commit=True):
+        repo = tmp / name
+        (repo / 'tools').mkdir(parents=True)
+        (repo / MARK).write_text(text, encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], env=env, check=True)
+        if commit:
+            subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env, check=True)
+            subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'b'],
+                           env=env, check=True)
+        return repo
+
+    def sweep(repo):
+        pve._LEFT_FOR_YOU.clear()
+        res = pve.retire_legacy_leftovers(repo, {}, 'consumer')
+        left = [w for i, w in pve._LEFT_FOR_YOU if i == MARK]
+        pve._LEFT_FOR_YOU.clear()
+        return res, left
+
+    cases = []
+    try:
+        r = make('stock', stock)
+        res, _left = sweep(r)
+        regp = r / 'process' / 'decommissioned_paths.json'
+        reg = (json.loads(regp.read_text(encoding='utf-8')) if regp.is_file()
+               else {'decommissioned': []})
+        cases.append(('the others-did mark the engine wrote is deleted and '
+                      'recorded', not (r / MARK).exists() and MARK in res['deleted']
+                      and [e['path'] for e in reg['decommissioned']] == [MARK],
+                      repr(res)))
+        r = make('own', own)
+        res, left = sweep(r)
+        cases.append(('NEGATIVE: a file with the name but not the shape is '
+                      'kept, and said', (r / MARK).is_file() and bool(left)
+                      and 'not its content' in left[0], repr(left)))
+        r = make('untracked', stock, commit=False)
+        res, left = sweep(r)
+        cases.append(('NEGATIVE: an untracked copy is kept -- it is the only '
+                      'one', (r / MARK).is_file() and bool(left)
+                      and 'not tracked by git' in left[0], repr(left)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c for c in cases if not c[1]]
+    return (not bad, '; '.join(f'{n}: {d}' for n, _ok, d in bad)
+            or f'{len(cases)} cases')
 
 
 def check_legacy_leftovers_retired_by_content():
@@ -25910,6 +26121,57 @@ def check_precedent_check_fires():
                 '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
                 encoding='utf-8')
         case('adds-to-names-a-rule-in-force', _plant_atnarif)
+
+        # own-deduplication-points-somewhere -- a set's own stub whose target
+        # no source it takes holds (2026-10-20). The fixture is made a shared
+        # set that declares only its repo-local source, so nothing it takes fails to resolve
+        # and the stranded stub is a violation, not a could-not-verify.
+        def _setup_odps(repo):
+            import json as _j
+            src = _j.loads((repo / 'precedent-source.json').read_text(encoding='utf-8'))
+            (repo / 'precedent-source.json').write_text(_j.dumps(
+                dict(src, level='shared', brings=[])), encoding='utf-8')
+            cfg = _j.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+            cfg['sources'] = [s for s in cfg.get('sources') or []
+                              if s.get('path') == 'local']
+            (repo / 'precedent.json').write_text(_j.dumps(cfg), encoding='utf-8')
+
+        def _plant_odps(repo):
+            (repo / 'practices' / 'zzz-stranded.md').write_text(
+                '---\nslug:        zzz-stranded\n'
+                'title:       A pointer to a rule no source holds\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  []\n'
+                'occasion:    "doing a planted thing"\n'
+                'gates:       []\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      deduplicated\n'
+                'in_force_at: zzz-held-nowhere\nsupersedes:  []\n'
+                'overrides:   null\nadded:       "2026-10-20"\n'
+                'approved_by: "fixture"\n---\n\n'
+                '## Rule\nPlanted.\n\n'
+                '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
+                encoding='utf-8')
+        case('own-deduplication-points-somewhere', _plant_odps, setup=_setup_odps)
+
+        # boildown-moments-named -- a practice whose occasion quotes the
+        # archive sentence instead of naming the moment (2026-10-20).
+        def _plant_bmn(repo):
+            (repo / 'practices' / 'zzz-quotes-the-line.md').write_text(
+                '---\nslug:        zzz-quotes-the-line\n'
+                'title:       A practice that copies a moment\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\n'
+                'occasion:    "a reply that says You can archive this session"\n'
+                'gates:       ["reply"]\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nsupersedes:  []\n'
+                'overrides:   null\nadded:       "2026-10-20"\n'
+                'approved_by: "fixture"\n---\n\n'
+                '## Rule\nPlanted.\n\n'
+                '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
+                encoding='utf-8')
+        case('boildown-moments-named', _plant_bmn)
 
 
         # docs-track-models -- an owned figure restated in the prose
@@ -32164,6 +32426,15 @@ def check_push_to_staging_runs_own_checks_inside_a_budget():
             run = lambda c: _sp.run(c[1], cwd=d, capture_output=True, text=True, timeout=60)
             if all(by.values()):
                 cases.append(('a passing step passes', run(by['fast_check']).returncode == 0, ''))
+                # 2026-10-20: the push check's own loop read argv[1] of a
+                # wrapped step, looked for a file named "-c", and reported
+                # every one as "could not run here".
+                import contextlib, io
+                with contextlib.redirect_stdout(io.StringIO()) as buf:
+                    failed, missing, _t, _f = ppc.run(d, [by['fast_check']])
+                cases.append(('the push check runs a wrapped step, never reports '
+                              'it as a tool the repo lacks',
+                              not failed and not missing, buf.getvalue()[-400:]))
                 cases.append(('a failing step fails, as GitHub would',
                               run(by['failing_check']).returncode == 1, ''))
                 r = run(by['slow_check'])
@@ -38765,6 +39036,20 @@ def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS, ledger=None):
         want(0, [t for t in tests if t != _PLANTED_SUITE and (
             any(name in s for s in strings[t]) or name[:-3] in refs[t])])
 
+    # 2b. A changed tools/ module a test imports or runs itself, at any
+    # depth of the harness helpers it calls (2026-10-20). 1 reached a module
+    # only through a check that imports it: a change to
+    # precedent_sync_views.py picked no test at all, and one to
+    # precedent_resolve.py missed six tests that import it -- 44 passed when
+    # run by hand. The module itself only: a test that runs one of its
+    # importers in a child process is the reach ledger's to find (4), and
+    # following importers here picked some 600 tests for precedent_resolve.
+    for mod in sorted(modules):
+        ran = re.compile(r'(?<![\w.])' + re.escape(mod) + r'\.py\b')
+        want(0, [t for t in tests if t != _PLANTED_SUITE and (
+            mod in refs[t]
+            or any(s == mod or ran.search(s) for s in strings[t]))])
+
     # 3. The harness itself: a changed test runs; a changed helper runs the
     # tests that reach it; a call added to main() runs what it calls.
     if vh_rel in py:
@@ -38882,9 +39167,12 @@ def check_for_change_runs_the_tests_a_change_reaches():
     One scratch repository, one change per case, read with for_change_plan:
     a check's own body; a helper only another check uses; the decorator
     every check uses; a tools/ module imported two levels down; a check
-    script; a harness test and a harness helper; a comment between
-    definitions (the control: nothing runs); a check covered only by its
-    planted case; and a test over the budget, which is named, not run.
+    script; a harness test and a harness helper; a tools/ module no check
+    imports, which a test imports through a helper or runs by its file name
+    (2026-10-20: precedent_sync_views.py picked no test), with a lookalike
+    file name as its control; a comment between definitions (the control:
+    nothing runs); a check covered only by its planted case; and a test over
+    the budget, which is named, not run.
     """
     import tempfile
     name = '--for-change runs the harness tests a change reaches'
@@ -38937,6 +39225,15 @@ def check_for_change_runs_the_tests_a_change_reaches():
         "    run('--only', 'zz-beta')\n"
         'def check_precedent_check_fires():\n'
         "    case('zz-lonely', None)\n"
+        'def _view_helper():\n'
+        '    import zzview\n'
+        '    return zzview.X\n'
+        'def check_view_imported():\n'
+        '    _view_helper()\n'
+        'def check_view_run():\n'
+        "    run('tools/zzview.py')\n"
+        'def check_view_lookalike():\n'
+        "    run('tools/notzzview.py')\n"
         'def main():\n'
         '    check_alpha_direct()\n'
         '    check_alpha_by_slug()\n')
@@ -38945,6 +39242,7 @@ def check_for_change_runs_the_tests_a_change_reaches():
     base = {'tools/precedent_check.py': engine, 'tools/verify_harness.py': harness,
             'tools/zzsibling.py': 'import zzdeeper\ndef f():\n    return []\n',
             'tools/zzdeeper.py': 'X = 1\n',
+            'tools/zzview.py': 'X = 1\n',
             'tools/checks/check_zzscript.py': 'print(1)\n',
             'tools/harness_check_times.json': times}
     env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
@@ -38958,6 +39256,7 @@ def check_for_change_runs_the_tests_a_change_reaches():
                       '        CHECKS[str(slug)] = f\n'),
         'deeper module': ('tools/zzdeeper.py', 'X = 1\n', 'X = 2\n'),
         'check script': ('tools/checks/check_zzscript.py', 'print(1)\n', 'print(2)\n'),
+        'module a test uses': ('tools/zzview.py', 'X = 1\n', 'X = 2\n'),
         'harness test': ('tools/verify_harness.py', "    pc._beta(None)\n",
                          "    pc._beta(None)\n    pass\n"),
         'harness helper': ('tools/verify_harness.py', '    return 1\n', '    return 2\n'),
@@ -39004,6 +39303,9 @@ def check_for_change_runs_the_tests_a_change_reaches():
          and run('deeper module') == {'check_gamma'}),
         ('a check script runs the test that names its file',
          run('check script') == {'check_script'}),
+        ('a module no check imports runs the tests that import or run it, '
+         'not the one that runs a lookalike',
+         run('module a test uses') == {'check_view_imported', 'check_view_run'}),
         ('a changed harness test runs itself', run('harness test') == {'check_beta'}),
         ('a changed harness helper runs the tests that call it',
          run('harness helper') == {'check_gamma'}),
@@ -41192,6 +41494,39 @@ def check_branch_tiers():
                        capture_output=True, env=env)
         cases.append(('a bare push from a detached HEAD cannot be read',
                       targets('') is None))
+        # `git switch -c X && git push` from a detached HEAD: the hook runs
+        # before the switch, and once ran the 14-minute full tier for it
+        # (2026-10-20). Unread, it gets the landing branch's tier; the hook
+        # names the branch the push will run on, and that is read instead.
+        landing = pb.landing_branch(repo, nocfg)[0]
+        landing_tier = pb.tier_for_branch(repo, landing, nocfg)[0]
+        cases.append(('an unread bare push gets the landing branch\'s tier, '
+                      'not the full one',
+                      pb.tier_for_push(repo, '', nocfg)[0] == landing_tier
+                      and 'landing branch' in pb.tier_for_push(repo, '', nocfg)[1]))
+        sw = pb.branch_switched_to
+        cases.append(('`git switch -c X && git push` runs the push on X',
+                      sw(repo, 'git switch -c new-x && git push') == 'new-x'))
+        cases.append(('`git checkout -b X; git push -u origin X` reads X',
+                      sw(repo, 'git checkout -b y ; git push -u origin y') == 'y'))
+        cases.append(('`git checkout FILE` changes no branch',
+                      sw(repo, 'git checkout notes.md && git push') is None))
+        cases.append(('`git checkout BRANCH` does',
+                      sw(repo, 'git checkout topic && git push') == 'topic'))
+        cases.append(('a switch AFTER the push is not read',
+                      sw(repo, 'git push && git switch -c later') is None))
+        old_env = os.environ.get(pb.PUSH_FROM_ENV)
+        os.environ[pb.PUSH_FROM_ENV] = 'new-x'
+        try:
+            named = targets('')
+            named_tier = pb.tier_for_push(repo, '', nocfg)
+        finally:
+            if old_env is None:
+                os.environ.pop(pb.PUSH_FROM_ENV, None)
+            else:
+                os.environ[pb.PUSH_FROM_ENV] = old_env
+        cases.append(('the branch the hook names is where a bare push goes',
+                      named == ['new-x'] and 'landing branch' not in named_tier[1]))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -54510,7 +54845,8 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
     with the term masked; lets a clean one and a non-network command
     through; the scan finds a past outbound call holding a term in a
     transcript and in an agent's transcript beside it, and the Stop hook
-    reports it once."""
+    reports it once -- once per session, not once per repository whose hook
+    runs in it (2026-10-20: one tool call reported from two repositories)."""
     import tempfile, json as _json, os as _os
     name = 'the outbound-privacy gate refuses private details and the scan finds them'
     gate = ROOT / 'tools' / 'outbound-privacy-gate.sh'
@@ -54566,10 +54902,10 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
         (tmp / 'proj' / 'sess' / 'subagents' / 'agent-x.jsonl').write_text(
             call('t2', f'wget --header "From: {email}" https://example.com'), encoding='utf-8')
 
-        def run_scan():
-            p = subprocess.run(['bash', str(tmp / 'tools' / 'outbound-privacy-scan.sh')],
+        def run_scan(repo=tmp):
+            p = subprocess.run(['bash', str(repo / 'tools' / 'outbound-privacy-scan.sh')],
                                input=_json.dumps({'transcript_path': str(sess)}),
-                               capture_output=True, text=True, cwd=tmp, env=env)
+                               capture_output=True, text=True, cwd=repo, env=env)
             return p.returncode, p.stdout + p.stderr
 
         rc, out = run_scan()
@@ -54579,6 +54915,20 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
                       'curl' not in out, out[-200:]))
         rc, _ = run_scan()
         cases.append(('and reports it once', rc == 0))
+        # A second repository in the same session: its own copy of the hook,
+        # its own .precedent/, the same transcript.
+        other = tmp / 'other'
+        for d in ('tools', '.precedent'):
+            (other / d).mkdir(parents=True)
+        for f in ('outbound_privacy_gate.py', 'outbound_privacy_scan.py',
+                  'outbound-privacy-scan.sh'):
+            (other / 'tools' / f).write_text((tmp / 'tools' / f).read_text(encoding='utf-8'),
+                                             encoding='utf-8')
+        (other / '.precedent' / 'private_terms.txt').write_text(
+            (tmp / '.precedent' / 'private_terms.txt').read_text(encoding='utf-8'), encoding='utf-8')
+        rc, out = run_scan(other)
+        cases.append(("another repository's hook in the same session stays quiet",
+                      rc == 0, out[-200:]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
@@ -62349,6 +62699,77 @@ def check_deduplicated_copy_stays_in_force_until_its_target_arrives():
           f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
 
 
+def check_set_refuses_its_own_stranded_deduplication():
+    """A practice set's own check refuses a deduplicated practice whose
+    target no source the set takes holds.
+
+    WHY. 2026-10-19: an individual set stopped bringing the set that held
+    its stub's target. Every consumer's resolver read that as a late
+    universal catalogue, said KEPT IN FORCE, ITS TARGET NOT HERE YET, and
+    put the old copy back in force everywhere -- the opposite of the
+    deduplication -- and four repositories failed their test on main. In
+    the set's own checkout the target is never "late", so the check there
+    refuses it, in the change that strands it. Planted: the stranded stub;
+    the target in a declared universal source; the target in a set the set
+    brings; the target nowhere but a brought set that left."""
+    import json as _json, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as _pc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stranded-'))
+    cases = []
+    saved_root = _pc.ROOT
+    saved_env = os.environ.get('PRECEDENT_USER_CONFIG')
+    try:
+        _sources, _consumer, write = _renamed_universal_fixture(tmp)
+        uni, me, held = tmp / 'uni', tmp / 'zz-me', tmp / 'zz-held'
+        (tmp / 'uc.json').write_text('{"format_version": 1}', encoding='utf-8')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'uc.json')
+        write(me / 'practices' / 'pointer.md', 'pointer', 'deduplicated', 'held-rule')
+        (me / 'precedent.json').write_text(_json.dumps({'format_version': 1, 'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '../uni'}]}),
+            encoding='utf-8')
+
+        def manifest(brings):
+            (me / 'precedent-source.json').write_text(_json.dumps(
+                {'name': 'zz-me', 'level': 'individual', 'brings': brings}),
+                encoding='utf-8')
+
+        def run():
+            _pc.ROOT = me
+            try:
+                return [str(f.detail if hasattr(f, 'detail') else f)
+                        for f in _pc._own_deduplication_points_somewhere(None)]
+            except Exception as e:                           # noqa: BLE001
+                return [f'raised {type(e).__name__}: {e}']
+        manifest([])
+        got = run()
+        cases.append(('a stub whose target no source holds is refused, naming it',
+                      len(got) == 1 and 'no source this set takes holds that rule'
+                      in got[0] and 'KEPT IN FORCE' in got[0], got))
+        write(held / 'practices' / 'held-rule.md', 'held-rule')
+        manifest([{'name': 'zz-held', 'repo_url': 'https://github.com/zz/zz-held'}])
+        got = run()
+        cases.append(('CONTROL: the target in a set this set brings passes', got == [], got))
+        manifest([])
+        got = run()
+        cases.append(('...and once that set leaves `brings`, it is refused again',
+                      len(got) == 1, got))
+        write(uni / 'practices' / 'held-rule.md', 'held-rule')
+        got = run()
+        cases.append(('CONTROL: the target in a declared universal source passes',
+                      got == [], got))
+    finally:
+        _pc.ROOT = saved_root
+        if saved_env is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved_env
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f"a set's own check refuses its stranded deduplication "
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
+
+
 def check_in_force_at_chain_is_followed():
     """A deduplication naming a slug that is itself a deduplicated stub is in
     force wherever that stub forwards to, not IN FORCE NOWHERE.
@@ -63269,6 +63690,37 @@ def check_landed_branch_gets_its_delete_link():
         cases.append(('...given once, it is not owed again',
                       r7.returncode == 0 and r8.returncode == 0,
                       f'exit {r7.returncode}/{r8.returncode}: {r7.stderr[:200]} {r8.stderr[:200]}'))
+        # 2026-10-20: a session rooted ABOVE its repositories has no .git of
+        # its own, so the given-links record had nowhere to live and the same
+        # delete link was asked for in every reply. Each repository keeps it.
+        def replycheck_above(name, text):
+            q = tmp / name
+            q.write_text(text, encoding='utf-8')
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(repo), '--text', str(q)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**env, 'CLAUDE_PROJECT_DIR': str(tmp),
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json'),
+                     'CLAUDE_CODE_REMOTE_SESSION_ID': sid})
+        above = '2026-10-20-me-above-abcde-r5t6y'
+        g('switch', '-q', '-c', above, 'trunk')
+        (repo / 'f.txt').write_text('f\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'above'); g('push', '-q', 'origin', above)
+        g('push', '-q', 'origin', f'{above}:trunk')
+        g('switch', '-q', 'trunk'); g('pull', '-q', 'origin', 'trunk')
+        ra0 = replycheck_above('above-bare.md', bare)
+        ra1 = replycheck_above('above-linked.md', bare + (
+            f'- Delete [it](https://github.com/o/r/branches/all?query={above}) '
+            'when you like; it merged into `trunk`.\n'))
+        ra2 = replycheck_above('above-later.md', bare)
+        cases.append(('rooted above the repository: its landed branch is owed its link',
+                      ra0.returncode == 2 and above in ra0.stderr,
+                      f'exit {ra0.returncode}: {ra0.stderr[:300]}'))
+        cases.append(('THE DISCRIMINATING CASE: rooted above the repository, a link '
+                      'given once is not owed again in a later reply',
+                      ra1.returncode == 0 and ra2.returncode == 0,
+                      f'exit {ra1.returncode}/{ra2.returncode}: {ra2.stderr[:300]}'))
         g('push', '-q', 'origin', '--delete', theirs)
         mine2 = '2026-10-19-me-gone-abcde-w4x8v'
         g('switch', '-q', '-c', mine2, 'trunk')
@@ -63289,6 +63741,62 @@ def check_landed_branch_gets_its_delete_link():
         sys.path.pop(0)
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'a branch landed during the turn gets its delete link '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_session_file_over_ceiling_names_the_individual_share():
+    """The session check's over-ceiling row for .precedent/SESSION_PRACTICES.md
+    says how much of the charge is the person's own individual set, which the
+    repository cannot shorten, and how much is the repository's own.
+
+    WHY. 2026-10-20, a consuming repository: ceiling 400, seeded when its own
+    part measured 312; the session check failed every session start at
+    ~1,510 and told the repository to do a reduction pass. ~1,176 of it was
+    the person's individual set; the repository's own part, ~334, was within
+    its ceiling."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_session_check as psc
+    import precedent_session_practices as psp
+    import precedent_resolve as pr
+    cases = []
+    saved_share, saved_load = getattr(psp, 'individual_share', None), pr.load_config
+    try:
+        psp.individual_share = lambda repo: 1176
+        part = getattr(psc, '_individual_part', lambda n, cap: '')(1510, 400)
+        cases.append(('THE DISCRIMINATING CASE: the row names the individual '
+                      "set's share and the repository's own",
+                      '~1,176' in part and '~334' in part
+                      and 'individual set' in part, repr(part)))
+        cases.append(('...and says the repository part is within its ceiling',
+                      'within its ceiling' in part, repr(part)))
+        psp.individual_share = lambda repo: 0
+        cases.append(('no individual share: nothing added',
+                      getattr(psc, '_individual_part', lambda n, cap: '')(1510, 400) == '',
+                      ''))
+        seen = []
+        pr.load_config = lambda repo: [
+            {'level': 'universal', 'name': 'u', 'path': '.'},
+            {'level': 'individual', 'name': 'me', 'path': '/nowhere'}]
+        _resolve = pr.resolve
+        pr.resolve = lambda sources: (seen.append([s['level'] for s in sources])
+                                      or {'missing': [], 'practices': {}})
+        try:
+            try:
+                psp.collect(str(ROOT), skip_brought=True, skip_individual=True)
+            except Exception:                                # noqa: BLE001
+                pass
+        finally:
+            pr.resolve = _resolve
+        cases.append(('collect(skip_individual=True) resolves without the '
+                      'individual set', seen[:1] == [['universal']], str(seen)))
+    finally:
+        if saved_share is not None:
+            psp.individual_share = saved_share
+        pr.load_config = saved_load
+        sys.path.pop(0)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the session file over its ceiling names the individual share '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
 
@@ -64658,6 +65166,52 @@ def check_stale_branches_skip_a_reverted_merge():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_branch_cleanup_page_data_is_a_branch_a_line():
+    """The branch cleanup page's data block is written a branch a line, by
+    the tool that builds it and by the page's own script when it saves its
+    ticks, so a session can Read the saved page line by line.
+
+    WHY (2026-10-20). The block was one JSON line, some 20,000 tokens for
+    230 branches; stale-branch-cleanup says to Read every line of the saved
+    page before the first publish, and a Read of that line was refused for
+    size. LIMIT: 2,000 characters, the length past which the Read tool cuts
+    a line. Planted: a page of 230 branches, 200 in one repository (one
+    repository a line would still be 15,000 characters); it must read back
+    whole, and the page script's wrap, run under node when node is
+    installed, must write the very block the tool wrote."""
+    import datetime
+    import shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as _sb
+    name = 'the branch cleanup page writes its data a branch a line'
+    limit = 2000
+    groups = [('o', 'Big', [(f'2026-10-{i % 28 + 1:02d}-someone-a-long-branch-name-{i}-abcde',
+                             '2026-10-01') for i in range(200)]),
+              ('o', 'Small', [(f'b{i}', '2026-10-02') for i in range(29)] + [('b-<odd>', '2026-10-03')])]
+    page = _sb.render_html(groups, now=datetime.datetime(2026, 10, 20, tzinfo=datetime.timezone.utc))
+    widest = max(len(l) for l in page.splitlines())
+    block = _sb._DATA.search(page).group(1)
+    back = {r['repo']: [b for b, _d in r['branches']] for r in _sb.read_page(page)}
+    cases = [(f'no line of a 230-branch page passes {limit} characters', widest <= limit,
+              f'widest {widest}'),
+             ('the page reads back every branch',
+              len(back.get('Big', [])) == 200 and back.get('Small', [])[-1:] == ['b-<odd>'],
+              str({k: len(v) for k, v in back.items()}))]
+    node = shutil.which('node')
+    fn = re.search(r'  function wrap\(v, ind\)\{.*?\n  \}\n', page, re.S)
+    cases.append(("the page's script carries wrap", fn is not None, ''))
+    if node and fn:
+        js = (fn.group(0) + 'var d=JSON.parse(require("fs").readFileSync(0,"utf8"));'
+              'process.stdout.write(wrap(d,"").replace(/</g,"\\\\u003c"));')
+        r = subprocess.run([node, '-e', js], input=json.dumps(json.loads(block)),
+                           capture_output=True, text=True, timeout=60)
+        cases.append(('saving its ticks, the page writes the block the tool wrote',
+                      r.returncode == 0 and r.stdout == block, (r.stderr or r.stdout)[:200]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
+
 def check_branch_cleanup_page_merges_the_saved_page():
     """Refreshing the saved branch-cleanup page keeps the rows of every
     repository this session did not check, and replaces those it did.
@@ -64762,10 +65316,16 @@ def check_branch_cleanup_page_merges_the_saved_page():
             # 2026-10-13: the page saves the person's ticks into itself;
             # a ticked row of a repository this run did not check is left
             # off, and a tick never hides a row this run checked fresh.
-            ticked = _sb._DATA.sub(
-                lambda m: m.group(0).replace(
-                    '"done": {}', '"done": {"B/b-done": "2026-10-12T09:00:00Z", '
-                    '"C/c-done": "2026-10-12T09:00:00Z"}'), old)
+            # The block is edited as JSON, never by its spelling: the
+            # tool writes it a branch a line (page_json).
+            def with_data(page, change):
+                def sub(m):
+                    data = json.loads(m.group(1))
+                    change(data)
+                    return m.group(0).replace(m.group(1), json.dumps(data))
+                return _sb._DATA.sub(sub, page)
+            ticked = with_data(old, lambda d: d.update(done={
+                'B/b-done': '2026-10-12T09:00:00Z', 'C/c-done': '2026-10-12T09:00:00Z'}))
             (td / 'ticked.html').write_text(ticked, encoding='utf-8')
             rc, said = run('--merge', str(td / 'ticked.html'))
             merged = out.read_text(encoding='utf-8')
@@ -64791,10 +65351,7 @@ def check_branch_cleanup_page_merges_the_saved_page():
             cases.append(('a page records the format of the engine that built it',
                           _sb.page_format(old) == _sb.PAGE_FORMAT >= 1,
                           _sb.page_format(old)))
-            newer = _sb._DATA.sub(
-                lambda m: m.group(0).replace(
-                    f'"format": {_sb.PAGE_FORMAT}',
-                    f'"format": {_sb.PAGE_FORMAT + 1}'), old)
+            newer = with_data(old, lambda d: d.update(format=_sb.PAGE_FORMAT + 1))
             (td / 'newer.html').write_text(newer, encoding='utf-8')
             out.unlink()
             rc, said = run('--merge', str(td / 'newer.html'))
@@ -64803,8 +65360,7 @@ def check_branch_cleanup_page_merges_the_saved_page():
                           rc == 2 and not out.exists()
                           and 'built by a newer engine' in said
                           and 'Update Vendors' in said, said))
-            unformatted = _sb._DATA.sub(
-                lambda m: m.group(0).replace(f'"format": {_sb.PAGE_FORMAT}, ', ''), old)
+            unformatted = with_data(old, lambda d: d.pop('format'))
             (td / 'unformatted.html').write_text(unformatted, encoding='utf-8')
             rc, said = run('--merge', str(td / 'unformatted.html'))
             got = sorted(r['repo'] for r in _sb.read_page(out.read_text(encoding='utf-8')))
@@ -70112,6 +70668,202 @@ def check_early_copy_in_yes_waits_for_the_set():
           not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
 
 
+def check_public_copy_in_needs_the_leak_check():
+    """In a public repository, a yes to copying a set in is refused while
+    the leak check cannot read the set (2026-10-20, Update All Vendors: the
+    question said the check could not run, "there is no clone of the set on
+    this machine", and still offered the copy).
+
+    1. The question says it cannot be copied in yet, names where the clone
+       goes, and offers only a no.
+    2. A yes is not recorded, and the question is asked again.
+    3. A no is recorded.
+    4. NEGATIVE CONTROL: in a private repository the same yes is recorded
+       (it waits for the set, as before).
+    5. A yes recorded before the set could be read is not declared in a
+       public repository while the leak check finds a line in it."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='public-copy-in-'))
+    cases = []
+    saved = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',
+                                            'PRECEDENT_GITHUB_USER',
+                                            'PRECEDENT_LEAK_BLOCKLIST')}
+    genv = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+            'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    try:
+        ind = tmp / 'people' / 'zz-ind'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual', 'brings': [],
+             'offers': [{'name': 'zz-voice',
+                         'repo_url': 'https://example.invalid/zz-voice'}]}))
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind',
+                                                   'path': str(ind)}}))
+        bl = tmp / 'private' / 'leak-blocklist.txt'
+        bl.parent.mkdir()
+        bl.write_text('zzsecretword\n')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        os.environ['PRECEDENT_GITHUB_USER'] = 'zzme'
+        os.environ['PRECEDENT_LEAK_BLOCKLIST'] = str(bl)
+        import precedent_vendor_engine as pve
+        import precedent_update as pu
+
+        def host(name, vis):
+            h = tmp / name
+            h.mkdir()
+            (h / 'precedent.json').write_text(json.dumps(
+                {'format_version': 1, 'visibility': vis,
+                 'maintainers': [{'github': 'zzme', 'name': 'Zzme'}],
+                 'sources': []}, indent=2))
+            return h
+
+        def rec(h):
+            return (json.loads((h / 'precedent.json').read_text())
+                    .get('copy_in') or {}).get('zz-voice')
+
+        pub = host('open', 'public')
+        offer = {o['name']: o for o in pve.copy_in_offers(pub)}['zz-voice']
+        q = pve.copy_in_question(offer)
+        cases.append(('the question says it cannot be copied yet, where the '
+                      'clone goes, and offers only a no',
+                      'cannot be copied in yet' in q
+                      and str(tmp / 'people' / 'zz-voice') in q
+                      and 'zz-voice=no' in q and '=yes|no' not in q, q))
+        by = 'Zzme, 2026-10-20: "yes"'
+        rep = pu.Report()
+        pu.copy_in_step(pub, rep, {'zz-voice': 'yes'}, by)
+        cases.append(('a yes is not recorded, and the question is asked again',
+                      rec(pub) is None and any('the yes was not recorded' in w
+                                               for _k, w in rep.asks),
+                      repr(rep.asks)[:400]))
+        rep = pu.Report()
+        pu.copy_in_step(pub, rep, {'zz-voice': 'no'}, 'Zzme, 2026-10-20: "no"')
+        cases.append(('a no is recorded', (rec(pub) or {}).get('answer') == 'no',
+                      repr(rec(pub))))
+        q3 = pve.copy_in_question({o['name']: o for o in pve.copy_in_offers(
+            host('closed0', 'private'))}['zz-voice'])
+        cases.append(('an offered set this repository does not declare is '
+                      'not said to be loaded here',
+                      'stays out of this repository' in q3
+                      and 'keep loading it' not in q3, q3))
+        priv = host('closed', 'private')
+        rep = pu.Report()
+        pu.copy_in_step(priv, rep, {'zz-voice': 'yes'}, by)
+        cases.append(('NEGATIVE CONTROL: in a private repository the yes is '
+                      'recorded and waits', (rec(priv) or {}).get('answer') == 'yes'
+                      and bool((rec(priv) or {}).get('waits_on')),
+                      repr(rec(priv))))
+        # 5. A waiting yes in a public repository, then the set arrives with
+        # a private word in it.
+        pub2 = host('open2', 'public')
+        cfg = json.loads((pub2 / 'precedent.json').read_text())
+        cfg['copy_in'] = {'zz-voice': {'answer': 'yes', 'answered_by': by,
+                                       'waits_on': 'no clone'}}
+        (pub2 / 'precedent.json').write_text(json.dumps(cfg, indent=2))
+        origin = tmp / 'origins' / 'zz-voice.git'
+        origin.parent.mkdir()
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=genv, check=True)
+        voice = tmp / 'people' / 'zz-voice'
+        subprocess.run(['git', 'clone', '-q', str(origin), str(voice)],
+                       env=genv, capture_output=True, check=True)
+        (voice / 'practices').mkdir()
+        (voice / 'practices' / 'zz-v.md').write_text(
+            '---\nslug: zz-v\n---\n# v\n\n## Rule\n\nzzsecretword\n')
+        (voice / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-voice', 'level': 'shared', 'visibility': 'private'}))
+        for a in (('add', '-A'), ('commit', '-qm', 'one'),
+                  ('push', '-q', 'origin', 'main')):
+            subprocess.run(['git', '-C', str(voice), *a], env=genv,
+                           capture_output=True)
+        got = pve.copy_in_pending(pub2)
+        declared = [e for e in json.loads((pub2 / 'precedent.json').read_text())
+                    .get('sources') or [] if e.get('name') == 'zz-voice']
+        cases.append(('a waiting yes is not declared in a public repository '
+                      'while the leak check finds a line',
+                      not declared and any('zzsecretword' in w for _c, w in got),
+                      repr(got)[:500]))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a public copy-in needs the leak check to have read the set '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
+
+
+def check_failed_rerun_keeps_an_uncommitted_copied_in_set():
+    """A FAILED Update Vendors run's rerun puts back the engine files that run
+    staged, and never a copied-in set's files.
+
+    2026-10-19, a consuming repository: the first run copied a voice pack in
+    (never committed, so not in HEAD) and ended FAILED; the rerun's put-back
+    (restore_own_staged_output) took the copy's directory for part of the
+    mirrored catalogue -- mirrored_prefixes() lists every vendored source's
+    path -- and, finding it absent from HEAD, deleted every file. The
+    copy's record, process/manifest_<set>.json, is outside that directory and
+    stayed, so the refresh read the set as already copied and the sync then
+    refused it as empty. Nothing writes a copy again from HEAD, so it is not
+    the engine's to put back.
+
+    Negative control, measured 2026-10-20 against staging at 75970f4a0: the
+    copy's files are gone after the put-back and its record is still there."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='rerun-keeps-copy-'))
+    genv = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+            'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    g = lambda *a: subprocess.run(['git', '-C', str(tmp), *a], env=genv,
+                                  capture_output=True, text=True)
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(tmp)], env=genv,
+                       check=True)
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'engine.py').write_text('old\n')
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'sources': []}, indent=2))
+        g('add', '-A')
+        g('commit', '-qm', 'init')
+        # Run 1: refreshes the engine, copies a set in, then fails.
+        (tmp / 'tools' / 'engine.py').write_text('new\n')
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'sources': [
+                {'level': 'shared', 'name': 'zz-voice',
+                 'path': 'process/zz-voice', 'vendored': True}]}, indent=2))
+        copy = tmp / 'process' / 'zz-voice'
+        (copy / 'practices').mkdir(parents=True)
+        (copy / 'precedent-source.json').write_text('{"name": "zz-voice"}')
+        (copy / 'practices' / 'zz-voice-rule.md').write_text('# v\n')
+        (tmp / 'process' / 'manifest_zz-voice.json').write_text(json.dumps(
+            {'upstream': {'repo': 'https://example.invalid/zz-voice',
+                          'vendored_at': 'process/zz-voice', 'commit': 'a' * 40}}))
+        g('add', '-A')
+        staged = g('diff', '--cached', '--name-only').stdout.split()
+        pu.record_staged_output(tmp, staged)          # run 1 ended FAILED
+        back = pu.restore_own_staged_output(tmp, pu.vendored_layer_paths)
+        cases.append(('the engine file the failed run staged is put back',
+                      (tmp / 'tools' / 'engine.py').read_text() == 'old\n',
+                      repr(back)))
+        cases.append(("the copied-in set's files stay, with its record",
+                      (copy / 'precedent-source.json').is_file()
+                      and (copy / 'practices' / 'zz-voice-rule.md').is_file()
+                      and (tmp / 'process' / 'manifest_zz-voice.json').is_file(),
+                      repr(back)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_copy_in_is_asked_once():
     """Part 6 of spec/VENDORED_SHARED_SETS.md (Morgan, 2026-10-19: "it's a
     question with each new repo and (one time) when we update vendors to
@@ -70129,7 +70881,9 @@ def check_copy_in_is_asked_once():
        commit; a set that waits for its owner's go-ahead is reported when
        it moves, not taken, and taken with --take-set.
     6. NEGATIVE CONTROL: an answer with no quote is not recorded.
-    7. The installer asks the same questions and records the same answers."""
+    7. The installer asks the same questions and records the same answers.
+    8. The repository that holds an offered set (in a set_root folder) is
+       not offered it, its origin read in https, ssh or proxy form."""
     import shutil, tempfile, importlib
     sys.path.insert(0, str(ROOT / 'tools'))
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='copy-in-asked-once-'))
@@ -70356,6 +71110,40 @@ def check_copy_in_is_asked_once():
         cases.append(('a practice set is offered nothing, least of all itself',
                       got == [], repr(got)))
 
+        # The repository that holds an offered set in a folder of its own
+        # (set_root) was offered that set, a copy of itself (2026-10-19). Its
+        # origin is the offer's repo_url, written in another of the forms a
+        # GitHub remote takes here.
+        ind_man = ind / 'precedent-source.json'
+        ind_saved = ind_man.read_text()
+        m = json.loads(ind_saved)
+        m['offers'][0]['repo_url'] = 'https://github.com/ZZOwner/zz-voice.git'
+        ind_man.write_text(json.dumps(m))
+        try:
+            holder = make_host('holder', 'private', ['zzme'])
+            git(holder, 'remote', 'add', 'origin',
+                'http://local_proxy' + '@127.0.0.1:9/git/zzowner/zz-voice')
+            got = {o['name'] for o in pve.copy_in_offers(holder)}
+            cases.append(('the repository holding an offered set is not offered '
+                          'it, whatever form its origin is written in',
+                          got == {'zz-ladder', 'zz-writing'}, repr(got)))
+            other = make_host('other', 'private', ['zzme'])
+            git(other, 'remote', 'add', 'origin',
+                'https://github.com/zzowner/zz-elsewhere')
+            got = {o['name'] for o in pve.copy_in_offers(other)}
+            cases.append(('NEGATIVE CONTROL: a repository with another origin is '
+                          'still offered it', 'zz-voice' in got, repr(got)))
+        finally:
+            ind_man.write_text(ind_saved)
+        ids = [pve._repo_identity(u) for u in (
+            'https://github.com/ZZOwner/zz-voice.git',
+            'ssh://' + 'git' + '@github.com/zzowner/zz-voice',
+            'http://local_proxy' + '@127.0.0.1:9/git/zzowner/zz-voice/',
+            'https://example.invalid/zzowner/zz-voice')]
+        cases.append(('one repository reads as one identity in https, ssh and '
+                      'proxy form; another host reads as none',
+                      ids == ['zzowner/zz-voice'] * 3 + [''], repr(ids)))
+
         fresh = make_host('fresh', 'private', ['zzme'])
         lines = pi._copy_in(fresh, {}, '')
         asked = [l for l in lines if l.startswith('copy in, a question:')]
@@ -70378,6 +71166,29 @@ def check_copy_in_is_asked_once():
     check(f'whether to copy a set in is asked once per repository, and the '
           f'answer recorded ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:500]}" for n, d in bad))
+
+
+def check_update_refuses_a_shortened_flag():
+    """`precedent_update.py --take X` was ambiguous between --take-anyway and
+    --take-set (2026-10-19). A shortened flag is refused, naming every flag
+    it could mean in full, before anything runs; a full flag still parses."""
+    cases = []
+    for argv, want in ((['--take', 'abc'], '--take-anyway or --take-set'),
+                       (['--take-a', 'abc'], 'in full: --take-anyway'),
+                       (['--mo'], 'in full: --move')):
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                            *argv], capture_output=True, text=True, timeout=60)
+        cases.append((' '.join(argv), r.returncode != 0 and want in r.stdout,
+                      (r.stdout + r.stderr)[-300:]))
+    # NEGATIVE CONTROL: a full flag is not refused as a shortening.
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                        '--take-set'], capture_output=True, text=True, timeout=60)
+    cases.append(('--take-set in full', 'is not a flag' not in r.stdout
+                  and 'expected one argument' in r.stderr, (r.stdout + r.stderr)[-300:]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check('Update Vendors refuses a shortened flag, naming the full ones it '
+          f'could mean ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
 def check_vendored_engine_reads_the_consumer_root():
@@ -87354,6 +88165,7 @@ def main():
     check_promote_is_handed_to_the_moves_a_set_names()
     check_update_holds_a_settings_change_and_offers_it_again()
     check_deduplicated_copy_stays_in_force_until_its_target_arrives()
+    check_set_refuses_its_own_stranded_deduplication()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
     check_bootstrap_runs_every_tool_session_start_runs()
     check_codex_hooks_template_runs_the_claude_gates()
@@ -87485,6 +88297,10 @@ def main():
           *check_a_source_set_ships_no_ci_workflow())
     check('the old install\'s leftovers leave by content, never by name',
           *check_legacy_leftovers_retired_by_content())
+    check('a file a decommissioned engine tool wrote leaves by content',
+          *check_engine_written_leftovers_leave_by_content())
+    check('a local workflow declaration is one keep-or-delete question, asked once',
+          *check_local_workflow_declaration_is_asked_once())
     check('refresh repoints a retired catalogue pin to main, and no other pin',
           *check_refresh_repoints_a_retired_catalogue_pin())
     check('a repo\'s upstream_branch declaration is followed, and only main or staging',
@@ -87805,6 +88621,7 @@ def main():
     check_upstream_fix_sets_up_the_fix_in_the_source()
     check_code_owner_practice_stays_out_of_the_index()
     check_adds_to_names_a_rule_in_force()
+    check_boildown_moments_named()
     check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
@@ -87956,6 +88773,7 @@ def main():
     check_update_question_names_new_gates()
     check_data_branches_are_named_for_the_ladder()
     check_landed_branch_gets_its_delete_link()
+    check_session_file_over_ceiling_names_the_individual_share()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
     check_date_check_skips_commits_github_made()
@@ -87978,6 +88796,7 @@ def main():
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
     check_branch_cleanup_page_is_one_page_updated_in_place()
+    check_branch_cleanup_page_data_is_a_branch_a_line()
     check_branch_cleanup_page_merges_the_saved_page()
     check_branch_cleanup_page_lists_staging_waiting_to_go_live()
     check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names()
@@ -88039,8 +88858,12 @@ def main():
     check_copied_in_shared_sets()
     check_copied_set_carries_another()
     check_copy_in_is_asked_once()
+    check('a failed update\'s rerun keeps an uncommitted copied-in set',
+          *check_failed_rerun_keeps_an_uncommitted_copied_in_set())
     check_early_copy_in_yes_waits_for_the_set()
+    check_public_copy_in_needs_the_leak_check()
     check_copy_in_question_names_what_would_leak()
+    check_update_refuses_a_shortened_flag()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()

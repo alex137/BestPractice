@@ -17,7 +17,8 @@
 # basic tier -- markdown lint, leak gate, commit author --
 # in seconds. This hook only hands the push's own arguments over
 # (--push-command); precedent_branches.py decides, and a push whose
-# destination it cannot read is checked fully. An older vendored
+# destination it cannot read gets the landing branch's tier (a push that
+# writes branches it does not name, --all or --mirror, is checked fully). An older vendored
 # precedent_push_check.py ignores the flag and runs everything, so a hook
 # refreshed ahead of its engine is slower, never less safe.
 #
@@ -174,8 +175,13 @@ if command -v timeout >/dev/null 2>&1; then
 else
     echo "NOTE: push-check-gate: no \`timeout\` command here, so a run that outlives the hook's own timeout would be let through unchecked." >&2
 fi
+# This hook runs before any of the command, so `git switch -c X && git push`
+# would be read from the branch it leaves, or a detached HEAD: name the one
+# the push will run on (2026-10-20). An engine without --switched-to says
+# nothing, and the push is read from HEAD as before.
+from_branch="$(cd "$top" && python3 tools/precedent_branches.py --switched-to "$bare" 2>/dev/null || true)"
 set +e
-out="$(cd "$top" && ${limit[@]+"${limit[@]}"} python3 "$tool" --gate --push-command "$push_rest" 2>&1)"
+out="$(cd "$top" && PRECEDENT_PUSH_FROM_BRANCH="$from_branch" ${limit[@]+"${limit[@]}"} python3 "$tool" --gate --push-command "$push_rest" 2>&1)"
 rc=$?
 set -e
 

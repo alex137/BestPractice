@@ -818,6 +818,33 @@ def _key(owner, name):
     return (owner.casefold(), name.casefold())
 
 
+# The widest line page_json writes before it breaks a list or an object
+# over lines. The page's script (wrap) writes the same shape when it saves
+# the page with its ticks.
+PAGE_JSON_WIDTH = 100
+
+
+def page_json(value, indent=''):
+    """-> `value` as JSON, a list or object that fits PAGE_JSON_WIDTH on
+    one line, a wider one an element per line, so a branch is a line.
+
+    WHY (2026-10-20). json.dumps wrote the whole block on one line, some
+    20,000 tokens for 230 branches; stale-branch-cleanup says to Read every
+    line of the saved page before publishing, and a Read of that one line
+    was refused for size. Readers parse it with json.loads, so the shape is
+    free."""
+    flat = json.dumps(value, separators=(',', ':'))
+    if not isinstance(value, (list, dict)) or not value \
+            or len(indent) + len(flat) <= PAGE_JSON_WIDTH:
+        return flat
+    inner = indent + ' '
+    if isinstance(value, list):
+        parts = [inner + page_json(v, inner) for v in value]
+        return '[\n' + ',\n'.join(parts) + '\n' + indent + ']'
+    parts = [inner + json.dumps(k) + ':' + page_json(v, inner) for k, v in value.items()]
+    return '{\n' + ',\n'.join(parts) + '\n' + indent + '}'
+
+
 _DATA = re.compile(r'<script type="application/json" id="branch-data">(.*?)</script>',
                    re.S)
 _SECTION = re.compile(r'<section class="repo">.*?<p class="owner">github\.com/'
@@ -1106,7 +1133,7 @@ def render_html(groups, now=None, tz='', carried=(), waiting=(), carried_wait=()
     # The list the next merge reads (read_page); '<' escaped so no branch
     # name can close the script element.
     secs.append('<script type="application/json" id="branch-data">'
-                + json.dumps(data).replace('<', '\\u003c') + '</script>')
+                + page_json(data).replace('<', '\\u003c') + '</script>')
     return (_PAGE.replace('{{TOTAL}}', str(total))
             .replace('{{BUILT}}', html.escape(built_line(now, tz)))
             .replace('{{BUILD}}', now.strftime('%Y%m%dT%H%M%SZ'))
@@ -1193,9 +1220,23 @@ li + li { border-top:1px solid var(--line); }
   try { for(var j=localStorage.length-1;j>=0;j--){ var c=localStorage.key(j); if(c&&c.indexOf('branch-cleanup-clicked')===0&&c!==CKEY) localStorage.removeItem(c); } } catch(e) {}
   try { clicked=JSON.parse(localStorage.getItem(CKEY)||'{}')||{}; } catch(e) { clicked={}; }
   Object.keys(data.clicked||{}).forEach(function(k){ clicked[k]=data.clicked[k]; });
+  // page_json's shape: a branch a line, so the saved page stays readable a
+  // line at a time.
+  function wrap(v, ind){
+    var flat=JSON.stringify(v), inner=ind+' ', parts;
+    if(v===null||typeof v!=='object'||ind.length+flat.length<=100) return flat;
+    if(Array.isArray(v)){
+      if(!v.length) return flat;
+      parts=v.map(function(x){ return inner+wrap(x,inner); });
+      return '[\\n'+parts.join(',\\n')+'\\n'+ind+']';
+    }
+    var ks=Object.keys(v); if(!ks.length) return flat;
+    parts=ks.map(function(k){ return inner+JSON.stringify(k)+':'+wrap(v[k],inner); });
+    return '{\\n'+parts.join(',\\n')+'\\n'+ind+'}';
+  }
   function document_with(d){
     var copy=JSON.parse(JSON.stringify(data)); copy.done=d; copy.clicked=clicked;
-    var json=JSON.stringify(copy).replace(/</g,'\\\\u003c');
+    var json=wrap(copy,'').replace(/</g,'\\\\u003c');
     return HEAD+BODY.replace(DATA_RE,function(_m,a,b){ return a+json+b; })+'</body></html>';
   }
   function publish(){
