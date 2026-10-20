@@ -32730,6 +32730,29 @@ def check_reply_check_requires_the_boildown_first_line():
             cases.append(('a line silent about the unlanded work is refused',
                           kinds('BestPractice, five changes', pr)
                           == ['first_item_unlanded'], ''))
+            # 2026-10-20: one refusal asked for the one-line repeat form and
+            # for the not-landed lead, which that form had no room for. Both
+            # conditions true: the form the repeat refusal now hands over,
+            # from the real reply_check.json entry, passes the lead check;
+            # the plain form it used to hand over does not.
+            rep = next(e['require_section_not_repeated'] for e in json.loads(
+                (ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+                if e.get('require_section_not_repeated'))
+
+            def alone(line):
+                _rc._unlanded_names = lambda *a, **k: list(pr)
+                return [v['kind'] for v in _rc.violations(
+                    'x\n\n## The Boildown\n' + line + '\n', lead)]
+            filled = _rc.one_line_form(rep, pr).replace(
+                '<where the rest is>', '`staging`')
+            cases.append(('while a branch is unlanded, the one-line repeat form '
+                          'handed over passes the not-landed lead check',
+                          alone(filled) == [] and pr[0] in filled, filled))
+            cases.append(('negative control: the plain one-line form is refused '
+                          'then', alone(rep['one_line'].replace(
+                              '<where it is>', '`staging`')) == ['first_item_unlanded'], ''))
+            cases.append(('with nothing unlanded, the plain form is handed over',
+                          _rc.one_line_form(rep, []) == rep['one_line'], ''))
         finally:
             _rc._unlanded_names = saved
     finally:
@@ -34449,6 +34472,41 @@ def check_close_detect_counts_only_this_sessions_reverts():
     failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
     check(f'the close detector counts only this session\'s own reverts '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_close_detect_skips_every_seeded_header_shape():
+    """The practice-candidate detector does not read a prompt another
+    session seeded as the person's words, whichever header shape it opens
+    with: "Sent automatically by ... Nobody typed this.", the From line the
+    reply check's prompt-block-names-both-ends defines, or "Origin:" naming
+    a session.
+
+    2026-10-20: a Root issues seed opening "From: session <id> ... A session
+    wrote this, not a person" had its "Never let a seed assume the attach
+    succeeds." reported at close as "the person said". CONTROL: a person's
+    own first line that only mentions a session link is still read."""
+    import precedent_close_detect as pcd
+    sid = 'session_01AbCdEfGh'
+    rule = 'Never let a seed assume the attach succeeds.'
+    headers = {
+        'Sent automatically': f'Sent automatically by the session "t" ({sid}) -- '
+                              f'https://claude.ai/code/{sid}. Nobody typed this.',
+        'From line': f'From: session {sid}, "t" (https://claude.ai/code/{sid}). '
+                     'A session wrote this, not a person.',
+        'Origin': f'Origin: session {sid}; Morgan asked for this seed.',
+    }
+
+    def fired(person):
+        recs = [{'type': 'user', 'message': {'role': 'user', 'content': person}}]
+        return [d for n, d in pcd.signals(recs, ROOT) if n == 'explicit-instruction']
+    cases = [(f'a seed headed by the {k} shape is not the person\'s',
+              fired(f'{h}\n{rule}') == [], fired(f'{h}\n{rule}'))
+             for k, h in headers.items()]
+    own = f'Pull the fix from the session https://claude.ai/code/{sid}\n{rule}'
+    cases.append(('CONTROL: the person\'s own line naming a session link is still read',
+                  len(fired(own)) == 1, fired(own)))
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
 def check_close_detect_ignores_the_assistant_quoted_back():
@@ -49535,6 +49593,14 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
                  '`/tmp/s/out.md`; items are `todo-<date>-<slug>.md`; `main` (BestPractice).')
     cases.append(('a command, an absolute path, a template and a plain branch '
                   'word pass', not v, v))
+    v = blocking('Paste into: a new session rooted in alex137/BestPractice.\n\n'
+                 '```\nFor: a new session.\nSee PR #1314 and session_01AbCdEfGh, '
+                 f'on `{branch}`.\n```\n')
+    cases.append(('2026-10-20: inside a fenced paste block, where a link cannot '
+                  'render, a bare mention passes', not v, v))
+    v = blocking('```\nquoted\n```\nThen PR #1314 in prose.')
+    cases.append(('...and the same mention after the fence closes is still refused',
+                  len(v) == 1, v))
     soft = [dict(r, advisory=True) for r in reqs]
     v = blocking(f'Work is on `{branch}`.', soft)
     cases.append(('negative control: declared advisory, nothing blocks', not v, v))
@@ -59689,8 +59755,24 @@ said2 = []
 pb._land_composed(work, fix, 'claude/fix-main-abcdef', 'staging', 'the fixture', said2.append)
 g('fetch', '-q', 'origin')
 fix_moved = g('rev-parse', 'origin/claude/fix-main-abcdef').stdout.strip() != fix
+# 2026-10-20: a branch carrying all of main's work that does NOT merge
+# cleanly into staging (staging moved on) gets the checked composition,
+# never "lacks nothing".
+g('checkout', '-q', '-B', 'stg', 'origin/staging')
+(work / 'z.md').write_text('staging\\n'); g('add', '-A'); g('commit', '-qm', 'staging moved')
+g('-c', 'core.hooksPath=/dev/null', 'push', '-q', 'origin', 'stg:staging')
+g('checkout', '-q', '-b', 'claude/behind-staging-abcdef', 'origin/main')
+(work / 'z.md').write_text('branch\\n'); g('add', '-A'); g('commit', '-qm', 'clash')
+g('push', '-q', 'origin', 'claude/behind-staging-abcdef')
+g('merge', '-q', '-X', 'ours', '--no-edit', 'origin/staging')
+comp = g('rev-parse', 'HEAD').stdout.strip()
+said3 = pb._carry_composition_to_branch(work, 'claude/behind-staging-abcdef', comp, 'staging')
+g('fetch', '-q', 'origin')
+behind_moved = g('rev-parse', 'origin/claude/behind-staging-abcdef').stdout.strip() == comp
+behind_moved = behind_moved and comp != g('rev-parse', 'HEAD^1').stdout.strip()
 print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], files=files,
                       fix_moved=fix_moved, said2='\\n'.join(said2)[-300:],
+                      said3=said3, behind_moved=behind_moved,
                       staging=g('ls-tree', '--name-only', 'origin/staging').stdout.split())))
 """, encoding='utf-8')
         p = subprocess.run([sys.executable, str(script)], capture_output=True,
@@ -59714,6 +59796,11 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], file
                       'left where it is, so a red-main fix\'s head never moves',
                       out.get('fix_moved') is False
                       and 'as it stands lacks nothing' in (out.get('said2') or ''),
+                      str(out) or why))
+        cases.append(('a branch with all of main\'s work that conflicts with '
+                      'staging gets the checked composition, not "lacks nothing"',
+                      out.get('behind_moved') is True
+                      and 'now carries the composition' in (out.get('said3') or ''),
                       str(out) or why))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -65303,6 +65390,14 @@ def check_branch_cleanup_page_merges_the_saved_page():
                           rc == 0 and got == ['B', 'C']
                           and '2 kept from the saved page for 1 repositor' in said,
                           f'{got} {said}'))
+            # 2026-10-20: the publish was refused until the saved source was
+            # Read through, while a ladder note said never to Read it. The
+            # tool's last line owns the steps, in the order enforced.
+            cases.append(('the last line says to Read every line of the merged '
+                          'file before publishing, and to resend an identical-'
+                          'content refusal once',
+                          f'Read every line of {td / "saved.html"}' in said
+                          and 'send it once more unchanged' in said, said[-400:]))
             (td / 'junk.html').write_text('<p>not a cleanup page</p>', encoding='utf-8')
             out.unlink()
             rc, said = run('--merge', str(td / 'junk.html'))
@@ -88384,6 +88479,8 @@ def main():
           *check_withdrawal_record_lines_all_read_back())
     check('the close detector does not read the assistant quoted back as the '
           'person\'s instruction', *check_close_detect_ignores_the_assistant_quoted_back())
+    check('the close detector skips a seeded prompt whatever header shape it '
+          'opens with', *check_close_detect_skips_every_seeded_header_shape())
     check('a view sync passes its own --check from another checkout of the same '
           'commit, as a Promote checks it',
           *check_sync_check_passes_from_another_checkout())
