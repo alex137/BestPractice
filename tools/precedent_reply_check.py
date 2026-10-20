@@ -239,6 +239,44 @@ def declared_requirements(repo):
     return _settle(reqs, repo), notes
 
 
+# WHAT A STANDING SESSION IS STILL HELD TO (S. Alexander Jacobson,
+# 2026-10-20, strength: decided). A standing session -- a repository's master
+# maintainer, or another job it lists -- reports to nobody in real time, and
+# over 2026-10-18 to 2026-10-20 most refusals its replies drew were about
+# their format, not their work: each one cost a follow-up message that said
+# nothing new. So the reply-format requirements stand aside for it. These
+# three stay, because each guards work rather than wording: no "you can
+# archive" while anything is unsaved, unlanded, or a plan is unfinished.
+# Not leaving uncommitted work behind is the stop hook's, untouched here.
+STANDING_KEEPS = ('require_container_safe_if_says', 'require_landed_if_says',
+                  'require_plan_done_if_says')
+
+
+def standing_session(repo):
+    """-> True when this session is one the repository names as standing:
+    `maintainer.session` or an entry of `standing_sessions` in its
+    precedent.json (practice master-maintainer). False outside a remote
+    session, and on anything unreadable."""
+    try:
+        import precedent_detect as _pd
+        sid = _pd.this_session_id()
+        d = json.loads((pathlib.Path(repo) / 'precedent.json').read_text(encoding='utf-8'))
+    except Exception:                                         # noqa: BLE001
+        return False
+    if not sid:
+        return False
+    named = [(d.get('maintainer') or {}).get('session')] + list(d.get('standing_sessions') or [])
+    return sid in [n for n in named if isinstance(n, str)]
+
+
+def for_this_session(reqs, repo):
+    """-> `reqs`, less the reply-format requirements when this is a standing
+    session (STANDING_KEEPS says what stays)."""
+    if not standing_session(repo):
+        return reqs
+    return [r for r in reqs if any(k in r for k in STANDING_KEEPS)]
+
+
 def _settle(reqs, repo):
     """Two generic keys a requirement may carry (spec/LADDER_OPT_IN_PLAN.md
     D11, 2026-10-02):
@@ -1462,7 +1500,14 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                 # The repair rides on the pattern entry, not the requirement:
                 # an engine older than this ignores a key inside an entry,
                 # and refuses a requirement carrying a key it does not know.
-                out.append({'kind': 'bare_pattern', 'advisory': advisory,
+                # So does `advisory` (2026-10-20): one pattern of a
+                # requirement can be advice -- named at the next turn's
+                # start, never refused -- while the rest still block (S.
+                # Alexander Jacobson: a file name mentioned in passing is
+                # not worth a refusal). An older engine blocks on it, the
+                # stricter way.
+                out.append({'kind': 'bare_pattern',
+                            'advisory': advisory or entry.get('advisory') is True,
                             'repair': entry.get('repair'), 'message': (
                     f"[{r.get('_source', '?')}] this reply mentions "
                     f"{shown} without a markdown link"
@@ -1641,8 +1686,9 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
             if _norm(phrase) not in _norm(quoted_stripped):
                 continue
             stranded = _stranded_branches()
+            gone = given_up_branches()
             left = [(where, branch) for where, branch in stranded
-                    if not re.search(r'\*\*branch disposition:\*\*\s*`?'
+                    if branch not in gone and not re.search(r'\*\*branch disposition:\*\*\s*`?'
                                      + re.escape(branch)
                                      + r'`?\s*[—-]+\s*drop', text, re.I)]
             if left:
@@ -1805,8 +1851,9 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
         if r.get('require_delete_link_when_landed'):
             for repo, branch, base in _delete_links_owed():
                 enc = urllib.parse.quote(branch, safe='')
-                if re.search(r'branches/all\?query=(?:' + re.escape(enc) + '|'
-                             + re.escape(branch) + r')(?![\w%./-])', text, re.I):
+                # Once per branch: a link any earlier reply gave counts, read
+                # from the transcript, so a lost record never asks again.
+                if any(_linked(t, branch) for t in [text] + [t for _, t in timeline or []]):
                     continue
                 out.append({'kind': 'delete-link', 'advisory': False, 'message': (
                     f"[{r.get('_source', '?')}] '{branch}' "
@@ -1818,7 +1865,40 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                     f"/branches/all?query={enc} -- and the branch it merged "
                     f"into. Never delete it yourself."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
-    return out
+    return _one_line_wins(out, text, reqs)
+
+
+# Findings that ask for one short line, and those that guard work.
+ONE_LINE_KINDS = ('quiet', 'repeat')
+GUARD_KINDS = ('container', 'landed', 'plan')
+
+
+def _is_one_line_form(text, reqs):
+    """-> True when the reply is a wait line, or its repeat-guarded section
+    is the single unchanged line that requirement names."""
+    if _is_wait_line(text):
+        return True
+    for r in reqs:
+        rep = r.get('require_section_not_repeated') or {}
+        if rep.get('heading'):
+            items = section_bullets(text, rep['heading']) or []
+            if len(items) == 1 and re.search(r'\bunchanged since the last update\b',
+                                             items[0], re.I):
+                return True
+    return False
+
+
+def _one_line_wins(out, text, reqs):
+    """NO TWO REQUIREMENTS MAY CONTRADICT EACH OTHER IN ONE TURN (S. Alexander
+    Jacobson, 2026-10-20). "Say only one line, nothing new" and "list every
+    landed branch" cannot both be met: a repeated Boildown was refused, then
+    its one-line form was refused for not listing branches. When the reply
+    owes, or already is, the one-line form, only that and the findings that
+    guard work stand; whatever else was owed is owed in the next full reply."""
+    if not (any(b['kind'] in ONE_LINE_KINDS for b in out)
+            or _is_one_line_form(text, reqs)):
+        return out
+    return [b for b in out if b['kind'] in ONE_LINE_KINDS + GUARD_KINDS]
 
 
 def _full_check_owed(root=None):
@@ -1907,6 +1987,40 @@ def _record_links_given(text, root=None):
         have = _links_given(root) | set(new)
         f.write_text(json.dumps([{'repo': r, 'branch': b} for r, b in sorted(have)]),
                      encoding='utf-8')
+    except Exception:                                         # noqa: BLE001
+        pass
+
+
+# A branch given up by name -- **Branch disposition:** BRANCH -- drop (why)
+# -- is settled for the rest of the session, not just in the reply that says
+# so. Kept per checkout in .git beside the delete-link record (S. Alexander
+# Jacobson, 2026-10-20: a branch already given up kept being reported as
+# unlanded, reply after reply).
+BRANCHES_GIVEN_UP = 'precedent-branches-given-up.json'
+_GIVEN_UP_RE = re.compile(r'\*\*branch disposition:\*\*\s*`?([^\s`*]+)`?\s*[—-]+\s*drop',
+                          re.I)
+
+
+def given_up_branches(root=None):
+    """-> the set of branch names this checkout's session has given up."""
+    f = _links_given_file(root or os.environ.get('CLAUDE_PROJECT_DIR') or '.')
+    f = f.with_name(BRANCHES_GIVEN_UP) if f else None
+    try:
+        return set(json.loads(f.read_text(encoding='utf-8'))) if f and f.is_file() else set()
+    except Exception:                                         # noqa: BLE001
+        return set()
+
+
+def _record_given_up(text, root=None):
+    """Keep every branch `text` gives up by name. Never raises."""
+    try:
+        root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
+        new = set(_GIVEN_UP_RE.findall(text or ''))
+        f = _links_given_file(root)
+        if not new or not f:
+            return
+        f.with_name(BRANCHES_GIVEN_UP).write_text(
+            json.dumps(sorted(given_up_branches(root) | new)), encoding='utf-8')
     except Exception:                                         # noqa: BLE001
         pass
 
@@ -2142,10 +2256,10 @@ def _unlanded_names(root=None, siblings=True):
     its own branches on origin (_own_unlanded_branches) and each repo's
     current branch with commits not on its landing branch
     (_stranded_branches), once each."""
-    names = []
+    names, gone = [], given_up_branches(root)
     for _repo, branch, *_rest in (_own_unlanded_branches(root, siblings)
                                   + _stranded_branches(root, siblings)):
-        if branch not in names:
+        if branch not in names and branch not in gone:
             names.append(branch)
     return names
 
@@ -2321,6 +2435,10 @@ def main():
         argv = argv[:i] + argv[i + 2:]
 
     reqs, notes = declared_requirements(repo)
+    if standing_session(repo):
+        notes.append('this is a standing session the repository names, so only '
+                     'the requirements that guard unsaved or unlanded work apply')
+        reqs = for_this_session(reqs, repo)
 
     if '--explain' in argv:
         print(f"reply check, from {repo}:")
@@ -2459,12 +2577,17 @@ def main():
         return 0
     if is_trivial_checkin(text) and not (wake and wake.get('quiet_owed')):
         return 0
+    # What the reply settled counts whether or not it is refused below for
+    # something else: a delete link it gave is given, and a branch it gave
+    # up by name is given up. Until 2026-10-20 both were kept only from a
+    # reply that passed, so a refused one was asked for the same links
+    # again, in reply after reply (S. Alexander Jacobson, 2026-10-20).
+    if 'branches/all?query=' in text:
+        _record_links_given(text)
+    _record_given_up(text)
     bad = [b for b in violations(text, reqs, timeline, wake, prompt)
            if not b.get('advisory')]
     if not bad:
-        # Recorded first: consuming takes the landed branches off the
-        # turn-start record, and they are owed links until recorded given.
-        _record_links_given(text)
         _consume_turn_start()
         return 0
     # The reply that was just refused has ALREADY been shown to the person --

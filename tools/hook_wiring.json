@@ -20,8 +20,8 @@
     },
     {
       "event": "SessionStart",
-      "script": "switchboard-offer.sh",
-      "timeout": 10
+      "script": "maintainer-heartbeat.sh",
+      "timeout": 30
     }
   ],
   "source": [
@@ -44,8 +44,8 @@
     },
     {
       "event": "SessionStart",
-      "script": "switchboard-offer.sh",
-      "timeout": 10
+      "script": "maintainer-heartbeat.sh",
+      "timeout": 30
     }
   ]
 }

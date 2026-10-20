@@ -753,7 +753,9 @@ def _print_advisories_missed(reqs, prc):
     it here keeps both: nothing is refused, and the miss is in front of the
     session one turn later. Nothing prints without the transcript."""
     path = os.environ.get('PRECEDENT_TRANSCRIPT_PATH', '').strip()
-    soft = [r for r in reqs if r.get('advisory')]
+    soft = [r for r in reqs if r.get('advisory') or any(
+        isinstance(e, dict) and e.get('advisory') is True
+        for e in r.get('require_no_bare_pattern') or [])]
     if not path or not soft or not os.path.isfile(path):
         return
     try:
@@ -893,6 +895,12 @@ def _print_hard_requirements(root):
               f"({e}), so they are not below. Treat that as unknown, not as "
               f"'there are none'.")
         return
+    if getattr(prc, 'standing_session', None) and prc.standing_session(root):
+        # A standing session is held only to the requirements that guard
+        # work (practice master-maintainer, 2026-10-20), so only those print.
+        reqs = prc.for_this_session(reqs, root)
+        print("\nThis is a standing session the repository names: the "
+              "reply-format requirements do not apply to it.")
     if not reqs and not notes:
         return
     if not _is_code_owner(root):
@@ -1447,6 +1455,15 @@ def main():
         except Exception:                                     # noqa: BLE001
             _unlanded = []
         record_turn_start_unlanded(root, _records)
+        try:
+            import precedent_reply_check as _prc
+            _gone = _prc.given_up_branches(root)
+        except Exception:                                     # noqa: BLE001
+            _gone = set()
+        # A branch given up by name is settled; it is not reported again
+        # (2026-10-20).
+        _unlanded = [l for l in _unlanded
+                     if not any(f"on '{b}' " in l for b in _gone)]
         for _line in _unlanded:
             if PROMOTE_RUNNING_MARK in _line:
                 print(f"- {_line}. Do NOT recommend, suggest or mention a "
