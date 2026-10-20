@@ -13543,6 +13543,18 @@ def _charge_brought_share(n):
     except Exception:                                         # noqa: BLE001
         return n, None
     rel = '.precedent/SESSION_PRACTICES.md'
+    # The individual set's own budget (precedent_session_practices.
+    # INDIVIDUAL_BUDGET_KEY), when it declares one.
+    try:
+        ind, ind_budget = _psp.individual_charge(ROOT)
+    except Exception:                                         # noqa: BLE001
+        ind, ind_budget = 0, None
+    if ind_budget is not None and ind > ind_budget:
+        return charged, Finding(rel, (
+            f"{ind:,} tokens of it come from this person's individual set, "
+            f"over the {ind_budget:,}-token `{_psp.INDIVIDUAL_BUDGET_KEY}` "
+            f"budget it declares. Reduce in the individual set, or the person "
+            f"raises their own budget"))
     if budget is not None and share > budget:
         return charged, Finding(rel, (
             f"{share:,} tokens of it come from the set(s) this person brings "

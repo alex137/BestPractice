@@ -433,6 +433,7 @@ def render(extra, levels, notes, repo=None):
         try:
             if any(s.get('brought') for s in pr.load_config(str(repo))):
                 budget += brought_budget(repo)[0] or 0
+            budget += brought_budget(repo, INDIVIDUAL_BUDGET_KEY)[0] or 0
         except Exception:                                    # noqa: BLE001
             pass
     # The tracked AGENTS.md is loaded every session alongside this file, so a
@@ -543,9 +544,21 @@ def _with_target_warning(repo, text, brought=0):
 BROUGHT_BUDGET_KEY = 'brought_sets_tokens'
 
 
-def brought_budget(repo=None):
+# THE PERSON'S OWN INDIVIDUAL SET HAS A BUDGET OF ITS OWN TOO (Morgan,
+# 2026-10-20, strength: decided: "7 option 1"). Its rules reach every
+# repository the person works in, and no repository can shorten them, so
+# when the set declares `individual_set_tokens` its share of this file is
+# held to that, not to each repository's ceiling. 2026-10-20, a voice
+# repository: ~1,176 of ~1,510 tokens were the individual set, against a
+# 400-token ceiling, and every session start there failed for it.
+# Undeclared, the share stays charged to the repository, as before.
+INDIVIDUAL_BUDGET_KEY = 'individual_set_tokens'
+
+
+def brought_budget(repo=None, key=BROUGHT_BUDGET_KEY):
     """-> (tokens or None, individual set path or None): the budget the
-    person's individual set declares for the sets it brings."""
+    person's individual set declares under `key`: for the sets it brings
+    (BROUGHT_BUDGET_KEY), or for itself (INDIVIDUAL_BUDGET_KEY)."""
     try:
         sources = pr.load_config(repo or str(_ENGINE_DIR.parent))
     except Exception:                                        # noqa: BLE001
@@ -558,7 +571,7 @@ def brought_budget(repo=None):
                          .read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None, ind['path']
-    v = man.get(BROUGHT_BUDGET_KEY) if isinstance(man, dict) else None
+    v = man.get(key) if isinstance(man, dict) else None
     return (v if isinstance(v, int) else None), ind['path']
 
 
@@ -652,9 +665,26 @@ def charged_to_repo(repo, n):
         budget = brought_budget(repo)[0] if share else None
     except Exception:                                        # noqa: BLE001
         return n, 0, [], None
-    if not share or budget is None:
-        return n, share, names, budget
-    return bare, share, names, budget
+    charged = n if (not share or budget is None) else bare
+    # The individual set's share, when it declares a budget of its own
+    # (INDIVIDUAL_BUDGET_KEY); individual_charge says whether it is over.
+    ind, ind_budget = individual_charge(repo)
+    if ind_budget is not None:
+        charged = max(0, charged - ind)
+    return charged, share, names, budget
+
+
+def individual_charge(repo):
+    """-> (the individual set's share of this file, its declared budget or
+    None). The share is measured only when a budget is declared: (0, None)
+    otherwise, and the share stays the repository's to pay."""
+    try:
+        ind_budget = brought_budget(repo, INDIVIDUAL_BUDGET_KEY)[0]
+    except Exception:                                        # noqa: BLE001
+        return 0, None
+    if ind_budget is None:
+        return 0, None
+    return individual_share(str(repo)), ind_budget
 
 
 def spoken_block(extra):

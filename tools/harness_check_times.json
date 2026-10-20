@@ -276,6 +276,7 @@
   "check_individual_hook_run_by_hand_links_the_attached_set": 0.5,
   "check_individual_set_diverged_copies_are_reported_not_clobbered": 0.5,
   "check_individual_set_has_one_tree_whichever_route_cloned_it": 1.0,
+  "check_individual_set_is_charged_to_its_own_budget": 0.0,
   "check_individual_skeleton_ci_comment_is_true": 0.0,
   "check_individual_source_bootstrap_self_heals": 2.5,
   "check_install_and_update_name_the_code_owners": 0.1,
