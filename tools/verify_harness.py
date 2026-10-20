@@ -70232,6 +70232,72 @@ def check_early_copy_in_yes_waits_for_the_set():
           not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
 
 
+def check_failed_rerun_keeps_an_uncommitted_copied_in_set():
+    """A FAILED Update Vendors run's rerun puts back the engine files that run
+    staged, and never a copied-in set's files.
+
+    2026-10-19, a consuming repository: the first run copied a voice pack in
+    (never committed, so not in HEAD) and ended FAILED; the rerun's put-back
+    (restore_own_staged_output) took the copy's directory for part of the
+    mirrored catalogue -- mirrored_prefixes() lists every vendored source's
+    path -- and, finding it absent from HEAD, deleted every file. The
+    copy's record, process/manifest_<set>.json, is outside that directory and
+    stayed, so the refresh read the set as already copied and the sync then
+    refused it as empty. Nothing writes a copy again from HEAD, so it is not
+    the engine's to put back.
+
+    Negative control, measured 2026-10-20 against staging at 75970f4a0: the
+    copy's files are gone after the put-back and its record is still there."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='rerun-keeps-copy-'))
+    genv = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+            'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    g = lambda *a: subprocess.run(['git', '-C', str(tmp), *a], env=genv,
+                                  capture_output=True, text=True)
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(tmp)], env=genv,
+                       check=True)
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'engine.py').write_text('old\n')
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'sources': []}, indent=2))
+        g('add', '-A')
+        g('commit', '-qm', 'init')
+        # Run 1: refreshes the engine, copies a set in, then fails.
+        (tmp / 'tools' / 'engine.py').write_text('new\n')
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'sources': [
+                {'level': 'shared', 'name': 'zz-voice',
+                 'path': 'process/zz-voice', 'vendored': True}]}, indent=2))
+        copy = tmp / 'process' / 'zz-voice'
+        (copy / 'practices').mkdir(parents=True)
+        (copy / 'precedent-source.json').write_text('{"name": "zz-voice"}')
+        (copy / 'practices' / 'zz-voice-rule.md').write_text('# v\n')
+        (tmp / 'process' / 'manifest_zz-voice.json').write_text(json.dumps(
+            {'upstream': {'repo': 'https://example.invalid/zz-voice',
+                          'vendored_at': 'process/zz-voice', 'commit': 'a' * 40}}))
+        g('add', '-A')
+        staged = g('diff', '--cached', '--name-only').stdout.split()
+        pu.record_staged_output(tmp, staged)          # run 1 ended FAILED
+        back = pu.restore_own_staged_output(tmp, pu.vendored_layer_paths)
+        cases.append(('the engine file the failed run staged is put back',
+                      (tmp / 'tools' / 'engine.py').read_text() == 'old\n',
+                      repr(back)))
+        cases.append(("the copied-in set's files stay, with its record",
+                      (copy / 'precedent-source.json').is_file()
+                      and (copy / 'practices' / 'zz-voice-rule.md').is_file()
+                      and (tmp / 'process' / 'manifest_zz-voice.json').is_file(),
+                      repr(back)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_copy_in_is_asked_once():
     """Part 6 of spec/VENDORED_SHARED_SETS.md (Morgan, 2026-10-19: "it's a
     question with each new repo and (one time) when we update vendors to
@@ -88219,6 +88285,8 @@ def main():
     check_copied_in_shared_sets()
     check_copied_set_carries_another()
     check_copy_in_is_asked_once()
+    check('a failed update\'s rerun keeps an uncommitted copied-in set',
+          *check_failed_rerun_keeps_an_uncommitted_copied_in_set())
     check_early_copy_in_yes_waits_for_the_set()
     check_copy_in_question_names_what_would_leak()
     check_update_refuses_a_shortened_flag()
