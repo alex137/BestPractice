@@ -38765,6 +38765,20 @@ def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS, ledger=None):
         want(0, [t for t in tests if t != _PLANTED_SUITE and (
             any(name in s for s in strings[t]) or name[:-3] in refs[t])])
 
+    # 2b. A changed tools/ module a test imports or runs itself, at any
+    # depth of the harness helpers it calls (2026-10-20). 1 reached a module
+    # only through a check that imports it: a change to
+    # precedent_sync_views.py picked no test at all, and one to
+    # precedent_resolve.py missed six tests that import it -- 44 passed when
+    # run by hand. The module itself only: a test that runs one of its
+    # importers in a child process is the reach ledger's to find (4), and
+    # following importers here picked some 600 tests for precedent_resolve.
+    for mod in sorted(modules):
+        ran = re.compile(r'(?<![\w.])' + re.escape(mod) + r'\.py\b')
+        want(0, [t for t in tests if t != _PLANTED_SUITE and (
+            mod in refs[t]
+            or any(s == mod or ran.search(s) for s in strings[t]))])
+
     # 3. The harness itself: a changed test runs; a changed helper runs the
     # tests that reach it; a call added to main() runs what it calls.
     if vh_rel in py:
@@ -38882,9 +38896,12 @@ def check_for_change_runs_the_tests_a_change_reaches():
     One scratch repository, one change per case, read with for_change_plan:
     a check's own body; a helper only another check uses; the decorator
     every check uses; a tools/ module imported two levels down; a check
-    script; a harness test and a harness helper; a comment between
-    definitions (the control: nothing runs); a check covered only by its
-    planted case; and a test over the budget, which is named, not run.
+    script; a harness test and a harness helper; a tools/ module no check
+    imports, which a test imports through a helper or runs by its file name
+    (2026-10-20: precedent_sync_views.py picked no test), with a lookalike
+    file name as its control; a comment between definitions (the control:
+    nothing runs); a check covered only by its planted case; and a test over
+    the budget, which is named, not run.
     """
     import tempfile
     name = '--for-change runs the harness tests a change reaches'
@@ -38937,6 +38954,15 @@ def check_for_change_runs_the_tests_a_change_reaches():
         "    run('--only', 'zz-beta')\n"
         'def check_precedent_check_fires():\n'
         "    case('zz-lonely', None)\n"
+        'def _view_helper():\n'
+        '    import zzview\n'
+        '    return zzview.X\n'
+        'def check_view_imported():\n'
+        '    _view_helper()\n'
+        'def check_view_run():\n'
+        "    run('tools/zzview.py')\n"
+        'def check_view_lookalike():\n'
+        "    run('tools/notzzview.py')\n"
         'def main():\n'
         '    check_alpha_direct()\n'
         '    check_alpha_by_slug()\n')
@@ -38945,6 +38971,7 @@ def check_for_change_runs_the_tests_a_change_reaches():
     base = {'tools/precedent_check.py': engine, 'tools/verify_harness.py': harness,
             'tools/zzsibling.py': 'import zzdeeper\ndef f():\n    return []\n',
             'tools/zzdeeper.py': 'X = 1\n',
+            'tools/zzview.py': 'X = 1\n',
             'tools/checks/check_zzscript.py': 'print(1)\n',
             'tools/harness_check_times.json': times}
     env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
@@ -38958,6 +38985,7 @@ def check_for_change_runs_the_tests_a_change_reaches():
                       '        CHECKS[str(slug)] = f\n'),
         'deeper module': ('tools/zzdeeper.py', 'X = 1\n', 'X = 2\n'),
         'check script': ('tools/checks/check_zzscript.py', 'print(1)\n', 'print(2)\n'),
+        'module a test uses': ('tools/zzview.py', 'X = 1\n', 'X = 2\n'),
         'harness test': ('tools/verify_harness.py', "    pc._beta(None)\n",
                          "    pc._beta(None)\n    pass\n"),
         'harness helper': ('tools/verify_harness.py', '    return 1\n', '    return 2\n'),
@@ -39004,6 +39032,9 @@ def check_for_change_runs_the_tests_a_change_reaches():
          and run('deeper module') == {'check_gamma'}),
         ('a check script runs the test that names its file',
          run('check script') == {'check_script'}),
+        ('a module no check imports runs the tests that import or run it, '
+         'not the one that runs a lookalike',
+         run('module a test uses') == {'check_view_imported', 'check_view_run'}),
         ('a changed harness test runs itself', run('harness test') == {'check_beta'}),
         ('a changed harness helper runs the tests that call it',
          run('harness helper') == {'check_gamma'}),
