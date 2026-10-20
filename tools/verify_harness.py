@@ -69821,6 +69821,114 @@ def check_copy_in_question_names_what_would_leak():
           not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
 
 
+def check_early_copy_in_yes_waits_for_the_set():
+    """A yes given before the set can be copied is recorded and waits
+    (Morgan, 2026-10-19: he said yes to his voice pack in a repository
+    before its owner had Produced it, and the update then refused to sync
+    anything, because the yes declared a copy with nothing behind it).
+
+    1. The yes is recorded with why it waits, and nothing is declared.
+    2. The set is not asked about again.
+    3. NEGATIVE CONTROL: a later run while the set is still missing keeps
+       waiting and declares nothing.
+    4. Once the set reaches its own main, the next run declares it copied
+       in, with its folder, and drops the wait."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='early-copy-in-yes-'))
+    cases = []
+    genv = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+            'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    saved = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',
+                                            'PRECEDENT_GITHUB_USER')}
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=genv,
+                              capture_output=True, text=True)
+    try:
+        origin = tmp / 'origins' / 'zz-voice.git'
+        origin.parent.mkdir()
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=genv, check=True)
+        voice = tmp / 'people' / 'zz-voice'
+        subprocess.run(['git', 'clone', '-q', str(origin), str(voice)],
+                       env=genv, capture_output=True, check=True)
+        (voice / 'README.md').write_text('a voice repo, no pack yet\n')
+        git(voice, 'add', '-A')
+        git(voice, 'commit', '-qm', 'one')
+        git(voice, 'push', '-q', 'origin', 'main')
+        ind = tmp / 'people' / 'zz-ind'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual', 'brings': [],
+             'offers': [{'name': 'zz-voice', 'repo_url': 'https://example.invalid/zz-voice',
+                         'set_root': 'pack'}]}))
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind', 'path': str(ind)}}))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        os.environ['PRECEDENT_GITHUB_USER'] = 'zzme'
+        host = tmp / 'host'
+        host.mkdir()
+        (host / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'private',
+             'maintainers': [{'github': 'zzme', 'name': 'Zzme'}],
+             'sources': []}, indent=2))
+        import precedent_update as pu
+
+        def cfg():
+            return json.loads((host / 'precedent.json').read_text())
+
+        def declared():
+            return [e for e in cfg().get('sources') or []
+                    if e.get('name') == 'zz-voice']
+
+        by = 'Zzme, 2026-10-19: "yes to the voice pack"'
+        rep = pu.Report()
+        pu.copy_in_step(host, rep, {'zz-voice': 'yes'}, by)
+        rec = (cfg().get('copy_in') or {}).get('zz-voice') or {}
+        cases.append(('an early yes is recorded with why it waits, and nothing '
+                      'is declared',
+                      rec.get('answer') == 'yes' and 'main' in rec.get('waits_on', '')
+                      and not declared(), repr(cfg())[:500]))
+        rep = pu.Report()
+        pu.copy_in_step(host, rep)
+        cases.append(('the set is not asked about again', not rep.asks,
+                      repr(rep.asks)[:300]))
+        cases.append(('NEGATIVE CONTROL: still missing, it keeps waiting',
+                      not declared() and any('still waiting' in w
+                                             for _k, w in rep.steps),
+                      repr(rep.steps)[:400]))
+        (voice / 'pack' / 'practices').mkdir(parents=True)
+        (voice / 'pack' / 'practices' / 'zz-voice-rule.md').write_text(
+            '---\nslug: zz-voice-rule\n---\n# v\n\n## Rule\n\nx\n')
+        (voice / 'pack' / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-voice', 'level': 'shared', 'visibility': 'private'}))
+        git(voice, 'add', '-A')
+        git(voice, 'commit', '-qm', 'pack')
+        git(voice, 'push', '-q', 'origin', 'main')
+        rep = pu.Report()
+        pu.copy_in_step(host, rep)
+        rec = (cfg().get('copy_in') or {}).get('zz-voice') or {}
+        d = declared()
+        cases.append(('once the set reaches its main, the next run declares it '
+                      'with its folder and drops the wait',
+                      len(d) == 1 and d[0].get('vendored') is True
+                      and d[0].get('set_root') == 'pack'
+                      and 'waits_on' not in rec and rec.get('answered_by') == by,
+                      repr(cfg())[:500]))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'an early copy-in yes waits for the set, then declares it '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
+
+
 def check_copy_in_is_asked_once():
     """Part 6 of spec/VENDORED_SHARED_SETS.md (Morgan, 2026-10-19: "it's a
     question with each new repo and (one time) when we update vendors to
@@ -87727,6 +87835,7 @@ def main():
     check_copied_in_shared_sets()
     check_copied_set_carries_another()
     check_copy_in_is_asked_once()
+    check_early_copy_in_yes_waits_for_the_set()
     check_copy_in_question_names_what_would_leak()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
