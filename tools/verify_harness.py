@@ -21649,6 +21649,148 @@ def check_update_vendors_converges_consumer_ci():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_local_workflow_declaration_is_asked_once():
+    """A converging repository's local_ci_workflows declaration becomes one
+    keep-or-delete question, settled by the person's recorded words, and is
+    not repeated after (2026-10-20, Update All Vendors: three private
+    consumers were told on every update that the declaration "was not
+    honoured; remove it from precedent.json", and nothing recorded a keep).
+
+    1. A declared, unapproved workflow gets the question, naming the flag.
+    2. NEGATIVE CONTROL: an answer with no quote is not recorded.
+    3. A keep is recorded in github_ci_approved, pinned to the file, and
+       the declaration goes.
+    4. The next refresh asks nothing.
+    5. A declaration beside an approval made by hand is dropped, said once."""
+    import precedent_vendor_engine as pve
+    import contextlib, io, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-local-wf-'))
+    WF = '.github/workflows/own.yml'
+    cases = []
+
+    def make(name, cfg):
+        repo = tmp / name
+        (repo / '.github' / 'workflows').mkdir(parents=True)
+        (repo / WF).write_text('name: own\non: push\njobs: {}\n')
+        (repo / 'precedent.json').write_text(json.dumps(cfg, indent=2))
+        return repo
+
+    def settle(repo):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            pve._settle_local_declarations(repo, 'consumer')
+        return buf.getvalue()
+
+    def cfg(repo):
+        return json.loads((repo / 'precedent.json').read_text())
+
+    try:
+        r = make('declared', {'local_ci_workflows': {WF: 'runs our tests'}})
+        out = settle(r)
+        cases.append(('a declared, unapproved workflow gets the keep-or-delete '
+                      'question with the flag',
+                      out.startswith(pve.KEEP_WORKFLOW_ASK)
+                      and f'--keep-workflow {WF}' in out
+                      and 'local_ci_workflows' in cfg(r), out))
+        ok, what = pve.record_ci_keep(r, WF, 'Zz, 2026-10-20 said keep')
+        cases.append(('NEGATIVE CONTROL: an answer with no quote is not recorded',
+                      not ok and 'github_ci_approved' not in cfg(r), what))
+        ok, what = pve.record_ci_keep(r, WF, 'Zz, 2026-10-20: "keep it"')
+        c = cfg(r)
+        cases.append(('a keep is pinned in github_ci_approved and the '
+                      'declaration goes',
+                      ok and c['github_ci_approved'][WF]['sha256']
+                      == pve._sha256(r / WF) and 'local_ci_workflows' not in c,
+                      repr(c)))
+        out = settle(r)
+        cases.append(('the next refresh asks nothing', out == '', out))
+        r2 = make('by-hand', {
+            'local_ci_workflows': {WF: 'ours'},
+            'github_ci_approved': {WF: {
+                'sha256': '', 'approved_by': 'Zz, 2026-10-01: "keep"'}}})
+        c = cfg(r2)
+        c['github_ci_approved'][WF]['sha256'] = pve._sha256(r2 / WF)
+        (r2 / 'precedent.json').write_text(json.dumps(c, indent=2))
+        out = settle(r2)
+        cases.append(('a declaration beside an approval is dropped, said once',
+                      'local_ci_workflows' not in cfg(r2)
+                      and 'removed the local_ci_workflows declaration' in out
+                      and pve.KEEP_WORKFLOW_ASK not in out, out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c for c in cases if not c[1]]
+    return (not bad, '; '.join(f'{n}: {d}' for n, _ok, d in bad)
+            or f'{len(cases)} cases')
+
+
+def check_engine_written_leftovers_leave_by_content():
+    """A file an engine tool wrote into a consumer at run time, whose tool
+    BestPractice has decommissioned, leaves on the next update when its
+    content has that tool's shape; one that only shares the name stays.
+
+    2026-10-20, Update All Vendors over 18 repositories: consumers still
+    carried tools/others_did_watermark.json, decommissioned upstream on
+    2026-10-10, and its header naming the deleted tool stopped their update
+    on a rename-updates-links finding. Nothing removed it, because no
+    manifest ever recorded a file the engine wrote at run time."""
+    import precedent_vendor_engine as pve
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-engine-written-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='harness@example.com',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='harness@example.com')
+    MARK = 'tools/others_did_watermark.json'
+    stock = json.dumps({'_comment': [
+        'What each person was last told about other people\'s commits.',
+        'Written by tools/precedent_others_did.py onto the landing branch.'],
+        'seen_by': {}}, indent=2) + '\n'
+    own = json.dumps({'_comment': ['this repo\'s own file'], 'x': 1}) + '\n'
+
+    def make(name, text, commit=True):
+        repo = tmp / name
+        (repo / 'tools').mkdir(parents=True)
+        (repo / MARK).write_text(text, encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], env=env, check=True)
+        if commit:
+            subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env, check=True)
+            subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'b'],
+                           env=env, check=True)
+        return repo
+
+    def sweep(repo):
+        pve._LEFT_FOR_YOU.clear()
+        res = pve.retire_legacy_leftovers(repo, {}, 'consumer')
+        left = [w for i, w in pve._LEFT_FOR_YOU if i == MARK]
+        pve._LEFT_FOR_YOU.clear()
+        return res, left
+
+    cases = []
+    try:
+        r = make('stock', stock)
+        res, _left = sweep(r)
+        regp = r / 'process' / 'decommissioned_paths.json'
+        reg = (json.loads(regp.read_text(encoding='utf-8')) if regp.is_file()
+               else {'decommissioned': []})
+        cases.append(('the others-did mark the engine wrote is deleted and '
+                      'recorded', not (r / MARK).exists() and MARK in res['deleted']
+                      and [e['path'] for e in reg['decommissioned']] == [MARK],
+                      repr(res)))
+        r = make('own', own)
+        res, left = sweep(r)
+        cases.append(('NEGATIVE: a file with the name but not the shape is '
+                      'kept, and said', (r / MARK).is_file() and bool(left)
+                      and 'not its content' in left[0], repr(left)))
+        r = make('untracked', stock, commit=False)
+        res, left = sweep(r)
+        cases.append(('NEGATIVE: an untracked copy is kept -- it is the only '
+                      'one', (r / MARK).is_file() and bool(left)
+                      and 'not tracked by git' in left[0], repr(left)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c for c in cases if not c[1]]
+    return (not bad, '; '.join(f'{n}: {d}' for n, _ok, d in bad)
+            or f'{len(cases)} cases')
+
+
 def check_legacy_leftovers_retired_by_content():
     """The old install's leftovers leave an install on its next refresh,
     recognised by CONTENT -- tracked or not, hand-paused or not -- and a file
@@ -32164,6 +32306,15 @@ def check_push_to_staging_runs_own_checks_inside_a_budget():
             run = lambda c: _sp.run(c[1], cwd=d, capture_output=True, text=True, timeout=60)
             if all(by.values()):
                 cases.append(('a passing step passes', run(by['fast_check']).returncode == 0, ''))
+                # 2026-10-20: the push check's own loop read argv[1] of a
+                # wrapped step, looked for a file named "-c", and reported
+                # every one as "could not run here".
+                import contextlib, io
+                with contextlib.redirect_stdout(io.StringIO()) as buf:
+                    failed, missing, _t, _f = ppc.run(d, [by['fast_check']])
+                cases.append(('the push check runs a wrapped step, never reports '
+                              'it as a tool the repo lacks',
+                              not failed and not missing, buf.getvalue()[-400:]))
                 cases.append(('a failing step fails, as GitHub would',
                               run(by['failing_check']).returncode == 1, ''))
                 r = run(by['slow_check'])
@@ -70326,6 +70477,136 @@ def check_early_copy_in_yes_waits_for_the_set():
           not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
 
 
+def check_public_copy_in_needs_the_leak_check():
+    """In a public repository, a yes to copying a set in is refused while
+    the leak check cannot read the set (2026-10-20, Update All Vendors: the
+    question said the check could not run, "there is no clone of the set on
+    this machine", and still offered the copy).
+
+    1. The question says it cannot be copied in yet, names where the clone
+       goes, and offers only a no.
+    2. A yes is not recorded, and the question is asked again.
+    3. A no is recorded.
+    4. NEGATIVE CONTROL: in a private repository the same yes is recorded
+       (it waits for the set, as before).
+    5. A yes recorded before the set could be read is not declared in a
+       public repository while the leak check finds a line in it."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='public-copy-in-'))
+    cases = []
+    saved = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',
+                                            'PRECEDENT_GITHUB_USER',
+                                            'PRECEDENT_LEAK_BLOCKLIST')}
+    genv = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+            'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    try:
+        ind = tmp / 'people' / 'zz-ind'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual', 'brings': [],
+             'offers': [{'name': 'zz-voice',
+                         'repo_url': 'https://example.invalid/zz-voice'}]}))
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind',
+                                                   'path': str(ind)}}))
+        bl = tmp / 'private' / 'leak-blocklist.txt'
+        bl.parent.mkdir()
+        bl.write_text('zzsecretword\n')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        os.environ['PRECEDENT_GITHUB_USER'] = 'zzme'
+        os.environ['PRECEDENT_LEAK_BLOCKLIST'] = str(bl)
+        import precedent_vendor_engine as pve
+        import precedent_update as pu
+
+        def host(name, vis):
+            h = tmp / name
+            h.mkdir()
+            (h / 'precedent.json').write_text(json.dumps(
+                {'format_version': 1, 'visibility': vis,
+                 'maintainers': [{'github': 'zzme', 'name': 'Zzme'}],
+                 'sources': []}, indent=2))
+            return h
+
+        def rec(h):
+            return (json.loads((h / 'precedent.json').read_text())
+                    .get('copy_in') or {}).get('zz-voice')
+
+        pub = host('open', 'public')
+        offer = {o['name']: o for o in pve.copy_in_offers(pub)}['zz-voice']
+        q = pve.copy_in_question(offer)
+        cases.append(('the question says it cannot be copied yet, where the '
+                      'clone goes, and offers only a no',
+                      'cannot be copied in yet' in q
+                      and str(tmp / 'people' / 'zz-voice') in q
+                      and 'zz-voice=no' in q and '=yes|no' not in q, q))
+        by = 'Zzme, 2026-10-20: "yes"'
+        rep = pu.Report()
+        pu.copy_in_step(pub, rep, {'zz-voice': 'yes'}, by)
+        cases.append(('a yes is not recorded, and the question is asked again',
+                      rec(pub) is None and any('the yes was not recorded' in w
+                                               for _k, w in rep.asks),
+                      repr(rep.asks)[:400]))
+        rep = pu.Report()
+        pu.copy_in_step(pub, rep, {'zz-voice': 'no'}, 'Zzme, 2026-10-20: "no"')
+        cases.append(('a no is recorded', (rec(pub) or {}).get('answer') == 'no',
+                      repr(rec(pub))))
+        q3 = pve.copy_in_question({o['name']: o for o in pve.copy_in_offers(
+            host('closed0', 'private'))}['zz-voice'])
+        cases.append(('an offered set this repository does not declare is '
+                      'not said to be loaded here',
+                      'stays out of this repository' in q3
+                      and 'keep loading it' not in q3, q3))
+        priv = host('closed', 'private')
+        rep = pu.Report()
+        pu.copy_in_step(priv, rep, {'zz-voice': 'yes'}, by)
+        cases.append(('NEGATIVE CONTROL: in a private repository the yes is '
+                      'recorded and waits', (rec(priv) or {}).get('answer') == 'yes'
+                      and bool((rec(priv) or {}).get('waits_on')),
+                      repr(rec(priv))))
+        # 5. A waiting yes in a public repository, then the set arrives with
+        # a private word in it.
+        pub2 = host('open2', 'public')
+        cfg = json.loads((pub2 / 'precedent.json').read_text())
+        cfg['copy_in'] = {'zz-voice': {'answer': 'yes', 'answered_by': by,
+                                       'waits_on': 'no clone'}}
+        (pub2 / 'precedent.json').write_text(json.dumps(cfg, indent=2))
+        origin = tmp / 'origins' / 'zz-voice.git'
+        origin.parent.mkdir()
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=genv, check=True)
+        voice = tmp / 'people' / 'zz-voice'
+        subprocess.run(['git', 'clone', '-q', str(origin), str(voice)],
+                       env=genv, capture_output=True, check=True)
+        (voice / 'practices').mkdir()
+        (voice / 'practices' / 'zz-v.md').write_text(
+            '---\nslug: zz-v\n---\n# v\n\n## Rule\n\nzzsecretword\n')
+        (voice / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-voice', 'level': 'shared', 'visibility': 'private'}))
+        for a in (('add', '-A'), ('commit', '-qm', 'one'),
+                  ('push', '-q', 'origin', 'main')):
+            subprocess.run(['git', '-C', str(voice), *a], env=genv,
+                           capture_output=True)
+        got = pve.copy_in_pending(pub2)
+        declared = [e for e in json.loads((pub2 / 'precedent.json').read_text())
+                    .get('sources') or [] if e.get('name') == 'zz-voice']
+        cases.append(('a waiting yes is not declared in a public repository '
+                      'while the leak check finds a line',
+                      not declared and any('zzsecretword' in w for _c, w in got),
+                      repr(got)[:500]))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a public copy-in needs the leak check to have read the set '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
+
+
 def check_failed_rerun_keeps_an_uncommitted_copied_in_set():
     """A FAILED Update Vendors run's rerun puts back the engine files that run
     staged, and never a copied-in set's files.
@@ -87824,6 +88105,10 @@ def main():
           *check_a_source_set_ships_no_ci_workflow())
     check('the old install\'s leftovers leave by content, never by name',
           *check_legacy_leftovers_retired_by_content())
+    check('a file a decommissioned engine tool wrote leaves by content',
+          *check_engine_written_leftovers_leave_by_content())
+    check('a local workflow declaration is one keep-or-delete question, asked once',
+          *check_local_workflow_declaration_is_asked_once())
     check('refresh repoints a retired catalogue pin to main, and no other pin',
           *check_refresh_repoints_a_retired_catalogue_pin())
     check('a repo\'s upstream_branch declaration is followed, and only main or staging',
@@ -88383,6 +88668,7 @@ def main():
     check('a failed update\'s rerun keeps an uncommitted copied-in set',
           *check_failed_rerun_keeps_an_uncommitted_copied_in_set())
     check_early_copy_in_yes_waits_for_the_set()
+    check_public_copy_in_needs_the_leak_check()
     check_copy_in_question_names_what_would_leak()
     check_update_refuses_a_shortened_flag()
     check_vendored_engine_reads_the_consumer_root()

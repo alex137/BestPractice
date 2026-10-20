@@ -437,7 +437,10 @@ says so, both from the vendored tree under `process/upstream/`.
    (an absent one stays absent), and
    removes every other workflow upstream does not ship, unless the person
    approved it in their own words in `github_ci_approved`. A declaration
-   under `local_ci_workflows` no longer keeps one in a consumer. **Nothing
+   under `local_ci_workflows` no longer keeps one in a consumer; the update
+   asks once, keep or delete, and a keep is recorded by rerunning it with
+   `--keep-workflow PATH --answered-by '<their words>'`, which also drops
+   the declaration (2026-10-20). **Nothing
    needed is lost:** a file that runs anything the local push check does not
    run (a script, a test runner, a third-party action) is **left alone, and
    flagged loudly**: an `IMPORTANT -- GITHUB WORKFLOW LEFT ALONE` banner
@@ -898,7 +901,8 @@ says so, both from the vendored tree under `process/upstream/`.
     stands. For each one, show the person
     what it runs and **when it triggers**, in one line, and ask. Record the
     answer in `precedent.json`'s `github_ci_approved`, pinned to the file's
-    sha256 and quoting their words, or delete the file. **Never approve one
+    sha256 and quoting their words (`precedent_update.py --keep-workflow
+    PATH --answered-by '...'` writes it), or delete the file. **Never approve one
     on the person's behalf**, and never "fix" a trigger to make it pass
     without asking
     ([ci-workflow-approved](ci-workflow-approved.md), Morgan, 2026-09-25:

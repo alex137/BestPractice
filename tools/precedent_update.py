@@ -1125,6 +1125,10 @@ def copy_in_step(repo, rep, answers=None, answered_by=''):
             rep.step('copy in', f'{name}: no answer recorded -- it is not a set '
                      f'you bring or offer, or it was answered here already')
             continue
+        if answer == 'yes' and pve.copy_in_unchecked(offer):
+            rep.ask('copy in', f'{name}: the yes was not recorded. '
+                    f'{pve.copy_in_question(offer)}')
+            continue
         waits = pve.copy_in_waits_on(offer.get('clone'),
                                      offer.get('set_root', '')) \
             if answer == 'yes' else ''
@@ -5264,7 +5268,7 @@ def source_commit(follow, tip, take=None):
 
 
 def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
-           copy_in=None, answered_by='', take_sets=()):
+           copy_in=None, answered_by='', take_sets=(), keep_workflows=()):
     rep = Report()
     rep.pin_repo = repo
     if code:
@@ -5410,6 +5414,11 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     # 2. The engine, by the consumer's own copy: refresh() takes ROOT from
     # where it sits. It replaces itself and re-runs, so an old copy still
     # ends on the current code.
+    # Before the refresh, so its CI judgment reads the person's answer.
+    for rel in keep_workflows:
+        ok, what = pve.record_ci_keep(repo, rel, answered_by)
+        (rep.step if ok else rep.leave)(*(('CI workflow', what) if ok
+                                          else (rel, what)))
     argv = [sys.executable, str(engine_tool), 'refresh', str(SOURCE)]
     engine_ref = ref or engine_refresh_ref(SOURCE, head.strip() if head_ok else '',
                                            follow, last_synced)
@@ -5509,6 +5518,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
             rep.step('kept pin updated', line.split(': ', 1)[1])
         elif line.startswith('precedent_vendor_engine refresh: REPLACED '):
             rep.step('replaced', line.split('REPLACED ', 1)[1])
+        elif line.startswith(pve.KEEP_WORKFLOW_ASK):
+            rep.ask('CI workflow', line[len(pve.KEEP_WORKFLOW_ASK):])
     # A consumer's CI converges to upstream without asking (2026-09-27, see
     # precedent_vendor_engine.CI_CONVERGES_KINDS), so what the refresh
     # replaced or removed is reported here as done, never as a question.
@@ -6275,9 +6286,15 @@ def main(argv=None):
                     help='the person\'s answer to "copy this set into this '
                          'repository?", recorded in precedent.json and never '
                          'asked again; repeat per set')
+    ap.add_argument('--keep-workflow', action='append', default=[],
+                    metavar='PATH',
+                    help='the person said to keep this workflow of the '
+                         'repository\'s own: recorded in github_ci_approved, '
+                         'pinned to its content, and never asked again; '
+                         'needs --answered-by')
     ap.add_argument('--answered-by', default='',
-                    help='who answered --copy-in, with a date and their own '
-                         'words: \'Name, YYYY-MM-DD: "..."\'')
+                    help='who answered --copy-in or --keep-workflow, with a '
+                         'date and their own words: \'Name, YYYY-MM-DD: "..."\'')
     ap.add_argument('--take-set', action='append', default=[], metavar='NAME',
                     help='refresh this copied-in set although it waits for its '
                          'owner\'s go-ahead -- only on that go-ahead')
@@ -6295,6 +6312,10 @@ def main(argv=None):
     copy_in, bad = pve.parse_copy_in_answers(a.copy_in)
     if bad:
         print('precedent_update FAIL: ' + '; '.join(bad))
+        return FAILED
+    if a.keep_workflow and not a.answered_by:
+        print('precedent_update FAIL: --keep-workflow needs --answered-by: who '
+              'answered, the date and their words in quotes.')
         return FAILED
     if copy_in and not a.answered_by:
         print('precedent_update FAIL: --copy-in needs --answered-by: who '
@@ -6319,7 +6340,8 @@ def main(argv=None):
         return code
     return update(repo, skip_check=a.skip_check, ref=a.from_ref, move=a.move,
                   take=a.take, code=code, copy_in=copy_in,
-                  answered_by=a.answered_by, take_sets=tuple(a.take_set))
+                  answered_by=a.answered_by, take_sets=tuple(a.take_set),
+                  keep_workflows=tuple(a.keep_workflow))
 
 
 def bootstrap(repo, a, argv):

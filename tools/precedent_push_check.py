@@ -874,6 +874,17 @@ def _staging_name(root):
         sys.path.pop(0)
 
 
+def script_arg(argv):
+    """-> the script `argv` runs: argv[1], or, for a step own_checks_before_
+    staging wrapped in its budget runner, the script inside the wrapper.
+    Reading argv[1] of a wrapped step looked for a file named "-c" and
+    reported every repository's own checks as "could not run here"
+    (2026-10-20, Update All Vendors; seen in this repository too)."""
+    if len(argv) > 5 and argv[1] == '-c' and argv[2] == _BUDGET_RUNNER:
+        return argv[5]
+    return argv[1]
+
+
 def own_checks_before_staging(root, engine=HERE, planned=()):
     """-> approved_workflow_checks(root), minus a tool `planned` already
     runs, each wrapped to stop at its share of OWN_CHECKS_BUDGET_SECONDS."""
@@ -1887,7 +1898,7 @@ def _output_at(root, rev, argv):
     wt = tmp / 'tree'
     try:
         add = _git_env(root, ['worktree', 'add', '-q', '--detach', str(wt), rev], 60)
-        if add is None or add.returncode != 0 or not (wt / argv[1]).is_file():
+        if add is None or add.returncode != 0 or not (wt / script_arg(argv)).is_file():
             return []
         p = subprocess.run(argv, cwd=wt, capture_output=True, text=True)
         return (p.stdout + p.stderr).splitlines()
@@ -1993,15 +2004,16 @@ def run(root, checks, landed=None, reported=None):
                   f'that and run again (PRECEDENT_PUSH_CHECK_ALL=1 runs it '
                   f'anyway)', flush=True)
             continue
-        script = root / argv[1]
+        script_rel = script_arg(argv)
+        script = root / script_rel
         shown = ' '.join([shown_interpreter(argv), *argv[1:]])
         if not script.is_file() and name in OPTIONAL:
             print(f'[{i}/{len(checks)}] {name}: not here -- this repo has no '
-                  f'{argv[1]}', flush=True)
+                  f'{script_rel}', flush=True)
             continue
         slug = (identity_slug(name, root) if name in IDENTITY_NAMES else None) or (
             _practice_of(script) if script.is_file() and
-            'checks' in Path(argv[1]).parts else None)
+            'checks' in Path(script_rel).parts else None)
         if slug and slug in not_binding():
             print(f'[{i}/{len(checks)}] {name}: EXEMPT -- this repo declares '
                   f'{slug} not binding in precedent.json: '
@@ -2018,7 +2030,7 @@ def run(root, checks, landed=None, reported=None):
                 PUSH_TIME_SINCE[name] not in script.read_text(encoding='utf-8',
                                                               errors='ignore')):
             print(f'[{i}/{len(checks)}] {name}: not run at push time -- this '
-                  f'repo\'s copy of {argv[1]} predates judging only what a push '
+                  f'repo\'s copy of {script_rel} predates judging only what a push '
                   f'carries, and would read the whole history; it still runs in '
                   f'the full sweep, as it did before, until the set that ships '
                   f'it is updated here', flush=True)
@@ -2027,7 +2039,7 @@ def run(root, checks, landed=None, reported=None):
             # A check whose tool this repo does not carry cannot be run, and
             # saying so beats a crash. Reported, never silently dropped.
             missing.append(name)
-            print(f'[{i}/{len(checks)}] {name}: NOT RUN -- {argv[1]} is not '
+            print(f'[{i}/{len(checks)}] {name}: NOT RUN -- {script_rel} is not '
                   f'in this repo (stands in for {replaces})', flush=True)
             continue
         print(f'[{i}/{len(checks)}] {name}: {shown}', flush=True)
