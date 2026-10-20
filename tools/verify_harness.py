@@ -54561,6 +54561,42 @@ def check_refresh_sources_leaves_the_base_branch_clean():
                       bool(older) and older[0] in said and 'removed 1' in said, said[:300]))
         cases.append(('...and never a branch carrying work of its own',
                       'keep-engine-refresh-mine' in now, str(now)))
+
+        # A REFRESH THAT STOPS SHORT OF ITS COMMIT IS UNDONE (2026-10-20: a
+        # refused commit left the ladder set's checkout on the refresh
+        # branch with 22 engine paths staged, read as unsaved work). The
+        # engine is written, a new file among it, and the commit refuses.
+        def refused_apply(e, commit=False, branch=None):
+            (repo / 'engine.txt').write_text('half\n', encoding='utf-8')
+            (repo / 'new_engine.py').write_text('x\n', encoding='utf-8')
+            g('checkout', '-q', '-B', branch)
+            g('add', '-A')
+            return [('refresh', True, ''), ('branch', True, ''),
+                    ('commit', False, 'REFUSED, nothing committed: no identity')]
+        prs.apply_to = refused_apply
+        before_engine = (repo / 'engine.txt').read_text(encoding='utf-8')
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': '3333333312345'}, 'main')
+        cases.append(('a refresh whose commit is refused is undone: back on main, nothing '
+                      'uncommitted, no refresh branch left',
+                      g('branch', '--show-current') == 'main'
+                      and g('status', '--porcelain') == ''
+                      and not (repo / 'new_engine.py').exists()
+                      and (repo / 'engine.txt').read_text(encoding='utf-8') == before_engine
+                      and not [b for b in g('branch', '--format=%(refname:short)').split()
+                               if '-engine-refresh-33333333-' in b], str(steps)))
+        cases.append(('...and the run says it undid it, in its own words',
+                      any(s[0] == 'undone' and s[1]
+                          and 'did not commit, so it was undone' in s[2]
+                          for s in steps), str(steps)))
+        # CONTROL: a person's uncommitted file was there first. Nothing is
+        # reset, and the row says why (practice: repair-cannot-discard-work).
+        (repo / 'person.txt').write_text('mine\n', encoding='utf-8')
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': '4444444412345'}, 'main')
+        cases.append(('with a person\'s edit already there, nothing is reset and the row '
+                      'says NOT undone',
+                      (repo / 'person.txt').read_text(encoding='utf-8') == 'mine\n'
+                      and any(s[0] == 'undone' and not s[1] and 'NOT undone' in s[2]
+                              for s in steps), str(steps)))
     finally:
         prs.apply_to = saved
         shutil.rmtree(tmp, ignore_errors=True)
