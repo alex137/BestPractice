@@ -22796,54 +22796,66 @@ def check_every_verdict_returning_check_is_recorded():
 
     So this reads the source rather than the results: every function whose
     body ends in a verdict tuple must appear in `main()` as an argument to
-    `check(`, not as a bare statement, and must appear at all."""
+    `check(`, not as a bare statement, and must appear at all. And since
+    2026-09-22, the wider hole: every `check_*` defined here is named
+    somewhere else in the file, whichever way it reports.
+
+    The scan is precedent_push_check.unrecorded_harness_checks, since
+    2026-10-20, so the quick tier runs it too whenever this file changes
+    (the test after this one proves it); this full-run copy is the
+    backstop."""
+    import precedent_push_check as ppc
     src = (ROOT / 'tools' / 'verify_harness.py').read_text(encoding='utf-8')
-    lines = src.splitlines()
-
-    returning, cur = [], None
-    for line in lines:
-        m = re.match(r'^def (check_[a-z_0-9]+)\(', line)
-        if m:
-            cur = m.group(1)
-        # `not bad,` was the original pattern and it missed
-        # `not bad_cases,` -- which is how
-        # check_reply_check_requires_a_destination_for_a_fence_block, the
-        # guard on a LIVE blocking requirement, sat unreferenced from the
-        # day it was written until 2026-09-22.
-        if cur and re.match(r'^    return \(not bad\w*,', line):
-            if cur not in returning:
-                returning.append(cur)
-
-    bad = []
-    for fn in returning:
-        bare = re.search(rf'^\s+{re.escape(fn)}\(\)\s*$', src, re.M)
-        wired = re.search(rf'\*{re.escape(fn)}\(\)', src)
-        if bare:
-            bad.append((fn, 'called bare -- its verdict is discarded; '
-                            f"call it as check('<name>', *{fn}())"))
-        elif not wired:
-            bad.append((fn, 'defined but never called from main()'))
-
-    # THE WIDER HOLE, 2026-09-22. Everything above is about the verdict
-    # FAMILY. A check that reports the ordinary way -- calling `check()`
-    # itself and returning nothing -- and is never called from main() is
-    # just as invisible: it costs nothing, prints nothing, and the total
-    # does not move. Two landed that way the same week
-    # (check_archive_line_is_refused_when_the_container_holds_only_copy_work
-    # guarded a live blocking requirement and had never once run), and four
-    # older ones were already sitting there. So the cheaper, wider
-    # assertion: every `check_*` defined in this file is named somewhere
-    # else in it.
-    defined = re.findall(r'^def (check_[a-z_0-9]+)\(', src, re.M)
-    for fn in defined:
-        if len(re.findall(rf'\b{re.escape(fn)}\b', src)) <= 1:
-            bad.append((fn, 'defined but never called from main() -- it has '
-                             'never run'))
-
-    return (not bad,
-            f'{len(returning)} verdict-returning and {len(defined)} total '
-            f'check(s), all recorded',
+    bad = ppc.unrecorded_harness_checks(src)
+    defined = len(re.findall(r'^def check_[a-z_0-9]+\(', src, re.M))
+    return (not bad, f'{defined} check(s), all recorded',
             '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_changed_files_refuses_an_uncalled_harness_check():
+    """A branch adding a check_* that main() never calls is refused by the
+    quick tier, before staging, naming the function.
+
+    Until 2026-10-20 only the full run asked, so
+    check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer reached
+    main uncalled and turned it red (#1286/#1287). The control is the same
+    file with the call wired in; the third case, a verdict-returning check
+    called bare, is the older family the scan exists for."""
+    import tempfile
+    base = ('def check(name, ok, detail=""):\n    pass\n\n\n'
+            'def main():\n    pass\n')
+    added = ('\n\ndef check_zz_uncalled():\n'
+             '    check("zz", True)\n')
+    verdict = ('\n\ndef check_zz_verdict():\n    bad = []\n'
+               '    return (not bad, "d", "")\n')
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        rel = 'tools/verify_harness.py'
+        commit, run = _changed_files_fixture(td / 'uncalled', {rel: base})
+        commit({rel: base + added})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(td / 'wired', {rel: base})
+        commit2({rel: base.replace('def main():\n    pass',
+                                   'def main():\n    check_zz_uncalled()')
+                 + added})
+        rc2, out2 = run2()
+        commit3, run3 = _changed_files_fixture(td / 'bare', {rel: base})
+        commit3({rel: base + verdict + '\n\ndef _go():\n'
+                 '    check_zz_verdict()\n'})
+        rc3, out3 = run3()
+    want = ('tools/verify_harness.py: check_zz_uncalled defined but never '
+            'called from main()')
+    cases = [
+        ('an uncalled check_ is refused, by name', rc == 1 and want in out),
+        ('control: the same check, called from main(), is not refused',
+         want not in out2),
+        ('a verdict-returning check called bare is refused, by name',
+         rc3 == 1 and 'check_zz_verdict called bare' in out3),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(bad) + ('' if not bad else
+                                 f' -- {out[-400:]} | {out3[-400:]}'))
 
 
 def check_a_stale_source_clone_is_made_current_not_reported_clean():
@@ -40269,6 +40281,96 @@ def check_a_land_rebuilds_dated_outputs_two_days_left():
     except FixtureSetupError as e:
         cases.append((f'fixture could not be built ({e})', False, ''))
     finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_a_land_in_a_shallow_clone_is_not_a_conflict():
+    """A shallow clone that lacks the commit where staging and main parted
+    made --land say "main conflicts with staging" (2026-10-20); git had only
+    refused unrelated histories. The composition now deepens the clone and
+    merges; one still too shallow says so. The control: a real conflict is
+    still a conflict. The negative control: with the deepening neutered, the
+    shallow case reads as something else, so the case can fail.
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    name = 'a land in a shallow clone deepens it, and never calls it a conflict'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shallow-land-'))
+    cases = []
+    steps, reach = pb.DEEPEN_STEPS, pb._reach_merge_base
+    quiet = lambda *a: None
+
+    def commit(d, path, text):
+        (d / path).write_text(text, encoding='utf-8')
+        fixture_git(d, 'add', '-A')
+        fixture_git(d, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', path)
+
+    def clone(tag, *depth):
+        c = tmp / tag
+        fixture_git(tmp, 'clone', '-q', *depth, '--no-single-branch',
+                    (tmp / 'origin.git').as_uri(), str(c))
+        fixture_git(c, 'config', 'user.email', 'fixture@example.com')
+        fixture_git(c, 'config', 'user.name', 'fixture')
+        fixture_git(c, 'checkout', '-q', '-B', 'staging', 'origin/staging')
+        return c, fixture_git(c, 'rev-parse', 'origin/main').stdout.strip()
+
+    def compose(c, mtip):
+        return pb._compose(c, c, [('main', mtip, 'Bring main in')], 'staging', quiet)
+    try:
+        seed = tmp / 'seed'
+        fixture_git(tmp, 'init', '-q', '-b', 'main', str(seed))
+        fixture_git(seed, 'config', 'user.email', 'fixture@example.com')
+        fixture_git(seed, 'config', 'user.name', 'fixture')
+        commit(seed, 'shared.md', 'base\n')
+        fixture_git(seed, 'branch', 'staging')
+        for i in range(5):
+            commit(seed, f'm{i}.md', f'{i}\n')
+        fixture_git(seed, 'checkout', '-q', 'staging')
+        for i in range(5):
+            commit(seed, f's{i}.md', f'{i}\n')
+        fixture_git(tmp, 'clone', '-q', '--bare', str(seed), str(tmp / 'origin.git'))
+
+        c, mtip = clone('deepened', '--depth=2')
+        cases.append(('the fixture clone is shallow and lacks the merge base',
+                      fixture_git(c, 'merge-base', 'HEAD', mtip, allow_failure=True)
+                      .returncode != 0, ''))
+        conflict, merged = compose(c, mtip)
+        cases.append(('a shallow clone is deepened and main merges in',
+                      conflict is None and merged == ['main'], str(conflict)))
+
+        pb.DEEPEN_STEPS = (1,)
+        c, mtip = clone('too-shallow', '--depth=2')
+        conflict, merged = compose(c, mtip)
+        why = conflict[3] if conflict else ''
+        cases.append(('one deepening cannot fix says the clone is too shallow',
+                      why.startswith(pb.TOO_SHALLOW) and 'unshallow' in why, why))
+        pb._reach_merge_base = lambda *a, **k: None
+        c, mtip = clone('neutered', '--depth=2')
+        conflict, _m = compose(c, mtip)
+        why = conflict[3] if conflict else ''
+        cases.append(('negative control: with the deepening neutered, the shallow '
+                      'case no longer says too shallow',
+                      bool(conflict) and not why.startswith(pb.TOO_SHALLOW), why))
+        pb.DEEPEN_STEPS, pb._reach_merge_base = steps, reach
+
+        commit(seed, 'shared.md', 'staging side\n')
+        fixture_git(seed, 'checkout', '-q', 'main')
+        commit(seed, 'shared.md', 'main side\n')
+        fixture_git(seed, 'push', '-q', str(tmp / 'origin.git'), 'main', 'staging')
+        c, mtip = clone('conflict')
+        conflict, _m = compose(c, mtip)
+        why = conflict[3] if conflict else ''
+        cases.append(('control: a real conflict in a full clone is still a '
+                      'conflict, not too shallow',
+                      bool(conflict) and not why.startswith(pb.TOO_SHALLOW)
+                      and 'share no history' not in why, why))
+    except FixtureSetupError as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pb.DEEPEN_STEPS, pb._reach_merge_base = steps, reach
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
@@ -89395,6 +89497,8 @@ def main():
           *check_declared_loss_unblocks_the_archive_line())
     check('every verdict-returning check is actually recorded',
           *check_every_verdict_returning_check_is_recorded())
+    check('the quick tier refuses a harness check main() never calls',
+          *check_changed_files_refuses_an_uncalled_harness_check())
     check('the reply check requires a destination for a fence block',
           *check_reply_check_requires_a_destination_for_a_fence_block())
     check_reply_check_refuses_a_paste_block_that_lands_unauthorized()
@@ -89967,6 +90071,7 @@ def main():
     check_changed_files_runs_the_harness_tests_a_change_reaches()
     check_quick_tier_is_closed()
     check_a_land_rebuilds_dated_outputs_two_days_left()
+    check_a_land_in_a_shallow_clone_is_not_a_conflict()
     check_container_check_sees_other_local_branches()
     check_caused_by_this_push_reads_advisory_findings()
     check_push_check_list_is_never_refused()
