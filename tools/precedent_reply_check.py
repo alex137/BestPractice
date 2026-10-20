@@ -670,6 +670,27 @@ def _strip_quoted_spans(s):
     return _DQUOTE_SPAN_RE.sub(' ', s)
 
 
+
+_CODE_SPAN_RE = re.compile(r'`[^`\n]*`')
+
+
+def unexplained_gaps(text, gap, reason):
+    """-> the lines of `text` that admit work left undone (`gap`) with no
+    reason on the same line (`reason`). Fenced blocks, code spans and
+    double-quoted spans are left out: a pasted prompt, a command or a
+    quoted phrase is not the writer saying what they left.
+
+    One function for both places the rule is read: a reply, through
+    require_reason_on_gap_line, and a line added to an open item, through
+    precedent_check's gap-names-its-reason (practice: todo-is-a-handoff:
+    an item is queued only for a stated reason)."""
+    out = []
+    for line in _without_fenced_blocks(text).splitlines():
+        bare = _strip_quoted_spans(_CODE_SPAN_RE.sub(' ', line))
+        if re.search(gap, bare, re.I) and not re.search(reason, bare, re.I):
+            out.append(line.strip())
+    return out
+
 # A markdown link's text may itself look like the thing require_no_bare_pattern
 # is hunting for ("[PR #21](https://...)"), so the whole `[text](url)` span
 # is blanked out, not just the URL -- otherwise the pattern would still match
@@ -1147,6 +1168,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_section_not_repeated',
     'require_quiet_while_background_runs',
     'require_prompt_block_header',
+    'require_reason_on_gap_line',
     'unless_reply_declares_loss',
     # printed by the reply gate before the reply, never evaluated here
     # (precedent_gate._note_from_tool, 2026-10-17)
@@ -1532,6 +1554,26 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                     f"[{r.get('_source', '?')}] this reply mentions "
                     f"{shown} without a markdown link"
                     + (f" -- {pat_why}" if pat_why else '') + "."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_reason_on_gap_line (2026-10-20, Morgan: "how do we prevent
+        # this issue (you not fixing it it doing a todo) from happening
+        # again?"). A session wrote "no harness case triggers it" and "Not
+        # built." into a reply and an open item, with nothing blocking
+        # either, and nothing read those lines. A line that admits work left
+        # undone says on that line what stops it, or the work gets done.
+        gaps = r.get('require_reason_on_gap_line')
+        if isinstance(gaps, dict) and gaps.get('if_matches') and gaps.get('must_match_on_line'):
+            lines = unexplained_gaps(text, gaps['if_matches'], gaps['must_match_on_line'])
+            if lines:
+                shown = '; '.join(f'"{l[:100]}"' for l in lines[:4])
+                out.append({'kind': 'gap_without_reason', 'advisory': advisory,
+                            'message': (
+                    f"[{r.get('_source', '?')}] this reply says work is left "
+                    f"undone with no reason on the same line: {shown}. Do it "
+                    f"now, or say on that line what blocks it (blocked on, "
+                    f"waiting for, needs someone's word, can't until)"
+                    + (f" -- {r.get('why')}" if r.get('why') else '') + "."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
         # require_paired_with: when the reply contains X, it must also

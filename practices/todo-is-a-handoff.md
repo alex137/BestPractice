@@ -10,7 +10,7 @@ gates:       ["merge", "reply"]
 gates_why:   "The periodic sweep that enforces the stated-reason requirement on the backlog naturally happens at merge time, the same as capture-gate. The reply gate carries it because a reply is where an unsettled list often lands, and no check reads the lists in a reply (2026-10-12)."
 index_clause: "queue only for a stated blocked-on/out-of-scope reason; else just do it"
 index_required: true
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 in_force_at: null
@@ -36,6 +36,10 @@ reason.
 box, or a "not yet settled", "open questions" or "next steps" list in a
 spec, a document or a reply, as much as a file under `todo/`. Each one names
 what blocks it, as in `(needs: decision -- who decides)`, or gets done now.
+**So does a single line that admits a gap** -- "no test", "not built",
+"not fixed", "deferred", "left for later": the reason goes on that line.
+The reply gate refuses a reply with such a line and no reason, and the
+deep check refuses one added to an open item (2026-10-20).
 
 **A fix that belongs in another repository is never a `blocked_on` reason**
 — a vendored file's source, a practice set, an upstream engine — **and
@@ -108,6 +112,15 @@ labeled agent-doable, one of them a half-hour mechanical change — and the
 owner asked why work needing no input from them was parked at all. Both
 items, done later, cost more to re-orient into than they would have cost to
 finish on the spot.
+
+**2026-10-20: the gap hid inside an item's notes.** A session fixing a list
+of root issues wrote "the practice-hook refusal has no test that triggers
+it" and "Not built." into the item's progress notes and its reply, with
+nothing blocking either. No new item was filed, so nothing read those lines.
+Morgan: *"why a todo and not fixing an issue you found?"*, then *"how do we
+prevent this issue ... from happening again?"* The line-level check above
+is the answer: one rule in reply_check.json (gap-names-its-reason), read by
+the reply gate and by the deep check through one function.
 
 ## Install
 The TODO template's header ([repo-is-memory](repo-is-memory.md)) carries the compressed

@@ -12507,6 +12507,42 @@ BARE_GOTCHA_ANCHOR_EXEMPT_FILES = {
 }
 
 
+@check('todo-is-a-handoff', 'change',
+       'a line this change adds to an open item that admits work left undone '
+       '("no test", "not built", "not fixed", "deferred", "left for later") '
+       'says on the same line what blocks it -- the same rule and patterns the '
+       'reply gate reads (reply_check.json, gap-names-its-reason)',
+       'a gap said in other words, a reason given on the next line rather than '
+       'the same one, and whether a reason given is true: a person judges that. '
+       'Lines already in the item before this change are not read.',
+       selects_on=('todo/todo-*.md',))
+def _gap_names_its_reason(ctx):
+    """2026-10-20: a session wrote "the practice-hook refusal has no test that
+    triggers it" and "Not built." into an open item's progress notes with
+    nothing blocking either; Morgan asked why a todo and not a fix, and then
+    how to stop it happening again (practice: todo-is-a-handoff)."""
+    try:
+        import precedent_reply_check as _rc
+        rule = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('id') == 'gap-names-its-reason']
+    except (ImportError, OSError, ValueError, AttributeError):
+        raise NotApplicable('reply_check.json or the reply check engine could '
+                            'not be read here')
+    pats = (rule[0].get('require_reason_on_gap_line') or {}) if rule else {}
+    gap, reason = pats.get('if_matches'), pats.get('must_match_on_line')
+    if not (gap and reason and hasattr(_rc, 'unexplained_gaps')):
+        raise NotApplicable('no gap-names-its-reason rule is declared here')
+    out = []
+    for f in ctx.changed_matching(r'^todo/todo-[^/]+\.md$'):
+        old = set((ctx.read_base(f) or '').splitlines())
+        added = '\n'.join(l for l in ctx.read(f).splitlines() if l not in old)
+        for line in _rc.unexplained_gaps(added, gap, reason):
+            out.append(Finding(f, f'"{line[:120]}" leaves work undone and names '
+                                  f'nothing blocking it: do it now, or say on that '
+                                  f'line what blocks it'))
+    return out
+
+
 @check('todo-gotcha-stale-reference', 'tree',
        'nothing in the tracked tree cites an open item or a gotcha the way '
        'the pre-2026-09-16 format did -- a `TODO.md#slug` link, a bare '

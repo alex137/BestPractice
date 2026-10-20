@@ -205,5 +205,15 @@
     "why": "Morgan, 2026-10-10 (strength: decided): \"Every prompt you give me should have BOTH at the top: the session sending it, and what session it is for.\" With many sessions open, the For line is what tells him which window a block goes to. A reply to another session's message goes back to that session; a reply whose plain text says \"Open a new session\" says so in its For line instead. It replaced reply-block-names-its-session (2026-10-08), which recognized a sender only as From \"...\" (link) and missed one opening \"Sent automatically by the session\". 2026-10-11, a consuming repository: a block headed \"From: <title> (<link>)\" and \"For: a new BestPractice session\" matched no prompt shape and was never judged, so a From or For line naming a session, or a \"Paste into:\" line above the block naming one, now marks it as a prompt; and the From line must say a session sent it, as the practice always asked.",
     "checks_practice_at": "practices/seeded-prompt-names-its-origin.md",
     "id": "prompt-block-names-both-ends"
+  },
+  {
+    "practice": "todo-is-a-handoff",
+    "id": "gap-names-its-reason",
+    "require_reason_on_gap_line": {
+      "if_matches": "\\b(?:no (?:test|harness case|check)s?\\b(?!\\s+(?:fails?|failed|broke|found|was needed))|not (?:yet )?(?:built|fixed|tested|implemented|covered|started)\\b|(?:left|leave|leaving|parked|deferred)\\s+(?:it\\s+|this\\s+|that\\s+|them\\s+)?(?:for|to|as)\\s+(?:later|now|a follow-?up|another session|a todo|an open item)\\b|\\b(?:as|in) a follow-?up\\b|\\bdeferred\\b)",
+      "must_match_on_line": "\\b(?:blocked on|block(?:s|ed|ing)? (?:it|this|that)|wait(?:s|ing)? (?:on|for)|needs? (?:\\w+'s|your|a decision|the person's)|until\\b|because\\b|since\\b|as (?:asked|instructed|agreed)|out of scope|on purpose|deliberately|by design|(?:prose|wording|docs?) only|can(?:'|no)?t\\b|cannot\\b|no longer applies|superseded|refused)"
+    },
+    "why": "an item is left undone only for a stated reason; a line that admits a gap and names nothing blocking it is work the session could have done, written down instead (2026-10-20: \"no harness case triggers it\" and \"Not built.\" went into a reply and an open item with nothing blocking either, and Morgan asked why a todo and not a fix)",
+    "checks_practice_at": "practices/todo-is-a-handoff.md"
   }
 ]

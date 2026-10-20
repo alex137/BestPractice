@@ -24225,6 +24225,15 @@ def check_precedent_check_fires():
         case('universal-change-reaches-overrides', _plant_override_drift,
              advisory=True)
 
+        # todo-is-a-handoff -- a line added to an open item that leaves work
+        # undone names nothing blocking it (2026-10-20: "Not built." in an
+        # item's notes, with nothing blocking it).
+        def _plant_gap_without_reason(repo):
+            (repo / 'todo' / 'todo-2026-10-20-planted-gap.md').write_text(
+                '---\nstatus: open\n---\n## What\nThe second half: not built.\n',
+                encoding='utf-8')
+        case('todo-is-a-handoff', _plant_gap_without_reason)
+
         # no-duplication -- in a practice SET, an active practice whose slug
         # its declared universal source also has active is refused (Morgan,
         # 2026-10-06: "rules should not be repeated, but supporting repos can
@@ -30716,6 +30725,94 @@ def check_reply_check_wants_a_prompt_block_to_name_both_ends():
     bad = [c[0] for c in cases if not c[1]]
     check(f'a prompt block names both the session sending it and the one it is '
           f'for ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_a_gap_names_its_reason():
+    """A line that admits work left undone says on that line what blocks
+    it, in a reply (reply_check.json, gap-names-its-reason) and in a line a
+    change adds to an open item (precedent_check, todo-is-a-handoff), both
+    through precedent_reply_check.unexplained_gaps.
+
+    2026-10-20: a session wrote "the practice-hook refusal has no test that
+    triggers it" and "Not built." into a reply and an open item, with
+    nothing blocking either, and nothing read those lines. Morgan: "how do
+    we prevent this issue (you not fixing it it doing a todo) from happening
+    again?" The first three refused cases are that session's own lines."""
+    import precedent_reply_check as rc
+    name = 'a line that leaves work undone names what blocks it'
+    rule = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+        encoding='utf-8')) if r.get('id') == 'gap-names-its-reason']
+    if len(rule) != 1 or not hasattr(rc, 'unexplained_gaps'):
+        check(name, False, 'the gap-names-its-reason rule or unexplained_gaps is missing')
+        return
+
+    def refused(line):
+        return any(v['kind'] == 'gap_without_reason'
+                   for v in rc.violations(line + '\n', rule))
+    refuse = [
+        'The test covers the failed-tree refusal; the practice-hook refusal '
+        'has no test that triggers it.',
+        '2. Fixed in universal. Not built.',
+        '5. Fixed in prompt-please. No test.',
+        "I'll leave that for a follow-up.",
+        'The engine half is deferred.',
+        'Not fixed yet: the message.',
+    ]
+    allow = [
+        '8. Not built, as asked.',
+        'Not built yet: both wait for your go.',
+        'No test fails on the new code.',
+        "The ladder half can't be done until consumers carry the engine.",
+        'The prompt change is wording only and has no test.',
+        'The tool printed "not built" and stopped.',
+        'Run `no test` here.',
+        '```\nNot built.\n```',
+        "It is blocked on Morgan's pick, so not built.",
+        'Everything above is built and tested.',
+    ]
+    cases = [(f'refused: {t[:50]}', refused(t)) for t in refuse]
+    cases += [(f'allowed: {t[:50]}', not refused(t)) for t in allow]
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        tr = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(tr), *a],
+                                      capture_output=True, text=True,
+                                      env=_fixture_git_env())
+        g('init', '-q', '-b', 'main')
+        shutil.copytree(ROOT / 'tools', tr / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copy2(ROOT / 'reply_check.json', tr / 'reply_check.json')
+        (tr / 'practices').mkdir()
+        shutil.copy2(ROOT / 'practices' / 'todo-is-a-handoff.md',
+                     tr / 'practices' / 'todo-is-a-handoff.md')
+        (tr / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        (tr / 'todo').mkdir()
+        item = tr / 'todo' / 'todo-2026-10-20-x.md'
+        item.write_text('---\nstatus: open\n---\n## What\nOld line, no test.\n',
+                        encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+
+        def run_check(extra):
+            item.write_text(item.read_text(encoding='utf-8') + extra, encoding='utf-8')
+            g('add', '-A'); g('commit', '-qm', 'more')
+            p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                                'todo-is-a-handoff', '--range', 'HEAD~1..HEAD'],
+                               cwd=str(tr), capture_output=True, text=True,
+                               env={**os.environ, 'PRECEDENT_USER_CONFIG':
+                                    str(tr / 'none.json')}, timeout=120)
+            return p.stdout + p.stderr
+        out = run_check('The engine half is not built.\n')
+        cases.append(('an open item: an added gap line with no reason is a '
+                      'violation', '1 violated' in out and 'not built' in out))
+        out = run_check('The ladder half waits on Update Vendors, so not built.\n')
+        cases.append(('an open item: an added gap line with its reason passes, and '
+                      'a line already there is not read', '0 violated' in out
+                      and '1 passed' in out))
+    bad = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(bad) + ('' if not bad else f' -- last output: {out[-900:]}'))
 
 
 def check_reply_check_reads_a_landing_trigger_by_clause_and_by_list():
@@ -89503,6 +89600,7 @@ def main():
           *check_reply_check_requires_a_destination_for_a_fence_block())
     check_reply_check_refuses_a_paste_block_that_lands_unauthorized()
     check_reply_check_wants_a_prompt_block_to_name_both_ends()
+    check_a_gap_names_its_reason()
     check('the landing trigger reads per clause, from a list, and the old shape '
           'reads as it did', *check_reply_check_reads_a_landing_trigger_by_clause_and_by_list())
     check('the reply check requires the Boildown to open with where the work is',
