@@ -1215,11 +1215,24 @@ def _charge_brought_share(n):
         charged, share, names, budget = psp.charged_to_repo(ROOT, n)
     except Exception:                                        # noqa: BLE001
         return n, '', None
+    try:
+        ind, ind_budget = psp.individual_charge(ROOT)
+    except Exception:                                        # noqa: BLE001
+        ind, ind_budget = 0, None
+    ind_note, ind_over = '', None
+    if ind_budget is not None:
+        # Held to the individual set's own budget (INDIVIDUAL_BUDGET_KEY).
+        ind_note = (f" (plus ~{ind:,} from your individual set, of your "
+                    f"{ind_budget:,})")
+        if ind > ind_budget:
+            ind_over = (f"your individual set adds ~{ind:,} tokens, over the "
+                        f"{ind_budget:,}-token `{psp.INDIVIDUAL_BUDGET_KEY}` "
+                        f"budget it declares")
     if not share or budget is None:
-        return n, '', None
+        return charged, ind_note, ind_over
     note = (f" (plus ~{share:,} from {', '.join(names)}, which you bring, "
-            f"of your {budget:,})")
-    over = None
+            f"of your {budget:,})") + ind_note
+    over = ind_over
     if share > budget:
         over = (f"the set(s) you bring ({', '.join(names)}) add ~{share:,} "
                 f"tokens, over the {budget:,}-token `brought_sets_tokens` "
@@ -1235,6 +1248,8 @@ def _individual_part(n, cap):
     (precedent_session_practices.individual_share, 2026-10-20)."""
     try:
         import precedent_session_practices as psp
+        if psp.brought_budget(ROOT, psp.INDIVIDUAL_BUDGET_KEY)[0] is not None:
+            return ''               # its own budget holds it, not the repository
         part = psp.individual_share(ROOT)
     except Exception:                                        # noqa: BLE001
         return ''

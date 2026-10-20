@@ -64081,6 +64081,65 @@ def check_delete_links_and_one_line_boildown_agree():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_individual_set_is_charged_to_its_own_budget():
+    """When the person's individual set declares `individual_set_tokens`, its
+    share of the session file is charged to that budget, not to each
+    repository's ceiling; over that budget is a finding of its own.
+    Undeclared, nothing changes.
+
+    WHY. Morgan, 2026-10-20 (strength: decided, "7 option 1"): in a voice
+    repository ~1,176 of ~1,510 tokens were the individual set, against a
+    400-token ceiling, and every session start there failed for rules the
+    repository cannot shorten. The measurements are stood in here, so the
+    case checks the charge, not this machine's sets.
+
+    Negative control, measured 2026-10-20 on the old code: with the budget
+    declared the repository is still charged ~1,510."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_session_practices as psp
+    import precedent_session_check as psc
+    import precedent_check as pc
+    cases = []
+    saved = {k: getattr(psp, k) for k in ('individual_share', '_brought_renders',
+                                          'brought_budget')}
+    key = getattr(psp, 'INDIVIDUAL_BUDGET_KEY', 'individual_set_tokens')
+    declared = {'v': 1500}
+    try:
+        psp.individual_share = lambda repo: 1176
+        psp._brought_renders = lambda repo: (None, None, [])
+        psp.brought_budget = lambda repo=None, key0='brought_sets_tokens', **kw: (
+            (declared['v'] if kw.get('key', key0) == key else None), '/nowhere')
+        got = psp.charged_to_repo(ROOT, 1510)[0]
+        cases.append(('THE DISCRIMINATING CASE: declared, the repository is charged '
+                      'only its own part', got == 334, repr(got)))
+        _charged, note, over = psc._charge_brought_share(1510)
+        cases.append(('...the session check names the individual share against its '
+                      'budget, not over it', '~1,176 from your individual set' in note
+                      and over is None, repr((note, over))))
+        cases.append(('...and no longer says the repository pays for it',
+                      psc._individual_part(1510, 400) == '', ''))
+        declared['v'] = 1000
+        _charged, note, over = psc._charge_brought_share(1510)
+        cases.append(('over its own budget: the session check says so',
+                      bool(over) and key in over and '1,000' in over, repr(over)))
+        _charged, finding = pc._charge_brought_share(1510)
+        cases.append(('...and the full check finds it, naming the budget',
+                      finding is not None and key in str(getattr(finding, 'detail',
+                                                                  finding)),
+                      repr(finding)))
+        declared['v'] = None
+        got = psp.charged_to_repo(ROOT, 1510)[0]
+        cases.append(('negative control: undeclared, the repository is charged the '
+                      'whole file, as before', got == 1510, repr(got)))
+    finally:
+        for k, v in saved.items():
+            setattr(psp, k, v)
+        sys.path.pop(0)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the individual set is charged to its own budget when it declares one '
+          f'({len(cases)} stated cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_session_file_over_ceiling_names_the_individual_share():
     """The session check's over-ceiling row for .precedent/SESSION_PRACTICES.md
     says how much of the charge is the person's own individual set, which the
@@ -89289,6 +89348,7 @@ def main():
     check_data_branches_are_named_for_the_ladder()
     check_landed_branch_gets_its_delete_link()
     check_delete_links_and_one_line_boildown_agree()
+    check_individual_set_is_charged_to_its_own_budget()
     check_session_file_over_ceiling_names_the_individual_share()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
