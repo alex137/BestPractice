@@ -175,7 +175,15 @@ and never asked again there (Morgan, 2026-10-19, strength: decided).
   ```
 
   A yes also declares the set copied in at `process/<name>`, replacing a
-  live declaration of it. For a set that provides the ladder, a yes adds
+  live declaration of it. **A yes given before the set can be copied**
+  (its folder has not reached its own `main`, or there is no clone of it
+  on this machine) is recorded with `"waits_on"` saying why, and declares
+  nothing; each Update Vendors after that says it is still waiting, and
+  the first one that can copy it declares it (Morgan, 2026-10-19, who said
+  yes to his voice pack before its owner had Produced it; the declared copy
+  with nothing behind it made the update refuse to sync).
+  (`copy_in_waits_on` and `copy_in_pending`; test
+  `check_early_copy_in_yes_waits_for_the_set`.) For a set that provides the ladder, a yes adds
   it to `binds_everyone` with the same quote; the question says that each
   other code owner should agree first. A no leaves the set arriving the
   way it did before, through the person's own `brings`.

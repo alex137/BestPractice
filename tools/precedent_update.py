@@ -1110,6 +1110,11 @@ def copy_in_step(repo, rep, answers=None, answered_by=''):
     recorded answer is never asked again."""
     answers = answers or {}
     try:
+        for _ok, what in pve.copy_in_pending(repo):
+            rep.step('copy in', what)
+    except Exception as exc:                                  # noqa: BLE001
+        rep.step('copy in', f'a waiting yes could not be checked ({exc})')
+    try:
         offers = {o['name']: o for o in pve.copy_in_offers(repo)}
     except Exception as exc:                                  # noqa: BLE001
         rep.step('copy in', f'not asked: the offers could not be read ({exc})')
@@ -1120,10 +1125,14 @@ def copy_in_step(repo, rep, answers=None, answered_by=''):
             rep.step('copy in', f'{name}: no answer recorded -- it is not a set '
                      f'you bring or offer, or it was answered here already')
             continue
+        waits = pve.copy_in_waits_on(offer.get('clone'),
+                                     offer.get('set_root', '')) \
+            if answer == 'yes' else ''
         ok, what = pve.record_copy_in(repo, name, answer, answered_by,
                                       repo_url=offer['repo_url'],
                                       ladder=offer['ladder'],
-                                      set_root=offer.get('set_root', ''))
+                                      set_root=offer.get('set_root', ''),
+                                      waits_on=waits)
         if ok:
             rep.step('copy in', what)
         else:

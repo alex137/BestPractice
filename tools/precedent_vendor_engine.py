@@ -5319,13 +5319,38 @@ def copy_in_question(offer, flag='--copy-in', by_flag='--answered-by'):
             f'in precedent.json and not asked again.')
 
 
+def copy_in_waits_on(clone, set_root=''):
+    """-> '' when the set can be copied from `clone` now, else why not: the
+    copy reads the set from its origin's main (checkin.py --source), so a
+    set whose folder has not reached that main yet cannot be copied, and
+    neither can one with no clone on this machine."""
+    if not clone or not pathlib.Path(clone).is_dir():
+        return 'there is no clone of the set on this machine'
+    want = f'{set_root.strip("/")}/' if set_root else ''
+    for ref in ('origin/main', 'main'):
+        r = subprocess.run(['git', '-C', str(clone), 'cat-file', '-e',
+                            f'{ref}:{want}precedent-source.json'],
+                           capture_output=True)
+        if r.returncode == 0:
+            return ''
+    where = f'its {set_root} folder' if set_root else 'the set'
+    return f'{where} has not reached its own main yet'
+
+
 def record_copy_in(dest_root, name, answer, answered_by, repo_url='',
-                   ladder=False, set_root=''):
+                   ladder=False, set_root='', waits_on=''):
     """Record the person's answer for `name` under COPY_IN_KEY. On yes, also
     declare the set copied in at process/<name> (replacing a live
     declaration of it), start its manifest for Update Vendors' first copy,
     and, for a set that provides the ladder, add it to binds_everyone with
-    the same quote. -> (changed: bool, what happened or why not)."""
+    the same quote. -> (changed: bool, what happened or why not).
+
+    A yes given while the set cannot be copied yet (`waits_on` says why) is
+    recorded with that reason and declares nothing: a declared copy with
+    nothing behind it made the view sync refuse the whole update (Morgan,
+    2026-10-19, saying yes to a voice pack before its owner had Produced
+    it). Update Vendors declares it on the first run that can copy it
+    (copy_in_pending)."""
     import precedent_resolve as pr
     answer = str(answer).strip().lower()
     if answer not in ('yes', 'no'):
@@ -5345,6 +5370,12 @@ def record_copy_in(dest_root, name, answer, answered_by, repo_url='',
         return False, f'precedent.json\'s {COPY_IN_KEY} is not an object'
     record[name] = {'answer': answer, 'answered_by': answered_by}
     what = f'{name}: recorded "{answer}"'
+    if answer == 'yes' and waits_on:
+        record[name]['waits_on'] = waits_on
+        path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
+                        encoding='utf-8')
+        return True, (f'{what}; not copied in yet, because {waits_on}. Update '
+                      f'Vendors copies it in on the first run after that changes')
     if answer == 'yes':
         if cfg.get('visibility') != 'private':
             repo_url = ''      # a public tree names no account
@@ -5376,6 +5407,42 @@ def record_copy_in(dest_root, name, answer, answered_by, repo_url='',
     path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
                     encoding='utf-8')
     return True, what
+
+
+def copy_in_pending(dest_root, user_config=None):
+    """-> [(changed, what)] for each yes recorded with `waits_on`: declared
+    now when the set can be copied, else reported as still waiting."""
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    record = cfg.get(COPY_IN_KEY) if isinstance(cfg.get(COPY_IN_KEY), dict) \
+        else {}
+    waiting = {n: r for n, r in record.items() if isinstance(r, dict)
+               and r.get('answer') == 'yes' and r.get('waits_on')}
+    if not waiting:
+        return []
+    import precedent_resolve as pr
+    cands = {c[0]: c for c in _copy_in_candidates(user_config)}
+    out = []
+    for name, r in sorted(waiting.items()):
+        cand = cands.get(name)
+        if cand is None:
+            out.append((False, f'{name}: yes recorded, still waiting; it is no '
+                               f'longer a set you bring or offer'))
+            continue
+        _n, url, clone, _brought, set_root = cand
+        why = copy_in_waits_on(clone, set_root)
+        if why:
+            out.append((False, f'{name}: yes recorded, still waiting: {why}'))
+            continue
+        ladder = pr.LADDER_CAPABILITY in pr.source_provides(
+            clone / set_root if set_root else clone)
+        out.append(record_copy_in(root, name, 'yes', r.get('answered_by', ''),
+                                  repo_url=url, ladder=ladder,
+                                  set_root=set_root))
+    return out
 
 
 def parse_copy_in_answers(values):
