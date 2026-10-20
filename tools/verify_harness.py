@@ -41192,6 +41192,39 @@ def check_branch_tiers():
                        capture_output=True, env=env)
         cases.append(('a bare push from a detached HEAD cannot be read',
                       targets('') is None))
+        # `git switch -c X && git push` from a detached HEAD: the hook runs
+        # before the switch, and once ran the 14-minute full tier for it
+        # (2026-10-20). Unread, it gets the landing branch's tier; the hook
+        # names the branch the push will run on, and that is read instead.
+        landing = pb.landing_branch(repo, nocfg)[0]
+        landing_tier = pb.tier_for_branch(repo, landing, nocfg)[0]
+        cases.append(('an unread bare push gets the landing branch\'s tier, '
+                      'not the full one',
+                      pb.tier_for_push(repo, '', nocfg)[0] == landing_tier
+                      and 'landing branch' in pb.tier_for_push(repo, '', nocfg)[1]))
+        sw = pb.branch_switched_to
+        cases.append(('`git switch -c X && git push` runs the push on X',
+                      sw(repo, 'git switch -c new-x && git push') == 'new-x'))
+        cases.append(('`git checkout -b X; git push -u origin X` reads X',
+                      sw(repo, 'git checkout -b y ; git push -u origin y') == 'y'))
+        cases.append(('`git checkout FILE` changes no branch',
+                      sw(repo, 'git checkout notes.md && git push') is None))
+        cases.append(('`git checkout BRANCH` does',
+                      sw(repo, 'git checkout topic && git push') == 'topic'))
+        cases.append(('a switch AFTER the push is not read',
+                      sw(repo, 'git push && git switch -c later') is None))
+        old_env = os.environ.get(pb.PUSH_FROM_ENV)
+        os.environ[pb.PUSH_FROM_ENV] = 'new-x'
+        try:
+            named = targets('')
+            named_tier = pb.tier_for_push(repo, '', nocfg)
+        finally:
+            if old_env is None:
+                os.environ.pop(pb.PUSH_FROM_ENV, None)
+            else:
+                os.environ[pb.PUSH_FROM_ENV] = old_env
+        cases.append(('the branch the hook names is where a bare push goes',
+                      named == ['new-x'] and 'landing branch' not in named_tier[1]))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
