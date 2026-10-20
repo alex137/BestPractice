@@ -79989,7 +79989,7 @@ def check_push_destination_reaches_the_views_check():
     ]
     orig = ppc.repo_kind
     try:
-        ppc.repo_kind = lambda _e: 'consumer'
+        ppc.repo_kind = lambda _e=None: 'consumer'
         steps = dict((n, v) for n, v, _r in ppc.plan(ROOT, tier='full')[1])
     finally:
         ppc.repo_kind = orig
