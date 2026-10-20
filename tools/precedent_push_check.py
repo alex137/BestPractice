@@ -126,6 +126,7 @@ Run:
 Exit status: 0 everything passed; 1 a check failed; 2 nothing could be run
 (not a git checkout, or a repository of no kind this file knows).
 """
+import collections
 import hashlib
 import json
 import os
@@ -1358,6 +1359,51 @@ def _unplanted_checks(root):
     return sorted(registered - declared)
 
 
+# A HARNESS TEST NOBODY CALLS (2026-10-20). verify_harness.py's
+# check_every_verdict_returning_check_is_recorded asserts every check_*
+# there is wired into main(), but only on a full run, so
+# check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer reached
+# main uncalled and turned it red (#1286/#1287). The scan lives here, once:
+# the harness check calls it, and so does the quick tier whenever
+# verify_harness.py changes. One pass over the source, about a tenth of a
+# second; the per-name regex it replaced took over a minute.
+_HARNESS_DEF_RE = re.compile(r'^def (check_[a-z_0-9]+)\(', re.M)
+
+
+def unrecorded_harness_checks(src):
+    """-> [(name, why)] for each check_* in verify_harness.py's source `src`
+    whose verdict nobody reads: a verdict-returning one (its body ends in
+    `return (not bad...,`) called bare or never passed to check(), and any
+    check_* named nowhere else in the file."""
+    returning, cur = [], None
+    for line in src.splitlines():
+        m = _HARNESS_DEF_RE.match(line)
+        if m:
+            cur = m.group(1)
+        # `not bad,` was the original pattern and it missed
+        # `not bad_cases,` -- which is how
+        # check_reply_check_requires_a_destination_for_a_fence_block sat
+        # unreferenced until 2026-09-22.
+        if cur and re.match(r'^    return \(not bad\w*,', line) \
+                and cur not in returning:
+            returning.append(cur)
+    bare = set(re.findall(r'^\s+(check_\w+)\(\)\s*$', src, re.M))
+    wired = set(re.findall(r'\*(check_\w+)\(\)', src))
+    bad = []
+    for fn in returning:
+        if fn in bare:
+            bad.append((fn, 'called bare -- its verdict is discarded; '
+                            f"call it as check('<name>', *{fn}())"))
+        elif fn not in wired:
+            bad.append((fn, 'defined but never called from main()'))
+    uses = collections.Counter(re.findall(r'\bcheck_\w+', src))
+    for fn in _HARNESS_DEF_RE.findall(src):
+        if uses[fn] <= 1:
+            bad.append((fn, 'defined but never called from main() -- it has '
+                            'never run'))
+    return bad
+
+
 def _front_matter_changed(root, since, rel):
     """True when practice file `rel`'s front matter differs from `since`'s
     copy (or it had none there)."""
@@ -1574,6 +1620,11 @@ def changed_files_check(root, since):
                 f'tools/verify_harness.py, planting the violation it exists '
                 f'to catch; the harness refuses a check without one, and '
                 f'the next full check runs it')
+    harness = root / 'tools' / 'verify_harness.py'
+    if 'tools/verify_harness.py' in files and harness.is_file():
+        for fn, why in unrecorded_harness_checks(
+                harness.read_text(encoding='utf-8', errors='replace')):
+            problems.append(f'tools/verify_harness.py: {fn} {why}')
     problems += _retired_engine_files_unanswered(root, since)
     practice = [f for f in files if f.endswith('.md')
                 and (f.startswith('practices/') or '/practices/' in f)]
