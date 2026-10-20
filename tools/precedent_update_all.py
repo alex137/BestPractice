@@ -37,6 +37,8 @@ Each repository's line starts with one word:
     ASK       DONE with questions for the person; nothing committed. Clone kept
     LEFT      LEFT FOR YOU: this repository's own calls; clone kept, log named
     FAILED    a step could not run or the deep check is red; clone kept
+Every line but SKIPPED and NOT USED names the repository's log, which the
+session reads for that repository's root issues.
 The session opens and merges each PUSHED pull request itself (the merge
 needs GitHub tools this script does not have), and hands an ASK, LEFT or
 FAILED repository to a subagent with a fresh context, so that repository's
@@ -223,7 +225,9 @@ def run_one(repo, work, args):
     secs = int(time.time() - started)
     if outcome in ('CURRENT', 'PUSHED'):
         shutil.rmtree(dest, ignore_errors=True)
-        where = ''
+        # The log stays: the session reads it for this repository's root
+        # issues (practice: update-all-vendors, step 6).
+        where = f'  log {log}'
     else:
         where = f'  clone {dest}  log {log}'
     extra = (f"  {result['branch']} -> {result['base']}  head {result['head']}"
