@@ -8,6 +8,7 @@
   "check_a_consumer_may_declare_a_ci_workflow_its_own": 0.0,
   "check_a_failure_item_lists_the_index_it_creates": 7.8,
   "check_a_hook_wired_from_elsewhere_is_reported_as_wired": 0.0,
+  "check_a_land_in_a_shallow_clone_is_not_a_conflict": 1.2,
   "check_a_land_rebuilds_dated_outputs_two_days_left": 0.5,
   "check_a_missing_clone_says_not_cloned": 0.0,
   "check_a_new_test_lands_with_its_time": 0.1,
