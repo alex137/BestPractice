@@ -26122,6 +26122,38 @@ def check_precedent_check_fires():
                 encoding='utf-8')
         case('adds-to-names-a-rule-in-force', _plant_atnarif)
 
+        # own-deduplication-points-somewhere -- a set's own stub whose target
+        # no source it takes holds (2026-10-20). The fixture is made a shared
+        # set that declares only its repo-local source, so nothing it takes fails to resolve
+        # and the stranded stub is a violation, not a could-not-verify.
+        def _setup_odps(repo):
+            import json as _j
+            src = _j.loads((repo / 'precedent-source.json').read_text(encoding='utf-8'))
+            (repo / 'precedent-source.json').write_text(_j.dumps(
+                dict(src, level='shared', brings=[])), encoding='utf-8')
+            cfg = _j.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+            cfg['sources'] = [s for s in cfg.get('sources') or []
+                              if s.get('path') == 'local']
+            (repo / 'precedent.json').write_text(_j.dumps(cfg), encoding='utf-8')
+
+        def _plant_odps(repo):
+            (repo / 'practices' / 'zzz-stranded.md').write_text(
+                '---\nslug:        zzz-stranded\n'
+                'title:       A pointer to a rule no source holds\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  []\n'
+                'occasion:    "doing a planted thing"\n'
+                'gates:       []\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      deduplicated\n'
+                'in_force_at: zzz-held-nowhere\nsupersedes:  []\n'
+                'overrides:   null\nadded:       "2026-10-20"\n'
+                'approved_by: "fixture"\n---\n\n'
+                '## Rule\nPlanted.\n\n'
+                '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
+                encoding='utf-8')
+        case('own-deduplication-points-somewhere', _plant_odps, setup=_setup_odps)
+
         # boildown-moments-named -- a practice whose occasion quotes the
         # archive sentence instead of naming the moment (2026-10-20).
         def _plant_bmn(repo):
@@ -62667,6 +62699,77 @@ def check_deduplicated_copy_stays_in_force_until_its_target_arrives():
           f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
 
 
+def check_set_refuses_its_own_stranded_deduplication():
+    """A practice set's own check refuses a deduplicated practice whose
+    target no source the set takes holds.
+
+    WHY. 2026-10-19: an individual set stopped bringing the set that held
+    its stub's target. Every consumer's resolver read that as a late
+    universal catalogue, said KEPT IN FORCE, ITS TARGET NOT HERE YET, and
+    put the old copy back in force everywhere -- the opposite of the
+    deduplication -- and four repositories failed their test on main. In
+    the set's own checkout the target is never "late", so the check there
+    refuses it, in the change that strands it. Planted: the stranded stub;
+    the target in a declared universal source; the target in a set the set
+    brings; the target nowhere but a brought set that left."""
+    import json as _json, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as _pc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stranded-'))
+    cases = []
+    saved_root = _pc.ROOT
+    saved_env = os.environ.get('PRECEDENT_USER_CONFIG')
+    try:
+        _sources, _consumer, write = _renamed_universal_fixture(tmp)
+        uni, me, held = tmp / 'uni', tmp / 'zz-me', tmp / 'zz-held'
+        (tmp / 'uc.json').write_text('{"format_version": 1}', encoding='utf-8')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'uc.json')
+        write(me / 'practices' / 'pointer.md', 'pointer', 'deduplicated', 'held-rule')
+        (me / 'precedent.json').write_text(_json.dumps({'format_version': 1, 'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '../uni'}]}),
+            encoding='utf-8')
+
+        def manifest(brings):
+            (me / 'precedent-source.json').write_text(_json.dumps(
+                {'name': 'zz-me', 'level': 'individual', 'brings': brings}),
+                encoding='utf-8')
+
+        def run():
+            _pc.ROOT = me
+            try:
+                return [str(f.detail if hasattr(f, 'detail') else f)
+                        for f in _pc._own_deduplication_points_somewhere(None)]
+            except Exception as e:                           # noqa: BLE001
+                return [f'raised {type(e).__name__}: {e}']
+        manifest([])
+        got = run()
+        cases.append(('a stub whose target no source holds is refused, naming it',
+                      len(got) == 1 and 'no source this set takes holds that rule'
+                      in got[0] and 'KEPT IN FORCE' in got[0], got))
+        write(held / 'practices' / 'held-rule.md', 'held-rule')
+        manifest([{'name': 'zz-held', 'repo_url': 'https://github.com/zz/zz-held'}])
+        got = run()
+        cases.append(('CONTROL: the target in a set this set brings passes', got == [], got))
+        manifest([])
+        got = run()
+        cases.append(('...and once that set leaves `brings`, it is refused again',
+                      len(got) == 1, got))
+        write(uni / 'practices' / 'held-rule.md', 'held-rule')
+        got = run()
+        cases.append(('CONTROL: the target in a declared universal source passes',
+                      got == [], got))
+    finally:
+        _pc.ROOT = saved_root
+        if saved_env is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved_env
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f"a set's own check refuses its stranded deduplication "
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
+
+
 def check_in_force_at_chain_is_followed():
     """A deduplication naming a slug that is itself a deduplicated stub is in
     force wherever that stub forwards to, not IN FORCE NOWHERE.
@@ -88062,6 +88165,7 @@ def main():
     check_promote_is_handed_to_the_moves_a_set_names()
     check_update_holds_a_settings_change_and_offers_it_again()
     check_deduplicated_copy_stays_in_force_until_its_target_arrives()
+    check_set_refuses_its_own_stranded_deduplication()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
     check_bootstrap_runs_every_tool_session_start_runs()
     check_codex_hooks_template_runs_the_claude_gates()
