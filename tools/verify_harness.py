@@ -59795,6 +59795,12 @@ def check_global_pre_push_refuses_a_tree_the_check_failed():
                       'this tree' in p.stderr and 'doc_lint' in p.stderr
                       and not g(work, 'ls-remote', 'origin', 'feature').stdout.strip(),
                       p.stderr[-500:]))
+        # 2026-10-20: the refusal ended by naming its own bypass, handed to
+        # a session at the moment it was told no. It names the fix only;
+        # the variable is documented for a person to choose.
+        cases.append(('the refusal names what to fix, never the variable that '
+                      'skips it', 'PRECEDENT_SKIP_' not in p.stderr
+                      and 'push once it passes' in p.stderr, p.stderr[-400:]))
         p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature',
               PRECEDENT_SKIP_FAILED_TREE='1')
         cases.append(('PRECEDENT_SKIP_FAILED_TREE=1 lets one push through, and says so',
