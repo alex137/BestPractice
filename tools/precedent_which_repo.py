@@ -135,6 +135,24 @@ def elsewhere_warning(root, tool, cwd=None, repo_flag=False):
     return '\n'.join(lines)
 
 
+def elsewhere_note(root, cwd=None):
+    """-> ' -- this was <repo> at <path>, not <here> where you are standing',
+    for a tool's last line, or '' when the two are one repo. Never raises.
+
+    WHY (2026-10-20). The banner above prints first, and a long run scrolls
+    it away: a session read only the summary of BestPractice's
+    precedent_check.py run from another checkout and took BestPractice's
+    pass for that checkout's."""
+    try:
+        here, mine = git_toplevel(cwd or os.getcwd()), git_toplevel(root)
+        if here is None or mine is None or here == mine:
+            return ''
+        return (f' -- WRONG REPO: this was {describe(root)["name"]} at {mine}, '
+                f'not {here.name} where you are standing')
+    except Exception:                                        # noqa: BLE001
+        return ''
+
+
 def warn_if_elsewhere(root, tool, cwd=None, repo_flag=False, stream=None):
     """Print elsewhere_warning() to stderr (or `stream`) if there is one.
     -> True when it warned. Never raises."""

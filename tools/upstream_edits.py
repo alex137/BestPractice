@@ -166,6 +166,31 @@ def findings(root=ROOT):
     return out
 
 
+def _session_shipped(root):
+    """-> {repo-relative path: why an edit there is refused} for each file a
+    practice set delivers untracked at session start
+    (.precedent/session_ships.json, precedent_materialize.deliver_session_ships).
+
+    WHY (2026-10-20). tools/ladder/*.py in BestPractice are such copies. A
+    session searching the repository lands in them, and its edit is gone at
+    the next session start, with nothing to say so. No answer makes an edit
+    there last, so none is offered: the edit goes where the set lives."""
+    rec = _read_json(pathlib.Path(root) / '.precedent' / 'session_ships.json')
+    out = {}
+    for rel, row in (rec.get('files') or {}).items() if isinstance(rec, dict) else []:
+        if not (isinstance(rel, str) and isinstance(row, dict)):
+            continue
+        name = str(row.get('set') or 'a practice set')
+        there = next((p for p in (pathlib.Path(root).parent / name / rel,
+                                  pathlib.Path.home() / name / rel) if p.is_file()), None)
+        out[rel] = (f'{rel} is an untracked copy the {name} repository delivers at '
+                    f'every session start: an edit here is replaced by the next '
+                    f'one, silently. Edit it in {name} instead'
+                    + (f' -- {there}' if there else f', at {rel} there')
+                    + ' (practice: upstream-fix).')
+    return out
+
+
 def guard(path, root=ROOT):
     """-> why editing `path` needs an answer first, or None."""
     root = pathlib.Path(root).resolve()
@@ -173,6 +198,9 @@ def guard(path, root=ROOT):
         rel = pathlib.Path(path).resolve().relative_to(root).as_posix()
     except ValueError:
         return None
+    shipped = _session_shipped(root).get(rel)
+    if shipped:
+        return shipped
     src = owned(root).get(rel)
     if src is None or rel in registry(root)[0]:
         return None

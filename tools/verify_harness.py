@@ -17560,12 +17560,20 @@ def check_update_vendors_leaves_the_copy_its_record_names():
     try:
         # --- 1. a stale copy, with a real local edit beside it ------------
         repo, seeded = build('stale')
-        old = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', f'{seeded}~40'],
-                             capture_output=True, text=True).stdout.strip()
-        stale = [r for r in subprocess.run(
-            ['git', '-C', str(ROOT), 'diff', '--name-only', '--diff-filter=M', old, seeded,
-             '--', 'practices/', 'templates/'], capture_output=True, text=True).stdout.split()
-            if r not in (edited, moved)][:4]
+        # Back along the first parents until four files changed, never a
+        # fixed 40 commits (2026-10-20: on a quiet stretch 40 commits changed
+        # two or three, and the case failed with nothing wrong in the code).
+        line = subprocess.run(['git', '-C', str(ROOT), 'rev-list', '--first-parent',
+                               seeded], capture_output=True, text=True).stdout.split()
+        for back in (40, 80, 160, 320, len(line) - 1):
+            old = line[min(back, len(line) - 1)]
+            stale = [r for r in subprocess.run(
+                ['git', '-C', str(ROOT), 'diff', '--name-only', '--diff-filter=M', old,
+                 seeded, '--', 'practices/', 'templates/'],
+                capture_output=True, text=True).stdout.split()
+                if r not in (edited, moved)][:4]
+            if len(stale) == 4:
+                break
         for rel in stale:
             up(repo, rel).write_bytes(show(old, rel))
         up(repo, tool).parent.mkdir(parents=True, exist_ok=True)
@@ -39641,6 +39649,39 @@ def check_upstream_edits_need_an_answer():
             rc, out = run_hook(own)
             cases.append(('control: the hook lets an edit to this repository\'s '
                           'own file through', rc == 0 and 'deny' not in out, out[:300]))
+        # 2026-10-20: a file a set delivers untracked at session start
+        # (.precedent/session_ships.json) is replaced at the next one; an
+        # edit there is refused, naming the repository it belongs in, and no
+        # recorded answer lets it through.
+        ships = repo / 'tools' / 'ladder' / 'zz_shipped.py'
+        ships.parent.mkdir(parents=True)
+        ships.write_text('W = 1\n', encoding='utf-8')
+        (repo / '.precedent').mkdir()
+        (repo / '.precedent' / 'session_ships.json').write_text(json.dumps({'files': {
+            'tools/ladder/zz_shipped.py': {'sha256_16': '0' * 16, 'practice': 'zz',
+                                           'set': 'precedent-shared-zz'}}}),
+            encoding='utf-8')
+        home_copy = tmp / 'precedent-shared-zz' / 'tools' / 'ladder' / 'zz_shipped.py'
+        home_copy.parent.mkdir(parents=True)
+        home_copy.write_text('W = 1\n', encoding='utf-8')
+        why = ue.guard(ships, repo) or ''
+        cases.append(('THE DISCRIMINATING CASE: an edit to a session-shipped copy is '
+                      'refused, naming the set and its own file',
+                      'precedent-shared-zz' in why and str(home_copy) in why
+                      and 'next one' in why, why[:300]))
+        answers({'tools/ladder/zz_shipped.py': {
+            'answer': 'local-need', 'detail': 'tried to keep it',
+            'approved': 'Morgan, 2026-10-20: "yes"'}})
+        cases.append(('...and an answer in precedent.json does not let it through',
+                      bool(ue.guard(ships, repo)), ''))
+        answers(None)
+        cases.append(('control: this repository\'s own file beside it is still allowed',
+                      ue.guard(own, repo) is None, ''))
+        if shutil.which('jq'):
+            rc, out = run_hook(ships)
+            cases.append(('the edit-time hook denies the edit, with that reason',
+                          rc == 0 and '"permissionDecision": "deny"' in out
+                          and 'precedent-shared-zz' in out, out[:300]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
@@ -48224,6 +48265,49 @@ def check_repo_reference_allowlist():
     failed = [n for n, ok in cases if not ok]
     check(f'the repo-reference allowlist refuses an undeclared private name '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_leak_gate_email_rule_skips_an_ipv4_host():
+    """The email rule skips user@IPv4: the session proxy's git remote,
+    http://local_proxy@127.0.0.1:PORT/git/owner/repo, is no address.
+
+    WHY. 2026-10-20: the gate refused that remote as an email address, and
+    two files split the remote's string in two to get past it.
+    They are whole again; this proves the rule, not the split, lets them
+    through. Negative control, measured 2026-10-20 on the old pattern: the
+    remote is refused and a split is the only way past."""
+    gate = ROOT / 'tools' / 'leak_gate.py'
+    if not gate.exists():
+        not_applicable('the email rule skips an IPv4 host',
+                       'tools/leak_gate.py is not present here')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import importlib
+    lg = importlib.import_module('leak_gate')
+    sys.path.pop(0)
+
+    def email_hits(text):
+        return [h for h in lg.scan([('f.py', 'f.py', text)], [], private_names=set(),
+                                   structural_exempt={}, public_email_domains={})
+                if h[2] == 'an email address']
+
+    at = '@'
+    cases = [
+        ('THE DISCRIMINATING CASE: the proxy remote is not an address',
+         email_hits('http://local_proxy' + at + '127.0.0.1:9/git/o/r') == []),
+        ('a bare user@IPv4 is not one either',
+         email_hits('x' + at + '10.0.0.1') == []),
+        ('negative control: a real address is still refused',
+         len(email_hits('a.person' + at + 'corp-domain.com')) == 1),
+        ('negative control: a domain that only starts with digits is still one',
+         len(email_hits('x' + at + '10.0.0.1x.com')) == 1),
+        ('no file in this tree splits the proxy remote to get past the rule',
+         not any("'local_proxy' + '" + at in (ROOT / 'tools' / f).read_text(encoding='utf-8')
+                 for f in ('verify_harness.py', 'precedent_vendor_engine.py'))),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'the email rule skips an IPv4 host ({len(cases)} stated cases)', not bad,
+          '; '.join(bad))
 
 
 def check_leak_gate_honors_a_declared_public_email_domain():
@@ -63745,6 +63829,132 @@ def check_landed_branch_gets_its_delete_link():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_delete_links_and_one_line_boildown_agree():
+    """A delete link given in a refused reply counts as given, and the
+    one-line Boildown may carry the delete-link lines still owed: the two
+    reply rules can no longer refuse every reply in turn.
+
+    WHY. 2026-10-20, a session rooted in BestPractice: the stop hook asked
+    again and again for delete links earlier replies had given. Given links
+    were recorded only after a reply passed outright, while the repeat rule
+    refused a Boildown whose lines (the link lines included) all said again
+    what the last one said; dropped, the links were owed again. No reply
+    passed, so no record of a given link was ever written.
+
+    Negative control, measured 2026-10-20 on the old code: case 1's later
+    one-line reply is refused for the delete link, and case 2's reply,
+    one line plus the owed link line, is refused as a repeat."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_gate as pg
+    cases = []
+    saved = {k: os.environ.pop(k, None) for k in
+             ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDE_PROJECT_DIR')}
+    env = _fixture_git_env()
+    for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDE_PROJECT_DIR'):
+        env.pop(k, None)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-link-repeat-'))
+    try:
+        up, repo = tmp / 'up.git', tmp / 'repo'
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        subprocess.run(['git', 'init', '--bare', '-q', '-b', 'trunk', str(up)], env=env)
+        subprocess.run(['git', 'init', '-q', '-b', 'trunk', str(repo)], env=env)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'base_branch': 'trunk',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        decl = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('id') in ('landed-branch-gets-its-delete-link',
+                                                    'boildown-not-repeated')]
+        # A third rule only the first reply breaks, so it is refused for
+        # something other than either rule under test.
+        decl.append({'practice': 'fixture-other', 'require_one_of': ['Checked.']})
+        (repo / 'reply_check.json').write_text(json.dumps(decl), encoding='utf-8')
+        (repo / 'a.txt').write_text('one\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'first')
+        g('remote', 'add', 'origin', str(up)); g('push', '-q', '-u', 'origin', 'trunk')
+
+        def land(branch, f):
+            g('switch', '-q', '-c', branch, 'trunk')
+            (repo / f).write_text(branch + '\n', encoding='utf-8')
+            g('add', '-A'); g('commit', '-qm', branch); g('push', '-q', 'origin', branch)
+            recs = []
+            pg._unlanded_work(repo, siblings=False, records=recs)
+            pg.record_turn_start_unlanded(repo, recs)
+            g('push', '-q', 'origin', f'{branch}:trunk')
+            g('switch', '-q', 'trunk'); g('pull', '-q', 'origin', 'trunk')
+
+        def run(name, replies):
+            path = tmp / name
+            path.write_text('\n'.join(json.dumps({
+                'type': 'assistant', 'message': {
+                    'usage': {'input_tokens': 2},
+                    'content': [{'type': 'text', 'text': r}]}})
+                for r in replies) + '\n', encoding='utf-8')
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(repo)],
+                input=json.dumps({'transcript_path': str(path)}),
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**env, 'CLAUDE_PROJECT_DIR': str(repo),
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        def boildown(branch, *more, first='`trunk`, unchanged since the last update.'):
+            return (f'## Boildown\n- The work of this session is now on: {first}\n'
+                    + (f'- Delete [it](https://github.com/o/r/branches/all?query={branch})'
+                       ' when you like; it merged into `trunk`.\n' if branch else '')
+                    + ''.join(more))
+
+        # --- 1. a link given in a refused reply is given ------------------
+        b1 = '2026-10-20-me-refused-abcde-q1w2e'
+        land(b1, 'b.txt')
+        first = 'Landed.\n\n' + boildown(b1, '- The harness passed.\n')
+        r1 = run('refused.jsonl', [first])
+        cases.append(('the reply that gives the link is refused, for the other rule only',
+                      r1.returncode == 2 and 'Checked.' in r1.stderr
+                      and b1 not in r1.stderr, f'exit {r1.returncode}: {r1.stderr[:300]}'))
+        repair = 'Checked.\n\n' + boildown(None)
+        r2 = run('repair.jsonl', [first, repair])
+        cases.append(('THE DISCRIMINATING CASE: its one-line repair is not asked for the '
+                      'link again', r2.returncode == 0,
+                      f'exit {r2.returncode}: {r2.stderr[:300]}'))
+
+        # --- 2. one line plus the owed link line is not a repeat ----------
+        b2 = '2026-10-20-me-owed-abcde-t5y6u'
+        land(b2, 'c.txt')
+        # The previous reply's link was in a reply this check never saw (an
+        # earlier engine, no hook), so the link is still owed here.
+        # Its first line is an ordinary one, as the incident's were: the
+        # one-line form's own wording is never read as a repeat.
+        landed = '`trunk` (repo), landed.'
+        prev = 'Checked.\n\n' + boildown(b2, first=landed)
+        recs = [{'repo': str(repo), 'branch': b2, 'base': 'trunk'}]
+        f = pg._turn_start_file(repo).with_name('precedent-delete-links-given.json')
+        again = 'Checked.\n\n' + boildown(b2, first=landed)
+        r3 = run('again.jsonl', [prev, again])
+        cases.append(('THE DISCRIMINATING CASE: the one-line form with the owed link '
+                      'line is not refused as a repeat', r3.returncode == 0,
+                      f'exit {r3.returncode}: {r3.stderr[:300]}'))
+        pg.record_turn_start_unlanded(repo, recs)
+        f.unlink() if f.is_file() else None
+        padded = 'Checked.\n\n' + boildown(b2, "- Don't archive this session.\n",
+                                             first=landed)
+        r4 = run('padded.jsonl', [padded, padded])
+        cases.append(('negative control: a second repeated line beside the owed link '
+                      'is still a repeat', r4.returncode == 2
+                      and 'previous reply' in r4.stderr,
+                      f'exit {r4.returncode}: {r4.stderr[:300]}'))
+    finally:
+        os.environ.update({k: v for k, v in saved.items() if v is not None})
+        shutil.rmtree(tmp, ignore_errors=True)
+        sys.path.pop(0)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a delete link and the one-line Boildown no longer refuse each other '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_session_file_over_ceiling_names_the_individual_share():
     """The session check's over-ceiling row for .precedent/SESSION_PRACTICES.md
     says how much of the charge is the person's own individual set, which the
@@ -67998,6 +68208,55 @@ def check_engine_tools_say_which_repo_they_read():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_check_summary_names_the_repo_it_checked():
+    """precedent_check.py's summary line, the one a reader of the tail keeps,
+    says when the repo it checked is not the one the reader stands in.
+
+    WHY (2026-10-20). A session ran BestPractice's precedent_check.py from
+    another checkout and read the summary's pass as that checkout's. The
+    banner at the start (check_engine_tools_say_which_repo_they_read) had
+    printed, and scrolled away.
+
+    Negative control, measured 2026-10-20 on the old code: the summary line
+    from another repo carries no repo name at all."""
+    import subprocess as _sp
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_which_repo as pwr
+    mine = pwr.describe(ROOT)['name']
+    cases = []
+    other = pathlib.Path(tempfile.mkdtemp()) / 'some-other-repo'
+    try:
+        other.mkdir()
+        _sp.run(['git', 'init', '-q', str(other)], check=True)
+
+        def summary(cwd):
+            r = _sp.run([sys.executable, str(ROOT / 'tools' / 'precedent_check.py'),
+                         '--only', 'doc-references-are-links'], cwd=str(cwd),
+                        capture_output=True, text=True, timeout=300)
+            return next((l for l in reversed(r.stdout.splitlines())
+                         if l.startswith('precedent_check: ')), '')
+
+        line = summary(other)
+        cases.append(('THE DISCRIMINATING CASE: from another repo, the summary line '
+                      'names the repo checked and the one stood in',
+                      f'WRONG REPO: this was {mine}' in line
+                      and 'some-other-repo' in line, line[-300:]))
+        line = summary(ROOT)
+        cases.append(('negative control: from inside the repo it checks, the summary '
+                      'line says nothing of it', bool(line) and 'WRONG REPO' not in line,
+                      line[-300:]))
+        cases.append(('the note is empty for one repo',
+                      pwr.elsewhere_note(ROOT, cwd=ROOT) == '', ''))
+    finally:
+        shutil.rmtree(other.parent, ignore_errors=True)
+        sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the check\'s summary line names the repo it checked when that is '
+          f'not where the reader stands ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_todo_index_check_survives_midnight():
     """build_todo_index.py --check rebuilds against the date the committed
     TODO.md records, so an index built yesterday, or in a zone behind this
@@ -71122,7 +71381,7 @@ def check_copy_in_is_asked_once():
         try:
             holder = make_host('holder', 'private', ['zzme'])
             git(holder, 'remote', 'add', 'origin',
-                'http://local_proxy' + '@127.0.0.1:9/git/zzowner/zz-voice')
+                'http://local_proxy@127.0.0.1:9/git/zzowner/zz-voice')
             got = {o['name'] for o in pve.copy_in_offers(holder)}
             cases.append(('the repository holding an offered set is not offered '
                           'it, whatever form its origin is written in',
@@ -71138,7 +71397,7 @@ def check_copy_in_is_asked_once():
         ids = [pve._repo_identity(u) for u in (
             'https://github.com/ZZOwner/zz-voice.git',
             'ssh://' + 'git' + '@github.com/zzowner/zz-voice',
-            'http://local_proxy' + '@127.0.0.1:9/git/zzowner/zz-voice/',
+            'http://local_proxy@127.0.0.1:9/git/zzowner/zz-voice/',
             'https://example.invalid/zzowner/zz-voice')]
         cases.append(('one repository reads as one identity in https, ssh and '
                       'proxy form; another host reads as none',
@@ -88649,6 +88908,7 @@ def main():
     check_tier_branches_are_never_a_pull_requests_source()
     check_repo_reference_allowlist()
     check_leak_gate_scans_the_consuming_repo()
+    check_leak_gate_email_rule_skips_an_ipv4_host()
     check_leak_gate_honors_a_declared_public_email_domain()
     check_update_refuses_while_a_branch_is_pinned()
     check_carry_check_never_counts_upstream_deletions()
@@ -88773,6 +89033,7 @@ def main():
     check_update_question_names_new_gates()
     check_data_branches_are_named_for_the_ladder()
     check_landed_branch_gets_its_delete_link()
+    check_delete_links_and_one_line_boildown_agree()
     check_session_file_over_ceiling_names_the_individual_share()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
@@ -88885,6 +89146,7 @@ def main():
     check_load_ceiling_blocks_only_the_change_that_grew_it()
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_engine_tools_say_which_repo_they_read()
+    check_check_summary_names_the_repo_it_checked()
     check_todo_index_check_survives_midnight()
     check_todo_index_refuses_an_unknown_kind()
     check_clone_lock_makes_parallel_updates_wait()
