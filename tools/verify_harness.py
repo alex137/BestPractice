@@ -43292,6 +43292,390 @@ def check_main_test_minutes_rule():
     check(f'{name} ({len(cases)} stated cases, {rows} table rows)', not failed, detail)
 
 
+def check_private_repo_skipped_gate_is_not_main_test():
+    """A workflow GitHub never runs in this repository is not one of main's
+    GitHub tests, and nothing else changes (2026-10-09).
+
+    THE INCIDENT. In a private consuming repository the pull request into
+    main showed the light check passed and leak-gate.yml "skipped": its
+    template gates its only job on `github.event.repository.private != true`.
+    A skipped run never counts as a pass, so --wait-main-test said
+    "leak-gate.yml never ran on it. Do not merge" on every pull request,
+    for good, and the Promote blamed an Update Vendors that would bring the
+    same file. One definition, precedent_branches.skipped_by_design, read by
+    github_tests and precedent_ci_verified alike.
+
+    The engine half (2026-10-20): what github_tests, skipped_by_design,
+    main_test_due and precedent_ci_verified say, and that each shipped
+    template carries the not-due skip exactly when NOT_DUE_SKIP_TEMPLATES
+    says so. The wait on main's test that reads them is the ladder set's,
+    and its half of this case is tested there.
+
+    THE NEGATIVE CASES ARE THE POINT: the same skipped run in a public
+    repository, and a skipped workflow that is NOT gated on privacy in a
+    private one, still never read as passed."""
+    import importlib.util, json as _json, subprocess as _sp, tempfile
+    name = 'a workflow skipped by design in a private repository is not main\'s GitHub test'
+    src = ROOT / 'tools' / 'precedent_branches.py'
+    tpl_dir = ROOT / 'templates' / 'github-actions'
+    leak_tpl, light_tpl = (tpl_dir / 'leak-gate.yml.template',
+                           tpl_dir / 'light-check.yml.template')
+    if not (src.exists() and leak_tpl.is_file() and light_tpl.is_file()):
+        not_applicable(name, 'precedent_branches.py or a workflow template is absent')
+        return
+    spec = importlib.util.spec_from_file_location('_pb_skipped_by_design', src)
+    pb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pb)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_ci_verified as pciv
+    finally:
+        sys.path.pop(0)
+    cases = []
+    for t in sorted(tpl_dir.glob('*.yml.template')):
+        wf = t.name[:-len('.template')]
+        cases.append((f'NOT_DUE_SKIP_TEMPLATES names {wf} exactly when its template '
+                      f'carries the not-due skip',
+                      (pb.NOT_DUE_PREFIX in t.read_text(encoding='utf-8'))
+                      == (wf in pb.NOT_DUE_SKIP_TEMPLATES)))
+    LEAK, LIGHT, OTHER = ('.github/workflows/leak-gate.yml',
+                          '.github/workflows/light-check.yml',
+                          '.github/workflows/other.yml')
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'repo'
+        wfd = repo / '.github' / 'workflows'
+        wfd.mkdir(parents=True)
+
+        def git(*a):
+            return _sp.run(['git', *a], cwd=repo, env=env, capture_output=True,
+                           text=True, check=True).stdout.strip()
+
+        def commit(visibility, files):
+            pj = {'base_branch': 'main', 'github_ci_main_test': 168}
+            if visibility:
+                pj['visibility'] = visibility
+            (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+            for p in list(wfd.iterdir()):
+                p.unlink()
+            for path, text in files.items():
+                (repo / path).write_text(text, encoding='utf-8')
+            git('add', '-A')
+            git('commit', '-q', '--allow-empty', '-m', 'fixture')
+            return git('rev-parse', 'HEAD')
+
+        git('init', '-q', '-b', 'main')
+        # Named, as this repository's own leak-gate.yml is:
+        # precedent_ci_verified expects only a workflow with a `name:`.
+        real = {LEAK: 'name: Leak gate\n' + leak_tpl.read_text(encoding='utf-8'),
+                LIGHT: light_tpl.read_text(encoding='utf-8')}
+        # Gated, but not on privacy: skipped for its own reason.
+        other = ('name: Other\non:\n  pull_request:\n    branches: [main]\n'
+                 'jobs:\n  other:\n    if: github.event_name == \'push\'\n'
+                 '    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n')
+        # Two jobs, only one gated on privacy: the other still runs.
+        half = ('name: Half\non:\n  pull_request:\njobs:\n  a:\n'
+                '    if: ${{ github.event.repository.private != true }}\n'
+                '    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n'
+                '  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n')
+        # The negated form, and a privacy gate that is one `&&` part.
+        negated = ('name: Neg\non:\n  pull_request:\njobs:\n  n:\n'
+                   '    if: >-\n      (!github.event.repository.private)\n'
+                   '      && github.actor != \'bot\'\n'
+                   '    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n')
+
+        def run(path, conclusion):
+            return {'path': path, 'status': 'completed', 'conclusion': conclusion,
+                    'created_at': '2026-10-09T12:00:00Z', 'html_url': 'U'}
+
+        class GH:
+            def __init__(self, runs):
+                self.runs = runs
+
+            def call(self, path, cache=True):
+                if path == 'repos/o/r':
+                    return {'full_name': 'o/r'}, None
+                if '/pulls' in path:
+                    return [], None
+                if '/actions/workflows/' in path:
+                    wf = path.split('/actions/workflows/')[1].split('/')[0]
+                    return {'workflow_runs': [
+                        dict(r, head_branch='main', created_at='2026-10-09T12:00:00Z')
+                        for r in self.runs if r['path'].endswith('/' + wf)
+                        and r['conclusion'] == 'success']}, None
+                return {'workflow_runs': self.runs}, None
+
+        pb._slug = lambda root: 'o/r'
+        incident = [run(LIGHT, 'success'), run(LEAK, 'skipped')]
+
+        sha = commit('private', real)
+        cases.append(('(a) private repo: leak-gate.yml is not one of main\'s GitHub '
+                      'tests there, and the light check still is',
+                      [p for p, _ in pb.github_tests(repo, sha)] == [LIGHT]))
+        cases.append(('...and precedent_ci_verified does not expect it either',
+                      'Leak gate' not in ' '.join(pciv.expected_workflows(repo, 'x', 'main'))
+                      and pciv.expected_workflows(repo, 'x', 'main')))
+        due, why = pb.main_test_due(repo, sha, gh=GH(incident))
+        cases.append(('(d) the due check no longer sends a private repo to Update '
+                      'Vendors over leak-gate.yml', 'Update Vendors' not in why
+                      and 'leak-gate' not in why))
+        sha = commit('public', real)
+        cases.append(('(b) in a public repository leak-gate.yml is one of main\'s '
+                      'GitHub tests', LEAK in [p for p, _ in pb.github_tests(repo, sha)]))
+        cases.append(('...and precedent_ci_verified still expects it there',
+                      'Leak gate' in pciv.expected_workflows(repo, 'x', 'main')))
+        sha = commit(None, real)
+        cases.append(('...and in a repository that declares no visibility',
+                      LEAK in [p for p, _ in pb.github_tests(repo, sha)]))
+        sha = commit('private', dict(real, **{OTHER: other}))
+        cases.append(('(c) private repo, a workflow NOT gated on privacy stays one '
+                      'of main\'s GitHub tests', OTHER in [p for p, _ in pb.github_tests(repo, sha)]))
+        sha = commit('private', {LIGHT: real[LIGHT],
+                                 '.github/workflows/half.yml': half})
+        cases.append(('...nor one with a job the privacy gate does not reach',
+                      '.github/workflows/half.yml' in [p for p, _ in pb.github_tests(repo, sha)]))
+        sha = commit('private', {LIGHT: real[LIGHT],
+                                 '.github/workflows/neg.yml': negated})
+        cases.append(('the negated form, as one && part of a folded if:, is the '
+                      'same gate', [p for p, _ in pb.github_tests(repo, sha)] == [LIGHT]))
+        cases.append(('the light check\'s own if:, privacy only inside an ||, is '
+                      'never read as skipped by design',
+                      not pb.skipped_by_design(repo, real[LIGHT])))
+        sha = commit('private', {LIGHT: real[LIGHT], OTHER: other})
+        due, why = pb.main_test_due(repo, sha, gh=GH([run(LIGHT, 'success')]))
+        cases.append(('(d) a workflow no shipped template gives the not-due skip is '
+                      'due, and the advice does not name Update Vendors',
+                      due is True and 'other.yml' in why and 'Update Vendors' not in why))
+        sha = commit('private', {LIGHT: 'on:\n  pull_request:\n    branches: [main]\n'
+                                        'jobs:\n  x:\n    runs-on: ubuntu-latest\n'})
+        due, why = pb.main_test_due(repo, sha, gh=GH([]))
+        cases.append(('...while an old light-check.yml, whose template does carry it, '
+                      'is still sent to Update Vendors',
+                      due is True and 'Update Vendors' in why))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_main_test_cadence():
+    """Main's GitHub test runs at most once every github_ci_every_hours in a
+    private repository, decided by Promote before GitHub starts anything
+    (spec/CI_CADENCE_PLAN.md, "Promote decides", 2026-10-01).
+
+    The engine half (2026-10-20): the cadence, the due decision, how a run
+    reads, and the template and workflow names they rely on. What a
+    Promote names its copy and how the wait answers a not-due one are the
+    ladder set's, tested there.
+
+    THE NEGATIVE CASES ARE THE POINT: a skip that fires wrongly is main
+    going untested. Each "not due" is paired with the shape where it must
+    run -- a public repo, an expired window, a failed newest run, GitHub not
+    answering, a workflow that cannot skip yet, a batch that changes a
+    workflow, PRECEDENT_CI_NOW=1. And a skipped run must never read as a
+    failure: GitHub records one, free, on every private push to main."""
+    import importlib.util, json as _json, tempfile, time as _time
+    name = "main's GitHub test runs at most once every github_ci_every_hours"
+    src = ROOT / 'tools' / 'precedent_branches.py'
+    if not src.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    spec = importlib.util.spec_from_file_location('_pb_cadence', src)
+    pb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pb)
+    cases = []
+    tpl = (ROOT / 'templates' / 'github-actions' / 'light-check.yml.template')
+    tpl_text = tpl.read_text(encoding='utf-8') if tpl.is_file() else ''
+    cases.append(('the light-check template names the very branch prefix Promote '
+                  'gives a not-due copy',
+                  f"startsWith(github.head_ref, '{pb.NOT_DUE_PREFIX}')" in tpl_text))
+    saved_env = os.environ.get(pb.FORCE_ENV)
+    os.environ.pop(pb.FORCE_ENV, None)
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        repo, me = tmp / 'repo', tmp / 'me'
+        repo.mkdir()
+        me.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(me)}}), encoding='utf-8')
+
+        def setup(visibility='private', mine=None, theirs=None):
+            pj = {'base_branch': 'main'}
+            if visibility:
+                pj['visibility'] = visibility
+            if theirs is not None:
+                pj['github_ci_every_hours'] = theirs
+            (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+            ident = {'email': 'me@example.com'}
+            if mine is not None:
+                ident['ci_every_hours'] = mine
+            (me / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+
+        setup('public', mine=168)
+        cases.append(('a public repository is tested on every Promote, whatever '
+                      'the person sets', pb.main_test_cadence(repo, cfg)[0] == 0))
+        setup(None, mine=168)
+        cases.append(('...and so is one that declares no visibility',
+                      pb.main_test_cadence(repo, cfg)[0] == 0))
+        setup(mine=168, theirs=0)
+        h, where = pb.main_test_cadence(repo, cfg)
+        cases.append(("in Promote the person's value wins over the repository's 0 "
+                      '(Morgan: "if it conflicts, and I run promote, it still skips it")',
+                      h == 168 and str(me) in where))
+        setup(theirs=6)
+        cases.append(("with no personal value, the repository's own applies",
+                      pb.main_test_cadence(repo, cfg)[0] == 6))
+        setup(mine='weekly')
+        cases.append(('a value that is not a number means every Promote',
+                      pb.main_test_cadence(repo, cfg)[0] == 0))
+        setup(mine=True)
+        cases.append(('...and so does true', pb.main_test_cadence(repo, cfg)[0] == 0))
+
+        WF = '.github/workflows/light-check.yml'
+        now = _time.time()
+
+        def iso(hours_ago):
+            return _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime(now - hours_ago * 3600))
+
+        def run(hours_ago, conclusion='success', branch='to-main-2026-09-30'):
+            return {'path': WF, 'status': 'completed', 'conclusion': conclusion,
+                    'head_branch': branch, 'created_at': iso(hours_ago),
+                    'html_url': 'U'}
+
+        class GH:
+            def __init__(self, runs, fail=None):
+                self.runs, self.fail = runs, fail
+
+            def call(self, path, cache=True):
+                if self.fail:
+                    return None, self.fail
+                return {'workflow_runs': self.runs}, None
+
+        pb._slug = lambda root: 'o/r'
+        skipping = 'on: {}\n# ' + pb.NOT_DUE_PREFIX + '\n'
+        shown = {'text': skipping, 'diff': ''}
+        real_git = pb._git
+
+        def fake_git(root, *args):
+            if args[:1] == ('show',):
+                return shown['text']
+            if args[:2] == ('diff', '--name-only'):
+                return shown['diff']
+            return real_git(root, *args)
+        pb._git = fake_git
+        pb.github_tests = lambda root, sha: [(WF, True)]
+        setup(mine=168)
+
+        def due(runs, **kw):
+            return pb.main_test_due(repo, 'TIP', gh=GH(runs, kw.get('fail')),
+                                    user_config=cfg)
+        d, why = due([run(10), run(1, 'skipped', 'main')])
+        cases.append(('a pass 10 hours ago with a 168-hour window is NOT DUE, says when '
+                      'the next one is, and a newer skipped run changes nothing',
+                      d is False and 'next one is due' in why))
+        d, why = due([run(200)])
+        cases.append(('a pass 200 hours ago is due', d is True and '200h ago' in why))
+        d, why = due([run(1, 'failure', 'main'), run(10)])
+        cases.append(('a failed newest run keeps it due inside the window, with its link',
+                      d is True and 'failure' in why and 'U' in why))
+        d, why = due([run(10, branch='claude/some-feature')])
+        cases.append(('a pass on a working branch does not count for main',
+                      d is True and 'no passing run' in why))
+        d, why = due([], fail='HTTP 403')
+        cases.append(('GitHub not answering means it runs', d is True and '403' in why))
+        shown['text'] = 'on: {}\n'
+        d, why = due([run(10)])
+        cases.append(('a workflow installed before the not-due skip existed is always '
+                      'due, so a "not due" wait never merges under a running test',
+                      d is True and 'predates' in why))
+        shown['text'] = skipping
+        shown['diff'] = '.github/workflows/light-check.yml\ntools/ENGINE_MANIFEST.json\n'
+        d, why = due([run(10)])
+        cases.append(('a batch changing a workflow or the vendored engine is NOT forced '
+                      '(Morgan: "I might update the vendored engines a lot")', d is False))
+        shown['diff'] = ''
+        os.environ[pb.FORCE_ENV] = '1'
+        d, why = due([run(10)])
+        os.environ.pop(pb.FORCE_ENV, None)
+        cases.append((f'{pb.FORCE_ENV}=1 makes it due', d is True))
+        setup(mine=168)
+        pj = _json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            dict(pj, github_ci_workflows='disabled')), encoding='utf-8')
+        d, why = due([run(1000)])
+        cases.append(("with no personal switch, the repository's own \"disabled\" "
+                      'means no test, however long ago it passed',
+                      d is False and "this repo's precedent.json" in why))
+        (me / 'identity.json').write_text(_json.dumps(
+            {'email': 'me@example.com', 'ci_every_hours': 168,
+             'ci_workflows': 'enabled'}), encoding='utf-8')
+        d, why = due([run(1000)])
+        cases.append(("...and the person's \"enabled\" wins over it", d is True))
+        setup(mine=0)
+        d, why = due([run(10)])
+        cases.append(('a value of 0 is every Promote', d is True))
+
+        ok_run = {'path': WF, 'status': 'completed', 'conclusion': 'success',
+                  'created_at': '2026-09-30T10:00:00Z', 'head_sha': 'SHA'}
+        skipped = dict(ok_run, conclusion='skipped', created_at='2026-09-30T11:00:00Z')
+
+        class RunsGH:
+            def call(self, path, cache=True):
+                if '/pulls' in path:
+                    return [], None
+                return {'workflow_runs': [ok_run, skipped]}, None
+        st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)], RunsGH())
+        cases.append(('a skipped run newer than a pass reads "passed", never "failed" '
+                      '(every private push to main records one)', st == 'passed'))
+
+        # 2026-10-19: the push run on main skipped its test while the pull
+        # request's run was still going, finished `success`, and was read as
+        # main's verdict; the pull request's run failed (issue #1242).
+        pr_fail = {'id': 1, 'path': WF, 'status': 'completed', 'conclusion': 'failure',
+                   'created_at': '2026-10-19T14:24:40Z', 'head_sha': 'HEAD',
+                   'html_url': 'U'}
+        push_ok = {'id': 2, 'path': WF, 'status': 'completed', 'conclusion': 'success',
+                   'created_at': '2026-10-19T14:25:34Z', 'head_sha': 'SHA'}
+
+        def runs_gh(on_sha, jobs_of):
+            class G:
+                def call(self, path, cache=True):
+                    if path.endswith('/pulls'):
+                        return [{'head': {'sha': 'HEAD'}, 'base': {'ref': 'main'},
+                                 'number': 1240}], None
+                    if '/jobs' in path:
+                        return {'jobs': jobs_of}, None
+                    if 'head_sha=HEAD' in path:
+                        return {'workflow_runs': [pr_fail]}, None
+                    return {'workflow_runs': on_sha}, None
+            return G()
+        hollow_jobs = [{'name': pb.DECISION_JOB, 'conclusion': 'success'},
+                       {'name': 'test', 'conclusion': 'skipped'}]
+        st, why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                       runs_gh([push_ok], hollow_jobs))
+        cases.append(('a push run that tested nothing, newer than its pull '
+                      'request\'s failed run, reads "failed" (2026-10-19)',
+                      st == 'failed' and 'U' in why))
+        st, _why = pb.github_test_state(
+            repo, 'SHA', [(WF, True)],
+            runs_gh([push_ok], [dict(j, conclusion='success') for j in hollow_jobs]))
+        cases.append(('CONTROL: a push run that did run its test, and passed, '
+                      'still decides', st == 'passed'))
+        pr_fail_saved, pr_fail = pr_fail, dict(pr_fail, path='other.yml')
+        st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                        runs_gh([push_ok], hollow_jobs))
+        pr_fail = pr_fail_saved
+        cases.append(('a run that tested nothing and is the only run is kept: '
+                      'it reads "passed", never "never ran"', st == 'passed'))
+        wf_text = (ROOT / '.github' / 'workflows' / 'deep-check.yml').read_text(
+            encoding='utf-8')
+        cases.append(("precedent_branches.DECISION_JOB is deep-check.yml's "
+                      'already-tested job name',
+                      f'name: {pb.DECISION_JOB}\n' in wf_text))
+    if saved_env is not None:
+        os.environ[pb.FORCE_ENV] = saved_env
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_main_test_repo_setting():
     """The repository's own github_ci_main_test has the final say over
     main's GitHub test (2026-10-01, spec/CI_CADENCE_PLAN.md, "The repository
@@ -89708,6 +90092,8 @@ def main():
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
     check_main_test_minutes_rule()
+    check_private_repo_skipped_gate_is_not_main_test()
+    check_main_test_cadence()
     check_main_test_repo_setting()
     check_main_test_without_individual_source()
     check_source_clone_is_pinned_to_a_branch()
