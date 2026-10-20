@@ -55,6 +55,13 @@ it shows the last one's list; and its ticks belong to that build, so a
 refreshed list starts unticked -- a branch still on it was not deleted.
 Morgan, 2026-10-11: "Let's do this" (strength: decided).
 
+THE PAGE IS THE LIST, NOTHING ELSE (Morgan, 2026-10-20, strength: decided:
+"you give me paragraphs about it's checkmarks etc - ... just give it to me
+and say nothing else"). No intro, no note on how a button works or why a
+repository has none, no advice on what to say next: the build time, the
+counts, the buttons, the branches and their dates. An error a button meets
+still says what failed.
+
 THE SAVED PAGE IS MERGED, NEVER OVERWRITTEN (2026-10-12). This tool sees
 only the clones on this machine, so a session with fewer repositories open
 than the last one would wipe the rows that one listed. With a saved page,
@@ -506,6 +513,19 @@ PAGE_CAPABILITIES = {'artifact': {}, 'mcp': {'servers': [
 # `contract: "latest"` only when the page needs something a newer runtime
 # adds, or a runtime bug shows on it, and say so to the person in that
 # reply. The "newest" note is information, not a task.
+# The refresh's publish, in the order the Artifact tool enforces it. This
+# line owns the steps; a note elsewhere that names them points here.
+# 2026-10-20 (volatile: the Artifact tool's behaviour that day): a publish
+# was refused until every line of the saved source had been Read, and then
+# once more as "identical content already refused", which went through
+# resent unchanged. A ladder note then said never to Read that file, so a
+# session that followed it was refused every time.
+PUBLISH_STEPS = ('Before the publish, Read every line of {merged} in ranges '
+                 'and change nothing -- the file the read just before this '
+                 'build saved, never an earlier copy; the Artifact tool '
+                 'refuses a republish over a version this session has not '
+                 'read through. If the publish is refused as identical content '
+                 'already refused, send it once more unchanged. ')
 PAGE_RUNTIME_LINE = ('Leave its runtime version as it is (omit `contract`): a '
                      'refresh changes the data, not the code. The "newest" note '
                      'is not a task.')
@@ -685,12 +705,9 @@ def _cleanup_line(owner, name, n, state, now=None, tz=''):
     if not state:
         return ''
     if not state.get('installed') and state.get('source'):
-        return ('<p class="cleanup">No delete-all button here: a practice set carries '
-                'no GitHub workflow. Delete its branches one at a time below.</p>')
+        return ''
     if not state.get('installed'):
-        return ('<p class="cleanup">No delete-all button here: this repository\'s '
-                '<code>main</code> does not have the cleanup workflow yet. Update '
-                'Vendors installs it.</p>')
+        return ''
     shown, back = cleanup_due(state, now)
     attrs = (f' data-repo="{html.escape(owner + "/" + name)}"'
              f' data-private="{"1" if state.get("private") is True else "0"}"'
@@ -702,9 +719,6 @@ def _cleanup_line(owner, name, n, state, now=None, tz=''):
             f'<a class="del-all" href="{workflow_link(owner, name)}" target="_blank" '
             f'rel="noopener"{"" if shown else " hidden"}>Delete every merged branch '
             f'({n} listed)</a>'
-            f'<span class="how"{"" if shown else " hidden"}>Opens GitHub: click Run '
-            f'workflow, then confirm. It deletes only branches already in '
-            f'<code>main</code>, never <code>main</code> or <code>staging</code>.</span>'
             f'<span class="back"{"" if back else " hidden"}>{html.escape(back_text)}</span>'
             f'</p>')
 
@@ -732,10 +746,6 @@ def _public_line(public):
     return (f'<p class="cleanup-all"><button type="button" id="del-public">'
             f'Delete every merged branch in all {len(public)} public '
             f'repositor{"y" if len(public) == 1 else "ies"} ({n} listed)</button>'
-            f'<span class="how">One click starts each one\'s cleanup workflow on '
-            f'GitHub, through your GitHub connector. Public repositories '
-            f'use no Actions minutes. It deletes only branches already in '
-            f'<code>main</code>, never <code>main</code> or <code>staging</code>.</span>'
             f'<span class="status" id="del-public-status" role="status"></span></p>')
 
 
@@ -816,6 +826,33 @@ def built_line(now=None, tz=''):
 
 def _key(owner, name):
     return (owner.casefold(), name.casefold())
+
+
+# The widest line page_json writes before it breaks a list or an object
+# over lines. The page's script (wrap) writes the same shape when it saves
+# the page with its ticks.
+PAGE_JSON_WIDTH = 100
+
+
+def page_json(value, indent=''):
+    """-> `value` as JSON, a list or object that fits PAGE_JSON_WIDTH on
+    one line, a wider one an element per line, so a branch is a line.
+
+    WHY (2026-10-20). json.dumps wrote the whole block on one line, some
+    20,000 tokens for 230 branches; stale-branch-cleanup says to Read every
+    line of the saved page before publishing, and a Read of that one line
+    was refused for size. Readers parse it with json.loads, so the shape is
+    free."""
+    flat = json.dumps(value, separators=(',', ':'))
+    if not isinstance(value, (list, dict)) or not value \
+            or len(indent) + len(flat) <= PAGE_JSON_WIDTH:
+        return flat
+    inner = indent + ' '
+    if isinstance(value, list):
+        parts = [inner + page_json(v, inner) for v in value]
+        return '[\n' + ',\n'.join(parts) + '\n' + indent + ']'
+    parts = [inner + json.dumps(k) + ':' + page_json(v, inner) for k, v in value.items()]
+    return '{\n' + ',\n'.join(parts) + '\n' + indent + '}'
 
 
 _DATA = re.compile(r'<script type="application/json" id="branch-data">(.*?)</script>',
@@ -998,22 +1035,19 @@ def _waiting_section(waiting, carried, tz):
         note = ''
         if checked:
             try:
-                note = (' <span class="carried">As of the last check, '
+                note = (' <span class="carried">Checked '
                         + html.escape(built_line(datetime.datetime.fromisoformat(checked),
                                                  tz)[len('Refreshed '):])
-                        + '; it may have moved since.</span>')
+                        + '.</span>')
             except (TypeError, ValueError):
-                note = ' <span class="carried">As of an earlier check.</span>'
+                note = ' <span class="carried">Checked earlier.</span>'
         lis.append(
             f'<li><div class="wait"><a href="{compare_link(owner, name, staging)}" '
             f'target="_blank" rel="noopener">{html.escape(name)}</a>'
-            f'<span>{n} commit{"" if n == 1 else "s"} on <code>{html.escape(staging)}</code> '
-            f'that <code>main</code> lacks, oldest from {html.escape(oldest)}.{note}</span>'
+            f'<span>{n} commit{"" if n == 1 else "s"}, oldest {html.escape(oldest)}.{note}</span>'
             f'</div></li>')
     return ('<section class="waiting"><h2>Waiting to go live '
             f'<span class="count">{len(lis)}</span></h2>'
-            '<p class="carried">Say Produce in a session rooted in that repository '
-            'to move it into main. Each link opens GitHub\'s comparison of the two.</p>'
             f'<ul>{"".join(lis)}</ul></section>')
 
 
@@ -1030,9 +1064,8 @@ def _listable(rows, fresh=True):
 def _moved_note(b):
     if b not in ENGINE_BRANCHES:
         return ''
-    return (' <span class="carried">The engine\'s old name for '
-            f'<code>{html.escape(DATA_PREFIX + b.split("-", 1)[1])}</code>, '
-            'which now holds its whole history. Nothing reads this one.</span>')
+    return (' <span class="carried">Old name of '
+            f'<code>{html.escape(DATA_PREFIX + b.split("-", 1)[1])}</code>.</span>')
 
 
 def _section(owner, name, rows, note='', cleanup=''):
@@ -1056,7 +1089,7 @@ def _section(owner, name, rows, note='', cleanup=''):
 def _open_next(owner, name, rows):
     first = link(owner, name, rows[0][0]) if rows else '#'
     return ('<p class="open-all"><a class="open-next" href="' + first + '" '
-            'target="_blank" rel="noopener">Open the next one in a new tab</a>'
+            'target="_blank" rel="noopener">Open next</a>'
             '<span class="open-status" role="status"></span></p>')
 
 
@@ -1085,14 +1118,13 @@ def render_html(groups, now=None, tz='', carried=(), waiting=(), carried_wait=()
              for owner, name, rows in groups]
     for owner, name, rows, checked in carried:
         try:
-            when = ', ' + built_line(datetime.datetime.fromisoformat(checked),
-                                     tz)[len('Refreshed '):]
+            when = ' ' + built_line(datetime.datetime.fromisoformat(checked),
+                                    tz)[len('Refreshed '):]
         except (TypeError, ValueError):
             when = ''
         secs.append(_section(owner, name, rows,
-                             f'Not open in the session that refreshed this page: '
-                             f'as listed when last checked{when}. A branch here '
-                             f'may already be gone.', cleanup=line(owner, name, rows)))
+                             f'Checked{when or " earlier"}.',
+                             cleanup=line(owner, name, rows)))
     data = {'format': PAGE_FORMAT, 'built': now.isoformat(), 'done': {}, 'repos': [
         {'owner': o, 'repo': n, 'checked': now.isoformat(),
          'branches': [[b, d] for b, d in rows]} for o, n, rows in groups] + [
@@ -1106,7 +1138,7 @@ def render_html(groups, now=None, tz='', carried=(), waiting=(), carried_wait=()
     # The list the next merge reads (read_page); '<' escaped so no branch
     # name can close the script element.
     secs.append('<script type="application/json" id="branch-data">'
-                + json.dumps(data).replace('<', '\\u003c') + '</script>')
+                + page_json(data).replace('<', '\\u003c') + '</script>')
     return (_PAGE.replace('{{TOTAL}}', str(total))
             .replace('{{BUILT}}', html.escape(built_line(now, tz)))
             .replace('{{BUILD}}', now.strftime('%Y%m%dT%H%M%SZ'))
@@ -1126,7 +1158,6 @@ _PAGE = '''<title>Branch Cleanup</title>
 body { background:var(--bg); color:var(--fg); font-family:var(--sans); font-size:15px; line-height:1.5; }
 main { max-width:760px; margin:0 auto; padding-inline:16px; padding-block:28px 56px; display:grid; gap:28px; }
 h1 { font-size:1.6rem; font-weight:600; margin:0; text-wrap:balance; }
-.lede { color:var(--muted); margin:6px 0 0; max-width:62ch; }
 .built { font-family:var(--mono); font-size:.8rem; color:var(--muted); margin:4px 0 0; font-variant-numeric:tabular-nums; }
 .bar { position:sticky; top:env(safe-area-inset-top,0px); background:var(--bg); padding-block:10px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; flex-wrap:wrap; z-index:1; }
 .bar .progress { font-variant-numeric:tabular-nums; font-weight:500; }
@@ -1169,7 +1200,6 @@ li + li { border-top:1px solid var(--line); }
 <header>
 <h1>Branch cleanup</h1>
 <p class="built">{{BUILT}}</p>
-<p class="lede">{{TOTAL}} branches, all already in <code>main</code>, so deleting any of them loses nothing. Each link opens GitHub's branch list filtered to that one branch; delete it with the trash icon there. Never listed: <code>main</code>, <code>staging</code>, and the engine's live <code>data-</code> branches. An engine branch's old name shows up only once its <code>data-</code> copy holds its whole history, and says so. Checking a branch off, or opening its link, saves the checkmark into this page, so the next refresh leaves it off a repository it cannot check.</p>
 </header>
 <div class="bar"><span class="progress" id="progress">0 of {{TOTAL}} done</span><button type="button" id="clear">Clear checkmarks</button></div>
 {{SECTIONS}}
@@ -1193,9 +1223,23 @@ li + li { border-top:1px solid var(--line); }
   try { for(var j=localStorage.length-1;j>=0;j--){ var c=localStorage.key(j); if(c&&c.indexOf('branch-cleanup-clicked')===0&&c!==CKEY) localStorage.removeItem(c); } } catch(e) {}
   try { clicked=JSON.parse(localStorage.getItem(CKEY)||'{}')||{}; } catch(e) { clicked={}; }
   Object.keys(data.clicked||{}).forEach(function(k){ clicked[k]=data.clicked[k]; });
+  // page_json's shape: a branch a line, so the saved page stays readable a
+  // line at a time.
+  function wrap(v, ind){
+    var flat=JSON.stringify(v), inner=ind+' ', parts;
+    if(v===null||typeof v!=='object'||ind.length+flat.length<=100) return flat;
+    if(Array.isArray(v)){
+      if(!v.length) return flat;
+      parts=v.map(function(x){ return inner+wrap(x,inner); });
+      return '[\\n'+parts.join(',\\n')+'\\n'+ind+']';
+    }
+    var ks=Object.keys(v); if(!ks.length) return flat;
+    parts=ks.map(function(k){ return inner+JSON.stringify(k)+':'+wrap(v[k],inner); });
+    return '{\\n'+parts.join(',\\n')+'\\n'+ind+'}';
+  }
   function document_with(d){
     var copy=JSON.parse(JSON.stringify(data)); copy.done=d; copy.clicked=clicked;
-    var json=JSON.stringify(copy).replace(/</g,'\\\\u003c');
+    var json=wrap(copy,'').replace(/</g,'\\\\u003c');
     return HEAD+BODY.replace(DATA_RE,function(_m,a,b){ return a+json+b; })+'</body></html>';
   }
   function publish(){
@@ -1220,11 +1264,11 @@ li + li { border-top:1px solid var(--line); }
   // with no number, always shows (spec/BRANCH_CLEANUP_BUTTON_PLAN.md).
   function cleanup(p){
     var a=p.querySelector('.del-all'); if(!a) return;
-    var how=p.querySelector('.how'), back=p.querySelector('.back');
+    var back=p.querySelector('.back');
     var hours=parseFloat(p.dataset.hours)||0, last=0;
     [p.dataset.last, clicked[p.dataset.repo]].forEach(function(t){ var v=t?Date.parse(t):NaN; if(!isNaN(v)&&v>last) last=v; });
     var due=last+hours*3600000, shown=p.dataset.private!=='1'||!hours||!last||Date.now()>=due;
-    a.hidden=!shown; how.hidden=!shown; back.hidden=shown;
+    a.hidden=!shown; back.hidden=shown;
     if(!shown) back.textContent='Delete-all button back on '+new Date(due).toLocaleDateString(undefined,{day:'numeric',month:'short'})+'.';
   }
   // Any cleanup click checks off every row of the repositories it covers
@@ -1262,7 +1306,7 @@ li + li { border-top:1px solid var(--line); }
     status.textContent='Starting '+pub.length+' cleanup run(s)...';
     var use=(window.claude&&window.claude.use)?window.claude.use('mcp'):Promise.resolve(null);
     Promise.resolve(use).catch(function(){ return null; }).then(function(mcp){
-      if(!mcp){ status.textContent='This view cannot reach GitHub. Use the button in each repository below; your checkmarks are saved.'; all.disabled=false; busy=false; publish(); return; }
+      if(!mcp){ status.textContent='Cannot reach GitHub from here; use each repository\'s button below.'; all.disabled=false; busy=false; publish(); return; }
       var ok=[], bad=[];
       return pub.reduce(function(chain,p){
         return chain.then(function(){
@@ -1271,7 +1315,7 @@ li + li { border-top:1px solid var(--line); }
             .then(function(){ ok.push(r[1]); }, function(e){ bad.push(r[1]+' ('+((e&&WHY[e.code])||(e&&e.code)||'failed')+')'); });
         });
       }, Promise.resolve()).then(function(){
-        status.textContent='Started '+ok.length+' of '+pub.length+'.'+(bad.length?' Not started: '+bad.join('; ')+'. Use the button in that repository below.':' Each run deletes its branches within a minute or two.');
+        status.textContent='Started '+ok.length+' of '+pub.length+'.'+(bad.length?' Not started: '+bad.join('; ')+'.':'');
         all.disabled=false; busy=false;
         if(timer) clearTimeout(timer);
         timer=setTimeout(publish, 30000);
@@ -1291,8 +1335,8 @@ li + li { border-top:1px solid var(--line); }
     var row=(left.length?left:rows)[0];
     a.href=row.querySelector('a').href;
     a._row=row;
-    st.textContent=left.length?' '+left.length+' of '+rows.length+' left, one tab per click.'
-      :' All '+rows.length+' checked off. Clicking starts again from the top.';
+    st.textContent=left.length?' '+left.length+' of '+rows.length+' left'
+      :' All '+rows.length+' checked off';
   }
   nexts.forEach(function(a){
     aim(a);
@@ -1451,6 +1495,7 @@ def main(argv):
         print(f'Publish it to the saved page, in place: {url}, with '
               f'capabilities {caps} so the page can save its own checkmarks and '
               f'its all-public button can start the cleanup runs. '
+              + (PUBLISH_STEPS.format(merged=prev) if '--merge' in argv else '')
               + PAGE_RUNTIME_LINE if url else
               f'No saved page yet: publish it as a new page with capabilities '
               f'{caps}, so it can save its own checkmarks and start the cleanup '

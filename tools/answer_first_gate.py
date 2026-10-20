@@ -57,6 +57,17 @@ person's latest message, the next change goes through, saying so. Morgan:
 "if you write a longer answer for me, IS THERE A REASON TO NOT GIVE IT TO
 ME IMMEDIATELY? WHY WAIT OR WHY REFUSE?"
 
+SLOW WORK NOBODY ASKED FOR IS HELD TOO (Morgan, 2026-10-20: "Can you
+make the enforcement of that stronger?"). He asked whether BestPractice
+had a process for vendoring itself; the session found the answer in two
+commands, then spent minutes rebuilding and publishing the branch cleanup
+page for its closing archive line before writing a word of it. Neither step
+was a change by the list above -- the build writes under /tmp, and a
+publish is no file edit -- so nothing held them. Now a publish with the
+Artifact tool (any call but a read, list or open) and a run of
+precedent_stale_branches.py are held the same way: the answer goes first,
+the page after.
+
 FAIL-OPEN (practice: fail-gracefully): no transcript, an unreadable line,
 an unknown tool, a transcript that has not caught up with the call, or any
 error lets the call through.
@@ -79,10 +90,14 @@ CHANGING_TOOLS = re.compile(
 EDIT_TOOLS = {'Edit', 'Write', 'MultiEdit', 'NotebookEdit'}
 CHANGING_COMMAND = re.compile(
     r'(?:^|[;&|(]\s*|\s)git\s+(?:-C\s+\S+\s+)?(?:commit|push|merge(?!\s+--abort))\b'
-    r'|precedent_branches\.py\b[^\n]*--(?:land|promote)\b')
+    r'|precedent_branches\.py\b[^\n]*--(?:land|promote)\b'
+    r'|precedent_stale_branches\.py\b')
+ARTIFACT_READS = {'read', 'list', 'open', 'quickstart'}
 
 
 def is_change(tool, tool_input):
+    if tool == 'Artifact':
+        return str(tool_input.get('action') or 'publish') not in ARTIFACT_READS
     if tool in EDIT_TOOLS:
         path = str(tool_input.get('file_path') or tool_input.get('notebook_path') or '')
         return not path.startswith('/tmp/')
@@ -212,7 +227,7 @@ def refusal(payload):
             f'in plain words, then make this change: they think about the '
             f'answer while the work runs (practice: '
             f'answer-first-ask-before-long-work). Reading and checking are not '
-            f'held; only changes are.')
+            f'held; only changes, a page publish and the branch page build are.')
 
 
 def main():

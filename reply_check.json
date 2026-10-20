@@ -94,6 +94,7 @@
     "require_section_not_repeated": {
       "heading": "boildown",
       "one_line": "- The work of this session is now on: <where it is>, unchanged since the last update.",
+    "one_line_unlanded": "- The work of this session is now on: {n} branch(es) NOT landed yet ({names}), and <where the rest is>; unchanged since the last update.",
       "same_when_both_say": [
         "Don't archive this session",
         "You can archive this session"

@@ -135,6 +135,79 @@ def elsewhere_warning(root, tool, cwd=None, repo_flag=False):
     return '\n'.join(lines)
 
 
+def _common_dir(top):
+    """-> the resolved shared .git directory of `top`, so a linked worktree
+    and its main checkout compare equal; None when it cannot be read."""
+    try:
+        r = subprocess.run(['git', 'rev-parse', '--git-common-dir'],
+                           cwd=str(top), capture_output=True, text=True,
+                           timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    out = r.stdout.strip()
+    return (pathlib.Path(top) / out).resolve() if r.returncode == 0 and out else None
+
+
+def same_repo(a, b):
+    """True when toplevels `a` and `b` are one repository: the same
+    checkout, worktrees of one clone, or two clones of one origin."""
+    if a == b:
+        return True
+    ca, cb = _common_dir(a), _common_dir(b)
+    if ca and ca == cb:
+        return True
+    oa, ob = origin_url(a), origin_url(b)
+    return bool(oa) and oa.lower() == (ob or '').lower()
+
+
+def elsewhere_refusal(root, tool, cwd=None, repo=None):
+    """-> the text to print, exit nonzero and print NO pass/fail line with,
+    or None to run as usual.
+
+    WHY (2026-10-20). From precedent-shared-ladder, `python3 <BestPractice>/
+    tools/precedent_check.py --only boildown-moments-named` printed the WRONG
+    REPO banner, then "1 passed, 0 violated", exit 0 -- a pass about
+    BestPractice. A session reading only the summary line, as a seed's "done
+    when" invites, takes it as a pass for the repo it is in. A warning above
+    a pass line is not enough; there must be no pass line.
+
+    Refuses only when the current directory is in a DIFFERENT repository
+    (not a worktree or another clone of this one) that has its own
+    tools/<tool>: there is a right copy to run, and this one is plainly the
+    wrong one. `repo` is the tool's --repo argument: naming this tool's own
+    repository is the deliberate "yes, check that one", and runs."""
+    mine = git_toplevel(root)
+    if mine is None:
+        return None
+    if repo is not None:
+        # Asked by name: run only when it names this tool's own repository.
+        asked = git_toplevel(pathlib.Path(repo or '.').expanduser().resolve())
+        if asked and same_repo(asked, mine):
+            return None
+        here = asked
+        if here is None:
+            return (f"{tool}: --repo {repo} is not inside a git repository. "
+                    f"No pass or fail is reported.")
+    else:
+        here = git_toplevel(cwd or os.getcwd())
+        if here is None or same_repo(here, mine):
+            return None
+        if not (here / 'tools' / tool).is_file():
+            return None             # no right copy to send them to: warn only
+    own = here / 'tools' / tool
+    return '\n'.join([
+        BANNER,
+        f"!! WRONG REPO: {tool} checks {label(root)} at {mine}, the repo its",
+        f"!! own file lives in -- not {label(here)} at {here}.",
+        "!! So it reports no pass or fail here: a pass line would be about",
+        "!! the other repository.",
+        (f"!! To check that one:  python3 {own}" if own.is_file() else
+         f"!! {here.name} has no tools/{tool} of its own to check it with."),
+        f"!! To check {mine.name} on purpose:  python3 "
+        f"{pathlib.Path(root) / 'tools' / tool} --repo {mine}",
+        BANNER])
+
+
 def warn_if_elsewhere(root, tool, cwd=None, repo_flag=False, stream=None):
     """Print elsewhere_warning() to stderr (or `stream`) if there is one.
     -> True when it warned. Never raises."""

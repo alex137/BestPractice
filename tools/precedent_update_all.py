@@ -195,7 +195,8 @@ def run_one(repo, work, args):
         if current != base and clean:
             git('switch', '-q', base, cwd=dest)
         result['base'] = base
-        r = subprocess.run([sys.executable, str(UPDATE), '--repo', str(dest)],
+        r = subprocess.run([sys.executable, str(UPDATE), '--repo', str(dest),
+                            *update_args(args)],
                            capture_output=True, text=True)
         out = r.stdout + r.stderr
         log.write_text(out, encoding='utf-8')
@@ -232,6 +233,19 @@ def run_one(repo, work, args):
 
 
 
+def update_args(args):
+    """-> the flags each repository's update is given beyond --repo: the
+    commit a rehearsal takes, and the person's copy-in answers."""
+    out = []
+    if args.rehearse:
+        out += ['--from-ref', args.rehearse]
+    for answer in args.copy_in:
+        out += ['--copy-in', answer]
+    if args.answered_by:
+        out += ['--answered-by', args.answered_by]
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
     ap.add_argument('repos', nargs='+', metavar='OWNER/REPO',
@@ -243,7 +257,20 @@ def main(argv=None):
                     'the session attribution; repeatable')
     ap.add_argument('--no-push', action='store_true',
                     help='stop at READY, after the update, before committing')
+    ap.add_argument('--rehearse', metavar='REF',
+                    help='run every update against this BestPractice commit '
+                    'or branch, unlanded engine code included, and push '
+                    'nothing (implies --no-push): an engine change to Update '
+                    'Vendors or copy-in meets every consumer state before it '
+                    'lands, not one person\'s repository at a time')
+    ap.add_argument('--copy-in', action='append', default=[],
+                    metavar='NAME=yes|no',
+                    help='passed to each update, with --answered-by')
+    ap.add_argument('--answered-by', default='',
+                    help='who gave the --copy-in answers, a date and their words')
     args = ap.parse_args(argv)
+    if args.rehearse:
+        args.no_push = True
     work = pathlib.Path(args.workdir)
     work.mkdir(parents=True, exist_ok=True)
     own = source_repo()
