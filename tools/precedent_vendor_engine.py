@@ -5066,6 +5066,21 @@ _ANSWER_DATE = re.compile(r'\b20\d\d-\d\d-\d\d\b')
 _ANSWER_QUOTE = re.compile(r'"[^"]{2,}"|\u201c[^\u201d]{2,}\u201d')
 
 
+# The session proxy's form of a GitHub remote:
+# http://<user>@127.0.0.1:PORT/git/<owner>/<repo>, the user being local_proxy.
+_PROXY_SLUG_RE = re.compile(
+    r'^https?://[^/]+/git/([A-Za-z0-9][\w-]*)/([\w.-]+?)(?:\.git)?/?$')
+
+
+def _repo_identity(url):
+    """-> 'owner/repo', lowercased, for a GitHub remote in any form it takes
+    here (https, ssh, the session proxy's), or '' for anything else; two
+    remotes naming one repository compare equal."""
+    url = str(url or '').strip()
+    m = _GH_SLUG_RE.search(url) or _PROXY_SLUG_RE.match(url)
+    return f'{m.group(1)}/{m.group(2)}'.lower() if m else ''
+
+
 def _copy_in_candidates(user_config=None):
     """-> [(name, repo_url, clone path or None, brought)] for every set the
     person's individual set brings, then every set it only offers to copy
@@ -5247,9 +5262,17 @@ def copy_in_offers(dest_root, user_config=None, login=None):
     except Exception:                                           # noqa: BLE001
         owners, me = set(), (login or '').lower()
     alone = bool(me) and owners == {me}
+    here = _repo_identity(_rev_text(root, 'remote', 'get-url', 'origin'))
     out = []
     for name, url, clone, brought, set_root in _copy_in_candidates(user_config):
         if name in answered or name in copied:
+            continue
+        # A set this repository itself holds (a voice pack in a folder of
+        # it, named by set_root) is not offered to it: that copies the
+        # repository into itself. Offered on 2026-10-19 to the voice
+        # repository that holds the pack.
+        if (here and _repo_identity(url) == here) or (
+                clone and pr._same_repository(clone, root)):
             continue
         ladder = bool(clone) and pr.LADDER_CAPABILITY in pr.source_provides(
             clone / set_root if set_root else clone)

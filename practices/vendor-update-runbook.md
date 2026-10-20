@@ -101,7 +101,11 @@ that belong to this repo, each named with its file and its question -- work
 them under the conflicted-file review below, then run it again. The rerun
 takes the same source commit the first run read, and so does every run after
 it until one reports DONE, so the target does not move while you work the
-list; `--move` takes the newest commit instead. Every one is
+list; `--move` takes the newest commit instead. Two flags start
+`--take`, so always spell them out: `--take-anyway <commit>` takes a commit
+whose GitHub test has not passed, on the person's word, and `--take-set
+<name>` refreshes a copied-in set on its owner's go-ahead; a bare `--take`
+is refused with both named (2026-10-20). Every one is
 listed in the same run, and while any is open the deep check is not started:
 it is the slow step, so it waits until nothing cheaper is in its way. Where
 the landing branch takes the full check, the basic tier runs first, and a

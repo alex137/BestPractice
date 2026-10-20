@@ -70162,7 +70162,9 @@ def check_copy_in_is_asked_once():
        commit; a set that waits for its owner's go-ahead is reported when
        it moves, not taken, and taken with --take-set.
     6. NEGATIVE CONTROL: an answer with no quote is not recorded.
-    7. The installer asks the same questions and records the same answers."""
+    7. The installer asks the same questions and records the same answers.
+    8. The repository that holds an offered set (in a set_root folder) is
+       not offered it, its origin read in https, ssh or proxy form."""
     import shutil, tempfile, importlib
     sys.path.insert(0, str(ROOT / 'tools'))
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='copy-in-asked-once-'))
@@ -70389,6 +70391,40 @@ def check_copy_in_is_asked_once():
         cases.append(('a practice set is offered nothing, least of all itself',
                       got == [], repr(got)))
 
+        # The repository that holds an offered set in a folder of its own
+        # (set_root) was offered that set, a copy of itself (2026-10-19). Its
+        # origin is the offer's repo_url, written in another of the forms a
+        # GitHub remote takes here.
+        ind_man = ind / 'precedent-source.json'
+        ind_saved = ind_man.read_text()
+        m = json.loads(ind_saved)
+        m['offers'][0]['repo_url'] = 'https://github.com/ZZOwner/zz-voice.git'
+        ind_man.write_text(json.dumps(m))
+        try:
+            holder = make_host('holder', 'private', ['zzme'])
+            git(holder, 'remote', 'add', 'origin',
+                'http://local_proxy' + '@127.0.0.1:9/git/zzowner/zz-voice')
+            got = {o['name'] for o in pve.copy_in_offers(holder)}
+            cases.append(('the repository holding an offered set is not offered '
+                          'it, whatever form its origin is written in',
+                          got == {'zz-ladder', 'zz-writing'}, repr(got)))
+            other = make_host('other', 'private', ['zzme'])
+            git(other, 'remote', 'add', 'origin',
+                'https://github.com/zzowner/zz-elsewhere')
+            got = {o['name'] for o in pve.copy_in_offers(other)}
+            cases.append(('NEGATIVE CONTROL: a repository with another origin is '
+                          'still offered it', 'zz-voice' in got, repr(got)))
+        finally:
+            ind_man.write_text(ind_saved)
+        ids = [pve._repo_identity(u) for u in (
+            'https://github.com/ZZOwner/zz-voice.git',
+            'ssh://' + 'git' + '@github.com/zzowner/zz-voice',
+            'http://local_proxy' + '@127.0.0.1:9/git/zzowner/zz-voice/',
+            'https://example.invalid/zzowner/zz-voice')]
+        cases.append(('one repository reads as one identity in https, ssh and '
+                      'proxy form; another host reads as none',
+                      ids == ['zzowner/zz-voice'] * 3 + [''], repr(ids)))
+
         fresh = make_host('fresh', 'private', ['zzme'])
         lines = pi._copy_in(fresh, {}, '')
         asked = [l for l in lines if l.startswith('copy in, a question:')]
@@ -70411,6 +70447,29 @@ def check_copy_in_is_asked_once():
     check(f'whether to copy a set in is asked once per repository, and the '
           f'answer recorded ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:500]}" for n, d in bad))
+
+
+def check_update_refuses_a_shortened_flag():
+    """`precedent_update.py --take X` was ambiguous between --take-anyway and
+    --take-set (2026-10-19). A shortened flag is refused, naming every flag
+    it could mean in full, before anything runs; a full flag still parses."""
+    cases = []
+    for argv, want in ((['--take', 'abc'], '--take-anyway or --take-set'),
+                       (['--take-a', 'abc'], 'in full: --take-anyway'),
+                       (['--mo'], 'in full: --move')):
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                            *argv], capture_output=True, text=True, timeout=60)
+        cases.append((' '.join(argv), r.returncode != 0 and want in r.stdout,
+                      (r.stdout + r.stderr)[-300:]))
+    # NEGATIVE CONTROL: a full flag is not refused as a shortening.
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                        '--take-set'], capture_output=True, text=True, timeout=60)
+    cases.append(('--take-set in full', 'is not a flag' not in r.stdout
+                  and 'expected one argument' in r.stderr, (r.stdout + r.stderr)[-300:]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check('Update Vendors refuses a shortened flag, naming the full ones it '
+          f'could mean ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
 def check_vendored_engine_reads_the_consumer_root():
@@ -88074,6 +88133,7 @@ def main():
     check_copy_in_is_asked_once()
     check_early_copy_in_yes_waits_for_the_set()
     check_copy_in_question_names_what_would_leak()
+    check_update_refuses_a_shortened_flag()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()

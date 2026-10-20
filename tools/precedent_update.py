@@ -6218,8 +6218,13 @@ def closing_check(repo, rep, skip_check=False):
 
 
 def main(argv=None):
+    # No abbreviations: `--take` was ambiguous between --take-anyway and
+    # --take-set, and argparse's own refusal named neither usefully
+    # (2026-10-19, Update Vendors in a consumer). A shortened flag is
+    # refused below with every flag it could mean, spelled out.
     ap = argparse.ArgumentParser(
-        description='Update Vendors as one command (spec/ONE_COMMAND_UPDATE_PLAN.md).')
+        description='Update Vendors as one command (spec/ONE_COMMAND_UPDATE_PLAN.md).',
+        allow_abbrev=False)
     ap.add_argument('--repo', default='.', help='the consuming repo (default: .)')
     ap.add_argument('--skip-check', action='store_true',
                     help='leave the deep check out; it still gates the push')
@@ -6248,6 +6253,15 @@ def main(argv=None):
     ap.add_argument('--take-set', action='append', default=[], metavar='NAME',
                     help='refresh this copied-in set although it waits for its '
                          'owner\'s go-ahead -- only on that go-ahead')
+    flags = [f for f in ap._option_string_actions if f.startswith('--')]
+    for tok in (sys.argv[1:] if argv is None else argv):
+        word = tok.split('=', 1)[0]
+        if word.startswith('--') and word not in flags:
+            meant = sorted(f for f in flags if f.startswith(word))
+            if meant:
+                print(f'precedent_update FAIL: {word} is not a flag; say which '
+                      f'you mean in full: {" or ".join(meant)}')
+                return FAILED
     a = ap.parse_args(argv)
     repo = pathlib.Path(a.repo).resolve()
     copy_in, bad = pve.parse_copy_in_answers(a.copy_in)
