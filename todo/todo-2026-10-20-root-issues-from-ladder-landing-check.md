@@ -84,7 +84,10 @@ named harness check); `precedent_push_check.py` passed on the branch.
    bracketed-list suffix, plus "so" and "to" so an infinitive order still
    fires. The ladder pair cannot drop its triggers yet: `inherits` merges
    whole keys, and its triggers name staging as well as main, so it would
-   need an engine key for the destination first. Not built.
+   need an engine key for the destination first. That engine key is not
+   blocked; the ladder half has to wait until consumers' engines carry it,
+   or an older engine would read the ladder rule with no triggers at all.
+   Engine half proposed to Morgan 2026-10-20, about 30 minutes.
 3. Fixed, mechanism only. In this harness a seeded prompt is recorded with
    origin `task-notification`, which the gate never reads; the refused session
    must have received the prompt as a typed message. The incident itself was
@@ -99,9 +102,10 @@ named harness check); `precedent_push_check.py` passed on the branch.
    only "Where the work stops" and says the rest holds, so the line already
    applies there.
 6. Fixed: both refusals name the fix; the three skip variables are in
-   [FOR_DEVELOPERS.md](../documentation/FOR_DEVELOPERS.md). The test covers
-   the failed-tree refusal; the practice-hook refusal has no test that
-   triggers it.
+   [FOR_DEVELOPERS.md](../documentation/FOR_DEVELOPERS.md). Both refusals
+   are tested in `check_global_pre_push_refuses_a_tree_the_check_failed` (the
+   practice-hook case added later the same day, when Morgan asked why the
+   gap was written down instead of closed).
 7. Fixed: refresh takes the newest main that passed within ten first-parent
    commits and says which; it refuses only when none passed.
 8. Not built, as asked.

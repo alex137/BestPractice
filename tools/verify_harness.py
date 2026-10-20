@@ -59818,6 +59818,25 @@ def check_global_pre_push_refuses_a_tree_the_check_failed():
         cases.append(('once the same tree passes, it pushes',
                       r.returncode == 0 and p.returncode == 0,
                       r.stdout[-300:] + p.stderr[-300:]))
+        # 2026-10-20: the practice-hook refusal ended by naming the variable
+        # that skips it, too. A stub precedent_hooks.py stands in for a
+        # practice's pre-push hook that refuses.
+        (work / 'tools' / 'precedent_hooks.py').write_text(
+            'import sys\nprint("fixture practice: not this push", file=sys.stderr)\n'
+            'sys.exit(1)\n', encoding='utf-8')
+        (work / 'd.md').write_text('d\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'hooked', '--no-verify')
+        p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature')
+        cases.append(("a practice hook's refusal names what to do, never the "
+                      "variable that skips it",
+                      p.returncode != 0 and 'a practice in force here refused it'
+                      in p.stderr and 'Do what it says' in p.stderr
+                      and 'PRECEDENT_SKIP_' not in p.stderr, p.stderr[-400:]))
+        p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature',
+              PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS='1')
+        cases.append(('PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS=1, a person\'s choice, '
+                      'still lets one push through and says so',
+                      p.returncode == 0 and 'SKIPPED' in p.stderr, p.stderr[-400:]))
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the global pre-push refuses a tree the push check failed '
           f'({len(cases)} stated cases)',
