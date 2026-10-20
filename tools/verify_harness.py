@@ -24213,6 +24213,15 @@ def check_precedent_check_fires():
         case('universal-change-reaches-overrides', _plant_override_drift,
              advisory=True)
 
+        # todo-is-a-handoff -- a line added to an open item that leaves work
+        # undone names nothing blocking it (2026-10-20: "Not built." in an
+        # item's notes, with nothing blocking it).
+        def _plant_gap_without_reason(repo):
+            (repo / 'todo' / 'todo-2026-10-20-planted-gap.md').write_text(
+                '---\nstatus: open\n---\n## What\nThe second half: not built.\n',
+                encoding='utf-8')
+        case('todo-is-a-handoff', _plant_gap_without_reason)
+
         # no-duplication -- in a practice SET, an active practice whose slug
         # its declared universal source also has active is refused (Morgan,
         # 2026-10-06: "rules should not be repeated, but supporting repos can
