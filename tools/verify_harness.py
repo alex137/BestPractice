@@ -41223,6 +41223,39 @@ def check_branch_tiers():
                        capture_output=True, env=env)
         cases.append(('a bare push from a detached HEAD cannot be read',
                       targets('') is None))
+        # `git switch -c X && git push` from a detached HEAD: the hook runs
+        # before the switch, and once ran the 14-minute full tier for it
+        # (2026-10-20). Unread, it gets the landing branch's tier; the hook
+        # names the branch the push will run on, and that is read instead.
+        landing = pb.landing_branch(repo, nocfg)[0]
+        landing_tier = pb.tier_for_branch(repo, landing, nocfg)[0]
+        cases.append(('an unread bare push gets the landing branch\'s tier, '
+                      'not the full one',
+                      pb.tier_for_push(repo, '', nocfg)[0] == landing_tier
+                      and 'landing branch' in pb.tier_for_push(repo, '', nocfg)[1]))
+        sw = pb.branch_switched_to
+        cases.append(('`git switch -c X && git push` runs the push on X',
+                      sw(repo, 'git switch -c new-x && git push') == 'new-x'))
+        cases.append(('`git checkout -b X; git push -u origin X` reads X',
+                      sw(repo, 'git checkout -b y ; git push -u origin y') == 'y'))
+        cases.append(('`git checkout FILE` changes no branch',
+                      sw(repo, 'git checkout notes.md && git push') is None))
+        cases.append(('`git checkout BRANCH` does',
+                      sw(repo, 'git checkout topic && git push') == 'topic'))
+        cases.append(('a switch AFTER the push is not read',
+                      sw(repo, 'git push && git switch -c later') is None))
+        old_env = os.environ.get(pb.PUSH_FROM_ENV)
+        os.environ[pb.PUSH_FROM_ENV] = 'new-x'
+        try:
+            named = targets('')
+            named_tier = pb.tier_for_push(repo, '', nocfg)
+        finally:
+            if old_env is None:
+                os.environ.pop(pb.PUSH_FROM_ENV, None)
+            else:
+                os.environ[pb.PUSH_FROM_ENV] = old_env
+        cases.append(('the branch the hook names is where a bare push goes',
+                      named == ['new-x'] and 'landing branch' not in named_tier[1]))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -63315,6 +63348,37 @@ def check_landed_branch_gets_its_delete_link():
         cases.append(('...given once, it is not owed again',
                       r7.returncode == 0 and r8.returncode == 0,
                       f'exit {r7.returncode}/{r8.returncode}: {r7.stderr[:200]} {r8.stderr[:200]}'))
+        # 2026-10-20: a session rooted ABOVE its repositories has no .git of
+        # its own, so the given-links record had nowhere to live and the same
+        # delete link was asked for in every reply. Each repository keeps it.
+        def replycheck_above(name, text):
+            q = tmp / name
+            q.write_text(text, encoding='utf-8')
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(repo), '--text', str(q)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**env, 'CLAUDE_PROJECT_DIR': str(tmp),
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json'),
+                     'CLAUDE_CODE_REMOTE_SESSION_ID': sid})
+        above = '2026-10-20-me-above-abcde-r5t6y'
+        g('switch', '-q', '-c', above, 'trunk')
+        (repo / 'f.txt').write_text('f\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'above'); g('push', '-q', 'origin', above)
+        g('push', '-q', 'origin', f'{above}:trunk')
+        g('switch', '-q', 'trunk'); g('pull', '-q', 'origin', 'trunk')
+        ra0 = replycheck_above('above-bare.md', bare)
+        ra1 = replycheck_above('above-linked.md', bare + (
+            f'- Delete [it](https://github.com/o/r/branches/all?query={above}) '
+            'when you like; it merged into `trunk`.\n'))
+        ra2 = replycheck_above('above-later.md', bare)
+        cases.append(('rooted above the repository: its landed branch is owed its link',
+                      ra0.returncode == 2 and above in ra0.stderr,
+                      f'exit {ra0.returncode}: {ra0.stderr[:300]}'))
+        cases.append(('THE DISCRIMINATING CASE: rooted above the repository, a link '
+                      'given once is not owed again in a later reply',
+                      ra1.returncode == 0 and ra2.returncode == 0,
+                      f'exit {ra1.returncode}/{ra2.returncode}: {ra2.stderr[:300]}'))
         g('push', '-q', 'origin', '--delete', theirs)
         mine2 = '2026-10-19-me-gone-abcde-w4x8v'
         g('switch', '-q', '-c', mine2, 'trunk')
@@ -63335,6 +63399,62 @@ def check_landed_branch_gets_its_delete_link():
         sys.path.pop(0)
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'a branch landed during the turn gets its delete link '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_session_file_over_ceiling_names_the_individual_share():
+    """The session check's over-ceiling row for .precedent/SESSION_PRACTICES.md
+    says how much of the charge is the person's own individual set, which the
+    repository cannot shorten, and how much is the repository's own.
+
+    WHY. 2026-10-20, a consuming repository: ceiling 400, seeded when its own
+    part measured 312; the session check failed every session start at
+    ~1,510 and told the repository to do a reduction pass. ~1,176 of it was
+    the person's individual set; the repository's own part, ~334, was within
+    its ceiling."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_session_check as psc
+    import precedent_session_practices as psp
+    import precedent_resolve as pr
+    cases = []
+    saved_share, saved_load = getattr(psp, 'individual_share', None), pr.load_config
+    try:
+        psp.individual_share = lambda repo: 1176
+        part = getattr(psc, '_individual_part', lambda n, cap: '')(1510, 400)
+        cases.append(('THE DISCRIMINATING CASE: the row names the individual '
+                      "set's share and the repository's own",
+                      '~1,176' in part and '~334' in part
+                      and 'individual set' in part, repr(part)))
+        cases.append(('...and says the repository part is within its ceiling',
+                      'within its ceiling' in part, repr(part)))
+        psp.individual_share = lambda repo: 0
+        cases.append(('no individual share: nothing added',
+                      getattr(psc, '_individual_part', lambda n, cap: '')(1510, 400) == '',
+                      ''))
+        seen = []
+        pr.load_config = lambda repo: [
+            {'level': 'universal', 'name': 'u', 'path': '.'},
+            {'level': 'individual', 'name': 'me', 'path': '/nowhere'}]
+        _resolve = pr.resolve
+        pr.resolve = lambda sources: (seen.append([s['level'] for s in sources])
+                                      or {'missing': [], 'practices': {}})
+        try:
+            try:
+                psp.collect(str(ROOT), skip_brought=True, skip_individual=True)
+            except Exception:                                # noqa: BLE001
+                pass
+        finally:
+            pr.resolve = _resolve
+        cases.append(('collect(skip_individual=True) resolves without the '
+                      'individual set', seen[:1] == [['universal']], str(seen)))
+    finally:
+        if saved_share is not None:
+            psp.individual_share = saved_share
+        pr.load_config = saved_load
+        sys.path.pop(0)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the session file over its ceiling names the individual share '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
 
@@ -70206,6 +70326,72 @@ def check_early_copy_in_yes_waits_for_the_set():
           not bad, '; '.join(f"{n} -- {str(d)[:500]}" for n, d in bad))
 
 
+def check_failed_rerun_keeps_an_uncommitted_copied_in_set():
+    """A FAILED Update Vendors run's rerun puts back the engine files that run
+    staged, and never a copied-in set's files.
+
+    2026-10-19, a consuming repository: the first run copied a voice pack in
+    (never committed, so not in HEAD) and ended FAILED; the rerun's put-back
+    (restore_own_staged_output) took the copy's directory for part of the
+    mirrored catalogue -- mirrored_prefixes() lists every vendored source's
+    path -- and, finding it absent from HEAD, deleted every file. The
+    copy's record, process/manifest_<set>.json, is outside that directory and
+    stayed, so the refresh read the set as already copied and the sync then
+    refused it as empty. Nothing writes a copy again from HEAD, so it is not
+    the engine's to put back.
+
+    Negative control, measured 2026-10-20 against staging at 75970f4a0: the
+    copy's files are gone after the put-back and its record is still there."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='rerun-keeps-copy-'))
+    genv = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+            'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    g = lambda *a: subprocess.run(['git', '-C', str(tmp), *a], env=genv,
+                                  capture_output=True, text=True)
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(tmp)], env=genv,
+                       check=True)
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'engine.py').write_text('old\n')
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'sources': []}, indent=2))
+        g('add', '-A')
+        g('commit', '-qm', 'init')
+        # Run 1: refreshes the engine, copies a set in, then fails.
+        (tmp / 'tools' / 'engine.py').write_text('new\n')
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'sources': [
+                {'level': 'shared', 'name': 'zz-voice',
+                 'path': 'process/zz-voice', 'vendored': True}]}, indent=2))
+        copy = tmp / 'process' / 'zz-voice'
+        (copy / 'practices').mkdir(parents=True)
+        (copy / 'precedent-source.json').write_text('{"name": "zz-voice"}')
+        (copy / 'practices' / 'zz-voice-rule.md').write_text('# v\n')
+        (tmp / 'process' / 'manifest_zz-voice.json').write_text(json.dumps(
+            {'upstream': {'repo': 'https://example.invalid/zz-voice',
+                          'vendored_at': 'process/zz-voice', 'commit': 'a' * 40}}))
+        g('add', '-A')
+        staged = g('diff', '--cached', '--name-only').stdout.split()
+        pu.record_staged_output(tmp, staged)          # run 1 ended FAILED
+        back = pu.restore_own_staged_output(tmp, pu.vendored_layer_paths)
+        cases.append(('the engine file the failed run staged is put back',
+                      (tmp / 'tools' / 'engine.py').read_text() == 'old\n',
+                      repr(back)))
+        cases.append(("the copied-in set's files stay, with its record",
+                      (copy / 'precedent-source.json').is_file()
+                      and (copy / 'practices' / 'zz-voice-rule.md').is_file()
+                      and (tmp / 'process' / 'manifest_zz-voice.json').is_file(),
+                      repr(back)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_copy_in_is_asked_once():
     """Part 6 of spec/VENDORED_SHARED_SETS.md (Morgan, 2026-10-19: "it's a
     question with each new repo and (one time) when we update vendors to
@@ -70223,7 +70409,9 @@ def check_copy_in_is_asked_once():
        commit; a set that waits for its owner's go-ahead is reported when
        it moves, not taken, and taken with --take-set.
     6. NEGATIVE CONTROL: an answer with no quote is not recorded.
-    7. The installer asks the same questions and records the same answers."""
+    7. The installer asks the same questions and records the same answers.
+    8. The repository that holds an offered set (in a set_root folder) is
+       not offered it, its origin read in https, ssh or proxy form."""
     import shutil, tempfile, importlib
     sys.path.insert(0, str(ROOT / 'tools'))
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='copy-in-asked-once-'))
@@ -70450,6 +70638,40 @@ def check_copy_in_is_asked_once():
         cases.append(('a practice set is offered nothing, least of all itself',
                       got == [], repr(got)))
 
+        # The repository that holds an offered set in a folder of its own
+        # (set_root) was offered that set, a copy of itself (2026-10-19). Its
+        # origin is the offer's repo_url, written in another of the forms a
+        # GitHub remote takes here.
+        ind_man = ind / 'precedent-source.json'
+        ind_saved = ind_man.read_text()
+        m = json.loads(ind_saved)
+        m['offers'][0]['repo_url'] = 'https://github.com/ZZOwner/zz-voice.git'
+        ind_man.write_text(json.dumps(m))
+        try:
+            holder = make_host('holder', 'private', ['zzme'])
+            git(holder, 'remote', 'add', 'origin',
+                'http://local_proxy' + '@127.0.0.1:9/git/zzowner/zz-voice')
+            got = {o['name'] for o in pve.copy_in_offers(holder)}
+            cases.append(('the repository holding an offered set is not offered '
+                          'it, whatever form its origin is written in',
+                          got == {'zz-ladder', 'zz-writing'}, repr(got)))
+            other = make_host('other', 'private', ['zzme'])
+            git(other, 'remote', 'add', 'origin',
+                'https://github.com/zzowner/zz-elsewhere')
+            got = {o['name'] for o in pve.copy_in_offers(other)}
+            cases.append(('NEGATIVE CONTROL: a repository with another origin is '
+                          'still offered it', 'zz-voice' in got, repr(got)))
+        finally:
+            ind_man.write_text(ind_saved)
+        ids = [pve._repo_identity(u) for u in (
+            'https://github.com/ZZOwner/zz-voice.git',
+            'ssh://' + 'git' + '@github.com/zzowner/zz-voice',
+            'http://local_proxy' + '@127.0.0.1:9/git/zzowner/zz-voice/',
+            'https://example.invalid/zzowner/zz-voice')]
+        cases.append(('one repository reads as one identity in https, ssh and '
+                      'proxy form; another host reads as none',
+                      ids == ['zzowner/zz-voice'] * 3 + [''], repr(ids)))
+
         fresh = make_host('fresh', 'private', ['zzme'])
         lines = pi._copy_in(fresh, {}, '')
         asked = [l for l in lines if l.startswith('copy in, a question:')]
@@ -70472,6 +70694,29 @@ def check_copy_in_is_asked_once():
     check(f'whether to copy a set in is asked once per repository, and the '
           f'answer recorded ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:500]}" for n, d in bad))
+
+
+def check_update_refuses_a_shortened_flag():
+    """`precedent_update.py --take X` was ambiguous between --take-anyway and
+    --take-set (2026-10-19). A shortened flag is refused, naming every flag
+    it could mean in full, before anything runs; a full flag still parses."""
+    cases = []
+    for argv, want in ((['--take', 'abc'], '--take-anyway or --take-set'),
+                       (['--take-a', 'abc'], 'in full: --take-anyway'),
+                       (['--mo'], 'in full: --move')):
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                            *argv], capture_output=True, text=True, timeout=60)
+        cases.append((' '.join(argv), r.returncode != 0 and want in r.stdout,
+                      (r.stdout + r.stderr)[-300:]))
+    # NEGATIVE CONTROL: a full flag is not refused as a shortening.
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                        '--take-set'], capture_output=True, text=True, timeout=60)
+    cases.append(('--take-set in full', 'is not a flag' not in r.stdout
+                  and 'expected one argument' in r.stderr, (r.stdout + r.stderr)[-300:]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check('Update Vendors refuses a shortened flag, naming the full ones it '
+          f'could mean ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
 def check_vendored_engine_reads_the_consumer_root():
@@ -88050,6 +88295,7 @@ def main():
     check_update_question_names_new_gates()
     check_data_branches_are_named_for_the_ladder()
     check_landed_branch_gets_its_delete_link()
+    check_session_file_over_ceiling_names_the_individual_share()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
     check_date_check_skips_commits_github_made()
@@ -88134,8 +88380,11 @@ def main():
     check_copied_in_shared_sets()
     check_copied_set_carries_another()
     check_copy_in_is_asked_once()
+    check('a failed update\'s rerun keeps an uncommitted copied-in set',
+          *check_failed_rerun_keeps_an_uncommitted_copied_in_set())
     check_early_copy_in_yes_waits_for_the_set()
     check_copy_in_question_names_what_would_leak()
+    check_update_refuses_a_shortened_flag()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()

@@ -1189,7 +1189,10 @@ def refresh_copies_step(repo, rep, take_sets=()):
         # A copy whose files are not there is made again, whatever its
         # record says: a failed update's rerun can leave the record and
         # clear the tree, and a go-ahead set was then never re-copied
-        # (2026-10-19, a voice pack left empty in a consumer).
+        # (2026-10-19, a voice pack left empty in a consumer). A backstop:
+        # the cause, the put-back taking the copy for engine output, is
+        # fixed in vendored_layer_paths(); this still covers a copy lost
+        # any other way.
         here = repo / str(e['path'])
         first = not up.get('commit') or not (here / pr.SOURCE_MANIFEST).is_file()
         if man.get('copy_refresh') == 'on-go-ahead' and not first \
@@ -4400,8 +4403,33 @@ def vendored_layer_paths(repo, paths):
     # for the person, the update never DONE (2026-10-16, a consumer taking
     # precedent-branch-cleanup.yml). Put back, the new engine writes it again.
     shipped = {rel for rows in pve.CI_WORKFLOW_TEMPLATES.values() for _t, rel in rows}
-    return [p for p in paths if p.startswith(engine)
-            or p == 'process/manifest.json' or p in declared or p in shipped]
+    # A copied-in set is a mirror too, but nothing writes it again from HEAD:
+    # its refresh copies only a set that moved or has no record, and its
+    # record (process/manifest_<set>.json) is outside its folder, so it is
+    # never put back with it. Put back, an uncommitted copy was deleted and
+    # its record kept, and the set read as copied and empty (2026-10-19, a
+    # voice pack in a consumer).
+    copies = tuple(p.rstrip('/') + '/' for p in copied_in_paths(repo))
+    return [p for p in paths if not p.startswith(copies) and (
+            p.startswith(engine) or p == 'process/manifest.json'
+            or p in declared or p in shipped)]
+
+
+def copied_in_paths(repo):
+    """-> the folders precedent.json, as committed or as the run left it,
+    declares as copied-in sets (`"vendored": true`)."""
+    out = set()
+    for spec in ('HEAD:precedent.json', None):
+        try:
+            text = (subprocess.run(['git', '-C', str(repo), 'show', spec],
+                                   capture_output=True, text=True).stdout if spec
+                    else (repo / 'precedent.json').read_text(encoding='utf-8'))
+            for e in (json.loads(text) or {}).get('sources') or []:
+                if isinstance(e, dict) and e.get('vendored') is True and e.get('path'):
+                    out.add(str(e['path']).strip('/'))
+        except (OSError, ValueError, AttributeError):
+            pass
+    return sorted(p for p in out if p not in ('', '.'))
 
 
 def restore_own_staged_output(repo, select):
@@ -6218,8 +6246,13 @@ def closing_check(repo, rep, skip_check=False):
 
 
 def main(argv=None):
+    # No abbreviations: `--take` was ambiguous between --take-anyway and
+    # --take-set, and argparse's own refusal named neither usefully
+    # (2026-10-19, Update Vendors in a consumer). A shortened flag is
+    # refused below with every flag it could mean, spelled out.
     ap = argparse.ArgumentParser(
-        description='Update Vendors as one command (spec/ONE_COMMAND_UPDATE_PLAN.md).')
+        description='Update Vendors as one command (spec/ONE_COMMAND_UPDATE_PLAN.md).',
+        allow_abbrev=False)
     ap.add_argument('--repo', default='.', help='the consuming repo (default: .)')
     ap.add_argument('--skip-check', action='store_true',
                     help='leave the deep check out; it still gates the push')
@@ -6248,6 +6281,15 @@ def main(argv=None):
     ap.add_argument('--take-set', action='append', default=[], metavar='NAME',
                     help='refresh this copied-in set although it waits for its '
                          'owner\'s go-ahead -- only on that go-ahead')
+    flags = [f for f in ap._option_string_actions if f.startswith('--')]
+    for tok in (sys.argv[1:] if argv is None else argv):
+        word = tok.split('=', 1)[0]
+        if word.startswith('--') and word not in flags:
+            meant = sorted(f for f in flags if f.startswith(word))
+            if meant:
+                print(f'precedent_update FAIL: {word} is not a flag; say which '
+                      f'you mean in full: {" or ".join(meant)}')
+                return FAILED
     a = ap.parse_args(argv)
     repo = pathlib.Path(a.repo).resolve()
     copy_in, bad = pve.parse_copy_in_answers(a.copy_in)
