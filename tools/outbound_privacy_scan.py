@@ -16,8 +16,12 @@ reports every outbound one holding a private term, the term masked, the
 same way the gate decides what is outbound and what is private.
 
 As a Stop hook it speaks once per finding: a finding it has reported is
-recorded in .precedent/outbound_scan_seen.json, and the next stop is quiet
-unless a new one appears. A new finding ends the turn with exit 2, so the
+recorded beside the session's transcript (<session>/outbound_scan_seen.json),
+and the next stop is quiet unless a new one appears. The record belongs to
+the session, not the repository: a session rooted above several
+repositories runs this hook once per repository, and a record kept in each
+one reported the same finding once per repository (2026-10-20, one tool
+call reported from both BestPractice and a set beside it). A new finding ends the turn with exit 2, so the
 session tells the person in its reply what went out, where and when.
 
 WHY (Alex, 2026-10-18: "Or at least better track when this happens?"). The
@@ -34,7 +38,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import outbound_privacy_gate as gate  # noqa: E402
 
 ROOT = gate.ROOT
-SEEN = ROOT / '.precedent' / 'outbound_scan_seen.json'
+# Where the record lived before 2026-10-20, one per repository: still read,
+# so a finding already reported there is not reported again; never written.
+LEGACY_SEEN = ROOT / '.precedent' / 'outbound_scan_seen.json'
+
+
+def seen_path(transcript_path):
+    """-> the session's own record of the findings it has reported, in the
+    session's folder beside its transcript (where its agents' transcripts
+    sit too), whichever repository's hook asks."""
+    return Path(transcript_path).with_suffix('') / 'outbound_scan_seen.json'
+
+
+def _read_seen(path):
+    try:
+        return set(json.loads(path.read_text(encoding='utf-8')))
+    except (OSError, ValueError, TypeError):
+        return set()
 
 
 # What a tool call's result says when the call never ran: the gate's own
@@ -133,12 +153,13 @@ def hook():
         return 0
     try:
         found = scan(transcripts_for(tp))
-        seen = set(json.loads(SEEN.read_text(encoding='utf-8'))) if SEEN.exists() else set()
-        new = [f for f in found if f['id'] and f['id'] not in seen]
+        record = seen_path(tp)
+        seen = _read_seen(record)
+        new = [f for f in found if f['id'] and f['id'] not in seen | _read_seen(LEGACY_SEEN)]
         if not new:
             return 0
-        SEEN.parent.mkdir(parents=True, exist_ok=True)
-        SEEN.write_text(json.dumps(sorted(seen | {f['id'] for f in new})), encoding='utf-8')
+        record.parent.mkdir(parents=True, exist_ok=True)
+        record.write_text(json.dumps(sorted(seen | {f['id'] for f in new})), encoding='utf-8')
     except Exception as e:  # fail open on the plumbing
         print(f'outbound_privacy_scan: {e}', file=sys.stderr)
         return 0

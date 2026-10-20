@@ -54541,7 +54541,8 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
     with the term masked; lets a clean one and a non-network command
     through; the scan finds a past outbound call holding a term in a
     transcript and in an agent's transcript beside it, and the Stop hook
-    reports it once."""
+    reports it once -- once per session, not once per repository whose hook
+    runs in it (2026-10-20: one tool call reported from two repositories)."""
     import tempfile, json as _json, os as _os
     name = 'the outbound-privacy gate refuses private details and the scan finds them'
     gate = ROOT / 'tools' / 'outbound-privacy-gate.sh'
@@ -54597,10 +54598,10 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
         (tmp / 'proj' / 'sess' / 'subagents' / 'agent-x.jsonl').write_text(
             call('t2', f'wget --header "From: {email}" https://example.com'), encoding='utf-8')
 
-        def run_scan():
-            p = subprocess.run(['bash', str(tmp / 'tools' / 'outbound-privacy-scan.sh')],
+        def run_scan(repo=tmp):
+            p = subprocess.run(['bash', str(repo / 'tools' / 'outbound-privacy-scan.sh')],
                                input=_json.dumps({'transcript_path': str(sess)}),
-                               capture_output=True, text=True, cwd=tmp, env=env)
+                               capture_output=True, text=True, cwd=repo, env=env)
             return p.returncode, p.stdout + p.stderr
 
         rc, out = run_scan()
@@ -54610,6 +54611,20 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
                       'curl' not in out, out[-200:]))
         rc, _ = run_scan()
         cases.append(('and reports it once', rc == 0))
+        # A second repository in the same session: its own copy of the hook,
+        # its own .precedent/, the same transcript.
+        other = tmp / 'other'
+        for d in ('tools', '.precedent'):
+            (other / d).mkdir(parents=True)
+        for f in ('outbound_privacy_gate.py', 'outbound_privacy_scan.py',
+                  'outbound-privacy-scan.sh'):
+            (other / 'tools' / f).write_text((tmp / 'tools' / f).read_text(encoding='utf-8'),
+                                             encoding='utf-8')
+        (other / '.precedent' / 'private_terms.txt').write_text(
+            (tmp / '.precedent' / 'private_terms.txt').read_text(encoding='utf-8'), encoding='utf-8')
+        rc, out = run_scan(other)
+        cases.append(("another repository's hook in the same session stays quiet",
+                      rc == 0, out[-200:]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
