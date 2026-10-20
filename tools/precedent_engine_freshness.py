@@ -199,6 +199,10 @@ def declared_sources(root, user=True):
                     src['repo'] = str(entry['repo']).strip()
                 if entry.get('vendored') is True:
                     src['vendored'] = True
+                    # A copy this repository holds on purpose (2026-10-20):
+                    # its row says held, never behind.
+                    if str(entry.get('hold') or '').strip():
+                        src['hold'] = str(entry['hold']).strip()
                 sources.append(src)
     user_cfg = pathlib.Path(os.environ.get(USER_CONFIG_ENV,
                                            DEFAULT_USER_CONFIG)).expanduser()
@@ -352,7 +356,8 @@ def collect_targets(root='.'):
             elif up.get('repo') and up.get('branch') and up.get('commit'):
                 rows.append({'label': label, 'kind': 'vendored',
                              'url': up['repo'], 'branch': up['branch'],
-                             'recorded': up['commit']})
+                             'recorded': up['commit']}
+                            | ({'hold': src['hold']} if src.get('hold') else {}))
             else:
                 rows.append({'label': label, 'kind': 'vendored',
                              'problem': f'{mp.relative_to(root)} records no '
@@ -718,6 +723,14 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
             if not quiet:
                 print(f"freshness: current -- {row['label']} matches "
                       f"{row['branch']} at {row['recorded'][:12]}", file=out)
+            continue
+        if row.get('hold'):
+            current += 1
+            if not quiet:
+                print(f"freshness: held -- {row['label']} has "
+                      f"{row['recorded'][:12]}; {row['branch']} is at "
+                      f"{tip[:12]}. This repository holds it: {row['hold']}",
+                      file=out)
             continue
         behind += 1
         engine_behind += row['kind'] == 'engine'
