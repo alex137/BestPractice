@@ -1228,6 +1228,10 @@ def refresh_copies_step(repo, rep, take_sets=()):
         rc, out = run(checkin + ['--source', name, 'record', str(clone),
                                  '--repo', str(repo), '--note', 'Update Vendors'],
                       repo)
+        # A copy made before copy-in wrote the scrub opt-out gets it here.
+        if pve.copy_skips_scrub(repo, name):
+            rep.step(f'copy of {name}', 'its manifest now opts out of the '
+                     'outbound scrub: a copy is never sent up from here')
         rep.step(f'copy of {name}', next(
             (l for l in out.splitlines() if l.startswith('checkin record')),
             'recorded') if rc == 0 else 'not recorded: ' + tail(out, repo=repo))

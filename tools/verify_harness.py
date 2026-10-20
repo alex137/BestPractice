@@ -64288,6 +64288,20 @@ def check_update_all_vendors_skips_its_own_source():
                           'cloned', r.returncode == 0
                           and r.stdout.startswith('SKIPPED')
                           and not any(pathlib.Path(tmp).iterdir())))
+        # 2026-10-20: copy-in shipped and broke the update twice in its
+        # first day, once per consumer state no test planted. --rehearse
+        # runs an unlanded commit against every consumer, and never pushes.
+        import argparse as _ap
+        ns = _ap.Namespace(rehearse='feature-x', copy_in=['zz=yes'],
+                           answered_by='Zz, 2026-10-20: "yes"', no_push=False)
+        cases.append(('a rehearsal hands its commit and the answers to each '
+                      'update', pua.update_args(ns) == [
+                          '--from-ref', 'feature-x', '--copy-in', 'zz=yes',
+                          '--answered-by', 'Zz, 2026-10-20: "yes"']))
+        import inspect as _inspect
+        src = _inspect.getsource(pua.main)
+        cases.append(('a rehearsal never pushes',
+                      'if args.rehearse:\n        args.no_push = True' in src))
         r = subprocess.run([sys.executable, tool, '--workdir', tmp],
                            capture_output=True, text=True)
         cases.append(('no repositories named: refused by argparse',
@@ -71019,6 +71033,29 @@ def check_copy_in_is_asked_once():
         pu.refresh_copies_step(mine, rep)
         up = json.loads((mine / 'process' / 'manifest_zz-ladder.json')
                         .read_text()).get('upstream', {})
+        # 2026-10-20: a copied set's manifest named no scrub list, so the
+        # audit read it as process/scrub_blocklist.txt and FAILED in every
+        # consumer without one -- a state this test never planted. 'mine'
+        # has no list: the copy's manifest must opt out, with why, and the
+        # audit must pass it.
+        mf = json.loads((mine / 'process' / 'manifest_zz-ladder.json').read_text())
+        import practice_audit as _pa, contextlib, io
+        saved_root, _pa.ROOT = _pa.ROOT, mine
+        try:
+            got = []
+            with contextlib.redirect_stdout(io.StringIO()):
+                _pa.audit_manifest(mine / 'process' / 'manifest_zz-ladder.json',
+                                   False, got, [], [])
+            fails = [f for f in got if f.startswith('SCRUB')]
+        finally:
+            _pa.ROOT = saved_root
+        cases.append(('in a repository with no scrub list, the copy opts out of '
+                      'the outbound scrub, with why, and the audit passes it',
+                      not (mine / 'process' / 'scrub_blocklist.txt').exists()
+                      and mf['upstream'].get('scrub_blocklist', 'absent') is None
+                      and 'ever sent up' in mf['upstream'].get(
+                          '_scrub_blocklist_note', '')
+                      and not fails, repr(mf['upstream'])[:400] + repr(fails)))
         cases.append(('the refresh copies a yes in and records its commit',
                       (mine / 'process' / 'zz-ladder' / 'practices'
                        / 'zz-ladder-rule.md').is_file()

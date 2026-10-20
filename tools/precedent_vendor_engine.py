@@ -5522,6 +5522,7 @@ def record_copy_in(dest_root, name, answer, answered_by, repo_url='',
             manifest.parent.mkdir(parents=True, exist_ok=True)
             manifest.write_text(json.dumps({'upstream': {}}, indent=2) + '\n',
                                 encoding='utf-8')
+        copy_skips_scrub(root, name)
         what += f', declared copied in at process/{name}'
         if ladder:
             be = cfg.get('binds_everyone')
@@ -5536,6 +5537,43 @@ def record_copy_in(dest_root, name, answer, answered_by, repo_url='',
     path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
                     encoding='utf-8')
     return True, what
+
+
+COPY_SCRUB_NOTE = (
+    'null on purpose, written by copy-in: this is a byte-identical copy of a '
+    'shared set, changed only in the set\'s own repository, so nothing in it '
+    'is ever sent up from here -- the outbound scrub has nothing to guard. A '
+    'public repository\'s copy is read by the leak check at the copy-in '
+    'question instead.')
+
+
+def copy_skips_scrub(dest_root, name):
+    """Give a copied-in set's process/manifest_<name>.json the scrub opt-out
+    copy-in owes it, unless the manifest already says something about the
+    scrub. -> True when it wrote one.
+
+    WHY (2026-10-20, copy-in's first real use). practice_audit.py scrubs
+    each manifest's tree for what a repository sends UP to a pack, and reads
+    a manifest with no scrub_blocklist key as "use process/scrub_blocklist.
+    txt". A copied set's manifest had no key, so the update FAILED in every
+    consumer with no list of its own ("blocklist configured ... does not
+    exist") and passed by luck where one existed. A copy comes DOWN and is
+    never edited here (the hand-edit guard), so it opts out, with why."""
+    path = pathlib.Path(dest_root) / 'process' / f'manifest_{name}.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    up = data.setdefault('upstream', {})
+    if not isinstance(up, dict) or 'scrub_blocklist' in up:
+        return False
+    up['scrub_blocklist'] = None
+    up['_scrub_blocklist_note'] = COPY_SCRUB_NOTE
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    return True
 
 
 def copy_in_pending(dest_root, user_config=None):
