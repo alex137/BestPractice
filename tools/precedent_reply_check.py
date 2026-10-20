@@ -1362,8 +1362,17 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
             cur = section_bullets(text, rep['heading'])
             prev = (previous_section(timeline, text, rep['heading'])
                     if cur and len(cur) > 1 else None)
-            if prev and all(item_repeats(i, prev, rep.get('same_when_both_say') or ())
-                            for i in cur):
+            # A delete-link line for a branch still owed one is not a repeat
+            # to refuse: the one-line form plus the owed link lines is what
+            # such a reply is (2026-10-20: the two rules refused every reply
+            # in turn, one for the link lines, one for their absence).
+            rest = cur
+            if prev and 'branches/all?query=' in text:
+                owed = [b for _, b, _ in _delete_links_owed()]
+                rest = [i for i in cur if not any(_linked(i, b) for b in owed)]
+            if prev and (len(rest) == len(cur) or len(rest) > 1) and all(
+                    item_repeats(i, prev, rep.get('same_when_both_say') or ())
+                    for i in rest):
                 out.append({'kind': 'repeat', 'advisory': advisory, 'message': (
                     f"[{r.get('_source', '?')}] every line under the heading "
                     f"matching /{rep['heading']}/i says again what the previous "
@@ -1945,8 +1954,9 @@ def _linked(text, branch):
 
 
 def _record_links_given(text, root=None):
-    """After a passing reply: every owed branch it linked is given, written
-    into its own repository's record (_links_given_files). Never raises."""
+    """After a reply, passing or refused (both are on screen): every owed
+    branch it linked is given, written into its own repository's record
+    (_links_given_files). Never raises."""
     try:
         root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
         new = [(r, b) for r, b, _ in _delete_links_owed(root) if _linked(text, b)]
@@ -2536,10 +2546,15 @@ def main():
         return 0
     bad = [b for b in violations(text, reqs, timeline, wake, prompt)
            if not b.get('advisory')]
+    # A refused reply has been shown too, so the delete links it gave are
+    # given (2026-10-20: recorded on a pass only, a link given in a refused
+    # reply was owed again in its repair, which another rule refused for
+    # repeating it, and no reply ever passed to record it).
+    # practice: branch-delete-links
+    _record_links_given(text)
     if not bad:
         # Recorded first: consuming takes the landed branches off the
         # turn-start record, and they are owed links until recorded given.
-        _record_links_given(text)
         _consume_turn_start()
         return 0
     # The reply that was just refused has ALREADY been shown to the person --
@@ -2607,7 +2622,8 @@ def main():
               'the previous reply\'s, line for line, named below. The person '
               'has ALREADY SEEN it. Output ONLY the one-line form, under the '
               'same heading -- "- The work of this session is now on: <where '
-              'it is>, unchanged since the last update." -- and end the turn: '
+              'it is>, unchanged since the last update." (and below it any '
+              'delete-link line still owed) -- and end the turn: '
               'no correction, no shorter copy, no apology. An empty reply is '
               'not accepted by the harness, so this line is what is owed.',
               file=sys.stderr)

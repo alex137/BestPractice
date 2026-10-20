@@ -14641,13 +14641,20 @@ def main():
               f'run judges it; an edit here lasts until the next sync.')
 
     n_uv = sum(len(r[4]) for r in unverified)
+    # The repo this run checked, on the line a reader keeps, when it is not
+    # the one they stand in (precedent_which_repo.elsewhere_note).
+    try:
+        import precedent_which_repo
+        where = precedent_which_repo.elsewhere_note(ROOT)
+    except Exception:                                        # noqa: BLE001
+        where = ''
     print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
           f'{len(advisory)} advisory, {len(errored)} errored, {len(skipped)} '
           f'skipped, {len(exempted)} exempted, {n_uv} could not be verified '
           f'(a skip is not a pass, and neither is a could-not-verify; '
           f'advisory findings do not fail the run; an exemption is this repo '
           f'declaring the rule does not bind it, with a reason, in '
-          f'precedent.json).')
+          f'precedent.json){where}.')
     if '--changed-files-only' in flags:
         if materialized:
             print(f'note: --changed-files-only: {materialized} changed practice '
