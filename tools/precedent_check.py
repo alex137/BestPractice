@@ -14389,10 +14389,24 @@ def main():
     args = sys.argv[1:]
     flags = {a for a in args if a.startswith('--')}
     # A run from inside a different repo reads THIS repo, silently -- say so
-    # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
+    # (precedent_which_repo.py; gotcha-2026-09-29). Where that repo has its
+    # own copy, refuse with no pass/fail line: a pass here would be about
+    # this repo, and read as one about that (2026-10-20). `--repo PATH`
+    # naming this repo is the deliberate run.
+    repo = None
+    if '--repo' in args:
+        i = args.index('--repo')
+        repo = args[i + 1] if i + 1 < len(args) else ''
+        del args[i:i + 2]
     try:
         import precedent_which_repo
-        precedent_which_repo.warn_if_elsewhere(ROOT, 'precedent_check.py')
+        refusal = precedent_which_repo.elsewhere_refusal(
+            ROOT, 'precedent_check.py', repo=repo)
+        if refusal:
+            print(refusal, file=sys.stderr)
+            return 2
+        if repo is None:
+            precedent_which_repo.warn_if_elsewhere(ROOT, 'precedent_check.py')
     except Exception:                                        # noqa: BLE001
         pass
     # Before --list/--explain/--only read CHECKS, so a source-supplied

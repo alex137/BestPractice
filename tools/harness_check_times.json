@@ -196,6 +196,7 @@
   "check_endgame_merge_finds_the_silent_drop": 1.7,
   "check_engine_capability_holds_a_practice_back": 0.1,
   "check_engine_carries_no_branch_naming_enforcement": 0.1,
+  "check_engine_check_refuses_from_another_repo": 5.8,
   "check_engine_checks_can_be_reached_by_what_you_touched": 0.3,
   "check_engine_fetch_reaches_main_in_a_single_branch_clone": 0.6,
   "check_engine_tools_allowed_and_none_asks": 0.0,

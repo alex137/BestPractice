@@ -67920,6 +67920,88 @@ def check_universal_occasion_share_is_capped():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_engine_check_refuses_from_another_repo():
+    """precedent_check.py run from inside ANOTHER repository that has its own
+    copy prints no pass/fail line and exits 2 (precedent_which_repo.
+    elsewhere_refusal).
+
+    THE COST IT PAID FOR (2026-10-20). From precedent-shared-ladder,
+    `python3 <BestPractice>/tools/precedent_check.py --only
+    boildown-moments-named` printed the WRONG REPO banner, then "1 passed,
+    0 violated", exit 0: a pass about BestPractice, read off the summary line
+    as one about the ladder set.
+
+    Cases: refused, with no summary line, from a repo with its own copy;
+    run as usual from inside ROOT, from a linked worktree of ROOT, from a
+    directory in no repo, and from a repo with no copy of its own (which
+    only warns); `--repo ROOT` runs it on purpose from anywhere; `--repo`
+    naming the other repo is refused."""
+    import subprocess as _sp
+    import tempfile
+    script = ROOT / 'tools' / 'precedent_check.py'
+    if not (ROOT / 'tools' / 'precedent_which_repo.py').is_file():
+        not_applicable('precedent_check refuses from another repo',
+                       'no precedent_which_repo.py')
+        return
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='wrong-repo-'))
+    summary = 'precedent_check:'
+
+    def run(cwd, *extra):
+        r = _sp.run([sys.executable, str(script), '--only',
+                     'boildown-moments-named', *extra], cwd=str(cwd),
+                    capture_output=True, text=True, timeout=300)
+        return r.returncode, r.stdout + r.stderr
+
+    try:
+        other, bare_repo, nowhere = tmp / 'other', tmp / 'bare-repo', tmp / 'nowhere'
+        for d in (other, bare_repo, nowhere):
+            d.mkdir()
+        for d in (other, bare_repo):
+            _sp.run(['git', 'init', '-q', str(d)], check=True)
+        (other / 'tools').mkdir()
+        (other / 'tools' / 'precedent_check.py').write_text('# its own\n')
+
+        rc, out = run(other)
+        cases.append(('from a repo with its own copy: exit 2, no summary line, '
+                      'and it names that copy',
+                      rc == 2 and summary not in out
+                      and str(other / 'tools' / 'precedent_check.py') in out,
+                      out[-400:]))
+        rc, out = run(other, '--repo', str(ROOT))
+        cases.append(('--repo naming this repo runs it on purpose',
+                      rc == 0 and summary in out, out[-400:]))
+        rc, out = run(ROOT, '--repo', str(other))
+        cases.append(('--repo naming the other repo is refused',
+                      rc == 2 and summary not in out, out[-400:]))
+        rc, out = run(ROOT)
+        cases.append(('from inside ROOT it runs', rc == 0 and summary in out,
+                      out[-400:]))
+        rc, out = run(nowhere)
+        cases.append(('from a directory in no repo it runs',
+                      rc == 0 and summary in out, out[-400:]))
+        rc, out = run(bare_repo)
+        cases.append(('from a repo with no copy of its own it warns and runs',
+                      rc == 0 and summary in out and 'WRONG REPO' in out,
+                      out[-400:]))
+        wt = tmp / 'wt'
+        if _sp.run(['git', '-C', str(ROOT), 'worktree', 'add', '-q', '--detach',
+                    str(wt), 'HEAD'], capture_output=True).returncode == 0:
+            try:
+                rc, out = run(wt)
+                cases.append(('from a linked worktree of ROOT it runs',
+                              rc == 0 and summary in out, out[-400:]))
+            finally:
+                _sp.run(['git', '-C', str(ROOT), 'worktree', 'remove', '--force',
+                         str(wt)], capture_output=True)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'precedent_check refuses, with no pass line, from another repo '
+          f'that has its own copy ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_engine_tools_say_which_repo_they_read():
     """An engine tool run from inside ANOTHER repo says so, loudly, and names
     the repo it measured in every output mode (precedent_which_repo.py).
@@ -88903,6 +88985,7 @@ def main():
     check_load_ceiling_blocks_only_the_change_that_grew_it()
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_engine_tools_say_which_repo_they_read()
+    check_engine_check_refuses_from_another_repo()
     check_todo_index_check_survives_midnight()
     check_todo_index_refuses_an_unknown_kind()
     check_clone_lock_makes_parallel_updates_wait()

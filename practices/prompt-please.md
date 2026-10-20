@@ -148,6 +148,11 @@ following, every time:
   named plainly, with the reasoning behind it.
 - **Which repository has to be the primary seed root** -- the one the new
   session needs opened or rooted in before any of this is actionable.
+- **A check the prompt names as "done when" runs from the repository it
+  is about**: that repository's own copy of the tool, from inside it. An
+  engine tool run by path from another checkout reads its own repository,
+  so its pass is about the wrong one (2026-10-20); name the copy the
+  receiving session will have where the work lands.
 - **Which other repositories, if any, need to be attached alongside it.**
   Say "none" explicitly rather than leaving the reader to guess whether the
   question was even considered. **When the work pushes to more than one,
