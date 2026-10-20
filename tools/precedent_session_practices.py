@@ -181,7 +181,7 @@ def collect(repo, skip_brought=False, skip_individual=False):
     if skip_brought:
         sources = [s for s in sources if not s.get('brought')]
     if skip_individual:
-        sources = [s for s in sources if s.get('level') != 'individual']
+        sources = [s for s in sources if pr.declared_level(s) != 'individual']
 
     try:
         res = pr.resolve(sources)
