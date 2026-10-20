@@ -49344,67 +49344,70 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
           '; '.join(f'{n} -- {str(d)[:240]}' for n, d in bad))
 
 
-def check_switchboard_offer_is_made_once_and_only_where_missing():
-    """tools/precedent_switchboard_offer.py offers to wire the switchboard
-    only in a cloud session whose user-level settings lack it, says where a
-    no will be kept, stays silent once the person declined, and holds the
-    same setup step documentation/CLOUD_SETUP.md shows.
+def check_maintainer_heartbeat_names_a_missing_maintainer_once():
+    """tools/precedent_heartbeat.py, practice master-maintainer: a beat
+    lands on the side branch and never on the trunk, reads back as fresh,
+    and a session start in a repository whose heartbeat is missing or stale
+    is told to tell the person, with the prompt that starts one.
 
-    2026-10-19 (Morgan: "ALEX AND EVERYONE ELSE WILL FIND THIS VERY
-    FRUSTRATING", then "Yes, build it"): without it, a person had to find
-    the document and paste the script. Negative control: outside the cloud,
-    with the same missing settings, nothing is offered."""
-    import tempfile, re as _re
-    tool = ROOT / 'tools' / 'precedent_switchboard_offer.py'
+    2026-10-20 (S. Alexander Jacobson, strength: decided): one standing
+    maintainer per repository replaces the per-person switchboard, and its
+    heartbeat is what makes a dead one visible. Negative controls: a
+    repository that declares no maintainer hears nothing, and a fresh beat
+    says nothing."""
+    import tempfile
+    tool = ROOT / 'tools' / 'precedent_heartbeat.py'
     cases = []
-    doc = (ROOT / 'documentation' / 'CLOUD_SETUP.md').read_text(encoding='utf-8')
-    m = _re.search(r'^mkdir -p ~/\.claude\n.*?^PY$', doc, _re.M | _re.S)
-    script = subprocess.run([sys.executable, str(tool), '--script'],
-                            capture_output=True, text=True, timeout=30).stdout.rstrip('\n')
-    cases.append(('the setup step in the document is the one the tool holds',
-                  bool(m) and m.group(0) == script, (m and m.group(0)[:80], script[:80])))
     with tempfile.TemporaryDirectory() as td:
-        home = pathlib.Path(td) / 'home'
-        (home / '.claude').mkdir(parents=True)
-        ind = pathlib.Path(td) / 'ind'
-        ind.mkdir()
-        cfg = pathlib.Path(td) / 'cfg.json'
+        remote, work = pathlib.Path(td) / 'remote.git', pathlib.Path(td) / 'work'
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+        env.pop('CLAUDE_PROJECT_DIR', None)
 
-        def run(remote=True, identity=None, settings=None, with_cfg=True):
-            (home / '.claude' / 'settings.json').write_text(json.dumps(settings or {}),
-                                                           encoding='utf-8')
-            if identity is not None:
-                (ind / 'identity.json').write_text(json.dumps(identity), encoding='utf-8')
-            cfg.write_text(json.dumps({'individual': {'path': str(ind)}}), encoding='utf-8')
-            env = dict(os.environ, HOME=str(home),
-                       PRECEDENT_USER_CONFIG=str(cfg if with_cfg else pathlib.Path(td) / 'none.json'))
-            env.pop('CLAUDE_CODE_REMOTE', None)
-            if remote:
-                env['CLAUDE_CODE_REMOTE'] = 'true'
-            return subprocess.run([sys.executable, str(tool), '--hook'], env=env,
-                                  capture_output=True, text=True, timeout=30)
-        me = {'name': 'A', 'email': 'a@example.com'}
-        r = run(identity=me)
-        cases.append(('THE DISCRIMINATING CASE: a cloud session without the '
-                      'switchboard is told to offer it, and where a no is kept',
-                      'SWITCHBOARD NOT SET UP' in r.stdout
-                      and str(ind / 'identity.json') in r.stdout, r.stdout + r.stderr))
-        r = run(remote=False, identity=me)
-        cases.append(('negative control: outside the cloud, nothing is offered',
+        def git(*a, cwd=None):
+            return subprocess.run(['git', *a], cwd=cwd, env=env, capture_output=True,
+                                  text=True, timeout=60)
+        git('init', '-q', '--bare', str(remote))
+        git('clone', '-q', str(remote), str(work))
+        cfg = {'base_branch': 'main', 'maintainer': {'title': 'Master maintainer (t)',
+               'prompt_file': 'process/jobs/maintainer.md', 'stale_after_hours': 24}}
+        (work / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        git('add', '.', cwd=work)
+        git('commit', '-qm', 'init', cwd=work)
+        git('push', '-q', 'origin', 'HEAD:main', cwd=work)
+
+        def run(*a):
+            return subprocess.run([sys.executable, str(tool), '--repo', str(work), *a],
+                                  env=env, capture_output=True, text=True, timeout=60)
+        r = run('--hook')
+        cases.append(('THE DISCRIMINATING CASE: no heartbeat yet, and session start '
+                      'is told the repository has no maintainer, with the prompt',
+                      'NO LIVE MASTER MAINTAINER' in r.stdout
+                      and 'process/jobs/maintainer.md' in r.stdout, r.stdout + r.stderr))
+        trunk = git('rev-parse', 'origin/main', cwd=work).stdout
+        r = run('beat')
+        git('fetch', '-q', 'origin', cwd=work)
+        cases.append(('a beat lands on the side branch, reads back fresh, and leaves '
+                      'the trunk alone',
+                      r.returncode == 0 and git('rev-parse', 'origin/main', cwd=work).stdout == trunk
+                      and git('ls-remote', '--heads', 'origin', 'maintainer-heartbeat',
+                              cwd=work).stdout.strip() != '', r.stdout + r.stderr))
+        r = run('--hook')
+        cases.append(('negative control: a fresh heartbeat says nothing',
                       not r.stdout, r.stdout))
-        wired = {'hooks': {'Stop': [{'hooks': [{'type': 'command', 'command':
-                 'f=x; python3 "$f/precedent_run_repo_hooks.py" Stop'}]}]}}
-        r = run(identity=me, settings=wired)
-        cases.append(('once the switchboard is wired, nothing is offered',
-                      not r.stdout, r.stdout))
-        r = run(identity=dict(me, switchboard_offer='declined'))
-        cases.append(('after a no kept in the individual set, nothing is offered',
-                      not r.stdout, r.stdout))
-        r = run(with_cfg=False)
-        cases.append(('with no individual set, the offer says it will come back',
-                      'next session' in r.stdout, r.stdout))
+        cfg['maintainer']['stale_after_hours'] = 0
+        (work / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        r = run('--hook')
+        cases.append(('a heartbeat past its limit is named as stale',
+                      'NO LIVE MASTER MAINTAINER' in r.stdout and 'hours old' in r.stdout,
+                      r.stdout + r.stderr))
+        (work / 'precedent.json').write_text(json.dumps({'base_branch': 'main'}),
+                                             encoding='utf-8')
+        r = run('--hook')
+        cases.append(('negative control: a repository with no maintainer block hears '
+                      'nothing', not r.stdout, r.stdout))
     bad = [(n, d) for n, ok, d in cases if not ok]
-    check(f'the switchboard offer is made once and only where missing '
+    check(f'the maintainer heartbeat names a missing maintainer once '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
 
@@ -88002,7 +88005,7 @@ def main():
     check_reply_check_refuses_an_unlinked_branch_or_file()
     check_turn_start_names_what_the_last_reply_left_out()
     check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about()
-    check_switchboard_offer_is_made_once_and_only_where_missing()
+    check_maintainer_heartbeat_names_a_missing_maintainer_once()
     check_cloud_setup_script_writes_each_hook_once()
     check('an empty blocklist is reported as nothing checked, never a pass',
           *check_empty_blocklist_is_not_a_pass())

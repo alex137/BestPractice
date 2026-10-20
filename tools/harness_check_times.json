@@ -611,7 +611,7 @@
   "check_suggested_links_keep_a_dotfiles_leading_dot": 0.1,
   "check_summary_fields_drop_links_before_the_cut": 0.0,
   "check_superseded_source_says_so": 0.0,
-  "check_switchboard_offer_is_made_once_and_only_where_missing": 0.5,
+  "check_maintainer_heartbeat_names_a_missing_maintainer_once": 1.5,
   "check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about": 0.8,
   "check_symlinked_root_path_matching": 0.0,
   "check_sync_check_passes_from_another_checkout": 4.0,

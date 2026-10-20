@@ -399,8 +399,8 @@ HOOK_SCRIPT_FILES = [
     'session-start.sh',
     'stop-git-check.sh',
     'stop-reply-check.sh',
-    # Its logic is precedent_switchboard_offer.py, in ENGINE_FILES (2026-10-19).
-    'switchboard-offer.sh',
+    # Its logic is precedent_heartbeat.py, in ENGINE_FILES (2026-10-20).
+    'maintainer-heartbeat.sh',
     'wait-loop-gate.sh',
     'workflow-write-gate.sh',
 ]
@@ -726,10 +726,9 @@ ENGINE_FILES = [
     # call it, and it runs the hooks of the repository the action is about.
     # Every repo carries it for the same reason.
     'precedent_run_repo_hooks.py',
-    # What switchboard-offer.sh runs (HOOK_SCRIPT_FILES): offers, once, to
-    # wire the switchboard into a cloud environment that lacks it, and holds
-    # the setup step itself, since consumers carry no CLOUD_SETUP.md.
-    'precedent_switchboard_offer.py',
+    # What maintainer-heartbeat.sh runs (HOOK_SCRIPT_FILES), and what the
+    # master maintainer runs to beat: practice master-maintainer (2026-10-20).
+    'precedent_heartbeat.py',
     # The one place a session's feature branch name is built (2026-10-01).
     # act's Rule names it, so every repo resolving act needs the file; it
     # reads the session ID through precedent_detect and the date through
@@ -1204,6 +1203,13 @@ RETIRED_ENGINE_FILES = {
     'precedent_upstream_review.py':
         'moved to the ladder set as tools/ladder/upstream_review.py, 2026-10-17; '
         'the engine finds a set\'s step_review through precedent_resolve.load_set_tool',
+    'precedent_switchboard_offer.py':
+        'retired 2026-10-20 with its SessionStart hook: one master maintainer per '
+        'repository replaces the per-person switchboard offer (practice '
+        'master-maintainer; S. Alexander Jacobson, decided)',
+    'switchboard-offer.sh':
+        'retired 2026-10-20 with precedent_switchboard_offer.py; '
+        'maintainer-heartbeat.sh holds its SessionStart slot',
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 _WAS_COMMIT_ENV = 'PRECEDENT_REFRESH_WAS_COMMIT'  # the pre-refresh source_commit, for a second pass

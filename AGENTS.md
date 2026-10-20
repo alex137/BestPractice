@@ -99,7 +99,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 150 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 151 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -270,6 +270,8 @@ When seeding or scheduling a prompt into another session, or handing a person pa
   seeded-prompt-names-its-origin — line 1 names the session that sent it, line 2 the session it is for
 When setting up a project a session works in, or a session reporting that its checkout is behind:
   fresh-before-write — verify and fast-forward the checkout before the first write, never after
+When setting up a repository's standing session, or session start says the repository has no maintainer:
+  master-maintainer — one standing session per repo checks trunk after landings; a heartbeat shows it
 When starting work the repository or another session may already cover:
   base-branch-is-the-record — read the base branch before starting and before the PR
   lease-in-flight-work — lease slow, costly or external work on a branch; its tool checks the board first
