@@ -30529,6 +30529,40 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
             'Fast-forward your checkout of main before you start.',
         'a push to the feature branch': 'git push -u origin 2026-10-08-fix-x1',
     })
+    # 2026-10-20, found fixing the ladder set's copy of this rule
+    # (todo/todo-2026-10-20-root-issues-from-ladder-landing-check.md, items
+    # 1 and 2). Any quoted span holding push, merge or land counted as the
+    # person's approval, so a refusal quoted further down ("push refused")
+    # granted landing; and a landing noun with no verb addressed to the
+    # reader ("A push to main runs ...") was read as an order.
+    order = 'Open a pull request into main and merge it.'
+    must_fire.update({
+        'THE BUG: a quoted refusal is no approval':
+            order + '\nThe tool said "push refused" earlier.',
+        '...nor a quoted refusal on a blockquote line':
+            order + '\n> push refused (403)',
+        "...nor a tool's printed instruction, quoted":
+            order + '\nThe check prints "Merge the pull request into main".',
+        'an order written as an infinitive the reader is told to do':
+            'Your job is to merge the PR into main.',
+        'an order after a comma and "so"':
+            'The checks pass, so merge it into main.',
+        'the last item of a bracketed list is the order':
+            'Finish the fix (run the tests, then merge the PR into main).',
+    })
+    clean.update({
+        'THE BUG: a push to main described, no verb addressed to anyone':
+            'A push to main runs the deep check.',
+        'merge named as one example in a bracketed list':
+            'Narrow it to orders to land (land it, merge the PR, or a stage word).',
+        'a pull request into main named as a noun':
+            'The pull request into main is still open; read its diff.',
+    })
+    clean.update({
+        "the person's approval as a blockquote": '> Approved, merge it\n' + order,
+        "the person's go-ahead quoted": 'Alex, 2026-10-20: "Go ahead and land it."\n' + order,
+        "the person's order quoted": 'Morgan: "Merge it into main."\n' + order,
+    })
     cases = [(f'fires: {k}', bool(fires(b)), '') for k, b in must_fire.items()]
     cases += [(f'clean: {k}', not fires(b), str(fires(b))[:200]) for k, b in clean.items()]
     cases.append(("clean: the reply's own prose saying where work lands",

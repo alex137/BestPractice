@@ -1578,7 +1578,13 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                 if describer:
                     judged = _described_clauses(judged, triggers, describer)
                 m = _first_trigger(triggers, judged)
-                if m and not re.search(needed, block, re.I | re.M):
+                # A tool's quoted output is no approval either (2026-10-20,
+                # the ladder set's landing check): "push refused", quoted from
+                # a refusal, granted landing to the order beside it. The
+                # approval is searched for with that output blanked, as the
+                # trigger is.
+                granted = _quoted_output_blanked(block, quoter) if quoter else block
+                if m and not re.search(needed, granted, re.I | re.M):
                     out.append({'kind': 'in_fence_paired', 'advisory': advisory,
                                 'message': (
                         f"[{r.get('_source', '?')}] a fenced block says "
