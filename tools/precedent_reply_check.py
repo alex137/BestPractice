@@ -269,6 +269,50 @@ def _with_own_set(pr, repo, sources):
     return out
 
 
+def _inherit_pair(earlier, pair):
+    """-> `pair` merged over the `earlier` pair it inherits from, key by key.
+
+    Two keys let a set keep universal's triggers instead of restating them
+    (2026-10-20). Before them the ladder set's landing pair copied every
+    trigger universal has, only to name staging beside main, and the two
+    copies drifted: universal learned to read a verb only where it is
+    addressed to the reader, and the ladder copy did not, until it was
+    fixed by hand.
+
+    `landing_branches` (the set's pair): the branches the set lands on, as a
+    regex alternation ("staging|main"). In every trigger the set inherits
+    rather than states, each span the earlier pair names in
+    `landing_branches_pattern` is replaced by "(?:<landing_branches>)".
+
+    `adds_if_matches` (the set's pair): triggers added to the inherited
+    `also_if_matches`, for orders only the set knows (its stage words).
+
+    An engine older than this ignores both keys, so a set states its own
+    triggers until every repository that brings it runs this engine."""
+    merged = {**earlier, **pair}
+    branches = pair.get('landing_branches')
+    spans = earlier.get('landing_branches_pattern') or []
+    if isinstance(spans, str):
+        spans = [spans]
+    if isinstance(branches, str) and branches and spans:
+        def widen(rx):
+            for span in sorted(spans, key=len, reverse=True):
+                rx = rx.replace(span, f'(?:{branches})')
+            return rx
+        for key in ('if_matches', 'also_if_matches'):
+            if key in pair or key not in earlier:
+                continue
+            val = earlier[key]
+            merged[key] = ([widen(x) for x in val] if isinstance(val, list)
+                           else widen(val) if isinstance(val, str) else val)
+    adds = pair.get('adds_if_matches')
+    if adds:
+        base = merged.get('also_if_matches') or []
+        base = [base] if isinstance(base, str) else list(base)
+        merged['also_if_matches'] = base + ([adds] if isinstance(adds, str) else list(adds))
+    return merged
+
+
 def _settle(reqs, repo):
     """Two generic keys a requirement may carry (spec/LADDER_OPT_IN_PLAN.md
     D11, 2026-10-02):
@@ -308,7 +352,7 @@ def _settle(reqs, repo):
             key = 'require_in_fence_paired_with'
             if isinstance(earlier.get(key), list) and isinstance(r.get(key), list):
                 merged[key] = [
-                    {**(earlier[key][i] if i < len(earlier[key]) else {}), **pair}
+                    _inherit_pair(earlier[key][i] if i < len(earlier[key]) else {}, pair)
                     for i, pair in enumerate(r[key])]
             last[rid] = merged
     kept = []

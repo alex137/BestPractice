@@ -30727,6 +30727,69 @@ def check_reply_check_wants_a_prompt_block_to_name_both_ends():
           f'for ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_a_set_inherits_the_landing_triggers():
+    """A set's landing pair that says "inherits" names its own branches
+    (`landing_branches`) and its own extra orders (`adds_if_matches`), and
+    keeps every trigger universal states, widened to those branches
+    (precedent_reply_check._inherit_pair).
+
+    2026-10-20: the ladder set's pair restated all of universal's triggers
+    only to name staging beside main, and the copies drifted -- universal
+    learned to read a verb only where it is addressed, the ladder copy did
+    not (precedent-shared-ladder PR #126 fixed it by hand). Judged with the
+    shipped universal rule and a set pair trimmed to what the ladder set
+    actually adds; the old shape, a set restating everything, reads as it
+    did."""
+    import precedent_reply_check as rc
+    name = 'a set keeps universal\'s landing triggers and names its own branches'
+    uni = [dict(r, _source='universal/precedent') for r in json.loads(
+        (ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+        if r.get('id') == 'prompt-please-landing-authority']
+    if len(uni) != 1 or not hasattr(rc, '_inherit_pair'):
+        check(name, False, 'the universal landing rule or _inherit_pair is missing')
+        return
+    stage = (r"(?:^|(?<=[.;:,!?]\s)|(?<=\bthen\s))(?-i:Booked|Debut|Promote)\b"
+             r"(?!\s+(?:is|means|as\s+an?\s+instruction)\b)")
+    trimmed = {'id': 'prompt-please-landing-authority', 'inherits': True,
+               'practice': 'go-update', '_source': 'shared/fixture-ladder',
+               'require_in_fence_paired_with': [{
+                   'landing_branches': 'staging|main',
+                   'adds_if_matches': [stage, r'--promote\b'],
+                   'must_also_match': r'["\u201c]\s*(?:Booked|Approved)\b'}]}
+    restated = {'id': 'prompt-please-landing-authority', 'inherits': True,
+                '_source': 'shared/fixture-old',
+                'require_in_fence_paired_with': [{
+                    'if_matches': r'\bmerg\w*\b[^\n]{0,40}\binto\s+staging\b',
+                    'must_also_match': r'"Booked"'}]}
+
+    def refused(reqs, body):
+        text = 'Paste into: a new session.\n\n```\n' + body + '\n```\n'
+        return bool([v for v in rc.violations(text, rc._settle(list(reqs), str(ROOT)))
+                     if v['kind'] == 'in_fence_paired'])
+    ladder = uni + [trimmed]
+    booked = 'Morgan, 2026-10-20: "Booked."\n'
+    cases = []
+    for body in ('Then merge the PR into main.', 'You can push it to staging.',
+                 'Land it on staging.', 'git push origin staging',
+                 'Then Debut it.', 'Run it with --promote.'):
+        cases.append((f'an order fires: {body}', refused(ladder, body)))
+        cases.append((f'...and the quoted Booked clears it: {body}',
+                      not refused(ladder, booked + body)))
+    for body in ('A push to staging runs the deep check.',
+                 'A direct push to staging was refused.',
+                 'Narrow it to orders to land (land it, merge the PR, or a stage word).',
+                 'Then narrow it (Booked as an instruction).'):
+        cases.append((f'a description does not: {body}', not refused(ladder, body)))
+    cases.append(("universal alone still reads staging as no landing",
+                  not refused(uni, 'Land it on staging.')))
+    cases.append(('a set that restates its triggers reads as it did: its own fires',
+                  refused(uni + [restated], 'Merge it into staging.')))
+    cases.append(("...and universal's, which it replaced, do not",
+                  not refused(uni + [restated], 'Land it on main.')))
+    bad = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_a_gap_names_its_reason():
     """A line that admits work left undone says on that line what blocks
     it, in a reply (reply_check.json, gap-names-its-reason) and in a line a
@@ -89601,6 +89664,7 @@ def main():
     check_reply_check_refuses_a_paste_block_that_lands_unauthorized()
     check_reply_check_wants_a_prompt_block_to_name_both_ends()
     check_a_gap_names_its_reason()
+    check_a_set_inherits_the_landing_triggers()
     check('the landing trigger reads per clause, from a list, and the old shape '
           'reads as it did', *check_reply_check_reads_a_landing_trigger_by_clause_and_by_list())
     check('the reply check requires the Boildown to open with where the work is',

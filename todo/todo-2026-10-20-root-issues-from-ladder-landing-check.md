@@ -87,7 +87,12 @@ named harness check); `precedent_push_check.py` passed on the branch.
    need an engine key for the destination first. That engine key is not
    blocked; the ladder half has to wait until consumers' engines carry it,
    or an older engine would read the ladder rule with no triggers at all.
-   Engine half proposed to Morgan 2026-10-20, about 30 minutes.
+   Engine half built 2026-10-20 on Morgan's go: a set's pair names
+   `landing_branches` and `adds_if_matches`, and universal's pair names the
+   spans to widen (`landing_branches_pattern`). The ladder half (trimming
+   precedent-shared-ladder's pair to those keys) waits until consumers'
+   engines carry this, because an older engine would read the trimmed pair
+   with no triggers.
 3. Fixed, mechanism only. In this harness a seeded prompt is recorded with
    origin `task-notification`, which the gate never reads; the refused session
    must have received the prompt as a typed message. The incident itself was

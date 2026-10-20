@@ -22,6 +22,7 @@
   "check_a_sessions_own_merge_rebuilds_generated_conflicts": 0.9,
   "check_a_set_exports_only_its_own_rules": 0.1,
   "check_a_set_in_a_linked_worktree_does_not_load_itself_twice": 0.2,
+  "check_a_set_inherits_the_landing_triggers": 0.0,
   "check_a_sets_own_hooks_are_registered_in_a_session_rooted_in_it": 0.3,
   "check_a_source_set_ships_no_ci_workflow": 0.0,
   "check_a_stale_source_clone_is_made_current_not_reported_clean": 2.4,
