@@ -195,6 +195,7 @@ def declared_requirements(repo):
         sources = pr.load_config(repo)
     except Exception as e:                                   # noqa: BLE001
         return reqs, [f'no source set could be read ({e})']
+    sources = _with_own_set(pr, repo, sources)
     for s in sources:
         root = pathlib.Path(s['path'])
         cfg = root / CONFIG_NAME
@@ -237,6 +238,35 @@ def declared_requirements(repo):
             item['_source'] = f"{s['level']}/{s['name']}"
             reqs.append(item)
     return _settle(reqs, repo), notes
+
+
+def _with_own_set(pr, repo, sources):
+    """-> `sources`, plus the repository itself when it is a practice set
+    the resolver left out.
+
+    load_config() leaves a set out of its own checkout on purpose
+    (is_repository_itself), so the set is never loaded twice. But that
+    meant a paste block written while working in the ladder set was judged
+    by universal's copy of the landing rule alone, never the set's own
+    (2026-10-20, todo/todo-2026-10-20-root-issues-from-ladder-landing-check.md,
+    item 4). Its reply_check.json is read once here, at the set's own
+    level; a repository that already declares itself is left as it is."""
+    root = pathlib.Path(repo).resolve()
+    own = pr._own_set_name(root)
+    if not own or any(s.get('name') == own
+                      or pr._same_repository(s['path'], root) for s in sources):
+        return sources
+    if pr.no_ladders() and pr.LADDER_CAPABILITY in pr.source_provides(root):
+        return sources
+    try:
+        level = json.loads((root / pr.SOURCE_MANIFEST).read_text(
+            encoding='utf-8')).get('level')
+    except (OSError, ValueError, AttributeError):
+        level = None
+    out = list(sources) + [{'level': level or 'repo-local', 'name': own,
+                            'path': str(root)}]
+    out.sort(key=lambda s: pr._precedence_rank(s['level']))
+    return out
 
 
 def _settle(reqs, repo):

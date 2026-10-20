@@ -22629,6 +22629,33 @@ def check_reply_check_names_what_it_cannot_evaluate():
                       any('not on disk' in n for n in notes), str(notes)))
         cases.append(('the note says the requirement is unknown, not absent',
                       any('unknown, not' in n for n in notes), str(notes)))
+        # 2026-10-20: a set's own checkout left the set out of its sources
+        # (is_repository_itself), so its own reply rules were not in force
+        # while working in it. Read once, at the set's level, after universal.
+        st = tmp / 'a-set'
+        (st / 'practices').mkdir(parents=True)
+        (st / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'fixture-set', 'level': 'shared'}), encoding='utf-8')
+        (st / 'precedent.json').write_text(json.dumps({'sources': []}),
+                                           encoding='utf-8')
+        (st / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'p', 'id': 'fixture-own-rule',
+             'require_heading_matching': 'boildown'},
+            {'practice': 'p', 'require_heading_matching': 'fixture-unkeyed'}]),
+            encoding='utf-8')
+        own, _notes = prc.declared_requirements(str(st))
+        cases.append(("a set's own checkout loads the set's own reply rules",
+                      [r.get('_source') for r in own
+                       if r.get('id') == 'fixture-own-rule'] == ['shared/fixture-set'],
+                      str([r.get('_source') for r in own])))
+        (st / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'fixture-set', 'path': '.'}]}),
+            encoding='utf-8')
+        own, _notes = prc.declared_requirements(str(st))
+        cases.append(('...and only once when it also declares itself',
+                      len([r for r in own if r.get('require_heading_matching')
+                           == 'fixture-unkeyed']) == 1,
+                      str([r.get('_source') for r in own])))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
