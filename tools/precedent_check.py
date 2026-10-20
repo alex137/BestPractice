@@ -6538,11 +6538,11 @@ def _own_deduplication_points_somewhere(ctx):
     if not (ROOT / 'practices').is_dir():
         raise NotApplicable('no practices/ tree in this repo')
     try:
-        level = json.loads((ROOT / pr.SOURCE_MANIFEST).read_text(
-            encoding='utf-8')).get('level')
+        manifest = json.loads((ROOT / pr.SOURCE_MANIFEST).read_text(
+            encoding='utf-8'))
     except (OSError, ValueError, AttributeError):
-        level = None
-    if level == 'universal':
+        manifest = {}
+    if pr.declared_level(manifest) == 'universal':
         # A universal stub is never kept in force downstream: one pointing
         # at a set a consumer does not declare is that consumer's call
         # (precedent_resolve.resolve, "A SET'S copy only").
