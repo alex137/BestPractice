@@ -31948,12 +31948,11 @@ def check_branch_cleanup_button():
     cases.append(('a public one: the link, to the workflow\'s page',
                   sb.workflow_link('o', 'r') in line and ' hidden>Delete every' not in line, line))
     line = sb._cleanup_line('o', 'r', 3, st(False, '', installed=False), now)
-    cases.append(('not installed: says so, no link',
-                  'href' not in line and 'Update Vendors installs it' in line, line))
+    # 2026-10-20 (Morgan: "just give it to me and say nothing else"): a
+    # section without the button says nothing about why.
+    cases.append(('not installed: no link and no explanation', line == '', line))
     line = sb._cleanup_line('o', 'r', 3, dict(st(False, '', installed=False), source=True), now)
-    cases.append(('a practice set: never told Update Vendors installs it',
-                  'href' not in line and 'practice set carries no GitHub workflow' in line
-                  and 'Update Vendors' not in line, line))
+    cases.append(('a practice set: no link and no explanation', line == '', line))
     page = sb.render_html([('o', 'r', [('done-branch', '2026-10-01')])], now=now,
                           cleanup={('o', 'r'): st(True, day_ago)})
     recs, _clicked = sb.read_cleanup(page)
@@ -55013,6 +55012,28 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
         rc, _ = run([asked], tool='mcp__github__merge_pull_request',
                     tool_input={'pullNumber': 1})
         cases.append(('a pull request merged on GitHub is held', rc == 2))
+        # 2026-10-20 (Morgan: "Can you make the enforcement of that
+        # stronger?"): the session rebuilt and published the branch page
+        # for its archive line before answering a plain question.
+        rc, out = run([asked], tool='Artifact',
+                      tool_input={'file_path': '/tmp/x/page.html',
+                                  'url': 'https://claude.ai/artifact/x'})
+        cases.append(('an Artifact publish is held', rc == 2
+                      and 'ANSWER FIRST' in out, out[-200:]))
+        rc, _ = run([asked], tool='Artifact',
+                    tool_input={'action': 'read',
+                                'url': 'https://claude.ai/artifact/x'})
+        cases.append(('an Artifact read is not', rc == 0))
+        rc, out = run([asked], tool_input={
+            'command': 'python3 tools/precedent_stale_branches.py --fetch '
+                       '--html /tmp/x/branch-cleanup.html'})
+        cases.append(('building the branch page is held', rc == 2
+                      and 'ANSWER FIRST' in out, out[-200:]))
+        rc, out = run([asked], tool='Artifact', via_hooks=True,
+                      tool_input={'file_path': '/tmp/x/page.html'})
+        cases.append(('an Artifact publish is held through the fixed '
+                      'precedent-hooks.sh entry', rc == 2
+                      and 'ANSWER FIRST' in out, out[-200:]))
         rc, out = run([asked, said('Landing first.')], via_hooks=True)
         cases.append(('it runs through the fixed precedent-hooks.sh entry '
                       '(tools/hook_wiring.json)', rc == 2 and 'ANSWER FIRST' in out,
@@ -65253,9 +65274,9 @@ def check_branch_cleanup_page_merges_the_saved_page():
                   sorted(got) == ['B', 'C']
                   and got['C']['checked'].startswith('2026-10-12')
                   and got['B']['checked'].startswith('2026-10-11'), got))
-    cases.append(('...says the kept rows are as last checked, and counts both',
-                  'as listed when last checked, 11 Oct 2026, 10:00 UTC' in page
-                  and '3 branches' in page, ''))
+    cases.append(('...dates the kept rows, and counts both',
+                  'Checked 11 Oct 2026, 10:00 UTC.' in page
+                  and '0 of 3 done' in page, ''))
     kept = _sb.carried_over([{'owner': 'o', 'repo': 'D', 'checked': '',
                               'branches': [['precedent-promote-lock', '2026-10-01'],
                                            ['precedent-check-receipts', '2026-10-01'],
@@ -65456,15 +65477,15 @@ def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
     cases.append(('a moved old name from this run\'s own check is offered, marked '
                   'as the data- branch\'s old name',
                   'fresh/precedent-promote-lock' in offered
-                  and 'data-promote-lock' in row and 'Nothing reads this one' in row,
+                  and 'data-promote-lock' in row and 'Old name of' in row,
                   row[:200]))
     cases.append(('an old engine name carried from a saved page is not offered',
                   'saved/precedent-check-receipts' not in offered))
-    lede = page.split('class="lede"', 1)[-1].split('</p>', 1)[0]
-    cases.append(('the intro says how an old engine name appears',
-                  'says so' in lede, lede[:300]))
-    cases.append(('the count is of what is offered (3)',
-                  '>3 branches,' in page or '3 branches, all' in page))
+    # 2026-10-20 (Morgan: "don't [explain], just give it to me and say
+    # nothing else"): the page is the list, with no paragraphs about it.
+    cases.append(('the page carries no explanatory intro',
+                  'class="lede"' not in page and 'Checking a branch off' not in page))
+    cases.append(('the count is of what is offered (3)', '0 of 3 done' in page))
     cases.append(('one list of engine branch names, from the data-branch module',
                   getattr(_sb, 'ENGINE_BRANCHES', frozenset()) >= {
                       'precedent-promote-lock', 'precedent-check-receipts'}
@@ -65555,10 +65576,10 @@ def check_branch_cleanup_page_lists_staging_waiting_to_go_live():
                   and got['New']['checked'].startswith('2026-10-16')
                   and got['Kept']['checked'].startswith('2026-10-14'), got))
     cases.append(('...under a Waiting to go live heading, linking the comparison, '
-                  'and saying a kept row may have moved',
+                  'and dating a kept row',
                   'Waiting to go live' in page
                   and 'github.com/o/New/compare/main...staging' in page
-                  and 'As of the last check, 14 Oct 2026' in page, ''))
+                  and 'Checked 14 Oct 2026' in page, ''))
     cases.append(('CONTROL: nothing waiting, no waiting section',
                   'Waiting to go live' not in _sb.render_html([], now=now), ''))
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
