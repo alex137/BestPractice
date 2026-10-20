@@ -1186,10 +1186,22 @@ def refresh_copies_step(repo, rep, take_sets=()):
             up = json.loads(mpath.read_text(encoding='utf-8')).get('upstream') or {}
         except (OSError, ValueError, AttributeError):
             up = {}
-        first = not up.get('commit')
+        # A copy whose files are not there is made again, whatever its
+        # record says: a failed update's rerun can leave the record and
+        # clear the tree, and a go-ahead set was then never re-copied
+        # (2026-10-19, a voice pack left empty in a consumer).
+        here = repo / str(e['path'])
+        first = not up.get('commit') or not (here / pr.SOURCE_MANIFEST).is_file()
         if man.get('copy_refresh') == 'on-go-ahead' and not first \
                 and name not in take_sets:
-            rc, head = run(['git', '-C', str(clone), 'rev-parse', 'HEAD'], repo)
+            # The copy is taken from the set's main, so "has it moved" asks
+            # main too, never the branch this clone happens to be on.
+            head = ''
+            for ref in ('origin/main', 'main', 'HEAD'):
+                rc, head = run(['git', '-C', str(clone), 'rev-parse', '--verify',
+                                '--quiet', ref], repo)
+                if rc == 0 and head.strip():
+                    break
             if rc == 0 and head.strip() and not head.strip().startswith(
                     str(up.get('commit'))[:12]):
                 rep.ask(f'copy of {name}', f'{name} has moved since it was '
