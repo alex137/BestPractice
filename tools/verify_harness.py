@@ -40068,20 +40068,25 @@ def check_a_new_test_lands_with_its_time():
     import tempfile
     name = 'a new harness test lands with its recorded time'
     times = lambda names: json.dumps({'seconds': {n: 1.0 for n in names}})
+    # Each planted test is called from main(), as a real one is: the quick
+    # tier refuses an uncalled harness test (unrecorded_harness_checks), and
+    # an uncalled one here would fail the controls for the wrong reason.
+    def harness(bodies):
+        return (''.join(f'def {n}():\n    {b}\n' for n, b in bodies.items())
+                + 'def main():\n' + ''.join(f'    {n}()\n' for n in bodies))
     with tempfile.TemporaryDirectory() as td:
-        base = {'tools/verify_harness.py': 'def check_old():\n    pass\n',
+        base = {'tools/verify_harness.py': harness({'check_old': 'pass'}),
                 'tools/harness_check_times.json': times(['check_old'])}
+        added = harness({'check_old': 'pass', 'check_zz_new': 'pass'})
         commit, run = _changed_files_fixture(pathlib.Path(td) / 'bare', base)
-        commit({'tools/verify_harness.py': base['tools/verify_harness.py']
-                + 'def check_zz_new():\n    pass\n'})
+        commit({'tools/verify_harness.py': added})
         rc, out = run()
         commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'timed', base)
-        commit2({'tools/verify_harness.py': base['tools/verify_harness.py']
-                 + 'def check_zz_new():\n    pass\n',
+        commit2({'tools/verify_harness.py': added,
                  'tools/harness_check_times.json': times(['check_old', 'check_zz_new'])})
         rc2, out2 = run2()
         commit3, run3 = _changed_files_fixture(pathlib.Path(td) / 'edit', base)
-        commit3({'tools/verify_harness.py': 'def check_old():\n    return 1\n'})
+        commit3({'tools/verify_harness.py': harness({'check_old': 'return 1'})})
         rc3, out3 = run3()
     cases = [
         ('a new test with no recorded time is refused, naming the command',
