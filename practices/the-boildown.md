@@ -198,9 +198,9 @@ point at them instead of copying what they are:**
   4 and the closing items 6 to 11 belong to it.
 
 **A practice that fires at either moment names it** -- *"the archive-line
-reply (the-boildown)"* -- in its occasion, gate note and tool text, and
-never quotes the archive sentence or describes the closing reply in its own
-words. Named, it follows a change here with no edit of its own; restated, it
+reply (the-boildown)"* -- in its occasion, gate note, tool text and Rule,
+and never quotes the archive sentence or describes the closing reply in its
+own words; a Rule sentence may explain the moment only beside its name. Named, it follows a change here with no edit of its own; restated, it
 keeps the old moment and breaks without a sound, as two did in two days
 (Story, 2026-10-20). `python3 tools/precedent_check.py --only
 boildown-moments-named` refuses a restatement in this tree, in any source

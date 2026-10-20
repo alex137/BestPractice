@@ -132,11 +132,14 @@ push_rest="$(printf '%s' "$push_args" \
 project_dir="${CLAUDE_PROJECT_DIR:-.}"
 cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
 
-# The repository being pushed: `git -C <dir>`, else a leading `cd <dir>`,
-# else the tool call's working directory, else the project. `|| true` on
-# each grep is load-bearing under pipefail: no match is the ordinary case.
-target="$(printf '%s' "$cmd" \
-  | grep -oE 'git[[:space:]]+-C[[:space:]]+[^[:space:]]+' \
+# The repository being pushed: the push's own `git -C <dir>`, else a
+# leading `cd <dir>`, else the tool call's working directory, else the
+# project. Read off $push_args, never the whole command: a later
+# `git -C /other worktree remove` names a repository nothing is pushed to.
+# `|| true` on each grep is load-bearing under pipefail: no match is the
+# ordinary case.
+target="$(printf '%s' "$push_args" \
+  | grep -oE '^git[[:space:]]+-C[[:space:]]+[^[:space:]]+' \
   | head -n1 | sed -E 's/^git[[:space:]]+-C[[:space:]]+//' || true)"
 if [[ -z "$target" ]]; then
     target="$(printf '%s' "$cmd" \
