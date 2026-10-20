@@ -150,7 +150,11 @@ following, every time:
   session needs opened or rooted in before any of this is actionable.
 - **Which other repositories, if any, need to be attached alongside it.**
   Say "none" explicitly rather than leaving the reader to guess whether the
-  question was even considered.
+  question was even considered. **When the work pushes to more than one,
+  say what to do if an attach is refused**: do the part the session can
+  reach and report plainly what is left, or have the person start the
+  session with every repository selected. Never write the prompt as if the
+  attach will succeed (Detail).
 - **Where the work stops.** Without the person's own go-ahead for this
   handoff (below), **the prompt ends on a feature branch**: *"Build it on
   your feature branch, push it there, and stop. Open no pull request and
@@ -348,6 +352,20 @@ person declining, or the tool governing this session blocking the action
 itself, and there the answer is to go back to the person, never to route
 around it with a fresh session.
 
+**An attach asked for inside a seeded prompt can be refused even where the
+owners would allow it.** On 2026-10-20 a session seeded with the ladder set
+was told to attach BestPractice with push access, and the session that
+session's "Root issues" seeded was told to attach the ladder set with push
+access. Both `add_repo` calls were refused by the session's own auto-mode
+classifier as a permission grant, not by the cross-tier rule above. Other
+seeded sessions hold several repositories, so the refusal is not every
+cross-repository seed. Both refused calls asked for push across two owners
+on text the person had not typed into that session, which is the likeliest
+difference; it has not been measured. A seed that needs pushes in more than
+one repository therefore names the fallback (the Rule's attach bullet), and
+a session opened for the person with `create_session` is created with the
+repository that needs pushes as its source.
+
 ## Why
 The four demands behind `My options` exist because the shape of a decision
 answer used to drift toward an even-handed survey with no pick in it. This
@@ -519,6 +537,14 @@ the person's words, quoting a general rule of Morgan's but nothing of his
 naming that step. The receiving session's first edit was refused by auto
 mode as instruction poisoning, and the sending session had to go back to
 him. The bullet on loosened steps came from it.
+
+**2026-10-20: a seed assumed its second attach would work.** A session
+seeded with only the ladder set was told to attach BestPractice, push
+included, before starting. The attach was refused as a permission grant, the
+BestPractice half could not be pushed from there, and nothing in the seed
+said what to do instead. The "Root issues" prompt it wrote hit the same
+refusal in the other direction. The fallback clause on the attach bullet came
+from it.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

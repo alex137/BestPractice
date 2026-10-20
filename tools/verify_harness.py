@@ -19088,6 +19088,75 @@ def check_adds_to_names_a_rule_in_force():
           not failed, '; '.join(failed))
 
 
+def check_boildown_moments_named():
+    """precedent_check.py's boildown-moments-named (2026-10-20): the-boildown
+    names two moments, and a practice that restates one in its occasion,
+    title, a reply_check.json note or a tool it ships is refused, since a
+    change to the moment then breaks it silently (twice in two days). It
+    passes a practice that names the moment, the-boildown itself, a retired
+    practice, and a restatement that sits only in a Rule body."""
+    import tempfile, shutil
+    import build_views as _bv              # noqa: F401 -- cached for the check
+    import precedent_check as pc
+    P = _addition_fixture_practice
+    plants = {
+        # slug: (text, fires)
+        'quotes-the-line': (P('quotes-the-line', occasion='a reply that '
+                              'says You can archive this session'), True),
+        'paraphrases-it': (P('paraphrases-it', occasion='a reply that says '
+                             'the session can be archived'), True),
+        'ships-a-quoting-tool': (P('ships-a-quoting-tool',
+                                   extra='ships:       ["tools/zz_note.py"]\n'),
+                                 True),
+        'has-a-quoting-note': (P('has-a-quoting-note'), True),
+        'names-the-moment': (P('names-the-moment', occasion='the '
+                               'archive-line reply (the-boildown)'), False),
+        'the-boildown': (P('the-boildown', occasion='You can archive this '
+                           'session'), False),
+        'retired-quoter': (P('retired-quoter', status='retired', occasion=''
+                             'You can archive this session'), False),
+        'body-only': (P('body-only', rule='Say "You can archive this '
+                        'session" when it holds.'), False),
+    }
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='moments-check-'))
+    saved = pc.ROOT
+    try:
+        (tmp / 'practices').mkdir()
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'zz_note.py').write_text(
+            'NOTE = \'in one that answers "Archive" or "Archive?"\'\n',
+            encoding='utf-8')
+        (tmp / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'has-a-quoting-note',
+             'note': 'Link it whenever you can archive this session.'}]),
+            encoding='utf-8')
+        for slug, (text, _f) in plants.items():
+            (tmp / 'practices' / f'{slug}.md').write_text(text, encoding='utf-8')
+        pc.ROOT = tmp
+        try:
+            got = pc._boildown_moments_named(None)
+        finally:
+            pc.ROOT = saved
+        hit = {pathlib.PurePath(f.file()).stem for f in got}
+        for slug, (_t, fires) in plants.items():
+            cases.append((f'{slug}: {"refused" if fires else "passes"}',
+                          (slug in hit) == fires))
+        text = ' '.join(str(f) for f in got)
+        cases.append(('the refusal names the moment to write instead',
+                      'Write "the archive-line reply (the-boildown)"' in text))
+        cases.append(('the shipped tool is named as where it restates',
+                      'tools/zz_note.py restates the closing reply' in text))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check(f'Boildown moments are named, never restated ({len(cases)} stated '
+          f'cases)', not failed, '; '.join(failed))
+
+
 def check_code_owner_practice_stays_out_of_the_index():
     """precedent_check.py's code-owner-practice-stays-out-of-the-index
     (2026-10-08): a practice marked `visible_to: code-owners` is carried by a
@@ -25942,6 +26011,25 @@ def check_precedent_check_fires():
                 '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
                 encoding='utf-8')
         case('own-deduplication-points-somewhere', _plant_odps, setup=_setup_odps)
+
+        # boildown-moments-named -- a practice whose occasion quotes the
+        # archive sentence instead of naming the moment (2026-10-20).
+        def _plant_bmn(repo):
+            (repo / 'practices' / 'zzz-quotes-the-line.md').write_text(
+                '---\nslug:        zzz-quotes-the-line\n'
+                'title:       A practice that copies a moment\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\n'
+                'occasion:    "a reply that says You can archive this session"\n'
+                'gates:       ["reply"]\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nsupersedes:  []\n'
+                'overrides:   null\nadded:       "2026-10-20"\n'
+                'approved_by: "fixture"\n---\n\n'
+                '## Rule\nPlanted.\n\n'
+                '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
+                encoding='utf-8')
+        case('boildown-moments-named', _plant_bmn)
 
 
         # docs-track-models -- an owned figure restated in the prose
@@ -88248,6 +88336,7 @@ def main():
     check_upstream_fix_sets_up_the_fix_in_the_source()
     check_code_owner_practice_stays_out_of_the_index()
     check_adds_to_names_a_rule_in_force()
+    check_boildown_moments_named()
     check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()

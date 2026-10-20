@@ -6606,6 +6606,40 @@ def _own_deduplication_points_somewhere(ctx):
     return out
 
 
+@check('boildown-moments-named', 'tree',
+       'no practice in force other than the-boildown restates one of its two '
+       'named moments -- quoting "You can archive this session", or "answers '
+       '\'Archive\' or \'Archive?\'" -- in its title, occasion, index_clause, '
+       'gates_why, applies_to_why, reply_check.json note, or a tool it ships '
+       'or runs for a note; it names "the archive-line reply" or "the closing '
+       'reply" instead',
+       'a restatement in other words than the two patterns '
+       'tools/precedent_moments.py knows, and prose sections, which may '
+       'explain the moment they name. It reads this tree only; the tool, run '
+       'bare, reads every sibling checkout too.',
+       practice_backed=False, binds_publishers=True,
+       selects_on=('practices/*.md', 'reply_check.json', 'tools/**/*.py'))
+def _boildown_moments_named(ctx):
+    """WHY (2026-10-20). the-boildown changed both moments on 2026-10-18,
+    and two practices that had copied the old wording broke silently, one a
+    day (tools/precedent_moments.py says how). A dependent that names the
+    moment follows a change to it for free; one that restates it is the next
+    round. practice: the-boildown"""
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_moments as pm
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'precedent_moments is not importable here ({e})')
+    if not (ROOT / 'practices').is_dir():
+        raise NotApplicable('no practices/ tree in this repo')
+    _deps, rest = pm.scan([ROOT], skip=_foreign_practice)
+    return [Finding(rel, f'{where} restates the {name} ("...{ex}...") instead '
+                         f'of naming it. Write "the {name} (the-boildown)", '
+                         f'which the-boildown defines; a change to the moment '
+                         f'then reaches this practice without an edit here')
+            for _root, rel, _slug, name, where, ex in rest]
+
+
 @check('adds-to-names-a-rule-in-force', 'tree',
        'a practice carrying adds_to: names a rule some source in force here '
        'carries (followed through deduplications), never itself, and is not '
