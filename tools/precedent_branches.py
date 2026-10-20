@@ -3366,6 +3366,40 @@ def clear_main_unchecked(root, checked):
 FIX_PREFIX = 'promote-fix-'
 
 
+# A SHALLOW CLONE IS NOT A CONFLICT (2026-10-20). A shallow clone can lack
+# the commit where staging and main parted; git then calls them unrelated
+# histories and refuses the merge, and --land reported "main conflicts with
+# staging". A session took the conflict path; `git fetch --depth=300` was
+# the whole fix. So a missing merge base deepens the clone and looks again,
+# and one still missing is said as what it is.
+DEEPEN_STEPS = (300, 3000)
+TOO_SHALLOW = 'this clone is too shallow'
+
+
+def _reach_merge_base(root, a, b, refs=()):
+    """Make sure commits `a` and `b` have a merge base this clone can see,
+    deepening a shallow clone along origin's `refs` (and staging and main)
+    by DEEPEN_STEPS. -> None when there is one, else why not: TOO_SHALLOW
+    with its remedy, or that the two share no history at all."""
+    if _run(root, 'merge-base', a, b).returncode == 0:
+        return None
+    if _git(root, 'rev-parse', '--is-shallow-repository') != 'true':
+        return f'{a[:12]} and {b[:12]} share no history at all'
+    names = []
+    for r in (*refs, staging_branch(root), MAIN):
+        r = r[len('origin/'):] if r.startswith('origin/') else r
+        if r not in names and _git(root, 'rev-parse', '--verify', '--quiet',
+                                   f'refs/remotes/origin/{r}'):
+            names.append(r)
+    for n in DEEPEN_STEPS:
+        _run(root, 'fetch', '-q', f'--deepen={n}', 'origin', *names)
+        if _run(root, 'merge-base', a, b).returncode == 0:
+            return None
+    return (f'{TOO_SHALLOW}: {a[:12]} and {b[:12]} part further back than '
+            f'it holds, even after deepening it by {sum(DEEPEN_STEPS)} '
+            f'commits. Run `git fetch --unshallow origin` and try again')
+
+
 def _compose(root, wt, parts, staging, say):
     """Merge each (label, sha, message) in `parts` into worktree `wt`'s HEAD,
     in order, by merge commits. One already in HEAD is skipped; a conflict
@@ -3378,6 +3412,10 @@ def _compose(root, wt, parts, staging, say):
     for label, sha, message in parts:
         if _run(wt, 'merge-base', '--is-ancestor', sha, 'HEAD').returncode == 0:
             continue
+        shallow = _reach_merge_base(root, _git(wt, 'rev-parse', 'HEAD'), sha,
+                                    (label, staging))
+        if shallow:
+            return (label, sha, [], shallow), merged
         m = _run(wt, 'merge', '--no-ff', '-q', '-m', message, sha, env=env)
         if m.returncode != 0:
             done, files, why = _resolve_by_regenerating(wt, say)
@@ -3402,6 +3440,9 @@ def _from_above(root, staging, stip):
         tip = _remote_tip(root, branch)
         if tip:
             _run(root, 'fetch', '-q', 'origin', branch)
+            # drift() reads a missing base as everything differing; the
+            # composition says TOO_SHALLOW if this cannot fix it.
+            _reach_merge_base(root, stip, tip, (staging, branch))
             commits = drift(root, stip, tip)
             if commits:
                 above.append((branch, tip, commits))
@@ -3653,6 +3694,11 @@ def _land_composed(root, sha, label, staging, why, say):
                                                   last, say)
         if conflict:
             clabel, csha, files, why = conflict
+            if why.startswith(TOO_SHALLOW) or 'share no history' in why:
+                say(f'LAND REFUSED, and {staging} did not move: {clabel} '
+                    f'({csha[:12]}) could not be merged, and not for a '
+                    f'conflict -- {why}.')
+                return 1, f'LAND REFUSED: {why.split(":")[0]}, not a conflict'
             say(f'LAND REFUSED, and {staging} did not move: {clabel} ({csha[:12]}) '
                 f'does not merge cleanly into {" + ".join([staging] + merged)} -- '
                 f'{why}'
@@ -3874,8 +3920,10 @@ def _run_tests(root, branch, say):
         if conflict:
             ok, out = False, ''
             failed = [{'check': 'merge with main', 'line':
-                       f'{conflict[0]} ({conflict[1][:12]}) does not merge cleanly '
-                       f'into {branch}: {conflict[3]}'
+                       f'{conflict[0]} ({conflict[1][:12]}) '
+                       + ('could not be merged' if conflict[3].startswith(TOO_SHALLOW)
+                          else 'does not merge cleanly')
+                       + f' into {branch}: {conflict[3]}'
                        + (f' ({", ".join(conflict[2])})' if conflict[2] else '')}]
         else:
             ok, out = _check(root, wt, FULL, dest=staging)
