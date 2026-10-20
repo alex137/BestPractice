@@ -249,34 +249,30 @@ def load_registry():
 LEFT_IN_CONSUMERS_KEY = 'left_in_consumers'
 
 
-def vendored_engine_files(root):
-    """-> {'tools/<name>'} for every file the engine at `root` vendors into
-    another repository (precedent_vendor_engine.KINDS), or an empty set
-    where that cannot be read. A file there can leave files behind in every
-    repository it ran in, so retiring one asks what it left
-    (practice: decommission-deletes-files)."""
-    try:
-        sys.path.insert(0, str(pathlib.Path(root) / 'tools'))
-        import precedent_vendor_engine as pve
-        return {f'tools/{n}' for names in pve.KINDS.values() for n in names}
-    except Exception:                                          # noqa: BLE001
-        return set()
-    finally:
-        sys.path.pop(0)
-
-
 def was_vendored(root, rel, rev='HEAD'):
-    """True when `rel` is a vendored engine file now, or was one in the
-    engine at `rev` -- a change that drops a tool from KINDS and deletes it
-    together still owes the answer."""
+    """True when `rel` is a file the engine vendors into other repositories
+    (named, quoted, in tools/precedent_vendor_engine.py), now or at `rev` --
+    a change that drops a tool from the list and deletes it together still
+    owes the answer. A file there can leave files behind in every repository
+    it ran in, so retiring one asks what it left
+    (practice: decommission-deletes-files).
+
+    Read as text, never imported: importing a fixture's engine by its module
+    name replaced the real one for everything after it (2026-10-20)."""
     rel = rel.rstrip('/')
-    if rel in vendored_engine_files(root):
-        return True
     if not rel.startswith('tools/') or rel.count('/') != 1:
         return False
-    r = _git('show', f'{rev}:tools/precedent_vendor_engine.py', cwd=root)
     name = rel.split('/', 1)[1]
-    return r.returncode == 0 and (f"'{name}'" in r.stdout or f'"{name}"' in r.stdout)
+    quoted = (f"'{name}'", f'"{name}"')
+    try:
+        now = (pathlib.Path(root) / 'tools' / 'precedent_vendor_engine.py') \
+            .read_text(encoding='utf-8')
+    except OSError:
+        now = ''
+    if any(q in now for q in quoted):
+        return True
+    r = _git('show', f'{rev}:tools/precedent_vendor_engine.py', cwd=root)
+    return r.returncode == 0 and any(q in r.stdout for q in quoted)
 
 
 def record_decommissioned(root, paths, reason, cfg=None, left=None):
