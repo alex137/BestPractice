@@ -161,6 +161,9 @@ def scan(roots=None, skip=lambda rel: False):
 
 
 def main(argv):
+    if any(a in ('-h', '--help') for a in argv):
+        print(__doc__.strip())
+        return 0
     roots = [pathlib.Path(a).resolve() for a in argv] or None
     dependents, restatements = scan(roots)
     print('Practices keyed on a moment by name (these follow a change to it):')

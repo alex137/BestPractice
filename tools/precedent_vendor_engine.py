@@ -942,6 +942,9 @@ ENGINE_FILES = [
     # lazily, so a tree without it only loses the warning -- but every kind
     # runs those tools, so every kind gets it.
     'precedent_which_repo.py',
+    # precedent_check.py's boildown-moments-named imports it (2026-10-20), and
+    # a set runs that check on its own practices, so every kind gets it.
+    'precedent_moments.py',
     'todo_progress.py',
     # The SessionStart self-heal: "did this repo's own hooks actually run,
     # and repair it by hand if not" (added 2026-09-08, in BestPractice only
