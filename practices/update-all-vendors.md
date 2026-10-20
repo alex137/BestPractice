@@ -18,7 +18,7 @@ visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       "2026-10-11"
-approved_by: "Morgan, 2026-10-11 -- the phrase and the advice to say \"and merge them\" (decided: \"We can say update all vendors as the phrase\"); the design, one tool that never loads a repository's instructions (assented: \"Okay, let's do it\" to the session's proposal); no stored list, every repository found fresh each run (Morgan's own question, \"Is it even worth it to have a list?\"; the session agreed, and he said \"do what you think is best\": assented)"
+approved_by: "Morgan, 2026-10-11 -- the phrase and the advice to say \"and merge them\" (decided: \"We can say update all vendors as the phrase\"); the design, one tool that never loads a repository's instructions (assented: \"Okay, let's do it\" to the session's proposal); no stored list, every repository found fresh each run (Morgan's own question, \"Is it even worth it to have a list?\"; the session agreed, and he said \"do what you think is best\": assented); amended 2026-10-20, Morgan (decided) -- Root issues on each repository as it finishes, into one running list, compiled at the end into a plain summary and one Prompt Please (his own request: \"After each particular repo is updated, do a root issues for that repo\")"
 ---
 ## Rule
 **"Update All Vendors" runs [Update Vendors](vendor-update-runbook.md) in
@@ -64,9 +64,29 @@ the BestPractice clone:
    fresh context. Give it the clone and log paths the line names, and tell
    it to read that repository's own instructions, work the update per
    [vendor-update-runbook](vendor-update-runbook.md), and report back in
-   one line. Its context, and that repository's instructions, are thrown
-   away when it returns. A question that is the person's comes back up, and
-   all of them reach the person together in one message.
+   one line, plus that repository's root issues (step 6). Its context, and
+   that repository's instructions, are thrown away when it returns. A
+   question that is the person's comes back up, and all of them reach the
+   person together in one message.
+6. **After each repository is finished, run [Root issues](root-issues.md)
+   on it, right then, and add what it finds to one running list.**
+   Finished means merged, current, or back from its subagent. Read its log
+   (every line but NOT USED names one) and what its subagent reported, and
+   ask the Root issues question of that one repository: every bug,
+   warning, fix or band-aid in its update whose cause lives in Precedent, a
+   precedent-* set, a template or another repository. Write each finding
+   under the repository's name, in harm order, and say so when an earlier
+   repository in the run already had the same one rather than listing it
+   twice. A repository with none gets one line saying so. Keep the list in
+   a scratch file as it grows, so a long run that is compacted halfway
+   loses none of it.
+7. **At the end, compile the list into two things, in the same reply:**
+   a summary in plain words in the chat, what kept going wrong and where,
+   most harmful first; and one [Prompt Please](prompt-please.md) block for
+   a single new session rooted in every repository the findings touch,
+   named before the block, with one section per finding and the
+   repositories each was seen in. A run that found nothing says so in one
+   line, naming the repositories it looked at.
 
 ## Detail
 **A change to Update Vendors is tried in one repository, not all.** When a
@@ -111,6 +131,13 @@ merge. The first version kept the list in his individual source; asked
 "Is it even worth it to have a list?", the session agreed it was not, and
 the list went before it landed. The plan of record is
 [spec/UPDATE_ALL_VENDORS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/UPDATE_ALL_VENDORS_PLAN.md).
+
+On 2026-10-20 Morgan asked for steps 6 and 7. A run across many
+repositories meets the same upstream bug again and again, and each one
+reached him only if somebody remembered to ask Root issues afterwards, by
+which point the earlier repositories' logs had scrolled away. Asking it
+after each repository, while that log is fresh, and compiling once at the
+end, turns the run itself into the list of what to fix upstream.
 
 ## Install
 Nothing to install in a consuming repository: the phrase is said in a

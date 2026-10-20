@@ -38309,6 +38309,97 @@ def check_decommission_exempt_record_still_blocks_a_link():
           not bad, '; '.join(f'{n} -- {d[:800]}' for n, d in bad))
 
 
+def check_decommission_records_a_file_already_deleted():
+    """THE INCIDENT (2026-10-20, #1317). A change deleted the engine tool
+    precedent_switchboard_offer.py by hand and dropped it from the vendor
+    list in the same commit. The push check then asked for its record and
+    named this tool to write it, and this tool refused: the file was not
+    tracked, so there was "no deletion to make". Cases: the audit of a file
+    history shows deleted is clear and says only the record is owed; it is
+    still read as vendored from the commit before the deletion, so --apply
+    asks what it left; --left-nothing records it with [] and deletes
+    nothing; a second --apply says it is already recorded; and a path that
+    never existed keeps its old refusal."""
+    import tempfile, shutil as _shutil, json as _json
+    tool = ROOT / 'tools' / 'precedent_decommission.py'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-decom-gone-'))
+    cases = []
+    try:
+        repo = tmp / 'upstream'
+        genv = dict(os.environ, GIT_AUTHOR_NAME='t',
+                    GIT_AUTHOR_EMAIL='harness@example.com',
+                    GIT_COMMITTER_NAME='t',
+                    GIT_COMMITTER_EMAIL='harness@example.com')
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=genv)
+
+        def w(rel, text):
+            f = repo / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+
+        repo.mkdir()
+        git('init', '-q')
+        w('tools/precedent_vendor_engine.py',
+          "ENGINE = ['kept_tool.py', 'gone_tool.py']\n")
+        w('tools/kept_tool.py', '# kept\n')
+        w('tools/gone_tool.py', '# about to be retired\n')
+        w('process/decommissioned_paths.json', _json.dumps(
+            {'decommissioned': [], 'exempt_files': []}))
+        git('add', '-A')
+        git('commit', '-qm', 'fixture')
+        # What #1317 did: delete the tool and drop it from the list together.
+        w('tools/precedent_vendor_engine.py', "ENGINE = ['kept_tool.py']\n")
+        git('rm', '-q', 'tools/gone_tool.py')
+        git('add', '-A')
+        git('commit', '-qm', 'retire gone_tool by hand')
+
+        def run(*extra):
+            r = subprocess.run([sys.executable, str(tool), *extra],
+                               capture_output=True, text=True, cwd=str(repo),
+                               timeout=120)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run('tools/gone_tool.py')
+        cases.append(('the audit of a file already deleted is clear and says '
+                      'only the record is owed', rc == 0 and 'CLEAR' in out
+                      and 'only the record is owed' in out, out[-1500:]))
+        rc, out = run('tools/gone_tool.py', '--reason', 'r', '--apply')
+        cases.append(('it is read as vendored from before the deletion, so '
+                      '--apply asks what it left', rc == 1
+                      and 'is vendored into other repositories' in out,
+                      out[-1500:]))
+        rc, out = run('tools/gone_tool.py', '--reason', 'r', '--apply',
+                      '--left-nothing')
+        reg = _json.loads((repo / 'process' / 'decommissioned_paths.json')
+                          .read_text(encoding='utf-8'))['decommissioned']
+        cases.append(('--left-nothing records it with [] and deletes nothing',
+                      rc == 0 and [e['path'] for e in reg]
+                      == ['tools/gone_tool.py']
+                      and reg[0].get('left_in_consumers') == []
+                      and (repo / 'tools' / 'kept_tool.py').exists(),
+                      out[-1500:] + str(reg)))
+        git('add', '-A')
+        git('commit', '-qm', 'record it')
+        rc, out = run('tools/gone_tool.py', '--reason', 'r', '--apply',
+                      '--left-nothing')
+        cases.append(('a second --apply says it is already recorded',
+                      rc == 1 and 'already records it' in out, out[-1500:]))
+        rc, out = run('tools/never_was.py')
+        cases.append(('control: a path that never existed keeps its refusal',
+                      rc == 1 and 'not tracked by git (or does not exist)' in out,
+                      out[-1500:]))
+    finally:
+        _shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'decommission records a file already deleted by hand '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:800]}' for n, d in bad))
+
+
 def check_decommission_skips_generated_files_and_prose():
     """THE INCIDENT (2026-09-28, a classic-layout migration rehearsal in a
     real consumer). Decommissioning `process/personal` could never reach
@@ -90411,6 +90502,7 @@ def main():
     check_refresh_removes_dropped_engine_files()
     check_decommission_skips_generated_files_and_prose()
     check_decommission_exempt_record_still_blocks_a_link()
+    check_decommission_records_a_file_already_deleted()
     check_todo_migrate_needs_a_migrated_item()
     check_refresh_survives_an_upstream_rename()
     check_retirement_record_is_not_a_stranded_link()

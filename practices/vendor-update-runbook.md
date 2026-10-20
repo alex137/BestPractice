@@ -43,7 +43,9 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   version is the default in every layer and every kind of conflict, applied
   without asking: \"keep only what is unique or necessary or essential for
   this repo\", and \"Let repin-kept re-pin repo-specific differences without
-  asking me\""
+  asking me\"; amended 2026-10-20, Morgan (decided) -- the update ends with
+  Root issues on the repository it updated, a plain summary in the chat and
+  one Prompt Please, as Update All Vendors does after each repository"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -70,6 +72,13 @@ into <landing branch>" only when there is a pull request
 ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)).
 **For every repository the person uses Precedent in at once, the phrase is
 [Update All Vendors](update-all-vendors.md).**
+
+**It ends with [Root issues](root-issues.md) on the repository it
+updated**, after step 12: every bug, warning, fix or band-aid the update met
+whose cause lives upstream, given as a plain summary in the chat and one
+Prompt Please block. That is Update All Vendors' steps 6 and 7 with a list
+of one; a run of many collects the list repository by repository and
+compiles it once at the end.
 
 **The sequence is one command, since 2026-09-27.** From the consuming repo,
 run the BestPractice clone's own copy -- never a vendored one:
