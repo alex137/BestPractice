@@ -10,7 +10,7 @@ gates:       ["merge", "reply"]
 gates_why:   "The periodic sweep that enforces the stated-reason requirement on the backlog naturally happens at merge time, the same as capture-gate. The reply gate carries it because a reply is where an unsettled list often lands, and no check reads the lists in a reply (2026-10-12)."
 index_clause: "queue only for a stated blocked-on/out-of-scope reason; else just do it"
 index_required: true
-checked_by:  todo-is-a-handoff
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 in_force_at: null
