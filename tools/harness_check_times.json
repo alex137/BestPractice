@@ -55,6 +55,7 @@
   "check_behavioral_replay": 2.1,
   "check_bestpractice_engine_hooks_are_stubs": 0.4,
   "check_boildown_contradiction_spares_work_waiting_upstream": 0.5,
+  "check_boildown_moments_named": 0.0,
   "check_bootstrap_local_steps_run_and_dead_lines_are_named": 1.6,
   "check_bootstrap_new_branch_compared_to_landing_branch": 1.1,
   "check_bootstrap_runs_every_tool_session_start_runs": 0.0,
