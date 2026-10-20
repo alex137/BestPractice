@@ -104,6 +104,9 @@ def vendors_behind(repo):
     for row in fr.collect_targets(repo):
         if row.get('kind') not in ('engine', 'vendored'):
             continue
+        # A copy the repository holds on purpose is not behind (2026-10-20).
+        if row.get('hold'):
+            continue
         if row.get('problem'):
             if not row.get('nothing_vendored'):
                 unknown.append(f"{row['label']}: {row['problem']}")

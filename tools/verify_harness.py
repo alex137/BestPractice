@@ -71658,8 +71658,12 @@ def check_copy_in_is_asked_once():
        which the ladder check then accepts.
     4. A recorded answer, yes or no, is never asked again.
     5. The refresh copies a yes in from the person's clone and records its
-       commit; a set that waits for its owner's go-ahead is reported when
-       it moves, not taken, and taken with --take-set.
+       commit, and takes every later move, a voice pack included, saying how
+       far it moved; a set still saying "copy_refresh": "on-go-ahead" is
+       taken anyway and the stale line named (2026-10-20). A copy the
+       repository holds ("hold" in its precedent.json) is reported when it
+       moves, not taken, and taken this once with --take-set; the freshness
+       notice and the merge step call it held, never behind.
     6. NEGATIVE CONTROL: an answer with no quote is not recorded.
     7. The installer asks the same questions and records the same answers.
     8. The repository that holds an offered set (in a set_root folder) is
@@ -71827,8 +71831,8 @@ def check_copy_in_is_asked_once():
                        / 'zz-ladder-rule.md').is_file()
                       and up.get('vendored_at') == 'process/zz-ladder'
                       and bool(up.get('commit')), repr(rep.steps)[-600:]))
-        cases.append(('a set waiting for a go-ahead is still copied the first time, '
-                      'from its set_root folder alone',
+        cases.append(('a voice pack is copied the first time, from its set_root '
+                      'folder alone',
                       (mine / 'process' / 'zz-voice' / 'practices'
                        / 'zz-voice-rule.md').is_file()
                       and not (mine / 'process' / 'zz-voice' / 'pack').exists()
@@ -71846,43 +71850,86 @@ def check_copy_in_is_asked_once():
         cases.append(('the ladder check accepts the copy the answer bound',
                       found == [], str([str(f) for f in found])))
 
-        (voice / 'pack' / 'practices' / 'zz-later.md').write_text(
-            '---\nslug: zz-later\n---\n# l\n\n## Rule\n\ny\n')
-        git(voice, 'add', '-A')
-        git(voice, 'commit', '-qm', 'two')
+        def voice_commit(slug):
+            (voice / 'pack' / 'practices' / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\n---\n# l\n\n## Rule\n\ny\n')
+            git(voice, 'add', '-A')
+            git(voice, 'commit', '-qm', slug)
+
+        def voice_has(slug):
+            return (mine / 'process' / 'zz-voice' / 'practices'
+                    / f'{slug}.md').is_file()
+
+        # Morgan, 2026-10-20: voice packs refresh on a normal update. The
+        # pack here still says "copy_refresh": "on-go-ahead", as the real
+        # one did, so the retired line is ignored and named.
+        voice_commit('zz-later')
+        git(voice, 'push', '-q', 'origin', 'main')
+        rep = pu.Report()
+        pu.refresh_copies_step(mine, rep)
+        said = [t for w, t in rep.steps if w == 'copy of zz-voice']
+        cases.append(('a moved voice pack is taken on a normal update, with no '
+                      'question, and the report says how far it moved',
+                      voice_has('zz-later') and not rep.asks
+                      and any(t.startswith('moved ') for t in said),
+                      repr(rep.steps)[-600:] + repr(rep.asks)[:200]))
+        cases.append(('a set still saying "copy_refresh" has the stale line named',
+                      any('"copy_refresh"' in t and 'retired' in t for t in said),
+                      repr(said)[:600]))
+
+        cfg = json.loads((mine / 'precedent.json').read_text())
+        for e in cfg['sources']:
+            if e['name'] == 'zz-voice':
+                e['hold'] = 'drafting chapter 9'
+        (mine / 'precedent.json').write_text(json.dumps(cfg, indent=2))
+        voice_commit('zz-held')
         # Moved is a question about the set's main, not the branch the clone
         # is on: an unpushed commit is not a move, and a clone sitting on an
         # older branch does not hide one (2026-10-19).
         rep = pu.Report()
         pu.refresh_copies_step(mine, rep)
         cases.append(('NEGATIVE CONTROL: a commit not on the set\'s main is not '
-                      'reported as a move', not any(w == 'copy of zz-voice'
-                                                    for w, _q in rep.asks),
-                      repr(rep.asks)[:400]))
+                      'reported as a move',
+                      not any(w == 'copy of zz-voice' and 'has moved' in t
+                              for w, t in rep.steps), repr(rep.steps)[-400:]))
         git(voice, 'push', '-q', 'origin', 'main')
         git(voice, 'checkout', '-q', '-b', 'zz-old', 'HEAD~1')
         rep = pu.Report()
         pu.refresh_copies_step(mine, rep)
-        cases.append(('a moved set that waits for a go-ahead is reported, not taken, '
-                      'whatever branch its clone is on',
-                      any(w == 'copy of zz-voice' and '--take-set zz-voice' in q
-                          for w, q in rep.asks)
-                      and not (mine / 'process' / 'zz-voice' / 'practices'
-                               / 'zz-later.md').exists(), repr(rep.asks)[:400]))
+        cases.append(('a copy the repository holds is reported when it moves, '
+                      'not taken, whatever branch its clone is on',
+                      any(w == 'copy of zz-voice' and 'drafting chapter 9' in t
+                          and '--take-set zz-voice' in t for w, t in rep.steps)
+                      and not rep.asks and not voice_has('zz-held'),
+                      repr(rep.steps)[-400:]))
+        import precedent_engine_freshness as fr
+        import precedent_merge_vendors as pmv
+        saved_tip = fr.upstream_tip
+        fr.upstream_tip = lambda *a, **k: 'f' * 40
+        try:
+            out = io.StringIO()
+            fr.report(mine, out=out)
+            behind, _unknown = pmv.vendors_behind(mine)
+        finally:
+            fr.upstream_tip = saved_tip
+        text = out.getvalue()
+        cases.append(('the freshness notice calls a held copy held, and the merge '
+                      'step does not count it behind',
+                      'held -- zz-voice' in text and 'drafting chapter 9' in text
+                      and not any('zz-voice' in b for b in behind),
+                      text[-600:] + repr(behind)[:300]))
         git(voice, 'checkout', '-q', 'main')
         rep = pu.Report()
         pu.refresh_copies_step(mine, rep, take_sets=('zz-voice',))
-        cases.append(('--take-set takes it',
-                      (mine / 'process' / 'zz-voice' / 'practices'
-                       / 'zz-later.md').is_file(), repr(rep.steps)[-400:]))
-        # A copy whose files are gone is made again, go-ahead or not.
+        cases.append(('--take-set takes a held copy this once',
+                      voice_has('zz-held'), repr(rep.steps)[-400:]))
+        # A copy whose files are gone is made again, held or not.
         shutil.rmtree(mine / 'process' / 'zz-voice')
         rep = pu.Report()
         pu.refresh_copies_step(mine, rep)
-        cases.append(('a go-ahead copy whose files are gone is made again',
+        cases.append(('a held copy whose files are gone is made again',
                       (mine / 'process' / 'zz-voice' / 'precedent-source.json').is_file()
-                      and (mine / 'process' / 'zz-voice' / 'practices'
-                           / 'zz-later.md').is_file(), repr(rep.steps)[-400:]))
+                      and voice_has('zz-held'), repr(rep.steps)[-400:]))
 
         rep = pu.Report()
         pu.copy_in_step(mine, rep, {'zz-writing': 'no'}, by)
