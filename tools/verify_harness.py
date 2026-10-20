@@ -22629,6 +22629,33 @@ def check_reply_check_names_what_it_cannot_evaluate():
                       any('not on disk' in n for n in notes), str(notes)))
         cases.append(('the note says the requirement is unknown, not absent',
                       any('unknown, not' in n for n in notes), str(notes)))
+        # 2026-10-20: a set's own checkout left the set out of its sources
+        # (is_repository_itself), so its own reply rules were not in force
+        # while working in it. Read once, at the set's level, after universal.
+        st = tmp / 'a-set'
+        (st / 'practices').mkdir(parents=True)
+        (st / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'fixture-set', 'level': 'shared'}), encoding='utf-8')
+        (st / 'precedent.json').write_text(json.dumps({'sources': []}),
+                                           encoding='utf-8')
+        (st / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'p', 'id': 'fixture-own-rule',
+             'require_heading_matching': 'boildown'},
+            {'practice': 'p', 'require_heading_matching': 'fixture-unkeyed'}]),
+            encoding='utf-8')
+        own, _notes = prc.declared_requirements(str(st))
+        cases.append(("a set's own checkout loads the set's own reply rules",
+                      [r.get('_source') for r in own
+                       if r.get('id') == 'fixture-own-rule'] == ['shared/fixture-set'],
+                      str([r.get('_source') for r in own])))
+        (st / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'fixture-set', 'path': '.'}]}),
+            encoding='utf-8')
+        own, _notes = prc.declared_requirements(str(st))
+        cases.append(('...and only once when it also declares itself',
+                      len([r for r in own if r.get('require_heading_matching')
+                           == 'fixture-unkeyed']) == 1,
+                      str([r.get('_source') for r in own])))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -30528,6 +30555,40 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'fast-forwarding a local checkout to read it':
             'Fast-forward your checkout of main before you start.',
         'a push to the feature branch': 'git push -u origin 2026-10-08-fix-x1',
+    })
+    # 2026-10-20, found fixing the ladder set's copy of this rule
+    # (todo/todo-2026-10-20-root-issues-from-ladder-landing-check.md, items
+    # 1 and 2). Any quoted span holding push, merge or land counted as the
+    # person's approval, so a refusal quoted further down ("push refused")
+    # granted landing; and a landing noun with no verb addressed to the
+    # reader ("A push to main runs ...") was read as an order.
+    order = 'Open a pull request into main and merge it.'
+    must_fire.update({
+        'THE BUG: a quoted refusal is no approval':
+            order + '\nThe tool said "push refused" earlier.',
+        '...nor a quoted refusal on a blockquote line':
+            order + '\n> push refused (403)',
+        "...nor a tool's printed instruction, quoted":
+            order + '\nThe check prints "Merge the pull request into main".',
+        'an order written as an infinitive the reader is told to do':
+            'Your job is to merge the PR into main.',
+        'an order after a comma and "so"':
+            'The checks pass, so merge it into main.',
+        'the last item of a bracketed list is the order':
+            'Finish the fix (run the tests, then merge the PR into main).',
+    })
+    clean.update({
+        'THE BUG: a push to main described, no verb addressed to anyone':
+            'A push to main runs the deep check.',
+        'merge named as one example in a bracketed list':
+            'Narrow it to orders to land (land it, merge the PR, or a stage word).',
+        'a pull request into main named as a noun':
+            'The pull request into main is still open; read its diff.',
+    })
+    clean.update({
+        "the person's approval as a blockquote": '> Approved, merge it\n' + order,
+        "the person's go-ahead quoted": 'Alex, 2026-10-20: "Go ahead and land it."\n' + order,
+        "the person's order quoted": 'Morgan: "Merge it into main."\n' + order,
     })
     cases = [(f'fires: {k}', bool(fires(b)), '') for k, b in must_fire.items()]
     cases += [(f'clean: {k}', not fires(b), str(fires(b))[:200]) for k, b in clean.items()]
@@ -55293,6 +55354,25 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
                      human('why did main go red?', queued=True)])
         cases.append(('a question sent mid-turn holds the next change',
                       rc == 2))
+        # 2026-10-20: a seeded prompt full of regex had the first file write
+        # of the session it started refused, its question marks read as
+        # questions (todo/todo-2026-10-20-root-issues-from-ladder-landing-check.md,
+        # item 3).
+        rc, _ = run([human('Port the anchor `(?<=\\bthen\\s)(?:land|merge)` '
+                           'and the suffix:\n```\n(?![^()\\n]*\\))\n```\nThen push.')])
+        cases.append(('question marks in code spans and fenced blocks are not '
+                      'questions', rc == 0))
+        rc, _ = run([human('Anchor the trigger with (?<=\\bthen\\s) and push.')])
+        cases.append(('a regex group opening "(?" is not a question', rc == 0))
+        rc, _ = run([human('Sent automatically by the session "X" -- '
+                           'https://claude.ai/code/session_01X. Nobody typed this.\n'
+                           'For: a new session.\nGive me the details in the todo '
+                           'item, then fix it. Why it broke?')])
+        cases.append(('a seeded handoff, opening with its origin line, holds nothing',
+                      rc == 0))
+        rc, _ = run([human('Is `x?` the cause? Explain.')])
+        cases.append(('NEGATIVE CONTROL: a real question beside a code span still '
+                      'holds', rc == 2))
         rc, _ = run([asked, notice])
         cases.append(('a notice is not the person: their question still holds',
                       rc == 2))
@@ -59715,6 +59795,12 @@ def check_global_pre_push_refuses_a_tree_the_check_failed():
                       'this tree' in p.stderr and 'doc_lint' in p.stderr
                       and not g(work, 'ls-remote', 'origin', 'feature').stdout.strip(),
                       p.stderr[-500:]))
+        # 2026-10-20: the refusal ended by naming its own bypass, handed to
+        # a session at the moment it was told no. It names the fix only;
+        # the variable is documented for a person to choose.
+        cases.append(('the refusal names what to fix, never the variable that '
+                      'skips it', 'PRECEDENT_SKIP_' not in p.stderr
+                      and 'push once it passes' in p.stderr, p.stderr[-400:]))
         p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature',
               PRECEDENT_SKIP_FAILED_TREE='1')
         cases.append(('PRECEDENT_SKIP_FAILED_TREE=1 lets one push through, and says so',
@@ -59732,6 +59818,25 @@ def check_global_pre_push_refuses_a_tree_the_check_failed():
         cases.append(('once the same tree passes, it pushes',
                       r.returncode == 0 and p.returncode == 0,
                       r.stdout[-300:] + p.stderr[-300:]))
+        # 2026-10-20: the practice-hook refusal ended by naming the variable
+        # that skips it, too. A stub precedent_hooks.py stands in for a
+        # practice's pre-push hook that refuses.
+        (work / 'tools' / 'precedent_hooks.py').write_text(
+            'import sys\nprint("fixture practice: not this push", file=sys.stderr)\n'
+            'sys.exit(1)\n', encoding='utf-8')
+        (work / 'd.md').write_text('d\n', encoding='utf-8')
+        g(work, 'add', '-A'); g(work, 'commit', '-qm', 'hooked', '--no-verify')
+        p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature')
+        cases.append(("a practice hook's refusal names what to do, never the "
+                      "variable that skips it",
+                      p.returncode != 0 and 'a practice in force here refused it'
+                      in p.stderr and 'Do what it says' in p.stderr
+                      and 'PRECEDENT_SKIP_' not in p.stderr, p.stderr[-400:]))
+        p = g(work, 'push', 'origin', 'HEAD:refs/heads/feature',
+              PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS='1')
+        cases.append(('PRECEDENT_SKIP_PRACTICE_PUSH_HOOKS=1, a person\'s choice, '
+                      'still lets one push through and says so',
+                      p.returncode == 0 and 'SKIPPED' in p.stderr, p.stderr[-400:]))
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the global pre-push refuses a tree the push check failed '
           f'({len(cases)} stated cases)',
@@ -81585,6 +81690,29 @@ def check_refresh_refuses_an_untested_main():
           and 'b8149f60000' in note and 'no passing GitHub test yet' in note
           and pu.kept_older_note('x', 'main', tip, tip) == 'x',
           f'{got} / {note!r}')
+
+    # 2026-10-20: a session-start refresh refused for every source because
+    # main's newest commit had no finished test, leaving them all stale. It
+    # now takes the newest main that passed, as Update Vendors does.
+    head = subprocess.run(['git', '-C', str(ROOT), 'rev-list', '--first-parent',
+                           '--max-count=3', 'HEAD'], capture_output=True,
+                          text=True).stdout.split()
+
+    class PassesAt(FakeBranches):
+        def __init__(self, passed):
+            self.passed = passed
+
+        def github_test_state(self, _clone, sha, _tests):
+            return ('passed', '') if sha == self.passed else ('running', '')
+    if len(head) == 3:
+        took = pve.newest_passed_main(ROOT, head[0], pb=PassesAt(head[2]))
+        none = pve.newest_passed_main(ROOT, head[0], pb=PassesAt('none'), window=3)
+        check('a refresh takes the newest main that passed when the newest has '
+              'not', took == (head[2], 2) and none == (None, 3),
+              f'{took} / {none}')
+    else:
+        not_applicable('a refresh takes the newest main that passed',
+                       'this clone has fewer than three first-parent commits')
 
 
 def check_ladder_off_engine_says_no_ladder_words():
