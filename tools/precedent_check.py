@@ -6610,13 +6610,14 @@ def _own_deduplication_points_somewhere(ctx):
        'no practice in force other than the-boildown restates one of its two '
        'named moments -- quoting "You can archive this session", or "answers '
        '\'Archive\' or \'Archive?\'" -- in its title, occasion, index_clause, '
-       'gates_why, applies_to_why, reply_check.json note, or a tool it ships '
-       'or runs for a note; it names "the archive-line reply" or "the closing '
-       'reply" instead',
-       'a restatement in other words than the two patterns '
-       'tools/precedent_moments.py knows, and prose sections, which may '
-       'explain the moment they name. It reads this tree only; the tool, run '
-       'bare, reads every sibling checkout too.',
+       'gates_why, applies_to_why, reply_check.json note, a tool it ships '
+       'or runs for a note, or a sentence of its Rule or Detail that does not '
+       'also name the moment; it names "the archive-line reply" or "the '
+       'closing reply" instead',
+       'a restatement in other words than the patterns '
+       'tools/precedent_moments.py knows, and the Why and Story sections, '
+       'which are history. It reads this tree only; the tool, run bare, '
+       'reads every sibling checkout too.',
        practice_backed=False, binds_publishers=True,
        selects_on=('practices/*.md', 'reply_check.json', 'tools/**/*.py'))
 def _boildown_moments_named(ctx):

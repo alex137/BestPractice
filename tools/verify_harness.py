@@ -19094,7 +19094,8 @@ def check_boildown_moments_named():
     title, a reply_check.json note or a tool it ships is refused, since a
     change to the moment then breaks it silently (twice in two days). It
     passes a practice that names the moment, the-boildown itself, a retired
-    practice, and a restatement that sits only in a Rule body."""
+    practice, a Rule sentence that names the moment while explaining it, and
+    a restatement that sits only in Why or Story, which are history."""
     import tempfile, shutil
     import build_views as _bv              # noqa: F401 -- cached for the check
     import precedent_check as pc
@@ -19115,8 +19116,18 @@ def check_boildown_moments_named():
                            'session'), False),
         'retired-quoter': (P('retired-quoter', status='retired', occasion=''
                              'You can archive this session'), False),
-        'body-only': (P('body-only', rule='Say "You can archive this '
-                        'session" when it holds.'), False),
+        # The Rule is what a session follows, so a restatement there is
+        # refused too (2026-10-20: stale-branch-cleanup's Rule kept the old
+        # moment, in negative words, while the tool said "none").
+        'rule-restates': (P('rule-restates', rule='Not in a reply that does '
+                            'not say the session can be archived.'), True),
+        'rule-explains-the-name': (P('rule-explains-the-name', rule='In the '
+                                     'archive-line reply (the one that says '
+                                     '"You can archive this session"), link '
+                                     'it.'), False),
+        'story-only': (P('story-only', rule='Do the thing.\n\n## Story\n'
+                         'Back then it said "You can archive this session".'),
+                       False),
     }
     cases = []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='moments-check-'))
