@@ -1369,7 +1369,7 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None):
                     f"matching /{rep['heading']}/i says again what the previous "
                     f"reply's did. With nothing new in it, the whole section "
                     f"is one line"
-                    + (f": {rep['one_line']}" if rep.get('one_line') else '')
+                    + (f": {one_line_form(rep)}" if rep.get('one_line') else '')
                     + (f" -- {rep['why']}" if rep.get('why') else '')
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
         one_of = r.get('require_one_of') or []
@@ -2191,6 +2191,25 @@ NOT_LANDED_MARKER = (r"\bnot\s+(?:yet\s+)?(?:landed|merged|pushed|on)\b|\bunland
                      r"|\bunmerged\b|\bopen pull requests?\b|\bfeature branch(?:es)?\b"
                      r"|\bno branch yet\b")
 TIER_WORD = r"(?<![\w/-])`?(?:staging|main)`?(?![\w/-])"
+
+
+def one_line_form(rep, unlanded=None):
+    """-> the one line a repeated section collapses to, or ''. While some of
+    this session's work is not landed, the form that leads with it
+    (`one_line_unlanded`, filled with the count and names): the plain form
+    names no count, so require_first_item_leads_with_unlanded refused the
+    very line the repeat refusal asked for (2026-10-20, both in one
+    refusal)."""
+    if unlanded is None:
+        try:
+            unlanded = _unlanded_names()
+        except Exception:                                    # noqa: BLE001
+            unlanded = []
+    if unlanded and rep.get('one_line_unlanded'):
+        return rep['one_line_unlanded'].format(
+            n=len(unlanded), names=', '.join(unlanded[:6])
+            + (', ...' if len(unlanded) > 6 else ''))
+    return rep.get('one_line') or ''
 
 
 def _unlanded_names(root=None, siblings=True):

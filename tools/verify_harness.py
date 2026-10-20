@@ -32547,6 +32547,29 @@ def check_reply_check_requires_the_boildown_first_line():
             cases.append(('a line silent about the unlanded work is refused',
                           kinds('BestPractice, five changes', pr)
                           == ['first_item_unlanded'], ''))
+            # 2026-10-20: one refusal asked for the one-line repeat form and
+            # for the not-landed lead, which that form had no room for. Both
+            # conditions true: the form the repeat refusal now hands over,
+            # from the real reply_check.json entry, passes the lead check;
+            # the plain form it used to hand over does not.
+            rep = next(e['require_section_not_repeated'] for e in json.loads(
+                (ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+                if e.get('require_section_not_repeated'))
+
+            def alone(line):
+                _rc._unlanded_names = lambda *a, **k: list(pr)
+                return [v['kind'] for v in _rc.violations(
+                    'x\n\n## The Boildown\n' + line + '\n', lead)]
+            filled = _rc.one_line_form(rep, pr).replace(
+                '<where the rest is>', '`staging`')
+            cases.append(('while a branch is unlanded, the one-line repeat form '
+                          'handed over passes the not-landed lead check',
+                          alone(filled) == [] and pr[0] in filled, filled))
+            cases.append(('negative control: the plain one-line form is refused '
+                          'then', alone(rep['one_line'].replace(
+                              '<where it is>', '`staging`')) == ['first_item_unlanded'], ''))
+            cases.append(('with nothing unlanded, the plain form is handed over',
+                          _rc.one_line_form(rep, []) == rep['one_line'], ''))
         finally:
             _rc._unlanded_names = saved
     finally:
