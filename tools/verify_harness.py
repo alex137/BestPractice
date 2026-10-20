@@ -40951,6 +40951,13 @@ def check_push_check_gate():
         denied, _ = gate(f'cd {work} && git push origin main', cwd=elsewhere,
                          project=elsewhere)
         cases.append(('so does a leading `cd <repo> &&`', denied))
+        # A `git -C` that belongs to a later command, not to the push, names
+        # a repository nothing is pushed to (2026-10-20: a push in one repo
+        # was refused over `git -C <another> worktree remove` after it).
+        denied, _ = gate(f'git push origin main; git -C {work} worktree list',
+                         cwd=elsewhere, project=elsewhere)
+        cases.append(('a later `git -C <other> ...` does not make <other> '
+                      'the repository pushed', not denied))
 
         (work / 'FAIL').write_text('zero', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'a run that checks nothing')
