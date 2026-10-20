@@ -425,6 +425,9 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
         print(f"precedent_sync_views: the {m['level']} source {m['name']!r} "
               f"is not available ({m['reason']}).",
               file=sys.stderr)
+    if res.get('copies'):
+        print(f"precedent_sync_views: {pr.copies_note(res['copies'])}",
+              file=sys.stderr)
     for d in res.get('dangling', ()):
         # The resolver established it; a sync is where somebody is looking.
         print(f"precedent_sync_views: "
