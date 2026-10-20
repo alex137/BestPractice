@@ -116,10 +116,43 @@ this is fixed at its root in BP. So a root issues to find other root issues."
    way to try an unlanded change on real ones.** The first half is the
    test above. The second: `precedent_update_all.py --rehearse REF` runs
    every consumer's update against an unlanded commit, with copy-in
-   answers, and never pushes. Whether a rehearsal must precede every
-   engine change to Update Vendors is Morgan's call: it costs a few
-   minutes per consumer.
+   answers, and never pushes. Morgan decided not to require a rehearsal
+   before every engine change (2026-10-20, strength: decided: "1 no"), nor
+   a full one now ("2 no but you can choose two repos and update vendors in
+   them as a test, just not all repos").
+
+   The two-repository test, the same day, no push: a public consumer and a
+   private one not updated for a week. Both stopped only on the person's
+   own questions (copy-in, a settings change, one AGENTS.md section kept
+   on purpose). The public one showed the new refusal for a set the leak
+   check could not read; the private one, the corrected wording for a set
+   it does not use. No engine failure.
 
 With these fixes, all three held consumers (three private repositories)
 end DONE with Morgan's recorded answers.
 
+
+## Ideas to prevent or detect this kind of error, offered 2026-10-20
+
+Morgan asked for other ways to catch today's failures, given that a
+rehearsal over every consumer is not wanted. Not yet adopted:
+
+1. **Consumer shape fixtures.** Record the shape of each real consumer
+   (visibility, whether it keeps a scrub list, which shipped files it
+   tracks, which sets it declares, live or copied in), never its content,
+   and have the update and copy-in tests run against every recorded shape.
+   It brings the rehearsal's coverage to the harness without attaching a
+   repository. The pick.
+2. **Every update test ends with the consumer's own basic check.** Today's
+   copy-in test checked each step's output and never ran the gates a real
+   consumer runs next; the scrub failure was a gate downstream of the step.
+3. **"Could not check" is a failure, not a note.** Two of today's bugs
+   were a check that could not run, followed by carrying on: the public
+   copy-in offered with no leak check, and the push check skipping every
+   repository's own checks as "could not run here". An audit could list
+   every message of that kind the engine prints and require each to be a
+   refusal or a tested, named skip.
+4. **Decommissioning asks where the file went.** Deleting an engine tool
+   that wrote files into consumers should name those files for the update
+   to remove, or say none left BestPractice; the watermark lingered
+   because nobody asked.

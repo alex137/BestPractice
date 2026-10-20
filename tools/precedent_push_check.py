@@ -2680,4 +2680,15 @@ if __name__ == '__main__':
               f'--changed-files-check [REF], --gate and --list; --help says '
               f'what each does. Nothing was run.', file=sys.stderr)
         sys.exit(2)
-    sys.exit(main(sys.argv[1:]))
+    rc = main(sys.argv[1:])
+    # Said again last, where a reader of the tail sees it: the banner at the
+    # start scrolls away (precedent_which_repo.elsewhere_note).
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_which_repo
+        _where = precedent_which_repo.elsewhere_note(HERE)
+        if _where:
+            print(f'precedent_push_check:{_where}.')
+    except Exception:                                        # noqa: BLE001
+        pass
+    sys.exit(rc)

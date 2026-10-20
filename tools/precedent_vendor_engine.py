@@ -5132,7 +5132,7 @@ _ANSWER_QUOTE = re.compile(r'"[^"]{2,}"|\u201c[^\u201d]{2,}\u201d')
 
 
 # The session proxy's form of a GitHub remote:
-# http://<user>@127.0.0.1:PORT/git/<owner>/<repo>, the user being local_proxy.
+# http://local_proxy@127.0.0.1:PORT/git/<owner>/<repo>.
 _PROXY_SLUG_RE = re.compile(
     r'^https?://[^/]+/git/([A-Za-z0-9][\w-]*)/([\w.-]+?)(?:\.git)?/?$')
 

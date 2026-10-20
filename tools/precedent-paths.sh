@@ -18,6 +18,9 @@
 # file this repository received from upstream -- tools/upstream_edits.py
 # --guard says which, from the delivery records -- is denied until the
 # change has its recorded answer, with the three answers in the reason.
+# The same guard refuses, with no answer to record, an edit to an untracked
+# copy a practice set delivers at session start (.precedent/
+# session_ships.json, 2026-10-20), naming the set's own file to edit.
 # Anything else, a failure of that guard included, never blocks:
 #
 # Never blocks the tool call: every failure path below (no jq, no python3,
