@@ -3,16 +3,16 @@ slug:              todo-2026-10-20-individual-set-charged-to-each-repo-ceiling
 kind:              decision
 domain:            mechanism
 severity:          medium
-status:            open
+status:            closed
 disposition:       null
 remind_on:         null
-blocked_on:        the number Morgan declares as individual_set_tokens in his individual set
+blocked_on:        null
 batch:             null
 decision:          "option 1: charge the individual set to a budget of its own"
 decision_strength: decided
-waiting_on:        Morgan
+waiting_on:        null
 noted:             2026-10-20
-closed:            null
+closed:            2026-10-20
 ---
 ## What
 
@@ -63,3 +63,9 @@ BestPractice and about 1,176 in the voice repository.
 The individual set declares `individual_set_tokens`, with Morgan's number.
 Until then nothing changes: an undeclared budget leaves the share charged to
 each repository, as before.
+
+## Closed
+
+2026-10-20: the individual set declares `individual_set_tokens: 1300`
+(Morgan, 2026-10-20: "1300 is fine", strength: decided). Read back here as
+1,103 of 1,300.
