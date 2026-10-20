@@ -186,6 +186,34 @@ When all four hold, add, still in order, after the three items above:
 
 **When a compact offer is owed.** Once this conversation has grown 100,000 tokens since a reply last said "Now is a good time to compact the session." (or "This is a cheap point to compact", the older wording, which still counts), the offer is owed. **The session does not have to guess whether it is**: the turn-start reply gate reads the transcript and prints "a compact offer is owed" in that turn, and prints nothing about compacting otherwise. Item 11 is then due, as it says, and stays due turn after turn until it is given. **The one exception is unchanged: a reply whose own archive line says "You can archive this session" says nothing about compacting at all.**
 
+### Moments other practices key on: named here, never restated there
+
+**This practice owns two moments, and names them so other practices can
+point at them instead of copying what they are:**
+
+- **The archive-line reply** -- a reply whose item 12 says "You can archive
+  this session." It can be any reply.
+- **The closing reply** -- the reply that closes the thread: it answers
+  "Archive" or "Archive?", or the person is plainly done. Conditions 2 and
+  4 and the closing items 6 to 11 belong to it.
+
+**A practice that fires at either moment names it** -- *"the archive-line
+reply (the-boildown)"* -- in its occasion, gate note and tool text, and
+never quotes the archive sentence or describes the closing reply in its own
+words. Named, it follows a change here with no edit of its own; restated, it
+keeps the old moment and breaks without a sound, as two did in two days
+(Story, 2026-10-20). `python3 tools/precedent_check.py --only
+boildown-moments-named` refuses a restatement in this tree, in any source
+that runs this engine's checks.
+
+**Changing either moment starts from who keys on it.** Before a change to
+what either moment is lands, run `python3 tools/precedent_moments.py` from
+this checkout: it lists every practice, in every source checked out beside
+it, that names each moment, and every one still restating it. The change
+names those practices in its own commit or pull request, and each one that
+restates the moment is moved to the name in the same change, or in its own
+source by a handoff the change links.
+
 ## Detail
 **Why one section instead of several practices.** The six things this replaces were six separately-triggered rules, most of them reachable only through the reply gate, several of them enforced only in prose. Reading them side by side, they describe one artifact -- the closing block of a reply -- not six independent occasions. Naming it once, with a fixed name and a fixed order, is what makes it checkable: a bullet either appears in the right slot or it does not, which "a reply that made a commit should restate outstanding items" never quite was.
 
@@ -259,6 +287,8 @@ Authorized in full: *"Let's go - go merge, do it, go update."*
 **2026-10-18: not on main is a note, not a hold.** A session closed with "Don't archive this session: the Produce of both is still waiting for your go-ahead." Its work was on staging. The ladder set and the reply gate already said a pending Promote never holds the archive line, but this file's closed list named "a merge, an approval" as blocker (3), and a Produce waiting on a go-ahead reads as exactly that. Morgan: *"If the only thing remaining is a produce or going to main, I can still archive it. Just tell me. never stop an archive because something is not on main ... The message should be, you can archive this session and note that your changes are on staging, but not main."* (strength: decided). The closed list now says so in its own words, and the gate's Promote line names the note.
 
 **2026-10-19: delete links came back to the reply that lands a branch.** Morgan noticed the Boildown had stopped handing him branches to delete. Two changes had pushed them out together. Item 6 sat among the closing items, and on 2026-10-18 the closing items moved to the reply that answers "Archive?", so they stopped riding along with every "You can archive this session". And the stop hook's check, added 2026-10-06, only asked about a branch that already existed, unlanded, when the turn began; since 2026-10-08 a session usually makes, pushes and merges its branch in one turn, and a Promote's copy never exists at a turn's start. About seventy landed branches piled up in BestPractice in a week with no link given. Item 6 now says the link is owed in the reply where the branch lands, and the check finds the session's own branches by the session tag in their names. The branch cleanup page stays with the closing reply. strength: decided.
+
+**2026-10-20: the third round was stopped at the cause.** The 2026-10-18 change moved both moments. Practices that keyed on them had copied the old wording into their own occasions, gate notes and tool text, so each broke without a sound, one a day: item 6's delete links (2026-10-19, above), then the ladder set's branch cleanup page, which a commit re-keyed to the reply answering "Archive" -- a word Morgan rarely types -- and which was fixed on that set's staging on 2026-10-20. Both were patched where they showed. A "Root issues" session that Morgan asked for, the same day, found nothing that would stop a third. So the two moments got names here, a check refuses a practice that restates either one, and [tools/precedent_moments.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_moments.py) lists who has to follow a change. Its first run found one dependent restating both moments, the ladder set's stale-branch-cleanup with its note tool, and none in this repository.
 
 ## Install
 Enforced the same way `next-steps-after-commit` and `session-spend-follows-the-task` were, with one change since 2026-09-17: `reply_check.json` declares the required heading pattern (still blocking) and the two fixed sentence-pairs (archive, compact -- now `advisory: true`, each its own entry), and [tools/precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_reply_check.py) refuses a reply missing the heading via the Stop hook, same as before, but only NAMES an unmet advisory sentence rather than refusing over it -- `violations()` still detects it, `main()` no longer lets it into the blocking set. `close_detect.json` declares this practice's slug and the archive-ready phrase for [tools/precedent_close_detect.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_close_detect.py), which still gates the practice-idea bullet on real evidence from the session's own transcript rather than on the occasion alone. Neither script needed changing for the original consolidation -- only the JSON declarations moved, from the two practices this absorbs to this one; [tools/precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_reply_check.py) itself changed only for the 2026-09-17 advisory split.

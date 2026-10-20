@@ -112,6 +112,7 @@ as_of: 2026-10-20
 | [`todo-2026-10-14-alex-private-repos-outside-the-leak-list`](todo-2026-10-14-alex-private-repos-outside-the-leak-list.md) | Since 2026-10-14 the leak gate reads a person's written list of private | 6d | wait |  |
 | [`todo-2026-10-14-update-review-remembers-past-updates`](todo-2026-10-14-update-review-remembers-past-updates.md) | Make the upstream review that Update Vendors prints (the ladder set's | 6d | parked |  |
 | [`todo-2026-10-16-enforcement-moves-waiting-on-morgan`](todo-2026-10-16-enforcement-moves-waiting-on-morgan.md) | Three calls left by | 4d | ask |  |
+| [`todo-2026-10-20-ladder-set-names-the-boildown-moments`](todo-2026-10-20-ladder-set-names-the-boildown-moments.md) | The ladder set's half of naming the Boildown's moments. BestPractice's | 0d | wait | push access to themorgan/precedent-shared-ladder: the session that wrote this as… |
 
 ## Decisions (the Person's Call)
 
