@@ -5867,7 +5867,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     if adopted:
         before = before - set(adopted)
         rep.step('engine, written ahead', f'{len(adopted)} uncommitted path(s) '
-                 f'already held the pinned engine (a source refresh ran first); '
+                 f'already held the pinned engine (an earlier Update Vendors run here, or a '
+                 f'source refresh, wrote them and did not commit); '
                  f'staged as this update\'s: ' + ', '.join(adopted))
     mirrored = adopt_catalogue_output(repo, before, head.strip())
     if mirrored:
