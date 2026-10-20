@@ -1278,6 +1278,24 @@ def _malformed(level, path):
     elif not any(pdir.glob('*.md')):
         out.append('practices/ holds no practice files')
 
+    # A repository that had Precedent installed like a project and then
+    # became a set keeps the install's copies of other sources' rules in
+    # practices/ until someone removes them by hand (2026-10-19,
+    # spec/A_SET_EXPORTS_ONLY_ITS_OWN_RULES.md). The resolver already leaves
+    # them out; this says so where the set is made and checked.
+    try:
+        own = json.loads((path / precedent_resolve.SOURCE_MANIFEST)
+                         .read_text(encoding='utf-8')).get('name')
+    except (OSError, ValueError, AttributeError):
+        own = None
+    copies = precedent_resolve.installed_copies(path, own) if own else {}
+    if copies:
+        out.append(f"practices/ holds {len(copies)} practice(s) an install "
+                   f"copied in from {', '.join(sorted(set(copies.values())))} "
+                   f"(its {precedent_resolve.INSTALL_MANIFEST} records them): "
+                   f"a set holds only its own rules -- delete those files and "
+                   f"{precedent_resolve.INSTALL_MANIFEST}")
+
     return out
 
 

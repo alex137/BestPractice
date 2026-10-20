@@ -136,6 +136,12 @@ to put copies there.** Chosen. In detail:
 5. **It says so.** Every resolve and every sync that left copies out prints
    one line naming the set, how many, where they came from and what to
    delete.
+6. **The tool that makes a set checks for them.**
+   `precedent_bootstrap_source.py --verify`, the set-shape check, fails a
+   set whose `practices/` holds an install's copies and names what to
+   delete. That is the path this set took on 2026-10-19: it was turned
+   into a set by that tool, and the copies were removed by hand because
+   nothing said they were there.
 
 ## Attacking the chosen fix
 
@@ -162,6 +168,20 @@ to put copies there.** Chosen. In detail:
   here can tell them apart. It still prints as "overridden: X -- shared
   replaces universal" on every resolve. If it ever happens, option C is
   the fix that closes it, and B the check that finds it.
+- **Closing the gap by requiring `overrides:` on every same-name override
+  was tried and backed out.** The idea was that a rule may replace another
+  source's rule of the same name only when it says `overrides: <its slug>`,
+  so an unmarked one would read as a copy. On 2026-10-19 it would have
+  changed nothing in force: every active override in every source in use
+  already named a different slug in `overrides:`, and every pair of rules
+  sharing a name was a forwarding stub beside the rule it points at. But
+  "the same name at a stronger level wins" is the precedence rule
+  [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) is built on, and
+  `check_source_precedence` tests it case by case from that plan. Changing
+  the plan's core rule to close a gap no path reaches today is a decision
+  for Morgan or Alex, not a fix to land while they are away. If they want
+  it, the change is small: the resolver check, the plan's precedence
+  paragraph, and `overrides:` added to that test's fixtures.
 
 ## Where it lives
 
@@ -171,6 +191,7 @@ to put copies there.** Chosen. In detail:
 | Identical copies stay out of force; the note | `resolve`, `copies_note` in [tools/precedent_resolve.py](../tools/precedent_resolve.py); printed by [tools/precedent_sync_views.py](../tools/precedent_sync_views.py) |
 | The install step refuses a set | `_materialize` in [tools/precedent_materialize.py](../tools/precedent_materialize.py) |
 | Copy-in refuses a set holding copies | `_refuse_set_holding_copies` in [tools/checkin.py](../tools/checkin.py) |
+| The set-shape check reports them | `_malformed` in [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py) |
 | The test, with its negative control | `check_a_set_exports_only_its_own_rules` in [tools/verify_harness.py](../tools/verify_harness.py) |
 
 ## Rollout

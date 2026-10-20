@@ -69317,7 +69317,9 @@ def check_a_set_exports_only_its_own_rules():
        same slug, still replaces the weaker rule.
     4. The install step refuses to write into a set, before touching it.
     5. Update Vendors' copy-in refuses a set that holds an install's
-       copies."""
+       copies.
+    6. The set-shape check (precedent_bootstrap_source.py --verify) reports
+       them, and passes a set that holds none."""
     import shutil, tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='set-own-rules-'))
@@ -69422,6 +69424,15 @@ def check_a_set_exports_only_its_own_rules():
         cases.append(("Update Vendors' copy-in refuses a set holding an "
                       "install's copies, and takes one that holds none",
                       'holds 2 practice(s)' in exited and clean_ok, exited[:300]))
+        import precedent_bootstrap_source as pbs
+        bad = [m for m in pbs._malformed('shared', polluted)
+               if 'an install copied in' in m]
+        good = [m for m in pbs._malformed('shared', tmp / 'zz-hand')
+                if 'an install copied in' in m]
+        cases.append(('the set-shape check reports a set holding copies, and '
+                      'not one that holds none',
+                      len(bad) == 1 and 'holds 2 practice(s)' in bad[0]
+                      and not good, repr(bad + good)))
     except Exception as e:                                   # noqa: BLE001
         cases.append(('the test ran', False, f'{type(e).__name__}: {e}'))
     finally:
