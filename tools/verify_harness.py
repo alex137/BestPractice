@@ -64704,6 +64704,52 @@ def check_stale_branches_skip_a_reverted_merge():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_branch_cleanup_page_data_is_a_branch_a_line():
+    """The branch cleanup page's data block is written a branch a line, by
+    the tool that builds it and by the page's own script when it saves its
+    ticks, so a session can Read the saved page line by line.
+
+    WHY (2026-10-20). The block was one JSON line, some 20,000 tokens for
+    230 branches; stale-branch-cleanup says to Read every line of the saved
+    page before the first publish, and a Read of that line was refused for
+    size. LIMIT: 2,000 characters, the length past which the Read tool cuts
+    a line. Planted: a page of 230 branches, 200 in one repository (one
+    repository a line would still be 15,000 characters); it must read back
+    whole, and the page script's wrap, run under node when node is
+    installed, must write the very block the tool wrote."""
+    import datetime
+    import shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as _sb
+    name = 'the branch cleanup page writes its data a branch a line'
+    limit = 2000
+    groups = [('o', 'Big', [(f'2026-10-{i % 28 + 1:02d}-someone-a-long-branch-name-{i}-abcde',
+                             '2026-10-01') for i in range(200)]),
+              ('o', 'Small', [(f'b{i}', '2026-10-02') for i in range(29)] + [('b-<odd>', '2026-10-03')])]
+    page = _sb.render_html(groups, now=datetime.datetime(2026, 10, 20, tzinfo=datetime.timezone.utc))
+    widest = max(len(l) for l in page.splitlines())
+    block = _sb._DATA.search(page).group(1)
+    back = {r['repo']: [b for b, _d in r['branches']] for r in _sb.read_page(page)}
+    cases = [(f'no line of a 230-branch page passes {limit} characters', widest <= limit,
+              f'widest {widest}'),
+             ('the page reads back every branch',
+              len(back.get('Big', [])) == 200 and back.get('Small', [])[-1:] == ['b-<odd>'],
+              str({k: len(v) for k, v in back.items()}))]
+    node = shutil.which('node')
+    fn = re.search(r'  function wrap\(v, ind\)\{.*?\n  \}\n', page, re.S)
+    cases.append(("the page's script carries wrap", fn is not None, ''))
+    if node and fn:
+        js = (fn.group(0) + 'var d=JSON.parse(require("fs").readFileSync(0,"utf8"));'
+              'process.stdout.write(wrap(d,"").replace(/</g,"\\\\u003c"));')
+        r = subprocess.run([node, '-e', js], input=json.dumps(json.loads(block)),
+                           capture_output=True, text=True, timeout=60)
+        cases.append(('saving its ticks, the page writes the block the tool wrote',
+                      r.returncode == 0 and r.stdout == block, (r.stderr or r.stdout)[:200]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
+
 def check_branch_cleanup_page_merges_the_saved_page():
     """Refreshing the saved branch-cleanup page keeps the rows of every
     repository this session did not check, and replaces those it did.
@@ -64808,10 +64854,16 @@ def check_branch_cleanup_page_merges_the_saved_page():
             # 2026-10-13: the page saves the person's ticks into itself;
             # a ticked row of a repository this run did not check is left
             # off, and a tick never hides a row this run checked fresh.
-            ticked = _sb._DATA.sub(
-                lambda m: m.group(0).replace(
-                    '"done": {}', '"done": {"B/b-done": "2026-10-12T09:00:00Z", '
-                    '"C/c-done": "2026-10-12T09:00:00Z"}'), old)
+            # The block is edited as JSON, never by its spelling: the
+            # tool writes it a branch a line (page_json).
+            def with_data(page, change):
+                def sub(m):
+                    data = json.loads(m.group(1))
+                    change(data)
+                    return m.group(0).replace(m.group(1), json.dumps(data))
+                return _sb._DATA.sub(sub, page)
+            ticked = with_data(old, lambda d: d.update(done={
+                'B/b-done': '2026-10-12T09:00:00Z', 'C/c-done': '2026-10-12T09:00:00Z'}))
             (td / 'ticked.html').write_text(ticked, encoding='utf-8')
             rc, said = run('--merge', str(td / 'ticked.html'))
             merged = out.read_text(encoding='utf-8')
@@ -64837,10 +64889,7 @@ def check_branch_cleanup_page_merges_the_saved_page():
             cases.append(('a page records the format of the engine that built it',
                           _sb.page_format(old) == _sb.PAGE_FORMAT >= 1,
                           _sb.page_format(old)))
-            newer = _sb._DATA.sub(
-                lambda m: m.group(0).replace(
-                    f'"format": {_sb.PAGE_FORMAT}',
-                    f'"format": {_sb.PAGE_FORMAT + 1}'), old)
+            newer = with_data(old, lambda d: d.update(format=_sb.PAGE_FORMAT + 1))
             (td / 'newer.html').write_text(newer, encoding='utf-8')
             out.unlink()
             rc, said = run('--merge', str(td / 'newer.html'))
@@ -64849,8 +64898,7 @@ def check_branch_cleanup_page_merges_the_saved_page():
                           rc == 2 and not out.exists()
                           and 'built by a newer engine' in said
                           and 'Update Vendors' in said, said))
-            unformatted = _sb._DATA.sub(
-                lambda m: m.group(0).replace(f'"format": {_sb.PAGE_FORMAT}, ', ''), old)
+            unformatted = with_data(old, lambda d: d.pop('format'))
             (td / 'unformatted.html').write_text(unformatted, encoding='utf-8')
             rc, said = run('--merge', str(td / 'unformatted.html'))
             got = sorted(r['repo'] for r in _sb.read_page(out.read_text(encoding='utf-8')))
@@ -88024,6 +88072,7 @@ def main():
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
     check_branch_cleanup_page_is_one_page_updated_in_place()
+    check_branch_cleanup_page_data_is_a_branch_a_line()
     check_branch_cleanup_page_merges_the_saved_page()
     check_branch_cleanup_page_lists_staging_waiting_to_go_live()
     check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names()
