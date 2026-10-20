@@ -38765,6 +38765,20 @@ def for_change_plan(root, since, budget=FOR_CHANGE_BUDGET_SECONDS, ledger=None):
         want(0, [t for t in tests if t != _PLANTED_SUITE and (
             any(name in s for s in strings[t]) or name[:-3] in refs[t])])
 
+    # 2b. A changed tools/ module a test imports or runs itself, at any
+    # depth of the harness helpers it calls (2026-10-20). 1 reached a module
+    # only through a check that imports it: a change to
+    # precedent_sync_views.py picked no test at all, and one to
+    # precedent_resolve.py missed six tests that import it -- 44 passed when
+    # run by hand. The module itself only: a test that runs one of its
+    # importers in a child process is the reach ledger's to find (4), and
+    # following importers here picked some 600 tests for precedent_resolve.
+    for mod in sorted(modules):
+        ran = re.compile(r'(?<![\w.])' + re.escape(mod) + r'\.py\b')
+        want(0, [t for t in tests if t != _PLANTED_SUITE and (
+            mod in refs[t]
+            or any(s == mod or ran.search(s) for s in strings[t]))])
+
     # 3. The harness itself: a changed test runs; a changed helper runs the
     # tests that reach it; a call added to main() runs what it calls.
     if vh_rel in py:
@@ -38882,9 +38896,12 @@ def check_for_change_runs_the_tests_a_change_reaches():
     One scratch repository, one change per case, read with for_change_plan:
     a check's own body; a helper only another check uses; the decorator
     every check uses; a tools/ module imported two levels down; a check
-    script; a harness test and a harness helper; a comment between
-    definitions (the control: nothing runs); a check covered only by its
-    planted case; and a test over the budget, which is named, not run.
+    script; a harness test and a harness helper; a tools/ module no check
+    imports, which a test imports through a helper or runs by its file name
+    (2026-10-20: precedent_sync_views.py picked no test), with a lookalike
+    file name as its control; a comment between definitions (the control:
+    nothing runs); a check covered only by its planted case; and a test over
+    the budget, which is named, not run.
     """
     import tempfile
     name = '--for-change runs the harness tests a change reaches'
@@ -38937,6 +38954,15 @@ def check_for_change_runs_the_tests_a_change_reaches():
         "    run('--only', 'zz-beta')\n"
         'def check_precedent_check_fires():\n'
         "    case('zz-lonely', None)\n"
+        'def _view_helper():\n'
+        '    import zzview\n'
+        '    return zzview.X\n'
+        'def check_view_imported():\n'
+        '    _view_helper()\n'
+        'def check_view_run():\n'
+        "    run('tools/zzview.py')\n"
+        'def check_view_lookalike():\n'
+        "    run('tools/notzzview.py')\n"
         'def main():\n'
         '    check_alpha_direct()\n'
         '    check_alpha_by_slug()\n')
@@ -38945,6 +38971,7 @@ def check_for_change_runs_the_tests_a_change_reaches():
     base = {'tools/precedent_check.py': engine, 'tools/verify_harness.py': harness,
             'tools/zzsibling.py': 'import zzdeeper\ndef f():\n    return []\n',
             'tools/zzdeeper.py': 'X = 1\n',
+            'tools/zzview.py': 'X = 1\n',
             'tools/checks/check_zzscript.py': 'print(1)\n',
             'tools/harness_check_times.json': times}
     env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
@@ -38958,6 +38985,7 @@ def check_for_change_runs_the_tests_a_change_reaches():
                       '        CHECKS[str(slug)] = f\n'),
         'deeper module': ('tools/zzdeeper.py', 'X = 1\n', 'X = 2\n'),
         'check script': ('tools/checks/check_zzscript.py', 'print(1)\n', 'print(2)\n'),
+        'module a test uses': ('tools/zzview.py', 'X = 1\n', 'X = 2\n'),
         'harness test': ('tools/verify_harness.py', "    pc._beta(None)\n",
                          "    pc._beta(None)\n    pass\n"),
         'harness helper': ('tools/verify_harness.py', '    return 1\n', '    return 2\n'),
@@ -39004,6 +39032,9 @@ def check_for_change_runs_the_tests_a_change_reaches():
          and run('deeper module') == {'check_gamma'}),
         ('a check script runs the test that names its file',
          run('check script') == {'check_script'}),
+        ('a module no check imports runs the tests that import or run it, '
+         'not the one that runs a lookalike',
+         run('module a test uses') == {'check_view_imported', 'check_view_run'}),
         ('a changed harness test runs itself', run('harness test') == {'check_beta'}),
         ('a changed harness helper runs the tests that call it',
          run('harness helper') == {'check_gamma'}),
@@ -54510,7 +54541,8 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
     with the term masked; lets a clean one and a non-network command
     through; the scan finds a past outbound call holding a term in a
     transcript and in an agent's transcript beside it, and the Stop hook
-    reports it once."""
+    reports it once -- once per session, not once per repository whose hook
+    runs in it (2026-10-20: one tool call reported from two repositories)."""
     import tempfile, json as _json, os as _os
     name = 'the outbound-privacy gate refuses private details and the scan finds them'
     gate = ROOT / 'tools' / 'outbound-privacy-gate.sh'
@@ -54566,10 +54598,10 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
         (tmp / 'proj' / 'sess' / 'subagents' / 'agent-x.jsonl').write_text(
             call('t2', f'wget --header "From: {email}" https://example.com'), encoding='utf-8')
 
-        def run_scan():
-            p = subprocess.run(['bash', str(tmp / 'tools' / 'outbound-privacy-scan.sh')],
+        def run_scan(repo=tmp):
+            p = subprocess.run(['bash', str(repo / 'tools' / 'outbound-privacy-scan.sh')],
                                input=_json.dumps({'transcript_path': str(sess)}),
-                               capture_output=True, text=True, cwd=tmp, env=env)
+                               capture_output=True, text=True, cwd=repo, env=env)
             return p.returncode, p.stdout + p.stderr
 
         rc, out = run_scan()
@@ -54579,6 +54611,20 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
                       'curl' not in out, out[-200:]))
         rc, _ = run_scan()
         cases.append(('and reports it once', rc == 0))
+        # A second repository in the same session: its own copy of the hook,
+        # its own .precedent/, the same transcript.
+        other = tmp / 'other'
+        for d in ('tools', '.precedent'):
+            (other / d).mkdir(parents=True)
+        for f in ('outbound_privacy_gate.py', 'outbound_privacy_scan.py',
+                  'outbound-privacy-scan.sh'):
+            (other / 'tools' / f).write_text((tmp / 'tools' / f).read_text(encoding='utf-8'),
+                                             encoding='utf-8')
+        (other / '.precedent' / 'private_terms.txt').write_text(
+            (tmp / '.precedent' / 'private_terms.txt').read_text(encoding='utf-8'), encoding='utf-8')
+        rc, out = run_scan(other)
+        cases.append(("another repository's hook in the same session stays quiet",
+                      rc == 0, out[-200:]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
@@ -64658,6 +64704,52 @@ def check_stale_branches_skip_a_reverted_merge():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_branch_cleanup_page_data_is_a_branch_a_line():
+    """The branch cleanup page's data block is written a branch a line, by
+    the tool that builds it and by the page's own script when it saves its
+    ticks, so a session can Read the saved page line by line.
+
+    WHY (2026-10-20). The block was one JSON line, some 20,000 tokens for
+    230 branches; stale-branch-cleanup says to Read every line of the saved
+    page before the first publish, and a Read of that line was refused for
+    size. LIMIT: 2,000 characters, the length past which the Read tool cuts
+    a line. Planted: a page of 230 branches, 200 in one repository (one
+    repository a line would still be 15,000 characters); it must read back
+    whole, and the page script's wrap, run under node when node is
+    installed, must write the very block the tool wrote."""
+    import datetime
+    import shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as _sb
+    name = 'the branch cleanup page writes its data a branch a line'
+    limit = 2000
+    groups = [('o', 'Big', [(f'2026-10-{i % 28 + 1:02d}-someone-a-long-branch-name-{i}-abcde',
+                             '2026-10-01') for i in range(200)]),
+              ('o', 'Small', [(f'b{i}', '2026-10-02') for i in range(29)] + [('b-<odd>', '2026-10-03')])]
+    page = _sb.render_html(groups, now=datetime.datetime(2026, 10, 20, tzinfo=datetime.timezone.utc))
+    widest = max(len(l) for l in page.splitlines())
+    block = _sb._DATA.search(page).group(1)
+    back = {r['repo']: [b for b, _d in r['branches']] for r in _sb.read_page(page)}
+    cases = [(f'no line of a 230-branch page passes {limit} characters', widest <= limit,
+              f'widest {widest}'),
+             ('the page reads back every branch',
+              len(back.get('Big', [])) == 200 and back.get('Small', [])[-1:] == ['b-<odd>'],
+              str({k: len(v) for k, v in back.items()}))]
+    node = shutil.which('node')
+    fn = re.search(r'  function wrap\(v, ind\)\{.*?\n  \}\n', page, re.S)
+    cases.append(("the page's script carries wrap", fn is not None, ''))
+    if node and fn:
+        js = (fn.group(0) + 'var d=JSON.parse(require("fs").readFileSync(0,"utf8"));'
+              'process.stdout.write(wrap(d,"").replace(/</g,"\\\\u003c"));')
+        r = subprocess.run([node, '-e', js], input=json.dumps(json.loads(block)),
+                           capture_output=True, text=True, timeout=60)
+        cases.append(('saving its ticks, the page writes the block the tool wrote',
+                      r.returncode == 0 and r.stdout == block, (r.stderr or r.stdout)[:200]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
+
 def check_branch_cleanup_page_merges_the_saved_page():
     """Refreshing the saved branch-cleanup page keeps the rows of every
     repository this session did not check, and replaces those it did.
@@ -64762,10 +64854,16 @@ def check_branch_cleanup_page_merges_the_saved_page():
             # 2026-10-13: the page saves the person's ticks into itself;
             # a ticked row of a repository this run did not check is left
             # off, and a tick never hides a row this run checked fresh.
-            ticked = _sb._DATA.sub(
-                lambda m: m.group(0).replace(
-                    '"done": {}', '"done": {"B/b-done": "2026-10-12T09:00:00Z", '
-                    '"C/c-done": "2026-10-12T09:00:00Z"}'), old)
+            # The block is edited as JSON, never by its spelling: the
+            # tool writes it a branch a line (page_json).
+            def with_data(page, change):
+                def sub(m):
+                    data = json.loads(m.group(1))
+                    change(data)
+                    return m.group(0).replace(m.group(1), json.dumps(data))
+                return _sb._DATA.sub(sub, page)
+            ticked = with_data(old, lambda d: d.update(done={
+                'B/b-done': '2026-10-12T09:00:00Z', 'C/c-done': '2026-10-12T09:00:00Z'}))
             (td / 'ticked.html').write_text(ticked, encoding='utf-8')
             rc, said = run('--merge', str(td / 'ticked.html'))
             merged = out.read_text(encoding='utf-8')
@@ -64791,10 +64889,7 @@ def check_branch_cleanup_page_merges_the_saved_page():
             cases.append(('a page records the format of the engine that built it',
                           _sb.page_format(old) == _sb.PAGE_FORMAT >= 1,
                           _sb.page_format(old)))
-            newer = _sb._DATA.sub(
-                lambda m: m.group(0).replace(
-                    f'"format": {_sb.PAGE_FORMAT}',
-                    f'"format": {_sb.PAGE_FORMAT + 1}'), old)
+            newer = with_data(old, lambda d: d.update(format=_sb.PAGE_FORMAT + 1))
             (td / 'newer.html').write_text(newer, encoding='utf-8')
             out.unlink()
             rc, said = run('--merge', str(td / 'newer.html'))
@@ -64803,8 +64898,7 @@ def check_branch_cleanup_page_merges_the_saved_page():
                           rc == 2 and not out.exists()
                           and 'built by a newer engine' in said
                           and 'Update Vendors' in said, said))
-            unformatted = _sb._DATA.sub(
-                lambda m: m.group(0).replace(f'"format": {_sb.PAGE_FORMAT}, ', ''), old)
+            unformatted = with_data(old, lambda d: d.pop('format'))
             (td / 'unformatted.html').write_text(unformatted, encoding='utf-8')
             rc, said = run('--merge', str(td / 'unformatted.html'))
             got = sorted(r['repo'] for r in _sb.read_page(out.read_text(encoding='utf-8')))
@@ -87978,6 +88072,7 @@ def main():
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
     check_branch_cleanup_page_is_one_page_updated_in_place()
+    check_branch_cleanup_page_data_is_a_branch_a_line()
     check_branch_cleanup_page_merges_the_saved_page()
     check_branch_cleanup_page_lists_staging_waiting_to_go_live()
     check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names()
