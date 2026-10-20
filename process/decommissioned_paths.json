@@ -179,7 +179,7 @@
     },
     {
       "path": "tools/precedent_switchboard_offer.py",
-      "reason": "Retired 2026-10-20 with its SessionStart hook (c797286bb): one master maintainer per repository replaces the per-person switchboard offer. Deleted from the engine by hand then, and recorded here the same day. It wrote no file into the repositories it ran in; a person's no was kept in their own individual set's identity.json, which stays theirs.",
+      "reason": "Retired by master-maintainer (#1317, S. Alexander Jacobson, 2026-10-20): one standing session per repository replaces the per-person switchboard offer, and its SessionStart slot went to maintainer-heartbeat.sh. Deleted from the engine by hand then, and recorded here the same day. It only printed an offer; the script it offered writes the person's ~/.claude/settings.json, never a file in the repositories it ran in.",
       "decommissioned_at": "2026-10-20",
       "left_in_consumers": []
     }
