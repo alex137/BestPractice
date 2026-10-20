@@ -176,6 +176,12 @@
       "left_in_consumers": [
         "tools/others_did_watermark.json"
       ]
+    },
+    {
+      "path": "tools/precedent_switchboard_offer.py",
+      "reason": "Retired 2026-10-20 with its SessionStart hook (c797286bb): one master maintainer per repository replaces the per-person switchboard offer. Deleted from the engine by hand then, and recorded here the same day. It wrote no file into the repositories it ran in; a person's no was kept in their own individual set's identity.json, which stays theirs.",
+      "decommissioned_at": "2026-10-20",
+      "left_in_consumers": []
     }
   ],
   "exempt_files": [
