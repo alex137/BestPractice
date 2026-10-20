@@ -65136,6 +65136,14 @@ def check_branch_cleanup_page_merges_the_saved_page():
                           rc == 0 and got == ['B', 'C']
                           and '2 kept from the saved page for 1 repositor' in said,
                           f'{got} {said}'))
+            # 2026-10-20: the publish was refused until the saved source was
+            # Read through, while a ladder note said never to Read it. The
+            # tool's last line owns the steps, in the order enforced.
+            cases.append(('the last line says to Read every line of the merged '
+                          'file before publishing, and to resend an identical-'
+                          'content refusal once',
+                          f'Read every line of {td / "saved.html"}' in said
+                          and 'send it once more unchanged' in said, said[-400:]))
             (td / 'junk.html').write_text('<p>not a cleanup page</p>', encoding='utf-8')
             out.unlink()
             rc, said = run('--merge', str(td / 'junk.html'))

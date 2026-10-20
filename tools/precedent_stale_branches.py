@@ -506,6 +506,19 @@ PAGE_CAPABILITIES = {'artifact': {}, 'mcp': {'servers': [
 # `contract: "latest"` only when the page needs something a newer runtime
 # adds, or a runtime bug shows on it, and say so to the person in that
 # reply. The "newest" note is information, not a task.
+# The refresh's publish, in the order the Artifact tool enforces it. This
+# line owns the steps; a note elsewhere that names them points here.
+# 2026-10-20 (volatile: the Artifact tool's behaviour that day): a publish
+# was refused until every line of the saved source had been Read, and then
+# once more as "identical content already refused", which went through
+# resent unchanged. A ladder note then said never to Read that file, so a
+# session that followed it was refused every time.
+PUBLISH_STEPS = ('Before the publish, Read every line of {merged} in ranges '
+                 'and change nothing -- the file the read just before this '
+                 'build saved, never an earlier copy; the Artifact tool '
+                 'refuses a republish over a version this session has not '
+                 'read through. If the publish is refused as identical content '
+                 'already refused, send it once more unchanged. ')
 PAGE_RUNTIME_LINE = ('Leave its runtime version as it is (omit `contract`): a '
                      'refresh changes the data, not the code. The "newest" note '
                      'is not a task.')
@@ -1492,6 +1505,7 @@ def main(argv):
         print(f'Publish it to the saved page, in place: {url}, with '
               f'capabilities {caps} so the page can save its own checkmarks and '
               f'its all-public button can start the cleanup runs. '
+              + (PUBLISH_STEPS.format(merged=prev) if '--merge' in argv else '')
               + PAGE_RUNTIME_LINE if url else
               f'No saved page yet: publish it as a new page with capabilities '
               f'{caps}, so it can save its own checkmarks and start the cleanup '
